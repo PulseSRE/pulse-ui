@@ -13,7 +13,7 @@
     "build:dev": "rspack build --mode development",
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
-    "lint": "eslint . --ext .ts,.tsx --fix",
+    "lint": "eslint src/ --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"",
     "test": "vitest",
     "test:ui": "vitest --ui",
