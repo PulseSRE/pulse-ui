@@ -6,3 +6,4 @@ dist
 .env
 .env.*
 .DS_Store
+.eslintrc.json
