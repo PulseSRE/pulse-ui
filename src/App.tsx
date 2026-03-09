@@ -55,6 +55,26 @@ import Nodes from './pages/compute/Nodes';
 import NodeDetail from './pages/workloads/NodeDetail';
 import Machines from './pages/compute/Machines';
 
+// Security
+import SecurityOverview from './pages/security/SecurityOverview';
+import NetworkPolicyVisualization from './pages/security/NetworkPolicyVisualization';
+import RBACAudit from './pages/security/RBACAudit';
+import SecretRotation from './pages/security/SecretRotation';
+import PodSecurityStandards from './pages/security/PodSecurityStandards';
+
+// Operations
+import NodeMaintenance from './pages/operations/NodeMaintenance';
+import PVCResize from './pages/operations/PVCResize';
+import HPARecommendations from './pages/operations/HPARecommendations';
+import CertificateManagement from './pages/operations/CertificateManagement';
+import NodeScaling from './pages/operations/NodeScaling';
+
+// Observe (new)
+import PodResources from './pages/observe/PodResources';
+import NamespaceConsumption from './pages/observe/NamespaceConsumption';
+import AlertRules from './pages/observe/AlertRules';
+import ClusterHealth from './pages/observe/ClusterHealth';
+
 // Administration
 import ClusterSettings from './pages/administration/ClusterSettings';
 import Namespaces from './pages/administration/Namespaces';
@@ -306,11 +326,33 @@ function App() {
             } />
           </Route>
 
+          {/* Security */}
+          <Route path="security">
+            <Route path="overview" element={<SecurityOverview />} />
+            <Route path="network-policies" element={<NetworkPolicyVisualization />} />
+            <Route path="rbac-audit" element={<RBACAudit />} />
+            <Route path="secret-rotation" element={<SecretRotation />} />
+            <Route path="pod-security" element={<PodSecurityStandards />} />
+          </Route>
+
           {/* Observe */}
           <Route path="observe">
             <Route path="dashboards" element={<Dashboards />} />
             <Route path="metrics" element={<Metrics />} />
             <Route path="alerts" element={<Alerts />} />
+            <Route path="alert-rules" element={<AlertRules />} />
+            <Route path="pod-resources" element={<PodResources />} />
+            <Route path="namespace-consumption" element={<NamespaceConsumption />} />
+            <Route path="cluster-health" element={<ClusterHealth />} />
+          </Route>
+
+          {/* Operations */}
+          <Route path="operations">
+            <Route path="node-maintenance" element={<NodeMaintenance />} />
+            <Route path="pvc-resize" element={<PVCResize />} />
+            <Route path="hpa-recommendations" element={<HPARecommendations />} />
+            <Route path="certificates" element={<CertificateManagement />} />
+            <Route path="node-scaling" element={<NodeScaling />} />
           </Route>
 
           {/* Compute */}

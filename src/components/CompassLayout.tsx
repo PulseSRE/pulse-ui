@@ -37,6 +37,8 @@ import {
   ServerIcon,
   UsersIcon,
   WrenchIcon,
+  SecurityIcon,
+  OptimizeIcon,
 } from '@patternfly/react-icons';
 import type { ThemeName } from './ThemePicker';
 import ThemePicker from './ThemePicker';
@@ -55,6 +57,8 @@ const sectionIcons: Record<string, React.ComponentType<{ className?: string }>> 
   storage: DatabaseIcon,
   builds: WrenchIcon,
   observe: MonitoringIcon,
+  security: SecurityIcon,
+  operations: OptimizeIcon,
   compute: ServerIcon,
   administration: UsersIcon,
 };
@@ -128,9 +132,35 @@ const navigation = [
     id: 'observe',
     name: 'Observe',
     children: [
+      { id: 'cluster-health', name: 'Cluster Health', href: '/observe/cluster-health' },
       { id: 'dashboards', name: 'Dashboards', href: '/observe/dashboards' },
       { id: 'metrics', name: 'Metrics', href: '/observe/metrics' },
       { id: 'alerts', name: 'Alerts', href: '/observe/alerts' },
+      { id: 'alert-rules', name: 'Alert Rules', href: '/observe/alert-rules' },
+      { id: 'pod-resources', name: 'Pod Resources', href: '/observe/pod-resources' },
+      { id: 'namespace-consumption', name: 'Namespace Consumption', href: '/observe/namespace-consumption' },
+    ],
+  },
+  {
+    id: 'security',
+    name: 'Security',
+    children: [
+      { id: 'security-overview', name: 'Security Overview', href: '/security/overview' },
+      { id: 'network-policy-viz', name: 'Network Policies', href: '/security/network-policies' },
+      { id: 'rbac-audit', name: 'RBAC Audit', href: '/security/rbac-audit' },
+      { id: 'secret-rotation', name: 'Secret Rotation', href: '/security/secret-rotation' },
+      { id: 'pod-security', name: 'Pod Security', href: '/security/pod-security' },
+    ],
+  },
+  {
+    id: 'operations',
+    name: 'Operations',
+    children: [
+      { id: 'node-maintenance', name: 'Node Maintenance', href: '/operations/node-maintenance' },
+      { id: 'node-scaling', name: 'Node Scaling', href: '/operations/node-scaling' },
+      { id: 'pvc-resize', name: 'PVC Resize', href: '/operations/pvc-resize' },
+      { id: 'hpa-recommendations', name: 'HPA Recommendations', href: '/operations/hpa-recommendations' },
+      { id: 'certificates', name: 'Certificates', href: '/operations/certificates' },
     ],
   },
   {

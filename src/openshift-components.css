@@ -670,3 +670,66 @@
 .os-search__ns-empty {
   opacity: 0.4;
 }
+
+/* --------------------------------------------------------------------------
+   Cluster Health page
+   -------------------------------------------------------------------------- */
+
+.os-cluster-health__description {
+  color: var(--pf-v5-global--Color--200, #6a6e73);
+  margin-top: 4px;
+}
+
+.os-cluster-health__score-card {
+  margin-bottom: 24px;
+}
+
+.os-cluster-health__score-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+  gap: 8px;
+}
+
+.os-cluster-health__score-value {
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.os-cluster-health__score--green {
+  color: var(--pf-v5-global--success-color--100, #3e8635);
+}
+
+.os-cluster-health__score--yellow {
+  color: var(--pf-v5-global--warning-color--100, #f0ab00);
+}
+
+.os-cluster-health__score--red {
+  color: var(--pf-v5-global--danger-color--100, #c9190b);
+}
+
+.os-cluster-health__score-label {
+  font-size: 16px;
+  color: var(--pf-v5-global--Color--200, #6a6e73);
+}
+
+.os-cluster-health__score-badge {
+  margin-top: 4px;
+}
+
+.os-cluster-health__grid {
+  margin-top: 16px;
+}
+
+.os-cluster-health__card-title {
+  margin-bottom: 16px;
+}
+
+.os-cluster-health__stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
