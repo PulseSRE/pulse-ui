@@ -2039,3 +2039,30 @@ body,
 .pf-v6-c-table__sort .pf-v6-c-table__button {
   color: inherit !important;
 }
+
+/* WebTerminal */
+.compass-web-terminal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 300px;
+  z-index: 900;
+}
+
+.compass-log-viewer__toolbar-title {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.compass-web-terminal__input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  width: calc(100% - 1.5em);
+  caret-color: #e2e8f0;
+}

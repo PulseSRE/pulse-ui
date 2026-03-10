@@ -39,12 +39,18 @@ import {
   WrenchIcon,
   SecurityIcon,
   OptimizeIcon,
+  CodeIcon,
+  BundleIcon,
+  RunningIcon,
+  CloudIcon,
 } from '@patternfly/react-icons';
 import type { ThemeName } from './ThemePicker';
 import ThemePicker from './ThemePicker';
 import CommandPalette from './CommandPalette';
 import ToastProvider from './ToastProvider';
 import PageTransition from './PageTransition';
+import QuickStartGuide from './QuickStartGuide';
+import WebTerminal from './WebTerminal';
 import { useUIStore } from '@/store/useUIStore';
 import { useClusterStore } from '@/store/useClusterStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -56,6 +62,10 @@ const sectionIcons: Record<string, React.ComponentType<{ className?: string }>> 
   networking: NetworkIcon,
   storage: DatabaseIcon,
   builds: WrenchIcon,
+  developer: CodeIcon,
+  helm: BundleIcon,
+  pipelines: RunningIcon,
+  serverless: CloudIcon,
   observe: MonitoringIcon,
   security: SecurityIcon,
   operations: OptimizeIcon,
@@ -72,6 +82,15 @@ const navigation = [
       { id: 'search', name: 'Search', href: '/home/search' },
       { id: 'events', name: 'Events', href: '/home/events' },
       { id: 'topology', name: 'Topology', href: '/home/topology' },
+    ],
+  },
+  {
+    id: 'developer',
+    name: 'Developer',
+    children: [
+      { id: 'dev-overview', name: '+Add', href: '/developer/add' },
+      { id: 'dev-project', name: 'Project', href: '/developer/overview' },
+      { id: 'git-import', name: 'Import from Git', href: '/developer/git-import' },
     ],
   },
   {
@@ -126,6 +145,31 @@ const navigation = [
       { id: 'builds', name: 'Builds', href: '/builds/builds' },
       { id: 'buildconfigs', name: 'Build Configs', href: '/builds/buildconfigs' },
       { id: 'imagestreams', name: 'Image Streams', href: '/builds/imagestreams' },
+    ],
+  },
+  {
+    id: 'helm',
+    name: 'Helm',
+    children: [
+      { id: 'helm-releases', name: 'Releases', href: '/helm/releases' },
+      { id: 'helm-charts', name: 'Charts', href: '/helm/charts' },
+    ],
+  },
+  {
+    id: 'pipelines',
+    name: 'Pipelines',
+    children: [
+      { id: 'pipelines-list', name: 'Pipelines', href: '/pipelines/pipelines' },
+      { id: 'pipelineruns', name: 'Pipeline Runs', href: '/pipelines/pipelineruns' },
+      { id: 'taskruns', name: 'Task Runs', href: '/pipelines/taskruns' },
+    ],
+  },
+  {
+    id: 'serverless',
+    name: 'Serverless',
+    children: [
+      { id: 'knative-services', name: 'Services', href: '/serverless/services' },
+      { id: 'knative-revisions', name: 'Revisions', href: '/serverless/revisions' },
     ],
   },
   {
@@ -294,6 +338,8 @@ export default function CompassLayout() {
   const selectedNamespace = useClusterStore((s) => s.selectedNamespace);
   const setSelectedNamespace = useClusterStore((s) => s.setSelectedNamespace);
   const [nsSelectOpen, setNsSelectOpen] = React.useState(false);
+  const [terminalOpen, setTerminalOpen] = React.useState(false);
+  const [guideOpen, setGuideOpen] = React.useState(false);
 
   const counts = useResourceCounts();
 
@@ -406,7 +452,8 @@ export default function CompassLayout() {
             icon={isDarkMode ? <SunIcon /> : <MoonIcon />}
             onClick={() => setIsDarkMode(!isDarkMode)}
           />
-          <Button aria-label="Settings" variant="plain" icon={<CogIcon />} />
+          <Button aria-label="Web Terminal" variant="plain" icon={<CogIcon />} onClick={() => setTerminalOpen(!terminalOpen)} />
+          <Button aria-label="Quick Start Guide" variant="plain" icon={<CogIcon />} onClick={() => setGuideOpen(true)} />
 
           {/* Connection Status */}
           <span className="compass-connection-pill os-masthead__connection-pill">
@@ -467,6 +514,8 @@ export default function CompassLayout() {
     <Page masthead={Header} sidebar={Sidebar} isManagedSidebar>
       <CommandPalette />
       <ToastProvider />
+      <QuickStartGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <WebTerminal open={terminalOpen} onClose={() => setTerminalOpen(false)} />
       <PageTransition>
         <Outlet />
       </PageTransition>

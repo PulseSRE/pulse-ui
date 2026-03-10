@@ -55,6 +55,24 @@ import Nodes from './pages/compute/Nodes';
 import NodeDetail from './pages/workloads/NodeDetail';
 import Machines from './pages/compute/Machines';
 
+// Developer
+import DeveloperOverview from './pages/developer/DeveloperOverview';
+import AddPage from './pages/developer/AddPage';
+import GitImport from './pages/developer/GitImport';
+
+// Helm
+import HelmReleases from './pages/helm/HelmReleases';
+import HelmCharts from './pages/helm/HelmCharts';
+
+// Pipelines
+import Pipelines from './pages/pipelines/Pipelines';
+import PipelineRuns from './pages/pipelines/PipelineRuns';
+import TaskRuns from './pages/pipelines/TaskRuns';
+
+// Serverless
+import KnativeServices from './pages/serverless/KnativeServices';
+import KnativeRevisions from './pages/serverless/KnativeRevisions';
+
 // Security
 import SecurityOverview from './pages/security/SecurityOverview';
 import NetworkPolicyVisualization from './pages/security/NetworkPolicyVisualization';
@@ -324,6 +342,32 @@ function App() {
                 backLabel="Image Streams"
               />
             } />
+          </Route>
+
+          {/* Developer */}
+          <Route path="developer">
+            <Route path="overview" element={<DeveloperOverview />} />
+            <Route path="add" element={<AddPage />} />
+            <Route path="git-import" element={<GitImport />} />
+          </Route>
+
+          {/* Helm */}
+          <Route path="helm">
+            <Route path="releases" element={<HelmReleases />} />
+            <Route path="charts" element={<HelmCharts />} />
+          </Route>
+
+          {/* Pipelines */}
+          <Route path="pipelines">
+            <Route path="pipelines" element={<Pipelines />} />
+            <Route path="pipelineruns" element={<PipelineRuns />} />
+            <Route path="taskruns" element={<TaskRuns />} />
+          </Route>
+
+          {/* Serverless */}
+          <Route path="serverless">
+            <Route path="services" element={<KnativeServices />} />
+            <Route path="revisions" element={<KnativeRevisions />} />
           </Route>
 
           {/* Security */}
