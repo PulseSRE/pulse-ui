@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   PageSection,
@@ -10,6 +10,12 @@ import {
   Grid,
   GridItem,
   Label,
+  Select,
+  SelectOption,
+  MenuToggle,
+  Toolbar,
+  ToolbarContent,
+  ToolbarItem,
 } from '@patternfly/react-core';
 import '@/openshift-components.css';
 
@@ -22,8 +28,12 @@ interface GrafanaPanel {
   targets?: { expr: string; legendFormat?: string }[];
 }
 
-interface GrafanaTemplating {
-  list?: { name: string; query?: string; current?: { value?: string }; type?: string }[];
+interface GrafanaTemplate {
+  name: string;
+  query?: string;
+  current?: { value?: string };
+  type?: string;
+  label?: string;
 }
 
 interface PromResult {
@@ -36,70 +46,99 @@ interface ChartData {
   series: { label: string; values: [number, string][] }[];
 }
 
-/**
- * Resolve Grafana template variables by fetching real values from the cluster.
- * Returns a map of $variable -> real_value
- */
-async function resolveTemplateVariables(): Promise<Record<string, string>> {
-  const vars: Record<string, string> = {};
+interface VariableOption {
+  name: string;
+  label: string;
+  options: string[];
+  selected: string;
+}
+
+async function fetchVariableOptions(): Promise<Record<string, string[]>> {
+  const result: Record<string, string[]> = {};
 
   try {
-    // Fetch first node name
-    const nodesRes = await fetch(`${K8S_BASE}/api/v1/nodes?limit=1`);
+    const [nodesRes, nsRes] = await Promise.all([
+      fetch(`${K8S_BASE}/api/v1/nodes`),
+      fetch(`${K8S_BASE}/api/v1/namespaces`),
+    ]);
+
     if (nodesRes.ok) {
-      const nodesData = await nodesRes.json() as { items: { metadata: { name: string } }[] };
-      const nodeName = nodesData.items[0]?.metadata.name ?? '';
-      vars['$node'] = nodeName;
-      vars['${node}'] = nodeName;
-      vars['${node:pipe}'] = nodeName;
-      vars['$instance'] = nodeName;
-      vars['${instance}'] = nodeName;
-      vars['${instance:pipe}'] = nodeName;
+      const data = await nodesRes.json() as { items: { metadata: { name: string } }[] };
+      result['node'] = data.items.map((n) => n.metadata.name);
+      result['instance'] = data.items.map((n) => n.metadata.name);
     }
 
-    // Fetch first namespace with pods
-    vars['$namespace'] = 'openshift-monitoring';
-    vars['${namespace}'] = 'openshift-monitoring';
-    vars['${namespace:pipe}'] = 'openshift-monitoring';
-
-    // Common defaults
-    vars['$cluster'] = '';
-    vars['${cluster}'] = '';
-    vars['${cluster:pipe}'] = '';
-    vars['$type'] = 'Pod';
-    vars['${type}'] = 'Pod';
-    vars['$resolution'] = '5m';
-    vars['${resolution}'] = '5m';
-    vars['$__rate_interval'] = '5m';
-    vars['${__rate_interval}'] = '5m';
-    vars['$__interval'] = '1m';
-    vars['${__interval}'] = '1m';
-    vars['$workload'] = '.*';
-    vars['${workload}'] = '.*';
-    vars['$pod'] = '.*';
-    vars['${pod}'] = '.*';
-    vars['$container'] = '.*';
-    vars['${container}'] = '.*';
-    vars['$service'] = '.*';
-    vars['${service}'] = '.*';
-    vars['$job'] = '.*';
-    vars['${job}'] = '.*';
-    vars['$interval'] = '5m';
-    vars['${interval}'] = '5m';
-    vars['$datasource'] = 'prometheus';
-    vars['${datasource}'] = 'prometheus';
-    vars['$topk'] = '25';
-    vars['${topk}'] = '25';
+    if (nsRes.ok) {
+      const data = await nsRes.json() as { items: { metadata: { name: string } }[] };
+      result['namespace'] = data.items.map((n) => n.metadata.name);
+    }
   } catch {
-    // Ignore errors
+    // ignore
   }
+
+  // Try to get workload names from Prometheus label values
+  try {
+    const res = await fetch(`${PROM_BASE}/api/v1/label/workload/values`);
+    if (res.ok) {
+      const data = await res.json() as { data?: string[] };
+      result['workload'] = (data.data ?? []).slice(0, 50);
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const res = await fetch(`${PROM_BASE}/api/v1/label/pod/values`);
+    if (res.ok) {
+      const data = await res.json() as { data?: string[] };
+      result['pod'] = (data.data ?? []).slice(0, 100);
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const res = await fetch(`${PROM_BASE}/api/v1/label/job/values`);
+    if (res.ok) {
+      const data = await res.json() as { data?: string[] };
+      result['job'] = (data.data ?? []).slice(0, 50);
+    }
+  } catch {
+    // ignore
+  }
+
+  return result;
+}
+
+function buildTemplateVars(variables: VariableOption[]): Record<string, string> {
+  const vars: Record<string, string> = {};
+
+  for (const v of variables) {
+    vars[`$${v.name}`] = v.selected;
+    vars[`\${${v.name}}`] = v.selected;
+    vars[`\${${v.name}:pipe}`] = v.selected;
+    vars[`\${${v.name}:regex}`] = v.selected;
+  }
+
+  // Always set interval/rate defaults
+  vars['$__rate_interval'] = '5m';
+  vars['${__rate_interval}'] = '5m';
+  vars['$__interval'] = '1m';
+  vars['${__interval}'] = '1m';
+  vars['$resolution'] = '5m';
+  vars['${resolution}'] = '5m';
+  vars['$datasource'] = 'prometheus';
+  vars['${datasource}'] = 'prometheus';
+  vars['$topk'] = '25';
+  vars['${topk}'] = '25';
+  vars['$interval'] = '5m';
+  vars['${interval}'] = '5m';
 
   return vars;
 }
 
 function substituteVariables(expr: string, vars: Record<string, string>): string {
   let result = expr;
-  // Sort by key length descending to replace longer matches first
   const sortedKeys = Object.keys(vars).sort((a, b) => b.length - a.length);
   for (const key of sortedKeys) {
     const value = vars[key];
@@ -107,7 +146,6 @@ function substituteVariables(expr: string, vars: Record<string, string>): string
       result = result.split(key).join(value);
     }
   }
-  // Handle any remaining ${var:...} patterns with regex
   result = result.replace(/\$\{[^}]+\}/g, '.*');
   result = result.replace(/\$[a-zA-Z_]\w*/g, '.*');
   return result;
@@ -171,25 +209,97 @@ function PromChart({ chart }: { chart: ChartData }) {
   );
 }
 
+function VariablePicker({ variable, onChange }: { variable: VariableOption; onChange: (val: string) => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <ToolbarItem>
+      <Select
+        isOpen={open}
+        selected={variable.selected}
+        onSelect={(_e, val) => { onChange(val as string); setOpen(false); }}
+        onOpenChange={setOpen}
+        toggle={(toggleRef) => (
+          <MenuToggle ref={toggleRef} onClick={() => setOpen(!open)} className="os-masthead__ns-toggle">
+            {variable.label}: {variable.selected}
+          </MenuToggle>
+        )}
+      >
+        {variable.options.map((opt) => (
+          <SelectOption key={opt} value={opt}>{opt}</SelectOption>
+        ))}
+      </Select>
+    </ToolbarItem>
+  );
+}
+
 export default function DashboardView() {
   const { name } = useParams();
   const navigate = useNavigate();
   const [panels, setPanels] = useState<ChartData[]>([]);
   const [dashTitle, setDashTitle] = useState('');
   const [loading, setLoading] = useState(true);
+  const [variables, setVariables] = useState<VariableOption[]>([]);
+  const [varTick, setVarTick] = useState(0);
 
+  // Load variable options on mount
+  useEffect(() => {
+    async function loadVars() {
+      const options = await fetchVariableOptions();
+
+      // Fetch dashboard to find which variables it uses
+      try {
+        const cmRes = await fetch(`${K8S_BASE}/api/v1/namespaces/openshift-config-managed/configmaps/${name}`);
+        if (!cmRes.ok) return;
+        const cm = await cmRes.json() as { data?: Record<string, string> };
+        const dataKeys = Object.keys(cm.data ?? {});
+        const jsonKey = dataKeys.find((k) => k.endsWith('.json')) ?? dataKeys[0];
+        if (!jsonKey || !cm.data) return;
+
+        const dashJson = JSON.parse(cm.data[jsonKey] ?? '{}') as { templating?: { list?: GrafanaTemplate[] } };
+        const templates = dashJson.templating?.list ?? [];
+
+        const vars: VariableOption[] = [];
+        for (const tpl of templates) {
+          if (tpl.type === 'datasource' || tpl.type === 'constant' || tpl.type === 'interval' || tpl.type === 'custom') continue;
+          const name = tpl.name;
+          const label = tpl.label ?? tpl.name;
+          const opts = options[name] ?? [];
+          if (opts.length === 0) continue;
+
+          vars.push({
+            name,
+            label,
+            options: opts,
+            selected: tpl.current?.value ?? opts[0] ?? '',
+          });
+        }
+        setVariables(vars);
+      } catch {
+        // ignore
+      }
+    }
+    loadVars();
+  }, [name]);
+
+  const handleVariableChange = useCallback((varName: string, value: string) => {
+    setVariables((prev) =>
+      prev.map((v) => v.name === varName ? { ...v, selected: value } : v)
+    );
+    setVarTick((t) => t + 1);
+  }, []);
+
+  // Query Prometheus when variables change
   useEffect(() => {
     async function load() {
+      setLoading(true);
       try {
-        // Resolve template variables from cluster state
-        const templateVars = await resolveTemplateVariables();
+        const templateVars = buildTemplateVars(variables);
 
-        // Fetch the ConfigMap containing the Grafana dashboard JSON
         const cmRes = await fetch(`${K8S_BASE}/api/v1/namespaces/openshift-config-managed/configmaps/${name}`);
         if (!cmRes.ok) { setLoading(false); return; }
         const cm = await cmRes.json() as { data?: Record<string, string> };
 
-        // The dashboard JSON is stored in a key (usually the only key, or a .json key)
         const dataKeys = Object.keys(cm.data ?? {});
         const jsonKey = dataKeys.find((k) => k.endsWith('.json')) ?? dataKeys[0];
         if (!jsonKey || !cm.data) { setLoading(false); return; }
@@ -198,35 +308,21 @@ export default function DashboardView() {
           title?: string;
           panels?: GrafanaPanel[];
           rows?: { panels?: GrafanaPanel[] }[];
-          templating?: GrafanaTemplating;
         };
         setDashTitle(dashJson.title ?? name ?? 'Dashboard');
 
-        // Apply any dashboard-defined template defaults
-        if (dashJson.templating?.list) {
-          for (const tpl of dashJson.templating.list) {
-            if (tpl.current?.value && !templateVars[`$${tpl.name}`]) {
-              templateVars[`$${tpl.name}`] = tpl.current.value;
-              templateVars[`\${${tpl.name}}`] = tpl.current.value;
-            }
-          }
-        }
-
-        // Extract panels - Grafana dashboards can have top-level panels or panels inside rows
         const allPanels: GrafanaPanel[] = [
           ...(dashJson.panels ?? []),
           ...(dashJson.rows ?? []).flatMap((r) => r.panels ?? []),
         ];
 
-        // Filter to panels with PromQL targets
         const queryPanels = allPanels.filter((p) =>
           p.targets && p.targets.length > 0 && p.targets[0]?.expr
         );
 
-        // Query Prometheus for each panel (limit to first 16 for performance)
         const end = Math.floor(Date.now() / 1000);
-        const start = end - 3600; // last 1 hour
-        const step = 60; // 1 minute resolution
+        const start = end - 3600;
+        const step = 60;
 
         const chartData: ChartData[] = [];
         for (const panel of queryPanels.slice(0, 16)) {
@@ -234,7 +330,6 @@ export default function DashboardView() {
           if (!target?.expr) continue;
 
           try {
-            // Substitute template variables in the PromQL expression
             const resolvedExpr = substituteVariables(target.expr, templateVars);
             const query = encodeURIComponent(resolvedExpr);
             const promRes = await fetch(
@@ -268,7 +363,7 @@ export default function DashboardView() {
       setLoading(false);
     }
     load();
-  }, [name]);
+  }, [name, varTick]);
 
   return (
     <>
@@ -285,13 +380,29 @@ export default function DashboardView() {
         </p>
       </PageSection>
 
+      {variables.length > 0 && (
+        <PageSection>
+          <Toolbar>
+            <ToolbarContent>
+              {variables.map((v) => (
+                <VariablePicker
+                  key={v.name}
+                  variable={v}
+                  onChange={(val) => handleVariableChange(v.name, val)}
+                />
+              ))}
+            </ToolbarContent>
+          </Toolbar>
+        </PageSection>
+      )}
+
       <PageSection>
         {loading ? (
           <p className="os-text-muted">Loading dashboard and querying Prometheus...</p>
         ) : panels.length === 0 ? (
           <Card>
             <CardBody>
-              <p className="os-text-muted">No chart data available. The dashboard may not have PromQL queries or Prometheus may not be accessible.</p>
+              <p className="os-text-muted">No chart data available. Try selecting different variable values above.</p>
             </CardBody>
           </Card>
         ) : (
