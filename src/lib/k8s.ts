@@ -75,19 +75,73 @@ interface K8sNode extends K8sResource {
   metadata: K8sResource['metadata'] & { labels: Record<string, string> };
 }
 
+interface K8sNodeMetrics {
+  metadata: { name: string };
+  usage: { cpu: string; memory: string };
+}
+
+function parseCpuToMillicores(cpu: string): number {
+  if (cpu.endsWith('n')) return parseInt(cpu) / 1_000_000;
+  if (cpu.endsWith('u')) return parseInt(cpu) / 1_000;
+  if (cpu.endsWith('m')) return parseInt(cpu);
+  return parseInt(cpu) * 1000;
+}
+
+function parseMemoryToMi(mem: string): number {
+  if (mem.endsWith('Ki')) return parseInt(mem) / 1024;
+  if (mem.endsWith('Mi')) return parseInt(mem);
+  if (mem.endsWith('Gi')) return parseInt(mem) * 1024;
+  if (mem.endsWith('Ti')) return parseInt(mem) * 1024 * 1024;
+  return parseInt(mem) / (1024 * 1024);
+}
+
+function parseAllocatableCpu(cpu: string): number {
+  if (cpu.endsWith('m')) return parseInt(cpu);
+  return parseInt(cpu) * 1000;
+}
+
+function parseAllocatableMemory(mem: string): number {
+  if (mem.endsWith('Ki')) return parseInt(mem) / 1024;
+  if (mem.endsWith('Mi')) return parseInt(mem);
+  if (mem.endsWith('Gi')) return parseInt(mem) * 1024;
+  return parseInt(mem) / (1024 * 1024);
+}
+
 export async function fetchNodes() {
   const data = await k8sFetch<K8sListResponse<K8sNode>>('/api/v1/nodes');
+
+  // Try to fetch node metrics for CPU/memory usage
+  let metricsMap = new Map<string, { cpu: number; memory: number }>();
+  try {
+    const metrics = await k8sFetch<K8sListResponse<K8sNodeMetrics>>('/apis/metrics.k8s.io/v1beta1/nodes');
+    for (const m of metrics.items) {
+      metricsMap.set(m.metadata.name, {
+        cpu: parseCpuToMillicores(m.usage.cpu),
+        memory: parseMemoryToMi(m.usage.memory),
+      });
+    }
+  } catch {
+    // metrics-server may not be available
+  }
+
   return data.items.map((n) => {
     const ready = n.status.conditions.find((c) => c.type === 'Ready');
     const roles = Object.keys(n.metadata.labels ?? {})
       .filter((l) => l.startsWith('node-role.kubernetes.io/'))
       .map((l) => l.replace('node-role.kubernetes.io/', ''))
       .join(',') || 'worker';
+
+    const usage = metricsMap.get(n.metadata.name);
+    const allocCpu = parseAllocatableCpu(n.status.allocatable.cpu);
+    const allocMem = parseAllocatableMemory(n.status.allocatable.memory);
+    const cpuPercent = usage && allocCpu > 0 ? Math.round((usage.cpu / allocCpu) * 100) : 0;
+    const memPercent = usage && allocMem > 0 ? Math.round((usage.memory / allocMem) * 100) : 0;
+
     return {
       name: n.metadata.name,
       status: (ready?.status === 'True' ? 'Ready' : 'NotReady') as 'Ready' | 'NotReady',
-      cpu: 0, // Would need metrics-server for real values
-      memory: 0,
+      cpu: cpuPercent,
+      memory: memPercent,
       role: roles,
       version: n.status.nodeInfo.kubeletVersion,
     };
