@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { Label } from '@patternfly/react-core';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
@@ -28,6 +29,7 @@ const columns: ColumnDef<NetworkPolicy>[] = [
     </span>
   ), sortable: false },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (n) => <ResourceActions name={n.name} namespace={n.namespace} apiBase="/apis/networking.k8s.io/v1" resourceType="networkpolicies" kind="NetworkPolicy" detailPath={`/networking/networkpolicies/${n.namespace}/${n.name}`} />, sortable: false },
 ];
 
 function formatPodSelector(labels: Record<string, string> | undefined): string {

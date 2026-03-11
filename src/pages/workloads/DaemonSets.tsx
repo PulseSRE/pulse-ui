@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import StatusIndicator from '@/components/StatusIndicator';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
@@ -35,6 +36,7 @@ const columns: ColumnDef<DaemonSet>[] = [
   { title: 'Ready', key: 'ready' },
   { title: 'Up-to-date', key: 'upToDate' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (ds) => <ResourceActions name={ds.name} namespace={ds.namespace} apiBase="/apis/apps/v1" resourceType="daemonsets" kind="DaemonSet" detailPath={`/workloads/daemonsets/${ds.namespace}/${ds.name}`} />, sortable: false },
 ];
 
 export default function DaemonSets() {

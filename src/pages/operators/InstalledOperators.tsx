@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
 interface InstalledOperator {
@@ -28,6 +29,7 @@ const columns: ColumnDef<InstalledOperator>[] = [
   { title: 'Status', key: 'status' },
   { title: 'Provider', key: 'provider' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (op) => <ResourceActions name={op.name} namespace={op.namespace} apiBase="/apis/operators.coreos.com/v1alpha1" resourceType="clusterserviceversions" kind="Operator" detailPath={`/operators/installed/${op.namespace}/${op.name}`} />, sortable: false },
 ];
 
 export default function InstalledOperators() {

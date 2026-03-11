@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 import { Label } from '@patternfly/react-core';
 
@@ -23,6 +24,7 @@ const columns: ColumnDef<Role>[] = [
   { title: 'Kind', key: 'kind', render: (r) => <Label color={r.kind === 'ClusterRole' ? 'blue' : 'green'}>{r.kind}</Label> },
   { title: 'Rules', key: 'rules' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (r) => <ResourceActions name={r.name} namespace={r.namespace === '-' ? undefined : r.namespace} apiBase="/apis/rbac.authorization.k8s.io/v1" resourceType={r.kind === 'ClusterRole' ? 'clusterroles' : 'roles'} kind={r.kind} detailPath={`/administration/roles/${r.namespace}/${r.name}`} />, sortable: false },
 ];
 
 function transformRole(item: RawRole): Role {

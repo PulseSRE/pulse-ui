@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
 interface HorizontalPodAutoscaler {
@@ -44,6 +45,7 @@ const columns: ColumnDef<HorizontalPodAutoscaler>[] = [
   { title: 'CPU Target', key: 'cpuTarget' },
   { title: 'CPU Current', key: 'cpuCurrent' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (hpa) => <ResourceActions name={hpa.name} namespace={hpa.namespace} apiBase="/apis/autoscaling/v2" resourceType="horizontalpodautoscalers" kind="HPA" detailPath={`/workloads/hpa/${hpa.namespace}/${hpa.name}`} />, sortable: false },
 ];
 
 function getCpuTarget(metrics: RawHPA['spec']['metrics']): string {

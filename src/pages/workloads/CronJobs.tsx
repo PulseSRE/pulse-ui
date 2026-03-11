@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { Label } from '@patternfly/react-core';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
@@ -28,6 +29,7 @@ const columns: ColumnDef<CronJob>[] = [
   { title: 'Active', key: 'active' },
   { title: 'Last Schedule', key: 'lastSchedule' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (c) => <ResourceActions name={c.name} namespace={c.namespace} apiBase="/apis/batch/v1" resourceType="cronjobs" kind="CronJob" detailPath={`/workloads/cronjobs/${c.namespace}/${c.name}`} />, sortable: false },
 ];
 
 export default function CronJobs() {

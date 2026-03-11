@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
 interface ServiceAccount {
@@ -18,6 +19,7 @@ const columns: ColumnDef<ServiceAccount>[] = [
   { title: 'Namespace', key: 'namespace' },
   { title: 'Secrets', key: 'secrets' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (sa) => <ResourceActions name={sa.name} namespace={sa.namespace} apiBase="/api/v1" resourceType="serviceaccounts" kind="ServiceAccount" detailPath={`/administration/serviceaccounts/${sa.namespace}/${sa.name}`} />, sortable: false },
 ];
 
 export default function ServiceAccounts() {

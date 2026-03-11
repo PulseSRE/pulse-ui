@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
 interface PodDisruptionBudget {
@@ -33,6 +34,7 @@ const columns: ColumnDef<PodDisruptionBudget>[] = [
   { title: 'Current Healthy', key: 'currentHealthy' },
   { title: 'Desired Healthy', key: 'desiredHealthy' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (pdb) => <ResourceActions name={pdb.name} namespace={pdb.namespace} apiBase="/apis/policy/v1" resourceType="poddisruptionbudgets" kind="PodDisruptionBudget" detailPath={`/workloads/poddisruptionbudgets/${pdb.namespace}/${pdb.name}`} />, sortable: false },
 ];
 
 export default function PodDisruptionBudgets() {

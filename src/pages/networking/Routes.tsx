@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 import { Label } from '@patternfly/react-core';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
@@ -43,6 +44,7 @@ const columns: ColumnDef<Route>[] = [
   { title: 'Service', key: 'service' },
   { title: 'TLS', key: 'termination', render: (r) => <Label color={terminationColors[r.termination] ?? 'grey'}>{r.termination}</Label> },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (r) => <ResourceActions name={r.name} namespace={r.namespace} apiBase="/apis/route.openshift.io/v1" resourceType="routes" kind="Route" detailPath={`/networking/routes/${r.namespace}/${r.name}`} />, sortable: false },
 ];
 
 export default function RoutesPage() {

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { Label } from '@patternfly/react-core';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
@@ -30,6 +31,7 @@ const columns: ColumnDef<Secret>[] = [
   { title: 'Type', key: 'type', render: (s) => <Label color={typeColors[s.type] ?? 'grey'}>{s.type}</Label> },
   { title: 'Data Keys', key: 'dataKeys' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (s) => <ResourceActions name={s.name} namespace={s.namespace} apiBase="/api/v1" resourceType="secrets" kind="Secret" detailPath={`/workloads/secrets/${s.namespace}/${s.name}`} />, sortable: false },
 ];
 
 export default function Secrets() {

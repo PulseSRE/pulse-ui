@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { Label } from '@patternfly/react-core';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
@@ -26,7 +27,12 @@ const columns: ColumnDef<StatefulSet>[] = [
     </Label>
   )},
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (s) => <ActionsCell item={s} />, sortable: false },
 ];
+
+function ActionsCell({ item }: { item: StatefulSet }) {
+  return <ResourceActions name={item.name} namespace={item.namespace} apiBase="/apis/apps/v1" resourceType="statefulsets" kind="StatefulSet" detailPath={`/workloads/statefulsets/${item.namespace}/${item.name}`} />;
+}
 
 export default function StatefulSets() {
   const navigate = useNavigate();

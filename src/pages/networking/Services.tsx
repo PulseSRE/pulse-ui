@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import StatusIndicator from '@/components/StatusIndicator';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
@@ -35,6 +36,7 @@ const columns: ColumnDef<ServiceItem>[] = [
   { title: 'External IP', key: 'externalIP' },
   { title: 'Ports', key: 'ports', render: (s) => <code>{s.ports}</code> },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (s) => <ResourceActions name={s.name} namespace={s.namespace} apiBase="/api/v1" resourceType="services" kind="Service" detailPath={`/networking/services/${s.namespace}/${s.name}`} />, sortable: false },
 ];
 
 function formatPorts(ports: RawServicePort[] | undefined): string {

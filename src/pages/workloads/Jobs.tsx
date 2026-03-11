@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
 interface Job {
@@ -27,6 +28,7 @@ const columns: ColumnDef<Job>[] = [
   { title: 'Duration', key: 'duration' },
   { title: 'Status', key: 'status' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (j) => <ResourceActions name={j.name} namespace={j.namespace} apiBase="/apis/batch/v1" resourceType="jobs" kind="Job" detailPath={`/workloads/jobs/${j.namespace}/${j.name}`} />, sortable: false },
 ];
 
 function deriveJobStatus(item: RawJob): string {

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
 interface ReplicaSet {
@@ -23,6 +24,7 @@ const columns: ColumnDef<ReplicaSet>[] = [
   { title: 'Current', key: 'current' },
   { title: 'Ready', key: 'ready' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (r) => <ResourceActions name={r.name} namespace={r.namespace} apiBase="/apis/apps/v1" resourceType="replicasets" kind="ReplicaSet" detailPath={`/workloads/replicasets/${r.namespace}/${r.name}`} />, sortable: false },
 ];
 
 export default function ReplicaSets() {

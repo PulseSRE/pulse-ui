@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { Label } from '@patternfly/react-core';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
@@ -28,6 +29,7 @@ const columns: ColumnDef<IngressItem>[] = [
   { title: 'Address', key: 'address' },
   { title: 'Ports', key: 'ports' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (i) => <ResourceActions name={i.name} namespace={i.namespace} apiBase="/apis/networking.k8s.io/v1" resourceType="ingresses" kind="Ingress" detailPath={`/networking/ingress/${i.namespace}/${i.name}`} />, sortable: false },
 ];
 
 export default function Ingress() {

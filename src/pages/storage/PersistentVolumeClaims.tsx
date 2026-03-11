@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, ageFromTimestamp, type K8sMeta } from '@/hooks/useK8sResource';
 
 interface PVC {
@@ -39,6 +40,7 @@ const columns: ColumnDef<PVC>[] = [
   { title: 'Access Modes', key: 'accessModes' },
   { title: 'Storage Class', key: 'storageClass' },
   { title: 'Age', key: 'age' },
+  { title: '', key: 'actions', render: (pvc) => <ResourceActions name={pvc.name} namespace={pvc.namespace} apiBase="/api/v1" resourceType="persistentvolumeclaims" kind="PVC" detailPath={`/storage/persistentvolumeclaims/${pvc.namespace}/${pvc.name}`} />, sortable: false },
 ];
 
 export default function PersistentVolumeClaims() {
