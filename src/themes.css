@@ -341,9 +341,18 @@ body::after {
    THEME-AWARE SIDEBAR AND MASTHEAD TINTING
    ============================================ */
 .pf-v6-c-page__sidebar {
-  background-color: var(--theme-sidebar-tint) !important;
+  border-right: 2px solid var(--theme-color-1) !important;
 }
 
 .pf-v6-c-masthead {
-  background-color: var(--theme-masthead-tint) !important;
+  border-bottom: 2px solid var(--theme-color-1) !important;
+}
+
+/* Theme-colored accents on cards */
+:root:not(.dark) .pf-v6-c-card {
+  border-top: 2px solid var(--theme-color-1) !important;
+}
+
+.dark .pf-v6-c-card {
+  border-top: 2px solid var(--theme-color-1) !important;
 }
