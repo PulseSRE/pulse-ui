@@ -42,6 +42,10 @@ interface LogViewerProps {
   podName: string;
   namespace: string;
   containers: string[];
+  /** When provided, renders this text directly instead of fetching pod logs. Disables streaming and container selection. */
+  rawText?: string;
+  /** Whether rawText is still loading */
+  rawLoading?: boolean;
 }
 
 interface LogLine {
@@ -115,7 +119,8 @@ function highlightText(text: string, search: string): React.ReactNode {
   );
 }
 
-export default function LogViewer({ podName, namespace, containers }: LogViewerProps) {
+export default function LogViewer({ podName, namespace, containers, rawText, rawLoading }: LogViewerProps) {
+  const isRawMode = rawText !== undefined;
   const addToast = useUIStore((s) => s.addToast);
 
   const [logs, setLogs] = useState<LogLine[]>([]);
@@ -130,9 +135,17 @@ export default function LogViewer({ podName, namespace, containers }: LogViewerP
   const logBodyRef = useRef<HTMLDivElement>(null);
   const nextIdRef = useRef(1);
 
+  // Parse rawText into log lines when in raw mode
+  useEffect(() => {
+    if (!isRawMode) return;
+    if (!rawText) { setLogs([]); return; }
+    const parsed = parseLogLines(rawText, 1);
+    setLogs(parsed);
+  }, [isRawMode, rawText]);
+
   // Initial log fetch
   useEffect(() => {
-    if (!podName || !namespace || !selectedContainer) return;
+    if (isRawMode || !podName || !namespace || !selectedContainer) return;
 
     let cancelled = false;
     nextIdRef.current = 1;
@@ -168,7 +181,7 @@ export default function LogViewer({ podName, namespace, containers }: LogViewerP
 
   // Polling for new log lines
   useEffect(() => {
-    if (!streaming || !podName || !namespace || !selectedContainer) return;
+    if (isRawMode || !streaming || !podName || !namespace || !selectedContainer) return;
 
     const interval = setInterval(async () => {
       try {
@@ -273,30 +286,32 @@ export default function LogViewer({ podName, namespace, containers }: LogViewerP
     <div className="compass-log-viewer">
       <div className="compass-log-toolbar">
         <div className="compass-log-toolbar-group">
-          <Select
-            isOpen={containerSelectOpen}
-            selected={selectedContainer}
-            onSelect={(_event, selection) => {
-              setSelectedContainer(selection as string);
-              setContainerSelectOpen(false);
-            }}
-            onOpenChange={(isOpen) => setContainerSelectOpen(isOpen)}
-            toggle={(toggleRef) => (
-              <MenuToggle
-                ref={toggleRef}
-                onClick={() => setContainerSelectOpen(!containerSelectOpen)}
-                className="os-log__container-toggle"
-              >
-                {selectedContainer}
-              </MenuToggle>
-            )}
-          >
-            {containers.map((container) => (
-              <SelectOption key={container} value={container}>
-                {container}
-              </SelectOption>
-            ))}
-          </Select>
+          {!isRawMode && (
+            <Select
+              isOpen={containerSelectOpen}
+              selected={selectedContainer}
+              onSelect={(_event, selection) => {
+                setSelectedContainer(selection as string);
+                setContainerSelectOpen(false);
+              }}
+              onOpenChange={(isOpen) => setContainerSelectOpen(isOpen)}
+              toggle={(toggleRef) => (
+                <MenuToggle
+                  ref={toggleRef}
+                  onClick={() => setContainerSelectOpen(!containerSelectOpen)}
+                  className="os-log__container-toggle"
+                >
+                  {selectedContainer}
+                </MenuToggle>
+              )}
+            >
+              {containers.map((container) => (
+                <SelectOption key={container} value={container}>
+                  {container}
+                </SelectOption>
+              ))}
+            </Select>
+          )}
 
           <SearchInput
             placeholder="Filter logs..."
@@ -309,21 +324,23 @@ export default function LogViewer({ podName, namespace, containers }: LogViewerP
 
         <div className="compass-log-toolbar-group">
           <span className="compass-log-status">
-            {filteredLogs.length} lines
+            {rawLoading ? 'Loading...' : `${filteredLogs.length} lines`}
             {searchValue && ` (filtered from ${logs.length})`}
-            {streaming && (
+            {!isRawMode && streaming && (
               <span className="compass-log-status-streaming"> ● Streaming</span>
             )}
           </span>
 
-          <Button
-            variant="plain"
-            onClick={handleToggleStreaming}
-            aria-label={streaming ? 'Pause streaming' : 'Resume streaming'}
-            title={streaming ? 'Pause streaming' : 'Resume streaming'}
-          >
-            {streaming ? <PauseIcon /> : <PlayIcon />}
-          </Button>
+          {!isRawMode && (
+            <Button
+              variant="plain"
+              onClick={handleToggleStreaming}
+              aria-label={streaming ? 'Pause streaming' : 'Resume streaming'}
+              title={streaming ? 'Pause streaming' : 'Resume streaming'}
+            >
+              {streaming ? <PauseIcon /> : <PlayIcon />}
+            </Button>
+          )}
 
           <Button
             variant="plain"

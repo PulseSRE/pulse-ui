@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardBody, Grid, GridItem, DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription, Label, Title, Select, SelectOption, MenuToggle } from '@patternfly/react-core';
+import { Card, CardBody, Grid, GridItem, DescriptionList, DescriptionListGroup, DescriptionListTerm, DescriptionListDescription, Label, Title, Select, SelectOption, MenuToggle, ToggleGroup, ToggleGroupItem } from '@patternfly/react-core';
 import { useParams } from 'react-router-dom';
 import ResourceDetailPage from '@/components/ResourceDetailPage';
 import StatusIndicator from '@/components/StatusIndicator';
@@ -14,6 +14,10 @@ interface NodePod {
   containers: string[];
 }
 
+type LogMode = 'journal' | 'pod';
+
+const JOURNAL_UNITS = ['kubelet', 'crio', 'kernel'] as const;
+
 export default function NodeDetail() {
   const { name } = useParams();
   const [node, setNode] = useState<Record<string, unknown> | null>(null);
@@ -22,6 +26,11 @@ export default function NodeDetail() {
   const [nodePods, setNodePods] = useState<NodePod[]>([]);
   const [selectedPod, setSelectedPod] = useState<NodePod | null>(null);
   const [podSelectOpen, setPodSelectOpen] = useState(false);
+  const [logMode, setLogMode] = useState<LogMode>('journal');
+  const [journalLogs, setJournalLogs] = useState('');
+  const [journalLoading, setJournalLoading] = useState(false);
+  const [journalUnit, setJournalUnit] = useState<string>(JOURNAL_UNITS[0]);
+  const [unitSelectOpen, setUnitSelectOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -61,6 +70,39 @@ export default function NodeDetail() {
     }
     loadPods();
   }, [name]);
+
+  // Fetch node journal logs
+  useEffect(() => {
+    if (!name || logMode !== 'journal') return;
+    let cancelled = false;
+    async function fetchJournal() {
+      setJournalLoading(true);
+      setJournalLogs('');
+      try {
+        const query = journalUnit === 'kernel'
+          ? 'boot=0&grep=kernel'
+          : `unit=${journalUnit}`;
+        const res = await fetch(`${BASE}/api/v1/nodes/${encodeURIComponent(name!)}/proxy/logs/journal?${query}&tailLines=500`);
+        if (!res.ok) {
+          // Fallback: try the simpler logs endpoint
+          const fallbackRes = await fetch(`${BASE}/api/v1/nodes/${encodeURIComponent(name!)}/proxy/logs/messages`);
+          if (!fallbackRes.ok) throw new Error(`${res.status} ${res.statusText}`);
+          const text = await fallbackRes.text();
+          if (!cancelled) setJournalLogs(text);
+        } else {
+          const text = await res.text();
+          if (!cancelled) setJournalLogs(text);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setJournalLogs(`Failed to fetch node logs: ${err instanceof Error ? err.message : String(err)}\n\nNode journal logs require the node proxy API to be accessible.`);
+        }
+      }
+      if (!cancelled) setJournalLoading(false);
+    }
+    fetchJournal();
+    return () => { cancelled = true; };
+  }, [name, logMode, journalUnit]);
 
   if (loading) return <div className="os-text-muted" role="status">Loading...</div>;
   if (!node) return <div className="os-text-muted">Node not found</div>;
@@ -129,11 +171,46 @@ export default function NodeDetail() {
 
   const logsTab = (
     <div>
-      {nodePods.length === 0 ? (
-        <div className="os-text-muted">No pods found on this node.</div>
-      ) : (
-        <>
-          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <ToggleGroup aria-label="Log source">
+          <ToggleGroupItem
+            text="Node Journal"
+            isSelected={logMode === 'journal'}
+            onChange={() => setLogMode('journal')}
+          />
+          <ToggleGroupItem
+            text="Pod Logs"
+            isSelected={logMode === 'pod'}
+            onChange={() => setLogMode('pod')}
+          />
+        </ToggleGroup>
+
+        {logMode === 'journal' && (
+          <>
+            <span className="os-text-muted">Unit:</span>
+            <Select
+              isOpen={unitSelectOpen}
+              selected={journalUnit}
+              onSelect={(_event, selection) => {
+                setJournalUnit(selection as string);
+                setUnitSelectOpen(false);
+              }}
+              onOpenChange={(isOpen) => setUnitSelectOpen(isOpen)}
+              toggle={(toggleRef) => (
+                <MenuToggle ref={toggleRef} onClick={() => setUnitSelectOpen(!unitSelectOpen)}>
+                  {journalUnit}
+                </MenuToggle>
+              )}
+            >
+              {JOURNAL_UNITS.map((unit) => (
+                <SelectOption key={unit} value={unit}>{unit}</SelectOption>
+              ))}
+            </Select>
+          </>
+        )}
+
+        {logMode === 'pod' && (
+          <>
             <span className="os-text-muted">Pod:</span>
             <Select
               isOpen={podSelectOpen}
@@ -156,15 +233,30 @@ export default function NodeDetail() {
                 </SelectOption>
               ))}
             </Select>
-          </div>
-          {selectedPod && (
-            <LogViewer
-              podName={selectedPod.name}
-              namespace={selectedPod.namespace}
-              containers={selectedPod.containers}
-            />
-          )}
-        </>
+          </>
+        )}
+      </div>
+
+      {logMode === 'journal' && (
+        <LogViewer
+          podName={name ?? ''}
+          namespace=""
+          containers={[]}
+          rawText={journalLogs}
+          rawLoading={journalLoading}
+        />
+      )}
+
+      {logMode === 'pod' && (
+        nodePods.length === 0 ? (
+          <div className="os-text-muted">No pods found on this node.</div>
+        ) : selectedPod ? (
+          <LogViewer
+            podName={selectedPod.name}
+            namespace={selectedPod.namespace}
+            containers={selectedPod.containers}
+          />
+        ) : null
       )}
     </div>
   );
