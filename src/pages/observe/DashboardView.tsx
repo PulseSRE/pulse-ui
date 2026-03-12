@@ -134,7 +134,7 @@ async function fetchVariableOptions(): Promise<Record<string, string[]>> {
   return result;
 }
 
-function buildTemplateVars(variables: VariableOption[]): Record<string, string> {
+export function buildTemplateVars(variables: VariableOption[]): Record<string, string> {
   const vars: Record<string, string> = {};
 
   for (const v of variables) {
@@ -161,7 +161,7 @@ function buildTemplateVars(variables: VariableOption[]): Record<string, string> 
   return vars;
 }
 
-function substituteVariables(expr: string, vars: Record<string, string>): string {
+export function substituteVariables(expr: string, vars: Record<string, string>): string {
   let result = expr;
   // Handle Grafana $interval:$resolution syntax → replace with just the resolution
   result = result.replace(/\$interval:\$resolution/g, '5m');
