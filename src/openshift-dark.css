@@ -277,7 +277,9 @@ html, body, #root {
 .pf-v6-c-progress__bar { box-shadow: none !important; }
 
 /* Badges */
-.pf-v6-c-badge { backdrop-filter: none !important; border: none !important; box-shadow: none !important; }
+.pf-v6-c-badge { backdrop-filter: none !important; border: none !important; box-shadow: none !important; color: var(--os-text-primary) !important; background: var(--os-bg-input, #1a1a1a) !important; }
+.dark .pf-v6-c-badge.pf-m-read { color: var(--os-text-secondary) !important; background: rgba(255, 255, 255, 0.1) !important; }
+.dark .pf-v6-c-badge.pf-m-unread { color: #fff !important; background: var(--os-accent-blue) !important; }
 
 /* Menu/Dropdown */
 .pf-v6-c-menu, .pf-v6-c-dropdown__menu { background: var(--os-bg-card) !important; backdrop-filter: none !important; border: 1px solid var(--os-border) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important; color: var(--os-text-primary) !important; }
