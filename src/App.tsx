@@ -395,7 +395,6 @@ function App() {
 
           {/* Operations */}
           <Route path="operations">
-            <Route path="node-maintenance" element={<Navigate to="/compute/nodes" replace />} />
             <Route path="pvc-resize" element={<PVCResize />} />
             <Route path="hpa-recommendations" element={<HPARecommendations />} />
             <Route path="certificates" element={<CertificateManagement />} />

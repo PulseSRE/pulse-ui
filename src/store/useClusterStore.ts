@@ -98,12 +98,7 @@ interface ClusterStore {
   startPolling: () => void;
   stopPolling: () => void;
   // Admin actions
-  scaleDeployment: (namespace: string, name: string, replicas: number) => Promise<void>;
-  deletePod: (namespace: string, name: string) => Promise<void>;
-  restartPod: (namespace: string, name: string) => Promise<void>;
-  addNamespace: (name: string) => Promise<void>;
   deleteNamespace: (name: string) => Promise<void>;
-  addDeployment: (name: string, namespace: string, image: string, replicas: number) => Promise<void>;
 }
 
 
@@ -220,56 +215,6 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     }
   },
 
-  scaleDeployment: async (namespace, name, replicas) => {
-    try {
-      await fetch(`/api/kubernetes/apis/apps/v1/namespaces/${namespace}/deployments/${name}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/strategic-merge-patch+json' },
-        body: JSON.stringify({ spec: { replicas } }),
-      });
-    } catch { /* ignore */ }
-    set((state) => ({
-      deployments: state.deployments.map((d) =>
-        d.namespace === namespace && d.name === name ? { ...d, replicas } : d
-      ),
-    }));
-  },
-
-  deletePod: async (namespace, name) => {
-    try {
-      await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${name}`, { method: 'DELETE' });
-    } catch { /* ignore */ }
-    set((state) => ({
-      pods: state.pods.filter((p) => !(p.namespace === namespace && p.name === name)),
-    }));
-  },
-
-  restartPod: async (namespace, name) => {
-    try {
-      await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${name}`, { method: 'DELETE' });
-    } catch { /* ignore */ }
-    set((state) => ({
-      pods: state.pods.map((p) =>
-        p.namespace === namespace && p.name === name
-          ? { ...p, status: 'Pending' as const }
-          : p
-      ),
-    }));
-  },
-
-  addNamespace: async (name) => {
-    try {
-      await fetch(`/api/kubernetes/api/v1/namespaces`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiVersion: 'v1', kind: 'Namespace', metadata: { name } }),
-      });
-    } catch { /* ignore */ }
-    set((state) => ({
-      namespaces: [...state.namespaces, { name, status: 'Active' as const, podCount: 0, age: '0d' }],
-    }));
-  },
-
   deleteNamespace: async (name) => {
     try {
       await fetch(`/api/kubernetes/api/v1/namespaces/${name}`, { method: 'DELETE' });
@@ -279,27 +224,4 @@ export const useClusterStore = create<ClusterStore>((set, get) => ({
     }));
   },
 
-  addDeployment: async (name, namespace, image, replicas) => {
-    try {
-      await fetch(`/api/kubernetes/apis/apps/v1/namespaces/${namespace}/deployments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiVersion: 'apps/v1', kind: 'Deployment',
-          metadata: { name, namespace },
-          spec: {
-            replicas,
-            selector: { matchLabels: { app: name } },
-            template: {
-              metadata: { labels: { app: name } },
-              spec: { containers: [{ name, image, ports: [{ containerPort: 8080 }] }] },
-            },
-          },
-        }),
-      });
-    } catch { /* ignore */ }
-    set((state) => ({
-      deployments: [...state.deployments, { name, namespace, replicas, ready: 0, status: 'Progressing' as const }],
-    }));
-  },
 }));

@@ -6,7 +6,7 @@ import {
   DropdownList,
 } from '@patternfly/react-core';
 import { PaletteIcon } from '@patternfly/react-icons';
-import './ThemePicker.css';
+
 
 export type ThemeName = 'sunset' | 'ocean' | 'slate' | 'forest' | 'patternfly';
 
