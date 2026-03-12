@@ -126,6 +126,17 @@ export default defineConfig({
           Authorization: `Bearer ${getOCToken()}`,
         },
       },
+      {
+        context: ['/api/ai'],
+        target: 'https://api.anthropic.com',
+        changeOrigin: true,
+        secure: true,
+        pathRewrite: (path: string) => path.replace(/^\/api\/ai/, ''),
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+          'anthropic-version': '2023-06-01',
+        },
+      },
     ],
   },
   performance: {
