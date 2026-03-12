@@ -143,7 +143,7 @@ export default defineConfig({
         pathRewrite: () => {
           const project = process.env.ANTHROPIC_VERTEX_PROJECT_ID || 'itpc-gcp-product-all-claude';
           const region = process.env.ANTHROPIC_VERTEX_REGION || 'us-east5';
-          const model = 'claude-sonnet-4-20250514';
+          const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6@20250514';
           return `/v1/projects/${project}/locations/${region}/publishers/anthropic/models/${model}:rawPredict`;
         },
         headers: {
