@@ -78,9 +78,51 @@ function NodeActions({ node, refetch }: { node: NodeRow; refetch: () => void }) 
     }
   };
 
-  const handleDrain = (e: React.MouseEvent) => {
+  const [draining, setDraining] = React.useState(false);
+
+  const handleDrain = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    addToast({ type: 'info', title: 'Draining node...', description: `Drain initiated for ${node.name}` });
+    setDraining(true);
+    try {
+      // Step 1: Cordon the node
+      const cordonRes = await fetch(`${BASE}/api/v1/nodes/${encodeURIComponent(node.name)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/strategic-merge-patch+json' },
+        body: JSON.stringify({ spec: { unschedulable: true } }),
+      });
+      if (!cordonRes.ok) throw new Error(`Cordon failed: ${cordonRes.status}`);
+
+      // Step 2: Evict all pods on the node
+      const podsRes = await fetch(`${BASE}/api/v1/pods?fieldSelector=spec.nodeName=${encodeURIComponent(node.name)}`);
+      if (!podsRes.ok) throw new Error(`Failed to list pods: ${podsRes.status}`);
+      const podsJson = await podsRes.json() as { items?: { metadata: { name: string; namespace: string; ownerReferences?: { kind: string }[] } }[] };
+      const pods = (podsJson.items ?? []).filter((p) => {
+        // Skip DaemonSet pods and mirror pods
+        const owners = p.metadata.ownerReferences ?? [];
+        return !owners.some((o) => o.kind === 'DaemonSet');
+      });
+
+      let evicted = 0;
+      for (const pod of pods) {
+        try {
+          await fetch(`${BASE}/api/v1/namespaces/${encodeURIComponent(pod.metadata.namespace)}/pods/${encodeURIComponent(pod.metadata.name)}/eviction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              apiVersion: 'policy/v1', kind: 'Eviction',
+              metadata: { name: pod.metadata.name, namespace: pod.metadata.namespace },
+            }),
+          });
+          evicted++;
+        } catch { /* skip pods that can't be evicted */ }
+      }
+
+      addToast({ type: 'success', title: `Node ${node.name} drained`, description: `Evicted ${evicted} of ${pods.length} pods` });
+      refetch();
+    } catch (err) {
+      addToast({ type: 'error', title: 'Drain failed', description: err instanceof Error ? err.message : String(err) });
+    }
+    setDraining(false);
   };
 
   return (
@@ -91,12 +133,14 @@ function NodeActions({ node, refetch }: { node: NodeRow; refetch: () => void }) 
         <Button variant="secondary" size="sm" onClick={handleUncordon}>Uncordon</Button>
       )}
       {' '}
-      <Button variant="warning" size="sm" onClick={handleDrain}>Drain</Button>
+      <Button variant="warning" size="sm" isLoading={draining} onClick={handleDrain}>Drain</Button>
     </span>
   );
 }
 
 export default function NodeMaintenance() {
+  const [podCounts, setPodCounts] = React.useState<Record<string, number>>({});
+
   const { data, loading, refetch } = useK8sResource<RawNode, NodeRow>(
     '/api/v1/nodes',
     (item) => ({
@@ -109,6 +153,26 @@ export default function NodeMaintenance() {
     }),
     15000,
   );
+
+  // Fetch pod counts per node
+  React.useEffect(() => {
+    async function loadPodCounts() {
+      try {
+        const res = await fetch(`${BASE}/api/v1/pods`);
+        if (!res.ok) return;
+        const json = await res.json() as { items?: { spec: { nodeName?: string } }[] };
+        const counts: Record<string, number> = {};
+        for (const pod of json.items ?? []) {
+          const node = pod.spec.nodeName;
+          if (node) counts[node] = (counts[node] ?? 0) + 1;
+        }
+        setPodCounts(counts);
+      } catch { /* ignore */ }
+    }
+    loadPodCounts();
+  }, [data.length]);
+
+  const dataWithPods = data.map((n) => ({ ...n, podCount: podCounts[n.name] ?? 0 }));
 
   const columns: ColumnDef<NodeRow>[] = [
     { title: 'Name', key: 'name' },
@@ -130,7 +194,7 @@ export default function NodeMaintenance() {
       title="Node Maintenance"
       description="Cordon, uncordon, and drain cluster nodes for maintenance operations"
       columns={columns}
-      data={data}
+      data={dataWithPods}
       loading={loading}
       getRowKey={(n) => n.name}
       statusField="status"
