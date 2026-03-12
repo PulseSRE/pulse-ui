@@ -68,8 +68,8 @@ describe('AIAssistant file structure', () => {
     const fs = await import('fs');
     const path = await import('path');
     const content = fs.readFileSync(path.resolve(__dirname, '../components/AIAssistant.tsx'), 'utf-8');
-    expect(content).toContain('/api/ai/v1/messages');
-    expect(content).toContain('claude-sonnet');
+    expect(content).toContain('/api/ai');
+    expect(content).toContain('vertex-2023-10-16');
   });
 
   it('parses actions from AI response (scale, restart, cordon)', async () => {

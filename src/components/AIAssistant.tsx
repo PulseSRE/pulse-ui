@@ -201,11 +201,11 @@ GUIDELINES:
 - Don't be overly verbose. Admins are busy.`;
 
   try {
-    const res = await fetch('/api/ai/v1/messages', {
+    const res = await fetch('/api/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        anthropic_version: 'vertex-2023-10-16',
         max_tokens: 1024,
         system: systemPrompt,
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
@@ -214,8 +214,8 @@ GUIDELINES:
 
     if (!res.ok) {
       const err = await res.text();
-      if (res.status === 401 || err.includes('api_key')) {
-        return 'AI Assistant requires an Anthropic API key. Set ANTHROPIC_API_KEY environment variable and restart the dev server.';
+      if (res.status === 401 || res.status === 403) {
+        return 'AI Assistant requires GCP authentication. Run: gcloud auth login';
       }
       return `API error: ${res.status} ${err.slice(0, 200)}`;
     }
