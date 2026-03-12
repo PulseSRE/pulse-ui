@@ -20,6 +20,7 @@ import {
   Select,
   SelectOption,
   MenuToggle,
+  Tooltip,
 } from '@patternfly/react-core';
 import {
   BarsIcon,
@@ -331,22 +332,30 @@ export default function CompassLayout() {
             ))}
           </Select>
 
-          <Button
-            aria-label="Search (Cmd+K)"
-            variant="plain"
-            icon={<SearchIcon />}
-            onClick={openCommandPalette}
-          />
+          <Tooltip content="Search (⌘K)">
+            <Button
+              aria-label="Search (Cmd+K)"
+              variant="plain"
+              icon={<SearchIcon />}
+              onClick={openCommandPalette}
+            />
+          </Tooltip>
           <NotificationsDropdown />
           <ThemePicker currentTheme={currentTheme} onThemeChange={(theme) => setCurrentTheme(theme)} />
-          <Button
-            aria-label="Toggle dark mode"
-            variant="plain"
-            icon={isDarkMode ? <SunIcon /> : <MoonIcon />}
-            onClick={() => setIsDarkMode(!isDarkMode)}
-          />
-          <Button aria-label="Web Terminal" variant="plain" icon={<CodeIcon />} onClick={() => setTerminalOpen(!terminalOpen)} />
-          <Button aria-label="Quick Start Guide" variant="plain" icon={<CogIcon />} onClick={() => setGuideOpen(true)} />
+          <Tooltip content={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <Button
+              aria-label="Toggle dark mode"
+              variant="plain"
+              icon={isDarkMode ? <SunIcon /> : <MoonIcon />}
+              onClick={() => setIsDarkMode(!isDarkMode)}
+            />
+          </Tooltip>
+          <Tooltip content="Web Terminal">
+            <Button aria-label="Web Terminal" variant="plain" icon={<CodeIcon />} onClick={() => setTerminalOpen(!terminalOpen)} />
+          </Tooltip>
+          <Tooltip content="Quick Start Guide">
+            <Button aria-label="Quick Start Guide" variant="plain" icon={<CogIcon />} onClick={() => setGuideOpen(true)} />
+          </Tooltip>
 
           {/* Connection Status */}
           <span className="compass-connection-pill os-masthead__connection-pill">
