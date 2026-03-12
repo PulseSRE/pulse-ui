@@ -319,10 +319,11 @@ export default function DashboardView() {
         };
         setDashTitle(dashJson.title ?? name ?? 'Dashboard');
 
-        const allPanels: GrafanaPanel[] = [
-          ...(dashJson.panels ?? []),
-          ...(dashJson.rows ?? []).flatMap((r) => r.panels ?? []),
-        ];
+        // Collect panels from all Grafana structures (flat, rows, nested)
+        const topPanels = dashJson.panels ?? [];
+        const rowPanels = (dashJson.rows ?? []).flatMap((r) => r.panels ?? []);
+        const nestedPanels = topPanels.flatMap((p) => (p as unknown as { panels?: GrafanaPanel[] }).panels ?? []);
+        const allPanels: GrafanaPanel[] = [...topPanels, ...rowPanels, ...nestedPanels];
 
         const queryPanels = allPanels.filter((p) =>
           p.targets && p.targets.length > 0 && p.targets[0]?.expr
@@ -371,7 +372,7 @@ export default function DashboardView() {
       setLoading(false);
     }
     load();
-  }, [name, varTick]);
+  }, [name, varTick, variables.length]);
 
   return (
     <>
