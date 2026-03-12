@@ -341,14 +341,14 @@ body::after {
    THEME-AWARE SIDEBAR AND MASTHEAD TINTING
    ============================================ */
 .pf-v6-c-page__sidebar {
-  border-right: 2px solid var(--theme-color-1) !important;
+  border-right: 1px solid var(--glass-border) !important;
 }
 
 .pf-v6-c-masthead {
-  border-bottom: 2px solid var(--theme-color-1) !important;
+  border-bottom: 1px solid var(--glass-border) !important;
 }
 
-/* Theme-colored left accent on cards */
+/* Theme-colored top accent on cards */
 .pf-v6-c-card {
-  border-left: 3px solid var(--theme-color-1) !important;
+  border-top: 2px solid var(--theme-color-1) !important;
 }

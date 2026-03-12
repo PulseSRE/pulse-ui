@@ -22,18 +22,18 @@
   --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Card Styling — solid, clean, themed border */
+/* Card Styling — clean, modern */
 .pf-v6-c-card {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-  border-radius: 6px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  border-radius: 8px;
   background: var(--glass-bg) !important;
   border: 1px solid var(--glass-border) !important;
   box-shadow: var(--glass-shadow) !important;
+  padding: 0;
 }
 
 .pf-v6-c-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  border-color: var(--theme-glass-border, #ccc);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Secondary Card Style */
@@ -88,7 +88,7 @@
 
 /* Enhanced Table Styling - Glassmorphism */
 .pf-v6-c-table {
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
   background: var(--glass-bg) !important;
   box-shadow: var(--glass-shadow) !important;
@@ -108,11 +108,17 @@
   border-bottom: 1px solid var(--glass-border);
 }
 
+.pf-v6-c-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+.dark .pf-v6-c-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
 .pf-v6-c-table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(0, 0, 0, 0.05) !important;
 }
 .dark .pf-v6-c-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06) !important;
 }
 
 /* Enhanced Labels */
@@ -149,58 +155,31 @@
 }
 
 .pf-v6-c-nav__link {
-  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border-radius: 10px;
-  margin: 2px 12px;
+  transition: background 0.15s ease, color 0.15s ease;
+  border-radius: 6px;
+  margin: 1px 8px;
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 13px;
   position: relative;
-  padding: 10px 16px;
-  letter-spacing: 0.01em;
+  padding: 8px 12px;
 }
 
 .pf-v6-c-nav__link:hover {
-  background: var(--theme-bg-1);
-  transform: translateX(4px);
-  box-shadow:
-    0 3px 10px var(--theme-glass-shadow-1),
-    0 1px 4px var(--theme-glass-shadow-2),
-    inset 0 1px 1px rgba(255, 255, 255, 0.25);
-  border-left: 3px solid var(--theme-glass-border);
-  padding-left: 13px;
+  background: rgba(0, 0, 0, 0.06);
+}
+.dark .pf-v6-c-nav__link:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .pf-v6-c-nav__link.pf-m-current {
-  font-weight: 650;
-  background: linear-gradient(135deg, var(--theme-color-1) 0%, var(--theme-color-2) 50%, rgb(251, 113, 133) 100%);
-  color: var(--console-primary-fg);
-  box-shadow:
-    0 4px 16px rgba(251, 146, 60, 0.45),
-    0 2px 10px rgba(251, 113, 133, 0.35),
-    0 0 25px rgba(244, 114, 182, 0.25),
-    inset 0 1px 2px rgba(255, 255, 255, 0.35);
-  border: 1px solid var(--theme-glass-border);
-  border-left: 4px solid rgba(252, 165, 165, 0.9);
-  padding-left: 12px;
-}
-
-.pf-v6-c-nav__link.pf-m-current::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: var(--border-radius-sm);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
-  pointer-events: none;
+  font-weight: 600;
+  background: var(--theme-color-1);
+  color: #fff !important;
+  border-radius: 6px;
 }
 
 .pf-v6-c-nav__link.pf-m-current:hover {
-  transform: translateX(5px) scale(1.01);
-  box-shadow:
-    0 6px 20px rgba(251, 146, 60, 0.5),
-    0 3px 12px var(--theme-glass-shadow-1),
-    0 0 30px var(--theme-glass-shadow-2),
-    inset 0 1px 3px rgba(255, 255, 255, 0.4);
-  border-left-width: 4px;
+  background: var(--theme-color-2);
 }
 
 /* Expandable Nav Enhancement - Premium Design */
@@ -230,72 +209,45 @@
   display: none;
 }
 
-/* Section headers (expandable toggle) */
+/* Section headers */
 .pf-v6-c-nav__item.pf-m-expandable > .pf-v6-c-nav__link {
-  font-weight: 700;
-  font-size: 0.75rem;
+  font-weight: 600;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--theme-color-1);
-  padding: 12px 16px 8px 16px;
-  margin: 6px 12px 4px 12px;
-  background: var(--theme-bg-6);
-  border-radius: 8px;
-  border-left: 3px solid var(--theme-glass-border);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.08em;
+  color: var(--os-text-secondary, #6a6e73);
+  padding: 10px 12px 6px 12px;
+  margin: 4px 8px 2px 8px;
 }
 
 .dark .pf-v6-c-nav__item.pf-m-expandable > .pf-v6-c-nav__link {
-  color: var(--theme-color-light);
-  background: var(--theme-bg-1);
-  border-left-color: var(--theme-color-light);
+  color: var(--os-text-muted, #8a8d90);
 }
 
 .pf-v6-c-nav__item.pf-m-expandable > .pf-v6-c-nav__link:hover {
-  background: var(--theme-bg-1);
-  transform: translateX(2px);
-  border-left-width: 4px;
-  padding-left: 15px;
-  box-shadow:
-    0 2px 8px rgba(251, 146, 60, 0.2),
-    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.04);
+}
+.dark .pf-v6-c-nav__item.pf-m-expandable > .pf-v6-c-nav__link:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
-/* Toggle icon styling */
+/* Toggle icon */
 .pf-v6-c-nav__toggle-icon {
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  color: rgba(244, 114, 182, 0.8);
+  transition: transform 0.2s ease;
+  color: var(--os-text-muted, #8a8d90);
 }
 
 .pf-v6-c-nav__item.pf-m-expandable.pf-m-expanded > .pf-v6-c-nav__link .pf-v6-c-nav__toggle-icon {
   transform: rotate(90deg);
-  color: rgba(252, 165, 165, 0.9);
 }
 
-/* Nested nav list (children) with smooth animations */
+/* Subnav */
 .pf-v6-c-nav__item.pf-m-expandable .pf-v6-c-nav__subnav {
-  padding: 4px 0 8px 0;
-  background: rgba(251, 146, 60, 0.03);
-  border-radius: 8px;
-  margin: 4px 8px 0 8px;
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  max-height: 1000px;
-  opacity: 1;
-}
-
-/* Collapsed state */
-.pf-v6-c-nav__item.pf-m-expandable:not(.pf-m-expanded) .pf-v6-c-nav__subnav {
-  max-height: 0;
-  opacity: 0;
-  padding: 0;
-  margin: 0 8px;
-  transform: scaleY(0.95);
-  transform-origin: top;
+  padding: 2px 0 6px 0;
 }
 
 .dark .pf-v6-c-nav__item.pf-m-expandable .pf-v6-c-nav__subnav {
-  background: rgba(251, 146, 60, 0.06);
+  background: transparent;
 }
 
 /* Child nav items get indentation */
@@ -385,59 +337,29 @@
   letter-spacing: 0.01em;
 }
 
+/* Buttons — clean, flat */
 .pf-v6-c-button.pf-m-primary {
-  background: linear-gradient(135deg, var(--theme-color-1) 0%, var(--theme-color-2) 50%, rgb(251, 113, 133) 100%);
-  color: var(--console-primary-fg);
-  box-shadow:
-    0 4px 14px var(--theme-bg-1),
-    0 2px 8px rgba(251, 113, 133, 0.3),
-    inset 0 1px 2px rgba(255, 255, 255, 0.3);
-  border: 1px solid var(--theme-glass-shadow-1);
-}
-
-.pf-v6-c-button.pf-m-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s;
-}
-
-.pf-v6-c-button.pf-m-primary:hover::before {
-  left: 100%;
+  background: var(--theme-color-1) !important;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
 }
 
 .pf-v6-c-button.pf-m-primary:hover:not(:disabled) {
-  transform: translateY(-3px) scale(1.02);
-  box-shadow:
-    0 6px 24px rgba(251, 146, 60, 0.5),
-    0 3px 12px var(--theme-glass-shadow-1),
-    0 0 30px var(--theme-glass-shadow-2),
-    inset 0 1px 3px rgba(255, 255, 255, 0.4);
-  background: linear-gradient(135deg, var(--theme-color-1) 0%, var(--theme-color-1) 50%, var(--theme-color-2) 100%);
+  background: var(--theme-color-2) !important;
 }
 
 .pf-v6-c-button.pf-m-secondary {
-  background: var(--glass-bg);
+  background: transparent;
   border: 1px solid var(--glass-border);
-  color: var(--console-text-primary);
-  box-shadow:
-    0 2px 8px var(--theme-bg-1),
-    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  color: var(--os-text-primary, #151515);
+  border-radius: 6px;
 }
 
 .pf-v6-c-button.pf-m-secondary:hover:not(:disabled) {
-  background: var(--theme-bg-1);
-  border-color: var(--theme-glass-border);
-  color: var(--theme-color-2);
-  transform: translateY(-2px) scale(1.01);
-  box-shadow:
-    0 4px 12px var(--theme-glass-shadow-1),
-    0 2px 8px var(--theme-glass-shadow-2),
-    inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  border-color: var(--theme-color-1);
+  color: var(--theme-color-1);
 }
 
 .pf-v6-c-button:active:not(:disabled) {
