@@ -348,11 +348,7 @@ body::after {
   border-bottom: 2px solid var(--theme-color-1) !important;
 }
 
-/* Theme-colored accents on cards */
-:root:not(.dark) .pf-v6-c-card {
-  border-top: 2px solid var(--theme-color-1) !important;
-}
-
-.dark .pf-v6-c-card {
-  border-top: 2px solid var(--theme-color-1) !important;
+/* Theme-colored left accent on cards */
+.pf-v6-c-card {
+  border-left: 3px solid var(--theme-color-1) !important;
 }

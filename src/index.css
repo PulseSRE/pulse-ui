@@ -87,7 +87,6 @@
       radial-gradient(ellipse 1100px 700px at 50% 50%, var(--theme-bg-5), transparent),
       radial-gradient(circle 650px at 35% 40%, var(--theme-bg-6), transparent),
       var(--theme-gradient);
-    filter: brightness(1.12) saturate(1.25);
   }
 
   .dark body::after {
@@ -140,60 +139,31 @@
       radial-gradient(circle 600px at 40% 40%, var(--theme-bg-6), transparent),
       var(--theme-gradient);
     background-attachment: fixed;
-    filter: brightness(1.08) saturate(1.15);
   }
 
-  /* Animated orbs for depth - uses theme variables */
+  /* Subtle depth layer — no animation */
   body::after {
     content: '';
     position: fixed;
-    top: -50%;
-    left: -50%;
-    right: -50%;
-    bottom: -50%;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: -1;
     background:
       radial-gradient(circle 700px at 20% 30%, var(--theme-bg-1), transparent),
       radial-gradient(circle 800px at 80% 25%, var(--theme-bg-2), transparent),
-      radial-gradient(circle 650px at 65% 80%, var(--theme-bg-3), transparent),
-      radial-gradient(circle 750px at 35% 75%, var(--theme-bg-4), transparent),
-      radial-gradient(circle 600px at 90% 85%, var(--theme-bg-5), transparent),
-      radial-gradient(circle 550px at 50% 50%, var(--theme-bg-6), transparent);
-    animation: drift 50s ease-in-out infinite alternate, pulse 30s ease-in-out infinite;
+      radial-gradient(circle 650px at 65% 80%, var(--theme-bg-3), transparent);
     pointer-events: none;
-    opacity: 1;
-    mix-blend-mode: screen;
+    opacity: 0.5;
   }
 
-  @keyframes drift {
-    0% {
-      transform: translate(0, 0) rotate(0deg) scale(1);
-      opacity: 1;
-    }
-    25% {
-      transform: translate(-40px, 30px) rotate(2deg) scale(1.08);
-      opacity: 0.95;
-    }
-    50% {
-      transform: translate(20px, -35px) rotate(-3deg) scale(0.95);
-      opacity: 0.9;
-    }
-    75% {
-      transform: translate(50px, 15px) rotate(1deg) scale(1.03);
-      opacity: 0.93;
-    }
-    100% {
-      transform: translate(0, 0) rotate(0deg) scale(1);
-      opacity: 1;
-    }
-  }
-
-  @keyframes pulse {
-    0%, 100% {
-      filter: brightness(1) saturate(1);
-    }
-    50% {
-      filter: brightness(1.15) saturate(1.3);
+  /* Respect user motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
     }
   }
 
@@ -236,7 +206,6 @@
     font-weight: 700;
     letter-spacing: -0.03em;
     color: hsl(var(--foreground));
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   h1 {
@@ -257,18 +226,9 @@
     font-weight: 600;
   }
 
-  /* Enhance text readability on sunset background */
-  p, span, div {
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  }
-
-  /* Better contrast for card text */
+  /* Card text contrast */
   .pf-v6-c-card {
     color: hsl(var(--foreground));
-  }
-
-  .pf-v6-c-card__title {
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   }
 }
 

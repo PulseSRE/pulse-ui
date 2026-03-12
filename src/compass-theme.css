@@ -10,80 +10,38 @@
   --console-primary: hsl(var(--primary));
   --console-primary-fg: hsl(var(--primary-foreground));
 
-  /* Glassmorphism variables - use theme-aware colors */
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-border: var(--theme-glass-border, rgba(255, 255, 255, 0.4));
-  --glass-shadow:
-    0 8px 32px 0 var(--theme-glass-shadow-1, rgba(0, 0, 0, 0.1)),
-    0 4px 16px 0 var(--theme-glass-shadow-2, rgba(0, 0, 0, 0.06)),
-    inset 0 1px 2px 0 rgba(255, 255, 255, 0.3);
-  --glass-glow: 0 0 20px var(--theme-glass-glow, rgba(0, 0, 0, 0.1));
-  --glass-shimmer: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
+  /* Solid tinted backgrounds — themed but readable */
+  --glass-bg: #ffffff;
+  --glass-border: var(--theme-glass-border, #e0e0e0);
+  --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --glass-glow: none;
+  --glass-shimmer: none;
 }
 
 .dark {
-  --glass-bg: rgba(30, 30, 40, 0.65);
-  --glass-border: var(--theme-glass-border, rgba(255, 255, 255, 0.15));
-  --glass-shadow:
-    0 8px 32px 0 rgba(0, 0, 0, 0.4),
-    0 4px 16px 0 var(--theme-glass-shadow-1, rgba(0, 0, 0, 0.2)),
-    inset 0 1px 2px 0 var(--theme-glass-border, rgba(255, 255, 255, 0.1));
-  --glass-glow: 0 0 30px var(--theme-glass-glow, rgba(0, 0, 0, 0.2));
+  --glass-bg: #1e1e2a;
+  --glass-border: var(--theme-glass-border, rgba(255, 255, 255, 0.12));
+  --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --glass-glow: none;
 }
 
-/* Enhanced Card Styling - Premium Glassmorphism */
+/* Card Styling — solid, clean, themed border */
 .pf-v6-c-card {
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border-radius: var(--border-radius-md);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  border-radius: 6px;
   background: var(--glass-bg) !important;
-  backdrop-filter: blur(16px) saturate(180%) brightness(1.05) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.05) !important;
-  border: 1px solid var(--theme-glass-border, var(--glass-border)) !important;
+  border: 1px solid var(--glass-border) !important;
   box-shadow: var(--glass-shadow) !important;
-  position: relative;
-  overflow: hidden;
-}
-
-.pf-v6-c-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: var(--glass-shimmer);
-  transition: left 0.6s ease;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.dark .pf-v6-c-card {
-  background: var(--glass-bg) !important;
-  backdrop-filter: blur(20px) saturate(180%) brightness(1.1) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.1) !important;
 }
 
 .pf-v6-c-card:hover {
-  transform: translateY(-6px) scale(1.01);
-  box-shadow:
-    0 16px 48px 0 var(--theme-glass-shadow-1, rgba(0, 0, 0, 0.15)),
-    0 8px 24px 0 var(--theme-glass-shadow-2, rgba(0, 0, 0, 0.1)),
-    var(--glass-glow),
-    inset 0 1px 3px 0 rgba(255, 255, 255, 0.4);
-  border-color: var(--theme-glass-border, rgba(255, 255, 255, 0.3));
-  backdrop-filter: blur(20px) saturate(200%) brightness(1.1) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(200%) brightness(1.1) !important;
-}
-
-.pf-v6-c-card:hover::before {
-  left: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border-color: var(--theme-glass-border, #ccc);
 }
 
 /* Secondary Card Style */
 .pf-v6-c-card.pf-m-secondary {
-  background: rgba(248, 250, 252, 0.2) !important;
-  backdrop-filter: blur(16px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  background: var(--glass-bg) !important;
 }
 
 /* Stat Card Enhancement */
@@ -128,7 +86,7 @@
 
 /* Enhanced Table Styling - Glassmorphism */
 .pf-v6-c-table {
-  border-radius: var(--border-radius-md);
+  border-radius: 6px;
   overflow: hidden;
   background: var(--glass-bg) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
@@ -138,10 +96,11 @@
 }
 
 .pf-v6-c-table thead {
-  background: rgba(241, 245, 249, 0.75) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: #f5f5f5 !important;
   border-bottom: 1px solid var(--glass-border);
+}
+.dark .pf-v6-c-table thead {
+  background: #252530 !important;
 }
 
 .pf-v6-c-table tbody tr {
@@ -150,22 +109,18 @@
 }
 
 .pf-v6-c-table tbody tr:hover {
-  background: rgba(59, 130, 246, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-left: 3px solid var(--console-primary);
+  background: rgba(0, 0, 0, 0.03);
+}
+.dark .pf-v6-c-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Enhanced Labels */
 .pf-v6-c-label {
   font-weight: 600;
-  border-radius: var(--border-radius-sm);
-  padding: 4px 12px;
-  font-size: 0.8125rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
 }
 
 /* Enhanced Progress Bars */
@@ -542,9 +497,7 @@
 
 /* Masthead Enhancement - Premium Glass */
 .pf-v6-c-masthead {
-  background: rgba(255, 255, 255, 0.75) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.08) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.08) !important;
+  background: #ffffff !important;
   box-shadow:
     0 4px 24px rgba(251, 146, 60, 0.12),
     0 2px 12px rgba(251, 113, 133, 0.08),
@@ -559,13 +512,8 @@
 }
 
 .dark .pf-v6-c-masthead {
-  background: var(--glass-bg) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.15) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.15) !important;
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.4),
-    0 2px 12px rgba(244, 114, 182, 0.2),
-    inset 0 1px 1px rgba(244, 114, 182, 0.2) !important;
+  background: #1a1a26 !important;
+  box-shadow: 0 1px 0 var(--glass-border) !important;
 }
 
 .pf-v6-c-masthead__toggle {
@@ -595,11 +543,9 @@
 
 /* Sidebar Enhancement - Premium Glass with Improved Layout */
 .pf-v6-c-page__sidebar {
-  background: rgba(255, 255, 255, 0.7) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.08) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.08) !important;
+  background: #f8f8fa !important;
   box-shadow:
-    4px 0 24px var(--theme-glass-shadow-1, rgba(0, 0, 0, 0.1)),
+    1px 0 0 var(--glass-border),
     2px 0 12px rgba(251, 113, 133, 0.08),
     inset -1px 0 1px rgba(255, 255, 255, 0.3) !important;
   border-right: 1px solid var(--glass-border) !important;
@@ -609,6 +555,7 @@
 
 /* Add subtle gradient overlay at top of sidebar */
 .pf-v6-c-page__sidebar::before {
+  display: none;
   content: '';
   position: absolute;
   top: 0;
@@ -625,13 +572,8 @@
 }
 
 .dark .pf-v6-c-page__sidebar {
-  background: var(--glass-bg) !important;
-  backdrop-filter: blur(24px) saturate(180%) brightness(1.15) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.15) !important;
-  box-shadow:
-    4px 0 24px rgba(0, 0, 0, 0.4),
-    2px 0 12px rgba(244, 114, 182, 0.2),
-    inset -1px 0 1px rgba(244, 114, 182, 0.2) !important;
+  background: #16161f !important;
+  box-shadow: 1px 0 0 var(--glass-border) !important;
 }
 
 .dark .pf-v6-c-page__sidebar::before {
@@ -715,18 +657,15 @@
 .pf-v6-c-modal-box,
 .pf-v6-c-about-modal-box {
   background: var(--glass-bg);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 20px 60px rgba(31, 38, 135, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
 }
 
-/* Dropdown Glass */
+/* Dropdown */
 .pf-v6-c-dropdown__menu,
 .pf-v6-c-menu {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--glass-border);
   box-shadow: 0 12px 40px rgba(31, 38, 135, 0.2);
   border-radius: var(--border-radius-md);
