@@ -139,6 +139,13 @@ function buildTemplateVars(variables: VariableOption[]): Record<string, string> 
 
 function substituteVariables(expr: string, vars: Record<string, string>): string {
   let result = expr;
+  // Handle Grafana $interval:$resolution syntax → replace with just the resolution
+  result = result.replace(/\$interval:\$resolution/g, '5m');
+  result = result.replace(/\$\{interval\}:\$\{resolution\}/g, '5m');
+  // Handle $__range, $__from, $__to
+  result = result.replace(/\$__range/g, '1h');
+  result = result.replace(/\$\{__range\}/g, '1h');
+  // Substitute all known variables (longest first to avoid partial matches)
   const sortedKeys = Object.keys(vars).sort((a, b) => b.length - a.length);
   for (const key of sortedKeys) {
     const value = vars[key];
@@ -146,6 +153,7 @@ function substituteVariables(expr: string, vars: Record<string, string>): string
       result = result.split(key).join(value);
     }
   }
+  // Replace any remaining unresolved variables with wildcards
   result = result.replace(/\$\{[^}]+\}/g, '.*');
   result = result.replace(/\$[a-zA-Z_]\w*/g, '.*');
   return result;
