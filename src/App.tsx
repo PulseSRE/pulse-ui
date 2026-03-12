@@ -82,7 +82,6 @@ import SecretRotation from './pages/security/SecretRotation';
 import PodSecurityStandards from './pages/security/PodSecurityStandards';
 
 // Operations
-import NodeMaintenance from './pages/operations/NodeMaintenance';
 import PVCResize from './pages/operations/PVCResize';
 import HPARecommendations from './pages/operations/HPARecommendations';
 import CertificateManagement from './pages/operations/CertificateManagement';
@@ -396,7 +395,7 @@ function App() {
 
           {/* Operations */}
           <Route path="operations">
-            <Route path="node-maintenance" element={<NodeMaintenance />} />
+            <Route path="node-maintenance" element={<Navigate to="/compute/nodes" replace />} />
             <Route path="pvc-resize" element={<PVCResize />} />
             <Route path="hpa-recommendations" element={<HPARecommendations />} />
             <Route path="certificates" element={<CertificateManagement />} />

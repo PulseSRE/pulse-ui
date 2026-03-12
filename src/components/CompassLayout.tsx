@@ -105,7 +105,6 @@ const navigation = [
       { id: 'operators', name: 'Operators', href: '/operators/installed' },
       { id: 'operatorhub', name: 'OperatorHub', href: '/operators/operatorhub' },
       { id: 'cluster-settings', name: 'Settings & Updates', href: '/administration/cluster-settings' },
-      { id: 'node-maintenance', name: 'Maintenance', href: '/operations/node-maintenance' },
       { id: 'certificates', name: 'Certificates', href: '/operations/certificates' },
     ],
   },
