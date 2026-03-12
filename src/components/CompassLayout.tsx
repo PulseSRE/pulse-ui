@@ -35,6 +35,7 @@ import {
   ServerIcon,
   UsersIcon,
   CodeIcon,
+  SecurityIcon,
 } from '@patternfly/react-icons';
 import type { ThemeName } from './ThemePicker';
 import ThemePicker from './ThemePicker';
@@ -52,6 +53,7 @@ const sectionIcons: Record<string, React.ComponentType<{ className?: string }>> 
   applications: CubeIcon,
   observe: MonitoringIcon,
   cluster: ServerIcon,
+  security: SecurityIcon,
   access: UsersIcon,
 };
 
@@ -98,7 +100,18 @@ const navigation = [
       { id: 'dashboards', name: 'Dashboards', href: '/observe/dashboards' },
       { id: 'events', name: 'Events', href: '/home/events' },
       { id: 'pod-resources', name: 'Resource Usage', href: '/observe/pod-resources' },
-      { id: 'security', name: 'Security', href: '/security/overview' },
+    ],
+  },
+  {
+    id: 'security',
+    name: 'Security',
+    children: [
+      { id: 'security-overview', name: 'Overview', href: '/security/overview' },
+      { id: 'rbac-audit', name: 'RBAC Audit', href: '/security/rbac-audit' },
+      { id: 'network-policies', name: 'Network Policies', href: '/security/network-policies' },
+      { id: 'pod-security', name: 'Pod Security', href: '/security/pod-security' },
+      { id: 'secret-rotation', name: 'Secret Rotation', href: '/security/secret-rotation' },
+      { id: 'certificates', name: 'Certificates', href: '/operations/certificates' },
     ],
   },
   {
@@ -110,7 +123,6 @@ const navigation = [
       { id: 'operators', name: 'Operators', href: '/operators/installed' },
       { id: 'operatorhub', name: 'OperatorHub', href: '/operators/operatorhub' },
       { id: 'cluster-settings', name: 'Settings & Updates', href: '/administration/cluster-settings' },
-      { id: 'certificates', name: 'Certificates', href: '/operations/certificates' },
     ],
   },
   {

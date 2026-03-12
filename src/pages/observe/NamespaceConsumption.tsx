@@ -1,4 +1,6 @@
+import { Label } from '@patternfly/react-core';
 import ResourceListPage, { type ColumnDef } from '@/components/ResourceListPage';
+import ResourceActions from '@/components/ResourceActions';
 import { useK8sResource, type K8sMeta } from '@/hooks/useK8sResource';
 import '@/openshift-components.css';
 
@@ -7,6 +9,8 @@ interface NamespaceRow {
   podCount: number;
   totalCpuRequests: string;
   totalMemoryRequests: string;
+  cpuRaw: number;
+  memRaw: number;
   hasQuota: boolean;
   quotaCpuLimit: string;
   quotaMemoryLimit: string;
@@ -66,12 +70,12 @@ function formatMemory(mi: number): string {
 
 const columns: ColumnDef<NamespaceRow>[] = [
   { title: 'Namespace', key: 'namespace' },
-  { title: 'Pod Count', key: 'podCount' },
-  { title: 'Total CPU Requests', key: 'totalCpuRequests' },
-  { title: 'Total Memory Requests', key: 'totalMemoryRequests' },
-  { title: 'Has Quota', key: 'hasQuota', render: (r) => (r.hasQuota ? 'Yes' : 'No') },
-  { title: 'Quota CPU Limit', key: 'quotaCpuLimit' },
-  { title: 'Quota Memory Limit', key: 'quotaMemoryLimit' },
+  { title: 'Pods', key: 'podCount' },
+  { title: 'CPU Requests', key: 'totalCpuRequests' },
+  { title: 'Memory Requests', key: 'totalMemoryRequests' },
+  { title: 'Quota', key: 'hasQuota', render: (r) => r.hasQuota ? <Label color="green">Yes</Label> : <Label color="orange">No</Label>, sortable: false },
+  { title: 'CPU Limit', key: 'quotaCpuLimit' },
+  { title: 'Memory Limit', key: 'quotaMemoryLimit' },
 ];
 
 export default function NamespaceConsumption() {
@@ -118,18 +122,22 @@ export default function NamespaceConsumption() {
     }
   }
 
-  const data: NamespaceRow[] = Array.from(nsMap.entries()).map(([ns, entry]) => {
-    const quota = quotaMap.get(ns);
-    return {
-      namespace: ns,
-      podCount: entry.podCount,
-      totalCpuRequests: formatCpu(entry.cpuMillicores),
-      totalMemoryRequests: formatMemory(entry.memoryMi),
-      hasQuota: quota !== undefined,
-      quotaCpuLimit: quota?.cpuLimit ?? '-',
-      quotaMemoryLimit: quota?.memoryLimit ?? '-',
-    };
-  });
+  const data: NamespaceRow[] = Array.from(nsMap.entries())
+    .map(([ns, entry]) => {
+      const quota = quotaMap.get(ns);
+      return {
+        namespace: ns,
+        podCount: entry.podCount,
+        totalCpuRequests: formatCpu(entry.cpuMillicores),
+        totalMemoryRequests: formatMemory(entry.memoryMi),
+        cpuRaw: entry.cpuMillicores,
+        memRaw: entry.memoryMi,
+        hasQuota: quota !== undefined,
+        quotaCpuLimit: quota?.cpuLimit ?? '-',
+        quotaMemoryLimit: quota?.memoryLimit ?? '-',
+      };
+    })
+    .sort((a, b) => b.cpuRaw - a.cpuRaw);
 
   return (
     <ResourceListPage

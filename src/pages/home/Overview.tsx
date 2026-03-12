@@ -341,8 +341,40 @@ export default function Overview() {
             </Card>
           </GridItem>
 
-          {/* Row 3: Cluster Info */}
-          <GridItem md={12}>
+          {/* Row 3: Workload Health */}
+          <GridItem md={6}>
+            <Card className="os-dashboard__card">
+              <CardBody>
+                <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
+                  <FlexItem><strong className="os-dashboard__card-title">Workload Health</strong></FlexItem>
+                  <FlexItem>
+                    <Button variant="link" isInline onClick={() => navigate('/workloads/deployments')}>View all</Button>
+                  </FlexItem>
+                </Flex>
+                {(() => {
+                  // Compute from pods: count by status
+                  const running = pods.filter((p) => p.status === 'Running').length;
+                  const pending = pods.filter((p) => p.status === 'Pending').length;
+                  const failed = pods.filter((p) => p.status === 'Failed').length;
+                  const singleReplica = pods.length > 0 ? Math.round((running / pods.length) * 100) : 100;
+                  return (
+                    <>
+                      <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+                        <div><Label color="green">{running}</Label> Running</div>
+                        {pending > 0 && <div><Label color="orange">{pending}</Label> Pending</div>}
+                        {failed > 0 && <div><Label color="red">{failed}</Label> Failed</div>}
+                      </div>
+                      <Progress value={singleReplica} title="" size="sm" variant={singleReplica >= 90 ? ProgressVariant.success : singleReplica >= 70 ? ProgressVariant.warning : ProgressVariant.danger} />
+                      <div className="os-text-muted" style={{ marginTop: 4, fontSize: 12 }}>{singleReplica}% of pods running</div>
+                    </>
+                  );
+                })()}
+              </CardBody>
+            </Card>
+          </GridItem>
+
+          {/* Cluster Info */}
+          <GridItem md={6}>
             <Card className="os-dashboard__card">
               <CardBody>
                 <Flex justifyContent={{ default: 'justifyContentSpaceBetween' }} alignItems={{ default: 'alignItemsCenter' }}>
