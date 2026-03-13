@@ -16,15 +16,29 @@ vi.mock('@uiw/react-codemirror', () => ({
   )),
 }));
 
-vi.mock('@codemirror/lang-json', () => ({ json: () => [] }));
+vi.mock('@codemirror/lang-json', () => ({ json: () => [], jsonParseLinter: () => () => [] }));
 vi.mock('@codemirror/lang-yaml', () => ({ yaml: () => [] }));
 vi.mock('@codemirror/theme-one-dark', () => ({ oneDark: 'dark' }));
 vi.mock('@codemirror/search', () => ({ search: () => [], openSearchPanel: vi.fn() }));
-vi.mock('@codemirror/view', () => ({ EditorView: { lineWrapping: [] } }));
+vi.mock('@codemirror/lint', () => ({ linter: () => [], lintGutter: () => [] }));
+vi.mock('@codemirror/view', () => ({ EditorView: { lineWrapping: [] }, keymap: { of: () => [] } }));
 
 import YamlEditor from '../components/YamlEditor';
 
 const SAMPLE_JSON = JSON.stringify({ kind: 'Deployment', apiVersion: 'apps/v1', metadata: { name: 'test' } }, null, 2);
+
+// Sample with managedFields and other noisy metadata
+const NOISY_JSON = JSON.stringify({
+  kind: 'Deployment', apiVersion: 'apps/v1',
+  metadata: {
+    name: 'test', namespace: 'default',
+    uid: 'abc-123', resourceVersion: '12345', generation: 2,
+    creationTimestamp: '2026-01-01T00:00:00Z',
+    managedFields: [{ manager: 'kubectl', operation: 'Update' }],
+    annotations: { 'kubectl.kubernetes.io/last-applied': '{}', 'my-annotation': 'keep' },
+  },
+  spec: { replicas: 2 },
+}, null, 2);
 
 describe('YamlEditor', () => {
   afterEach(() => cleanup());
@@ -90,5 +104,53 @@ describe('YamlEditor', () => {
     fireEvent.click(cancelBtn!);
     expect(screen.getByTestId('codemirror').getAttribute('data-editable')).toBe('false');
     expect(screen.queryByText('Editing')).toBeNull();
+  });
+
+  it('clean view strips managedFields and noisy metadata', () => {
+    render(<YamlEditor value={NOISY_JSON} name="test" />);
+    // Click clean view button
+    const cleanBtn = screen.getByLabelText('Toggle clean view');
+    fireEvent.click(cleanBtn);
+    const content = screen.getByTestId('codemirror').textContent!;
+    // Should NOT contain managedFields, uid, resourceVersion, generation, creationTimestamp
+    expect(content).not.toContain('managedFields');
+    expect(content).not.toContain('abc-123');
+    expect(content).not.toContain('"resourceVersion"');
+    expect(content).not.toContain('"generation"');
+    // Should still contain real data
+    expect(content).toContain('"name": "test"');
+    expect(content).toContain('"replicas": 2');
+    expect(content).toContain('"my-annotation": "keep"');
+    // Should strip kubectl annotation
+    expect(content).not.toContain('last-applied');
+    // Banner should show stripped count
+    const banner = document.querySelector('.os-yaml-editor__banner');
+    expect(banner).not.toBeNull();
+    expect(banner!.textContent).toContain('Hiding');
+  });
+
+  it('shows status bar with keyboard shortcut hints in edit mode', () => {
+    render(<YamlEditor value={SAMPLE_JSON} name="test" apiUrl="/api/test" />);
+    const editBtn = Array.from(document.querySelectorAll('.pf-v6-c-button')).find(b => b.textContent?.includes('Edit'))!;
+    fireEvent.click(editBtn);
+    const statusbar = document.querySelector('.os-yaml-editor__statusbar')!;
+    expect(statusbar.textContent).toContain('Ctrl+S');
+    expect(statusbar.textContent).toContain('Esc');
+  });
+
+  it('minimap appears for resources with >50 lines', () => {
+    const longJson = JSON.stringify(
+      { kind: 'ConfigMap', data: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`key${i}`, `value${i}`])) },
+      null, 2
+    );
+    render(<YamlEditor value={longJson} name="test" />);
+    const minimap = document.querySelector('.os-yaml-editor__minimap');
+    expect(minimap).not.toBeNull();
+  });
+
+  it('minimap does not appear for small resources', () => {
+    render(<YamlEditor value={SAMPLE_JSON} name="test" />);
+    const minimap = document.querySelector('.os-yaml-editor__minimap');
+    expect(minimap).toBeNull();
   });
 });

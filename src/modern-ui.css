@@ -220,6 +220,7 @@ body::before, body::after {
 .pf-v6-c-button.pf-m-link { color: var(--modern-accent) !important; box-shadow: none !important; }
 .pf-v6-c-button.pf-m-plain { color: var(--modern-text-secondary) !important; box-shadow: none !important; }
 .pf-v6-c-button.pf-m-plain:hover { color: var(--modern-text) !important; }
+.pf-v6-c-button__icon { color: inherit !important; }
 .pf-v6-c-button:active:not(:disabled) { transform: none !important; }
 
 /* --- Labels --- */
