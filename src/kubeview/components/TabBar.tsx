@@ -3,7 +3,7 @@ import { X, Plus } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 // Helper to get icon component from string name
 function getIcon(iconName?: string) {
@@ -47,8 +47,11 @@ export function TabBar() {
     }
   }, [location.pathname]);
 
-  // When active tab changes, navigate to its path
+  // Navigate when user clicks a tab (not on store rehydration or URL-driven changes)
+  const userClickedTab = useRef(false);
   useEffect(() => {
+    if (!userClickedTab.current) return;
+    userClickedTab.current = false;
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (activeTab && location.pathname !== activeTab.path) {
       navigate(activeTab.path);
@@ -56,6 +59,7 @@ export function TabBar() {
   }, [activeTabId]);
 
   function handleTabClick(tabId: string) {
+    userClickedTab.current = true;
     setActiveTab(tabId);
   }
 
