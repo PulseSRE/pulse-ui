@@ -1,5 +1,5 @@
 /**
- * KubeView Log Viewer Components
+ * OpenShiftView Log Viewer Components
  *
  * Powerful log exploration experience with streaming, multi-container,
  * multi-pod support, search, and context analysis.

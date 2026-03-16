@@ -1,5 +1,5 @@
 /**
- * KubeView Main Views
+ * OpenShiftView Main Views
  * Core pages that render resource data
  */
 

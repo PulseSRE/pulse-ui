@@ -8,7 +8,7 @@ import {
   type K8sResource,
 } from '../index';
 
-describe('KubeView Renderers', () => {
+describe('OpenShiftView Renderers', () => {
   describe('getNestedValue', () => {
     it('retrieves nested values using dot notation', () => {
       const obj = {

@@ -1,4 +1,4 @@
-// Main exports for KubeView engine
+// Main exports for OpenShiftView engine
 
 // Renderers
 export * from './renderers/index';

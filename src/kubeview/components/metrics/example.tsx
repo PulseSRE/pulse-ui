@@ -1,5 +1,5 @@
 /**
- * Example usage of KubeView metrics components
+ * Example usage of OpenShiftView metrics components
  *
  * This file demonstrates how to integrate all metrics components together
  * to create a complete monitoring view.

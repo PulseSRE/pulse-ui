@@ -93,7 +93,7 @@ function renderBrowser() {
   );
 }
 
-describe('KubeView ResourceBrowser', () => {
+describe('OpenShiftView ResourceBrowser', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRegistry = buildRegistry();

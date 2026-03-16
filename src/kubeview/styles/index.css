@@ -3,7 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* KubeView Design Tokens */
+/* OpenShiftView Design Tokens */
 :root {
   --kv-bg: #0f172a;           /* slate-900 */
   --kv-surface: #1e293b;      /* slate-800 */
@@ -24,8 +24,8 @@
   --kv-font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace;
 }
 
-/* Base reset for KubeView */
-.kubeview {
+/* Base reset for OpenShiftView */
+.openshiftview {
   background-color: var(--kv-bg);
   color: var(--kv-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -34,21 +34,21 @@
 }
 
 /* Scrollbar styling */
-.kubeview ::-webkit-scrollbar {
+.openshiftview ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.kubeview ::-webkit-scrollbar-track {
+.openshiftview ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.kubeview ::-webkit-scrollbar-thumb {
+.openshiftview ::-webkit-scrollbar-thumb {
   background: var(--kv-border);
   border-radius: 4px;
 }
 
-.kubeview ::-webkit-scrollbar-thumb:hover {
+.openshiftview ::-webkit-scrollbar-thumb:hover {
   background: var(--kv-text-dim);
 }
 
@@ -128,7 +128,7 @@
 }
 
 /* Focus ring */
-.kubeview :focus-visible {
+.openshiftview :focus-visible {
   outline: 2px solid var(--kv-accent);
   outline-offset: 2px;
 }

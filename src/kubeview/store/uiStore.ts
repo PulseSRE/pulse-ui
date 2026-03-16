@@ -272,7 +272,7 @@ export const useUIStore = create<UIState>()(
       setActiveOperation: (op) => set({ activeOperation: op }),
     }),
     {
-      name: 'kubeview-ui-storage',
+      name: 'openshiftview-ui-storage',
       partialize: (state) => ({
         // Only persist these fields
         tabs: state.tabs,

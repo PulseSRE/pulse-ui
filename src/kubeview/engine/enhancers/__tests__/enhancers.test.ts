@@ -7,7 +7,7 @@ import {
 } from '../index';
 import { registerBuiltinEnhancers } from '../register';
 
-describe('KubeView Enhancers', () => {
+describe('OpenShiftView Enhancers', () => {
   beforeEach(() => {
     // Reset enhancers before each test
     // Note: In a real scenario, we'd need a way to clear the registry

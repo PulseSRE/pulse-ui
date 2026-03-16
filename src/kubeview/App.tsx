@@ -121,7 +121,7 @@ function CorrelationRoute() {
   );
 }
 
-export default function KubeViewApp() {
+export default function OpenShiftViewApp() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

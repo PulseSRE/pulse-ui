@@ -1,1 +1,1 @@
-export { default as KubeViewApp } from './App';
+export { default as OpenShiftViewApp } from './App';

@@ -93,7 +93,7 @@ function renderPalette() {
   );
 }
 
-describe('KubeView CommandPalette', () => {
+describe('OpenShiftView CommandPalette', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRegistry = buildRegistry();
@@ -266,7 +266,7 @@ describe('KubeView CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'Node' } });
     fireEvent.keyDown(window, { key: 'Enter' });
 
-    const stored = localStorage.getItem('kubeview-recents');
+    const stored = localStorage.getItem('openshiftview-recents');
     expect(stored).toBeDefined();
     const recents = JSON.parse(stored!);
     expect(recents[0].title).toBe('nodes');

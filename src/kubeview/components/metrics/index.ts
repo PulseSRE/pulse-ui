@@ -1,7 +1,7 @@
 /**
  * Metrics and Monitoring Components
  *
- * Export all metrics-related components for KubeView
+ * Export all metrics-related components for OpenShiftView
  */
 
 export { MetricsChart } from './MetricsChart';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import KubeViewApp from './kubeview/App';
+import OpenShiftViewApp from './kubeview/App';
 
 const container = document.getElementById('root');
 if (!container) {
@@ -11,6 +11,6 @@ const root = createRoot(container);
 
 root.render(
   <React.StrictMode>
-    <KubeViewApp />
+    <OpenShiftViewApp />
   </React.StrictMode>
 );
