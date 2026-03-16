@@ -1,3 +1,8 @@
+/* Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* KubeView Design Tokens */
 :root {
   --kv-bg: #0f172a;           /* slate-900 */

@@ -182,7 +182,7 @@ function getCommandItems(
 ): CommandItem[] {
   const cleanQuery = query.replace(/^[/:?]/, '').toLowerCase();
 
-  if (mode === 'browse' || (mode === 'default' && !query)) {
+  if (mode === 'browse' || mode === 'default') {
     // Show resource types from discovery
     const items: CommandItem[] = [];
 
@@ -200,7 +200,9 @@ function getCommandItems(
               title: resource.name || key,
               subtitle: resource.group ? `${resource.group}/${resource.version}` : resource.version,
               icon: getResourceIcon(resource.kind),
-              path: `/r/${resource.group}~${resource.version}~${resource.name}`,
+              path: resource.group
+                ? `/r/${resource.group}~${resource.version}~${resource.name}`
+                : `/r/${resource.version}~${resource.name}`,
             });
           }
         }

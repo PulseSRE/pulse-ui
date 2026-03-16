@@ -107,7 +107,9 @@ export function ResourceBrowser() {
   }
 
   function handleResourceClick(resource: any) {
-    const path = `/r/${resource.group || 'core'}~${resource.version}~${resource.name}`;
+    const path = resource.group
+      ? `/r/${resource.group}~${resource.version}~${resource.name}`
+      : `/r/${resource.version}~${resource.name}`;
     addTab({
       title: resource.name,
       icon: getResourceIcon(resource.kind),

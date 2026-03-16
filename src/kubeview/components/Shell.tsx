@@ -8,7 +8,11 @@ import { ResourceBrowser } from './ResourceBrowser';
 import { ActionPanel } from './ActionPanel';
 import { useKeyboardShortcuts, useDiscovery } from '../hooks';
 import { useUIStore } from '../store/uiStore';
+import { registerBuiltinEnhancers } from '../engine/enhancers/register';
 import { cn } from '@/lib/utils';
+
+// Register enhancers once at module load
+registerBuiltinEnhancers();
 
 export function Shell() {
   // Initialize keyboard shortcuts

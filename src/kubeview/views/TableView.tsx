@@ -52,6 +52,12 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     refetchInterval: 30000,
   });
 
+  // Stamp GVR key onto resources so renderers can build URLs
+  const stampedResources = React.useMemo(
+    () => resources.map((r) => ({ ...r, _gvrKey: gvrKey })),
+    [resources, gvrKey]
+  );
+
   // Get columns for this resource type
   const columns = React.useMemo(
     () => getColumnsForResource(gvrKey, isNamespaced),
@@ -72,10 +78,10 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
 
   // Filter resources by search term
   const filteredResources = React.useMemo(() => {
-    if (!searchTerm) return resources;
+    if (!searchTerm) return stampedResources;
 
     const term = searchTerm.toLowerCase();
-    return resources.filter((resource) => {
+    return stampedResources.filter((resource) => {
       // Search in name
       if (resource.metadata.name.toLowerCase().includes(term)) return true;
 

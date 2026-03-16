@@ -64,15 +64,31 @@ function ageFromTimestamp(ts: string | undefined): string {
 export function renderName(value: unknown, resource: K8sResource): ReactNode {
   const name = String(value || '-');
   const namespace = resource.metadata.namespace;
-  const kind = resource.kind.toLowerCase();
 
-  // Generate the detail page URL
-  const url = namespace
-    ? `/k8s/ns/${namespace}/${kind}/${name}`
-    : `/k8s/${kind}/${name}`;
+  // Use _gvrKey stamped by TableView, or build from apiVersion+kind as fallback
+  const gvrKey = (resource as Record<string, unknown>)._gvrKey as string | undefined;
+
+  let gvrUrl = '';
+  if (gvrKey) {
+    gvrUrl = gvrKey.replace(/\//g, '~');
+  } else {
+    const apiVersion = resource.apiVersion || '';
+    const kind = resource.kind || '';
+    if (apiVersion && kind) {
+      const parts = apiVersion.split('/');
+      const plural = kind.toLowerCase() + 's';
+      gvrUrl = parts.length === 2
+        ? `${parts[0]}~${parts[1]}~${plural}`
+        : `${parts[0]}~${plural}`;
+    }
+  }
+
+  const url = gvrUrl
+    ? (namespace ? `/r/${gvrUrl}/${namespace}/${name}` : `/r/${gvrUrl}/_/${name}`)
+    : '#';
 
   return (
-    <Link to={url} className="font-semibold text-blue-600 hover:text-blue-800 hover:underline">
+    <Link to={url} className="font-semibold text-blue-400 hover:text-blue-300 hover:underline">
       {name}
     </Link>
   );
@@ -83,12 +99,11 @@ export function renderNamespace(value: unknown): ReactNode {
   const ns = String(value);
 
   return (
-    <Link
-      to={`/k8s/ns/${ns}/overview`}
-      className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800 hover:bg-purple-200"
+    <span
+      className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-slate-700 text-slate-300"
     >
       {ns}
-    </Link>
+    </span>
   );
 }
 
