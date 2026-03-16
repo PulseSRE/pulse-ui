@@ -108,7 +108,9 @@ export default defineConfig({
   devServer: {
     port: 9000,
     hot: true,
-    historyApiFallback: true,
+    historyApiFallback: {
+      disableDotRule: true,
+    },
     open: true,
     setupMiddlewares: (middlewares: unknown[]) => {
       // Proxy for fetching Helm chart repo indexes (avoids CORS)
