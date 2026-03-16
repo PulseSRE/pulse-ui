@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Command } from 'lucide-react';
 import * as Icons from 'lucide-react';
@@ -81,6 +81,27 @@ export function CommandPalette() {
   // Build command items based on mode
   const items = getCommandItems(mode, query, resourceRegistry);
 
+  const handleSelect = useCallback((item: CommandItem) => {
+    if (item.action) {
+      item.action();
+    } else if (item.path) {
+      addTab({
+        title: item.title,
+        icon: item.icon,
+        path: item.path,
+        pinned: false,
+        closable: true,
+      });
+      navigate(item.path);
+
+      if (item.type === 'resource') {
+        saveRecent(item);
+      }
+    }
+
+    closeCommandPalette();
+  }, [addTab, navigate, closeCommandPalette]);
+
   // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -98,30 +119,7 @@ export function CommandPalette() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [items, selectedIndex]);
-
-  function handleSelect(item: CommandItem) {
-    if (item.action) {
-      item.action();
-    } else if (item.path) {
-      // Add tab and navigate
-      addTab({
-        title: item.title,
-        icon: item.icon,
-        path: item.path,
-        pinned: false,
-        closable: true,
-      });
-      navigate(item.path);
-
-      // Save to recents
-      if (item.type === 'resource') {
-        saveRecent(item);
-      }
-    }
-
-    closeCommandPalette();
-  }
+  }, [items, selectedIndex, handleSelect]);
 
   return (
     <>

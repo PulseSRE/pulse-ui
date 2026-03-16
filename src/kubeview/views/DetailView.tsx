@@ -24,6 +24,8 @@ import { cn } from '@/lib/utils';
 import { k8sGet, k8sList, k8sDelete, k8sPatch } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
 import { diagnoseResource, type Diagnosis } from '../engine/diagnosis';
+import { detectResourceStatus } from '../engine/renderers/statusUtils';
+import { kindToPlural } from '../engine/renderers/index';
 import { buildApiPath } from '../hooks/useResourceUrl';
 import { useUIStore } from '../store/uiStore';
 import { jsonToYaml, resourceToYaml } from '../engine/yamlUtils';
@@ -99,7 +101,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       const [ownerGroup, ownerVersion] = owner.apiVersion.includes('/')
         ? owner.apiVersion.split('/')
         : ['', owner.apiVersion];
-      const ownerPlural = owner.kind.toLowerCase() + 's';
+      const ownerPlural = kindToPlural(owner.kind);
       const ownerGvr = ownerGroup
         ? `${ownerGroup}~${ownerVersion}~${ownerPlural}`
         : `${ownerVersion}~${ownerPlural}`;
@@ -663,7 +665,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
 // Helper components
 function StatusBadge({ resource }: { resource: K8sResource }) {
-  const { detectResourceStatus } = require('../engine/renderers/statusUtils');
   const { status, reason } = detectResourceStatus(resource);
 
   const colorMap: Record<string, string> = {

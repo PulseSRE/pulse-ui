@@ -47,6 +47,28 @@ export function getNestedValue(obj: unknown, path: string): unknown {
   return current;
 }
 
+/**
+ * Convert a K8s kind to its plural resource name.
+ * Handles irregular plurals common in Kubernetes.
+ */
+export function kindToPlural(kind: string): string {
+  const lower = kind.toLowerCase();
+  const irregulars: Record<string, string> = {
+    endpoints: 'endpoints',
+    ingress: 'ingresses',
+    networkpolicy: 'networkpolicies',
+    podsecuritypolicy: 'podsecuritypolicies',
+    storageclass: 'storageclasses',
+    resourcequota: 'resourcequotas',
+    horizontalpodautoscaler: 'horizontalpodautoscalers',
+  };
+  if (irregulars[lower]) return irregulars[lower];
+  if (lower.endsWith('s')) return lower;
+  if (lower.endsWith('ss') || lower.endsWith('sh') || lower.endsWith('ch') || lower.endsWith('x') || lower.endsWith('z')) return lower + 'es';
+  if (lower.endsWith('y') && !['a','e','i','o','u'].includes(lower[lower.length - 2])) return lower.slice(0, -1) + 'ies';
+  return lower + 's';
+}
+
 // Helper to compute age from timestamp
 function ageFromTimestamp(ts: string | undefined): string {
   if (!ts) return '-';
@@ -76,7 +98,7 @@ export function renderName(value: unknown, resource: K8sResource): ReactNode {
     const kind = resource.kind || '';
     if (apiVersion && kind) {
       const parts = apiVersion.split('/');
-      const plural = kind.toLowerCase() + 's';
+      const plural = kindToPlural(kind);
       gvrUrl = parts.length === 2
         ? `${parts[0]}~${parts[1]}~${plural}`
         : `${parts[0]}~${plural}`;
@@ -443,6 +465,9 @@ export function autoDetectColumns(resources: K8sResource[]): ColumnDef[] {
     });
   }
 
+  // Skip noisy status fields
+  const statusSkip = new Set(['observedGeneration', 'conditions']);
+
   // Check status scalar fields
   const statusFields = new Set<string>();
   for (const r of sample) {
@@ -456,9 +481,6 @@ export function autoDetectColumns(resources: K8sResource[]): ColumnDef[] {
       }
     }
   }
-
-  // Skip noisy status fields
-  const statusSkip = new Set(['observedGeneration', 'conditions']);
 
   const statusPriority = ['phase', 'ready', 'replicas', 'availableReplicas', 'readyReplicas',
     'loadBalancer'];

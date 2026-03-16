@@ -9,6 +9,10 @@ import { useUIStore } from '../store/uiStore';
  * - "v1/nodes" (cluster-scoped) -> "/api/v1/nodes"
  * - "apps/v1/deployments" with namespace "default" and name "nginx" -> "/apis/apps/v1/namespaces/default/deployments/nginx"
  */
+function sanitizePathSegment(s: string): string {
+  return encodeURIComponent(s).replace(/%2F/gi, '');
+}
+
 export function buildApiPath(gvrKey: string, namespace?: string, name?: string): string {
   const parts = gvrKey.split('/');
 
@@ -39,7 +43,7 @@ export function buildApiPath(gvrKey: string, namespace?: string, name?: string):
 
   // Add namespace segment if provided
   if (namespace) {
-    path += `/namespaces/${namespace}`;
+    path += `/namespaces/${sanitizePathSegment(namespace)}`;
   }
 
   // Add resource
@@ -47,7 +51,7 @@ export function buildApiPath(gvrKey: string, namespace?: string, name?: string):
 
   // Add name if provided
   if (name) {
-    path += `/${name}`;
+    path += `/${sanitizePathSegment(name)}`;
   }
 
   return path;

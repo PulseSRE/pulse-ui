@@ -223,9 +223,16 @@ export function CommandBar() {
                   Getting Started
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setShowUserMenu(false);
-                    navigator.clipboard.writeText(document.cookie || 'No token available');
+                    try {
+                      const res = await fetch('/api/kubernetes/apis/oauth.openshift.io/v1/oauthaccesstokens?limit=1');
+                      if (res.ok) {
+                        const text = 'Use "oc whoami -t" to get your API token';
+                        navigator.clipboard.writeText(text);
+                      }
+                    } catch {}
+                    addToast({ type: 'success', title: 'Run "oc whoami -t" to get your API token' });
                   }}
                   className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 transition-colors"
                 >

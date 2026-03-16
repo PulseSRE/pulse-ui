@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
 import { getPodStatus, getNodeStatus, getDeploymentStatus } from '../engine/renderers/statusUtils';
+import { kindToPlural } from '../engine/renderers/index';
 import { diagnoseResource, type Diagnosis } from '../engine/diagnosis';
 import { useUIStore } from '../store/uiStore';
 
@@ -124,7 +125,7 @@ export default function TroubleshootView() {
     const apiVersion = resource.apiVersion || 'v1';
     const kind = resource.kind || '';
     const [group, version] = apiVersion.includes('/') ? apiVersion.split('/') : ['', apiVersion];
-    const plural = kind.toLowerCase() + 's';
+    const plural = kindToPlural(kind);
     const gvr = group ? `${group}~${version}~${plural}` : `${version}~${plural}`;
     const ns = resource.metadata.namespace;
     return ns ? `/r/${gvr}/${ns}/${resource.metadata.name}` : `/r/${gvr}/_/${resource.metadata.name}`;

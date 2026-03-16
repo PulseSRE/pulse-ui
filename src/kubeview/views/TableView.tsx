@@ -8,6 +8,7 @@ import { jsonToYaml } from '../engine/yamlUtils';
 import { useClusterStore } from '../store/clusterStore';
 import { useUIStore } from '../store/uiStore';
 import type { K8sResource, ColumnDef } from '../engine/renderers';
+import { kindToPlural } from '../engine/renderers/index';
 import { getColumnsForResource } from '../engine/enhancers';
 import { getEnhancer } from '../engine/enhancers';
 
@@ -270,10 +271,6 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   };
 
   const addToast = useUIStore((s) => s.addToast);
-  const queryClient = React.useMemo(() => {
-    // Access the query client from the provider
-    return (window as any).__queryClient;
-  }, []);
 
   const handleAction = async (action: string, payload?: unknown) => {
     const p = payload as { resource?: any; delta?: number } | undefined;
@@ -291,7 +288,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       : ['', apiVersion];
     let basePath = group ? `/apis/${apiVersion}` : `/api/${version}`;
     if (resourceNs) basePath += `/namespaces/${resourceNs}`;
-    const plural = kind.toLowerCase() + 's';
+    const plural = kindToPlural(kind);
     const resourcePath = `${basePath}/${plural}/${resourceName}`;
 
     try {
@@ -375,6 +372,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     if (!confirmed) return;
 
     let deleted = 0;
+    let failed = 0;
     for (const uid of selectedRows) {
       const resource = stampedResources.find((r) => r.metadata.uid === uid);
       if (!resource) continue;
@@ -384,19 +382,23 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       const [group, version] = apiVersion.includes('/') ? apiVersion.split('/') : ['', apiVersion];
       let basePath = group ? `/apis/${apiVersion}` : `/api/${version}`;
       if (resource.metadata.namespace) basePath += `/namespaces/${resource.metadata.namespace}`;
-      const plural = kind.toLowerCase() + 's';
+      const plural = kindToPlural(kind);
       const resourcePath = `${basePath}/${plural}/${resource.metadata.name}`;
 
       try {
         await k8sDelete(resourcePath);
         deleted++;
       } catch {
-        // Continue with others
+        failed++;
       }
     }
 
     setSelectedRows(new Set());
-    addToast({ type: 'success', title: `Deleted ${deleted} resource${deleted !== 1 ? 's' : ''}` });
+    if (failed > 0) {
+      addToast({ type: 'warning', title: `Deleted ${deleted}, failed ${failed}`, detail: `${failed} resource${failed !== 1 ? 's' : ''} could not be deleted` });
+    } else {
+      addToast({ type: 'success', title: `Deleted ${deleted} resource${deleted !== 1 ? 's' : ''}` });
+    }
   }, [selectedRows, stampedResources, addToast]);
 
   // Row click: single = preview, double = navigate

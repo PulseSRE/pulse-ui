@@ -4,7 +4,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { watchManager, type WatchEvent } from './watch';
 
 const BASE = '/api/kubernetes';
@@ -191,7 +191,7 @@ export function useK8sWatch<T extends { metadata: { uid: string; resourceVersion
   namespace?: string
 ) {
   const queryClient = useQueryClient();
-  const queryKey = ['k8s', 'list', apiPath, namespace];
+  const queryKey = useMemo(() => ['k8s', 'list', apiPath, namespace], [apiPath, namespace]);
 
   // Initial fetch
   const { data: initialData, isLoading, error } = useK8sList<T>(apiPath, namespace, {

@@ -6,6 +6,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ResourceType } from './discovery';
 import { k8sPatch, k8sDelete, k8sSubresource } from './query';
+import { kindToPlural } from './renderers/index';
 
 export interface ResourceAction {
   id: string;
@@ -77,7 +78,7 @@ function getResourcePath(resource: K8sResource): string {
   }
 
   // Convert kind to plural (simple heuristic)
-  const plural = resource.kind.toLowerCase() + 's';
+  const plural = kindToPlural(resource.kind);
   path += `/${plural}/${resource.metadata.name}`;
 
   return path;
