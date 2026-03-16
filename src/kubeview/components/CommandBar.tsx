@@ -117,66 +117,76 @@ export function CommandBar() {
           )}
         </div>
 
-        {/* Namespace selector */}
+        {/* Namespace selector — compact inline with keyboard shortcut */}
         <div className="relative">
           <button
             onClick={() => setShowNsDropdown(!showNsDropdown)}
             className={cn(
-              'flex items-center gap-1.5 rounded-md border px-2.5 py-1 transition-colors',
+              'flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors h-7',
               selectedNamespace === '*'
-                ? 'border-slate-700/50 bg-slate-900/50 text-slate-400'
-                : 'border-blue-700/50 bg-blue-950/30 text-blue-300'
+                ? 'border-slate-700/50 bg-slate-900/50 text-slate-400 hover:border-slate-600'
+                : 'border-blue-600/50 bg-blue-950/40 text-blue-300 hover:border-blue-500'
             )}
+            title="Switch namespace (⌘N)"
           >
             <Layers className="w-3 h-3" />
-            <span className="text-xs font-medium max-w-[120px] truncate">
-              {selectedNamespace === '*' ? 'All Namespaces' : selectedNamespace}
+            <span className="text-xs font-medium max-w-[130px] truncate">
+              {selectedNamespace === '*' ? 'All' : selectedNamespace}
             </span>
-            <ChevronDown className="h-3 w-3 text-slate-500" />
+            <ChevronDown className="h-2.5 w-2.5 opacity-50" />
           </button>
 
           {showNsDropdown && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => { setShowNsDropdown(false); setNsFilter(''); }} />
-              <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl flex flex-col max-h-96">
+              <div className="fixed inset-0 z-40" onClick={() => { setShowNsDropdown(false); setNsFilter(''); }} onKeyDown={(e) => { if (e.key === 'Escape') { setShowNsDropdown(false); setNsFilter(''); } }} />
+              <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl flex flex-col max-h-[420px]">
                 <div className="p-2 border-b border-slate-700">
-                  <input
-                    type="text"
-                    value={nsFilter}
-                    onChange={(e) => setNsFilter(e.target.value)}
-                    placeholder="Filter namespaces..."
-                    className="w-full px-2.5 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                    <input
+                      type="text"
+                      value={nsFilter}
+                      onChange={(e) => setNsFilter(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') { setShowNsDropdown(false); setNsFilter(''); }
+                        if (e.key === 'Enter') {
+                          const filtered = namespaces.filter((ns) => !nsFilter || ns.toLowerCase().includes(nsFilter.toLowerCase()));
+                          if (filtered.length === 1) { setSelectedNamespace(filtered[0]); setShowNsDropdown(false); setNsFilter(''); }
+                        }
+                      }}
+                      placeholder="Type to filter..."
+                      className="w-full pl-8 pr-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  </div>
                 </div>
                 <div className="overflow-auto py-1">
                   <button
                     onClick={() => { setSelectedNamespace('*'); setShowNsDropdown(false); setNsFilter(''); }}
-                    className={cn(
-                      'w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-slate-700 flex items-center gap-2',
-                      selectedNamespace === '*' ? 'text-blue-400' : 'text-slate-300'
-                    )}
+                    className={cn('w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-slate-700 flex items-center gap-2', selectedNamespace === '*' ? 'text-blue-400 bg-blue-950/30' : 'text-slate-300')}
                   >
-                    <Layers className="w-3 h-3 text-slate-500" />
-                    All Namespaces
-                    {selectedNamespace === '*' && <span className="ml-auto text-xs text-blue-400">✓</span>}
+                    <Layers className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="flex-1">All Namespaces</span>
+                    <span className="text-[10px] text-slate-500">{namespaces.length} total</span>
+                    {selectedNamespace === '*' && <span className="text-blue-400 text-xs">✓</span>}
                   </button>
+                  <div className="border-t border-slate-700/50 my-1" />
                   {namespaces
                     .filter((ns) => !nsFilter || ns.toLowerCase().includes(nsFilter.toLowerCase()))
                     .map((ns) => (
                       <button
                         key={ns}
                         onClick={() => { setSelectedNamespace(ns); setShowNsDropdown(false); setNsFilter(''); }}
-                        className={cn(
-                          'w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-slate-700 flex items-center gap-2',
-                          selectedNamespace === ns ? 'text-blue-400' : 'text-slate-300'
-                        )}
+                        className={cn('w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-slate-700 flex items-center gap-2', selectedNamespace === ns ? 'text-blue-400 bg-blue-950/30' : 'text-slate-300')}
                       >
-                        <span className="w-3" />
-                        {ns}
-                        {selectedNamespace === ns && <span className="ml-auto text-xs text-blue-400">✓</span>}
+                        <span className="w-3.5" />
+                        <span className="flex-1 truncate">{ns}</span>
+                        {selectedNamespace === ns && <span className="text-blue-400 text-xs">✓</span>}
                       </button>
                     ))}
+                  {nsFilter && namespaces.filter((ns) => ns.toLowerCase().includes(nsFilter.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-4 text-center text-xs text-slate-500">No namespaces match "{nsFilter}"</div>
+                  )}
                 </div>
               </div>
             </>

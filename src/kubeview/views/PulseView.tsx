@@ -21,9 +21,15 @@ import { kindToPlural } from '../engine/renderers/index';
 import { findNeedsAttention, diagnoseResource, type NeedsAttentionItem } from '../engine/diagnosis';
 import { useUIStore } from '../store/uiStore';
 
+function filterByNamespace<T extends { metadata: { namespace?: string } }>(items: T[], ns: string): T[] {
+  if (ns === '*') return items;
+  return items.filter((i) => i.metadata.namespace === ns);
+}
+
 export default function PulseView() {
   const navigate = useNavigate();
   const addTab = useUIStore((s) => s.addTab);
+  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
 
   const { data: nodes = [] } = useQuery<K8sResource[]>({
     queryKey: ['pulse', 'nodes'],
@@ -55,25 +61,29 @@ export default function PulseView() {
     refetchInterval: 30000,
   });
 
+  // Apply namespace filter
+  const filteredPods = React.useMemo(() => filterByNamespace(pods as any[], selectedNamespace), [pods, selectedNamespace]);
+  const filteredDeployments = React.useMemo(() => filterByNamespace(deployments as any[], selectedNamespace), [deployments, selectedNamespace]);
+
   // Needs attention items from diagnosis engine
   const attentionItems = React.useMemo(() => {
-    const all = [...pods, ...nodes, ...pvcs];
+    const all = [...filteredPods, ...nodes, ...pvcs];
     return findNeedsAttention(all);
-  }, [pods, nodes, pvcs]);
+  }, [filteredPods, nodes, pvcs]);
 
   // Failing pods
   const failingPods = React.useMemo(() => {
-    return pods.filter((pod) => {
+    return filteredPods.filter((pod) => {
       const status = getPodStatus(pod);
       return status.reason === 'CrashLoopBackOff' || status.reason === 'ImagePullBackOff' ||
         status.reason === 'ErrImagePull' || status.phase === 'Failed';
     });
-  }, [pods]);
+  }, [filteredPods]);
 
   // Unhealthy deployments
   const unhealthyDeploys = React.useMemo(() => {
-    return deployments.filter((d) => !getDeploymentStatus(d).available);
-  }, [deployments]);
+    return filteredDeployments.filter((d) => !getDeploymentStatus(d).available);
+  }, [filteredDeployments]);
 
   // Unready nodes
   const unreadyNodes = React.useMemo(() => {
@@ -172,14 +182,14 @@ export default function PulseView() {
           />
           <StatCard
             label="Pods"
-            value={`${pods.filter(p => { const s = getPodStatus(p); return s.phase === 'Running' && s.ready; }).length}/${pods.length}`}
+            value={`${filteredPods.filter(p => { const s = getPodStatus(p); return s.phase === 'Running' && s.ready; }).length}/${filteredPods.length}`}
             icon={<Box className="w-4 h-4" />}
             issues={failingPods.length}
             onClick={() => navigate('/r/v1~pods')}
           />
           <StatCard
             label="Deployments"
-            value={`${deployments.filter(d => getDeploymentStatus(d).available).length}/${deployments.length}`}
+            value={`${filteredDeployments.filter(d => getDeploymentStatus(d).available).length}/${filteredDeployments.length}`}
             icon={<Activity className="w-4 h-4" />}
             issues={unhealthyDeploys.length}
             onClick={() => navigate('/r/apps~v1~deployments')}

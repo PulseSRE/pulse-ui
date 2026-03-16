@@ -441,7 +441,21 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
             <p className="text-xs text-slate-500 mt-0.5">
               {groupVersion} · {isNamespaced ? 'namespaced' : 'cluster-scoped'} ·{' '}
               {sortedResources.length} found
-              {activeNamespace && ` in ${activeNamespace}`}
+              {isNamespaced && (
+                <span>
+                  {' in '}
+                  <button
+                    onClick={() => {
+                      const next = activeNamespace ? '*' : 'default';
+                      useUIStore.getState().setSelectedNamespace(next);
+                    }}
+                    className="text-blue-400 hover:text-blue-300 hover:underline"
+                    title="Click to switch namespace"
+                  >
+                    {activeNamespace || 'all namespaces'}
+                  </button>
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
