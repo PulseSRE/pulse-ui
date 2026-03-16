@@ -26,7 +26,9 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   const resourceRegistry = useClusterStore((s) => s.resourceRegistry);
 
   // Determine if resource is namespaced
-  const resourceType = resourceRegistry?.get(gvrKey);
+  // Registry uses "core/v1/pods" for core resources, but URL-derived keys are "v1/pods"
+  const resourceType = resourceRegistry?.get(gvrKey)
+    ?? (gvrKey.split('/').length === 2 ? resourceRegistry?.get(`core/${gvrKey}`) : undefined);
   const isNamespaced = resourceType?.namespaced ?? true;
 
   // Build API path from GVR key
