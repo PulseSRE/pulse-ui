@@ -57,11 +57,30 @@ export function TabBar() {
   const setActiveTab = useUIStore((s) => s.setActiveTab);
   const closeTab = useUIStore((s) => s.closeTab);
   const reorderTabs = useUIStore((s) => s.reorderTabs);
+  const pinTab = useUIStore((s) => s.pinTab);
+  const unpinTab = useUIStore((s) => s.unpinTab);
   const openCommandPalette = useUIStore((s) => s.openCommandPalette);
   const addTab = useUIStore((s) => s.addTab);
 
   const [draggedIdx, setDraggedIdx] = React.useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = React.useState<number | null>(null);
+  const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; tabId: string } | null>(null);
+
+  const handleCloseOthers = (keepId: string) => {
+    for (const tab of tabs) {
+      if (tab.id !== keepId && tab.closable && tab.id !== 'pulse') {
+        closeTab(tab.id);
+      }
+    }
+  };
+
+  const handleCloseAll = () => {
+    for (const tab of tabs) {
+      if (tab.closable && tab.id !== 'pulse') {
+        closeTab(tab.id);
+      }
+    }
+  };
 
   // Sync active tab with current route
   useEffect(() => {
@@ -139,9 +158,13 @@ export function TabBar() {
             onDragEnd={() => { setDraggedIdx(null); setDragOverIdx(null); }}
             onClick={() => handleTabClick(tab.id)}
             onMouseDown={(e) => handleMiddleClick(e, tab.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
+            }}
             className={cn(
               'group flex h-7 items-center gap-1.5 rounded px-2.5 text-sm transition-colors cursor-pointer select-none',
-              tab.pinned ? 'min-w-0 px-2' : 'min-w-[100px] max-w-[200px]',
+              tab.pinned ? 'min-w-0 px-1.5' : 'min-w-[100px] max-w-[200px]',
               isActive
                 ? 'bg-slate-900 text-slate-100 shadow-sm'
                 : 'text-slate-400 hover:bg-slate-700 hover:text-slate-200',
@@ -159,13 +182,13 @@ export function TabBar() {
               />
             )}
 
-            {/* Title (hidden for pinned tabs) */}
-            {!tab.pinned && (
-              <span className="flex-1 truncate">{tab.title}</span>
-            )}
+            {/* Title */}
+            <span className={cn('truncate', tab.pinned ? 'text-xs max-w-[60px]' : 'flex-1')}>
+              {tab.title}
+            </span>
 
             {/* Close button */}
-            {tab.closable && !tab.pinned && (
+            {tab.closable && (
               <button
                 onClick={(e) => handleTabClose(e, tab.id)}
                 className="rounded p-0.5 opacity-0 transition-opacity hover:bg-slate-600 group-hover:opacity-100"
@@ -181,9 +204,79 @@ export function TabBar() {
       <button
         onClick={openCommandPalette}
         className="flex h-7 w-7 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
+        title="New tab (⌘K)"
       >
         <Plus className="h-4 w-4" />
       </button>
+
+      {/* Close all (shown when many tabs) */}
+      {tabs.filter((t) => t.closable).length > 2 && (
+        <button
+          onClick={handleCloseAll}
+          className="ml-auto flex h-7 items-center gap-1 rounded px-2 text-xs text-slate-500 transition-colors hover:bg-slate-700 hover:text-slate-300"
+          title="Close all tabs"
+        >
+          <X className="h-3 w-3" />
+          Close all
+        </button>
+      )}
+
+      {/* Context menu */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed z-50 w-48 rounded-lg border border-slate-600 bg-slate-800 shadow-xl py-1"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            {(() => {
+              const tab = tabs.find((t) => t.id === contextMenu.tabId);
+              if (!tab) return null;
+              return (
+                <>
+                  {tab.closable && !tab.pinned && (
+                    <button
+                      onClick={() => { pinTab(tab.id); setContextMenu(null); }}
+                      className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700"
+                    >
+                      📌 Pin tab
+                    </button>
+                  )}
+                  {tab.pinned && tab.id !== 'pulse' && (
+                    <button
+                      onClick={() => { unpinTab(tab.id); setContextMenu(null); }}
+                      className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700"
+                    >
+                      Unpin tab
+                    </button>
+                  )}
+                  {tab.closable && (
+                    <button
+                      onClick={() => { closeTab(tab.id); setContextMenu(null); }}
+                      className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700"
+                    >
+                      Close
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { handleCloseOthers(tab.id); setContextMenu(null); }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700"
+                  >
+                    Close others
+                  </button>
+                  <div className="border-t border-slate-700 my-1" />
+                  <button
+                    onClick={() => { handleCloseAll(); setContextMenu(null); }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-slate-700"
+                  >
+                    Close all tabs
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </>
+      )}
     </div>
   );
 }
