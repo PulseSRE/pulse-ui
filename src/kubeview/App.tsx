@@ -28,6 +28,7 @@ const DashboardView = lazy(() => import('./views/DashboardView'));
 const CreateView = lazy(() => import('./views/CreateView'));
 const DependencyView = lazy(() => import('./views/DependencyView'));
 const ConfigCompareView = lazy(() => import('./views/ConfigCompareView'));
+const TroubleshootView = lazy(() => import('./views/TroubleshootView'));
 
 function LoadingFallback() {
   return (
@@ -161,6 +162,13 @@ export default function OpenShiftViewApp() {
 
             {/* Dependencies: /deps/apps~v1~deployments/:namespace/:name */}
             <Route path="deps/:gvr/:namespace/:name" element={<DependencyRoute />} />
+
+            {/* Troubleshoot */}
+            <Route path="troubleshoot" element={
+              <Suspense fallback={<LoadingFallback />}>
+                <TroubleshootView />
+              </Suspense>
+            } />
 
             {/* Config Compare */}
             <Route path="config-compare" element={

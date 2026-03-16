@@ -170,6 +170,7 @@ export function ResourceBrowser() {
             { label: 'Cluster Pulse', icon: Icons.Activity, path: '/pulse', color: 'text-emerald-400' },
             { label: 'Timeline', icon: Icons.Clock, path: '/timeline', color: 'text-blue-400' },
             { label: 'Dashboard', icon: Icons.LayoutDashboard, path: '/dashboard', color: 'text-purple-400' },
+            { label: 'Troubleshoot', icon: Icons.Activity, path: '/troubleshoot', color: 'text-orange-400' },
             { label: 'Config Compare', icon: Icons.GitCompare, path: '/config-compare', color: 'text-pink-400' },
             { label: 'Create Resource', icon: Icons.FilePlus, path: '/create/v1~pods', color: 'text-amber-400' },
           ].map((page) => (

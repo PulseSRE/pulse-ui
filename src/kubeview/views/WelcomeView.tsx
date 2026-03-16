@@ -61,10 +61,10 @@ export default function WelcomeView() {
               onClick={() => go('/create/v1~pods', 'Create Pod')}
             />
             <QuickAction
-              icon={<GitBranch className="w-6 h-6 text-purple-400" />}
+              icon={<GitBranch className="w-6 h-6 text-orange-400" />}
               title="Troubleshoot Resource"
-              description="View dependencies, diagnose issues, and investigate correlations"
-              onClick={() => go('/r/v1~pods', 'Pods')}
+              description="Auto-diagnose issues, view dependencies, and investigate correlations"
+              onClick={() => go('/troubleshoot', 'Troubleshoot')}
             />
           </div>
         </div>
