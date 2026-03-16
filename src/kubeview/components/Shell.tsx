@@ -6,6 +6,7 @@ import { StatusBar } from './StatusBar';
 import { CommandPalette } from './CommandPalette';
 import { ResourceBrowser } from './ResourceBrowser';
 import { ActionPanel } from './ActionPanel';
+import { ToastContainer } from './feedback/Toast';
 import { useKeyboardShortcuts, useDiscovery } from '../hooks';
 import { useUIStore } from '../store/uiStore';
 import { registerBuiltinEnhancers } from '../engine/enhancers/register';
@@ -52,6 +53,7 @@ export function Shell() {
       {commandPaletteOpen && <CommandPalette />}
       {browserOpen && <ResourceBrowser />}
       {actionPanelOpen && <ActionPanel />}
+      <ToastContainer />
     </div>
   );
 }

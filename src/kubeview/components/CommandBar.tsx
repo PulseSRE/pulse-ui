@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { cn } from '@/lib/utils';
@@ -7,6 +7,8 @@ export function CommandBar() {
   const [clusterName, setClusterName] = useState('cluster');
   const [namespaces, setNamespaces] = useState<string[]>([]);
   const [showNsDropdown, setShowNsDropdown] = useState(false);
+  const [nsFilter, setNsFilter] = useState('');
+  const nsInputRef = useRef<HTMLInputElement>(null);
 
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const setSelectedNamespace = useUIStore((s) => s.setSelectedNamespace);
@@ -82,38 +84,56 @@ export function CommandBar() {
               />
 
               {/* Dropdown */}
-              <div className="absolute right-0 top-full z-50 mt-1 max-h-96 w-64 overflow-auto rounded border border-slate-600 bg-slate-800 shadow-xl">
-                <button
-                  onClick={() => {
-                    setSelectedNamespace('*');
-                    setShowNsDropdown(false);
-                  }}
-                  className={cn(
-                    'w-full px-3 py-2 text-left text-sm transition-colors hover:bg-slate-700',
-                    selectedNamespace === '*'
-                      ? 'bg-slate-700 text-emerald-400'
-                      : 'text-slate-300'
-                  )}
-                >
-                  All Namespaces
-                </button>
-                {namespaces.map((ns) => (
+              <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded border border-slate-600 bg-slate-800 shadow-xl flex flex-col max-h-96">
+                {/* Search input */}
+                <div className="p-2 border-b border-slate-700">
+                  <input
+                    ref={nsInputRef}
+                    type="text"
+                    value={nsFilter}
+                    onChange={(e) => setNsFilter(e.target.value)}
+                    placeholder="Filter namespaces..."
+                    className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
+                <div className="overflow-auto">
                   <button
-                    key={ns}
                     onClick={() => {
-                      setSelectedNamespace(ns);
+                      setSelectedNamespace('*');
                       setShowNsDropdown(false);
+                      setNsFilter('');
                     }}
                     className={cn(
                       'w-full px-3 py-2 text-left text-sm transition-colors hover:bg-slate-700',
-                      selectedNamespace === ns
+                      selectedNamespace === '*'
                         ? 'bg-slate-700 text-emerald-400'
                         : 'text-slate-300'
                     )}
                   >
-                    {ns}
+                    All Namespaces
                   </button>
-                ))}
+                  {namespaces
+                    .filter((ns) => !nsFilter || ns.toLowerCase().includes(nsFilter.toLowerCase()))
+                    .map((ns) => (
+                      <button
+                        key={ns}
+                        onClick={() => {
+                          setSelectedNamespace(ns);
+                          setShowNsDropdown(false);
+                          setNsFilter('');
+                        }}
+                        className={cn(
+                          'w-full px-3 py-2 text-left text-sm transition-colors hover:bg-slate-700',
+                          selectedNamespace === ns
+                            ? 'bg-slate-700 text-emerald-400'
+                            : 'text-slate-300'
+                        )}
+                      >
+                        {ns}
+                      </button>
+                    ))}
+                </div>
               </div>
             </>
           )}

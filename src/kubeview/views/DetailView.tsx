@@ -52,26 +52,19 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     refetchInterval: 30000,
   });
 
-  // Fetch related events
+  // Fetch related events using field selector
   const { data: events = [] } = useQuery<K8sResource[]>({
     queryKey: ['events', namespace, name, resource?.kind],
-    queryFn: () => {
-      if (!resource) return Promise.resolve([]);
+    queryFn: async () => {
+      if (!resource) return [];
+      const fieldSelector = `involvedObject.name=${name},involvedObject.kind=${resource.kind}`;
       const eventsPath = namespace
-        ? `/api/v1/namespaces/${namespace}/events`
-        : '/api/v1/events';
-      return k8sList<K8sResource>(eventsPath).then((allEvents) =>
-        allEvents.filter((event) => {
-          const involvedObject = (event as any).involvedObject || {};
-          return (
-            involvedObject.name === name &&
-            involvedObject.kind === resource.kind &&
-            (!namespace || involvedObject.namespace === namespace)
-          );
-        })
-      );
+        ? `/api/v1/namespaces/${namespace}/events?fieldSelector=${encodeURIComponent(fieldSelector)}`
+        : `/api/v1/events?fieldSelector=${encodeURIComponent(fieldSelector)}`;
+      return k8sList<K8sResource>(eventsPath);
     },
     enabled: !!resource,
+    refetchInterval: 30000,
   });
 
   // Run diagnosis
