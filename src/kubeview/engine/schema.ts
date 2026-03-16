@@ -53,6 +53,9 @@ interface SchemaObject {
   maximum?: number;
   pattern?: string;
   $ref?: string;
+  allOf?: SchemaObject[];
+  oneOf?: SchemaObject[];
+  anyOf?: SchemaObject[];
   'x-kubernetes-group-version-kind'?: Array<{
     group: string;
     version: string;
@@ -221,6 +224,46 @@ async function fetchOpenAPIV2Schema(
 /**
  * Parse a schema object into field schemas
  */
+/**
+ * Resolve $ref, allOf, oneOf, anyOf into a concrete schema object
+ */
+function resolveSchemaRef(obj: SchemaObject, definitions: Record<string, SchemaObject>): SchemaObject {
+  // Direct $ref
+  if (obj.$ref) {
+    const refName = obj.$ref.split('/').pop();
+    if (refName && definitions[refName]) {
+      return { ...definitions[refName], description: obj.description || definitions[refName].description };
+    }
+    return obj;
+  }
+
+  // allOf: merge all schemas together
+  if (obj.allOf && obj.allOf.length > 0) {
+    let merged: SchemaObject = { description: obj.description };
+    for (const item of obj.allOf) {
+      const resolved = resolveSchemaRef(item, definitions);
+      merged = {
+        ...merged,
+        ...resolved,
+        description: merged.description || resolved.description,
+        properties: { ...(merged.properties || {}), ...(resolved.properties || {}) },
+        required: [...(merged.required || []), ...(resolved.required || [])],
+      };
+    }
+    return merged;
+  }
+
+  // oneOf/anyOf: use first option
+  if (obj.oneOf && obj.oneOf.length > 0) {
+    return resolveSchemaRef(obj.oneOf[0], definitions);
+  }
+  if (obj.anyOf && obj.anyOf.length > 0) {
+    return resolveSchemaRef(obj.anyOf[0], definitions);
+  }
+
+  return obj;
+}
+
 function parseSchemaObject(
   obj: SchemaObject,
   basePath: string,
@@ -233,12 +276,14 @@ function parseSchemaObject(
   // Prevent infinite recursion from circular $refs
   if (depth > 8) return fields;
 
-  // Resolve $ref if present
-  if (obj.$ref) {
-    const refName = obj.$ref.split('/').pop();
-    if (refName && definitions[refName] && !visited.has(refName)) {
-      visited.add(refName);
-      return parseSchemaObject(definitions[refName], basePath, definitions, depth + 1, visited);
+  // Resolve $ref / allOf if present
+  if (obj.$ref || obj.allOf) {
+    const resolved = resolveSchemaRef(obj, definitions);
+    if (resolved !== obj) {
+      const refName = obj.$ref?.split('/').pop() || '';
+      if (refName && visited.has(refName)) return fields;
+      if (refName) visited.add(refName);
+      return parseSchemaObject(resolved, basePath, definitions, depth + 1, visited);
     }
     return fields;
   }
@@ -251,14 +296,8 @@ function parseSchemaObject(
     const path = basePath ? `${basePath}.${name}` : name;
     const isRequired = obj.required?.includes(name) || false;
 
-    // Resolve $ref in property
-    let resolvedProp = prop;
-    if (prop.$ref) {
-      const refName = prop.$ref.split('/').pop();
-      if (refName && definitions[refName]) {
-        resolvedProp = definitions[refName];
-      }
-    }
+    // Resolve $ref, allOf, oneOf, anyOf
+    let resolvedProp = resolveSchemaRef(prop, definitions);
 
     const field: FieldSchema = {
       name,
@@ -276,13 +315,7 @@ function parseSchemaObject(
 
     // Handle array items
     if (field.type === 'array' && resolvedProp.items) {
-      let itemsProp = resolvedProp.items;
-      if (itemsProp.$ref) {
-        const refName = itemsProp.$ref.split('/').pop();
-        if (refName && definitions[refName]) {
-          itemsProp = definitions[refName];
-        }
-      }
+      let itemsProp = resolveSchemaRef(resolvedProp.items, definitions);
 
       field.items = {
         name: 'items',
