@@ -317,6 +317,38 @@ export function autoDetectColumns(resources: K8sResource[]): ColumnDef[] {
     cols.push(col);
   }
 
+  // Check top-level objects → extract scalar sub-fields (e.g., roleRef.name, roleRef.kind)
+  const topObjectFields: Array<{ parent: string; child: string }> = [];
+  for (const r of sample) {
+    for (const key of Object.keys(r)) {
+      if (skip.has(key)) continue;
+      const val = r[key];
+      if (val && typeof val === 'object' && !Array.isArray(val)) {
+        for (const childKey of Object.keys(val as Record<string, unknown>)) {
+          const childVal = (val as Record<string, unknown>)[childKey];
+          if (childVal !== null && childVal !== undefined && typeof childVal !== 'object') {
+            const combo = `${key}.${childKey}`;
+            if (!topObjectFields.some((f) => f.parent === key && f.child === childKey)) {
+              topObjectFields.push({ parent: key, child: childKey });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Check top-level arrays → show count (e.g., subjects: 3)
+  const topArrayFields = new Set<string>();
+  for (const r of sample) {
+    for (const key of Object.keys(r)) {
+      if (skip.has(key)) continue;
+      const val = r[key];
+      if (Array.isArray(val)) {
+        topArrayFields.add(key);
+      }
+    }
+  }
+
   for (const field of topFields) {
     addCol({
       id: `top_${field}`,
@@ -325,6 +357,50 @@ export function autoDetectColumns(resources: K8sResource[]): ColumnDef[] {
       render: renderAutoValue,
       sortable: true,
       priority: 10 + cols.length,
+    });
+  }
+
+  // Add object sub-field columns (e.g., roleRef.name, roleRef.kind)
+  // Prioritize common useful sub-fields
+  const subFieldPriority = ['name', 'kind', 'type', 'apiGroup', 'host', 'path', 'port'];
+  const sortedObjectFields = topObjectFields.sort((a, b) => {
+    const ai = subFieldPriority.indexOf(a.child);
+    const bi = subFieldPriority.indexOf(b.child);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+
+  for (const { parent, child } of sortedObjectFields.slice(0, 4)) {
+    const field = parent; // capture for closure
+    const sub = child;
+    addCol({
+      id: `obj_${field}_${sub}`,
+      header: `${formatHeader(field)} ${formatHeader(sub)}`,
+      accessorFn: (resource) => {
+        const obj = resource[field] as Record<string, unknown> | undefined;
+        return obj?.[sub] ?? '-';
+      },
+      render: renderAutoValue,
+      sortable: true,
+      priority: 12 + cols.length,
+    });
+  }
+
+  // Add array count columns (e.g., subjects: 3)
+  for (const field of topArrayFields) {
+    const f = field; // capture
+    addCol({
+      id: `arr_${f}`,
+      header: formatHeader(f),
+      accessorFn: (resource) => {
+        const arr = resource[f] as unknown[] | undefined;
+        return arr ? arr.length : 0;
+      },
+      render: (value) => {
+        const count = Number(value);
+        return React.createElement('span', { className: 'font-mono text-sm text-slate-300' }, count);
+      },
+      sortable: true,
+      priority: 13 + cols.length,
     });
   }
 
