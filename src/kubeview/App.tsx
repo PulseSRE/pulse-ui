@@ -27,6 +27,7 @@ const CorrelationView = lazy(() => import('./views/CorrelationView'));
 const DashboardView = lazy(() => import('./views/DashboardView'));
 const CreateView = lazy(() => import('./views/CreateView'));
 const DependencyView = lazy(() => import('./views/DependencyView'));
+const NodeLogsView = lazy(() => import('./views/NodeLogsView'));
 const ConfigCompareView = lazy(() => import('./views/ConfigCompareView'));
 const TroubleshootView = lazy(() => import('./views/TroubleshootView'));
 const AccessControlView = lazy(() => import('./views/AccessControlView'));
@@ -155,6 +156,13 @@ export default function OpenShiftViewApp() {
 
             {/* Logs: /logs/:namespace/:podName */}
             <Route path="logs/:namespace/:name" element={<LogsRoute />} />
+
+            {/* Node logs: /node-logs/:name */}
+            <Route path="node-logs/:name" element={
+              <Suspense fallback={<LoadingFallback />}>
+                <NodeLogsView />
+              </Suspense>
+            } />
 
             {/* Metrics: /metrics/apps~v1~deployments/:namespace/:name */}
             <Route path="metrics/:gvr/:namespace/:name" element={<MetricsRoute />} />

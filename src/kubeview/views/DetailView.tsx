@@ -314,18 +314,31 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
               </button>
             )}
             {resource.kind === 'Node' && (
-              <button
-                onClick={() => {
-                  const cmd = `oc debug node/${name}`;
-                  navigator.clipboard.writeText(cmd);
-                  addToast({ type: 'success', title: 'Debug command copied', detail: cmd });
-                }}
-                className="px-3 py-1.5 text-xs bg-slate-800 text-slate-200 rounded hover:bg-slate-700 flex items-center gap-1.5"
-                title="Copy oc debug node command"
-              >
-                <Terminal className="w-3 h-3" />
-                Debug Node
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    const path = `/node-logs/${name}`;
+                    addTab({ title: `${name} (Logs)`, path, pinned: false, closable: true });
+                    navigate(path);
+                  }}
+                  className="px-3 py-1.5 text-xs bg-slate-800 text-slate-200 rounded hover:bg-slate-700 flex items-center gap-1.5"
+                >
+                  <FileText className="w-3 h-3" />
+                  Node Logs
+                </button>
+                <button
+                  onClick={() => {
+                    const cmd = `oc debug node/${name}`;
+                    navigator.clipboard.writeText(cmd);
+                    addToast({ type: 'success', title: 'Debug command copied', detail: cmd });
+                  }}
+                  className="px-3 py-1.5 text-xs bg-slate-800 text-slate-200 rounded hover:bg-slate-700 flex items-center gap-1.5"
+                  title="Copy oc debug command to clipboard"
+                >
+                  <Terminal className="w-3 h-3" />
+                  Debug Node
+                </button>
+              </>
             )}
             {namespace && (
               <>

@@ -19,8 +19,13 @@ const BASE = '/api/kubernetes';
 export default function PodTerminal({ namespace, podName, containerName, onClose }: PodTerminalProps) {
   const [command, setCommand] = useState('');
   const [lines, setLines] = useState<TerminalLine[]>([
-    { type: 'output', text: `Connected to ${podName}/${containerName} in ${namespace}` },
-    { type: 'output', text: 'Type a command and press Enter. This uses exec to run individual commands.' },
+    { type: 'output', text: `Terminal: ${podName}/${containerName} in ${namespace}` },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'Note: exec requires WebSocket. Commands are sent via HTTP POST.' },
+    { type: 'output', text: 'For a full interactive shell, copy and run locally:' },
+    { type: 'input', text: `$ oc exec -it ${podName} -n ${namespace} -c ${containerName} -- /bin/sh` },
+    { type: 'output', text: '' },
+    { type: 'output', text: 'Try simple commands like: ls, cat /etc/hostname, env, whoami' },
     { type: 'output', text: '' },
   ]);
   const [running, setRunning] = useState(false);
