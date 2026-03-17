@@ -6,14 +6,14 @@ import {
   Activity, Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { k8sList, k8sGet } from '../engine/query';
+import { k8sGet } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
 import { getPodStatus, getNodeStatus, getDeploymentStatus } from '../engine/renderers/statusUtils';
-import { kindToPlural } from '../engine/renderers/index';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { resourceDetailUrl } from '../engine/gvr';
 import { queryInstant } from '../components/metrics/prometheus';
+import { useK8sListWatch } from '../hooks/useK8sListWatch';
 
 function filterByNamespace<T extends { metadata: { namespace?: string } }>(items: T[], ns: string): T[] {
   if (ns === '*') return items;
@@ -24,37 +24,12 @@ export default function PulseView() {
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
 
-  // Core resource queries
-  const { data: nodes = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/nodes'],
-    queryFn: () => k8sList<K8sResource>('/api/v1/nodes'),
-    refetchInterval: 30000,
-  });
-
-  const { data: pods = [], isLoading: podsLoading } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/pods'],
-    queryFn: () => k8sList<K8sResource>('/api/v1/pods'),
-    refetchInterval: 30000,
-  });
-
-  const { data: deployments = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments'],
-    queryFn: () => k8sList<K8sResource>('/apis/apps/v1/deployments'),
-    refetchInterval: 30000,
-  });
-
-  const { data: pvcs = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/persistentvolumeclaims'],
-    queryFn: () => k8sList<K8sResource>('/api/v1/persistentvolumeclaims'),
-    refetchInterval: 30000,
-  });
-
-  // Operators
-  const { data: operators = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/config.openshift.io/v1/clusteroperators'],
-    queryFn: () => k8sList<K8sResource>('/apis/config.openshift.io/v1/clusteroperators').catch(() => []),
-    refetchInterval: 30000,
-  });
+  // Core resource queries — real-time via WebSocket watches
+  const { data: nodes = [] } = useK8sListWatch({ apiPath: '/api/v1/nodes' });
+  const { data: pods = [], isLoading: podsLoading } = useK8sListWatch({ apiPath: '/api/v1/pods' });
+  const { data: deployments = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/deployments' });
+  const { data: pvcs = [] } = useK8sListWatch({ apiPath: '/api/v1/persistentvolumeclaims' });
+  const { data: operators = [] } = useK8sListWatch({ apiPath: '/apis/config.openshift.io/v1/clusteroperators' });
 
   // Cluster version
   const { data: clusterVersion } = useQuery({

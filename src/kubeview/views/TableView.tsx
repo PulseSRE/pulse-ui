@@ -1,9 +1,10 @@
 import React from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronUp, ChevronDown, Trash2, Tag, Plus, Filter, Columns3, X, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { k8sList, k8sPatch, k8sDelete } from '../engine/query';
+import { k8sPatch, k8sDelete } from '../engine/query';
+import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { jsonToYaml } from '../engine/yamlUtils';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { useClusterStore } from '../store/clusterStore';
@@ -56,12 +57,11 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     return '';
   }, [gvrKey]);
 
-  // Fetch resources
-  const { data: resources = [], isLoading, error } = useQuery<K8sResource[]>({
-    queryKey: ['table', apiPath, activeNamespace],
-    queryFn: () => k8sList<K8sResource>(apiPath, activeNamespace),
+  // Fetch resources with WebSocket watch for real-time updates
+  const { data: resources = [], isLoading, error } = useK8sListWatch<K8sResource>({
+    apiPath,
+    namespace: activeNamespace,
     enabled: !!apiPath,
-    refetchInterval: 30000,
   });
 
   // Stamp GVR key onto resources so renderers can build URLs
