@@ -108,7 +108,7 @@ export function ResourceBrowser() {
   }
 
   function handleResourceClick(resource: any) {
-    const plural = resource.plural || resource.name || resource.kind;
+    const plural = resource.plural || resource.kind;
     const path = resource.group
       ? `/r/${resource.group}~${resource.version}~${plural}`
       : `/r/${resource.version}~${plural}`;
@@ -236,12 +236,12 @@ export function ResourceBrowser() {
                       const Icon = getIcon(getResourceIcon(resource.kind));
                       return (
                         <button
-                          key={`${resource.group}-${resource.version}-${resource.plural || resource.name}`}
+                          key={`${resource.group}-${resource.version}-${resource.plural}`}
                           onClick={() => handleResourceClick(resource)}
                           className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
                         >
                           <Icon className="h-3.5 w-3.5" />
-                          <span className="flex-1 truncate text-left">{resource.plural || resource.name}</span>
+                          <span className="flex-1 truncate text-left">{resource.plural}</span>
                         </button>
                       );
                     })}

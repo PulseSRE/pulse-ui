@@ -1,8 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useClusterStore } from '../clusterStore';
 
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Mock the discovery module
+vi.mock('../../engine/discovery', () => {
+  return {
+    discoverResources: vi.fn(),
+    groupResources: vi.fn(() => []),
+  };
+});
+
+import { discoverResources, groupResources } from '../../engine/discovery';
+
+const mockDiscover = discoverResources as ReturnType<typeof vi.fn>;
+const mockGroup = groupResources as ReturnType<typeof vi.fn>;
 
 function resetStore() {
   useClusterStore.setState({
@@ -17,7 +27,8 @@ function resetStore() {
 }
 
 beforeEach(() => {
-  mockFetch.mockReset();
+  mockDiscover.mockReset();
+  mockGroup.mockReset().mockReturnValue([]);
   resetStore();
 });
 
@@ -38,16 +49,8 @@ describe('clusterStore', () => {
 
   describe('runDiscovery', () => {
     it('sets loading state during discovery', async () => {
-      // Mock /apis to return empty groups
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ groups: [] }),
-      });
-      // Mock /api/v1 to return empty resources
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ resources: [] }),
-      });
+      const registry = new Map();
+      mockDiscover.mockResolvedValueOnce(registry);
 
       const promise = useClusterStore.getState().runDiscovery();
       expect(useClusterStore.getState().discoveryLoading).toBe(true);
@@ -56,70 +59,47 @@ describe('clusterStore', () => {
       expect(useClusterStore.getState().discoveryLoading).toBe(false);
     });
 
-    it('populates registry from core API', async () => {
-      // Mock /apis
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ groups: [] }),
+    it('populates registry from discovery engine', async () => {
+      const registry = new Map();
+      registry.set('core/v1/pods', {
+        group: '', version: 'v1', kind: 'Pod', plural: 'pods',
+        singularName: 'pod', namespaced: true, verbs: ['get', 'list'],
+        shortNames: [], categories: [],
       });
-      // Mock /api/v1
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          resources: [
-            { name: 'pods', singularName: 'pod', namespaced: true, kind: 'Pod', verbs: ['get', 'list'] },
-            { name: 'nodes', singularName: 'node', namespaced: false, kind: 'Node', verbs: ['get', 'list'] },
-            { name: 'pods/log', singularName: '', namespaced: true, kind: 'Pod', verbs: ['get'] },
-          ],
-        }),
+      registry.set('core/v1/nodes', {
+        group: '', version: 'v1', kind: 'Node', plural: 'nodes',
+        singularName: 'node', namespaced: false, verbs: ['get', 'list'],
+        shortNames: [], categories: [],
       });
+      mockDiscover.mockResolvedValueOnce(registry);
 
       await useClusterStore.getState().runDiscovery();
 
-      const registry = useClusterStore.getState().resourceRegistry;
-      expect(registry).not.toBeNull();
-      expect(registry!.has('v1/pods')).toBe(true);
-      expect(registry!.has('v1/nodes')).toBe(true);
-      // Subresources should be skipped
-      expect(registry!.has('v1/pods/log')).toBe(false);
+      const result = useClusterStore.getState().resourceRegistry;
+      expect(result).not.toBeNull();
+      expect(result!.has('core/v1/pods')).toBe(true);
+      expect(result!.has('core/v1/nodes')).toBe(true);
+      expect(result!.get('core/v1/pods')?.kind).toBe('Pod');
     });
 
     it('populates registry from API groups', async () => {
-      // Mock /apis
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          groups: [{
-            name: 'apps',
-            preferredVersion: { version: 'v1' },
-            versions: [{ version: 'v1', groupVersion: 'apps/v1' }],
-          }],
-        }),
+      const registry = new Map();
+      registry.set('apps/v1/deployments', {
+        group: 'apps', version: 'v1', kind: 'Deployment', plural: 'deployments',
+        singularName: 'deployment', namespaced: true, verbs: ['get', 'list', 'create'],
+        shortNames: ['deploy'], categories: [],
       });
-      // Mock /apis/apps/v1
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({
-          resources: [
-            { name: 'deployments', singularName: 'deployment', namespaced: true, kind: 'Deployment', verbs: ['get', 'list', 'create'] },
-          ],
-        }),
-      });
-      // Mock /api/v1
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ resources: [] }),
-      });
+      mockDiscover.mockResolvedValueOnce(registry);
 
       await useClusterStore.getState().runDiscovery();
 
-      const registry = useClusterStore.getState().resourceRegistry;
-      expect(registry!.has('apps/v1/deployments')).toBe(true);
-      expect(registry!.get('apps/v1/deployments')?.kind).toBe('Deployment');
+      const result = useClusterStore.getState().resourceRegistry;
+      expect(result!.has('apps/v1/deployments')).toBe(true);
+      expect(result!.get('apps/v1/deployments')?.kind).toBe('Deployment');
     });
 
     it('sets error on failure', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      mockDiscover.mockRejectedValueOnce(new Error('Network error'));
 
       await useClusterStore.getState().runDiscovery();
 

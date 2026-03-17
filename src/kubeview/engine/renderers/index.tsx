@@ -72,8 +72,9 @@ export function kindToPlural(kind: string): string {
     horizontalpodautoscaler: 'horizontalpodautoscalers',
   };
   if (irregulars[lower]) return irregulars[lower];
-  if (lower.endsWith('s')) return lower;
+  // Order matters: check 'ss'/'sh'/'ch'/'x'/'z' before generic 's' (e.g. "address" → "addresses")
   if (lower.endsWith('ss') || lower.endsWith('sh') || lower.endsWith('ch') || lower.endsWith('x') || lower.endsWith('z')) return lower + 'es';
+  if (lower.endsWith('s')) return lower;
   if (lower.endsWith('y') && !['a','e','i','o','u'].includes(lower[lower.length - 2])) return lower.slice(0, -1) + 'ies';
   return lower + 's';
 }

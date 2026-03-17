@@ -83,6 +83,10 @@ describe('diagnosis', () => {
 
     it('detects OOMKilled with fix suggestion', () => {
       const pod = makePod({
+        metadata: {
+          name: 'test-pod', namespace: 'default', creationTimestamp: '2026-01-01T00:00:00Z',
+          ownerReferences: [{ apiVersion: 'apps/v1', kind: 'ReplicaSet', name: 'test-deploy-abc123', uid: '1', controller: true }],
+        },
         spec: {
           containers: [{ name: 'app', resources: { limits: { memory: '256Mi' } } }],
         },

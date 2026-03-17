@@ -5,6 +5,7 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import type { ResourceType } from './discovery';
+import type { K8sResource } from './renderers/index';
 import { k8sPatch, k8sDelete, k8sSubresource } from './query';
 import { kindToPlural } from './renderers/index';
 
@@ -35,32 +36,6 @@ export interface ActionResult {
   success: boolean;
   message: string;
   undo?: () => Promise<void>;
-}
-
-export interface K8sResource {
-  apiVersion: string;
-  kind: string;
-  metadata: {
-    name: string;
-    namespace?: string;
-    resourceVersion?: string;
-    uid?: string;
-    labels?: Record<string, string>;
-    annotations?: Record<string, string>;
-    creationTimestamp?: string;
-    ownerReferences?: Array<{
-      apiVersion: string;
-      kind: string;
-      name: string;
-      uid: string;
-      controller?: boolean;
-      blockOwnerDeletion?: boolean;
-    }>;
-    managedFields?: unknown[];
-  };
-  spec?: unknown;
-  status?: unknown;
-  [key: string]: unknown;
 }
 
 /**

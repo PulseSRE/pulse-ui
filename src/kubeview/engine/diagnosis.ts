@@ -3,7 +3,7 @@
  * Analyzes Kubernetes resources to identify issues and suggest fixes.
  */
 
-import type { K8sResource } from './actions';
+import type { K8sResource } from './renderers/index';
 
 export interface Diagnosis {
   severity: 'critical' | 'warning' | 'info';

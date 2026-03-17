@@ -374,6 +374,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   }, [sortedResources, visibleColumns, resourceKind, addToast]);
 
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = React.useState(false);
+  const [showExport, setShowExport] = React.useState(false);
 
   // Bulk delete
   const handleBulkDelete = React.useCallback(async () => {
@@ -493,14 +494,19 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
               </div>
             )}
             {/* Export */}
-            <div className="relative group">
-              <button className="p-1.5 bg-slate-900 border border-slate-700 rounded text-slate-400 hover:text-slate-200 transition-colors" title="Export">
+            <div className="relative">
+              <button onClick={() => setShowExport(!showExport)} className="p-1.5 bg-slate-900 border border-slate-700 rounded text-slate-400 hover:text-slate-200 transition-colors" title="Export">
                 <Download className="w-4 h-4" />
               </button>
-              <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded border border-slate-600 bg-slate-800 shadow-xl py-1 hidden group-hover:block">
-                <button onClick={() => handleExport('csv')} className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700">Export CSV</button>
-                <button onClick={() => handleExport('json')} className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700">Export JSON</button>
-              </div>
+              {showExport && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowExport(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded border border-slate-600 bg-slate-800 shadow-xl py-1">
+                    <button onClick={() => { handleExport('csv'); setShowExport(false); }} className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700">Export CSV</button>
+                    <button onClick={() => { handleExport('json'); setShowExport(false); }} className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700">Export JSON</button>
+                  </div>
+                </>
+              )}
             </div>
             {/* Search */}
             <div className="relative">

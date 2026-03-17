@@ -250,7 +250,13 @@ export function CommandBar() {
                   Copy Login Command
                 </button>
                 <div className="border-t border-slate-700 mt-1 pt-1">
-                  <button className="w-full px-3 py-2 text-left text-sm text-slate-400 hover:bg-slate-700 transition-colors flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      window.location.href = '/oauth/sign_out';
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-slate-400 hover:bg-slate-700 transition-colors flex items-center gap-2"
+                  >
                     <LogOut className="w-3.5 h-3.5" />
                     Log out
                   </button>
