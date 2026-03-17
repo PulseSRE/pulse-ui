@@ -159,6 +159,7 @@ export default function ProductionReadiness() {
   // --- Run checks ---
   const checks = React.useMemo<Check[]>(() => {
     const results: Check[] = [];
+    const subNames = (subscriptions || []).map((s: any) => (s.spec?.name || s.metadata?.name || '').toLowerCase());
 
     // INFRASTRUCTURE
     const controlPlaneNodes = nodes.filter((n: any) => {
@@ -433,7 +434,6 @@ export default function ProductionReadiness() {
     });
 
     // OPERATORS / OBSERVABILITY STACK
-    const subNames = subscriptions.map((s: any) => (s.spec?.name || s.metadata?.name || '').toLowerCase());
     const hasLogging = subNames.some(n => n.includes('cluster-logging') || n.includes('logging'));
     const hasLoki = subNames.some(n => n.includes('loki'));
     const hasCOO = subNames.some(n => n.includes('cluster-observability') || n.includes('observability-operator'));
