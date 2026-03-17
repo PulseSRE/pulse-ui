@@ -5,12 +5,15 @@ import { Clock, AlertCircle, CheckCircle, Info, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
+import { resourceDetailUrl } from '../engine/gvr';
+import { useNavigateTab } from '../hooks/useNavigateTab';
 
 type TimeRange = '1h' | '6h' | '24h';
 type EventFilter = 'all' | 'warnings' | 'normal';
 
 export default function TimelineView() {
   const navigate = useNavigate();
+  const go = useNavigateTab();
   const [timeRange, setTimeRange] = React.useState<TimeRange>('6h');
   const [eventFilter, setEventFilter] = React.useState<EventFilter>('all');
 
@@ -76,16 +79,14 @@ export default function TimelineView() {
     const eventAny = event as any;
     const involvedObject = eventAny.involvedObject || {};
     const name = involvedObject.name;
-    const kind = involvedObject.kind?.toLowerCase();
+    const kind = involvedObject.kind;
     const namespace = involvedObject.namespace;
+    const apiVersion = involvedObject.apiVersion || 'v1';
 
     if (!name || !kind) return;
 
-    if (namespace) {
-      navigate(`/k8s/ns/${namespace}/${kind}/${name}`);
-    } else {
-      navigate(`/k8s/${kind}/${name}`);
-    }
+    const path = resourceDetailUrl({ apiVersion, kind, metadata: { name, namespace } });
+    go(path, name);
   };
 
   return (
