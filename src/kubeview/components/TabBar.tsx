@@ -68,7 +68,7 @@ export function TabBar() {
 
   const handleCloseOthers = (keepId: string) => {
     for (const tab of tabs) {
-      if (tab.id !== keepId && tab.closable && tab.id !== 'pulse') {
+      if (tab.id !== keepId && tab.closable && !tab.pinned) {
         closeTab(tab.id);
       }
     }
@@ -76,7 +76,7 @@ export function TabBar() {
 
   const handleCloseAll = () => {
     for (const tab of tabs) {
-      if (tab.closable && tab.id !== 'pulse') {
+      if (tab.closable && !tab.pinned) {
         closeTab(tab.id);
       }
     }
@@ -210,7 +210,7 @@ export function TabBar() {
       </button>
 
       {/* Close all (shown when many tabs) */}
-      {tabs.filter((t) => t.closable).length > 2 && (
+      {tabs.filter((t) => t.closable && !t.pinned).length > 2 && (
         <button
           onClick={handleCloseAll}
           className="ml-auto flex h-7 items-center gap-1 rounded px-2 text-xs text-slate-500 transition-colors hover:bg-slate-700 hover:text-slate-300"
