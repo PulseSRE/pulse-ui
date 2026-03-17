@@ -46,6 +46,7 @@ type Tab = 'firing' | 'rules' | 'silences';
 export default function AlertsView() {
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
+  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const [activeTab, setActiveTab] = useState<Tab>('firing');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -91,11 +92,15 @@ export default function AlertsView() {
         }
       }
     }
-    return alerts.sort((a, b) => {
+    // Filter by namespace if selected
+    const filtered = selectedNamespace === '*' ? alerts
+      : alerts.filter((a) => !a.alert.labels.namespace || a.alert.labels.namespace === selectedNamespace);
+
+    return filtered.sort((a, b) => {
       const sevOrder: Record<string, number> = { critical: 0, warning: 1, info: 2 };
       return (sevOrder[a.severity] ?? 3) - (sevOrder[b.severity] ?? 3);
     });
-  }, [alertGroups]);
+  }, [alertGroups, selectedNamespace]);
 
   // All alerting rules
   const allRules = useMemo(() => {

@@ -11,12 +11,19 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 export default function StorageView() {
   const navigate = useNavigate();
   const addTab = useUIStore((s) => s.addTab);
+  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
 
-  const { data: pvcs = [] } = useQuery<K8sResource[]>({
+  const { data: allPvcs = [] } = useQuery<K8sResource[]>({
     queryKey: ['storage', 'pvcs'],
     queryFn: () => k8sList('/api/v1/persistentvolumeclaims'),
     staleTime: 30000,
   });
+
+  // Filter PVCs by namespace
+  const pvcs = React.useMemo(() => {
+    if (selectedNamespace === '*') return allPvcs;
+    return allPvcs.filter((p) => (p as any).metadata?.namespace === selectedNamespace);
+  }, [allPvcs, selectedNamespace]);
 
   const { data: pvs = [] } = useQuery<K8sResource[]>({
     queryKey: ['storage', 'pvs'],

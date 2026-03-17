@@ -11,6 +11,7 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 export default function AccessControlView() {
   const navigate = useNavigate();
   const addTab = useUIStore((s) => s.addTab);
+  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const [activeTab, setActiveTab] = React.useState<'overview' | 'roles' | 'bindings' | 'sa'>('overview');
 
   const { data: clusterRoles = [] } = useQuery<K8sResource[]>({
@@ -37,11 +38,16 @@ export default function AccessControlView() {
     staleTime: 60000,
   });
 
-  const { data: serviceAccounts = [] } = useQuery<K8sResource[]>({
+  const { data: allServiceAccounts = [] } = useQuery<K8sResource[]>({
     queryKey: ['access', 'serviceaccounts'],
     queryFn: () => k8sList('/api/v1/serviceaccounts'),
     staleTime: 60000,
   });
+
+  // Apply namespace filter to namespaced resources
+  const filteredRoles = React.useMemo(() => selectedNamespace === '*' ? roles : roles.filter((r: any) => r.metadata?.namespace === selectedNamespace), [roles, selectedNamespace]);
+  const filteredRoleBindings = React.useMemo(() => selectedNamespace === '*' ? roleBindings : roleBindings.filter((r: any) => r.metadata?.namespace === selectedNamespace), [roleBindings, selectedNamespace]);
+  const serviceAccounts = React.useMemo(() => selectedNamespace === '*' ? allServiceAccounts : allServiceAccounts.filter((s: any) => s.metadata?.namespace === selectedNamespace), [allServiceAccounts, selectedNamespace]);
 
   // Find cluster-admin bindings
   const clusterAdminBindings = React.useMemo(() => {
@@ -98,8 +104,8 @@ export default function AccessControlView() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <StatCard label="Cluster Roles" value={clusterRoles.length} onClick={() => go('/r/rbac.authorization.k8s.io~v1~clusterroles', 'ClusterRoles')} />
           <StatCard label="Cluster Bindings" value={clusterRoleBindings.length} onClick={() => go('/r/rbac.authorization.k8s.io~v1~clusterrolebindings', 'ClusterRoleBindings')} />
-          <StatCard label="Roles" value={roles.length} onClick={() => go('/r/rbac.authorization.k8s.io~v1~roles', 'Roles')} />
-          <StatCard label="Role Bindings" value={roleBindings.length} onClick={() => go('/r/rbac.authorization.k8s.io~v1~rolebindings', 'RoleBindings')} />
+          <StatCard label="Roles" value={filteredRoles.length} onClick={() => go('/r/rbac.authorization.k8s.io~v1~roles', 'Roles')} />
+          <StatCard label="Role Bindings" value={filteredRoleBindings.length} onClick={() => go('/r/rbac.authorization.k8s.io~v1~rolebindings', 'RoleBindings')} />
           <StatCard label="Service Accounts" value={serviceAccounts.length} onClick={() => go('/r/v1~serviceaccounts', 'ServiceAccounts')} />
         </div>
 
@@ -148,7 +154,7 @@ export default function AccessControlView() {
         )}
 
         {activeTab === 'roles' && (
-          <Panel title={`Cluster Roles (${clusterRoles.length}) + Roles (${roles.length})`} icon={<Shield className="w-4 h-4 text-indigo-500" />}>
+          <Panel title={`Cluster Roles (${clusterRoles.length}) + Roles (${filteredRoles.length})`} icon={<Shield className="w-4 h-4 text-indigo-500" />}>
             <div className="space-y-1 max-h-96 overflow-auto">
               {[...clusterRoles.slice(0, 20), ...roles.slice(0, 20)].map((role) => (
                 <div key={role.metadata.uid} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-800/50 cursor-pointer" onClick={() => go(`/r/rbac.authorization.k8s.io~v1~${role.metadata.namespace ? 'roles' : 'clusterroles'}${role.metadata.namespace ? `/${role.metadata.namespace}` : '/_'}/${role.metadata.name}`, role.metadata.name)}>
@@ -165,7 +171,7 @@ export default function AccessControlView() {
         )}
 
         {activeTab === 'bindings' && (
-          <Panel title={`All Bindings (${clusterRoleBindings.length + roleBindings.length})`} icon={<Lock className="w-4 h-4 text-purple-500" />}>
+          <Panel title={`All Bindings (${clusterRoleBindings.length + filteredRoleBindings.length})`} icon={<Lock className="w-4 h-4 text-purple-500" />}>
             <div className="space-y-1 max-h-96 overflow-auto">
               {[...clusterRoleBindings.slice(0, 20), ...roleBindings.slice(0, 20)].map((b: any) => (
                 <div key={b.metadata.uid} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-800/50">

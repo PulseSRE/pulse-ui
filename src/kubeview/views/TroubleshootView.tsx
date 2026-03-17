@@ -23,20 +23,26 @@ interface DiagnosedResource {
   maxSeverity: 'critical' | 'warning' | 'info';
 }
 
+function filterByNs<T extends { metadata: { namespace?: string } }>(items: T[], ns: string): T[] {
+  if (ns === '*') return items;
+  return items.filter((i) => i.metadata.namespace === ns);
+}
+
 export default function TroubleshootView() {
   const addTab = useUIStore((s) => s.addTab);
+  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedResource, setExpandedResource] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [activeTab, setActiveTab] = useState<Tab>('issues');
 
-  const { data: pods = [], isLoading: podsLoading } = useQuery<K8sResource[]>({
+  const { data: allPods = [], isLoading: podsLoading } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/api/v1/pods'],
     queryFn: () => k8sList<K8sResource>('/api/v1/pods'),
     refetchInterval: 30000,
   });
 
-  const { data: deployments = [] } = useQuery<K8sResource[]>({
+  const { data: allDeployments = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/apps/v1/deployments'],
     queryFn: () => k8sList<K8sResource>('/apis/apps/v1/deployments'),
     refetchInterval: 30000,
@@ -48,19 +54,25 @@ export default function TroubleshootView() {
     refetchInterval: 30000,
   });
 
-  const { data: pvcs = [] } = useQuery<K8sResource[]>({
+  const { data: allPvcs = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/api/v1/persistentvolumeclaims'],
     queryFn: () => k8sList<K8sResource>('/api/v1/persistentvolumeclaims'),
     refetchInterval: 30000,
   });
 
-  const { data: events = [] } = useQuery<K8sResource[]>({
+  const { data: allEvents = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/api/v1/events'],
     queryFn: () => k8sList<K8sResource>('/api/v1/events?limit=100'),
     refetchInterval: 30000,
   });
 
-  // Diagnosis
+  // Apply namespace filter
+  const pods = useMemo(() => filterByNs(allPods as any[], selectedNamespace), [allPods, selectedNamespace]);
+  const deployments = useMemo(() => filterByNs(allDeployments as any[], selectedNamespace), [allDeployments, selectedNamespace]);
+  const pvcs = useMemo(() => filterByNs(allPvcs as any[], selectedNamespace), [allPvcs, selectedNamespace]);
+  const events = useMemo(() => filterByNs(allEvents as any[], selectedNamespace), [allEvents, selectedNamespace]);
+
+  // Diagnosis (nodes are cluster-scoped, always included)
   const diagnosedResources = useMemo<DiagnosedResource[]>(() => {
     const all = [...pods, ...deployments, ...nodes, ...pvcs];
     const results: DiagnosedResource[] = [];

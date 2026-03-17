@@ -7,6 +7,7 @@ import { k8sList } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { useUIStore } from '../store/uiStore';
 
 type TimeRange = '1h' | '6h' | '24h';
 type EventFilter = 'all' | 'warnings' | 'normal';
@@ -14,15 +15,22 @@ type EventFilter = 'all' | 'warnings' | 'normal';
 export default function TimelineView() {
   const navigate = useNavigate();
   const go = useNavigateTab();
+  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const [timeRange, setTimeRange] = React.useState<TimeRange>('6h');
   const [eventFilter, setEventFilter] = React.useState<EventFilter>('all');
 
   // Fetch all events
-  const { data: events = [], isLoading } = useQuery<K8sResource[]>({
+  const { data: allEvents = [], isLoading } = useQuery<K8sResource[]>({
     queryKey: ['timeline', 'events'],
     queryFn: () => k8sList<K8sResource>('/api/v1/events?limit=500'),
     refetchInterval: 30000,
   });
+
+  // Apply namespace filter
+  const events = React.useMemo(() => {
+    if (selectedNamespace === '*') return allEvents;
+    return allEvents.filter((e) => (e as any).metadata?.namespace === selectedNamespace);
+  }, [allEvents, selectedNamespace]);
 
   // Filter events by time range and type
   const filteredEvents = React.useMemo(() => {
