@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   Puzzle, Search, Package, CheckCircle, XCircle, Loader2,
   ArrowRight, ArrowLeft, Star, Filter, Shield, Globe,
@@ -52,10 +53,13 @@ export default function OperatorCatalogView() {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
 
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('q') || '');
   const [catalogFilter, setCatalogFilter] = useState<string>('all');
   const [selectedOp, setSelectedOp] = useState<PackageManifest | null>(null);
   const [installing, setInstalling] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState('');
+  const [installNs, setInstallNs] = useState('openshift-operators');
 
   // Fetch all package manifests
   const { data: packages = [], isLoading } = useQuery<PackageManifest[]>({
@@ -165,24 +169,31 @@ export default function OperatorCatalogView() {
     setInstalling(false);
   };
 
+  // Initialize channel/ns when operator is selected
+  React.useEffect(() => {
+    if (selectedOp) {
+      const channels = selectedOp.status.channels || [];
+      setSelectedChannel(selectedOp.status.defaultChannel || channels[0]?.name || '');
+      const desc = channels.find(c => c.name === selectedOp.status.defaultChannel)?.currentCSVDesc || channels[0]?.currentCSVDesc;
+      const allNsSupported = desc?.installModes?.find((m: any) => m.type === 'AllNamespaces')?.supported;
+      setInstallNs(
+        selectedOp.metadata.name.includes('logging') ? 'openshift-logging'
+        : selectedOp.metadata.name.includes('loki') ? 'openshift-operators-redhat'
+        : allNsSupported ? 'openshift-operators'
+        : `openshift-${selectedOp.metadata.name}`
+      );
+    }
+  }, [selectedOp]);
+
   // Detail view
   if (selectedOp) {
     const desc = selectedOp.status.channels?.find(c => c.name === selectedOp.status.defaultChannel)?.currentCSVDesc
       || selectedOp.status.channels?.[0]?.currentCSVDesc;
     const channels = selectedOp.status.channels || [];
-    const [selectedChannel, setSelectedChannel] = useState(selectedOp.status.defaultChannel || channels[0]?.name || '');
     const isInstalled = installedNames.has(selectedOp.metadata.name);
     const catalogBase = selectedOp.status.catalogSource.replace(/-4\.\d+$/, '');
     const catalogInfo = CATALOG_LABELS[catalogBase];
-
-    // Determine install namespace
     const allNsSupported = desc?.installModes?.find((m: any) => m.type === 'AllNamespaces')?.supported;
-    const suggestedNs = selectedOp.metadata.name.includes('logging') ? 'openshift-logging'
-      : selectedOp.metadata.name.includes('loki') ? 'openshift-operators-redhat'
-      : allNsSupported ? 'openshift-operators'
-      : `openshift-${selectedOp.metadata.name}`;
-
-    const [installNs, setInstallNs] = useState(suggestedNs);
 
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">

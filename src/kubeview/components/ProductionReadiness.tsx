@@ -389,7 +389,7 @@ export default function ProductionReadiness() {
       description: 'Dedicated registry (Quay, Harbor, ACR) for production image management, vulnerability scanning, and image signing',
       status: hasQuay ? 'pass' : 'warn',
       detail: hasQuay ? 'Quay operator installed' : 'No external registry detected — consider Quay for image scanning, signing, and geo-replication',
-      action: hasQuay ? undefined : { label: 'Install Quay', path: '/operatorhub' },
+      action: hasQuay ? undefined : { label: 'Install Quay', path: '/operatorhub?q=quay' },
     });
 
     const registryManagementState = imageRegistry?.spec?.managementState;
@@ -431,7 +431,7 @@ export default function ProductionReadiness() {
       description: 'Etcd stores all cluster state (resources, secrets, config). Without backups, a failed etcd means rebuilding the entire cluster. Schedule automated backups to a secure external location.',
       status: etcdBackup ? 'pass' : 'warn',
       detail: etcdBackup ? 'Backup configured' : 'No automated backup configured. Run periodic backups via CronJob or use OADP (OpenShift API for Data Protection). Manual backup: ssh to a control plane node and run /usr/local/bin/cluster-backup.sh /home/core/backup',
-      action: etcdBackup ? undefined : { label: 'Setup OADP', path: '/operatorhub' },
+      action: etcdBackup ? undefined : { label: 'Setup OADP', path: '/operatorhub?q=oadp' },
     });
 
     // OPERATORS / OBSERVABILITY STACK
@@ -446,7 +446,7 @@ export default function ProductionReadiness() {
       description: 'Cluster Logging Operator (CLO) for log collection and forwarding',
       status: hasLogging ? 'pass' : 'warn',
       detail: hasLogging ? 'Installed' : 'Not installed — install from OperatorHub',
-      action: hasLogging ? undefined : { label: 'Install', path: '/operatorhub' },
+      action: hasLogging ? undefined : { label: 'Install CLO', path: '/operatorhub?q=cluster-logging' },
     });
 
     results.push({
@@ -455,7 +455,7 @@ export default function ProductionReadiness() {
       description: 'LokiStack for scalable log storage — replaces Elasticsearch',
       status: hasLoki ? 'pass' : 'warn',
       detail: hasLoki ? 'Installed' : 'Not installed — recommended for log storage',
-      action: hasLoki ? undefined : { label: 'Install', path: '/operatorhub' },
+      action: hasLoki ? undefined : { label: 'Install Loki', path: '/operatorhub?q=loki' },
     });
 
     results.push({
@@ -464,7 +464,7 @@ export default function ProductionReadiness() {
       description: 'COO for managing monitoring, distributed tracing, and observability dashboards',
       status: hasCOO ? 'pass' : 'warn',
       detail: hasCOO ? 'Installed' : 'Not installed — enables UIPlugin, dashboards, and tracing',
-      action: hasCOO ? undefined : { label: 'Install', path: '/operatorhub' },
+      action: hasCOO ? undefined : { label: 'Install COO', path: '/operatorhub?q=observability' },
     });
 
     if (hasServiceMesh) {
