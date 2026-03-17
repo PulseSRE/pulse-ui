@@ -417,6 +417,9 @@ export default function AdminView() {
                     ))}
                   </div>
                 )}
+                <button onClick={() => setActiveTab('config')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
+                  Manage providers <ArrowRight className="w-3 h-3" />
+                </button>
               </Panel>
 
               <Panel title={`Nodes (${nodes.length})`} icon={<Server className="w-4 h-4 text-blue-500" />}>
