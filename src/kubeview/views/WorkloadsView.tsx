@@ -11,52 +11,50 @@ import { getDeploymentStatus, getPodStatus } from '../engine/renderers/statusUti
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 
-function filterByNs<T extends { metadata: { namespace?: string } }>(items: T[], ns: string): T[] {
-  if (ns === '*') return items;
-  return items.filter((i) => i.metadata.namespace === ns);
-}
 
 export default function WorkloadsView() {
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   const { data: deployments = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments'],
-    queryFn: () => k8sList('/apis/apps/v1/deployments'),
+    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments', nsFilter],
+    queryFn: () => k8sList('/apis/apps/v1/deployments', nsFilter),
     refetchInterval: 30000,
   });
   const { data: statefulsets = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/apps/v1/statefulsets'],
-    queryFn: () => k8sList('/apis/apps/v1/statefulsets'),
+    queryKey: ['k8s', 'list', '/apis/apps/v1/statefulsets', nsFilter],
+    queryFn: () => k8sList('/apis/apps/v1/statefulsets', nsFilter),
     refetchInterval: 30000,
   });
   const { data: daemonsets = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/apps/v1/daemonsets'],
-    queryFn: () => k8sList('/apis/apps/v1/daemonsets'),
+    queryKey: ['k8s', 'list', '/apis/apps/v1/daemonsets', nsFilter],
+    queryFn: () => k8sList('/apis/apps/v1/daemonsets', nsFilter),
     refetchInterval: 30000,
   });
   const { data: pods = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/pods'],
-    queryFn: () => k8sList('/api/v1/pods'),
+    queryKey: ['k8s', 'list', '/api/v1/pods', nsFilter],
+    queryFn: () => k8sList('/api/v1/pods', nsFilter),
     refetchInterval: 30000,
   });
   const { data: jobs = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/batch/v1/jobs'],
-    queryFn: () => k8sList('/apis/batch/v1/jobs'),
+    queryKey: ['k8s', 'list', '/apis/batch/v1/jobs', nsFilter],
+    queryFn: () => k8sList('/apis/batch/v1/jobs', nsFilter),
     refetchInterval: 30000,
   });
   const { data: cronjobs = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/batch/v1/cronjobs'],
-    queryFn: () => k8sList('/apis/batch/v1/cronjobs'),
+    queryKey: ['k8s', 'list', '/apis/batch/v1/cronjobs', nsFilter],
+    queryFn: () => k8sList('/apis/batch/v1/cronjobs', nsFilter),
     refetchInterval: 30000,
   });
 
-  const fd = filterByNs(deployments as any[], selectedNamespace);
-  const fss = filterByNs(statefulsets as any[], selectedNamespace);
-  const fds = filterByNs(daemonsets as any[], selectedNamespace);
-  const fp = filterByNs(pods as any[], selectedNamespace);
-  const fj = filterByNs(jobs as any[], selectedNamespace);
-  const fc = filterByNs(cronjobs as any[], selectedNamespace);
+  // Data is already namespace-scoped from API when nsFilter is set
+  const fd = deployments as any[];
+  const fss = statefulsets as any[];
+  const fds = daemonsets as any[];
+  const fp = pods as any[];
+  const fj = jobs as any[];
+  const fc = cronjobs as any[];
 
   const unhealthyDeploys = fd.filter((d) => !getDeploymentStatus(d).available);
   const crashingPods = fp.filter((p) => {

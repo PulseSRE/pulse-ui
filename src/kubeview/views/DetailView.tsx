@@ -65,6 +65,12 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     [gvrKey, namespace, name]
   );
 
+  // Build list API path for cache invalidation (e.g., /apis/apps/v1/deployments)
+  const listApiPath = React.useMemo(() => {
+    if (gvrParts.length === 2) return `/api/${gvrParts[0]}/${gvrParts[1]}`;
+    return `/apis/${gvrParts[0]}/${gvrParts[1]}/${gvrParts[2]}`;
+  }, [gvrKey]);
+
   // Fetch the resource
   const { data: resource, isLoading, error } = useQuery<K8sResource>({
     queryKey: ['detail', apiPath],
@@ -161,7 +167,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       await k8sPatch(diagnosis.fix.patchTarget, diagnosis.fix.patch as any, diagnosis.fix.patchType);
       addToast({ type: 'success', title: 'Fix applied', detail: diagnosis.fix.label });
       queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
     } catch (err) {
       addToast({ type: 'error', title: 'Fix failed', detail: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
@@ -223,7 +229,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       await k8sPatch(apiPath, { spec: { replicas: newReplicas } });
       addToast({ type: 'success', title: `Scaled to ${newReplicas} replicas` });
       queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
     } catch (err) {
       addToast({ type: 'error', title: 'Scale failed', detail: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
@@ -240,7 +246,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       });
       addToast({ type: 'success', title: `Rollout restart triggered` });
       queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
     } catch (err) {
       addToast({ type: 'error', title: 'Restart failed', detail: err instanceof Error ? err.message : 'Unknown error' });
     } finally {

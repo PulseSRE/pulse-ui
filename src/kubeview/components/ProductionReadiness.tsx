@@ -434,6 +434,13 @@ export default function ProductionReadiness() {
       action: etcdBackup ? undefined : { label: 'Setup OADP', path: '/operatorhub?q=oadp' },
     });
 
+    // OPERATORS / OBSERVABILITY STACK
+    const hasLogging = subNames.some(n => n.includes('cluster-logging') || n.includes('logging'));
+    const hasLoki = subNames.some(n => n.includes('loki'));
+    const hasCOO = subNames.some(n => n.includes('cluster-observability') || n.includes('observability-operator'));
+    const hasServiceMesh = subNames.some(n => n.includes('servicemesh') || n.includes('istio'));
+    const hasGitOps = subNames.some(n => n.includes('gitops') || n.includes('argocd') || n.includes('openshift-gitops'));
+
     // GITOPS
     results.push({
       id: 'gitops', category: 'Reliability',
@@ -443,13 +450,6 @@ export default function ProductionReadiness() {
       detail: hasGitOps ? 'OpenShift GitOps installed' : 'Not installed — cluster configuration is manual. GitOps enables version-controlled, auditable, and repeatable cluster management.',
       action: hasGitOps ? undefined : { label: 'Install GitOps', path: '/operatorhub?q=openshift-gitops' },
     });
-
-    // OPERATORS / OBSERVABILITY STACK
-    const hasLogging = subNames.some(n => n.includes('cluster-logging') || n.includes('logging'));
-    const hasLoki = subNames.some(n => n.includes('loki'));
-    const hasCOO = subNames.some(n => n.includes('cluster-observability') || n.includes('observability-operator'));
-    const hasServiceMesh = subNames.some(n => n.includes('servicemesh') || n.includes('istio'));
-    const hasGitOps = subNames.some(n => n.includes('gitops') || n.includes('argocd') || n.includes('openshift-gitops'));
 
     results.push({
       id: 'logging-operator', category: 'Observability',

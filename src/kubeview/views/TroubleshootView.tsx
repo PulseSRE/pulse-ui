@@ -23,10 +23,6 @@ interface DiagnosedResource {
   maxSeverity: 'critical' | 'warning' | 'info';
 }
 
-function filterByNs<T extends { metadata: { namespace?: string } }>(items: T[], ns: string): T[] {
-  if (ns === '*') return items;
-  return items.filter((i) => i.metadata.namespace === ns);
-}
 
 export default function TroubleshootView() {
   const addTab = useUIStore((s) => s.addTab);
@@ -36,15 +32,17 @@ export default function TroubleshootView() {
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [activeTab, setActiveTab] = useState<Tab>('issues');
 
-  const { data: allPods = [], isLoading: podsLoading } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/pods'],
-    queryFn: () => k8sList<K8sResource>('/api/v1/pods'),
+  const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
+
+  const { data: pods = [], isLoading: podsLoading } = useQuery<K8sResource[]>({
+    queryKey: ['k8s', 'list', '/api/v1/pods', nsFilter],
+    queryFn: () => k8sList<K8sResource>('/api/v1/pods', nsFilter),
     refetchInterval: 30000,
   });
 
-  const { data: allDeployments = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments'],
-    queryFn: () => k8sList<K8sResource>('/apis/apps/v1/deployments'),
+  const { data: deployments = [] } = useQuery<K8sResource[]>({
+    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments', nsFilter],
+    queryFn: () => k8sList<K8sResource>('/apis/apps/v1/deployments', nsFilter),
     refetchInterval: 30000,
   });
 
@@ -54,23 +52,17 @@ export default function TroubleshootView() {
     refetchInterval: 30000,
   });
 
-  const { data: allPvcs = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/persistentvolumeclaims'],
-    queryFn: () => k8sList<K8sResource>('/api/v1/persistentvolumeclaims'),
+  const { data: pvcs = [] } = useQuery<K8sResource[]>({
+    queryKey: ['k8s', 'list', '/api/v1/persistentvolumeclaims', nsFilter],
+    queryFn: () => k8sList<K8sResource>('/api/v1/persistentvolumeclaims', nsFilter),
     refetchInterval: 30000,
   });
 
-  const { data: allEvents = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/events'],
-    queryFn: () => k8sList<K8sResource>('/api/v1/events?limit=100'),
+  const { data: events = [] } = useQuery<K8sResource[]>({
+    queryKey: ['k8s', 'list', '/api/v1/events', nsFilter],
+    queryFn: () => k8sList<K8sResource>('/api/v1/events?limit=100', nsFilter),
     refetchInterval: 30000,
   });
-
-  // Apply namespace filter
-  const pods = useMemo(() => filterByNs(allPods as any[], selectedNamespace), [allPods, selectedNamespace]);
-  const deployments = useMemo(() => filterByNs(allDeployments as any[], selectedNamespace), [allDeployments, selectedNamespace]);
-  const pvcs = useMemo(() => filterByNs(allPvcs as any[], selectedNamespace), [allPvcs, selectedNamespace]);
-  const events = useMemo(() => filterByNs(allEvents as any[], selectedNamespace), [allEvents, selectedNamespace]);
 
   // Diagnosis (nodes are cluster-scoped, always included)
   const diagnosedResources = useMemo<DiagnosedResource[]>(() => {

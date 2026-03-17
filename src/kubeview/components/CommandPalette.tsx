@@ -258,28 +258,31 @@ function getCommandItems(
   }
 
   if (mode === 'action') {
-    // Show actions
+    // Show actions — navigate to relevant views
     return ([
       {
-        type: 'action' as const,
+        type: 'nav' as const,
         id: 'scale',
         title: 'Scale deployment',
-        subtitle: 'Change replica count',
+        subtitle: 'Navigate to deployments to scale',
         icon: 'ArrowUpDown',
+        path: '/r/apps~v1~deployments',
       },
       {
-        type: 'action' as const,
+        type: 'nav' as const,
         id: 'restart',
         title: 'Restart deployment',
-        subtitle: 'Trigger rollout restart',
+        subtitle: 'Navigate to deployments to restart',
         icon: 'RotateCw',
+        path: '/r/apps~v1~deployments',
       },
       {
-        type: 'action' as const,
+        type: 'nav' as const,
         id: 'delete',
         title: 'Delete resource',
-        subtitle: 'Remove resource from cluster',
+        subtitle: 'Browse resources to delete',
         icon: 'Trash2',
+        path: '/workloads',
       },
     ] satisfies CommandItem[]).filter((item) =>
       item.title.toLowerCase().includes(cleanQuery) ||
@@ -288,7 +291,7 @@ function getCommandItems(
   }
 
   if (mode === 'query') {
-    // Show query suggestions
+    // Show query suggestions — navigate to troubleshoot / pod list
     return ([
       {
         type: 'nav' as const,
@@ -296,6 +299,7 @@ function getCommandItems(
         title: 'Show failing pods',
         subtitle: 'Pods with CrashLoopBackOff or Error',
         icon: 'AlertTriangle',
+        path: '/troubleshoot',
       },
       {
         type: 'nav' as const,
@@ -303,6 +307,7 @@ function getCommandItems(
         title: 'Show high memory pods',
         subtitle: 'Pods using >80% memory',
         icon: 'TrendingUp',
+        path: '/pulse',
       },
     ] satisfies CommandItem[]).filter((item) =>
       item.title.toLowerCase().includes(cleanQuery)

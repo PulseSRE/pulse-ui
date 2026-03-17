@@ -13,6 +13,7 @@ import { useUIStore } from '../store/uiStore';
 import { K8S_BASE as BASE } from '../engine/gvr';
 import ClusterConfig from '../components/ClusterConfig';
 import ProductionReadiness from '../components/ProductionReadiness';
+import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 
 type Tab = 'overview' | 'readiness' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas';
 
@@ -229,24 +230,38 @@ export default function AdminView() {
 
   const go = useNavigateTab();
 
+  // --- Confirm Dialog state ---
+  const [confirmDialog, setConfirmDialog] = React.useState<{
+    title: string; description: string; confirmLabel: string;
+    variant: 'danger' | 'warning'; onConfirm: () => void;
+  } | null>(null);
+
   // --- Updates ---
   const [updating, setUpdating] = React.useState(false);
   const [channelEdit, setChannelEdit] = React.useState('');
   const [showChannelEdit, setShowChannelEdit] = React.useState(false);
 
-  const handleStartUpdate = async (version: string) => {
-    if (!confirm(`Start cluster update to ${version}? This will rolling-restart all nodes.`)) return;
-    setUpdating(true);
-    try {
-      await k8sPatch('/apis/config.openshift.io/v1/clusterversions/version', {
-        spec: { desiredUpdate: { version } },
-      }, 'application/merge-patch+json');
-      addToast({ type: 'success', title: 'Cluster update started', detail: `Updating to ${version}` });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
-    } catch (err) {
-      addToast({ type: 'error', title: 'Update failed', detail: err instanceof Error ? err.message : 'Unknown error' });
-    }
-    setUpdating(false);
+  const handleStartUpdate = (version: string) => {
+    setConfirmDialog({
+      title: `Start cluster update to ${version}?`,
+      description: `This will rolling-restart all nodes in the cluster. The update process cannot be easily reversed. Make sure you have a recent etcd backup before proceeding.`,
+      confirmLabel: 'Start Update',
+      variant: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        setUpdating(true);
+        try {
+          await k8sPatch('/apis/config.openshift.io/v1/clusterversions/version', {
+            spec: { desiredUpdate: { version } },
+          }, 'application/merge-patch+json');
+          addToast({ type: 'success', title: 'Cluster update started', detail: `Updating to ${version}` });
+          queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
+        } catch (err) {
+          addToast({ type: 'error', title: 'Update failed', detail: err instanceof Error ? err.message : 'Unknown error' });
+        }
+        setUpdating(false);
+      },
+    });
   };
 
   const handleChangeChannel = async () => {
@@ -289,13 +304,21 @@ export default function AdminView() {
   const handleDeleteSnapshot = (id: string) => {
     const snap = savedSnapshots.find(s => s.id === id);
     if (!snap) return;
-    if (!confirm(`Delete snapshot "${snap.label}"?`)) return;
-    const updated = savedSnapshots.filter(s => s.id !== id);
-    setSavedSnapshots(updated);
-    saveSnapshots(updated);
-    if (compareLeft === id) { setCompareLeft(''); setDiff(null); }
-    if (compareRight === id) { setCompareRight(''); setDiff(null); }
-    addToast({ type: 'success', title: 'Snapshot deleted', detail: snap.label });
+    setConfirmDialog({
+      title: `Delete snapshot "${snap.label}"?`,
+      description: 'This snapshot will be permanently removed. This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: () => {
+        setConfirmDialog(null);
+        const updated = savedSnapshots.filter(s => s.id !== id);
+        setSavedSnapshots(updated);
+        saveSnapshots(updated);
+        if (compareLeft === id) { setCompareLeft(''); setDiff(null); }
+        if (compareRight === id) { setCompareRight(''); setDiff(null); }
+        addToast({ type: 'success', title: 'Snapshot deleted', detail: snap.label });
+      },
+    });
   };
 
   const handleExportSnapshot = (snap: ClusterSnapshot) => {
@@ -771,6 +794,17 @@ export default function AdminView() {
           </div>
         )}
       </div>
+      {confirmDialog && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setConfirmDialog(null)}
+          onConfirm={confirmDialog.onConfirm}
+          title={confirmDialog.title}
+          description={confirmDialog.description}
+          confirmLabel={confirmDialog.confirmLabel}
+          variant={confirmDialog.variant}
+        />
+      )}
     </div>
   );
 }

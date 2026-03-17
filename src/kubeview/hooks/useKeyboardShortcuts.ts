@@ -12,50 +12,38 @@ import { useUIStore } from '../store/uiStore';
  * - Escape: Close open overlays (command palette, browser, action panel, dock)
  */
 export function useKeyboardShortcuts() {
-  const {
-    toggleCommandPalette,
-    closeCommandPalette,
-    toggleBrowser,
-    closeBrowser,
-    openActionPanel,
-    closeActionPanel,
-    closeDock,
-    dockPanel,
-    commandPaletteOpen,
-    browserOpen,
-    actionPanelOpen,
-  } = useUIStore();
-
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey;
+      // Read current state at event time — no reactive subscription needed
+      const state = useUIStore.getState();
 
       // Cmd+K - Command palette
       if (meta && e.key === 'k') {
         e.preventDefault();
-        toggleCommandPalette();
+        state.toggleCommandPalette();
         return;
       }
 
       // Cmd+B - Resource browser
       if (meta && e.key === 'b') {
         e.preventDefault();
-        toggleBrowser();
+        state.toggleBrowser();
         return;
       }
 
       // Cmd+. - Action panel
       if (meta && e.key === '.') {
         e.preventDefault();
-        openActionPanel();
+        state.openActionPanel();
         return;
       }
 
       // Cmd+J - Toggle dock
       if (meta && e.key === 'j') {
         e.preventDefault();
-        if (dockPanel) {
-          closeDock();
+        if (state.dockPanel) {
+          state.closeDock();
         }
         // Note: Opening the dock requires specifying which panel, so Cmd+J only closes
         return;
@@ -63,18 +51,18 @@ export function useKeyboardShortcuts() {
 
       // Escape - close overlays (priority order: command palette > browser > action panel > dock)
       if (e.key === 'Escape') {
-        if (commandPaletteOpen) {
+        if (state.commandPaletteOpen) {
           e.preventDefault();
-          closeCommandPalette();
-        } else if (browserOpen) {
+          state.closeCommandPalette();
+        } else if (state.browserOpen) {
           e.preventDefault();
-          closeBrowser();
-        } else if (actionPanelOpen) {
+          state.closeBrowser();
+        } else if (state.actionPanelOpen) {
           e.preventDefault();
-          closeActionPanel();
-        } else if (dockPanel) {
+          state.closeActionPanel();
+        } else if (state.dockPanel) {
           e.preventDefault();
-          closeDock();
+          state.closeDock();
         }
         return;
       }
@@ -82,17 +70,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [
-    toggleCommandPalette,
-    closeCommandPalette,
-    toggleBrowser,
-    closeBrowser,
-    openActionPanel,
-    closeActionPanel,
-    closeDock,
-    dockPanel,
-    commandPaletteOpen,
-    browserOpen,
-    actionPanelOpen,
-  ]);
+  }, []);
 }

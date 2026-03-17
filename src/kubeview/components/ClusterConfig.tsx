@@ -7,6 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 import { k8sGet, k8sPatch } from '../engine/query';
 import { useUIStore } from '../store/uiStore';
+import { ConfirmDialog } from './feedback/ConfirmDialog';
 
 const CONFIG_BASE = '/apis/config.openshift.io/v1';
 // CRDs use merge-patch, not strategic-merge-patch
@@ -108,9 +109,16 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
   const [issuer, setIssuer] = useState('');
   const [ldapUrl, setLdapUrl] = useState('');
   const [orgs, setOrgs] = useState('');
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
 
-  const handleRemoveProvider = async (name: string) => {
-    if (!confirm(`Remove identity provider "${name}"? Users authenticating through it will lose access.`)) return;
+  const handleRemoveProvider = (name: string) => {
+    setPendingRemove(name);
+  };
+
+  const executeRemoveProvider = async () => {
+    if (!pendingRemove) return;
+    const name = pendingRemove;
+    setPendingRemove(null);
     setSaving(true);
     try {
       const updated = providers.filter((p: any) => p.name !== name);
@@ -230,6 +238,16 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
           <Plus className="w-3 h-3" /> Add identity provider
         </button>
       )}
+      <ConfirmDialog
+        open={!!pendingRemove}
+        onClose={() => setPendingRemove(null)}
+        onConfirm={executeRemoveProvider}
+        title={`Remove identity provider "${pendingRemove}"?`}
+        description="Users authenticating through this provider will lose access. This change takes effect immediately."
+        confirmLabel="Remove"
+        variant="danger"
+        loading={saving}
+      />
     </div>
   );
 }

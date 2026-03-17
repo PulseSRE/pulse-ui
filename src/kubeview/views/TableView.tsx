@@ -328,7 +328,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         setInlineActionLoading(null);
         return; // Don't proceed — ConfirmDialog will call executeDelete
       }
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
     } catch (err) {
       addToast({
         type: 'error',
@@ -399,7 +399,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       const ns = pendingDelete.resource.metadata?.namespace || 'default';
       setPendingDelete(null);
       setDeleteProgress([{ name, ns, kind, status: 'done' }]);
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
     } catch (err) {
       addToast({ type: 'error', title: 'Delete failed', detail: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
@@ -443,7 +443,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       const deletedUids = new Set(items.map(i => i.uid));
       return old.filter((r: any) => !deletedUids.has(r.metadata?.uid));
     });
-    queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+    queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
   }, [selectedRows, stampedResources, queryClient]);
 
   // Row click: single = preview, double = navigate

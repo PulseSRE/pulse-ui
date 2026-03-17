@@ -25,10 +25,12 @@ export default function PulseView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
 
   // Core resource queries — real-time via WebSocket watches
+  // Pass namespace to namespaced resources so the API call is server-side scoped (avoids fetching all cluster pods)
+  const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const { data: nodes = [] } = useK8sListWatch({ apiPath: '/api/v1/nodes' });
-  const { data: pods = [], isLoading: podsLoading } = useK8sListWatch({ apiPath: '/api/v1/pods' });
-  const { data: deployments = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/deployments' });
-  const { data: pvcs = [] } = useK8sListWatch({ apiPath: '/api/v1/persistentvolumeclaims' });
+  const { data: pods = [], isLoading: podsLoading } = useK8sListWatch({ apiPath: '/api/v1/pods', namespace: nsFilter });
+  const { data: deployments = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
+  const { data: pvcs = [] } = useK8sListWatch({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
   const { data: operators = [] } = useK8sListWatch({ apiPath: '/apis/config.openshift.io/v1/clusteroperators' });
 
   // Cluster version
@@ -295,14 +297,14 @@ function StatCard({ label, value, icon, issues, onClick, extra }: {
   label: string; value: string; icon: React.ReactNode; issues: number; onClick: () => void; extra?: React.ReactNode;
 }) {
   return (
-    <div onClick={onClick} className={cn('bg-slate-900 rounded-lg border p-3 cursor-pointer hover:border-slate-600 transition-colors', issues > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+    <button onClick={onClick} className={cn('bg-slate-900 rounded-lg border p-3 cursor-pointer hover:border-slate-600 transition-colors text-left w-full', issues > 0 ? 'border-yellow-800' : 'border-slate-800')}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2 text-slate-400">{icon}<span className="text-xs">{label}</span></div>
         {issues > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{issues}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
       </div>
       {value && <div className="text-xl font-bold text-slate-100">{value}</div>}
       {extra}
-    </div>
+    </button>
   );
 }
 
@@ -323,7 +325,7 @@ function IssueRow({ name, namespace, status, detail, onClick }: {
   name: string; namespace?: string; status: string; detail?: string; onClick: () => void;
 }) {
   return (
-    <div onClick={onClick} className="flex items-center justify-between p-2 rounded hover:bg-slate-800/50 cursor-pointer transition-colors">
+    <button onClick={onClick} className="flex items-center justify-between p-2 rounded hover:bg-slate-800/50 cursor-pointer transition-colors w-full text-left">
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
         <div className="min-w-0">
@@ -336,6 +338,6 @@ function IssueRow({ name, namespace, status, detail, onClick }: {
         <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded">{status}</span>
         <ArrowRight className="w-3 h-3 text-slate-500" />
       </div>
-    </div>
+    </button>
   );
 }

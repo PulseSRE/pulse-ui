@@ -25,12 +25,17 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
 
-    // Focus the confirm button when dialog opens
-    confirmButtonRef.current?.focus();
+    // Focus Cancel for danger dialogs to prevent accidental deletion via Enter key
+    if (variant === 'danger') {
+      cancelButtonRef.current?.focus();
+    } else {
+      confirmButtonRef.current?.focus();
+    }
 
     // Handle escape key
     const handleEscape = (e: KeyboardEvent) => {
@@ -123,6 +128,7 @@ export function ConfirmDialog({
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <button
+            ref={cancelButtonRef}
             onClick={onClose}
             disabled={loading}
             className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
