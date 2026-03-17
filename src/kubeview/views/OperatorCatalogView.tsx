@@ -224,17 +224,60 @@ export default function OperatorCatalogView() {
     return 'installing';
   }, [installingOp, installSub, installCsv]);
 
-  // Auto-close on success after 3s
+  // Toast on success (don't auto-dismiss — show next steps)
+  const [toastedSuccess, setToastedSuccess] = useState(false);
   useEffect(() => {
-    if (installPhase === 'succeeded') {
-      const timer = setTimeout(() => {
-        addToast({ type: 'success', title: `${installingOp?.displayName} is ready`, detail: 'Operator installed and running' });
-        queryClient.invalidateQueries({ queryKey: ['readiness', 'subscriptions'] });
-        setInstallingOp(null);
-      }, 2000);
-      return () => clearTimeout(timer);
+    if (installPhase === 'succeeded' && !toastedSuccess) {
+      addToast({ type: 'success', title: `${installingOp?.displayName} is ready` });
+      queryClient.invalidateQueries({ queryKey: ['readiness', 'subscriptions'] });
+      setToastedSuccess(true);
     }
-  }, [installPhase]);
+    if (!installingOp) setToastedSuccess(false);
+  }, [installPhase, toastedSuccess, installingOp]);
+
+  // Post-install guidance for known operators
+  const postInstallSteps = useMemo<Array<{ title: string; description: string; path: string; label: string }>>(() => {
+    if (!installingOp || installPhase !== 'succeeded') return [];
+    const name = installingOp.name.toLowerCase();
+
+    if (name.includes('cluster-logging')) return [
+      { title: 'Create a ClusterLogForwarder', description: 'Configure what logs to collect and where to send them', path: '/create/observability.openshift.io~v1~clusterlogforwarders', label: 'Create ClusterLogForwarder' },
+      { title: 'Install Loki for log storage', description: 'CLO needs a log store — Loki is the recommended option', path: '/operatorhub?q=loki', label: 'Install Loki' },
+    ];
+    if (name.includes('loki')) return [
+      { title: 'Create a LokiStack', description: 'Configure log storage with S3/Azure/GCS backend and storage class', path: '/create/loki.grafana.com~v1~lokistacks', label: 'Create LokiStack' },
+      { title: 'Create storage credentials Secret', description: 'LokiStack needs a Secret with your object storage credentials', path: '/create/v1~secrets', label: 'Create Secret' },
+      { title: 'Connect logging to Loki', description: 'Create or update a ClusterLogForwarder to send logs to your LokiStack', path: '/create/observability.openshift.io~v1~clusterlogforwarders', label: 'Create ClusterLogForwarder' },
+    ];
+    if (name.includes('observability')) return [
+      { title: 'Create a UIPlugin', description: 'Enable observability dashboards in the OpenShift console', path: '/create/observability.openshift.io~v1alpha1~uiplugins', label: 'Create UIPlugin' },
+    ];
+    if (name.includes('oadp') || name.includes('data-protection')) return [
+      { title: 'Create a DataProtectionApplication', description: 'Configure backup storage location (S3, Azure, GCS) and schedule', path: '/create/oadp.openshift.io~v1alpha1~dataprotectionapplications', label: 'Create DPA' },
+      { title: 'Create backup credentials Secret', description: 'DPA needs a Secret with your cloud storage credentials', path: '/create/v1~secrets', label: 'Create Secret' },
+      { title: 'Create a Backup Schedule', description: 'Set up recurring etcd and application backups', path: '/create/velero.io~v1~schedules', label: 'Create Schedule' },
+    ];
+    if (name.includes('quay')) return [
+      { title: 'Create a QuayRegistry', description: 'Deploy a Quay registry instance with managed storage and database', path: '/create/quay.redhat.com~v1~quayregistries', label: 'Create QuayRegistry' },
+    ];
+    if (name.includes('external-secrets')) return [
+      { title: 'Create a SecretStore', description: 'Connect to your secret provider (Vault, AWS Secrets Manager, GCP)', path: '/create/external-secrets.io~v1beta1~secretstores', label: 'Create SecretStore' },
+      { title: 'Create an ExternalSecret', description: 'Sync a secret from your provider into a K8s Secret', path: '/create/external-secrets.io~v1beta1~externalsecrets', label: 'Create ExternalSecret' },
+    ];
+    if (name.includes('servicemesh') || name.includes('istio')) return [
+      { title: 'Create a ServiceMeshControlPlane', description: 'Deploy the Istio control plane in your namespace', path: '/create/maistra.io~v2~servicemeshcontrolplanes', label: 'Create SMCP' },
+      { title: 'Create a ServiceMeshMemberRoll', description: 'Add namespaces to the service mesh', path: '/create/maistra.io~v2~servicemeshmemberrolls', label: 'Create SMMR' },
+    ];
+    if (name.includes('serverless')) return [
+      { title: 'Create a KnativeServing', description: 'Enable serverless workloads with Knative Serving', path: '/create/operator.knative.dev~v1beta1~knativeservings', label: 'Create KnativeServing' },
+    ];
+    if (name.includes('odf') || name.includes('openshift-data-foundation')) return [
+      { title: 'Create a StorageSystem', description: 'Configure the storage backend (Ceph, NooBaa)', path: '/create/odf.openshift.io~v1alpha1~storagesystems', label: 'Create StorageSystem' },
+    ];
+
+    // Generic fallback
+    return [];
+  }, [installingOp, installPhase]);
 
   // Install progress banner
   const installProgressBanner = installingOp && (
@@ -277,9 +320,33 @@ export default function OperatorCatalogView() {
           })}
         </div>
       </div>
-      <button onClick={() => setInstallingOp(null)} className="text-xs text-slate-400 hover:text-slate-200 shrink-0">
+      <button onClick={() => setInstallingOp(null)} className="text-xs text-slate-400 hover:text-slate-200 shrink-0 self-start mt-1">
         {installPhase === 'succeeded' || installPhase === 'failed' ? 'Close' : 'Hide'}
       </button>
+    </div>
+  );
+
+  // What's Next panel (shown after successful install)
+  const whatNextPanel = installPhase === 'succeeded' && postInstallSteps.length > 0 && (
+    <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-800">
+        <h2 className="text-sm font-semibold text-slate-100">What's Next — Configure {installingOp?.displayName}</h2>
+        <p className="text-xs text-slate-500 mt-0.5">The operator is installed. Complete these steps to finish setup:</p>
+      </div>
+      <div className="divide-y divide-slate-800">
+        {postInstallSteps.map((step, i) => (
+          <div key={i} className="px-4 py-3 flex items-start gap-3">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-900/50 text-blue-300 text-xs font-bold shrink-0 mt-0.5">{i + 1}</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-slate-200">{step.title}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{step.description}</div>
+            </div>
+            <button onClick={() => go(step.path, step.label)} className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded shrink-0">
+              {step.label} <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
@@ -301,6 +368,7 @@ export default function OperatorCatalogView() {
           </button>
 
           {installProgressBanner}
+          {whatNextPanel}
 
           <div className="flex items-start gap-4">
             {desc?.icon?.[0]?.base64data ? (
@@ -384,6 +452,7 @@ export default function OperatorCatalogView() {
         </div>
 
         {installProgressBanner}
+        {whatNextPanel}
 
         {/* Search + filters */}
         <div className="flex items-center gap-3 flex-wrap">
