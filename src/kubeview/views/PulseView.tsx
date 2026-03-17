@@ -115,10 +115,15 @@ export default function PulseView() {
     return pvcs.filter((pvc) => (pvc.status as any)?.phase === 'Pending');
   }, [pvcs]);
 
-  // Recent warning events
+  // Recent warning events — only from the last hour
   const recentWarnings = React.useMemo(() => {
+    const oneHourAgo = Date.now() - 3600000;
     return events
-      .filter((e) => (e as any).type === 'Warning')
+      .filter((e) => {
+        if ((e as any).type !== 'Warning') return false;
+        const ts = (e as any).lastTimestamp || (e as any).firstTimestamp || '';
+        return ts ? new Date(ts).getTime() > oneHourAgo : false;
+      })
       .sort((a, b) => {
         const at = (a as any).lastTimestamp || (a as any).firstTimestamp || '';
         const bt = (b as any).lastTimestamp || (b as any).firstTimestamp || '';
