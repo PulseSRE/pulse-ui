@@ -376,6 +376,41 @@ export default function OperatorCatalogView() {
     });
   }, [installedCsv]);
 
+  // Fetch operator's running resources (deployments, pods)
+  const csvDeploymentNames = useMemo(() => {
+    if (!installedCsv) return [];
+    return (installedCsv.spec?.install?.spec?.deployments || []).map((d: any) => d.name);
+  }, [installedCsv]);
+
+  const csvServiceAccounts = useMemo(() => {
+    if (!installedCsv) return [];
+    const perms = [
+      ...(installedCsv.spec?.install?.spec?.clusterPermissions || []),
+      ...(installedCsv.spec?.install?.spec?.permissions || []),
+    ];
+    return [...new Set(perms.map((p: any) => p.serviceAccountName))];
+  }, [installedCsv]);
+
+  const { data: operatorPods = [] } = useQuery<any[]>({
+    queryKey: ['operator-pods', installedCsvNs, csvDeploymentNames],
+    queryFn: async () => {
+      if (!installedCsvNs || csvDeploymentNames.length === 0) return [];
+      const allPods = await k8sList<any>(`/api/v1/namespaces/${installedCsvNs}/pods`);
+      return allPods.filter((p: any) => csvDeploymentNames.some((dn: string) => p.metadata.name.startsWith(dn)));
+    },
+    enabled: csvDeploymentNames.length > 0 && !!installedCsvNs,
+    refetchInterval: 15000,
+  });
+
+  const { data: installPlan } = useQuery({
+    queryKey: ['installplan', selectedSub?.status?.installPlanRef?.name, installedCsvNs],
+    queryFn: () => selectedSub?.status?.installPlanRef?.name && installedCsvNs
+      ? k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installedCsvNs}/installplans/${selectedSub.status.installPlanRef.name}`).catch(() => null)
+      : null,
+    enabled: !!selectedSub?.status?.installPlanRef?.name && !!installedCsvNs,
+    staleTime: 60000,
+  });
+
   // Detail view
   if (selectedOp) {
     const desc = selectedOp.status.channels?.find(c => c.name === selectedOp.status.defaultChannel)?.currentCSVDesc
@@ -482,6 +517,99 @@ export default function OperatorCatalogView() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Subscription & Install Details (installed only) */}
+          {isInstalled && selectedSub && (
+            <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-800">
+                <h2 className="text-sm font-semibold text-slate-100">Subscription Details</h2>
+              </div>
+              <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div><span className="text-slate-500">Channel</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.spec?.channel}</div></div>
+                <div><span className="text-slate-500">Source</span><div className="text-slate-200 mt-0.5">{selectedSub.spec?.source}</div></div>
+                <div><span className="text-slate-500">Approval</span><div className="text-slate-200 mt-0.5">{selectedSub.spec?.installPlanApproval}</div></div>
+                <div><span className="text-slate-500">Namespace</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.metadata?.namespace}</div></div>
+                <div><span className="text-slate-500">CSV</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.status?.installedCSV || '—'}</div></div>
+                <div><span className="text-slate-500">CSV Phase</span><div className={cn('mt-0.5', installedCsv?.status?.phase === 'Succeeded' ? 'text-green-400' : 'text-yellow-400')}>{installedCsv?.status?.phase || '—'}</div></div>
+                <div>
+                  <span className="text-slate-500">InstallPlan</span>
+                  <div className="text-slate-200 font-mono mt-0.5">
+                    {selectedSub.status?.installPlanRef?.name ? (
+                      <button onClick={() => go(`/r/operators.coreos.com~v1alpha1~installplans/${installedCsvNs}/${selectedSub.status.installPlanRef.name}`, 'InstallPlan')} className="text-blue-400 hover:text-blue-300">
+                        {selectedSub.status.installPlanRef.name}
+                      </button>
+                    ) : '—'}
+                  </div>
+                </div>
+                <div><span className="text-slate-500">State</span><div className={cn('mt-0.5', selectedSub.status?.state === 'AtLatestKnown' ? 'text-green-400' : 'text-yellow-400')}>{selectedSub.status?.state || '—'}</div></div>
+              </div>
+            </div>
+          )}
+
+          {/* Operator Components (deployments + pods) */}
+          {isInstalled && csvDeploymentNames.length > 0 && (
+            <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-800">
+                <h2 className="text-sm font-semibold text-slate-100">Operator Components</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{csvDeploymentNames.length} deployment{csvDeploymentNames.length !== 1 ? 's' : ''}, {operatorPods.length} pod{operatorPods.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="divide-y divide-slate-800">
+                {csvDeploymentNames.map((depName: string) => {
+                  const depPods = operatorPods.filter((p: any) => p.metadata.name.startsWith(depName));
+                  return (
+                    <div key={depName} className="px-4 py-3">
+                      <button onClick={() => go(`/r/apps~v1~deployments/${installedCsvNs}/${depName}`, depName)}
+                        className="text-sm font-medium text-blue-400 hover:text-blue-300 flex items-center gap-2">
+                        <Package className="w-3.5 h-3.5" /> {depName}
+                      </button>
+                      {depPods.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {depPods.map((pod: any) => {
+                            const phase = pod.status?.phase || 'Pending';
+                            const cs = pod.status?.containerStatuses || [];
+                            const ready = cs.filter((c: any) => c.ready).length;
+                            const total = cs.length || 1;
+                            return (
+                              <button key={pod.metadata.uid} onClick={() => go(`/r/v1~pods/${installedCsvNs}/${pod.metadata.name}`, pod.metadata.name)}
+                                className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-slate-800/50 text-left">
+                                <div className="flex items-center gap-2">
+                                  <div className={cn('w-1.5 h-1.5 rounded-full', phase === 'Running' && ready === total ? 'bg-green-500' : 'bg-yellow-500')} />
+                                  <span className="text-xs text-slate-300 font-mono">{pod.metadata.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-slate-500 font-mono">{ready}/{total}</span>
+                                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded', phase === 'Running' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{phase}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Service Accounts & RBAC */}
+          {isInstalled && csvServiceAccounts.length > 0 && (
+            <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-800">
+                <h2 className="text-sm font-semibold text-slate-100">Service Accounts & RBAC</h2>
+              </div>
+              <div className="divide-y divide-slate-800">
+                {csvServiceAccounts.map((sa: string) => (
+                  <button key={sa} onClick={() => go(`/r/v1~serviceaccounts/${installedCsvNs}/${sa}`, sa)}
+                    className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-slate-800/50 text-left">
+                    <Shield className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-sm text-blue-400 hover:text-blue-300 font-mono">{sa}</span>
+                    <span className="text-xs text-slate-500">{installedCsvNs}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
