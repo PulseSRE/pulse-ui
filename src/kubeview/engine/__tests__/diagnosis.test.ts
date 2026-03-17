@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   diagnoseResource,
+  enrichDiagnosesWithLogs,
   findNeedsAttention,
   getDiagnosisSummary,
   needsAttention,
@@ -359,6 +360,90 @@ describe('diagnosis', () => {
     it('returns false for healthy resource', () => {
       const pod = makePod({ status: { phase: 'Running', containerStatuses: [{ name: 'app', restartCount: 0, state: { running: {} } }] } });
       expect(needsAttention(pod)).toBe(false);
+    });
+  });
+
+  describe('enrichDiagnosesWithLogs', () => {
+    const crashPod = makePod({
+      status: {
+        containerStatuses: [{
+          name: 'nginx',
+          restartCount: 5,
+          state: { waiting: { reason: 'CrashLoopBackOff' } },
+        }],
+      },
+    });
+
+    it('detects permission denied from logs', async () => {
+      const diagnoses = diagnoseResource(crashPod);
+      const mockFetch = async () => 'nginx: [emerg] mkdir() "/var/cache/nginx/client_temp" failed (13: Permission denied)';
+      const enriched = await enrichDiagnosesWithLogs(crashPod, diagnoses, mockFetch);
+      const crash = enriched.find(d => d.title.includes('CrashLoopBackOff'));
+      expect(crash?.title).toContain('Permission denied');
+      expect(crash?.suggestion).toContain('non-root');
+      expect(crash?.logSnippet).toContain('Permission denied');
+    });
+
+    it('detects connection refused from logs', async () => {
+      const diagnoses = diagnoseResource(crashPod);
+      const mockFetch = async () => 'Error: connect ECONNREFUSED 10.0.0.1:5432';
+      const enriched = await enrichDiagnosesWithLogs(crashPod, diagnoses, mockFetch);
+      const crash = enriched.find(d => d.title.includes('CrashLoopBackOff'));
+      expect(crash?.title).toContain('Connection refused');
+    });
+
+    it('detects OOM from logs', async () => {
+      const diagnoses = diagnoseResource(crashPod);
+      const mockFetch = async () => 'FATAL: out of memory\nDetail: failed to allocate 1048576 bytes';
+      const enriched = await enrichDiagnosesWithLogs(crashPod, diagnoses, mockFetch);
+      const crash = enriched.find(d => d.title.includes('CrashLoopBackOff'));
+      expect(crash?.title).toContain('Out of memory');
+    });
+
+    it('detects DNS failure from logs', async () => {
+      const diagnoses = diagnoseResource(crashPod);
+      const mockFetch = async () => 'Error: getaddrinfo ENOTFOUND postgres.default.svc.cluster.local';
+      const enriched = await enrichDiagnosesWithLogs(crashPod, diagnoses, mockFetch);
+      const crash = enriched.find(d => d.title.includes('CrashLoopBackOff'));
+      expect(crash?.title).toContain('DNS resolution failure');
+    });
+
+    it('detects read-only filesystem from logs', async () => {
+      const diagnoses = diagnoseResource(crashPod);
+      const mockFetch = async () => 'Error: EROFS: read-only file system, open /data/cache.db';
+      const enriched = await enrichDiagnosesWithLogs(crashPod, diagnoses, mockFetch);
+      const crash = enriched.find(d => d.title.includes('CrashLoopBackOff'));
+      expect(crash?.title).toContain('Read-only filesystem');
+    });
+
+    it('shows log snippet even when no pattern matches', async () => {
+      const diagnoses = diagnoseResource(crashPod);
+      const mockFetch = async () => 'some random error\nfatal: custom app crash';
+      const enriched = await enrichDiagnosesWithLogs(crashPod, diagnoses, mockFetch);
+      const crash = enriched.find(d => d.title.includes('CrashLoopBackOff'));
+      expect(crash?.logSnippet).toContain('fatal: custom app crash');
+    });
+
+    it('does not enrich healthy pods', async () => {
+      const healthyPod = makePod({ status: { phase: 'Running', containerStatuses: [{ name: 'app', restartCount: 0, state: { running: {} } }] } });
+      const diagnoses = diagnoseResource(healthyPod);
+      const mockFetch = async () => 'should not be called';
+      const enriched = await enrichDiagnosesWithLogs(healthyPod, diagnoses, mockFetch);
+      expect(enriched).toEqual(diagnoses);
+    });
+
+    it('falls back to previous logs when current is empty', async () => {
+      const diagnoses = diagnoseResource(crashPod);
+      let callCount = 0;
+      const mockFetch = async (url: string) => {
+        callCount++;
+        if (url.includes('previous=true')) return 'previous: permission denied on /var/run';
+        return ''; // current logs empty
+      };
+      const enriched = await enrichDiagnosesWithLogs(crashPod, diagnoses, mockFetch);
+      expect(callCount).toBe(2); // tried current, then previous
+      const crash = enriched.find(d => d.title.includes('CrashLoopBackOff'));
+      expect(crash?.title).toContain('Permission denied');
     });
   });
 });

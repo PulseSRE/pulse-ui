@@ -10,6 +10,7 @@ export interface Diagnosis {
   title: string;
   detail: string;
   suggestion?: string;
+  logSnippet?: string;
   fix?: {
     label: string;
     patch: unknown;
@@ -477,4 +478,100 @@ export function getDiagnosisSummary(resource: K8sResource): {
 export function needsAttention(resource: K8sResource): boolean {
   const summary = getDiagnosisSummary(resource);
   return summary.critical > 0 || summary.warning > 0;
+}
+
+// --- Log-based error patterns ---
+
+interface LogPattern {
+  pattern: RegExp;
+  title: string;
+  suggestion: string;
+}
+
+const LOG_ERROR_PATTERNS: LogPattern[] = [
+  { pattern: /permission denied/i, title: 'Permission denied', suggestion: 'The container is trying to access a path it does not have permission for. On OpenShift, containers run as a random non-root UID. Use an image that supports running as non-root (e.g. nginxinc/nginx-unprivileged), or add a SecurityContextConstraint (SCC) that allows the required access.' },
+  { pattern: /bind.*address already in use/i, title: 'Port already in use', suggestion: 'Another process in the container is already listening on this port, or the port is privileged (<1024). Use a non-privileged port (e.g. 8080) or configure the container to run as root with an appropriate SCC.' },
+  { pattern: /no such file or directory/i, title: 'File or directory not found', suggestion: 'The container is trying to access a file that does not exist. Check volume mounts, config maps, and the container image entrypoint.' },
+  { pattern: /connection refused|ECONNREFUSED/i, title: 'Connection refused', suggestion: 'The application cannot connect to a required service. Check that dependent services (databases, APIs) are running and the connection URL/port is correct.' },
+  { pattern: /exec format error/i, title: 'Wrong architecture', suggestion: 'The container image was built for a different CPU architecture (e.g. amd64 image on arm64 node). Use a multi-arch image or build for the correct platform.' },
+  { pattern: /oom|out of memory|cannot allocate memory/i, title: 'Out of memory', suggestion: 'The process is running out of memory. Increase the container memory limit in the deployment spec, or optimize the application memory usage.' },
+  { pattern: /certificate.*expired|x509.*certificate/i, title: 'TLS certificate error', suggestion: 'A TLS certificate is expired or invalid. Check the certificate dates, CA trust, and ensure the correct certificate is mounted.' },
+  { pattern: /name.*resolution|could not resolve|ENOTFOUND|dns.*fail/i, title: 'DNS resolution failure', suggestion: 'The container cannot resolve a hostname. Check that the target service exists, DNS is working, and the service name is correct.' },
+  { pattern: /read-only file system/i, title: 'Read-only filesystem', suggestion: 'The container is trying to write to a read-only filesystem. Add a writable volume mount (emptyDir) for the directory, or use an image that writes to /tmp.' },
+  { pattern: /operation not permitted/i, title: 'Operation not permitted', suggestion: 'The container lacks the required Linux capability. On OpenShift, most capabilities are dropped by default. Use an SCC that grants the needed capability, or modify the application to not require it.' },
+];
+
+/**
+ * Fetch pod logs and analyze for common error patterns.
+ * Returns enriched diagnoses with log snippets and specific suggestions.
+ */
+export async function enrichDiagnosesWithLogs(
+  resource: K8sResource,
+  diagnoses: Diagnosis[],
+  fetchFn: (url: string) => Promise<string> = defaultLogFetch,
+): Promise<Diagnosis[]> {
+  if (resource.kind !== 'Pod' || !resource.metadata.namespace) return diagnoses;
+
+  // Only fetch logs for pods with crashes or errors
+  const hasCrash = diagnoses.some(d =>
+    d.title.includes('CrashLoopBackOff') ||
+    d.title.includes('OOM') ||
+    d.title.includes('restarted') ||
+    d.detail.includes('crashing')
+  );
+  if (!hasCrash) return diagnoses;
+
+  try {
+    // Try current logs first, then previous
+    let logText = await fetchFn(
+      `/api/kubernetes/api/v1/namespaces/${resource.metadata.namespace}/pods/${resource.metadata.name}/log?tailLines=50`
+    );
+    if (!logText.trim()) {
+      logText = await fetchFn(
+        `/api/kubernetes/api/v1/namespaces/${resource.metadata.namespace}/pods/${resource.metadata.name}/log?tailLines=50&previous=true`
+      );
+    }
+    if (!logText.trim()) return diagnoses;
+
+    // Extract error lines
+    const lines = logText.split('\n');
+    const errorLines = lines.filter(l => /error|fatal|panic|emerg|permission denied|failed|exception/i.test(l));
+    const lastErrors = errorLines.slice(-5).join('\n');
+
+    // Match against known patterns
+    const enriched = diagnoses.map(d => {
+      if (!d.title.includes('CrashLoopBackOff') && !d.title.includes('restarted')) return d;
+
+      for (const pattern of LOG_ERROR_PATTERNS) {
+        if (pattern.pattern.test(logText)) {
+          return {
+            ...d,
+            title: `${d.title} — ${pattern.title}`,
+            suggestion: pattern.suggestion,
+            logSnippet: lastErrors || undefined,
+          };
+        }
+      }
+
+      // No pattern matched — still show the error lines
+      if (lastErrors) {
+        return {
+          ...d,
+          logSnippet: lastErrors,
+          suggestion: d.suggestion + ' See log errors below.',
+        };
+      }
+      return d;
+    });
+
+    return enriched;
+  } catch {
+    return diagnoses;
+  }
+}
+
+async function defaultLogFetch(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) return '';
+  return res.text();
 }

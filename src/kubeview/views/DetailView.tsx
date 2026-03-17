@@ -28,7 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { k8sGet, k8sList, k8sDelete, k8sPatch } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
-import { diagnoseResource, type Diagnosis } from '../engine/diagnosis';
+import { diagnoseResource, enrichDiagnosesWithLogs, type Diagnosis } from '../engine/diagnosis';
 import { detectResourceStatus } from '../engine/renderers/statusUtils';
 import { kindToPlural } from '../engine/renderers/index';
 import { buildApiPath } from '../hooks/useResourceUrl';
@@ -101,11 +101,20 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     refetchInterval: 30000,
   });
 
-  // Run diagnosis
-  const diagnoses = React.useMemo<Diagnosis[]>(() => {
+  // Run diagnosis (sync)
+  const baseDiagnoses = React.useMemo<Diagnosis[]>(() => {
     if (!resource) return [];
     return diagnoseResource(resource);
   }, [resource]);
+
+  // Enrich with log analysis (async)
+  const [diagnoses, setDiagnoses] = React.useState<Diagnosis[]>([]);
+  React.useEffect(() => {
+    setDiagnoses(baseDiagnoses);
+    if (baseDiagnoses.length > 0 && resource) {
+      enrichDiagnosesWithLogs(resource, baseDiagnoses).then(setDiagnoses).catch(() => {});
+    }
+  }, [baseDiagnoses, resource]);
 
   // Sort events by timestamp
   const sortedEvents = React.useMemo(() => {
@@ -413,6 +422,12 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                         <p className="text-xs text-slate-400 mb-2">
                           💡 {diagnosis.suggestion}
                         </p>
+                      )}
+                      {diagnosis.logSnippet && (
+                        <div className="mb-2 p-2 bg-slate-950 rounded border border-slate-700 max-h-32 overflow-auto">
+                          <div className="text-[10px] text-slate-500 mb-1">Error from logs:</div>
+                          <pre className="text-xs text-red-400 whitespace-pre-wrap font-mono">{diagnosis.logSnippet}</pre>
+                        </div>
                       )}
                       <div className="flex items-center gap-2 flex-wrap">
                         {diagnosis.fix && (
