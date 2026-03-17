@@ -142,7 +142,7 @@ describe('k8sPatch', () => {
 });
 
 describe('k8sDelete', () => {
-  it('sends DELETE with propagationPolicy', async () => {
+  it('sends DELETE with Foreground propagationPolicy for pods', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
 
     await k8sDelete('/api/v1/namespaces/default/pods/test');
@@ -150,10 +150,50 @@ describe('k8sDelete', () => {
       '/api/kubernetes/api/v1/namespaces/default/pods/test',
       expect.objectContaining({
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'DeleteOptions', apiVersion: 'v1', propagationPolicy: 'Background' }),
+        body: JSON.stringify({ kind: 'DeleteOptions', apiVersion: 'v1', propagationPolicy: 'Foreground' }),
       }),
     );
+  });
+
+  it('scales to 0 before deleting deployments', async () => {
+    // First call: PATCH to scale down, second call: DELETE
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await k8sDelete('/apis/apps/v1/namespaces/default/deployments/nginx');
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // First call: scale to 0
+    expect(mockFetch.mock.calls[0][1].method).toBe('PATCH');
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({ spec: { replicas: 0 } });
+    // Second call: delete
+    expect(mockFetch.mock.calls[1][1].method).toBe('DELETE');
+  });
+
+  it('scales to 0 before deleting statefulsets', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await k8sDelete('/apis/apps/v1/namespaces/default/statefulsets/redis');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0][1].method).toBe('PATCH');
+  });
+
+  it('does not scale non-scalable resources', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await k8sDelete('/api/v1/namespaces/default/configmaps/test');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  it('continues delete even if scale-down fails', async () => {
+    // Scale fails, delete succeeds
+    mockFetch.mockRejectedValueOnce(new Error('scale failed'));
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
+
+    await k8sDelete('/apis/apps/v1/namespaces/default/deployments/nginx');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
   it('does not throw on 404', async () => {

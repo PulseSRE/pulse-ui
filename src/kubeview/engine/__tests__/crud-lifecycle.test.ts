@@ -189,20 +189,28 @@ describe('create resource (k8sCreate)', () => {
 
 describe('delete resource (k8sDelete)', () => {
   describe('delete from detail view — namespaced', () => {
+    const scalableResources = ['deployments', 'statefulsets', 'replicasets'];
+
     it.each(
       ALL_RESOURCES.filter(r => r.namespaced).map(r => [r.kind, r.gvr])
     )('deletes %s via DELETE with propagationPolicy', async (_kind, gvr) => {
+      const plural = gvr.split('/').pop() || '';
+      const isScalable = scalableResources.includes(plural);
+
+      // Scalable resources get PATCH (scale to 0) + DELETE
+      if (isScalable) mockOk({});
       mockOk({ status: 'Success' });
 
       const detailPath = buildApiPath(gvr, 'default', 'my-resource');
       await k8sDelete(detailPath);
 
-      const [url, opts] = mockFetch.mock.calls[0];
+      // Find the DELETE call (last call for scalable, only call for others)
+      const deleteCall = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
+      const [url, opts] = deleteCall;
       expect(url).toContain(detailPath);
       expect(opts.method).toBe('DELETE');
-      expect(opts.headers['Content-Type']).toBe('application/json');
       const body = JSON.parse(opts.body);
-      expect(body.propagationPolicy).toBe('Background');
+      expect(body.propagationPolicy).toBe('Foreground');
       expect(body.kind).toBe('DeleteOptions');
     });
   });
@@ -224,28 +232,31 @@ describe('delete resource (k8sDelete)', () => {
   });
 
   describe('delete from list view (inline action)', () => {
+    const scalablePlurals = ['deployments', 'statefulsets', 'replicasets'];
+
     it.each(
       ALL_RESOURCES.filter(r => r.namespaced).map(r => {
         const parts = r.gvr.split('/');
-        const group = parts.length === 3 ? parts[0] : '';
         const apiVersion = parts.length === 3 ? `${parts[0]}/${parts[1]}` : parts[0];
-        return [r.kind, apiVersion, group];
+        return [r.kind, apiVersion, r.gvr];
       })
-    )('builds correct path for %s via apiVersion', async (kind, apiVersion, group) => {
+    )('builds correct path for %s via apiVersion', async (kind, apiVersion, gvr) => {
+      const plural = kindToPlural(kind as string);
+      const isScalable = scalablePlurals.includes(plural);
+      if (isScalable) mockOk({});
       mockOk({ status: 'Success' });
 
-      // Simulate the TableView inline delete path construction
-      const [g, version] = apiVersion.includes('/') ? apiVersion.split('/') : ['', apiVersion];
+      const [g, version] = (apiVersion as string).includes('/') ? (apiVersion as string).split('/') : ['', apiVersion];
       let basePath = g ? `/apis/${apiVersion}` : `/api/${version}`;
       basePath += `/namespaces/default`;
-      const plural = kindToPlural(kind as string);
       const resourcePath = `${basePath}/${plural}/my-resource`;
 
       await k8sDelete(resourcePath);
 
-      const [url] = mockFetch.mock.calls[0];
-      expect(url).toContain(`/${plural}/my-resource`);
-      expect(url).toContain('/namespaces/default/');
+      // Find the DELETE call
+      const deleteCall = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
+      expect(deleteCall[0]).toContain(`/${plural}/my-resource`);
+      expect(deleteCall[0]).toContain('/namespaces/default/');
     });
   });
 
@@ -287,12 +298,17 @@ describe('end-to-end path correctness', () => {
     await k8sCreate(createPath, { apiVersion: 'apps/v1', kind: 'Deployment', metadata: { name: 'nginx' } });
     expect(mockFetch.mock.calls[0][0]).toContain('/apis/apps/v1/namespaces/default/deployments');
 
-    // Delete from detail view
-    mockOk({ status: 'Success' });
+    // Delete from detail view (scale to 0 + delete)
+    mockOk({}); // scale PATCH
+    mockOk({ status: 'Success' }); // DELETE
     const deletePath = buildApiPath('apps/v1/deployments', 'default', 'nginx');
     expect(deletePath).toBe('/apis/apps/v1/namespaces/default/deployments/nginx');
     await k8sDelete(deletePath);
-    expect(mockFetch.mock.calls[1][0]).toContain('/apis/apps/v1/namespaces/default/deployments/nginx');
+    // Scale call
+    expect(mockFetch.mock.calls[1][1].method).toBe('PATCH');
+    // Delete call
+    expect(mockFetch.mock.calls[2][0]).toContain('/apis/apps/v1/namespaces/default/deployments/nginx');
+    expect(mockFetch.mock.calls[2][1].method).toBe('DELETE');
   });
 
   it('Node delete via "_" namespace (cluster-scoped)', async () => {

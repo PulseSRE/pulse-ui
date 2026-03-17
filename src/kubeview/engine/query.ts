@@ -140,6 +140,21 @@ export async function k8sPatch<T>(
  * Delete a resource
  */
 export async function k8sDelete(apiPath: string): Promise<void> {
+  // For scalable resources, scale to 0 first so pods terminate cleanly
+  // before the resource is deleted. This prevents orphaned pods and
+  // makes delete faster (no waiting for GC).
+  if (/\/(deployments|statefulsets|replicasets)\/[^/]+$/.test(apiPath)) {
+    try {
+      await fetch(`${BASE}${apiPath}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/strategic-merge-patch+json' },
+        body: JSON.stringify({ spec: { replicas: 0 } }),
+      });
+    } catch {
+      // Scale-down is best-effort — continue with delete even if it fails
+    }
+  }
+
   const response = await fetch(`${BASE}${apiPath}`, {
     method: 'DELETE',
     headers: {
@@ -148,7 +163,7 @@ export async function k8sDelete(apiPath: string): Promise<void> {
     body: JSON.stringify({
       kind: 'DeleteOptions',
       apiVersion: 'v1',
-      propagationPolicy: 'Background',
+      propagationPolicy: 'Foreground',
     }),
   });
 
