@@ -4,6 +4,8 @@ import { Bell, AlertTriangle, XCircle, CheckCircle, Clock, Search, VolumeX, Arro
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { resourceDetailUrl } from '../engine/gvr';
+import { kindToPlural } from '../engine/renderers/index';
 import { Card, CardHeader, CardBody } from '../components/primitives/Card';
 
 interface PrometheusAlert {
@@ -215,26 +217,50 @@ export default function AlertsView() {
             {filteredAlerts.length === 0 ? (
               <div className="text-center py-12"><CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-3" /><p className="text-slate-300">No alerts firing</p></div>
             ) : (
-              filteredAlerts.map((item, idx) => (
-                <Card key={idx}>
+              filteredAlerts.map((item, idx) => {
+                // Build link to affected resource
+                const labels = item.alert.labels;
+                const resourceName = labels.pod || labels.deployment || labels.node || labels.statefulset || labels.daemonset || labels.job || '';
+                const resourceKind = labels.pod ? 'Pod' : labels.deployment ? 'Deployment' : labels.node ? 'Node' : labels.statefulset ? 'StatefulSet' : labels.daemonset ? 'DaemonSet' : labels.job ? 'Job' : '';
+                const resourceNs = labels.namespace;
+                const hasResource = resourceName && resourceKind;
+
+                return (
+                <Card key={idx} onClick={hasResource ? () => {
+                  const apiVersion = resourceKind === 'Deployment' || resourceKind === 'StatefulSet' || resourceKind === 'DaemonSet' ? 'apps/v1' : resourceKind === 'Job' ? 'batch/v1' : 'v1';
+                  go(resourceDetailUrl({ apiVersion, kind: resourceKind, metadata: { name: resourceName, namespace: resourceNs } }), resourceName);
+                } : undefined}>
                   <div className="px-4 py-3 flex items-start gap-3">
                     {item.severity === 'critical' ? <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" /> : <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-sm font-medium text-slate-200">{item.rule}</span>
                         <span className={cn('text-[10px] px-1.5 py-0.5 rounded', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{item.severity}</span>
                         <span className={cn('text-[10px] px-1.5 py-0.5 rounded', item.alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300')}>{item.alert.state}</span>
-                        {item.alert.labels.namespace && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{item.alert.labels.namespace}</span>}
                       </div>
+                      {/* Affected resource link */}
+                      {hasResource && (
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-blue-400">{resourceKind}/{resourceName}</span>
+                          {resourceNs && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{resourceNs}</span>}
+                        </div>
+                      )}
+                      {!hasResource && labels.namespace && (
+                        <button onClick={(e) => { e.stopPropagation(); useUIStore.getState().setSelectedNamespace(labels.namespace); go('/r/v1~pods', 'Pods'); }} className="text-xs text-blue-400 hover:text-blue-300 mb-1 block">
+                          {labels.namespace} →
+                        </button>
+                      )}
                       {item.description && <p className="text-xs text-slate-400 line-clamp-2">{item.description}</p>}
                       <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-500">
                         {item.alert.activeAt && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Since {new Date(item.alert.activeAt).toLocaleString()}</span>}
                         <span>{item.group}</span>
+                        {hasResource && <span className="text-blue-400">Click to investigate →</span>}
                       </div>
                     </div>
                   </div>
                 </Card>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -244,7 +270,14 @@ export default function AlertsView() {
           <Card>
             <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
               {filteredRules.map((rule, idx) => (
-                <div key={idx} className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/30">
+                <div
+                  key={idx}
+                  className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/30 cursor-pointer"
+                  onClick={() => {
+                    try { navigator.clipboard.writeText(rule.query); } catch {}
+                    addToast({ type: 'success', title: 'PromQL copied', detail: rule.query.slice(0, 80) });
+                  }}
+                >
                   {rule.alertCount > 0 ? <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" /> : <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
