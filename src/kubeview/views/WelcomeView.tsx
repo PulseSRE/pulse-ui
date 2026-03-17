@@ -1,27 +1,13 @@
-import { useNavigate } from 'react-router-dom';
 import {
-  HeartPulse,
-  LayoutDashboard,
-  Clock,
-  Search,
-  GitBranch,
-  Terminal,
-  FilePlus,
-  GitCompare,
-  Keyboard,
-  ArrowRight,
-  Zap,
-  Eye,
-  Shield,
+  HeartPulse, Clock, Search, GitBranch, Terminal, FilePlus,
+  Keyboard, ArrowRight, Zap, Eye, Shield, Bell, Settings,
+  Puzzle, HardDrive, Activity, Cpu,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 
 export default function WelcomeView() {
-  const navigate = useNavigate();
-  const addTab = useUIStore((s) => s.addTab);
   const openCommandPalette = useUIStore((s) => s.openCommandPalette);
-
   const go = useNavigateTab();
 
   return (
@@ -47,21 +33,21 @@ export default function WelcomeView() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <QuickAction
+              icon={<HeartPulse className="w-6 h-6 text-blue-400" />}
+              title="Check Cluster Health"
+              description="See active issues, CPU/memory usage, and degraded operators at a glance"
+              onClick={() => go('/pulse', 'Pulse')}
+            />
+            <QuickAction
               icon={<Search className="w-6 h-6 text-emerald-400" />}
               title="Find Resources"
               description="Press ⌘K to search any resource type — pods, services, secrets, CRDs"
               onClick={openCommandPalette}
             />
             <QuickAction
-              icon={<FilePlus className="w-6 h-6 text-amber-400" />}
-              title="Create a Resource"
-              description="Start from a YAML template with auto-complete snippets"
-              onClick={() => go('/create/v1~pods', 'Create Pod')}
-            />
-            <QuickAction
               icon={<GitBranch className="w-6 h-6 text-orange-400" />}
-              title="Troubleshoot Resource"
-              description="Auto-diagnose issues, view dependencies, and investigate correlations"
+              title="Troubleshoot Issues"
+              description="Auto-diagnose problems with interactive runbooks and namespace health"
               onClick={() => go('/troubleshoot', 'Troubleshoot')}
             />
           </div>
@@ -77,7 +63,7 @@ export default function WelcomeView() {
             <Shortcut keys="⌘ K" label="Command Palette" description="Search resources, pages, actions" />
             <Shortcut keys="⌘ B" label="Resource Browser" description="Browse all API groups" />
             <Shortcut keys="⌘ ." label="Action Panel" description="Quick actions on current resource" />
-            <Shortcut keys="Esc" label="Close Overlay" description="Close palette, browser, or panel" />
+            <Shortcut keys="j / k" label="Navigate Table" description="Move up/down in resource lists" />
           </div>
         </div>
 
@@ -88,17 +74,14 @@ export default function WelcomeView() {
             Built-in Views
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <PageLink icon={<HeartPulse className="w-5 h-5 text-blue-400" />} title="Cluster Pulse" description="What needs attention right now" onClick={() => go('/pulse', 'Pulse')} />
-            <PageLink icon={<LayoutDashboard className="w-5 h-5 text-purple-400" />} title="Dashboard" description="Metrics, pods, CPU, memory overview" onClick={() => go('/dashboard', 'Dashboard')} />
-            <PageLink icon={<GitBranch className="w-5 h-5 text-orange-400" />} title="Troubleshoot" description="Auto-diagnose cluster issues" onClick={() => go('/troubleshoot', 'Troubleshoot')} />
-            <PageLink icon={<FilePlus className="w-5 h-5 text-blue-400" />} title="Workloads" description="Deployments, StatefulSets, DaemonSets, Jobs" onClick={() => go('/workloads', 'Workloads')} />
-            <PageLink icon={<Search className="w-5 h-5 text-cyan-400" />} title="Networking" description="Services, Ingresses, Routes, Policies" onClick={() => go('/networking', 'Networking')} />
-            <PageLink icon={<Shield className="w-5 h-5 text-indigo-400" />} title="Access Control" description="RBAC roles, bindings, service accounts" onClick={() => go('/access-control', 'Access Control')} />
-            <PageLink icon={<HeartPulse className="w-5 h-5 text-orange-400" />} title="Storage" description="PVs, PVCs, StorageClasses" onClick={() => go('/storage', 'Storage')} />
-            <PageLink icon={<Clock className="w-5 h-5 text-blue-400" />} title="Timeline" description="Chronological event feed" onClick={() => go('/timeline', 'Timeline')} />
-            <PageLink icon={<GitCompare className="w-5 h-5 text-pink-400" />} title="Config Compare" description="Snapshot and diff cluster config" onClick={() => go('/config-compare', 'Config Compare')} />
-            <PageLink icon={<GitBranch className="w-5 h-5 text-violet-400" />} title="Operators" description="ClusterOperator health & versions" onClick={() => go('/operators', 'Operators')} />
-            <PageLink icon={<Keyboard className="w-5 h-5 text-slate-400" />} title="Administration" description="Settings, nodes, CRDs, quotas" onClick={() => go('/admin', 'Administration')} />
+            <PageLink icon={<HeartPulse className="w-5 h-5 text-blue-400" />} title="Cluster Pulse" description="Active issues, CPU/memory, operator health" onClick={() => go('/pulse', 'Pulse')} />
+            <PageLink icon={<Activity className="w-5 h-5 text-orange-400" />} title="Troubleshoot" description="Auto-diagnose issues with interactive runbooks" onClick={() => go('/troubleshoot', 'Troubleshoot')} />
+            <PageLink icon={<Bell className="w-5 h-5 text-red-400" />} title="Alerts" description="Prometheus alerts, rules, and silences" onClick={() => go('/alerts', 'Alerts')} />
+            <PageLink icon={<Clock className="w-5 h-5 text-blue-400" />} title="Timeline" description="Chronological cluster event feed" onClick={() => go('/timeline', 'Timeline')} />
+            <PageLink icon={<HardDrive className="w-5 h-5 text-orange-400" />} title="Storage" description="PVCs, PVs, StorageClasses, capacity" onClick={() => go('/storage', 'Storage')} />
+            <PageLink icon={<Shield className="w-5 h-5 text-indigo-400" />} title="Access Control" description="RBAC roles, cluster-admin audit" onClick={() => go('/access-control', 'Access Control')} />
+            <PageLink icon={<Puzzle className="w-5 h-5 text-violet-400" />} title="Operators" description="ClusterOperator health and versions" onClick={() => go('/operators', 'Operators')} />
+            <PageLink icon={<Settings className="w-5 h-5 text-slate-400" />} title="Administration" description="Cluster config, updates, snapshots, quotas" onClick={() => go('/admin', 'Administration')} />
             <PageLink icon={<FilePlus className="w-5 h-5 text-amber-400" />} title="Create Resource" description="YAML templates with autocomplete" onClick={() => go('/create/v1~pods', 'Create')} />
           </div>
         </div>
@@ -106,18 +89,18 @@ export default function WelcomeView() {
         {/* Features */}
         <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
           <h2 className="text-lg font-semibold text-slate-100 mb-4 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-green-400" />
+            <Cpu className="w-5 h-5 text-green-400" />
             Key Capabilities
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <Feature title="Auto-Generated Tables" description="Every resource type gets sortable columns, search, and pagination — auto-detected from the resource data." />
+            <Feature title="Auto-Generated Tables" description="Every resource type gets sortable columns, search, filters, and pagination — auto-detected from the data." />
             <Feature title="Smart Diagnosis" description="Pods, deployments, and nodes are automatically diagnosed for CrashLoopBackOff, OOM, scheduling failures, and more." />
-            <Feature title="Inline Actions" description="Scale deployments, restart pods, cordon nodes, and delete resources directly from the table view." />
-            <Feature title="Dependency Graph" description="Visualize relationships between deployments, services, pods, secrets, and config maps as an interactive SVG graph." />
-            <Feature title="Multi-Container Logs" description="Stream logs from all containers in a pod with search, filtering, and download." />
-            <Feature title="YAML Editor" description="Edit resources with syntax highlighting, validation, and starter snippets for 12 resource types." />
-            <Feature title="Metrics & Charts" description="View CPU, memory, and custom Prometheus metrics with auto-generated PromQL queries." />
-            <Feature title="Column Picker & Filters" description="Show/hide columns and filter each column individually for any resource type." />
+            <Feature title="Cluster Config Editor" description="Configure OAuth providers, proxy, image registries, scheduler profiles, TLS, and initiate cluster upgrades." />
+            <Feature title="Config Snapshots" description="Capture cluster state, persist snapshots, and compare side-by-side to track what changed." />
+            <Feature title="Dependency Graph" description="Visualize relationships between deployments, services, pods, and config maps with blast radius analysis." />
+            <Feature title="YAML Editor" description="Edit resources with syntax highlighting, validation, diff view, and context-aware snippets for 12+ resource types." />
+            <Feature title="Inline Actions" description="Scale deployments, restart pods, cordon nodes, and delete resources directly from any view." />
+            <Feature title="Metrics & Correlation" description="View CPU, memory, and custom Prometheus metrics with auto-generated PromQL. Correlate with events for root cause analysis." />
           </div>
         </div>
 
@@ -127,7 +110,7 @@ export default function WelcomeView() {
             onClick={() => go('/pulse', 'Pulse')}
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors"
           >
-            Get Started
+            Go to Cluster Pulse
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
