@@ -27,7 +27,6 @@ const CorrelationView = lazy(() => import('./views/CorrelationView'));
 const CreateView = lazy(() => import('./views/CreateView'));
 const DependencyView = lazy(() => import('./views/DependencyView'));
 const NodeLogsView = lazy(() => import('./views/NodeLogsView'));
-const ConfigCompareView = lazy(() => import('./views/ConfigCompareView'));
 const TroubleshootView = lazy(() => import('./views/TroubleshootView'));
 const AccessControlView = lazy(() => import('./views/AccessControlView'));
 const StorageView = lazy(() => import('./views/StorageView'));
@@ -194,12 +193,8 @@ export default function OpenShiftViewApp() {
               </Suspense>
             } />
 
-            {/* Config Compare */}
-            <Route path="config-compare" element={
-              <Suspense fallback={<LoadingFallback />}>
-                <ConfigCompareView />
-              </Suspense>
-            } />
+            {/* Config Compare — merged into Admin */}
+            <Route path="config-compare" element={<Navigate to="/admin" replace />} />
 
             {/* Timeline */}
             <Route path="timeline" element={<TimelineView />} />

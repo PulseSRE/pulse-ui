@@ -214,7 +214,7 @@ function getCommandItems(
       { type: 'nav', id: 'alerts', title: 'Alerts', subtitle: 'Prometheus alerts, rules, silences', icon: 'Bell', path: '/alerts' },
       { type: 'nav', id: 'admin', title: 'Administration', subtitle: 'Cluster settings, nodes, CRDs, quotas', icon: 'Settings', path: '/admin' },
       { type: 'nav', id: 'troubleshoot', title: 'Troubleshoot', subtitle: 'Auto-diagnose cluster issues', icon: 'Stethoscope', path: '/troubleshoot' },
-      { type: 'nav', id: 'config-compare', title: 'Config Compare', subtitle: 'Snapshot & diff cluster config', icon: 'GitCompare', path: '/config-compare' },
+      { type: 'nav', id: 'config-compare', title: 'Config Snapshots', subtitle: 'Capture & compare cluster config', icon: 'GitCompare', path: '/admin' },
       { type: 'nav', id: 'create', title: 'Create Resource', subtitle: 'Create from YAML', icon: 'FilePlus', path: '/create/v1~pods' },
     ];
 
