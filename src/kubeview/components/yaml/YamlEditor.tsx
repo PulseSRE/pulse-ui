@@ -256,11 +256,55 @@ export default function YamlEditor({
     setShowDiffPreview(false);
   }, [originalValue, onChange]);
 
+  // Insert text at cursor position in CodeMirror
+  const insertAtCursor = useCallback((text: string) => {
+    const view = editorRef.current?.view;
+    if (view) {
+      const pos = view.state.selection.main.head;
+      const line = view.state.doc.lineAt(pos);
+
+      // Add newline before if cursor isn't at start of a line
+      const prefix = line.from === pos ? '' : '\n';
+      const insertText = prefix + text + '\n';
+
+      view.dispatch({
+        changes: { from: pos, insert: insertText },
+        selection: { anchor: pos + insertText.length },
+      });
+
+      // Sync with React state
+      const newValue = view.state.doc.toString();
+      setInternalValue(newValue);
+      onChange?.(newValue);
+      view.focus();
+    } else {
+      // Fallback: append to end
+      const newValue = internalValue + '\n' + text;
+      setInternalValue(newValue);
+      onChange?.(newValue);
+    }
+  }, [internalValue, onChange]);
+
   const insertSnippet = useCallback((snippet: Snippet) => {
     const resolved = resolveSnippet(snippet);
     if (internalValue.trim()) {
-      setInternalValue(internalValue + '\n---\n' + resolved);
-      onChange?.(internalValue + '\n---\n' + resolved);
+      // Full resource templates go after a document separator
+      const view = editorRef.current?.view;
+      if (view) {
+        const end = view.state.doc.length;
+        const insertText = '\n---\n' + resolved;
+        view.dispatch({
+          changes: { from: end, insert: insertText },
+          selection: { anchor: end + insertText.length },
+        });
+        const newValue = view.state.doc.toString();
+        setInternalValue(newValue);
+        onChange?.(newValue);
+        view.focus();
+      } else {
+        setInternalValue(internalValue + '\n---\n' + resolved);
+        onChange?.(internalValue + '\n---\n' + resolved);
+      }
     } else {
       setInternalValue(resolved);
       onChange?.(resolved);
@@ -550,7 +594,7 @@ export default function YamlEditor({
                     {contextSnippets.map((cs) => (
                       <button
                         key={cs.label}
-                        onClick={() => { handleChange(internalValue + '\n' + cs.yaml); }}
+                        onClick={() => insertAtCursor(cs.yaml)}
                         className="w-full flex items-start gap-2 p-2 rounded hover:bg-slate-800 transition-colors text-left"
                       >
                         <div className="flex-1 min-w-0">
