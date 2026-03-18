@@ -39,7 +39,10 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   // Registry uses "core/v1/pods" for core resources, but URL-derived keys are "v1/pods"
   const resourceType = resourceRegistry?.get(gvrKey)
     ?? (gvrKey.split('/').length === 2 ? resourceRegistry?.get(`core/${gvrKey}`) : undefined);
-  const isNamespaced = resourceType?.namespaced ?? true;
+  // Default to namespaced, but detect common cluster-scoped resources by name
+  const resourceName = gvrKey.split('/').pop() || '';
+  const likelyClusterScoped = resourceName.startsWith('cluster') || resourceName === 'nodes' || resourceName === 'namespaces' || resourceName === 'persistentvolumes' || resourceName.includes('customresourcedefinition');
+  const isNamespaced = resourceType?.namespaced ?? !likelyClusterScoped;
 
   // Use prop namespace, or selected namespace for namespaced resources, or undefined for cluster-scoped
   const activeNamespace = namespaceProp ?? (isNamespaced && selectedNamespace !== '*' ? selectedNamespace : undefined);
