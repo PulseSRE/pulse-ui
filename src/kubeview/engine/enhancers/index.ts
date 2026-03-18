@@ -68,16 +68,20 @@ export function getColumnsForResource(gvrKey: string, namespaced: boolean, resou
     return defaultCols;
   }
 
-  // Insert extra columns before the "Age" column
-  const ageIndex = defaultCols.findIndex((c: { id: string }) => c.id === 'age');
+  // Deduplicate: enhancer columns override default columns with the same ID
+  const extraIds = new Set(extraCols.map(c => c.id));
+  const dedupedDefaults = defaultCols.filter(c => !extraIds.has(c.id));
+
+  // Insert extra columns before the "Age" column (or at end if no age)
+  const ageIndex = dedupedDefaults.findIndex((c: { id: string }) => c.id === 'age');
 
   if (ageIndex === -1) {
-    return [...defaultCols, ...extraCols];
+    return [...dedupedDefaults, ...extraCols];
   }
 
   return [
-    ...defaultCols.slice(0, ageIndex),
+    ...dedupedDefaults.slice(0, ageIndex),
     ...extraCols,
-    ...defaultCols.slice(ageIndex),
+    ...dedupedDefaults.slice(ageIndex),
   ];
 }
