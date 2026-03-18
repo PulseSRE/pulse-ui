@@ -134,7 +134,7 @@ describe('ShiftOps CommandPalette', () => {
     renderPalette();
     expect(screen.getByText('Cluster Pulse')).toBeDefined();
     expect(screen.getByText('Timeline')).toBeDefined();
-    expect(screen.getByText('Troubleshoot')).toBeDefined();
+    expect(screen.getByText('Software')).toBeDefined();
   });
 
   it('shows resource types from registry', () => {

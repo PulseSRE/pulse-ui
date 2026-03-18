@@ -171,6 +171,65 @@ export default function YamlEditor({
       { label: 'PVC Volume Mount', description: 'Mount a PersistentVolumeClaim', kinds: ['Deployment', 'StatefulSet', 'Pod', 'Job'], yaml: '        volumeMounts:\n        - name: data\n          mountPath: /data\n      volumes:\n      - name: data\n        persistentVolumeClaim:\n          claimName: my-pvc' },
       // VolumeClaimTemplate for StatefulSets
       { label: 'Volume Claim Template', description: 'Auto-create PVCs per replica', kinds: ['StatefulSet'], yaml: '  volumeClaimTemplates:\n  - metadata:\n      name: data\n    spec:\n      accessModes: ["ReadWriteOnce"]\n      storageClassName: gp3-csi\n      resources:\n        requests:\n          storage: 10Gi' },
+      // Route (OpenShift) context snippets
+      { label: 'TLS Edge Termination', description: 'Terminate TLS at the router', kinds: ['Route'], yaml: '  tls:\n    termination: edge\n    insecureEdgeTerminationPolicy: Redirect' },
+      { label: 'TLS Passthrough', description: 'Pass TLS directly to the backend', kinds: ['Route'], yaml: '  tls:\n    termination: passthrough\n    insecureEdgeTerminationPolicy: None' },
+      { label: 'TLS Re-encrypt', description: 'Re-encrypt traffic to backend', kinds: ['Route'], yaml: '  tls:\n    termination: reencrypt\n    insecureEdgeTerminationPolicy: Redirect\n    destinationCACertificate: |\n      -----BEGIN CERTIFICATE-----\n      ...\n      -----END CERTIFICATE-----' },
+      { label: 'Route Path', description: 'Route to a specific path', kinds: ['Route'], yaml: '  path: /api' },
+      { label: 'Alternate Backend', description: 'Split traffic across services', kinds: ['Route'], yaml: '  alternateBackends:\n  - kind: Service\n    name: canary-service\n    weight: 20' },
+      { label: 'Rate Limit Annotations', description: 'Rate limiting via HAProxy annotations', kinds: ['Route'], yaml: '  annotations:\n    haproxy.router.openshift.io/rate-limit-connections: "true"\n    haproxy.router.openshift.io/rate-limit-connections.concurrent-tcp: "100"\n    haproxy.router.openshift.io/rate-limit-connections.rate-http: "50"\n    haproxy.router.openshift.io/rate-limit-connections.rate-tcp: "50"' },
+      // NetworkPolicy context snippets
+      { label: 'Allow from Namespace', description: 'Ingress rule: allow from labeled namespace', kinds: ['NetworkPolicy'], yaml: '  ingress:\n  - from:\n    - namespaceSelector:\n        matchLabels:\n          name: trusted-namespace' },
+      { label: 'Allow from Pod', description: 'Ingress rule: allow from labeled pods', kinds: ['NetworkPolicy'], yaml: '  ingress:\n  - from:\n    - podSelector:\n        matchLabels:\n          role: frontend\n    ports:\n    - protocol: TCP\n      port: 80' },
+      { label: 'Egress to CIDR', description: 'Egress rule: allow traffic to IP range', kinds: ['NetworkPolicy'], yaml: '  egress:\n  - to:\n    - ipBlock:\n        cidr: 10.0.0.0/8\n    ports:\n    - protocol: TCP\n      port: 443' },
+      { label: 'Deny All Ingress', description: 'Block all incoming traffic', kinds: ['NetworkPolicy'], yaml: '  policyTypes:\n  - Ingress\n  ingress: []' },
+      { label: 'Deny All Egress', description: 'Block all outgoing traffic', kinds: ['NetworkPolicy'], yaml: '  policyTypes:\n  - Egress\n  egress: []' },
+      // CronJob context snippets
+      { label: 'Every 5 Minutes', description: 'Schedule: */5 * * * *', kinds: ['CronJob'], yaml: '  schedule: "*/5 * * * *"' },
+      { label: 'Hourly', description: 'Schedule: 0 * * * *', kinds: ['CronJob'], yaml: '  schedule: "0 * * * *"' },
+      { label: 'Daily at Midnight', description: 'Schedule: 0 0 * * *', kinds: ['CronJob'], yaml: '  schedule: "0 0 * * *"' },
+      { label: 'Weekly (Sunday)', description: 'Schedule: 0 0 * * 0', kinds: ['CronJob'], yaml: '  schedule: "0 0 * * 0"' },
+      { label: 'Job Template', description: 'Job template with restart policy', kinds: ['CronJob'], yaml: '  jobTemplate:\n    spec:\n      template:\n        spec:\n          containers:\n          - name: job\n            image: busybox:latest\n            command: ["sh", "-c", "echo hello"]\n          restartPolicy: OnFailure' },
+      { label: 'Concurrency Policy', description: 'Control concurrent job execution', kinds: ['CronJob'], yaml: '  concurrencyPolicy: Forbid  # Allow | Forbid | Replace' },
+      { label: 'History Limits', description: 'Limit kept job history', kinds: ['CronJob'], yaml: '  successfulJobsHistoryLimit: 3\n  failedJobsHistoryLimit: 1' },
+      // Job context snippets
+      { label: 'Backoff Limit', description: 'Max retries before marking failed', kinds: ['Job'], yaml: '  backoffLimit: 4' },
+      { label: 'Active Deadline', description: 'Max seconds before job is terminated', kinds: ['Job'], yaml: '  activeDeadlineSeconds: 600' },
+      { label: 'TTL After Finished', description: 'Auto-delete job after completion', kinds: ['Job'], yaml: '  ttlSecondsAfterFinished: 3600' },
+      { label: 'Parallelism', description: 'Run multiple pods in parallel', kinds: ['Job'], yaml: '  parallelism: 3\n  completions: 5' },
+      // Namespace context snippets
+      { label: 'Network Policy Labels', description: 'Labels for network policy selection', kinds: ['Namespace'], yaml: '  labels:\n    name: my-namespace\n    environment: production' },
+      { label: 'Resource Quota Annotation', description: 'Annotate with quota info', kinds: ['Namespace'], yaml: '  annotations:\n    openshift.io/requester: admin\n    openshift.io/description: "Production namespace"' },
+      { label: 'Pod Security Labels', description: 'Enforce pod security standards', kinds: ['Namespace'], yaml: '  labels:\n    pod-security.kubernetes.io/enforce: restricted\n    pod-security.kubernetes.io/warn: restricted\n    pod-security.kubernetes.io/audit: restricted' },
+      // ServiceAccount context snippets
+      { label: 'Image Pull Secret', description: 'Add image pull secret reference', kinds: ['ServiceAccount'], yaml: 'imagePullSecrets:\n- name: my-registry-secret' },
+      { label: 'Disable Automount Token', description: 'Do not automount API token', kinds: ['ServiceAccount'], yaml: 'automountServiceAccountToken: false' },
+      // RoleBinding/ClusterRoleBinding context snippets
+      { label: 'Subject (User)', description: 'Bind to a user', kinds: ['RoleBinding', 'ClusterRoleBinding'], yaml: 'subjects:\n- kind: User\n  name: jane\n  apiGroup: rbac.authorization.k8s.io' },
+      { label: 'Subject (Group)', description: 'Bind to a group', kinds: ['RoleBinding', 'ClusterRoleBinding'], yaml: 'subjects:\n- kind: Group\n  name: developers\n  apiGroup: rbac.authorization.k8s.io' },
+      { label: 'Subject (ServiceAccount)', description: 'Bind to a service account', kinds: ['RoleBinding', 'ClusterRoleBinding'], yaml: 'subjects:\n- kind: ServiceAccount\n  name: my-sa\n  namespace: my-namespace' },
+      // Role/ClusterRole context snippets
+      { label: 'Rule (Read Only)', description: 'Allow get, list, watch', kinds: ['Role', 'ClusterRole'], yaml: 'rules:\n- apiGroups: [""]\n  resources: ["pods", "services", "configmaps"]\n  verbs: ["get", "list", "watch"]' },
+      { label: 'Rule (Read-Write)', description: 'Allow full CRUD access', kinds: ['Role', 'ClusterRole'], yaml: 'rules:\n- apiGroups: [""]\n  resources: ["pods", "services", "configmaps"]\n  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]' },
+      { label: 'Rule (Specific Resource)', description: 'Access a named resource', kinds: ['Role', 'ClusterRole'], yaml: 'rules:\n- apiGroups: [""]\n  resources: ["secrets"]\n  resourceNames: ["my-secret"]\n  verbs: ["get"]' },
+      // HorizontalPodAutoscaler context snippets
+      { label: 'CPU Metric', description: 'Scale on CPU utilization', kinds: ['HorizontalPodAutoscaler'], yaml: '  metrics:\n  - type: Resource\n    resource:\n      name: cpu\n      target:\n        type: Utilization\n        averageUtilization: 70' },
+      { label: 'Memory Metric', description: 'Scale on memory utilization', kinds: ['HorizontalPodAutoscaler'], yaml: '  metrics:\n  - type: Resource\n    resource:\n      name: memory\n      target:\n        type: Utilization\n        averageUtilization: 80' },
+      { label: 'Custom Metric', description: 'Scale on a custom metric', kinds: ['HorizontalPodAutoscaler'], yaml: '  metrics:\n  - type: Pods\n    pods:\n      metric:\n        name: requests_per_second\n      target:\n        type: AverageValue\n        averageValue: "1000"' },
+      // Deployment additional context snippets
+      { label: 'Rolling Update Strategy', description: 'Configure rolling update params', kinds: ['Deployment'], yaml: '  strategy:\n    type: RollingUpdate\n    rollingUpdate:\n      maxSurge: 25%\n      maxUnavailable: 25%' },
+      { label: 'Pod Anti-Affinity', description: 'Spread pods across nodes', kinds: ['Deployment', 'StatefulSet'], yaml: '      affinity:\n        podAntiAffinity:\n          preferredDuringSchedulingIgnoredDuringExecution:\n          - weight: 100\n            podAffinityTerm:\n              labelSelector:\n                matchExpressions:\n                - key: app\n                  operator: In\n                  values:\n                  - my-app\n              topologyKey: kubernetes.io/hostname' },
+      { label: 'Security Context (Non-Root)', description: 'Run container as non-root', kinds: ['Deployment', 'StatefulSet', 'DaemonSet', 'Job'], yaml: '        securityContext:\n          runAsNonRoot: true\n          allowPrivilegeEscalation: false\n          capabilities:\n            drop:\n            - ALL\n          seccompProfile:\n            type: RuntimeDefault' },
+      { label: 'Image Pull Policy', description: 'Set image pull policy', kinds: ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'], yaml: '        imagePullPolicy: IfNotPresent  # Always | IfNotPresent | Never' },
+      { label: 'Service Account', description: 'Set service account for pod', kinds: ['Deployment', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob'], yaml: '      serviceAccountName: my-service-account' },
+      // Pod additional context snippets
+      { label: 'Pod Security Context', description: 'Run pod as non-root user', kinds: ['Pod'], yaml: '  securityContext:\n    runAsNonRoot: true\n    runAsUser: 1000\n    fsGroup: 1000' },
+      { label: 'DNS Policy', description: 'Set DNS resolution policy', kinds: ['Pod'], yaml: '  dnsPolicy: ClusterFirst  # Default | ClusterFirst | ClusterFirstWithHostNet | None' },
+      { label: 'Restart Policy', description: 'Set pod restart behavior', kinds: ['Pod', 'Job'], yaml: '  restartPolicy: OnFailure  # Always | OnFailure | Never' },
+      // Secret type context snippets
+      { label: 'TLS Secret Type', description: 'Secret for TLS certificate/key pair', kinds: ['Secret'], yaml: 'type: kubernetes.io/tls\ndata:\n  tls.crt: <base64-encoded-cert>\n  tls.key: <base64-encoded-key>' },
+      { label: 'Docker Registry Type', description: 'Secret for container registry auth', kinds: ['Secret'], yaml: 'type: kubernetes.io/dockerconfigjson\ndata:\n  .dockerconfigjson: <base64-encoded-docker-config>' },
+      { label: 'Basic Auth Type', description: 'Secret for basic authentication', kinds: ['Secret'], yaml: 'type: kubernetes.io/basic-auth\nstringData:\n  username: admin\n  password: changeme' },
     ];
 
     if (!detectedKind) return [];

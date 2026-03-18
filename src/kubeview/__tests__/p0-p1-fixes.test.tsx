@@ -147,7 +147,7 @@ describe('P0: Command Palette action/query items have paths', () => {
 
     const failingMatch = source.match(/id:\s*'failing-pods'[\s\S]*?path:\s*'([^']+)'/);
     expect(failingMatch).not.toBeNull();
-    expect(failingMatch![1]).toBe('/troubleshoot');
+    expect(failingMatch![1]).toBe('/pulse');
 
     const memoryMatch = source.match(/id:\s*'high-memory'[\s\S]*?path:\s*'([^']+)'/);
     expect(memoryMatch).not.toBeNull();
