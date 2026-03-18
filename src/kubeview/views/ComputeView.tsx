@@ -217,7 +217,7 @@ export default function ComputeView() {
           />
           <MetricCard
             title="Filesystem Usage"
-            query="(1 - sum(node_filesystem_avail_bytes{mountpoint='/'}) / sum(node_filesystem_size_bytes{mountpoint='/'})) * 100"
+            query="(1 - sum(node_filesystem_avail_bytes{fstype!~'tmpfs|overlay|squashfs'}) / sum(node_filesystem_size_bytes{fstype!~'tmpfs|overlay|squashfs'})) * 100"
             unit="%"
             color="#06b6d4"
             thresholds={{ warning: 80, critical: 95 }}
