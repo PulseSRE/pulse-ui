@@ -641,21 +641,13 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
               </div>
             ))}
           </div>
-        ) : sortedResources.length === 0 ? (
+        ) : stampedResources.length === 0 && !searchTerm && Object.values(columnFilters).every(v => !v) ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <p className="text-slate-400 text-sm">
                 No {resourceKind.toLowerCase()} found
                 {activeNamespace && ` in ${activeNamespace}`}
               </p>
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="mt-2 text-xs text-blue-400 hover:text-blue-300"
-                >
-                  Clear search
-                </button>
-              )}
             </div>
           </div>
         ) : (
@@ -716,6 +708,24 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
               )}
             </thead>
             <tbody className="divide-y divide-slate-800">
+              {paginatedResources.length === 0 && (
+                <tr>
+                  <td colSpan={visibleColumns.length + 2} className="px-4 py-12 text-center">
+                    <p className="text-slate-400 text-sm">
+                      No matching {resourceKind.toLowerCase()}
+                      {searchTerm && <span> for "<span className="text-slate-200">{searchTerm}</span>"</span>}
+                    </p>
+                    {(searchTerm || Object.values(columnFilters).some(v => v)) && (
+                      <button
+                        onClick={() => { setSearchInput(''); setSearchTerm(''); setColumnFilters({}); }}
+                        className="mt-2 text-xs text-blue-400 hover:text-blue-300"
+                      >
+                        Clear all filters
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )}
               {paginatedResources.map((resource, rowIndex) => {
                 const uid = resource.metadata.uid || '';
                 const isSelected = selectedRows.has(uid);
