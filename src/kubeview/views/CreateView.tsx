@@ -1101,7 +1101,7 @@ const SNIPPET_CATEGORIES: Record<string, { category: string; icon: any; color: s
   np: { category: 'Networking', icon: ShieldCheck, color: 'text-red-400', gvr: 'networking.k8s.io/v1/networkpolicies' },
   cm: { category: 'Config & Storage', icon: FileText, color: 'text-yellow-400', gvr: 'v1/configmaps' },
   secret: { category: 'Config & Storage', icon: Lock, color: 'text-red-400', gvr: 'v1/secrets' },
-  pvc: { category: 'Config & Storage', icon: HardDrive, color: 'text-orange-400', gvr: 'v1/persistentvolumeclaims' },
+  pvc: { category: 'Storage', icon: HardDrive, color: 'text-orange-400', gvr: 'v1/persistentvolumeclaims' },
   'pvc-rwx': { category: 'Storage', icon: HardDrive, color: 'text-orange-400', gvr: 'v1/persistentvolumeclaims' },
   'pvc-block': { category: 'Storage', icon: HardDrive, color: 'text-purple-400', gvr: 'v1/persistentvolumeclaims' },
   'pvc-snapshot': { category: 'Storage', icon: HardDrive, color: 'text-blue-400', gvr: 'v1/persistentvolumeclaims' },
