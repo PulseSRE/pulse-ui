@@ -336,32 +336,55 @@ export default function UserManagementView() {
               </h2>
               <button onClick={() => go('/r/oauth.openshift.io~v1~oauthaccesstokens', 'OAuthAccessTokens')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
             </div>
-            <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
+            <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
               {(accessTokens as any[]).sort((a: any, b: any) =>
                 new Date(b.metadata.creationTimestamp || 0).getTime() - new Date(a.metadata.creationTimestamp || 0).getTime()
-              ).slice(0, 10).map((token: any) => {
+              ).slice(0, 15).map((token: any) => {
                 const userName = token.userName || 'unknown';
                 const clientName = token.clientName || '';
+                const redirectURI = token.redirectURI || '';
                 const created = token.metadata.creationTimestamp ? new Date(token.metadata.creationTimestamp) : null;
                 const age = created ? formatAge(created) : '—';
                 const scopes = token.scopes || [];
+                const expiresIn = token.expiresIn || 0;
+                const expiresAt = created && expiresIn ? new Date(created.getTime() + expiresIn * 1000) : null;
+                const isExpired = expiresAt ? expiresAt.getTime() < Date.now() : false;
+                const timeLeft = expiresAt && !isExpired ? formatAge(new Date(Date.now() - (expiresAt.getTime() - Date.now()))).replace(' ago', '') : null;
+                const isSA = userName.startsWith('system:serviceaccount:');
+
                 return (
-                  <div key={token.metadata.uid} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <User className="w-4 h-4 text-slate-500" />
-                      <div>
-                        <span className="text-sm text-slate-200">{userName}</span>
-                        {clientName && <span className="text-xs text-slate-500 ml-2">{clientName}</span>}
-                        {scopes.length > 0 && (
-                          <div className="flex gap-1 mt-0.5">
-                            {scopes.slice(0, 3).map((s: string) => (
-                              <span key={s} className="text-[10px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{s}</span>
-                            ))}
-                          </div>
+                  <div key={token.metadata.uid} className="px-4 py-3 hover:bg-slate-800/30 transition-colors">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        {isSA ? <Key className="w-3.5 h-3.5 text-slate-500" /> : <User className="w-3.5 h-3.5 text-slate-500" />}
+                        <span className="text-sm font-medium text-slate-200">{userName}</span>
+                        {isExpired && <span className="text-[10px] px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">expired</span>}
+                        {!isExpired && expiresAt && <span className="text-[10px] px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">active</span>}
+                      </div>
+                      <span className="text-xs text-slate-500">{age}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 ml-5.5">
+                      {clientName && <span>Client: <span className="text-slate-400">{clientName}</span></span>}
+                      {expiresAt && (
+                        <span>
+                          {isExpired
+                            ? <span className="text-red-400">Expired {formatAge(expiresAt)}</span>
+                            : <span>Expires in <span className="text-slate-400">{timeLeft}</span></span>}
+                        </span>
+                      )}
+                    </div>
+                    {(scopes.length > 0 || redirectURI) && (
+                      <div className="flex items-center gap-2 mt-1 ml-5.5 flex-wrap">
+                        {scopes.map((s: string) => (
+                          <span key={s} className="text-[10px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{s}</span>
+                        ))}
+                        {redirectURI && (
+                          <span className="text-[10px] text-slate-600 truncate max-w-[200px]" title={redirectURI}>
+                            → {redirectURI.replace(/^https?:\/\//, '').split('/')[0]}
+                          </span>
                         )}
                       </div>
-                    </div>
-                    <span className="text-xs text-slate-500">{age}</span>
+                    )}
                   </div>
                 );
               })}
