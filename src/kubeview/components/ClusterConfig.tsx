@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Shield, Globe, Image, Network, Cpu, Lock, ChevronDown, ChevronRight,
-  Save, Loader2, Plus, Trash2, AlertTriangle,
+  Save, Loader2, Plus, Trash2, AlertTriangle, Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sGet, k8sPatch } from '../engine/query';
@@ -28,6 +28,10 @@ const CONFIG_SECTIONS: ConfigSection[] = [
   { id: 'ingress', title: 'Ingress', icon: <Network className="w-4 h-4 text-orange-500" />, apiPath: `${CONFIG_BASE}/ingresses/cluster`, description: 'Default ingress domain and settings' },
   { id: 'scheduler', title: 'Scheduler', icon: <Cpu className="w-4 h-4 text-green-500" />, apiPath: `${CONFIG_BASE}/schedulers/cluster`, description: 'Pod scheduling profiles and policies' },
   { id: 'apiserver', title: 'API Server', icon: <Lock className="w-4 h-4 text-red-500" />, apiPath: `${CONFIG_BASE}/apiservers/cluster`, description: 'TLS, audit policy, encryption' },
+  { id: 'dns', title: 'DNS', icon: <Globe className="w-4 h-4 text-cyan-500" />, apiPath: `${CONFIG_BASE}/dnses/cluster`, description: 'Cluster DNS operator configuration' },
+  { id: 'network', title: 'Network', icon: <Network className="w-4 h-4 text-indigo-500" />, apiPath: `${CONFIG_BASE}/networks/cluster`, description: 'Cluster network type, CIDR, and service network' },
+  { id: 'featuregate', title: 'FeatureGate', icon: <Settings className="w-4 h-4 text-amber-500" />, apiPath: `${CONFIG_BASE}/featuregates/cluster`, description: 'Enabled and disabled feature gates' },
+  { id: 'console', title: 'Console', icon: <Globe className="w-4 h-4 text-emerald-500" />, apiPath: `${CONFIG_BASE}/consoles/cluster`, description: 'OpenShift Console URL and customizations' },
 ];
 
 export default function ClusterConfig() {
@@ -90,6 +94,10 @@ function ConfigEditor({ section, data }: { section: ConfigSection; data: any }) 
     case 'ingress': return <IngressEditor data={data} apiPath={section.apiPath} />;
     case 'scheduler': return <SchedulerEditor data={data} apiPath={section.apiPath} />;
     case 'apiserver': return <APIServerEditor data={data} apiPath={section.apiPath} />;
+    case 'dns': return <DNSViewer data={data} />;
+    case 'network': return <NetworkViewer data={data} />;
+    case 'featuregate': return <FeatureGateViewer data={data} />;
+    case 'console': return <ConsoleViewer data={data} />;
     default: return null;
   }
 }
@@ -548,7 +556,207 @@ function APIServerEditor({ data, apiPath }: { data: any; apiPath: string }) {
   );
 }
 
+// ===== DNS =====
+function DNSViewer({ data }: { data: any }) {
+  const spec = data.spec || {};
+  const status = data.status || {};
+
+  return (
+    <div className="space-y-3">
+      <InfoRow label="Base Domain" value={spec.baseDomain || 'Not set'} />
+      {spec.publicZone?.id && (
+        <InfoRow label="Public Zone ID" value={spec.publicZone.id} />
+      )}
+      {spec.privateZone?.id && (
+        <InfoRow label="Private Zone ID" value={spec.privateZone.id} />
+      )}
+      {status.clusterDomain && (
+        <InfoRow label="Cluster Domain" value={status.clusterDomain} />
+      )}
+      <div className="text-xs text-slate-500 pt-2">DNS configuration is managed by the cluster DNS operator and should not be modified manually.</div>
+    </div>
+  );
+}
+
+// ===== Network =====
+function NetworkViewer({ data }: { data: any }) {
+  const spec = data.spec || {};
+  const status = data.status || {};
+  const clusterNetwork = spec.clusterNetwork || [];
+  const serviceNetwork = spec.serviceNetwork || [];
+
+  return (
+    <div className="space-y-3">
+      <InfoRow label="Network Type (spec)" value={spec.networkType || 'Not set'} />
+      {status.networkType && status.networkType !== spec.networkType && (
+        <InfoRow label="Network Type (status)" value={status.networkType} />
+      )}
+
+      {clusterNetwork.length > 0 && (
+        <div>
+          <div className="text-xs text-slate-400 mb-1">Cluster Network (Pod CIDRs)</div>
+          <div className="space-y-1">
+            {clusterNetwork.map((net: any, i: number) => (
+              <div key={i} className="px-2 py-1.5 bg-slate-800/50 rounded border border-slate-700">
+                <div className="text-sm font-mono text-slate-200">{net.cidr}</div>
+                {net.hostPrefix && (
+                  <div className="text-xs text-slate-500">Host prefix: /{net.hostPrefix}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {serviceNetwork.length > 0 && (
+        <div>
+          <div className="text-xs text-slate-400 mb-1">Service Network (Service CIDRs)</div>
+          <div className="space-y-1">
+            {serviceNetwork.map((cidr: string, i: number) => (
+              <div key={i} className="px-2 py-1.5 bg-slate-800/50 rounded border border-slate-700">
+                <div className="text-sm font-mono text-slate-200">{cidr}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="text-xs text-slate-500 pt-2">Network configuration is set during cluster installation and cannot be changed.</div>
+    </div>
+  );
+}
+
+// ===== FeatureGate =====
+function FeatureGateViewer({ data }: { data: any }) {
+  const spec = data.spec || {};
+  const status = data.status || {};
+  const featureGates = status.featureGates || [];
+
+  const enabled = featureGates.filter((fg: any) => fg.enabled);
+  const disabled = featureGates.filter((fg: any) => !fg.enabled);
+
+  return (
+    <div className="space-y-3">
+      <InfoRow label="Feature Set" value={spec.featureSet || 'Default'} />
+
+      {spec.featureSet === 'CustomNoUpgrade' && spec.customNoUpgrade?.enabled && (
+        <div>
+          <div className="text-xs text-slate-400 mb-1">Custom Enabled Features</div>
+          <div className="flex flex-wrap gap-1.5">
+            {spec.customNoUpgrade.enabled.map((feature: string, i: number) => (
+              <span key={i} className="px-2 py-1 text-xs bg-green-900/30 border border-green-800 text-green-300 rounded font-mono">
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {enabled.length > 0 && (
+        <div>
+          <div className="text-xs text-slate-400 mb-1">Enabled Features ({enabled.length})</div>
+          <div className="flex flex-wrap gap-1.5">
+            {enabled.slice(0, 10).map((fg: any, i: number) => (
+              <span key={i} className="px-2 py-1 text-xs bg-green-900/30 border border-green-800 text-green-300 rounded font-mono">
+                {fg.name}
+              </span>
+            ))}
+            {enabled.length > 10 && (
+              <span className="px-2 py-1 text-xs text-slate-500">+{enabled.length - 10} more</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {disabled.length > 0 && (
+        <div>
+          <div className="text-xs text-slate-400 mb-1">Disabled Features ({disabled.length})</div>
+          <div className="flex flex-wrap gap-1.5">
+            {disabled.slice(0, 10).map((fg: any, i: number) => (
+              <span key={i} className="px-2 py-1 text-xs bg-slate-800/50 border border-slate-700 text-slate-400 rounded font-mono">
+                {fg.name}
+              </span>
+            ))}
+            {disabled.length > 10 && (
+              <span className="px-2 py-1 text-xs text-slate-500">+{disabled.length - 10} more</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {spec.featureSet === 'TechPreviewNoUpgrade' && (
+        <div className="p-3 bg-yellow-900/20 border border-yellow-800 rounded">
+          <div className="flex items-center gap-2 text-yellow-400 text-xs">
+            <AlertTriangle className="w-3 h-3" />
+            <span className="font-medium">Tech Preview mode enabled</span>
+          </div>
+          <div className="text-xs text-slate-400 mt-1">This cluster cannot be upgraded. Tech Preview features may be unstable.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Console =====
+function ConsoleViewer({ data }: { data: any }) {
+  const status = data.status || {};
+  const spec = data.spec || {};
+
+  return (
+    <div className="space-y-3">
+      {status.consoleURL && (
+        <div>
+          <div className="text-xs text-slate-400 mb-1">Console URL</div>
+          <a
+            href={status.consoleURL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-400 hover:text-blue-300 underline font-mono"
+          >
+            {status.consoleURL}
+          </a>
+        </div>
+      )}
+
+      {spec.route?.hostname && (
+        <InfoRow label="Custom Route Hostname" value={spec.route.hostname} />
+      )}
+
+      {spec.route?.secret?.name && (
+        <InfoRow label="Custom TLS Secret" value={spec.route.secret.name} />
+      )}
+
+      {spec.customization?.branding && (
+        <InfoRow label="Branding" value={spec.customization.branding} />
+      )}
+
+      {spec.customization?.customProductName && (
+        <InfoRow label="Custom Product Name" value={spec.customization.customProductName} />
+      )}
+
+      {spec.customization?.customLogoFile?.name && (
+        <InfoRow label="Custom Logo ConfigMap" value={spec.customization.customLogoFile.name} />
+      )}
+
+      {spec.providers?.statuspage?.pageID && (
+        <InfoRow label="Statuspage.io Page ID" value={spec.providers.statuspage.pageID} />
+      )}
+    </div>
+  );
+}
+
 // ===== Shared =====
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs text-slate-400 mb-1">{label}</div>
+      <div className="text-sm text-slate-200 font-mono bg-slate-800/50 px-2 py-1.5 rounded border border-slate-700">
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function FieldRow({ label, value, onChange, placeholder, multiline }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean;
 }) {
