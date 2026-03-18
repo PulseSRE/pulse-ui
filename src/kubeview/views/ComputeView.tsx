@@ -152,10 +152,30 @@ export default function ComputeView() {
       const nodeName = node.metadata.name;
       const memMetric = nodeMemMetrics.find((m: any) => m.metric?.instance?.includes(nodeName));
       const memUsagePct = memMetric?.value ?? null;
+      const cpuMetric = nodeCpuMetrics.find((m: any) => m.metric?.instance?.includes(nodeName));
+      const cpuUsageCores = cpuMetric?.value ?? null;
+      const cpuUsagePct = cpuCap > 0 && cpuUsageCores !== null ? (cpuUsageCores / cpuCap) * 100 : null;
+
+      // Age
+      const created = node.metadata.creationTimestamp ? new Date(node.metadata.creationTimestamp) : null;
+      const ageMs = created ? Date.now() - created.getTime() : 0;
+      const ageDays = Math.floor(ageMs / 86400000);
+      const age = ageDays > 0 ? `${ageDays}d` : `${Math.floor(ageMs / 3600000)}h`;
+
+      // Pressure indicators
+      const pressures: string[] = [];
+      if (status.pressure?.disk) pressures.push('Disk');
+      if (status.pressure?.memory) pressures.push('Memory');
+      if (status.pressure?.pid) pressures.push('PID');
+
+      // Machine ref
+      const machineRef = machines.find((m: any) => m.status?.nodeRef?.name === nodeName);
+      const instanceType = (machineRef as any)?.spec?.providerSpec?.value?.instanceType || '';
 
       return {
         node, status, nodeInfo, capacity, allocatable, roles, taints, unschedulable,
-        podCount, podCap, cpuCap, memCap, memUsagePct, name: nodeName,
+        podCount, podCap, cpuCap, memCap, memUsagePct, cpuUsagePct, age, pressures,
+        instanceType, name: nodeName,
       };
     }).sort((a, b) => {
       // Sort: unready first, then by pod count descending
@@ -261,11 +281,12 @@ export default function ComputeView() {
                   <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Node</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Status</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Roles</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Pods</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">CPU</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Memory</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Kubelet</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">OS</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Pods</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Instance</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Version</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400">Age</th>
                   <th className="px-4 py-2 text-left text-xs font-semibold text-slate-400"></th>
                 </tr>
               </thead>
@@ -273,9 +294,10 @@ export default function ComputeView() {
                 {nodeDetails.map((nd) => {
                   const podPct = nd.podCap > 0 ? (nd.podCount / nd.podCap) * 100 : 0;
                   const memPct = nd.memUsagePct;
+                  const cpuPct = nd.cpuUsagePct;
                   return (
                     <tr key={nd.node.metadata.uid} onClick={() => go(`/r/v1~nodes/_/${nd.name}`, nd.name)}
-                      className="hover:bg-slate-800/50 cursor-pointer transition-colors">
+                      className="hover:bg-slate-800/70 cursor-pointer transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {nd.status.ready ? <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" /> : <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
@@ -284,31 +306,60 @@ export default function ComputeView() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={cn('text-xs px-1.5 py-0.5 rounded', nd.status.ready ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>
-                          {nd.status.ready ? 'Ready' : 'NotReady'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn('text-xs px-1.5 py-0.5 rounded', nd.status.ready ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>
+                            {nd.status.ready ? 'Ready' : 'NotReady'}
+                          </span>
+                          {nd.pressures.length > 0 && nd.pressures.map((p: string) => (
+                            <span key={p} className="text-[10px] px-1 py-0.5 bg-red-900/50 text-red-300 rounded">{p}</span>
+                          ))}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">{nd.roles.map(r => <span key={r} className="text-[10px] px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">{r}</span>)}</div>
+                        <div className="flex gap-1">{nd.roles.map((r: string) => <span key={r} className={cn('text-[10px] px-1.5 py-0.5 rounded', r === 'master' || r === 'control-plane' ? 'bg-purple-900/50 text-purple-300' : r === 'infra' ? 'bg-orange-900/50 text-orange-300' : 'bg-blue-900/50 text-blue-300')}>{r}</span>)}</div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <UsageBar pct={podPct} color="blue" />
+                          {cpuPct !== null ? (
+                            <>
+                              <UsageBar pct={cpuPct} color={cpuPct > 80 ? 'red' : cpuPct > 60 ? 'yellow' : 'green'} />
+                              <span className="text-xs text-slate-400 font-mono w-10">{Math.round(cpuPct)}%</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-slate-500">{formatCpu(nd.cpuCap)}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {memPct !== null ? (
+                            <>
+                              <UsageBar pct={memPct} color={memPct > 80 ? 'red' : memPct > 60 ? 'yellow' : 'green'} />
+                              <span className="text-xs text-slate-400 font-mono w-10">{Math.round(memPct)}%</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-slate-500">{formatBytes(nd.memCap)}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <UsageBar pct={podPct} color={podPct > 80 ? 'red' : podPct > 60 ? 'yellow' : 'blue'} />
                           <span className="text-xs text-slate-400 font-mono w-12">{nd.podCount}/{nd.podCap}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3"><span className="text-xs text-slate-400">{formatCpu(nd.cpuCap)}</span></td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {memPct !== null ? <UsageBar pct={memPct} color={memPct > 80 ? 'red' : memPct > 60 ? 'yellow' : 'green'} /> : null}
-                          <span className="text-xs text-slate-400">{formatBytes(nd.memCap)}</span>
-                        </div>
+                        {nd.instanceType ? (
+                          <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{nd.instanceType}</span>
+                        ) : (
+                          <span className="text-xs text-slate-600">{nd.nodeInfo.architecture}</span>
+                        )}
                       </td>
                       <td className="px-4 py-3"><span className="text-xs text-slate-500 font-mono">{nd.nodeInfo.kubeletVersion}</span></td>
-                      <td className="px-4 py-3"><span className="text-xs text-slate-500">{nd.nodeInfo.architecture}</span></td>
+                      <td className="px-4 py-3"><span className="text-xs text-slate-500">{nd.age}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          <button onClick={(e) => { e.stopPropagation(); go(`/node-logs/${nd.name}`, `${nd.name} (Logs)`); }} className="p-1 text-slate-500 hover:text-blue-400" title="Node Logs"><FileText className="w-3.5 h-3.5" /></button>
+                          <button onClick={(e) => { e.stopPropagation(); go(`/node-logs/${nd.name}`, `${nd.name} (Logs)`); }} className="p-1 text-slate-500 hover:text-blue-400 transition-colors" title="Node Logs"><FileText className="w-3.5 h-3.5" /></button>
                         </div>
                       </td>
                     </tr>
