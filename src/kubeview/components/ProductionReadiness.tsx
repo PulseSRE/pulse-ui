@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   CheckCircle, XCircle, AlertTriangle, Shield, Server, HardDrive,
   Network, Users, Activity, Bell, FileText, Lock, RefreshCw,
-  ArrowRight, Loader2,
+  ArrowRight, Loader2, Package, Globe,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sGet, k8sList } from '../engine/query';
@@ -584,6 +584,39 @@ export default function ProductionReadiness() {
           </div>
         );
       })}
+
+      {/* Domain Health Audits — link to per-page audits */}
+      <div className="bg-slate-900 rounded-lg border border-slate-800 mt-4">
+        <div className="px-4 py-3 border-b border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-400" />
+            Domain Health Audits
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">36 additional checks across 6 domain pages — click to view details</p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-4">
+          {[
+            { label: 'Workloads', checks: 6, desc: 'Resource limits, probes, PDBs, replicas, strategy', icon: <Package className="w-4 h-4 text-blue-400" />, path: '/workloads' },
+            { label: 'Storage', checks: 6, desc: 'Default SC, reclaim policy, binding mode, snapshots, quotas', icon: <HardDrive className="w-4 h-4 text-orange-400" />, path: '/storage' },
+            { label: 'Networking', checks: 6, desc: 'Route TLS, network policies, NodePort, ingress, egress', icon: <Globe className="w-4 h-4 text-cyan-400" />, path: '/networking' },
+            { label: 'Compute', checks: 6, desc: 'HA masters, workers, MHCs, pressure, kubelet, autoscaling', icon: <Server className="w-4 h-4 text-blue-400" />, path: '/compute' },
+            { label: 'Access Control', checks: 6, desc: 'SA privileges, wildcard rules, stale bindings, isolation', icon: <Shield className="w-4 h-4 text-indigo-400" />, path: '/access-control' },
+            { label: 'Identity & Access', checks: 6, desc: 'IdP, kubeadmin, cluster-admin audit, inactive users, groups', icon: <Users className="w-4 h-4 text-teal-400" />, path: '/users' },
+          ].map((audit) => (
+            <button key={audit.label} onClick={() => go(audit.path, audit.label)}
+              className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 transition-colors text-left">
+              {audit.icon}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-200">{audit.label}</span>
+                  <span className="text-xs text-slate-500">{audit.checks} checks</span>
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5 line-clamp-1">{audit.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
