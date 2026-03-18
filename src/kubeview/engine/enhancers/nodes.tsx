@@ -1,4 +1,5 @@
 import React from 'react';
+import { ShieldCheck, ShieldOff, ArrowDownToLine } from 'lucide-react';
 import type { ResourceEnhancer } from './index';
 import type { K8sResource } from '../renderers/index';
 import { getNodeStatus } from '../renderers/statusUtils';
@@ -150,36 +151,14 @@ export const nodeEnhancer: ResourceEnhancer = {
         return (
           <button
             onClick={() => onAction(unschedulable ? 'uncordon' : 'cordon', { resource })}
-            className={`inline-flex items-center px-2 py-1 text-xs rounded ${
+            className={`inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors ${
               unschedulable
-                ? 'bg-green-900 text-green-300 hover:bg-green-800'
-                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                ? 'text-green-500 hover:bg-green-900/50 hover:text-green-400'
+                : 'text-slate-500 hover:bg-slate-700 hover:text-slate-300'
             }`}
             title={unschedulable ? 'Uncordon (allow scheduling)' : 'Cordon (prevent scheduling)'}
           >
-            <svg
-              className="w-3 h-3 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {unschedulable ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                />
-              )}
-            </svg>
-            {unschedulable ? 'Uncordon' : 'Cordon'}
+            {unschedulable ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
           </button>
         );
       },
@@ -196,23 +175,10 @@ export const nodeEnhancer: ResourceEnhancer = {
           <button
             onClick={() => onAction('drain', { resource })}
             disabled={!unschedulable}
-            className="inline-flex items-center px-2 py-1 text-xs bg-orange-900 text-orange-300 rounded hover:bg-orange-800 disabled:opacity-50 disabled:cursor-not-allowed ml-2"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-orange-900/50 hover:text-orange-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title={unschedulable ? 'Drain node' : 'Cordon first to drain'}
           >
-            <svg
-              className="w-3 h-3 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-              />
-            </svg>
-            Drain
+            <ArrowDownToLine className="w-3.5 h-3.5" />
           </button>
         );
       },

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ScrollText, RotateCw } from 'lucide-react';
 import type { ResourceEnhancer } from './index';
 import type { K8sResource } from '../renderers/index';
 import { getPodStatus } from '../renderers/statusUtils';
@@ -151,13 +152,10 @@ export const podEnhancer: ResourceEnhancer = {
         return (
           <Link
             to={`/logs/${namespace}/${name}`}
-            className="inline-flex items-center px-2 py-1 text-xs bg-blue-900 text-blue-300 rounded hover:bg-blue-800"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-blue-900/50 hover:text-blue-400 transition-colors"
             title="View Logs"
           >
-            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Logs
+            <ScrollText className="w-3.5 h-3.5" />
           </Link>
         );
       },
@@ -170,13 +168,10 @@ export const podEnhancer: ResourceEnhancer = {
         return (
           <button
             onClick={() => onAction('restart', { resource })}
-            className="inline-flex items-center px-2 py-1 text-xs bg-orange-900 text-orange-300 rounded hover:bg-orange-800"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
             title="Restart Pod (delete to trigger recreation)"
           >
-            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Restart
+            <RotateCw className="w-3.5 h-3.5" />
           </button>
         );
       },

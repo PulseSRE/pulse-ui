@@ -1,4 +1,5 @@
 import React from 'react';
+import { Minus, Plus, RotateCw } from 'lucide-react';
 import type { ResourceEnhancer } from './index';
 import type { K8sResource } from '../renderers/index';
 import { getDeploymentStatus } from '../renderers/statusUtils';
@@ -133,22 +134,10 @@ export const deploymentEnhancer: ResourceEnhancer = {
           <button
             onClick={() => onAction('scale', { resource, delta: -1 })}
             disabled={status.desired === 0}
-            className="inline-flex items-center px-1.5 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-slate-700 hover:text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Scale Down"
           >
-            <svg
-              className="w-3 h-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20 12H4"
-              />
-            </svg>
+            <Minus className="w-3.5 h-3.5" />
           </button>
         );
       },
@@ -161,7 +150,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
         const status = getDeploymentStatus(resource);
 
         return (
-          <span className="inline-flex items-center px-2 py-1 text-xs font-mono bg-blue-900 text-blue-300 rounded">
+          <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-mono text-slate-300">
             {status.desired}
           </span>
         );
@@ -175,22 +164,10 @@ export const deploymentEnhancer: ResourceEnhancer = {
         return (
           <button
             onClick={() => onAction('scale', { resource, delta: 1 })}
-            className="inline-flex items-center px-1.5 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-slate-700 hover:text-slate-300 transition-colors"
             title="Scale Up"
           >
-            <svg
-              className="w-3 h-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
+            <Plus className="w-3.5 h-3.5" />
           </button>
         );
       },
@@ -203,23 +180,10 @@ export const deploymentEnhancer: ResourceEnhancer = {
         return (
           <button
             onClick={() => onAction('restart-rollout', { resource })}
-            className="inline-flex items-center px-2 py-1 text-xs bg-orange-900 text-orange-300 rounded hover:bg-orange-800 ml-2"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
             title="Restart Rollout"
           >
-            <svg
-              className="w-3 h-3 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Restart
+            <RotateCw className="w-3.5 h-3.5" />
           </button>
         );
       },
