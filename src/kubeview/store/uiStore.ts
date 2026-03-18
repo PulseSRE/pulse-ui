@@ -98,6 +98,8 @@ const DEFAULT_TABS: Tab[] = [
   { id: 'admin', title: 'Admin', icon: 'Settings', path: '/admin', pinned: true, closable: false },
   { id: 'workloads', title: 'Workloads', icon: 'Package', path: '/workloads', pinned: true, closable: false },
   { id: 'troubleshoot', title: 'Troubleshoot', icon: 'Zap', path: '/troubleshoot', pinned: true, closable: false },
+  { id: 'storage', title: 'Storage', icon: 'HardDrive', path: '/storage', pinned: true, closable: false },
+  { id: 'networking', title: 'Networking', icon: 'Globe', path: '/networking', pinned: true, closable: false },
   { id: 'operators', title: 'Operators', icon: 'Puzzle', path: '/operatorhub', pinned: true, closable: false },
   { id: 'create', title: 'Create', icon: 'FilePlus', path: '/create/v1~pods', pinned: true, closable: false },
 ];
