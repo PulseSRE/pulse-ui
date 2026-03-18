@@ -107,7 +107,8 @@ describe('CreateView', () => {
   it('shows Quick Deploy form fields', () => {
     renderCreateView();
 
-    // Quick Deploy tab is default
+    // Click Quick Deploy tab (Installed is now default)
+    fireEvent.click(screen.getByText('Quick Deploy'));
     expect(screen.getByText('Application Name')).toBeDefined();
     expect(screen.getByText('Container Image')).toBeDefined();
     expect(screen.getByText('Container Port')).toBeDefined();
@@ -116,6 +117,7 @@ describe('CreateView', () => {
 
   it('has required indicators on name and image fields', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
 
     // Both "Application Name" and "Container Image" have required * markers
     const requiredMarkers = document.querySelectorAll('.text-red-400');
@@ -124,12 +126,14 @@ describe('CreateView', () => {
 
   it('shows Deploy button in Quick Deploy tab', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
 
     expect(screen.getByText('Deploy')).toBeDefined();
   });
 
   it('shows quick example buttons (nginx, httpd, redis)', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
 
     expect(screen.getByText('Quick Examples')).toBeDefined();
     expect(screen.getByText('nginx')).toBeDefined();
@@ -214,7 +218,8 @@ describe('CreateView', () => {
   it('switches between tabs correctly', () => {
     renderCreateView();
 
-    // Start at Quick Deploy (default)
+    // Start at Installed (default), switch to Quick Deploy
+    fireEvent.click(screen.getByText('Quick Deploy'));
     expect(screen.getByText('Application Name')).toBeDefined();
 
     // Switch to Helm Charts
@@ -236,6 +241,7 @@ describe('CreateView', () => {
 
   it('populates form fields when clicking quick example', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
 
     // Click nginx example
     fireEvent.click(screen.getByText(/Nginx web server/));
@@ -270,6 +276,7 @@ describe('CreateView', () => {
 
   it('shows namespace info in Quick Deploy', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
 
     expect(screen.getByText('default')).toBeDefined();
   });
@@ -278,12 +285,14 @@ describe('CreateView', () => {
 
   it('shows Add Variable button in Quick Deploy', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
     expect(screen.getByText('Environment Variables')).toBeDefined();
     expect(screen.getByText('Add Variable')).toBeDefined();
   });
 
   it('adds env var row when Add Variable is clicked', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
     fireEvent.click(screen.getByText('Add Variable'));
     expect(screen.getByPlaceholderText('NAME')).toBeDefined();
     expect(screen.getByPlaceholderText('value')).toBeDefined();
@@ -291,6 +300,7 @@ describe('CreateView', () => {
 
   it('can add multiple env vars', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
     fireEvent.click(screen.getByText('Add Variable'));
     fireEvent.click(screen.getByText('Add Variable'));
     const nameInputs = screen.getAllByPlaceholderText('NAME');
@@ -301,6 +311,7 @@ describe('CreateView', () => {
 
   it('has collapsible Resource Limits section', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
     expect(screen.getByText(/Resource Limits/)).toBeDefined();
     // Initially collapsed — no CPU/Memory fields visible
     expect(screen.queryByPlaceholderText('100m')).toBeNull();
@@ -308,6 +319,7 @@ describe('CreateView', () => {
 
   it('shows resource limit fields when expanded', () => {
     renderCreateView();
+    fireEvent.click(screen.getByText('Quick Deploy'));
     fireEvent.click(screen.getByText(/Resource Limits/));
     expect(screen.getByText('CPU Request')).toBeDefined();
     expect(screen.getByText('CPU Limit')).toBeDefined();

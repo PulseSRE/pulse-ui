@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Users, User, Shield, Key, ArrowRight, CheckCircle, AlertCircle,
-  UserCheck, Search,
+  Users, User, Shield, Key, ArrowRight, CheckCircle, AlertCircle, AlertTriangle,
+  UserCheck, Search, Activity, Clock, Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { k8sList } from '../engine/query';
+import { k8sList, k8sGet } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -45,6 +45,20 @@ export default function UserManagementView() {
     queryKey: ['clusterrolebindings', 'list'],
     queryFn: () => k8sList('/apis/rbac.authorization.k8s.io/v1/clusterrolebindings').catch(() => []),
     staleTime: 120000,
+  });
+
+  // OAuth config
+  const { data: oauthConfig } = useQuery({
+    queryKey: ['users', 'oauth'],
+    queryFn: () => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster').catch(() => null),
+    staleTime: 120000,
+  });
+
+  // OAuth access tokens (recent sessions)
+  const { data: accessTokens = [] } = useQuery<K8sResource[]>({
+    queryKey: ['users', 'oauthaccesstokens'],
+    queryFn: () => k8sList('/apis/oauth.openshift.io/v1/oauthaccesstokens').catch(() => []),
+    staleTime: 60000,
   });
 
   // Build user → roles map
@@ -288,6 +302,58 @@ export default function UserManagementView() {
           </div>
         )}
 
+        {/* Identity & Access Audit */}
+        <IdentityAudit
+          users={users as any[]}
+          groups={groups as any[]}
+          clusterRoleBindings={clusterRoleBindings as any[]}
+          oauthConfig={oauthConfig}
+          accessTokens={accessTokens as any[]}
+          go={go}
+        />
+
+        {/* Recent Sessions */}
+        {accessTokens.length > 0 && (
+          <div className="bg-slate-900 rounded-lg border border-slate-800">
+            <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-400" /> Recent Sessions ({accessTokens.length})
+              </h2>
+              <button onClick={() => go('/r/oauth.openshift.io~v1~oauthaccesstokens', 'OAuthAccessTokens')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
+            </div>
+            <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
+              {(accessTokens as any[]).sort((a: any, b: any) =>
+                new Date(b.metadata.creationTimestamp || 0).getTime() - new Date(a.metadata.creationTimestamp || 0).getTime()
+              ).slice(0, 10).map((token: any) => {
+                const userName = token.userName || 'unknown';
+                const clientName = token.clientName || '';
+                const created = token.metadata.creationTimestamp ? new Date(token.metadata.creationTimestamp) : null;
+                const age = created ? formatAge(created) : '—';
+                const scopes = token.scopes || [];
+                return (
+                  <div key={token.metadata.uid} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <User className="w-4 h-4 text-slate-500" />
+                      <div>
+                        <span className="text-sm text-slate-200">{userName}</span>
+                        {clientName && <span className="text-xs text-slate-500 ml-2">{clientName}</span>}
+                        {scopes.length > 0 && (
+                          <div className="flex gap-1 mt-0.5">
+                            {scopes.slice(0, 3).map((s: string) => (
+                              <span key={s} className="text-[10px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{s}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-500">{age}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Quick links */}
         <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Related Resources</h3>
@@ -306,6 +372,254 @@ export default function UserManagementView() {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function formatAge(date: Date): string {
+  const ms = Date.now() - date.getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// ===== Identity & Access Audit =====
+
+function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, accessTokens, go }: {
+  users: any[]; groups: any[]; clusterRoleBindings: any[]; oauthConfig: any;
+  accessTokens: any[]; go: (path: string, title: string) => void;
+}) {
+  const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
+
+  const checks = React.useMemo(() => {
+    const allChecks: Array<{
+      id: string; title: string; description: string; why: string;
+      passing: any[]; failing: any[]; yamlExample: string;
+    }> = [];
+
+    // 1. Identity Providers configured
+    const idps = oauthConfig?.spec?.identityProviders || [];
+    allChecks.push({
+      id: 'identity-providers',
+      title: 'Identity Providers',
+      description: 'At least one identity provider should be configured for user authentication',
+      why: 'Without an identity provider, only kubeadmin can log in. Configure HTPasswd, LDAP, GitHub, Google, or OpenID Connect for real user authentication.',
+      passing: idps.length > 0 ? idps : [],
+      failing: idps.length === 0 ? [{ metadata: { name: 'No identity providers configured' } }] : [],
+      yamlExample: `# Configure via Administration → Cluster Config → OAuth
+# Or apply directly:
+apiVersion: config.openshift.io/v1
+kind: OAuth
+metadata:
+  name: cluster
+spec:
+  identityProviders:
+  - name: my-htpasswd
+    mappingMethod: claim
+    type: HTPasswd
+    htpasswd:
+      fileData:
+        name: htpass-secret`,
+    });
+
+    // 2. kubeadmin removed
+    const hasKubeAdmin = users.some(u => u.metadata.name === 'kube:admin');
+    allChecks.push({
+      id: 'kubeadmin-removed',
+      title: 'kubeadmin Removed',
+      description: 'The default kubeadmin account should be removed after configuring an identity provider',
+      why: 'kubeadmin has full cluster-admin access with a static password. Remove it after setting up real identity providers: oc delete secret kubeadmin -n kube-system',
+      passing: hasKubeAdmin ? [] : [{ metadata: { name: 'kubeadmin removed' } }],
+      failing: hasKubeAdmin ? [{ metadata: { name: 'kube:admin still exists' } }] : [],
+      yamlExample: `# Remove kubeadmin (only after verifying IdP login works!):
+oc delete secret kubeadmin -n kube-system
+
+# WARNING: This is irreversible. Verify you can log in
+# with another admin user first.`,
+    });
+
+    // 3. Cluster-admin bindings audit
+    const clusterAdminBindings = clusterRoleBindings.filter((crb: any) =>
+      crb.roleRef?.name === 'cluster-admin'
+    );
+    const clusterAdminUsers = clusterAdminBindings.flatMap((crb: any) =>
+      (crb.subjects || []).filter((s: any) => s.kind === 'User').map((s: any) => ({
+        metadata: { name: s.name, uid: `${crb.metadata.name}-${s.name}` },
+        binding: crb.metadata.name,
+      }))
+    );
+    allChecks.push({
+      id: 'cluster-admin-audit',
+      title: 'Cluster Admin Audit',
+      description: 'Review all users and service accounts with cluster-admin privileges',
+      why: 'cluster-admin has unrestricted access to all resources. Every cluster-admin binding should be intentional and documented. Excessive cluster-admin grants increase blast radius of compromised accounts.',
+      passing: clusterAdminUsers.length <= 2 ? clusterAdminUsers : [],
+      failing: clusterAdminUsers.length > 2 ? clusterAdminUsers : [],
+      yamlExample: `# List all cluster-admin bindings:
+oc get clusterrolebindings -o json | jq '.items[] | select(.roleRef.name=="cluster-admin") | .subjects[]'
+
+# Remove unnecessary binding:
+oc delete clusterrolebinding <binding-name>
+
+# Use scoped roles instead:
+oc adm policy add-cluster-role-to-user edit <user>`,
+    });
+
+    // 4. Service accounts with cluster-admin
+    const saClusterAdmins = clusterAdminBindings.flatMap((crb: any) =>
+      (crb.subjects || []).filter((s: any) => s.kind === 'ServiceAccount').map((s: any) => ({
+        metadata: { name: `${s.namespace}/${s.name}`, uid: `${crb.metadata.name}-${s.namespace}-${s.name}` },
+      }))
+    );
+    allChecks.push({
+      id: 'sa-cluster-admin',
+      title: 'Service Account Privileges',
+      description: 'Service accounts with cluster-admin should be minimized',
+      why: 'Compromised service account tokens can be used from any pod. SA tokens are long-lived and auto-mounted. Prefer scoped roles (edit, view) over cluster-admin for service accounts.',
+      passing: saClusterAdmins.length === 0 ? [{ metadata: { name: 'No SAs with cluster-admin' } }] : [],
+      failing: saClusterAdmins,
+      yamlExample: `# Use scoped roles for service accounts:
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-sa-edit
+  namespace: my-namespace
+subjects:
+- kind: ServiceAccount
+  name: my-sa
+  namespace: my-namespace
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io`,
+    });
+
+    // 5. Inactive users (users with no recent tokens)
+    const activeUsers = new Set(accessTokens.map((t: any) => t.userName));
+    const inactiveUsers = users.filter(u => !activeUsers.has(u.metadata.name) && u.metadata.name !== 'kube:admin');
+    allChecks.push({
+      id: 'inactive-users',
+      title: 'Inactive Users',
+      description: 'Users without recent OAuth sessions may be stale accounts',
+      why: 'Stale user accounts with active role bindings are a security risk. Review and remove users who no longer need access. Inactive accounts can be compromised without detection.',
+      passing: users.filter(u => activeUsers.has(u.metadata.name)),
+      failing: inactiveUsers,
+      yamlExample: `# Remove inactive user:
+oc delete user <username>
+oc delete identity <identity-name>
+
+# Review user's role bindings first:
+oc get rolebindings,clusterrolebindings --all-namespaces -o json | jq '.items[] | select(.subjects[]?.name=="<username>")'`,
+    });
+
+    // 6. Groups configured
+    allChecks.push({
+      id: 'groups-configured',
+      title: 'Group-Based Access',
+      description: 'Use groups for role assignments instead of individual user bindings',
+      why: 'Managing RBAC per-user does not scale. Groups enable consistent access control, easier onboarding/offboarding, and auditable policies. Bind roles to groups, then add/remove users from groups.',
+      passing: groups.length > 0 ? groups : [],
+      failing: groups.length === 0 ? [{ metadata: { name: 'No groups configured' } }] : [],
+      yamlExample: `# Create a group:
+oc adm groups new developers user1 user2
+
+# Bind a role to the group:
+oc adm policy add-cluster-role-to-group edit developers
+
+# Or via YAML:
+apiVersion: user.openshift.io/v1
+kind: Group
+metadata:
+  name: developers
+users:
+- user1
+- user2`,
+    });
+
+    return allChecks;
+  }, [users, groups, clusterRoleBindings, oauthConfig, accessTokens]);
+
+  const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
+  const score = Math.round((totalPassing / checks.length) * 100);
+
+  return (
+    <div className="bg-slate-900 rounded-lg border border-slate-800">
+      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-indigo-400" /> Identity & Access Audit
+        </h2>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
+          <span className="text-xs text-slate-500">{totalPassing}/{checks.length} passing</span>
+        </div>
+      </div>
+      <div className="divide-y divide-slate-800">
+        {checks.map((check) => {
+          const pass = check.failing.length === 0;
+          const expanded = expandedCheck === check.id;
+          return (
+            <div key={check.id}>
+              <button
+                onClick={() => setExpandedCheck(expanded ? null : check.id)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
+                  <div>
+                    <span className="text-sm text-slate-200">{check.title}</span>
+                    <span className="text-xs text-slate-500 ml-2">
+                      {pass ? `${check.passing.length} pass` : `${check.failing.length} need attention`}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs text-slate-600">{expanded ? '▾' : '▸'}</span>
+              </button>
+              {expanded && (
+                <div className="px-4 pb-4 space-y-3">
+                  <p className="text-xs text-slate-400">{check.description}</p>
+                  <div className="bg-blue-950/20 border border-blue-900/50 rounded p-3">
+                    <div className="text-xs font-medium text-blue-300 mb-1">Why it matters</div>
+                    <p className="text-xs text-slate-400">{check.why}</p>
+                  </div>
+                  {check.failing.length > 0 && (
+                    <div>
+                      <div className="text-xs text-amber-400 font-medium mb-1.5">Needs attention ({check.failing.length})</div>
+                      <div className="space-y-1 max-h-32 overflow-auto">
+                        {check.failing.slice(0, 10).map((item: any, idx: number) => (
+                          <div key={item.metadata?.uid || idx} className="flex items-center gap-2 py-1 px-2 rounded bg-slate-800/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                            <span className="text-xs text-slate-300">{item.metadata?.name}</span>
+                            {item.binding && <span className="text-[10px] text-slate-600">via {item.binding}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {check.passing.length > 0 && (
+                    <div>
+                      <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
+                      <div className="flex flex-wrap gap-1">
+                        {check.passing.slice(0, 8).map((item: any, idx: number) => (
+                          <span key={item.metadata?.uid || item.name || idx} className="text-[10px] px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
+                            {item.metadata?.name || item.name || 'OK'}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-xs text-slate-500 font-medium mb-1">How to fix:</div>
+                    <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded overflow-x-auto whitespace-pre-wrap">{check.yamlExample}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

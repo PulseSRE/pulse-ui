@@ -217,6 +217,7 @@ function getCommandItems(
       { type: 'nav', id: 'troubleshoot', title: 'Troubleshoot', subtitle: 'Auto-diagnose cluster issues', icon: 'Stethoscope', path: '/troubleshoot' },
       { type: 'nav', id: 'config-compare', title: 'Config Snapshots', subtitle: 'Capture & compare cluster config', icon: 'GitCompare', path: '/admin' },
       { type: 'nav', id: 'create', title: 'Create Resource', subtitle: 'Create from YAML', icon: 'FilePlus', path: '/create/v1~pods' },
+      { type: 'nav', id: 'users', title: 'User Management', subtitle: 'Users, groups, service accounts, impersonation', icon: 'Users', path: '/users' },
     ];
 
     const matchingPages = builtinPages.filter((page) =>
