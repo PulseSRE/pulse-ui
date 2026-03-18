@@ -88,10 +88,12 @@ export function CommandBar() {
           className="flex items-center gap-2 group"
           title="Home"
         >
-          <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center relative">
-            <span className="text-white font-extrabold text-sm leading-none">S</span>
-            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-400" />
-          </div>
+          <svg className="w-6 h-6 shrink-0" viewBox="0 0 32 32">
+            <defs><linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#1d4ed8"/></linearGradient></defs>
+            <rect width="32" height="32" rx="8" fill="url(#logo-g)"/>
+            <path d="M10 11.5C10 9.5 12 8 16 8s6 1.5 6 3.5-2 2.5-6 3c-4 .5-6 1.5-6 3.5S12 22 16 22s6-1.5 6-3.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+            <circle cx="24" cy="7" r="3" fill="#93c5fd"/>
+          </svg>
           <span className="text-sm font-semibold text-slate-200 group-hover:text-white transition-colors hidden md:inline">
             Shift<span className="text-blue-400">Ops</span>
           </span>
