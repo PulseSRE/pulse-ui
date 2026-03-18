@@ -223,20 +223,28 @@ function getCommandItems(
     );
     items.push(...matchingPages);
 
-    // Resource types from discovery
+    // Resource types from discovery — sorted by priority
     if (resourceRegistry) {
       const seen = new Set<string>();
+      const coreResources: CommandItem[] = [];
+      const crdResources: CommandItem[] = [];
+
+      // Core K8s groups that should rank higher
+      const coreGroups = new Set(['', 'apps', 'batch', 'rbac.authorization.k8s.io', 'networking.k8s.io', 'storage.k8s.io', 'policy', 'autoscaling']);
+
       for (const [, resource] of resourceRegistry) {
         const dedup = `${resource.group}/${resource.kind}`;
         if (!seen.has(dedup)) {
           seen.add(dedup);
           const kind = resource.kind || '';
           const plural = resource.plural || '';
+          const shortNames = (resource.shortNames || []).join(', ');
           const match = !cleanQuery ||
             kind.toLowerCase().includes(cleanQuery) ||
-            plural.toLowerCase().includes(cleanQuery);
+            plural.toLowerCase().includes(cleanQuery) ||
+            shortNames.toLowerCase().includes(cleanQuery);
           if (match) {
-            items.push({
+            const item: CommandItem = {
               type: 'resource',
               id: dedup,
               title: plural || kind,
@@ -245,13 +253,24 @@ function getCommandItems(
               path: resource.group
                 ? `/r/${resource.group}~${resource.version}~${plural}`
                 : `/r/${resource.version}~${plural}`,
-            });
+            };
+            if (coreGroups.has(resource.group || '')) {
+              coreResources.push(item);
+            } else {
+              crdResources.push(item);
+            }
           }
         }
       }
+
+      // Sort: core resources first (alphabetically), then CRDs
+      coreResources.sort((a, b) => a.title.localeCompare(b.title));
+      crdResources.sort((a, b) => a.title.localeCompare(b.title));
+      items.push(...coreResources, ...crdResources);
     }
 
-    return items.slice(0, 25);
+    // Show more results when searching, fewer when browsing
+    return items.slice(0, cleanQuery ? 50 : 30);
   }
 
   if (mode === 'action') {
