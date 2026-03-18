@@ -80,10 +80,37 @@ export default function WelcomeView() {
             <PageLink icon={<Globe className="w-5 h-5 text-cyan-400" />} title="Networking" description="Routes, services, ingress, network policies, 6 checks" onClick={() => go('/networking', 'Networking')} />
             <PageLink icon={<Server className="w-5 h-5 text-blue-400" />} title="Compute" description="Nodes, machines, MachineConfig, autoscaling, 6 checks" onClick={() => go('/compute', 'Compute')} />
             <PageLink icon={<HardDrive className="w-5 h-5 text-orange-400" />} title="Storage" description="PVCs, StorageClasses, CSI drivers, snapshots, 6 checks" onClick={() => go('/storage', 'Storage')} />
-            <PageLink icon={<Bell className="w-5 h-5 text-red-400" />} title="Alerts" description="Severity filters, silence lifecycle, grouping, runbook links" onClick={() => go('/alerts', 'Alerts')} />
             <PageLink icon={<Shield className="w-5 h-5 text-indigo-400" />} title="Access Control" description="RBAC audit, recent changes, cluster-admin tracking" onClick={() => go('/access-control', 'Access Control')} />
             <PageLink icon={<Users className="w-5 h-5 text-teal-400" />} title="User Management" description="Users, groups, impersonation, identity audit, sessions" onClick={() => go('/users', 'Users')} />
             <PageLink icon={<Settings className="w-5 h-5 text-slate-400" />} title="Administration" description="Readiness (67 checks), config (10 sections), updates, snapshots" onClick={() => go('/admin', 'Administration')} />
+          </div>
+        </div>
+
+        {/* Alerts */}
+        <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
+          <h2 className="text-lg font-semibold text-slate-100 mb-4 flex items-center gap-2">
+            <Bell className="w-5 h-5 text-red-400" />
+            Alerts & Incident Response
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <QuickAction
+              icon={<Bell className="w-6 h-6 text-red-400" />}
+              title="View Alerts"
+              description="Firing alerts with severity filters, grouping by namespace, and runbook links"
+              onClick={() => go('/alerts', 'Alerts')}
+            />
+            <QuickAction
+              icon={<Activity className="w-6 h-6 text-blue-400" />}
+              title="Silence Management"
+              description="Create silences from alerts, set duration presets, expire with confirmation"
+              onClick={() => go('/alerts?tab=silences', 'Alerts')}
+            />
+            <QuickAction
+              icon={<HeartPulse className="w-6 h-6 text-orange-400" />}
+              title="Diagnose Issues"
+              description="Smart diagnosis with log analysis, runbooks, and namespace health"
+              onClick={() => go('/pulse?tab=issues', 'Pulse')}
+            />
           </div>
         </div>
 
