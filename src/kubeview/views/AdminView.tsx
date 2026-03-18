@@ -526,7 +526,9 @@ export default function AdminView() {
               <InfoCard label="Cluster Version" value={cvVersion || '—'} sub={cvChannel} />
               <InfoCard label="Platform" value={platform || '—'} sub={(() => { try { return apiUrl ? new URL(apiUrl).hostname : ''; } catch { return ''; } })()} />
               <InfoCard label="Nodes" value={String(nodes.length)} sub={nodeRoles.map(([r, c]) => `${c} ${r}`).join(', ')} />
-              <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups`} />
+              <button onClick={() => go('/crds', 'Custom Resources')} className="text-left">
+                <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups →`} />
+              </button>
             </div>
 
             {/* Update banner */}
@@ -603,7 +605,7 @@ export default function AdminView() {
                   {[
                     { icon: <Shield className="w-3.5 h-3.5" />, label: 'Access Control', desc: 'RBAC audit', path: '/access-control' },
                     { icon: <Server className="w-3.5 h-3.5" />, label: 'User Management', desc: 'Users, impersonation', path: '/users' },
-                    { icon: <FileCode className="w-3.5 h-3.5" />, label: `${crds.length} CRDs`, desc: 'Custom resources', path: '/r/apiextensions.k8s.io~v1~customresourcedefinitions' },
+                    { icon: <FileCode className="w-3.5 h-3.5" />, label: `${crds.length} CRDs`, desc: 'Custom resources & instances', path: '/crds' },
                     { icon: <AlertTriangle className="w-3.5 h-3.5" />, label: 'Alerts', desc: 'Firing alerts, silences', path: '/alerts' },
                     { icon: <GitCompare className="w-3.5 h-3.5" />, label: 'Config Snapshots', desc: 'Capture & compare', onClick: () => setActiveTab('snapshots') },
                     { icon: <Puzzle className="w-3.5 h-3.5" />, label: 'Software', desc: 'Install & manage', path: '/create/v1~pods' },
