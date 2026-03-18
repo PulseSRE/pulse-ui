@@ -8,6 +8,8 @@ kind: ServiceAccount
 metadata:
   name: shiftops
   namespace: shiftops
+  annotations:
+    serviceaccounts.openshift.io/oauth-redirectreference.shiftops: '{"kind":"OAuthRedirectReference","apiVersion":"v1","reference":{"kind":"Route","name":"shiftops"}}'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -21,6 +23,82 @@ subjects:
 - kind: ServiceAccount
   name: shiftops
   namespace: shiftops
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: shiftops-proxy-tls
+  namespace: shiftops
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: shiftops-proxy-tls
+type: kubernetes.io/tls
+data:
+  tls.crt: ""
+  tls.key: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shiftops-nginx
+  namespace: shiftops
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /tmp/nginx.pid;
+    events { worker_connections 1024; }
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      sendfile on;
+      keepalive_timeout 65;
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path /tmp/proxy_temp;
+      fastcgi_temp_path /tmp/fastcgi_temp;
+      uwsgi_temp_path /tmp/uwsgi_temp;
+      scgi_temp_path /tmp/scgi_temp;
+      server {
+        listen 8080;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml;
+
+        # Proxy K8s API — use the user's OAuth token passed by oauth-proxy
+        location /api/kubernetes/ {
+          proxy_pass https://kubernetes.default.svc/;
+          proxy_ssl_verify off;
+          proxy_set_header Authorization $http_authorization;
+          proxy_pass_header Authorization;
+          proxy_read_timeout 120s;
+        }
+
+        # Proxy Prometheus
+        location /api/prometheus/ {
+          proxy_pass https://thanos-querier.openshift-monitoring.svc:9091/;
+          proxy_ssl_verify off;
+          proxy_set_header Authorization $http_authorization;
+          proxy_pass_header Authorization;
+          proxy_read_timeout 60s;
+        }
+
+        # Proxy Alertmanager
+        location /api/alertmanager/ {
+          proxy_pass https://alertmanager-main.openshift-monitoring.svc:9094/;
+          proxy_ssl_verify off;
+          proxy_set_header Authorization $http_authorization;
+          proxy_pass_header Authorization;
+          proxy_read_timeout 60s;
+        }
+
+        location / { try_files $uri $uri/ /index.html; }
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+          expires 1y;
+          add_header Cache-Control "public, immutable";
+        }
+      }
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -41,10 +119,44 @@ spec:
     spec:
       serviceAccountName: shiftops
       containers:
+      # OAuth Proxy sidecar — handles user login
+      - name: oauth-proxy
+        image: registry.redhat.io/openshift4/ose-oauth-proxy:latest
+        args:
+        - --https-address=:8443
+        - --provider=openshift
+        - --openshift-service-account=shiftops
+        - --upstream=http://localhost:8080
+        - --tls-cert=/etc/tls/private/tls.crt
+        - --tls-key=/etc/tls/private/tls.key
+        - --cookie-secret=shiftops-secret-cookie
+        - --pass-access-token=true
+        - --pass-user-bearer-token=true
+        - --pass-basic-auth=false
+        - --openshift-delegate-urls={"/api/kubernetes/":{"resource":"namespaces","verb":"list"}}
+        ports:
+        - containerPort: 8443
+          name: https
+        volumeMounts:
+        - name: proxy-tls
+          mountPath: /etc/tls/private
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+      # ShiftOps app — serves static files + reverse proxies API
       - name: shiftops
-        image: shiftops:latest
+        image: image-registry.openshift-image-registry.svc:5000/shiftops/shiftops:latest
+        command: ["nginx", "-g", "daemon off;"]
         ports:
         - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
         resources:
           requests:
             cpu: 50m
@@ -64,6 +176,13 @@ spec:
             port: 8080
           initialDelaySeconds: 3
           periodSeconds: 10
+      volumes:
+      - name: proxy-tls
+        secret:
+          secretName: shiftops-proxy-tls
+      - name: nginx-config
+        configMap:
+          name: shiftops-nginx
 ---
 apiVersion: v1
 kind: Service
@@ -72,12 +191,15 @@ metadata:
   namespace: shiftops
   labels:
     app: shiftops
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: shiftops-proxy-tls
 spec:
   selector:
     app: shiftops
   ports:
-  - port: 8080
-    targetPort: 8080
+  - name: https
+    port: 8443
+    targetPort: 8443
     protocol: TCP
 ---
 apiVersion: route.openshift.io/v1
@@ -92,7 +214,7 @@ spec:
     kind: Service
     name: shiftops
   port:
-    targetPort: 8080
+    targetPort: https
   tls:
-    termination: edge
+    termination: reencrypt
     insecureEdgeTerminationPolicy: Redirect
