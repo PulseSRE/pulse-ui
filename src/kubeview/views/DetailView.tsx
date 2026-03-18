@@ -468,8 +468,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                             View Logs
                           </button>
                         )}
-                        <button onClick={() => go('/troubleshoot', 'Troubleshoot')} className="px-3 py-1 text-xs text-slate-400 hover:text-slate-300 border border-slate-700 rounded hover:border-slate-600">
-                          Troubleshoot
+                        <button onClick={() => go('/pulse', 'Pulse')} className="px-3 py-1 text-xs text-slate-400 hover:text-slate-300 border border-slate-700 rounded hover:border-slate-600">
+                          Diagnose
                         </button>
                       </div>
                     </div>

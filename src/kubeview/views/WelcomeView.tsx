@@ -49,7 +49,7 @@ export default function WelcomeView() {
               icon={<GitBranch className="w-6 h-6 text-orange-400" />}
               title="Troubleshoot Issues"
               description="Auto-diagnose problems with interactive runbooks and namespace health"
-              onClick={() => go('/troubleshoot', 'Troubleshoot')}
+              onClick={() => go('/pulse', 'Pulse')}
             />
           </div>
         </div>
@@ -76,7 +76,6 @@ export default function WelcomeView() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <PageLink icon={<HeartPulse className="w-5 h-5 text-blue-400" />} title="Cluster Pulse" description="Active issues, CPU/memory, operator health" onClick={() => go('/pulse', 'Pulse')} />
-            <PageLink icon={<Activity className="w-5 h-5 text-orange-400" />} title="Troubleshoot" description="Auto-diagnose issues with interactive runbooks" onClick={() => go('/troubleshoot', 'Troubleshoot')} />
             <PageLink icon={<Bell className="w-5 h-5 text-red-400" />} title="Alerts" description="Alerts with severity filters, silence management, grouping" onClick={() => go('/alerts', 'Alerts')} />
             <PageLink icon={<Clock className="w-5 h-5 text-blue-400" />} title="Timeline" description="Chronological cluster event feed" onClick={() => go('/timeline', 'Timeline')} />
             <PageLink icon={<Package className="w-5 h-5 text-blue-400" />} title="Workloads" description="Deployments, StatefulSets, DaemonSets, Jobs, Pods" onClick={() => go('/workloads', 'Workloads')} />

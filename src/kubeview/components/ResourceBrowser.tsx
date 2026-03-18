@@ -175,7 +175,6 @@ export function ResourceBrowser() {
             { label: 'Access Control', icon: Shield, path: '/access-control', color: 'text-indigo-400' },
             { label: 'Alerts', icon: Bell, path: '/alerts', color: 'text-red-400' },
             { label: 'Administration', icon: Settings, path: '/admin', color: 'text-slate-400' },
-            { label: 'Troubleshoot', icon: Activity, path: '/troubleshoot', color: 'text-orange-400' },
             { label: 'Software', icon: Package, path: '/create/v1~pods', color: 'text-blue-400' },
           ].map((page) => (
             <button
