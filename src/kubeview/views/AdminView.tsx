@@ -600,28 +600,6 @@ export default function AdminView() {
                 </button>
               </Panel>
 
-              <Panel title="Quick Navigation" icon={<Database className="w-4 h-4 text-slate-400" />}>
-                <div className="space-y-1.5">
-                  {[
-                    { icon: <Shield className="w-3.5 h-3.5" />, label: 'Access Control', desc: 'RBAC audit', path: '/access-control' },
-                    { icon: <Server className="w-3.5 h-3.5" />, label: 'User Management', desc: 'Users, impersonation', path: '/users' },
-                    { icon: <FileCode className="w-3.5 h-3.5" />, label: `${crds.length} CRDs`, desc: 'Custom resources & instances', path: '/crds' },
-                    { icon: <AlertTriangle className="w-3.5 h-3.5" />, label: 'Alerts', desc: 'Firing alerts, silences', path: '/alerts' },
-                    { icon: <GitCompare className="w-3.5 h-3.5" />, label: 'Config Snapshots', desc: 'Capture & compare', onClick: () => setActiveTab('snapshots') },
-                    { icon: <Puzzle className="w-3.5 h-3.5" />, label: 'Software', desc: 'Install & manage', path: '/create/v1~pods' },
-                  ].map((item) => (
-                    <button key={item.label} onClick={item.onClick || (() => go(item.path!, item.label))}
-                      className="w-full text-left flex items-center gap-2.5 py-1.5 px-2 rounded hover:bg-slate-800/50 transition-colors">
-                      {item.icon}
-                      <div className="flex-1">
-                        <span className="text-sm text-slate-300">{item.label}</span>
-                        <span className="text-xs text-slate-600 ml-2">{item.desc}</span>
-                      </div>
-                      <ArrowRight className="w-3 h-3 text-slate-600" />
-                    </button>
-                  ))}
-                </div>
-              </Panel>
             </div>
           </>
         )}
