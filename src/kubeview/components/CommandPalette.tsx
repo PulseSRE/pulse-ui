@@ -214,7 +214,6 @@ function getCommandItems(
       { type: 'nav', id: 'alerts', title: 'Alerts', subtitle: 'Prometheus alerts, rules, silences', icon: 'Bell', path: '/alerts' },
       { type: 'nav', id: 'software', title: 'Software', subtitle: 'Installed software, operators, deploy, Helm, templates', icon: 'Package', path: '/create/v1~pods' },
       { type: 'nav', id: 'admin', title: 'Administration', subtitle: 'Operators, cluster config, updates, snapshots, quotas', icon: 'Settings', path: '/admin' },
-      { type: 'nav', id: 'config-compare', title: 'Config Snapshots', subtitle: 'Capture & compare cluster config', icon: 'GitCompare', path: '/admin' },
       { type: 'nav', id: 'users', title: 'User Management', subtitle: 'Users, groups, service accounts, impersonation', icon: 'Users', path: '/users' },
     ];
 
