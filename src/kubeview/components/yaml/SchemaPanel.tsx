@@ -75,7 +75,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField }
       {/* Header */}
       <div className="px-3 py-2 border-b border-slate-700">
         <h3 className="text-sm font-semibold text-slate-200">Schema</h3>
-        <p className="text-[10px] text-slate-500 mt-0.5">{gvk.kind} {gvk.group ? `${gvk.group}/${gvk.version}` : gvk.version}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{gvk.kind} {gvk.group ? `${gvk.group}/${gvk.version}` : gvk.version}</p>
       </div>
 
       {/* Search */}
@@ -129,9 +129,9 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField }
         <div className="border-t border-slate-700 p-3 bg-slate-950/50 max-h-48 overflow-auto">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="font-mono text-xs text-white">{selectedField.path || selectedField.name}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">{selectedField.type}</span>
-            {selectedField.required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-900/50 text-red-400">Required</span>}
-            {selectedField.format && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">{selectedField.format}</span>}
+            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">{selectedField.type}</span>
+            {selectedField.required && <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-400">Required</span>}
+            {selectedField.format && <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">{selectedField.format}</span>}
           </div>
           {selectedField.description && (
             <p className="text-[11px] text-slate-400 leading-relaxed mb-2">{selectedField.description}</p>
@@ -141,9 +141,9 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField }
           )}
           {selectedField.enum && (
             <div className="mt-1.5">
-              <span className="text-[10px] text-slate-500">Values: </span>
+              <span className="text-xs text-slate-500">Values: </span>
               <div className="flex flex-wrap gap-1 mt-0.5">
-                {selectedField.enum.map((v) => <code key={v} className="text-[10px] px-1 py-0.5 bg-slate-700 rounded text-slate-300">{v}</code>)}
+                {selectedField.enum.map((v) => <code key={v} className="text-xs px-1 py-0.5 bg-slate-700 rounded text-slate-300">{v}</code>)}
               </div>
             </div>
           )}
@@ -151,7 +151,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField }
             <div className="text-[11px] mt-1"><span className="text-slate-500">Min: </span><code className="text-emerald-400">{selectedField.minimum}</code></div>
           )}
           {selectedField.pattern && (
-            <div className="text-[11px] mt-1"><span className="text-slate-500">Pattern: </span><code className="text-slate-400 text-[10px]">{selectedField.pattern}</code></div>
+            <div className="text-[11px] mt-1"><span className="text-slate-500">Pattern: </span><code className="text-slate-400 text-xs">{selectedField.pattern}</code></div>
           )}
         </div>
       )}
@@ -186,7 +186,7 @@ function FieldTree({ field, selectedPath, onSelect, level = 0, searchQuery = '' 
         ) : <span className="w-3 flex-shrink-0" />}
         <span className={cn('font-mono', isActive ? 'text-blue-400' : field.required ? 'text-slate-200' : 'text-slate-400')}>{field.name}</span>
         {field.required && <span className="text-red-400 text-[9px]">*</span>}
-        <span className="text-[10px] text-slate-600 ml-auto flex-shrink-0">{field.type}</span>
+        <span className="text-xs text-slate-600 ml-auto flex-shrink-0">{field.type}</span>
       </div>
       {hasChildren && isExpanded && children.map((child) => (
         <FieldTree key={child.path} field={child} selectedPath={selectedPath} onSelect={onSelect} level={level + 1} searchQuery={searchQuery} />

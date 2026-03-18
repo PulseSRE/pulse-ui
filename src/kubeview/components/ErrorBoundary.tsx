@@ -108,7 +108,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400">
                 Error details
               </summary>
-              <pre className="mt-2 text-[10px] text-red-400 font-mono bg-slate-900 p-3 rounded overflow-auto max-h-32">
+              <pre className="mt-2 text-xs text-red-400 font-mono bg-slate-900 p-3 rounded overflow-auto max-h-32">
                 {this.state.error?.stack || this.state.error?.message}
               </pre>
             </details>

@@ -11,6 +11,7 @@ import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { Panel } from '../components/primitives/Panel';
 import { sanitizePromQL } from '../engine/query';
 
 export default function WorkloadsView() {
@@ -356,16 +357,6 @@ function Tip({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800">
-      <div className="px-4 py-3 border-b border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">{icon}{title}</h2>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
-}
 
 // ===== Workload Health Audit =====
 
@@ -598,12 +589,12 @@ spec:
                             <div className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                               <span className="text-xs text-slate-300">{d.metadata.name}</span>
-                              <span className="text-[10px] text-slate-600">{d.metadata.namespace}</span>
+                              <span className="text-xs text-slate-600">{d.metadata.namespace}</span>
                             </div>
-                            <span className="text-[10px] text-blue-400">Edit YAML →</span>
+                            <span className="text-xs text-blue-400">Edit YAML →</span>
                           </button>
                         ))}
-                        {check.failing.length > 10 && <div className="text-[10px] text-slate-600 px-2">+{check.failing.length - 10} more</div>}
+                        {check.failing.length > 10 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 10} more</div>}
                       </div>
                     </div>
                   )}
@@ -614,9 +605,9 @@ spec:
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
                         {check.passing.slice(0, 8).map((d: any) => (
-                          <span key={d.metadata.uid} className="text-[10px] px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{d.metadata.name}</span>
+                          <span key={d.metadata.uid} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{d.metadata.name}</span>
                         ))}
-                        {check.passing.length > 8 && <span className="text-[10px] text-slate-600">+{check.passing.length - 8} more</span>}
+                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
                       </div>
                     </div>
                   )}

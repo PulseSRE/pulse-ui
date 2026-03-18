@@ -588,7 +588,7 @@ export default function YamlEditor({
                 {/* Context-aware sub-snippets based on current YAML */}
                 {detectedKind && (
                   <>
-                    <div className="px-2 py-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                    <div className="px-2 py-1 text-xs text-slate-500 uppercase tracking-wider font-semibold">
                       Add to {detectedKind}
                     </div>
                     {contextSnippets.map((cs) => (
@@ -605,7 +605,7 @@ export default function YamlEditor({
                       </button>
                     ))}
                     <div className="border-t border-slate-700 my-2" />
-                    <div className="px-2 py-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                    <div className="px-2 py-1 text-xs text-slate-500 uppercase tracking-wider font-semibold">
                       Full Resource Templates
                     </div>
                   </>
@@ -650,7 +650,7 @@ export default function YamlEditor({
                   <h4 className="font-semibold text-slate-300 mb-2">Autocomplete</h4>
                   <p className="text-slate-400 leading-relaxed">
                     Start typing any K8s field name and autocomplete will suggest options.
-                    Press <kbd className="px-1 py-0.5 bg-slate-700 rounded text-[10px]">Ctrl+Space</kbd> to
+                    Press <kbd className="px-1 py-0.5 bg-slate-700 rounded text-xs">Ctrl+Space</kbd> to
                     manually trigger. After a colon, values like API versions and kinds are suggested.
                   </p>
                 </div>
@@ -695,7 +695,7 @@ function KbdRow({ keys, label }: { keys: string; label: string }) {
   return (
     <div className="flex items-center justify-between py-0.5">
       <span className="text-slate-400">{label}</span>
-      <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-[10px] font-mono text-slate-300">{keys}</kbd>
+      <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-xs font-mono text-slate-300">{keys}</kbd>
     </div>
   );
 }

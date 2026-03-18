@@ -11,6 +11,7 @@ import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { Panel } from '../components/primitives/Panel';
 
 export default function NetworkingView() {
   const go = useNavigateTab();
@@ -281,7 +282,7 @@ export default function NetworkingView() {
                       <div className="flex items-center gap-2">
                         {isAvailable ? <Activity className="w-3.5 h-3.5 text-green-400" /> : <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                         <span className="text-sm font-medium text-slate-200">{ic.metadata.name}</span>
-                        <span className={cn('text-[10px] px-1.5 py-0.5 rounded', isAvailable ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>{isAvailable ? 'Available' : 'Degraded'}</span>
+                        <span className={cn('text-xs px-1.5 py-0.5 rounded', isAvailable ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>{isAvailable ? 'Available' : 'Degraded'}</span>
                       </div>
                       {domain && <div className="text-xs text-slate-500 mt-0.5 font-mono">*.{domain}</div>}
                     </div>
@@ -346,7 +347,7 @@ export default function NetworkingView() {
                         <span className="text-sm text-slate-200">{np.metadata.name}</span>
                         <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{np.metadata.namespace}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500">
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                         {policyTypes.includes('Ingress') && <span>{ingressRules} ingress rule{ingressRules !== 1 ? 's' : ''}</span>}
                         {policyTypes.includes('Egress') && <span>{egressRules} egress rule{egressRules !== 1 ? 's' : ''}</span>}
                         {policyTypes.length === 0 && <span>{ingressRules} ingress rule{ingressRules !== 1 ? 's' : ''}</span>}
@@ -668,13 +669,13 @@ spec:
                               <div className="flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                                 <span className="text-xs text-slate-300">{name}</span>
-                                {!isNamespace && ns && <span className="text-[10px] text-slate-600">{ns}</span>}
+                                {!isNamespace && ns && <span className="text-xs text-slate-600">{ns}</span>}
                               </div>
-                              <span className="text-[10px] text-blue-400">{isNamespace ? 'Create Policy →' : 'Edit YAML →'}</span>
+                              <span className="text-xs text-blue-400">{isNamespace ? 'Create Policy →' : 'Edit YAML →'}</span>
                             </button>
                           );
                         })}
-                        {check.failing.length > 10 && <div className="text-[10px] text-slate-600 px-2">+{check.failing.length - 10} more</div>}
+                        {check.failing.length > 10 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 10} more</div>}
                       </div>
                     </div>
                   )}
@@ -685,11 +686,11 @@ spec:
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
                         {check.passing.slice(0, 8).map((resource: any, idx: number) => (
-                          <span key={resource.metadata?.uid || idx} className="text-[10px] px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
+                          <span key={resource.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
                             {resource.metadata.name}
                           </span>
                         ))}
-                        {check.passing.length > 8 && <span className="text-[10px] text-slate-600">+{check.passing.length - 8} more</span>}
+                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
                       </div>
                     </div>
                   )}
@@ -709,13 +710,3 @@ spec:
   );
 }
 
-function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800">
-      <div className="px-4 py-3 border-b border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">{icon}{title}</h2>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
-}

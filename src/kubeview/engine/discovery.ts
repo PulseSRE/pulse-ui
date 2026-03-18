@@ -166,11 +166,9 @@ async function discoverAPIGroups(registry: ResourceRegistry): Promise<void> {
 
     const data: APIGroupList = await response.json();
 
-    // Fetch resources for each group version
-    const promises = data.groups.flatMap(group =>
-      group.versions.map(version =>
-        discoverGroupVersion(registry, group.name, version.version)
-      )
+    // Fetch resources for preferred version only (reduces requests by 50-70%)
+    const promises = data.groups.map(group =>
+      discoverGroupVersion(registry, group.name, group.preferredVersion.version)
     );
 
     await Promise.allSettled(promises);

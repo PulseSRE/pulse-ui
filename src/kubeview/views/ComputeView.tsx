@@ -317,7 +317,7 @@ export default function ComputeView() {
                         {nd.taints.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {nd.taints.map((t: any, i: number) => (
-                              <span key={i} className={cn('text-[10px] px-1 py-0.5 rounded font-mono',
+                              <span key={i} className={cn('text-xs px-1 py-0.5 rounded font-mono',
                                 t.effect === 'NoSchedule' ? 'bg-yellow-900/30 text-yellow-400' :
                                 t.effect === 'NoExecute' ? 'bg-red-900/30 text-red-400' :
                                 'bg-slate-800 text-slate-500'
@@ -334,12 +334,12 @@ export default function ComputeView() {
                             {nd.status.ready ? 'Ready' : 'NotReady'}
                           </span>
                           {nd.pressures.length > 0 && nd.pressures.map((p: string) => (
-                            <span key={p} className="text-[10px] px-1 py-0.5 bg-red-900/50 text-red-300 rounded">{p}</span>
+                            <span key={p} className="text-xs px-1 py-0.5 bg-red-900/50 text-red-300 rounded">{p}</span>
                           ))}
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">{nd.roles.map((r: string) => <span key={r} className={cn('text-[10px] px-1.5 py-0.5 rounded', r === 'master' || r === 'control-plane' ? 'bg-purple-900/50 text-purple-300' : r === 'infra' ? 'bg-orange-900/50 text-orange-300' : 'bg-blue-900/50 text-blue-300')}>{r}</span>)}</div>
+                        <div className="flex gap-1">{nd.roles.map((r: string) => <span key={r} className={cn('text-xs px-1.5 py-0.5 rounded', r === 'master' || r === 'control-plane' ? 'bg-purple-900/50 text-purple-300' : r === 'infra' ? 'bg-orange-900/50 text-orange-300' : 'bg-blue-900/50 text-blue-300')}>{r}</span>)}</div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -413,7 +413,7 @@ export default function ComputeView() {
                     <div className="flex items-center gap-2 min-w-0">
                       <div className={cn('w-2 h-2 rounded-full shrink-0', ready === desired ? 'bg-green-500' : 'bg-yellow-500')} />
                       <span className="text-sm text-slate-200 truncate">{ms.metadata.name}</span>
-                      {autoscaler && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded shrink-0">autoscaled {autoscaler.spec?.minReplicas}-{autoscaler.spec?.maxReplicas}</span>}
+                      {autoscaler && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded shrink-0">autoscaled {autoscaler.spec?.minReplicas}-{autoscaler.spec?.maxReplicas}</span>}
                     </div>
                     <span className={cn('text-xs font-mono shrink-0', ready === desired ? 'text-green-400' : 'text-yellow-400')}>{ready}/{desired}</span>
                   </button>
@@ -440,12 +440,12 @@ export default function ComputeView() {
                       <div className={cn('w-2 h-2 rounded-full shrink-0', phase === 'Running' ? 'bg-green-500' : phase === 'Provisioning' ? 'bg-yellow-500' : 'bg-red-500')} />
                       <div className="min-w-0">
                         <span className="text-sm text-slate-200 truncate block">{m.metadata.name}</span>
-                        {nodeRef && <span className="text-[10px] text-slate-500 truncate block">{nodeRef}</span>}
+                        {nodeRef && <span className="text-xs text-slate-500 truncate block">{nodeRef}</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {instanceType && <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{instanceType}</span>}
-                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                      {instanceType && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{instanceType}</span>}
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded',
                         phase === 'Running' ? 'bg-green-900/50 text-green-300' :
                         phase === 'Provisioning' ? 'bg-yellow-900/50 text-yellow-300' :
                         'bg-red-900/50 text-red-300'
@@ -478,7 +478,7 @@ export default function ComputeView() {
                         {currentHealthy}/{expectedMachines} healthy
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
                       <span>Max unhealthy: {maxUnhealthy}</span>
                       {conditions.map((c, i) => <span key={i}>{c.type}≠{c.status} → {c.timeout}</span>)}
                     </div>
@@ -492,7 +492,7 @@ export default function ComputeView() {
           <div className="bg-slate-900 rounded-lg border border-slate-800">
             <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100">Autoscaling</h2>
-              {clusterAutoscaler.length > 0 && <span className="text-[10px] px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Enabled</span>}
+              {clusterAutoscaler.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Enabled</span>}
             </div>
             <div className="p-4 space-y-3">
               {clusterAutoscaler.length === 0 && machineAutoscalers.length === 0 ? (
@@ -585,15 +585,15 @@ export default function ComputeView() {
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-slate-200">{mcp.metadata.name}</span>
-                        {isDegraded && <span className="text-[10px] px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">Degraded</span>}
-                        {isUpdating && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">Updating</span>}
-                        {isUpdated && !isUpdating && <span className="text-[10px] px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Updated</span>}
+                        {isDegraded && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">Degraded</span>}
+                        {isUpdating && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">Updating</span>}
+                        {isUpdated && !isUpdating && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Updated</span>}
                       </div>
                       <span className={cn('text-xs font-mono', readyCount === machineCount ? 'text-green-400' : 'text-yellow-400')}>
                         {readyCount}/{machineCount} ready
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
                       <span>{updatedCount}/{machineCount} updated</span>
                       {currentConfig && <span className="font-mono truncate max-w-[200px]">Config: {currentConfig}</span>}
                     </div>
@@ -622,7 +622,7 @@ export default function ComputeView() {
                     className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
                     <div>
                       <div className="text-sm text-slate-200">{item.label}</div>
-                      <div className="text-[10px] text-slate-500">{item.desc}</div>
+                      <div className="text-xs text-slate-500">{item.desc}</div>
                     </div>
                     <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />
                   </button>
@@ -658,7 +658,7 @@ function StatCard({ label, value, subtitle, issues, bar, barColor, onClick }: {
         {issues ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{issues}</span> : null}
       </div>
       <div className="text-xl font-bold text-slate-100">{value}</div>
-      {subtitle && <div className="text-[10px] text-slate-500 mt-0.5">{subtitle}</div>}
+      {subtitle && <div className="text-xs text-slate-500 mt-0.5">{subtitle}</div>}
       {bar !== null && bar !== undefined && <UsageBar pct={bar} color={barColor || 'blue'} className="mt-2" />}
     </div>
   );
@@ -967,17 +967,17 @@ spec:
                               <div className="flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                                 <span className="text-xs text-slate-300">{name}</span>
-                                {ns && <span className="text-[10px] text-slate-600">{ns}</span>}
-                                {pressureType && <span className="text-[10px] px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">{pressureType}</span>}
-                                {kubeletVersion && <span className="text-[10px] px-1.5 py-0.5 bg-yellow-900/50 text-yellow-300 rounded font-mono">{kubeletVersion}</span>}
+                                {ns && <span className="text-xs text-slate-600">{ns}</span>}
+                                {pressureType && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">{pressureType}</span>}
+                                {kubeletVersion && <span className="text-xs px-1.5 py-0.5 bg-yellow-900/50 text-yellow-300 rounded font-mono">{kubeletVersion}</span>}
                               </div>
-                              <span className="text-[10px] text-blue-400">
+                              <span className="text-xs text-blue-400">
                                 {check.id === 'machine-health-checks' || check.id === 'cluster-autoscaling' ? 'Create →' : 'View →'}
                               </span>
                             </button>
                           );
                         })}
-                        {check.failing.length > 10 && <div className="text-[10px] text-slate-600 px-2">+{check.failing.length - 10} more</div>}
+                        {check.failing.length > 10 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 10} more</div>}
                       </div>
                     </div>
                   )}
@@ -996,10 +996,10 @@ spec:
                         {check.passing.slice(0, 8).map((item: any, idx: number) => {
                           const name = item.metadata?.name || item.name || `item-${idx}`;
                           return (
-                            <span key={item.metadata?.uid || idx} className="text-[10px] px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{name}</span>
+                            <span key={item.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{name}</span>
                           );
                         })}
-                        {check.passing.length > 8 && <span className="text-[10px] text-slate-600">+{check.passing.length - 8} more</span>}
+                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
                       </div>
                     </div>
                   )}

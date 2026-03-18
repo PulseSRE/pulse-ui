@@ -450,7 +450,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                       )}
                       {diagnosis.logSnippet && (
                         <div className="mb-2 p-2 bg-slate-950 rounded border border-slate-700 max-h-32 overflow-auto">
-                          <div className="text-[10px] text-slate-500 mb-1">Error from logs:</div>
+                          <div className="text-xs text-slate-500 mb-1">Error from logs:</div>
                           <pre className="text-xs text-red-400 whitespace-pre-wrap font-mono">{diagnosis.logSnippet}</pre>
                         </div>
                       )}
@@ -812,10 +812,10 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                           <span className="text-sm text-slate-200 truncate">{pod.metadata.name}</span>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          {waiting && <span className="text-[10px] text-yellow-400">{waiting.reason}</span>}
-                          {restarts > 0 && <span className="text-[10px] text-slate-500">{restarts} restarts</span>}
+                          {waiting && <span className="text-xs text-yellow-400">{waiting.reason}</span>}
+                          {restarts > 0 && <span className="text-xs text-slate-500">{restarts} restarts</span>}
                           <span className={cn('text-xs font-mono', ready === total ? 'text-green-400' : 'text-yellow-400')}>{ready}/{total}</span>
-                          <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                          <span className={cn('text-xs px-1.5 py-0.5 rounded',
                             podPhase === 'Running' ? 'bg-green-900/50 text-green-300' :
                             podPhase === 'Failed' ? 'bg-red-900/50 text-red-300' :
                             'bg-yellow-900/50 text-yellow-300'

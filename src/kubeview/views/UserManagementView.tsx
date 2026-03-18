@@ -201,15 +201,15 @@ export default function UserManagementView() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-200">{user.metadata.name}</span>
-                          {isAdmin && <span className="text-[10px] px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">cluster-admin</span>}
-                          {user.metadata.name === 'kube:admin' && <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded">built-in</span>}
+                          {isAdmin && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">cluster-admin</span>}
+                          {user.metadata.name === 'kube:admin' && <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded">built-in</span>}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           {identities.length > 0 && <span className="text-xs text-slate-500">{identities[0]}</span>}
                           {roles.length > 0 && roles.length <= 3 && roles.map(r => (
-                            <span key={r} className="text-[10px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{r}</span>
+                            <span key={r} className="text-xs px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{r}</span>
                           ))}
-                          {roles.length > 3 && <span className="text-[10px] text-slate-600">+{roles.length} roles</span>}
+                          {roles.length > 3 && <span className="text-xs text-slate-600">+{roles.length} roles</span>}
                         </div>
                       </div>
                     </div>
@@ -254,7 +254,7 @@ export default function UserManagementView() {
                       {roles.length > 0 && (
                         <div className="flex gap-1">
                           {roles.slice(0, 3).map(r => (
-                            <span key={r} className="text-[10px] px-1.5 py-0.5 bg-indigo-900/50 text-indigo-300 rounded">{r}</span>
+                            <span key={r} className="text-xs px-1.5 py-0.5 bg-indigo-900/50 text-indigo-300 rounded">{r}</span>
                           ))}
                         </div>
                       )}
@@ -262,9 +262,9 @@ export default function UserManagementView() {
                     {members.length > 0 && (
                       <div className="flex flex-wrap gap-1 ml-6">
                         {members.slice(0, 10).map((m: string) => (
-                          <span key={m} className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{m}</span>
+                          <span key={m} className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{m}</span>
                         ))}
-                        {members.length > 10 && <span className="text-[10px] text-slate-600">+{members.length - 10} more</span>}
+                        {members.length > 10 && <span className="text-xs text-slate-600">+{members.length - 10} more</span>}
                       </div>
                     )}
                   </div>
@@ -298,7 +298,7 @@ export default function UserManagementView() {
                     </div>
                     <div className="flex items-center gap-2">
                       {roles.length > 0 && (
-                        <span className="text-[10px] text-slate-500">{roles.length} role{roles.length !== 1 ? 's' : ''}</span>
+                        <span className="text-xs text-slate-500">{roles.length} role{roles.length !== 1 ? 's' : ''}</span>
                       )}
                       <button
                         onClick={() => handleImpersonate(saName)}
@@ -358,8 +358,8 @@ export default function UserManagementView() {
                       <div className="flex items-center gap-2">
                         {isSA ? <Key className="w-3.5 h-3.5 text-slate-500" /> : <User className="w-3.5 h-3.5 text-slate-500" />}
                         <span className="text-sm font-medium text-slate-200">{userName}</span>
-                        {isExpired && <span className="text-[10px] px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">expired</span>}
-                        {!isExpired && expiresAt && <span className="text-[10px] px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">active</span>}
+                        {isExpired && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">expired</span>}
+                        {!isExpired && expiresAt && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">active</span>}
                       </div>
                       <span className="text-xs text-slate-500">{age}</span>
                     </div>
@@ -376,10 +376,10 @@ export default function UserManagementView() {
                     {(scopes.length > 0 || redirectURI) && (
                       <div className="flex items-center gap-2 mt-1 ml-5.5 flex-wrap">
                         {scopes.map((s: string) => (
-                          <span key={s} className="text-[10px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{s}</span>
+                          <span key={s} className="text-xs px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{s}</span>
                         ))}
                         {redirectURI && (
-                          <span className="text-[10px] text-slate-600 truncate max-w-[200px]" title={redirectURI}>
+                          <span className="text-xs text-slate-600 truncate max-w-[200px]" title={redirectURI}>
                             → {redirectURI.replace(/^https?:\/\//, '').split('/')[0]}
                           </span>
                         )}
@@ -682,7 +682,7 @@ users:
                           <div key={item.metadata?.uid || idx} className="flex items-center gap-2 py-1 px-2 rounded bg-slate-800/30">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                             <span className="text-xs text-slate-300">{item.metadata?.name}</span>
-                            {item.binding && <span className="text-[10px] text-slate-600">via {item.binding}</span>}
+                            {item.binding && <span className="text-xs text-slate-600">via {item.binding}</span>}
                           </div>
                         ))}
                       </div>
@@ -693,7 +693,7 @@ users:
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
                         {check.passing.slice(0, 8).map((item: any, idx: number) => (
-                          <span key={item.metadata?.uid || item.name || idx} className="text-[10px] px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
+                          <span key={item.metadata?.uid || item.name || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
                             {item.metadata?.name || item.name || 'OK'}
                           </span>
                         ))}

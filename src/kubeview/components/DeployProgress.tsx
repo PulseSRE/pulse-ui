@@ -238,9 +238,9 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
                     <span className="text-xs text-slate-300 font-mono">{pod.metadata.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {waiting && <span className="text-[10px] text-yellow-400">{waiting.reason}</span>}
+                    {waiting && <span className="text-xs text-yellow-400">{waiting.reason}</span>}
                     <span className={cn('text-xs font-mono', ready === total && total > 0 ? 'text-green-400' : 'text-slate-500')}>{ready}/{total}</span>
-                    <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                    <span className={cn('text-xs px-1.5 py-0.5 rounded',
                       isTerminating ? 'bg-orange-900/50 text-orange-300' :
                       podPhase === 'Running' ? 'bg-green-900/50 text-green-300' :
                       podPhase === 'Failed' ? 'bg-red-900/50 text-red-300' :
@@ -267,8 +267,8 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
               <div key={i} className="flex items-start gap-2 py-1">
                 {e.type === 'Warning' ? <AlertTriangle className="w-3 h-3 text-yellow-500 mt-0.5 shrink-0" /> : <CheckCircle className="w-3 h-3 text-slate-600 mt-0.5 shrink-0" />}
                 <div className="min-w-0">
-                  <span className={cn('text-[10px]', e.type === 'Warning' ? 'text-yellow-400' : 'text-slate-500')}>{e.reason} </span>
-                  <span className="text-[10px] text-slate-400">{e.message}</span>
+                  <span className={cn('text-xs', e.type === 'Warning' ? 'text-yellow-400' : 'text-slate-500')}>{e.reason} </span>
+                  <span className="text-xs text-slate-400">{e.message}</span>
                 </div>
               </div>
             ))}

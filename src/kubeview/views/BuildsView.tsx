@@ -10,6 +10,7 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { k8sCreate, k8sGet } from '../engine/query';
 import { useQuery } from '@tanstack/react-query';
+import { Panel } from '../components/primitives/Panel';
 
 function getBuildStatus(build: any): { phase: string; color: string; icon: React.ReactNode } {
   const phase = build.status?.phase || 'Unknown';
@@ -439,14 +440,3 @@ export default function BuildsView() {
   );
 }
 
-function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800">
-      <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-2">
-        {icon}
-        <h2 className="text-sm font-semibold text-slate-100">{title}</h2>
-      </div>
-      <div className="px-4 py-3">{children}</div>
-    </div>
-  );
-}

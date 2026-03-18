@@ -15,6 +15,7 @@ import ClusterConfig from '../components/ClusterConfig';
 const TimelineViewLazy = React.lazy(() => import('./TimelineView'));
 import ProductionReadiness from '../components/ProductionReadiness';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
+import { Panel } from '../components/primitives/Panel';
 
 type Tab = 'overview' | 'readiness' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'timeline';
 
@@ -64,8 +65,18 @@ function loadSnapshots(): ClusterSnapshot[] {
   } catch { return []; }
 }
 
+const MAX_SNAPSHOTS = 10;
+
 function saveSnapshots(snapshots: ClusterSnapshot[]) {
-  localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snapshots));
+  // Keep only the most recent snapshots to avoid filling localStorage
+  const trimmed = snapshots.slice(-MAX_SNAPSHOTS);
+  try {
+    localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(trimmed));
+  } catch {
+    // localStorage quota exceeded — remove oldest and retry
+    const reduced = trimmed.slice(-5);
+    try { localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(reduced)); } catch {}
+  }
 }
 
 async function fetchJson<T>(path: string): Promise<T | null> {
@@ -802,9 +813,9 @@ export default function AdminView() {
                       <div key={i} className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700">
                         <div>
                           <span className="text-sm font-medium text-slate-200">{u.version}</span>
-                          {i === 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-blue-900 text-blue-300 rounded">Recommended</span>}
-                          {minorSkip > 1 && <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-amber-900 text-amber-300 rounded">Skips {minorSkip - 1} minor</span>}
-                          {u.risks && u.risks.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{u.risks.length} known risk{u.risks.length > 1 ? 's' : ''}</span>}
+                          {i === 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-blue-900 text-blue-300 rounded">Recommended</span>}
+                          {minorSkip > 1 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-amber-900 text-amber-300 rounded">Skips {minorSkip - 1} minor</span>}
+                          {u.risks && u.risks.length > 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{u.risks.length} known risk{u.risks.length > 1 ? 's' : ''}</span>}
                         </div>
                         <button
                           onClick={() => handleStartUpdate(u.version)}
@@ -847,7 +858,7 @@ export default function AdminView() {
                         </div>
                         <div className="flex items-center gap-2">
                           {version && <span className="text-xs font-mono text-slate-500">{version}</span>}
-                          <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                          <span className={cn('text-xs px-1.5 py-0.5 rounded',
                             isDegraded ? 'bg-red-900/50 text-red-300' :
                             isProgressing ? 'bg-blue-900/50 text-blue-300' :
                             'bg-green-900/50 text-green-300'
@@ -1270,11 +1281,3 @@ function InfoCard({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800">
-      <div className="px-4 py-3 border-b border-slate-800"><h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">{icon}{title}</h2></div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
-}

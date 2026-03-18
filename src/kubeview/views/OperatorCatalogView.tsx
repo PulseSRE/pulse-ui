@@ -359,7 +359,7 @@ export default function OperatorCatalogView() {
                   done ? 'text-green-400' : active ? 'text-blue-400' : 'text-slate-600'
                 )}>
                   {done ? <CheckCircle className="w-3 h-3" /> : active ? <Loader2 className="w-3 h-3 animate-spin" /> : <div className="w-3 h-3 rounded-full border border-slate-600" />}
-                  <span className="text-[10px]">{step === 'creating' ? 'Subscribe' : step === 'pending' ? 'Plan' : step === 'installing' ? 'Install' : 'Ready'}</span>
+                  <span className="text-xs">{step === 'creating' ? 'Subscribe' : step === 'pending' ? 'Plan' : step === 'installing' ? 'Install' : 'Ready'}</span>
                 </div>
                 {i < 3 && <div className={cn('flex-1 h-px mx-1', done ? 'bg-green-700' : 'bg-slate-700')} />}
               </React.Fragment>
@@ -501,7 +501,7 @@ export default function OperatorCatalogView() {
               <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
                 <span>{desc?.provider?.name || selectedOp.status.provider?.name}</span>
                 <span>v{desc?.version}</span>
-                {catalogInfo && <span className={cn('text-[10px] px-1.5 py-0.5 rounded border', catalogInfo.color)}>{catalogInfo.label}</span>}
+                {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded border', catalogInfo.color)}>{catalogInfo.label}</span>}
               </div>
             </div>
           </div>
@@ -528,7 +528,7 @@ export default function OperatorCatalogView() {
                 <label className="text-xs text-slate-400 block mb-1">Install Namespace</label>
                 <input type="text" value={installNs} onChange={(e) => setInstallNs(e.target.value)}
                   className="px-3 py-2 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 w-full max-w-xs font-mono" />
-                <div className="text-[10px] text-slate-500 mt-1">
+                <div className="text-xs text-slate-500 mt-1">
                   {allNsSupported ? 'This operator supports all namespaces — openshift-operators is recommended.' : 'This operator requires its own namespace.'}
                 </div>
               </div>
@@ -566,7 +566,7 @@ export default function OperatorCatalogView() {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-slate-200">{crd.kind}</div>
                         <div className="text-xs text-slate-500 mt-0.5">{crd.description || crd.name}</div>
-                        <div className="text-[10px] text-slate-600 font-mono mt-0.5">{crd.name} ({crd.version})</div>
+                        <div className="text-xs text-slate-600 font-mono mt-0.5">{crd.name} ({crd.version})</div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => go(`/r/${gvrUrl}`, crd.kind)} className="px-2.5 py-1 text-xs text-slate-300 border border-slate-700 rounded hover:border-slate-600 hover:text-slate-200">
@@ -651,7 +651,7 @@ export default function OperatorCatalogView() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-slate-500 font-mono">{ready}/{total}</span>
-                                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded', phase === 'Running' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{phase}</span>
+                                  <span className={cn('text-xs px-1.5 py-0.5 rounded', phase === 'Running' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{phase}</span>
                                 </div>
                               </button>
                             );
@@ -774,8 +774,8 @@ export default function OperatorCatalogView() {
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5 line-clamp-2">{desc?.description?.slice(0, 100) || 'No description'}</div>
                     <div className="flex items-center gap-2 mt-2">
-                      {catalogInfo && <span className={cn('text-[10px] px-1.5 py-0.5 rounded border', catalogInfo.color)}>{catalogInfo.label}</span>}
-                      <span className="text-[10px] text-slate-500">v{desc?.version}</span>
+                      {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded border', catalogInfo.color)}>{catalogInfo.label}</span>}
+                      <span className="text-xs text-slate-500">v{desc?.version}</span>
                       {isPopular && <Star className="w-3 h-3 text-yellow-500" />}
                     </div>
                   </div>

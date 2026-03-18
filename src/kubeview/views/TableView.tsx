@@ -842,7 +842,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
                 <div className="text-slate-500 mb-1">Labels:</div>
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(previewResource.metadata.labels).slice(0, 8).map(([k, v]) => (
-                    <span key={k} className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-[10px] font-mono">{k.split('/').pop()}={v}</span>
+                    <span key={k} className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-xs font-mono">{k.split('/').pop()}={v}</span>
                   ))}
                 </div>
               </div>
@@ -850,7 +850,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
             {previewResource.spec && (
               <div>
                 <div className="text-slate-500 mb-1">Spec:</div>
-                <pre className="text-[10px] text-emerald-400 font-mono bg-slate-950 p-2 rounded overflow-auto max-h-48">{jsonToYaml(previewResource.spec).slice(0, 500)}</pre>
+                <pre className="text-xs text-emerald-400 font-mono bg-slate-950 p-2 rounded overflow-auto max-h-48">{jsonToYaml(previewResource.spec).slice(0, 500)}</pre>
               </div>
             )}
             <div className="pt-2 border-t border-slate-800">
@@ -914,7 +914,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
                         <div className="text-xs text-slate-500">{item.kind} · {item.ns}</div>
                         {item.error && <div className="text-xs text-red-400 mt-0.5">{item.error}</div>}
                       </div>
-                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded',
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded',
                         item.status === 'done' ? 'bg-green-900/50 text-green-300' :
                         item.status === 'error' ? 'bg-red-900/50 text-red-300' :
                         'bg-blue-900/50 text-blue-300'

@@ -141,7 +141,7 @@ export const nodeEnhancer: ResourceEnhancer = {
         return (
           <div className="flex flex-wrap gap-1">
             {taints.map((t, i) => (
-              <span key={i} className={`text-[10px] px-1 py-0.5 rounded font-mono ${
+              <span key={i} className={`text-xs px-1 py-0.5 rounded font-mono ${
                 t.includes('NoExecute') ? 'bg-red-900/30 text-red-400' :
                 t.includes('NoSchedule') ? 'bg-yellow-900/30 text-yellow-400' :
                 'bg-slate-800 text-slate-500'

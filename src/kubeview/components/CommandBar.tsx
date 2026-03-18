@@ -110,7 +110,7 @@ export function CommandBar() {
         >
           <Search className="h-3.5 w-3.5" />
           <span className="flex-1 text-left text-xs">Search resources, pages...</span>
-          <kbd className="rounded bg-slate-700/70 px-1.5 py-0.5 text-[10px] font-mono text-slate-400">⌘K</kbd>
+          <kbd className="rounded bg-slate-700/70 px-1.5 py-0.5 text-xs font-mono text-slate-400">⌘K</kbd>
         </button>
 
         {/* Quick create */}
@@ -133,7 +133,7 @@ export function CommandBar() {
             {clusterInfo?.name || 'cluster'}
           </span>
           {clusterInfo?.platform && (
-            <span className="text-[10px] text-slate-500 hidden xl:inline">{clusterInfo.platform}</span>
+            <span className="text-xs text-slate-500 hidden xl:inline">{clusterInfo.platform}</span>
           )}
         </div>
 
@@ -187,7 +187,7 @@ export function CommandBar() {
                   >
                     <Layers className="w-3.5 h-3.5 text-slate-500" />
                     <span className="flex-1">All Namespaces</span>
-                    <span className="text-[10px] text-slate-500">{namespaces.length} total</span>
+                    <span className="text-xs text-slate-500">{namespaces.length} total</span>
                     {selectedNamespace === '*' && <span className="text-blue-400 text-xs">✓</span>}
                   </button>
                   <div className="border-t border-slate-700/50 my-1" />
@@ -289,7 +289,7 @@ export function CommandBar() {
                       className="w-full px-2 py-1 text-xs bg-slate-900 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       autoFocus
                     />
-                    <div className="text-[10px] text-slate-500">Enter to apply, Esc to cancel</div>
+                    <div className="text-xs text-slate-500">Enter to apply, Esc to cancel</div>
                   </div>
                 ) : (
                   <button

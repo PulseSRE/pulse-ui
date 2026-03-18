@@ -1041,7 +1041,7 @@ function HelmTab() {
                 <Ship className="w-3 h-3 text-blue-400" />
                 {r.name}
                 <span className="text-slate-500">v{r.version}</span>
-                <span className={cn('text-[10px] px-1 py-0.5 rounded', r.status === 'deployed' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{r.status}</span>
+                <span className={cn('text-xs px-1 py-0.5 rounded', r.status === 'deployed' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{r.status}</span>
               </span>
             ))}
           </div>
@@ -1074,7 +1074,7 @@ function HelmTab() {
       {/* Chart catalog */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-medium text-slate-400">Featured Charts</span>
-        <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-500 rounded">Curated selection</span>
+        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-500 rounded">Curated selection</span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filteredCharts.map((chart) => (
@@ -1084,10 +1084,10 @@ function HelmTab() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-200">{chart.name}</span>
-                <span className="text-[10px] text-slate-500 font-mono">{chart.version}</span>
+                <span className="text-xs text-slate-500 font-mono">{chart.version}</span>
               </div>
               <div className="text-xs text-slate-500 mt-1 line-clamp-2">{chart.description}</div>
-              {chart.appVersion && <div className="text-[10px] text-slate-600 mt-1">App: v{chart.appVersion}</div>}
+              {chart.appVersion && <div className="text-xs text-slate-600 mt-1">App: v{chart.appVersion}</div>}
             </div>
           </button>
         ))}

@@ -516,7 +516,7 @@ export default function AlertsView() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-200 font-medium">{rule.name}</span>
-                      <span className={cn('text-[10px] px-1.5 py-0.5 rounded', rule.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{rule.severity}</span>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded', rule.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{rule.severity}</span>
                     </div>
                     <div className="text-xs text-slate-500 font-mono mt-0.5 truncate">{rule.query}</div>
                   </div>
@@ -691,7 +691,7 @@ export default function AlertsView() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-slate-200">{silence.comment || 'No comment'}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">{silence.status.state}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">{silence.status.state}</span>
                       </div>
                       <div className="space-y-1 mb-2">
                         {silence.matchers.map((m, i) => (
@@ -700,7 +700,7 @@ export default function AlertsView() {
                           </span>
                         ))}
                       </div>
-                      <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <div className="flex items-center gap-3 text-xs text-slate-500">
                         <span>By: {silence.createdBy}</span>
                         <span>Ends: {new Date(silence.endsAt).toLocaleString()}</span>
                       </div>
@@ -753,10 +753,10 @@ function AlertRow({ item, go, onSilence }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-sm font-medium text-slate-200">{item.rule}</span>
-          <span className={cn('text-[10px] px-1.5 py-0.5 rounded', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : item.severity === 'warning' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-blue-900/50 text-blue-300')}>{item.severity}</span>
-          <span className={cn('text-[10px] px-1.5 py-0.5 rounded', item.alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300')}>{item.alert.state}</span>
-          {item.isSilenced && <span className="text-[10px] px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded flex items-center gap-1"><VolumeX className="w-2.5 h-2.5" /> silenced</span>}
-          {item.firingDuration && <span className="text-[10px] text-slate-500 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {item.firingDuration}</span>}
+          <span className={cn('text-xs px-1.5 py-0.5 rounded', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : item.severity === 'warning' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-blue-900/50 text-blue-300')}>{item.severity}</span>
+          <span className={cn('text-xs px-1.5 py-0.5 rounded', item.alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300')}>{item.alert.state}</span>
+          {item.isSilenced && <span className="text-xs px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded flex items-center gap-1"><VolumeX className="w-2.5 h-2.5" /> silenced</span>}
+          {item.firingDuration && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {item.firingDuration}</span>}
         </div>
 
         {hasResource && (
@@ -777,7 +777,7 @@ function AlertRow({ item, go, onSilence }: {
 
         {item.description && <p className="text-xs text-slate-400 line-clamp-2">{item.description}</p>}
 
-        <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-500">
+        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
           <span>{item.group}</span>
           {item.runbookUrl && (
             <a href={item.runbookUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 text-blue-400 hover:text-blue-300">

@@ -11,6 +11,7 @@ import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { Panel } from '../components/primitives/Panel';
 
 export default function StorageView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
@@ -220,10 +221,10 @@ export default function StorageView() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-200">{sc.metadata.name}</span>
-                          {isDefault && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">default</span>}
+                          {isDefault && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">default</span>}
                         </div>
                         <div className="text-xs text-slate-500 mt-0.5">{provisioner}</div>
-                        <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-600">
+                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-600">
                           <span>Reclaim: {reclaimPolicy}</span>
                           <span>Binding: {volumeBinding}</span>
                         </div>
@@ -257,7 +258,7 @@ export default function StorageView() {
                 {(csiDrivers as any[]).map((driver) => (
                   <div key={driver.metadata.uid} className="py-2 px-3 rounded hover:bg-slate-800/50">
                     <div className="text-sm text-slate-200 font-medium">{driver.metadata.name}</div>
-                    <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                       {driver.spec?.attachRequired !== false && <span>Attach required</span>}
                       {driver.spec?.podInfoOnMount && <span>Pod info on mount</span>}
                       {driver.spec?.volumeLifecycleModes?.map((m: string) => <span key={m}>{m}</span>)}
@@ -675,13 +676,13 @@ spec:
                               <div className="flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                                 <span className="text-xs text-slate-300">{displayName}</span>
-                                {item.metadata?.namespace && <span className="text-[10px] text-slate-600">{item.metadata.namespace}</span>}
+                                {item.metadata?.namespace && <span className="text-xs text-slate-600">{item.metadata.namespace}</span>}
                               </div>
-                              {linkInfo && <span className="text-[10px] text-blue-400">View →</span>}
+                              {linkInfo && <span className="text-xs text-blue-400">View →</span>}
                             </button>
                           );
                         })}
-                        {check.failing.length > 10 && <div className="text-[10px] text-slate-600 px-2">+{check.failing.length - 10} more</div>}
+                        {check.failing.length > 10 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 10} more</div>}
                       </div>
                     </div>
                   )}
@@ -694,12 +695,12 @@ spec:
                         {check.passing.slice(0, 8).map((item: any, idx: number) => {
                           const displayName = item.metadata?.name || item.note || 'OK';
                           return (
-                            <span key={item.metadata?.uid || idx} className="text-[10px] px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
+                            <span key={item.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
                               {displayName}
                             </span>
                           );
                         })}
-                        {check.passing.length > 8 && <span className="text-[10px] text-slate-600">+{check.passing.length - 8} more</span>}
+                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
                       </div>
                     </div>
                   )}
@@ -719,13 +720,3 @@ spec:
   );
 }
 
-function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800">
-      <div className="px-4 py-3 border-b border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">{icon}{title}</h2>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
-}

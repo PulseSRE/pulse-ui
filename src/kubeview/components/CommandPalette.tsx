@@ -136,7 +136,7 @@ export function CommandPalette() {
       />
 
       {/* Palette */}
-      <div className="fixed left-1/2 top-20 z-50 w-full max-w-2xl -translate-x-1/2">
+      <div className="fixed left-1/2 top-20 z-50 w-full max-w-2xl -translate-x-1/2" role="dialog" aria-modal="true" aria-label="Command palette">
         <div className="rounded-lg border border-slate-600 bg-slate-800 shadow-2xl">
           {/* Search input */}
           <div className="flex items-center gap-3 border-b border-slate-700 px-4 py-3">
@@ -148,11 +148,16 @@ export function CommandPalette() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search resources, actions, or queries..."
               className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 outline-none"
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="command-palette-results"
+              aria-activedescendant={items[selectedIndex] ? `cp-item-${items[selectedIndex].id}` : undefined}
+              aria-label="Search"
             />
           </div>
 
           {/* Results */}
-          <div className="max-h-96 overflow-auto p-2">
+          <div className="max-h-96 overflow-auto p-2" id="command-palette-results" role="listbox">
             {items.length === 0 ? (
               <div className="py-8 text-center text-sm text-slate-500">
                 No results found
@@ -376,6 +381,9 @@ function renderGroups(
           return (
             <button
               key={item.id}
+              id={`cp-item-${item.id}`}
+              role="option"
+              aria-selected={itemIndex === selectedIndex}
               onClick={() => onSelect(item)}
               className={cn(
                 'flex w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors',
