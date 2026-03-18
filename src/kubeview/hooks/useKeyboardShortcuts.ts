@@ -32,10 +32,10 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Cmd+. - Action panel
+      // Cmd+. - Resource browser (same as Cmd+B)
       if (meta && e.key === '.') {
         e.preventDefault();
-        state.openActionPanel();
+        state.toggleBrowser();
         return;
       }
 
@@ -57,9 +57,6 @@ export function useKeyboardShortcuts() {
         } else if (state.browserOpen) {
           e.preventDefault();
           state.closeBrowser();
-        } else if (state.actionPanelOpen) {
-          e.preventDefault();
-          state.closeActionPanel();
         } else if (state.dockPanel) {
           e.preventDefault();
           state.closeDock();

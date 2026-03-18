@@ -53,11 +53,14 @@ describe('useKeyboardShortcuts', () => {
     expect(useUIStore.getState().browserOpen).toBe(false);
   });
 
-  it('Cmd+. opens action panel', () => {
+  it('Cmd+. toggles resource browser', () => {
     renderHook(() => useKeyboardShortcuts());
 
     fireKey('.', { metaKey: true });
-    expect(useUIStore.getState().actionPanelOpen).toBe(true);
+    expect(useUIStore.getState().browserOpen).toBe(true);
+
+    fireKey('.', { metaKey: true });
+    expect(useUIStore.getState().browserOpen).toBe(false);
   });
 
   it('Cmd+J closes dock when open', () => {
@@ -83,14 +86,6 @@ describe('useKeyboardShortcuts', () => {
 
     fireKey('Escape');
     expect(useUIStore.getState().browserOpen).toBe(false);
-  });
-
-  it('Escape closes action panel when palette and browser are closed', () => {
-    useUIStore.setState({ actionPanelOpen: true });
-    renderHook(() => useKeyboardShortcuts());
-
-    fireKey('Escape');
-    expect(useUIStore.getState().actionPanelOpen).toBe(false);
   });
 
   it('Escape closes dock when all overlays are closed', () => {

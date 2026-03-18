@@ -5,7 +5,6 @@ import { Dock } from './Dock';
 import { StatusBar } from './StatusBar';
 import { CommandPalette } from './CommandPalette';
 import { ResourceBrowser } from './ResourceBrowser';
-import { ActionPanel } from './ActionPanel';
 import { ToastContainer } from './feedback/Toast';
 import { ErrorBoundary, CssHealthCheck } from './ErrorBoundary';
 import { useKeyboardShortcuts, useDiscovery } from '../hooks';
@@ -25,7 +24,6 @@ export function Shell() {
   // Get overlay state
   const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen);
   const browserOpen = useUIStore((s) => s.browserOpen);
-  const actionPanelOpen = useUIStore((s) => s.actionPanelOpen);
   const dockPanel = useUIStore((s) => s.dockPanel);
   return (
     <div className="flex h-screen flex-col bg-slate-900 text-slate-100">
@@ -53,7 +51,6 @@ export function Shell() {
       {/* Overlay components */}
       {commandPaletteOpen && <CommandPalette />}
       {browserOpen && <ResourceBrowser />}
-      {actionPanelOpen && <ActionPanel />}
       <ToastContainer />
       <CssHealthCheck />
     </div>
