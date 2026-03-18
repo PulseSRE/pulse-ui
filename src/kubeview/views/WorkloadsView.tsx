@@ -11,11 +11,13 @@ import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { sanitizePromQL } from '../engine/query';
 
 export default function WorkloadsView() {
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
+  const safeNs = nsFilter ? sanitizePromQL(nsFilter) : '';
 
   const { data: deployments = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
   const { data: statefulsets = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/statefulsets', namespace: nsFilter });
@@ -169,7 +171,7 @@ export default function WorkloadsView() {
           <MetricCard
             title="Pod CPU Usage"
             query={nsFilter
-              ? `sum(rate(container_cpu_usage_seconds_total{namespace="${nsFilter}",container!=""}[5m])) / sum(kube_pod_container_resource_requests{namespace="${nsFilter}",resource="cpu"}) * 100`
+              ? `sum(rate(container_cpu_usage_seconds_total{namespace="${safeNs}",container!=""}[5m])) / sum(kube_pod_container_resource_requests{namespace="${safeNs}",resource="cpu"}) * 100`
               : 'sum(rate(container_cpu_usage_seconds_total{container!=""}[5m])) / sum(kube_pod_container_resource_requests{resource="cpu"}) * 100'}
             unit="%"
             color="#3b82f6"
@@ -178,7 +180,7 @@ export default function WorkloadsView() {
           <MetricCard
             title="Pod Memory Usage"
             query={nsFilter
-              ? `sum(container_memory_working_set_bytes{namespace="${nsFilter}",container!=""}) / sum(kube_pod_container_resource_requests{namespace="${nsFilter}",resource="memory"}) * 100`
+              ? `sum(container_memory_working_set_bytes{namespace="${safeNs}",container!=""}) / sum(kube_pod_container_resource_requests{namespace="${safeNs}",resource="memory"}) * 100`
               : 'sum(container_memory_working_set_bytes{container!=""}) / sum(kube_pod_container_resource_requests{resource="memory"}) * 100'}
             unit="%"
             color="#8b5cf6"
@@ -187,7 +189,7 @@ export default function WorkloadsView() {
           <MetricCard
             title="Container Restarts"
             query={nsFilter
-              ? `sum(rate(kube_pod_container_status_restarts_total{namespace="${nsFilter}"}[1h])) * 3600`
+              ? `sum(rate(kube_pod_container_status_restarts_total{namespace="${safeNs}"}[1h])) * 3600`
               : 'sum(rate(kube_pod_container_status_restarts_total[1h])) * 3600'}
             unit=" /hr"
             color="#f59e0b"
@@ -196,7 +198,7 @@ export default function WorkloadsView() {
           <MetricCard
             title="Pod Start Rate"
             query={nsFilter
-              ? `sum(rate(kube_pod_start_time{namespace="${nsFilter}"}[1h])) * 3600`
+              ? `sum(rate(kube_pod_start_time{namespace="${safeNs}"}[1h])) * 3600`
               : 'sum(rate(kube_pod_start_time[1h])) * 3600'}
             unit=" /hr"
             color="#06b6d4"

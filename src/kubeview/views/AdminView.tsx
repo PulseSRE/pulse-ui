@@ -70,7 +70,13 @@ function saveSnapshots(snapshots: ClusterSnapshot[]) {
 
 async function fetchJson<T>(path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${BASE}${path}`);
+    const { impersonateUser, impersonateGroups } = useUIStore.getState();
+    const headers: Record<string, string> = {};
+    if (impersonateUser) {
+      headers['Impersonate-User'] = impersonateUser;
+      impersonateGroups.forEach((g, i) => { headers[`Impersonate-Group${i > 0 ? `-${i}` : ''}`] = g; });
+    }
+    const res = await fetch(`${BASE}${path}`, { headers });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }

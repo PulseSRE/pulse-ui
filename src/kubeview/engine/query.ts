@@ -8,6 +8,11 @@ import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { K8S_BASE as BASE } from './gvr';
 import { useUIStore } from '../store/uiStore';
 
+/** Sanitize a value for safe interpolation into PromQL label matchers */
+export function sanitizePromQL(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_\-./]/g, '');
+}
+
 /**
  * Get impersonation headers if impersonation is active.
  */
@@ -121,6 +126,7 @@ export async function k8sUpdate<T>(apiPath: string, body: T): Promise<T> {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
+      ...getImpersonationHeaders(),
     },
     body: JSON.stringify(body),
   });
@@ -254,10 +260,12 @@ export async function k8sSubresource<T>(
     method,
   };
 
+  options.headers = {
+    ...getImpersonationHeaders(),
+  };
+
   if (body && method !== 'GET') {
-    options.headers = {
-      'Content-Type': 'application/json',
-    };
+    options.headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(body);
   }
 
@@ -307,7 +315,9 @@ export async function k8sLogs(
     url += `?${queryString}`;
   }
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: getImpersonationHeaders(),
+  });
 
   if (!response.ok) {
     let message = `Failed to get logs: ${response.statusText}`;
