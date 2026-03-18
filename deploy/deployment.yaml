@@ -103,7 +103,12 @@ metadata:
   labels:
     app: shiftops
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: shiftops
@@ -113,6 +118,17 @@ spec:
         app: shiftops
     spec:
       serviceAccountName: shiftops
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: shiftops
       containers:
       # OAuth Proxy sidecar — handles user login
       - name: oauth-proxy
@@ -136,6 +152,10 @@ spec:
         volumeMounts:
         - name: proxy-tls
           mountPath: /etc/tls/private
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
         resources:
           requests:
             cpu: 10m
@@ -143,6 +163,20 @@ spec:
           limits:
             cpu: 100m
             memory: 64Mi
+        livenessProbe:
+          httpGet:
+            path: /oauth/healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /oauth/healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
       # ShiftOps app — serves static files + reverse proxies API
       - name: shiftops
         image: image-registry.openshift-image-registry.svc:5000/shiftops/shiftops:latest
@@ -153,6 +187,10 @@ spec:
         - name: nginx-config
           mountPath: /etc/nginx/nginx.conf
           subPath: nginx.conf
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
         resources:
           requests:
             cpu: 50m
@@ -179,6 +217,19 @@ spec:
       - name: nginx-config
         configMap:
           name: shiftops-nginx
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: shiftops
+  namespace: shiftops
+  labels:
+    app: shiftops
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: shiftops
 ---
 apiVersion: v1
 kind: Service
