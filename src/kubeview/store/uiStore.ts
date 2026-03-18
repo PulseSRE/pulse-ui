@@ -81,20 +81,25 @@ interface UIState {
   // Status bar operation
   activeOperation: string | null;
   setActiveOperation: (op: string | null) => void;
+
+  // Sidebar
+  sidebarOpen: boolean;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 let tabIdCounter = Date.now();
 let toastIdCounter = 0;
 
 const DEFAULT_TABS: Tab[] = [
-  {
-    id: 'pulse',
-    title: 'Pulse',
-    icon: 'Activity',
-    path: '/pulse',
-    pinned: true,
-    closable: false,
-  },
+  { id: 'welcome', title: 'Welcome', icon: 'Home', path: '/welcome', pinned: true, closable: false },
+  { id: 'pulse', title: 'Pulse', icon: 'Activity', path: '/pulse', pinned: true, closable: false },
+  { id: 'workloads', title: 'Workloads', icon: 'Package', path: '/workloads', pinned: true, closable: false },
+  { id: 'troubleshoot', title: 'Troubleshoot', icon: 'Zap', path: '/troubleshoot', pinned: true, closable: false },
+  { id: 'operators', title: 'Operators', icon: 'Puzzle', path: '/operatorhub', pinned: true, closable: false },
+  { id: 'admin', title: 'Admin', icon: 'Settings', path: '/admin', pinned: true, closable: false },
+  { id: 'create', title: 'Create', icon: 'FilePlus', path: '/create/v1~pods', pinned: true, closable: false },
 ];
 
 // Default toast durations (ms)
@@ -274,6 +279,12 @@ export const useUIStore = create<UIState>()(
       // Status bar operation
       activeOperation: null,
       setActiveOperation: (op) => set({ activeOperation: op }),
+
+      // Sidebar
+      sidebarOpen: true,
+      sidebarCollapsed: false,
+      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
     }),
     {
       name: 'openshiftview-ui-storage',
