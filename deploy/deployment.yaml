@@ -85,6 +85,13 @@ rules:
   verbs: [get, list]
 - nonResourceURLs: ["/api", "/api/*", "/apis", "/apis/*", "/version"]
   verbs: [get]
+# OAuth proxy needs these to validate tokens and authorize requests
+- apiGroups: [authentication.k8s.io]
+  resources: [tokenreviews]
+  verbs: [create]
+- apiGroups: [authorization.k8s.io]
+  resources: [subjectaccessreviews]
+  verbs: [create]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -126,7 +133,7 @@ subjects:
 ---
 # Generate secrets before applying:
 #   openssl rand -base64 32 | tr -d '\n' > /tmp/oauth-client-secret
-#   openssl rand -base64 32 | tr -d '\n' > /tmp/cookie-secret
+#   openssl rand -hex 16 > /tmp/cookie-secret  (must be exactly 16, 24, or 32 bytes)
 #   oc create secret generic openshiftpulse-oauth-secrets \
 #     --from-file=client-secret=/tmp/oauth-client-secret \
 #     --from-file=cookie-secret=/tmp/cookie-secret \
