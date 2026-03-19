@@ -228,11 +228,11 @@ describe('UserManagementView specifics', () => {
 describe('PulseView (merged Troubleshoot)', () => {
   const source = readView('PulseView.tsx');
 
-  it('has 4 tabs: overview, issues, runbooks, health', () => {
+  it('has 4 tabs: report, overview, issues, runbooks', () => {
+    expect(source).toContain("'report'");
     expect(source).toContain("'overview'");
     expect(source).toContain("'issues'");
     expect(source).toContain("'runbooks'");
-    expect(source).toContain("'health'");
   });
 
   it('has MetricCard sparklines', () => {
@@ -250,7 +250,7 @@ describe('PulseView (merged Troubleshoot)', () => {
     expect(source).toContain("id: 'pending'");
   });
 
-  it('has namespace health heatmap', () => {
-    expect(source).toContain('namespaceHealth');
+  it('has report tab with risk score', () => {
+    expect(source).toContain('ReportTab');
   });
 });

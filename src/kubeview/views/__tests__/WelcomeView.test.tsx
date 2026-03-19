@@ -29,7 +29,7 @@ describe('WelcomeView', () => {
 
   it('shows quick start actions', () => {
     renderView();
-    expect(screen.getByText('Check Cluster Health')).toBeDefined();
+    expect(screen.getAllByText('Cluster Pulse').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Find Resources')).toBeDefined();
     expect(screen.getByText('Production Readiness')).toBeDefined();
   });

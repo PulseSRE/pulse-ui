@@ -7,7 +7,7 @@ function readSrc(relPath: string): string {
 }
 
 describe('MorningReportView', () => {
-  const source = readSrc('MorningReportView.tsx');
+  const source = readSrc('pulse/ReportTab.tsx');
 
   describe('risk score computation', () => {
     it('weights critical alerts at 20 points each (max 40)', () => {
@@ -134,14 +134,14 @@ describe('MorningReportView', () => {
   });
 
   describe('data sources', () => {
-    it('uses real K8s APIs', () => {
-      expect(source).toContain('/api/v1/nodes');
-      expect(source).toContain('/api/v1/pods');
-      expect(source).toContain('/apis/config.openshift.io/v1/clusteroperators');
-      expect(source).toContain('/api/v1/events');
+    it('receives nodes, pods, operators as props from PulseView', () => {
+      expect(source).toContain('nodes: K8sResource[]');
+      expect(source).toContain('allPods: K8sResource[]');
+      expect(source).toContain('operators: K8sResource[]');
     });
 
-    it('fetches TLS secrets', () => {
+    it('fetches events and TLS secrets independently', () => {
+      expect(source).toContain('/api/v1/events');
       expect(source).toContain('kubernetes.io/tls');
     });
 
@@ -151,14 +151,20 @@ describe('MorningReportView', () => {
   });
 
   describe('navigation', () => {
-    it('has route registered in App', () => {
+    it('morning-report redirects to pulse in App', () => {
       const app = fs.readFileSync(path.join(__dirname, '../../App.tsx'), 'utf-8');
       expect(app).toContain('morning-report');
-      expect(app).toContain('MorningReportView');
+    });
+
+    it('report tab is integrated into PulseView', () => {
+      const pulse = fs.readFileSync(path.join(__dirname, '../PulseView.tsx'), 'utf-8');
+      expect(pulse).toContain('ReportTab');
+      expect(pulse).toContain("'report'");
     });
 
     it('links to full certificate inventory', () => {
-      expect(source).toContain('/admin?tab=certificates');
+      const reportTab = fs.readFileSync(path.join(__dirname, '../pulse/ReportTab.tsx'), 'utf-8');
+      expect(reportTab).toContain('/admin?tab=certificates');
     });
   });
 });

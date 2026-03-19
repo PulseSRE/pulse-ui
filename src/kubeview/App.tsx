@@ -37,7 +37,6 @@ const NetworkingView = lazy(() => import('./views/NetworkingView'));
 const ComputeView = lazy(() => import('./views/ComputeView'));
 const BuildsView = lazy(() => import('./views/BuildsView'));
 const CRDsView = lazy(() => import('./views/CRDsView'));
-const MorningReportView = lazy(() => import('./views/MorningReportView'));
 
 function LoadingFallback() {
   return (
@@ -196,7 +195,7 @@ export default function ShiftOpsApp() {
 
             {/* Alerts */}
             <Route path="alerts" element={<Suspense fallback={<LoadingFallback />}><AlertsView /></Suspense>} />
-            <Route path="morning-report" element={<Suspense fallback={<LoadingFallback />}><MorningReportView /></Suspense>} />
+            <Route path="morning-report" element={<Navigate to="/pulse" replace />} />
 
             {/* Troubleshoot — merged into Pulse */}
             <Route path="troubleshoot" element={<Navigate to="/pulse" replace />} />

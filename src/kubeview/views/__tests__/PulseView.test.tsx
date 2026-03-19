@@ -85,8 +85,12 @@ function createQueryClient() {
   });
 }
 
-function renderPulse() {
+function renderPulse(tab: string = 'overview') {
   const queryClient = createQueryClient();
+  Object.defineProperty(window, 'location', {
+    value: { ...window.location, search: `?tab=${tab}`, href: `http://localhost/pulse?tab=${tab}` },
+    writable: true,
+  });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>

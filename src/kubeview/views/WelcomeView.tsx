@@ -34,15 +34,9 @@ export default function WelcomeView() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <QuickAction
-              icon={<ClipboardCheck className="w-6 h-6 text-emerald-400" />}
-              title="Morning Report"
-              description="One-glance cluster health with risk score, attention items, and certificate expiry"
-              onClick={() => go('/morning-report', 'Morning Report')}
-            />
-            <QuickAction
               icon={<HeartPulse className="w-6 h-6 text-blue-400" />}
-              title="Check Cluster Health"
-              description="See active issues, CPU/memory usage, and degraded operators at a glance"
+              title="Cluster Pulse"
+              description="Risk score, attention items, live issues, runbooks, and certificate expiry"
               onClick={() => go('/pulse', 'Pulse')}
             />
             <QuickAction
@@ -80,8 +74,7 @@ export default function WelcomeView() {
             Built-in Views
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <PageLink icon={<ClipboardCheck className="w-5 h-5 text-emerald-400" />} title="Morning Report" description="Risk score, attention items, cert expiry, 24h change summary" onClick={() => go('/morning-report', 'Morning Report')} />
-            <PageLink icon={<HeartPulse className="w-5 h-5 text-blue-400" />} title="Cluster Pulse" description="Health overview, issues, runbooks, namespace health" onClick={() => go('/pulse', 'Pulse')} />
+            <PageLink icon={<HeartPulse className="w-5 h-5 text-blue-400" />} title="Cluster Pulse" description="Risk score, health report, live issues, runbooks, cert expiry" onClick={() => go('/pulse', 'Pulse')} />
             <PageLink icon={<Package className="w-5 h-5 text-blue-400" />} title="Software" description="Installed inventory, operators, deploy, Helm, templates" onClick={() => go('/software', 'Software')} />
             <PageLink icon={<Package className="w-5 h-5 text-blue-400" />} title="Workloads" description="Deployments, pods, health audit with 6 checks" onClick={() => go('/workloads', 'Workloads')} />
             <PageLink icon={<Globe className="w-5 h-5 text-cyan-400" />} title="Networking" description="Routes, services, ingress, network policies, 6 checks" onClick={() => go('/networking', 'Networking')} />

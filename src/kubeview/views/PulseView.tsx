@@ -18,13 +18,14 @@ import { resourceDetailUrl } from '../engine/gvr';
 import { queryInstant } from '../components/metrics/prometheus';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
+import { ReportTab } from './pulse/ReportTab';
 
 function filterByNamespace<T extends { metadata: { namespace?: string } }>(items: T[], ns: string): T[] {
   if (ns === '*') return items;
   return items.filter((i) => i.metadata.namespace === ns);
 }
 
-type Tab = 'overview' | 'issues' | 'runbooks' | 'health';
+type Tab = 'report' | 'overview' | 'issues' | 'runbooks';
 
 interface DiagnosedResource {
   resource: K8sResource;
@@ -36,11 +37,11 @@ export default function PulseView() {
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const urlTab = new URLSearchParams(window.location.search).get('tab') as Tab;
-  const [activeTab, setActiveTabState] = useState<Tab>(urlTab || 'overview');
+  const [activeTab, setActiveTabState] = useState<Tab>(urlTab || 'report');
   const setActiveTab = (tab: Tab) => {
     setActiveTabState(tab);
     const url = new URL(window.location.href);
-    if (tab === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
+    if (tab === 'report') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
     window.history.replaceState(null, '', url.toString());
   };
   const [searchQuery, setSearchQuery] = useState('');
@@ -177,34 +178,6 @@ export default function PulseView() {
   const criticalCount = diagnosedResources.filter((r) => r.maxSeverity === 'critical').length;
   const warningCount = diagnosedResources.filter((r) => r.maxSeverity === 'warning').length;
 
-  // === NAMESPACE HEALTH (for Health tab) ===
-  const namespaceHealth = useMemo(() => {
-    const map = new Map<string, { total: number; healthy: number; critical: number; warning: number }>();
-    for (const pod of pods) {
-      const ns = pod.metadata.namespace || 'default';
-      const name = pod.metadata.name;
-      const owners = pod.metadata.ownerReferences || [];
-
-      // Skip completed installer/job pods
-      const isInstaller = name.startsWith('installer-') || name.startsWith('revision-pruner-');
-      const ownedByJob = owners.some((o) => o.kind === 'Job');
-      const status = getPodStatus(pod);
-      if ((isInstaller || ownedByJob) && (status.phase === 'Failed' || status.phase === 'Succeeded')) continue;
-
-      const entry = map.get(ns) || { total: 0, healthy: 0, critical: 0, warning: 0 };
-      entry.total++;
-      if (status.phase === 'Running' && status.ready) entry.healthy++;
-      else if (status.phase === 'Succeeded') entry.healthy++;
-      else if (status.reason === 'CrashLoopBackOff' || status.reason === 'ImagePullBackOff' || status.phase === 'Failed') entry.critical++;
-      else if (status.phase === 'Pending') entry.warning++;
-      else entry.healthy++;
-      map.set(ns, entry);
-    }
-    return [...map.entries()]
-      .map(([ns, h]) => ({ ns, ...h, score: h.total > 0 ? Math.round((h.healthy / h.total) * 100) : 100 }))
-      .sort((a, b) => a.score - b.score);
-  }, [pods]);
-
   // === RUNBOOKS ===
   const runbooks = [
     { id: 'crashloop', title: 'Pod CrashLoopBackOff', icon: '🔄', severity: 'critical' as const,
@@ -331,16 +304,21 @@ export default function PulseView() {
         {/* Tabs */}
         <div className="flex gap-1 bg-slate-900 rounded-lg p-1">
           {([
+            { id: 'report' as Tab, label: 'Report', icon: <Shield className="w-3.5 h-3.5" /> },
             { id: 'overview' as Tab, label: 'Overview', icon: <HeartPulse className="w-3.5 h-3.5" /> },
             { id: 'issues' as Tab, label: `Issues (${diagnosedResources.length})`, icon: <AlertCircle className="w-3.5 h-3.5" /> },
             { id: 'runbooks' as Tab, label: 'Runbooks', icon: <FileText className="w-3.5 h-3.5" /> },
-            { id: 'health' as Tab, label: 'Namespace Health', icon: <Activity className="w-3.5 h-3.5" /> },
           ]).map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors', activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               {tab.icon}{tab.label}
             </button>
           ))}
         </div>
+
+        {/* === REPORT TAB === */}
+        {activeTab === 'report' && (
+          <ReportTab nodes={nodes as K8sResource[]} allPods={pods as K8sResource[]} operators={operators as K8sResource[]} go={go} />
+        )}
 
         {/* === OVERVIEW TAB === */}
         {activeTab === 'overview' && (
@@ -606,40 +584,6 @@ export default function PulseView() {
           </div>
         )}
 
-        {/* === NAMESPACE HEALTH TAB === */}
-        {activeTab === 'health' && (
-          <div className="bg-slate-900 rounded-lg border border-slate-800">
-            <div className="px-4 py-3 border-b border-slate-800">
-              <h2 className="text-sm font-semibold text-slate-100">Pod Health by Namespace</h2>
-            </div>
-            <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
-              {namespaceHealth.map(({ ns, total, healthy, critical, warning, score }) => (
-                <div
-                  key={ns}
-                  onClick={() => { useUIStore.getState().setSelectedNamespace(ns); go('/r/v1~pods', 'Pods'); }}
-                  className="flex items-center gap-4 px-4 py-2.5 hover:bg-slate-800/50 transition-colors cursor-pointer"
-                >
-                  <div className="w-48 min-w-0">
-                    <span className="text-sm text-blue-400 hover:text-blue-300 truncate block">{ns}</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
-                      {healthy > 0 && <div className="h-full bg-green-500" style={{ width: `${(healthy / total) * 100}%` }} />}
-                      {warning > 0 && <div className="h-full bg-yellow-500" style={{ width: `${(warning / total) * 100}%` }} />}
-                      {critical > 0 && <div className="h-full bg-red-500" style={{ width: `${(critical / total) * 100}%` }} />}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-400 w-40 justify-end">
-                    <span className="text-green-400">{healthy}</span>
-                    {warning > 0 && <span className="text-yellow-400">{warning} pending</span>}
-                    {critical > 0 && <span className="text-red-400">{critical} failed</span>}
-                    <span className={cn('font-mono font-semibold', score === 100 ? 'text-green-400' : score > 80 ? 'text-yellow-400' : 'text-red-400')}>{score}%</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

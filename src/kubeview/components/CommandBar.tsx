@@ -213,11 +213,11 @@ export function CommandBar() {
           )}
         </div>
 
-        {/* Morning Report */}
+        {/* Cluster Pulse */}
         <button
-          onClick={() => go('/morning-report', 'Morning Report')}
+          onClick={() => go('/pulse', 'Cluster Pulse')}
           className="p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
-          title="Morning Report — cluster health summary"
+          title="Cluster Pulse — risk score and health report"
         >
           <ClipboardCheck className="w-4 h-4" />
         </button>
