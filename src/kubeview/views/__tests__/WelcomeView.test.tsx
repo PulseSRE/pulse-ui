@@ -89,6 +89,32 @@ describe('WelcomeView', () => {
     expect(screen.getByText('CRDs')).toBeDefined();
   });
 
+  it('shows Key Capabilities divider', () => {
+    renderView();
+    expect(screen.getByText('Key Capabilities')).toBeDefined();
+  });
+
+  it('renders all 10 feature showcase items', () => {
+    renderView();
+    expect(screen.getByText('YAML Editor')).toBeDefined();
+    expect(screen.getByText('Impersonation')).toBeDefined();
+    expect(screen.getByText('Rollback')).toBeDefined();
+    expect(screen.getByText('Dependency Graph')).toBeDefined();
+    expect(screen.getByText('Log Streaming')).toBeDefined();
+    expect(screen.getByText('Cluster Snapshots')).toBeDefined();
+    expect(screen.getByText('Resource Diffing')).toBeDefined();
+    expect(screen.getByText('Workload Audit')).toBeDefined();
+    expect(screen.getByText('Security Audit')).toBeDefined();
+    expect(screen.getByText('Pod Shell')).toBeDefined();
+  });
+
+  it('renders feature descriptions', () => {
+    renderView();
+    expect(screen.getByText(/dry-run validation/)).toBeDefined();
+    expect(screen.getByText(/impersonation headers/)).toBeDefined();
+    expect(screen.getByText(/owner chains/)).toBeDefined();
+  });
+
   it('shows All Views divider', () => {
     renderView();
     expect(screen.getByText('All Views')).toBeDefined();

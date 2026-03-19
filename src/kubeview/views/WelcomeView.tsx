@@ -4,6 +4,8 @@ import {
   HardDrive, Package, Globe, Server, Puzzle, Users, Hammer,
   Keyboard, CheckCircle, XCircle,
   Github, HeartPulse, Search,
+  FileCode, History, GitGraph, ScrollText, Camera,
+  Diff, Monitor, Terminal,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -81,7 +83,7 @@ export default function WelcomeView() {
             accentClass="from-violet-500/20 to-violet-600/5 border-violet-500/20"
             iconColor="text-violet-400"
             title="Find Anything"
-            description={'\u2318K to search 500+ resource types, \u2318B to browse by API group'}
+            description={'\u2318\u2009K to search 500+ resource types, \u2318\u2009B to browse by API group'}
             onClick={openCommandPalette}
           />
         </div>
@@ -106,11 +108,33 @@ export default function WelcomeView() {
           </div>
         </div>
 
+        {/* ── Key Capabilities ── */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-px flex-1 bg-slate-800" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Key Capabilities</span>
+            <div className="h-px flex-1 bg-slate-800" />
+          </div>
+
+          <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 divide-y divide-slate-800/60">
+            <CapabilityRow iconColor="text-violet-400" icon={<FileCode className="w-4 h-4" />} title="YAML Editor" description="Edit any resource with autocomplete, diff preview, and server-side dry-run validation" />
+            <CapabilityRow iconColor="text-teal-400" icon={<Users className="w-4 h-4" />} title="Impersonation" description="Test RBAC by acting as another user or group — all API calls use impersonation headers" />
+            <CapabilityRow iconColor="text-cyan-400" icon={<History className="w-4 h-4" />} title="Rollback" description="Compare deployment revisions side-by-side and roll back with one click" />
+            <CapabilityRow iconColor="text-indigo-400" icon={<GitGraph className="w-4 h-4" />} title="Dependency Graph" description="Visualize resource relationships — pods, services, ingress, volumes, owner chains" />
+            <CapabilityRow iconColor="text-blue-400" icon={<ScrollText className="w-4 h-4" />} title="Log Streaming" description="Real-time pod logs with search, follow, timestamps, and download" />
+            <CapabilityRow iconColor="text-amber-400" icon={<Camera className="w-4 h-4" />} title="Cluster Snapshots" description="Capture and compare cluster state over time — operators, CRDs, storage, RBAC" />
+            <CapabilityRow iconColor="text-violet-400" icon={<Diff className="w-4 h-4" />} title="Resource Diffing" description="See exactly what changed before saving — YAML diff preview against the live version" />
+            <CapabilityRow iconColor="text-emerald-400" icon={<Monitor className="w-4 h-4" />} title="Workload Audit" description="6 automated health checks per domain — limits, probes, PDBs, replicas, TLS" />
+            <CapabilityRow iconColor="text-indigo-400" icon={<Shield className="w-4 h-4" />} title="Security Audit" description="TLS, encryption, SCCs, network policies, secrets management — 9 checks" />
+            <CapabilityRow iconColor="text-orange-400" icon={<Terminal className="w-4 h-4" />} title="Pod Shell" description="Shell access to containers and nodes for live debugging" />
+          </div>
+        </div>
+
         {/* ── Keyboard Shortcuts ── */}
-        <div className="grid grid-cols-3 gap-2">
-          <ShortcutPill keys="\u2318 K" label="Command Palette" />
-          <ShortcutPill keys="\u2318 B" label="Resource Browser" />
-          <ShortcutPill keys="j / k"    label="Navigate Table" />
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <ShortcutPill keys={'\u2318K'} label="Command Palette" />
+          <ShortcutPill keys={'\u2318B'} label="Resource Browser" />
+          <ShortcutPill keys="j / k" label="Navigate Table" />
         </div>
 
         {/* ── Footer ── */}
@@ -190,6 +214,20 @@ function ViewTile({ icon, title, onClick }: {
       {icon}
       <span className="text-sm text-slate-300 group-hover:text-slate-100 transition-colors">{title}</span>
     </button>
+  );
+}
+
+function CapabilityRow({ icon, title, description, iconColor = 'text-blue-400' }: {
+  icon: React.ReactNode; title: string; description: string; iconColor?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3">
+      <span className={`${iconColor} mt-0.5 shrink-0`}>{icon}</span>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-slate-200">{title}</span>
+        <span className="text-xs text-slate-500 ml-2">{description}</span>
+      </div>
+    </div>
   );
 }
 
