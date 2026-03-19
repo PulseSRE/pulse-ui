@@ -441,8 +441,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                 <Database className="w-4 h-4 text-slate-400" />
                 <div>
                   <div className="text-xs text-slate-500">Etcd Leader Changes (1h)</div>
-                  <div className={cn('text-sm font-mono font-bold', etcdLeaderChanges !== null && etcdLeaderChanges !== undefined && etcdLeaderChanges > 2 ? 'text-red-400' : etcdLeaderChanges !== null && etcdLeaderChanges !== undefined && etcdLeaderChanges > 0 ? 'text-amber-400' : 'text-green-400')}>
-                    {etcdLeaderChanges !== null && etcdLeaderChanges !== undefined ? etcdLeaderChanges : '—'}
+                  <div className={cn('text-sm font-mono font-bold', etcdLeaderChanges !== null && etcdLeaderChanges !== undefined && etcdLeaderChanges > 2 ? 'text-red-400' : etcdLeaderChanges !== null && etcdLeaderChanges !== undefined && etcdLeaderChanges > 0 ? 'text-amber-400' : etcdLeaderChanges !== null && etcdLeaderChanges !== undefined ? 'text-green-400' : 'text-slate-500')}>
+                    {etcdLeaderChanges !== null && etcdLeaderChanges !== undefined ? etcdLeaderChanges : <span title="Metric unavailable (etcd may run outside this cluster)">N/A</span>}
                   </div>
                 </div>
               </div>
