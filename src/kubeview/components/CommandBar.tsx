@@ -91,12 +91,12 @@ export function CommandBar() {
           <svg className="w-6 h-6 shrink-0" viewBox="0 0 32 32">
             <defs><linearGradient id="logo-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#2563eb"/><stop offset="100%" stopColor="#1d4ed8"/></linearGradient></defs>
             <rect width="32" height="32" rx="8" fill="url(#logo-g)"/>
-            <text x="8" y="24" fontFamily="system-ui,-apple-system,sans-serif" fontWeight="800" fontSize="22" fill="white">S</text>
+            <text x="7" y="24" fontFamily="system-ui,-apple-system,sans-serif" fontWeight="800" fontSize="22" fill="white">P</text>
             <path d="M23 5l0.8-2.4L26.2 2l-2.4-0.8L23-1.2 22.2 1.2 19.8 2l2.4 0.8Z" fill="#93c5fd"/>
             <path d="M27 9l0.5-1.5L29 7l-1.5-0.5L27 5l-0.5 1.5L25 7l1.5 0.5Z" fill="#93c5fd" opacity="0.7"/>
           </svg>
           <span className="text-sm font-semibold text-slate-200 group-hover:text-white transition-colors hidden md:inline">
-            Shift<span className="text-blue-400">Ops</span>
+            OpenShift<span className="text-blue-400"> Pulse</span>
           </span>
         </button>
 
