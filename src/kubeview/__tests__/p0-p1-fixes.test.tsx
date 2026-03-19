@@ -345,7 +345,7 @@ describe('P1: autoDetectColumns memoization', () => {
 
 describe('P1: Helm catalog uses real repos', () => {
   it('fetches charts from HelmChartRepository CRDs', () => {
-    const source = readSrc('views/CreateView.tsx');
+    const source = readSrc('views/create/HelmTab.tsx');
     expect(source).toContain('helmchartrepositories');
     expect(source).toContain('HelmChartRepository');
   });

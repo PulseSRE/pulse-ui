@@ -7,11 +7,6 @@
 export { MetricsChart } from './MetricsChart';
 export type { MetricsChartProps, DataPoint, ChartSeries } from './MetricsChart';
 
-export { PromQLEditor } from './PromQLEditor';
-export type { PromQLEditorProps } from './PromQLEditor';
-
-export { CorrelatedTimeline } from './CorrelatedTimeline';
-export type { CorrelatedTimelineProps, TimelineEvent } from './CorrelatedTimeline';
 
 export {
   getMetricsForResource,
