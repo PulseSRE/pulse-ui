@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { k8sList } from '../engine/query';
 import LogStream from '../components/logs/LogStream';
 import MultiContainerLogs from '../components/logs/MultiContainerLogs';
 import MultiPodLogs from '../components/logs/MultiPodLogs';
+import { useK8sListWatch } from '../hooks/useK8sListWatch';
 
 interface LogsViewProps {
   namespace: string;
@@ -37,11 +36,9 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
 }) {
   const [selectedPod, setSelectedPod] = useState<string | null>(null);
 
-  // Fetch pods by label selector
-  const { data: pods = [], isLoading } = useQuery({
-    queryKey: ['workload-logs', namespace, selector],
-    queryFn: () => k8sList<any>(`/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(selector)}`),
-    refetchInterval: 15000,
+  // Watch pods by label selector
+  const { data: pods = [], isLoading } = useK8sListWatch({
+    apiPath: `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(selector)}`,
   });
 
   if (isLoading) {

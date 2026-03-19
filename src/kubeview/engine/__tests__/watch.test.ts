@@ -28,6 +28,71 @@ describe('WatchManager', () => {
     expect(() => manager.reconnectAll()).not.toThrow();
   });
 
+  describe('URL construction with query params', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const source = fs.readFileSync(path.join(__dirname, '../watch.ts'), 'utf-8');
+
+    it('uses ? separator for paths without query params', () => {
+      expect(source).toContain("normalizedPath.includes('?') ? '&' : '?'");
+    });
+
+    it('preserves query params like fieldSelector in watch paths', () => {
+      expect(source).toContain('const separator');
+      expect(source).toContain('${separator}watch=1');
+    });
+  });
+
+  describe('views use watches for K8s resources', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const viewsDir = path.join(__dirname, '../../views');
+    const detailDir = path.join(viewsDir, 'detail');
+
+    it('AdminView watches nodes instead of polling', () => {
+      const source = fs.readFileSync(path.join(viewsDir, 'AdminView.tsx'), 'utf-8');
+      expect(source).toContain("useK8sListWatch");
+      expect(source).toContain("apiPath: '/api/v1/nodes'");
+      expect(source).not.toMatch(/queryFn.*k8sList.*nodes/);
+    });
+
+    it('AdminView watches clusteroperators instead of polling', () => {
+      const source = fs.readFileSync(path.join(viewsDir, 'AdminView.tsx'), 'utf-8');
+      expect(source).toContain("apiPath: '/apis/config.openshift.io/v1/clusteroperators'");
+    });
+
+    it('DetailView watches managed pods instead of polling', () => {
+      const source = fs.readFileSync(path.join(viewsDir, 'DetailView.tsx'), 'utf-8');
+      expect(source).toContain("useK8sListWatch");
+      expect(source).toContain("podsApiPath");
+      expect(source).not.toMatch(/refetchInterval.*15000.*managedPods|managed-pods.*refetchInterval/s);
+    });
+
+    it('DetailView watches events instead of polling', () => {
+      const source = fs.readFileSync(path.join(viewsDir, 'DetailView.tsx'), 'utf-8');
+      expect(source).toContain("eventsApiPath");
+      expect(source).toContain("fieldSelector");
+    });
+
+    it('TimelineView watches events instead of polling', () => {
+      const source = fs.readFileSync(path.join(viewsDir, 'TimelineView.tsx'), 'utf-8');
+      expect(source).toContain("useK8sListWatch");
+      expect(source).not.toContain("refetchInterval");
+    });
+
+    it('LogsView watches pods instead of polling', () => {
+      const source = fs.readFileSync(path.join(viewsDir, 'LogsView.tsx'), 'utf-8');
+      expect(source).toContain("useK8sListWatch");
+      expect(source).not.toContain("refetchInterval");
+    });
+
+    it('IncidentContext watches pod events instead of polling', () => {
+      const source = fs.readFileSync(path.join(detailDir, 'IncidentContext.tsx'), 'utf-8');
+      expect(source).toContain("useK8sListWatch");
+      expect(source).toContain("podEventsPath");
+    });
+  });
+
   it('watch returns a subscription with unsubscribe', () => {
     // WebSocket will fail in test env, but subscription should still be returned
     try {

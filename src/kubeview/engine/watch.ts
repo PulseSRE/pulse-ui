@@ -123,7 +123,8 @@ export class WatchManager {
     // Build WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    let wsUrl = `${protocol}//${host}${BASE}${normalizedPath}?watch=1`;
+    const separator = normalizedPath.includes('?') ? '&' : '?';
+    let wsUrl = `${protocol}//${host}${BASE}${normalizedPath}${separator}watch=1`;
 
     if (connection.resourceVersion) {
       wsUrl += `&resourceVersion=${connection.resourceVersion}`;

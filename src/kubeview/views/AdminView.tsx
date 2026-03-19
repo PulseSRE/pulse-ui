@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet, k8sPatch } from '../engine/query';
+import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import type { K8sResource } from '../engine/renderers';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
@@ -52,16 +53,12 @@ export default function AdminView() {
     staleTime: 60000,
   });
 
-  const { data: nodes = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/nodes'],
-    queryFn: () => k8sList('/api/v1/nodes'),
-    refetchInterval: 30000,
+  const { data: nodes = [] } = useK8sListWatch<K8sResource>({
+    apiPath: '/api/v1/nodes',
   });
 
-  const { data: operators = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/config.openshift.io/v1/clusteroperators'],
-    queryFn: () => k8sList('/apis/config.openshift.io/v1/clusteroperators').catch(() => []),
-    refetchInterval: 30000,
+  const { data: operators = [] } = useK8sListWatch<K8sResource>({
+    apiPath: '/apis/config.openshift.io/v1/clusteroperators',
   });
 
   const { data: crds = [] } = useQuery<K8sResource[]>({

@@ -2,9 +2,10 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { ScrollText, Loader2 } from 'lucide-react';
-import { k8sList, k8sLogs } from '../../engine/query';
+import { k8sLogs } from '../../engine/query';
 import { MetricCard } from '../../components/metrics/Sparkline';
 import type { K8sResource } from '../../engine/renderers';
+import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 
 export function IncidentContext({ resource, managedPods, events, namespace, go }: {
   resource: K8sResource;
@@ -41,15 +42,15 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
 
   const worstPodName = worstPod?.metadata?.name;
   const worstPodNs = worstPod?.metadata?.namespace;
-  const { data: podEvents = [] } = useQuery<any[]>({
-    queryKey: ['events', worstPodNs, worstPodName, 'Pod'],
-    queryFn: async () => {
-      if (!worstPodName || !worstPodNs) return [];
-      const fs = encodeURIComponent(`involvedObject.name=${worstPodName},involvedObject.kind=Pod`);
-      return k8sList(`/api/v1/namespaces/${worstPodNs}/events?fieldSelector=${fs}`);
-    },
-    enabled: !!worstPod && !isPod && !!worstPodName,
-    refetchInterval: 30000,
+  const podEventsPath = React.useMemo(() => {
+    if (!worstPodName || !worstPodNs) return '';
+    const fs = encodeURIComponent(`involvedObject.name=${worstPodName},involvedObject.kind=Pod`);
+    return `/api/v1/namespaces/${worstPodNs}/events?fieldSelector=${fs}`;
+  }, [worstPodName, worstPodNs]);
+
+  const { data: podEvents = [] } = useK8sListWatch({
+    apiPath: podEventsPath,
+    enabled: !!worstPod && !isPod && !!worstPodName && !!podEventsPath,
   });
 
   const containers: any[] = isPod

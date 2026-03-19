@@ -1,13 +1,12 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, Info, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { k8sList } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
+import { useK8sListWatch } from '../hooks/useK8sListWatch';
 
 type TimeRange = '1h' | '6h' | '24h';
 type EventFilter = 'all' | 'warnings' | 'normal';
@@ -19,11 +18,9 @@ export default function TimelineView() {
   const [timeRange, setTimeRange] = React.useState<TimeRange>('6h');
   const [eventFilter, setEventFilter] = React.useState<EventFilter>('all');
 
-  // Fetch all events
-  const { data: allEvents = [], isLoading } = useQuery<K8sResource[]>({
-    queryKey: ['timeline', 'events'],
-    queryFn: () => k8sList<K8sResource>('/api/v1/events?limit=500'),
-    refetchInterval: 30000,
+  // Watch all events (initial fetch is limited, watch streams updates)
+  const { data: allEvents = [], isLoading } = useK8sListWatch<K8sResource>({
+    apiPath: '/api/v1/events?limit=500',
   });
 
   // Apply namespace filter

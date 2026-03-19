@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { k8sGet, k8sList, k8sDelete, k8sPatch, k8sCreate, k8sLogs } from '../engine/query';
 import { MetricCard } from '../components/metrics/Sparkline';
 import type { K8sResource } from '../engine/renderers';
+import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { diagnoseResource, enrichDiagnosesWithLogs, type Diagnosis } from '../engine/diagnosis';
 import { kindToPlural } from '../engine/renderers/index';
 import { buildApiPath } from '../hooks/useResourceUrl';
@@ -86,30 +87,29 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
   // Fetch managed pods for workloads (Deployment/StatefulSet/DaemonSet)
   const isWorkload = resource?.kind === 'Deployment' || resource?.kind === 'StatefulSet' || resource?.kind === 'DaemonSet';
   const selectorLabels = (resource?.spec as any)?.selector?.matchLabels as Record<string, string> | undefined;
-  const { data: managedPods = [] } = useQuery<K8sResource[]>({
-    queryKey: ['managed-pods', namespace, name, resource?.kind],
-    queryFn: async () => {
-      if (!selectorLabels || !namespace) return [];
-      const labelSelector = Object.entries(selectorLabels).map(([k, v]) => `${k}=${v}`).join(',');
-      return k8sList<K8sResource>(`/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(labelSelector)}`);
-    },
-    enabled: !!resource && isWorkload && !!selectorLabels && !!namespace,
-    refetchInterval: 15000,
+  const podsApiPath = React.useMemo(() => {
+    if (!selectorLabels || !namespace) return '';
+    const labelSelector = Object.entries(selectorLabels).map(([k, v]) => `${k}=${v}`).join(',');
+    return `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(labelSelector)}`;
+  }, [selectorLabels, namespace]);
+
+  const { data: managedPods = [] } = useK8sListWatch<K8sResource>({
+    apiPath: podsApiPath,
+    enabled: !!resource && isWorkload && !!selectorLabels && !!namespace && !!podsApiPath,
   });
 
   // Fetch related events using field selector
-  const { data: events = [] } = useQuery<K8sResource[]>({
-    queryKey: ['events', namespace, name, resource?.kind],
-    queryFn: async () => {
-      if (!resource) return [];
-      const fieldSelector = `involvedObject.name=${name},involvedObject.kind=${resource.kind}`;
-      const eventsPath = namespace
-        ? `/api/v1/namespaces/${namespace}/events?fieldSelector=${encodeURIComponent(fieldSelector)}`
-        : `/api/v1/events?fieldSelector=${encodeURIComponent(fieldSelector)}`;
-      return k8sList<K8sResource>(eventsPath);
-    },
-    enabled: !!resource,
-    refetchInterval: 30000,
+  const eventsApiPath = React.useMemo(() => {
+    if (!resource) return '';
+    const fieldSelector = `involvedObject.name=${name},involvedObject.kind=${resource.kind}`;
+    return namespace
+      ? `/api/v1/namespaces/${namespace}/events?fieldSelector=${encodeURIComponent(fieldSelector)}`
+      : `/api/v1/events?fieldSelector=${encodeURIComponent(fieldSelector)}`;
+  }, [resource, name, namespace]);
+
+  const { data: events = [] } = useK8sListWatch<K8sResource>({
+    apiPath: eventsApiPath,
+    enabled: !!resource && !!eventsApiPath,
   });
 
   // Run diagnosis (sync)
