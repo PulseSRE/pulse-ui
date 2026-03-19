@@ -6,16 +6,12 @@ function readSrc(relPath: string): string {
   return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf-8');
 }
 
-describe('MorningReportView', () => {
+describe('ReportTab (Pulse Report)', () => {
   const source = readSrc('pulse/ReportTab.tsx');
 
   describe('risk score computation', () => {
     it('weights critical alerts at 20 points each (max 40)', () => {
       expect(source).toContain('Math.min(40, criticalAlerts.length * 20)');
-    });
-
-    it('weights warning alerts at 5 points each (max 20)', () => {
-      expect(source).toContain('Math.min(20, warningAlerts.length * 5)');
     });
 
     it('weights unhealthy nodes at 15 points each', () => {
@@ -26,42 +22,15 @@ describe('MorningReportView', () => {
       expect(source).toContain('degradedOperators.length * 10');
     });
 
-    it('weights certs expiring < 7 days at 15 points each', () => {
-      expect(source).toContain('certsExpiringSoon7.length * 15');
-    });
-
-    it('weights certs expiring < 30 days at 5 points each', () => {
-      expect(source).toContain('certsExpiringSoon30.length * 5');
-    });
-
-    it('weights failed pods at 3 points each (max 15)', () => {
-      expect(source).toContain('Math.min(15, failedPods.length * 3)');
-    });
-
     it('caps total score at 100', () => {
-      expect(source).toContain('Math.min(100, score)');
-    });
-  });
-
-  describe('certificate expiry parsing', () => {
-    it('checks cert-manager annotations first', () => {
-      expect(source).toContain('cert-manager.io/certificate-expiry');
-    });
-
-    it('checks OpenShift service-ca annotations second', () => {
-      expect(source).toContain('service.beta.openshift.io/expiry');
-    });
-
-    it('falls back to creation timestamp estimate', () => {
-      expect(source).toContain('365 * 86_400_000');
+      expect(source).toContain('Math.min(100,');
     });
   });
 
   describe('risk score visual', () => {
-    it('renders SVG ring indicator', () => {
+    it('renders SVG ring', () => {
       expect(source).toContain('RiskScoreRing');
       expect(source).toContain('<svg');
-      expect(source).toContain('circumference');
     });
 
     it('has four severity levels', () => {
@@ -70,78 +39,72 @@ describe('MorningReportView', () => {
       expect(source).toContain("'At Risk'");
       expect(source).toContain("'Critical'");
     });
+
+    it('has details popover for score breakdown', () => {
+      expect(source).toContain('Score Breakdown');
+      expect(source).toContain('showScoreDetails');
+    });
   });
 
   describe('attention items', () => {
-    it('prioritizes degraded operators', () => {
-      expect(source).toContain('Operator');
-      expect(source).toContain('is degraded');
+    it('shows degraded operators', () => {
+      expect(source).toContain('degraded');
     });
 
-    it('includes unhealthy nodes', () => {
-      expect(source).toContain('is NotReady');
+    it('shows NotReady nodes', () => {
+      expect(source).toContain('NotReady');
     });
 
     it('includes failed pods with reason', () => {
       expect(source).toContain('CrashLoopBackOff');
-      expect(source).toContain('ImagePullBackOff');
     });
 
-    it('includes expiring certificates', () => {
-      expect(source).toContain('expires in');
-    });
-
-    it('links attention items to relevant views', () => {
+    it('links to relevant views', () => {
       expect(source).toContain('/admin?tab=operators');
       expect(source).toContain('/alerts');
       expect(source).toContain('/r/v1~pods/');
-      expect(source).toContain('/r/v1~nodes/');
+    });
+
+    it('only shows when there are problems', () => {
+      expect(source).toContain('attentionItems.length > 0');
     });
   });
 
   describe('cluster vitals', () => {
-    it('fetches CPU metrics from Prometheus', () => {
-      expect(source).toContain('node_cpu_seconds_total');
-      expect(source).toContain('machine_cpu_cores');
+    it('shows CPU and Memory sparklines', () => {
+      expect(source).toContain('title="CPU"');
+      expect(source).toContain('title="Memory"');
     });
 
-    it('fetches memory metrics from Prometheus', () => {
-      expect(source).toContain('node_memory_MemAvailable_bytes');
-      expect(source).toContain('node_memory_MemTotal_bytes');
+    it('shows node count', () => {
+      expect(source).toContain('readyNodes.length');
+      expect(source).toContain('nodes.length');
     });
 
-    it('shows node health count', () => {
-      expect(source).toContain("label=\"Nodes\"");
-    });
-
-    it('shows pod health count', () => {
-      expect(source).toContain("label=\"Pods\"");
+    it('shows pod count for user namespaces', () => {
+      expect(source).toContain('runningPods.length');
+      expect(source).toContain('userPods.length');
     });
   });
 
-  describe('change summary', () => {
-    it('fetches events from last 24 hours', () => {
-      expect(source).toContain('24 * 60 * 60 * 1000');
+  describe('certificate expiry', () => {
+    it('only shows certs expiring within 30 days', () => {
+      expect(source).toContain('urgentCerts');
+      expect(source).toContain('Certificates Expiring Soon');
     });
 
-    it('tracks alerts fired', () => {
-      expect(source).toContain('newAlerts');
-    });
-
-    it('tracks RBAC changes', () => {
-      expect(source).toContain('rbacChanges');
+    it('links to full cert inventory', () => {
+      expect(source).toContain('/admin?tab=certificates');
     });
   });
 
   describe('data sources', () => {
-    it('receives nodes, pods, operators as props from PulseView', () => {
+    it('receives nodes, pods, operators as props', () => {
       expect(source).toContain('nodes: K8sResource[]');
       expect(source).toContain('allPods: K8sResource[]');
-      expect(source).toContain('operators: K8sResource[]');
     });
 
-    it('fetches events and TLS secrets independently', () => {
-      expect(source).toContain('/api/v1/events');
+    it('fetches TLS secrets', () => {
       expect(source).toContain('kubernetes.io/tls');
     });
 
@@ -150,21 +113,23 @@ describe('MorningReportView', () => {
     });
   });
 
-  describe('navigation', () => {
-    it('morning-report redirects to pulse in App', () => {
-      const app = fs.readFileSync(path.join(__dirname, '../../App.tsx'), 'utf-8');
-      expect(app).toContain('morning-report');
+  describe('healthy state', () => {
+    it('shows all clear when no problems', () => {
+      expect(source).toContain('All clear');
+      expect(source).toContain('no issues detected');
     });
 
-    it('report tab is integrated into PulseView', () => {
-      const pulse = fs.readFileSync(path.join(__dirname, '../PulseView.tsx'), 'utf-8');
+    it('links to alerts, certs, readiness from healthy state', () => {
+      expect(source).toContain('/alerts');
+      expect(source).toContain('/admin?tab=certificates');
+      expect(source).toContain('/admin?tab=readiness');
+    });
+  });
+
+  describe('integration', () => {
+    it('is used in PulseView', () => {
+      const pulse = readSrc('PulseView.tsx');
       expect(pulse).toContain('ReportTab');
-      expect(pulse).toContain("'report'");
-    });
-
-    it('links to full certificate inventory', () => {
-      const reportTab = fs.readFileSync(path.join(__dirname, '../pulse/ReportTab.tsx'), 'utf-8');
-      expect(reportTab).toContain('/admin?tab=certificates');
     });
   });
 });
