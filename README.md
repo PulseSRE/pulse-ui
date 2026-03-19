@@ -10,8 +10,9 @@
 
 <p align="center">
   <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v4.0.0"><img src="https://img.shields.io/badge/version-v4.0.0-blue" alt="Version"></a>
-  <img src="https://img.shields.io/badge/tests-1084%20passed-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-1128%20passed-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-67-orange" alt="Health Checks">
+  <img src="https://img.shields.io/badge/security%20audit-passed-green" alt="Security Audit">
   <img src="https://img.shields.io/badge/sysadmin%20score-93%2F100-blueviolet" alt="SysAdmin Score">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
@@ -24,6 +25,25 @@
 
 Built with React, TypeScript, and real-time Kubernetes APIs. Every view is auto-generated from the API — browse any resource type, see what needs attention, and take action in seconds. Deployed with OAuth proxy for multi-user authentication.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Welcome](docs/screenshots/welcome.png) | ![Pulse](docs/screenshots/pulse.png) |
+| **Welcome** — Quick navigation, cluster status | **Pulse** — Health overview, metrics, alerts |
+| ![Workloads](docs/screenshots/workloads.png) | ![Compute](docs/screenshots/compute.png) |
+| **Workloads** — Deployments, pods, health audit | **Compute** — Node metrics, CPU/memory |
+| ![Table View](docs/screenshots/table-view.png) | ![YAML Editor](docs/screenshots/yaml-editor.png) |
+| **Resource Tables** — Auto-generated, sortable | **YAML Editor** — Autocomplete, snippets, diff |
+| ![Detail + Logs](docs/screenshots/flow-2-detail.png) | ![Logs](docs/screenshots/flow-3-logs.png) |
+| **Detail View** — Incident context, diagnosis | **Logs** — Multi-container, search, follow |
+| ![Alerts](docs/screenshots/alerts.png) | ![Storage](docs/screenshots/storage.png) |
+| **Alerts** — Severity filters, silence management | **Storage** — PVC health, capacity audit |
+| ![Networking](docs/screenshots/networking.png) | ![Admin Updates](docs/screenshots/admin-updates.png) |
+| **Networking** — Routes, policies, health audit | **Admin** — Cluster updates, operator progress |
+| ![Operators](docs/screenshots/operatorhub.png) | ![Timeline](docs/screenshots/timeline.png) |
+| **Operator Catalog** — One-click install | **Timeline** — Cluster events visualization |
+
 ## Highlights
 
 | | Feature | Details |
@@ -33,8 +53,9 @@ Built with React, TypeScript, and real-time Kubernetes APIs. Every view is auto-
 | | **Pod/Node Debug** | Ephemeral containers for pods, privileged debug pods for nodes |
 | | **RBAC-Aware UI** | Actions hidden/disabled based on SelfSubjectAccessReview |
 | | **User Impersonation** | Test as any user or service account — headers on all API calls |
-| | **Real-time Watches** | WebSocket + 60s polling fallback via TanStack Query |
-| | **1084 Tests** | 60 test files, 100% passing, ~3 seconds |
+| | **Real-time Watches** | WebSocket watches with 60s safety-net polling via TanStack Query |
+| | **Security Hardened** | Passed 15-finding security audit — injection, SSRF, TLS, CSP, RBAC |
+| | **1128 Tests** | 61 test files, 100% passing, ~3 seconds |
 
 ## Views
 
@@ -79,13 +100,13 @@ OAuth, Proxy, Image, Ingress, Scheduler, API Server (full editors). DNS (warning
 Pre-update checklist (nodes ready, operators healthy, channel, etcd backup, PDBs), ClusterVersion conditions (Progressing/Failing banners), version skip indicators, risk badges, duration estimates, per-operator update progress during rolling upgrade, history with duration.
 
 ### Operator Catalog & Lifecycle
-Browse 500+ operators. One-click install with 4-step progress tracking. Post-install guidance for 9+ operators. Full uninstall flow. Channel selector, namespace auto-suggestion.
+Browse 500+ operators. One-click install with 4-step progress tracking. Post-install guidance for 9+ operators. Full uninstall flow. Channel selector, namespace auto-suggestion. Helm install with validated release names and `--repo` flag (no shell injection).
 
 ### Alerts & Silence Management
 Severity filters (Critical/Warning/Info), group by namespace or alertname, firing duration display, silenced indicators, runbook links, silence creation from any alert, silence expiration with confirmation.
 
 ### User Management & Impersonation
-Users, groups, service accounts with role bindings. One-click impersonation — all API requests include `Impersonate-User` headers. Amber banner shows active impersonation across all views.
+Users, groups, service accounts with role bindings. One-click impersonation — all API requests include `Impersonate-User` headers (CRLF-sanitized). Amber banner shows active impersonation across all views.
 
 ### Auto-Generated Resource Tables
 Every resource type gets sortable columns, search, per-column filters, bulk delete, keyboard navigation (j/k), CSV/JSON export, Edit YAML + Delete on every row, and inline scale controls for deployments.
@@ -94,7 +115,7 @@ Every resource type gets sortable columns, search, per-column filters, bulk dele
 10 error patterns detected from pod logs: Permission denied, Connection refused, OOM, DNS failure, read-only filesystem, wrong architecture — each with specific fix suggestions.
 
 ### YAML Editor
-CodeMirror with K8s autocomplete, YAML linting, Schema panel (from CRD OpenAPI), 71 context-aware sub-snippets (insert at cursor), 30 full resource templates, inline diff view, keyboard shortcuts help.
+CodeMirror with K8s autocomplete, YAML linting, Schema panel (from CRD OpenAPI), 71 context-aware sub-snippets (insert at cursor), 30 full resource templates, inline diff view, keyboard shortcuts help. Impersonation headers included on all save operations.
 
 ## Tech Stack
 
@@ -105,7 +126,7 @@ CodeMirror with K8s autocomplete, YAML linting, Schema panel (from CRD OpenAPI),
 | **State** | Zustand (client) + TanStack Query (server) |
 | **Real-time** | WebSocket watches + 60s polling fallback |
 | **Styling** | Tailwind CSS 3.4 |
-| **Testing** | Vitest + jsdom (1084 tests) |
+| **Testing** | Vitest + jsdom (1128 tests) |
 | **Icons** | Lucide React (icon registry, ~50 icons) |
 | **Charts** | Pure SVG sparklines (no chart library) |
 
@@ -121,7 +142,8 @@ oc login --server=https://api.your-cluster.example.com:6443
 # Start the API proxy
 oc proxy --port=8001 &
 
-# Copy the env example and configure for your cluster (optional — needed for Prometheus/Alertmanager proxying)
+# Copy the env example and configure for your cluster
+# (optional — needed for Prometheus/Alertmanager proxying in dev)
 cp .env.example .env
 # Edit .env with your cluster's Thanos and Alertmanager route URLs
 
@@ -150,46 +172,39 @@ Open http://localhost:9000. Clear `openshiftpulse-ui-storage` from localStorage 
 oc login --server=https://api.your-cluster.example.com:6443
 
 # Generate OAuth secrets
-openssl rand -base64 32 | tr -d '\n' > /tmp/oauth-client-secret
-openssl rand -base64 32 | tr -d '\n' > /tmp/cookie-secret
+# - Client secret: any length, used for OAuthClient authentication
+# - Cookie secret: must be exactly 16, 24, or 32 bytes for AES (required when pass_access_token=true)
+CLIENT_SECRET=$(openssl rand -base64 32 | tr -d '\n')
+COOKIE_SECRET=$(openssl rand -hex 16)  # 32 hex chars = 16 bytes
 
-# Create the secrets in the cluster
+# Create namespace and secrets
 oc create namespace openshiftpulse
 oc create secret generic openshiftpulse-oauth-secrets \
-  --from-file=client-secret=/tmp/oauth-client-secret \
-  --from-file=cookie-secret=/tmp/cookie-secret \
+  --from-literal=client-secret="$CLIENT_SECRET" \
+  --from-literal=cookie-secret="$COOKIE_SECRET" \
   -n openshiftpulse
 
-# Apply deployment manifests (creates Namespace, ServiceAccount, RBAC,
-# OAuthClient, ConfigMap, Deployment, PDB, Service, Route)
+# Apply deployment manifests (creates ServiceAccount, RBAC, OAuthClient,
+# ConfigMap, Deployment, PDB, ResourceQuota, LimitRange, Service, Route)
 oc apply -f deploy/deployment.yaml
 
 # Patch the OAuthClient with the generated client secret
 oc patch oauthclient openshiftpulse \
-  -p "{\"secret\":\"$(cat /tmp/oauth-client-secret)\"}"
+  -p "{\"secret\":\"$CLIENT_SECRET\"}"
 
 # Create a BuildConfig for binary builds
 oc new-build --binary --name=openshiftpulse --to=openshiftpulse:latest -n openshiftpulse
+
+# Build and deploy
+npm run build
+oc start-build openshiftpulse --from-dir=. --follow -n openshiftpulse
 
 # Update the OAuthClient redirectURI to match your cluster's route
 ROUTE=$(oc get route openshiftpulse -n openshiftpulse -o jsonpath='{.spec.host}')
 oc patch oauthclient openshiftpulse --type merge \
   -p "{\"redirectURIs\":[\"https://${ROUTE}/oauth/callback\"]}"
 
-# Clean up temp files
-rm /tmp/oauth-client-secret /tmp/cookie-secret
-```
-
-### Build and deploy
-
-```bash
-# Build the frontend
-npm run build
-
-# Build container image and push to internal registry
-oc start-build openshiftpulse --from-dir=. --follow -n openshiftpulse
-
-# Restart pods to pick up the new image
+# Restart to pick up the new image
 oc rollout restart deployment/openshiftpulse -n openshiftpulse
 ```
 
@@ -203,12 +218,38 @@ npm run build && oc start-build openshiftpulse --from-dir=. --follow -n openshif
 
 | Layer | Mechanism |
 |-------|-----------|
-| **User authentication** | OAuth proxy sidecar with OAuthClient (`user:full` scope) |
+| **User authentication** | OAuth proxy sidecar with OAuthClient (`user:full` scope — required for write operations) |
 | **User authorization** | User's OAuth token forwarded via `X-Forwarded-Access-Token` header to K8s API |
-| **Service account** | Minimal read-only ClusterRole (`openshiftpulse-reader`) — only used as pod identity |
-| **Secrets** | OAuth client secret and cookie secret mounted from a K8s Secret via files |
-| **Container security** | runAsNonRoot, drop ALL capabilities, seccomp RuntimeDefault |
-| **TLS** | Auto-generated by OpenShift service-ca, reencrypt route termination |
+| **Service account** | Minimal ClusterRole (`openshiftpulse-reader`) with read-only access + token review for OAuth proxy |
+| **Secrets** | OAuth client secret and cookie secret mounted from a K8s Secret via files (`--client-secret-file`, `--cookie-secret-file`) |
+| **Container security** | `runAsNonRoot`, `readOnlyRootFilesystem`, drop ALL capabilities, seccomp RuntimeDefault |
+| **TLS verification** | `proxy_ssl_verify on` with `ca.crt` for K8s API, `service-ca.crt` for Prometheus/Alertmanager |
+| **HTTP headers** | CSP (`default-src 'self'`), X-Frame-Options DENY, HSTS, X-Content-Type-Options nosniff, Referrer-Policy |
+| **Input validation** | Helm release names validated (`^[a-z0-9][a-z0-9-]{0,52}$`), PromQL sanitized, CRLF stripped from impersonation headers, regex escaped in log search |
+| **SSRF protection** | Dev proxy validates URL protocol, blocks private/internal IPs |
+| **Resource limits** | ResourceQuota (10 pods, 1 CPU, 1Gi memory) and LimitRange (per-container defaults and maximums) |
+
+### Security Audit Results
+
+A comprehensive security audit was performed covering authentication, injection vulnerabilities, sensitive data exposure, API security, deployment security, and client-side security. All 15 findings (1 critical, 4 high, 7 medium, 3 low) have been resolved:
+
+| Severity | Finding | Resolution |
+|----------|---------|------------|
+| Critical | Helm command injection via `sh -c` | Validate release names, use array args with `--repo` flag |
+| High | SSRF in dev proxy | Validate URL protocol, block private/link-local IPs |
+| High | Impersonation CRLF injection | Strip `\r\n` from all impersonation header values |
+| High | Missing nginx security headers | Added CSP, X-Frame-Options, HSTS, nosniff, Referrer-Policy |
+| High | `proxy_ssl_verify off` | Enabled with correct CA certs (`ca.crt` for API, `service-ca.crt` for monitoring) |
+| Medium | Prometheus label path injection | Validate label names against `^[a-zA-Z_][a-zA-Z0-9_]*$` |
+| Medium | Path traversal in `buildApiPathFromResource` | Apply `sanitizePathSegment` to namespace and name |
+| Medium | Node log file path traversal | Validate filenames against `^[a-zA-Z0-9._-]+$` |
+| Medium | RegExp DoS in log search | Escape regex special chars before `new RegExp()` |
+| Medium | Missing `readOnlyRootFilesystem` | Added to both containers with emptyDir for writable paths |
+| Medium | Placeholder secrets in manifest | Documented generation steps, added deployment validation |
+| Medium | Broad `user:full` OAuth scope | Documented requirement (app performs write operations) |
+| Low | Impersonation header format | Fixed to comma-separated `Impersonate-Group`, sanitized CRLF |
+| Low | YAML editor missing impersonation | Added `getImpersonationHeaders()` to GET and PUT requests |
+| Low | Token logging risk in dev | Documented in `.env.example` |
 
 ### What the deployment includes
 
@@ -218,12 +259,18 @@ npm run build && oc start-build openshiftpulse --from-dir=. --follow -n openshif
 | **nginx** | Reverse proxy forwarding user's `X-Forwarded-Access-Token` to K8s API, Prometheus, Alertmanager |
 | **2 replicas** | PodDisruptionBudget (minAvailable: 1), topology spread across nodes |
 | **Zero-downtime** | RollingUpdate with maxUnavailable: 0 |
-| **Minimal RBAC** | Scoped ClusterRole with read-only access — user actions use the user's own token |
+| **Minimal RBAC** | Scoped ClusterRole with read-only access + token review — user actions use the user's own token |
+| **ResourceQuota** | 10 pods, 1 CPU / 1Gi memory requests, 2 CPU / 2Gi limits, 50 configmaps, 20 secrets |
+| **LimitRange** | Default 200m/256Mi per container, max 1 CPU/1Gi |
+| **Security hardening** | readOnlyRootFilesystem, CSP headers, TLS verification, non-root containers |
 
 ### Troubleshooting
 
 - **503 on login page**: Delete the TLS secret and re-add the `serving-cert-secret-name` annotation on the Service to trigger service-ca regeneration
 - **403 on API calls**: Ensure the OAuthClient has `user:full` in `scopeRestrictions` — SA-based OAuth clients cannot use this scope
+- **oauth-proxy crash (tokenreviews forbidden)**: The ClusterRole needs `tokenreviews` and `subjectaccessreviews` create permissions — re-apply `deploy/deployment.yaml`
+- **oauth-proxy crash (cookie_secret must be 16/24/32 bytes)**: Regenerate cookie secret with `openssl rand -hex 16` (not base64)
+- **Metrics blank (SSL certificate verify error)**: Prometheus/Alertmanager use service-ca certs — ensure nginx uses `service-ca.crt` (not `ca.crt`) for those upstreams
 - **Build stuck/pending**: Check configmap quota (`oc get resourcequota -n openshiftpulse`) — builds need headroom for temp configmaps (set ≥50)
 - **Pods not scheduling**: Check PDB and topology constraints — need ≥2 nodes for topology spread
 
@@ -237,26 +284,27 @@ npm run type-check    # TypeScript checking
 ### Test Results
 
 ```
- Test Files  60 passed (60)
-      Tests  1084 passed (1084)
-   Duration  2.93s
+ Test Files  61 passed (61)
+      Tests  1128 passed (1128)
+   Duration  3.00s
 ```
 
 | Test Area | Files | Tests |
 |-----------|-------|-------|
 | Views (render + behavior) | 20 | 350+ |
-| Engine (query, discovery, diagnosis) | 12 | 200+ |
-| Components (CommandPalette, feedback) | 8 | 150+ |
+| Engine (query, discovery, diagnosis, watch) | 12 | 200+ |
+| Components (CommandPalette, feedback, logs) | 8 | 150+ |
 | Hooks (useCanI, useDiscovery, etc.) | 6 | 80+ |
-| Store (uiStore, clusterStore) | 3 | 50+ |
+| Store (uiStore, clusterStore) | 3 | 55+ |
 | Routes (structure, security, cleanup) | 1 | 28 |
+| Security audit (injection, headers, TLS, SSRF) | 1 | 29 |
 | Integration (CRUD, delete flow, operators) | 4 | 80+ |
 
 ## Architecture
 
 ```
 src/kubeview/
-├── engine/              # Query (with impersonation), discovery, diagnosis, dateUtils
+├── engine/              # Query (with impersonation), discovery, diagnosis, watch manager
 ├── views/               # 14 view components + health audits + incident context
 ├── components/          # Shared UI (Panel, ClusterConfig, Sparkline, YamlEditor)
 ├── hooks/               # useK8sListWatch, useCanI (RBAC), useNavigateTab
@@ -267,6 +315,15 @@ src/kubeview/
 │   ├── redirects.tsx        # Legacy path redirects
 │   └── index.ts             # Barrel export
 └── App.tsx              # Shell + composed route children (~45 lines)
+```
+
+### Data Flow
+
+```
+Browser → OAuth Proxy (8443) → nginx (8080) → K8s API / Prometheus / Alertmanager
+                ↓
+        User's OAuth token forwarded via X-Forwarded-Access-Token
+        (SA token NOT used for API calls — only for pod identity)
 ```
 
 ## Keyboard Shortcuts
@@ -282,14 +339,15 @@ src/kubeview/
 | Metric | Value |
 |--------|-------|
 | Production files | ~100 |
-| Tests | 1084 (100% passing) |
-| Test files | 60 |
+| Tests | 1128 (100% passing) |
+| Test files | 61 |
 | Routes | 35 |
 | Views | 14 |
 | Health checks | 67 (31 cluster + 36 domain) |
 | YAML templates | 30 + 71 context-aware snippets |
 | Operators in catalog | 500+ |
 | Error pattern detections | 10 |
+| Security findings resolved | 15/15 |
 | Build time | ~1s (Rspack) |
 | Test time | ~3s |
 
@@ -330,7 +388,7 @@ src/kubeview/
 npm install          # Install dependencies
 cp .env.example .env # Configure cluster URLs
 npm run dev          # Dev server on port 9000
-npm test             # Run 1084 tests
+npm test             # Run 1128 tests
 npm run build        # Production build (~1s)
 ```
 

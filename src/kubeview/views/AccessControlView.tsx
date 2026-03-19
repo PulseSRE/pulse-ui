@@ -28,19 +28,11 @@ export default function AccessControlView() {
     });
   }, [clusterRoleBindings]);
 
-  // Find subjects with broad permissions (exclude system/platform defaults)
+  // Find all subjects with cluster-admin permissions
   const broadPermissions = React.useMemo(() => {
     const subjects: Array<{ name: string; kind: string; binding: string; namespace?: string }> = [];
     for (const b of clusterAdminBindings as any[]) {
-      // Skip system-provided bindings
-      const bindingName = b.metadata?.name || '';
-      if (bindingName.startsWith('system:') || bindingName.startsWith('openshift-')) continue;
-
       for (const s of b.subjects || []) {
-        // Skip system users, groups, and platform SAs
-        if (s.name?.startsWith('system:') || s.name?.startsWith('openshift-')) continue;
-        if (s.kind === 'Group' && (s.name === 'system:masters' || s.name?.startsWith('system:'))) continue;
-        if (s.kind === 'ServiceAccount' && (s.namespace?.startsWith('openshift-') || s.namespace?.startsWith('kube-'))) continue;
         subjects.push({ name: s.name, kind: s.kind, binding: b.metadata.name, namespace: s.namespace });
       }
     }

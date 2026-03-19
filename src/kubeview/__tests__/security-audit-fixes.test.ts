@@ -169,8 +169,8 @@ describe('L2: Snapshot data in localStorage', () => {
     expect(source).toContain('clusterAdminSubjects');
   });
 
-  it('filters out system: prefixed subjects', () => {
-    expect(source).toContain("s.name?.startsWith('system:')");
+  it('includes all subjects including system accounts', () => {
+    expect(source).toContain("clusterAdminSubjects.push");
   });
 });
 

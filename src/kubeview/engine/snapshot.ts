@@ -125,10 +125,7 @@ export async function captureSnapshot(label: string): Promise<ClusterSnapshot> {
     const clusterAdminSubjects: string[] = [];
     for (const crb of crbData?.items || []) {
       if (crb.roleRef?.name !== 'cluster-admin') continue;
-      const name = crb.metadata?.name || '';
-      if (name.startsWith('system:') || name.startsWith('openshift-')) continue;
       for (const s of crb.subjects || []) {
-        if (s.name?.startsWith('system:')) continue;
         clusterAdminSubjects.push(`${s.kind}/${s.name}`);
       }
     }
