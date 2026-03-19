@@ -237,7 +237,7 @@ describe('PulseView (merged Troubleshoot)', () => {
   it('has MetricCard sparklines via ReportTab', () => {
     const reportSource = readView('pulse/ReportTab.tsx');
     expect(reportSource).toContain('MetricCard');
-    expect(reportSource).toContain('CPU Usage');
+    expect(reportSource).toContain('CPU');
   });
 
   it('has diagnosis with log enrichment', () => {

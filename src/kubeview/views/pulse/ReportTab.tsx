@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Shield, AlertTriangle, AlertOctagon, Server, Cpu, MemoryStick,
+  Shield, AlertTriangle, AlertOctagon, Server,
   HeartPulse, Clock, ArrowRight, CheckCircle, Activity, Lock, Bell,
-  ChevronRight, RotateCcw, Scale, UserCheck,
+  ChevronRight, RotateCcw, Scale, UserCheck, Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../../engine/query';
@@ -127,16 +127,6 @@ export function ReportTab({ nodes, allPods, operators, go }: ReportTabProps) {
     queryFn: () => queryInstant('ALERTS{alertstate="firing"}').catch((): PromResult[] => []),
     staleTime: 30_000, refetchInterval: 60_000,
   });
-  const { data: cpuData = [] } = useQuery<PromResult[]>({
-    queryKey: ['prom', 'cluster-cpu'],
-    queryFn: () => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / sum(machine_cpu_cores) * 100').catch((): PromResult[] => []),
-    staleTime: 30_000, refetchInterval: 60_000,
-  });
-  const { data: memData = [] } = useQuery<PromResult[]>({
-    queryKey: ['prom', 'cluster-memory'],
-    queryFn: () => queryInstant('(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100').catch((): PromResult[] => []),
-    staleTime: 30_000, refetchInterval: 60_000,
-  });
 
   // Derived data
   const userPods = useMemo(() => allPods.filter(p => !isSystemNamespace(p.metadata.namespace)), [allPods]);
@@ -208,8 +198,6 @@ export function ReportTab({ nodes, allPods, operators, go }: ReportTabProps) {
   }, [degradedOperators, unhealthyNodes, criticalAlerts, failedPods, certsExpiringSoon7, certsExpiringSoon30]);
 
   // Vitals
-  const cpuPct = cpuData.length > 0 ? cpuData[0].value : null;
-  const memPct = memData.length > 0 ? memData[0].value : null;
   const readyNodes = nodes.filter((n: any) => (n.status?.conditions || []).some((c: any) => c.type === 'Ready' && c.status === 'True'));
   const runningPods = userPods.filter((p: any) => p.status?.phase === 'Running');
 
@@ -239,18 +227,18 @@ export function ReportTab({ nodes, allPods, operators, go }: ReportTabProps) {
       {/* Risk Score + Attention */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Panel title="Cluster Risk Score" icon={<Shield className="w-4 h-4 text-blue-400" />}>
-          <div className="flex flex-col items-center py-2">
-            <RiskScoreRing score={riskScore} />
-            <div className="mt-3 w-full space-y-1.5 text-xs">
-              <ScoreFactor label="Critical alerts" count={criticalAlerts.length} points={20} max={40} score={Math.min(40, criticalAlerts.length * 20)} />
-              <ScoreFactor label="Warning alerts" count={warningAlerts.length} points={5} max={20} score={Math.min(20, warningAlerts.length * 5)} />
-              <ScoreFactor label="Unhealthy nodes" count={unhealthyNodes.length} points={15} max={null} score={unhealthyNodes.length * 15} />
-              <ScoreFactor label="Degraded operators" count={degradedOperators.length} points={10} max={null} score={degradedOperators.length * 10} />
-              <ScoreFactor label="Certs expiring <7d" count={certsExpiringSoon7.length} points={15} max={null} score={certsExpiringSoon7.length * 15} />
-              <ScoreFactor label="Certs expiring <30d" count={certsExpiringSoon30.length} points={5} max={null} score={certsExpiringSoon30.length * 5} />
-              <ScoreFactor label="Failed pods" count={failedPods.length} points={3} max={15} score={Math.min(15, failedPods.length * 3)} />
-            </div>
-          </div>
+          <ScorePanel
+            riskScore={riskScore}
+            factors={[
+              { label: 'Critical alerts', count: criticalAlerts.length, points: 20, max: 40, score: Math.min(40, criticalAlerts.length * 20) },
+              { label: 'Warning alerts', count: warningAlerts.length, points: 5, max: 20, score: Math.min(20, warningAlerts.length * 5) },
+              { label: 'Unhealthy nodes', count: unhealthyNodes.length, points: 15, max: null, score: unhealthyNodes.length * 15 },
+              { label: 'Degraded operators', count: degradedOperators.length, points: 10, max: null, score: degradedOperators.length * 10 },
+              { label: 'Certs expiring <7d', count: certsExpiringSoon7.length, points: 15, max: null, score: certsExpiringSoon7.length * 15 },
+              { label: 'Certs expiring <30d', count: certsExpiringSoon30.length, points: 5, max: null, score: certsExpiringSoon30.length * 5 },
+              { label: 'Failed pods', count: failedPods.length, points: 3, max: 15, score: Math.min(15, failedPods.length * 3) },
+            ]}
+          />
         </Panel>
 
         <div className="lg:col-span-2">
@@ -282,22 +270,19 @@ export function ReportTab({ nodes, allPods, operators, go }: ReportTabProps) {
         </div>
       </div>
 
-      {/* Vitals */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <VitalCard icon={<Cpu className="w-3.5 h-3.5" />} label="CPU Usage" value={cpuPct !== null ? `${cpuPct.toFixed(1)}%` : '--'}
-          color={cpuPct !== null ? (cpuPct > 85 ? 'text-red-400' : cpuPct > 70 ? 'text-amber-400' : 'text-green-400') : undefined} />
-        <VitalCard icon={<MemoryStick className="w-3.5 h-3.5" />} label="Memory Usage" value={memPct !== null ? `${memPct.toFixed(1)}%` : '--'}
-          color={memPct !== null ? (memPct > 85 ? 'text-red-400' : memPct > 70 ? 'text-amber-400' : 'text-green-400') : undefined} />
-        <VitalCard icon={<Server className="w-3.5 h-3.5" />} label="Node Health" value={`${readyNodes.length} / ${nodes.length}`}
+      {/* Cluster Vitals */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard title="CPU" query="sum(rate(node_cpu_seconds_total{mode!='idle'}[5m])) / sum(machine_cpu_cores) * 100" unit="%" color="#3b82f6" thresholds={{ warning: 70, critical: 90 }} />
+        <MetricCard title="Memory" query="(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100" unit="%" color="#8b5cf6" thresholds={{ warning: 75, critical: 90 }} />
+        <VitalCard icon={<Server className="w-3.5 h-3.5" />} label="Nodes" value={`${readyNodes.length} / ${nodes.length}`}
           color={unhealthyNodes.length > 0 ? 'text-red-400' : 'text-green-400'} />
-        <VitalCard icon={<HeartPulse className="w-3.5 h-3.5" />} label="Pod Health" value={`${runningPods.length} / ${userPods.length}`}
+        <VitalCard icon={<HeartPulse className="w-3.5 h-3.5" />} label="Pods" value={`${runningPods.length} / ${userPods.length}`}
+          subtext="running in user namespaces"
           color={failedPods.length > 0 ? 'text-amber-400' : 'text-green-400'} />
       </div>
 
-      {/* Metric sparklines */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard title="CPU Usage" query="sum(rate(node_cpu_seconds_total{mode!='idle'}[5m])) / sum(machine_cpu_cores) * 100" unit="%" color="#3b82f6" thresholds={{ warning: 70, critical: 90 }} />
-        <MetricCard title="Memory Usage" query="(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100" unit="%" color="#8b5cf6" thresholds={{ warning: 75, critical: 90 }} />
+      {/* Network + Disk sparklines */}
+      <div className="grid grid-cols-2 gap-3">
         <MetricCard title="Network In" query="sum(rate(node_network_receive_bytes_total{device!~'lo|veth.*|br.*'}[5m])) / 1024 / 1024" unit=" MB/s" color="#06b6d4" />
         <MetricCard title="Disk I/O" query="sum(rate(node_disk_read_bytes_total[5m]) + rate(node_disk_written_bytes_total[5m])) / 1024 / 1024" unit=" MB/s" color="#f59e0b" />
       </div>
@@ -349,11 +334,12 @@ export function ReportTab({ nodes, allPods, operators, go }: ReportTabProps) {
   );
 }
 
-function VitalCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color?: string }) {
+function VitalCard({ icon, label, value, subtext, color }: { icon: React.ReactNode; label: string; value: string; subtext?: string; color?: string }) {
   return (
     <div className="bg-slate-900 rounded-lg border border-slate-800 p-3 flex flex-col gap-1">
       <div className="flex items-center gap-2 text-slate-400 text-xs font-medium uppercase tracking-wider">{icon}{label}</div>
       <div className={cn('text-2xl font-bold', color || 'text-slate-100')}>{value}</div>
+      {subtext && <div className="text-xs text-slate-500">{subtext}</div>}
     </div>
   );
 }
@@ -368,15 +354,52 @@ function ChangeStat({ icon, label, count }: { icon: React.ReactNode; label: stri
   );
 }
 
-function ScoreFactor({ label, count, points, max, score }: {
+interface ScorePanelFactor {
   label: string; count: number; points: number; max: number | null; score: number;
-}) {
+}
+
+function ScorePanel({ riskScore, factors }: { riskScore: number; factors: ScorePanelFactor[] }) {
+  const [showDetails, setShowDetails] = useState(false);
+  const totalContributing = factors.filter(f => f.score > 0).length;
+
   return (
-    <div className="flex items-center gap-2 px-1">
-      <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', score > 0 ? 'bg-red-500' : 'bg-slate-700')} />
-      <span className="flex-1 text-slate-400">{label}</span>
-      <span className="text-slate-500 tabular-nums">{count} x {points}pt{max ? ` (max ${max})` : ''}</span>
-      <span className={cn('w-8 text-right font-mono tabular-nums', score > 0 ? 'text-red-400' : 'text-slate-600')}>+{score}</span>
+    <div className="flex flex-col items-center py-2 relative">
+      <RiskScoreRing score={riskScore} />
+      <button
+        onClick={() => setShowDetails(!showDetails)}
+        className="mt-2 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+      >
+        <Info className="w-3 h-3" />
+        {totalContributing > 0
+          ? `${totalContributing} factor${totalContributing !== 1 ? 's' : ''} contributing`
+          : 'How is this calculated?'}
+      </button>
+
+      {showDetails && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowDetails(false)} />
+          <div className="absolute top-full mt-1 z-50 w-80 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-slate-200">Risk Score Breakdown</h4>
+              <span className="text-xs text-slate-500">max 100</span>
+            </div>
+            <div className="space-y-2 mb-3">
+              {factors.map((f) => (
+                <div key={f.label} className="flex items-center gap-2 text-xs">
+                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', f.score > 0 ? 'bg-red-500' : 'bg-slate-700')} />
+                  <span className="flex-1 text-slate-300">{f.label}</span>
+                  <span className="text-slate-500 tabular-nums">{f.count} x {f.points}{f.max ? ` (cap ${f.max})` : ''}</span>
+                  <span className={cn('w-8 text-right font-mono tabular-nums font-medium', f.score > 0 ? 'text-red-400' : 'text-slate-600')}>+{f.score}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-slate-700 text-xs">
+              <span className="text-slate-400">Total (capped at 100)</span>
+              <span className="text-slate-200 font-mono font-bold">{riskScore}</span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

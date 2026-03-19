@@ -36,8 +36,8 @@ describe('Sparkline component', () => {
   it('ReportTab uses MetricCard for CPU, Memory, Network, Disk', () => {
     const source = fs.readFileSync(path.join(SRC, 'views/pulse/ReportTab.tsx'), 'utf-8');
     expect(source).toContain('MetricCard');
-    expect(source).toContain('CPU Usage');
-    expect(source).toContain('Memory Usage');
+    expect(source).toContain('title="CPU"');
+    expect(source).toContain('title="Memory"');
     expect(source).toContain('Network In');
     expect(source).toContain('Disk I/O');
   });

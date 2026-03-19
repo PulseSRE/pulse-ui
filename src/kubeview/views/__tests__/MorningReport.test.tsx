@@ -111,11 +111,11 @@ describe('MorningReportView', () => {
     });
 
     it('shows node health count', () => {
-      expect(source).toContain('Node Health');
+      expect(source).toContain("label=\"Nodes\"");
     });
 
     it('shows pod health count', () => {
-      expect(source).toContain('Pod Health');
+      expect(source).toContain("label=\"Pods\"");
     });
   });
 
