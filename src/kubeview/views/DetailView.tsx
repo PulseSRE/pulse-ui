@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   XCircle,
-  Info,
   CheckCircle,
   FileText,
   Activity,
@@ -16,7 +15,6 @@ import {
   Plus,
   Minus,
   GitBranch,
-  Search,
   Copy,
   Star,
   ArrowRight,
@@ -28,7 +26,6 @@ import { k8sGet, k8sList, k8sDelete, k8sPatch, k8sCreate, k8sLogs } from '../eng
 import { MetricCard } from '../components/metrics/Sparkline';
 import type { K8sResource } from '../engine/renderers';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
-import { diagnoseResource, enrichDiagnosesWithLogs, type Diagnosis } from '../engine/diagnosis';
 import { kindToPlural } from '../engine/renderers/index';
 import { buildApiPath } from '../hooks/useResourceUrl';
 import { useUIStore } from '../store/uiStore';
@@ -112,21 +109,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     enabled: !!resource && !!eventsApiPath,
   });
 
-  // Run diagnosis (sync)
-  const baseDiagnoses = React.useMemo<Diagnosis[]>(() => {
-    if (!resource) return [];
-    return diagnoseResource(resource);
-  }, [resource]);
-
-  // Enrich with log analysis (async)
-  const [diagnoses, setDiagnoses] = React.useState<Diagnosis[]>([]);
-  React.useEffect(() => {
-    setDiagnoses(baseDiagnoses);
-    if (baseDiagnoses.length > 0 && resource) {
-      enrichDiagnosesWithLogs(resource, baseDiagnoses).then(setDiagnoses).catch(() => {});
-    }
-  }, [baseDiagnoses, resource]);
-
   // Sort events by timestamp
   const sortedEvents = React.useMemo(() => {
     return [...events].sort((a, b) => {
@@ -165,20 +147,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     return related;
   }, [resource, namespace]);
 
-  const handleApplyFix = async (diagnosis: Diagnosis) => {
-    if (!diagnosis.fix) return;
-    setActionLoading('fix');
-    try {
-      await k8sPatch(diagnosis.fix.patchTarget, diagnosis.fix.patch as any, diagnosis.fix.patchType);
-      addToast({ type: 'success', title: 'Fix applied', detail: diagnosis.fix.label });
-      queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
-    } catch (err) {
-      addToast({ type: 'error', title: 'Fix failed', detail: err instanceof Error ? err.message : 'Unknown error' });
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
   const handleDelete = async () => {
     if (!resource) return;
@@ -486,7 +454,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                 resource.kind === 'Node' ? { icon: <FileText className="w-3.5 h-3.5" />, label: 'Node Logs', onClick: () => go(`/node-logs/${name}`, `${name} (Logs)`) } : null,
                 { icon: <Activity className="w-3.5 h-3.5" />, label: 'Metrics', onClick: handleViewMetrics },
                 namespace ? { icon: <GitBranch className="w-3.5 h-3.5" />, label: 'Dependencies', onClick: () => go(`/deps/${gvrUrl}/${namespace}/${name}`, `${name} (Deps)`) } : null,
-                namespace ? { icon: <Search className="w-3.5 h-3.5" />, label: 'Investigate', onClick: () => go(`/investigate/${gvrUrl}/${namespace}/${name}`, `${name} (Investigate)`) } : null,
                 'separator',
                 { icon: <Trash2 className="w-3.5 h-3.5 text-red-400" />, label: 'Delete', onClick: () => setShowDeleteConfirm(true), danger: true },
               ]}
@@ -494,73 +461,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           </div>
         </div>
 
-        {/* Diagnosis Box */}
-        {diagnoses.length > 0 && (
-          <div className="bg-slate-900 rounded-lg border border-slate-800">
-            <div className="px-4 py-3 border-b border-slate-800">
-              <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-yellow-500" />
-                Diagnoses ({diagnoses.length})
-              </h2>
-            </div>
-            <div className="divide-y divide-slate-800">
-              {diagnoses.map((diagnosis, idx) => (
-                <div key={idx} className="px-4 py-3">
-                  <div className="flex items-start gap-3">
-                    {diagnosis.severity === 'critical' ? (
-                      <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                    ) : diagnosis.severity === 'warning' ? (
-                      <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-100 mb-1">
-                        {diagnosis.title}
-                      </p>
-                      <p className="text-sm text-slate-300 mb-2">{diagnosis.detail}</p>
-                      {diagnosis.suggestion && (
-                        <p className="text-xs text-slate-400 mb-2">
-                          💡 {diagnosis.suggestion}
-                        </p>
-                      )}
-                      {diagnosis.logSnippet && (
-                        <div className="mb-2 p-2 bg-slate-950 rounded border border-slate-700 max-h-32 overflow-auto">
-                          <div className="text-xs text-slate-500 mb-1">Error from logs:</div>
-                          <pre className="text-xs text-red-400 whitespace-pre-wrap font-mono">{diagnosis.logSnippet}</pre>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {diagnosis.fix && (
-                          <button
-                            onClick={() => handleApplyFix(diagnosis)}
-                            disabled={actionLoading === 'fix'}
-                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {actionLoading === 'fix' ? 'Applying...' : diagnosis.fix.label}
-                          </button>
-                        )}
-                        {resource?.kind === 'Pod' && namespace && (
-                          <button onClick={handleViewLogs} className="px-3 py-1 text-xs text-blue-400 hover:text-blue-300 border border-slate-700 rounded hover:border-slate-600">
-                            View Logs
-                          </button>
-                        )}
-                        <button onClick={handleViewYaml} className="px-3 py-1 text-xs text-slate-400 hover:text-slate-300 border border-slate-700 rounded hover:border-slate-600">
-                          Edit YAML
-                        </button>
-                        {namespace && (
-                          <button onClick={() => go(`/investigate/${gvrUrl}/${namespace}/${name}`, `${name} (Investigate)`)} className="px-3 py-1 text-xs text-slate-400 hover:text-slate-300 border border-slate-700 rounded hover:border-slate-600">
-                            Dependencies
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {/* Detail tabs */}
         <div className="flex gap-1 bg-slate-900 rounded-lg p-1 w-fit">

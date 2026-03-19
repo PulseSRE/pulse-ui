@@ -24,7 +24,6 @@ describe('route modules', () => {
         'path="metrics/:gvr/:namespace/:name"',
         'path="metrics/:gvr/_/:name"',
         'path="create/:gvr"',
-        'path="investigate/:gvr/:namespace/:name"',
         'path="deps/:gvr/:namespace/:name"',
       ];
       for (const p of paths) {
@@ -34,7 +33,7 @@ describe('route modules', () => {
 
     it('lazy-loads heavy view components', () => {
       const lazyViews = [
-        'YamlEditorView', 'LogsView', 'MetricsView', 'CorrelationView',
+        'YamlEditorView', 'LogsView', 'MetricsView',
         'CreateView', 'DependencyView', 'NodeLogsView',
       ];
       for (const view of lazyViews) {

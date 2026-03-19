@@ -6,7 +6,6 @@ import DetailView from '../views/DetailView';
 const YamlEditorView = lazy(() => import('../views/YamlEditorView'));
 const LogsView = lazy(() => import('../views/LogsView'));
 const MetricsView = lazy(() => import('../views/MetricsView'));
-const CorrelationView = lazy(() => import('../views/CorrelationView'));
 const CreateView = lazy(() => import('../views/CreateView'));
 const DependencyView = lazy(() => import('../views/DependencyView'));
 const NodeLogsView = lazy(() => import('../views/NodeLogsView'));
@@ -85,16 +84,6 @@ function DependencyRoute() {
   );
 }
 
-function CorrelationRoute() {
-  const { gvr, namespace, name } = useParams<{ gvr: string; namespace?: string; name: string }>();
-  if (!gvr || !name) return <Navigate to="/pulse" replace />;
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <CorrelationView gvrKey={parseGvr(gvr)} namespace={namespace} name={name} />
-    </Suspense>
-  );
-}
-
 export function resourceRoutes() {
   return (
     <>
@@ -127,9 +116,6 @@ export function resourceRoutes() {
 
       {/* Create: /create/apps~v1~deployments */}
       <Route path="create/:gvr" element={<CreateRoute />} />
-
-      {/* Correlation view: /investigate/apps~v1~deployments/:namespace/:name */}
-      <Route path="investigate/:gvr/:namespace/:name" element={<CorrelationRoute />} />
 
       {/* Dependencies: /deps/apps~v1~deployments/:namespace/:name */}
       <Route path="deps/:gvr/:namespace/:name" element={<DependencyRoute />} />

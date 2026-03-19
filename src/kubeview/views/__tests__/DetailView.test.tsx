@@ -326,7 +326,7 @@ describe('DetailView', () => {
     });
   });
 
-  it('shows diagnoses for unhealthy pods (CrashLoopBackOff)', async () => {
+  it('does not show diagnosis box (removed for cleaner detail view)', async () => {
     const unhealthyPod = makePod({
       status: {
         phase: 'Running',
@@ -351,12 +351,9 @@ describe('DetailView', () => {
       expect(screen.getAllByText('my-pod').length).toBeGreaterThanOrEqual(1);
     });
 
-    // diagnoseResource should detect CrashLoopBackOff and show a diagnosis box
-    // The diagnosis box header says "Diagnoses (N)"
-    await waitFor(() => {
-      const diagHeading = screen.queryByText(/Diagnoses/);
-      expect(diagHeading).not.toBeNull();
-    });
+    // Diagnosis box was removed — detail view no longer shows diagnoses
+    const diagHeading = screen.queryByText(/Diagnoses/);
+    expect(diagHeading).toBeNull();
   });
 
   it('shows loading state initially', () => {
