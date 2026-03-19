@@ -138,7 +138,7 @@ export default function WelcomeView() {
         </div>
 
         {/* ── Footer ── */}
-        <footer className="flex items-center justify-center gap-3 text-xs text-slate-600 pb-2">
+        <footer className="flex items-center justify-center gap-3 text-sm text-slate-400 pb-6">
           <a
             href="https://github.com/alimobrem/OpenshiftPulse"
             target="_blank"
