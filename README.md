@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%231d4ed8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Ctext x='8' y='24' font-family='system-ui' font-weight='800' font-size='22' fill='white'%3ES%3C/text%3E%3Cpath d='M23 5l0.8-2.4L26.2 2l-2.4-0.8L23-1.2 22.2 1.2 19.8 2l2.4 0.8Z' fill='%2393c5fd'/%3E%3Cpath d='M27 9l0.5-1.5L29 7l-1.5-0.5L27 5l-0.5 1.5L25 7l1.5 0.5Z' fill='%2393c5fd' opacity='0.7'/%3E%3C/svg%3E" width="80" alt="ShiftOps">
+  <img src="docs/logo.svg" width="80" alt="ShiftOps">
 </p>
 
 <h1 align="center">ShiftOps</h1>
