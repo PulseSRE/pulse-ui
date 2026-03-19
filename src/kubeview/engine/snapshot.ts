@@ -13,7 +13,7 @@ export interface ClusterSnapshot {
   storageClasses: string[];
   namespaceCount: number;
   rbac?: {
-    clusterAdminSubjects: string[];
+    clusterAdminSubjectCount: number;
     clusterRoleBindingCount: number;
     roleBindingCount: number;
   };
@@ -59,8 +59,10 @@ async function fetchJson<T>(path: string): Promise<T | null> {
     const { impersonateUser, impersonateGroups } = useUIStore.getState();
     const headers: Record<string, string> = {};
     if (impersonateUser) {
-      headers['Impersonate-User'] = impersonateUser;
-      impersonateGroups.forEach((g, i) => { headers[`Impersonate-Group${i > 0 ? `-${i}` : ''}`] = g; });
+      headers['Impersonate-User'] = impersonateUser.replace(/[\r\n]/g, '');
+      if (impersonateGroups.length > 0) {
+        headers['Impersonate-Group'] = impersonateGroups.map(g => g.replace(/[\r\n]/g, '')).join(',');
+      }
     }
     const res = await fetch(`${BASE}${path}`, { headers });
     if (!res.ok) return null;
@@ -131,7 +133,8 @@ export async function captureSnapshot(label: string): Promise<ClusterSnapshot> {
       }
     }
     snapshot.rbac = {
-      clusterAdminSubjects: clusterAdminSubjects.sort(),
+      // Store only the count of cluster-admin subjects, not their names (security sensitive)
+      clusterAdminSubjectCount: clusterAdminSubjects.length,
       clusterRoleBindingCount: crbData?.items?.length || 0,
       roleBindingCount: rbData?.items?.length || 0,
     };
@@ -181,12 +184,7 @@ export function compareSnapshots(left: ClusterSnapshot, right: ClusterSnapshot):
     rows.push({ field: 'ClusterRoleBindings', category: 'RBAC', left: String(left.rbac.clusterRoleBindingCount), right: String(right.rbac.clusterRoleBindingCount), changed: left.rbac.clusterRoleBindingCount !== right.rbac.clusterRoleBindingCount });
     rows.push({ field: 'RoleBindings', category: 'RBAC', left: String(left.rbac.roleBindingCount), right: String(right.rbac.roleBindingCount), changed: left.rbac.roleBindingCount !== right.rbac.roleBindingCount });
 
-    const leftAdmins = new Set(left.rbac.clusterAdminSubjects);
-    const rightAdmins = new Set(right.rbac.clusterAdminSubjects);
-    const addedAdmins = right.rbac.clusterAdminSubjects.filter(a => !leftAdmins.has(a));
-    const removedAdmins = left.rbac.clusterAdminSubjects.filter(a => !rightAdmins.has(a));
-    if (addedAdmins.length > 0) rows.push({ field: 'Cluster-Admin Added', category: 'RBAC', left: '', right: addedAdmins.join(', '), changed: true });
-    if (removedAdmins.length > 0) rows.push({ field: 'Cluster-Admin Removed', category: 'RBAC', left: removedAdmins.join(', '), right: '', changed: true });
+    rows.push({ field: 'Cluster-Admin Subjects', category: 'RBAC', left: String(left.rbac.clusterAdminSubjectCount), right: String(right.rbac.clusterAdminSubjectCount), changed: left.rbac.clusterAdminSubjectCount !== right.rbac.clusterAdminSubjectCount });
   }
 
   if (left.config && right.config) {

@@ -125,6 +125,9 @@ export async function getMetricNames(): Promise<string[]> {
  * Get label values for a given label name
  */
 export async function getLabelValues(labelName: string): Promise<string[]> {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(labelName)) {
+    throw new Error(`Invalid Prometheus label name: ${labelName}`);
+  }
   const url = `${PROM_BASE}/api/v1/label/${labelName}/values`;
   const res = await fetch(url);
 

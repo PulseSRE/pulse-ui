@@ -297,7 +297,8 @@ export default function LogStream({
   const highlightMatch = (text: string, query: string) => {
     if (!query || query.startsWith('-')) return text;
 
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return parts.map((part, i) =>
       part.toLowerCase() === query.toLowerCase() ? (
         <span key={i} className="bg-amber-900/50 rounded px-0.5">

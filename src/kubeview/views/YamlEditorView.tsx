@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { buildApiPath } from '../hooks/useResourceUrl';
+import { getImpersonationHeaders } from '../engine/query';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
 import { resourceToYaml } from '../engine/yamlUtils';
@@ -26,7 +27,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   const { data: resource, isLoading, error } = useQuery({
     queryKey: ['k8s', 'get', apiPath],
     queryFn: async () => {
-      const res = await fetch(fetchUrl);
+      const res = await fetch(fetchUrl, { headers: getImpersonationHeaders() });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.json();
     },
@@ -54,7 +55,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
     try {
       const res = await fetch(fetchUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/yaml' },
+        headers: { 'Content-Type': 'application/yaml', ...getImpersonationHeaders() },
         body: currentYaml,
       });
       if (!res.ok) {

@@ -223,13 +223,23 @@ export function HelmTab() {
 
   const handleInstall = async () => {
     if (!selectedChart || !releaseName.trim()) return;
+    const sanitizedName = releaseName.trim();
+    if (!/^[a-z0-9][a-z0-9-]{0,52}$/.test(sanitizedName)) {
+      addToast({ type: 'error', title: 'Invalid release name', detail: 'Must start with a lowercase letter or number, contain only lowercase letters, numbers, and hyphens, and be at most 53 characters.' });
+      return;
+    }
+    const repoUrl = selectedChart.repoUrl || DEFAULT_REPO_URL;
+    if (!/^https?:\/\/.+/.test(repoUrl)) {
+      addToast({ type: 'error', title: 'Invalid chart repo URL', detail: 'Repository URL must start with http:// or https://' });
+      return;
+    }
     setInstalling(selectedChart.name);
     try {
       const job = {
         apiVersion: 'batch/v1',
         kind: 'Job',
         metadata: {
-          name: `helm-install-${releaseName.trim()}`,
+          name: `helm-install-${sanitizedName}`,
           namespace: ns,
           labels: { app: 'helm-install', chart: selectedChart.name },
         },
@@ -242,7 +252,7 @@ export function HelmTab() {
               containers: [{
                 name: 'helm',
                 image: 'alpine/helm:latest',
-                command: ['sh', '-c', `helm repo add chart-repo ${selectedChart.repoUrl || DEFAULT_REPO_URL} 2>/dev/null; helm install ${releaseName.trim()} chart-repo/${selectedChart.name} --namespace ${ns} --wait --timeout 5m`],
+                command: ['helm', 'install', sanitizedName, selectedChart.name, '--repo', repoUrl, '--namespace', ns, '--wait', '--timeout', '5m'],
               }],
             },
           },
@@ -260,8 +270,8 @@ export function HelmTab() {
         throw new Error(err.message);
       }
 
-      addToast({ type: 'success', title: `Helm install started`, detail: `${selectedChart.name} as "${releaseName}" in ${ns}` });
-      setInstalledJob({ name: `helm-install-${releaseName.trim()}`, ns });
+      addToast({ type: 'success', title: `Helm install started`, detail: `${selectedChart.name} as "${sanitizedName}" in ${ns}` });
+      setInstalledJob({ name: `helm-install-${sanitizedName}`, ns });
       setSelectedChart(null);
       setReleaseName('');
     } catch (err) {

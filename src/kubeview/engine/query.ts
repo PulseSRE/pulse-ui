@@ -13,15 +13,20 @@ export function sanitizePromQL(value: string): string {
   return value.replace(/[^a-zA-Z0-9_\-./]/g, '');
 }
 
+/** Sanitize a header value to prevent CRLF injection */
+function sanitizeHeaderValue(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
 /**
  * Get impersonation headers if impersonation is active.
  */
-function getImpersonationHeaders(): Record<string, string> {
+export function getImpersonationHeaders(): Record<string, string> {
   const { impersonateUser, impersonateGroups } = useUIStore.getState();
   if (!impersonateUser) return {};
-  const headers: Record<string, string> = { 'Impersonate-User': impersonateUser };
+  const headers: Record<string, string> = { 'Impersonate-User': sanitizeHeaderValue(impersonateUser) };
   if (impersonateGroups.length > 0) {
-    headers['Impersonate-Group'] = impersonateGroups.join(',');
+    headers['Impersonate-Group'] = impersonateGroups.map(sanitizeHeaderValue).join(',');
   }
   return headers;
 }

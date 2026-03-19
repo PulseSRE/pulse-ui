@@ -47,7 +47,7 @@ export default function NodeLogsView() {
         // Parse file links from HTML directory listing
         const links = [...html.matchAll(/href="([^"]+)"/g)]
           .map((m) => m[1])
-          .filter((f) => !f.startsWith('/') && f !== '../' && !f.endsWith('/'))
+          .filter((f) => !f.startsWith('/') && f !== '../' && !f.endsWith('/') && /^[a-zA-Z0-9._-]+$/.test(f))
           .sort()
           .reverse();
         setFiles(links);

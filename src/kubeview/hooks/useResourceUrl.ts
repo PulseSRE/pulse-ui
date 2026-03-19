@@ -76,8 +76,8 @@ export function buildApiPathFromResource(resource: {
   const plural = kindToPlural(kind);
 
   let path = group ? `/apis/${apiVersion}` : `/api/${version}`;
-  if (metadata.namespace) path += `/namespaces/${metadata.namespace}`;
-  path += `/${plural}/${metadata.name}`;
+  if (metadata.namespace) path += `/namespaces/${sanitizePathSegment(metadata.namespace)}`;
+  path += `/${plural}/${sanitizePathSegment(metadata.name)}`;
   return path;
 }
 
