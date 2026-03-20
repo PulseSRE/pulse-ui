@@ -146,6 +146,8 @@ export default function AdminView() {
   const cvChannel = clusterVersion?.spec?.channel || '';
   const platform = infra?.status?.platform || infra?.status?.platformStatus?.type || '';
   const apiUrl = infra?.status?.apiServerURL || '';
+  const controlPlaneTopology = infra?.status?.controlPlaneTopology || '';
+  const isHyperShift = controlPlaneTopology === 'External';
   const availableUpdates = clusterVersion?.status?.availableUpdates || [];
   const isUpdating = (clusterVersion?.status?.conditions || []).some((c: any) => c.type === 'Progressing' && c.status === 'True');
 
@@ -443,6 +445,7 @@ export default function AdminView() {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <InfoCard label="Cluster Version" value={cvVersion || '—'} sub={cvChannel} />
               <InfoCard label="Platform" value={platform || '—'} sub={(() => { try { return apiUrl ? new URL(apiUrl).hostname : ''; } catch { return ''; } })()} />
+              <InfoCard label="Control Plane" value={isHyperShift ? 'Hosted (External)' : controlPlaneTopology ? `Self-managed (${controlPlaneTopology})` : '—'} sub={isHyperShift ? 'Managed externally' : ''} />
               <InfoCard label="Cluster Age" value={clusterAge?.label || '—'} sub={clusterAge?.date ? new Date(clusterAge.date).toLocaleDateString() : ''} />
               <button onClick={() => go('/compute', 'Compute')} className="text-left">
                 <InfoCard label="Nodes" value={String(nodes.length)} sub={`${nodeRoles.map(([r, c]) => `${c} ${r}`).join(', ')} →`} />
@@ -790,7 +793,7 @@ export default function AdminView() {
                       { label: 'All nodes ready', pass: allNodesReady, detail: allNodesReady ? `${nodes.length}/${nodes.length} ready` : `${readyNodes.length}/${nodes.length} ready — fix unready nodes first` },
                       { label: 'No degraded operators', pass: allOpsHealthy, detail: allOpsHealthy ? `${operators.length} operators healthy` : `${degradedOps.length} degraded: ${degradedOps.slice(0, 3).map((o: any) => o.metadata.name).join(', ')}` },
                       { label: 'Stable update channel', pass: channelStable, detail: channelStable ? `Channel: ${cvChannel}` : `Channel "${cvChannel}" — consider switching to stable for production` },
-                      { label: 'Etcd backup', pass: !!etcdBackupExists, detail: etcdBackupExists ? 'Backup schedule configured' : 'No automated backup configured — take a manual backup: ssh to control plane → /usr/local/bin/cluster-backup.sh /home/core/backup' },
+                      { label: 'Etcd backup', pass: isHyperShift || !!etcdBackupExists, detail: isHyperShift ? 'Managed by hosting provider' : etcdBackupExists ? 'Backup schedule configured' : 'No automated backup configured — take a manual backup: ssh to control plane → /usr/local/bin/cluster-backup.sh /home/core/backup' },
                       { label: 'PodDisruptionBudgets', pass: pdbCoverage, detail: userDeploys.length === 0 ? 'No multi-replica user deployments' : `${deploysWithPDB.length}/${userDeploys.length} multi-replica deployments have PDBs` },
                     ];
 

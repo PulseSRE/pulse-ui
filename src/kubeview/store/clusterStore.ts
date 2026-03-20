@@ -22,12 +22,17 @@ interface ClusterState {
   kubernetesVersion: string | null;
   platform: string | null;
 
+  // HyperShift / Hosted Control Plane
+  controlPlaneTopology: string | null;
+  isHyperShift: boolean;
+
   // Actions
   runDiscovery: () => Promise<void>;
   setClusterInfo: (info: {
     version?: string;
     kubernetesVersion?: string;
     platform?: string;
+    controlPlaneTopology?: string;
   }) => void;
 }
 
@@ -42,6 +47,10 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   clusterVersion: null,
   kubernetesVersion: null,
   platform: null,
+
+  // HyperShift / Hosted Control Plane
+  controlPlaneTopology: null,
+  isHyperShift: false,
 
   // Actions
   runDiscovery: async () => {
@@ -63,10 +72,13 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   },
 
   setClusterInfo: (info) => {
+    const topology = info.controlPlaneTopology ?? get().controlPlaneTopology;
     set({
       clusterVersion: info.version ?? get().clusterVersion,
       kubernetesVersion: info.kubernetesVersion ?? get().kubernetesVersion,
       platform: info.platform ?? get().platform,
+      controlPlaneTopology: topology,
+      isHyperShift: topology === 'External',
     });
   },
 }));

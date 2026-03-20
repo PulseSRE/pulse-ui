@@ -23,6 +23,8 @@ function resetStore() {
     clusterVersion: null,
     kubernetesVersion: null,
     platform: null,
+    controlPlaneTopology: null,
+    isHyperShift: false,
   });
 }
 
@@ -132,6 +134,47 @@ describe('clusterStore', () => {
       expect(state.clusterVersion).toBe('4.17');
       expect(state.kubernetesVersion).toBe('1.30');
       expect(state.platform).toBe('AWS');
+    });
+  });
+
+  describe('HyperShift detection', () => {
+    it('starts with isHyperShift false', () => {
+      expect(useClusterStore.getState().isHyperShift).toBe(false);
+    });
+
+    it('starts with controlPlaneTopology null', () => {
+      expect(useClusterStore.getState().controlPlaneTopology).toBeNull();
+    });
+
+    it('sets isHyperShift true when controlPlaneTopology is External', () => {
+      useClusterStore.getState().setClusterInfo({ controlPlaneTopology: 'External' });
+      expect(useClusterStore.getState().isHyperShift).toBe(true);
+      expect(useClusterStore.getState().controlPlaneTopology).toBe('External');
+    });
+
+    it('sets isHyperShift false when controlPlaneTopology is HighlyAvailable', () => {
+      useClusterStore.getState().setClusterInfo({ controlPlaneTopology: 'HighlyAvailable' });
+      expect(useClusterStore.getState().isHyperShift).toBe(false);
+      expect(useClusterStore.getState().controlPlaneTopology).toBe('HighlyAvailable');
+    });
+
+    it('sets isHyperShift false when controlPlaneTopology is SingleReplica', () => {
+      useClusterStore.getState().setClusterInfo({ controlPlaneTopology: 'SingleReplica' });
+      expect(useClusterStore.getState().isHyperShift).toBe(false);
+    });
+
+    it('preserves controlPlaneTopology when updating other fields', () => {
+      useClusterStore.getState().setClusterInfo({ controlPlaneTopology: 'External' });
+      useClusterStore.getState().setClusterInfo({ version: '4.17' });
+      expect(useClusterStore.getState().isHyperShift).toBe(true);
+      expect(useClusterStore.getState().controlPlaneTopology).toBe('External');
+    });
+
+    it('can transition from External to HighlyAvailable', () => {
+      useClusterStore.getState().setClusterInfo({ controlPlaneTopology: 'External' });
+      expect(useClusterStore.getState().isHyperShift).toBe(true);
+      useClusterStore.getState().setClusterInfo({ controlPlaneTopology: 'HighlyAvailable' });
+      expect(useClusterStore.getState().isHyperShift).toBe(false);
     });
   });
 });

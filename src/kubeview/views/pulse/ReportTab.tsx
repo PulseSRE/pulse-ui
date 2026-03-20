@@ -14,6 +14,7 @@ import { MetricCard } from '../../components/metrics/Sparkline';
 import { diagnoseResource, type Diagnosis } from '../../engine/diagnosis';
 import { resourceDetailUrl } from '../../engine/gvr';
 import type { K8sResource } from '../../engine/renderers';
+import { useClusterStore } from '../../store/clusterStore';
 
 const SYSTEM_NS_PREFIXES = ['openshift-', 'kube-', 'default', 'openshift'];
 function isSystemNamespace(ns?: string): boolean {
@@ -123,6 +124,7 @@ export interface ReportTabProps {
 }
 
 export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: ReportTabProps) {
+  const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
@@ -312,6 +314,19 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   // Control plane operators
   const controlPlaneOps = useMemo(() => {
     const cpNames = ['kube-apiserver', 'etcd', 'authentication', 'kube-controller-manager', 'kube-scheduler'];
+    if (isHyperShift) {
+      // On HyperShift, only show CP operators that actually exist in the cluster
+      return cpNames
+        .map(name => {
+          const op = operators.find((o: any) => o.metadata.name === name);
+          if (!op) return null;
+          const conditions = (op as any).status?.conditions || [];
+          const available = conditions.some((c: any) => c.type === 'Available' && c.status === 'True');
+          const degraded = conditions.some((c: any) => c.type === 'Degraded' && c.status === 'True');
+          return { name, available, degraded, found: true };
+        })
+        .filter((op): op is NonNullable<typeof op> => op !== null);
+    }
     return cpNames.map(name => {
       const op = operators.find((o: any) => o.metadata.name === name);
       if (!op) return { name, available: false, degraded: false, found: false };
@@ -320,7 +335,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
       const degraded = conditions.some((c: any) => c.type === 'Degraded' && c.status === 'True');
       return { name, available, degraded, found: true };
     });
-  }, [operators]);
+  }, [operators, isHyperShift]);
 
   // Diagnosed resources (for Zone 3 issues)
   const diagnosedResources = useMemo(() => {
@@ -417,7 +432,17 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
 
           {/* Control plane status */}
           <div className="lg:col-span-4 bg-slate-900 rounded-lg border border-slate-800 p-4">
-            <div className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-3">Control Plane</div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Control Plane</span>
+              {isHyperShift && (
+                <span className="text-xs px-2 py-0.5 bg-blue-900/60 text-blue-300 rounded-full border border-blue-700/50" title="Control plane managed externally. etcd, API server, and scheduler run in a management cluster.">
+                  Hosted Control Plane
+                </span>
+              )}
+            </div>
+            {isHyperShift && controlPlaneOps.length === 0 ? (
+              <div className="text-xs text-slate-500 italic mb-4">Control plane operators managed externally</div>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
               {controlPlaneOps.map(op => (
                 <button key={op.name} onClick={() => go(`/r/config.openshift.io~v1~clusteroperators/_/${op.name}`, op.name)} className="flex items-center gap-2 hover:bg-slate-800/50 rounded px-1.5 py-1 -mx-1.5 transition-colors text-left">
@@ -426,6 +451,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                 </button>
               ))}
             </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded hover:bg-slate-800 transition-colors text-left">

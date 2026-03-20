@@ -111,7 +111,7 @@ describe('AdminView', () => {
 
   it('shows control plane panel on overview', () => {
     renderAdmin();
-    expect(screen.getByText('Control Plane')).toBeDefined();
+    expect(screen.getAllByText('Control Plane').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows identity providers panel on overview', () => {

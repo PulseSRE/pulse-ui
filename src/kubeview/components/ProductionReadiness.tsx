@@ -8,6 +8,7 @@ import {
 import { cn } from '@/lib/utils';
 import { k8sGet, k8sList } from '../engine/query';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { useClusterStore } from '../store/clusterStore';
 
 interface Check {
   id: string;
@@ -21,6 +22,7 @@ interface Check {
 
 export default function ProductionReadiness() {
   const go = useNavigateTab();
+  const isHyperShift = useClusterStore((s) => s.isHyperShift);
 
   // Fetch all the data we need
   const { data: nodes = [] } = useQuery<any[]>({
@@ -162,18 +164,28 @@ export default function ProductionReadiness() {
     const subNames = (subscriptions || []).map((s: any) => (s.spec?.name || s.metadata?.name || '').toLowerCase());
 
     // INFRASTRUCTURE
-    const controlPlaneNodes = nodes.filter((n: any) => {
-      const labels = n.metadata?.labels || {};
-      return Object.keys(labels).some(k => k.includes('master') || k.includes('control-plane'));
-    });
-    results.push({
-      id: 'ha-control-plane', category: 'Infrastructure',
-      title: 'High Availability Control Plane',
-      description: 'At least 3 control plane nodes for fault tolerance',
-      status: controlPlaneNodes.length >= 3 ? 'pass' : controlPlaneNodes.length > 0 ? 'warn' : 'fail',
-      detail: `${controlPlaneNodes.length} control plane node${controlPlaneNodes.length !== 1 ? 's' : ''}`,
-      action: { label: 'View Nodes', path: '/compute' },
-    });
+    if (isHyperShift) {
+      results.push({
+        id: 'ha-control-plane', category: 'Infrastructure',
+        title: 'Hosted Control Plane',
+        description: 'Control plane managed externally by hosting provider',
+        status: 'pass',
+        detail: 'Managed externally — etcd, API server, and scheduler run in a management cluster',
+      });
+    } else {
+      const controlPlaneNodes = nodes.filter((n: any) => {
+        const labels = n.metadata?.labels || {};
+        return Object.keys(labels).some(k => k.includes('master') || k.includes('control-plane'));
+      });
+      results.push({
+        id: 'ha-control-plane', category: 'Infrastructure',
+        title: 'High Availability Control Plane',
+        description: 'At least 3 control plane nodes for fault tolerance',
+        status: controlPlaneNodes.length >= 3 ? 'pass' : controlPlaneNodes.length > 0 ? 'warn' : 'fail',
+        detail: `${controlPlaneNodes.length} control plane node${controlPlaneNodes.length !== 1 ? 's' : ''}`,
+        action: { label: 'View Nodes', path: '/compute' },
+      });
+    }
 
     const workerNodes = nodes.filter((n: any) => {
       const labels = n.metadata?.labels || {};
@@ -428,10 +440,10 @@ export default function ProductionReadiness() {
     results.push({
       id: 'etcd-backup', category: 'Reliability',
       title: 'Etcd Backup',
-      description: 'Etcd stores all cluster state (resources, secrets, config). Without backups, a failed etcd means rebuilding the entire cluster. Schedule automated backups to a secure external location.',
-      status: etcdBackup ? 'pass' : 'warn',
-      detail: etcdBackup ? 'Backup configured' : 'No automated backup configured. Run periodic backups via CronJob or use OADP (OpenShift API for Data Protection). Manual backup: ssh to a control plane node and run /usr/local/bin/cluster-backup.sh /home/core/backup',
-      action: etcdBackup ? undefined : { label: 'Setup OADP', path: '/create/v1~pods?tab=operators&q=oadp' },
+      description: isHyperShift ? 'Etcd backups are managed by the hosting provider on hosted control plane clusters.' : 'Etcd stores all cluster state (resources, secrets, config). Without backups, a failed etcd means rebuilding the entire cluster. Schedule automated backups to a secure external location.',
+      status: isHyperShift ? 'pass' : etcdBackup ? 'pass' : 'warn',
+      detail: isHyperShift ? 'Managed by hosting provider' : etcdBackup ? 'Backup configured' : 'No automated backup configured. Run periodic backups via CronJob or use OADP (OpenShift API for Data Protection). Manual backup: ssh to a control plane node and run /usr/local/bin/cluster-backup.sh /home/core/backup',
+      action: isHyperShift || etcdBackup ? undefined : { label: 'Setup OADP', path: '/create/v1~pods?tab=operators&q=oadp' },
     });
 
     // OPERATORS / OBSERVABILITY STACK
@@ -502,7 +514,7 @@ export default function ProductionReadiness() {
     }
 
     return results;
-  }, [nodes, clusterVersion, oauth, apiServer, storageClasses, netpols, quotas, healthChecks, clusterAutoscaler, kubeadminSecret, monitoringPods, logForwarder, ingress, imageRegistry, limitRanges, pdbs, externalSecrets, sealedSecrets, proxy, etcdBackup, subscriptions]);
+  }, [nodes, clusterVersion, oauth, apiServer, storageClasses, netpols, quotas, healthChecks, clusterAutoscaler, kubeadminSecret, monitoringPods, logForwarder, ingress, imageRegistry, limitRanges, pdbs, externalSecrets, sealedSecrets, proxy, etcdBackup, subscriptions, isHyperShift]);
 
   // Summary
   const passCount = checks.filter(c => c.status === 'pass').length;

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useUIStore } from '../store/uiStore';
+import { useClusterStore } from '../store/clusterStore';
 import { k8sList } from '../engine/query';
 import { getPodStatus } from '../engine/renderers/statusUtils';
 import { cn } from '@/lib/utils';
@@ -31,11 +32,12 @@ export function CommandBar() {
         fetch('/api/kubernetes/apis/config.openshift.io/v1/infrastructures/cluster'),
         fetch('/api/kubernetes/apis/user.openshift.io/v1/users/~'),
       ]);
-      let name = 'cluster', platform = '';
+      let name = 'cluster', platform = '', controlPlaneTopology = '';
       if (infraRes.status === 'fulfilled' && infraRes.value.ok) {
         const data = await infraRes.value.json();
         name = data.status?.infrastructureName || 'cluster';
         platform = data.status?.platform || data.status?.platformStatus?.type || '';
+        controlPlaneTopology = data.status?.controlPlaneTopology || '';
       }
       let username = 'admin', role = 'Cluster Administrator';
       if (userRes.status === 'fulfilled' && userRes.value.ok) {
@@ -45,7 +47,9 @@ export function CommandBar() {
         role = groups.includes('cluster-admins') || groups.includes('system:cluster-admins')
           ? 'Cluster Administrator' : 'User';
       }
-      return { name, platform, username, role };
+      // Populate cluster store with topology info
+      useClusterStore.getState().setClusterInfo({ platform, controlPlaneTopology });
+      return { name, platform, username, role, controlPlaneTopology };
     },
     staleTime: 300000,
   });

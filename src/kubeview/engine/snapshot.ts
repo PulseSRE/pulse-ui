@@ -7,6 +7,7 @@ export interface ClusterSnapshot {
   timestamp: string;
   clusterVersion: string;
   platform: string;
+  controlPlaneTopology: string;
   nodes: { count: number; versions: string[] };
   clusterOperators: Array<{ name: string; version: string; available: boolean; degraded: boolean }>;
   crds: string[];
@@ -77,6 +78,7 @@ export async function captureSnapshot(label: string): Promise<ClusterSnapshot> {
     timestamp: new Date().toISOString(),
     clusterVersion: '',
     platform: '',
+    controlPlaneTopology: '',
     nodes: { count: 0, versions: [] },
     clusterOperators: [],
     crds: [],
@@ -102,7 +104,10 @@ export async function captureSnapshot(label: string): Promise<ClusterSnapshot> {
   ]);
 
   if (cv) snapshot.clusterVersion = cv.status?.desired?.version || cv.status?.history?.[0]?.version || '';
-  if (infra) snapshot.platform = infra.status?.platform || infra.status?.platformStatus?.type || '';
+  if (infra) {
+    snapshot.platform = infra.status?.platform || infra.status?.platformStatus?.type || '';
+    snapshot.controlPlaneTopology = infra.status?.controlPlaneTopology || '';
+  }
   if (nodesData?.items) {
     snapshot.nodes.count = nodesData.items.length;
     const versions = new Set<string>();
@@ -152,6 +157,7 @@ export function compareSnapshots(left: ClusterSnapshot, right: ClusterSnapshot):
   const rows: DiffRow[] = [];
   rows.push({ field: 'Cluster Version', category: 'Cluster', left: left.clusterVersion, right: right.clusterVersion, changed: left.clusterVersion !== right.clusterVersion });
   rows.push({ field: 'Platform', category: 'Cluster', left: left.platform, right: right.platform, changed: left.platform !== right.platform });
+  rows.push({ field: 'Control Plane Topology', category: 'Cluster', left: left.controlPlaneTopology || '—', right: right.controlPlaneTopology || '—', changed: (left.controlPlaneTopology || '') !== (right.controlPlaneTopology || '') });
   rows.push({ field: 'Node Count', category: 'Nodes', left: String(left.nodes.count), right: String(right.nodes.count), changed: left.nodes.count !== right.nodes.count });
   rows.push({ field: 'Kubelet Versions', category: 'Nodes', left: left.nodes.versions.join(', '), right: right.nodes.versions.join(', '), changed: left.nodes.versions.join(',') !== right.nodes.versions.join(',') });
   rows.push({ field: 'Namespace Count', category: 'Cluster', left: String(left.namespaceCount), right: String(right.namespaceCount), changed: left.namespaceCount !== right.namespaceCount });

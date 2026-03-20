@@ -12,6 +12,7 @@ import type { K8sResource } from '../engine/renderers';
 import { getNodeStatus } from '../engine/renderers/statusUtils';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
+import { useClusterStore } from '../store/clusterStore';
 
 function parseQuantity(q: string | undefined): number {
   if (!q) return 0;
@@ -700,22 +701,24 @@ function ComputeHealthAudit({
   nodeDetails: Array<{ node: any; status: any; roles: string[]; nodeInfo: any; name: string }>;
   go: (path: string, title: string) => void;
 }) {
+  const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
 
   const checks: AuditCheck[] = React.useMemo(() => {
     const allChecks: AuditCheck[] = [];
 
-    // 1. HA Control Plane
-    const masterNodes = nodeDetails.filter(nd => nd.roles.includes('master') || nd.roles.includes('control-plane'));
-    const hasHA = masterNodes.length >= 3;
-    allChecks.push({
-      id: 'ha-control-plane',
-      title: 'HA Control Plane',
-      description: 'Production clusters should have 3+ control plane nodes for high availability',
-      why: 'etcd requires an odd-numbered quorum (3 or 5 nodes). With fewer than 3 masters, losing a single node causes cluster failure. 3 masters can tolerate 1 failure; 5 can tolerate 2.',
-      passing: hasHA ? masterNodes : [],
-      failing: hasHA ? [] : masterNodes,
-      yamlExample: `# Control plane nodes are provisioned during cluster installation.
+    // 1. HA Control Plane (skip on HyperShift — CP is external)
+    if (!isHyperShift) {
+      const masterNodes = nodeDetails.filter(nd => nd.roles.includes('master') || nd.roles.includes('control-plane'));
+      const hasHA = masterNodes.length >= 3;
+      allChecks.push({
+        id: 'ha-control-plane',
+        title: 'HA Control Plane',
+        description: 'Production clusters should have 3+ control plane nodes for high availability',
+        why: 'etcd requires an odd-numbered quorum (3 or 5 nodes). With fewer than 3 masters, losing a single node causes cluster failure. 3 masters can tolerate 1 failure; 5 can tolerate 2.',
+        passing: hasHA ? masterNodes : [],
+        failing: hasHA ? [] : masterNodes,
+        yamlExample: `# Control plane nodes are provisioned during cluster installation.
 # To scale control plane nodes post-install, you must:
 # 1. Create new master Machines via MachineSet
 # 2. Update etcd members
@@ -723,16 +726,17 @@ function ComputeHealthAudit({
 #
 # For production clusters, always install with 3 or 5 control plane nodes.
 # Single-node OpenShift is for dev/test only.`,
-    });
+      });
+    }
 
     // 2. Dedicated Worker Nodes
     const workerNodes = nodeDetails.filter(nd => nd.roles.includes('worker') && !nd.roles.includes('master') && !nd.roles.includes('control-plane'));
-    const hasWorkers = workerNodes.length >= 2;
+    const hasWorkers = isHyperShift ? workerNodes.length >= 1 : workerNodes.length >= 2;
     allChecks.push({
       id: 'dedicated-workers',
-      title: 'Dedicated Worker Nodes',
-      description: 'Production workloads should run on 2+ dedicated worker nodes (not on masters)',
-      why: 'Running application pods on control plane nodes creates resource contention with etcd and apiserver. Control plane stability is critical — separating workloads protects cluster availability.',
+      title: isHyperShift ? 'Worker Nodes' : 'Dedicated Worker Nodes',
+      description: isHyperShift ? 'Worker nodes for workload scheduling (all nodes are workers on hosted clusters)' : 'Production workloads should run on 2+ dedicated worker nodes (not on masters)',
+      why: isHyperShift ? 'On HyperShift clusters, all visible nodes are workers. The control plane runs externally in a management cluster.' : 'Running application pods on control plane nodes creates resource contention with etcd and apiserver. Control plane stability is critical — separating workloads protects cluster availability.',
       passing: hasWorkers ? workerNodes : [],
       failing: hasWorkers ? [] : workerNodes,
       yamlExample: `# Worker nodes are created via MachineSets.
@@ -883,7 +887,7 @@ spec:
     });
 
     return allChecks;
-  }, [nodes, healthChecks, clusterAutoscaler, machineAutoscalers, nodeDetails]);
+  }, [nodes, healthChecks, clusterAutoscaler, machineAutoscalers, nodeDetails, isHyperShift]);
 
   if (nodes.length === 0) return null;
 
