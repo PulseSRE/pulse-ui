@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v4.2.0"><img src="https://img.shields.io/badge/version-v4.2.0-blue" alt="Version"></a>
   <img src="https://img.shields.io/badge/tests-1269%20passed-brightgreen" alt="Tests">
-  <img src="https://img.shields.io/badge/health%20checks-77-orange" alt="Health Checks">
+  <img src="https://img.shields.io/badge/health%20checks-77+(31+cluster+%2B+46+domain)-orange" alt="Health Checks">
   <img src="https://img.shields.io/badge/security%20audit-passed-green" alt="Security Audit">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
@@ -25,7 +25,7 @@ Built with React, TypeScript, and real-time Kubernetes APIs. Every view is auto-
 | Requirement | Version |
 |-------------|---------|
 | **OpenShift** | 4.12+ (including ROSA, ARO, HyperShift) |
-| **Node.js** | 18+ |
+| **Node.js** | 24+ |
 | **oc CLI** | 4.12+ |
 | **Browser** | Modern browser with WebSocket support |
 
@@ -54,7 +54,7 @@ Built with React, TypeScript, and real-time Kubernetes APIs. Every view is auto-
 
 | | Feature | Details |
 |---|---------|---------|
-| | **76 Health Checks** | Automated cluster readiness + domain-specific audits with YAML fix examples |
+| | **77 Health Checks** | Automated cluster readiness (31) + domain-specific audits (46) with YAML fix examples |
 | | **Daily Briefing** | Risk score ring, control plane status, certificate expiry, attention items with remediation steps |
 | | **HyperShift Support** | Auto-detects hosted control plane clusters, adapts health checks, hides irrelevant Machine API panels |
 | | **Incident Correlation Timeline** | Unified timeline merging alerts, events, rollouts, and config changes with correlation groups |
@@ -94,7 +94,7 @@ Built with React, TypeScript, and real-time Kubernetes APIs. Every view is auto-
 
 ## Features
 
-### Health Audits (45 Domain Checks + 31 Cluster Checks = 76 Total)
+### Health Audits (46 Domain Checks + 31 Cluster Checks = 77 Total)
 Each overview view has an expandable audit with score %, per-resource pass/fail, "Why it matters" explanations, YAML fix examples, and direct "Edit YAML" links.
 
 - **Workloads (6)**: Resource limits, liveness probes, readiness probes, PDBs, replicas, rolling update strategy
@@ -189,7 +189,7 @@ CodeMirror with K8s autocomplete, YAML linting, Schema panel (from CRD OpenAPI),
 | **State** | Zustand (client) + TanStack Query (server) |
 | **Real-time** | WebSocket watches + 60s polling fallback |
 | **Styling** | Tailwind CSS 3.4 |
-| **Types** | 30+ typed K8s interfaces (`engine/types/`) |
+| **Types** | 50+ typed K8s interfaces (`engine/types/`) |
 | **Testing** | Vitest + jsdom (1269 tests, 71 files) |
 | **Icons** | Lucide React (icon registry, ~50 icons) |
 | **Charts** | Pure SVG sparklines (no chart library) |
@@ -229,10 +229,12 @@ Open http://localhost:9000. Clear `openshiftpulse-ui-storage` from localStorage 
 
 ## Deploy to OpenShift
 
+**Requires `cluster-admin` permissions** — the deployment creates cluster-scoped resources (ClusterRole, ClusterRoleBinding, OAuthClient).
+
 ### First-time setup
 
 ```bash
-# Log in to your cluster
+# Log in to your cluster (as cluster-admin)
 oc login --server=https://api.your-cluster.example.com:6443
 
 # Generate OAuth secrets
@@ -286,6 +288,28 @@ Helm auto-generates OAuth secrets, creates all RBAC/Service/Route resources, and
 
 ```bash
 npm run build && oc start-build openshiftpulse --from-dir=dist --follow -n openshiftpulse && oc rollout restart deployment/openshiftpulse -n openshiftpulse
+```
+
+### Uninstall
+
+```bash
+# Helm
+helm uninstall openshiftpulse -n openshiftpulse
+oc delete namespace openshiftpulse
+oc delete clusterrole openshiftpulse-reader
+oc delete clusterrolebinding openshiftpulse-reader
+oc delete oauthclient openshiftpulse
+
+# Manual (non-Helm)
+oc delete -f deploy/deployment.yaml
+```
+
+### Upgrade
+
+```bash
+npm run build
+oc start-build openshiftpulse --from-dir=dist --follow -n openshiftpulse
+oc rollout restart deployment/openshiftpulse -n openshiftpulse
 ```
 
 ### Security Model
@@ -406,12 +430,12 @@ Browser → OAuth Proxy (8443) → nginx (8080) → K8s API / Prometheus / Alert
 
 | Metric | Value |
 |--------|-------|
-| Production files | ~120 |
+| Production files | ~140 |
 | Tests | 1269 (100% passing) |
 | Test files | 71 |
 | Routes | 35 |
 | Views | 14 |
-| Health checks | 76 (31 cluster + 45 domain) |
+| Health checks | 77 (31 cluster + 46 domain) |
 | YAML templates | 30 + 71 context-aware snippets |
 | Operators in catalog | 500+ |
 | Error pattern detections | 10 |

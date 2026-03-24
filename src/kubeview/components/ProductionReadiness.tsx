@@ -609,7 +609,7 @@ export default function ProductionReadiness() {
             <Activity className="w-4 h-4 text-blue-400" />
             Domain Health Audits
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">36 additional checks across 6 domain views — click to view details</p>
+          <p className="text-xs text-slate-500 mt-0.5">46 additional checks across 7 domain views — click to view details</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-4">
           {[
@@ -619,7 +619,7 @@ export default function ProductionReadiness() {
             { label: 'Compute', checks: 6, desc: 'HA masters, workers, MHCs, pressure, kubelet, autoscaling', icon: <Server className="w-4 h-4 text-blue-400" />, path: '/compute' },
             { label: 'Access Control', checks: 6, desc: 'SA privileges, wildcard rules, stale bindings, isolation', icon: <Shield className="w-4 h-4 text-indigo-400" />, path: '/access-control' },
             { label: 'Identity & Access', checks: 6, desc: 'IdP, kubeadmin, cluster-admin audit, inactive users, groups', icon: <Users className="w-4 h-4 text-teal-400" />, path: '/users' },
-            { label: 'Security', checks: 9, desc: 'TLS, encryption, SCCs, network policies, secrets management', icon: <Shield className="w-4 h-4 text-indigo-400" />, path: '/security' },
+            { label: 'Security', checks: 10, desc: 'TLS, encryption, SCCs, network policies, secrets management, ACS detection', icon: <Shield className="w-4 h-4 text-indigo-400" />, path: '/security' },
           ].map((audit) => (
             <button key={audit.label} onClick={() => go(audit.path, audit.label)}
               className="flex items-start gap-3 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 transition-colors text-left">
