@@ -9,10 +9,57 @@ import { k8sList } from '../engine/query';
 import { queryInstant } from '../components/metrics/prometheus';
 import { MetricCard } from '../components/metrics/Sparkline';
 import type { K8sResource } from '../engine/renderers';
+import type { Node, Pod, Machine, MachineSet, Taint } from '../engine/types';
 import { getNodeStatus } from '../engine/renderers/statusUtils';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useClusterStore } from '../store/clusterStore';
+
+/** Prometheus instant-query result entry */
+type PrometheusResult = { metric: Record<string, string>; value: number };
+
+/** MachineAutoscaler shape (not in typed interfaces yet) */
+interface MachineAutoscalerResource extends K8sResource {
+  spec?: { scaleTargetRef?: { apiVersion?: string; kind?: string; name?: string }; minReplicas?: number; maxReplicas?: number };
+}
+
+/** ClusterAutoscaler shape (not in typed interfaces yet) */
+interface ClusterAutoscalerResource extends K8sResource {
+  spec?: { resourceLimits?: { maxNodesTotal?: number; minNodesTotal?: number }; scaleDown?: { enabled?: boolean; delayAfterAdd?: string } };
+}
+
+/** MachineHealthCheck shape (not in typed interfaces yet) */
+interface MachineHealthCheckResource extends K8sResource {
+  spec?: { maxUnhealthy?: string; unhealthyConditions?: Array<{ type: string; status: string; timeout: string }>; selector?: Record<string, unknown> };
+  status?: { currentHealthy?: number; expectedMachines?: number };
+}
+
+/** MachineConfigPool shape (not in typed interfaces yet) */
+interface MachineConfigPoolResource extends K8sResource {
+  status?: { conditions?: Array<{ type: string; status: string; reason?: string; message?: string }>; machineCount?: number; readyMachineCount?: number; updatedMachineCount?: number; configuration?: { name?: string } };
+}
+
+/** Per-node detail computed for the table & audit checks */
+interface NodeDetail {
+  node: K8sResource;
+  status: ReturnType<typeof getNodeStatus>;
+  nodeInfo: Partial<NonNullable<NonNullable<Node['status']>['nodeInfo']>>;
+  capacity: Partial<NonNullable<NonNullable<Node['status']>['capacity']>>;
+  allocatable: Partial<NonNullable<NonNullable<Node['status']>['capacity']>>;
+  roles: string[];
+  taints: NonNullable<NonNullable<Node['spec']>['taints']>;
+  unschedulable: boolean | undefined;
+  podCount: number;
+  podCap: number;
+  cpuCap: number;
+  memCap: number;
+  memUsagePct: number | null;
+  cpuUsagePct: number | null;
+  age: string;
+  pressures: string[];
+  instanceType: string;
+  name: string;
+}
 
 function parseQuantity(q: string | undefined): number {
   if (!q) return 0;
@@ -126,7 +173,7 @@ export default function ComputeView() {
   // Pods per node
   const podsByNode = React.useMemo(() => {
     const map = new Map<string, number>();
-    for (const pod of pods as any[]) {
+    for (const pod of pods as unknown as Pod[]) {
       const nodeName = pod.spec?.nodeName;
       if (nodeName) map.set(nodeName, (map.get(nodeName) || 0) + 1);
     }
@@ -136,27 +183,27 @@ export default function ComputeView() {
   // Cluster capacity totals
   const clusterCapacity = React.useMemo(() => {
     let cpuCores = 0, memBytes = 0, podCapacity = 0;
-    for (const n of nodes) {
-      const cap = (n.status as any)?.capacity || {};
-      cpuCores += parseQuantity(cap.cpu);
-      memBytes += parseQuantity(cap.memory);
-      podCapacity += parseQuantity(cap.pods);
+    for (const n of nodes as unknown as Node[]) {
+      const cap = n.status?.capacity;
+      cpuCores += parseQuantity(cap?.cpu);
+      memBytes += parseQuantity(cap?.memory);
+      podCapacity += parseQuantity(cap?.pods);
     }
     return { cpuCores, memBytes, podCapacity, totalPods: pods.length };
   }, [nodes, pods]);
 
   // Node details with metrics
-  const nodeDetails = React.useMemo(() => {
-    return nodes.map((node) => {
-      const status = getNodeStatus(node);
-      const nodeInfo = (node.status as any)?.nodeInfo || {};
-      const capacity = (node.status as any)?.capacity || {};
-      const allocatable = (node.status as any)?.allocatable || {};
+  const nodeDetails: NodeDetail[] = React.useMemo(() => {
+    return (nodes as unknown as Node[]).map((node) => {
+      const status = getNodeStatus(node as K8sResource);
+      const nodeInfo = node.status?.nodeInfo || {};
+      const capacity = node.status?.capacity || {};
+      const allocatable = node.status?.allocatable || {};
       const labels = node.metadata.labels || {};
       const roles = Object.keys(labels).filter(k => k.startsWith('node-role.kubernetes.io/')).map(k => k.replace('node-role.kubernetes.io/', ''));
       if (roles.length === 0) roles.push('worker');
-      const taints = ((node.spec as any)?.taints || []) as any[];
-      const unschedulable = (node.spec as any)?.unschedulable;
+      const taints = node.spec?.taints || [];
+      const unschedulable = node.spec?.unschedulable;
       const podCount = podsByNode.get(node.metadata.name) || 0;
       const podCap = parseQuantity(allocatable.pods || capacity.pods);
       const cpuCap = parseQuantity(capacity.cpu);
@@ -164,9 +211,9 @@ export default function ComputeView() {
 
       // Try to find per-node metrics (match by instance name containing node name)
       const nodeName = node.metadata.name;
-      const memMetric = nodeMemMetrics.find((m: any) => m.metric?.instance?.includes(nodeName));
+      const memMetric = (nodeMemMetrics as PrometheusResult[]).find((m) => m.metric?.instance?.includes(nodeName));
       const memUsagePct = memMetric?.value ?? null;
-      const cpuMetric = nodeCpuMetrics.find((m: any) => m.metric?.instance?.includes(nodeName));
+      const cpuMetric = (nodeCpuMetrics as PrometheusResult[]).find((m) => m.metric?.instance?.includes(nodeName));
       const cpuUsageCores = cpuMetric?.value ?? null;
       const cpuUsagePct = cpuCap > 0 && cpuUsageCores !== null ? (cpuUsageCores / cpuCap) * 100 : null;
 
@@ -183,11 +230,11 @@ export default function ComputeView() {
       if (status.pressure?.pid) pressures.push('PID');
 
       // Machine ref
-      const machineRef = machines.find((m: any) => m.status?.nodeRef?.name === nodeName);
-      const instanceType = (machineRef as any)?.spec?.providerSpec?.value?.instanceType || '';
+      const machineRef = (machines as Machine[]).find((m) => m.status?.nodeRef?.name === nodeName);
+      const instanceType = (machineRef?.spec?.providerSpec?.value?.instanceType as string) || '';
 
       return {
-        node, status, nodeInfo, capacity, allocatable, roles, taints, unschedulable,
+        node: node as K8sResource, status, nodeInfo, capacity, allocatable, roles, taints, unschedulable,
         podCount, podCap, cpuCap, memCap, memUsagePct, cpuUsagePct, age, pressures,
         instanceType, name: nodeName,
       };
@@ -250,10 +297,10 @@ export default function ComputeView() {
 
         {/* Compute Health Audit */}
         <ComputeHealthAudit
-          nodes={nodes as any[]}
-          healthChecks={healthChecks as any[]}
-          clusterAutoscaler={clusterAutoscaler as any[]}
-          machineAutoscalers={machineAutoscalers as any[]}
+          nodes={nodes}
+          healthChecks={healthChecks}
+          clusterAutoscaler={clusterAutoscaler}
+          machineAutoscalers={machineAutoscalers}
           nodeDetails={nodeDetails}
           go={go}
         />
@@ -323,7 +370,7 @@ export default function ComputeView() {
                         </div>
                         {nd.taints.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {nd.taints.map((t: any, i: number) => (
+                            {nd.taints.map((t, i) => (
                               <span key={i} className={cn('text-xs px-1 py-0.5 rounded font-mono',
                                 t.effect === 'NoSchedule' ? 'bg-yellow-900/30 text-yellow-400' :
                                 t.effect === 'NoExecute' ? 'bg-red-900/30 text-red-400' :
@@ -419,11 +466,11 @@ export default function ComputeView() {
               <button onClick={() => go('/r/machine.openshift.io~v1beta1~machinesets', 'MachineSets')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
             </div>
             <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-              {machineSets.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No MachineSets</div> : machineSets.map((ms: any) => {
+              {machineSets.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No MachineSets</div> : (machineSets as MachineSet[]).map((ms) => {
                 const desired = ms.spec?.replicas ?? 0;
                 const ready = ms.status?.readyReplicas ?? 0;
                 // Find autoscaler for this machineset
-                const autoscaler = machineAutoscalers.find((a: any) => a.spec?.scaleTargetRef?.name === ms.metadata.name);
+                const autoscaler = (machineAutoscalers as MachineAutoscalerResource[]).find((a) => a.spec?.scaleTargetRef?.name === ms.metadata.name);
                 return (
                   <button key={ms.metadata.uid} onClick={() => go(`/r/machine.openshift.io~v1beta1~machinesets/${ms.metadata.namespace}/${ms.metadata.name}`, ms.metadata.name)}
                     className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/50 text-left">
@@ -446,9 +493,9 @@ export default function ComputeView() {
               <button onClick={() => go('/r/machine.openshift.io~v1beta1~machines', 'Machines')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
             </div>
             <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-              {machines.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No Machines</div> : machines.map((m: any) => {
+              {machines.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No Machines</div> : (machines as Machine[]).map((m) => {
                 const phase = m.status?.phase || 'Unknown';
-                const instanceType = m.spec?.providerSpec?.value?.instanceType || '';
+                const instanceType = (m.spec?.providerSpec?.value?.instanceType as string) || '';
                 const nodeRef = m.status?.nodeRef?.name || '';
                 return (
                   <button key={m.metadata.uid} onClick={() => go(`/r/machine.openshift.io~v1beta1~machines/${m.metadata.namespace}/${m.metadata.name}`, m.metadata.name)}
@@ -481,9 +528,9 @@ export default function ComputeView() {
               <button onClick={() => go('/r/machine.openshift.io~v1beta1~machinehealthchecks', 'HealthChecks')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
             </div>
             <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-              {healthChecks.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No health checks configured</div> : healthChecks.map((hc: any) => {
+              {healthChecks.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No health checks configured</div> : (healthChecks as MachineHealthCheckResource[]).map((hc) => {
                 const maxUnhealthy = hc.spec?.maxUnhealthy || '100%';
-                const conditions = (hc.spec?.unhealthyConditions || []) as Array<{ type: string; status: string; timeout: string }>;
+                const conditions = hc.spec?.unhealthyConditions || [];
                 const currentHealthy = hc.status?.currentHealthy ?? 0;
                 const expectedMachines = hc.status?.expectedMachines ?? 0;
                 return (
@@ -544,7 +591,7 @@ export default function ComputeView() {
                 </div>
               ) : (
                 <>
-                  {clusterAutoscaler.map((ca: any) => (
+                  {(clusterAutoscaler as ClusterAutoscalerResource[]).map((ca) => (
                     <div key={ca.metadata.uid} className="p-3 bg-slate-800/50 rounded border border-slate-700">
                       <div className="text-sm text-slate-200 mb-2">Cluster Autoscaler</div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -558,7 +605,7 @@ export default function ComputeView() {
                   {machineAutoscalers.length > 0 && (
                     <div>
                       <div className="text-xs text-slate-500 mb-2">Machine Autoscalers ({machineAutoscalers.length})</div>
-                      {machineAutoscalers.map((ma: any) => (
+                      {(machineAutoscalers as MachineAutoscalerResource[]).map((ma) => (
                         <div key={ma.metadata.uid} className="flex items-center justify-between py-1.5">
                           <span className="text-sm text-slate-300">{ma.spec?.scaleTargetRef?.name || ma.metadata.name}</span>
                           <span className="text-xs text-slate-400 font-mono">{ma.spec?.minReplicas}–{ma.spec?.maxReplicas} replicas</span>
@@ -584,11 +631,11 @@ export default function ComputeView() {
             <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
               {machineConfigPools.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-slate-500">No MachineConfigPools found</div>
-              ) : (machineConfigPools as any[]).map((mcp) => {
+              ) : (machineConfigPools as MachineConfigPoolResource[]).map((mcp) => {
                 const conditions = mcp.status?.conditions || [];
-                const updated = conditions.find((c: any) => c.type === 'Updated');
-                const updating = conditions.find((c: any) => c.type === 'Updating');
-                const degraded = conditions.find((c: any) => c.type === 'Degraded');
+                const updated = conditions.find((c) => c.type === 'Updated');
+                const updating = conditions.find((c) => c.type === 'Updating');
+                const degraded = conditions.find((c) => c.type === 'Degraded');
                 const isUpdated = updated?.status === 'True';
                 const isUpdating = updating?.status === 'True';
                 const isDegraded = degraded?.status === 'True';
@@ -693,13 +740,21 @@ function UsageBar({ pct, color, className }: { pct: number; color: 'green' | 'ye
 
 // ===== Compute Health Audit =====
 
+/** Item in an audit check list — may be a full resource, a node detail, or a placeholder */
+interface AuditItem {
+  metadata?: { name?: string; namespace?: string; uid?: string };
+  name?: string;
+  _pressureTypes?: string;
+  _kubeletVersion?: string;
+}
+
 interface AuditCheck {
   id: string;
   title: string;
   description: string;
   why: string;
-  passing: any[];
-  failing: any[];
+  passing: AuditItem[];
+  failing: AuditItem[];
   yamlExample: string;
 }
 
@@ -711,11 +766,11 @@ function ComputeHealthAudit({
   nodeDetails,
   go,
 }: {
-  nodes: any[];
-  healthChecks: any[];
-  clusterAutoscaler: any[];
-  machineAutoscalers: any[];
-  nodeDetails: Array<{ node: any; status: any; roles: string[]; nodeInfo: any; name: string }>;
+  nodes: K8sResource[];
+  healthChecks: K8sResource[];
+  clusterAutoscaler: K8sResource[];
+  machineAutoscalers: K8sResource[];
+  nodeDetails: NodeDetail[];
   go: (path: string, title: string) => void;
 }) {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
@@ -836,16 +891,17 @@ spec:
     });
 
     // 5. Kubelet Version Consistency
-    const kubeletVersions = new Map<string, any[]>();
+    const kubeletVersions = new Map<string, K8sResource[]>();
     nodeDetails.forEach(nd => {
-      const version = nd.nodeInfo.kubeletVersion || 'unknown';
+      const info = nd.nodeInfo as Record<string, string | undefined>;
+      const version = info.kubeletVersion || 'unknown';
       if (!kubeletVersions.has(version)) kubeletVersions.set(version, []);
       kubeletVersions.get(version)!.push(nd.node);
     });
     const consistentVersion = kubeletVersions.size === 1;
-    const mismatchedNodes = consistentVersion ? [] : Array.from(kubeletVersions.entries())
-      .filter(([version, nodes]) => nodes.length < nodeDetails.length)
-      .flatMap(([version, nodes]) => nodes.map(n => ({ ...n, _kubeletVersion: version })));
+    const mismatchedNodes: AuditCheck['failing'] = consistentVersion ? [] : Array.from(kubeletVersions.entries())
+      .filter(([, versionNodes]) => versionNodes.length < nodeDetails.length)
+      .flatMap(([version, versionNodes]) => versionNodes.map(n => ({ ...n, _kubeletVersion: version })));
 
     allChecks.push({
       id: 'kubelet-version',
@@ -968,7 +1024,7 @@ spec:
                          `Issues (${check.failing.length})`}
                       </div>
                       <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((item: any, idx: number) => {
+                        {check.failing.slice(0, 10).map((item, idx) => {
                           const name = item.metadata?.name || `item-${idx}`;
                           const ns = item.metadata?.namespace;
                           const isNode = check.id === 'ha-control-plane' || check.id === 'dedicated-workers' || check.id === 'node-pressure' || check.id === 'kubelet-version';
@@ -1018,7 +1074,7 @@ spec:
                          `Passing (${check.passing.length})`}
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((item: any, idx: number) => {
+                        {check.passing.slice(0, 8).map((item, idx) => {
                           const name = item.metadata?.name || item.name || `item-${idx}`;
                           return (
                             <span key={item.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{name}</span>

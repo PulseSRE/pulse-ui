@@ -7,6 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
+import type { Service, Route, Ingress, NetworkPolicy, Condition } from '../engine/types';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
@@ -19,10 +20,14 @@ export default function NetworkingView() {
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Real-time data
-  const { data: services = [] } = useK8sListWatch({ apiPath: '/api/v1/services', namespace: nsFilter });
-  const { data: ingresses = [] } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/ingresses', namespace: nsFilter });
-  const { data: routes = [] } = useK8sListWatch({ apiPath: '/apis/route.openshift.io/v1/routes', namespace: nsFilter });
-  const { data: netpols = [] } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies', namespace: nsFilter });
+  const { data: rawServices = [] } = useK8sListWatch({ apiPath: '/api/v1/services', namespace: nsFilter });
+  const services = rawServices as unknown as Service[];
+  const { data: rawIngresses = [] } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/ingresses', namespace: nsFilter });
+  const ingresses = rawIngresses as unknown as Ingress[];
+  const { data: rawRoutes = [] } = useK8sListWatch({ apiPath: '/apis/route.openshift.io/v1/routes', namespace: nsFilter });
+  const routes = rawRoutes as unknown as Route[];
+  const { data: rawNetpols = [] } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies', namespace: nsFilter });
+  const netpols = rawNetpols as unknown as NetworkPolicy[];
 
   // Cluster-scoped: endpoints, ingress controller
   const { data: endpoints = [] } = useQuery<K8sResource[]>({
@@ -39,7 +44,7 @@ export default function NetworkingView() {
   // Service type breakdown
   const svcTypes = React.useMemo(() => {
     const types: Record<string, number> = {};
-    for (const s of services as any[]) {
+    for (const s of services) {
       const t = s.spec?.type || 'ClusterIP';
       types[t] = (types[t] || 0) + 1;
     }
@@ -48,28 +53,28 @@ export default function NetworkingView() {
 
   // Services without selectors (potential issues)
   const headlessServices = React.useMemo(() =>
-    (services as any[]).filter(s => s.spec?.clusterIP === 'None'),
+    services.filter(s => s.spec?.clusterIP === 'None'),
   [services]);
 
   const loadBalancerServices = React.useMemo(() =>
-    (services as any[]).filter(s => s.spec?.type === 'LoadBalancer'),
+    services.filter(s => s.spec?.type === 'LoadBalancer'),
   [services]);
 
   const nodePortServices = React.useMemo(() =>
-    (services as any[]).filter(s => s.spec?.type === 'NodePort'),
+    services.filter(s => s.spec?.type === 'NodePort'),
   [services]);
 
   // Exposed endpoints (routes + ingresses)
   const exposedEndpoints = React.useMemo(() => {
     const eps: Array<{ name: string; host: string; path: string; ns: string; type: 'Route' | 'Ingress'; tls: boolean; admitted: boolean }> = [];
-    for (const r of routes as any[]) {
-      const admitted = r.status?.ingress?.some((i: any) => i.conditions?.some((c: any) => c.type === 'Admitted' && c.status === 'True'));
-      eps.push({ name: r.metadata.name, host: r.spec?.host || '', path: r.spec?.path || '/', ns: r.metadata.namespace, type: 'Route', tls: !!r.spec?.tls, admitted: admitted !== false });
+    for (const r of routes) {
+      const admitted = r.status?.ingress?.some((ing) => ing.conditions?.some((c) => c.type === 'Admitted' && c.status === 'True'));
+      eps.push({ name: r.metadata.name, host: r.spec?.host || '', path: r.spec?.path || '/', ns: r.metadata.namespace || '', type: 'Route', tls: !!r.spec?.tls, admitted: admitted !== false });
     }
-    for (const i of ingresses as any[]) {
+    for (const i of ingresses) {
       for (const rule of i.spec?.rules || []) {
         for (const path of rule.http?.paths || []) {
-          eps.push({ name: i.metadata.name, host: rule.host || '', path: path.path || '/', ns: i.metadata.namespace, type: 'Ingress', tls: !!(i.spec?.tls?.length), admitted: true });
+          eps.push({ name: i.metadata.name, host: rule.host || '', path: path.path || '/', ns: i.metadata.namespace || '', type: 'Ingress', tls: !!(i.spec?.tls?.length), admitted: true });
         }
       }
     }
@@ -77,15 +82,15 @@ export default function NetworkingView() {
   }, [routes, ingresses]);
 
   const nonTlsEndpoints = exposedEndpoints.filter(e => !e.tls);
-  const notAdmittedRoutes = (routes as any[]).filter(r => {
-    const admitted = r.status?.ingress?.some((i: any) => i.conditions?.some((c: any) => c.type === 'Admitted' && c.status === 'True'));
+  const notAdmittedRoutes = routes.filter(r => {
+    const admitted = r.status?.ingress?.some((ing) => ing.conditions?.some((c) => c.type === 'Admitted' && c.status === 'True'));
     return admitted === false;
   });
 
   // Namespaces without network policies
   const namespacesWithPolicies = React.useMemo(() => {
     const nsSet = new Set<string>();
-    for (const np of netpols as any[]) nsSet.add(np.metadata.namespace);
+    for (const np of netpols) if (np.metadata.namespace) nsSet.add(np.metadata.namespace);
     return nsSet;
   }, [netpols]);
 
@@ -191,10 +196,10 @@ export default function NetworkingView() {
 
         {/* Networking Health Audit */}
         <NetworkingHealthAudit
-          routes={routes as any[]}
-          services={services as any[]}
-          netpols={netpols as any[]}
-          ingressControllers={ingressControllers as any[]}
+          routes={routes}
+          services={services}
+          netpols={netpols}
+          ingressControllers={ingressControllers}
           nsFilter={nsFilter}
           go={go}
         />
@@ -252,7 +257,7 @@ export default function NetworkingView() {
             {loadBalancerServices.length > 0 && (
               <div className="mt-4 pt-3 border-t border-slate-800">
                 <div className="text-xs text-slate-500 font-medium mb-2">LoadBalancer Services</div>
-                {(loadBalancerServices as any[]).map((svc) => {
+                {loadBalancerServices.map((svc) => {
                   const lbIP = svc.status?.loadBalancer?.ingress?.[0]?.hostname || svc.status?.loadBalancer?.ingress?.[0]?.ip || 'Pending';
                   return (
                     <button key={svc.metadata.uid} onClick={() => go(`/r/v1~services/${svc.metadata.namespace}/${svc.metadata.name}`, svc.metadata.name)}
@@ -271,11 +276,13 @@ export default function NetworkingView() {
         {ingressControllers.length > 0 && (
           <Panel title="Ingress Controllers" icon={<Server className="w-4 h-4 text-blue-400" />}>
             <div className="space-y-2">
-              {(ingressControllers as any[]).map((ic) => {
-                const available = ic.status?.conditions?.find((c: any) => c.type === 'Available');
+              {ingressControllers.map((ic) => {
+                const icStatus = (ic as K8sResource & { status?: { conditions?: Condition[]; domain?: string; availableReplicas?: number } }).status;
+                const icSpec = (ic as K8sResource & { spec?: { domain?: string } }).spec;
+                const available = icStatus?.conditions?.find((c) => c.type === 'Available');
                 const isAvailable = available?.status === 'True';
-                const domain = ic.status?.domain || ic.spec?.domain || '';
-                const replicas = ic.status?.availableReplicas ?? '?';
+                const domain = icStatus?.domain || icSpec?.domain || '';
+                const replicas = icStatus?.availableReplicas ?? '?';
                 return (
                   <div key={ic.metadata.uid} className="flex items-center justify-between py-2.5 px-3 rounded hover:bg-slate-800/50">
                     <div>
@@ -298,7 +305,7 @@ export default function NetworkingView() {
         {notAdmittedRoutes.length > 0 && (
           <Panel title={`Not Admitted Routes (${notAdmittedRoutes.length})`} icon={<AlertCircle className="w-4 h-4 text-red-500" />}>
             <div className="space-y-1">
-              {(notAdmittedRoutes as any[]).map((r) => (
+              {notAdmittedRoutes.map((r) => (
                 <button key={r.metadata.uid} onClick={() => go(`/r/route.openshift.io~v1~routes/${r.metadata.namespace}/${r.metadata.name}`, r.metadata.name)}
                   className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2">
@@ -335,7 +342,7 @@ export default function NetworkingView() {
             </div>
           ) : (
             <div className="space-y-2">
-              {(netpols as any[]).slice(0, 10).map((np) => {
+              {netpols.slice(0, 10).map((np) => {
                 const ingressRules = np.spec?.ingress?.length || 0;
                 const egressRules = np.spec?.egress?.length || 0;
                 const policyTypes = np.spec?.policyTypes || [];
@@ -372,13 +379,17 @@ export default function NetworkingView() {
 
 // ===== Networking Health Audit =====
 
+interface AuditCheckResource {
+  metadata: { name: string; namespace?: string; uid?: string };
+}
+
 interface AuditCheck {
   id: string;
   title: string;
   description: string;
   why: string;
-  passing: any[];
-  failing: any[];
+  passing: AuditCheckResource[];
+  failing: AuditCheckResource[];
   yamlExample: string;
 }
 
@@ -390,10 +401,10 @@ function NetworkingHealthAudit({
   nsFilter,
   go,
 }: {
-  routes: any[];
-  services: any[];
-  netpols: any[];
-  ingressControllers: any[];
+  routes: Route[];
+  services: Service[];
+  netpols: NetworkPolicy[];
+  ingressControllers: K8sResource[];
   nsFilter?: string;
   go: (path: string, title: string) => void;
 }) {
@@ -413,7 +424,7 @@ function NetworkingHealthAudit({
   // Namespaces with network policies
   const namespacesWithPolicies = React.useMemo(() => {
     const nsSet = new Set<string>();
-    for (const np of netpols) nsSet.add(np.metadata.namespace);
+    for (const np of netpols) if (np.metadata.namespace) nsSet.add(np.metadata.namespace);
     return nsSet;
   }, [netpols]);
 
@@ -423,7 +434,7 @@ function NetworkingHealthAudit({
     for (const np of netpols) {
       const policyTypes = np.spec?.policyTypes || [];
       const hasEgress = policyTypes.includes('Egress') || np.spec?.egress;
-      if (hasEgress) nsSet.add(np.metadata.namespace);
+      if (hasEgress && np.metadata.namespace) nsSet.add(np.metadata.namespace);
     }
     return nsSet;
   }, [netpols]);
@@ -506,12 +517,14 @@ spec:
     });
 
     // 4. Ingress Controller Health
-    const healthyControllers = ingressControllers.filter((ic: any) => {
-      const available = ic.status?.conditions?.find((c: any) => c.type === 'Available');
+    const healthyControllers = ingressControllers.filter((ic) => {
+      const icStatus = (ic as K8sResource & { status?: { conditions?: Condition[] } }).status;
+      const available = icStatus?.conditions?.find((c) => c.type === 'Available');
       return available?.status === 'True';
     });
-    const unhealthyControllers = ingressControllers.filter((ic: any) => {
-      const available = ic.status?.conditions?.find((c: any) => c.type === 'Available');
+    const unhealthyControllers = ingressControllers.filter((ic) => {
+      const icStatus = (ic as K8sResource & { status?: { conditions?: Condition[] } }).status;
+      const available = icStatus?.conditions?.find((c) => c.type === 'Available');
       return available?.status !== 'True';
     });
     allChecks.push({
@@ -533,14 +546,14 @@ oc get ingresscontroller -n openshift-ingress-operator
 
     // 5. Route Admission
     const admittedRoutes = routes.filter(r => {
-      const admitted = r.status?.ingress?.some((i: any) =>
-        i.conditions?.some((c: any) => c.type === 'Admitted' && c.status === 'True')
+      const admitted = r.status?.ingress?.some((ing) =>
+        ing.conditions?.some((c) => c.type === 'Admitted' && c.status === 'True')
       );
       return admitted !== false;
     });
     const notAdmittedRoutes = routes.filter(r => {
-      const admitted = r.status?.ingress?.some((i: any) =>
-        i.conditions?.some((c: any) => c.type === 'Admitted' && c.status === 'True')
+      const admitted = r.status?.ingress?.some((ing) =>
+        ing.conditions?.some((c) => c.type === 'Admitted' && c.status === 'True')
       );
       return admitted === false;
     });
@@ -643,7 +656,7 @@ spec:
                     <div>
                       <div className="text-xs text-amber-400 font-medium mb-1.5">Missing ({check.failing.length})</div>
                       <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((resource: any, idx: number) => {
+                        {check.failing.slice(0, 10).map((resource, idx: number) => {
                           const isNamespace = check.id === 'network-policies' || check.id === 'egress-policies';
                           const name = resource.metadata.name;
                           const ns = resource.metadata.namespace;
@@ -685,7 +698,7 @@ spec:
                     <div>
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((resource: any, idx: number) => (
+                        {check.passing.slice(0, 8).map((resource, idx: number) => (
                           <span key={resource.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
                             {resource.metadata.name}
                           </span>

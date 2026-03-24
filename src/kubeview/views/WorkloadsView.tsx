@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../engine/renderers';
+import type { Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob, ReplicaSet } from '../engine/types';
+import type { Condition, Container, ContainerStatus, LabelSelector, ObjectMeta } from '../engine/types';
 import { getDeploymentStatus, getPodStatus } from '../engine/renderers/statusUtils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -14,25 +16,44 @@ import { MetricCard } from '../components/metrics/Sparkline';
 import { Panel } from '../components/primitives/Panel';
 import { sanitizePromQL } from '../engine/query';
 
+/** Local PDB type — not yet in engine/types */
+interface PodDisruptionBudget extends K8sResource {
+  apiVersion: 'policy/v1';
+  kind: 'PodDisruptionBudget';
+  metadata: ObjectMeta & { name: string };
+  spec?: {
+    selector?: LabelSelector;
+    minAvailable?: number | string;
+    maxUnavailable?: number | string;
+  };
+  status?: {
+    currentHealthy?: number;
+    desiredHealthy?: number;
+    disruptionsAllowed?: number;
+    expectedPods?: number;
+    conditions?: Condition[];
+  };
+}
+
 export default function WorkloadsView() {
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const safeNs = nsFilter ? sanitizePromQL(nsFilter) : '';
 
-  const { data: deployments = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
-  const { data: statefulsets = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/statefulsets', namespace: nsFilter });
-  const { data: daemonsets = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/daemonsets', namespace: nsFilter });
-  const { data: pods = [] } = useK8sListWatch({ apiPath: '/api/v1/pods', namespace: nsFilter });
-  const { data: jobs = [] } = useK8sListWatch({ apiPath: '/apis/batch/v1/jobs', namespace: nsFilter });
-  const { data: cronjobs = [] } = useK8sListWatch({ apiPath: '/apis/batch/v1/cronjobs', namespace: nsFilter });
-  const { data: replicasets = [] } = useK8sListWatch({ apiPath: '/apis/apps/v1/replicasets', namespace: nsFilter });
-  const { data: pdbs = [] } = useK8sListWatch({ apiPath: '/apis/policy/v1/poddisruptionbudgets', namespace: nsFilter });
+  const { data: deployments = [] } = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
+  const { data: statefulsets = [] } = useK8sListWatch<StatefulSet>({ apiPath: '/apis/apps/v1/statefulsets', namespace: nsFilter });
+  const { data: daemonsets = [] } = useK8sListWatch<DaemonSet>({ apiPath: '/apis/apps/v1/daemonsets', namespace: nsFilter });
+  const { data: pods = [] } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: nsFilter });
+  const { data: jobs = [] } = useK8sListWatch<Job>({ apiPath: '/apis/batch/v1/jobs', namespace: nsFilter });
+  const { data: cronjobs = [] } = useK8sListWatch<CronJob>({ apiPath: '/apis/batch/v1/cronjobs', namespace: nsFilter });
+  const { data: replicasets = [] } = useK8sListWatch<ReplicaSet>({ apiPath: '/apis/apps/v1/replicasets', namespace: nsFilter });
+  const { data: pdbs = [] } = useK8sListWatch<PodDisruptionBudget>({ apiPath: '/apis/policy/v1/poddisruptionbudgets', namespace: nsFilter });
 
   // Pod status breakdown
   const podStats = React.useMemo(() => {
     const s = { Running: 0, Pending: 0, Succeeded: 0, Failed: 0, CrashLoop: 0, ImagePull: 0, Unknown: 0 };
-    for (const p of pods as any[]) {
+    for (const p of pods) {
       const status = getPodStatus(p);
       if (status.reason === 'CrashLoopBackOff') s.CrashLoop++;
       else if (status.reason === 'ImagePullBackOff' || status.reason === 'ErrImagePull') s.ImagePull++;
@@ -46,26 +67,26 @@ export default function WorkloadsView() {
   }, [pods]);
 
   const unhealthyDeploys = React.useMemo(() =>
-    (deployments as any[]).filter(d => !getDeploymentStatus(d).available),
+    deployments.filter(d => !getDeploymentStatus(d).available),
   [deployments]);
 
   const unhealthySS = React.useMemo(() =>
-    (statefulsets as any[]).filter(s => {
-      const ready = (s.status as any)?.readyReplicas ?? 0;
-      const desired = (s.spec as any)?.replicas ?? 0;
+    statefulsets.filter(s => {
+      const ready = s.status?.readyReplicas ?? 0;
+      const desired = s.spec?.replicas ?? 0;
       return desired > 0 && ready < desired;
     }),
   [statefulsets]);
 
   const failedJobs = React.useMemo(() =>
-    (jobs as any[]).filter(j => {
+    jobs.filter(j => {
       const conditions = j.status?.conditions || [];
-      return conditions.some((c: any) => c.type === 'Failed' && c.status === 'True');
+      return conditions.some((c: Condition) => c.type === 'Failed' && c.status === 'True');
     }),
   [jobs]);
 
   const crashingPods = React.useMemo(() =>
-    (pods as any[]).filter(p => {
+    pods.filter(p => {
       const s = getPodStatus(p);
       return s.reason === 'CrashLoopBackOff' || s.reason === 'ImagePullBackOff' || s.phase === 'Failed';
     }),
@@ -73,19 +94,19 @@ export default function WorkloadsView() {
 
   // Container restart count
   const highRestartPods = React.useMemo(() =>
-    (pods as any[]).filter(p => {
-      const restarts = (p.status?.containerStatuses || []).reduce((sum: number, c: any) => sum + (c.restartCount || 0), 0);
+    pods.filter(p => {
+      const restarts = (p.status?.containerStatuses || []).reduce((sum: number, c: ContainerStatus) => sum + (c.restartCount || 0), 0);
       return restarts >= 5;
-    }).sort((a: any, b: any) => {
-      const ra = (a.status?.containerStatuses || []).reduce((s: number, c: any) => s + (c.restartCount || 0), 0);
-      const rb = (b.status?.containerStatuses || []).reduce((s: number, c: any) => s + (c.restartCount || 0), 0);
+    }).sort((a, b) => {
+      const ra = (a.status?.containerStatuses || []).reduce((s: number, c: ContainerStatus) => s + (c.restartCount || 0), 0);
+      const rb = (b.status?.containerStatuses || []).reduce((s: number, c: ContainerStatus) => s + (c.restartCount || 0), 0);
       return rb - ra;
     }),
   [pods]);
 
   // Old ReplicaSets (desired=0 but still present)
   const oldReplicaSets = React.useMemo(() =>
-    (replicasets as any[]).filter(rs => (rs.spec?.replicas ?? 0) === 0 && (rs.status?.replicas ?? 0) === 0),
+    replicasets.filter(rs => (rs.spec?.replicas ?? 0) === 0 && (rs.status?.replicas ?? 0) === 0),
   [replicasets]);
 
   // Issues
@@ -207,7 +228,7 @@ export default function WorkloadsView() {
         </div>
 
         {/* Workload Health Audit */}
-        <WorkloadHealthAudit deployments={deployments as any[]} pdbs={pdbs as any[]} go={go} />
+        <WorkloadHealthAudit deployments={deployments} pdbs={pdbs} go={go} />
 
         {/* Pod Status Breakdown */}
         <Panel title="Pod Status" icon={<Box className="w-4 h-4 text-blue-400" />}>
@@ -239,7 +260,7 @@ export default function WorkloadsView() {
           {unhealthyDeploys.length > 0 && (
             <Panel title={`Unhealthy Deployments (${unhealthyDeploys.length})`} icon={<XCircle className="w-4 h-4 text-red-500" />}>
               <div className="space-y-1">
-                {unhealthyDeploys.slice(0, 10).map((d: any) => {
+                {unhealthyDeploys.slice(0, 10).map((d) => {
                   const s = getDeploymentStatus(d);
                   return (
                     <button key={d.metadata.uid} onClick={() => go(`/r/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, d.metadata.name)}
@@ -264,8 +285,8 @@ export default function WorkloadsView() {
           {highRestartPods.length > 0 && (
             <Panel title={`High Restart Pods (${highRestartPods.length})`} icon={<RefreshCw className="w-4 h-4 text-amber-500" />}>
               <div className="space-y-1">
-                {highRestartPods.slice(0, 8).map((p: any) => {
-                  const restarts = (p.status?.containerStatuses || []).reduce((s: number, c: any) => s + (c.restartCount || 0), 0);
+                {highRestartPods.slice(0, 8).map((p) => {
+                  const restarts = (p.status?.containerStatuses || []).reduce((s: number, c: ContainerStatus) => s + (c.restartCount || 0), 0);
                   return (
                     <button key={p.metadata.uid} onClick={() => go(`/r/v1~pods/${p.metadata.namespace}/${p.metadata.name}`, p.metadata.name)}
                       className="w-full flex items-center justify-between p-2 rounded hover:bg-slate-800/50 text-left transition-colors">
@@ -292,7 +313,7 @@ export default function WorkloadsView() {
             <div className="text-center py-6 text-sm text-slate-500">No deployments{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
-              {(deployments as any[]).map((d) => {
+              {deployments.map((d) => {
                 const s = getDeploymentStatus(d);
                 return (
                   <button key={d.metadata.uid} onClick={() => go(`/r/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, d.metadata.name)}
@@ -304,7 +325,7 @@ export default function WorkloadsView() {
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span className={cn('text-xs font-mono', s.available ? 'text-green-400' : 'text-red-400')}>{s.ready}/{s.desired}</span>
-                      <span className="text-xs text-slate-600">{(d.spec as any)?.strategy?.type || 'RollingUpdate'}</span>
+                      <span className="text-xs text-slate-600">{d.spec?.strategy?.type || 'RollingUpdate'}</span>
                       <button onClick={(e) => { e.stopPropagation(); go(`/logs/${d.metadata.namespace}/${d.metadata.name}?selector=${encodeURIComponent(`app=${d.metadata.name}`)}&kind=Deployment`, `${d.metadata.name} (Logs)`); }}
                         className="text-slate-500 hover:text-blue-400 transition-colors" title="View Logs"><FileText className="w-3.5 h-3.5" /></button>
                     </div>
@@ -324,7 +345,7 @@ export default function WorkloadsView() {
         {failedJobs.length > 0 && (
           <Panel title={`Failed Jobs (${failedJobs.length})`} icon={<XCircle className="w-4 h-4 text-red-500" />}>
             <div className="space-y-1">
-              {(failedJobs as any[]).slice(0, 8).map((j) => (
+              {failedJobs.slice(0, 8).map((j) => (
                 <button key={j.metadata.uid} onClick={() => go(`/r/batch~v1~jobs/${j.metadata.namespace}/${j.metadata.name}`, j.metadata.name)}
                   className="w-full flex items-center justify-between p-2 rounded hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
@@ -363,24 +384,24 @@ interface AuditCheck {
   title: string;
   description: string;
   why: string;
-  passing: any[];
-  failing: any[];
+  passing: Deployment[];
+  failing: Deployment[];
   yamlExample: string;
 }
 
-function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: any[]; pdbs: any[]; go: (path: string, title: string) => void }) {
+function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deployment[]; pdbs: PodDisruptionBudget[]; go: (path: string, title: string) => void }) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
 
   // PDB label selectors for matching
   const pdbSelectors = React.useMemo(() =>
-    pdbs.map((pdb: any) => ({
+    pdbs.map((pdb) => ({
       name: pdb.metadata.name,
       ns: pdb.metadata.namespace,
       labels: pdb.spec?.selector?.matchLabels || {},
     })),
   [pdbs]);
 
-  const hasPDB = (deploy: any) => {
+  const hasPDB = (deploy: Deployment) => {
     const deployLabels = deploy.spec?.selector?.matchLabels || {};
     const ns = deploy.metadata.namespace;
     return pdbSelectors.some(pdb =>
@@ -392,7 +413,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: any[]; pd
     const allChecks: AuditCheck[] = [];
 
     // Exclude platform-managed deployments (openshift-*, kube-*) — they're CVO-managed
-    const userDeployments = deployments.filter((d: any) => {
+    const userDeployments = deployments.filter((d) => {
       const ns = d.metadata?.namespace || '';
       return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift';
     });
@@ -400,7 +421,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: any[]; pd
     // 1. Resource requests/limits
     const noLimits = userDeployments.filter(d => {
       const containers = d.spec?.template?.spec?.containers || [];
-      return containers.some((c: any) => !c.resources?.requests?.cpu || !c.resources?.limits?.memory);
+      return containers.some((c: Container) => !c.resources?.requests?.cpu || !c.resources?.limits?.memory);
     });
     allChecks.push({
       id: 'resource-limits',
@@ -426,7 +447,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: any[]; pd
     // 2. Liveness probes
     const noLiveness = userDeployments.filter(d => {
       const containers = d.spec?.template?.spec?.containers || [];
-      return containers.some((c: any) => !c.livenessProbe);
+      return containers.some((c: Container) => !c.livenessProbe);
     });
     allChecks.push({
       id: 'liveness-probe',
@@ -452,7 +473,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: any[]; pd
     // 3. Readiness probes
     const noReadiness = userDeployments.filter(d => {
       const containers = d.spec?.template?.spec?.containers || [];
-      return containers.some((c: any) => !c.readinessProbe);
+      return containers.some((c: Container) => !c.readinessProbe);
     });
     allChecks.push({
       id: 'readiness-probe',
@@ -581,7 +602,7 @@ spec:
                     <div>
                       <div className="text-xs text-amber-400 font-medium mb-1.5">Missing ({check.failing.length})</div>
                       <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((d: any) => (
+                        {check.failing.slice(0, 10).map((d) => (
                           <button key={d.metadata.uid} onClick={() => go(`/yaml/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, `${d.metadata.name} (YAML)`)}
                             className="flex items-center justify-between w-full py-1 px-2 rounded hover:bg-slate-800/50 text-left transition-colors">
                             <div className="flex items-center gap-2">
@@ -602,7 +623,7 @@ spec:
                     <div>
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((d: any) => (
+                        {check.passing.slice(0, 8).map((d) => (
                           <span key={d.metadata.uid} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{d.metadata.name}</span>
                         ))}
                         {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}

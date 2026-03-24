@@ -7,6 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
+import type { PersistentVolumeClaim, PersistentVolume, StorageClass, VolumeSnapshot, CSIDriver } from '../engine/types';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
@@ -19,21 +20,21 @@ export default function StorageView() {
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Real-time data
-  const { data: pvcs = [] } = useK8sListWatch({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
-  const { data: pvs = [] } = useK8sListWatch({ apiPath: '/api/v1/persistentvolumes' });
-  const { data: storageClasses = [] } = useQuery<K8sResource[]>({
+  const { data: pvcs = [] } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
+  const { data: pvs = [] } = useK8sListWatch<PersistentVolume>({ apiPath: '/api/v1/persistentvolumes' });
+  const { data: storageClasses = [] } = useQuery<StorageClass[]>({
     queryKey: ['storage', 'storageclasses'],
-    queryFn: () => k8sList('/apis/storage.k8s.io/v1/storageclasses'),
+    queryFn: () => k8sList('/apis/storage.k8s.io/v1/storageclasses') as Promise<StorageClass[]>,
     staleTime: 60000,
   });
-  const { data: csiDrivers = [] } = useQuery<K8sResource[]>({
+  const { data: csiDrivers = [] } = useQuery<CSIDriver[]>({
     queryKey: ['storage', 'csidrivers'],
-    queryFn: () => k8sList('/apis/storage.k8s.io/v1/csidrivers').catch(() => []),
+    queryFn: () => k8sList('/apis/storage.k8s.io/v1/csidrivers').catch(() => []) as Promise<CSIDriver[]>,
     staleTime: 120000,
   });
-  const { data: volumeSnapshots = [] } = useQuery<K8sResource[]>({
+  const { data: volumeSnapshots = [] } = useQuery<VolumeSnapshot[]>({
     queryKey: ['storage', 'volumesnapshots', nsFilter],
-    queryFn: () => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshots', nsFilter).catch(() => []),
+    queryFn: () => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshots', nsFilter).catch(() => []) as Promise<VolumeSnapshot[]>,
     staleTime: 60000,
   });
   const { data: volumeSnapshotClasses = [] } = useQuery<K8sResource[]>({
@@ -45,19 +46,19 @@ export default function StorageView() {
 
   // Computed stats
   const pvcStatus = React.useMemo(() => {
-    const s = { Bound: 0, Pending: 0, Lost: 0 };
+    const s: Record<string, number> = { Bound: 0, Pending: 0, Lost: 0 };
     for (const pvc of pvcs) {
-      const phase = (pvc.status as any)?.phase || 'Pending';
-      if (phase in s) (s as any)[phase]++;
+      const phase = pvc.status?.phase || 'Pending';
+      if (phase in s) s[phase]++;
     }
     return s;
   }, [pvcs]);
 
   const pvStatus = React.useMemo(() => {
-    const s = { Available: 0, Bound: 0, Released: 0, Failed: 0 };
+    const s: Record<string, number> = { Available: 0, Bound: 0, Released: 0, Failed: 0 };
     for (const pv of pvs) {
-      const phase = (pv.status as any)?.phase || 'Available';
-      if (phase in s) (s as any)[phase]++;
+      const phase = pv.status?.phase || 'Available';
+      if (phase in s) s[phase]++;
     }
     return s;
   }, [pvs]);
@@ -65,10 +66,10 @@ export default function StorageView() {
   const capacityStats = React.useMemo(() => {
     let totalRequestedGi = 0;
     let totalCapacityGi = 0;
-    for (const pvc of pvcs as any[]) {
+    for (const pvc of pvcs) {
       totalRequestedGi += parseStorage(pvc.spec?.resources?.requests?.storage || '0');
     }
-    for (const pv of pvs as any[]) {
+    for (const pv of pvs) {
       totalCapacityGi += parseStorage(pv.spec?.capacity?.storage || '0');
     }
     return { totalRequestedGi, totalCapacityGi };
@@ -76,7 +77,7 @@ export default function StorageView() {
 
   const pvcByClass = React.useMemo(() => {
     const map = new Map<string, { count: number; totalGi: number; pending: number }>();
-    for (const pvc of pvcs as any[]) {
+    for (const pvc of pvcs) {
       const sc = pvc.spec?.storageClassName || '(default)';
       const cap = pvc.spec?.resources?.requests?.storage || '0';
       const gi = parseStorage(cap);
@@ -90,9 +91,9 @@ export default function StorageView() {
     return [...map.entries()].sort((a, b) => b[1].count - a[1].count);
   }, [pvcs]);
 
-  const pendingPVCs = React.useMemo(() => pvcs.filter((p) => (p.status as any)?.phase === 'Pending'), [pvcs]);
-  const releasedPVs = React.useMemo(() => pvs.filter((p) => (p.status as any)?.phase === 'Released'), [pvs]);
-  const defaultSC = storageClasses.find((sc: any) => sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true');
+  const pendingPVCs = React.useMemo(() => pvcs.filter((p) => p.status?.phase === 'Pending'), [pvcs]);
+  const releasedPVs = React.useMemo(() => pvs.filter((p) => p.status?.phase === 'Released'), [pvs]);
+  const defaultSC = storageClasses.find((sc) => sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true');
 
   const issues: Array<{ msg: string; severity: 'warning' | 'critical'; action?: { label: string; path: string } }> = [];
   if (pvcStatus.Pending > 0) issues.push({ msg: `${pvcStatus.Pending} PVC${pvcStatus.Pending > 1 ? 's' : ''} stuck in Pending`, severity: 'warning' });
@@ -194,11 +195,11 @@ export default function StorageView() {
 
         {/* Storage Health Audit */}
         <StorageHealthAudit
-          pvcs={pvcs as any[]}
-          storageClasses={storageClasses as any[]}
-          volumeSnapshots={volumeSnapshots as any[]}
-          volumeSnapshotClasses={volumeSnapshotClasses as any[]}
-          resourceQuotas={resourceQuotas as any[]}
+          pvcs={pvcs}
+          storageClasses={storageClasses}
+          volumeSnapshots={volumeSnapshots}
+          volumeSnapshotClasses={volumeSnapshotClasses}
+          resourceQuotas={resourceQuotas}
           go={go}
         />
 
@@ -209,7 +210,7 @@ export default function StorageView() {
               <div className="text-sm text-slate-500 py-4 text-center">No storage classes configured</div>
             ) : (
               <div className="space-y-2">
-                {(storageClasses as any[]).map((sc) => {
+                {storageClasses.map((sc) => {
                   const isDefault = sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true';
                   const provisioner = sc.provisioner || 'unknown';
                   const reclaimPolicy = sc.reclaimPolicy || 'Delete';
@@ -255,7 +256,7 @@ export default function StorageView() {
               </div>
             ) : (
               <div className="space-y-2">
-                {(csiDrivers as any[]).map((driver) => (
+                {csiDrivers.map((driver) => (
                   <div key={driver.metadata.uid} className="py-2 px-3 rounded hover:bg-slate-800/50">
                     <div className="text-sm text-slate-200 font-medium">{driver.metadata.name}</div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
@@ -301,7 +302,7 @@ export default function StorageView() {
         {pendingPVCs.length > 0 && (
           <Panel title={`Pending PVCs (${pendingPVCs.length})`} icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}>
             <div className="space-y-1">
-              {pendingPVCs.map((pvc: any) => (
+              {pendingPVCs.map((pvc) => (
                 <button key={pvc.metadata.uid} onClick={() => go(`/r/v1~persistentvolumeclaims/${pvc.metadata.namespace}/${pvc.metadata.name}`, pvc.metadata.name)}
                   className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2">
@@ -333,7 +334,7 @@ export default function StorageView() {
         {releasedPVs.length > 0 && (
           <Panel title={`Released PVs (${releasedPVs.length})`} icon={<Info className="w-4 h-4 text-blue-500" />}>
             <div className="space-y-1">
-              {releasedPVs.map((pv: any) => (
+              {releasedPVs.map((pv) => (
                 <button key={pv.metadata.uid} onClick={() => go(`/r/v1~persistentvolumes/_/${pv.metadata.name}`, pv.metadata.name)}
                   className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2">
@@ -358,7 +359,7 @@ export default function StorageView() {
         {volumeSnapshots.length > 0 && (
           <Panel title={`Volume Snapshots (${volumeSnapshots.length})`} icon={<Package className="w-4 h-4 text-green-500" />}>
             <div className="space-y-1">
-              {(volumeSnapshots as any[]).slice(0, 10).map((snap) => {
+              {volumeSnapshots.slice(0, 10).map((snap) => {
                 const ready = snap.status?.readyToUse;
                 return (
                   <div key={snap.metadata.uid} className="flex items-center justify-between py-2 px-3 rounded hover:bg-slate-800/50">
@@ -406,10 +407,10 @@ interface AuditCheck {
   title: string;
   description: string;
   why: string;
-  passing: any[];
-  failing: any[];
+  passing: K8sResource[];
+  failing: K8sResource[];
   yamlExample: string;
-  linkToDetail?: (item: any) => { path: string; title: string };
+  linkToDetail?: (item: K8sResource) => { path: string; title: string };
 }
 
 function StorageHealthAudit({
@@ -420,11 +421,11 @@ function StorageHealthAudit({
   resourceQuotas,
   go,
 }: {
-  pvcs: any[];
-  storageClasses: any[];
-  volumeSnapshots: any[];
-  volumeSnapshotClasses: any[];
-  resourceQuotas: any[];
+  pvcs: PersistentVolumeClaim[];
+  storageClasses: StorageClass[];
+  volumeSnapshots: VolumeSnapshot[];
+  volumeSnapshotClasses: K8sResource[];
+  resourceQuotas: K8sResource[];
   go: (path: string, title: string) => void;
 }) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
@@ -433,7 +434,7 @@ function StorageHealthAudit({
     const allChecks: AuditCheck[] = [];
 
     // 1. Default StorageClass
-    const defaultSC = storageClasses.find((sc: any) =>
+    const defaultSC = storageClasses.find((sc) =>
       sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true'
     );
     allChecks.push({
@@ -441,8 +442,8 @@ function StorageHealthAudit({
       title: 'Default StorageClass',
       description: 'One StorageClass should be marked as default for PVCs that don\'t specify a class',
       why: 'Without a default StorageClass, PVCs that omit storageClassName will fail to provision. Users expect dynamic provisioning to "just work" for common cases.',
-      passing: defaultSC ? [defaultSC] : [],
-      failing: defaultSC ? [] : storageClasses.slice(0, 1),
+      passing: defaultSC ? [defaultSC as K8sResource] : [],
+      failing: defaultSC ? [] : (storageClasses.slice(0, 1) as K8sResource[]),
       yamlExample: `apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -452,22 +453,22 @@ metadata:
 provisioner: kubernetes.io/aws-ebs
 parameters:
   type: gp3`,
-      linkToDetail: (sc: any) => ({
+      linkToDetail: (sc) => ({
         path: `/yaml/storage.k8s.io~v1~storageclasses/_/${sc.metadata.name}`,
         title: `${sc.metadata.name} (YAML)`,
       }),
     });
 
     // 2. PVC Resource Requests — Bound vs Pending
-    const pendingPVCs = pvcs.filter((pvc: any) => pvc.status?.phase === 'Pending');
-    const boundPVCs = pvcs.filter((pvc: any) => pvc.status?.phase === 'Bound');
+    const pendingPVCs = pvcs.filter((pvc) => pvc.status?.phase === 'Pending');
+    const boundPVCs = pvcs.filter((pvc) => pvc.status?.phase === 'Bound');
     allChecks.push({
       id: 'pvc-binding',
       title: 'PVC Binding Status',
       description: 'All PVCs should be bound to a PersistentVolume',
       why: 'Pending PVCs indicate missing StorageClasses, insufficient capacity, provisioner errors, or waiting for pod scheduling (WaitForFirstConsumer). Pods using pending PVCs cannot start.',
-      passing: boundPVCs,
-      failing: pendingPVCs,
+      passing: boundPVCs as K8sResource[],
+      failing: pendingPVCs as K8sResource[],
       yamlExample: `# Common causes for pending PVCs:
 # 1. StorageClass not found or missing
 # 2. CSI driver not running
@@ -477,17 +478,17 @@ parameters:
 
 # To debug, run:
 kubectl describe pvc <pvc-name>`,
-      linkToDetail: (pvc: any) => ({
+      linkToDetail: (pvc) => ({
         path: `/r/v1~persistentvolumeclaims/${pvc.metadata.namespace}/${pvc.metadata.name}`,
         title: pvc.metadata.name,
       }),
     });
 
     // 3. Volume Reclaim Policy
-    const deleteSCs = storageClasses.filter((sc: any) =>
+    const deleteSCs = storageClasses.filter((sc) =>
       (sc.reclaimPolicy || 'Delete') === 'Delete'
     );
-    const retainSCs = storageClasses.filter((sc: any) =>
+    const retainSCs = storageClasses.filter((sc) =>
       sc.reclaimPolicy === 'Retain'
     );
     allChecks.push({
@@ -495,8 +496,8 @@ kubectl describe pvc <pvc-name>`,
       title: 'Volume Reclaim Policy',
       description: 'Production StorageClasses should use Retain policy to prevent accidental data loss',
       why: 'Delete reclaim policy automatically deletes the underlying volume when a PVC is deleted. This is convenient for dev/test but dangerous in production — a single kubectl delete can permanently destroy data.',
-      passing: retainSCs,
-      failing: deleteSCs,
+      passing: retainSCs as K8sResource[],
+      failing: deleteSCs as K8sResource[],
       yamlExample: `apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -505,17 +506,17 @@ provisioner: kubernetes.io/aws-ebs
 reclaimPolicy: Retain    # Keep data after PVC deletion
 parameters:
   type: gp3`,
-      linkToDetail: (sc: any) => ({
+      linkToDetail: (sc) => ({
         path: `/yaml/storage.k8s.io~v1~storageclasses/_/${sc.metadata.name}`,
         title: `${sc.metadata.name} (YAML)`,
       }),
     });
 
     // 4. WaitForFirstConsumer Binding
-    const immediateSCs = storageClasses.filter((sc: any) =>
+    const immediateSCs = storageClasses.filter((sc) =>
       (sc.volumeBindingMode || 'Immediate') === 'Immediate'
     );
-    const wffcSCs = storageClasses.filter((sc: any) =>
+    const wffcSCs = storageClasses.filter((sc) =>
       sc.volumeBindingMode === 'WaitForFirstConsumer'
     );
     allChecks.push({
@@ -523,8 +524,8 @@ parameters:
       title: 'Volume Binding Mode',
       description: 'StorageClasses should use WaitForFirstConsumer to avoid cross-AZ provisioning issues',
       why: 'Immediate binding provisions volumes before any pod uses them, which can place the volume in the wrong availability zone. If the pod is then scheduled to a different AZ, it cannot attach the volume. WaitForFirstConsumer delays provisioning until the pod is scheduled.',
-      passing: wffcSCs,
-      failing: immediateSCs,
+      passing: wffcSCs as K8sResource[],
+      failing: immediateSCs as K8sResource[],
       yamlExample: `apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -533,7 +534,7 @@ provisioner: kubernetes.io/aws-ebs
 volumeBindingMode: WaitForFirstConsumer
 parameters:
   type: gp3`,
-      linkToDetail: (sc: any) => ({
+      linkToDetail: (sc) => ({
         path: `/yaml/storage.k8s.io~v1~storageclasses/_/${sc.metadata.name}`,
         title: `${sc.metadata.name} (YAML)`,
       }),
@@ -547,8 +548,8 @@ parameters:
       title: 'Volume Snapshot Support',
       description: 'Volume snapshots enable point-in-time backups and data cloning',
       why: 'Without VolumeSnapshot support, you cannot create backups of persistent data or clone volumes. This is critical for disaster recovery, blue/green deployments, and testing with production data.',
-      passing: hasSnapshotCRDs ? [{ note: `${volumeSnapshotClasses.length} VolumeSnapshotClass(es) configured` }] : [],
-      failing: hasSnapshotCRDs ? [] : [{ note: 'VolumeSnapshot CRDs not installed' }],
+      passing: hasSnapshotCRDs ? [{ note: `${volumeSnapshotClasses.length} VolumeSnapshotClass(es) configured` } as unknown as K8sResource] : [],
+      failing: hasSnapshotCRDs ? [] : [{ note: 'VolumeSnapshot CRDs not installed' } as unknown as K8sResource],
       yamlExample: `# Install VolumeSnapshot CRDs and CSI snapshotter
 # For most cloud providers, this is automatic.
 # For on-prem, install:
@@ -567,12 +568,12 @@ spec:
 
     // 6. Storage Quotas
     // Get unique namespaces from PVCs
-    const namespacesWithPVCs = new Set(pvcs.map((pvc: any) => pvc.metadata.namespace));
-    const quotasWithStorage = resourceQuotas.filter((q: any) => {
-      const hard = q.spec?.hard || {};
+    const namespacesWithPVCs = new Set(pvcs.map((pvc) => pvc.metadata.namespace));
+    const quotasWithStorage = resourceQuotas.filter((q) => {
+      const hard = (q.spec as Record<string, unknown>)?.hard as Record<string, string> | undefined ?? {};
       return hard['requests.storage'] || hard['persistentvolumeclaims'];
     });
-    const quotaNamespaces = new Set(quotasWithStorage.map((q: any) => q.metadata.namespace));
+    const quotaNamespaces = new Set(quotasWithStorage.map((q) => q.metadata.namespace));
     const namespacesWithoutQuota = [...namespacesWithPVCs].filter(ns => !quotaNamespaces.has(ns));
 
     allChecks.push({
@@ -581,7 +582,7 @@ spec:
       description: 'Namespaces with PVCs should have storage quotas to prevent uncontrolled growth',
       why: 'Without storage quotas, users can request unlimited storage, leading to cloud cost overruns and capacity exhaustion. Quotas enforce budget limits and prevent runaway provisioning.',
       passing: quotasWithStorage,
-      failing: namespacesWithoutQuota.map(ns => ({ metadata: { name: ns, namespace: ns } })),
+      failing: namespacesWithoutQuota.map(ns => ({ metadata: { name: ns, namespace: ns } } as K8sResource)),
       yamlExample: `apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -591,9 +592,9 @@ spec:
   hard:
     requests.storage: "100Gi"         # Total storage requests
     persistentvolumeclaims: "10"      # Max number of PVCs`,
-      linkToDetail: (item: any) => {
+      linkToDetail: (item) => {
         // If it's a quota, link to the quota; if it's a namespace placeholder, link to create quota
-        if (item.spec?.hard) {
+        if ((item.spec as Record<string, unknown>)?.hard) {
           return {
             path: `/yaml/v1~resourcequotas/${item.metadata.namespace}/${item.metadata.name}`,
             title: `${item.metadata.name} (YAML)`,
@@ -664,9 +665,9 @@ spec:
                         {check.id === 'pvc-binding' ? 'Pending' : check.id === 'storage-quotas' ? 'Missing quotas' : 'Needs attention'} ({check.failing.length})
                       </div>
                       <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((item: any, idx: number) => {
+                        {check.failing.slice(0, 10).map((item, idx) => {
                           const linkInfo = check.linkToDetail?.(item);
-                          const displayName = item.metadata?.name || item.note || 'Unknown';
+                          const displayName = item.metadata?.name || (item as unknown as { note?: string }).note || 'Unknown';
                           return (
                             <button
                               key={item.metadata?.uid || idx}
@@ -692,8 +693,8 @@ spec:
                     <div>
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((item: any, idx: number) => {
-                          const displayName = item.metadata?.name || item.note || 'OK';
+                        {check.passing.slice(0, 8).map((item, idx) => {
+                          const displayName = item.metadata?.name || (item as unknown as { note?: string }).note || 'OK';
                           return (
                             <span key={item.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
                               {displayName}
