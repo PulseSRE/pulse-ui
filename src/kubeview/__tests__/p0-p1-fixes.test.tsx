@@ -109,11 +109,17 @@ describe('P0: useKeyboardShortcuts uses getState()', () => {
 
 describe('P0: No native confirm() calls', () => {
   it('AdminView uses ConfirmDialog not native confirm()', () => {
-    const source = readSrc('views/AdminView.tsx');
-    const codeLines = source.split('\n').filter(l => !l.trim().startsWith('//'));
-    const hasNativeConfirm = codeLines.some(l => /[^.]\bconfirm\s*\(/.test(l) && !l.includes('onConfirm') && !l.includes('confirmDialog') && !l.includes('confirmLabel') && !l.includes('confirmButtonRef'));
+    // ConfirmDialog usage has been extracted into admin sub-components (UpdatesTab, SnapshotsTab)
+    const adminSource = readSrc('views/AdminView.tsx');
+    const adminCodeLines = adminSource.split('\n').filter(l => !l.trim().startsWith('//'));
+    const hasNativeConfirm = adminCodeLines.some(l => /[^.]\bconfirm\s*\(/.test(l) && !l.includes('onConfirm') && !l.includes('confirmDialog') && !l.includes('confirmLabel') && !l.includes('confirmButtonRef'));
     expect(hasNativeConfirm).toBe(false);
-    expect(source).toContain("import { ConfirmDialog }");
+
+    // Sub-components that handle confirmations must import ConfirmDialog
+    const updatesSource = readSrc('views/admin/UpdatesTab.tsx');
+    expect(updatesSource).toContain("import { ConfirmDialog }");
+    const snapshotsSource = readSrc('views/admin/SnapshotsTab.tsx');
+    expect(snapshotsSource).toContain("import { ConfirmDialog }");
   });
 
   it('ClusterConfig uses ConfirmDialog not native confirm()', () => {
