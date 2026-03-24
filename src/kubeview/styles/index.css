@@ -22,6 +22,13 @@
   --kv-radius-sm: 4px;
   --kv-radius-lg: 12px;
   --kv-font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace;
+
+  /* Terminal theme (GitHub Dark) */
+  --kv-term-bg: #0d1117;
+  --kv-term-surface: #161b22;
+  --kv-term-text: #c9d1d9;
+  --kv-term-prompt: #7ee787;
+  --kv-term-error: #f85149;
 }
 
 /* Base reset for OpenShift Pulse */

@@ -183,9 +183,9 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-5xl h-[480px] bg-[#0d1117] border border-slate-700 rounded-t-xl shadow-2xl flex flex-col z-50">
+      <div className="relative w-full max-w-5xl h-[480px] bg-[var(--kv-term-bg)] border border-slate-700 rounded-t-xl shadow-2xl flex flex-col z-50">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800 bg-[#161b22] rounded-t-xl">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800 bg-[var(--kv-term-surface)] rounded-t-xl">
           <div className="flex items-center gap-3">
             <div className="flex gap-1.5">
               <button onClick={onClose} className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors" title="Close" />
@@ -235,10 +235,10 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
               )}
               <div className={cn(
                 'flex-1 min-w-0',
-                line.type === 'input' ? 'text-[#7ee787] font-medium' :
-                line.type === 'error' ? 'text-[#f85149]' :
+                line.type === 'input' ? 'text-[var(--kv-term-prompt)] font-medium' :
+                line.type === 'error' ? 'text-[var(--kv-term-error)]' :
                 line.type === 'system' ? 'text-slate-600 italic text-xs' :
-                'text-[#c9d1d9]'
+                'text-[var(--kv-term-text)]'
               )}>
                 {line.text || '\u00A0'}
               </div>
@@ -254,8 +254,8 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
         </div>
 
         {/* Input */}
-        <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-800 bg-[#161b22]">
-          <span className="text-[#7ee787] text-sm font-mono font-bold">$</span>
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-800 bg-[var(--kv-term-surface)]">
+          <span className="text-[var(--kv-term-prompt)] text-sm font-mono font-bold">$</span>
           <input
             ref={inputRef}
             type="text"
@@ -264,7 +264,7 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
             onKeyDown={handleKeyDown}
             placeholder={running ? 'Waiting...' : 'Enter command...'}
             disabled={running}
-            className="flex-1 bg-transparent text-[13px] font-mono text-[#c9d1d9] placeholder-slate-700 outline-none caret-[#7ee787]"
+            className="flex-1 bg-transparent text-[13px] font-mono text-[var(--kv-term-text)] placeholder-slate-700 outline-none caret-[var(--kv-term-prompt)]"
             autoFocus
           />
           {history.length > 0 && !running && (
