@@ -1,0 +1,17 @@
+node_modules
+.rspack_cache
+.git
+.claude
+src
+docs
+*.md
+*.ts
+*.tsx
+tsconfig*.json
+vitest.config.ts
+rspack.config.ts
+eslint.config.js
+tailwind.config.js
+postcss.config.js
+package.json
+package-lock.json

@@ -74,10 +74,12 @@ describe('WatchManager', () => {
       expect(source).toContain("fieldSelector");
     });
 
-    it('TimelineView watches events instead of polling', () => {
+    it('TimelineView uses incident timeline hook (which uses watches internally)', () => {
       const source = fs.readFileSync(path.join(viewsDir, 'TimelineView.tsx'), 'utf-8');
-      expect(source).toContain("useK8sListWatch");
-      expect(source).not.toContain("refetchInterval");
+      expect(source).toContain("useIncidentTimeline");
+      // The hook uses useK8sListWatch internally for events, replicasets, etc.
+      const hookSource = fs.readFileSync(path.join(viewsDir, '../hooks/useIncidentTimeline.ts'), 'utf-8');
+      expect(hookSource).toContain("useK8sListWatch");
     });
 
     it('LogsView watches pods instead of polling', () => {

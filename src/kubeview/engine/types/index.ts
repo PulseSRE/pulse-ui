@@ -45,6 +45,9 @@ export type { ClusterVersion, ClusterOperator, BuildConfig, Build, ImageStream, 
 // Storage
 export type { StorageClass, VolumeSnapshot, CSIDriver } from './storage';
 
+// Timeline
+export type { TimelineEntry, TimelineCategory, TimelineSeverity, CorrelationGroup } from './timeline';
+
 // Union of all typed resources
 export type TypedK8sResource =
   | import('./core').Pod
