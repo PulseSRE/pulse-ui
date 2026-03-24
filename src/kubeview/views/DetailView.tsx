@@ -47,6 +47,8 @@ import { PodSummary } from './detail/PodSummary';
 import { Card } from '../components/primitives/Card';
 import { ArgoSyncBadge } from '../components/ArgoSyncBadge';
 import { GitOpsInfoCard } from '../components/GitOpsInfoCard';
+import { ResourceHistoryPanel } from './argocd/ResourceHistoryPanel';
+import { useArgoSyncInfo } from '../hooks/useArgoCD';
 
 interface DetailViewProps {
   gvrKey: string;
@@ -572,6 +574,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         <>
         {/* GitOps info (shown for ArgoCD-managed resources) */}
         <GitOpsInfoCard kind={resource.kind} namespace={resource.metadata.namespace} name={resource.metadata.name} />
+        <ResourceHistoryPanel kind={resource.kind} namespace={resource.metadata.namespace} name={resource.metadata.name} />
 
         {/* Deployment-specific layout */}
         {resource.kind === 'Deployment' && namespace && (

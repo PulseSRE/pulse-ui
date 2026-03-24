@@ -1,10 +1,11 @@
 import React from 'react';
 import {
-  AlertTriangle, CheckCircle, RefreshCw, Loader2, ArrowRight, ChevronDown, ChevronRight,
+  AlertTriangle, CheckCircle, RefreshCw, Loader2, ArrowRight, ChevronDown, ChevronRight, Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ArgoApplication, ArgoManagedResource, ArgoSyncStatus } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
+import { ResourceDiffPanel } from './ResourceDiffPanel';
 
 interface DriftTabProps {
   applications: ArgoApplication[];
@@ -21,6 +22,15 @@ const SYNC_COLORS: Record<ArgoSyncStatus, string> = {
 
 export function DriftTab({ applications, onSync, syncing, go }: DriftTabProps) {
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+  const [expandedDiffs, setExpandedDiffs] = React.useState<Set<string>>(new Set());
+
+  const toggleDiff = (key: string) => {
+    setExpandedDiffs(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const outOfSyncApps = React.useMemo(() =>
     applications.filter(a => a.status?.sync?.status === 'OutOfSync'),
@@ -85,9 +95,26 @@ export function DriftTab({ applications, onSync, syncing, go }: DriftTabProps) {
             {isExpanded && (
               <div className="border-t border-slate-800 divide-y divide-slate-800/50">
                 {/* Out of sync resources first */}
-                {outOfSyncResources.map((r, i) => (
-                  <ResourceRow key={`${r.kind}-${r.namespace}-${r.name}-${i}`} resource={r} go={go} />
-                ))}
+                {outOfSyncResources.map((r, i) => {
+                  const diffKey = `${app.metadata.name}-${r.kind}-${r.namespace}-${r.name}`;
+                  return (
+                    <React.Fragment key={`${r.kind}-${r.namespace}-${r.name}-${i}`}>
+                      <ResourceRow
+                        resource={r}
+                        go={go}
+                        showDiff={expandedDiffs.has(diffKey)}
+                        onToggleDiff={() => toggleDiff(diffKey)}
+                      />
+                      {expandedDiffs.has(diffKey) && (
+                        <ResourceDiffPanel
+                          resource={r}
+                          appName={app.metadata.name}
+                          appNamespace={app.metadata.namespace || ''}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
                 {/* Synced resources (dimmed) */}
                 {syncedResources.length > 0 && (
                   <div className="px-4 py-2 text-xs text-slate-600">
@@ -103,7 +130,12 @@ export function DriftTab({ applications, onSync, syncing, go }: DriftTabProps) {
   );
 }
 
-function ResourceRow({ resource, go }: { resource: ArgoManagedResource; go: (path: string, title: string) => void }) {
+function ResourceRow({ resource, go, showDiff, onToggleDiff }: {
+  resource: ArgoManagedResource;
+  go: (path: string, title: string) => void;
+  showDiff?: boolean;
+  onToggleDiff?: () => void;
+}) {
   const gvr = resource.group
     ? `${resource.group}~${resource.version}~${resource.kind.toLowerCase()}s`
     : `${resource.version}~${resource.kind.toLowerCase()}s`;
@@ -138,6 +170,21 @@ function ResourceRow({ resource, go }: { resource: ArgoManagedResource; go: (pat
           )}>
             {resource.health.status}
           </span>
+        )}
+        {onToggleDiff && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleDiff(); }}
+            className={cn(
+              'px-1.5 py-0.5 text-xs rounded flex items-center gap-1 transition-colors',
+              showDiff
+                ? 'bg-violet-900/50 text-violet-300'
+                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+            )}
+            title="View live state"
+          >
+            <Eye className="w-3 h-3" />
+            View
+          </button>
         )}
         <ArrowRight className="w-3 h-3 text-slate-600" />
       </div>
