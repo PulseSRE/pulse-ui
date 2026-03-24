@@ -58,7 +58,7 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'config', section.id],
-    queryFn: () => k8sGet<any>(section.apiPath).catch(() => null),
+    queryFn: () => k8sGet<Record<string, unknown>>(section.apiPath).catch(() => null),
     staleTime: 60000,
     enabled: expanded,
   });
@@ -363,7 +363,7 @@ function ImageEditor({ data, apiPath }: { data: any; apiPath: string }) {
       )}
       <div className="flex items-center gap-2 pt-1">
         <input type="text" value={newReg} onChange={(e) => setNewReg(e.target.value)} placeholder="registry.example.com" className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 w-64 focus:outline-none focus:ring-1 focus:ring-blue-500" onKeyDown={(e) => e.key === 'Enter' && handleAddRegistry()} />
-        <select value={regType} onChange={(e) => setRegType(e.target.value as any)} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200">
+        <select value={regType} onChange={(e) => setRegType(e.target.value as 'allowed' | 'blocked' | 'insecure')} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200">
           <option value="allowed">Allowed</option>
           <option value="blocked">Blocked</option>
           <option value="insecure">Insecure</option>

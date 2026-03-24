@@ -11,8 +11,9 @@ import { k8sCreate, k8sGet } from '../engine/query';
 import { useQuery } from '@tanstack/react-query';
 import { Panel } from '../components/primitives/Panel';
 import { formatDuration, timeAgo } from '../engine/dateUtils';
+import type { Build, BuildConfig, ImageStream } from '../engine/types';
 
-function getBuildStatus(build: any): { phase: string; color: string; icon: React.ReactNode } {
+function getBuildStatus(build: Build): { phase: string; color: string; icon: React.ReactNode } {
   const phase = build.status?.phase || 'Unknown';
   switch (phase) {
     case 'Complete':
@@ -45,7 +46,7 @@ export default function BuildsView() {
   // Build stats
   const buildStats = React.useMemo(() => {
     const stats = { Complete: 0, Running: 0, Pending: 0, Failed: 0, Cancelled: 0, Other: 0 };
-    for (const b of builds as any[]) {
+    for (const b of builds as Build[]) {
       const phase = b.status?.phase || 'Other';
       if (phase in stats) stats[phase as keyof typeof stats]++;
       else if (phase === 'New') stats.Pending++;
@@ -57,7 +58,7 @@ export default function BuildsView() {
 
   // Recent builds sorted by creation time
   const recentBuilds = React.useMemo(() =>
-    [...(builds as any[])].sort((a, b) =>
+    [...(builds as Build[])].sort((a, b) =>
       new Date(b.metadata?.creationTimestamp || 0).getTime() - new Date(a.metadata?.creationTimestamp || 0).getTime()
     ).slice(0, 50),
   [builds]);
@@ -65,7 +66,7 @@ export default function BuildsView() {
   // Build duration averages per BuildConfig
   const buildConfigStats = React.useMemo(() => {
     const map = new Map<string, { total: number; count: number; lastStatus: string; lastBuild: string }>();
-    for (const b of builds as any[]) {
+    for (const b of builds as Build[]) {
       const bcName = b.metadata?.labels?.['openshift.io/build-config.name'] || b.metadata?.annotations?.['openshift.io/build-config.name'];
       if (!bcName) continue;
       const key = `${b.metadata?.namespace}/${bcName}`;
@@ -97,7 +98,7 @@ export default function BuildsView() {
 
   // ImageStream tag count
   const totalTags = React.useMemo(() =>
-    (imageStreams as any[]).reduce((sum, is) => sum + (is.status?.tags?.length || 0), 0),
+    (imageStreams as ImageStream[]).reduce((sum, is) => sum + (is.status?.tags?.length || 0), 0),
   [imageStreams]);
 
   // Issues
@@ -106,7 +107,7 @@ export default function BuildsView() {
   if (runningBuilds.length > 0) issues.push({ msg: `${runningBuilds.length} build${runningBuilds.length > 1 ? 's' : ''} in progress`, severity: 'warning' });
 
   // Trigger build
-  const handleTriggerBuild = async (bc: any) => {
+  const handleTriggerBuild = async (bc: BuildConfig) => {
     const ns = bc.metadata?.namespace;
     const name = bc.metadata?.name;
     try {
@@ -206,7 +207,7 @@ export default function BuildsView() {
             <div className="text-center py-6 text-sm text-slate-500">No BuildConfigs{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="divide-y divide-slate-800">
-              {(buildConfigs as any[]).map((bc) => {
+              {(buildConfigs as BuildConfig[]).map((bc) => {
                 const name = bc.metadata?.name || '';
                 const ns = bc.metadata?.namespace || '';
                 const strategy = bc.spec?.strategy?.type || 'Unknown';
@@ -259,7 +260,7 @@ export default function BuildsView() {
         {runningBuilds.length > 0 && (
           <Panel title={`In Progress (${runningBuilds.length})`} icon={<Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}>
             <div className="divide-y divide-slate-800">
-              {runningBuilds.map((b: any) => {
+              {runningBuilds.map((b: Build) => {
                 const { phase, color, icon } = getBuildStatus(b);
                 const name = b.metadata?.name || '';
                 const ns = b.metadata?.namespace || '';
@@ -288,7 +289,7 @@ export default function BuildsView() {
         {failedBuilds.length > 0 && (
           <Panel title={`Failed Builds (${failedBuilds.length})`} icon={<XCircle className="w-4 h-4 text-red-500" />}>
             <div className="divide-y divide-slate-800">
-              {failedBuilds.slice(0, 20).map((b: any) => {
+              {failedBuilds.slice(0, 20).map((b: Build) => {
                 const name = b.metadata?.name || '';
                 const ns = b.metadata?.namespace || '';
                 const message = b.status?.message || b.status?.reason || '';
@@ -331,7 +332,7 @@ export default function BuildsView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
-                  {recentBuilds.slice(0, 30).map((b: any) => {
+                  {recentBuilds.slice(0, 30).map((b: Build) => {
                     const { phase, color, icon } = getBuildStatus(b);
                     const name = b.metadata?.name || '';
                     const ns = b.metadata?.namespace || '';
@@ -376,7 +377,7 @@ export default function BuildsView() {
             <div className="text-center py-6 text-sm text-slate-500">No ImageStreams{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="divide-y divide-slate-800">
-              {(imageStreams as any[]).slice(0, 25).map((is) => {
+              {(imageStreams as ImageStream[]).slice(0, 25).map((is) => {
                 const name = is.metadata?.name || '';
                 const ns = is.metadata?.namespace || '';
                 const tags = is.status?.tags || [];
@@ -390,7 +391,7 @@ export default function BuildsView() {
                       <div className="text-xs text-slate-500 truncate">{dockerRepo || ns}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {tags.slice(0, 4).map((tag: any) => (
+                      {tags.slice(0, 4).map((tag: { tag: string }) => (
                         <span key={tag.tag} className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded">{tag.tag}</span>
                       ))}
                       {tags.length > 4 && <span className="text-xs text-slate-500">+{tags.length - 4}</span>}

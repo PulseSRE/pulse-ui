@@ -30,6 +30,7 @@ export interface ClusterRole {
   kind: 'ClusterRole';
   metadata: ObjectMeta;
   rules?: PolicyRule[];
+  [key: string]: unknown;
 }
 
 export interface ClusterRoleBinding {
@@ -38,6 +39,7 @@ export interface ClusterRoleBinding {
   metadata: ObjectMeta;
   roleRef: RoleRef;
   subjects?: Subject[];
+  [key: string]: unknown;
 }
 
 export interface Role {
@@ -45,6 +47,7 @@ export interface Role {
   kind: 'Role';
   metadata: ObjectMeta;
   rules?: PolicyRule[];
+  [key: string]: unknown;
 }
 
 export interface RoleBinding {
@@ -53,4 +56,5 @@ export interface RoleBinding {
   metadata: ObjectMeta;
   roleRef: RoleRef;
   subjects?: Subject[];
+  [key: string]: unknown;
 }

@@ -4,6 +4,7 @@
  */
 
 import type { K8sResource } from './renderers/index';
+import type { PersistentVolumeClaim } from './types';
 
 export interface Diagnosis {
   severity: 'critical' | 'warning' | 'info';
@@ -296,7 +297,7 @@ function diagnosePVC(resource: K8sResource): Diagnosis[] {
 
   // PVC pending — show specific details about what's requested
   if (status.phase === 'Pending') {
-    const spec = resource.spec as any;
+    const spec = resource.spec as PersistentVolumeClaim['spec'];
     const storageClassName = spec?.storageClassName || '';
     const accessModes = (spec?.accessModes || []).join(', ') || 'not specified';
     const requestedStorage = spec?.resources?.requests?.storage || 'not specified';
@@ -433,7 +434,7 @@ export function findNeedsAttention(resources: K8sResource[]): NeedsAttentionItem
       const name = resource.metadata.name;
       const owners = resource.metadata.ownerReferences || [];
       if (name.startsWith('installer-') || name.startsWith('revision-pruner-') || owners.some((o) => o.kind === 'Job')) {
-        const phase = (resource.status as any)?.phase;
+        const phase = (resource.status as PodStatus | undefined)?.phase;
         if (phase === 'Failed' || phase === 'Succeeded') continue;
       }
     }

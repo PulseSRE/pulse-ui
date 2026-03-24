@@ -5,6 +5,7 @@ import {
   ArrowRight, Image, Cpu, MemoryStick, Shield, Loader2,
 } from 'lucide-react';
 import type { K8sResource } from '../../engine/renderers';
+import type { Deployment, Pod, Container, ContainerPort, ContainerStatus } from '../../engine/types';
 
 interface DeploymentSummaryProps {
   resource: K8sResource;
@@ -13,8 +14,8 @@ interface DeploymentSummaryProps {
 }
 
 export function DeploymentSummary({ resource, managedPods, go }: DeploymentSummaryProps) {
-  const spec = resource.spec as any;
-  const status = (resource.status as any) || {};
+  const spec = resource.spec as Deployment['spec'];
+  const status = (resource.status as Deployment['status']) || {};
   const ns = resource.metadata.namespace;
 
   const replicas = spec?.replicas ?? 0;
@@ -25,7 +26,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
   const strategy = spec?.strategy?.type || 'RollingUpdate';
   const maxUnavailable = spec?.strategy?.rollingUpdate?.maxUnavailable ?? '25%';
   const maxSurge = spec?.strategy?.rollingUpdate?.maxSurge ?? '25%';
-  const containers: any[] = spec?.template?.spec?.containers || [];
+  const containers: Container[] = spec?.template?.spec?.containers || [];
   const selector = spec?.selector?.matchLabels || {};
   const generation = resource.metadata.generation;
   const observedGeneration = status.observedGeneration;
@@ -34,8 +35,8 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
   // Pod status breakdown
   const podsByPhase = React.useMemo(() => {
     const counts = { running: 0, pending: 0, failed: 0, succeeded: 0 };
-    for (const pod of managedPods as any[]) {
-      const phase = pod.status?.phase?.toLowerCase() || 'pending';
+    for (const pod of managedPods) {
+      const phase = ((pod.status as Pod['status'])?.phase || 'Pending').toLowerCase();
       if (phase in counts) counts[phase as keyof typeof counts]++;
       else counts.pending++;
     }
@@ -116,7 +117,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
           <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Container Images</h3>
         </div>
         <div className="divide-y divide-slate-800">
-          {containers.map((c: any) => {
+          {containers.map((c) => {
             const hasLimits = c.resources?.limits?.cpu && c.resources?.limits?.memory;
             const hasRequests = c.resources?.requests?.cpu && c.resources?.requests?.memory;
             const hasProbes = c.livenessProbe || c.readinessProbe;
@@ -128,7 +129,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
                     <span className="text-sm font-medium text-slate-200">{c.name}</span>
                     {c.ports && (
                       <span className="text-xs text-slate-500">
-                        :{(c.ports as any[]).map(p => p.containerPort).join(', ')}
+                        :{(c.ports as ContainerPort[]).map(p => p.containerPort).join(', ')}
                       </span>
                     )}
                   </div>
@@ -173,13 +174,14 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
           {managedPods.length === 0 ? (
             <div className="px-4 py-6 text-center text-xs text-slate-500">No pods found</div>
           ) : (
-            managedPods.map((pod: any) => {
-              const podPhase = pod.status?.phase || 'Pending';
-              const containerStatuses = pod.status?.containerStatuses || [];
-              const ready = containerStatuses.filter((c: any) => c.ready).length;
-              const total = containerStatuses.length || 1;
-              const waiting = containerStatuses.find((c: any) => c.state?.waiting)?.state?.waiting;
-              const restarts = containerStatuses.reduce((sum: number, c: any) => sum + (c.restartCount || 0), 0);
+            managedPods.map((pod) => {
+              const podStatus = pod.status as Pod['status'];
+              const podPhase = podStatus?.phase || 'Pending';
+              const podContainerStatuses: ContainerStatus[] = podStatus?.containerStatuses || [];
+              const ready = podContainerStatuses.filter((c) => c.ready).length;
+              const total = podContainerStatuses.length || 1;
+              const waiting = podContainerStatuses.find((c) => c.state?.waiting)?.state?.waiting;
+              const restarts = podContainerStatuses.reduce((sum, c) => sum + (c.restartCount || 0), 0);
               const podAge = (() => {
                 const created = new Date(pod.metadata.creationTimestamp || '');
                 const diff = Date.now() - created.getTime();
@@ -189,7 +191,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
                 if (hours < 24) return `${hours}h`;
                 return `${Math.floor(hours / 24)}d`;
               })();
-              const nodeName = pod.spec?.nodeName || '';
+              const nodeName = (pod.spec as Pod['spec'] | undefined)?.nodeName || '';
 
               return (
                 <button

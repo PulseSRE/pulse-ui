@@ -5,6 +5,7 @@ import { ScrollText, Loader2 } from 'lucide-react';
 import { k8sLogs } from '../../engine/query';
 import { MetricCard } from '../../components/metrics/Sparkline';
 import type { K8sResource } from '../../engine/renderers';
+import type { Pod, Event, Container, ContainerStatus } from '../../engine/types';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 
 export function IncidentContext({ resource, managedPods, events, namespace, go }: {
@@ -21,17 +22,18 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   const worstPod = React.useMemo(() => {
     if (isPod) return resource;
     if (managedPods.length === 0) return null;
-    const scored = (managedPods as any[]).map(p => {
-      const statuses = p.status?.containerStatuses || [];
-      const waiting = statuses.find((c: any) => c.state?.waiting);
-      const restarts = statuses.reduce((s: number, c: any) => s + (c.restartCount || 0), 0);
-      const ready = statuses.filter((c: any) => c.ready).length;
+    const scored = managedPods.map(p => {
+      const podStatus = p.status as Pod['status'];
+      const statuses: ContainerStatus[] = podStatus?.containerStatuses || [];
+      const waiting = statuses.find((c) => c.state?.waiting);
+      const restarts = statuses.reduce((s, c) => s + (c.restartCount || 0), 0);
+      const ready = statuses.filter((c) => c.ready).length;
       const total = statuses.length || 1;
       let score = 0;
       if (waiting?.state?.waiting?.reason === 'CrashLoopBackOff') score = 100;
       else if (waiting?.state?.waiting?.reason === 'ImagePullBackOff') score = 90;
-      else if (p.status?.phase === 'Failed') score = 80;
-      else if (p.status?.phase === 'Pending') score = 70;
+      else if (podStatus?.phase === 'Failed') score = 80;
+      else if (podStatus?.phase === 'Pending') score = 70;
       else if (restarts > 5) score = 60;
       else if (ready < total) score = 50;
       else score = restarts;
@@ -53,9 +55,9 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
     enabled: !!worstPod && !isPod && !!worstPodName && !!podEventsPath,
   });
 
-  const containers: any[] = isPod
-    ? ((resource.spec as any)?.containers || [])
-    : (worstPod?.spec?.containers || []);
+  const containers: Container[] = isPod
+    ? ((resource.spec as Pod['spec'])?.containers || [])
+    : ((worstPod?.spec as Pod['spec'] | undefined)?.containers || []);
   const [selectedContainer, setSelectedContainer] = React.useState<string>('');
   const [showPrevious, setShowPrevious] = React.useState(false);
 
@@ -76,7 +78,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   });
 
   const relevantEvents = React.useMemo(() => {
-    const all = [...(events as any[]), ...(podEvents as any[])];
+    const all = [...(events as unknown as Event[]), ...(podEvents as unknown as Event[])];
     const seen = new Set<string>();
     return all.filter(e => {
       const uid = e.metadata?.uid;
@@ -89,7 +91,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
     ).slice(0, 15);
   }, [events, podEvents]);
 
-  const warningEvents = relevantEvents.filter((e: any) => e.type === 'Warning');
+  const warningEvents = relevantEvents.filter((e) => e.type === 'Warning');
 
   const metricFilter = isPod
     ? `namespace="${namespace}",pod="${resource.metadata.name}"`
@@ -117,7 +119,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
               Events ({relevantEvents.length}){warningEvents.length > 0 && <span className="text-amber-400 ml-1">· {warningEvents.length} warnings</span>}
             </div>
             <div className="space-y-1.5 max-h-40 overflow-auto">
-              {relevantEvents.slice(0, 10).map((event: any, idx: number) => {
+              {relevantEvents.slice(0, 10).map((event, idx) => {
                 const isWarning = event.type === 'Warning';
                 const age = event.lastTimestamp || event.firstTimestamp || '';
                 const timeStr = age ? (() => {
@@ -153,7 +155,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
                     onChange={(e) => setSelectedContainer(e.target.value)}
                     className="text-xs bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-slate-300"
                   >
-                    {containers.map((c: any) => (
+                    {containers.map((c) => (
                       <option key={c.name} value={c.name}>{c.name}</option>
                     ))}
                   </select>

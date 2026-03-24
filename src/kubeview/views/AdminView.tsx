@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { k8sList, k8sGet, k8sPatch } from '../engine/query';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import type { K8sResource } from '../engine/renderers';
+import type { ClusterVersion, ClusterOperator, Node, Namespace, Deployment, Condition } from '../engine/types';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
@@ -22,6 +23,62 @@ import { parseCpu, parseMem, formatMem } from '../engine/formatting';
 import { type ClusterSnapshot, type DiffRow, loadSnapshots, saveSnapshots, captureSnapshot, compareSnapshots } from '../engine/snapshot';
 import { QuotasTab } from './admin/QuotasTab';
 import { CertificatesTab } from './admin/CertificatesTab';
+
+/** OpenShift Infrastructure resource (config.openshift.io/v1) */
+interface Infrastructure extends K8sResource {
+  status?: {
+    platform?: string;
+    platformStatus?: { type?: string };
+    apiServerURL?: string;
+    controlPlaneTopology?: string;
+  };
+}
+
+/** OpenShift OAuth resource (config.openshift.io/v1) */
+interface OAuthConfig extends K8sResource {
+  spec?: {
+    identityProviders?: Array<{ name: string; type: string }>;
+  };
+}
+
+/** OpenShift operator resource (operator.openshift.io/v1) */
+interface OperatorResource extends K8sResource {
+  status?: {
+    conditions?: Condition[];
+    latestAvailableRevision?: number;
+  };
+}
+
+/** OpenShift Ingress config (config.openshift.io/v1) */
+interface IngressConfig extends K8sResource {
+  spec?: {
+    domain?: string;
+    defaultCertificate?: { name: string };
+  };
+}
+
+/** CRD resource */
+interface CustomResourceDefinition extends K8sResource {
+  spec?: {
+    group?: string;
+    [key: string]: unknown;
+  };
+}
+
+/** PDB resource */
+interface PodDisruptionBudget extends K8sResource {
+  spec?: {
+    selector?: { matchLabels?: Record<string, string> };
+    [key: string]: unknown;
+  };
+}
+
+/** Available update entry (extends typed ClusterVersion updates with risks) */
+interface AvailableUpdate {
+  version: string;
+  image?: string;
+  risks?: Array<{ name?: string; message?: string }>;
+}
 
 type Tab = 'overview' | 'readiness' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'timeline';
 
@@ -43,14 +100,14 @@ export default function AdminView() {
   // Cluster version
   const { data: clusterVersion } = useQuery({
     queryKey: ['admin', 'clusterversion'],
-    queryFn: () => k8sGet<any>('/apis/config.openshift.io/v1/clusterversions/version').catch(() => null),
+    queryFn: () => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version').catch(() => null),
     staleTime: 60000,
   });
 
   // Infrastructure
   const { data: infra } = useQuery({
     queryKey: ['admin', 'infra'],
-    queryFn: () => k8sGet<any>('/apis/config.openshift.io/v1/infrastructures/cluster').catch(() => null),
+    queryFn: () => k8sGet<Infrastructure>('/apis/config.openshift.io/v1/infrastructures/cluster').catch(() => null),
     staleTime: 60000,
   });
 
@@ -82,7 +139,7 @@ export default function AdminView() {
 
   const { data: oauthConfig } = useQuery({
     queryKey: ['admin', 'oauth'],
-    queryFn: () => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster').catch(() => null),
+    queryFn: () => k8sGet<OAuthConfig>('/apis/config.openshift.io/v1/oauths/cluster').catch(() => null),
     staleTime: 120000,
   });
 
@@ -96,28 +153,28 @@ export default function AdminView() {
   // etcd operator status
   const { data: etcdOperator } = useQuery({
     queryKey: ['admin', 'etcd-operator'],
-    queryFn: () => k8sGet<any>('/apis/operator.openshift.io/v1/etcds/cluster').catch(() => null),
+    queryFn: () => k8sGet<OperatorResource>('/apis/operator.openshift.io/v1/etcds/cluster').catch(() => null),
     staleTime: 60000,
   });
 
   // kube-apiserver operator status
   const { data: apiServerOperator } = useQuery({
     queryKey: ['admin', 'apiserver-operator'],
-    queryFn: () => k8sGet<any>('/apis/operator.openshift.io/v1/kubeapiservers/cluster').catch(() => null),
+    queryFn: () => k8sGet<OperatorResource>('/apis/operator.openshift.io/v1/kubeapiservers/cluster').catch(() => null),
     staleTime: 60000,
   });
 
   // Ingress config (for cert expiry)
   const { data: ingressConfig } = useQuery({
     queryKey: ['admin', 'config', 'ingress'],
-    queryFn: () => k8sGet<any>('/apis/config.openshift.io/v1/ingresses/cluster').catch(() => null),
+    queryFn: () => k8sGet<IngressConfig>('/apis/config.openshift.io/v1/ingresses/cluster').catch(() => null),
     staleTime: 120000,
   });
 
   // Router cert secret
   const { data: routerCert } = useQuery({
     queryKey: ['admin', 'router-cert'],
-    queryFn: () => k8sGet<any>('/api/v1/namespaces/openshift-ingress/secrets/router-certs-default').catch(() => null),
+    queryFn: () => k8sGet<K8sResource>('/api/v1/namespaces/openshift-ingress/secrets/router-certs-default').catch(() => null),
     staleTime: 300000,
   });
 
@@ -138,7 +195,7 @@ export default function AdminView() {
   // etcd backup CRDs
   const { data: etcdBackupExists } = useQuery({
     queryKey: ['admin', 'etcd-backup'],
-    queryFn: () => k8sList('/apis/config.openshift.io/v1/backups').then((items: any[]) => items.length > 0).catch(() => false),
+    queryFn: () => k8sList('/apis/config.openshift.io/v1/backups').then((items: K8sResource[]) => items.length > 0).catch(() => false),
     staleTime: 60000,
   });
 
@@ -149,11 +206,11 @@ export default function AdminView() {
   const apiUrl = infra?.status?.apiServerURL || '';
   const controlPlaneTopology = useClusterStore((s) => s.controlPlaneTopology) || infra?.status?.controlPlaneTopology || '';
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
-  const availableUpdates = clusterVersion?.status?.availableUpdates || [];
-  const isUpdating = (clusterVersion?.status?.conditions || []).some((c: any) => c.type === 'Progressing' && c.status === 'True');
+  const availableUpdates = (clusterVersion?.status?.availableUpdates || []) as AvailableUpdate[];
+  const isUpdating = (clusterVersion?.status?.conditions || []).some((c: Condition) => c.type === 'Progressing' && c.status === 'True');
 
-  const opDegraded = operators.filter((o: any) => o.status?.conditions?.find((c: any) => c.type === 'Degraded' && c.status === 'True')).length;
-  const opProgressing = operators.filter((o: any) => o.status?.conditions?.find((c: any) => c.type === 'Progressing' && c.status === 'True')).length;
+  const opDegraded = operators.filter((o) => (o as unknown as ClusterOperator).status?.conditions?.find((c: Condition) => c.type === 'Degraded' && c.status === 'True')).length;
+  const opProgressing = operators.filter((o) => (o as unknown as ClusterOperator).status?.conditions?.find((c: Condition) => c.type === 'Progressing' && c.status === 'True')).length;
 
   const nodeRoles = React.useMemo(() => {
     const roles = new Map<string, number>();
@@ -173,8 +230,9 @@ export default function AdminView() {
   const clusterCapacity = React.useMemo(() => {
     let cpuAllocatable = 0, memAllocatable = 0, cpuCapacity = 0, memCapacity = 0, pods = 0;
     for (const n of nodes) {
-      const alloc = (n.status as any)?.allocatable || {};
-      const cap = (n.status as any)?.capacity || {};
+      const node = n as unknown as Node;
+      const alloc = node.status?.allocatable || {};
+      const cap = node.status?.capacity || {};
       cpuAllocatable += parseCpu(alloc.cpu || '0');
       memAllocatable += parseMem(alloc.memory || '0');
       cpuCapacity += parseCpu(cap.cpu || '0');
@@ -186,7 +244,7 @@ export default function AdminView() {
 
   // Namespace stats
   const nsStats = React.useMemo(() => {
-    const all = namespaces as any[];
+    const all = namespaces;
     const system = all.filter(ns => {
       const name = ns.metadata?.name || '';
       return name.startsWith('openshift-') || name.startsWith('kube-') || name === 'default' || name === 'openshift';
@@ -210,16 +268,16 @@ export default function AdminView() {
 
   // Operator health helpers — handles both ClusterOperator (Available/Degraded) and
   // operator.openshift.io resources (StaticPodsAvailable, *Degraded, *Progressing)
-  const getOperatorStatus = (op: any): string => {
-    const conditions: any[] = op?.status?.conditions || [];
+  const getOperatorStatus = (op: K8sResource | OperatorResource | null): string => {
+    const conditions: Condition[] = (op as OperatorResource)?.status?.conditions || [];
     // Check for any degraded condition
-    const hasDegraded = conditions.some((c: any) => c.type.endsWith('Degraded') && c.status === 'True');
+    const hasDegraded = conditions.some((c) => c.type.endsWith('Degraded') && c.status === 'True');
     if (hasDegraded) return 'degraded';
     // Check for any progressing condition
-    const hasProgressing = conditions.some((c: any) => c.type.endsWith('Progressing') && c.status === 'True');
+    const hasProgressing = conditions.some((c) => c.type.endsWith('Progressing') && c.status === 'True');
     if (hasProgressing) return 'progressing';
     // Check for available
-    const hasAvailable = conditions.some((c: any) => (c.type === 'Available' || c.type.endsWith('Available')) && c.status === 'True');
+    const hasAvailable = conditions.some((c) => (c.type === 'Available' || c.type.endsWith('Available')) && c.status === 'True');
     if (hasAvailable) return 'healthy';
     return 'unknown';
   };
@@ -241,12 +299,12 @@ export default function AdminView() {
 
   const crdGroupCount = React.useMemo(() => {
     const groups = new Set<string>();
-    for (const crd of crds) groups.add((crd.spec as any)?.group || 'unknown');
+    for (const crd of crds) groups.add((crd as unknown as CustomResourceDefinition).spec?.group || 'unknown');
     return groups.size;
   }, [crds]);
 
   const identityProviders = React.useMemo(() => {
-    return (oauthConfig?.spec?.identityProviders || []) as Array<{ name: string; type: string }>;
+    return oauthConfig?.spec?.identityProviders || [];
   }, [oauthConfig]);
 
   const go = useNavigateTab();
@@ -405,7 +463,7 @@ export default function AdminView() {
   const displayRows = diff && showOnlyChanges ? diff.filter(r => r.changed) : diff;
 
   // Operator stats
-  const opDegradedCount = operators.filter((o: any) => o.status?.conditions?.find((c: any) => c.type === 'Degraded' && c.status === 'True')).length;
+  const opDegradedCount = operators.filter((o) => (o as unknown as ClusterOperator).status?.conditions?.find((c: Condition) => c.type === 'Degraded' && c.status === 'True')).length;
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'overview', label: 'Overview', icon: <Settings className="w-3.5 h-3.5" /> },
@@ -511,7 +569,7 @@ export default function AdminView() {
                       return rev ? `revision ${rev}` : '';
                     })() },
                     { name: 'etcd', op: etcdOperator, detail: (() => {
-                      const msg = (etcdOperator?.status?.conditions || []).find((c: any) => c.type === 'EtcdMembersAvailable')?.message || '';
+                      const msg = (etcdOperator?.status?.conditions || []).find((c: Condition) => c.type === 'EtcdMembersAvailable')?.message || '';
                       return msg || '';
                     })() },
                   ].map(({ name, op, detail }) => {
@@ -559,9 +617,10 @@ export default function AdminView() {
                     </div>
                   ))}
                   {(() => {
-                    const readyNodes = nodes.filter((n: any) => {
-                      const conditions = (n.status?.conditions || []) as any[];
-                      return conditions.some((c: any) => c.type === 'Ready' && c.status === 'True');
+                    const readyNodes = nodes.filter((n) => {
+                      const node = n as unknown as Node;
+                      const conditions: Condition[] = node.status?.conditions || [];
+                      return conditions.some((c) => c.type === 'Ready' && c.status === 'True');
                     });
                     const unready = nodes.length - readyNodes.length;
                     return (
@@ -635,23 +694,24 @@ export default function AdminView() {
 
         {/* ===== OPERATORS ===== */}
         {activeTab === 'operators' && (() => {
-          const operatorList = operators.map((co: any) => {
-            const conditions = co.status?.conditions || [];
-            const available = conditions.find((c: any) => c.type === 'Available')?.status === 'True';
-            const degraded = conditions.find((c: any) => c.type === 'Degraded')?.status === 'True';
-            const progressing = conditions.find((c: any) => c.type === 'Progressing')?.status === 'True';
-            const version = co.status?.versions?.find((v: any) => v.name === 'operator')?.version || '';
-            const message = degraded ? conditions.find((c: any) => c.type === 'Degraded')?.message || '' : progressing ? conditions.find((c: any) => c.type === 'Progressing')?.message || '' : '';
+          const operatorList = operators.map((co) => {
+            const op = co as unknown as ClusterOperator;
+            const conditions: Condition[] = op.status?.conditions || [];
+            const available = conditions.find((c) => c.type === 'Available')?.status === 'True';
+            const degraded = conditions.find((c) => c.type === 'Degraded')?.status === 'True';
+            const progressing = conditions.find((c) => c.type === 'Progressing')?.status === 'True';
+            const version = op.status?.versions?.find((v) => v.name === 'operator')?.version || '';
+            const message = degraded ? conditions.find((c) => c.type === 'Degraded')?.message || '' : progressing ? conditions.find((c) => c.type === 'Progressing')?.message || '' : '';
             return { name: co.metadata.name, available, degraded, progressing, version, message };
-          }).sort((a: any, b: any) => {
+          }).sort((a, b) => {
             if (a.degraded && !b.degraded) return -1;
             if (!a.degraded && b.degraded) return 1;
             if (a.progressing && !b.progressing) return -1;
             return a.name.localeCompare(b.name);
           });
-          const degradedOps = operatorList.filter((o: any) => o.degraded);
-          const progressingOps = operatorList.filter((o: any) => o.progressing);
-          const availableOps = operatorList.filter((o: any) => o.available && !o.degraded);
+          const degradedOps = operatorList.filter((o) => o.degraded);
+          const progressingOps = operatorList.filter((o) => o.progressing);
+          const availableOps = operatorList.filter((o) => o.available && !o.degraded);
 
           return (
             <div className="space-y-4">
@@ -671,7 +731,7 @@ export default function AdminView() {
               </div>
               <div className="bg-slate-900 rounded-lg border border-slate-800">
                 <div className="divide-y divide-slate-800">
-                  {operatorList.map((op: any) => (
+                  {operatorList.map((op) => (
                     <div key={op.name} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/50 cursor-pointer transition-colors" onClick={() => go(`/r/config.openshift.io~v1~clusteroperators/_/${op.name}`, op.name)}>
                       {op.degraded ? <XCircle className="w-4 h-4 text-red-500 shrink-0" /> :
                        op.progressing ? <RefreshCw className="w-4 h-4 text-yellow-500 shrink-0 animate-spin" /> :
@@ -701,10 +761,10 @@ export default function AdminView() {
           <div className="space-y-6">
             {/* ClusterVersion conditions */}
             {(() => {
-              const conditions = (clusterVersion?.status?.conditions || []) as any[];
-              const progressing = conditions.find((c: any) => c.type === 'Progressing');
-              const available = conditions.find((c: any) => c.type === 'Available');
-              const failing = conditions.find((c: any) => c.type === 'Failing');
+              const conditions: Condition[] = clusterVersion?.status?.conditions || [];
+              const progressing = conditions.find((c) => c.type === 'Progressing');
+              const available = conditions.find((c) => c.type === 'Available');
+              const failing = conditions.find((c) => c.type === 'Failing');
               const isProgressing = progressing?.status === 'True';
               const isFailing = failing?.status === 'True';
               return (
@@ -769,30 +829,33 @@ export default function AdminView() {
               <Panel title="Pre-Update Checklist" icon={<Shield className="w-4 h-4 text-amber-500" />}>
                 <div className="space-y-2">
                   {(() => {
-                    const readyNodes = nodes.filter((n: any) => {
-                      const conds = (n.status?.conditions || []) as any[];
-                      return conds.some((c: any) => c.type === 'Ready' && c.status === 'True');
+                    const readyNodes = nodes.filter((n) => {
+                      const node = n as unknown as Node;
+                      const conds: Condition[] = node.status?.conditions || [];
+                      return conds.some((c) => c.type === 'Ready' && c.status === 'True');
                     });
                     const allNodesReady = readyNodes.length === nodes.length;
-                    const degradedOps = operators.filter((o: any) => (o.status?.conditions || []).some((c: any) => c.type === 'Degraded' && c.status === 'True'));
+                    const degradedOps = operators.filter((o) => ((o as unknown as ClusterOperator).status?.conditions || []).some((c: Condition) => c.type === 'Degraded' && c.status === 'True'));
                     const allOpsHealthy = degradedOps.length === 0;
                     const channelStable = cvChannel?.includes('stable') || cvChannel?.includes('eus');
 
                     // Real PDB check: user deployments with >1 replica that have PDBs
-                    const userDeploys = deployments.filter((d: any) => {
-                      const ns = d.metadata?.namespace || '';
-                      return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && (d.spec?.replicas ?? 0) > 1;
+                    const userDeploys = deployments.filter((d) => {
+                      const dep = d as unknown as Deployment;
+                      const ns = dep.metadata?.namespace || '';
+                      return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && (dep.spec?.replicas ?? 0) > 1;
                     });
-                    const pdbSelectors = (pdbs as any[]).map((p: any) => p.spec?.selector?.matchLabels || {});
-                    const deploysWithPDB = userDeploys.filter((d: any) => {
-                      const podLabels = d.spec?.template?.metadata?.labels || {};
-                      return pdbSelectors.some((sel: any) => Object.entries(sel).every(([k, v]) => podLabels[k] === v));
+                    const pdbSelectors = (pdbs as unknown as PodDisruptionBudget[]).map((p) => p.spec?.selector?.matchLabels || {});
+                    const deploysWithPDB = userDeploys.filter((d) => {
+                      const dep = d as unknown as Deployment;
+                      const podLabels = dep.spec?.template?.metadata?.labels || {};
+                      return pdbSelectors.some((sel) => Object.entries(sel).every(([k, v]) => podLabels[k] === v));
                     });
                     const pdbCoverage = userDeploys.length === 0 || deploysWithPDB.length >= userDeploys.length * 0.5;
 
                     const checks = [
                       { label: 'All nodes ready', pass: allNodesReady, detail: allNodesReady ? `${nodes.length}/${nodes.length} ready` : `${readyNodes.length}/${nodes.length} ready — fix unready nodes first` },
-                      { label: 'No degraded operators', pass: allOpsHealthy, detail: allOpsHealthy ? `${operators.length} operators healthy` : `${degradedOps.length} degraded: ${degradedOps.slice(0, 3).map((o: any) => o.metadata.name).join(', ')}` },
+                      { label: 'No degraded operators', pass: allOpsHealthy, detail: allOpsHealthy ? `${operators.length} operators healthy` : `${degradedOps.length} degraded: ${degradedOps.slice(0, 3).map((o) => o.metadata.name).join(', ')}` },
                       { label: 'Stable update channel', pass: channelStable, detail: channelStable ? `Channel: ${cvChannel}` : `Channel "${cvChannel}" — consider switching to stable for production` },
                       { label: 'Etcd backup', pass: isHyperShift || !!etcdBackupExists, detail: isHyperShift ? 'Managed by hosting provider' : etcdBackupExists ? 'Backup schedule configured' : 'No automated backup configured — take a manual backup: ssh to control plane → /usr/local/bin/cluster-backup.sh /home/core/backup' },
                       { label: 'PodDisruptionBudgets', pass: pdbCoverage, detail: userDeploys.length === 0 ? 'No multi-replica user deployments' : `${deploysWithPDB.length}/${userDeploys.length} multi-replica deployments have PDBs` },
@@ -822,7 +885,7 @@ export default function AdminView() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {availableUpdates.map((u: any, i: number) => {
+                  {availableUpdates.map((u, i: number) => {
                     const versionParts = u.version?.split('.') || [];
                     const currentParts = cvVersion?.split('.') || [];
                     const minorSkip = versionParts[1] && currentParts[1] ? parseInt(versionParts[1]) - parseInt(currentParts[1]) : 0;
@@ -856,15 +919,16 @@ export default function AdminView() {
             {isUpdating && (
               <Panel title="Operator Update Progress" icon={<Puzzle className="w-4 h-4 text-violet-500" />}>
                 <div className="space-y-1 max-h-64 overflow-auto">
-                  {(operators as any[]).map((op) => {
-                    const conds = op.status?.conditions || [];
-                    const progressing = conds.find((c: any) => c.type === 'Progressing');
-                    const available = conds.find((c: any) => c.type === 'Available');
-                    const degraded = conds.find((c: any) => c.type === 'Degraded');
+                  {operators.map((op) => {
+                    const co = op as unknown as ClusterOperator;
+                    const conds: Condition[] = co.status?.conditions || [];
+                    const progressing = conds.find((c) => c.type === 'Progressing');
+                    const available = conds.find((c) => c.type === 'Available');
+                    const degraded = conds.find((c) => c.type === 'Degraded');
                     const isProgressing = progressing?.status === 'True';
                     const isDegraded = degraded?.status === 'True';
                     const isAvailable = available?.status === 'True';
-                    const version = op.status?.versions?.find((v: any) => v.name === 'operator')?.version || '';
+                    const version = co.status?.versions?.find((v) => v.name === 'operator')?.version || '';
                     return (
                       <div key={op.metadata.uid} className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-800/30 rounded">
                         <div className="flex items-center gap-2">
@@ -893,7 +957,7 @@ export default function AdminView() {
             {/* Update history */}
             <Panel title="Update History" icon={<RefreshCw className="w-4 h-4 text-blue-500" />}>
               <div className="space-y-1 max-h-64 overflow-auto">
-                {(clusterVersion?.status?.history || []).slice(0, 10).map((h: any, i: number) => {
+                {(clusterVersion?.status?.history || []).slice(0, 10).map((h, i: number) => {
                   const startTime = h.startedTime ? new Date(h.startedTime) : null;
                   const endTime = h.completionTime ? new Date(h.completionTime) : null;
                   const duration = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
@@ -1011,7 +1075,7 @@ export default function AdminView() {
         )}
 
         {/* ===== QUOTAS ===== */}
-        {activeTab === 'quotas' && <QuotasTab quotas={quotas as any[]} limitRanges={limitRanges as any[]} go={go} />}
+        {activeTab === 'quotas' && <QuotasTab quotas={quotas} limitRanges={limitRanges} go={go} />}
 
         {activeTab === 'certificates' && <CertificatesTab go={go} />}
 

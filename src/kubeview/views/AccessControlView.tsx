@@ -2,6 +2,7 @@ import React from 'react';
 import { Shield, Users, Key, Lock, AlertTriangle, CheckCircle, ArrowRight, Activity, Info, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../engine/renderers';
+import type { ClusterRole, ClusterRoleBinding, Role, RoleBinding, ServiceAccount, Namespace, Subject } from '../engine/types';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
@@ -22,16 +23,15 @@ export default function AccessControlView() {
 
   // Find cluster-admin bindings
   const clusterAdminBindings = React.useMemo(() => {
-    return clusterRoleBindings.filter((b: any) => {
-      const roleRef = b.roleRef;
-      return roleRef?.name === 'cluster-admin';
+    return (clusterRoleBindings as ClusterRoleBinding[]).filter((b) => {
+      return b.roleRef?.name === 'cluster-admin';
     });
   }, [clusterRoleBindings]);
 
   // Find all subjects with cluster-admin permissions
   const broadPermissions = React.useMemo(() => {
     const subjects: Array<{ name: string; kind: string; binding: string; namespace?: string }> = [];
-    for (const b of clusterAdminBindings as any[]) {
+    for (const b of clusterAdminBindings) {
       for (const s of b.subjects || []) {
         subjects.push({ name: s.name, kind: s.kind, binding: b.metadata.name, namespace: s.namespace });
       }
@@ -42,7 +42,7 @@ export default function AccessControlView() {
   // Namespace breakdown
   const saByNamespace = React.useMemo(() => {
     const map = new Map<string, number>();
-    for (const sa of serviceAccounts as any[]) {
+    for (const sa of serviceAccounts as ServiceAccount[]) {
       const ns = sa.metadata?.namespace || '';
       map.set(ns, (map.get(ns) || 0) + 1);
     }
@@ -104,20 +104,20 @@ export default function AccessControlView() {
 
         {/* RBAC Health Audit — right after stats, matching other pages */}
         <RBACHealthAudit
-            clusterRoles={clusterRoles as any[]}
-            clusterRoleBindings={clusterRoleBindings as any[]}
-            roles={roles as any[]}
-            roleBindings={roleBindings as any[]}
-            serviceAccounts={serviceAccounts as any[]}
-            namespaces={namespaces as any[]}
-            users={users as any[]}
+            clusterRoles={clusterRoles as ClusterRole[]}
+            clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
+            roles={roles as Role[]}
+            roleBindings={roleBindings as RoleBinding[]}
+            serviceAccounts={serviceAccounts as ServiceAccount[]}
+            namespaces={namespaces as Namespace[]}
+            users={users}
             go={go}
           />
 
         {/* Recent RBAC Changes */}
         <RecentRBACChanges
-          clusterRoleBindings={clusterRoleBindings as any[]}
-          roleBindings={roleBindings as any[]}
+          clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
+          roleBindings={roleBindings as RoleBinding[]}
           go={go}
         />
 
@@ -185,7 +185,7 @@ export default function AccessControlView() {
 }
 
 function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
-  clusterRoleBindings: any[]; roleBindings: any[]; go: (path: string, title: string) => void;
+  clusterRoleBindings: ClusterRoleBinding[]; roleBindings: RoleBinding[]; go: (path: string, title: string) => void;
 }) {
   const recentChanges = React.useMemo(() => {
     const now = Date.now();
@@ -198,8 +198,8 @@ function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
     }> = [];
 
     const allBindings = [
-      ...clusterRoleBindings.map((b: any) => ({ ...b, _clusterScoped: true })),
-      ...roleBindings.map((b: any) => ({ ...b, _clusterScoped: false })),
+      ...clusterRoleBindings.map((b) => ({ ...b, _clusterScoped: true })),
+      ...roleBindings.map((b) => ({ ...b, _clusterScoped: false })),
     ];
 
     for (const b of allBindings) {
@@ -213,8 +213,8 @@ function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
 
       const role = b.roleRef?.name || '';
       const subjects = (b.subjects || [])
-        .filter((s: any) => !s.name?.startsWith('system:'))
-        .map((s: any) => `${s.kind}/${s.name}`);
+        .filter((s: Subject) => !s.name?.startsWith('system:'))
+        .map((s: Subject) => `${s.kind}/${s.name}`);
       if (subjects.length === 0) continue;
 
       const isAdmin = role === 'cluster-admin' || role === 'admin';
@@ -312,8 +312,8 @@ interface AuditCheck {
   title: string;
   description: string;
   why: string;
-  passing: any[];
-  failing: any[];
+  passing: Array<{ metadata?: { name?: string; namespace?: string }; [key: string]: unknown }>;
+  failing: Array<{ metadata?: { name?: string; namespace?: string }; [key: string]: unknown }>;
   yamlExample: string;
 }
 
@@ -327,13 +327,13 @@ function RBACHealthAudit({
   users,
   go,
 }: {
-  clusterRoles: any[];
-  clusterRoleBindings: any[];
-  roles: any[];
-  roleBindings: any[];
-  serviceAccounts: any[];
-  namespaces: any[];
-  users: any[];
+  clusterRoles: ClusterRole[];
+  clusterRoleBindings: ClusterRoleBinding[];
+  roles: Role[];
+  roleBindings: RoleBinding[];
+  serviceAccounts: ServiceAccount[];
+  namespaces: Namespace[];
+  users: K8sResource[];
   go: (path: string, title: string) => void;
 }) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
@@ -349,36 +349,36 @@ function RBACHealthAudit({
     const allChecks: AuditCheck[] = [];
 
     // User namespaces only
-    const userNamespaces = namespaces.filter((ns: any) => !isSystemNS(ns.metadata?.name || ''));
-    const userRoleBindings = roleBindings.filter((rb: any) => !isSystemNS(rb.metadata?.namespace || ''));
+    const userNamespaces = namespaces.filter((ns) => !isSystemNS(ns.metadata?.name || ''));
+    const userRoleBindings = roleBindings.filter((rb) => !isSystemNS(rb.metadata?.namespace || ''));
 
     // Build set of existing user names
-    const existingUsers = new Set(users.map((u: any) => u.metadata?.name).filter(Boolean));
+    const existingUsers = new Set(users.map((u) => u.metadata?.name).filter(Boolean));
 
     // 1. Default ServiceAccount privileges
-    const defaultSAIssues = userNamespaces.map((ns: any) => {
+    const defaultSAIssues = userNamespaces.map((ns) => {
       const nsName = ns.metadata.name;
-      const defaultSA = serviceAccounts.find((sa: any) => sa.metadata.namespace === nsName && sa.metadata.name === 'default');
+      const defaultSA = serviceAccounts.find((sa) => sa.metadata.namespace === nsName && sa.metadata.name === 'default');
       if (!defaultSA) return null;
 
       // Check if default SA has cluster-admin or admin via RoleBindings
-      const badBindings = userRoleBindings.filter((rb: any) => {
+      const badBindings = userRoleBindings.filter((rb) => {
         if (rb.metadata.namespace !== nsName) return false;
         const roleRef = rb.roleRef?.name || '';
         if (roleRef !== 'cluster-admin' && roleRef !== 'admin') return false;
-        return (rb.subjects || []).some((s: any) => s.kind === 'ServiceAccount' && s.name === 'default');
+        return (rb.subjects || []).some((s) => s.kind === 'ServiceAccount' && s.name === 'default');
       });
 
       return badBindings.length > 0 ? { namespace: nsName, bindings: badBindings } : null;
-    }).filter(Boolean);
+    }).filter((x): x is NonNullable<typeof x> => x !== null);
 
     allChecks.push({
       id: 'default-sa',
       title: 'Default ServiceAccount Privileges',
       description: 'Default ServiceAccounts should not have cluster-admin or admin roles',
       why: 'Every pod that doesn\'t specify a serviceAccountName uses the "default" SA. Granting it elevated privileges means any pod in the namespace inherits those permissions, which violates least privilege.',
-      passing: userNamespaces.filter((ns: any) => !defaultSAIssues.some((issue: any) => issue.namespace === ns.metadata.name)),
-      failing: defaultSAIssues.map((issue: any) => ({ metadata: { name: issue.namespace, namespace: issue.namespace }, bindings: issue.bindings })),
+      passing: userNamespaces.filter((ns) => !defaultSAIssues.some((issue) => issue.namespace === ns.metadata.name)),
+      failing: defaultSAIssues.map((issue) => ({ metadata: { name: issue.namespace, namespace: issue.namespace }, bindings: issue.bindings })),
       yamlExample: `# Instead of binding default SA, create a dedicated SA:
 apiVersion: v1
 kind: ServiceAccount
@@ -402,7 +402,7 @@ subjects:
     });
 
     // 2. Overprivileged RoleBindings (cluster-admin in user namespaces)
-    const overPrivileged = userRoleBindings.filter((rb: any) => {
+    const overPrivileged = userRoleBindings.filter((rb) => {
       const roleRef = rb.roleRef?.name || '';
       return roleRef === 'cluster-admin';
     });
@@ -412,7 +412,7 @@ subjects:
       title: 'Overprivileged RoleBindings',
       description: 'RoleBindings should not grant cluster-admin in non-system namespaces',
       why: 'cluster-admin grants full cluster access, including reading secrets in all namespaces and modifying cluster resources. Namespace-scoped RoleBindings should use roles like "admin" or "edit" instead.',
-      passing: userRoleBindings.filter((rb: any) => !overPrivileged.includes(rb)),
+      passing: userRoleBindings.filter((rb) => !overPrivileged.includes(rb)),
       failing: overPrivileged,
       yamlExample: `# Use namespace-scoped roles instead:
 apiVersion: rbac.authorization.k8s.io/v1
@@ -430,10 +430,10 @@ subjects:
     });
 
     // 3. Wildcard rules in ClusterRoles
-    const userClusterRoles = clusterRoles.filter((cr: any) => !isSystemRole(cr.metadata?.name || ''));
-    const wildcardRoles = userClusterRoles.filter((cr: any) => {
+    const userClusterRoles = clusterRoles.filter((cr) => !isSystemRole(cr.metadata?.name || ''));
+    const wildcardRoles = userClusterRoles.filter((cr) => {
       const rules = cr.rules || [];
-      return rules.some((rule: any) => {
+      return rules.some((rule) => {
         const resources = rule.resources || [];
         const verbs = rule.verbs || [];
         return resources.includes('*') || verbs.includes('*');
@@ -445,7 +445,7 @@ subjects:
       title: 'Wildcard Rules in ClusterRoles',
       description: 'ClusterRoles should avoid wildcard (*) in resources or verbs',
       why: 'Wildcard permissions grant access to all current and future resources/actions, making it impossible to audit what a role can do. Explicit permissions are more secure and maintainable.',
-      passing: userClusterRoles.filter((cr: any) => !wildcardRoles.includes(cr)),
+      passing: userClusterRoles.filter((cr) => !wildcardRoles.includes(cr)),
       failing: wildcardRoles,
       yamlExample: `# Instead of wildcards:
 rules:
@@ -461,13 +461,13 @@ rules:
     // difference, we only flag if there are many more binding subjects than users.
     const allBoundUsers = new Set<string>();
     for (const rb of userRoleBindings) {
-      for (const s of (rb as any).subjects || []) {
+      for (const s of rb.subjects || []) {
         if (s.kind === 'User' && s.name && !s.name.startsWith('system:')) allBoundUsers.add(s.name);
       }
     }
     const staleUsers = [...allBoundUsers].filter(u => !existingUsers.has(u));
-    const staleBindings = staleUsers.length > 0 ? userRoleBindings.filter((rb: any) => {
-      return (rb.subjects || []).some((s: any) => s.kind === 'User' && staleUsers.includes(s.name));
+    const staleBindings = staleUsers.length > 0 ? userRoleBindings.filter((rb) => {
+      return (rb.subjects || []).some((s) => s.kind === 'User' && staleUsers.includes(s.name));
     }) : [];
 
     allChecks.push({
@@ -475,7 +475,7 @@ rules:
       title: 'Stale RoleBindings',
       description: 'RoleBindings referencing users who have never logged in or were removed',
       why: 'On OpenShift, User objects are created on first login. Bindings to users without User objects may be pre-provisioned (valid) or stale. Review these to ensure they are intentional.',
-      passing: userRoleBindings.filter((rb: any) => !staleBindings.includes(rb)),
+      passing: userRoleBindings.filter((rb) => !staleBindings.includes(rb)),
       failing: staleBindings,
       yamlExample: `# Identify stale bindings:
 # 1. List users: oc get users
@@ -485,15 +485,15 @@ oc delete rolebinding <name> -n <namespace>`,
     });
 
     // 5. Namespace isolation (namespaces with no RoleBindings)
-    const namespacesWithBindings = new Set(userRoleBindings.map((rb: any) => rb.metadata?.namespace).filter(Boolean));
-    const isolatedNamespaces = userNamespaces.filter((ns: any) => !namespacesWithBindings.has(ns.metadata.name));
+    const namespacesWithBindings = new Set(userRoleBindings.map((rb) => rb.metadata?.namespace).filter(Boolean));
+    const isolatedNamespaces = userNamespaces.filter((ns) => !namespacesWithBindings.has(ns.metadata.name));
 
     allChecks.push({
       id: 'namespace-isolation',
       title: 'Namespace Isolation',
       description: 'User namespaces should have at least one RoleBinding for access control',
       why: 'Namespaces with no RoleBindings have no explicit access control, relying only on cluster-wide permissions. This makes it unclear who can access what and prevents proper multi-tenancy.',
-      passing: userNamespaces.filter((ns: any) => namespacesWithBindings.has(ns.metadata.name)),
+      passing: userNamespaces.filter((ns) => namespacesWithBindings.has(ns.metadata.name)),
       failing: isolatedNamespaces,
       yamlExample: `# Grant namespace access:
 apiVersion: rbac.authorization.k8s.io/v1
@@ -512,7 +512,7 @@ subjects:
     });
 
     // 6. ServiceAccount token automount with elevated privileges
-    const privilegedSAs = serviceAccounts.filter((sa: any) => {
+    const privilegedSAs = serviceAccounts.filter((sa) => {
       const ns = sa.metadata?.namespace || '';
       if (isSystemNS(ns)) return false;
 
@@ -521,10 +521,10 @@ subjects:
 
       // Check if SA has cluster-admin or admin via RoleBindings
       const saName = sa.metadata?.name || '';
-      const hasElevated = [...roleBindings, ...clusterRoleBindings].some((binding: any) => {
+      const hasElevated = [...roleBindings, ...clusterRoleBindings].some((binding) => {
         const roleRef = binding.roleRef?.name || '';
         if (roleRef !== 'cluster-admin' && roleRef !== 'admin') return false;
-        return (binding.subjects || []).some((s: any) =>
+        return (binding.subjects || []).some((s) =>
           s.kind === 'ServiceAccount' && s.name === saName && (!s.namespace || s.namespace === ns)
         );
       });
@@ -532,7 +532,7 @@ subjects:
       return hasElevated;
     });
 
-    const safeSAs = serviceAccounts.filter((sa: any) => !privilegedSAs.includes(sa) && !isSystemNS(sa.metadata?.namespace || ''));
+    const safeSAs = serviceAccounts.filter((sa) => !privilegedSAs.includes(sa) && !isSystemNS(sa.metadata?.namespace || ''));
 
     allChecks.push({
       id: 'sa-automount',
@@ -615,7 +615,7 @@ spec:
                     <div>
                       <div className="text-xs text-amber-400 font-medium mb-1.5">Issues ({check.failing.length})</div>
                       <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 15).map((item: any, idx: number) => {
+                        {check.failing.slice(0, 15).map((item, idx) => {
                           const name = item.metadata?.name || '';
                           const ns = item.metadata?.namespace || '';
                           const path = check.id === 'default-sa' || check.id === 'namespace-isolation'
@@ -646,7 +646,7 @@ spec:
                     <div>
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((item: any, idx: number) => (
+                        {check.passing.slice(0, 8).map((item, idx) => (
                           <span key={idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{item.metadata?.name || ''}</span>
                         ))}
                         {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}

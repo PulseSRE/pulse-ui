@@ -8,6 +8,21 @@ import { K8S_BASE as BASE } from '../../engine/gvr';
 import DeployProgress from '../../components/DeployProgress';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { FormField } from './FormField';
+import type { Secret } from '../../engine/types';
+
+/** HelmChartRepository CRD — not yet in engine/types, defined locally. */
+interface HelmChartRepository {
+  apiVersion: string;
+  kind: string;
+  metadata: { name: string; namespace?: string; uid?: string; [key: string]: unknown };
+  spec?: { connectionConfig?: { url?: string }; [key: string]: unknown };
+  status?: {
+    conditions?: Array<{ type: string; status: string; [key: string]: unknown }>;
+    charts?: Array<{ name: string; version?: string; appVersion?: string; description?: string; icon?: string }>;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
 
 const DEFAULT_REPO_URL = 'https://charts.openshift.io';
 
@@ -131,11 +146,11 @@ export function HelmTab() {
       const res = await fetch(`${BASE}/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
       if (!res.ok) return [];
       const data = await res.json();
-      return (data.items || []).map((s: any) => {
+      return (data.items || []).map((s: Secret) => {
         const name = s.metadata.labels?.['name'] || s.metadata.name;
         const version = s.metadata.labels?.['version'] || '1';
         return { name, version, status: s.metadata.labels?.['status'] || 'unknown' };
-      }).filter((r: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.name === r.name) === i);
+      }).filter((r: { name: string }, i: number, arr: { name: string }[]) => arr.findIndex((x) => x.name === r.name) === i);
     },
     refetchInterval: 30000,
   });
@@ -147,17 +162,17 @@ export function HelmTab() {
       const res = await fetch(`${BASE}/apis/helm.openshift.io/v1beta1/helmchartrepositories`);
       if (!res.ok) return [];
       const data = await res.json();
-      return (data.items || []) as any[];
+      return (data.items || []) as HelmChartRepository[];
     },
     staleTime: 60000,
   });
 
   // Build repo list: cluster repos + default fallback
-  const repos: HelmRepo[] = chartRepoCRDs.map((r: any) => ({
+  const repos: HelmRepo[] = chartRepoCRDs.map((r) => ({
     name: r.metadata?.name || '',
     url: r.spec?.connectionConfig?.url || '',
     isDefault: false,
-    isReady: (r.status?.conditions || []).some((c: any) => c.type === 'Ready' && c.status === 'True'),
+    isReady: (r.status?.conditions || []).some((c) => c.type === 'Ready' && c.status === 'True'),
     chartCount: 0,
   }));
 
@@ -177,7 +192,7 @@ export function HelmTab() {
 
         // Try fetching from cluster CRD status first (for non-default repos)
         if (!repo.isDefault) {
-          const crd = chartRepoCRDs.find((r: any) => r.metadata?.name === repo.name);
+          const crd = chartRepoCRDs.find((r) => r.metadata?.name === repo.name);
           if (crd?.status?.charts?.length) {
             for (const chart of crd.status.charts) {
               allCharts.push({
@@ -410,7 +425,7 @@ export function HelmTab() {
             Installed Releases ({helmReleases.length})
           </h3>
           <div className="flex flex-wrap gap-2">
-            {helmReleases.map((r: any, i: number) => (
+            {helmReleases.map((r, i: number) => (
               <span key={i} className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded border border-slate-700 flex items-center gap-2">
                 <Ship className="w-3 h-3 text-blue-400" />
                 {r.name}

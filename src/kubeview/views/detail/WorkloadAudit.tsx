@@ -2,19 +2,20 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { CheckCircle, AlertCircle, Shield } from 'lucide-react';
 import type { K8sResource } from '../../engine/renderers';
+import type { Deployment, Container, Probe, PodTemplateSpec } from '../../engine/types';
 
-function probeDescription(probe: any): string {
+function probeDescription(probe: Probe): string {
   if (probe.httpGet) return `HTTP ${probe.httpGet.path || '/'}:${probe.httpGet.port}${probe.httpGet.scheme === 'HTTPS' ? ' (HTTPS)' : ''}`;
   if (probe.tcpSocket) return `TCP :${probe.tcpSocket.port}`;
   if (probe.exec) return `exec: ${(probe.exec.command || []).join(' ').slice(0, 40)}`;
-  if (probe.grpc) return `gRPC :${probe.grpc.port}`;
+  if ((probe as Probe & { grpc?: { port: number } }).grpc) return `gRPC :${(probe as Probe & { grpc?: { port: number } }).grpc!.port}`;
   return 'Configured';
 }
 
 export function WorkloadAudit({ resource, go }: { resource: K8sResource; go: (path: string, title: string) => void }) {
-  const spec = resource.spec as any;
-  const containers: any[] = spec?.template?.spec?.containers || [];
-  const initContainers: any[] = spec?.template?.spec?.initContainers || [];
+  const spec = resource.spec as Deployment['spec'];
+  const containers: Container[] = spec?.template?.spec?.containers || [];
+  const initContainers: Container[] = spec?.template?.spec?.initContainers || [];
   const strategy = spec?.strategy?.type || spec?.updateStrategy?.type || '—';
   const podSecCtx = spec?.template?.spec?.securityContext || {};
 

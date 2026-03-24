@@ -8,6 +8,7 @@ import {
 import { MetricCard } from '../../components/metrics/Sparkline';
 import { sanitizePromQL } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
+import type { Pod, Container, ContainerPort, ContainerStatus, VolumeMount, Probe } from '../../engine/types';
 
 interface PodSummaryProps {
   resource: K8sResource;
@@ -27,7 +28,7 @@ function formatAge(timestamp: string | undefined): string {
   return `${Math.floor(days / 30)}mo`;
 }
 
-function ProbeTag({ label, probe }: { label: string; probe: any }) {
+function ProbeTag({ label, probe }: { label: string; probe: Probe | undefined }) {
   if (!probe) return <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-600 rounded">{label}: none</span>;
   const type = probe.httpGet ? 'HTTP' : probe.tcpSocket ? 'TCP' : probe.exec ? 'Exec' : 'gRPC';
   const detail = probe.httpGet ? `:${probe.httpGet.port}${probe.httpGet.path || '/'}` :
@@ -39,7 +40,7 @@ function ProbeTag({ label, probe }: { label: string; probe: any }) {
   );
 }
 
-function StateIcon({ state }: { state: any }) {
+function StateIcon({ state }: { state: ContainerStatus['state'] }) {
   if (!state) return <Square className="w-3.5 h-3.5 text-slate-500" />;
   if (state.running) return <Play className="w-3.5 h-3.5 text-green-500" />;
   if (state.waiting) return <Pause className="w-3.5 h-3.5 text-yellow-500" />;
@@ -48,8 +49,8 @@ function StateIcon({ state }: { state: any }) {
 }
 
 export function PodSummary({ resource, go }: PodSummaryProps) {
-  const spec = resource.spec as any;
-  const status = (resource.status as any) || {};
+  const spec = resource.spec as Pod['spec'];
+  const status = (resource.status as Pod['status']) || {};
   const ns = resource.metadata.namespace || '';
   const name = resource.metadata.name;
   const [expandedContainers, setExpandedContainers] = React.useState<Set<string>>(new Set());
@@ -69,13 +70,13 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
   const qosClass = status.qosClass || '—';
   const serviceAccount = spec?.serviceAccountName || spec?.serviceAccount || '—';
   const restartPolicy = spec?.restartPolicy || 'Always';
-  const containers: any[] = spec?.containers || [];
-  const initContainers: any[] = spec?.initContainers || [];
-  const volumes: any[] = spec?.volumes || [];
-  const containerStatuses: any[] = status.containerStatuses || [];
-  const initContainerStatuses: any[] = status.initContainerStatuses || [];
-  const totalRestarts = containerStatuses.reduce((sum: number, cs: any) => sum + (cs.restartCount || 0), 0);
-  const readyCount = containerStatuses.filter((cs: any) => cs.ready).length;
+  const containers: Container[] = spec?.containers || [];
+  const initContainers: Container[] = spec?.initContainers || [];
+  const volumes = spec?.volumes || [];
+  const containerStatuses: ContainerStatus[] = status?.containerStatuses || [];
+  const initContainerStatuses: ContainerStatus[] = status?.initContainerStatuses || [];
+  const totalRestarts = containerStatuses.reduce((sum, cs) => sum + (cs.restartCount || 0), 0);
+  const readyCount = containerStatuses.filter((cs) => cs.ready).length;
   const age = formatAge(resource.metadata.creationTimestamp);
 
   const phaseColor = phase === 'Running' ? 'text-green-400' :
@@ -164,8 +165,8 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
             <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Init Containers ({initContainers.length})</h3>
           </div>
           <div className="divide-y divide-slate-800">
-            {initContainers.map((c: any, idx: number) => {
-              const cs = initContainerStatuses.find((s: any) => s.name === c.name);
+            {initContainers.map((c, idx) => {
+              const cs = initContainerStatuses.find((s) => s.name === c.name);
               const isReady = cs?.ready === true;
               const state = cs?.state;
               const stateLabel = state?.running ? 'Running' : state?.waiting ? (state.waiting.reason || 'Waiting') :
@@ -199,8 +200,8 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
           <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Containers ({containers.length})</h3>
         </div>
         <div className="divide-y divide-slate-800">
-          {containers.map((c: any) => {
-            const cs = containerStatuses.find((s: any) => s.name === c.name);
+          {containers.map((c) => {
+            const cs = containerStatuses.find((s) => s.name === c.name);
             const isReady = cs?.ready === true;
             const restarts = cs?.restartCount ?? 0;
             const state = cs?.state;
@@ -231,7 +232,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
                       )}
                       {c.ports && (
                         <span className="text-xs text-slate-500">
-                          :{(c.ports as any[]).map(p => p.containerPort).join(', ')}
+                          :{(c.ports as ContainerPort[]).map(p => p.containerPort).join(', ')}
                         </span>
                       )}
                     </div>
@@ -306,7 +307,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
                       <div>
                         <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Volume Mounts ({mountCount})</div>
                         <div className="space-y-0.5">
-                          {(c.volumeMounts as any[]).map((vm: any) => (
+                          {(c.volumeMounts as VolumeMount[]).map((vm) => (
                             <div key={vm.mountPath} className="flex items-center gap-2 text-xs">
                               <HardDrive className="w-3 h-3 text-slate-500" />
                               <span className="text-slate-300 font-mono">{vm.mountPath}</span>
@@ -337,12 +338,13 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
             <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Volumes ({volumes.length})</h3>
           </div>
           <div className="divide-y divide-slate-800">
-            {volumes.map((v: any) => {
-              const type = v.configMap ? 'ConfigMap' : v.secret ? 'Secret' : v.persistentVolumeClaim ? 'PVC' :
-                v.emptyDir ? 'EmptyDir' : v.hostPath ? 'HostPath' : v.downwardAPI ? 'DownwardAPI' :
-                v.projected ? 'Projected' : 'Other';
-              const ref = v.configMap?.name || v.secret?.secretName || v.persistentVolumeClaim?.claimName ||
-                v.hostPath?.path || '';
+            {volumes.map((v) => {
+              const vol = v as { name: string; [key: string]: unknown };
+              const type = vol.configMap ? 'ConfigMap' : vol.secret ? 'Secret' : vol.persistentVolumeClaim ? 'PVC' :
+                vol.emptyDir ? 'EmptyDir' : vol.hostPath ? 'HostPath' : vol.downwardAPI ? 'DownwardAPI' :
+                vol.projected ? 'Projected' : 'Other';
+              const ref = (vol.configMap as Record<string, string> | undefined)?.name || (vol.secret as Record<string, string> | undefined)?.secretName || (vol.persistentVolumeClaim as Record<string, string> | undefined)?.claimName ||
+                (vol.hostPath as Record<string, string> | undefined)?.path || '';
               return (
                 <div key={v.name} className="px-4 py-2 flex items-center gap-3">
                   <HardDrive className="w-3.5 h-3.5 text-slate-500 shrink-0" />

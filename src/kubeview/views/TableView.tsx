@@ -83,7 +83,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       sample.kind,
       Object.keys(sample).sort().join(','),
       Object.keys(sample.spec || {}).slice(0, 10).sort().join(','),
-      Object.keys((sample as any).status || {}).slice(0, 10).sort().join(','),
+      Object.keys((sample as K8sResource & { status?: Record<string, unknown> }).status || {}).slice(0, 10).sort().join(','),
     ].join('|');
   }, [stampedResources]);
 

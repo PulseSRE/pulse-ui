@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { k8sGet, k8sList, k8sDelete, k8sPatch, k8sCreate, k8sLogs } from '../engine/query';
 import { MetricCard } from '../components/metrics/Sparkline';
 import type { K8sResource } from '../engine/renderers';
+import type { Deployment, StatefulSet, DaemonSet, Pod, Event, Container, ContainerPort, ContainerStatus, Condition } from '../engine/types';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { kindToPlural } from '../engine/renderers/index';
 import { buildApiPath } from '../hooks/useResourceUrl';
@@ -83,7 +84,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   // Fetch managed pods for workloads (Deployment/StatefulSet/DaemonSet)
   const isWorkload = resource?.kind === 'Deployment' || resource?.kind === 'StatefulSet' || resource?.kind === 'DaemonSet';
-  const selectorLabels = (resource?.spec as any)?.selector?.matchLabels as Record<string, string> | undefined;
+  const selectorLabels = (resource?.spec as Deployment['spec'])?.selector?.matchLabels as Record<string, string> | undefined;
   const podsApiPath = React.useMemo(() => {
     if (!selectorLabels || !namespace) return '';
     const labelSelector = Object.entries(selectorLabels).map(([k, v]) => `${k}=${v}`).join(',');
@@ -112,8 +113,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
   // Sort events by timestamp
   const sortedEvents = React.useMemo(() => {
     return [...events].sort((a, b) => {
-      const aTime = (a as any).lastTimestamp || (a as any).firstTimestamp || '';
-      const bTime = (b as any).lastTimestamp || (b as any).firstTimestamp || '';
+      const aTime = (a as unknown as Event).lastTimestamp || (a as unknown as Event).firstTimestamp || '';
+      const bTime = (b as unknown as Event).lastTimestamp || (b as unknown as Event).firstTimestamp || '';
       return new Date(bTime).getTime() - new Date(aTime).getTime();
     });
   }, [events]);
@@ -154,9 +155,9 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     try {
       await k8sDelete(apiPath);
       // Optimistically remove from all list caches
-      queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: any) => {
+      queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
         if (!old || !Array.isArray(old)) return old;
-        return old.filter((r: any) => r.metadata?.uid !== resource.metadata.uid);
+        return old.filter((r: K8sResource) => r.metadata?.uid !== resource.metadata.uid);
       });
       setShowDeleteConfirm(false);
       // Show delete progress instead of navigating away
@@ -232,14 +233,14 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         const patch = {
           spec: {
             ephemeralContainers: [
-              ...((resource.spec as any)?.ephemeralContainers || []),
+              ...((resource.spec as Pod['spec'] & { ephemeralContainers?: unknown[] })?.ephemeralContainers || []),
               {
                 name: debugContainerName,
                 image: 'busybox:latest',
                 command: ['sh'],
                 stdin: true,
                 tty: true,
-                targetContainerName: (resource.spec as any)?.containers?.[0]?.name,
+                targetContainerName: (resource.spec as Pod['spec'])?.containers?.[0]?.name,
               },
             ],
           },
@@ -261,7 +262,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   const handleScale = async (delta: number) => {
     if (!resource || actionLoading) return;
-    const currentReplicas = (resource.spec as any)?.replicas ?? 0;
+    const currentReplicas = (resource.spec as Deployment['spec'])?.replicas ?? 0;
     const newReplicas = Math.max(0, currentReplicas + delta);
     setActionLoading('scale');
     try {
@@ -359,8 +360,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     );
   }
 
-  const status = (resource.status as any) || {};
-  const spec = (resource.spec as any) || {};
+  const status = (resource.status as Record<string, unknown>) || {};
+  const spec = (resource.spec as Record<string, unknown>) || {};
 
   return (
     <>
@@ -432,7 +433,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                   <Minus className="w-3 h-3" />
                 </button>
                 <span className={cn('px-2 py-0.5 text-xs font-mono text-slate-300', actionLoading === 'scale' && 'animate-pulse')}>
-                  {(resource.spec as any)?.replicas ?? 0}
+                  {(resource.spec as Deployment['spec'])?.replicas ?? 0}
                 </span>
                 <button onClick={() => handleScale(1)} disabled={!!actionLoading} className="px-1.5 py-1 text-slate-400 rounded hover:bg-slate-700 hover:text-slate-200 transition-colors disabled:opacity-30">
                   <Plus className="w-3 h-3" />
@@ -466,7 +467,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         {/* Detail tabs */}
         <div className="flex gap-1 bg-slate-900 rounded-lg p-1 w-fit">
           {(['overview', 'conditions', 'events'] as const).map((tab) => {
-            const conditions = (status.conditions || []) as any[];
+            const conditions = (status.conditions || []) as Condition[];
             return (
             <button key={tab} onClick={() => setDetailTab(tab)} className={cn('px-4 py-1.5 text-xs rounded-md transition-colors capitalize', detailTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               {tab === 'events' ? `Events (${sortedEvents.length})` : tab === 'conditions' ? `Conditions (${conditions.length})` : tab}
@@ -541,17 +542,17 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                 <div className="px-4 py-8 text-center text-slate-500 text-xs">No events found</div>
               ) : (
                 sortedEvents.map((event, idx) => {
-                  const eventAny = event as any;
-                  const timestamp = eventAny.lastTimestamp || eventAny.firstTimestamp || '';
-                  const type = eventAny.type || 'Normal';
+                  const eventTyped = event as unknown as Event;
+                  const timestamp = eventTyped.lastTimestamp || eventTyped.firstTimestamp || '';
+                  const type = eventTyped.type || 'Normal';
                   return (
                     <div key={idx} className="px-4 py-3">
                       <div className="flex items-start gap-2">
                         {type === 'Warning' ? <AlertCircle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0 mt-0.5" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />}
                         <div className="flex-1">
                           <div className="text-xs text-slate-500 mb-0.5">{timestamp ? new Date(timestamp).toLocaleString() : ''}</div>
-                          <div className="text-xs font-medium text-slate-200">{eventAny.reason}</div>
-                          <div className="text-xs text-slate-400 mt-0.5">{eventAny.message}</div>
+                          <div className="text-xs font-medium text-slate-200">{eventTyped.reason}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{eventTyped.message}</div>
                         </div>
                       </div>
                     </div>
@@ -713,11 +714,11 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
             {/* Containers (Pods only) */}
             {resource.kind === 'Pod' && spec.containers && (
-              <DetailSection title={`Containers (${(spec.containers as any[]).length})`}>
+              <DetailSection title={`Containers (${(spec.containers as Container[]).length})`}>
                 <div className="space-y-3">
-                  {(spec.containers as any[]).map((container: any) => {
-                    const containerStatus = (status.containerStatuses as any[] || []).find(
-                      (cs: any) => cs.name === container.name
+                  {(spec.containers as Container[]).map((container: Container) => {
+                    const containerStatus = (status.containerStatuses as ContainerStatus[] || []).find(
+                      (cs: ContainerStatus) => cs.name === container.name
                     );
                     const isReady = containerStatus?.ready === true;
                     const restarts = containerStatus?.restartCount ?? 0;
@@ -740,7 +741,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                           <div className="text-xs text-slate-400 font-mono truncate">{container.image}</div>
                           {container.ports && (
                             <div className="text-xs text-slate-500 mt-1">
-                              Ports: {(container.ports as any[]).map((p: any) => `${p.containerPort}/${p.protocol || 'TCP'}`).join(', ')}
+                              Ports: {(container.ports as ContainerPort[]).map((p: ContainerPort) => `${p.containerPort}/${p.protocol || 'TCP'}`).join(', ')}
                             </div>
                           )}
                         </div>
@@ -887,13 +888,14 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                   </h2>
                 </div>
                 <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-                  {managedPods.map((pod: any) => {
-                    const podPhase = pod.status?.phase || 'Pending';
-                    const containers = pod.status?.containerStatuses || [];
-                    const ready = containers.filter((c: any) => c.ready).length;
-                    const total = containers.length || 1;
-                    const waiting = containers.find((c: any) => c.state?.waiting)?.state?.waiting;
-                    const restarts = containers.reduce((sum: number, c: any) => sum + (c.restartCount || 0), 0);
+                  {managedPods.map((pod) => {
+                    const podStatus = pod.status as Pod['status'];
+                    const podPhase = podStatus?.phase || 'Pending';
+                    const podContainerStatuses = podStatus?.containerStatuses || [];
+                    const ready = podContainerStatuses.filter((c) => c.ready).length;
+                    const total = podContainerStatuses.length || 1;
+                    const waiting = podContainerStatuses.find((c) => c.state?.waiting)?.state?.waiting;
+                    const restarts = podContainerStatuses.reduce((sum, c) => sum + (c.restartCount || 0), 0);
 
                     return (
                       <button
@@ -998,7 +1000,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       <PodTerminal
         namespace={namespace}
         podName={name}
-        containerName={(spec.containers as any[])?.[0]?.name || ''}
+        containerName={(spec.containers as Container[] | undefined)?.[0]?.name || ''}
         onClose={() => setShowTerminal(false)}
       />
     )}

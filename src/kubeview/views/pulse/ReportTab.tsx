@@ -14,7 +14,13 @@ import { MetricCard } from '../../components/metrics/Sparkline';
 import { diagnoseResource, type Diagnosis } from '../../engine/diagnosis';
 import { resourceDetailUrl } from '../../engine/gvr';
 import type { K8sResource } from '../../engine/renderers';
+import type { Node, Pod, ClusterOperator, ClusterVersion, Condition, ContainerStatus, Event, Secret } from '../../engine/types';
 import { useClusterStore } from '../../store/clusterStore';
+
+/** ResourceQuota resource */
+interface ResourceQuota extends K8sResource {
+  status?: { hard?: Record<string, string>; used?: Record<string, string>; [key: string]: unknown };
+}
 
 const SYSTEM_NS_PREFIXES = ['openshift-', 'kube-', 'default', 'openshift'];
 function isSystemNamespace(ns?: string): boolean {
@@ -141,7 +147,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
     queryKey: ['k8s', 'list', 'tls-secrets'],
     queryFn: async () => {
       const secrets = await k8sList<K8sResource>('/api/v1/secrets');
-      return secrets.filter((s: any) => s.type === 'kubernetes.io/tls');
+      return secrets.filter((s) => (s as unknown as Secret).type === 'kubernetes.io/tls');
     },
     staleTime: 120_000, refetchInterval: 300_000,
   });
@@ -194,29 +200,34 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
     queryFn: async () => {
       const events = await k8sList<K8sResource>('/api/v1/events');
       const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
-      return events.filter((e: any) => (e.lastTimestamp || e.metadata.creationTimestamp) >= oneHourAgo);
+      return events.filter((e) => {
+        const ev = e as unknown as Event;
+        return (ev.lastTimestamp || ev.metadata.creationTimestamp) >= oneHourAgo;
+      });
     },
     staleTime: 60_000, refetchInterval: 120_000,
   });
 
   // === Derived data ===
   const userPods = useMemo(() => allPods.filter(p => !isSystemNamespace(p.metadata.namespace)), [allPods]);
-  const unhealthyNodes = useMemo(() => nodes.filter((n: any) => {
-    const ready = (n.status?.conditions || []).find((c: any) => c.type === 'Ready');
+  const unhealthyNodes = useMemo(() => nodes.filter((n) => {
+    const node = n as unknown as Node;
+    const ready = (node.status?.conditions || []).find((c) => c.type === 'Ready');
     return !ready || ready.status !== 'True';
   }), [nodes]);
-  const degradedOperators = useMemo(() => operators.filter((co: any) =>
-    (co.status?.conditions || []).some((c: any) => c.type === 'Degraded' && c.status === 'True')
+  const degradedOperators = useMemo(() => operators.filter((co) =>
+    ((co as unknown as ClusterOperator).status?.conditions || []).some((c) => c.type === 'Degraded' && c.status === 'True')
   ), [operators]);
-  const failedPods = useMemo(() => allPods.filter((p: any) => {
-    if (isSystemNamespace(p.metadata?.namespace)) return false;
-    const owners = p.metadata?.ownerReferences || [];
-    if (owners.some((o: any) => o.kind === 'Job')) return false;
-    const name = p.metadata?.name || '';
+  const failedPods = useMemo(() => allPods.filter((p) => {
+    const pod = p as unknown as Pod;
+    if (isSystemNamespace(pod.metadata?.namespace)) return false;
+    const owners = pod.metadata?.ownerReferences || [];
+    if (owners.some((o) => o.kind === 'Job')) return false;
+    const name = pod.metadata?.name || '';
     if (name.startsWith('installer-') || name.startsWith('revision-pruner-')) return false;
-    const statuses = p.status?.containerStatuses || [];
-    if (statuses.some((cs: any) => { const w = cs.state?.waiting?.reason; return w === 'CrashLoopBackOff' || w === 'ImagePullBackOff' || w === 'ErrImagePull'; })) return true;
-    if (p.status?.phase === 'Failed') { return !(statuses.length > 0 && statuses.every((cs: any) => cs.state?.terminated)); }
+    const statuses = pod.status?.containerStatuses || [];
+    if (statuses.some((cs) => { const w = cs.state?.waiting?.reason; return w === 'CrashLoopBackOff' || w === 'ImagePullBackOff' || w === 'ErrImagePull'; })) return true;
+    if (pod.status?.phase === 'Failed') { return !(statuses.length > 0 && statuses.every((cs) => cs.state?.terminated)); }
     return false;
   }), [allPods]);
 
@@ -228,13 +239,14 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   const certsExpiringSoon30 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry >= 7 && c.daysUntilExpiry < 30), [certInfos]);
   const urgentCerts = useMemo(() => [...certInfos].filter(c => (c.daysUntilExpiry ?? 999) < 30).sort((a, b) => (a.daysUntilExpiry ?? 9999) - (b.daysUntilExpiry ?? 9999)).slice(0, 5), [certInfos]);
 
-  const readyNodes = nodes.filter((n: any) => (n.status?.conditions || []).some((c: any) => c.type === 'Ready' && c.status === 'True'));
-  const runningPods = userPods.filter((p: any) => p.status?.phase === 'Running');
+  const readyNodes = nodes.filter((n) => ((n as unknown as Node).status?.conditions || []).some((c) => c.type === 'Ready' && c.status === 'True'));
+  const runningPods = userPods.filter((p) => (p as unknown as Pod).status?.phase === 'Running');
 
   // Nodes under pressure
-  const pressuredNodes = useMemo(() => nodes.filter((n: any) => {
-    const conditions = n.status?.conditions || [];
-    return conditions.some((c: any) =>
+  const pressuredNodes = useMemo(() => nodes.filter((n) => {
+    const node = n as unknown as Node;
+    const conditions = node.status?.conditions || [];
+    return conditions.some((c) =>
       (c.type === 'DiskPressure' || c.type === 'MemoryPressure' || c.type === 'PIDPressure') && c.status === 'True'
     );
   }), [nodes]);
@@ -246,9 +258,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   const quotaOverages = useMemo(() => {
     const overages: { namespace: string; name: string; resource: string; used: string; hard: string }[] = [];
     for (const rq of resourceQuotas) {
-      const status = (rq as any).status || {};
-      const hard = status.hard || {};
-      const used = status.used || {};
+      const rqTyped = rq as unknown as ResourceQuota;
+      const hard = rqTyped.status?.hard || {};
+      const used = rqTyped.status?.used || {};
       for (const resource of Object.keys(hard)) {
         const hardVal = parseFloat(hard[resource]);
         const usedVal = parseFloat(used[resource] || '0');
@@ -263,8 +275,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   // Top restarting pods
   const topRestartingPods = useMemo(() => {
     return userPods
-      .map((p: any) => {
-        const restarts = (p.status?.containerStatuses || []).reduce((sum: number, cs: any) => sum + (cs.restartCount || 0), 0);
+      .map((p) => {
+        const pod = p as unknown as Pod;
+        const restarts = (pod.status?.containerStatuses || []).reduce((sum: number, cs) => sum + (cs.restartCount || 0), 0);
         return { pod: p, restarts };
       })
       .filter(r => r.restarts > 5)
@@ -275,7 +288,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   // Cluster version update
   const updateAvailable = useMemo(() => {
     if (!clusterVersion) return null;
-    const cv = clusterVersion as any;
+    const cv = clusterVersion as unknown as ClusterVersion;
     const currentVersion = cv.status?.desired?.version || '';
     const updates = cv.status?.availableUpdates || [];
     if (updates.length === 0) return null;
@@ -284,7 +297,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
 
   // Recent changes — individual events with links + who
   const recentChanges = useMemo(() => {
-    return (recentEvents as any[])
+    return (recentEvents as unknown as Event[])
       .filter(e => e.involvedObject?.name)
       .sort((a, b) => {
         const ta = a.lastTimestamp || a.metadata.creationTimestamp || '';
@@ -293,7 +306,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
       })
       .slice(0, 8)
       .map(e => {
-        const obj = e.involvedObject || {};
+        const obj = e.involvedObject || {} as Event['involvedObject'];
         const kind = obj.kind || '';
         const name = obj.name || '';
         const namespace = obj.namespace || '';
@@ -302,7 +315,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
           kind,
           metadata: { name, namespace: namespace || undefined },
         });
-        const source = e.source?.component || e.reportingComponent || '';
+        const source = e.source?.component || (e as K8sResource & { reportingComponent?: string }).reportingComponent || '';
         const reason = e.reason || '';
         const message = e.message || '';
         const timestamp = e.lastTimestamp || e.metadata.creationTimestamp || '';
@@ -318,21 +331,23 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
       // On HyperShift, only show CP operators that actually exist in the cluster
       return cpNames
         .map(name => {
-          const op = operators.find((o: any) => o.metadata.name === name);
+          const op = operators.find((o) => o.metadata.name === name);
           if (!op) return null;
-          const conditions = (op as any).status?.conditions || [];
-          const available = conditions.some((c: any) => c.type === 'Available' && c.status === 'True');
-          const degraded = conditions.some((c: any) => c.type === 'Degraded' && c.status === 'True');
+          const co = op as unknown as ClusterOperator;
+          const conditions: Condition[] = co.status?.conditions || [];
+          const available = conditions.some((c) => c.type === 'Available' && c.status === 'True');
+          const degraded = conditions.some((c) => c.type === 'Degraded' && c.status === 'True');
           return { name, available, degraded, found: true };
         })
         .filter((op): op is NonNullable<typeof op> => op !== null);
     }
     return cpNames.map(name => {
-      const op = operators.find((o: any) => o.metadata.name === name);
+      const op = operators.find((o) => o.metadata.name === name);
       if (!op) return { name, available: false, degraded: false, found: false };
-      const conditions = (op as any).status?.conditions || [];
-      const available = conditions.some((c: any) => c.type === 'Available' && c.status === 'True');
-      const degraded = conditions.some((c: any) => c.type === 'Degraded' && c.status === 'True');
+      const co = op as unknown as ClusterOperator;
+      const conditions: Condition[] = co.status?.conditions || [];
+      const available = conditions.some((c) => c.type === 'Available' && c.status === 'True');
+      const degraded = conditions.some((c) => c.type === 'Degraded' && c.status === 'True');
       return { name, available, degraded, found: true };
     });
   }, [operators, isHyperShift]);
@@ -373,7 +388,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
       steps: ['Check kubelet status on the node', 'Review node conditions (DiskPressure, MemoryPressure)', 'Check network connectivity to control plane', 'Review system logs (journalctl -u kubelet)'] });
     for (const a of criticalAlerts) items.push({ severity: 'critical', title: a.metric.alertname || 'Critical alert', detail: a.metric.namespace ? `in ${a.metric.namespace}` : 'cluster-scoped', path: '/alerts', pathTitle: 'Alerts' });
     for (const p of failedPods.slice(0, 5)) {
-      const reason = (p as any).status?.containerStatuses?.find((cs: any) => cs.state?.waiting)?.state?.waiting?.reason || 'Error';
+      const reason = (p as unknown as Pod).status?.containerStatuses?.find((cs) => cs.state?.waiting)?.state?.waiting?.reason || 'Error';
       const steps = reason === 'CrashLoopBackOff'
         ? ['Check pod logs for error messages', 'Verify image exists and is pullable', 'Check resource limits (OOM kills)', 'Review liveness probe configuration']
         : reason === 'ImagePullBackOff' || reason === 'ErrImagePull'
@@ -385,7 +400,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
     return items;
   }, [degradedOperators, unhealthyNodes, criticalAlerts, failedPods, certsExpiringSoon7]);
 
-  const pendingPods = useMemo(() => userPods.filter((p: any) => p.status?.phase === 'Pending'), [userPods]);
+  const pendingPods = useMemo(() => userPods.filter((p) => (p as unknown as Pod).status?.phase === 'Pending'), [userPods]);
 
   return (
     <div className="space-y-6">
@@ -565,15 +580,16 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                   <span className="text-xs font-medium text-slate-200">Nodes Under Pressure</span>
                 </div>
                 <div className="space-y-1">
-                  {pressuredNodes.map((n: any) => {
-                    const conditions = (n.status?.conditions || []).filter((c: any) =>
+                  {pressuredNodes.map((n) => {
+                    const node = n as unknown as Node;
+                    const conditions = (node.status?.conditions || []).filter((c) =>
                       (c.type === 'DiskPressure' || c.type === 'MemoryPressure' || c.type === 'PIDPressure') && c.status === 'True'
                     );
                     return (
                       <button key={n.metadata.name} onClick={() => go(`/r/v1~nodes/_/${n.metadata.name}`, n.metadata.name)}
                         className="w-full flex items-center gap-2 text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded transition-colors">
                         <span className="text-slate-300">{n.metadata.name}</span>
-                        <span className="text-amber-400">{conditions.map((c: any) => c.type).join(', ')}</span>
+                        <span className="text-amber-400">{conditions.map((c) => c.type).join(', ')}</span>
                       </button>
                     );
                   })}
@@ -680,7 +696,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
               <span className="text-xs font-medium text-slate-200">{pendingPods.length} Pending Pod{pendingPods.length !== 1 ? 's' : ''}</span>
             </div>
             <div className="space-y-1">
-              {pendingPods.slice(0, 3).map((p: any) => (
+              {pendingPods.slice(0, 3).map((p) => (
                 <button key={p.metadata.uid} onClick={() => go(`/r/v1~pods/${p.metadata.namespace}/${p.metadata.name}`, p.metadata.name)}
                   className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded transition-colors">
                   <span className="text-slate-300">{p.metadata.name}</span>
@@ -700,7 +716,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
             </div>
             <div className="space-y-1">
               {topRestartingPods.map(({ pod, restarts }) => (
-                <button key={(pod as any).metadata.uid} onClick={() => go(`/r/v1~pods/${pod.metadata.namespace}/${pod.metadata.name}`, pod.metadata.name)}
+                <button key={pod.metadata.uid} onClick={() => go(`/r/v1~pods/${pod.metadata.namespace}/${pod.metadata.name}`, pod.metadata.name)}
                   className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded transition-colors">
                   <span className="text-slate-300">{pod.metadata.name}</span>
                   <span className="text-amber-400 font-mono">{restarts} restarts</span>

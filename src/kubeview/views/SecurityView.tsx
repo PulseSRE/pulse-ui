@@ -11,6 +11,7 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { Panel } from '../components/primitives/Panel';
 import type { K8sResource } from '../engine/renderers';
+import type { ClusterRoleBinding, Namespace, Subject } from '../engine/types';
 
 interface AuditCheck {
   id: string;
@@ -72,11 +73,11 @@ export default function SecurityView() {
   const identityProviders = oauthConfig?.spec?.identityProviders || [];
   const tlsProfile = apiServer?.spec?.tlsSecurityProfile?.type || 'Intermediate';
   const encryptionType = apiServer?.spec?.encryption?.type || 'identity';
-  const kubeadminExists = users.some((u: any) => u.metadata?.name === 'kube:admin' || u.metadata?.name === 'kubeadmin');
+  const kubeadminExists = users.some((u) => u.metadata?.name === 'kube:admin' || u.metadata?.name === 'kubeadmin');
 
   const clusterAdmins = useMemo(() => {
     const subjects: Array<{ name: string; kind: string; binding: string }> = [];
-    for (const b of clusterRoleBindings as any[]) {
+    for (const b of clusterRoleBindings as ClusterRoleBinding[]) {
       if (b.roleRef?.name !== 'cluster-admin') continue;
       const bn = b.metadata?.name || '';
       if (bn.startsWith('system:') || bn.startsWith('openshift-')) continue;
@@ -89,23 +90,23 @@ export default function SecurityView() {
   }, [clusterRoleBindings]);
 
   const userNamespaces = useMemo(() =>
-    namespaces.filter((ns: any) => {
+    namespaces.filter((ns) => {
       const name = ns.metadata?.name || '';
       return !name.startsWith('openshift-') && !name.startsWith('kube-') && name !== 'default' && name !== 'openshift';
     }),
   [namespaces]);
 
   const nsWithNetPol = useMemo(() => {
-    const s = new Set((networkPolicies as any[]).map(np => np.metadata?.namespace));
+    const s = new Set(networkPolicies.map(np => np.metadata?.namespace));
     return s;
   }, [networkPolicies]);
 
   const unprotectedNamespaces = useMemo(() =>
-    userNamespaces.filter((ns: any) => !nsWithNetPol.has(ns.metadata?.name)),
+    userNamespaces.filter((ns) => !nsWithNetPol.has(ns.metadata?.name)),
   [userNamespaces, nsWithNetPol]);
 
   const privilegedSCCs = useMemo(() =>
-    (sccs as any[]).filter(s => s.allowPrivilegedContainer === true || s.metadata?.name === 'privileged'),
+    sccs.filter(s => (s as any).allowPrivilegedContainer === true || s.metadata?.name === 'privileged'),
   [sccs]);
 
   const tlsSecretCount = secrets.filter((s: any) => s.type === 'kubernetes.io/tls').length;
@@ -320,7 +321,7 @@ export default function SecurityView() {
         </div>
 
         {/* SCCs */}
-        <SCCPanel sccs={sccs as any[]} go={go} />
+        <SCCPanel sccs={sccs} go={go} />
 
         {/* Unprotected Namespaces */}
         {unprotectedNamespaces.length > 0 && (
@@ -338,7 +339,7 @@ export default function SecurityView() {
             <div className="px-4 py-3">
               <p className="text-xs text-slate-500 mb-3">These user namespaces have no NetworkPolicy — all pod-to-pod traffic is allowed by default.</p>
               <div className="flex flex-wrap gap-2">
-                {unprotectedNamespaces.map((ns: any) => (
+                {unprotectedNamespaces.map((ns) => (
                   <button key={ns.metadata?.name} onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
                     className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded hover:bg-yellow-900/40 transition-colors">
                     {ns.metadata?.name}
@@ -371,11 +372,11 @@ function SummaryCard({ icon, label, value, sub, onClick }: { icon: React.ReactNo
   );
 }
 
-function SCCPanel({ sccs, go }: { sccs: any[]; go: (path: string, title: string) => void }) {
+function SCCPanel({ sccs, go }: { sccs: K8sResource[]; go: (path: string, title: string) => void }) {
   const [expanded, setExpanded] = useState(false);
-  const privileged = sccs.filter(s => s.allowPrivilegedContainer === true);
-  const hostNetwork = sccs.filter(s => s.allowHostNetwork === true);
-  const hostPID = sccs.filter(s => s.allowHostPID === true);
+  const privileged = sccs.filter(s => (s as any).allowPrivilegedContainer === true);
+  const hostNetwork = sccs.filter(s => (s as any).allowHostNetwork === true);
+  const hostPID = sccs.filter(s => (s as any).allowHostPID === true);
 
   return (
     <div className="bg-slate-900 rounded-lg border border-slate-800">

@@ -5,29 +5,51 @@ import { Shield, Database, AlertTriangle } from 'lucide-react';
 import { k8sList } from '../../engine/query';
 import { parseResourceValue, formatResourceValue } from '../../engine/formatting';
 import { Panel } from '../../components/primitives/Panel';
+import type { K8sResource } from '../../engine/renderers';
+import type { Namespace } from '../../engine/types';
 
-export function QuotasTab({ quotas, limitRanges, go }: { quotas: any[]; limitRanges: any[]; go: (path: string, title: string) => void }) {
-  const { data: namespaces = [] } = useQuery<any[]>({
+/** ResourceQuota resource */
+interface ResourceQuota extends K8sResource {
+  spec?: { hard?: Record<string, string>; [key: string]: unknown };
+  status?: { hard?: Record<string, string>; used?: Record<string, string>; [key: string]: unknown };
+}
+
+/** LimitRange resource */
+interface LimitRange extends K8sResource {
+  spec?: {
+    limits?: Array<{
+      type: string;
+      default?: Record<string, string>;
+      defaultRequest?: Record<string, string>;
+      max?: Record<string, string>;
+      min?: Record<string, string>;
+    }>;
+    [key: string]: unknown;
+  };
+}
+
+export function QuotasTab({ quotas, limitRanges, go }: { quotas: K8sResource[]; limitRanges: K8sResource[]; go: (path: string, title: string) => void }) {
+  const { data: namespaces = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/api/v1/namespaces'],
     queryFn: () => k8sList('/api/v1/namespaces'),
     staleTime: 60000,
   });
 
   const userNamespaces = React.useMemo(() =>
-    namespaces.filter((ns: any) => {
+    namespaces.filter((ns) => {
       const name = ns.metadata?.name || '';
       return !name.startsWith('openshift-') && !name.startsWith('kube-') && name !== 'default' && name !== 'openshift';
     }),
   [namespaces]);
 
-  const quotaNamespaces = new Set(quotas.map((q: any) => q.metadata?.namespace));
-  const lrNamespaces = new Set(limitRanges.map((lr: any) => lr.metadata?.namespace));
-  const unprotectedNs = userNamespaces.filter((ns: any) => !quotaNamespaces.has(ns.metadata?.name) && !lrNamespaces.has(ns.metadata?.name));
+  const quotaNamespaces = new Set(quotas.map((q) => q.metadata?.namespace));
+  const lrNamespaces = new Set(limitRanges.map((lr) => lr.metadata?.namespace));
+  const unprotectedNs = userNamespaces.filter((ns) => !quotaNamespaces.has(ns.metadata?.name) && !lrNamespaces.has(ns.metadata?.name));
 
   // Aggregate usage across all quotas
   const totalResources = React.useMemo(() => {
     const agg: Record<string, { hard: number; used: number; display: string }> = {};
-    for (const q of quotas) {
+    for (const q of quotas as unknown as ResourceQuota[]) {
       const hard = q.spec?.hard || {};
       const used = q.status?.used || {};
       for (const [key, hardVal] of Object.entries(hard)) {
@@ -111,7 +133,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: any[]; limitRan
           </div>
         ) : (
           <div className="space-y-4">
-            {quotas.map((q: any) => {
+            {(quotas as unknown as ResourceQuota[]).map((q) => {
               const hard = q.spec?.hard || {};
               const used = q.status?.used || {};
               const resources = Object.keys(hard);
@@ -163,8 +185,8 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: any[]; limitRan
           </div>
         ) : (
           <div className="space-y-4">
-            {limitRanges.map((lr: any) => {
-              const limits = (lr.spec?.limits || []) as any[];
+            {(limitRanges as unknown as LimitRange[]).map((lr) => {
+              const limits = lr.spec?.limits || [];
               return (
                 <div key={lr.metadata?.uid} className="border border-slate-800 rounded-lg overflow-hidden">
                   <button onClick={() => go(`/r/v1~limitranges/${lr.metadata.namespace}/${lr.metadata.name}`, lr.metadata.name)}
@@ -188,7 +210,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: any[]; limitRan
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
-                        {limits.flatMap((limit: any) => {
+                        {limits.flatMap((limit) => {
                           const resources = new Set([
                             ...Object.keys(limit.default || {}),
                             ...Object.keys(limit.defaultRequest || {}),
@@ -221,7 +243,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: any[]; limitRan
         <Panel title={`Unprotected Namespaces (${unprotectedNs.length})`} icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
           <p className="text-xs text-slate-500 mb-3">These user namespaces have no ResourceQuota or LimitRange. Workloads can consume unlimited resources.</p>
           <div className="flex flex-wrap gap-2">
-            {unprotectedNs.map((ns: any) => (
+            {unprotectedNs.map((ns) => (
               <button key={ns.metadata?.name} onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
                 className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded hover:bg-yellow-900/40 transition-colors">
                 {ns.metadata?.name}

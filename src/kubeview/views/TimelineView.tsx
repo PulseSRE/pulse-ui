@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, Info, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../engine/renderers';
+import type { Event } from '../engine/types';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
@@ -26,7 +27,7 @@ export default function TimelineView() {
   // Apply namespace filter
   const events = React.useMemo(() => {
     if (selectedNamespace === '*') return allEvents;
-    return allEvents.filter((e) => (e as any).metadata?.namespace === selectedNamespace);
+    return allEvents.filter((e) => e.metadata?.namespace === selectedNamespace);
   }, [allEvents, selectedNamespace]);
 
   // Filter events by time range and type
@@ -40,22 +41,25 @@ export default function TimelineView() {
     const cutoff = now - ranges[timeRange];
 
     let filtered = events.filter((event) => {
-      const timestamp = (event as any).lastTimestamp || (event as any).firstTimestamp;
+      const ev = event as unknown as Event;
+      const timestamp = ev.lastTimestamp || ev.firstTimestamp;
       if (!timestamp) return false;
       return new Date(timestamp).getTime() >= cutoff;
     });
 
     // Apply event type filter
     if (eventFilter === 'warnings') {
-      filtered = filtered.filter((e) => (e as any).type === 'Warning');
+      filtered = filtered.filter((e) => (e as unknown as Event).type === 'Warning');
     } else if (eventFilter === 'normal') {
-      filtered = filtered.filter((e) => (e as any).type === 'Normal');
+      filtered = filtered.filter((e) => (e as unknown as Event).type === 'Normal');
     }
 
     // Sort by timestamp descending
     return filtered.sort((a, b) => {
-      const aTime = (a as any).lastTimestamp || (a as any).firstTimestamp || '';
-      const bTime = (b as any).lastTimestamp || (b as any).firstTimestamp || '';
+      const aEv = a as unknown as Event;
+      const bEv = b as unknown as Event;
+      const aTime = aEv.lastTimestamp || aEv.firstTimestamp || '';
+      const bTime = bEv.lastTimestamp || bEv.firstTimestamp || '';
       return new Date(bTime).getTime() - new Date(aTime).getTime();
     });
   }, [events, timeRange, eventFilter]);
@@ -65,7 +69,8 @@ export default function TimelineView() {
     const groups: Record<string, K8sResource[]> = {};
 
     for (const event of filteredEvents) {
-      const timestamp = (event as any).lastTimestamp || (event as any).firstTimestamp;
+      const ev = event as unknown as Event;
+      const timestamp = ev.lastTimestamp || ev.firstTimestamp;
       if (!timestamp) continue;
 
       const date = new Date(timestamp);
@@ -81,8 +86,8 @@ export default function TimelineView() {
   }, [filteredEvents]);
 
   const handleEventClick = (event: K8sResource) => {
-    const eventAny = event as any;
-    const involvedObject = eventAny.involvedObject || {};
+    const ev = event as unknown as Event;
+    const involvedObject = ev.involvedObject || {} as Event['involvedObject'];
     const name = involvedObject.name;
     const kind = involvedObject.kind;
     const namespace = involvedObject.namespace;
@@ -175,13 +180,13 @@ export default function TimelineView() {
                 {/* Events for this date */}
                 <div className="space-y-3">
                   {dateEvents.map((event, idx) => {
-                    const eventAny = event as any;
+                    const ev = event as unknown as Event;
                     const timestamp =
-                      eventAny.lastTimestamp || eventAny.firstTimestamp || '';
-                    const type = eventAny.type || 'Normal';
-                    const reason = eventAny.reason || '';
-                    const message = eventAny.message || '';
-                    const involvedObject = eventAny.involvedObject || {};
+                      ev.lastTimestamp || ev.firstTimestamp || '';
+                    const type = ev.type || 'Normal';
+                    const reason = ev.reason || '';
+                    const message = ev.message || '';
+                    const involvedObject = ev.involvedObject || {} as Event['involvedObject'];
                     const namespace = involvedObject.namespace;
                     const objectName = involvedObject.name || '';
                     const objectKind = involvedObject.kind || '';

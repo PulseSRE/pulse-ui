@@ -65,7 +65,7 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
             queryClient.setQueryData<T[]>(queryKey, (old) => {
               if (!old) return old;
 
-              const uid = (event.object as any).metadata?.uid;
+              const uid = event.object.metadata?.uid;
               if (!uid) return old;
 
               if (event.type === 'DELETED') {

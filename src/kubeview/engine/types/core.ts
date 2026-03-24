@@ -93,6 +93,7 @@ export interface Namespace {
   metadata: ObjectMeta;
   spec?: { finalizers?: string[] };
   status?: { phase?: 'Active' | 'Terminating'; conditions?: Condition[] };
+  [key: string]: unknown;
 }
 
 export interface ServiceAccount {
@@ -101,6 +102,7 @@ export interface ServiceAccount {
   metadata: ObjectMeta;
   secrets?: Array<{ name: string }>;
   automountServiceAccountToken?: boolean;
+  [key: string]: unknown;
 }
 
 export interface PersistentVolumeClaim {

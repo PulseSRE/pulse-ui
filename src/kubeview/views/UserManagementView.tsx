@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { k8sList, k8sGet, k8sDelete } from '../engine/query';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import type { K8sResource } from '../engine/renderers';
+import type { ClusterRoleBinding, Subject } from '../engine/types';
 import { formatAge } from '../engine/dateUtils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -77,7 +78,7 @@ export default function UserManagementView() {
   // Build user → roles map
   const userRoles = React.useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const crb of clusterRoleBindings as any[]) {
+    for (const crb of clusterRoleBindings as ClusterRoleBinding[]) {
       const roleName = crb.roleRef?.name || '';
       for (const subject of crb.subjects || []) {
         if (subject.kind === 'User' || subject.kind === 'ServiceAccount') {
@@ -317,11 +318,11 @@ export default function UserManagementView() {
 
         {/* Identity & Access Audit */}
         <IdentityAudit
-          users={users as any[]}
-          groups={groups as any[]}
-          clusterRoleBindings={clusterRoleBindings as any[]}
+          users={users as K8sResource[]}
+          groups={groups as K8sResource[]}
+          clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
           oauthConfig={oauthConfig}
-          accessTokens={accessTokens as any[]}
+          accessTokens={accessTokens as K8sResource[]}
           kubeadminExists={kubeadminSecret === true}
           go={go}
           addToast={addToast}
@@ -338,7 +339,7 @@ export default function UserManagementView() {
               <button onClick={() => go('/r/oauth.openshift.io~v1~oauthaccesstokens', 'OAuthAccessTokens')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
             </div>
             <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
-              {(accessTokens as any[]).sort((a: any, b: any) =>
+              {(accessTokens as K8sResource[]).sort((a: any, b: any) =>
                 new Date(b.metadata.creationTimestamp || 0).getTime() - new Date(a.metadata.creationTimestamp || 0).getTime()
               ).slice(0, 15).map((token: any) => {
                 const userName = token.userName || 'unknown';
@@ -419,8 +420,8 @@ export default function UserManagementView() {
 // ===== Identity & Access Audit =====
 
 function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminExists, go, addToast, queryClient }: {
-  users: any[]; groups: any[]; clusterRoleBindings: any[]; oauthConfig: any;
-  accessTokens: any[]; kubeadminExists: boolean; go: (path: string, title: string) => void;
+  users: K8sResource[]; groups: K8sResource[]; clusterRoleBindings: ClusterRoleBinding[]; oauthConfig: any;
+  accessTokens: K8sResource[]; kubeadminExists: boolean; go: (path: string, title: string) => void;
   addToast: (t: any) => void; queryClient: any;
 }) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
@@ -458,7 +459,7 @@ function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, access
   const checks = React.useMemo(() => {
     const allChecks: Array<{
       id: string; title: string; description: string; why: string;
-      passing: any[]; failing: any[]; yamlExample: string;
+      passing: Array<{ metadata?: { name?: string; uid?: string }; name?: string; binding?: string; [key: string]: unknown }>; failing: Array<{ metadata?: { name?: string; uid?: string }; name?: string; binding?: string; [key: string]: unknown }>; yamlExample: string;
       action?: { label: string; danger?: boolean; id: string; path?: string };
     }> = [];
 
@@ -511,14 +512,14 @@ spec:
     });
 
     // 3. Cluster-admin bindings audit (exclude system-provided bindings)
-    const clusterAdminBindings = clusterRoleBindings.filter((crb: any) => {
+    const clusterAdminBindings = clusterRoleBindings.filter((crb) => {
       if (crb.roleRef?.name !== 'cluster-admin') return false;
       const name = crb.metadata?.name || '';
       // Skip system-provided bindings (these are expected)
       return !name.startsWith('system:') && !name.startsWith('openshift-');
     });
-    const clusterAdminUsers = clusterAdminBindings.flatMap((crb: any) =>
-      (crb.subjects || []).filter((s: any) => s.kind === 'User' && !s.name?.startsWith('system:')).map((s: any) => ({
+    const clusterAdminUsers = clusterAdminBindings.flatMap((crb) =>
+      (crb.subjects || []).filter((s) => s.kind === 'User' && !s.name?.startsWith('system:')).map((s) => ({
         metadata: { name: s.name, uid: `${crb.metadata.name}-${s.name}` },
         binding: crb.metadata.name,
       }))
@@ -542,13 +543,13 @@ oc adm policy add-cluster-role-to-user edit <user>`,
     });
 
     // 4. Service accounts with cluster-admin
-    const saClusterAdmins = clusterAdminBindings.flatMap((crb: any) =>
-      (crb.subjects || []).filter((s: any) => {
+    const saClusterAdmins = clusterAdminBindings.flatMap((crb) =>
+      (crb.subjects || []).filter((s) => {
         if (s.kind !== 'ServiceAccount') return false;
         const ns = s.namespace || '';
         // Exclude platform service accounts
         return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift';
-      }).map((s: any) => ({
+      }).map((s) => ({
         metadata: { name: `${s.namespace}/${s.name}`, uid: `${crb.metadata.name}-${s.namespace}-${s.name}` },
       }))
     );
@@ -577,7 +578,7 @@ roleRef:
     });
 
     // 5. Inactive users (users with no recent tokens)
-    const activeUsers = new Set(accessTokens.map((t: any) => t.userName));
+    const activeUsers = new Set(accessTokens.map((t) => (t as any).userName));
     const inactiveUsers = users.filter(u => !activeUsers.has(u.metadata.name) && u.metadata.name !== 'kube:admin');
     allChecks.push({
       id: 'inactive-users',
@@ -669,7 +670,7 @@ users:
                     <div>
                       <div className="text-xs text-amber-400 font-medium mb-1.5">Needs attention ({check.failing.length})</div>
                       <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((item: any, idx: number) => (
+                        {check.failing.slice(0, 10).map((item, idx) => (
                           <div key={item.metadata?.uid || idx} className="flex items-center gap-2 py-1 px-2 rounded bg-slate-800/30">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                             <span className="text-xs text-slate-300">{item.metadata?.name}</span>
@@ -683,7 +684,7 @@ users:
                     <div>
                       <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
                       <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((item: any, idx: number) => (
+                        {check.passing.slice(0, 8).map((item, idx) => (
                           <span key={item.metadata?.uid || item.name || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
                             {item.metadata?.name || item.name || 'OK'}
                           </span>

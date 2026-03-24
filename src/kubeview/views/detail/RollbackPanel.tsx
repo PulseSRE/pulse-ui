@@ -8,6 +8,7 @@ import { timeAgo } from '../../engine/dateUtils';
 import { useUIStore } from '../../store/uiStore';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import type { K8sResource } from '../../engine/renderers';
+import type { Deployment, ReplicaSet, Container, PodTemplateSpec } from '../../engine/types';
 
 interface Revision {
   number: number;
@@ -16,16 +17,16 @@ interface Revision {
   images: string[];
   replicas: { current: number; desired: number };
   isCurrent: boolean;
-  podTemplate: any;
+  podTemplate: PodTemplateSpec | undefined;
 }
 
-function computeDiffs(currentTemplate: any, targetTemplate: any): string[] {
+function computeDiffs(currentTemplate: PodTemplateSpec | undefined, targetTemplate: PodTemplateSpec | undefined): string[] {
   const diffs: string[] = [];
-  const currentContainers: any[] = currentTemplate?.spec?.containers || [];
-  const targetContainers: any[] = targetTemplate?.spec?.containers || [];
+  const currentContainers: Container[] = currentTemplate?.spec?.containers || [];
+  const targetContainers: Container[] = targetTemplate?.spec?.containers || [];
 
-  const currentByName = Object.fromEntries(currentContainers.map((c: any) => [c.name, c]));
-  const targetByName = Object.fromEntries(targetContainers.map((c: any) => [c.name, c]));
+  const currentByName = Object.fromEntries(currentContainers.map((c) => [c.name, c]));
+  const targetByName = Object.fromEntries(targetContainers.map((c) => [c.name, c]));
 
   const allNames = new Set([...Object.keys(currentByName), ...Object.keys(targetByName)]);
 
@@ -46,8 +47,8 @@ function computeDiffs(currentTemplate: any, targetTemplate: any): string[] {
       diffs.push(`Container "${name}": image ${cur.image} -> ${tgt.image}`);
     }
 
-    const curEnvKeys = new Set((cur.env || []).map((e: any) => e.name));
-    const tgtEnvKeys = new Set((tgt.env || []).map((e: any) => e.name));
+    const curEnvKeys = new Set((cur.env || []).map((e) => e.name));
+    const tgtEnvKeys = new Set((tgt.env || []).map((e) => e.name));
     const addedEnv = [...tgtEnvKeys].filter((k) => !curEnvKeys.has(k));
     const removedEnv = [...curEnvKeys].filter((k) => !tgtEnvKeys.has(k));
     if (addedEnv.length) diffs.push(`Container "${name}": env added: ${addedEnv.join(', ')}`);
@@ -79,7 +80,7 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
   const [rollbackTarget, setRollbackTarget] = useState<Revision | null>(null);
   const [rolling, setRolling] = useState(false);
 
-  const spec = resource.spec as any;
+  const spec = resource.spec as Deployment['spec'];
   const matchLabels: Record<string, string> = spec?.selector?.matchLabels || {};
   const deploymentUid = resource.metadata.uid;
   const deploymentName = resource.metadata.name;
@@ -103,17 +104,18 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
       const parsed: Revision[] = owned
         .map((rs) => {
           const revNum = parseInt(rs.metadata.annotations?.['deployment.kubernetes.io/revision'] || '0', 10);
-          const podTemplate = (rs.spec as any)?.template;
-          const containers: any[] = podTemplate?.spec?.containers || [];
-          const status = rs.status as any;
+          const rsSpec = rs.spec as ReplicaSet['spec'];
+          const podTemplate = rsSpec?.template;
+          const containers: Container[] = podTemplate?.spec?.containers || [];
+          const rsStatus = rs.status as ReplicaSet['status'];
           return {
             number: revNum,
             replicaSet: rs,
             creationTimestamp: rs.metadata.creationTimestamp || '',
-            images: containers.map((c: any) => c.image),
+            images: containers.map((c) => c.image),
             replicas: {
-              current: status?.readyReplicas ?? status?.replicas ?? 0,
-              desired: (rs.spec as any)?.replicas ?? 0,
+              current: rsStatus?.readyReplicas ?? rsStatus?.replicas ?? 0,
+              desired: rsSpec?.replicas ?? 0,
             },
             isCurrent: false,
             podTemplate,
@@ -134,7 +136,7 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
 
   if (resource.kind !== 'Deployment') return null;
 
-  const currentTemplate = (resource.spec as any)?.template;
+  const currentTemplate = (resource.spec as Deployment['spec'])?.template;
 
   async function handleRollback() {
     if (!rollbackTarget) return;
@@ -152,12 +154,12 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
       });
       queryClient.invalidateQueries({ queryKey: ['rollback-revisions', namespace, deploymentName] });
       queryClient.invalidateQueries({ queryKey: ['k8s'] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       addToast({
         id: `rollback-err-${Date.now()}`,
         type: 'error',
         title: 'Rollback failed',
-        detail: err.message || 'Unknown error',
+        detail: err instanceof Error ? err.message : 'Unknown error',
       });
     } finally {
       setRolling(false);

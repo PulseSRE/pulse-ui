@@ -9,6 +9,17 @@ import { useUIStore } from '../../store/uiStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { K8S_BASE as BASE } from '../../engine/gvr';
+import type { Deployment, StatefulSet, Secret } from '../../engine/types';
+
+/** OLM Subscription — not yet in engine/types, so defined locally. */
+interface Subscription {
+  apiVersion: string;
+  kind: string;
+  metadata: { name: string; namespace: string; uid?: string; [key: string]: unknown };
+  spec?: { name?: string; channel?: string; [key: string]: unknown };
+  status?: { installedCSV?: string; state?: string; [key: string]: unknown };
+  [key: string]: unknown;
+}
 
 export function InstalledTab() {
   const go = useNavigateTab();
@@ -31,7 +42,7 @@ export function InstalledTab() {
       const res = await fetch(`${BASE}/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
       if (!res.ok) return [];
       const data = await res.json();
-      return (data.items || []).map((s: any) => {
+      return (data.items || []).map((s: Secret) => {
         const name = s.metadata.labels?.['name'] || s.metadata.name;
         const version = s.metadata.labels?.['version'] || '1';
         return {
@@ -40,7 +51,7 @@ export function InstalledTab() {
           status: s.metadata.labels?.['status'] || 'unknown',
           namespace: s.metadata.namespace,
         };
-      }).filter((r: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.name === r.name) === i);
+      }).filter((r: { name: string }, i: number, arr: { name: string }[]) => arr.findIndex((x) => x.name === r.name) === i);
     },
     refetchInterval: 30000,
   });
@@ -60,36 +71,36 @@ export function InstalledTab() {
   // Exclude platform namespaces
   const isUserNs = (ns: string) => !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift' && ns !== 'default';
 
-  const userDeployments = (deployments as any[]).filter(d => isUserNs(d.metadata?.namespace || ''));
-  const userStatefulSets = (statefulsets as any[]).filter(s => isUserNs(s.metadata?.namespace || ''));
-  const userSubscriptions = (subscriptions as any[]).filter(s => {
+  const userDeployments = (deployments as Deployment[]).filter(d => isUserNs(d.metadata?.namespace || ''));
+  const userStatefulSets = (statefulsets as StatefulSet[]).filter(s => isUserNs(s.metadata?.namespace || ''));
+  const userSubscriptions = (subscriptions as Subscription[]).filter(s => {
     return true;
   });
 
   // Filter all sections by search
   const q = search.toLowerCase();
   const filteredSubscriptions = q
-    ? userSubscriptions.filter((s: any) =>
+    ? userSubscriptions.filter((s) =>
         s.metadata?.name?.toLowerCase().includes(q) ||
         s.spec?.name?.toLowerCase().includes(q)
       )
     : userSubscriptions;
 
   const filteredHelmReleases = q
-    ? helmReleases.filter((r: any) =>
+    ? helmReleases.filter((r: { name?: string }) =>
         r.name?.toLowerCase().includes(q)
       )
     : helmReleases;
 
   const filteredDeployments = q
-    ? userDeployments.filter((d: any) =>
+    ? userDeployments.filter((d) =>
         d.metadata?.name?.toLowerCase().includes(q) ||
         d.metadata?.namespace?.toLowerCase().includes(q)
       )
     : userDeployments;
 
   const filteredStatefulSets = q
-    ? userStatefulSets.filter((s: any) =>
+    ? userStatefulSets.filter((s) =>
         s.metadata?.name?.toLowerCase().includes(q) ||
         s.metadata?.namespace?.toLowerCase().includes(q)
       )
@@ -128,7 +139,7 @@ export function InstalledTab() {
           <p className="text-xs text-slate-500 text-center py-4">No operators installed</p>
         ) : (
           <div className="space-y-2">
-            {filteredSubscriptions.slice(0, 5).map((sub: any) => {
+            {filteredSubscriptions.slice(0, 5).map((sub) => {
               const name = sub.metadata?.name || '';
               const ns = sub.metadata?.namespace || '';
               const channel = sub.spec?.channel || '';
@@ -197,7 +208,7 @@ export function InstalledTab() {
           <p className="text-xs text-slate-500 text-center py-4">No Helm releases installed</p>
         ) : (
           <div className="space-y-2">
-            {filteredHelmReleases.slice(0, 5).map((release: any, i: number) => (
+            {filteredHelmReleases.slice(0, 5).map((release, i: number) => (
               <div
                 key={i}
                 className="flex items-center justify-between p-3 bg-slate-800/50 rounded border border-slate-700"
@@ -250,7 +261,7 @@ export function InstalledTab() {
           <p className="text-xs text-slate-500 text-center py-4">No deployments found</p>
         ) : (
           <div className="space-y-2">
-            {filteredDeployments.slice(0, 5).map((deploy: any) => {
+            {filteredDeployments.slice(0, 5).map((deploy) => {
               const name = deploy.metadata?.name || '';
               const ns = deploy.metadata?.namespace || '';
               const replicas = deploy.spec?.replicas || 0;
@@ -329,7 +340,7 @@ export function InstalledTab() {
           <p className="text-xs text-slate-500 text-center py-4">No statefulsets found</p>
         ) : (
           <div className="space-y-2">
-            {filteredStatefulSets.slice(0, 5).map((sts: any) => {
+            {filteredStatefulSets.slice(0, 5).map((sts) => {
               const name = sts.metadata?.name || '';
               const ns = sts.metadata?.namespace || '';
               const replicas = sts.spec?.replicas || 0;
