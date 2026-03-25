@@ -82,7 +82,7 @@ describe('AgentView', () => {
 
   it('sends message on Enter', () => {
     renderView();
-    const inputs = screen.getAllByPlaceholderText(/Ask the sre agent/i);
+    const inputs = screen.getAllByLabelText('Message to agent');
     fireEvent.change(inputs[0], { target: { value: 'Check health' } });
     fireEvent.keyDown(inputs[0], { key: 'Enter' });
     expect(mockSendMessage).toHaveBeenCalledWith('Check health');
@@ -130,7 +130,7 @@ describe('AgentView', () => {
   it('shows active tool during streaming', () => {
     resetMockState({ streaming: true, activeTools: ['list_pods'] });
     renderView();
-    expect(screen.getByText('list_pods')).toBeTruthy();
+    expect(screen.getByText(/list_pods/)).toBeTruthy();
   });
 
   it('renders user and assistant messages', () => {
@@ -160,7 +160,7 @@ describe('AgentView', () => {
     });
     renderView();
     expect(screen.getByText('Confirm write operation')).toBeTruthy();
-    expect(screen.getByText('scale_deployment')).toBeTruthy();
+    expect(screen.getByText(/Scale deployment/)).toBeTruthy();
   });
 
   it('calls confirmAction on approve', () => {
@@ -186,8 +186,7 @@ describe('AgentView', () => {
   it('disables input while streaming', () => {
     resetMockState({ streaming: true });
     renderView();
-    const inputs = screen.getAllByPlaceholderText(/Ask the sre agent/i);
-    // Find the one that's actually disabled (React strict mode renders twice)
+    const inputs = screen.getAllByLabelText('Message to agent');
     const disabled = inputs.find((el) => el.hasAttribute('disabled'));
     expect(disabled).toBeTruthy();
   });

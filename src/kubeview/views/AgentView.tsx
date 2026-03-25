@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Bot, Shield, Send, Trash2, Loader2, Wrench, Brain, AlertTriangle, CheckCircle, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { Bot, Shield, Send, Trash2, Loader2, Wrench, Brain, AlertTriangle, CheckCircle, XCircle, Wifi, WifiOff, Copy, Check, Clock } from 'lucide-react';
 import { useAgentStore } from '../store/agentStore';
+import { useUIStore } from '../store/uiStore';
 import type { AgentMode, AgentMessage, ResourceContext } from '../engine/agentClient';
 import { Panel } from '../components/primitives/Panel';
 import { cn } from '@/lib/utils';
@@ -21,22 +22,35 @@ const MODE_CONFIG: Record<AgentMode, { label: string; icon: typeof Bot; color: s
   },
 };
 
-const QUICK_PROMPTS: Record<AgentMode, string[]> = {
-  sre: [
-    'Check cluster health',
-    'Show warning events across all namespaces',
-    'List pods not in Running state',
-    'Show nodes with issues',
-    'Check resource quotas',
-  ],
-  security: [
-    'Run a full security audit',
-    'Scan for privileged pods',
-    'Check RBAC risks',
-    'Find namespaces without network policies',
-    'Audit SCC usage',
-  ],
-};
+/** Describe a write tool in plain English for the confirmation dialog */
+function describeToolAction(tool: string, input: Record<string, unknown>): string {
+  switch (tool) {
+    case 'scale_deployment':
+      return `Scale deployment ${input.namespace}/${input.name} to ${input.replicas} replicas`;
+    case 'restart_deployment':
+      return `Trigger rolling restart of deployment ${input.namespace}/${input.name}`;
+    case 'cordon_node':
+      return `Mark node ${input.node_name} as unschedulable (cordon)`;
+    case 'uncordon_node':
+      return `Mark node ${input.node_name} as schedulable (uncordon)`;
+    case 'delete_pod':
+      return `Delete pod ${input.namespace}/${input.pod_name} (grace period: ${input.grace_period_seconds || 30}s)`;
+    case 'apply_yaml':
+      return `${input.dry_run ? 'Dry-run validate' : 'Apply'} YAML to ${input.namespace || 'default'}`;
+    case 'create_network_policy':
+      return `Create ${input.policy_type} NetworkPolicy "${input.name}" in ${input.namespace}`;
+    default:
+      return `Execute ${tool}`;
+  }
+}
+
+function riskLevel(tool: string, input: Record<string, unknown>): { level: string; color: string } {
+  if (tool === 'delete_pod') return { level: 'MEDIUM', color: 'text-amber-400' };
+  if (tool === 'apply_yaml' && !input.dry_run) return { level: 'HIGH', color: 'text-red-400' };
+  if (tool === 'cordon_node') return { level: 'MEDIUM', color: 'text-amber-400' };
+  if (tool === 'create_network_policy') return { level: 'MEDIUM', color: 'text-amber-400' };
+  return { level: 'LOW', color: 'text-green-400' };
+}
 
 export default function AgentView() {
   const {
@@ -45,19 +59,39 @@ export default function AgentView() {
     connect, disconnect, sendMessage, switchMode, clearChat, confirmAction,
   } = useAgentStore();
 
+  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const [input, setInput] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialPromptSent = useRef(false);
 
-  // Connect on mount, disconnect on unmount
+  // Build namespace-aware quick prompts
+  const nsLabel = selectedNamespace && selectedNamespace !== 'All Namespaces' ? selectedNamespace : '';
+  const quickPrompts: Record<AgentMode, string[]> = {
+    sre: [
+      'Check cluster health',
+      nsLabel ? `Show warning events in ${nsLabel}` : 'Show warning events across all namespaces',
+      nsLabel ? `List pods not running in ${nsLabel}` : 'List pods not in Running state',
+      'What changed in the last hour?',
+      'Show top pods by restart count',
+    ],
+    security: [
+      'Run a full security audit',
+      nsLabel ? `Scan for privileged pods in ${nsLabel}` : 'Scan for privileged pods',
+      'Check RBAC risks',
+      'Find namespaces without network policies',
+      'Audit SCC usage',
+    ],
+  };
+
+  // Connect on mount
   useEffect(() => {
     connect();
     return () => disconnect();
   }, []);
 
-  // Handle URL params for context-aware invocation (e.g., "Ask Agent" from detail page)
+  // Handle URL params for context-aware invocation
   useEffect(() => {
     if (!connected || initialPromptSent.current) return;
     const prompt = searchParams.get('prompt');
@@ -73,15 +107,26 @@ export default function AgentView() {
     }
   }, [connected]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingText, thinkingText]);
 
-  // Focus input after streaming completes
+  // Focus input after streaming
   useEffect(() => {
     if (!streaming) inputRef.current?.focus();
   }, [streaming]);
+
+  // Global keyboard shortcuts for confirmation
+  useEffect(() => {
+    if (!pendingConfirm) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); confirmAction(true); }
+      if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { e.preventDefault(); confirmAction(false); }
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [pendingConfirm]);
 
   const handleSend = () => {
     const text = input.trim();
@@ -101,30 +146,30 @@ export default function AgentView() {
   const Icon = cfg.icon;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" role="main" aria-label="AI Agent Chat">
       {/* Header */}
       <div className="border-b border-slate-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Icon className={cn('h-6 w-6', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} />
+            <Icon className={cn('h-6 w-6', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} aria-hidden="true" />
             <div>
               <h1 className="text-lg font-semibold">{cfg.label}</h1>
               <p className="text-xs text-slate-400">{cfg.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Connection status */}
-            <div className={cn('flex items-center gap-1.5 text-xs', connected ? 'text-green-400' : 'text-red-400')}>
-              {connected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+            <div className={cn('flex items-center gap-1.5 text-xs', connected ? 'text-green-400' : 'text-red-400')} aria-live="polite">
+              {connected ? <Wifi className="h-3.5 w-3.5" aria-hidden="true" /> : <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />}
               {connected ? 'Connected' : 'Disconnected'}
             </div>
 
-            {/* Mode toggle */}
-            <div className="flex rounded-lg border border-slate-700 overflow-hidden">
+            <div className="flex rounded-lg border border-slate-700 overflow-hidden" role="radiogroup" aria-label="Agent mode">
               {(['sre', 'security'] as AgentMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => switchMode(m)}
+                  role="radio"
+                  aria-checked={mode === m}
                   className={cn(
                     'px-3 py-1.5 text-xs font-medium transition-colors',
                     mode === m
@@ -141,27 +186,28 @@ export default function AgentView() {
               onClick={clearChat}
               className="p-1.5 text-slate-400 hover:text-white rounded transition-colors"
               title="Clear chat"
+              aria-label="Clear chat history"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
+      <div className="flex-1 overflow-auto px-6 py-4 space-y-4" role="log" aria-label="Chat messages" aria-live="polite">
         {messages.length === 0 && !streaming && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <Icon className={cn('h-16 w-16 mb-4 opacity-20', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} />
+            <Icon className={cn('h-16 w-16 mb-4 opacity-20', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} aria-hidden="true" />
             <h2 className="text-lg font-medium text-slate-300 mb-2">Start a conversation</h2>
             <p className="text-sm text-slate-500 mb-6 max-w-md">
               Ask the {cfg.label.toLowerCase()} about your cluster. It has direct access to your Kubernetes API.
             </p>
             <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-              {QUICK_PROMPTS[mode].map((prompt) => (
+              {quickPrompts[mode].map((prompt) => (
                 <button
                   key={prompt}
-                  onClick={() => { sendMessage(prompt); }}
+                  onClick={() => sendMessage(prompt)}
                   disabled={!connected}
                   className="px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-full text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
                 >
@@ -178,29 +224,26 @@ export default function AgentView() {
 
         {/* Streaming indicator */}
         {streaming && (
-          <div className="space-y-2">
-            {/* Thinking */}
+          <div className="space-y-2" aria-label="Agent is responding">
             {thinkingText && (
               <div className="flex gap-3 items-start">
-                <Brain className="h-4 w-4 text-purple-400 mt-1 shrink-0" />
+                <Brain className="h-4 w-4 text-purple-400 mt-1 shrink-0" aria-hidden="true" />
                 <div className="text-xs text-purple-300/70 italic max-w-2xl whitespace-pre-wrap">
                   {thinkingText.slice(-500)}
                 </div>
               </div>
             )}
 
-            {/* Active tools */}
             {activeTools.length > 0 && (
               <div className="flex items-center gap-2 text-xs text-cyan-400">
-                <Wrench className="h-3.5 w-3.5 animate-spin" />
-                {activeTools[activeTools.length - 1]}
+                <Wrench className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                <span>Calling {activeTools[activeTools.length - 1]}...</span>
               </div>
             )}
 
-            {/* Streaming text */}
             {streamingText && (
               <div className="flex gap-3 items-start">
-                <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} />
+                <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} aria-hidden="true" />
                 <div className="prose prose-invert prose-sm max-w-none">
                   <pre className="whitespace-pre-wrap text-sm text-slate-200">{streamingText}</pre>
                 </div>
@@ -209,17 +252,16 @@ export default function AgentView() {
 
             {!streamingText && !thinkingText && activeTools.length === 0 && (
               <div className="flex items-center gap-2 text-sm text-slate-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 Thinking...
               </div>
             )}
           </div>
         )}
 
-        {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 text-sm text-red-400 bg-red-950/30 border border-red-900 rounded-lg px-4 py-2">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
+          <div className="flex items-center gap-2 text-sm text-red-400 bg-red-950/30 border border-red-900 rounded-lg px-4 py-2" role="alert">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             {error}
           </div>
         )}
@@ -227,30 +269,40 @@ export default function AgentView() {
         {/* Confirmation dialog */}
         {pendingConfirm && (
           <Panel className="border-amber-700 bg-amber-950/30">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" />
+            <div className="flex items-start gap-3" role="alertdialog" aria-modal="true" aria-label="Confirm write operation">
+              <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-amber-200 mb-1">Confirm write operation</h3>
-                <p className="text-xs text-slate-300 mb-2">
-                  The agent wants to execute <span className="font-mono text-amber-300">{pendingConfirm.tool}</span>
+                <p className="text-sm text-slate-200 mb-1">
+                  {describeToolAction(pendingConfirm.tool, pendingConfirm.input)}
                 </p>
-                <pre className="text-xs text-slate-400 bg-slate-900 rounded p-2 mb-3 overflow-auto max-h-32">
-                  {JSON.stringify(pendingConfirm.input, null, 2)}
-                </pre>
-                <div className="flex gap-2">
+                <p className="text-xs mb-2">
+                  Risk: <span className={riskLevel(pendingConfirm.tool, pendingConfirm.input).color}>
+                    {riskLevel(pendingConfirm.tool, pendingConfirm.input).level}
+                  </span>
+                </p>
+                <details className="mb-3">
+                  <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-300">Show raw parameters</summary>
+                  <pre className="text-xs text-slate-400 bg-slate-900 rounded p-2 mt-1 overflow-auto max-h-32">
+                    {JSON.stringify(pendingConfirm.input, null, 2)}
+                  </pre>
+                </details>
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => confirmAction(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
+                    aria-label="Approve operation (Y)"
                   >
-                    <CheckCircle className="h-3.5 w-3.5" />
-                    Approve
+                    <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    Approve <kbd className="ml-1 text-[10px] opacity-60 bg-green-900 px-1 rounded">Y</kbd>
                   </button>
                   <button
                     onClick={() => confirmAction(false)}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
+                    aria-label="Deny operation (N)"
                   >
-                    <XCircle className="h-3.5 w-3.5" />
-                    Deny
+                    <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    Deny <kbd className="ml-1 text-[10px] opacity-60 bg-red-900 px-1 rounded">N</kbd>
                   </button>
                 </div>
               </div>
@@ -263,28 +315,31 @@ export default function AgentView() {
 
       {/* Input area */}
       <div className="border-t border-slate-700 px-6 py-3">
-        <div className="flex items-center gap-3">
-          <input
+        <div className="flex items-end gap-3">
+          <textarea
             ref={inputRef}
-            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={connected ? `Ask the ${cfg.label.toLowerCase()}...` : 'Connecting to agent...'}
+            placeholder={connected ? `Ask the ${cfg.label.toLowerCase()}... (Shift+Enter for newline)` : 'Connecting to agent...'}
             disabled={streaming || !connected}
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            rows={1}
+            aria-label="Message to agent"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50 resize-none min-h-[40px] max-h-[120px]"
+            style={{ height: input.includes('\n') ? 'auto' : '40px' }}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || streaming || !connected}
+            aria-label="Send message"
             className={cn(
-              'p-2.5 rounded-lg transition-colors',
+              'p-2.5 rounded-lg transition-colors shrink-0',
               input.trim() && !streaming && connected
                 ? 'bg-blue-600 hover:bg-blue-500 text-white'
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed',
             )}
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -295,18 +350,28 @@ export default function AgentView() {
 function MessageBubble({ message, mode }: { message: AgentMessage; mode: AgentMode }) {
   const isUser = message.role === 'user';
   const Icon = isUser ? undefined : MODE_CONFIG[mode].icon;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [message.content]);
+
+  const timeStr = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className={cn('flex gap-3 items-start', isUser && 'flex-row-reverse')}>
+    <div className={cn('flex gap-3 items-start group', isUser && 'flex-row-reverse')} role="article" aria-label={`${isUser ? 'You' : 'Agent'} at ${timeStr}`}>
       {isUser ? (
-        <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0">
+        <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0" aria-hidden="true">
           <span className="text-xs font-medium">You</span>
         </div>
       ) : (
-        Icon && <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} />
+        Icon && <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} aria-hidden="true" />
       )}
       <div className={cn(
-        'max-w-3xl rounded-lg px-4 py-2.5 text-sm',
+        'max-w-3xl rounded-lg px-4 py-2.5 text-sm relative',
         isUser
           ? 'bg-blue-600/20 border border-blue-500/30 text-slate-100'
           : 'bg-slate-800 border border-slate-700 text-slate-200',
@@ -317,6 +382,20 @@ function MessageBubble({ message, mode }: { message: AgentMessage; mode: AgentMo
           </div>
         )}
         <pre className="whitespace-pre-wrap font-sans">{message.content}</pre>
+        <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-slate-700/50">
+          <span className="text-[10px] text-slate-500 flex items-center gap-1">
+            <Clock className="h-2.5 w-2.5" aria-hidden="true" />
+            {timeStr}
+          </span>
+          <button
+            onClick={handleCopy}
+            className="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+            aria-label="Copy message"
+            title="Copy to clipboard"
+          >
+            {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          </button>
+        </div>
       </div>
     </div>
   );
