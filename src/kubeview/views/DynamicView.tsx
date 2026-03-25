@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Trash2, Pin } from 'lucide-react';
 import { useDynamicViewStore } from '../store/dynamicViewStore';
 import { useUIStore } from '../store/uiStore';
 import { AgentComponentRenderer } from '../components/agent/AgentComponentRenderer';
+import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 
 interface DynamicViewProps {
   viewId?: string;
@@ -15,6 +17,7 @@ export function DynamicView({ viewId: viewIdProp }: DynamicViewProps) {
   const viewSpec = useDynamicViewStore((s) => s.getView(viewId ?? ''));
   const deleteView = useDynamicViewStore((s) => s.deleteView);
   const addTab = useUIStore((s) => s.addTab);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (!viewSpec) {
     return (
@@ -34,7 +37,7 @@ export function DynamicView({ viewId: viewIdProp }: DynamicViewProps) {
   const handlePin = () => {
     addTab({
       title: viewSpec.title,
-      path: `/views/${viewSpec.id}`,
+      path: `/dynamic/${viewSpec.id}`,
       pinned: true,
       closable: true,
     });
@@ -67,7 +70,7 @@ export function DynamicView({ viewId: viewIdProp }: DynamicViewProps) {
             Pin to Tabs
           </button>
           <button
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             className="flex items-center gap-1 px-2 py-1 text-xs text-red-400 bg-slate-800 border border-slate-700 rounded hover:bg-red-900/30 transition-colors"
           >
             <Trash2 className="h-3 w-3" />
@@ -81,6 +84,16 @@ export function DynamicView({ viewId: viewIdProp }: DynamicViewProps) {
           <AgentComponentRenderer key={i} spec={component} />
         ))}
       </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Delete generated view"
+        description={`Delete "${viewSpec.title}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

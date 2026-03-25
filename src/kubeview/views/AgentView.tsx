@@ -113,8 +113,7 @@ export default function AgentView() {
   const handleSend = () => {
     const text = input.trim();
     if (!text || streaming || !connected) return;
-    const fleetPrefix = fleetQueryMode ? `[FLEET: ${clusters.map(c => c.name).join(', ')}] ` : '';
-    sendMessage(fleetPrefix + text, undefined, fleetQueryMode);
+    sendMessage(text, undefined, fleetQueryMode);
     setInput('');
   };
 

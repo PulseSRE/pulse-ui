@@ -20,11 +20,17 @@ import type {
 import { Badge } from '../primitives/Badge';
 import { InfoCard } from '../primitives/InfoCard';
 
+const MAX_DEPTH = 5;
+
 interface Props {
   spec: ComponentSpec;
+  depth?: number;
 }
 
-export function AgentComponentRenderer({ spec }: Props) {
+export function AgentComponentRenderer({ spec, depth = 0 }: Props) {
+  if (depth > MAX_DEPTH) {
+    return <div className="text-xs text-slate-500 italic">Content nested too deeply</div>;
+  }
   switch (spec.kind) {
     case 'data_table':
       return <AgentDataTable spec={spec} />;
@@ -39,11 +45,11 @@ export function AgentComponentRenderer({ spec }: Props) {
     case 'chart':
       return <AgentChart spec={spec} />;
     case 'tabs':
-      return <AgentTabs spec={spec} />;
+      return <AgentTabs spec={spec} depth={depth} />;
     case 'grid':
-      return <AgentGrid spec={spec} />;
+      return <AgentGrid spec={spec} depth={depth} />;
     case 'section':
-      return <AgentSection spec={spec} />;
+      return <AgentSection spec={spec} depth={depth} />;
     default:
       return null;
   }
@@ -268,7 +274,7 @@ function AgentChart({ spec }: { spec: ChartSpec }) {
 }
 
 /** Tabbed container that renders child components per tab */
-function AgentTabs({ spec }: { spec: TabsSpec }) {
+function AgentTabs({ spec, depth = 0 }: { spec: TabsSpec; depth?: number }) {
   const [activeTab, setActiveTab] = useState(0);
 
   if (!spec.tabs.length) return null;
@@ -293,7 +299,7 @@ function AgentTabs({ spec }: { spec: TabsSpec }) {
       </div>
       <div className="p-2">
         {spec.tabs[activeTab].components.map((child, i) => (
-          <AgentComponentRenderer key={i} spec={child} />
+          <AgentComponentRenderer key={i} spec={child} depth={depth + 1} />
         ))}
       </div>
     </div>
@@ -301,7 +307,7 @@ function AgentTabs({ spec }: { spec: TabsSpec }) {
 }
 
 /** Grid layout that arranges child components in columns */
-function AgentGrid({ spec }: { spec: GridSpec }) {
+function AgentGrid({ spec, depth = 0 }: { spec: GridSpec; depth?: number }) {
   const columns = spec.columns ?? 2;
 
   return (
@@ -310,14 +316,14 @@ function AgentGrid({ spec }: { spec: GridSpec }) {
       style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
     >
       {spec.items.map((item, i) => (
-        <AgentComponentRenderer key={i} spec={item} />
+        <AgentComponentRenderer key={i} spec={item} depth={depth + 1} />
       ))}
     </div>
   );
 }
 
 /** Collapsible section with title and optional description */
-function AgentSection({ spec }: { spec: SectionSpec }) {
+function AgentSection({ spec, depth = 0 }: { spec: SectionSpec; depth?: number }) {
   const [open, setOpen] = useState(spec.defaultOpen ?? true);
   const Toggle = open ? ChevronUp : ChevronDown;
 
@@ -343,7 +349,7 @@ function AgentSection({ spec }: { spec: SectionSpec }) {
       {open && (
         <div className="p-2">
           {spec.components.map((child, i) => (
-            <AgentComponentRenderer key={i} spec={child} />
+            <AgentComponentRenderer key={i} spec={child} depth={depth + 1} />
           ))}
         </div>
       )}

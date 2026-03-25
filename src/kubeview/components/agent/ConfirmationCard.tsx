@@ -119,6 +119,9 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   // Don't render if auto-approved
   if (shouldAutoApprove(confirm.tool, risk.level)) return null;
 
+  // Trust Level 0 (Observe) — auto-deny, don't show action buttons
+  const isObserveMode = trustLevel === 0;
+
   return (
     <div className={cn('rounded-lg border p-4', riskBorder, riskBg, risk.level === 'HIGH' && 'animate-pulse-subtle')}>
       <div className="flex items-start gap-3" role="alertdialog" aria-modal="true" aria-label="Confirm write operation">
@@ -196,6 +199,17 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
           </details>
 
           {/* Action buttons */}
+          {isObserveMode ? (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-slate-400">Observe mode — write operations are blocked. Change trust level to enable actions.</p>
+              <button
+                onClick={handleDeny}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 text-slate-300 rounded transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          ) : (
           <div className="flex items-center gap-2">
             <button
               onClick={handleApprove}
@@ -224,6 +238,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
               Deny <kbd className="ml-1 text-[10px] opacity-60 bg-red-900 px-1 rounded">N</kbd>
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>
