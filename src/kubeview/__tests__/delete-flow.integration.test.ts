@@ -18,6 +18,11 @@ vi.mock('../engine/gvr', () => ({
   resourceDetailUrl: () => '/r/test',
 }));
 
+// Mock clusterConnection to return the same absolute URL for multi-cluster support
+vi.mock('../engine/clusterConnection', () => ({
+  getClusterBase: () => 'http://localhost:9000/api/kubernetes',
+}));
+
 // Import AFTER mock
 const { k8sList, k8sDelete, k8sCreate } = await import('../engine/query');
 

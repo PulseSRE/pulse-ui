@@ -1,10 +1,12 @@
 import { useUIStore } from '../store/uiStore';
 import { K8S_BASE as BASE } from './gvr';
+import { getClusterBase } from './clusterConnection';
 
 export interface ClusterSnapshot {
   id: string;
   label: string;
   timestamp: string;
+  clusterId?: string;
   clusterVersion: string;
   platform: string;
   controlPlaneTopology: string;
@@ -55,7 +57,7 @@ export function saveSnapshots(snapshots: ClusterSnapshot[]) {
   }
 }
 
-async function fetchJson<T>(path: string): Promise<T | null> {
+async function fetchJson<T>(path: string, base: string = BASE): Promise<T | null> {
   try {
     const { impersonateUser, impersonateGroups } = useUIStore.getState();
     const headers: Record<string, string> = {};
@@ -65,17 +67,19 @@ async function fetchJson<T>(path: string): Promise<T | null> {
         headers['Impersonate-Group'] = impersonateGroups.map(g => g.replace(/[\r\n]/g, '')).join(',');
       }
     }
-    const res = await fetch(`${BASE}${path}`, { headers });
+    const res = await fetch(`${base}${path}`, { headers });
     if (!res.ok) return null;
     return await res.json();
   } catch { return null; }
 }
 
-export async function captureSnapshot(label: string): Promise<ClusterSnapshot> {
+export async function captureSnapshot(label: string, clusterId?: string): Promise<ClusterSnapshot> {
+  const base = getClusterBase(clusterId);
   const snapshot: ClusterSnapshot = {
     id: `snap-${Date.now()}`,
     label,
     timestamp: new Date().toISOString(),
+    clusterId,
     clusterVersion: '',
     platform: '',
     controlPlaneTopology: '',
@@ -87,20 +91,20 @@ export async function captureSnapshot(label: string): Promise<ClusterSnapshot> {
   };
 
   const [cv, infra, nodesData, coData, crdData, scData, nsData, crbData, rbData, oauthData, apiServerData, ingressData, schedulerData, proxyData] = await Promise.all([
-    fetchJson<any>('/apis/config.openshift.io/v1/clusterversions/version'),
-    fetchJson<any>('/apis/config.openshift.io/v1/infrastructures/cluster'),
-    fetchJson<any>('/api/v1/nodes'),
-    fetchJson<any>('/apis/config.openshift.io/v1/clusteroperators'),
-    fetchJson<any>('/apis/apiextensions.k8s.io/v1/customresourcedefinitions'),
-    fetchJson<any>('/apis/storage.k8s.io/v1/storageclasses'),
-    fetchJson<any>('/api/v1/namespaces'),
-    fetchJson<any>('/apis/rbac.authorization.k8s.io/v1/clusterrolebindings'),
-    fetchJson<any>('/apis/rbac.authorization.k8s.io/v1/rolebindings'),
-    fetchJson<any>('/apis/config.openshift.io/v1/oauths/cluster'),
-    fetchJson<any>('/apis/config.openshift.io/v1/apiservers/cluster'),
-    fetchJson<any>('/apis/config.openshift.io/v1/ingresses/cluster'),
-    fetchJson<any>('/apis/config.openshift.io/v1/schedulers/cluster'),
-    fetchJson<any>('/apis/config.openshift.io/v1/proxies/cluster'),
+    fetchJson<any>('/apis/config.openshift.io/v1/clusterversions/version', base),
+    fetchJson<any>('/apis/config.openshift.io/v1/infrastructures/cluster', base),
+    fetchJson<any>('/api/v1/nodes', base),
+    fetchJson<any>('/apis/config.openshift.io/v1/clusteroperators', base),
+    fetchJson<any>('/apis/apiextensions.k8s.io/v1/customresourcedefinitions', base),
+    fetchJson<any>('/apis/storage.k8s.io/v1/storageclasses', base),
+    fetchJson<any>('/api/v1/namespaces', base),
+    fetchJson<any>('/apis/rbac.authorization.k8s.io/v1/clusterrolebindings', base),
+    fetchJson<any>('/apis/rbac.authorization.k8s.io/v1/rolebindings', base),
+    fetchJson<any>('/apis/config.openshift.io/v1/oauths/cluster', base),
+    fetchJson<any>('/apis/config.openshift.io/v1/apiservers/cluster', base),
+    fetchJson<any>('/apis/config.openshift.io/v1/ingresses/cluster', base),
+    fetchJson<any>('/apis/config.openshift.io/v1/schedulers/cluster', base),
+    fetchJson<any>('/apis/config.openshift.io/v1/proxies/cluster', base),
   ]);
 
   if (cv) snapshot.clusterVersion = cv.status?.desired?.version || cv.status?.history?.[0]?.version || '';

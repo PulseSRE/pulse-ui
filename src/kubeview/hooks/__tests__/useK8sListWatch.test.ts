@@ -61,7 +61,7 @@ describe('useK8sListWatch', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(pods);
-    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', undefined);
+    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', undefined, undefined);
   });
 
   it('passes namespace to k8sList', async () => {
@@ -73,7 +73,7 @@ describe('useK8sListWatch', () => {
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', 'kube-system');
+    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', 'kube-system', undefined);
   });
 
   it('starts in loading state', () => {

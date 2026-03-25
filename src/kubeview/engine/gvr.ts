@@ -3,8 +3,13 @@
  */
 
 import { kindToPlural } from './renderers/index';
+import { getClusterBase } from './clusterConnection';
 
-/** Base URL for K8s API proxy */
+/**
+ * Base URL for K8s API proxy.
+ * DEPRECATED: Use getClusterBase(clusterId?) for multi-cluster support.
+ * This getter is kept for backward compatibility — returns the active cluster's base.
+ */
 export const K8S_BASE = '/api/kubernetes';
 
 /** Convert internal GVR key (apps/v1/deployments) to URL segment (apps~v1~deployments) */

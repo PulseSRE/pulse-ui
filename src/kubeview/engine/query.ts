@@ -6,6 +6,7 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 
 import { K8S_BASE as BASE } from './gvr';
+import { getClusterBase } from './clusterConnection';
 import { useUIStore } from '../store/uiStore';
 
 /** Sanitize a value for safe interpolation into PromQL label matchers */
@@ -54,16 +55,18 @@ interface K8sError {
  */
 export async function k8sList<T>(
   apiPath: string,
-  namespace?: string
+  namespace?: string,
+  clusterId?: string
 ): Promise<T[]> {
-  let url = `${BASE}${apiPath}`;
+  const base = getClusterBase(clusterId);
+  let url = `${base}${apiPath}`;
 
   // Add namespace to path if specified and not "all"
   if (namespace && namespace !== 'all' && !apiPath.includes('/namespaces/')) {
     const parts = apiPath.split('/');
     const resourceIndex = parts.length - 1;
     parts.splice(resourceIndex, 0, 'namespaces', namespace);
-    url = `${BASE}${parts.join('/')}`;
+    url = `${base}${parts.join('/')}`;
   }
 
   const response = await fetch(url, { headers: getImpersonationHeaders() });
@@ -89,8 +92,8 @@ export async function k8sList<T>(
 /**
  * Get a single resource
  */
-export async function k8sGet<T>(apiPath: string): Promise<T> {
-  const response = await fetch(`${BASE}${apiPath}`, { headers: getImpersonationHeaders() });
+export async function k8sGet<T>(apiPath: string, clusterId?: string): Promise<T> {
+  const response = await fetch(`${getClusterBase(clusterId)}${apiPath}`, { headers: getImpersonationHeaders() });
 
   if (!response.ok) {
     let message = `Failed to get resource: ${response.statusText}`;
@@ -104,8 +107,8 @@ export async function k8sGet<T>(apiPath: string): Promise<T> {
 /**
  * Create a resource
  */
-export async function k8sCreate<T>(apiPath: string, body: T): Promise<T> {
-  const response = await fetch(`${BASE}${apiPath}`, {
+export async function k8sCreate<T>(apiPath: string, body: T, clusterId?: string): Promise<T> {
+  const response = await fetch(`${getClusterBase(clusterId)}${apiPath}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -126,8 +129,8 @@ export async function k8sCreate<T>(apiPath: string, body: T): Promise<T> {
 /**
  * Update a resource (full replace)
  */
-export async function k8sUpdate<T>(apiPath: string, body: T): Promise<T> {
-  const response = await fetch(`${BASE}${apiPath}`, {
+export async function k8sUpdate<T>(apiPath: string, body: T, clusterId?: string): Promise<T> {
+  const response = await fetch(`${getClusterBase(clusterId)}${apiPath}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -151,9 +154,10 @@ export async function k8sUpdate<T>(apiPath: string, body: T): Promise<T> {
 export async function k8sPatch<T>(
   apiPath: string,
   patch: unknown,
-  patchType: string = 'application/strategic-merge-patch+json'
+  patchType: string = 'application/strategic-merge-patch+json',
+  clusterId?: string
 ): Promise<T> {
-  const response = await fetch(`${BASE}${apiPath}`, {
+  const response = await fetch(`${getClusterBase(clusterId)}${apiPath}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': patchType,
@@ -174,13 +178,14 @@ export async function k8sPatch<T>(
 /**
  * Delete a resource
  */
-export async function k8sDelete(apiPath: string): Promise<void> {
+export async function k8sDelete(apiPath: string, clusterId?: string): Promise<void> {
+  const base = getClusterBase(clusterId);
   // For scalable resources, scale to 0 first so pods terminate cleanly
   // before the resource is deleted. This prevents orphaned pods and
   // makes delete faster (no waiting for GC).
   if (/\/(deployments|statefulsets|replicasets)\/[^/]+$/.test(apiPath)) {
     try {
-      await fetch(`${BASE}${apiPath}`, {
+      await fetch(`${base}${apiPath}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/strategic-merge-patch+json', ...getImpersonationHeaders() },
         body: JSON.stringify({ spec: { replicas: 0 } }),
@@ -190,7 +195,7 @@ export async function k8sDelete(apiPath: string): Promise<void> {
     }
   }
 
-  const response = await fetch(`${BASE}${apiPath}`, {
+  const response = await fetch(`${base}${apiPath}`, {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
@@ -219,11 +224,12 @@ export function useK8sList<T>(
   options?: {
     enabled?: boolean;
     refetchInterval?: number | false;
+    clusterId?: string;
   }
 ) {
   return useQuery<T[], Error>({
-    queryKey: ['k8s', 'list', apiPath, namespace],
-    queryFn: () => k8sList<T>(apiPath, namespace),
+    queryKey: ['k8s', 'list', apiPath, namespace, options?.clusterId],
+    queryFn: () => k8sList<T>(apiPath, namespace, options?.clusterId),
     enabled: options?.enabled !== false,
     refetchInterval: options?.refetchInterval,
   } as UseQueryOptions<T[], Error>);
@@ -258,9 +264,10 @@ export async function k8sSubresource<T>(
   apiPath: string,
   subresource: string,
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' = 'GET',
-  body?: unknown
+  body?: unknown,
+  clusterId?: string
 ): Promise<T> {
-  const url = `${BASE}${apiPath}/${subresource}`;
+  const url = `${getClusterBase(clusterId)}${apiPath}/${subresource}`;
   const options: RequestInit = {
     method,
   };
@@ -297,9 +304,10 @@ export async function k8sLogs(
     tailLines?: number;
     timestamps?: boolean;
     sinceSeconds?: number;
-  }
+  },
+  clusterId?: string
 ): Promise<string> {
-  let url = `${BASE}/api/v1/namespaces/${namespace}/pods/${podName}/log`;
+  let url = `${getClusterBase(clusterId)}/api/v1/namespaces/${namespace}/pods/${podName}/log`;
   const params = new URLSearchParams();
 
   if (containerName) {

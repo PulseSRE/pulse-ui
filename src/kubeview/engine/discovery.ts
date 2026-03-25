@@ -4,6 +4,7 @@
  */
 
 import { K8S_BASE as BASE } from './gvr';
+import { getClusterBase } from './clusterConnection';
 
 export interface ResourceType {
   group: string;      // "" for core, "apps" etc
@@ -68,6 +69,9 @@ interface CoreAPIVersions {
   }>;
 }
 
+const cachedRegistries = new Map<string, ResourceRegistry>();
+const cacheTimestamps = new Map<string, number>();
+// Legacy single-cluster aliases for backward compatibility
 let cachedRegistry: ResourceRegistry | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -85,7 +89,11 @@ export function gvrKey(group: string, version: string, plural: string): string {
 /**
  * Invalidate the discovery cache (e.g., after operator install)
  */
-export function invalidateDiscoveryCache(): void {
+export function invalidateDiscoveryCache(clusterId?: string): void {
+  const cacheKey = clusterId || 'local';
+  cachedRegistries.delete(cacheKey);
+  cacheTimestamps.delete(cacheKey);
+  // Also clear legacy aliases
   cachedRegistry = null;
   cacheTimestamp = 0;
 }
@@ -93,20 +101,28 @@ export function invalidateDiscoveryCache(): void {
 /**
  * Discover all available resource types from the API server
  */
-export async function discoverResources(): Promise<ResourceRegistry> {
-  if (cachedRegistry && (Date.now() - cacheTimestamp) < CACHE_TTL) {
-    return cachedRegistry;
+export async function discoverResources(clusterId?: string): Promise<ResourceRegistry> {
+  const cacheKey = clusterId || 'local';
+  const cached = cachedRegistries.get(cacheKey);
+  const ts = cacheTimestamps.get(cacheKey) || 0;
+
+  if (cached && (Date.now() - ts) < CACHE_TTL) {
+    return cached;
   }
 
+  const base = getClusterBase(clusterId);
   const registry: ResourceRegistry = new Map();
 
   try {
     // Discover core API resources (v1)
-    await discoverCoreAPI(registry);
+    await discoverCoreAPI(registry, base);
 
     // Discover API groups
-    await discoverAPIGroups(registry);
+    await discoverAPIGroups(registry, base);
 
+    cachedRegistries.set(cacheKey, registry);
+    cacheTimestamps.set(cacheKey, Date.now());
+    // Update legacy aliases for backward compat
     cachedRegistry = registry;
     cacheTimestamp = Date.now();
     return registry;
@@ -119,9 +135,9 @@ export async function discoverResources(): Promise<ResourceRegistry> {
 /**
  * Discover core API resources (/api/v1)
  */
-async function discoverCoreAPI(registry: ResourceRegistry): Promise<void> {
+async function discoverCoreAPI(registry: ResourceRegistry, base: string = BASE): Promise<void> {
   try {
-    const response = await fetch(`${BASE}/api/v1`);
+    const response = await fetch(`${base}/api/v1`);
     if (!response.ok) {
       throw new Error(`Failed to fetch core API: ${response.statusText}`);
     }
@@ -157,9 +173,9 @@ async function discoverCoreAPI(registry: ResourceRegistry): Promise<void> {
 /**
  * Discover API groups and their resources
  */
-async function discoverAPIGroups(registry: ResourceRegistry): Promise<void> {
+async function discoverAPIGroups(registry: ResourceRegistry, base: string = BASE): Promise<void> {
   try {
-    const response = await fetch(`${BASE}/apis`);
+    const response = await fetch(`${base}/apis`);
     if (!response.ok) {
       throw new Error(`Failed to fetch API groups: ${response.statusText}`);
     }
@@ -168,7 +184,7 @@ async function discoverAPIGroups(registry: ResourceRegistry): Promise<void> {
 
     // Fetch resources for preferred version only (reduces requests by 50-70%)
     const promises = data.groups.map(group =>
-      discoverGroupVersion(registry, group.name, group.preferredVersion.version)
+      discoverGroupVersion(registry, group.name, group.preferredVersion.version, base)
     );
 
     await Promise.allSettled(promises);
@@ -183,10 +199,11 @@ async function discoverAPIGroups(registry: ResourceRegistry): Promise<void> {
 async function discoverGroupVersion(
   registry: ResourceRegistry,
   group: string,
-  version: string
+  version: string,
+  base: string = BASE
 ): Promise<void> {
   try {
-    const response = await fetch(`${BASE}/apis/${group}/${version}`);
+    const response = await fetch(`${base}/apis/${group}/${version}`);
     if (!response.ok) {
       return; // Skip if version is not available
     }
@@ -330,7 +347,14 @@ export function findResource(
 /**
  * Clear the cached registry (useful for testing or forcing refresh)
  */
-export function clearDiscoveryCache(): void {
+export function clearDiscoveryCache(clusterId?: string): void {
+  if (clusterId) {
+    cachedRegistries.delete(clusterId);
+    cacheTimestamps.delete(clusterId);
+  } else {
+    cachedRegistries.clear();
+    cacheTimestamps.clear();
+  }
   cachedRegistry = null;
 }
 

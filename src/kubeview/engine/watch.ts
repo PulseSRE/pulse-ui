@@ -4,6 +4,7 @@
  */
 
 import { K8S_BASE as BASE } from './gvr';
+import { getClusterBase } from './clusterConnection';
 const HEARTBEAT_INTERVAL = 45000; // 45 seconds
 const MAX_BACKOFF = 30000; // 30 seconds
 
@@ -40,9 +41,11 @@ export class WatchManager {
   watch<T>(
     apiPath: string,
     callback: WatchCallback<T>,
-    resourceVersion?: string
+    resourceVersion?: string,
+    clusterId?: string
   ): WatchSubscription {
-    const key = this.normalizeAPIPath(apiPath);
+    const normalizedPath = this.normalizeAPIPath(apiPath);
+    const key = `${clusterId || 'local'}:${normalizedPath}`;
 
     let connection = this.connections.get(key);
 
@@ -64,7 +67,7 @@ export class WatchManager {
 
     // Start watching if not already connected
     if (!connection.ws || connection.ws.readyState === WebSocket.CLOSED) {
-      this.connect(key, apiPath, connection);
+      this.connect(key, apiPath, connection, clusterId);
     }
 
     // Return subscription
@@ -110,21 +113,25 @@ export class WatchManager {
    * Normalize API path to use as connection key
    */
   private normalizeAPIPath(apiPath: string): string {
-    // Remove BASE prefix if present
-    return apiPath.replace(BASE, '');
+    // Remove any base URL prefix if present (supports both legacy BASE and cluster-specific bases)
+    let normalized = apiPath.replace(BASE, '');
+    // Also strip any /api/kubernetes prefix variants (from cluster connections)
+    normalized = normalized.replace(/^\/api\/kubernetes(?:\/cluster\/[^/]+)?/, '');
+    return normalized;
   }
 
   /**
    * Establish WebSocket connection
    */
-  private connect(key: string, apiPath: string, connection: WatchConnection): void {
+  private connect(key: string, apiPath: string, connection: WatchConnection, clusterId?: string): void {
     const normalizedPath = this.normalizeAPIPath(apiPath);
+    const base = getClusterBase(clusterId);
 
     // Build WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     const separator = normalizedPath.includes('?') ? '&' : '?';
-    let wsUrl = `${protocol}//${host}${BASE}${normalizedPath}${separator}watch=1`;
+    let wsUrl = `${protocol}//${host}${base}${normalizedPath}${separator}watch=1`;
 
     if (connection.resourceVersion) {
       wsUrl += `&resourceVersion=${connection.resourceVersion}`;
@@ -192,12 +199,12 @@ export class WatchManager {
 
         // Reconnect if there are still callbacks
         if (connection.callbacks.size > 0) {
-          this.scheduleReconnect(key, apiPath, connection);
+          this.scheduleReconnect(key, apiPath, connection, clusterId);
         }
       };
     } catch (error) {
       console.error(`Failed to create WebSocket: ${normalizedPath}`, error);
-      this.scheduleReconnect(key, apiPath, connection);
+      this.scheduleReconnect(key, apiPath, connection, clusterId);
     }
   }
 
@@ -207,7 +214,8 @@ export class WatchManager {
   private scheduleReconnect(
     key: string,
     apiPath: string,
-    connection: WatchConnection
+    connection: WatchConnection,
+    clusterId?: string
   ): void {
     if (connection.reconnectTimer) {
       clearTimeout(connection.reconnectTimer);
@@ -226,7 +234,7 @@ export class WatchManager {
 
     connection.reconnectTimer = setTimeout(() => {
       connection.reconnectTimer = null;
-      this.connect(key, apiPath, connection);
+      this.connect(key, apiPath, connection, clusterId);
     }, backoff);
   }
 

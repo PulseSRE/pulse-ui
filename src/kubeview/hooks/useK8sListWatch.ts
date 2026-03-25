@@ -22,21 +22,23 @@ interface UseK8sListWatchOptions {
   apiPath: string;
   namespace?: string;
   enabled?: boolean;
+  clusterId?: string;
 }
 
 export function useK8sListWatch<T extends K8sResource = K8sResource>({
   apiPath,
   namespace,
   enabled = true,
+  clusterId,
 }: UseK8sListWatchOptions) {
   const queryClient = useQueryClient();
   const setConnectionStatus = useUIStore((s) => s.setConnectionStatus);
 
-  const queryKey = ['k8s', 'list', apiPath, namespace];
+  const queryKey = ['k8s', 'list', apiPath, namespace, clusterId];
 
   const query = useQuery<T[]>({
     queryKey,
-    queryFn: () => k8sList<T>(apiPath, namespace),
+    queryFn: () => k8sList<T>(apiPath, namespace, clusterId),
     enabled,
     // Always poll as safety net (WebSocket provides instant updates on top)
     refetchInterval: SAFETY_POLL_INTERVAL,
@@ -90,6 +92,8 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
             setConnectionStatus('connected');
           }
         },
+        undefined, // resourceVersion
+        clusterId,
       );
     } catch {
       // WebSocket not available — polling is always on as safety net
@@ -98,7 +102,7 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
     return () => {
       subscription?.unsubscribe();
     };
-  }, [apiPath, namespace, enabled, queryClient, setConnectionStatus]);
+  }, [apiPath, namespace, enabled, clusterId, queryClient, setConnectionStatus]);
 
   return query;
 }
