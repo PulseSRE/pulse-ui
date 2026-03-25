@@ -386,6 +386,8 @@ export default function StorageView() {
   );
 }
 
+/** Parse storage value to GiB. Note: unlike parseResourceValue (which returns bytes),
+ *  this returns GiB for display purposes within StorageView. */
 function parseStorage(s: string): number {
   const m = s.match(/^(\d+(?:\.\d+)?)\s*(Gi|Mi|Ti|Ki|G|M|T|K)?$/i);
   if (!m) return 0;

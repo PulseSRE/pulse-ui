@@ -101,7 +101,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
 
         updateConnectionStatus(name, readyCond?.status === 'True' ? 'connected' : 'unreachable', {
           version: mc.status?.version?.kubernetes,
-          nodeCount: parseInt(mc.status?.capacity?.cpu || '0', 10) || undefined,
+          nodeCount: Math.round(parseFloat(mc.status?.capacity?.cpu || '0')) || undefined,
         });
       }
 

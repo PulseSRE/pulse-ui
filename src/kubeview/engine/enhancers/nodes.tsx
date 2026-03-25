@@ -4,6 +4,7 @@ import type { ResourceEnhancer } from './index';
 import type { K8sResource } from '../renderers/index';
 import type { Node } from '../types';
 import { getNodeStatus } from '../renderers/statusUtils';
+import { parseMem, formatMem } from '../formatting';
 
 export const nodeEnhancer: ResourceEnhancer = {
   matches: ['v1/nodes'],
@@ -109,10 +110,7 @@ export const nodeEnhancer: ResourceEnhancer = {
         const n = resource as Node;
         const cap = n.status?.capacity?.memory;
         if (!cap) return '-';
-        const match = cap.match(/^(\d+)/);
-        if (!match) return cap;
-        const ki = parseInt(match[1]);
-        return `${Math.round(ki / 1024 / 1024)} Gi`;
+        return formatMem(parseMem(cap));
       },
       render: (value) => <span className="font-mono text-xs text-slate-300">{String(value)}</span>,
       sortable: true,
