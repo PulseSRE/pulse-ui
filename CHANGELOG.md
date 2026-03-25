@@ -1,5 +1,37 @@
 # Changelog
 
+## [5.0.0] - 2026-03-24
+
+### Added
+- **Multi-Cluster Fleet Management** — 6-phase implementation:
+  - Phase 1: Cluster-aware engine layer (query, watch, discovery, snapshot all gain `clusterId`)
+  - Phase 2: Fleet Dashboard at `/fleet` with cluster cards, health scores, setup guide
+  - Phase 3: Cluster Switcher in CommandBar with `Cmd+Shift+C`, StatusBar active cluster
+  - Phase 4: Cross-cluster search in Command Palette, CompareView, FleetSnapshotView
+  - Phase 5: FleetResourceView, FleetWorkloadsView, FleetAlertsView with correlation badges
+  - Phase 6: ComplianceView with security matrix, certificate heat map, RBAC baseline, config drift
+- **Health Score Engine** — composite 0-100 score from nodes, operators, alerts, pods
+- **Fleet Engine** — `fleetList`, `fleetSearch`, `fleetCount`, `fleetAlertCorrelation` with Promise.allSettled resilience
+- **Cluster Connection Manager** — `getClusterBase(clusterId?)` replacing hardcoded K8S_BASE, supports local/ACM-proxy/direct-proxy
+- **Fleet Store** — ACM auto-detection, health polling (60s), cluster registration/switching
+- **Enhanced ArgoCD** — sync failure details, external URLs, deployed images, pruning warnings, condition timeline, resource history panel, live state diff, Argo Rollouts (canary/blue-green), AppProjects
+- **17 ArgoCD security fixes** from 5-agent review (SSRF validation, ARIA, sanitization, impersonation)
+
+### Changed
+- All engine functions (`k8sList`, `k8sGet`, `k8sPatch`, etc.) now accept optional `clusterId` — fully backward compatible
+- WebSocket watch keys include cluster ID for multi-cluster isolation
+- API discovery cached per-cluster instead of globally
+- Snapshot capture supports `clusterId`, cross-cluster comparison
+- Progressive disclosure: multi-cluster UI only appears when 2+ clusters connected
+
+### Stats
+- **1438 tests** across 94 test files
+- **16+ views**, 40+ routes
+- **0 npm CVEs**, all Red Hat UBI images
+- **6 custom agents**, 4 automated hooks
+
+---
+
 ## [4.4.0] - 2026-03-24
 
 ### Added
