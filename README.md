@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.0.0"><img src="https://img.shields.io/badge/release-v5.0.0-2563eb?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.3.0"><img src="https://img.shields.io/badge/release-v5.3.0-2563eb?style=for-the-badge" alt="Version"></a>
   <img src="https://img.shields.io/badge/tests-1472%20passed-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-77-f59e0b?style=for-the-badge" alt="Health Checks">
   <img src="https://img.shields.io/badge/CVEs-0-10b981?style=for-the-badge" alt="CVEs">
@@ -85,7 +85,7 @@ npm run dev    # http://localhost:9000
 
 | Category | What You Get |
 |----------|-------------|
-| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 35 tools, 10 runbooks, Prometheus/PromQL, Alertmanager, confirmation gates for write ops. [pulse-agent](https://github.com/alimobrem/pulse-agent) |
+| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 54 tools, 10 runbooks, dynamic UI rendering (tables, charts, cards), HTML dashboard generation, prompt caching, dynamic tool selection, cluster context injection. [pulse-agent](https://github.com/alimobrem/pulse-agent) |
 | **Multi-Cluster Fleet** | Fleet dashboard with health scores, cluster switcher (`Cmd+Shift+C`), cross-cluster search, compliance matrix, certificate heat map, RBAC comparison, config drift detection. Auto-detects ACM/MCE managed clusters. |
 | **Cluster Health** | 77 automated checks (31 cluster + 46 domain) with YAML fix examples and "Why it matters" explanations |
 | **Daily Briefing** | Risk score ring, control plane status, certificate expiry, attention items with remediation steps |
@@ -162,7 +162,14 @@ npm run dev    # http://localhost:9000
 
 > **Requires `cluster-admin`** — creates ClusterRole, ClusterRoleBinding, OAuthClient.
 
-### Helm (recommended)
+### One-Command Deploy (UI + Agent)
+
+```bash
+ANTHROPIC_VERTEX_PROJECT_ID=your-project CLOUD_ML_REGION=us-east5 ./deploy/deploy.sh --agent-repo /path/to/pulse-agent
+./deploy/integration-test.sh  # Verify deployment
+```
+
+### Helm (UI only)
 
 ```bash
 npm run build

@@ -1,5 +1,35 @@
 # Changelog
 
+## [5.3.0] - 2026-03-25
+
+### Added
+- **Claude Harness** — optimizations for getting the most out of the agent:
+  - Dynamic Tool Selection: 8 categories (diagnostics, workloads, networking, security, storage, monitoring, operations, gitops), reduces 54→15-25 tools per query
+  - Prompt Caching: system prompt + runbooks cached via `cache_control: ephemeral` (~90% cost reduction)
+  - Cluster Context Injection: pre-fetches node count, namespaces, OCP version, failing pods, firing alerts (saves 2-3 tool calls)
+  - Component Rendering Hints: guides Claude to focus on analysis, not data formatting
+- **Version Contract** — `/version` endpoint returns protocol version, tool count, features; UI warns on mismatch
+- **Deploy Script** (`deploy/deploy.sh`) — single command deploys both Pulse UI + Agent with matching auth tokens
+- **Integration Test** (`deploy/integration-test.sh`) — 13-check verification: pods, health, version, tools, WS auth, nginx proxy, OAuth, Vertex AI, NetworkPolicy
+- **HTML Dashboard Rendering** — agent-generated HTML renders in sandboxed iframe with expand/minimize
+- **Build Cancel Button** — stop icon on running/pending builds, patches `status.cancelled: true`
+
+### Fixed
+- **WebSocket auth** — nginx injects WS token at proxy level (not via JS sub_filter)
+- **nginx resolver** — static proxy_pass for WS locations (no variable-based routing)
+- **Build logs** — uses OpenShift Build API instead of Pod API
+- **Browser performance** — streaming deltas batched via requestAnimationFrame, MessageBubble memoized
+- **SSRF IPv6** — dev proxy blocks IPv6 loopback, mapped, unique local, link-local
+
+### Stats
+- **1472 tests** across 97 test files
+- **17 views**, 45+ routes
+- **54 agent tools** with dynamic selection harness
+- **0 npm CVEs**, all Red Hat UBI images
+- **13-check integration test** for deployment verification
+
+---
+
 ## [5.2.0] - 2026-03-24
 
 ### Added
