@@ -64,6 +64,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
   const go = useNavigateTab();
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
+  const setDockContext = useUIStore((s) => s.setDockContext);
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
 
   // Build GVR URL segment for navigation
@@ -103,6 +104,16 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     apiPath: podsApiPath,
     enabled: !!resource && isWorkload && !!selectorLabels && !!namespace && !!podsApiPath,
   });
+
+  // Set dock context for logs tab — show logs for the first managed pod or the pod itself
+  React.useEffect(() => {
+    if (resource?.kind === 'Pod' && namespace) {
+      setDockContext({ namespace, podName: name });
+    } else if (isWorkload && managedPods.length > 0 && namespace) {
+      setDockContext({ namespace, podName: managedPods[0].metadata.name });
+    }
+    return () => setDockContext(null);
+  }, [resource?.kind, namespace, name, isWorkload, managedPods.length > 0 ? managedPods[0]?.metadata?.name : null]);
 
   // Fetch related events using field selector
   const eventsApiPath = React.useMemo(() => {

@@ -6,6 +6,7 @@ import React from 'react';
 const _mockUIState: Record<string, any> = {
   dockPanel: 'logs',
   dockHeight: 250,
+  dockContext: null,
   setDockHeight: vi.fn(),
   openDock: vi.fn(),
   closeDock: vi.fn(),
@@ -40,7 +41,7 @@ describe('Dock', () => {
   it('shows logs content when dockPanel is logs', () => {
     _mockUIState.dockPanel = 'logs';
     renderDock();
-    expect(screen.getByText('No logs available')).toBeDefined();
+    expect(screen.getByText(/Navigate to a pod/)).toBeDefined();
   });
 
   it('shows terminal content when dockPanel is terminal', () => {

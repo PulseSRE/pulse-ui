@@ -4,6 +4,7 @@ import { useUIStore } from '../store/uiStore';
 import { cn } from '@/lib/utils';
 
 const DockAgentPanel = lazy(() => import('./agent/DockAgentPanel').then(m => ({ default: m.DockAgentPanel })));
+const LogStream = lazy(() => import('./logs/LogStream'));
 
 export function Dock() {
   const dockPanel = useUIStore((s) => s.dockPanel);
@@ -11,6 +12,7 @@ export function Dock() {
   const setDockHeight = useUIStore((s) => s.setDockHeight);
   const openDock = useUIStore((s) => s.openDock);
   const closeDock = useUIStore((s) => s.closeDock);
+  const dockContext = useUIStore((s) => s.dockContext);
 
   const [isResizing, setIsResizing] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -197,9 +199,29 @@ export function Dock() {
       {/* Content */}
       <div className="flex-1 overflow-auto bg-slate-900 p-4">
         {dockPanel === 'logs' && (
-          <div className="font-mono text-xs text-slate-300">
-            <div className="text-slate-500">No logs available</div>
-          </div>
+          dockContext ? (
+            <Suspense fallback={<div className="text-xs text-slate-500 p-2">Loading logs...</div>}>
+              <div className="h-full flex flex-col">
+                <div className="px-2 py-1 text-[10px] text-slate-500 border-b border-slate-800 flex items-center gap-2">
+                  <span>{dockContext.namespace}/{dockContext.podName}</span>
+                  {dockContext.containerName && <span className="text-slate-600">({dockContext.containerName})</span>}
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <LogStream
+                    key={`${dockContext.namespace}/${dockContext.podName}/${dockContext.containerName || ''}`}
+                    namespace={dockContext.namespace}
+                    podName={dockContext.podName}
+                    containerName={dockContext.containerName}
+                    tailLines={500}
+                  />
+                </div>
+              </div>
+            </Suspense>
+          ) : (
+            <div className="font-mono text-xs text-slate-500">
+              Navigate to a pod or workload to see logs here
+            </div>
+          )
         )}
 
         {dockPanel === 'terminal' && (

@@ -57,9 +57,11 @@ interface UIState {
   // Dock
   dockPanel: DockPanel;
   dockHeight: number;
+  dockContext: { namespace: string; podName: string; containerName?: string } | null;
   openDock: (panel: DockPanel) => void;
   closeDock: () => void;
   setDockHeight: (height: number) => void;
+  setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
 
   // Toasts
   toasts: ToastData[];
@@ -231,6 +233,7 @@ export const useUIStore = create<UIState>()(
       // Dock
       dockPanel: null,
       dockHeight: 250, // default height
+      dockContext: null,
 
       openDock: (panel) => {
         set({ dockPanel: panel });
@@ -238,6 +241,10 @@ export const useUIStore = create<UIState>()(
 
       closeDock: () => {
         set({ dockPanel: null });
+      },
+
+      setDockContext: (ctx) => {
+        set({ dockContext: ctx });
       },
 
       setDockHeight: (height) => {
