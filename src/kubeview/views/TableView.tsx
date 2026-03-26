@@ -140,21 +140,45 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   const { allowed: canUpdate } = useCanI('update', resourceGroup, resourcePlural, activeNamespace);
   const { allowed: canCreate } = useCanI('create', resourceGroup, resourcePlural, activeNamespace);
 
+  // URL-persisted filters — read initial state from URL params
+  const updateUrlParam = React.useCallback((key: string, value: string, defaultValue: string) => {
+    const url = new URL(window.location.href);
+    if (value === defaultValue) url.searchParams.delete(key); else url.searchParams.set(key, value);
+    window.history.replaceState(null, '', url.toString());
+  }, []);
+
+  const urlParams = React.useMemo(() => new URLSearchParams(window.location.search), []);
+
   // State — debounced search
-  const [searchInput, setSearchInput] = React.useState('');
-  const [searchTerm, setSearchTerm] = React.useState('');
+  const [searchInput, setSearchInput] = React.useState(urlParams.get('q') || '');
+  const [searchTerm, setSearchTerm] = React.useState(urlParams.get('q') || '');
   const [columnFilters, setColumnFilters] = React.useState<Record<string, string>>({});
 
   React.useEffect(() => {
-    const timer = setTimeout(() => setSearchTerm(searchInput), 200);
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput);
+      updateUrlParam('q', searchInput, '');
+    }, 200);
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, updateUrlParam]);
   const [showFilters, setShowFilters] = React.useState(false);
   const [showNLFilter, setShowNLFilter] = React.useState(false);
-  const [sortState, setSortState] = React.useState<SortState>({
-    column: enhancer?.defaultSort?.column || 'name',
-    direction: enhancer?.defaultSort?.direction || 'asc',
+  const [sortState, setSortStateInner] = React.useState<SortState>({
+    column: urlParams.get('sort') || enhancer?.defaultSort?.column || 'name',
+    direction: (urlParams.get('dir') as SortDirection) || enhancer?.defaultSort?.direction || 'asc',
   });
+  const setSortState = React.useCallback((updater: SortState | ((prev: SortState) => SortState)) => {
+    setSortStateInner((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const defaultCol = enhancer?.defaultSort?.column || 'name';
+      const defaultDir = enhancer?.defaultSort?.direction || 'asc';
+      const url = new URL(window.location.href);
+      if (next.column === defaultCol) url.searchParams.delete('sort'); else url.searchParams.set('sort', next.column);
+      if (next.direction === defaultDir) url.searchParams.delete('dir'); else url.searchParams.set('dir', next.direction);
+      window.history.replaceState(null, '', url.toString());
+      return next;
+    });
+  }, [enhancer]);
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
   const [perPage, setPerPage] = React.useState(25);
   const [previewResource, setPreviewResource] = React.useState<K8sResource | null>(null);
@@ -225,8 +249,20 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   }, [filteredResources, sortState, columns]);
 
   // Paginate — reset to page 0 when filters change
-  const [currentPage, setCurrentPage] = React.useState(0);
-  React.useEffect(() => { setCurrentPage(0); }, [searchTerm, columnFilters, activeNamespace]);
+  const urlPage = parseInt(urlParams.get('page') || '0', 10);
+  const [currentPage, setCurrentPageInner] = React.useState(isNaN(urlPage) ? 0 : urlPage);
+  const setCurrentPage = React.useCallback((updater: number | ((prev: number) => number)) => {
+    setCurrentPageInner((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      updateUrlParam('page', String(next), '0');
+      return next;
+    });
+  }, [updateUrlParam]);
+  const isFirstRender = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setCurrentPage(0);
+  }, [searchTerm, columnFilters, activeNamespace]);
   const paginatedResources = React.useMemo(() => {
     const start = currentPage * perPage;
     return sortedResources.slice(start, start + perPage);

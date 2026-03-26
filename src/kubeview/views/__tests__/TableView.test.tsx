@@ -505,4 +505,150 @@ describe('TableView', () => {
 
     vi.useRealTimers();
   });
+
+  describe('URL-persisted filters', () => {
+    let replaceStateSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+      // Reset URL to clean state
+      window.history.replaceState(null, '', window.location.pathname);
+    });
+
+    afterEach(() => {
+      replaceStateSpy.mockRestore();
+      window.history.replaceState(null, '', window.location.pathname);
+    });
+
+    it('reads search query from URL on mount', () => {
+      window.history.replaceState(null, '', '?q=nginx');
+
+      setMockWatch({
+        data: [makePodResource('nginx'), makePodResource('redis')],
+        isLoading: false,
+        error: null,
+      });
+
+      renderTable('v1/pods');
+
+      const searchInput = screen.getByPlaceholderText('Search...') as HTMLInputElement;
+      expect(searchInput.value).toBe('nginx');
+    });
+
+    it('reads sort column and direction from URL on mount', () => {
+      window.history.replaceState(null, '', '?sort=namespace&dir=desc');
+
+      setMockWatch({
+        data: [makePodResource('alpha', 'z-ns'), makePodResource('beta', 'a-ns')],
+        isLoading: false,
+        error: null,
+      });
+
+      renderTable('v1/pods');
+
+      // The Namespace column header should have a sort indicator (ChevronDown for desc)
+      const namespaceHeader = screen.getByText('Namespace');
+      const headerCell = namespaceHeader.closest('th');
+      // ChevronDown icon should be present for desc sort
+      expect(headerCell?.querySelector('svg')).not.toBeNull();
+    });
+
+    it('reads page number from URL on mount', () => {
+      window.history.replaceState(null, '', '?page=1');
+
+      // Create enough resources to have multiple pages
+      const pods = Array.from({ length: 30 }, (_, i) => makePodResource(`pod-${i}`));
+      setMockWatch({ data: pods, isLoading: false, error: null });
+
+      renderTable('v1/pods');
+
+      // Page 1 (second page) should show "26-30 of 30"
+      expect(screen.getByText(/26-30 of 30/)).toBeDefined();
+    });
+
+    it('updates URL when search input changes', () => {
+      vi.useFakeTimers();
+
+      setMockWatch({
+        data: [makePodResource('nginx')],
+        isLoading: false,
+        error: null,
+      });
+
+      renderTable('v1/pods');
+
+      const searchInput = screen.getByPlaceholderText('Search...');
+      fireEvent.change(searchInput, { target: { value: 'test-query' } });
+
+      // Advance past debounce
+      act(() => { vi.advanceTimersByTime(250); });
+
+      // replaceState should have been called with q=test-query
+      const lastCall = replaceStateSpy.mock.calls[replaceStateSpy.mock.calls.length - 1];
+      expect(lastCall[2]).toContain('q=test-query');
+
+      vi.useRealTimers();
+    });
+
+    it('updates URL when sort changes', () => {
+      setMockWatch({
+        data: [makePodResource('alpha'), makePodResource('beta')],
+        isLoading: false,
+        error: null,
+      });
+
+      renderTable('v1/pods');
+
+      // Click on Namespace header to sort
+      const namespaceHeader = screen.getByText('Namespace');
+      fireEvent.click(namespaceHeader);
+
+      const calls = replaceStateSpy.mock.calls;
+      const urlStrings = calls.map(c => String(c[2]));
+      const sortCall = urlStrings.find(u => u.includes('sort=namespace'));
+      expect(sortCall).toBeDefined();
+    });
+
+    it('updates URL when page changes', () => {
+      const pods = Array.from({ length: 30 }, (_, i) => makePodResource(`pod-${i}`));
+      setMockWatch({ data: pods, isLoading: false, error: null });
+
+      renderTable('v1/pods');
+
+      // Click Next button
+      const nextButton = screen.getByText('Next');
+      fireEvent.click(nextButton);
+
+      const calls = replaceStateSpy.mock.calls;
+      const urlStrings = calls.map(c => String(c[2]));
+      const pageCall = urlStrings.find(u => u.includes('page=1'));
+      expect(pageCall).toBeDefined();
+    });
+
+    it('removes default values from URL', () => {
+      vi.useFakeTimers();
+
+      window.history.replaceState(null, '', '?q=test');
+
+      setMockWatch({
+        data: [makePodResource('nginx')],
+        isLoading: false,
+        error: null,
+      });
+
+      renderTable('v1/pods');
+
+      // Clear the search
+      const searchInput = screen.getByPlaceholderText('Search...');
+      fireEvent.change(searchInput, { target: { value: '' } });
+
+      act(() => { vi.advanceTimersByTime(250); });
+
+      // The last replaceState call should not contain q=
+      const lastCall = replaceStateSpy.mock.calls[replaceStateSpy.mock.calls.length - 1];
+      expect(String(lastCall[2])).not.toContain('q=');
+
+      vi.useRealTimers();
+    });
+  });
 });
