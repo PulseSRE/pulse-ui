@@ -752,9 +752,27 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
                 <tr>
                   <td colSpan={visibleColumns.length + 2} className="px-4 py-12 text-center">
                     <p className="text-slate-400 text-sm">
-                      No matching {resourceKind.toLowerCase()}
-                      {searchTerm && <span> for "<span className="text-slate-200">{searchTerm}</span>"</span>}
+                      0 of {stampedResources.length} {resourceKind.toLowerCase()} match your filters
                     </p>
+                    {(searchTerm || Object.values(columnFilters).some(v => v)) && (
+                      <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+                        {searchTerm && (
+                          <span>
+                            Search: "<span className="text-slate-300">{searchTerm}</span>"
+                          </span>
+                        )}
+                        {Object.entries(columnFilters)
+                          .filter(([, v]) => v)
+                          .map(([colId, value]) => {
+                            const col = visibleColumns.find((c) => c.id === colId);
+                            return (
+                              <span key={colId}>
+                                {col?.header || colId}: "<span className="text-slate-300">{value}</span>"
+                              </span>
+                            );
+                          })}
+                      </div>
+                    )}
                     {(searchTerm || Object.values(columnFilters).some(v => v)) && (
                       <button
                         onClick={() => { setSearchInput(''); setSearchTerm(''); setColumnFilters({}); }}

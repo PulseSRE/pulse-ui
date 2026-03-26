@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -399,5 +399,74 @@ describe('TableView', () => {
     // After search filters out everything, "Clear all filters" appears in table body
     // Since debounce is async, verify the table persists structurally
     expect(document.querySelector('table')).not.toBeNull();
+  });
+
+  it('shows total count and search term when search filters out all results', () => {
+    vi.useFakeTimers();
+
+    setMockWatch({
+      data: [makePodResource('nginx'), makePodResource('redis'), makePodResource('postgres')],
+      isLoading: false,
+      error: null,
+    });
+
+    renderTable('v1/pods');
+
+    // All three pods should be visible
+    expect(screen.getByText('nginx')).toBeDefined();
+    expect(screen.getByText('redis')).toBeDefined();
+    expect(screen.getByText('postgres')).toBeDefined();
+
+    // Search for something that matches nothing
+    const searchInput = screen.getByPlaceholderText('Search...');
+    fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
+
+    // Advance past the 200ms debounce
+    act(() => { vi.advanceTimersByTime(250); });
+
+    // Should show "0 of 3 pods match your filters"
+    expect(screen.getByText(/0 of 3 pods match your filters/)).toBeDefined();
+
+    // Should show the active search term
+    expect(screen.getByText('nonexistent')).toBeDefined();
+
+    // Should show "Clear all filters" button
+    expect(screen.getByText('Clear all filters')).toBeDefined();
+
+    vi.useRealTimers();
+  });
+
+  it('shows column filter values in the filtered empty state', () => {
+    vi.useFakeTimers();
+
+    setMockWatch({
+      data: [makePodResource('nginx', 'web'), makePodResource('redis', 'cache')],
+      isLoading: false,
+      error: null,
+    });
+
+    renderTable('v1/pods');
+
+    // Enable column filters by clicking the filter toggle
+    const filterToggle = screen.getByTitle('Column filters');
+    fireEvent.click(filterToggle);
+
+    // Find the Namespace column filter input and type a non-matching value
+    const namespaceFilter = screen.getByPlaceholderText('Filter Namespace...');
+    fireEvent.change(namespaceFilter, { target: { value: 'nonexistent-ns' } });
+
+    // Advance past the debounce (column filters are not debounced but search is)
+    act(() => { vi.advanceTimersByTime(50); });
+
+    // Should show "0 of 2 pods match your filters"
+    expect(screen.getByText(/0 of 2 pods match your filters/)).toBeDefined();
+
+    // Should display the column filter value
+    expect(screen.getByText('nonexistent-ns')).toBeDefined();
+
+    // Should show "Clear all filters" button
+    expect(screen.getByText('Clear all filters')).toBeDefined();
+
+    vi.useRealTimers();
   });
 });
