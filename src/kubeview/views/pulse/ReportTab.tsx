@@ -5,7 +5,7 @@ import {
   HeartPulse, ArrowRight, CheckCircle, Lock,
   ChevronRight, ChevronDown, Info, FileText,
   Activity, Database, Gauge, Calendar,
-  ArrowUpCircle, Clock,
+  ArrowUpCircle, Clock, Sparkles, Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../../engine/query';
@@ -84,6 +84,94 @@ interface AttentionItem {
   steps?: string[];
 }
 
+const ZEN_MESSAGES = [
+  'Your cluster is healthy. Nothing needs your attention right now.',
+  'Zero issues detected. Time for proactive improvements?',
+  'Everything is running smoothly. You\'ve earned this moment.',
+  'All systems green. A good time to review and optimize.',
+  'Cluster health is excellent. Consider planning ahead.',
+];
+
+function getZenMessage(): string {
+  // Pick a message based on the current hour so it feels fresh but stable within the hour
+  return ZEN_MESSAGES[new Date().getHours() % ZEN_MESSAGES.length];
+}
+
+interface ClusterZenProps {
+  nodeCount: number;
+  podCount: number;
+  deploymentCount: number;
+  go: (path: string, title: string) => void;
+  onDismiss: () => void;
+}
+
+function ClusterZen({ nodeCount, podCount, deploymentCount, go, onDismiss }: ClusterZenProps) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-8">
+      {/* Animated icon */}
+      <div className="relative mb-8">
+        <div className="absolute inset-0 rounded-full bg-emerald-500/10 scale-150 kv-pulse" />
+        <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-emerald-950/60 border border-emerald-800/40">
+          <Shield className="w-10 h-10 text-emerald-400" />
+        </div>
+      </div>
+
+      {/* Headline */}
+      <h2 className="text-3xl font-bold text-slate-100 tracking-tight mb-3">
+        All Systems Nominal
+      </h2>
+
+      {/* Sub-message */}
+      <p className="text-base text-slate-400 max-w-md text-center leading-relaxed mb-8">
+        {getZenMessage()}
+      </p>
+
+      {/* Quick stats */}
+      <div className="flex items-center gap-2 text-sm text-slate-500 mb-10">
+        <span className="text-emerald-400 font-medium">{nodeCount}</span> node{nodeCount !== 1 ? 's' : ''} healthy
+        <span className="text-slate-700 mx-1">&middot;</span>
+        <span className="text-emerald-400 font-medium">{podCount}</span> pod{podCount !== 1 ? 's' : ''} running
+        <span className="text-slate-700 mx-1">&middot;</span>
+        <span className="text-emerald-400 font-medium">{deploymentCount}</span> deployment{deploymentCount !== 1 ? 's' : ''} available
+      </div>
+
+      {/* Proactive suggestions */}
+      <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+        <button
+          onClick={() => go('/security', 'Security')}
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700/50 transition-colors"
+        >
+          <Shield className="w-4 h-4 text-emerald-400" />
+          Review Security Posture
+        </button>
+        <button
+          onClick={() => go('/workloads', 'Workloads')}
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700/50 transition-colors"
+        >
+          <Gauge className="w-4 h-4 text-emerald-400" />
+          Check Resource Optimization
+        </button>
+        <button
+          onClick={() => go('/compute?tab=capacity', 'Capacity')}
+          className="flex items-center gap-2 px-4 py-2 text-sm bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700/50 transition-colors"
+        >
+          <Server className="w-4 h-4 text-emerald-400" />
+          Explore Capacity Planning
+        </button>
+      </div>
+
+      {/* Show full report */}
+      <button
+        onClick={onDismiss}
+        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+      >
+        <Eye className="w-3.5 h-3.5" />
+        Show full report
+      </button>
+    </div>
+  );
+}
+
 function RiskScoreRing({ score }: { score: number }) {
   const clamped = Math.max(0, Math.min(100, score));
   const radius = 44;
@@ -142,6 +230,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [zenDismissed, setZenDismissed] = useState(() => sessionStorage.getItem('pulse-zen-dismissed') === 'true');
   const openDock = useUIStore((s) => s.openDock);
   const connectAndSend = useAgentStore((s) => s.connectAndSend);
 
@@ -397,6 +486,11 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
 
   const riskScore = useMemo(() => Math.min(100, factors.reduce((s, f) => s + f.score, 0)), [factors]);
 
+  const dismissZen = useCallback(() => {
+    setZenDismissed(true);
+    sessionStorage.setItem('pulse-zen-dismissed', 'true');
+  }, []);
+
   // Attention items (Zone 3)
   const attentionItems = useMemo(() => {
     const items: AttentionItem[] = [];
@@ -424,6 +518,33 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   }, [degradedOperators, unhealthyNodes, criticalAlerts, failedPods, certsExpiringSoon7]);
 
   const pendingPods = useMemo(() => userPods.filter((p) => (p as unknown as Pod).status?.phase === 'Pending'), [userPods]);
+
+  // Zen state: cluster is healthy, no issues
+  const isZenState = riskScore <= 5
+    && (nodes.length > 0 || allPods.length > 0) // must have actual data loaded
+    && attentionItems.length === 0
+    && criticalAlerts.length === 0
+    && pendingPods.length === 0
+    && topRestartingPods.length === 0
+    && failedPods.length === 0
+    && unhealthyNodes.length === 0
+    && degradedOperators.length === 0;
+
+  if (isZenState && !zenDismissed) {
+    const availableDeployments = deployments.filter((d) => {
+      const conditions = ((d as K8sResource & { status?: { conditions?: Condition[] } }).status?.conditions) || [];
+      return conditions.some((c) => c.type === 'Available' && c.status === 'True');
+    });
+    return (
+      <ClusterZen
+        nodeCount={readyNodes.length}
+        podCount={runningPods.length}
+        deploymentCount={availableDeployments.length}
+        go={go}
+        onDismiss={dismissZen}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

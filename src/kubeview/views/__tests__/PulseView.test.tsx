@@ -140,12 +140,13 @@ describe('PulseView', () => {
   });
 
   it('renders zone headers for all 4 zones', () => {
+    // Include a degraded operator so Zen state doesn't trigger
     setMockData({
       '/api/v1/nodes': { data: [makeNode('node-1', true)], isLoading: false },
       '/api/v1/pods': { data: [], isLoading: false },
       '/apis/apps/v1/deployments': { data: [], isLoading: false },
       '/api/v1/persistentvolumeclaims': { data: [], isLoading: false },
-      '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('kube-apiserver', false)], isLoading: false },
+      '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('kube-apiserver', true)], isLoading: false },
     });
 
     renderPulse();
@@ -169,7 +170,7 @@ describe('PulseView', () => {
     expect(cards.length).toBe(4);
   });
 
-  it('shows all clear when cluster is healthy', () => {
+  it('shows zen state when cluster is healthy', () => {
     setMockData({
       '/api/v1/nodes': { data: [makeNode('node-1', true)], isLoading: false },
       '/api/v1/pods': { data: [], isLoading: false },
@@ -179,7 +180,7 @@ describe('PulseView', () => {
     });
 
     renderPulse();
-    expect(screen.getByText('All clear')).toBeDefined();
+    expect(screen.getByText('All Systems Nominal')).toBeDefined();
   });
 
   it('shows control plane section', () => {

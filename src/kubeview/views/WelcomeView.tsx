@@ -13,6 +13,7 @@ import { useUIStore } from '../store/uiStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
+import { usePrefetchOnHover } from '../hooks/usePrefetchOnHover';
 import type { K8sResource } from '../engine/renderers';
 import type { Node, Condition } from '../engine/types';
 
@@ -83,6 +84,7 @@ export default function WelcomeView() {
         {/* ── Cluster Pulse (primary CTA) ── */}
         <button
           onClick={() => go('/pulse', 'Pulse')}
+          {...usePrefetchOnHover('/pulse')}
           className="group relative w-full flex items-center gap-4 p-5 rounded-xl border bg-gradient-to-br from-blue-500/20 to-blue-600/5 border-blue-500/20 hover:border-blue-500/40 transition-all text-left"
           aria-label="Open Cluster Pulse — risk score, attention items, and live issues"
         >
@@ -96,8 +98,8 @@ export default function WelcomeView() {
 
         {/* ── Quick Nav Row ── */}
         <MetricGrid>
-          <ViewTile icon={<Server className="w-4 h-4 text-blue-400" />}   title="Compute"        onClick={() => go('/compute', 'Compute')} />
-          <ViewTile icon={<Package className="w-4 h-4 text-blue-400" />}  title="Workloads"      onClick={() => go('/workloads', 'Workloads')} />
+          <ViewTile icon={<Server className="w-4 h-4 text-blue-400" />}   title="Compute"        onClick={() => go('/compute', 'Compute')} path="/compute" />
+          <ViewTile icon={<Package className="w-4 h-4 text-blue-400" />}  title="Workloads"      onClick={() => go('/workloads', 'Workloads')} path="/workloads" />
           <ViewTile icon={<Settings className="w-4 h-4 text-slate-400" />} title="Administration" onClick={() => go('/admin', 'Administration')} />
           <ViewTile icon={<Bell className="w-4 h-4 text-red-400" />}      title="Alerts"         onClick={() => go('/alerts', 'Alerts')} />
         </MetricGrid>
@@ -111,6 +113,7 @@ export default function WelcomeView() {
             title="Readiness Checklist"
             description="Production readiness checks across workloads, networking, storage, and compute"
             onClick={() => go('/admin?tab=readiness', 'Admin')}
+            path="/pulse"
           />
           <ActionCard
             icon={<Search className="w-5 h-5" />}
@@ -131,16 +134,16 @@ export default function WelcomeView() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            <ViewTile icon={<HeartPulse className="w-4 h-4 text-blue-400" />} title="Pulse"          onClick={() => go('/pulse', 'Pulse')} />
-            <ViewTile icon={<Server className="w-4 h-4 text-blue-400" />}     title="Compute"        onClick={() => go('/compute', 'Compute')} />
-            <ViewTile icon={<Package className="w-4 h-4 text-blue-400" />}    title="Workloads"      onClick={() => go('/workloads', 'Workloads')} />
-            <ViewTile icon={<Globe className="w-4 h-4 text-cyan-400" />}      title="Networking"     onClick={() => go('/networking', 'Networking')} />
-            <ViewTile icon={<HardDrive className="w-4 h-4 text-orange-400" />} title="Storage"       onClick={() => go('/storage', 'Storage')} />
+            <ViewTile icon={<HeartPulse className="w-4 h-4 text-blue-400" />} title="Pulse"          onClick={() => go('/pulse', 'Pulse')} path="/pulse" />
+            <ViewTile icon={<Server className="w-4 h-4 text-blue-400" />}     title="Compute"        onClick={() => go('/compute', 'Compute')} path="/compute" />
+            <ViewTile icon={<Package className="w-4 h-4 text-blue-400" />}    title="Workloads"      onClick={() => go('/workloads', 'Workloads')} path="/workloads" />
+            <ViewTile icon={<Globe className="w-4 h-4 text-cyan-400" />}      title="Networking"     onClick={() => go('/networking', 'Networking')} path="/networking" />
+            <ViewTile icon={<HardDrive className="w-4 h-4 text-orange-400" />} title="Storage"       onClick={() => go('/storage', 'Storage')} path="/storage" />
             <ViewTile icon={<Bell className="w-4 h-4 text-red-400" />}        title="Alerts"         onClick={() => go('/alerts', 'Alerts')} />
-            <ViewTile icon={<Hammer className="w-4 h-4 text-amber-500" />}    title="Builds"         onClick={() => go('/builds', 'Builds')} />
-            <ViewTile icon={<Shield className="w-4 h-4 text-indigo-400" />}   title="Security"       onClick={() => go('/security', 'Security')} />
-            <ViewTile icon={<Users className="w-4 h-4 text-teal-400" />}      title="User Management" onClick={() => go('/users', 'Users')} />
-            <ViewTile icon={<Shield className="w-4 h-4 text-violet-400" />}   title="Access Control" onClick={() => go('/access-control', 'Access Control')} />
+            <ViewTile icon={<Hammer className="w-4 h-4 text-amber-500" />}    title="Builds"         onClick={() => go('/builds', 'Builds')} path="/builds" />
+            <ViewTile icon={<Shield className="w-4 h-4 text-indigo-400" />}   title="Security"       onClick={() => go('/security', 'Security')} path="/security" />
+            <ViewTile icon={<Users className="w-4 h-4 text-teal-400" />}      title="User Management" onClick={() => go('/users', 'Users')} path="/users" />
+            <ViewTile icon={<Shield className="w-4 h-4 text-violet-400" />}   title="Access Control" onClick={() => go('/access-control', 'Access Control')} path="/access-control" />
             <ViewTile icon={<Puzzle className="w-4 h-4 text-violet-400" />}   title="CRDs"           onClick={() => go('/crds', 'CRDs')} />
             <ViewTile icon={<GitBranch className="w-4 h-4 text-violet-400" />} title="GitOps"        onClick={() => go('/gitops', 'GitOps')} />
             <ViewTile icon={<Globe className="w-4 h-4 text-blue-400" />} title="Fleet"          onClick={() => go('/fleet', 'Fleet')} />
@@ -159,20 +162,20 @@ export default function WelcomeView() {
           </div>
 
           <div className="rounded-xl border border-slate-800/60 bg-slate-900/50 divide-y divide-slate-800/60">
-            <CapabilityRow iconColor="text-violet-400" icon={<FileCode className="w-4 h-4" />} title="YAML Editor" description="Autocomplete, diff preview, server-side dry-run validation" onClick={() => go('/r/apps~v1~deployments', 'Deployments')} />
+            <CapabilityRow iconColor="text-violet-400" icon={<FileCode className="w-4 h-4" />} title="YAML Editor" description="Autocomplete, diff preview, server-side dry-run validation" onClick={() => go('/r/apps~v1~deployments', 'Deployments')} path="/r/apps~v1~deployments" />
             <CapabilityRow iconColor="text-violet-400" icon={<GitBranch className="w-4 h-4" />} title="GitOps / ArgoCD" description="Sync badges, auto-PR on save, drift detection — GitHub, GitLab, Bitbucket" onClick={() => go('/gitops', 'GitOps')} />
             <CapabilityRow iconColor="text-blue-400" icon={<Clock className="w-4 h-4" />} title="Incident Timeline" description="Correlated alerts, events, rollouts, and config changes" onClick={() => go('/admin?tab=timeline', 'Timeline')} />
             <CapabilityRow iconColor="text-emerald-400" icon={<Monitor className="w-4 h-4" />} title="Health Audits" description="77 automated checks with YAML fix examples and remediation steps" onClick={() => go('/admin?tab=readiness', 'Readiness')} />
-            <CapabilityRow iconColor="text-indigo-400" icon={<Shield className="w-4 h-4" />} title="Security Audit" description="TLS, encryption, SCCs, network policies, ACS detection" onClick={() => go('/security', 'Security')} />
-            <CapabilityRow iconColor="text-cyan-400" icon={<History className="w-4 h-4" />} title="Rollback" description="Compare deployment revisions and roll back with one click" onClick={() => go('/workloads', 'Workloads')} />
+            <CapabilityRow iconColor="text-indigo-400" icon={<Shield className="w-4 h-4" />} title="Security Audit" description="TLS, encryption, SCCs, network policies, ACS detection" onClick={() => go('/security', 'Security')} path="/security" />
+            <CapabilityRow iconColor="text-cyan-400" icon={<History className="w-4 h-4" />} title="Rollback" description="Compare deployment revisions and roll back with one click" onClick={() => go('/workloads', 'Workloads')} path="/workloads" />
             {showAllCapabilities && (
               <>
-                <CapabilityRow iconColor="text-teal-400" icon={<Users className="w-4 h-4" />} title="Impersonation" description="Test RBAC as another user — all API calls use impersonation headers" onClick={() => go('/users', 'Users')} />
-                <CapabilityRow iconColor="text-indigo-400" icon={<GitGraph className="w-4 h-4" />} title="Dependency Graph" description="Visualize resource relationships — pods, services, volumes, owner chains" onClick={() => go('/workloads', 'Workloads')} />
-                <CapabilityRow iconColor="text-blue-400" icon={<ScrollText className="w-4 h-4" />} title="Log Streaming" description="Real-time pod logs with search, follow, timestamps, download" onClick={() => go('/workloads', 'Workloads')} />
+                <CapabilityRow iconColor="text-teal-400" icon={<Users className="w-4 h-4" />} title="Impersonation" description="Test RBAC as another user — all API calls use impersonation headers" onClick={() => go('/users', 'Users')} path="/users" />
+                <CapabilityRow iconColor="text-indigo-400" icon={<GitGraph className="w-4 h-4" />} title="Dependency Graph" description="Visualize resource relationships — pods, services, volumes, owner chains" onClick={() => go('/workloads', 'Workloads')} path="/workloads" />
+                <CapabilityRow iconColor="text-blue-400" icon={<ScrollText className="w-4 h-4" />} title="Log Streaming" description="Real-time pod logs with search, follow, timestamps, download" onClick={() => go('/workloads', 'Workloads')} path="/workloads" />
                 <CapabilityRow iconColor="text-amber-400" icon={<Camera className="w-4 h-4" />} title="Cluster Snapshots" description="Capture and compare cluster state over time" onClick={() => go('/admin?tab=snapshots', 'Snapshots')} />
-                <CapabilityRow iconColor="text-violet-400" icon={<Diff className="w-4 h-4" />} title="Resource Diffing" description="YAML diff preview against the live version before saving" onClick={() => go('/workloads', 'Workloads')} />
-                <CapabilityRow iconColor="text-orange-400" icon={<Terminal className="w-4 h-4" />} title="Pod Shell" description="Shell access to containers and nodes for live debugging" onClick={() => go('/r/v1~pods', 'Pods')} />
+                <CapabilityRow iconColor="text-violet-400" icon={<Diff className="w-4 h-4" />} title="Resource Diffing" description="YAML diff preview against the live version before saving" onClick={() => go('/workloads', 'Workloads')} path="/workloads" />
+                <CapabilityRow iconColor="text-orange-400" icon={<Terminal className="w-4 h-4" />} title="Pod Shell" description="Shell access to containers and nodes for live debugging" onClick={() => go('/r/v1~pods', 'Pods')} path="/r/v1~pods" />
               </>
             )}
           </div>
@@ -274,13 +277,16 @@ function ClusterStatusPill({ isConnected, connectionStatus, nodeCount, readyCoun
   );
 }
 
-function ActionCard({ icon, accentClass, iconColor, title, description, onClick }: {
+function ActionCard({ icon, accentClass, iconColor, title, description, onClick, path }: {
   icon: React.ReactNode; accentClass: string; iconColor: string;
-  title: string; description: string; onClick: () => void;
+  title: string; description: string; onClick: () => void; path?: string;
 }) {
+  const prefetch = usePrefetchOnHover(path || '');
+  const hoverProps = path ? { onMouseEnter: prefetch.onMouseEnter, onFocus: prefetch.onFocus, onMouseLeave: prefetch.onMouseLeave } : {};
   return (
     <button
       onClick={onClick}
+      {...hoverProps}
       className={`group relative flex flex-col gap-3 p-5 rounded-xl border bg-gradient-to-br ${accentClass} hover:border-blue-500/30 transition-all text-left`}
     >
       <span className={iconColor} aria-hidden="true">{icon}</span>
@@ -293,12 +299,15 @@ function ActionCard({ icon, accentClass, iconColor, title, description, onClick 
   );
 }
 
-function ViewTile({ icon, title, onClick }: {
-  icon: React.ReactNode; title: string; onClick: () => void;
+function ViewTile({ icon, title, onClick, path }: {
+  icon: React.ReactNode; title: string; onClick: () => void; path?: string;
 }) {
+  const prefetch = usePrefetchOnHover(path || '');
+  const hoverProps = path ? { onMouseEnter: prefetch.onMouseEnter, onFocus: prefetch.onFocus, onMouseLeave: prefetch.onMouseLeave } : {};
   return (
     <button
       onClick={onClick}
+      {...hoverProps}
       className="group flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-slate-800/60 bg-slate-900/50 hover:bg-slate-800/60 hover:border-slate-700 transition-all text-left"
       aria-label={`Open ${title}`}
     >
@@ -308,13 +317,16 @@ function ViewTile({ icon, title, onClick }: {
   );
 }
 
-function CapabilityRow({ icon, title, description, iconColor = 'text-blue-400', onClick }: {
-  icon: React.ReactNode; title: string; description: string; iconColor?: string; onClick?: () => void;
+function CapabilityRow({ icon, title, description, iconColor = 'text-blue-400', onClick, path }: {
+  icon: React.ReactNode; title: string; description: string; iconColor?: string; onClick?: () => void; path?: string;
 }) {
+  const prefetch = usePrefetchOnHover(path || '');
+  const hoverProps = path ? { onMouseEnter: prefetch.onMouseEnter, onFocus: prefetch.onFocus, onMouseLeave: prefetch.onMouseLeave } : {};
   const Wrapper = onClick ? 'button' : 'div';
   return (
     <Wrapper
       onClick={onClick}
+      {...hoverProps}
       className={cn(
         'flex items-start gap-3 px-4 py-3 w-full text-left',
         onClick && 'hover:bg-slate-800/30 transition-colors cursor-pointer'

@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CommandPalette } from '../CommandPalette';
 
 const navigateMock = vi.fn();
@@ -78,6 +79,13 @@ function buildRegistry() {
 
 let mockRegistry: Map<string, any> | null = null;
 
+vi.mock('../../hooks/useSmartPrompts', () => ({
+  useSmartPrompts: () => [
+    { prompt: 'Check overall cluster health', context: 'General health check', priority: 50 },
+    { prompt: 'Review pod status', context: 'Pod overview', priority: 40 },
+  ],
+}));
+
 vi.mock('../../store/clusterStore', () => ({
   useClusterStore: (selector: any) => {
     const state = { resourceRegistry: mockRegistry };
@@ -85,11 +93,15 @@ vi.mock('../../store/clusterStore', () => ({
   },
 }));
 
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
 function renderPalette() {
   return render(
-    <MemoryRouter>
-      <CommandPalette />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <CommandPalette />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

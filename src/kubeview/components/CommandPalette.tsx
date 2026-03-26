@@ -5,7 +5,7 @@ import { useUIStore } from '../store/uiStore';
 import { useAgentStore } from '../store/agentStore';
 import { getFavorites } from '../engine/favorites';
 import { useClusterStore } from '../store/clusterStore';
-import { generateSmartPrompts } from '../engine/smartPrompts';
+import { useSmartPrompts, type SmartPromptItem } from '../hooks/useSmartPrompts';
 import { AIIconStatic, AI_ACCENT, aiGlowClass } from './agent/AIBranding';
 import type { K8sResource } from '../engine/renderers';
 import type { ResourceType } from '../engine/discovery';
@@ -14,6 +14,7 @@ import { getResourceIcon } from '../engine/iconRegistry';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { fleetSearch } from '../engine/fleet';
 import type { FleetResult } from '../engine/fleet';
+import { usePrefetchOnHover } from '../hooks/usePrefetchOnHover';
 
 /** Capitalize first letter of each word: "deployments" → "Deployments", "poddisruptionbudgets" → "Poddisruptionbudgets" */
 function titleCase(s: string): string {
@@ -73,6 +74,7 @@ export function CommandPalette() {
   const [searchAllClusters, setSearchAllClusters] = useState(false);
   const [fleetResults, setFleetResults] = useState<FleetResult<K8sResource>[]>([]);
   const [fleetLoading, setFleetLoading] = useState(false);
+  const smartPrompts = useSmartPrompts();
 
   const inputRef = useRef<HTMLInputElement>(null);
   const multiCluster = isMultiCluster();
@@ -118,7 +120,7 @@ export function CommandPalette() {
   }, [searchAllClusters, query]);
 
   // Build command items based on mode
-  const items = getCommandItems(mode, query, resourceRegistry, location.pathname);
+  const items = getCommandItems(mode, query, resourceRegistry, location.pathname, smartPrompts);
 
   const handleSelect = useCallback((item: CommandItem) => {
     // AI query items: send to dock agent panel
@@ -311,6 +313,7 @@ function getCommandItems(
   query: string,
   resourceRegistry: Map<string, ResourceType> | null,
   currentPath: string = '/',
+  smartPrompts: SmartPromptItem[] = [],
 ): CommandItem[] {
   const cleanQuery = query.replace(/^[/:?]/, '').toLowerCase();
 
@@ -442,13 +445,12 @@ function getCommandItems(
   }
 
   if (mode === 'query') {
-    // AI-powered query mode — smart prompts + custom queries sent to agent
-    const smartPrompts = generateSmartPrompts({ currentView: currentPath });
+    // AI-powered query mode — live cluster-aware smart prompts
     const promptItems: CommandItem[] = smartPrompts.slice(0, 8).map((sp, i) => ({
       type: 'ai' as const,
       id: `smart-${i}`,
-      title: sp.text,
-      subtitle: `AI ${sp.category}`,
+      title: sp.prompt,
+      subtitle: sp.context,
       icon: 'Sparkles',
     }));
 
@@ -474,6 +476,40 @@ function getCommandItems(
   );
 
   return recents;
+}
+
+function CommandPaletteItem({ item, isSelected, onSelect }: {
+  item: CommandItem;
+  isSelected: boolean;
+  onSelect: (item: CommandItem) => void;
+}) {
+  const Icon = getIcon(item.icon);
+  const prefetch = usePrefetchOnHover(item.path || '');
+  const hoverProps = item.path ? { onMouseEnter: prefetch.onMouseEnter, onFocus: prefetch.onFocus, onMouseLeave: prefetch.onMouseLeave } : {};
+
+  return (
+    <button
+      id={`cp-item-${item.id}`}
+      role="option"
+      aria-selected={isSelected}
+      onClick={() => onSelect(item)}
+      {...hoverProps}
+      className={cn(
+        'flex w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors',
+        isSelected
+          ? 'bg-emerald-600 text-white'
+          : 'text-slate-300 hover:bg-slate-700'
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <div className="flex-1 overflow-hidden">
+        <div className="truncate text-sm font-medium">{item.title}</div>
+        {item.subtitle && (
+          <div className="truncate text-xs opacity-75">{item.subtitle}</div>
+        )}
+      </div>
+    </button>
+  );
 }
 
 function renderGroups(
@@ -509,30 +545,13 @@ function renderGroups(
         </div>
         {groupItems.map((item) => {
           const itemIndex = currentIndex++;
-          const Icon = getIcon(item.icon);
-
           return (
-            <button
+            <CommandPaletteItem
               key={item.id}
-              id={`cp-item-${item.id}`}
-              role="option"
-              aria-selected={itemIndex === selectedIndex}
-              onClick={() => onSelect(item)}
-              className={cn(
-                'flex w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors',
-                itemIndex === selectedIndex
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700'
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <div className="flex-1 overflow-hidden">
-                <div className="truncate text-sm font-medium">{item.title}</div>
-                {item.subtitle && (
-                  <div className="truncate text-xs opacity-75">{item.subtitle}</div>
-                )}
-              </div>
-            </button>
+              item={item}
+              isSelected={itemIndex === selectedIndex}
+              onSelect={onSelect}
+            />
           );
         })}
       </div>

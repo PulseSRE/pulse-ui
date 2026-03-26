@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Send, StopCircle, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2 } from 'lucide-react';
 import { useAgentStore } from '../../store/agentStore';
 import { useTrustStore, TRUST_LABELS } from '../../store/trustStore';
+import { useSmartPrompts } from '../../hooks/useSmartPrompts';
 import { MessageBubble } from './MessageBubble';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { AgentComponentRenderer } from './AgentComponentRenderer';
 import { ConfirmationCard } from './ConfirmationCard';
+import { PromptPill } from './AIBranding';
 import { cn } from '@/lib/utils';
 
 /**
@@ -20,6 +22,7 @@ export function DockAgentPanel() {
   } = useAgentStore();
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
+  const smartPrompts = useSmartPrompts();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -62,9 +65,20 @@ export function DockAgentPanel() {
       {/* Messages area */}
       <div className="flex-1 overflow-auto px-3 py-2 space-y-3" role="log" aria-label="Agent messages">
         {messages.length === 0 && !streaming && (
-          <div className="flex items-center justify-center h-full text-sm text-slate-500 gap-2">
-            <Bot className="h-4 w-4" />
-            Ask the {mode} agent...
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Bot className="h-4 w-4" />
+              Ask the {mode} agent...
+            </div>
+            {smartPrompts.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2 px-2">
+                {smartPrompts.slice(0, 4).map((sp, i) => (
+                  <PromptPill key={i} onClick={() => { sendMessage(sp.prompt); }}>
+                    {sp.prompt}
+                  </PromptPill>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

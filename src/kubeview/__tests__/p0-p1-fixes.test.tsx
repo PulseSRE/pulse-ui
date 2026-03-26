@@ -151,8 +151,8 @@ describe('P0: Command Palette action/query items have paths', () => {
   it('query mode uses AI-powered smart prompts', () => {
     const source = readSrc('components/CommandPalette.tsx');
 
-    // Query mode now uses generateSmartPrompts instead of static items
-    expect(source).toMatch(/generateSmartPrompts/);
+    // Query mode uses useSmartPrompts (live cluster-aware) or generateSmartPrompts
+    expect(source.includes('useSmartPrompts') || source.includes('generateSmartPrompts')).toBe(true);
     // Items are typed as 'ai' for the AI query group
     expect(source).toMatch(/type:\s*'ai'\s*as\s*const/);
   });
