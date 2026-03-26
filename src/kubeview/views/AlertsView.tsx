@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, AlertTriangle, XCircle, CheckCircle, Clock, Search, VolumeX, ArrowRight, Plus, Trash2, X, ExternalLink, Filter, Activity } from 'lucide-react';
+import { Bell, AlertTriangle, XCircle, CheckCircle, Clock, Search, VolumeX, ArrowRight, Plus, Trash2, X, ExternalLink, Filter, Activity, BookOpen, BellOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -12,6 +12,7 @@ import { MetricCard } from '../components/metrics/Sparkline';
 import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { showErrorToast } from '../engine/errorToast';
+import { EmptyState } from '../components/primitives/EmptyState';
 
 interface PrometheusAlert {
   labels: Record<string, string>;
@@ -496,7 +497,11 @@ export default function AlertsView() {
         {activeTab === 'firing' && (
           <div className="space-y-2">
             {filteredAlerts.length === 0 ? (
-              <div className="text-center py-12"><CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-3" /><p className="text-slate-300">{severityFilter !== 'all' ? `No ${severityFilter} alerts` : 'No alerts firing'}</p></div>
+              <EmptyState
+                icon={<Bell className="w-8 h-8" />}
+                title={severityFilter !== 'all' ? `No ${severityFilter} alerts` : 'No alerts firing'}
+                description="Your cluster is healthy — no alerts are currently firing."
+              />
             ) : groupedAlerts ? (
               // Grouped view
               groupedAlerts.map(([groupName, alerts]) => (
@@ -523,6 +528,13 @@ export default function AlertsView() {
 
         {/* Rules */}
         {activeTab === 'rules' && (
+          filteredRules.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen className="w-8 h-8" />}
+              title="No alert rules found"
+              description="Alert rules are configured in Prometheus. Make sure Alertmanager is connected and accessible."
+            />
+          ) : (
           <Card>
             <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
               {filteredRules.map((rule, idx) => (
@@ -547,6 +559,7 @@ export default function AlertsView() {
               ))}
             </div>
           </Card>
+          )
         )}
 
         {/* Silences */}
@@ -704,7 +717,11 @@ export default function AlertsView() {
 
             {/* Active Silences */}
             {activeSilences.length === 0 && !showSilenceForm ? (
-              <div className="text-center py-12"><VolumeX className="w-10 h-10 text-slate-600 mx-auto mb-3" /><p className="text-slate-400">No active silences</p></div>
+              <EmptyState
+                icon={<BellOff className="w-8 h-8" />}
+                title="No active silences"
+                description="Silences temporarily mute alerts. Create one to suppress a noisy alert during maintenance."
+              />
             ) : (
               activeSilences.map((silence) => (
                 <Card key={silence.id}>

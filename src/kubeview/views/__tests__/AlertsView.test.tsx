@@ -323,4 +323,28 @@ describe('AlertsView', () => {
     // Form should be closed
     expect(screen.queryByText('New Silence')).toBeNull();
   });
+
+  it('shows EmptyState with guidance when firing alerts tab is empty', () => {
+    renderAlerts();
+    const firingTab = screen.getByRole('button', { name: /^Firing \(/ });
+    fireEvent.click(firingTab);
+    expect(screen.getAllByText('No alerts firing').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Your cluster is healthy.*no alerts are currently firing/)).toBeDefined();
+  });
+
+  it('shows EmptyState with guidance when rules tab is empty', () => {
+    renderAlerts();
+    const rulesTab = screen.getByRole('button', { name: /^Rules \(/ });
+    fireEvent.click(rulesTab);
+    expect(screen.getByText('No alert rules found')).toBeDefined();
+    expect(screen.getByText('Alert rules are configured in Prometheus. Make sure Alertmanager is connected and accessible.')).toBeDefined();
+  });
+
+  it('shows EmptyState with guidance when silences tab is empty', () => {
+    renderAlerts();
+    const silencesTab = screen.getByRole('button', { name: /^Silences \(/ });
+    fireEvent.click(silencesTab);
+    expect(screen.getByText('No active silences')).toBeDefined();
+    expect(screen.getByText('Silences temporarily mute alerts. Create one to suppress a noisy alert during maintenance.')).toBeDefined();
+  });
 });

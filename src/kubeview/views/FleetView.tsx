@@ -14,6 +14,7 @@ import { useFleetStore } from '../store/fleetStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
 import { Card } from '../components/primitives/Card';
+import { EmptyState } from '../components/primitives/EmptyState';
 import { FleetCard } from './fleet/FleetCard';
 import type { HealthScoreInput } from '../engine/healthScore';
 import { computeHealthScore } from '../engine/healthScore';
@@ -203,18 +204,26 @@ export default function FleetView() {
         </div>
 
         {/* Cluster cards grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sortedClusters.map((cluster) => (
-            <FleetCard
-              key={cluster.id}
-              cluster={cluster}
-              onClick={() => {
-                setActiveCluster(cluster.id);
-                go('/pulse', `${cluster.name} — Pulse`);
-              }}
-            />
-          ))}
-        </div>
+        {sortedClusters.length === 0 ? (
+          <EmptyState
+            icon={<Globe className="w-8 h-8" />}
+            title="No clusters connected"
+            description="Fleet mode requires Red Hat Advanced Cluster Management (ACM) or a multi-cluster hub. Connect additional clusters to compare health, drift, and compliance across your fleet."
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {sortedClusters.map((cluster) => (
+              <FleetCard
+                key={cluster.id}
+                cluster={cluster}
+                onClick={() => {
+                  setActiveCluster(cluster.id);
+                  go('/pulse', `${cluster.name} — Pulse`);
+                }}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Active cluster indicator */}
         <div className="text-center text-xs text-slate-600">
