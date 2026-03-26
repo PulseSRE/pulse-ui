@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.5.0"><img src="https://img.shields.io/badge/release-v5.5.0-2563eb?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.6.0"><img src="https://img.shields.io/badge/release-v5.6.0-2563eb?style=for-the-badge" alt="Version"></a>
   <img src="https://img.shields.io/badge/tests-1606%20passed-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-77-f59e0b?style=for-the-badge" alt="Health Checks">
   <img src="https://img.shields.io/badge/CVEs-0-10b981?style=for-the-badge" alt="CVEs">
@@ -94,7 +94,7 @@ npm run dev    # http://localhost:9000
 | **Daily Briefing** | Risk score ring, control plane status, certificate expiry, attention items with remediation steps |
 | **Incident Timeline** | Unified timeline merging alerts, events, rollouts, and config changes with correlation groups |
 | **Admin Overview** | Firing alerts, named degraded operators, cert warnings, quota hot spots, health score — the 8am view |
-| **ArgoCD / GitOps** | Sync badges, auto-PR on save, drift detection, Rollouts (canary/blue-green), Projects. GitHub, GitLab, Bitbucket. |
+| **ArgoCD / GitOps** | 4-step setup wizard (operator install → git config → first app → verify), sync badges, auto-PR on save, drift detection, Rollouts (canary/blue-green), Projects. GitHub, GitLab, Bitbucket. |
 | **Capacity Planning** | predict_linear() projections for CPU, memory, disk, pods with days-until-exhaustion and trend charts |
 | **HyperShift** | Auto-detects hosted control planes, adapts checks, hides irrelevant Machine API panels |
 | **Production Readiness** | 31-check automated score across infrastructure, security, observability, reliability |
@@ -142,7 +142,7 @@ npm run dev    # http://localhost:9000
 | **User Management** | Users/groups/SAs, impersonation, identity audit |
 | **CRDs** | Browse by API group, search, filter |
 | **Security** | 10 checks, SCC audit, ACS detection |
-| **GitOps** | ArgoCD Applications, sync history, drift, Rollouts (canary/blue-green), Projects |
+| **GitOps** | 4-step setup wizard, ArgoCD Applications, sync history, drift, Rollouts (canary/blue-green), Projects |
 | **Fleet** | Multi-cluster dashboard, cross-cluster search, comparison, compliance, cert heat map |
 | **Agent** | AI-powered SRE diagnostics and security scanning with 35 cluster tools |
 | **Admin** | 11 tabs: Overview, Readiness, Operators, Config, Updates, Snapshots, Quotas, Certificates, GitOps, Errors, Timeline |
