@@ -210,14 +210,6 @@ export function GitOpsConfig() {
           {/* Actions */}
           <div className="flex items-center gap-3 pt-2">
             <button
-              onClick={handleTest}
-              disabled={testing || !form.repoUrl || !form.token}
-              className="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-              Test Connection
-            </button>
-            <button
               onClick={handleSave}
               disabled={saving || !form.repoUrl || !form.token}
               className="px-4 py-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
@@ -225,6 +217,9 @@ export function GitOpsConfig() {
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
               Save Configuration
             </button>
+            <span className="text-xs text-slate-500">
+              The Pulse Agent will verify the connection when creating PRs
+            </span>
           </div>
 
           {isConfigured && (
