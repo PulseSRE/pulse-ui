@@ -13,6 +13,18 @@ function readView(name: string): string {
   return fs.readFileSync(path.join(SRC, 'views', name), 'utf-8');
 }
 
+/** Read a view file plus all .tsx files in its corresponding subdirectory (if any) */
+function readViewWithSubmodules(name: string): string {
+  const main = readView(name);
+  const base = name.replace(/View\.tsx$/, '').toLowerCase();
+  const subDir = path.join(SRC, 'views', base);
+  if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
+    const files = fs.readdirSync(subDir).filter(f => f.endsWith('.tsx') || f.endsWith('.ts'));
+    return main + '\n' + files.map(f => fs.readFileSync(path.join(subDir, f), 'utf-8')).join('\n');
+  }
+  return main;
+}
+
 describe('Domain view consistency', () => {
   const views = [
     { file: 'WorkloadsView.tsx', audit: 'WorkloadHealthAudit', checks: 6 },
@@ -24,7 +36,7 @@ describe('Domain view consistency', () => {
 
   for (const view of views) {
     describe(view.file, () => {
-      const source = readView(view.file);
+      const source = readViewWithSubmodules(view.file);
 
       it('has a page header with h1', () => {
         expect(source.includes('text-2xl font-bold') || source.includes('SectionHeader')).toBe(true);
@@ -138,7 +150,7 @@ describe('NetworkingView specifics', () => {
 });
 
 describe('ComputeView specifics', () => {
-  const source = readView('ComputeView.tsx');
+  const source = readViewWithSubmodules('ComputeView.tsx');
 
   it('has MetricCard sparklines', () => {
     expect(source).toContain('MetricCard');
