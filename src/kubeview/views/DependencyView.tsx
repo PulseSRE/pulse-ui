@@ -5,6 +5,7 @@ import { buildDependencyGraph, type DependencyGraph, type GraphNode } from '@/li
 import { useUIStore } from '../store/uiStore';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { pluralToKind } from '../engine/renderers/index';
 import { Card } from '../components/primitives/Card';
 
 interface DependencyViewProps {
@@ -113,9 +114,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
   const kind = useMemo(() => {
     const parts = gvrKey.split('/');
     const plural = parts[parts.length - 1];
-    // Simple plural → singular + capitalize
-    const singular = plural.replace(/ies$/, 'y').replace(/ses$/, 's').replace(/s$/, '');
-    return singular.charAt(0).toUpperCase() + singular.slice(1);
+    return pluralToKind(plural);
   }, [gvrKey]);
 
   const [graph, setGraph] = useState<DependencyGraph | null>(null);

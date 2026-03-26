@@ -5,6 +5,7 @@ import { useUIStore } from '../store/uiStore';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 import { getResourceIcon } from '../engine/iconRegistry';
+import { pluralToKind } from '../engine/renderers/index';
 
 // Helper to get icon component from string name
 function getIcon(iconName?: string) {
@@ -12,7 +13,7 @@ function getIcon(iconName?: string) {
   return getResourceIcon(iconName);
 }
 
-function getTabTitle(path: string): string {
+export function getTabTitle(path: string): string {
   const parts = path.split('/').filter(Boolean);
 
   // /r/v1~nodes → "Nodes"
@@ -20,9 +21,12 @@ function getTabTitle(path: string): string {
   if (parts[0] === 'r' && parts.length >= 2) {
     const gvrParts = parts[1].split('~');
     const resource = gvrParts[gvrParts.length - 1];
-    // /r/v1~nodes/_/node-name → "node-name"
+    // /r/v1~pods/kube-system/coredns → "coredns (Pod)"
+    // /r/apps~v1~deployments/default/nginx → "nginx (Deployment)"
     if (parts.length >= 4) {
-      return parts[parts.length - 1];
+      const name = parts[parts.length - 1];
+      const kind = pluralToKind(resource);
+      return `${name} (${kind})`;
     }
     return resource.charAt(0).toUpperCase() + resource.slice(1);
   }

@@ -79,6 +79,26 @@ export function kindToPlural(kind: string): string {
   return lower + 's';
 }
 
+/**
+ * Convert a plural resource name to a capitalized Kind.
+ * Inverse of kindToPlural for common K8s naming patterns.
+ * e.g. "deployments" → "Deployment", "networkpolicies" → "Networkpolicy"
+ */
+export function pluralToKind(plural: string): string {
+  const lower = plural.toLowerCase();
+  let singular: string;
+  if (lower.endsWith('ies')) {
+    singular = lower.slice(0, -3) + 'y';
+  } else if (lower.endsWith('ses') || lower.endsWith('zes')) {
+    singular = lower.slice(0, -2);
+  } else if (lower.endsWith('s')) {
+    singular = lower.slice(0, -1);
+  } else {
+    singular = lower;
+  }
+  return singular.charAt(0).toUpperCase() + singular.slice(1);
+}
+
 // Helper to compute age from timestamp
 function ageFromTimestamp(ts: string | undefined): string {
   if (!ts) return '-';
