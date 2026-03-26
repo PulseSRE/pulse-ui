@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Square, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2 } from 'lucide-react';
+import { Send, StopCircle, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2 } from 'lucide-react';
 import { useAgentStore } from '../../store/agentStore';
 import { useTrustStore, TRUST_LABELS } from '../../store/trustStore';
 import { MessageBubble } from './MessageBubble';
@@ -150,7 +150,7 @@ export function DockAgentPanel() {
             className="p-1.5 rounded bg-red-700 hover:bg-red-600 text-white transition-colors shrink-0"
             aria-label="Stop"
           >
-            <Square className="h-3.5 w-3.5" />
+            <StopCircle className="h-3.5 w-3.5" />
           </button>
         ) : (
           <button

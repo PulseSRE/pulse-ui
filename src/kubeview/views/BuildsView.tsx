@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Hammer, CheckCircle, XCircle, Clock, Loader2, ArrowRight,
-  AlertTriangle, Play, Box, Layers, Timer, Square,
+  AlertTriangle, Play, Box, Layers, Timer, StopCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
@@ -343,7 +343,7 @@ export default function BuildsView() {
                       <button
                         onClick={(e) => { e.stopPropagation(); cancelBuild(ns, name); }}
                         className="text-slate-500 hover:text-red-400 transition-colors" title="Cancel Build"
-                      ><Square className="w-3.5 h-3.5" /></button>
+                      ><StopCircle className="w-3.5 h-3.5" /></button>
                     )}
                     <span className={cn('text-xs', color)}>{phase}</span>
                   </div>

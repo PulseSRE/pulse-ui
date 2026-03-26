@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send,
-  Square,
+  StopCircle,
   ChevronDown,
   ChevronUp,
   Brain,
@@ -264,7 +264,7 @@ export const InlineAgent: React.FC<InlineAgentProps> = ({
             className="p-2 rounded-md bg-red-600 hover:bg-red-500 text-white transition-colors"
             aria-label="Stop"
           >
-            <Square className="h-4 w-4" />
+            <StopCircle className="h-4 w-4" />
           </button>
         ) : (
           <button

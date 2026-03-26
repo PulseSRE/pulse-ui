@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Bot, Shield, Send, Trash2, Loader2, Wrench, Brain, AlertTriangle, Wifi, WifiOff, Square, Globe } from 'lucide-react';
+import { Bot, Shield, Send, Trash2, Loader2, Wrench, Brain, AlertTriangle, Wifi, WifiOff, StopCircle, Globe } from 'lucide-react';
 import { useAgentStore } from '../store/agentStore';
 import { useUIStore } from '../store/uiStore';
 import { useFleetStore } from '../store/fleetStore';
@@ -331,7 +331,7 @@ export default function AgentView() {
               title="Stop (Esc)"
               className="p-2.5 rounded-lg bg-red-700 hover:bg-red-600 text-white transition-colors shrink-0"
             >
-              <Square className="h-4 w-4" aria-hidden="true" />
+              <StopCircle className="h-4 w-4" aria-hidden="true" />
             </button>
           ) : (
             <button
