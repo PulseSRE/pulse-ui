@@ -203,13 +203,13 @@ export default function BuildsView() {
             />
             <MetricCard
               title="Avg Duration"
-              query='avg(openshift_build_duration_seconds{phase="Complete"}) / 60'
+              query='avg(openshift_build_duration_seconds) / 60'
               unit=" min"
               color={CHART_COLORS.amber}
             />
             <MetricCard
               title="Failure Rate"
-              query='sum(rate(openshift_build_total{phase="failed"}[1h])) / sum(rate(openshift_build_total[1h])) * 100'
+              query='sum(openshift_build_total{phase=~"Failed|Error|Cancelled"}) / sum(openshift_build_total) * 100'
               unit="%"
               color={CHART_COLORS.red}
               thresholds={{ warning: 10, critical: 30 }}
