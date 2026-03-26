@@ -233,7 +233,7 @@ describe('TableView', () => {
     expect(document.querySelector('.animate-pulse')).toBeDefined();
   });
 
-  it('shows error state', () => {
+  it('shows error state with retry and go home buttons', () => {
     setMockWatch({
       data: [],
       isLoading: false,
@@ -242,8 +242,55 @@ describe('TableView', () => {
 
     renderTable('v1/pods');
 
+    // Error icon, title, and message
     expect(screen.getByText('Error loading resources')).toBeDefined();
     expect(screen.getByText('Forbidden')).toBeDefined();
+
+    // Suggestion text
+    expect(screen.getByText(/Check your cluster connection/)).toBeDefined();
+
+    // Retry and Go Home buttons
+    expect(screen.getByText('Retry')).toBeDefined();
+    expect(screen.getByText('Go Home')).toBeDefined();
+  });
+
+  it('retry button invalidates queries on error state', () => {
+    setMockWatch({
+      data: [],
+      isLoading: false,
+      error: new Error('Connection refused'),
+    });
+
+    const queryClient = createQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableView gvrKey="v1/pods" />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const retryButton = screen.getByText('Retry');
+    fireEvent.click(retryButton);
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['k8s', 'list', '/api/v1/pods'] });
+  });
+
+  it('go home button navigates to root on error state', () => {
+    setMockWatch({
+      data: [],
+      isLoading: false,
+      error: new Error('Not found'),
+    });
+
+    renderTable('v1/pods');
+
+    const goHomeButton = screen.getByText('Go Home');
+    fireEvent.click(goHomeButton);
+
+    expect(navigateMock).toHaveBeenCalledWith('/');
   });
 
   it('renders correct resource kind from gvrKey', () => {

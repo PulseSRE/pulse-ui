@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronUp, ChevronDown, Trash2, Tag, Plus, Filter, Columns3, X, Download, Loader2, CheckCircle, XCircle, FileEdit, Sparkles, Inbox } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, Trash2, Plus, Filter, Columns3, X, Download, Loader2, CheckCircle, XCircle, FileEdit, Sparkles, Inbox, AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 const NLFilterBar = lazy(() => import('../components/agent/NLFilterBar').then(m => ({ default: m.NLFilterBar })));
 import { cn } from '@/lib/utils';
@@ -562,9 +562,29 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   if (error) {
     return (
       <div className="h-full flex items-center justify-center bg-slate-950">
-        <div className="text-center">
-          <p className="text-red-400 text-sm">Error loading resources</p>
-          <p className="text-slate-500 text-xs mt-2">{(error as Error).message}</p>
+        <div className="text-center max-w-md">
+          <div className="mb-4 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-950/50 border border-red-900/50">
+            <AlertTriangle className="w-7 h-7 text-red-400" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-100 mb-1">Error loading resources</h2>
+          <p className="text-sm text-red-400 mb-2">{(error as Error).message}</p>
+          <p className="text-xs text-slate-500 mb-6">Check your cluster connection and ensure you have permission to list {resourceKind.toLowerCase()}.</p>
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] })}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 font-medium"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-4 py-2 text-sm bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2 border border-slate-700"
+            >
+              <Home className="w-4 h-4" />
+              Go Home
+            </button>
+          </div>
         </div>
       </div>
     );

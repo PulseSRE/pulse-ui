@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check, Loader2, RefreshCw } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
 import { useFleetStore } from '../store/fleetStore';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 export function CommandBar() {
   const navigate = useNavigate();
-  const [namespaces, setNamespaces] = useState<string[]>([]);
+  const queryClient = useQueryClient();
   const [showNsDropdown, setShowNsDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [nsFilter, setNsFilter] = useState('');
@@ -102,14 +102,16 @@ export function CommandBar() {
   });
 
   // Fetch namespaces
-  useEffect(() => {
-    fetch('/api/kubernetes/api/v1/namespaces')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.items) setNamespaces(data.items.map((i: any) => i.metadata.name).sort());
-      })
-      .catch(() => {});
-  }, []);
+  const { data: namespaces = [], isLoading: namespacesLoading, error: namespacesError } = useQuery({
+    queryKey: ['toolbar', 'namespaces'],
+    queryFn: async () => {
+      const res = await fetch('/api/kubernetes/api/v1/namespaces');
+      if (!res.ok) throw new Error(`Failed to fetch namespaces: ${res.status}`);
+      const data = await res.json();
+      return (data.items || []).map((i: any) => i.metadata.name).sort() as string[];
+    },
+    staleTime: 60000,
+  });
 
   function go(path: string, title: string) {
     addTab({ title, path, pinned: false, closable: true });
@@ -286,7 +288,25 @@ export function CommandBar() {
                     {selectedNamespace === '*' && <span className="text-blue-400 text-xs">✓</span>}
                   </button>
                   <div className="border-t border-slate-700/50 my-1" />
-                  {namespaces
+                  {namespacesLoading && (
+                    <div className="px-3 py-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Loading namespaces...
+                    </div>
+                  )}
+                  {namespacesError && (
+                    <div className="px-3 py-4 text-center">
+                      <p className="text-xs text-red-400 mb-2">Failed to load namespaces</p>
+                      <button
+                        onClick={() => queryClient.invalidateQueries({ queryKey: ['toolbar', 'namespaces'] })}
+                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mx-auto"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  {!namespacesLoading && !namespacesError && namespaces
                     .filter((ns) => !nsFilter || ns.toLowerCase().includes(nsFilter.toLowerCase()))
                     .map((ns) => (
                       <button
@@ -299,7 +319,7 @@ export function CommandBar() {
                         {selectedNamespace === ns && <span className="text-blue-400 text-xs">✓</span>}
                       </button>
                     ))}
-                  {nsFilter && namespaces.filter((ns) => ns.toLowerCase().includes(nsFilter.toLowerCase())).length === 0 && (
+                  {!namespacesLoading && !namespacesError && nsFilter && namespaces.filter((ns) => ns.toLowerCase().includes(nsFilter.toLowerCase())).length === 0 && (
                     <div className="px-3 py-4 text-center text-xs text-slate-500">No namespaces match "{nsFilter}"</div>
                   )}
                 </div>
