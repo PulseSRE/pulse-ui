@@ -43,13 +43,12 @@ describe('Domain view consistency', () => {
         expect(source).toContain(view.audit);
       });
 
-      it('health audit has score percentage', () => {
-        expect(source).toContain('totalPassing');
-        expect(source).toContain('score');
+      it('health audit uses shared HealthAuditPanel', () => {
+        expect(source).toContain('HealthAuditPanel');
       });
 
-      it('health audit has "Why it matters" explanations', () => {
-        expect(source).toContain('Why it matters');
+      it('health audit has "why" explanations in check definitions', () => {
+        expect(source).toContain("why:");
       });
 
       it('health audit has YAML examples', () => {

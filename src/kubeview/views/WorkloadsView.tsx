@@ -1,8 +1,8 @@
 import React from 'react';
 import {
-  Package, Box, Clock, AlertCircle, CheckCircle, XCircle,
+  Package, Box, Clock, AlertCircle, XCircle,
   FileText, ArrowRight, Plus, AlertTriangle, Info, RefreshCw,
-  Activity, Layers, Timer,
+  Layers, Timer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../engine/renderers';
@@ -17,7 +17,6 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { CHART_COLORS } from '../engine/colors';
 import { Panel } from '../components/primitives/Panel';
 import { sanitizePromQL } from '../engine/query';
-import { Card } from '../components/primitives/Card';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 
 /** Local PDB type — not yet in engine/types */
@@ -382,19 +381,10 @@ function Tip({ title, desc }: { title: string; desc: string }) {
 
 // ===== Workload Health Audit =====
 
-interface AuditCheck {
-  id: string;
-  title: string;
-  description: string;
-  why: string;
-  passing: Deployment[];
-  failing: Deployment[];
-  yamlExample: string;
-}
+import type { AuditCheck } from '../components/audit/types';
+import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 
 function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deployment[]; pdbs: PodDisruptionBudget[]; go: (path: string, title: string) => void }) {
-  const [expandedChecks, setExpandedChecks] = React.useState<Set<string>>(new Set());
-
   // PDB label selectors for matching
   const pdbSelectors = React.useMemo(() =>
     pdbs.map((pdb) => ({
@@ -445,6 +435,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
           limits:
             cpu: "500m"
             memory: "512Mi"`,
+      fixLabel: 'How to fix — add to your Deployment YAML:',
     });
 
     // 2. Liveness probes
@@ -471,6 +462,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
           initialDelaySeconds: 15
           periodSeconds: 10
           failureThreshold: 3`,
+      fixLabel: 'How to fix — add to your Deployment YAML:',
     });
 
     // 3. Readiness probes
@@ -496,6 +488,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5`,
+      fixLabel: 'How to fix — add to your Deployment YAML:',
     });
 
     // 4. PodDisruptionBudgets
@@ -517,6 +510,7 @@ spec:
   selector:
     matchLabels:
       app: my-app    # must match deployment selector`,
+      fixLabel: 'How to fix — add to your Deployment YAML:',
     });
 
     // 5. Replicas > 1 for HA
@@ -530,6 +524,7 @@ spec:
       failing: singleReplica,
       yamlExample: `spec:
   replicas: 2    # minimum for HA, 3+ recommended`,
+      fixLabel: 'How to fix — add to your Deployment YAML:',
     });
 
     // 6. Rolling update strategy
@@ -547,6 +542,7 @@ spec:
     rollingUpdate:
       maxUnavailable: 1
       maxSurge: 1`,
+      fixLabel: 'How to fix — add to your Deployment YAML:',
     });
 
     return allChecks;
@@ -554,97 +550,15 @@ spec:
 
   if (deployments.length === 0) return null;
 
-  const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
-  const score = Math.round((totalPassing / checks.length) * 100);
-
   return (
-    <Card>
-      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-blue-400" /> Workload Health Audit
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
-          <span className="text-xs text-slate-500">{totalPassing}/{checks.length} passing</span>
-        </div>
-      </div>
-      <div className="divide-y divide-slate-800">
-        {checks.map((check) => {
-          const pass = check.failing.length === 0;
-          const expanded = expandedChecks.has(check.id);
-          return (
-            <div key={check.id}>
-              <button
-                onClick={() => setExpandedChecks(prev => { const next = new Set(prev); if (next.has(check.id)) next.delete(check.id); else next.add(check.id); return next; })}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
-                  <div>
-                    <span className="text-sm text-slate-200">{check.title}</span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      {pass ? `${check.passing.length} pass` : `${check.failing.length} of ${check.failing.length + check.passing.length} need attention`}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs text-slate-600">{expanded ? '▾' : '▸'}</span>
-              </button>
-
-              {expanded && (
-                <div className="px-4 pb-4 space-y-3">
-                  <p className="text-xs text-slate-400">{check.description}</p>
-
-                  {/* Why it matters */}
-                  <div className="bg-blue-950/20 border border-blue-900/50 rounded p-3">
-                    <div className="text-xs font-medium text-blue-300 mb-1">Why it matters</div>
-                    <p className="text-xs text-slate-400">{check.why}</p>
-                  </div>
-
-                  {/* Failing workloads */}
-                  {check.failing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-amber-400 font-medium mb-1.5">Missing ({check.failing.length})</div>
-                      <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((d) => (
-                          <button key={d.metadata.uid} onClick={() => go(`/yaml/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, `${d.metadata.name} (YAML)`)}
-                            className="flex items-center justify-between w-full py-1 px-2 rounded hover:bg-slate-800/50 text-left transition-colors">
-                            <div className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                              <span className="text-xs text-slate-300">{d.metadata.name}</span>
-                              <span className="text-xs text-slate-600">{d.metadata.namespace}</span>
-                            </div>
-                            <span className="text-xs text-blue-400">Edit YAML →</span>
-                          </button>
-                        ))}
-                        {check.failing.length > 10 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 10} more</div>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Passing workloads */}
-                  {check.passing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
-                      <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((d) => (
-                          <span key={d.metadata.uid} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{d.metadata.name}</span>
-                        ))}
-                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* YAML example */}
-                  <div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">How to fix — add to your Deployment YAML:</div>
-                    <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded overflow-x-auto">{check.yamlExample}</pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Card>
+    <HealthAuditPanel
+      checks={checks}
+      title="Workload Health Audit"
+      onNavigateItem={(_check, item) => {
+        const d = item as Deployment;
+        go(`/yaml/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, `${d.metadata.name} (YAML)`);
+      }}
+      navigateLabel={() => 'Edit YAML'}
+    />
   );
 }

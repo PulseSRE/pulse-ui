@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Server, Cpu, HardDrive, CheckCircle, XCircle, AlertCircle,
-  ArrowRight, Ban, Box, Terminal, FileText, Activity, Info, AlertTriangle,
+  ArrowRight, Ban, Box, Terminal, FileText, Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
@@ -816,23 +816,8 @@ function UsageBar({ pct, color, className }: { pct: number; color: 'green' | 'ye
 
 // ===== Compute Health Audit =====
 
-/** Item in an audit check list — may be a full resource, a node detail, or a placeholder */
-interface AuditItem {
-  metadata?: { name?: string; namespace?: string; uid?: string };
-  name?: string;
-  _pressureTypes?: string;
-  _kubeletVersion?: string;
-}
-
-interface AuditCheck {
-  id: string;
-  title: string;
-  description: string;
-  why: string;
-  passing: AuditItem[];
-  failing: AuditItem[];
-  yamlExample: string;
-}
+import type { AuditCheck, AuditItem } from '../components/audit/types';
+import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 
 function ComputeHealthAudit({
   nodes,
@@ -852,7 +837,6 @@ function ComputeHealthAudit({
   go: (path: string, title: string) => void;
 }) {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
-  const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
 
   const checks: AuditCheck[] = React.useMemo(() => {
     const allChecks: AuditCheck[] = [];
@@ -868,6 +852,9 @@ function ComputeHealthAudit({
         why: 'etcd requires an odd-numbered quorum (3 or 5 nodes). With fewer than 3 masters, losing a single node causes cluster failure. 3 masters can tolerate 1 failure; 5 can tolerate 2.',
         passing: hasHA ? masterNodes : [],
         failing: hasHA ? [] : masterNodes,
+        failingLabel: `Only ${hasHA ? 0 : masterNodes.length} control plane node${masterNodes.length !== 1 ? 's' : ''}`,
+        passingLabel: `Control plane nodes (${hasHA ? masterNodes.length : 0})`,
+        fixLabel: 'How to address:',
         yamlExample: `# Control plane nodes are provisioned during cluster installation.
 # To scale control plane nodes post-install, you must:
 # 1. Create new master Machines via MachineSet
@@ -889,6 +876,9 @@ function ComputeHealthAudit({
       why: isHyperShift ? 'On HyperShift clusters, all visible nodes are workers. The control plane runs externally in a management cluster.' : 'Running application pods on control plane nodes creates resource contention with etcd and apiserver. Control plane stability is critical — separating workloads protects cluster availability.',
       passing: hasWorkers ? workerNodes : [],
       failing: hasWorkers ? [] : workerNodes,
+      failingLabel: `Only ${hasWorkers ? 0 : workerNodes.length} worker node${workerNodes.length !== 1 ? 's' : ''}`,
+      passingLabel: `Worker nodes (${hasWorkers ? workerNodes.length : 0})`,
+      fixLabel: 'How to address:',
       yamlExample: `# Worker nodes are created via MachineSets.
 # View existing MachineSets and scale them up:
 #   oc get machinesets -n openshift-machine-api
@@ -908,6 +898,9 @@ function ComputeHealthAudit({
         why: 'Without MachineHealthChecks, failed nodes remain in the cluster in NotReady state. Pods are rescheduled but the node is never recovered. MHCs detect and replace failed nodes automatically, restoring capacity.',
         passing: hasMHC ? healthChecks : [],
         failing: hasMHC ? [] : [{ metadata: { name: 'No MachineHealthChecks configured' } }],
+        failingLabel: 'Not configured',
+        passingLabel: `Configured (${hasMHC ? healthChecks.length : 0})`,
+        fixLabel: 'Configuration example:',
         yamlExample: `apiVersion: machine.openshift.io/v1beta1
 kind: MachineHealthCheck
 metadata:
@@ -952,6 +945,7 @@ spec:
           _pressureTypes: pressures.join(', '),
         };
       }),
+      fixLabel: 'How to address:',
       yamlExample: `# Node pressure is resolved by freeing resources:
 #
 # DiskPressure:
@@ -988,6 +982,7 @@ spec:
       why: 'Version skew between nodes can cause unpredictable behavior, API incompatibilities, and upgrade issues. Kubernetes supports n-1 minor version skew, but consistency is best practice.',
       passing: consistentVersion ? nodeDetails.map(nd => nd.node) : [],
       failing: mismatchedNodes,
+      fixLabel: 'How to address:',
       yamlExample: `# Kubelet version is updated via cluster upgrades:
 #   oc adm upgrade
 #
@@ -1013,6 +1008,9 @@ spec:
       why: 'Without autoscaling, pending pods wait indefinitely when capacity is exhausted. Manual scaling is slow and error-prone. Autoscaling adds nodes on demand and removes them when idle, optimizing cost and availability.',
       passing: hasAutoscaling ? autoscalingResources : [],
       failing: hasAutoscaling ? [] : [{ metadata: { name: 'Autoscaling not configured' } }],
+      failingLabel: 'Not configured',
+      passingLabel: 'Enabled',
+      fixLabel: 'Configuration example:',
       yamlExample: `# Step 1: Create ClusterAutoscaler (one per cluster)
 apiVersion: autoscaling.openshift.io/v1
 kind: ClusterAutoscaler
@@ -1058,6 +1056,7 @@ spec:
         why: 'NodePools manage worker node lifecycle on HyperShift clusters. Unhealthy NodePools mean nodes are not being provisioned or replaced correctly.',
         passing: healthyPools.map(np => ({ metadata: np.metadata, node: np as unknown as K8sResource, status: { ready: true } })) as AuditItem[],
         failing: unhealthyPools.map(np => ({ metadata: np.metadata, node: np as unknown as K8sResource, status: { ready: false } })) as AuditItem[],
+        fixLabel: 'How to address:',
         yamlExample: `apiVersion: hypershift.openshift.io/v1beta1
 kind: NodePool
 metadata:
@@ -1078,136 +1077,40 @@ spec:
 
   if (nodes.length === 0) return null;
 
-  const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
-  const score = Math.round((totalPassing / checks.length) * 100);
+  const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
+    const name = item.metadata?.name || '';
+    const isNode = check.id === 'ha-control-plane' || check.id === 'dedicated-workers' || check.id === 'node-pressure' || check.id === 'kubelet-version';
+    if (isNode) {
+      go(`/r/v1~nodes/_/${name}`, name);
+    } else if (check.id === 'machine-health-checks') {
+      go('/create/machine.openshift.io~v1beta1~machinehealthchecks', 'Create MachineHealthCheck');
+    } else if (check.id === 'cluster-autoscaling') {
+      go('/create/autoscaling.openshift.io~v1~clusterautoscalers', 'Create ClusterAutoscaler');
+    } else if (check.id === 'nodepool-health') {
+      go(`/r/v1~nodes/_/${name}`, name);
+    }
+  }, [go]);
+
+  const renderBadges = React.useCallback((_check: AuditCheck, item: AuditItem) => {
+    const pressureType = (item as Record<string, unknown>)._pressureTypes as string | undefined;
+    const kubeletVersion = (item as Record<string, unknown>)._kubeletVersion as string | undefined;
+    return (
+      <>
+        {pressureType && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">{pressureType}</span>}
+        {kubeletVersion && <span className="text-xs px-1.5 py-0.5 bg-yellow-900/50 text-yellow-300 rounded font-mono">{kubeletVersion}</span>}
+      </>
+    );
+  }, []);
 
   return (
-    <Card>
-      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-blue-400" /> Compute Health Audit
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
-          <span className="text-xs text-slate-500">{totalPassing}/{checks.length} passing</span>
-        </div>
-      </div>
-      <div className="divide-y divide-slate-800">
-        {checks.map((check) => {
-          const pass = check.failing.length === 0;
-          const expanded = expandedCheck === check.id;
-          return (
-            <div key={check.id}>
-              <button
-                onClick={() => setExpandedCheck(expanded ? null : check.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
-                  <div>
-                    <span className="text-sm text-slate-200">{check.title}</span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      {pass ? `${check.passing.length} pass` : `${check.failing.length} ${check.failing.length === 1 ? 'issue' : 'issues'}`}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs text-slate-600">{expanded ? '▾' : '▸'}</span>
-              </button>
-
-              {expanded && (
-                <div className="px-4 pb-4 space-y-3">
-                  <p className="text-xs text-slate-400">{check.description}</p>
-
-                  {/* Why it matters */}
-                  <div className="bg-blue-950/20 border border-blue-900/50 rounded p-3">
-                    <div className="text-xs font-medium text-blue-300 mb-1">Why it matters</div>
-                    <p className="text-xs text-slate-400">{check.why}</p>
-                  </div>
-
-                  {/* Failing items */}
-                  {check.failing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-amber-400 font-medium mb-1.5">
-                        {check.id === 'ha-control-plane' ? `Only ${check.failing.length} control plane node${check.failing.length > 1 ? 's' : ''}` :
-                         check.id === 'dedicated-workers' ? `Only ${check.failing.length} worker node${check.failing.length > 1 ? 's' : ''}` :
-                         check.id === 'machine-health-checks' || check.id === 'cluster-autoscaling' ? 'Not configured' :
-                         `Issues (${check.failing.length})`}
-                      </div>
-                      <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((item, idx) => {
-                          const name = item.metadata?.name || `item-${idx}`;
-                          const ns = item.metadata?.namespace;
-                          const isNode = check.id === 'ha-control-plane' || check.id === 'dedicated-workers' || check.id === 'node-pressure' || check.id === 'kubelet-version';
-                          const pressureType = item._pressureTypes;
-                          const kubeletVersion = item._kubeletVersion;
-
-                          return (
-                            <button
-                              key={item.metadata?.uid || idx}
-                              onClick={() => {
-                                if (isNode) {
-                                  go(`/r/v1~nodes/_/${name}`, name);
-                                } else if (check.id === 'machine-health-checks') {
-                                  go('/create/machine.openshift.io~v1beta1~machinehealthchecks', 'Create MachineHealthCheck');
-                                } else if (check.id === 'cluster-autoscaling') {
-                                  go('/create/autoscaling.openshift.io~v1~clusterautoscalers', 'Create ClusterAutoscaler');
-                                }
-                              }}
-                              className="flex items-center justify-between w-full py-1 px-2 rounded hover:bg-slate-800/50 text-left transition-colors"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                                <span className="text-xs text-slate-300">{name}</span>
-                                {ns && <span className="text-xs text-slate-600">{ns}</span>}
-                                {pressureType && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">{pressureType}</span>}
-                                {kubeletVersion && <span className="text-xs px-1.5 py-0.5 bg-yellow-900/50 text-yellow-300 rounded font-mono">{kubeletVersion}</span>}
-                              </div>
-                              <span className="text-xs text-blue-400">
-                                {check.id === 'machine-health-checks' || check.id === 'cluster-autoscaling' ? 'Create →' : 'View →'}
-                              </span>
-                            </button>
-                          );
-                        })}
-                        {check.failing.length > 10 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 10} more</div>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Passing items */}
-                  {check.passing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-green-400 font-medium mb-1">
-                        {check.id === 'ha-control-plane' ? `Control plane nodes (${check.passing.length})` :
-                         check.id === 'dedicated-workers' ? `Worker nodes (${check.passing.length})` :
-                         check.id === 'machine-health-checks' ? `Configured (${check.passing.length})` :
-                         check.id === 'cluster-autoscaling' ? 'Enabled' :
-                         `Passing (${check.passing.length})`}
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((item, idx) => {
-                          const name = item.metadata?.name || item.name || `item-${idx}`;
-                          return (
-                            <span key={item.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{name}</span>
-                          );
-                        })}
-                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* YAML example */}
-                  <div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">
-                      {check.id === 'machine-health-checks' || check.id === 'cluster-autoscaling' ? 'Configuration example:' : 'How to address:'}
-                    </div>
-                    <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded overflow-x-auto whitespace-pre-wrap">{check.yamlExample}</pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Card>
+    <HealthAuditPanel
+      checks={checks}
+      title="Compute Health Audit"
+      onNavigateItem={handleNavigate}
+      navigateLabel={(check) =>
+        check.id === 'machine-health-checks' || check.id === 'cluster-autoscaling' ? 'Create' : 'View'
+      }
+      renderItemBadges={renderBadges}
+    />
   );
 }

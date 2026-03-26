@@ -94,21 +94,17 @@ describe('Health audits exist on all overview pages', () => {
     expect(source).toContain("id: 'cluster-autoscaling'");
   });
 
-  it('all audits have "Why it matters" explanations', () => {
+  it('all audits use shared HealthAuditPanel with "Why it matters" and yamlExample', () => {
     const files = ['views/WorkloadsView.tsx', 'views/StorageView.tsx', 'views/NetworkingView.tsx', 'views/ComputeView.tsx'];
     for (const file of files) {
       const source = fs.readFileSync(path.join(SRC, file), 'utf-8');
-      expect(source).toContain('Why it matters');
+      expect(source).toContain('HealthAuditPanel');
       expect(source).toContain('yamlExample');
     }
-  });
-
-  it('all audits show score percentage', () => {
-    const files = ['views/WorkloadsView.tsx', 'views/StorageView.tsx', 'views/NetworkingView.tsx', 'views/ComputeView.tsx'];
-    for (const file of files) {
-      const source = fs.readFileSync(path.join(SRC, file), 'utf-8');
-      expect(source).toContain('score');
-      expect(source).toContain('totalPassing');
-    }
+    // Shared component renders "Why it matters", score, and totalPassing
+    const panel = fs.readFileSync(path.join(SRC, 'components/audit/HealthAuditPanel.tsx'), 'utf-8');
+    expect(panel).toContain('Why it matters');
+    expect(panel).toContain('score');
+    expect(panel).toContain('totalPassing');
   });
 });

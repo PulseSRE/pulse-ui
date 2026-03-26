@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Globe, Network, Shield, ArrowRight, ExternalLink, AlertCircle,
-  AlertTriangle, Info, Plus, Lock, Unlock, Server, Activity, CheckCircle,
+  AlertTriangle, Info, Plus, Lock, Unlock, Server, Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
@@ -382,19 +382,8 @@ export default function NetworkingView() {
 
 // ===== Networking Health Audit =====
 
-interface AuditCheckResource {
-  metadata: { name: string; namespace?: string; uid?: string };
-}
-
-interface AuditCheck {
-  id: string;
-  title: string;
-  description: string;
-  why: string;
-  passing: AuditCheckResource[];
-  failing: AuditCheckResource[];
-  yamlExample: string;
-}
+import type { AuditCheck, AuditItem } from '../components/audit/types';
+import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 
 function NetworkingHealthAudit({
   routes,
@@ -411,8 +400,6 @@ function NetworkingHealthAudit({
   nsFilter?: string;
   go: (path: string, title: string) => void;
 }) {
-  const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
-
   // Get all unique namespaces from services (for network policy checks)
   const allNamespaces = React.useMemo(() => {
     const nsSet = new Set<string>();
@@ -455,6 +442,7 @@ function NetworkingHealthAudit({
       why: 'Without TLS, traffic between clients and your application is unencrypted. This exposes sensitive data (credentials, session tokens, PII) to network sniffing and man-in-the-middle attacks.',
       passing: routesWithTLS,
       failing: routesWithoutTLS,
+      fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `spec:
   tls:
     termination: edge           # TLS terminated at router
@@ -472,6 +460,7 @@ function NetworkingHealthAudit({
       why: 'By default, all pods can communicate with each other. Without NetworkPolicies, a compromised pod can access any other pod in the cluster, enabling lateral movement and data exfiltration.',
       passing: namespacesWithPoliciesArray.map(ns => ({ metadata: { name: ns, namespace: ns } })),
       failing: namespacesWithoutPolicies.map(ns => ({ metadata: { name: ns, namespace: ns } })),
+      fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -494,6 +483,7 @@ spec:
       why: 'NodePort services open ports (30000-32767) on every cluster node, bypassing ingress controllers and network policies. This increases attack surface and makes firewall management difficult.',
       passing: nonNodePortServices,
       failing: nodePortServices,
+      fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `# Instead of NodePort:
 apiVersion: v1
 kind: Service
@@ -537,6 +527,7 @@ spec:
       why: 'A degraded IngressController cannot route traffic to your applications. This causes HTTP 503 errors for all Routes handled by that controller, resulting in complete application outages.',
       passing: healthyControllers,
       failing: unhealthyControllers,
+      fixLabel: 'How to fix — troubleshooting steps:',
       yamlExample: `# Check controller status:
 oc get ingresscontroller -n openshift-ingress-operator
 
@@ -567,6 +558,7 @@ oc get ingresscontroller -n openshift-ingress-operator
       why: 'Not-admitted Routes are not served by the ingress controller. The hostname is not routable, causing 404 errors for all requests to that Route.',
       passing: admittedRoutes,
       failing: notAdmittedRoutes,
+      fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `# Common causes:
 # 1. Host conflicts — another Route in the same namespace already uses that hostname
 # 2. TLS certificate missing — check that spec.tls.certificate/key Secret exists
@@ -592,6 +584,7 @@ spec:
       why: 'Ingress policies alone do not prevent compromised pods from making outbound connections. Egress policies restrict what external services pods can reach, limiting data exfiltration and lateral movement.',
       passing: namespacesWithEgress.map(ns => ({ metadata: { name: ns, namespace: ns } })),
       failing: namespacesWithIngressNoEgress.map(ns => ({ metadata: { name: ns, namespace: ns } })),
+      fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -607,122 +600,36 @@ spec:
     return allChecks;
   }, [routes, services, netpols, ingressControllers, allNamespaces, namespacesWithPolicies, namespacesWithEgressPolicies]);
 
-  // Calculate score
-  const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
-  const score = checks.length > 0 ? Math.round((totalPassing / checks.length) * 100) : 100;
+  const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
+    const id = check.id;
+    const name = item.metadata?.name || '';
+    const ns = item.metadata?.namespace || '';
+    const isNamespace = id === 'network-policies' || id === 'egress-policies';
+
+    let editPath = '';
+    if (id === 'route-tls' || id === 'route-admission') {
+      editPath = `/yaml/route.openshift.io~v1~routes/${ns}/${name}`;
+    } else if (id === 'nodeport-services') {
+      editPath = `/yaml/v1~services/${ns}/${name}`;
+    } else if (id === 'network-policies' || id === 'egress-policies') {
+      editPath = `/create/networking.k8s.io~v1~networkpolicies`;
+    } else if (id === 'ingress-health') {
+      editPath = `/r/operator.openshift.io~v1~ingresscontrollers/_/${name}`;
+    }
+    go(editPath, isNamespace ? `Create NetworkPolicy (${name})` : `${name} (YAML)`);
+  }, [go]);
 
   return (
-    <Card>
-      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-cyan-400" /> Networking Health Audit
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
-          <span className="text-xs text-slate-500">{totalPassing}/{checks.length} passing</span>
-        </div>
-      </div>
-      <div className="divide-y divide-slate-800">
-        {checks.map((check) => {
-          const pass = check.failing.length === 0;
-          const expanded = expandedCheck === check.id;
-          return (
-            <div key={check.id}>
-              <button
-                onClick={() => setExpandedCheck(expanded ? null : check.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
-                  <div>
-                    <span className="text-sm text-slate-200">{check.title}</span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      {pass ? `${check.passing.length} pass` : `${check.failing.length} of ${check.failing.length + check.passing.length} need attention`}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs text-slate-600">{expanded ? '▾' : '▸'}</span>
-              </button>
-
-              {expanded && (
-                <div className="px-4 pb-4 space-y-3">
-                  <p className="text-xs text-slate-400">{check.description}</p>
-
-                  {/* Why it matters */}
-                  <div className="bg-blue-950/20 border border-blue-900/50 rounded p-3">
-                    <div className="text-xs font-medium text-blue-300 mb-1">Why it matters</div>
-                    <p className="text-xs text-slate-400">{check.why}</p>
-                  </div>
-
-                  {/* Failing resources */}
-                  {check.failing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-amber-400 font-medium mb-1.5">Missing ({check.failing.length})</div>
-                      <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 10).map((resource, idx: number) => {
-                          const isNamespace = check.id === 'network-policies' || check.id === 'egress-policies';
-                          const name = resource.metadata.name;
-                          const ns = resource.metadata.namespace;
-
-                          // Determine edit path
-                          let editPath = '';
-                          if (check.id === 'route-tls' || check.id === 'route-admission') {
-                            editPath = `/yaml/route.openshift.io~v1~routes/${ns}/${name}`;
-                          } else if (check.id === 'nodeport-services') {
-                            editPath = `/yaml/v1~services/${ns}/${name}`;
-                          } else if (check.id === 'network-policies' || check.id === 'egress-policies') {
-                            editPath = `/create/networking.k8s.io~v1~networkpolicies`;
-                          } else if (check.id === 'ingress-health') {
-                            editPath = `/r/operator.openshift.io~v1~ingresscontrollers/_/${name}`;
-                          }
-
-                          return (
-                            <button
-                              key={resource.metadata.uid || idx}
-                              onClick={() => go(editPath, isNamespace ? `Create NetworkPolicy (${name})` : `${name} (YAML)`)}
-                              className="flex items-center justify-between w-full py-1 px-2 rounded hover:bg-slate-800/50 text-left transition-colors"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                                <span className="text-xs text-slate-300">{name}</span>
-                                {!isNamespace && ns && <span className="text-xs text-slate-600">{ns}</span>}
-                              </div>
-                              <span className="text-xs text-blue-400">{isNamespace ? 'Create Policy →' : 'Edit YAML →'}</span>
-                            </button>
-                          );
-                        })}
-                        {check.failing.length > 10 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 10} more</div>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Passing resources */}
-                  {check.passing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
-                      <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((resource, idx: number) => (
-                          <span key={resource.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
-                            {resource.metadata.name}
-                          </span>
-                        ))}
-                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* YAML example */}
-                  <div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">How to fix{check.id === 'ingress-health' ? ' — troubleshooting steps:' : ' — add to your YAML:'}</div>
-                    <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded overflow-x-auto">{check.yamlExample}</pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Card>
+    <HealthAuditPanel
+      checks={checks}
+      title="Networking Health Audit"
+      iconColorClass="text-cyan-400"
+      onNavigateItem={handleNavigate}
+      navigateLabel={(check) => {
+        const isNamespace = check.id === 'network-policies' || check.id === 'egress-policies';
+        return isNamespace ? 'Create Policy' : 'Edit YAML';
+      }}
+    />
   );
 }
 

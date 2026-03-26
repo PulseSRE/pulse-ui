@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Users, Key, Lock, AlertTriangle, CheckCircle, ArrowRight, Activity, Info, Clock } from 'lucide-react';
+import { Shield, Users, Key, Lock, AlertTriangle, ArrowRight, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../engine/renderers';
 import type { ClusterRole, ClusterRoleBinding, Role, RoleBinding, ServiceAccount, Namespace, Subject } from '../engine/types';
@@ -308,15 +308,8 @@ function formatChangeAge(date: Date): string {
 
 // ===== RBAC Health Audit =====
 
-interface AuditCheck {
-  id: string;
-  title: string;
-  description: string;
-  why: string;
-  passing: Array<{ metadata?: { name?: string; namespace?: string }; [key: string]: unknown }>;
-  failing: Array<{ metadata?: { name?: string; namespace?: string }; [key: string]: unknown }>;
-  yamlExample: string;
-}
+import type { AuditCheck, AuditItem } from '../components/audit/types';
+import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 
 function RBACHealthAudit({
   clusterRoles,
@@ -337,8 +330,6 @@ function RBACHealthAudit({
   users: K8sResource[];
   go: (path: string, title: string) => void;
 }) {
-  const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
-
   // Helper: exclude system namespaces
   const isSystemNS = (ns: string) => ns.startsWith('openshift-') || ns.startsWith('kube-') || ns === 'openshift' || ns === 'default';
 
@@ -562,110 +553,25 @@ spec:
     return allChecks;
   }, [clusterRoles, clusterRoleBindings, roles, roleBindings, serviceAccounts, namespaces, users]);
 
-  const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
-  const score = Math.round((totalPassing / checks.length) * 100);
+  const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
+    const name = item.metadata?.name || '';
+    const ns = item.metadata?.namespace || '';
+    const path = check.id === 'default-sa' || check.id === 'namespace-isolation'
+      ? `/r/v1~namespaces/_/${name}`
+      : check.id === 'wildcard-rules'
+      ? `/yaml/rbac.authorization.k8s.io~v1~clusterroles/_/${name}`
+      : `/yaml/rbac.authorization.k8s.io~v1~rolebindings/${ns}/${name}`;
+    go(path, name);
+  }, [go]);
 
   return (
-    <Card>
-      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-indigo-400" /> RBAC Health Audit
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
-          <span className="text-xs text-slate-500">{totalPassing}/{checks.length} passing</span>
-        </div>
-      </div>
-      <div className="divide-y divide-slate-800">
-        {checks.map((check) => {
-          const pass = check.failing.length === 0;
-          const expanded = expandedCheck === check.id;
-          return (
-            <div key={check.id}>
-              <button
-                onClick={() => setExpandedCheck(expanded ? null : check.id)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
-                  <div>
-                    <span className="text-sm text-slate-200">{check.title}</span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      {pass ? `${check.passing.length} pass` : `${check.failing.length} of ${check.failing.length + check.passing.length} need attention`}
-                    </span>
-                  </div>
-                </div>
-                <span className="text-xs text-slate-600">{expanded ? '▾' : '▸'}</span>
-              </button>
-
-              {expanded && (
-                <div className="px-4 pb-4 space-y-3">
-                  <p className="text-xs text-slate-400">{check.description}</p>
-
-                  {/* Why it matters */}
-                  <div className="bg-blue-950/20 border border-blue-900/50 rounded p-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Info className="w-3.5 h-3.5 text-blue-400" />
-                      <div className="text-xs font-medium text-blue-300">Why it matters</div>
-                    </div>
-                    <p className="text-xs text-slate-400">{check.why}</p>
-                  </div>
-
-                  {/* Failing items */}
-                  {check.failing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-amber-400 font-medium mb-1.5">Issues ({check.failing.length})</div>
-                      <div className="space-y-1 max-h-32 overflow-auto">
-                        {check.failing.slice(0, 15).map((item, idx) => {
-                          const name = item.metadata?.name || '';
-                          const ns = item.metadata?.namespace || '';
-                          const path = check.id === 'default-sa' || check.id === 'namespace-isolation'
-                            ? `/r/v1~namespaces/_/${name}`
-                            : check.id === 'wildcard-rules'
-                            ? `/yaml/rbac.authorization.k8s.io~v1~clusterroles/_/${name}`
-                            : `/yaml/rbac.authorization.k8s.io~v1~rolebindings/${ns}/${name}`;
-
-                          return (
-                            <button key={idx} onClick={() => go(path, name)}
-                              className="flex items-center justify-between w-full py-1 px-2 rounded hover:bg-slate-800/50 text-left transition-colors">
-                              <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                                <span className="text-xs text-slate-300">{name}</span>
-                                {ns && <span className="text-xs text-slate-600">{ns}</span>}
-                              </div>
-                              <span className="text-xs text-blue-400">View →</span>
-                            </button>
-                          );
-                        })}
-                        {check.failing.length > 15 && <div className="text-xs text-slate-600 px-2">+{check.failing.length - 15} more</div>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Passing items */}
-                  {check.passing.length > 0 && (
-                    <div>
-                      <div className="text-xs text-green-400 font-medium mb-1">Passing ({check.passing.length})</div>
-                      <div className="flex flex-wrap gap-1">
-                        {check.passing.slice(0, 8).map((item, idx) => (
-                          <span key={idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">{item.metadata?.name || ''}</span>
-                        ))}
-                        {check.passing.length > 8 && <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* YAML example */}
-                  <div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">How to fix:</div>
-                    <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded overflow-x-auto whitespace-pre-wrap">{check.yamlExample}</pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Card>
+    <HealthAuditPanel
+      checks={checks}
+      title="RBAC Health Audit"
+      iconColorClass="text-indigo-400"
+      onNavigateItem={handleNavigate}
+      navigateLabel={() => 'View'}
+      maxFailingItems={15}
+    />
   );
 }
