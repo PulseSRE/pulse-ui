@@ -4,17 +4,21 @@
  */
 
 import React, { useState } from 'react';
-import { GitBranch, CheckCircle, XCircle, Loader2, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { GitBranch, CheckCircle, XCircle, Loader2, Eye, EyeOff, ExternalLink, AlertTriangle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGitOpsConfig } from '../hooks/useGitOpsConfig';
+import { useArgoCD } from '../hooks/useArgoCD';
 import { useUIStore } from '../store/uiStore';
+import { useNavigateTab } from '../hooks/useNavigateTab';
 import type { GitOpsConfig as GitOpsConfigType } from '../engine/gitProvider';
 import { Card } from './primitives/Card';
 import { Panel } from './primitives/Panel';
 
 export function GitOpsConfig() {
   const { config, isLoading, isConfigured, save, testConnection } = useGitOpsConfig();
+  const { available: argoCDAvailable, detecting: argoCDDetecting } = useArgoCD();
   const addToast = useUIStore((s) => s.addToast);
+  const go = useNavigateTab();
 
   const [form, setForm] = useState<GitOpsConfigType>({
     provider: config?.provider || 'github',
@@ -74,6 +78,33 @@ export function GitOpsConfig() {
 
   return (
     <div className="space-y-6">
+      {/* ArgoCD prerequisite banner */}
+      {!argoCDDetecting && !argoCDAvailable && (
+        <div className="rounded-lg border border-amber-800/40 bg-amber-900/20 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-amber-300">ArgoCD is not installed</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                The OpenShift GitOps operator must be installed before configuring GitOps integration.
+                This will deploy ArgoCD in the <code className="text-xs bg-slate-800 px-1 py-0.5 rounded font-mono">openshift-gitops</code> namespace
+                and enable application sync, drift detection, and auto-PR on save.
+              </p>
+              <p className="text-xs text-slate-500 mt-2">
+                You can still configure your Git repository below — the settings will be saved and applied
+                once ArgoCD is installed.
+              </p>
+              <button
+                onClick={() => go('/create/v1~pods?tab=operators&q=openshift+gitops', 'Operator Catalog')}
+                className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
+              >
+                Open Operator Catalog <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Panel title="GitOps Repository" icon={<GitBranch className="w-4 h-4 text-violet-400" />}>
         <div className="space-y-4">
           {/* Provider */}

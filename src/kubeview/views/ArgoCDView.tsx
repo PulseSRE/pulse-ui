@@ -73,7 +73,7 @@ export default function ArgoCDView() {
             <p className="text-sm text-slate-400 mb-6">GitOps uses Git as the single source of truth for your cluster configuration. Changes are made via pull requests, and ArgoCD ensures your cluster matches the desired state in Git.</p>
 
             <div className="space-y-4">
-              <StepCard number={1} title="Install OpenShift GitOps" description="Install the OpenShift GitOps operator from OperatorHub. This deploys ArgoCD in the openshift-gitops namespace." action="Install Operator" onClick={() => go('/create/v1~pods?tab=operators&q=openshift-gitops', 'Operators')} />
+              <StepCard number={1} title="Install OpenShift GitOps" description="Install the OpenShift GitOps operator from OperatorHub. This deploys ArgoCD in the openshift-gitops namespace and provides ArgoCD Application CRDs." action="Open Operator Catalog" onClick={() => go('/create/v1~pods?tab=operators&q=openshift+gitops', 'Operator Catalog')} />
               <StepCard number={2} title="Create a Git Repository" description="Create a Git repo (GitHub, GitLab, or Bitbucket) to store your Kubernetes manifests. Organize by environment or application." />
               <StepCard number={3} title="Create an ArgoCD Application" description="Define an Application resource that points to your Git repo and target namespace. ArgoCD will sync your manifests to the cluster." />
               <StepCard number={4} title="Configure Pulse Integration" description="Go to Admin → GitOps tab to connect Pulse to your Git provider. This enables auto-PR on resource edits and drift tracking." action="Configure" onClick={() => go('/admin?tab=gitops', 'Admin')} />
