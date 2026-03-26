@@ -3,11 +3,12 @@ import {
   ArrowRight, Shield, Bell, Settings,
   HardDrive, Package, Globe, Server, Puzzle, Users, Hammer,
   CheckCircle, XCircle, GitBranch, Clock, ChevronDown,
-  Github, HeartPulse, Search, AlertCircle,
+  Github, HeartPulse, Search, AlertCircle, RefreshCw,
   FileCode, History, GitGraph, ScrollText, Camera,
   Diff, Monitor, Terminal, Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUIStore } from '../store/uiStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -23,6 +24,7 @@ export default function WelcomeView() {
   const openCommandPalette = useUIStore((s) => s.openCommandPalette);
   const connectionStatus = useUIStore((s) => s.connectionStatus);
   const go = useNavigateTab();
+  const queryClient = useQueryClient();
 
   const { data: nodes = [], isLoading: nodesLoading, isError: nodesError } = useK8sListWatch({ apiPath: '/api/v1/nodes' });
 
@@ -71,6 +73,8 @@ export default function WelcomeView() {
                 readyCount={readyCount}
                 isLoading={nodesLoading}
                 isError={nodesError}
+                onRetry={() => queryClient.invalidateQueries({ queryKey: ['k8s'] })}
+                onGoAdmin={() => go('/admin', 'Administration')}
               />
             </div>
           </div>
@@ -211,16 +215,40 @@ export default function WelcomeView() {
 
 /* ── Sub-components ── */
 
-function ClusterStatusPill({ isConnected, connectionStatus, nodeCount, readyCount, isLoading, isError }: {
+function ClusterStatusPill({ isConnected, connectionStatus, nodeCount, readyCount, isLoading, isError, onRetry, onGoAdmin }: {
   isConnected: boolean; connectionStatus: string; nodeCount: number; readyCount: number; isLoading: boolean; isError?: boolean;
+  onRetry?: () => void; onGoAdmin?: () => void;
 }) {
   // #8 error state
   if (isError && !isLoading) {
     return (
-      <span role="status" aria-live="polite" className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-950/30 border border-red-900/40 text-xs text-red-400">
-        <AlertCircle className="w-3 h-3" aria-hidden="true" />
-        Unable to reach cluster API
-      </span>
+      <div className="flex flex-col items-center gap-2">
+        <span role="status" aria-live="polite" className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-950/30 border border-red-900/40 text-xs text-red-400">
+          <AlertCircle className="w-3 h-3" aria-hidden="true" />
+          Unable to reach cluster API
+        </span>
+        <p className="text-xs text-slate-500">Make sure <code className="px-1 py-0.5 bg-slate-800 rounded text-slate-400">oc proxy --port=8001</code> is running</p>
+        <div className="flex items-center gap-2">
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-xs font-medium text-white transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" aria-hidden="true" />
+              Retry
+            </button>
+          )}
+          {onGoAdmin && (
+            <button
+              onClick={onGoAdmin}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition-colors"
+            >
+              <Settings className="w-3 h-3" aria-hidden="true" />
+              Administration
+            </button>
+          )}
+        </div>
+      </div>
     );
   }
   if (isLoading) {
