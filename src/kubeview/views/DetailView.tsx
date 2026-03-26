@@ -328,6 +328,19 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [showDeleteProgress, setShowDeleteProgress] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [showLabelDialog, setShowLabelDialog] = React.useState(false);
+  const [labelKey, setLabelKey] = React.useState('');
+  const [labelValue, setLabelValue] = React.useState('');
+
+  const addLabelButton = (
+    <button
+      disabled={!!actionLoading}
+      onClick={() => { setLabelKey(''); setLabelValue(''); setShowLabelDialog(true); }}
+      className="mt-2 text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+    >
+      {actionLoading === 'label' ? 'Adding...' : '+ Add label'}
+    </button>
+  );
 
   if (error) {
     const isNotFound = (error as Error).message?.includes('not found') || (error as Error).message?.includes('404');
@@ -657,6 +670,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                         </div>
                       ))}
                     </div>
+                    {addLabelButton}
                   </DetailSection>
                 )}
                 {/* Annotations */}
@@ -706,6 +720,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                         </div>
                       ))}
                     </div>
+                    {addLabelButton}
                   </DetailSection>
                 )}
                 {/* Annotations */}
@@ -842,28 +857,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                     </div>
                   ))}
                 </div>
-                <button
-                  disabled={!!actionLoading}
-                  onClick={async () => {
-                    const input = window.prompt('Add label (key=value):');
-                    if (!input || !input.includes('=')) return;
-                    const [k, ...vParts] = input.split('=');
-                    const v = vParts.join('=');
-                    setActionLoading('label');
-                    try {
-                      await k8sPatch(apiPath, { metadata: { labels: { [k]: v } } });
-                      addToast({ type: 'success', title: `Label ${k}=${v} added` });
-                      queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-                    } catch (err) {
-                      showErrorToast(err, 'Failed to add label');
-                    } finally {
-                      setActionLoading(null);
-                    }
-                  }}
-                  className="mt-2 text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
-                >
-                  {actionLoading === 'label' ? 'Adding...' : '+ Add label'}
-                </button>
+                {addLabelButton}
               </DetailSection>
             )}
 
@@ -1078,6 +1072,78 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
               go(`/r/${gvrUrl}`, resourcePlural);
             }}
           />
+        </div>
+      </div>
+    )}
+
+    {/* Add Label Dialog */}
+    {showLabelDialog && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="dialog" aria-label="Add label">
+        <div className="bg-slate-900 border border-slate-700 rounded-lg shadow-xl w-full max-w-md p-6">
+          <h3 className="text-sm font-semibold text-slate-200 mb-4">Add Label</h3>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const k = labelKey.trim();
+              const v = labelValue.trim();
+              if (!k) return;
+              setActionLoading('label');
+              try {
+                await k8sPatch(apiPath, { metadata: { labels: { [k]: v } } });
+                addToast({ type: 'success', title: `Label ${k}=${v} added` });
+                queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
+                setShowLabelDialog(false);
+              } catch (err) {
+                showErrorToast(err, 'Failed to add label');
+              } finally {
+                setActionLoading(null);
+              }
+            }}
+          >
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="label-key" className="block text-xs text-slate-400 mb-1">Key</label>
+                <input
+                  id="label-key"
+                  type="text"
+                  value={labelKey}
+                  onChange={(e) => setLabelKey(e.target.value)}
+                  placeholder="e.g. app.kubernetes.io/name"
+                  className="w-full px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  autoFocus
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="label-value" className="block text-xs text-slate-400 mb-1">Value</label>
+                <input
+                  id="label-value"
+                  type="text"
+                  value={labelValue}
+                  onChange={(e) => setLabelValue(e.target.value)}
+                  placeholder="e.g. my-app"
+                  className="w-full px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowLabelDialog(false)}
+                disabled={actionLoading === 'label'}
+                className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading === 'label' || !labelKey.trim()}
+                className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50"
+              >
+                {actionLoading === 'label' ? 'Adding...' : 'Add'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     )}

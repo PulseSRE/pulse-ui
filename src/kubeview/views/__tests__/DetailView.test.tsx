@@ -428,15 +428,12 @@ describe('DetailView', () => {
         expect(screen.getByTestId('breadcrumb-kind')).toBeDefined();
       });
 
-      // Kind segment links to list view
       const kindLink = screen.getByTestId('breadcrumb-kind');
       expect(kindLink.textContent).toBe('deployments');
 
-      // Namespace segment present
       const nsLink = screen.getByTestId('breadcrumb-namespace');
       expect(nsLink.textContent).toBe('default');
 
-      // Name segment is plain text
       const nameSpan = screen.getByTestId('breadcrumb-name');
       expect(nameSpan.textContent).toBe('my-deployment');
       expect(nameSpan.tagName).toBe('SPAN');
@@ -468,13 +465,8 @@ describe('DetailView', () => {
         expect(screen.getByTestId('breadcrumb-kind')).toBeDefined();
       });
 
-      // Kind segment present
       expect(screen.getByTestId('breadcrumb-kind').textContent).toBe('nodes');
-
-      // No namespace segment
       expect(screen.queryByTestId('breadcrumb-namespace')).toBeNull();
-
-      // Name segment present
       expect(screen.getByTestId('breadcrumb-name').textContent).toBe('worker-1');
     });
 
@@ -502,6 +494,95 @@ describe('DetailView', () => {
 
       fireEvent.click(screen.getByTestId('breadcrumb-namespace'));
       expect(addTabMock).toHaveBeenCalledWith(expect.objectContaining({ path: '/r/v1~pods?ns=default' }));
+    });
+  });
+
+  describe('Add Label dialog', () => {
+    it('opens a modal dialog instead of window.prompt when Add label is clicked', async () => {
+      const pod = makePod();
+      mockK8sGet.mockResolvedValue(pod);
+
+      renderDetailView({ gvrKey: 'v1/pods', namespace: 'default', name: 'my-pod' });
+
+      await waitFor(() => {
+        expect(screen.getByText('+ Add label')).toBeDefined();
+      });
+
+      const addLabelBtn = screen.getByText('+ Add label');
+      fireEvent.click(addLabelBtn);
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog', { name: 'Add label' })).toBeDefined();
+        expect(screen.getByLabelText('Key')).toBeDefined();
+        expect(screen.getByLabelText('Value')).toBeDefined();
+        expect(screen.getByText('Cancel')).toBeDefined();
+        expect(screen.getByText('Add')).toBeDefined();
+      });
+
+      const promptSpy = vi.spyOn(window, 'prompt');
+      expect(promptSpy).not.toHaveBeenCalled();
+      promptSpy.mockRestore();
+    });
+
+    it('submits label key/value and calls k8sPatch', async () => {
+      const pod = makePod();
+      mockK8sGet.mockResolvedValue(pod);
+      mockK8sPatch.mockResolvedValue({});
+
+      renderDetailView({ gvrKey: 'v1/pods', namespace: 'default', name: 'my-pod' });
+
+      await waitFor(() => {
+        expect(screen.getAllByText('my-pod').length).toBeGreaterThanOrEqual(1);
+      });
+
+      fireEvent.click(screen.getByText('+ Add label'));
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Key')).toBeDefined();
+      });
+
+      fireEvent.change(screen.getByLabelText('Key'), { target: { value: 'env' } });
+      fireEvent.change(screen.getByLabelText('Value'), { target: { value: 'production' } });
+
+      fireEvent.click(screen.getByText('Add'));
+
+      await waitFor(() => {
+        expect(mockK8sPatch).toHaveBeenCalledWith(
+          '/api/v1/namespaces/default/pods/my-pod',
+          { metadata: { labels: { env: 'production' } } },
+        );
+      });
+
+      await waitFor(() => {
+        expect(addToastMock).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'success', title: 'Label env=production added' }),
+        );
+      });
+    });
+
+    it('closes dialog when Cancel is clicked', async () => {
+      const pod = makePod();
+      mockK8sGet.mockResolvedValue(pod);
+
+      renderDetailView({ gvrKey: 'v1/pods', namespace: 'default', name: 'my-pod' });
+
+      await waitFor(() => {
+        expect(screen.getAllByText('my-pod').length).toBeGreaterThanOrEqual(1);
+      });
+
+      fireEvent.click(screen.getByText('+ Add label'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog', { name: 'Add label' })).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByText('Cancel'));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: 'Add label' })).toBeNull();
+      });
+
+      expect(mockK8sPatch).not.toHaveBeenCalled();
     });
   });
 });

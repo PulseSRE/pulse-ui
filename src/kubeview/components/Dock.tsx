@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { Minus, X, GripHorizontal } from 'lucide-react';
+import { Minus, X, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useAgentStore } from '../store/agentStore';
 import { AIIconStatic, AIBadge, AI_ACCENT, aiActiveClass } from './agent/AIBranding';
@@ -10,8 +10,10 @@ const LogStream = lazy(() => import('./logs/LogStream'));
 
 export function Dock() {
   const dockPanel = useUIStore((s) => s.dockPanel);
-  const dockHeight = useUIStore((s) => s.dockHeight);
-  const setDockHeight = useUIStore((s) => s.setDockHeight);
+  const dockWidth = useUIStore((s) => s.dockWidth);
+  const dockFullscreen = useUIStore((s) => s.dockFullscreen);
+  const setDockWidth = useUIStore((s) => s.setDockWidth);
+  const toggleDockFullscreen = useUIStore((s) => s.toggleDockFullscreen);
   const openDock = useUIStore((s) => s.openDock);
   const closeDock = useUIStore((s) => s.closeDock);
   const dockContext = useUIStore((s) => s.dockContext);
@@ -19,14 +21,13 @@ export function Dock() {
   const clearUnread = useAgentStore((s) => s.setUnreadInsight);
 
   const [isResizing, setIsResizing] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const startY = useRef(0);
-  const startHeight = useRef(0);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsResizing(true);
-    startY.current = e.clientY;
-    startHeight.current = dockHeight;
+    startX.current = e.clientX;
+    startWidth.current = dockWidth;
     e.preventDefault();
   };
 
@@ -34,195 +35,109 @@ export function Dock() {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const delta = startY.current - e.clientY;
-      const newHeight = startHeight.current + delta;
-      setDockHeight(newHeight);
+      const delta = startX.current - e.clientX;
+      setDockWidth(startWidth.current + delta);
     };
 
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
+    const handleMouseUp = () => setIsResizing(false);
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing, setDockHeight]);
+  }, [isResizing, setDockWidth]);
 
-  if (isMinimized) {
-    return (
-      <div className="flex h-8 items-center justify-between border-t border-slate-700 bg-slate-800 px-4">
-        <div className="flex items-center gap-3 text-sm text-slate-300">
-          <button
-            onClick={() => openDock('logs')}
-            className={cn(
-              'px-2 py-1 transition-colors',
-              dockPanel === 'logs'
-                ? 'text-emerald-400'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            Logs
-          </button>
-          <button
-            onClick={() => openDock('terminal')}
-            className={cn(
-              'px-2 py-1 transition-colors',
-              dockPanel === 'terminal'
-                ? 'text-emerald-400'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            Terminal
-          </button>
-          <button
-            onClick={() => openDock('events')}
-            className={cn(
-              'px-2 py-1 transition-colors',
-              dockPanel === 'events'
-                ? 'text-emerald-400'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            Events
-          </button>
-          <button
-            onClick={() => { openDock('agent'); clearUnread(false); }}
-            className={cn(
-              'relative flex items-center gap-1 px-2 py-1 transition-colors',
-              dockPanel === 'agent'
-                ? AI_ACCENT.text
-                : 'text-slate-400 hover:text-violet-300'
-            )}
-          >
-            <AIIconStatic size={14} className={dockPanel === 'agent' ? '' : 'text-slate-400'} />
-            Agent
-            <AIBadge className="ml-1" />
-            {hasUnreadInsight && (
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400" />
-            )}
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsMinimized(false)}
-            className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
-            title="Restore"
-          >
-            <GripHorizontal className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const tabs = [
+    { id: 'logs' as const, label: 'Logs', active: dockPanel === 'logs' },
+    { id: 'terminal' as const, label: 'Terminal', active: dockPanel === 'terminal' },
+    { id: 'events' as const, label: 'Events', active: dockPanel === 'events' },
+  ];
 
   return (
     <div
-      className="flex flex-col border-t border-slate-700 bg-slate-850"
-      style={{ height: dockHeight }}
+      className={cn(
+        'flex flex-col border-l border-slate-700 bg-slate-850',
+        dockFullscreen ? 'absolute inset-0 z-40' : 'relative',
+      )}
+      style={dockFullscreen ? undefined : { width: dockWidth }}
     >
-      {/* Resize handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        className={cn(
-          'group flex h-1 cursor-ns-resize items-center justify-center border-b border-slate-700 bg-slate-800 transition-colors hover:bg-slate-700',
-          isResizing && 'bg-emerald-600'
-        )}
-      >
-        <GripHorizontal className="h-3 w-3 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100" />
-      </div>
+      {/* Resize handle (left edge) */}
+      {!dockFullscreen && (
+        <div
+          onMouseDown={handleMouseDown}
+          className={cn(
+            'absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize z-10 transition-colors hover:bg-violet-500/50',
+            isResizing && 'bg-violet-500',
+          )}
+        />
+      )}
 
       {/* Header */}
-      <div className="flex h-9 items-center justify-between border-b border-slate-700 bg-slate-800 px-4">
-        <div className="flex items-center gap-3 text-sm" role="tablist" aria-label="Dock panels">
-          <button
-            role="tab"
-            aria-selected={dockPanel === 'logs'}
-            onClick={() => openDock('logs')}
-            className={cn(
-              'px-2 py-1 transition-colors',
-              dockPanel === 'logs'
-                ? 'border-b-2 border-emerald-400 text-emerald-400'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            Logs
-          </button>
-          <button
-            role="tab"
-            aria-selected={dockPanel === 'terminal'}
-            onClick={() => openDock('terminal')}
-            className={cn(
-              'px-2 py-1 transition-colors',
-              dockPanel === 'terminal'
-                ? 'border-b-2 border-emerald-400 text-emerald-400'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            Terminal
-          </button>
-          <button
-            role="tab"
-            aria-selected={dockPanel === 'events'}
-            onClick={() => openDock('events')}
-            className={cn(
-              'px-2 py-1 transition-colors',
-              dockPanel === 'events'
-                ? 'border-b-2 border-emerald-400 text-emerald-400'
-                : 'text-slate-400 hover:text-slate-200'
-            )}
-          >
-            Events
-          </button>
+      <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800 px-3 py-1.5 shrink-0">
+        <div className="flex items-center gap-1 text-xs" role="tablist" aria-label="Dock panels">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={t.active}
+              onClick={() => openDock(t.id)}
+              className={cn(
+                'px-2 py-1 rounded transition-colors',
+                t.active
+                  ? 'bg-slate-700 text-emerald-400'
+                  : 'text-slate-400 hover:text-slate-200',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
           <button
             role="tab"
             aria-selected={dockPanel === 'agent'}
             onClick={() => { openDock('agent'); clearUnread(false); }}
             className={cn(
-              'relative flex items-center gap-1 px-2 py-1 transition-colors',
+              'relative flex items-center gap-1 px-2 py-1 rounded transition-colors',
               dockPanel === 'agent'
-                ? aiActiveClass
-                : 'text-slate-400 hover:text-violet-300'
+                ? cn('bg-slate-700', aiActiveClass)
+                : 'text-slate-400 hover:text-violet-300',
             )}
           >
-            <AIIconStatic size={14} className={dockPanel === 'agent' ? '' : 'text-slate-400'} />
+            <AIIconStatic size={13} className={dockPanel === 'agent' ? '' : 'text-slate-400'} />
             Agent
-            <AIBadge className="ml-1" />
+            <AIBadge className="ml-0.5" />
             {hasUnreadInsight && (
               <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400" />
             )}
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setIsMinimized(true)}
+            onClick={toggleDockFullscreen}
             className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
-            title="Minimize"
+            title={dockFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           >
-            <Minus className="h-4 w-4" />
+            {dockFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
           <button
             onClick={closeDock}
             className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
             title="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto bg-slate-900 p-4">
+      <div className="flex-1 overflow-auto bg-slate-900">
         {dockPanel === 'logs' && (
           dockContext ? (
-            <Suspense fallback={<div className="text-xs text-slate-500 p-2">Loading logs...</div>}>
+            <Suspense fallback={<div className="text-xs text-slate-500 p-3">Loading logs...</div>}>
               <div className="h-full flex flex-col">
-                <div className="px-2 py-1 text-[10px] text-slate-500 border-b border-slate-800 flex items-center gap-2">
+                <div className="px-3 py-1.5 text-xs text-slate-500 border-b border-slate-800 flex items-center gap-2">
                   <span>{dockContext.namespace}/{dockContext.podName}</span>
                   {dockContext.containerName && <span className="text-slate-600">({dockContext.containerName})</span>}
                 </div>
@@ -238,26 +153,26 @@ export function Dock() {
               </div>
             </Suspense>
           ) : (
-            <div className="font-mono text-xs text-slate-500">
+            <div className="p-4 font-mono text-xs text-slate-500">
               Navigate to a pod or workload to see logs here
             </div>
           )
         )}
 
         {dockPanel === 'terminal' && (
-          <div className="h-full rounded border border-slate-700 bg-black p-3 font-mono text-sm text-green-400">
-            <div className="text-slate-500">$ _</div>
+          <div className="h-full p-3">
+            <div className="h-full rounded border border-slate-700 bg-black p-3 font-mono text-sm text-green-400">
+              <div className="text-slate-500">$ _</div>
+            </div>
           </div>
         )}
 
         {dockPanel === 'events' && (
-          <div className="text-sm text-slate-300">
-            <div className="text-slate-500">No events</div>
-          </div>
+          <div className="p-4 text-sm text-slate-500">No events</div>
         )}
 
         {dockPanel === 'agent' && (
-          <Suspense fallback={<div className="text-sm text-slate-500">Loading agent...</div>}>
+          <Suspense fallback={<div className="text-sm text-slate-500 p-4">Loading agent...</div>}>
             <DockAgentPanel />
           </Suspense>
         )}

@@ -51,15 +51,15 @@ export function Shell() {
       {/* Tab bar */}
       <TabBar />
 
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Main content area + right dock */}
+      <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 overflow-auto">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>
         </main>
 
-        {/* Dock (collapsible bottom panel) */}
+        {/* Dock (right-side panel) */}
         {dockPanel && <Dock />}
       </div>
 

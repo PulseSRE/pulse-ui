@@ -57,13 +57,17 @@ interface UIState {
   toggleBrowser: () => void;
   closeBrowser: () => void;
 
-  // Dock
+  // Dock (right-side panel)
   dockPanel: DockPanel;
   dockHeight: number;
+  dockWidth: number;
+  dockFullscreen: boolean;
   dockContext: { namespace: string; podName: string; containerName?: string } | null;
   openDock: (panel: DockPanel) => void;
   closeDock: () => void;
   setDockHeight: (height: number) => void;
+  setDockWidth: (width: number) => void;
+  toggleDockFullscreen: () => void;
   setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
 
   // Toasts
@@ -233,9 +237,11 @@ export const useUIStore = create<UIState>()(
       toggleBrowser: () => set((state) => ({ browserOpen: !state.browserOpen })),
       closeBrowser: () => set({ browserOpen: false }),
 
-      // Dock
+      // Dock (right-side panel)
       dockPanel: null,
-      dockHeight: 250, // default height
+      dockHeight: 250,
+      dockWidth: 420,
+      dockFullscreen: false,
       dockContext: null,
 
       openDock: (panel) => {
@@ -243,7 +249,7 @@ export const useUIStore = create<UIState>()(
       },
 
       closeDock: () => {
-        set({ dockPanel: null });
+        set({ dockPanel: null, dockFullscreen: false });
       },
 
       setDockContext: (ctx) => {
@@ -253,6 +259,15 @@ export const useUIStore = create<UIState>()(
       setDockHeight: (height) => {
         const clampedHeight = Math.max(100, Math.min(600, height));
         set({ dockHeight: clampedHeight });
+      },
+
+      setDockWidth: (width) => {
+        const clampedWidth = Math.max(300, Math.min(900, width));
+        set({ dockWidth: clampedWidth });
+      },
+
+      toggleDockFullscreen: () => {
+        set((s) => ({ dockFullscreen: !s.dockFullscreen }));
       },
 
       // Toasts
@@ -321,6 +336,7 @@ export const useUIStore = create<UIState>()(
         activeTabId: state.activeTabId,
         selectedNamespace: state.selectedNamespace,
         dockHeight: state.dockHeight,
+        dockWidth: state.dockWidth,
       }),
       merge: (persisted: any, current: any) => {
         if (!persisted) return current;
