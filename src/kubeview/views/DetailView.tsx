@@ -40,6 +40,7 @@ import DataEditor from '../components/DataEditor';
 import DeployProgress from '../components/DeployProgress';
 import { toggleFavorite, isFavorite } from '../engine/favorites';
 import { showErrorToast } from '../engine/errorToast';
+import { copyToClipboard } from '../engine/clipboard';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { StatusBadge } from '../components/primitives/StatusBadge';
 import { ActionMenu, type ActionMenuItem } from '../components/primitives/ActionMenu';
@@ -793,10 +794,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                       </span>
                       <span className="text-xs text-slate-200 font-mono flex-1">{value}</span>
                       <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(`${key}=${value}`);
-                          addToast({ type: 'success', title: 'Label copied' });
-                        }}
+                        onClick={() => copyToClipboard(`${key}=${value}`, 'Label copied')}
                         className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-500 hover:text-slate-300 transition-opacity"
                         title="Copy label"
                       >

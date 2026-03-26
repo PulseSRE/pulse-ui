@@ -12,6 +12,7 @@ import { MetricCard } from '../components/metrics/Sparkline';
 import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { showErrorToast } from '../engine/errorToast';
+import { copyToClipboard } from '../engine/clipboard';
 
 interface PrometheusAlert {
   labels: Record<string, string>;
@@ -529,10 +530,7 @@ export default function AlertsView() {
                 <div
                   key={idx}
                   className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/30 cursor-pointer"
-                  onClick={() => {
-                    try { navigator.clipboard.writeText(rule.query); } catch {}
-                    addToast({ type: 'success', title: 'PromQL copied', detail: rule.query.slice(0, 80) });
-                  }}
+                  onClick={() => copyToClipboard(rule.query, 'PromQL copied')}
                 >
                   {rule.alertCount > 0 ? <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" /> : <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
                   <div className="flex-1 min-w-0">
