@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronUp, ChevronDown, Trash2, Plus, Filter, Columns3, X, Download, Loader2, CheckCircle, XCircle, FileEdit, Sparkles, Inbox, AlertTriangle, Home, RefreshCw } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, Trash2, Plus, Filter, Columns3, Download, Loader2, FileEdit, Sparkles, Inbox, AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 const NLFilterBar = lazy(() => import('../components/agent/NLFilterBar').then(m => ({ default: m.NLFilterBar })));
 import { cn } from '@/lib/utils';
@@ -9,18 +9,18 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { k8sPatch, k8sDelete } from '../engine/query';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { buildApiPathFromResource } from '../hooks/useResourceUrl';
-import { jsonToYaml } from '../engine/yamlUtils';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
-import DeployProgress from '../components/DeployProgress';
 import { useClusterStore } from '../store/clusterStore';
 import { useUIStore } from '../store/uiStore';
-import type { K8sResource, ColumnDef } from '../engine/renderers';
+import type { K8sResource } from '../engine/renderers';
 import { getColumnsForResource } from '../engine/enhancers';
 import { getEnhancer } from '../engine/enhancers';
 import { showErrorToast } from '../engine/errorToast';
 import { useCanI } from '../hooks/useCanI';
-import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { PreviewPanel } from './table/PreviewPanel';
+import { DeleteProgressOverlay } from './table/DeleteProgress';
+import type { DeleteProgressItem } from './table/DeleteProgress';
 
 interface TableViewProps {
   gvrKey: string;
@@ -473,7 +473,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   }, [sortedResources, visibleColumns, resourceKind, addToast]);
 
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = React.useState(false);
-  const [deleteProgress, setDeleteProgress] = React.useState<Array<{ name: string; ns: string; kind: string; status: 'deleting' | 'done' | 'error'; error?: string }>>([]);
+  const [deleteProgress, setDeleteProgress] = React.useState<DeleteProgressItem[]>([]);
   const [pendingDelete, setPendingDelete] = React.useState<{ resource: any; path: string } | null>(null);
   const [singleDeleting, setSingleDeleting] = React.useState(false);
   const [showExport, setShowExport] = React.useState(false);
@@ -956,117 +956,20 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
 
       {/* Preview panel */}
       {previewResource && (
-        <div className="w-80 border-l border-slate-800 bg-slate-900 overflow-auto flex-shrink-0">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
-            <span className="text-sm font-semibold text-slate-200 truncate">{previewResource.metadata.name}</span>
-            <button onClick={() => setPreviewResource(null)} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
-          </div>
-          <div className="p-3 space-y-3 text-xs">
-            <div>
-              <span className="text-slate-500">Kind:</span>
-              <span className="ml-2 text-slate-200">{previewResource.kind}</span>
-            </div>
-            {previewResource.metadata.namespace && (
-              <div>
-                <span className="text-slate-500">Namespace:</span>
-                <span className="ml-2 text-slate-200">{previewResource.metadata.namespace}</span>
-              </div>
-            )}
-            <div>
-              <span className="text-slate-500">Created:</span>
-              <span className="ml-2 text-slate-200">{previewResource.metadata.creationTimestamp ? new Date(previewResource.metadata.creationTimestamp).toLocaleString() : '—'}</span>
-            </div>
-            {previewResource.metadata.labels && Object.keys(previewResource.metadata.labels).length > 0 && (
-              <div>
-                <div className="text-slate-500 mb-1">Labels:</div>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(previewResource.metadata.labels).slice(0, 8).map(([k, v]) => (
-                    <span key={k} className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-xs font-mono">{k.split('/').pop()}={v}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {previewResource.spec && (
-              <div>
-                <div className="text-slate-500 mb-1">Spec:</div>
-                <pre className="text-xs text-emerald-400 font-mono bg-slate-950 p-2 rounded overflow-auto max-h-48">{jsonToYaml(previewResource.spec).slice(0, 500)}</pre>
-              </div>
-            )}
-            <div className="pt-2 border-t border-slate-800">
-              <button
-                onClick={() => {
-                  const gvrUrl = gvrKey.replace(/\//g, '~');
-                  const ns = previewResource.metadata.namespace;
-                  const name = previewResource.metadata.name;
-                  const path = ns ? `/r/${gvrUrl}/${ns}/${name}` : `/r/${gvrUrl}/_/${name}`;
-                  addTab({ title: name, path, pinned: false, closable: true });
-                  navigate(path);
-                }}
-                className="w-full px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-              >
-                Open Detail Page →
-              </button>
-            </div>
-          </div>
-        </div>
+        <PreviewPanel
+          resource={previewResource}
+          gvrKey={gvrKey}
+          onClose={() => setPreviewResource(null)}
+        />
       )}
       </div>
 
       {/* Delete Progress */}
       {deleteProgress.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
-          <div className="w-full max-w-2xl space-y-3 max-h-[80vh] overflow-auto">
-            {deleteProgress.length === 1 ? (
-              // Single delete — show full teardown progress
-              <DeployProgress
-                type={deleteProgress[0].kind === 'Job' ? 'job' : 'deployment'}
-                name={deleteProgress[0].name}
-                namespace={deleteProgress[0].ns}
-                mode="delete"
-                onClose={() => setDeleteProgress([])}
-              />
-            ) : (
-              // Bulk delete — show per-resource status
-              <Card className="overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Trash2 className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <div className="text-sm font-medium text-slate-200">Deleting {deleteProgress.length} resources</div>
-                      <div className="text-xs text-slate-500">
-                        {deleteProgress.filter(d => d.status === 'done').length} done · {deleteProgress.filter(d => d.status === 'deleting').length} in progress · {deleteProgress.filter(d => d.status === 'error').length} failed
-                      </div>
-                    </div>
-                  </div>
-                  <button onClick={() => setDeleteProgress([])} className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1">
-                    {deleteProgress.every(d => d.status !== 'deleting') ? 'Close' : 'Hide'}
-                  </button>
-                </div>
-                <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
-                  {deleteProgress.map((item, i) => (
-                    <div key={i} className="px-4 py-2.5 flex items-center gap-3">
-                      {item.status === 'deleting' && <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />}
-                      {item.status === 'done' && <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />}
-                      {item.status === 'error' && <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-slate-200 truncate">{item.name}</div>
-                        <div className="text-xs text-slate-500">{item.kind} · {item.ns}</div>
-                        {item.error && <div className="text-xs text-red-400 mt-0.5">{item.error}</div>}
-                      </div>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded',
-                        item.status === 'done' ? 'bg-green-900/50 text-green-300' :
-                        item.status === 'error' ? 'bg-red-900/50 text-red-300' :
-                        'bg-blue-900/50 text-blue-300'
-                      )}>
-                        {item.status === 'deleting' ? 'Deleting...' : item.status === 'done' ? 'Deleted' : 'Failed'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-          </div>
-        </div>
+        <DeleteProgressOverlay
+          items={deleteProgress}
+          onClose={() => setDeleteProgress([])}
+        />
       )}
 
       {/* Single Delete Confirmation */}

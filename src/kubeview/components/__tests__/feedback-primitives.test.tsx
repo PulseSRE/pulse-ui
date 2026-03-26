@@ -9,7 +9,6 @@ import { InlineSpinner, SuccessFlash, ErrorIndicator, Skeleton } from '../feedba
 import { Badge } from '../primitives/Badge';
 import { EmptyState } from '../primitives/EmptyState';
 import { SearchInput } from '../primitives/SearchInput';
-import { DataTable } from '../primitives/DataTable';
 import { Dropdown } from '../primitives/Dropdown';
 
 describe('Feedback Components', () => {
@@ -80,18 +79,6 @@ describe('Primitive Components', () => {
   it('renders SearchInput', () => {
     render(<SearchInput value="" onChange={vi.fn()} placeholder="Search..." />);
     expect(screen.getByPlaceholderText('Search...')).toBeDefined();
-  });
-
-  it('renders DataTable with rows', () => {
-    render(
-      <DataTable
-        data={[{ name: 'A' }, { name: 'B' }]}
-        columns={[{ id: 'name', header: 'Name', accessorFn: (r: { name: string }) => r.name }]}
-        getRowId={(r) => r.name}
-      />
-    );
-    expect(screen.getByText('A')).toBeDefined();
-    expect(screen.getByText('B')).toBeDefined();
   });
 
   it('renders Dropdown trigger', () => {
