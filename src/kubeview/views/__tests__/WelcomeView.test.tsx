@@ -94,17 +94,27 @@ describe('WelcomeView', () => {
     expect(screen.getByText('Key Capabilities')).toBeDefined();
   });
 
-  it('renders first 6 feature showcase items (collapsed by default)', () => {
+  const allCapabilities = [
+    'YAML Editor', 'GitOps / ArgoCD', 'AI Agent', 'Incident Timeline',
+    'Health Audits', 'Security Audit', 'Rollback', 'Impersonation',
+    'Dependency Graph', 'Log Streaming', 'Cluster Snapshots', 'Resource Diffing',
+    'Pod Shell',
+  ];
+
+  it('renders all 12 capability rows visible by default', () => {
     renderView();
-    expect(screen.getByText('YAML Editor')).toBeDefined();
-    expect(screen.getByText('GitOps / ArgoCD')).toBeDefined();
-    expect(screen.getByText('Incident Timeline')).toBeDefined();
-    expect(screen.getByText('Health Audits')).toBeDefined();
-    expect(screen.getByText('Security Audit')).toBeDefined();
-    expect(screen.getByText('Rollback')).toBeDefined();
-    // Hidden capabilities not visible until expanded
-    expect(screen.queryByText('Pod Shell')).toBeNull();
-    expect(screen.getByText(/Show all 12/)).toBeDefined();
+    for (const cap of allCapabilities) {
+      expect(screen.getByText(cap)).toBeDefined();
+    }
+    expect(screen.getByText('Show fewer')).toBeDefined();
+  });
+
+  it('all capability rows are clickable buttons', () => {
+    renderView();
+    for (const cap of allCapabilities) {
+      const el = screen.getByText(cap).closest('button');
+      expect(el, `${cap} should be inside a <button>`).not.toBeNull();
+    }
   });
 
   it('renders feature descriptions', () => {

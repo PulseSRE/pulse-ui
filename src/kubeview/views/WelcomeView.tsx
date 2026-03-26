@@ -37,7 +37,7 @@ export default function WelcomeView() {
     }).length,
   [typedNodes]);
 
-  const [showAllCapabilities, setShowAllCapabilities] = useState(false);
+  const [showAllCapabilities, setShowAllCapabilities] = useState(true);
 
   return (
     <div className="h-full overflow-auto bg-slate-950">
@@ -166,22 +166,21 @@ export default function WelcomeView() {
             {showAllCapabilities && (
               <>
                 <CapabilityRow iconColor="text-teal-400" icon={<Users className="w-4 h-4" />} title="Impersonation" description="Test RBAC as another user — all API calls use impersonation headers" onClick={() => go('/users', 'Users')} />
-                <CapabilityRow iconColor="text-indigo-400" icon={<GitGraph className="w-4 h-4" />} title="Dependency Graph" description="Visualize resource relationships — pods, services, volumes, owner chains" />
-                <CapabilityRow iconColor="text-blue-400" icon={<ScrollText className="w-4 h-4" />} title="Log Streaming" description="Real-time pod logs with search, follow, timestamps, download" />
+                <CapabilityRow iconColor="text-indigo-400" icon={<GitGraph className="w-4 h-4" />} title="Dependency Graph" description="Visualize resource relationships — pods, services, volumes, owner chains" onClick={() => go('/workloads', 'Workloads')} />
+                <CapabilityRow iconColor="text-blue-400" icon={<ScrollText className="w-4 h-4" />} title="Log Streaming" description="Real-time pod logs with search, follow, timestamps, download" onClick={() => go('/workloads', 'Workloads')} />
                 <CapabilityRow iconColor="text-amber-400" icon={<Camera className="w-4 h-4" />} title="Cluster Snapshots" description="Capture and compare cluster state over time" onClick={() => go('/admin?tab=snapshots', 'Snapshots')} />
-                <CapabilityRow iconColor="text-violet-400" icon={<Diff className="w-4 h-4" />} title="Resource Diffing" description="YAML diff preview against the live version before saving" />
-                <CapabilityRow iconColor="text-orange-400" icon={<Terminal className="w-4 h-4" />} title="Pod Shell" description="Shell access to containers and nodes for live debugging" />
+                <CapabilityRow iconColor="text-violet-400" icon={<Diff className="w-4 h-4" />} title="Resource Diffing" description="YAML diff preview against the live version before saving" onClick={() => go('/workloads', 'Workloads')} />
+                <CapabilityRow iconColor="text-orange-400" icon={<Terminal className="w-4 h-4" />} title="Pod Shell" description="Shell access to containers and nodes for live debugging" onClick={() => go('/compute', 'Compute')} />
               </>
             )}
           </div>
-          {!showAllCapabilities && (
-            <button
-              onClick={() => setShowAllCapabilities(true)}
-              className="flex items-center gap-1.5 mx-auto mt-3 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-            >
-              <ChevronDown className="w-3.5 h-3.5" /> Show all 12 capabilities
-            </button>
-          )}
+          <button
+            onClick={() => setShowAllCapabilities(v => !v)}
+            className="flex items-center gap-1.5 mx-auto mt-3 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', showAllCapabilities && 'rotate-180')} />
+            {showAllCapabilities ? 'Show fewer' : 'Show all 12 capabilities'}
+          </button>
         </section>
 
         {/* ── Keyboard Shortcuts (#1 fix 11px, #12 platform-aware) ── */}
