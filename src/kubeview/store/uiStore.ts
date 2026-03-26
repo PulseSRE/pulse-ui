@@ -63,12 +63,14 @@ interface UIState {
   dockWidth: number;
   dockFullscreen: boolean;
   dockContext: { namespace: string; podName: string; containerName?: string } | null;
+  terminalContext: { namespace: string; podName: string; containerName: string; isNode?: boolean } | null;
   openDock: (panel: DockPanel) => void;
   closeDock: () => void;
   setDockHeight: (height: number) => void;
   setDockWidth: (width: number) => void;
   toggleDockFullscreen: () => void;
   setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
+  openTerminal: (ctx: { namespace: string; podName: string; containerName: string; isNode?: boolean }) => void;
 
   // Toasts
   toasts: ToastData[];
@@ -243,6 +245,7 @@ export const useUIStore = create<UIState>()(
       dockWidth: 420,
       dockFullscreen: false,
       dockContext: null,
+      terminalContext: null,
 
       openDock: (panel) => {
         set({ dockPanel: panel });
@@ -268,6 +271,10 @@ export const useUIStore = create<UIState>()(
 
       toggleDockFullscreen: () => {
         set((s) => ({ dockFullscreen: !s.dockFullscreen }));
+      },
+
+      openTerminal: (ctx) => {
+        set({ terminalContext: ctx, dockPanel: 'terminal' });
       },
 
       // Toasts

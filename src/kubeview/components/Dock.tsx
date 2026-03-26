@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 const DockAgentPanel = lazy(() => import('./agent/DockAgentPanel').then(m => ({ default: m.DockAgentPanel })));
 const LogStream = lazy(() => import('./logs/LogStream'));
+const PodTerminal = lazy(() => import('./PodTerminal'));
 
 export function Dock() {
   const dockPanel = useUIStore((s) => s.dockPanel);
@@ -17,6 +18,7 @@ export function Dock() {
   const openDock = useUIStore((s) => s.openDock);
   const closeDock = useUIStore((s) => s.closeDock);
   const dockContext = useUIStore((s) => s.dockContext);
+  const terminalContext = useUIStore((s) => s.terminalContext);
   const hasUnreadInsight = useAgentStore((s) => s.hasUnreadInsight);
   const clearUnread = useAgentStore((s) => s.setUnreadInsight);
 
@@ -160,11 +162,25 @@ export function Dock() {
         )}
 
         {dockPanel === 'terminal' && (
-          <div className="h-full p-3">
-            <div className="h-full rounded border border-slate-700 bg-black p-3 font-mono text-sm text-green-400">
-              <div className="text-slate-500">$ _</div>
+          terminalContext ? (
+            <Suspense fallback={<div className="text-xs text-slate-500 p-3">Loading terminal...</div>}>
+              <div className="h-full">
+                <PodTerminal
+                  key={`${terminalContext.namespace}/${terminalContext.podName}/${terminalContext.containerName}`}
+                  namespace={terminalContext.namespace}
+                  podName={terminalContext.podName}
+                  containerName={terminalContext.containerName}
+                  isNode={terminalContext.isNode}
+                  onClose={closeDock}
+                  inline
+                />
+              </div>
+            </Suspense>
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-slate-500">
+              Open a terminal from a pod or node detail view
             </div>
-          </div>
+          )
         )}
 
         {dockPanel === 'events' && (

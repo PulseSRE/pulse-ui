@@ -8,6 +8,8 @@ interface PodTerminalProps {
   containerName: string;
   onClose: () => void;
   isNode?: boolean;
+  /** Render inline (no overlay) for dock panel */
+  inline?: boolean;
 }
 
 interface TerminalLine {
@@ -22,7 +24,7 @@ function timestamp() {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export default function PodTerminal({ namespace, podName, containerName, onClose, isNode }: PodTerminalProps) {
+export default function PodTerminal({ namespace, podName, containerName, onClose, isNode, inline }: PodTerminalProps) {
   const [command, setCommand] = useState('');
   const [lines, setLines] = useState<TerminalLine[]>([
     { type: 'system', text: isNode ? `node/${podName}` : `${namespace}/${podName}`, timestamp: timestamp() },
@@ -179,6 +181,66 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
   };
 
   const commandCount = lines.filter(l => l.type === 'input').length;
+
+  if (inline) {
+    return (
+      <div className="h-full flex flex-col bg-[var(--kv-term-bg)]">
+        {/* Compact header */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-800 bg-[var(--kv-term-surface)] text-xs">
+          <div className="flex items-center gap-2">
+            <Terminal className="w-3 h-3 text-slate-500" />
+            <span className="text-slate-300 font-mono">{containerName}</span>
+            <span className="text-slate-600">in</span>
+            <span className="text-slate-400 font-mono">{podName}</span>
+            <span className="px-1 py-0.5 rounded bg-slate-800 text-slate-500 font-mono text-[10px]">{namespace}</span>
+            {isNode && <span className="px-1 py-0.5 rounded bg-amber-900/30 text-amber-400 text-[10px]">node</span>}
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={handleCopyOutput} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300" title="Copy output">
+              {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+            </button>
+            <button onClick={handleClear} className="p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300" title="Clear">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+        {/* Output */}
+        <div ref={scrollRef} className="flex-1 overflow-auto px-3 py-2 font-mono text-xs leading-[1.6] select-text" onClick={() => inputRef.current?.focus()}>
+          {lines.map((line, i) => (
+            <div key={i} className={cn(
+              line.type === 'input' ? 'text-[var(--kv-term-prompt)] font-medium' :
+              line.type === 'error' ? 'text-[var(--kv-term-error)]' :
+              line.type === 'system' ? 'text-slate-600 italic' :
+              'text-[var(--kv-term-text)]'
+            )}>
+              {line.text || '\u00A0'}
+            </div>
+          ))}
+          {running && (
+            <div className="flex items-center gap-2 text-slate-600 mt-1">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Executing...</span>
+            </div>
+          )}
+        </div>
+        {/* Input */}
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-800 bg-[var(--kv-term-surface)]">
+          <span className="text-[var(--kv-term-prompt)] font-mono font-bold">$</span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={running ? 'Waiting...' : 'Enter command...'}
+            disabled={running}
+            className="flex-1 bg-transparent text-xs font-mono text-[var(--kv-term-text)] placeholder-slate-700 outline-none caret-[var(--kv-term-prompt)]"
+            autoFocus
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">

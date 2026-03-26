@@ -288,5 +288,3 @@ export default function ArgoCDView() {
     </div>
   );
 }
-  );
-}
