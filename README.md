@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.6.0"><img src="https://img.shields.io/badge/release-v5.6.0-2563eb?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.7.0"><img src="https://img.shields.io/badge/release-v5.7.0-2563eb?style=for-the-badge" alt="Version"></a>
   <img src="https://img.shields.io/badge/tests-1606%20passed-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-77-f59e0b?style=for-the-badge" alt="Health Checks">
   <img src="https://img.shields.io/badge/CVEs-0-10b981?style=for-the-badge" alt="CVEs">
