@@ -33,6 +33,14 @@ OAUTH_TAG=$(oc get imagestream oauth-proxy -n openshift -o jsonpath='{.status.ta
 OAUTH_IMAGE="image-registry.openshift-image-registry.svc:5000/openshift/oauth-proxy:${OAUTH_TAG}"
 echo "  Using: $OAUTH_IMAGE"
 
+# 1b. Auto-detect cluster apps domain for OAuth
+CLUSTER_DOMAIN=$(oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}' 2>/dev/null || echo "")
+if [[ -z "$CLUSTER_DOMAIN" ]]; then
+  echo "  WARNING: Could not detect cluster apps domain. OAuth redirect may need manual fix."
+else
+  echo "  Apps domain: $CLUSTER_DOMAIN"
+fi
+
 # 2. Build Pulse UI
 echo "[2/8] Building Pulse UI..."
 cd "$PROJECT_DIR"
@@ -40,16 +48,28 @@ npm run build --silent
 
 # 3. Helm install/upgrade Pulse UI
 echo "[3/8] Helm install/upgrade Pulse..."
+HELM_DOMAIN_FLAG=""
+[[ -n "$CLUSTER_DOMAIN" ]] && HELM_DOMAIN_FLAG="--set route.clusterDomain=$CLUSTER_DOMAIN"
+
 if helm status openshiftpulse -n "$NAMESPACE" &>/dev/null; then
   helm upgrade openshiftpulse deploy/helm/openshiftpulse/ -n "$NAMESPACE" \
     --set oauthProxy.image="$OAUTH_IMAGE" \
     --set agent.serviceName=pulse-agent-openshift-sre-agent \
-    --set agent.wsToken="$WS_TOKEN" --quiet
+    --set agent.wsToken="$WS_TOKEN" $HELM_DOMAIN_FLAG --quiet
 else
   helm install openshiftpulse deploy/helm/openshiftpulse/ -n "$NAMESPACE" --create-namespace \
     --set oauthProxy.image="$OAUTH_IMAGE" \
     --set agent.serviceName=pulse-agent-openshift-sre-agent \
-    --set agent.wsToken="$WS_TOKEN"
+    --set agent.wsToken="$WS_TOKEN" $HELM_DOMAIN_FLAG
+fi
+
+# 3b. Fix OAuth redirect URI immediately (before any step that could fail)
+echo "  Fixing OAuth redirect URI..."
+ROUTE=$(oc get route openshiftpulse -n "$NAMESPACE" -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
+if [[ -n "$ROUTE" ]]; then
+  oc patch oauthclient openshiftpulse --type merge -p "{\"redirectURIs\":[\"https://${ROUTE}/oauth/callback\"]}" 2>&1 | tail -1
+else
+  echo "  WARNING: Route not found yet. OAuth redirect will be fixed after build."
 fi
 
 # 4. S2I build for Pulse UI
