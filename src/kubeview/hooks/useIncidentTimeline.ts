@@ -40,7 +40,7 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   // Events
   const { data: rawEvents = [], isLoading: eventsLoading } = useK8sListWatch<K8sResource>({
     apiPath: '/api/v1/events?limit=500',
-    enabled: categories.has('event'),
+    enabled: categories?.has('event') ?? false,
   });
 
   // Alerts from Prometheus
@@ -53,19 +53,19 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
       return json.data?.groups || [];
     },
     refetchInterval: 30000,
-    enabled: categories.has('alert'),
+    enabled: categories?.has('alert'),
   });
 
   // ReplicaSets + Deployments for rollouts
   const { data: replicaSets = [], isLoading: rsLoading } = useK8sListWatch<K8sResource>({
     apiPath: '/apis/apps/v1/replicasets',
     namespace,
-    enabled: categories.has('rollout'),
+    enabled: categories?.has('rollout'),
   });
   const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch<K8sResource>({
     apiPath: '/apis/apps/v1/deployments',
     namespace,
-    enabled: categories.has('rollout'),
+    enabled: categories?.has('rollout'),
   });
 
   // ClusterVersion + ClusterOperators for config changes
@@ -73,17 +73,17 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     queryKey: ['timeline', 'clusterversion'],
     queryFn: () => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version').catch(() => null),
     staleTime: 60000,
-    enabled: categories.has('config'),
+    enabled: categories?.has('config'),
   });
   const { data: operators = [], isLoading: opsLoading } = useK8sListWatch<K8sResource>({
     apiPath: '/apis/config.openshift.io/v1/clusteroperators',
-    enabled: categories.has('config'),
+    enabled: categories?.has('config'),
   });
 
   const isLoading = eventsLoading || alertsLoading || rsLoading || deploysLoading || cvLoading || opsLoading;
 
   // Stable string key for categories Set (React can't compare Sets in deps)
-  const categoriesKey = categories ? [...categories].sort().join(',') : '';
+  const categoriesKey = categories instanceof Set ? [...categories].sort().join(',') : '';
 
   // Transform all sources into TimelineEntry[]
   const result = useMemo(() => {
