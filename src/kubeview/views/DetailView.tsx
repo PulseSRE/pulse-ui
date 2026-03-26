@@ -522,10 +522,12 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                 }} className="px-2.5 py-1.5 text-xs text-slate-400 rounded hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors">
                   <Terminal className="w-3.5 h-3.5" /> Terminal
                 </button>
+                {!resource.metadata.labels?.['openshiftpulse/debug'] && (
                 <button onClick={handleDebug} disabled={!!actionLoading} className="px-2.5 py-1.5 text-xs text-slate-400 rounded hover:bg-slate-800 hover:text-amber-400 flex items-center gap-1.5 transition-colors disabled:opacity-50">
                   <Bug className={cn('w-3.5 h-3.5', actionLoading === 'debug' && 'animate-pulse')} />
                   {actionLoading === 'debug' ? 'Creating...' : 'Debug'}
                 </button>
+                )}
               </>
             )}
             {isScalable && (
