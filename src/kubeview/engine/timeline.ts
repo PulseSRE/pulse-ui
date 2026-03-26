@@ -35,8 +35,8 @@ export function alertsToTimeline(alertGroups: AlertGroup[]): TimelineEntry[] {
   const entries: TimelineEntry[] = [];
 
   for (const group of alertGroups) {
-    for (const rule of group.rules) {
-      for (const alert of rule.alerts) {
+    for (const rule of group.rules || []) {
+      for (const alert of rule.alerts || []) {
         if (alert.state === 'inactive') continue;
         const severity = mapAlertSeverity(alert.labels.severity || rule.labels?.severity);
         const ns = alert.labels.namespace;
