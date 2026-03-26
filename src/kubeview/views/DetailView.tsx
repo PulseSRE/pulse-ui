@@ -36,7 +36,7 @@ import { kindToPlural } from '../engine/renderers/index';
 import { buildApiPath } from '../hooks/useResourceUrl';
 import { useUIStore } from '../store/uiStore';
 import { jsonToYaml, resourceToYaml } from '../engine/yamlUtils';
-import PodTerminal from '../components/PodTerminal';
+// Terminal now opens in dock panel via useUIStore.openTerminal()
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import DataEditor from '../components/DataEditor';
 import DeployProgress from '../components/DeployProgress';
@@ -271,7 +271,15 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         };
         await k8sCreate('/api/v1/namespaces/default/pods', debugPod);
         addToast({ type: 'success', title: `Debug pod created: ${debugName}`, detail: 'Host filesystem at /host. Run: chroot /host. Pod auto-deletes in 1 hour.' });
-        go(`/r/v1~pods/default/${debugName}`, debugName);
+        // Open terminal to the debug pod in the dock panel (stay on node detail)
+        setTimeout(() => {
+          useUIStore.getState().openTerminal({
+            namespace: 'default',
+            podName: debugName,
+            containerName: 'debug',
+            isNode: false,
+          });
+        }, 2000); // Wait for pod to start
       } else if (resource.kind === 'Pod' && namespace) {
         // Create ephemeral debug container
         const debugContainerName = `debug-${Date.now().toString(36).slice(-6)}`;
@@ -344,7 +352,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
   const [detailTab, setDetailTab] = React.useState<'overview' | 'conditions' | 'events'>('overview');
   const currentPath = namespace ? `/r/${gvrUrl}/${namespace}/${name}` : `/r/${gvrUrl}/_/${name}`;
   const [starred, setStarred] = React.useState(() => isFavorite(currentPath));
-  const [showTerminal, setShowTerminal] = React.useState(false);
+  // Terminal state moved to dock panel (useUIStore.openTerminal)
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [showDeleteProgress, setShowDeleteProgress] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
@@ -501,7 +509,17 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
             )}
             {(resource.kind === 'Pod' || resource.kind === 'Node') && (
               <>
-                <button onClick={() => setShowTerminal(true)} className="px-2.5 py-1.5 text-xs text-slate-400 rounded hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors">
+                <button onClick={() => {
+                  const containerName = resource.kind === 'Pod'
+                    ? (spec.containers as Container[] | undefined)?.[0]?.name || ''
+                    : '';
+                  useUIStore.getState().openTerminal({
+                    namespace: resource.kind === 'Node' ? 'default' : namespace || '',
+                    podName: name,
+                    containerName,
+                    isNode: resource.kind === 'Node',
+                  });
+                }} className="px-2.5 py-1.5 text-xs text-slate-400 rounded hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors">
                   <Terminal className="w-3.5 h-3.5" /> Terminal
                 </button>
                 <button onClick={handleDebug} disabled={!!actionLoading} className="px-2.5 py-1.5 text-xs text-slate-400 rounded hover:bg-slate-800 hover:text-amber-400 flex items-center gap-1.5 transition-colors disabled:opacity-50">
@@ -1182,24 +1200,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       />
     )}
 
-    {/* Terminal */}
-    {showTerminal && resource.kind === 'Pod' && namespace && (
-      <PodTerminal
-        namespace={namespace}
-        podName={name}
-        containerName={(spec.containers as Container[] | undefined)?.[0]?.name || ''}
-        onClose={() => setShowTerminal(false)}
-      />
-    )}
-    {showTerminal && resource.kind === 'Node' && (
-      <PodTerminal
-        namespace="default"
-        podName={name}
-        containerName=""
-        onClose={() => setShowTerminal(false)}
-        isNode
-      />
-    )}
+    {/* Terminal — now opens in dock panel */}
     </>
   );
 }
