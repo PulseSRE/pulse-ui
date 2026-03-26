@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronUp, ChevronDown, Trash2, Tag, Plus, Filter, Columns3, X, Download, Loader2, CheckCircle, XCircle, FileEdit, Sparkles } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, Trash2, Tag, Plus, Filter, Columns3, X, Download, Loader2, CheckCircle, XCircle, FileEdit, Sparkles, Inbox } from 'lucide-react';
 
 const NLFilterBar = lazy(() => import('../components/agent/NLFilterBar').then(m => ({ default: m.NLFilterBar })));
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ import { getEnhancer } from '../engine/enhancers';
 import { showErrorToast } from '../engine/errorToast';
 import { useCanI } from '../hooks/useCanI';
 import { Card } from '../components/primitives/Card';
+import { EmptyState } from '../components/primitives/EmptyState';
 
 interface TableViewProps {
   gvrKey: string;
@@ -267,6 +268,13 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     // Capitalize first letter
     return resourceName.charAt(0).toUpperCase() + resourceName.slice(1);
   }, [gvrKey]);
+
+  const handleCreate = React.useCallback(() => {
+    const gvrUrl = gvrKey.replace(/\//g, '~');
+    const path = `/create/${gvrUrl}`;
+    addTab({ title: `Create ${resourceKind}`, path, pinned: false, closable: true });
+    navigate(path);
+  }, [gvrKey, resourceKind, addTab, navigate]);
 
   // Extract group/version info
   const groupVersion = React.useMemo(() => {
@@ -535,12 +543,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
           <div className="flex items-center gap-2">
             {/* Create button — hidden if user lacks create permission or resource is not manually creatable */}
             {canCreate && resourcePlural !== 'nodes' && <button
-              onClick={() => {
-                const gvrUrl = gvrKey.replace(/\//g, '~');
-                const path = `/create/${gvrUrl}`;
-                addTab({ title: `Create ${resourceKind}`, path, pinned: false, closable: true });
-                navigate(path);
-              }}
+              onClick={handleCreate}
               className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-500 flex items-center gap-1.5 font-medium"
             >
               <Plus className="w-3 h-3" />
@@ -686,14 +689,18 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
             ))}
           </div>
         ) : stampedResources.length === 0 && !searchTerm && Object.values(columnFilters).every(v => !v) ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <p className="text-slate-400 text-sm">
-                No {resourceKind.toLowerCase()} found
-                {activeNamespace && ` in ${activeNamespace}`}
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={<Inbox className="w-8 h-8" />}
+            title={`No ${resourceKind.toLowerCase()} found`}
+            description={activeNamespace
+              ? `There are no ${resourceKind.toLowerCase()} in the "${activeNamespace}" namespace.`
+              : `There are no ${resourceKind.toLowerCase()} in this cluster.`}
+            action={canCreate && resourcePlural !== 'nodes' ? {
+              label: `Create ${resourceKind}`,
+              onClick: handleCreate,
+            } : undefined}
+            className="h-64"
+          />
         ) : (
           <table className="w-full">
             <thead className="bg-slate-900 sticky top-0 z-10">

@@ -343,6 +343,42 @@ describe('TableView', () => {
     expect(document.querySelector('table')).toBeNull();
   });
 
+  it('shows EmptyState with create button when no resources exist', () => {
+    setMockWatch({ data: [], isLoading: false, error: null });
+
+    renderTable('v1/pods');
+
+    // EmptyState renders with title, description, and create action
+    expect(screen.getByText('No pods found')).toBeDefined();
+    expect(screen.getByText(/There are no pods/)).toBeDefined();
+    expect(screen.getByText('Create Pods')).toBeDefined();
+  });
+
+  it('shows namespace context in empty state description', () => {
+    setMockWatch({ data: [], isLoading: false, error: null });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableView gvrKey="v1/pods" namespace="production" />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(/in the "production" namespace/)).toBeDefined();
+  });
+
+  it('hides create button in empty state for nodes', () => {
+    setMockWatch({ data: [], isLoading: false, error: null });
+
+    renderTable('v1/nodes');
+
+    expect(screen.getByText('No nodes found')).toBeDefined();
+    // Should not show Create button for nodes
+    expect(screen.queryByText('Create Nodes')).toBeNull();
+  });
+
   it('shows Edit YAML button on every row', () => {
     setMockWatch({
       data: [makePodResource('my-pod')],
