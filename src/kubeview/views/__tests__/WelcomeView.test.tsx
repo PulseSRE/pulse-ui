@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -17,13 +17,21 @@ vi.mock('../../store/uiStore', () => ({
   }),
 }));
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));
+
+/** Shared mock data — can be overridden per-test via _mockListWatchData */
+const _mockListWatchData: Record<string, { data?: any[]; isLoading?: boolean; isError?: boolean }> = {};
+
 vi.mock('../../hooks/useK8sListWatch', () => ({
   useK8sListWatch: ({ apiPath }: { apiPath: string }) => {
+    // Allow per-test overrides
+    if (apiPath.includes('nodes') && _mockListWatchData.nodes) {
+      return { data: _mockListWatchData.nodes.data ?? [], isLoading: _mockListWatchData.nodes.isLoading ?? false, isError: _mockListWatchData.nodes.isError ?? false };
+    }
     if (apiPath.includes('nodes')) return { data: [
       { metadata: { name: 'node-1' }, status: { conditions: [{ type: 'Ready', status: 'True' }] } },
       { metadata: { name: 'node-2' }, status: { conditions: [{ type: 'Ready', status: 'True' }] } },
-    ], isLoading: false };
-    return { data: [], isLoading: false };
+    ], isLoading: false, isError: false };
+    return { data: [], isLoading: false, isError: false };
   },
 }));
 
@@ -132,5 +140,29 @@ describe('WelcomeView', () => {
     expect(screen.getByText(/^v\d+\.\d+\.\d+$/)).toBeDefined();
     const link = screen.getByText('GitHub').closest('a');
     expect(link?.getAttribute('href')).toBe('https://github.com/alimobrem/OpenshiftPulse');
+  });
+
+  describe('cluster error recovery', () => {
+    afterEach(() => {
+      delete _mockListWatchData.nodes;
+    });
+
+    it('shows retry button, hint text, and admin link when cluster API is unreachable', () => {
+      _mockListWatchData.nodes = { data: [], isLoading: false, isError: true };
+      renderView();
+      expect(screen.getByText('Unable to reach cluster API')).toBeDefined();
+      expect(screen.getByText(/oc proxy --port=8001/)).toBeDefined();
+      expect(screen.getByText('Retry')).toBeDefined();
+      expect(screen.getAllByText('Administration').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('clicking Retry calls invalidateQueries', () => {
+      _mockListWatchData.nodes = { data: [], isLoading: false, isError: true };
+      renderView();
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+      fireEvent.click(screen.getByText('Retry'));
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['k8s'] });
+      invalidateSpy.mockRestore();
+    });
   });
 });
