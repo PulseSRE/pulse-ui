@@ -66,6 +66,47 @@ export function jsonToYaml(obj: unknown, indent: number = 0): string {
 }
 
 /**
+ * Sanitize a K8s resource for GitOps export — strips runtime fields, redacts secrets
+ */
+export function sanitizeForGitOps(resource: Record<string, unknown>): Record<string, unknown> {
+  const clean = JSON.parse(JSON.stringify(resource));
+
+  delete clean.status;
+
+  if (clean.metadata) {
+    delete clean.metadata.resourceVersion;
+    delete clean.metadata.uid;
+    delete clean.metadata.creationTimestamp;
+    delete clean.metadata.generation;
+    delete clean.metadata.selfLink;
+    delete clean.metadata.managedFields;
+    delete clean.metadata.ownerReferences;
+
+    if (clean.metadata.annotations) {
+      const noisy = [
+        'kubectl.kubernetes.io/last-applied-configuration',
+        'openshift.io/generated-by',
+        'deployment.kubernetes.io/revision',
+      ];
+      for (const key of noisy) delete clean.metadata.annotations[key];
+      for (const key of Object.keys(clean.metadata.annotations)) {
+        if (key.startsWith('pv.kubernetes.io/')) delete clean.metadata.annotations[key];
+      }
+      if (Object.keys(clean.metadata.annotations).length === 0) delete clean.metadata.annotations;
+    }
+  }
+
+  if (clean.kind === 'Secret') {
+    clean.data = {};
+    delete clean.stringData;
+    if (!clean.metadata.annotations) clean.metadata.annotations = {};
+    clean.metadata.annotations['openshiftpulse.io/secret-data'] = 'redacted';
+  }
+
+  return clean;
+}
+
+/**
  * Convert a K8s resource to clean YAML (removes managed fields and other noise)
  */
 export function resourceToYaml(resource: Record<string, unknown>): string {
