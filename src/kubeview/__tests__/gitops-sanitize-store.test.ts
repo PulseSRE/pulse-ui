@@ -149,23 +149,10 @@ describe('useGitOpsSetupStore — new fields', () => {
     expect(useGitOpsSetupStore.getState().selectedNamespaces).toEqual(['default', 'kube-system']);
   });
 
-  it('setClusterName updates cluster name', () => {
-    useGitOpsSetupStore.getState().setClusterName('prod-east');
-    expect(useGitOpsSetupStore.getState().clusterName).toBe('prod-east');
-  });
-
-  it('setExportProgress updates progress', () => {
-    const progress = { category: 'operators', totalFiles: 10, committedFiles: 3, errors: [] };
-    useGitOpsSetupStore.getState().setExportProgress(progress);
-    expect(useGitOpsSetupStore.getState().exportProgress).toEqual(progress);
-
-    useGitOpsSetupStore.getState().setExportProgress(null);
-    expect(useGitOpsSetupStore.getState().exportProgress).toBeNull();
-  });
-
-  it('setExportMode updates mode', () => {
-    useGitOpsSetupStore.getState().setExportMode('direct-commit');
-    expect(useGitOpsSetupStore.getState().exportMode).toBe('direct-commit');
+  it('setExportSummary updates export summary', () => {
+    const summary = { clusterName: 'prod-east', totalFiles: 42, categories: ['cluster-config'], namespaces: ['default'], prUrl: 'https://github.com/test/pr/1' };
+    useGitOpsSetupStore.getState().setExportSummary(summary);
+    expect(useGitOpsSetupStore.getState().exportSummary).toEqual(summary);
   });
 
   it('WizardStep type includes select-resources and export', () => {

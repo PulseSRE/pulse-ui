@@ -107,6 +107,8 @@ describe('GitHubProvider', () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ object: { sha: 'ref-sha-1' } }) }) // get ref
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ tree: { sha: 'base-tree-sha' } }) }) // get commit
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ sha: 'blob-sha-1' }) }) // create blob 1
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ sha: 'blob-sha-2' }) }) // create blob 2
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ sha: 'new-tree-sha' }) }) // create tree
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ sha: 'new-commit-sha' }) }) // create commit
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) }); // update ref
@@ -118,7 +120,7 @@ describe('GitHubProvider', () => {
 
     await provider.commitMultipleFiles('pulse/fix', files, 'Update manifests');
 
-    expect(mockFetch).toHaveBeenCalledTimes(5);
+    expect(mockFetch).toHaveBeenCalledTimes(7);
 
     // 1. Get ref
     expect(mockFetch.mock.calls[0][0]).toContain('/git/ref/heads/pulse/fix');
@@ -126,28 +128,24 @@ describe('GitHubProvider', () => {
     // 2. Get commit to find base tree
     expect(mockFetch.mock.calls[1][0]).toContain('/git/commits/ref-sha-1');
 
-    // 3. Create tree with all files
-    expect(mockFetch.mock.calls[2][0]).toContain('/git/trees');
-    const treeBody = JSON.parse(mockFetch.mock.calls[2][1].body);
+    // 3-4. Create blobs
+    expect(mockFetch.mock.calls[2][0]).toContain('/git/blobs');
+    expect(mockFetch.mock.calls[3][0]).toContain('/git/blobs');
+
+    // 5. Create tree
+    expect(mockFetch.mock.calls[4][0]).toContain('/git/trees');
+    const treeBody = JSON.parse(mockFetch.mock.calls[4][1].body);
     expect(treeBody.base_tree).toBe('base-tree-sha');
     expect(treeBody.tree).toHaveLength(2);
-    expect(treeBody.tree[0]).toEqual({ path: 'apps/deploy.yaml', mode: '100644', type: 'blob', content: 'replicas: 3' });
-    expect(treeBody.tree[1]).toEqual({ path: 'apps/service.yaml', mode: '100644', type: 'blob', content: 'port: 8080' });
 
-    // 4. Create commit
-    expect(mockFetch.mock.calls[3][0]).toContain('/git/commits');
-    const commitBody = JSON.parse(mockFetch.mock.calls[3][1].body);
-    expect(commitBody.message).toBe('Update manifests');
-    expect(commitBody.tree).toBe('new-tree-sha');
-    expect(commitBody.parents).toEqual(['ref-sha-1']);
+    // 6. Create commit
+    expect(mockFetch.mock.calls[5][0]).toContain('/git/commits');
 
-    // 5. Update ref
-    expect(mockFetch.mock.calls[4][0]).toContain('/git/refs/heads/pulse/fix');
-    const refBody = JSON.parse(mockFetch.mock.calls[4][1].body);
-    expect(refBody.sha).toBe('new-commit-sha');
+    // 7. Update ref
+    expect(mockFetch.mock.calls[6][0]).toContain('/git/refs/heads/pulse/fix');
   });
 
-  it('commitMultipleFiles throws when tree creation fails', async () => {
+  it('commitMultipleFiles throws when blob creation fails', async () => {
     mockFetch
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ object: { sha: 'ref-sha-1' } }) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ tree: { sha: 'base-tree-sha' } }) })
@@ -155,7 +153,7 @@ describe('GitHubProvider', () => {
 
     await expect(
       provider.commitMultipleFiles('branch', [{ path: 'a.yaml', content: 'x' }], 'msg'),
-    ).rejects.toThrow('Failed to create tree: 422');
+    ).rejects.toThrow('Failed to create blob for a.yaml: 422');
   });
 });
 

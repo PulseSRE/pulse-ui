@@ -3,7 +3,14 @@ import { persist } from 'zustand/middleware';
 import { useArgoCDStore } from './argoCDStore';
 import { k8sGet } from '../engine/query';
 
-export type WizardStep = 'operator' | 'git-config' | 'first-app' | 'done';
+export type WizardStep = 'operator' | 'git-config' | 'select-resources' | 'export' | 'first-app' | 'done';
+
+export interface ExportSelections {
+  clusterName: string;
+  categoryIds: string[];
+  namespaces: string[];
+  exportMode: 'pr' | 'direct';
+}
 
 export interface ExportSummary {
   resourceCount: number;
@@ -28,6 +35,8 @@ interface GitOpsSetupState {
   selectedNamespaces: string[];
   /** Summary of the last export */
   exportSummary: ExportSummary | null;
+  /** Selections for export step */
+  exportSelections: ExportSelections;
 
   openWizard: (resumeAt?: WizardStep) => void;
   closeWizard: () => void;
@@ -37,6 +46,7 @@ interface GitOpsSetupState {
   setSelectedCategories: (categories: string[]) => void;
   setSelectedNamespaces: (namespaces: string[]) => void;
   setExportSummary: (summary: ExportSummary) => void;
+  setExportSelections: (selections: Partial<ExportSelections>) => void;
   detectCompletedSteps: () => Promise<void>;
 }
 
@@ -53,6 +63,7 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
       selectedCategories: [],
       selectedNamespaces: [],
       exportSummary: null,
+      exportSelections: { clusterName: '', categoryIds: ['cluster-config', 'operators'], namespaces: [], exportMode: 'pr' },
 
       openWizard: (resumeAt) => {
         const step = resumeAt || get().currentStep;
@@ -76,6 +87,7 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
       setSelectedCategories: (categories) => set({ selectedCategories: categories }),
       setSelectedNamespaces: (namespaces) => set({ selectedNamespaces: namespaces }),
       setExportSummary: (summary) => set({ exportSummary: summary }),
+      setExportSelections: (partial) => set((s) => ({ exportSelections: { ...s.exportSelections, ...partial } })),
 
       detectCompletedSteps: async () => {
         const completed: WizardStep[] = [];
