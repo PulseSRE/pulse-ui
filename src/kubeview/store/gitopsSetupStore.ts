@@ -3,13 +3,14 @@ import { persist } from 'zustand/middleware';
 import { useArgoCDStore } from './argoCDStore';
 import { k8sGet } from '../engine/query';
 
-export type WizardStep = 'operator' | 'git-config' | 'select-resources' | 'first-app' | 'done';
+export type WizardStep = 'operator' | 'git-config' | 'first-app' | 'done';
 
-interface ExportSelections {
-  clusterName: string;
-  categoryIds: string[];
+export interface ExportSummary {
+  resourceCount: number;
+  categories: string[];
   namespaces: string[];
-  exportMode: 'pr' | 'direct';
+  prUrl?: string;
+  clusterName: string;
 }
 
 interface GitOpsSetupState {
@@ -21,14 +22,21 @@ interface GitOpsSetupState {
   operatorPhase: 'idle' | 'creating' | 'pending' | 'installing' | 'succeeded' | 'failed';
   operatorError: string | null;
 
-  exportSelections: ExportSelections;
+  /** Categories selected for app-of-apps export (e.g. 'deployments', 'services') */
+  selectedCategories: string[];
+  /** Namespaces to export for app-of-apps pattern */
+  selectedNamespaces: string[];
+  /** Summary of the last export */
+  exportSummary: ExportSummary | null;
 
   openWizard: (resumeAt?: WizardStep) => void;
   closeWizard: () => void;
   setStep: (step: WizardStep) => void;
   markStepComplete: (step: WizardStep) => void;
   setOperatorPhase: (phase: GitOpsSetupState['operatorPhase'], error?: string) => void;
-  setExportSelections: (selections: Partial<ExportSelections>) => void;
+  setSelectedCategories: (categories: string[]) => void;
+  setSelectedNamespaces: (namespaces: string[]) => void;
+  setExportSummary: (summary: ExportSummary) => void;
   detectCompletedSteps: () => Promise<void>;
 }
 
@@ -42,12 +50,9 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
       operatorPhase: 'idle',
       operatorError: null,
 
-      exportSelections: {
-        clusterName: '',
-        categoryIds: ['workloads', 'networking', 'config', 'storage'],
-        namespaces: [],
-        exportMode: 'pr',
-      },
+      selectedCategories: [],
+      selectedNamespaces: [],
+      exportSummary: null,
 
       openWizard: (resumeAt) => {
         const step = resumeAt || get().currentStep;
@@ -68,10 +73,9 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
       setOperatorPhase: (phase, error) =>
         set({ operatorPhase: phase, operatorError: error || null }),
 
-      setExportSelections: (selections) =>
-        set((state) => ({
-          exportSelections: { ...state.exportSelections, ...selections },
-        })),
+      setSelectedCategories: (categories) => set({ selectedCategories: categories }),
+      setSelectedNamespaces: (namespaces) => set({ selectedNamespaces: namespaces }),
+      setExportSummary: (summary) => set({ exportSummary: summary }),
 
       detectCompletedSteps: async () => {
         const completed: WizardStep[] = [];
@@ -91,19 +95,18 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
         try {
           await k8sGet('/api/v1/namespaces/openshiftpulse/secrets/openshiftpulse-gitops-config');
           completed.push('git-config');
-          resumeStep = 'select-resources';
+          resumeStep = 'first-app';
         } catch {
           // Not configured
         }
 
         // Check if apps exist
         if (useArgoCDStore.getState().applications.length > 0) {
-          completed.push('select-resources');
           completed.push('first-app');
           resumeStep = 'done';
         }
 
-        set({ completedSteps: completed, currentStep: completed.length === 4 ? 'done' : resumeStep });
+        set({ completedSteps: completed, currentStep: completed.length === 3 ? 'done' : resumeStep });
       },
     }),
     {
