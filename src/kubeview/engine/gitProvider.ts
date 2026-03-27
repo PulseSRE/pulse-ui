@@ -190,11 +190,11 @@ class GitHubProvider implements GitProvider {
       if (!newCommitRes.ok) throw new Error(`Failed to create commit: ${newCommitRes.status}`);
       const newCommitData = await newCommitRes.json();
 
-      // Update the branch ref (force: true handles eventual consistency)
+      // Update the branch ref
       const updateRes = await fetch(`${this.apiBase}/git/refs/heads/${branch}`, {
         method: 'PATCH',
         headers: this.headers,
-        body: JSON.stringify({ sha: newCommitData.sha, force: true }),
+        body: JSON.stringify({ sha: newCommitData.sha }),
       });
 
       if (updateRes.ok) return; // Success

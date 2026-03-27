@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Package, Search, ArrowRight, GitPullRequest, GitCommit, Loader2 } from 'lucide-react';
+import { Package, Search, ArrowRight, GitPullRequest, Loader2 } from 'lucide-react';
 import { useGitOpsSetupStore } from '../../../store/gitopsSetupStore';
 import { useClusterStore } from '../../../store/clusterStore';
 import { k8sList, k8sGet } from '../../../engine/query';
@@ -18,7 +18,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
   const [clusterName, setClusterName] = useState(exportSelections.clusterName || '');
   const [categoryIds, setCategoryIds] = useState<string[]>(exportSelections.categoryIds);
   const [selectedNamespaces, setSelectedNamespaces] = useState<string[]>(exportSelections.namespaces);
-  const [exportMode, setExportMode] = useState<'pr' | 'direct'>(exportSelections.exportMode);
+  const exportMode = 'pr' as const;
   const [nsSearch, setNsSearch] = useState('');
   const [allNamespaces, setAllNamespaces] = useState<string[]>([]);
   const [loadingNs, setLoadingNs] = useState(true);
@@ -230,41 +230,10 @@ export function SelectResourcesStep({ onComplete }: Props) {
         </div>
       </div>
 
-      {/* Export mode */}
-      <div>
-        <label className="text-xs text-slate-400 block mb-2">Export Mode</label>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setExportMode('pr')}
-            className={cn(
-              'flex-1 flex items-center gap-2 p-3 rounded-lg border text-left transition-colors',
-              exportMode === 'pr'
-                ? 'border-violet-500 bg-violet-500/10'
-                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600',
-            )}
-          >
-            <GitPullRequest className={cn('w-4 h-4', exportMode === 'pr' ? 'text-violet-400' : 'text-slate-500')} />
-            <div>
-              <div className="text-sm font-medium text-slate-200">Pull Request</div>
-              <div className="text-xs text-slate-500">Create a branch and open a PR for review</div>
-            </div>
-          </button>
-          <button
-            onClick={() => setExportMode('direct')}
-            className={cn(
-              'flex-1 flex items-center gap-2 p-3 rounded-lg border text-left transition-colors',
-              exportMode === 'direct'
-                ? 'border-violet-500 bg-violet-500/10'
-                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600',
-            )}
-          >
-            <GitCommit className={cn('w-4 h-4', exportMode === 'direct' ? 'text-violet-400' : 'text-slate-500')} />
-            <div>
-              <div className="text-sm font-medium text-slate-200">Direct Commit</div>
-              <div className="text-xs text-slate-500">Commit directly to the base branch</div>
-            </div>
-          </button>
-        </div>
+      {/* Export mode info */}
+      <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+        <GitPullRequest className="w-4 h-4 text-violet-400 shrink-0" />
+        <span>Resources will be exported to a new branch and a Pull Request will be created for review.</span>
       </div>
 
       <button
