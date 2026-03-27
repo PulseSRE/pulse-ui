@@ -55,9 +55,9 @@ describe('WelcomeView', () => {
     expect(screen.getByText('OpenShift Pulse')).toBeDefined();
   });
 
-  it('shows the value proposition tagline', () => {
+  it('shows the tagline', () => {
     renderView();
-    expect(screen.getByText(/single pane of glass/)).toBeDefined();
+    expect(screen.getByText(/Incidents, remediation, and production readiness/)).toBeDefined();
   });
 
   it('shows connected cluster status pill with node count', () => {
@@ -72,69 +72,43 @@ describe('WelcomeView', () => {
     expect(screen.getByText(/Risk score, attention items/)).toBeDefined();
   });
 
-  it('shows quick nav row with Compute, Workloads, Administration, Alerts', () => {
+  it('shows primary action cards: Incident Center and Production Readiness', () => {
     renderView();
-    expect(screen.getAllByText('Compute').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Workloads').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Administration').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Alerts').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Incident Center')).toBeDefined();
+    expect(screen.getByText('Production Readiness')).toBeDefined();
   });
 
-  it('shows Readiness Checklist and Find Anything action cards', () => {
+  it('shows All Views section with view tiles', () => {
     renderView();
-    expect(screen.getByText('Readiness Checklist')).toBeDefined();
-    expect(screen.getByText('Find Anything')).toBeDefined();
-  });
-
-  it('shows remaining view tiles', () => {
-    renderView();
-    expect(screen.getByText('Software')).toBeDefined();
+    expect(screen.getByText('All Views')).toBeDefined();
+    expect(screen.getByText('Pulse')).toBeDefined();
+    expect(screen.getByText('Incidents')).toBeDefined();
+    expect(screen.getByText('Workloads')).toBeDefined();
+    expect(screen.getByText('Compute')).toBeDefined();
     expect(screen.getByText('Networking')).toBeDefined();
     expect(screen.getByText('Storage')).toBeDefined();
     expect(screen.getByText('Builds')).toBeDefined();
     expect(screen.getByText('Security')).toBeDefined();
-    expect(screen.getByText('Access Control')).toBeDefined();
     expect(screen.getByText('CRDs')).toBeDefined();
+    expect(screen.getByText('Identity')).toBeDefined();
+    expect(screen.getByText('Admin')).toBeDefined();
+    expect(screen.getByText('Fleet')).toBeDefined();
+    expect(screen.getByText('Alerts')).toBeDefined();
+    expect(screen.getByText('GitOps')).toBeDefined();
+    expect(screen.getByText('Onboarding')).toBeDefined();
   });
 
-  it('shows Key Capabilities divider', () => {
+  it('shows launchpad cluster state summary when welcomeLaunchpad is enabled', () => {
     renderView();
-    expect(screen.getByText('Key Capabilities')).toBeDefined();
+    expect(screen.getByText('Nodes ready')).toBeDefined();
+    expect(screen.getByText('Alerts firing')).toBeDefined();
+    expect(screen.getByText('Cluster')).toBeDefined();
   });
 
-  const allCapabilities = [
-    'YAML Editor', 'GitOps / ArgoCD', 'Incident Timeline',
-    'Health Audits', 'Security Audit', 'Rollback', 'Impersonation',
-    'Dependency Graph', 'Log Streaming', 'Cluster Snapshots', 'Resource Diffing',
-    'Pod Shell',
-  ];
-
-  it('renders all capability rows visible by default', () => {
+  it('shows Production Setup onboarding CTA', () => {
     renderView();
-    for (const cap of allCapabilities) {
-      expect(screen.getByText(cap)).toBeDefined();
-    }
-    expect(screen.getByText('Show fewer')).toBeDefined();
-  });
-
-  it('all capability rows are clickable buttons', () => {
-    renderView();
-    for (const cap of allCapabilities) {
-      const el = screen.getByText(cap).closest('button');
-      expect(el, `${cap} should be inside a <button>`).not.toBeNull();
-    }
-  });
-
-  it('renders feature descriptions', () => {
-    renderView();
-    expect(screen.getByText(/dry-run validation/)).toBeDefined();
-    expect(screen.getByText(/auto-PR on save/)).toBeDefined();
-    expect(screen.getByText(/77 automated checks/)).toBeDefined();
-  });
-
-  it('shows All Views divider', () => {
-    renderView();
-    expect(screen.getByText('All Views')).toBeDefined();
+    expect(screen.getByText('Production Setup')).toBeDefined();
+    expect(screen.getByText(/readiness wizard/)).toBeDefined();
   });
 
   it('shows keyboard shortcuts', () => {
