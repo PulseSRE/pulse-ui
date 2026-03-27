@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -11,11 +11,22 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('../../store/uiStore', () => ({
-  useUIStore: (selector: any) => {
-    const state = { selectedNamespace: '*', addTab: vi.fn(), addToast: vi.fn() };
-    return selector(state);
-  },
+  useUIStore: Object.assign(
+    (selector: any) => {
+      const state = {
+        selectedNamespace: '*',
+        addTab: vi.fn(),
+        addToast: vi.fn(),
+        openDock: vi.fn(),
+      };
+      return selector(state);
+    },
+    { getState: () => ({ openDock: vi.fn(), addToast: vi.fn() }) },
+  ),
 }));
+
+// Mutable monitor state — override in individual tests via monitorOverrides
+const monitorOverrides: Record<string, any> = {};
 
 vi.mock('../../store/monitorStore', () => ({
   useMonitorStore: (selector: any) => {
@@ -31,9 +42,24 @@ vi.mock('../../store/monitorStore', () => ({
       loadFixHistory: vi.fn(),
       autoFixCategories: [],
       setAutoFixCategories: vi.fn(),
+      triggerScan: vi.fn(),
+      lastScanTime: 0,
+      nextScanTime: 0,
+      activeWatches: [],
+      ...monitorOverrides,
     };
     return selector(state);
   },
+}));
+
+vi.mock('../../store/agentStore', () => ({
+  useAgentStore: Object.assign(
+    (selector: any) => {
+      const state = { connected: false, sendMessage: vi.fn() };
+      return selector(state);
+    },
+    { getState: () => ({ connected: false, sendMessage: vi.fn() }) },
+  ),
 }));
 
 vi.mock('../../store/trustStore', () => ({
@@ -65,6 +91,13 @@ function renderView() {
 }
 
 describe('MonitorView', () => {
+  beforeEach(() => {
+    // Reset overrides before each test
+    for (const key of Object.keys(monitorOverrides)) {
+      delete monitorOverrides[key];
+    }
+  });
+
   afterEach(() => { cleanup(); });
 
   it('renders the page header', () => {
@@ -144,5 +177,46 @@ describe('MonitorView', () => {
     expect(tabs.length).toBe(3);
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
     expect(tabs[1].getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('Scan Now button is disabled when disconnected', () => {
+    monitorOverrides.connected = false;
+    renderView();
+    fireEvent.click(screen.getByText('Configuration'));
+    const scanButton = screen.getByText('Scan Now').closest('button')!;
+    expect(scanButton.disabled).toBe(true);
+  });
+
+  it('Scan Now button shows "Scanning..." text after click', () => {
+    monitorOverrides.connected = true;
+    renderView();
+    fireEvent.click(screen.getByText('Configuration'));
+    const scanButton = screen.getByText('Scan Now').closest('button')!;
+    expect(scanButton.disabled).toBe(false);
+    fireEvent.click(scanButton);
+    expect(screen.getByText('Scanning...')).toBeDefined();
+  });
+
+  it('Investigate button exists on findings', () => {
+    monitorOverrides.findings = [
+      {
+        id: 'f-test-1',
+        severity: 'critical',
+        category: 'memory',
+        title: 'OOM Risk Detected',
+        summary: 'Pod web-1 nearing memory limit',
+        resources: [{ kind: 'Pod', name: 'web-1', namespace: 'default' }],
+        autoFixable: true,
+        timestamp: Date.now(),
+      },
+    ];
+    renderView();
+    // The finding should be visible on the Live Status tab (default)
+    expect(screen.getByText('OOM Risk Detected')).toBeDefined();
+    expect(screen.getByText('Investigate')).toBeDefined();
+    // Verify the Investigate button is a clickable button element
+    const investigateBtn = screen.getByText('Investigate').closest('button')!;
+    expect(investigateBtn).toBeDefined();
+    expect(investigateBtn.disabled).toBeFalsy();
   });
 });
