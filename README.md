@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.11.0"><img src="https://img.shields.io/badge/release-v5.11.0-2563eb?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v5.12.0"><img src="https://img.shields.io/badge/release-v5.12.0-2563eb?style=for-the-badge" alt="Version"></a>
   <img src="https://img.shields.io/badge/tests-1710%20passed-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-77-f59e0b?style=for-the-badge" alt="Health Checks">
   <img src="https://img.shields.io/badge/CVEs-0-10b981?style=for-the-badge" alt="CVEs">
@@ -173,9 +173,18 @@ npm run dev    # http://localhost:9000
 ### One-Command Deploy (UI + Agent)
 
 ```bash
-ANTHROPIC_VERTEX_PROJECT_ID=your-project CLOUD_ML_REGION=us-east5 ./deploy/deploy.sh --agent-repo /path/to/pulse-agent
-./deploy/integration-test.sh  # Verify deployment
+# Option A: Vertex AI (GCP)
+ANTHROPIC_VERTEX_PROJECT_ID=your-project CLOUD_ML_REGION=us-east5 \
+  ./deploy/deploy.sh --agent-repo /path/to/pulse-agent --gcp-key ~/sa-key.json
+
+# Option B: Anthropic API (no GCP needed)
+ANTHROPIC_API_KEY=sk-ant-... ./deploy/deploy.sh --agent-repo /path/to/pulse-agent
+
+# Verify
+./deploy/integration-test.sh
 ```
+
+Auto-detects cluster domain, OAuth proxy image, monitoring stack. Prerequisite checks for `oc`, `helm`, `npm`. Fails early with clear fix instructions if credentials are missing.
 
 ### Helm (UI only)
 
