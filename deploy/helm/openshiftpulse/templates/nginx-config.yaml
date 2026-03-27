@@ -50,24 +50,38 @@ data:
           proxy_read_timeout 3600s;
         }
 
+        {{- if .Values.monitoring.prometheus.enabled }}
         location /api/prometheus/ {
-          proxy_pass https://thanos-querier.openshift-monitoring.svc:9091/;
+          proxy_pass https://{{ .Values.monitoring.prometheus.host }}/;
           proxy_ssl_verify on;
           proxy_ssl_trusted_certificate /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt;
           proxy_set_header Authorization "Bearer $http_x_forwarded_access_token";
           proxy_read_timeout 60s;
         }
+        {{- else }}
+        location /api/prometheus/ {
+          return 503 '{"error":"Prometheus not configured","detail":"Set monitoring.prometheus.enabled=true in Helm values"}';
+          add_header Content-Type application/json;
+        }
+        {{- end }}
 
+        {{- if .Values.monitoring.alertmanager.enabled }}
         location /api/alertmanager/ {
-          proxy_pass https://alertmanager-main.openshift-monitoring.svc:9094/;
+          proxy_pass https://{{ .Values.monitoring.alertmanager.host }}/;
           proxy_ssl_verify on;
           proxy_ssl_trusted_certificate /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt;
           proxy_set_header Authorization "Bearer $http_x_forwarded_access_token";
           proxy_read_timeout 60s;
         }
+        {{- else }}
+        location /api/alertmanager/ {
+          return 503 '{"error":"Alertmanager not configured","detail":"Set monitoring.alertmanager.enabled=true in Helm values"}';
+          add_header Content-Type application/json;
+        }
+        {{- end }}
 
         location /api/agent/ws/sre {
-          proxy_pass http://{{ .Values.agent.serviceName | default "pulse-agent-sre-agent" }}:8080/ws/sre?token={{ .Values.agent.wsToken | default "pulse-agent-internal-token" }};
+          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/sre?token={{ .Values.agent.wsToken }};
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
           proxy_http_version 1.1;
@@ -75,7 +89,7 @@ data:
         }
 
         location /api/agent/ws/security {
-          proxy_pass http://{{ .Values.agent.serviceName | default "pulse-agent-sre-agent" }}:8080/ws/security?token={{ .Values.agent.wsToken | default "pulse-agent-internal-token" }};
+          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/security?token={{ .Values.agent.wsToken }};
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
           proxy_http_version 1.1;
@@ -83,7 +97,7 @@ data:
         }
 
         location /api/agent/ {
-          proxy_pass http://{{ .Values.agent.serviceName | default "pulse-agent-sre-agent" }}:8080/;
+          proxy_pass http://{{ .Values.agent.serviceName }}:8080/;
           proxy_read_timeout 60s;
         }
 

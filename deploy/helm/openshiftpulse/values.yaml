@@ -3,14 +3,15 @@
 replicas: 2
 
 image:
-  # For internal registry builds, leave as-is. For external images, set the full image ref.
+  # For internal registry builds (default), leave as-is.
+  # For external images, set the full image ref.
   repository: image-registry.openshift-image-registry.svc:5000/openshiftpulse/openshiftpulse
   tag: latest
   pullPolicy: Always
 
-# OAuth proxy sidecar
+# OAuth proxy sidecar — image tag is auto-detected by deploy.sh
 oauthProxy:
-  image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.17
+  image: ""  # Set by deploy.sh --set oauthProxy.image=...
   # Secrets are auto-generated on first install if not provided
   clientSecret: ""
   cookieSecret: ""
@@ -20,6 +21,19 @@ route:
   enabled: true
   # Host is auto-detected from the cluster. Override if needed.
   host: ""
+  # Cluster apps domain (e.g., apps.mycluster.example.com)
+  # Auto-detected by deploy.sh. Used to compute OAuth redirect URI.
+  clusterDomain: ""
+
+# Monitoring endpoints (proxied by nginx)
+monitoring:
+  prometheus:
+    enabled: true
+    # OpenShift default. Change if monitoring stack is in a different namespace.
+    host: thanos-querier.openshift-monitoring.svc:9091
+  alertmanager:
+    enabled: true
+    host: alertmanager-main.openshift-monitoring.svc:9094
 
 # Resource limits
 resources:
@@ -40,8 +54,11 @@ resources:
 
 # Pulse Agent (AI SRE assistant)
 agent:
-  serviceName: pulse-agent-sre-agent
-  wsToken: "pulse-agent-internal-token"
+  # Service name is derived from the agent helm release name.
+  # Default assumes: helm install pulse-agent chart/
+  # which creates service: pulse-agent-openshift-sre-agent
+  serviceName: pulse-agent-openshift-sre-agent
+  wsToken: ""  # Set by deploy.sh
 
 # Quota for the namespace
 quota:

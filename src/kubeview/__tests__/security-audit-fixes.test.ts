@@ -61,7 +61,7 @@ describe('H2: Impersonation CRLF injection', () => {
 });
 
 describe('H3: nginx security headers', () => {
-  const manifest = read('deploy/deployment.yaml');
+  const manifest = read('deploy/helm/openshiftpulse/templates/nginx-config.yaml') + '\n' + read('deploy/helm/openshiftpulse/templates/deployment.yaml');
 
   it('sets X-Frame-Options', () => {
     expect(manifest).toContain('X-Frame-Options');
@@ -90,7 +90,7 @@ describe('H3: nginx security headers', () => {
 });
 
 describe('H4: TLS certificate verification', () => {
-  const manifest = read('deploy/deployment.yaml');
+  const manifest = read('deploy/helm/openshiftpulse/templates/nginx-config.yaml') + '\n' + read('deploy/helm/openshiftpulse/templates/deployment.yaml');
 
   it('enables proxy_ssl_verify', () => {
     expect(manifest).toContain('proxy_ssl_verify on');
@@ -139,7 +139,7 @@ describe('M4: RegExp injection in log search', () => {
 });
 
 describe('M6: readOnlyRootFilesystem', () => {
-  const manifest = read('deploy/deployment.yaml');
+  const manifest = read('deploy/helm/openshiftpulse/templates/nginx-config.yaml') + '\n' + read('deploy/helm/openshiftpulse/templates/deployment.yaml');
 
   it('sets readOnlyRootFilesystem on both containers', () => {
     const matches = manifest.match(/readOnlyRootFilesystem: true/g);
@@ -153,12 +153,13 @@ describe('M6: readOnlyRootFilesystem', () => {
   });
 });
 
-describe('M7: user:full scope documented', () => {
-  const manifest = read('deploy/deployment.yaml');
+describe('M7: user:full scope configured', () => {
+  const deployment = read('deploy/helm/openshiftpulse/templates/deployment.yaml');
+  const secrets = read('deploy/helm/openshiftpulse/templates/secrets.yaml');
 
-  it('documents why user:full is needed', () => {
-    expect(manifest).toContain('user:full scope is required');
-    expect(manifest).toContain('write operations');
+  it('uses user:full scope in oauth-proxy and OAuthClient', () => {
+    expect(deployment).toContain('--scope=user:full');
+    expect(secrets).toContain('user:full');
   });
 });
 

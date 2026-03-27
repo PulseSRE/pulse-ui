@@ -148,43 +148,33 @@ describe('route modules', () => {
   });
 });
 
-describe('deployment manifest security', () => {
-  const manifest = fs.readFileSync(
-    path.join(__dirname, '../../../../deploy/deployment.yaml'), 'utf-8'
-  );
+describe('helm chart security', () => {
+  const helmDir = path.join(__dirname, '../../../../deploy/helm/openshiftpulse/templates');
+  const rbac = fs.readFileSync(path.join(helmDir, 'rbac.yaml'), 'utf-8');
+  const deployment = fs.readFileSync(path.join(helmDir, 'deployment.yaml'), 'utf-8');
+  const nginx = fs.readFileSync(path.join(helmDir, 'nginx-config.yaml'), 'utf-8');
+  const secrets = fs.readFileSync(path.join(helmDir, 'secrets.yaml'), 'utf-8');
 
   it('does not bind cluster-admin', () => {
-    expect(manifest).not.toContain('cluster-admin');
+    expect(rbac).not.toContain('cluster-admin');
   });
 
   it('uses a minimal ClusterRole', () => {
-    expect(manifest).toContain('openshiftpulse-reader');
-  });
-
-  it('does not contain hardcoded secrets', () => {
-    expect(manifest).not.toContain('openshiftpulse-oauth-secret-v1');
-    expect(manifest).not.toContain('openshiftpulse-secret-cookie');
+    expect(rbac).toContain('openshiftpulse-reader');
   });
 
   it('uses secret file mounts for oauth-proxy', () => {
-    expect(manifest).toContain('--client-secret-file=/etc/oauth/client-secret');
-    expect(manifest).toContain('--cookie-secret-file=/etc/oauth/cookie-secret');
+    expect(deployment).toContain('--client-secret-file=/etc/oauth/client-secret');
+    expect(deployment).toContain('--cookie-secret-file=/etc/oauth/cookie-secret');
   });
 
-  it('does not contain hardcoded cluster URLs', () => {
-    expect(manifest).not.toContain('rhamilto.devcluster.openshift.com');
+  it('forwards OAuth token to backend', () => {
+    expect(nginx).toContain('x_forwarded_access_token');
   });
 
-  it('has placeholder redirect URI', () => {
-    expect(manifest).toContain('REPLACE_WITH_CLUSTER_ROUTE');
-  });
-
-  it('documents secret generation', () => {
-    expect(manifest).toContain('openssl rand -base64 32');
-  });
-
-  it('explains that user permissions use forwarded OAuth token', () => {
-    expect(manifest).toContain('X-Forwarded-Access-Token');
+  it('fails if no cluster domain is set', () => {
+    expect(secrets).toContain('fail');
+    expect(secrets).toContain('route.clusterDomain is required');
   });
 });
 
