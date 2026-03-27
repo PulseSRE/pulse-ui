@@ -3,7 +3,14 @@ import { persist } from 'zustand/middleware';
 import { useArgoCDStore } from './argoCDStore';
 import { k8sGet } from '../engine/query';
 
-export type WizardStep = 'operator' | 'git-config' | 'first-app' | 'done';
+export type WizardStep = 'operator' | 'git-config' | 'select-resources' | 'first-app' | 'done';
+
+interface ExportSelections {
+  clusterName: string;
+  categoryIds: string[];
+  namespaces: string[];
+  exportMode: 'pr' | 'direct';
+}
 
 interface GitOpsSetupState {
   wizardOpen: boolean;
@@ -14,11 +21,14 @@ interface GitOpsSetupState {
   operatorPhase: 'idle' | 'creating' | 'pending' | 'installing' | 'succeeded' | 'failed';
   operatorError: string | null;
 
+  exportSelections: ExportSelections;
+
   openWizard: (resumeAt?: WizardStep) => void;
   closeWizard: () => void;
   setStep: (step: WizardStep) => void;
   markStepComplete: (step: WizardStep) => void;
   setOperatorPhase: (phase: GitOpsSetupState['operatorPhase'], error?: string) => void;
+  setExportSelections: (selections: Partial<ExportSelections>) => void;
   detectCompletedSteps: () => Promise<void>;
 }
 
@@ -31,6 +41,13 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
       dismissed: false,
       operatorPhase: 'idle',
       operatorError: null,
+
+      exportSelections: {
+        clusterName: '',
+        categoryIds: ['workloads', 'networking', 'config', 'storage'],
+        namespaces: [],
+        exportMode: 'pr',
+      },
 
       openWizard: (resumeAt) => {
         const step = resumeAt || get().currentStep;
@@ -51,6 +68,11 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
       setOperatorPhase: (phase, error) =>
         set({ operatorPhase: phase, operatorError: error || null }),
 
+      setExportSelections: (selections) =>
+        set((state) => ({
+          exportSelections: { ...state.exportSelections, ...selections },
+        })),
+
       detectCompletedSteps: async () => {
         const completed: WizardStep[] = [];
         let resumeStep: WizardStep = 'operator';
@@ -69,18 +91,19 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
         try {
           await k8sGet('/api/v1/namespaces/openshiftpulse/secrets/openshiftpulse-gitops-config');
           completed.push('git-config');
-          resumeStep = 'first-app';
+          resumeStep = 'select-resources';
         } catch {
           // Not configured
         }
 
         // Check if apps exist
         if (useArgoCDStore.getState().applications.length > 0) {
+          completed.push('select-resources');
           completed.push('first-app');
           resumeStep = 'done';
         }
 
-        set({ completedSteps: completed, currentStep: completed.length === 3 ? 'done' : resumeStep });
+        set({ completedSteps: completed, currentStep: completed.length === 4 ? 'done' : resumeStep });
       },
     }),
     {
