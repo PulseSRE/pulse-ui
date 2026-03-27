@@ -172,7 +172,12 @@ export function CreateApplicationStep({ onComplete }: Props) {
   const [name, setName] = useState(exportClusterName ? `${exportClusterName}-app` : 'my-app');
   const [clusterName, setClusterName] = useState(exportClusterName || 'my-cluster');
   const [repoURL, setRepoURL] = useState(config?.repoUrl || '');
+  // Path must match what the export step used — auto-derive from export cluster name
   const [path, setPath] = useState(exportClusterName || 'manifests');
+  const pathPrefix = config?.pathPrefix ? config.pathPrefix.replace(/\/$/, '') : '';
+  const effectivePath = exportClusterName
+    ? (pathPrefix ? `${pathPrefix}/${exportClusterName}` : exportClusterName)
+    : path;
   const [targetRevision, setTargetRevision] = useState('HEAD');
   const [destNamespace, setDestNamespace] = useState('default');
   const [autoSync, setAutoSync] = useState(true);
@@ -201,13 +206,13 @@ export function CreateApplicationStep({ onComplete }: Props) {
             name,
             namespace: argoNamespace,
             repoURL,
-            path,
+            path: effectivePath,
             targetRevision,
             destNamespace,
             autoSync,
             createNamespace,
           }),
-    [isAppOfApps, name, argoNamespace, repoURL, path, targetRevision, destNamespace, autoSync, createNamespace],
+    [isAppOfApps, name, argoNamespace, repoURL, effectivePath, targetRevision, destNamespace, autoSync, createNamespace],
   );
 
   const namespaces = useMemo(
@@ -443,13 +448,16 @@ export function CreateApplicationStep({ onComplete }: Props) {
           <>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Path</label>
+                <label className="text-xs text-slate-400 block mb-1">
+                  Path{exportClusterName && ' (from export)'}
+                </label>
                 <input
                   type="text"
-                  value={path}
-                  onChange={(e) => setPath(e.target.value)}
+                  value={effectivePath}
+                  onChange={(e) => !exportClusterName && setPath(e.target.value)}
+                  readOnly={!!exportClusterName}
                   placeholder="manifests"
-                  className={INPUT_CLASS}
+                  className={cn(INPUT_CLASS, exportClusterName && 'opacity-70')}
                 />
               </div>
               <div>
