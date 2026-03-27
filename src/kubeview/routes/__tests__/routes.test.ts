@@ -104,10 +104,10 @@ describe('route modules', () => {
       }
     });
 
-    it('supports feature-gated redirects for monitor and alerts', () => {
+    it('supports feature-gated redirects for monitor and identity', () => {
       expect(source).toContain('isFeatureEnabled');
       expect(source).toContain('path="monitor"');
-      expect(source).toContain('path="alerts"');
+      expect(source).toContain('path="users"');
     });
   });
 

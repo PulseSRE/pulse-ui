@@ -80,7 +80,7 @@ describe('AdminView', () => {
     expect(screen.getByText(/^Snapshots/)).toBeDefined();
     expect(screen.getAllByText(/Quotas/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Certificates')).toBeDefined();
-    expect(screen.getByText('Timeline')).toBeDefined();
+    expect(screen.getByText('GitOps')).toBeDefined();
     expect(screen.getByText(/^Operators/)).toBeDefined();
   });
 

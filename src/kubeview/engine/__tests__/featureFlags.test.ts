@@ -10,11 +10,11 @@ describe('featureFlags', () => {
   });
 
   describe('isFeatureEnabled', () => {
-    it('returns false for all flags by default', () => {
-      expect(isFeatureEnabled('incidentCenter')).toBe(false);
-      expect(isFeatureEnabled('identityView')).toBe(false);
-      expect(isFeatureEnabled('welcomeLaunchpad')).toBe(false);
-      expect(isFeatureEnabled('onboarding')).toBe(false);
+    it('returns true for all flags by default', () => {
+      expect(isFeatureEnabled('incidentCenter')).toBe(true);
+      expect(isFeatureEnabled('identityView')).toBe(true);
+      expect(isFeatureEnabled('welcomeLaunchpad')).toBe(true);
+      expect(isFeatureEnabled('onboarding')).toBe(true);
     });
 
     it('returns true after a flag is enabled', () => {
@@ -30,7 +30,7 @@ describe('featureFlags', () => {
 
     it('handles corrupted localStorage gracefully', () => {
       localStorage.setItem(STORAGE_KEY, 'not-json');
-      expect(isFeatureEnabled('incidentCenter')).toBe(false);
+      expect(isFeatureEnabled('incidentCenter')).toBe(true);
     });
   });
 
@@ -46,7 +46,7 @@ describe('featureFlags', () => {
       setFeatureFlag('welcomeLaunchpad', true);
       expect(isFeatureEnabled('incidentCenter')).toBe(true);
       expect(isFeatureEnabled('welcomeLaunchpad')).toBe(true);
-      expect(isFeatureEnabled('identityView')).toBe(false);
+      expect(isFeatureEnabled('identityView')).toBe(true);
     });
   });
 
@@ -54,10 +54,10 @@ describe('featureFlags', () => {
     it('returns all flags with defaults when nothing is stored', () => {
       const flags = getAllFlags();
       expect(flags).toEqual({
-        incidentCenter: false,
-        identityView: false,
-        welcomeLaunchpad: false,
-        onboarding: false,
+        incidentCenter: true,
+        identityView: true,
+        welcomeLaunchpad: true,
+        onboarding: true,
       });
     });
 
@@ -67,8 +67,8 @@ describe('featureFlags', () => {
       const flags = getAllFlags();
       expect(flags).toEqual({
         incidentCenter: true,
-        identityView: false,
-        welcomeLaunchpad: false,
+        identityView: true,
+        welcomeLaunchpad: true,
         onboarding: true,
       });
     });
