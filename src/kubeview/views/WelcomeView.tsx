@@ -100,14 +100,7 @@ export default function WelcomeView() {
 
         {/* ── Launchpad: Cluster State Summary ── */}
         {launchpad && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button
-              onClick={() => go('/compute', 'Compute')}
-              className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-center hover:bg-slate-800/60 hover:border-slate-700 transition-colors"
-            >
-              <div className="text-lg font-bold text-slate-100">{typedNodes.length}</div>
-              <div className="text-xs text-slate-500">Nodes</div>
-            </button>
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => go('/compute', 'Compute')}
               className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-center hover:bg-slate-800/60 hover:border-slate-700 transition-colors"
@@ -115,7 +108,7 @@ export default function WelcomeView() {
               <div className={cn('text-lg font-bold', readyCount === typedNodes.length ? 'text-emerald-400' : 'text-amber-400')}>
                 {readyCount}/{typedNodes.length}
               </div>
-              <div className="text-xs text-slate-500">Ready</div>
+              <div className="text-xs text-slate-500">Nodes ready</div>
             </button>
             <button
               onClick={() => go('/alerts', 'Alerts')}
@@ -124,7 +117,7 @@ export default function WelcomeView() {
               <div className={cn('text-lg font-bold', topIssuesCount > 0 ? 'text-red-400' : 'text-emerald-400')}>
                 {topIssuesCount}
               </div>
-              <div className="text-xs text-slate-500">Alerts</div>
+              <div className="text-xs text-slate-500">Alerts firing</div>
             </button>
             <button
               onClick={() => go('/admin', 'Administration')}
@@ -133,7 +126,7 @@ export default function WelcomeView() {
               <div className={cn('text-lg font-bold', isConnected ? 'text-emerald-400' : 'text-red-400')}>
                 {isConnected ? 'Up' : 'Down'}
               </div>
-              <div className="text-xs text-slate-500">Status</div>
+              <div className="text-xs text-slate-500">Cluster</div>
             </button>
           </div>
         )}
