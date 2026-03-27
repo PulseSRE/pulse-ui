@@ -138,19 +138,7 @@ class GitHubProvider implements GitProvider {
   }
 
   async commitMultipleFiles(branch: string, files: FileCommit[], message: string): Promise<void> {
-    // Get the latest commit SHA on the branch
-    const refRes = await fetch(`${this.apiBase}/git/ref/heads/${branch}`, { headers: this.headers });
-    if (!refRes.ok) throw new Error(`Failed to get branch ref: ${refRes.status}`);
-    const refData = await refRes.json();
-    const latestCommitSha = refData.object.sha;
-
-    // Get the tree SHA of that commit
-    const commitRes = await fetch(`${this.apiBase}/git/commits/${latestCommitSha}`, { headers: this.headers });
-    if (!commitRes.ok) throw new Error(`Failed to get commit: ${commitRes.status}`);
-    const commitData = await commitRes.json();
-    const baseTreeSha = commitData.tree.sha;
-
-    // Create blobs for each file and build tree entries
+    // Create blobs first (these are content-addressed and don't depend on branch state)
     const tree = await Promise.all(files.map(async (f) => {
       const blobRes = await fetch(`${this.apiBase}/git/blobs`, {
         method: 'POST',
@@ -165,34 +153,60 @@ class GitHubProvider implements GitProvider {
       return { path: f.path, mode: '100644' as const, type: 'blob' as const, sha: blobData.sha };
     }));
 
-    // Create a new tree
-    const treeRes = await fetch(`${this.apiBase}/git/trees`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({ base_tree: baseTreeSha, tree }),
-    });
-    if (!treeRes.ok) {
-      const errBody = await treeRes.json().catch(() => ({}));
-      throw new Error(`Failed to create tree: ${treeRes.status} ${errBody.message || ''}`);
+    // Retry loop: read ref → create tree → create commit → update ref
+    // Retries on 422 (ref moved due to eventual consistency)
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      // Get the latest commit SHA on the branch
+      const refRes = await fetch(`${this.apiBase}/git/ref/heads/${branch}`, { headers: this.headers });
+      if (!refRes.ok) throw new Error(`Failed to get branch ref: ${refRes.status}`);
+      const refData = await refRes.json();
+      const latestCommitSha = refData.object.sha;
+
+      // Get the tree SHA of that commit
+      const commitRes = await fetch(`${this.apiBase}/git/commits/${latestCommitSha}`, { headers: this.headers });
+      if (!commitRes.ok) throw new Error(`Failed to get commit: ${commitRes.status}`);
+      const commitData = await commitRes.json();
+      const baseTreeSha = commitData.tree.sha;
+
+      // Create a new tree
+      const treeRes = await fetch(`${this.apiBase}/git/trees`, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({ base_tree: baseTreeSha, tree }),
+      });
+      if (!treeRes.ok) {
+        const errBody = await treeRes.json().catch(() => ({}));
+        throw new Error(`Failed to create tree: ${treeRes.status} ${errBody.message || ''}`);
+      }
+      const treeData = await treeRes.json();
+
+      // Create the commit
+      const newCommitRes = await fetch(`${this.apiBase}/git/commits`, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({ message, tree: treeData.sha, parents: [latestCommitSha] }),
+      });
+      if (!newCommitRes.ok) throw new Error(`Failed to create commit: ${newCommitRes.status}`);
+      const newCommitData = await newCommitRes.json();
+
+      // Update the branch ref
+      const updateRes = await fetch(`${this.apiBase}/git/refs/heads/${branch}`, {
+        method: 'PATCH',
+        headers: this.headers,
+        body: JSON.stringify({ sha: newCommitData.sha }),
+      });
+
+      if (updateRes.ok) return; // Success
+
+      if (updateRes.status === 422 && attempt < MAX_RETRIES - 1) {
+        // Ref moved — wait briefly then retry with fresh ref
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+
+      throw new Error(`Failed to update branch ref: ${updateRes.status}`);
     }
-    const treeData = await treeRes.json();
-
-    // Create the commit
-    const newCommitRes = await fetch(`${this.apiBase}/git/commits`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({ message, tree: treeData.sha, parents: [latestCommitSha] }),
-    });
-    if (!newCommitRes.ok) throw new Error(`Failed to create commit: ${newCommitRes.status}`);
-    const newCommitData = await newCommitRes.json();
-
-    // Update the branch ref
-    const updateRes = await fetch(`${this.apiBase}/git/refs/heads/${branch}`, {
-      method: 'PATCH',
-      headers: this.headers,
-      body: JSON.stringify({ sha: newCommitData.sha }),
-    });
-    if (!updateRes.ok) throw new Error(`Failed to update branch ref: ${updateRes.status}`);
   }
 
   async createPullRequest(title: string, body: string, head: string, base: string): Promise<{ url: string; number: number }> {
