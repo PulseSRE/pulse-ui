@@ -223,29 +223,30 @@ export async function* exportClusterToGit(
               resDef.namespaced ? ns : undefined,
             );
 
-            // Filter out system namespace resources for namespaced resources
-            const filtered = resDef.namespaced
-              ? items.filter((r) => r.metadata.namespace && isUserNamespace(r.metadata.namespace))
-              : items;
+            const filtered = items.filter((r) => {
+              if (!resDef.namespaced) return true;
+              return r.metadata.namespace && isUserNamespace(r.metadata.namespace);
+            });
 
-            for (const resource of filtered) {
-              const sanitized = sanitizeResource(resource);
-              const nsDir = sanitized.metadata.namespace || '_cluster';
-              const filePath = `${basePath}/${category.id}/${nsDir}/${resDef.kind}-${sanitized.metadata.name}.json`;
-              const content = resourceToJson(sanitized);
+            if (filtered.length > 0) {
+              const files = filtered.map((resource) => {
+                const sanitized = sanitizeResource(resource);
+                const nsDir = sanitized.metadata.namespace || '_cluster';
+                return {
+                  path: `${basePath}/${category.id}/${nsDir}/${resDef.kind}-${sanitized.metadata.name}.json`,
+                  content: resourceToJson(sanitized),
+                };
+              });
 
-              const existing = await provider.getFileContent(targetBranch, filePath);
-              await provider.createOrUpdateFile(
+              await provider.commitMultipleFiles(
                 targetBranch,
-                filePath,
-                content,
-                `Export ${resDef.kind}/${sanitized.metadata.name} from ${clusterName}`,
-                existing?.sha,
+                files,
+                `Export ${files.length} ${resDef.kind} resources from ${clusterName}`,
               );
-              categoryResourceCount++;
+              categoryResourceCount += files.length;
             }
-          } catch {
-            // Skip resources that fail (e.g. Routes on non-OpenShift clusters)
+          } catch (err) {
+            console.warn(`[gitops-export] Failed to export ${resDef.kind} in ${ns}:`, err);
           }
         }
       }
