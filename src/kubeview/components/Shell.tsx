@@ -68,6 +68,7 @@ export function Shell() {
 
       {/* Overlay components */}
       {commandPaletteOpen && <CommandPalette />}
+      {browserOpen && <ResourceBrowser />}
       <ToastContainer />
       <CssHealthCheck />
     </div>
