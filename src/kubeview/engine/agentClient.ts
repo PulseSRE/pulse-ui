@@ -1,7 +1,7 @@
 /**
  * Agent WebSocket client — connects to the Pulse Agent API server.
  *
- * Protocol Version: 1 (see API_CONTRACT.md for full specification)
+ * Supported Protocol Versions: 1, 2 (see API_CONTRACT.md for full specification)
  *
  * Handles streaming text, thinking, tool use events, and confirmation
  * requests over a persistent WebSocket connection.
@@ -9,7 +9,7 @@
 
 import type { ComponentSpec } from './agentComponents';
 
-export type AgentMode = 'sre' | 'security';
+export type AgentMode = 'sre' | 'security' | 'monitor';
 
 export interface AgentMessage {
   id: string;
@@ -44,12 +44,16 @@ export type AgentEvent =
   | { type: 'error'; message: string }
   | { type: 'cleared' }
   | { type: 'connected' }
-  | { type: 'disconnected' };
+  | { type: 'disconnected' }
+  | { type: 'finding'; id: string; severity: string; category: string; title: string; summary: string; resources: Array<{ kind: string; name: string; namespace?: string }>; autoFixable: boolean; runbookId?: string; timestamp: number }
+  | { type: 'action_report'; id: string; findingId: string; tool: string; status: string; beforeState?: string; afterState?: string; error?: string; timestamp: number }
+  | { type: 'prediction'; id: string; category: string; title: string; detail: string; eta: string; confidence: number; resources: Array<{ kind: string; name: string; namespace?: string }>; recommendedAction?: string; timestamp: number }
+  | { type: 'monitor_status'; activeWatches: string[]; lastScan: number; findingsCount: number; nextScan: number };
 
 type EventHandler = (event: AgentEvent) => void;
 
 const AGENT_BASE = '/api/agent';
-const EXPECTED_PROTOCOL = '1';
+const SUPPORTED_PROTOCOLS = ['1', '2'];
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
@@ -86,15 +90,16 @@ export class AgentClient {
   }
 
   /** Check agent version compatibility before connecting. */
-  async checkVersion(): Promise<{ compatible: boolean; error?: string }> {
+  async checkVersion(): Promise<{ compatible: boolean; protocol?: string; error?: string }> {
     try {
       const res = await fetch(`${AGENT_BASE}/version`);
-      if (!res.ok) return { compatible: true }; // Old agent without /version — allow
+      if (!res.ok) return { compatible: true, protocol: '1' }; // Old agent without /version — allow
       const data = await res.json();
-      if (data.protocol !== EXPECTED_PROTOCOL) {
-        return { compatible: false, error: `Agent protocol v${data.protocol} does not match UI (expected v${EXPECTED_PROTOCOL}). Redeploy the agent.` };
+      const protocol = String(data.protocol);
+      if (!SUPPORTED_PROTOCOLS.includes(protocol)) {
+        return { compatible: false, error: `Agent protocol v${protocol} is not supported by this UI (supported: v${SUPPORTED_PROTOCOLS.join(', v')}). Redeploy the agent.` };
       }
-      return { compatible: true };
+      return { compatible: true, protocol };
     } catch {
       return { compatible: false, error: 'Cannot reach agent API. Is the pulse-agent pod running?' };
     }

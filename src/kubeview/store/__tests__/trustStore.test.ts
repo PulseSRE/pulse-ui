@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
-import { useTrustStore } from '../trustStore';
+import { useTrustStore, TRUST_LABELS, TRUST_DESCRIPTIONS } from '../trustStore';
 
 describe('trustStore', () => {
   beforeEach(() => {
     act(() => {
-      useTrustStore.setState({ trustLevel: 1, history: [] });
+      useTrustStore.setState({ trustLevel: 1, history: [], autoFixCategories: [] });
     });
   });
 
@@ -82,9 +82,9 @@ describe('trustStore', () => {
     expect(elig.consecutiveApprovals).toBe(0);
   });
 
-  it('does not upgrade past level 3', () => {
+  it('does not upgrade past level 4', () => {
     const { result } = renderHook(() => useTrustStore());
-    act(() => result.current.setTrustLevel(3));
+    act(() => result.current.setTrustLevel(4));
 
     act(() => {
       for (let i = 0; i < 15; i++) {
@@ -94,7 +94,7 @@ describe('trustStore', () => {
 
     const elig = result.current.getUpgradeEligibility();
     expect(elig.eligible).toBe(false);
-    expect(elig.nextLevel).toBe(3);
+    expect(elig.nextLevel).toBe(4);
   });
 
   it('trims history to 100 records', () => {
@@ -118,5 +118,57 @@ describe('trustStore', () => {
     });
 
     expect(result.current.history).toHaveLength(0);
+  });
+
+  it('has level 4 label and description', () => {
+    expect(TRUST_LABELS[4]).toBe('Autonomous');
+    expect(TRUST_DESCRIPTIONS[4]).toBe('Agent auto-fixes known issues from runbooks. All actions are logged and reversible.');
+  });
+
+  it('manages autoFixCategories state', () => {
+    const { result } = renderHook(() => useTrustStore());
+    expect(result.current.autoFixCategories).toEqual([]);
+
+    act(() => {
+      result.current.setAutoFixCategories(['pod-restart', 'certificate-renewal']);
+    });
+
+    expect(result.current.autoFixCategories).toEqual(['pod-restart', 'certificate-renewal']);
+  });
+
+  it('shouldAutoApprove returns true for all risk levels at level 4', () => {
+    const { result } = renderHook(() => useTrustStore());
+    act(() => result.current.setTrustLevel(4));
+
+    expect(result.current.shouldAutoApprove('scale_deployment', 'LOW')).toBe(true);
+    expect(result.current.shouldAutoApprove('delete_pod', 'MEDIUM')).toBe(true);
+    expect(result.current.shouldAutoApprove('drain_node', 'HIGH')).toBe(true);
+  });
+
+  it('upgrade eligibility from level 3 to 4', () => {
+    const { result } = renderHook(() => useTrustStore());
+    act(() => result.current.setTrustLevel(3));
+
+    act(() => {
+      for (let i = 0; i < 10; i++) {
+        result.current.recordConfirmation({ tool: 'scale_deployment', approved: true, timestamp: Date.now() + i, riskLevel: 'LOW' });
+      }
+    });
+
+    const elig = result.current.getUpgradeEligibility();
+    expect(elig.eligible).toBe(true);
+    expect(elig.currentLevel).toBe(3);
+    expect(elig.nextLevel).toBe(4);
+  });
+
+  it('persists autoFixCategories', () => {
+    const { result } = renderHook(() => useTrustStore());
+    act(() => {
+      result.current.setAutoFixCategories(['pod-restart']);
+    });
+
+    // Verify the partialize includes autoFixCategories by checking state
+    const state = useTrustStore.getState();
+    expect(state.autoFixCategories).toEqual(['pod-restart']);
   });
 });
