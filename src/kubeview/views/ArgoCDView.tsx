@@ -157,10 +157,17 @@ export default function ArgoCDView() {
                 </p>
               </div>
             </div>
-            <Button size="sm" onClick={() => openWizard(!isConfigured ? 'git-config' : 'first-app')} className="bg-violet-600 hover:bg-violet-500">
-              <Sparkles className="w-3.5 h-3.5" />
-              {!isConfigured ? 'Open Wizard' : 'Create Application'}
-            </Button>
+            <div className="flex items-center gap-2">
+              {isConfigured && (
+                <Button size="sm" onClick={() => openWizard('select-resources')} className="bg-blue-600 hover:bg-blue-500">
+                  Export Cluster to Git
+                </Button>
+              )}
+              <Button size="sm" onClick={() => openWizard(!isConfigured ? 'git-config' : 'first-app')} className="bg-violet-600 hover:bg-violet-500">
+                <Sparkles className="w-3.5 h-3.5" />
+                {!isConfigured ? 'Open Wizard' : 'Create Application'}
+              </Button>
+            </div>
           </div>
         )}
 
