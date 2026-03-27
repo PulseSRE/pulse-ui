@@ -213,7 +213,8 @@ export async function* exportClusterToGit(
     yield { type: 'category-start', categoryId: category.id, label: category.label };
 
     try {
-      let categoryResourceCount = 0;
+      // Collect all files for the entire category first
+      const allCategoryFiles: { path: string; content: string }[] = [];
 
       for (const resDef of category.resources) {
         const fetchNamespaces = resDef.namespaced ? effectiveNamespaces : ['_cluster_'];
@@ -230,36 +231,36 @@ export async function* exportClusterToGit(
               return r.metadata.namespace && isUserNamespace(r.metadata.namespace);
             });
 
-            if (filtered.length > 0) {
-              const files = filtered.map((resource) => {
-                const sanitized = sanitizeResource(resource);
-                const nsDir = sanitized.metadata.namespace || '_cluster';
-                return {
-                  path: `${basePath}/${category.id}/${nsDir}/${resDef.kind}-${sanitized.metadata.name}.yaml`,
-                  content: resourceToYamlString(sanitized),
-                };
+            for (const resource of filtered) {
+              const sanitized = sanitizeResource(resource);
+              const nsDir = sanitized.metadata.namespace || '_cluster';
+              allCategoryFiles.push({
+                path: `${basePath}/${category.id}/${nsDir}/${resDef.kind}-${sanitized.metadata.name}.yaml`,
+                content: resourceToYamlString(sanitized),
               });
-
-              // Commit in chunks of 30 to avoid GitHub API limits
-              const CHUNK_SIZE = 30;
-              for (let i = 0; i < files.length; i += CHUNK_SIZE) {
-                const chunk = files.slice(i, i + CHUNK_SIZE);
-                await provider.commitMultipleFiles(
-                  targetBranch,
-                  chunk,
-                  `Export ${resDef.kind} (${i + 1}-${Math.min(i + CHUNK_SIZE, files.length)} of ${files.length}) from ${clusterName}`,
-                );
-              }
-              categoryResourceCount += files.length;
             }
           } catch (err) {
-            console.warn(`[gitops-export] Failed to export ${resDef.kind} in ${ns}:`, err);
+            console.warn(`[gitops-export] Failed to fetch ${resDef.kind} in ${ns}:`, err);
           }
         }
       }
 
-      totalResources += categoryResourceCount;
-      yield { type: 'category-fetched', categoryId: category.id, resourceCount: categoryResourceCount };
+      yield { type: 'category-fetched', categoryId: category.id, resourceCount: allCategoryFiles.length };
+
+      // Commit all files for this category in chunks (single sequential chain)
+      if (allCategoryFiles.length > 0) {
+        const CHUNK_SIZE = 30;
+        for (let i = 0; i < allCategoryFiles.length; i += CHUNK_SIZE) {
+          const chunk = allCategoryFiles.slice(i, i + CHUNK_SIZE);
+          await provider.commitMultipleFiles(
+            targetBranch,
+            chunk,
+            `Export ${category.label} (${i + 1}-${Math.min(i + CHUNK_SIZE, allCategoryFiles.length)} of ${allCategoryFiles.length}) from ${clusterName}`,
+          );
+        }
+      }
+
+      totalResources += allCategoryFiles.length;
       yield { type: 'category-committed', categoryId: category.id };
     } catch (err) {
       yield {
