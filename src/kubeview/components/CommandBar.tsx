@@ -330,7 +330,7 @@ export function CommandBar() {
 
         {/* Notification bell */}
         <button
-          onClick={() => go('/alerts', 'Alerts')}
+          onClick={() => go('/incidents', 'Incidents')}
           className="relative p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
           title={issueCount > 0 ? `${issueCount} issues need attention` : 'No issues'}
         >
