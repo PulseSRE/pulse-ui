@@ -33,8 +33,9 @@ const TRUST_LEVELS = [
 ] as const;
 
 const AUTO_FIX_CATEGORIES = [
-  { id: 'crashloop', label: 'CrashLoopBackOff', description: 'Restart pods stuck in crash loops' },
-  { id: 'workloads', label: 'Degraded Deployments', description: 'Trigger rolling restart for degraded deployments' },
+  { id: 'crashloop', label: 'CrashLoopBackOff', description: 'Delete crashlooping pods (controller recreates)' },
+  { id: 'workloads', label: 'Degraded Deployments', description: 'Rolling restart for degraded deployments' },
+  { id: 'image_pull', label: 'ImagePullBackOff', description: 'Restart deployment to clear image pull errors' },
 ] as const;
 
 export default function IncidentCenterView() {
