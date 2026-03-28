@@ -584,8 +584,6 @@ spec:
     return allChecks;
   }, [pvcs, storageClasses, volumeSnapshots, volumeSnapshotClasses, resourceQuotas]);
 
-  if (storageClasses.length === 0 && pvcs.length === 0) return null;
-
   const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
     const id = check.id;
     const name = item.metadata?.name || '';
@@ -603,6 +601,8 @@ spec:
       }
     }
   }, [go]);
+
+  if (storageClasses.length === 0 && pvcs.length === 0) return null;
 
   return (
     <HealthAuditPanel

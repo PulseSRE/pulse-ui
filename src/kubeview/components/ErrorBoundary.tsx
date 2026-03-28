@@ -139,7 +139,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </button>
               <button
                 onClick={() => {
+                  // eslint-disable-next-line @typescript-eslint/no-require-imports
                   const { useUIStore } = require('../store/uiStore');
+                  // eslint-disable-next-line @typescript-eslint/no-require-imports
                   const { useAgentStore } = require('../store/agentStore');
                   useUIStore.getState().openDock('agent');
                   useAgentStore.getState().connectAndSend(

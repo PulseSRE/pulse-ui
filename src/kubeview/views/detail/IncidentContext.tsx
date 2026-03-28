@@ -19,7 +19,6 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
 }) {
   const isPod = resource.kind === 'Pod';
   const isWorkload = resource.kind === 'Deployment' || resource.kind === 'StatefulSet' || resource.kind === 'DaemonSet';
-  if (!isPod && !isWorkload) return null;
 
   const worstPod = React.useMemo(() => {
     if (isPod) return resource;
@@ -100,6 +99,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
     ? `namespace="${namespace}",pod="${resource.metadata.name}"`
     : `namespace="${namespace}"`;
 
+  if (!isPod && !isWorkload) return null;
   if (!worstPod && !isPod) return null;
 
   return (

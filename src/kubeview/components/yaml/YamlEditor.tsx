@@ -316,7 +316,7 @@ export default function YamlEditor({
   const saveKeymap = useMemo(() => keymap.of([{
     key: 'Mod-s',
     run: () => {
-      if (!readOnly && hasChanges) { showDiff ? setShowDiffPreview(true) : handleSave(); }
+      if (!readOnly && hasChanges) { if (showDiff) { setShowDiffPreview(true); } else { handleSave(); } }
       return true;
     },
   }]), [readOnly, hasChanges, showDiff, handleSave]);

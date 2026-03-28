@@ -196,7 +196,9 @@ describe('uiStore', () => {
 
   describe('TabBar redirect handling', () => {
     it('TabBar excludes redirect paths from tab creation', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const path = require('path');
       const source = fs.readFileSync(path.join(__dirname, '../../components/TabBar.tsx'), 'utf-8');
       // Verify REDIRECT_PATHS includes root and legacy paths
@@ -208,7 +210,9 @@ describe('uiStore', () => {
     });
 
     it('store merge drops tabs for redirect paths', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require('fs');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const path = require('path');
       const source = fs.readFileSync(path.join(__dirname, '../uiStore.ts'), 'utf-8');
       expect(source).toContain('STALE_PATHS');

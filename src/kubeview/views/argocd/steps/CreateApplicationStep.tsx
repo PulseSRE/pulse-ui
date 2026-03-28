@@ -395,7 +395,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
             value={isAppOfApps ? clusterName : name}
             onChange={(e) => {
               const val = e.target.value.toLowerCase();
-              isAppOfApps ? setClusterName(val) : setName(val);
+              if (isAppOfApps) { setClusterName(val); } else { setName(val); }
             }}
             placeholder={isAppOfApps ? 'my-cluster' : 'my-app'}
             className={cn(

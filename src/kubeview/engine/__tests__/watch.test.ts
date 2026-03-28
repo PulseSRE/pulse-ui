@@ -29,7 +29,9 @@ describe('WatchManager', () => {
   });
 
   describe('URL construction with query params', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
     const source = fs.readFileSync(path.join(__dirname, '../watch.ts'), 'utf-8');
 
@@ -44,7 +46,9 @@ describe('WatchManager', () => {
   });
 
   describe('views use watches for K8s resources', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
     const viewsDir = path.join(__dirname, '../../views');
     const detailDir = path.join(viewsDir, 'detail');
