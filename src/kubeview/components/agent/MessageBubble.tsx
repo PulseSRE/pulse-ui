@@ -11,6 +11,7 @@ const MODE_ICON: Record<AgentMode, typeof Bot> = {
   sre: Bot,
   security: Shield,
   monitor: Shield,
+  auto: Bot,
 };
 
 /** Describe a write tool in plain English for confirmation dialogs */

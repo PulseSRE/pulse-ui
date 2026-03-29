@@ -106,6 +106,14 @@ data:
           proxy_read_timeout 3600s;
         }
 
+        location /api/agent/ws/agent {
+          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/agent?token={{ $agentToken }};
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
+          proxy_http_version 1.1;
+          proxy_read_timeout 3600s;
+        }
+
         location /api/agent/ {
           proxy_pass http://{{ .Values.agent.serviceName }}:8080/;
           proxy_set_header Authorization "Bearer {{ $agentToken }}";

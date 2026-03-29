@@ -95,7 +95,7 @@ export const useAgentStore = create<AgentState>()(
   persist(
     (set, get) => ({
       connected: false,
-      mode: 'sre',
+      mode: 'auto',
       messages: [],
       streaming: false,
       streamingText: '',

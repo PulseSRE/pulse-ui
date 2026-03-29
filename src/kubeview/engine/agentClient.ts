@@ -9,7 +9,7 @@
 
 import type { ComponentSpec } from './agentComponents';
 
-export type AgentMode = 'sre' | 'security' | 'monitor';
+export type AgentMode = 'sre' | 'security' | 'monitor' | 'auto';
 
 export interface AgentMessage {
   id: string;
@@ -118,7 +118,8 @@ export class AgentClient {
     });
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}${AGENT_BASE}/ws/${this.mode}`;
+    const wsPath = this.mode === 'auto' ? 'agent' : this.mode;
+    const url = `${protocol}//${window.location.host}${AGENT_BASE}/ws/${wsPath}`;
 
     this.ws = new WebSocket(url);
 
