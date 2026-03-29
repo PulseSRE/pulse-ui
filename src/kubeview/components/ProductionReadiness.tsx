@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   CheckCircle, XCircle, AlertTriangle, Shield, Server, HardDrive,
-  Network, Users, Activity, Bell, FileText, Lock, RefreshCw,
+  Users, Activity,
   ArrowRight, Loader2, Package, Globe,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';

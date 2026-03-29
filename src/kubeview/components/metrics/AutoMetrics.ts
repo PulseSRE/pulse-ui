@@ -240,7 +240,7 @@ export const resourceMetrics: ResourceMetrics[] = [
 /**
  * Get metric queries for a given resource type and instance
  */
-export function getMetricsForResource(gvrKey: string, resource?: MinimalResource): MetricQuery[] {
+export function getMetricsForResource(gvrKey: string, _resource?: MinimalResource): MetricQuery[] {
   const config = resourceMetrics.find((r) => gvrKey.includes(r.resourceType));
   if (!config) return [];
 

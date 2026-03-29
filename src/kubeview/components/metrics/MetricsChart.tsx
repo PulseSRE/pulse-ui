@@ -11,7 +11,6 @@
  */
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { cn } from '@/lib/utils';
 
 export interface DataPoint {
   timestamp: number;  // unix timestamp in seconds
@@ -42,7 +41,7 @@ export interface MetricsChartProps {
 
 import { CHART_COLOR_SEQUENCE } from '../../engine/colors';
 
-const DEFAULT_COLORS = CHART_COLOR_SEQUENCE;
+const _DEFAULT_COLORS = CHART_COLOR_SEQUENCE;
 
 export function MetricsChart({
   series,
@@ -347,7 +346,7 @@ export function MetricsChart({
         ))}
 
         {/* Data series */}
-        {series.map((s, i) => (
+        {series.map((s, _i) => (
           <g key={s.id}>
             {s.type === 'area' && (
               <path

@@ -24,8 +24,8 @@ Defines the WebSocket protocol between the Pulse UI and Pulse Agent. Both repos 
 ```json
 {
   "protocol": "2",
-  "agent": "1.4.0",
-  "tools": 68,
+  "agent": "1.5.0",
+  "tools": 109,
   "features": ["component_specs", "ws_token_auth", "rate_limiting", "monitor", "fix_history", "predictions"]
 }
 ```
@@ -438,7 +438,8 @@ The UI sends a `GET /version` request before connecting. If the agent's `protoco
 
 | UI Version | Agent Version | Protocol | Status |
 |------------|--------------|----------|--------|
-| v5.12.0 | v1.4.0 | 2 | Current |
+| v5.13.0 | v1.5.0 | 2 | Current |
+| v5.12.0 | v1.4.0 | 2 | Compatible |
 | v5.11.0 | v1.3.0 | 1 | Compatible |
 | v5.10.0 | v1.3.0 | 1 | Compatible |
 | v5.8.0 | v1.2.0 | 1 | Compatible |

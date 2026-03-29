@@ -1,7 +1,6 @@
 import React from 'react';
 import { Minus, Plus, RotateCw } from 'lucide-react';
 import type { ResourceEnhancer } from './index';
-import type { K8sResource } from '../renderers/index';
 import type { Deployment } from '../types';
 import { getDeploymentStatus } from '../renderers/statusUtils';
 

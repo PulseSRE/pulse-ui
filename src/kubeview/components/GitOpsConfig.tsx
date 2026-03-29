@@ -4,14 +4,13 @@
  */
 
 import React, { useState } from 'react';
-import { GitBranch, CheckCircle, XCircle, Loader2, Eye, EyeOff, ExternalLink, AlertTriangle, ArrowRight } from 'lucide-react';
+import { GitBranch, CheckCircle, XCircle, Loader2, Eye, EyeOff, AlertTriangle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGitOpsConfig } from '../hooks/useGitOpsConfig';
 import { useArgoCD } from '../hooks/useArgoCD';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import type { GitOpsConfig as GitOpsConfigType } from '../engine/gitProvider';
-import { Card } from './primitives/Card';
 import { Panel } from './primitives/Panel';
 import { showErrorToast } from '../engine/errorToast';
 

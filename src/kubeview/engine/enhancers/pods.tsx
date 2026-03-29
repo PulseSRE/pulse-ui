@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ScrollText, RotateCw } from 'lucide-react';
 import type { ResourceEnhancer } from './index';
-import type { K8sResource } from '../renderers/index';
 import type { Pod } from '../types';
 import { getPodStatus } from '../renderers/statusUtils';
 

@@ -6,7 +6,7 @@ import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import { foldGutter, bracketMatching } from '@codemirror/language';
 import { highlightActiveLine } from '@codemirror/view';
 import { autocompletion, type CompletionContext, type Completion } from '@codemirror/autocomplete';
-import { Save, FileDown, BookOpen, Puzzle, HelpCircle, X, Copy, Check, AlertTriangle, GitCompare } from 'lucide-react';
+import { Save, BookOpen, Puzzle, HelpCircle, X, Copy, Check, AlertTriangle, GitCompare } from 'lucide-react';
 import { linter, type Diagnostic } from '@codemirror/lint';
 import { cn } from '@/lib/utils';
 import DiffPreview from './DiffPreview';

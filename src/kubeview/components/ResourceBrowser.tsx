@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronRight, ChevronDown, Star, Activity, Package, Globe, Server, HardDrive, Clock, Shield, Bell, Settings, FilePlus } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Star, Activity, Package, Globe, Server, HardDrive, Clock, Shield, Bell, Settings } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
-import { cn } from '@/lib/utils';
 import { getResourceIcon } from '../engine/iconRegistry';
 
 interface GroupedResources {

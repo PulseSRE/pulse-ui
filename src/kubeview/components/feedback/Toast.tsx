@@ -19,7 +19,7 @@ interface ToastProps {
   onClose: () => void;
 }
 
-function Toast({ id, type, title, detail, duration, action, category, suggestions, onClose }: ToastProps) {
+function Toast({ id: _id, type, title, detail, duration, action, category, suggestions, onClose }: ToastProps) {
   const [progress, setProgress] = useState(100);
   const [isExiting, setIsExiting] = useState(false);
 

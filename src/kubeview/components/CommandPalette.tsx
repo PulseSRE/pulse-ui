@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Command, Globe } from 'lucide-react';
+import { Search, Globe } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useAgentStore } from '../store/agentStore';
 import { getFavorites } from '../engine/favorites';

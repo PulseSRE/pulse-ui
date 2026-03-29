@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { Minus, X, GripVertical, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Maximize2, Minimize2 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useAgentStore } from '../store/agentStore';
-import { AIIconStatic, AIBadge, AI_ACCENT, aiActiveClass } from './agent/AIBranding';
+import { AIIconStatic, AIBadge, aiActiveClass } from './agent/AIBranding';
 import { DegradedBanner } from './primitives/DegradedBanner';
 import { cn } from '@/lib/utils';
 

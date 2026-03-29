@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Send, StopCircle, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2, Shield } from 'lucide-react';
 import { useAgentStore } from '../../store/agentStore';
-import { useTrustStore, TRUST_LABELS } from '../../store/trustStore';
+import { useTrustStore } from '../../store/trustStore';
 import { useSmartPrompts } from '../../hooks/useSmartPrompts';
 import { useMonitorStore } from '../../store/monitorStore';
 import { MessageBubble } from './MessageBubble';
-import { MarkdownRenderer } from './MarkdownRenderer';
 import { AgentComponentRenderer } from './AgentComponentRenderer';
 import { ConfirmationCard } from './ConfirmationCard';
 import { PromptPill } from './AIBranding';

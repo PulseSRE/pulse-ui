@@ -95,7 +95,7 @@ export function Dropdown({ trigger, items, align = 'right' }: DropdownProps) {
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >
-          {items.map((item, index) => {
+          {items.map((item, _index) => {
             if (item.separator) {
               return <div key={item.id} className="my-1 border-t border-slate-700" />;
             }

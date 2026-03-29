@@ -60,15 +60,6 @@ interface APIGroupList {
   }>;
 }
 
-interface CoreAPIVersions {
-  kind: string;
-  versions: string[];
-  serverAddressByClientCIDRs: Array<{
-    clientCIDR: string;
-    serverAddress: string;
-  }>;
-}
-
 const cachedRegistries = new Map<string, ResourceRegistry>();
 const cacheTimestamps = new Map<string, number>();
 // Legacy single-cluster aliases for backward compatibility

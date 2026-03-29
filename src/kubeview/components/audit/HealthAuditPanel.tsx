@@ -2,7 +2,7 @@ import React from 'react';
 import { Activity, CheckCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../primitives/Card';
-import type { AuditCheck, AuditItem, HealthAuditPanelProps } from './types';
+import type { AuditItem, HealthAuditPanelProps } from './types';
 
 /**
  * Shared health-audit panel used by domain views (Workloads, Storage, Compute,

@@ -12,7 +12,6 @@ import {
 import { useAgentSession } from '../../hooks/useAgentSession';
 import type { AgentMode, ResourceContext } from '../../engine/agentClient';
 import { MessageBubble } from './MessageBubble';
-import { MarkdownRenderer } from './MarkdownRenderer';
 import { AgentComponentRenderer } from './AgentComponentRenderer';
 import { ConfirmationCard } from './ConfirmationCard';
 import { AIIcon, AIIconStatic, AI_ACCENT, aiGlowClass } from './AIBranding';

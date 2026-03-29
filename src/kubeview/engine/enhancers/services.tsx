@@ -1,6 +1,5 @@
 import React from 'react';
 import type { ResourceEnhancer } from './index';
-import type { K8sResource } from '../renderers/index';
 
 export const serviceEnhancer: ResourceEnhancer = {
   matches: ['v1/services'],

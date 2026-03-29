@@ -1,7 +1,6 @@
 import React from 'react';
 import { ShieldCheck, ShieldOff, ArrowDownToLine } from 'lucide-react';
 import type { ResourceEnhancer } from './index';
-import type { K8sResource } from '../renderers/index';
 import type { Node } from '../types';
 import { getNodeStatus } from '../renderers/statusUtils';
 import { parseMem, formatMem } from '../formatting';

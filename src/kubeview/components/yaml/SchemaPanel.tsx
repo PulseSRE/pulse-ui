@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, AlertCircle, ChevronRight, ChevronDown, Loader2, Search } from 'lucide-react';
+import { AlertCircle, ChevronRight, ChevronDown, Loader2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchSchema, type ResourceSchema, type FieldSchema } from '../../engine/schema';
 
@@ -23,7 +23,7 @@ function detectGvkFromYaml(yaml: string): { group: string; version: string; kind
   return { group, version, kind };
 }
 
-export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField }: SchemaPanelProps) {
+export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: _onInsertField }: SchemaPanelProps) {
   const [schema, setSchema] = useState<ResourceSchema | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -11,7 +11,7 @@ import type { AgentEvent } from './agentClient';
 import { useUIStore } from '../store/uiStore';
 import { useAgentStore } from '../store/agentStore';
 import { useMonitorStore } from '../store/monitorStore';
-import type { Finding, ActionReport } from './monitorClient';
+import type { Finding } from './monitorClient';
 
 const DEFAULT_INTERVAL = 300_000; // 5 minutes
 const PROMPT =

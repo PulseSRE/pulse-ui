@@ -4,13 +4,12 @@
  */
 
 import React from 'react';
-import { GitBranch, ExternalLink, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { GitBranch, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useArgoSyncInfo } from '../hooks/useArgoCD';
 import { useArgoCDStore } from '../store/argoCDStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { Card } from './primitives/Card';
-import type { ArgoSyncStatus } from '../engine/types';
 import { buildCommitUrl } from '../engine/gitUtils';
 
 interface GitOpsInfoCardProps {

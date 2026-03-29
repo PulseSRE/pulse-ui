@@ -9,7 +9,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 
 import { AgentClient, type AgentEvent } from '../../engine/agentClient';
-import { AIIconStatic, AI_ACCENT } from './AIBranding';
+import { AIIconStatic } from './AIBranding';
 import { cn } from '@/lib/utils';
 
 /* ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ResourceType } from './discovery';
 import type { K8sResource } from './renderers/index';
-import { k8sPatch, k8sDelete, k8sSubresource } from './query';
+import { k8sPatch, k8sDelete } from './query';
 import { kindToPlural } from './renderers/index';
 
 export interface ResourceAction {

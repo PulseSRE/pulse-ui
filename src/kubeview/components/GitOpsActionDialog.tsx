@@ -5,8 +5,7 @@
 
 import React, { useState } from 'react';
 import { GitBranch, Zap, AlertTriangle, Loader2, CheckCircle, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { createGitProvider, type GitOpsConfig } from '../engine/gitProvider';
+import { createGitProvider } from '../engine/gitProvider';
 import { useGitOpsConfig } from '../hooks/useGitOpsConfig';
 import type { ArgoSyncInfo } from '../engine/types';
 

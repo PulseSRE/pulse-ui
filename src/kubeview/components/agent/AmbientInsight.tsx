@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, X, RefreshCw } from 'lucide-react';
-import { AIIconStatic, AI_ACCENT, aiGlowClass } from './AIBranding';
+import { AIIconStatic, AI_ACCENT } from './AIBranding';
 
 import { AgentClient, type ResourceContext, type AgentEvent } from '../../engine/agentClient';
 import type { ComponentSpec } from '../../engine/agentComponents';
