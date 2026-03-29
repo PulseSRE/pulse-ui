@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchBriefing, type BriefingResponse } from '../engine/fixHistory';
+import { fetchBriefing, fetchMemoryStats, type BriefingResponse, type MemoryStats } from '../engine/fixHistory';
 import { useUIStore } from '../store/uiStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -59,6 +59,13 @@ export default function WelcomeView() {
     enabled: launchpad,
   });
   const topIssuesCount = firingAlerts.length;
+
+  const { data: memoryStats } = useQuery<MemoryStats>({
+    queryKey: ['memory-stats'],
+    queryFn: fetchMemoryStats,
+    staleTime: 30_000,
+    retry: false,
+  });
 
   const { data: briefing, isLoading: briefingLoading, isError: briefingError } = useQuery<BriefingResponse>({
     queryKey: ['briefing'],
@@ -155,6 +162,35 @@ export default function WelcomeView() {
                   </span>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Memory: What I've Learned ── */}
+        {memoryStats && memoryStats.enabled && (memoryStats.incidents > 0 || memoryStats.runbooks > 0) && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900 px-6 py-4">
+            <div className="flex items-center gap-3 mb-2">
+              <History className="w-5 h-5 text-violet-400" />
+              <h2 className="text-lg font-semibold text-slate-100">What I've Learned</h2>
+            </div>
+            <div className="flex gap-6 text-sm">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-slate-100">{memoryStats.incidents}</div>
+                <div className="text-xs text-slate-500">incidents</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-violet-400">{memoryStats.runbooks}</div>
+                <div className="text-xs text-slate-500">runbooks learned</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">{memoryStats.patterns}</div>
+                <div className="text-xs text-slate-500">patterns detected</div>
+              </div>
+            </div>
+            {memoryStats.runbooks > 0 && (
+              <p className="text-xs text-slate-500 mt-2">
+                The agent uses these to diagnose similar issues faster. Give thumbs up on helpful responses to teach it more.
+              </p>
             )}
           </div>
         )}

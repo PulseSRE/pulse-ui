@@ -91,6 +91,23 @@ export async function fetchBriefing(hours = 12): Promise<BriefingResponse> {
   return res.json();
 }
 
+/** Fetch memory system stats. */
+export interface MemoryStats {
+  enabled: boolean;
+  incidents: number;
+  runbooks: number;
+  patterns: number;
+  metrics: Record<string, { avg: number; count: number }>;
+}
+
+export async function fetchMemoryStats(): Promise<MemoryStats> {
+  const res = await fetch(`${AGENT_BASE}/memory/stats`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch memory stats: ${res.status}`);
+  }
+  return res.json();
+}
+
 /** Request a rollback for a completed action. */
 export async function requestRollback(actionId: string): Promise<void> {
   const res = await fetch(
