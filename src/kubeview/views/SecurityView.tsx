@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Shield, ShieldAlert, ShieldCheck, ShieldOff, Lock, Key, Users,
@@ -13,11 +13,10 @@ import { Panel } from '../components/primitives/Panel';
 import type { K8sResource } from '../engine/renderers';
 import type { ClusterRoleBinding, Namespace, Subject } from '../engine/types';
 import { useClusterStore } from '../store/clusterStore';
+import { useUIStore } from '../store/uiStore';
+import { useAgentStore } from '../store/agentStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Card } from '../components/primitives/Card';
-import { ErrorBoundary } from '../components/ErrorBoundary';
-
-const InlineAgent = lazy(() => import('../components/agent/InlineAgent').then(m => ({ default: m.InlineAgent })));
 
 interface AuditCheck {
   id: string;
@@ -277,28 +276,33 @@ export default function SecurityView() {
           <p className="text-sm text-slate-400 mt-1">Security posture, audit checks, access control, and policy overview</p>
         </div>
 
-        {/* AI Security Scanner */}
-        <ErrorBoundary>
-          <Suspense fallback={
-            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 animate-pulse">
-              <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4 text-slate-600" />
-                <div className="h-4 w-40 bg-slate-800 rounded" />
-              </div>
-            </div>
-          }>
-            <InlineAgent
-              context={{ kind: 'Cluster', name: 'security-audit' }}
-              quickPrompts={[
-                'Run a full security audit of my cluster',
-                'Scan all pods for security context issues',
-                'Check RBAC for overly permissive roles',
-                'Which namespaces are missing network policies?',
-                'Find secrets older than 90 days that need rotation',
-              ]}
-            />
-          </Suspense>
-        </ErrorBoundary>
+        {/* AI Security Scanner — opens dock panel */}
+        <Card className="px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Bot className="w-4 h-4 text-indigo-400" />
+            <span className="text-xs font-semibold text-slate-200">Ask the Security Agent</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              'Run a full security audit',
+              'Scan pods for security issues',
+              'Check RBAC risks',
+              'Find unprotected namespaces',
+              'Audit secret rotation',
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => {
+                  useUIStore.getState().openDock('agent');
+                  useAgentStore.getState().connectAndSend(prompt);
+                }}
+                className="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300 hover:bg-indigo-900/40 hover:text-indigo-300 border border-slate-700 hover:border-indigo-700/50 transition-colors"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </Card>
 
         {crbLoading && clusterRoleBindings.length === 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
