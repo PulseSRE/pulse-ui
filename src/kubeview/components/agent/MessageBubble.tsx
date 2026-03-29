@@ -1,5 +1,6 @@
 import { useState, useCallback, memo } from 'react';
-import { Clock, Copy, Check, Maximize2, Minimize2 } from 'lucide-react';
+import { Clock, Copy, Check, Maximize2, Minimize2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useAgentStore } from '../../store/agentStore';
 import type { AgentMode, AgentMessage } from '../../engine/agentClient';
 import type { ComponentSpec } from '../../engine/agentComponents';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -111,6 +112,8 @@ export const MessageBubble = memo(function MessageBubble({ message, mode }: { me
   const isUser = message.role === 'user';
   const Icon = isUser ? undefined : MODE_ICON[mode];
   const [copied, setCopied] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState<'up' | 'down' | null>(null);
+  const sendFeedback = useAgentStore((s) => s.sendFeedback);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -151,14 +154,46 @@ export const MessageBubble = memo(function MessageBubble({ message, mode }: { me
             <Clock className="h-2.5 w-2.5" aria-hidden="true" />
             {timeStr}
           </span>
-          <button
-            onClick={handleCopy}
-            className="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
-            aria-label="Copy message"
-            title="Copy to clipboard"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
-          </button>
+          <div className="flex items-center gap-1">
+            {!isUser && (
+              <>
+                <button
+                  onClick={() => { sendFeedback(true); setFeedbackGiven('up'); }}
+                  disabled={feedbackGiven !== null}
+                  className={cn(
+                    'p-0.5 transition-opacity',
+                    feedbackGiven === 'up' ? 'text-green-400 opacity-100' : 'text-slate-500 hover:text-green-400 opacity-0 group-hover:opacity-100',
+                    feedbackGiven === 'down' && 'hidden',
+                  )}
+                  aria-label="This helped"
+                  title="This helped — agent will learn from this"
+                >
+                  <ThumbsUp className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={() => { sendFeedback(false); setFeedbackGiven('down'); }}
+                  disabled={feedbackGiven !== null}
+                  className={cn(
+                    'p-0.5 transition-opacity',
+                    feedbackGiven === 'down' ? 'text-red-400 opacity-100' : 'text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100',
+                    feedbackGiven === 'up' && 'hidden',
+                  )}
+                  aria-label="This didn't help"
+                  title="This didn't help — agent will adjust"
+                >
+                  <ThumbsDown className="h-3 w-3" />
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleCopy}
+              className="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+              aria-label="Copy message"
+              title="Copy to clipboard"
+            >
+              {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+            </button>
+          </div>
         </div>
       </div>
     </div>
