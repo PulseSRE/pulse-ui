@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import {
-  CheckCircle, XCircle, Clock, Play, Search,
+  CheckCircle, XCircle, Clock, Play, Search, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { useMonitorStore } from '../../store/monitorStore';
+import { requestRollback } from '../../engine/fixHistory';
 import type { ActionReport } from '../../engine/monitorClient';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -188,11 +189,30 @@ function RecentActionCard({
 }: {
   action: ActionReport;
 }) {
+  const [confirmRollback, setConfirmRollback] = useState(false);
+  const [rolling, setRolling] = useState(false);
+  const [rolledBack, setRolledBack] = useState(action.status === 'rolled_back');
+
+  async function handleRollback() {
+    setRolling(true);
+    try {
+      await requestRollback(action.id);
+      setRolledBack(true);
+    } catch (err) {
+      console.error('Rollback failed:', err);
+    } finally {
+      setRolling(false);
+      setConfirmRollback(false);
+    }
+  }
+
   return (
     <Card>
       <div className="px-4 py-3 flex items-start gap-3">
-        {action.status === 'completed' ? (
+        {(action.status === 'completed' && !rolledBack) ? (
           <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+        ) : rolledBack ? (
+          <RotateCcw className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" />
         ) : action.status === 'failed' ? (
           <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
         ) : (
@@ -201,8 +221,8 @@ function RecentActionCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-sm font-medium text-slate-200 font-mono">{action.tool}</span>
-            <span className={cn('text-xs px-1.5 py-0.5 rounded', STATUS_COLORS[action.status])}>
-              {action.status}
+            <span className={cn('text-xs px-1.5 py-0.5 rounded', STATUS_COLORS[rolledBack ? 'rolled_back' : action.status])}>
+              {rolledBack ? 'rolled_back' : action.status}
             </span>
             {action.durationMs != null && (
               <span className="text-xs text-slate-500">{action.durationMs}ms</span>
@@ -226,15 +246,36 @@ function RecentActionCard({
           )}
           <span className="text-xs text-slate-500">{formatRelativeTime(action.timestamp)}</span>
         </div>
-        {action.status === 'completed' && (
-          <span
-            className="text-xs text-slate-500 flex-shrink-0 italic"
-            title="Auto-fix actions cannot be rolled back"
-          >
-            No rollback
-          </span>
+        {action.status === 'completed' && !rolledBack && (
+          action.rollbackAvailable ? (
+            <button
+              onClick={() => setConfirmRollback(true)}
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 rounded transition-colors flex-shrink-0"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Rollback
+            </button>
+          ) : (
+            <span
+              className="text-xs text-slate-500 flex-shrink-0 italic"
+              title="This action type cannot be rolled back"
+            >
+              No rollback
+            </span>
+          )
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmRollback}
+        onClose={() => !rolling && setConfirmRollback(false)}
+        onConfirm={handleRollback}
+        title="Rollback Action"
+        description={`Roll back "${action.tool}"? This will attempt to undo the fix.`}
+        confirmLabel="Rollback"
+        variant="warning"
+        loading={rolling}
+      />
     </Card>
   );
 }

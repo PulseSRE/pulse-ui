@@ -39,6 +39,7 @@ export interface ActionReport {
   timestamp: number;
   reasoning?: string;
   durationMs?: number;
+  rollbackAvailable?: boolean;
   verificationStatus?: 'verified' | 'still_failing';
   verificationEvidence?: string;
   verificationTimestamp?: number;
