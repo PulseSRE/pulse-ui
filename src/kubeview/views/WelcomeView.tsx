@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchBriefing, fetchMemoryStats, type BriefingResponse, type MemoryStats } from '../engine/fixHistory';
 import { PreferencesPanel } from '../components/agent/PreferencesPanel';
+import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -61,6 +62,7 @@ export default function WelcomeView() {
   });
   const topIssuesCount = firingAlerts.length;
   const [showPrefs, setShowPrefs] = useState(false);
+  const customViews = useCustomViewStore((s) => s.views);
 
   const { data: memoryStats } = useQuery<MemoryStats>({
     queryKey: ['memory-stats'],
@@ -335,6 +337,27 @@ export default function WelcomeView() {
             <ViewTile icon={<Puzzle className="w-4 h-4 text-violet-400" />}   title="CRDs"         onClick={() => go('/crds', 'CRDs')} />
           </div>
         </section>
+
+        {/* ── Custom Dashboards ── */}
+        {customViews.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-px flex-1 bg-slate-800" />
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Your Dashboards</h2>
+              <div className="h-px flex-1 bg-slate-800" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {customViews.map((v) => (
+                <ViewTile
+                  key={v.id}
+                  icon={<Monitor className="w-4 h-4 text-violet-400" />}
+                  title={v.title}
+                  onClick={() => go(`/custom/${v.id}`, v.title)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── Keyboard Shortcuts (#1 fix 11px, #12 platform-aware) ── */}
         <div className="flex flex-wrap items-center justify-center gap-3">

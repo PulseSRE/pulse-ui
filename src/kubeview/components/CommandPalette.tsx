@@ -5,6 +5,7 @@ import { useUIStore } from '../store/uiStore';
 import { useAgentStore } from '../store/agentStore';
 import { getFavorites } from '../engine/favorites';
 import { useClusterStore } from '../store/clusterStore';
+import { useCustomViewStore } from '../store/customViewStore';
 import { useSmartPrompts, type SmartPromptItem } from '../hooks/useSmartPrompts';
 import { AIIconStatic, AI_ACCENT, aiGlowClass } from './agent/AIBranding';
 import type { K8sResource } from '../engine/renderers';
@@ -361,6 +362,20 @@ function getCommandItems(
       !cleanQuery || page.title.toLowerCase().includes(cleanQuery) || page.subtitle!.toLowerCase().includes(cleanQuery)
     );
     items.push(...matchingPages);
+
+    // Custom dashboards (AI-generated)
+    const customViews = useCustomViewStore.getState().views;
+    const matchingCustom: CommandItem[] = customViews
+      .filter((v) => !cleanQuery || v.title.toLowerCase().includes(cleanQuery) || (v.description || '').toLowerCase().includes(cleanQuery))
+      .map((v) => ({
+        type: 'nav' as const,
+        id: `custom-${v.id}`,
+        title: v.title,
+        subtitle: v.description || 'Custom dashboard',
+        icon: 'LayoutDashboard',
+        path: `/custom/${v.id}`,
+      }));
+    items.push(...matchingCustom);
 
     // Resource types from discovery — sorted by priority
     if (resourceRegistry) {
