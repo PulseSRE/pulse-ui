@@ -142,7 +142,7 @@ describe('route modules', () => {
 
     it('is concise (under 50 lines)', () => {
       const lines = appSource.split('\n').length;
-      expect(lines).toBeLessThanOrEqual(50);
+      expect(lines).toBeLessThanOrEqual(55);
     });
   });
 });

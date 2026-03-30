@@ -33,6 +33,8 @@ interface AgentState {
   error: string | null;
   /** Brief toast shown when agent acknowledges feedback */
   feedbackToast: string | null;
+  /** Pending view spec from agent — user can save as custom dashboard */
+  pendingViewSpec: import('../engine/agentComponents').ViewSpec | null;
   /** True when background health polling found an unread insight */
   hasUnreadInsight: boolean;
 
@@ -109,6 +111,7 @@ export const useAgentStore = create<AgentState>()(
       pendingConfirm: null,
       error: null,
       feedbackToast: null,
+      pendingViewSpec: null,
       hasUnreadInsight: false,
 
       setUnreadInsight: (value) => set({ hasUnreadInsight: value }),
@@ -238,6 +241,9 @@ export const useAgentStore = create<AgentState>()(
               setTimeout(() => set({ feedbackToast: null }), 4000);
               break;
             }
+            case 'view_spec':
+              set({ pendingViewSpec: event.spec });
+              break;
             case 'cleared':
               set({ messages: [], streamingText: '', thinkingText: '', activeTools: [], streamingComponents: [] });
               break;

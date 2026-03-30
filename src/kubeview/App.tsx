@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Shell } from './components/Shell';
 import PulseView from './views/PulseView';
 import WelcomeView from './views/WelcomeView';
+import CustomView from './views/CustomView';
 import { resourceRoutes, domainRoutes, redirectRoutes } from './routes';
 import './styles/index.css';
 
@@ -29,6 +30,9 @@ export default function OpenshiftPulseApp() {
 
             {/* Resource routes (list, detail, yaml, logs, metrics, create, deps, investigate) */}
             {resourceRoutes()}
+
+            {/* Custom views (AI-generated dashboards) */}
+            <Route path="custom/:viewId" element={<CustomView />} />
 
             {/* Domain views (workloads, networking, compute, storage, etc.) */}
             {domainRoutes()}

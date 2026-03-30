@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, StopCircle, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2, Shield } from 'lucide-react';
+import { Send, StopCircle, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2, Shield, LayoutDashboard } from 'lucide-react';
 import { useAgentStore } from '../../store/agentStore';
+import { useCustomViewStore } from '../../store/customViewStore';
 import { useTrustStore } from '../../store/trustStore';
 import { useSmartPrompts } from '../../hooks/useSmartPrompts';
 import { useMonitorStore } from '../../store/monitorStore';
@@ -18,8 +19,10 @@ export function DockAgentPanel() {
   const {
     connected, mode, messages, streaming, streamingText, thinkingText,
     activeTools, streamingComponents, pendingConfirm, error, feedbackToast,
+    pendingViewSpec,
     connect, sendMessage, confirmAction, cancelQuery, clearChat,
   } = useAgentStore();
+  const saveView = useCustomViewStore((s) => s.saveView);
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
   const smartPrompts = useSmartPrompts();
@@ -156,6 +159,37 @@ export function DockAgentPanel() {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Save as Dashboard prompt */}
+      {pendingViewSpec && (
+        <div className="mx-3 mb-1 px-3 py-2 bg-violet-950/40 border border-violet-800/50 rounded">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <LayoutDashboard className="w-3.5 h-3.5 text-violet-400" />
+              <span className="text-xs text-violet-300 font-medium">{pendingViewSpec.title}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  saveView(pendingViewSpec);
+                  useAgentStore.setState({ pendingViewSpec: null });
+                  window.location.href = `/custom/${pendingViewSpec.id}`;
+                }}
+                className="px-2 py-1 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors"
+              >
+                Save Dashboard
+              </button>
+              <button
+                onClick={() => useAgentStore.setState({ pendingViewSpec: null })}
+                className="px-2 py-1 text-xs bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">{pendingViewSpec.layout.length} widget{pendingViewSpec.layout.length !== 1 ? 's' : ''}</p>
+        </div>
+      )}
 
       {/* Feedback toast */}
       {feedbackToast && (

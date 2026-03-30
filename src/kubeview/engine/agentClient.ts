@@ -44,6 +44,7 @@ export type AgentEvent =
   | { type: 'done'; full_response: string }
   | { type: 'error'; message: string }
   | { type: 'feedback_ack'; resolved: boolean; score: number; runbookExtracted: boolean }
+  | { type: 'view_spec'; spec: import('./agentComponents').ViewSpec }
   | { type: 'cleared' }
   | { type: 'connected' }
   | { type: 'disconnected' }
