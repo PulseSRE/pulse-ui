@@ -160,18 +160,28 @@ export function InvestigateTab() {
 
   return (
     <div className="space-y-6">
-      {latestInvestigations.length > 0 && (
-        <Card>
-          <div className="px-4 py-3 border-b border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-100">AI Root Cause Investigations</h2>
-          </div>
+      <Card>
+        <div className="px-4 py-3 border-b border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-100">AI Root Cause Investigations</h2>
+        </div>
+        {latestInvestigations.length > 0 ? (
           <div className="divide-y divide-slate-800">
             {latestInvestigations.map((report) => (
               <InvestigationCard key={report.id} report={report} />
             ))}
           </div>
-        </Card>
-      )}
+        ) : (
+          <div className="px-4 py-6 text-center">
+            <Search className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <div className="text-sm text-slate-400 font-medium">No investigations yet</div>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              When the monitor detects a critical finding (crashlooping pods, OOM kills, failed deployments),
+              the AI automatically investigates the root cause. Results appear here with evidence,
+              suspected cause, and recommended fix.
+            </p>
+          </div>
+        )}
+      </Card>
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
