@@ -159,7 +159,7 @@ export function DockAgentPanel() {
 
       {/* Feedback toast */}
       {feedbackToast && (
-        <div className="mx-3 mb-1 px-3 py-1.5 text-xs text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 rounded animate-in fade-in">
+        <div role="status" aria-live="polite" className="mx-3 mb-1 px-3 py-1.5 text-xs text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 rounded animate-in fade-in">
           {feedbackToast}
         </div>
       )}

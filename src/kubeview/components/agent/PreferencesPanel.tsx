@@ -1,4 +1,4 @@
-import { Settings, MessageSquare, Bell, Shield } from 'lucide-react';
+import { MessageSquare, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useTrustStore,
@@ -6,7 +6,6 @@ import {
   TRUST_DESCRIPTIONS,
   type TrustLevel,
   type CommunicationStyle,
-  type MinSeverity,
 } from '../../store/trustStore';
 
 const COMM_OPTIONS: { value: CommunicationStyle; label: string; description: string }[] = [
@@ -15,19 +14,11 @@ const COMM_OPTIONS: { value: CommunicationStyle; label: string; description: str
   { value: 'technical', label: 'Technical', description: 'Deep technical detail, CLI examples' },
 ];
 
-const SEVERITY_OPTIONS: { value: MinSeverity; label: string; description: string }[] = [
-  { value: 'critical', label: 'Critical only', description: 'Only show critical findings' },
-  { value: 'warning', label: 'Warning+', description: 'Show warnings and critical' },
-  { value: 'info', label: 'All', description: 'Show everything including info' },
-];
-
 export function PreferencesPanel() {
   const trustLevel = useTrustStore((s) => s.trustLevel);
   const setTrustLevel = useTrustStore((s) => s.setTrustLevel);
   const communicationStyle = useTrustStore((s) => s.communicationStyle);
   const setCommunicationStyle = useTrustStore((s) => s.setCommunicationStyle);
-  const minSeverity = useTrustStore((s) => s.minSeverity);
-  const setMinSeverity = useTrustStore((s) => s.setMinSeverity);
 
   return (
     <div className="space-y-6">
@@ -72,31 +63,6 @@ export function PreferencesPanel() {
                 'px-3 py-2 rounded text-xs text-center transition-colors',
                 communicationStyle === opt.value
                   ? 'bg-violet-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700',
-              )}
-            >
-              <div className="font-medium">{opt.label}</div>
-              <div className="text-xs opacity-75 mt-0.5">{opt.description}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Alert Threshold */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Bell className="w-4 h-4 text-amber-400" />
-          <h3 className="text-sm font-semibold text-slate-100">Alert Threshold</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {SEVERITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setMinSeverity(opt.value)}
-              className={cn(
-                'px-3 py-2 rounded text-xs text-center transition-colors',
-                minSeverity === opt.value
-                  ? 'bg-amber-600 text-white'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700',
               )}
             >

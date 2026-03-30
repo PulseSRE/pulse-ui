@@ -201,6 +201,7 @@ export default function WelcomeView() {
         <div className="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
           <button
             onClick={() => setShowPrefs(!showPrefs)}
+            aria-expanded={showPrefs}
             className="w-full flex items-center justify-between px-6 py-3 text-left hover:bg-slate-800/50 transition-colors"
           >
             <div className="flex items-center gap-3">
