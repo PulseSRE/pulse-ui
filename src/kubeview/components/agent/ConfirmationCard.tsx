@@ -83,15 +83,19 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
     }
   }, [confirm.tool]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts — only active when no text input is focused
+  const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+      if (risk.level === 'HIGH') return; // HIGH risk: no keyboard shortcuts
       if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); handleApprove(); }
       if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { e.preventDefault(); handleDeny(); }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onConfirm]);
+  }, [onConfirm, risk.level]);
 
   // Watch simulation responses
   useEffect(() => {
@@ -230,32 +234,65 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
             </div>
           ) : (
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleApprove}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
-              aria-label="Approve operation (Y)"
-            >
-              <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-              Approve <kbd className="ml-1 text-xs opacity-60 bg-green-900 px-1 rounded">Y</kbd>
-            </button>
-            {!showSimulation && (
-              <button
-                onClick={handleSimulate}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
-                aria-label="Simulate impact"
-              >
-                <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
-                What If?
-              </button>
+            {risk.level === 'HIGH' ? (
+              <>
+                <button
+                  onClick={handleDeny}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                  aria-label="Deny operation"
+                >
+                  <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Deny
+                </button>
+                {!showSimulation && (
+                  <button
+                    onClick={handleSimulate}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
+                    aria-label="Simulate impact"
+                  >
+                    <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+                    What If?
+                  </button>
+                )}
+                <button
+                  onClick={handleApprove}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded transition-colors"
+                  aria-label="Approve high-risk operation"
+                >
+                  <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Approve
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleApprove}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
+                  aria-label="Approve operation (Y)"
+                >
+                  <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Approve <kbd className="ml-1 text-xs opacity-60 bg-green-900 px-1 rounded">Y</kbd>
+                </button>
+                {!showSimulation && (
+                  <button
+                    onClick={handleSimulate}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
+                    aria-label="Simulate impact"
+                  >
+                    <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+                    What If?
+                  </button>
+                )}
+                <button
+                  onClick={handleDeny}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
+                  aria-label="Deny operation (N)"
+                >
+                  <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  Deny <kbd className="ml-1 text-xs opacity-60 bg-red-900 px-1 rounded">N</kbd>
+                </button>
+              </>
             )}
-            <button
-              onClick={handleDeny}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
-              aria-label="Deny operation (N)"
-            >
-              <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-              Deny <kbd className="ml-1 text-xs opacity-60 bg-red-900 px-1 rounded">N</kbd>
-            </button>
           </div>
           )}
         </div>

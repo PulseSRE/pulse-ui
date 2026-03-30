@@ -27,10 +27,16 @@ describe('describeToolAction', () => {
 });
 
 describe('riskLevel', () => {
-  it('returns LOW for scale_deployment', () => {
+  it('returns MEDIUM for scale_deployment with replicas > 0', () => {
     const result = riskLevel('scale_deployment', { replicas: 3 });
-    expect(result.level).toBe('LOW');
-    expect(result.color).toBe('text-green-400');
+    expect(result.level).toBe('MEDIUM');
+    expect(result.color).toBe('text-amber-400');
+  });
+
+  it('returns HIGH for scale_deployment with replicas = 0', () => {
+    const result = riskLevel('scale_deployment', { replicas: 0 });
+    expect(result.level).toBe('HIGH');
+    expect(result.color).toBe('text-red-400');
   });
 
   it('returns HIGH for drain_node', () => {

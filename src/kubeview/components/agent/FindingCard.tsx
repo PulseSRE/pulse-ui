@@ -167,7 +167,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
           onClose={() => setConfirmAutoFix(false)}
           onConfirm={() => { onAutoFix(finding.id); setConfirmAutoFix(false); }}
           title="Auto-Fix Finding"
-          description={`Apply automatic fix for "${finding.title}"? This will modify live cluster resources (${finding.resources.map(r => `${r.kind}/${r.name}`).join(', ')}).`}
+          description={`Apply automatic fix for "${finding.title}"?\n\nCategory: ${finding.category}\nResources: ${finding.resources.map(r => `${r.kind}/${r.name}`).join(', ')}\n\nThe agent will attempt to resolve this by restarting or deleting the affected resource. This action is logged and rollbackable for deployment restarts.`}
           confirmLabel="Apply Fix"
           variant="warning"
         />

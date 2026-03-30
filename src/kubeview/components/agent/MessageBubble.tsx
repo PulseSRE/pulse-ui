@@ -45,11 +45,18 @@ export function describeToolAction(tool: string, input: Record<string, unknown>)
 export function riskLevel(tool: string, input: Record<string, unknown>): { level: string; color: string } {
   if (tool === 'delete_pod') return { level: 'MEDIUM', color: 'text-amber-400' };
   if (tool === 'apply_yaml' && !input.dry_run) return { level: 'HIGH', color: 'text-red-400' };
+  if (tool === 'scale_deployment') {
+    const replicas = Number(input.replicas ?? -1);
+    if (replicas === 0) return { level: 'HIGH', color: 'text-red-400' };
+    return { level: 'MEDIUM', color: 'text-amber-400' };
+  }
+  if (tool === 'restart_deployment') return { level: 'MEDIUM', color: 'text-amber-400' };
   if (tool === 'cordon_node') return { level: 'MEDIUM', color: 'text-amber-400' };
   if (tool === 'create_network_policy') return { level: 'MEDIUM', color: 'text-amber-400' };
   if (tool === 'rollback_deployment') return { level: 'HIGH', color: 'text-red-400' };
   if (tool === 'drain_node') return { level: 'HIGH', color: 'text-red-400' };
-  return { level: 'LOW', color: 'text-green-400' };
+  // Default to MEDIUM for unknown tools — safer than LOW
+  return { level: 'MEDIUM', color: 'text-amber-400' };
 }
 
 /** Detect HTML documents in content and render them in a sandboxed iframe */

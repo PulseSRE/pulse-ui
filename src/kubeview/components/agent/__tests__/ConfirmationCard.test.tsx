@@ -91,12 +91,12 @@ const drainConfirm = {
 };
 
 describe('ConfirmationCard', () => {
-  it('shows LOW risk badge with green color for scale_deployment', () => {
+  it('shows MEDIUM risk badge with amber color for scale_deployment', () => {
     const onConfirm = vi.fn();
     render(<ConfirmationCard confirm={scaleConfirm} onConfirm={onConfirm} />);
-    const badge = screen.getByText('LOW RISK');
+    const badge = screen.getByText('MEDIUM RISK');
     expect(badge).toBeTruthy();
-    expect(badge.className).toContain('green');
+    expect(badge.className).toContain('amber');
   });
 
   it('shows HIGH risk badge with red color for drain_node', () => {

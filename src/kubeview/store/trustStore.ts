@@ -138,7 +138,8 @@ export const useTrustStore = create<TrustState>()(
       },
     }),
     {
-      name: 'openshiftpulse-trust',
+      // Key trust by hostname so trust earned on staging doesn't carry over to production
+      name: `openshiftpulse-trust-${typeof window !== 'undefined' ? window.location.hostname : 'default'}`,
       partialize: (state) => ({
         trustLevel: state.trustLevel,
         history: state.history.slice(-MAX_HISTORY),
