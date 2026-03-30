@@ -16,6 +16,12 @@ export interface ClusterConnection {
   apiBase: string; // resolved base URL for K8s API calls
   status: 'connected' | 'unreachable' | 'auth-expired' | 'unknown';
   lastHealthCheck: number;
+  location?: {
+    region: string;       // e.g. "us-east-1", "eu-west-1"
+    latitude: number;
+    longitude: number;
+    displayName?: string; // e.g. "N. Virginia", "Ireland"
+  };
   metadata?: {
     version?: string;
     platform?: string;
@@ -128,6 +134,14 @@ export function updateConnectionStatus(id: string, status: ClusterConnection['st
     conn.status = status;
     conn.lastHealthCheck = Date.now();
     if (metadata) conn.metadata = { ...conn.metadata, ...metadata };
+  }
+}
+
+/** Update connection location (region/coordinates) */
+export function updateConnectionLocation(id: string, location: ClusterConnection['location']): void {
+  const conn = connections.get(id);
+  if (conn) {
+    conn.location = location;
   }
 }
 

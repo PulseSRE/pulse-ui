@@ -16,6 +16,7 @@ import {
   getActiveClusterId,
   isMultiCluster,
   updateConnectionStatus,
+  updateConnectionLocation,
   getClusterBase,
 } from '../engine/clusterConnection';
 

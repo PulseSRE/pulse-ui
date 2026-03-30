@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { HeartPulse } from 'lucide-react';
 import type { K8sResource } from '../engine/renderers';
 import { useUIStore } from '../store/uiStore';
@@ -9,6 +9,8 @@ import { ReportTab } from './pulse/ReportTab';
 import { FleetReportTab } from './pulse/FleetReportTab';
 import { AIOnboarding } from '../components/agent/AIOnboarding';
 import { SectionHeader } from '../components/primitives/SectionHeader';
+
+const TopologyMap = lazy(() => import('../components/topology/TopologyMap'));
 
 export default function PulseView() {
   const go = useNavigateTab();
@@ -21,6 +23,7 @@ export default function PulseView() {
   const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
   const { data: pvcs = [], isLoading: pvcsLoading } = useK8sListWatch({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
   const { data: operators = [], isLoading: opsLoading } = useK8sListWatch({ apiPath: '/apis/config.openshift.io/v1/clusteroperators' });
+  const { data: events = [] } = useK8sListWatch({ apiPath: '/api/v1/events', namespace: nsFilter });
 
   const isLoading = nodesLoading || podsLoading || deploysLoading || pvcsLoading || opsLoading;
 
@@ -34,6 +37,18 @@ export default function PulseView() {
         />
 
         <AIOnboarding compact className="mb-2" />
+
+        <Suspense fallback={
+          <div className="h-[420px] bg-slate-900 rounded-lg border border-slate-800 animate-pulse" />
+        }>
+          <TopologyMap
+            nodes={nodes as K8sResource[]}
+            pods={pods as K8sResource[]}
+            operators={operators as K8sResource[]}
+            events={events as K8sResource[]}
+            go={go}
+          />
+        </Suspense>
 
         {fleetMode === 'multi' ? (
           <FleetReportTab />
