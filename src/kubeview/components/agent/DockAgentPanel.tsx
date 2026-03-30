@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, StopCircle, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2, Shield, LayoutDashboard } from 'lucide-react';
+import { Send, StopCircle, Bot, Loader2, Wrench, Brain, AlertTriangle, Trash2, Shield } from 'lucide-react';
 import { useAgentStore } from '../../store/agentStore';
-import { useCustomViewStore } from '../../store/customViewStore';
 import { useTrustStore } from '../../store/trustStore';
 import { useSmartPrompts } from '../../hooks/useSmartPrompts';
 import { useMonitorStore } from '../../store/monitorStore';
@@ -20,10 +19,8 @@ export function DockAgentPanel() {
   const {
     connected, mode, messages, streaming, streamingText, thinkingText,
     activeTools, streamingComponents, pendingConfirm, error, feedbackToast,
-    pendingViewSpec,
     connect, sendMessage, confirmAction, cancelQuery, clearChat,
   } = useAgentStore();
-  const saveView = useCustomViewStore((s) => s.saveView);
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
   const smartPrompts = useSmartPrompts();
@@ -32,8 +29,6 @@ export function DockAgentPanel() {
   const monitorCritical = monitorFindings.filter((f) => f.severity === 'critical').length;
   const [input, setInput] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
-  const [showDashboardSave, setShowDashboardSave] = useState(false);
-  const [dashboardName, setDashboardName] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -163,92 +158,6 @@ export function DockAgentPanel() {
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Save as Dashboard — appears when conversation has components */}
-      {!streaming && !pendingViewSpec && messages.some((m) => m.components && m.components.length > 0) && (
-        <div className="mx-3 mb-1">
-          {showDashboardSave ? (
-            <div className="flex items-center gap-1.5 bg-violet-950/40 border border-violet-800/50 rounded px-3 py-1.5">
-              <LayoutDashboard className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-              <input
-                type="text"
-                value={dashboardName}
-                onChange={(e) => setDashboardName(e.target.value)}
-                placeholder="Dashboard name..."
-                className="flex-1 bg-transparent text-xs text-slate-200 placeholder:text-slate-500 outline-none"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && dashboardName.trim()) {
-                    const allComponents = messages.flatMap((m) => m.components || []);
-                    const id = `cv-${Date.now().toString(36)}`;
-                    saveView({ id, title: dashboardName.trim(), layout: allComponents, generatedAt: Date.now() });
-                    setShowDashboardSave(false);
-                    setDashboardName('');
-                    window.location.href = `/custom/${id}`;
-                  }
-                  if (e.key === 'Escape') { setShowDashboardSave(false); setDashboardName(''); }
-                }}
-              />
-              <button
-                onClick={() => {
-                  if (!dashboardName.trim()) return;
-                  const allComponents = messages.flatMap((m) => m.components || []);
-                  const id = `cv-${Date.now().toString(36)}`;
-                  saveView({ id, title: dashboardName.trim(), layout: allComponents, generatedAt: Date.now() });
-                  setShowDashboardSave(false);
-                  setDashboardName('');
-                  window.location.href = `/custom/${id}`;
-                }}
-                className="text-xs text-violet-300 hover:text-white px-2 py-0.5 bg-violet-600 rounded transition-colors"
-              >
-                Save
-              </button>
-              <button onClick={() => { setShowDashboardSave(false); setDashboardName(''); }} className="text-xs text-slate-500 hover:text-slate-300">
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowDashboardSave(true)}
-              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-violet-900/30 hover:bg-violet-900/50 text-violet-300 border border-violet-800/50 rounded transition-colors"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Save as Dashboard
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Save as Dashboard prompt from agent */}
-      {pendingViewSpec && (
-        <div className="mx-3 mb-1 px-3 py-2 bg-violet-950/40 border border-violet-800/50 rounded">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <LayoutDashboard className="w-3.5 h-3.5 text-violet-400" />
-              <span className="text-xs text-violet-300 font-medium">{pendingViewSpec.title}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => {
-                  saveView(pendingViewSpec);
-                  useAgentStore.setState({ pendingViewSpec: null });
-                  window.location.href = `/custom/${pendingViewSpec.id}`;
-                }}
-                className="px-2 py-1 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors"
-              >
-                Save Dashboard
-              </button>
-              <button
-                onClick={() => useAgentStore.setState({ pendingViewSpec: null })}
-                className="px-2 py-1 text-xs bg-slate-700 text-slate-400 hover:text-slate-200 rounded transition-colors"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">{pendingViewSpec.layout.length} widget{pendingViewSpec.layout.length !== 1 ? 's' : ''}</p>
-        </div>
-      )}
 
       {/* Feedback toast */}
       {feedbackToast && (
