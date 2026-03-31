@@ -426,6 +426,7 @@ fi
 
 HEALTHY="n/a"
 AI_BACKEND="${AI_BACKEND:-none}"
+VERSION=""
 
 if [[ "$NO_AGENT" == "false" ]]; then
   step "Health verification"
@@ -464,8 +465,7 @@ echo "  UI image:  ${UI_IMAGE}:${UI_TAG}"
 if [[ "$NO_AGENT" == "false" ]]; then
   echo "  Agent img: ${AGENT_IMAGE}:${AGENT_TAG}"
   echo "  AI:        $AI_BACKEND"
-  VERSION=$(oc exec "deployment/$AGENT_DEPLOY" -n "$NAMESPACE" -- curl -sf http://localhost:8080/version 2>/dev/null || echo "unknown")
-  echo "  Agent:     $VERSION"
+  echo "  Agent:     ${VERSION:-unknown}"
 fi
 echo ""
 echo "  Uninstall:         $0 --uninstall"

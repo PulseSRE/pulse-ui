@@ -1,14 +1,5 @@
-# OpenShift Pulse Umbrella Chart
-# Single helm install for UI + Agent
-#
-# Usage:
-#   helm dependency build deploy/helm/pulse/
-#   helm upgrade --install pulse deploy/helm/pulse/ -n openshiftpulse ...
-#
-# The umbrella owns the WS token secret. Both subcharts reference it.
-# No manual token management needed.
+# Umbrella values — deploy.sh sets most of these via --set flags.
 
-# ─── UI Subchart (openshiftpulse) ─────────────────────────────────────────────
 openshiftpulse:
   replicas: 2
 
@@ -46,7 +37,6 @@ openshiftpulse:
   quota:
     enabled: true
 
-# ─── Agent Subchart (openshift-sre-agent, alias: agent) ──────────────────────
 agent:
   enabled: true
 

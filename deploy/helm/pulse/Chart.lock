@@ -1,0 +1,9 @@
+dependencies:
+- name: openshiftpulse
+  repository: file://../openshiftpulse
+  version: 4.6.0
+- name: openshift-sre-agent
+  repository: file://../../../../pulse-agent/chart
+  version: 1.9.3
+digest: sha256:3f411cece6d01de8913ce1d09ec643a0c7e597431ce42e5b94f08259b62de1aa
+generated: "2026-03-31T10:37:52.09782-07:00"

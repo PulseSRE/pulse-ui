@@ -1,9 +1,4 @@
 {{- if .Values.agent.enabled }}
-{{/*
-Umbrella-owned WS auth token secret.
-Both the agent (via wsAuth.existingSecret) and the UI (via agent.wsTokenSecret)
-reference this secret. Generated once, preserved on upgrades via lookup().
-*/}}
 {{- $secretName := printf "%s-ws-token" .Release.Name }}
 {{- $existing := lookup "v1" "Secret" .Release.Namespace $secretName }}
 apiVersion: v1

@@ -94,32 +94,8 @@ data:
         {{- else -}}
           {{- $agentToken = required "agent.wsToken or agent.wsTokenSecret is required when agent.enabled=true" .Values.agent.wsToken -}}
         {{- end -}}
-        location /api/agent/ws/sre {
-          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/sre?token={{ $agentToken }};
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection $connection_upgrade;
-          proxy_http_version 1.1;
-          proxy_read_timeout 3600s;
-        }
-
-        location /api/agent/ws/security {
-          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/security?token={{ $agentToken }};
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection $connection_upgrade;
-          proxy_http_version 1.1;
-          proxy_read_timeout 3600s;
-        }
-
-        location /api/agent/ws/monitor {
-          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/monitor?token={{ $agentToken }};
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection $connection_upgrade;
-          proxy_http_version 1.1;
-          proxy_read_timeout 3600s;
-        }
-
-        location /api/agent/ws/agent {
-          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/agent?token={{ $agentToken }};
+        location ~ ^/api/agent/ws/(sre|security|monitor|agent)$ {
+          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/$1?token={{ $agentToken }};
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
           proxy_http_version 1.1;
