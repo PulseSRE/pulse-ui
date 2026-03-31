@@ -6,12 +6,9 @@ const AccessControlView = lazy(() => import('../views/AccessControlView'));
 const UserManagementView = lazy(() => import('../views/UserManagementView'));
 const StorageView = lazy(() => import('../views/StorageView'));
 const AdminView = lazy(() => import('../views/AdminView'));
-const AlertsView = lazy(() => import('../views/AlertsView'));
 const WorkloadsView = lazy(() => import('../views/WorkloadsView'));
 const NetworkingView = lazy(() => import('../views/NetworkingView'));
 const ComputeView = lazy(() => import('../views/ComputeView'));
-const BuildsView = lazy(() => import('../views/BuildsView'));
-const CRDsView = lazy(() => import('../views/CRDsView'));
 const SecurityView = lazy(() => import('../views/SecurityView'));
 const IdentityView = lazy(() => import('../views/IdentityView'));
 const ArgoCDView = lazy(() => import('../views/ArgoCDView'));
@@ -66,8 +63,8 @@ export function domainRoutes() {
       <Route path="networking" element={<Lazy><NetworkingView /></Lazy>} />
       <Route path="compute" element={<Lazy><ComputeView /></Lazy>} />
       <Route path="storage" element={<Lazy><StorageView /></Lazy>} />
-      <Route path="builds" element={<Lazy><BuildsView /></Lazy>} />
-      <Route path="crds" element={<Lazy><CRDsView /></Lazy>} />
+      <Route path="builds" element={<Navigate to="/workloads?tab=builds" replace />} />
+      <Route path="crds" element={<Navigate to="/admin?tab=crds" replace />} />
       <Route path="security" element={<Lazy><SecurityView /></Lazy>} />
       <Route path="access-control" element={<Lazy><AccessControlView /></Lazy>} />
       <Route path="users" element={<Lazy><UserManagementView /></Lazy>} />
@@ -75,7 +72,7 @@ export function domainRoutes() {
         <Route path="identity" element={<Lazy><IdentityView /></Lazy>} />
       )}
       <Route path="admin" element={<Lazy><AdminView /></Lazy>} />
-      <Route path="alerts" element={<Lazy><AlertsView /></Lazy>} />
+      <Route path="alerts" element={<Navigate to="/incidents?tab=alerts" replace />} />
       <Route path="gitops" element={<Lazy><ArgoCDView /></Lazy>} />
       <Route path="fleet" element={<Lazy><FleetView /></Lazy>} />
       <Route path="fleet/compare" element={<Lazy><CompareView /></Lazy>} />

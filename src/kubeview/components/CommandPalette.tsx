@@ -386,15 +386,15 @@ function getCommandItems(
       { type: 'nav', id: 'security', title: 'Security', subtitle: 'Security audit, SCCs, network policies, access', icon: 'ShieldCheck', path: '/security' },
       { type: 'nav', id: 'identity', title: 'Identity & Access', subtitle: 'Users, groups, service accounts, RBAC, impersonation', icon: 'Shield', path: '/identity' },
       { type: 'nav', id: 'incidents', title: 'Incident Center', subtitle: 'Unified triage — findings, alerts, errors, auto-fix', icon: 'Bell', path: '/incidents' },
-      { type: 'nav', id: 'alerts', title: 'Alerts', subtitle: 'Prometheus alert rules, silences, firing alerts', icon: 'Bell', path: '/alerts' },
-      { type: 'nav', id: 'builds', title: 'Builds', subtitle: 'BuildConfigs, Builds, ImageStreams', icon: 'Hammer', path: '/builds' },
-      { type: 'nav', id: 'crds', title: 'Custom Resources', subtitle: 'CRDs, browse instances by API group', icon: 'Puzzle', path: '/crds' },
-      { type: 'nav', id: 'software', title: 'Software', subtitle: 'Installed software, operators, deploy, Helm, templates', icon: 'Package', path: '/software' },
+      { type: 'nav', id: 'alerts', title: 'Alerts', subtitle: 'Prometheus alert rules and silences (Incident Center)', icon: 'Bell', path: '/incidents?tab=alerts' },
+      { type: 'nav', id: 'builds', title: 'Builds', subtitle: 'BuildConfigs, Builds, ImageStreams (Workloads tab)', icon: 'Hammer', path: '/workloads?tab=builds' },
+      { type: 'nav', id: 'crds', title: 'Custom Resources', subtitle: 'CRDs, browse by API group (Admin tab)', icon: 'Puzzle', path: '/admin?tab=crds' },
       { type: 'nav', id: 'gitops', title: 'GitOps', subtitle: 'ArgoCD applications, sync status, drift detection, auto-PR', icon: 'GitBranch', path: '/gitops' },
       { type: 'nav', id: 'fleet', title: 'Fleet', subtitle: 'Multi-cluster dashboard, health scores, cluster switching, comparison', icon: 'Globe', path: '/fleet' },
       { type: 'nav', id: 'admin', title: 'Administration', subtitle: 'Operators, config, updates, snapshots, quotas, certificates', icon: 'Settings', path: '/admin' },
       { type: 'nav', id: 'onboarding', title: 'Production Readiness', subtitle: 'Readiness wizard — security, reliability, observability gates', icon: 'Shield', path: '/onboarding' },
       { type: 'nav', id: 'memory', title: "What I've Learned", subtitle: 'Learned runbooks, detected patterns, incident history', icon: 'Brain', path: '/memory' },
+      { type: 'nav', id: 'reviews', title: 'Review Queue', subtitle: 'AI-proposed infrastructure changes — approve, reject, diff', icon: 'GitPullRequest', path: '/reviews' },
     ];
 
     const matchingPages = builtinViews.filter((page) =>

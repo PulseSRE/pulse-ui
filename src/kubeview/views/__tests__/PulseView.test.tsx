@@ -134,9 +134,9 @@ describe('PulseView', () => {
     expect(screen.getByText('Cluster Pulse')).toBeDefined();
   });
 
-  it('renders daily briefing subtitle instead of tabs', () => {
+  it('renders health overview subtitle', () => {
     renderPulse();
-    expect(screen.getByText(/Daily briefing/)).toBeDefined();
+    expect(screen.getByText(/Health overview/)).toBeDefined();
   });
 
   it('renders zone headers for all 4 zones', () => {

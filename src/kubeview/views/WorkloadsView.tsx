@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import {
   Package, Box, Clock, AlertCircle, XCircle,
   FileText, ArrowRight, Plus, AlertTriangle, Info, RefreshCw,
-  Layers, Timer,
+  Layers, Timer, Hammer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../engine/renderers';
@@ -18,6 +18,11 @@ import { CHART_COLORS } from '../engine/colors';
 import { Panel } from '../components/primitives/Panel';
 import { sanitizePromQL } from '../engine/query';
 import { SectionHeader } from '../components/primitives/SectionHeader';
+import { Card } from '../components/primitives/Card';
+
+const BuildsView = lazy(() => import('./BuildsView'));
+
+type Tab = 'overview' | 'builds';
 
 /** Local PDB type — not yet in engine/types */
 interface PodDisruptionBudget extends K8sResource {
@@ -43,6 +48,19 @@ export default function WorkloadsView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const safeNs = nsFilter ? sanitizePromQL(nsFilter) : '';
+
+  const initialTab = (() => {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get('tab') as Tab) || 'overview';
+  })();
+  const [activeTab, setActiveTab] = React.useState<Tab>(initialTab);
+
+  const switchTab = (tab: Tab) => {
+    const url = new URL(window.location.href);
+    if (tab === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
+    window.history.replaceState(null, '', url.toString());
+    setActiveTab(tab);
+  };
 
   const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
   const { data: statefulsets = [] } = useK8sListWatch<StatefulSet>({ apiPath: '/apis/apps/v1/statefulsets', namespace: nsFilter });
@@ -120,6 +138,31 @@ export default function WorkloadsView() {
   if (unhealthySS.length > 0) issues.push({ msg: `${unhealthySS.length} StatefulSet${unhealthySS.length > 1 ? 's' : ''} not ready`, severity: 'warning' });
   if (failedJobs.length > 0) issues.push({ msg: `${failedJobs.length} failed job${failedJobs.length > 1 ? 's' : ''}`, severity: 'warning' });
 
+  if (activeTab === 'builds') {
+    return (
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <SectionHeader
+            icon={<Package className="w-6 h-6 text-blue-500" />}
+            title="Workloads"
+            subtitle={<>Deployments, StatefulSets, DaemonSets, Jobs, Pods, and Builds{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
+          />
+          <Card className="flex gap-1 p-1">
+            {([['overview', 'Workloads', <Package className="w-3.5 h-3.5" />], ['builds', 'Builds', <Hammer className="w-3.5 h-3.5" />]] as const).map(([id, label, icon]) => (
+              <button key={id} role="tab" aria-selected={activeTab === id} aria-label={label as string} onClick={() => switchTab(id as Tab)}
+                className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+                {icon}{label}
+              </button>
+            ))}
+          </Card>
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}>
+            <BuildsView />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -127,8 +170,18 @@ export default function WorkloadsView() {
         <SectionHeader
           icon={<Package className="w-6 h-6 text-blue-500" />}
           title="Workloads"
-          subtitle={<>Deployments, StatefulSets, DaemonSets, Jobs, and Pods{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
+          subtitle={<>Deployments, StatefulSets, DaemonSets, Jobs, Pods, and Builds{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
         />
+
+        {/* Tabs */}
+        <Card className="flex gap-1 p-1">
+          {([['overview', 'Workloads', <Package className="w-3.5 h-3.5" />], ['builds', 'Builds', <Hammer className="w-3.5 h-3.5" />]] as const).map(([id, label, icon]) => (
+            <button key={id} role="tab" aria-selected={activeTab === id} aria-label={label as string} onClick={() => switchTab(id as Tab)}
+              className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+              {icon}{label}
+            </button>
+          ))}
+        </Card>
 
         {(deploysLoading || podsLoading) && deployments.length === 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

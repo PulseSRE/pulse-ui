@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Bot } from 'lucide-react';
+import { AlertTriangle, Bot, Bell, GitPullRequest } from 'lucide-react';
 import { DEGRADED_MESSAGES } from '../engine/degradedMode';
 import { useUIStore } from '../store/uiStore';
 import { useFleetStore } from '../store/fleetStore';
-
+import { useMonitorStore } from '../store/monitorStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '../engine/formatters';
@@ -24,6 +24,8 @@ export function StatusBar() {
 
   const degradedReasons = useUIStore((s) => s.degradedReasons);
   const navigate = useNavigate();
+  const findingsCount = useMonitorStore((s) => s.findings.length);
+  const pendingReviewCount = useMonitorStore((s) => s.pendingActions.length);
 
   const [relativeTime, setRelativeTime] = useState(formatRelativeTime(lastSyncTime));
 
@@ -46,6 +48,15 @@ export function StatusBar() {
     if (path === '/users') return 'User Management';
     if (path === '/admin') return 'Administration';
     if (path === '/alerts') return 'Alerts';
+    if (path === '/incidents') return 'Incident Center';
+    if (path === '/reviews') return 'Review Queue';
+    if (path === '/identity') return 'Identity & Access';
+    if (path === '/security') return 'Security';
+    if (path === '/gitops') return 'GitOps';
+    if (path === '/fleet') return 'Fleet';
+    if (path === '/onboarding') return 'Production Readiness';
+    if (path === '/memory') return 'Memory';
+    if (path === '/compute') return 'Compute';
     if (path.startsWith('/r/')) {
       const parts = path.split('/').filter(Boolean);
       if (parts.length === 2) {
@@ -80,6 +91,26 @@ export function StatusBar() {
 
       {/* Right */}
       <div className="flex items-center gap-3">
+        {findingsCount > 0 && (
+          <button
+            onClick={() => navigate('/incidents')}
+            className="flex items-center gap-1 text-red-400 px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors"
+            title={`${findingsCount} active finding${findingsCount !== 1 ? 's' : ''}`}
+          >
+            <Bell className="h-3 w-3" />
+            <span>{findingsCount}</span>
+          </button>
+        )}
+        {pendingReviewCount > 0 && (
+          <button
+            onClick={() => navigate('/reviews')}
+            className="flex items-center gap-1 text-amber-400 px-1.5 py-0.5 rounded hover:bg-amber-500/10 transition-colors"
+            title={`${pendingReviewCount} pending review${pendingReviewCount !== 1 ? 's' : ''}`}
+          >
+            <GitPullRequest className="h-3 w-3" />
+            <span>{pendingReviewCount}</span>
+          </button>
+        )}
         {degradedReasons.size > 0 && (
           <span
             className="flex items-center gap-1 text-amber-400 px-1.5 py-0.5"

@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Moon, CheckCircle, XCircle, SkipForward, ChevronDown, ChevronUp, Inbox } from 'lucide-react';
+import { Moon, CheckCircle, XCircle, SkipForward, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMonitorStore } from '../../store/monitorStore';
 import type { ActionReport } from '../../engine/monitorClient';
+import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { Badge } from '../../components/primitives/Badge';
 
 const INITIAL_VISIBLE = 3;
@@ -10,9 +11,9 @@ const INITIAL_VISIBLE = 3;
 type ResultKey = 'completed' | 'failed' | 'other';
 
 const resultConfig: Record<ResultKey, { icon: React.ReactNode; variant: 'success' | 'error' | 'warning' }> = {
-  completed: { icon: <CheckCircle className="h-4 w-4 text-emerald-400" />, variant: 'success' },
-  failed: { icon: <XCircle className="h-4 w-4 text-red-400" />, variant: 'error' },
-  other: { icon: <SkipForward className="h-4 w-4 text-amber-400" />, variant: 'warning' },
+  completed: { icon: <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />, variant: 'success' },
+  failed: { icon: <XCircle className="h-3.5 w-3.5 text-red-400" />, variant: 'error' },
+  other: { icon: <SkipForward className="h-3.5 w-3.5 text-amber-400" />, variant: 'warning' },
 };
 
 function mapStatus(status: ActionReport['status']): ResultKey {
@@ -22,8 +23,7 @@ function mapStatus(status: ActionReport['status']): ResultKey {
 }
 
 function formatTime(timestamp: number): string {
-  const d = new Date(timestamp);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatLabel(status: ActionReport['status']): string {
@@ -33,70 +33,71 @@ function formatLabel(status: ActionReport['status']): string {
 
 export function OvernightActivityFeed({ className }: { className?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const go = useNavigateTab();
   const recentActions = useMonitorStore((s) => s.recentActions);
 
   const items = useMemo(() => {
-    return [...recentActions]
-      .sort((a, b) => b.timestamp - a.timestamp);
+    return [...recentActions].sort((a, b) => b.timestamp - a.timestamp);
   }, [recentActions]);
 
   const visible = expanded ? items : items.slice(0, INITIAL_VISIBLE);
   const hasMore = items.length > INITIAL_VISIBLE;
 
+  if (items.length === 0) {
+    return (
+      <div className={cn('rounded-lg border border-slate-800 bg-slate-900 px-4 py-3', className)}>
+        <div className="flex items-center gap-2 text-slate-500">
+          <Moon className="h-4 w-4 text-indigo-400" />
+          <span className="text-sm font-medium text-slate-400">Overnight Activity</span>
+          <span className="ml-auto text-xs">No recent actions</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('rounded-lg border border-slate-800 bg-slate-900 p-4', className)}>
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-3">
         <Moon className="h-4 w-4 text-indigo-400" />
         <h3 className="text-sm font-semibold text-slate-100">Overnight Activity</h3>
-        <span className="ml-auto text-xs text-slate-500">{items.length} actions</span>
+        <button
+          onClick={() => go('/incidents', 'Incidents')}
+          className="ml-auto text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
+        >
+          {items.length} actions
+        </button>
       </div>
 
-      {items.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-6 text-slate-500">
-          <Inbox className="h-6 w-6" />
-          <p className="text-sm">No overnight activity</p>
-        </div>
-      ) : (
-        <div className="relative ml-2 border-l border-slate-700 pl-4 space-y-4">
-          {visible.map((item) => {
-            const resultKey = mapStatus(item.status);
-            const cfg = resultConfig[resultKey];
-            return (
-              <div key={item.id} className="relative">
-                <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-slate-500" />
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm text-slate-200 truncate">
-                      {item.reasoning || item.tool}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {item.tool} &middot; {formatTime(item.timestamp)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant={cfg.variant} size="sm">{formatLabel(item.status)}</Badge>
-                    {cfg.icon}
-                  </div>
-                </div>
+      <div className="space-y-1">
+        {visible.map((item) => {
+          const resultKey = mapStatus(item.status);
+          const cfg = resultConfig[resultKey];
+          return (
+            <button
+              key={item.id}
+              onClick={() => go('/incidents', 'Incidents')}
+              className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 hover:bg-slate-800/70 transition-colors text-left"
+            >
+              {cfg.icon}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-slate-200 truncate">{item.reasoning || item.tool}</p>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <Badge variant={cfg.variant} size="sm">{formatLabel(item.status)}</Badge>
+              <span className="text-[11px] text-slate-600 shrink-0">{formatTime(item.timestamp)}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {hasMore && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-3 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          className="mt-2 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition-colors"
         >
           {expanded ? (
-            <>
-              <ChevronUp className="h-3.5 w-3.5" /> Show less
-            </>
+            <><ChevronUp className="h-3.5 w-3.5" /> Show less</>
           ) : (
-            <>
-              <ChevronDown className="h-3.5 w-3.5" /> Show {items.length - INITIAL_VISIBLE} more
-            </>
+            <><ChevronDown className="h-3.5 w-3.5" /> Show {items.length - INITIAL_VISIBLE} more</>
           )}
         </button>
       )}

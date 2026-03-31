@@ -69,12 +69,18 @@ describe('route modules', () => {
     it('lazy-loads all domain views', () => {
       const views = [
         'AccessControlView', 'UserManagementView', 'IdentityView', 'StorageView',
-        'AdminView', 'AlertsView', 'WorkloadsView', 'NetworkingView',
-        'ComputeView', 'BuildsView', 'CRDsView', 'SecurityView',
+        'AdminView', 'WorkloadsView', 'NetworkingView',
+        'ComputeView', 'SecurityView',
       ];
       for (const view of views) {
         expect(source).toContain(`lazy(() => import('../views/${view}'))`);
       }
+    });
+
+    it('redirects merged views to their new locations', () => {
+      expect(source).toContain('path="builds"');
+      expect(source).toContain('path="crds"');
+      expect(source).toContain('path="alerts"');
     });
 
     it('lazy-loads fleet cross-cluster views', () => {

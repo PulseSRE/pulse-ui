@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Siren, Zap, Search, Wrench, Clock, Settings, Play, Activity, Cpu,
+  Siren, Zap, Search, Clock, Settings, Play, Activity, Cpu, Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
@@ -11,16 +11,17 @@ import { useUIStore } from '../store/uiStore';
 import { useTrustStore, type TrustLevel } from '../store/trustStore';
 import { NowTab } from './incidents/NowTab';
 import { InvestigateTab } from './incidents/InvestigateTab';
-import { ActionsTab } from './incidents/ActionsTab';
 import { HistoryTab } from './incidents/HistoryTab';
 
-type IncidentTab = 'now' | 'investigate' | 'actions' | 'history' | 'config';
+const AlertsView = lazy(() => import('./AlertsView'));
+
+type IncidentTab = 'now' | 'investigate' | 'history' | 'alerts' | 'config';
 
 const TABS = [
   { id: 'now' as IncidentTab, label: 'Now', icon: Zap },
   { id: 'investigate' as IncidentTab, label: 'Investigate', icon: Search },
-  { id: 'actions' as IncidentTab, label: 'Actions', icon: Wrench },
   { id: 'history' as IncidentTab, label: 'History', icon: Clock },
+  { id: 'alerts' as IncidentTab, label: 'Alerts', icon: Bell },
   { id: 'config' as IncidentTab, label: 'Config', icon: Settings },
 ] as const;
 
@@ -39,9 +40,11 @@ const AUTO_FIX_CATEGORIES = [
 ] as const;
 
 export default function IncidentCenterView() {
-  const [activeTab, setActiveTab] = useState<IncidentTab>('now');
+  const urlTab = new URLSearchParams(window.location.search).get('tab') as IncidentTab | null;
+  const [activeTab, setActiveTab] = useState<IncidentTab>(
+    urlTab && ['now', 'investigate', 'history', 'alerts', 'config'].includes(urlTab) ? urlTab : 'now',
+  );
   const connected = useMonitorStore((s) => s.connected);
-  const pendingCount = useMonitorStore((s) => s.pendingActions.length);
   const monitorEnabled = useMonitorStore((s) => s.monitorEnabled);
   const setMonitorEnabled = useMonitorStore((s) => s.setMonitorEnabled);
   const triggerScan = useMonitorStore((s) => s.triggerScan);
@@ -237,11 +240,6 @@ export default function IncidentCenterView() {
             >
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
-              {tab.id === 'actions' && pendingCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-600 text-white rounded-full leading-none">
-                  {pendingCount}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -249,8 +247,14 @@ export default function IncidentCenterView() {
         {/* Tab content */}
         {activeTab === 'now' && <div id="incident-panel-now" role="tabpanel"><NowTab /></div>}
         {activeTab === 'investigate' && <div id="incident-panel-investigate" role="tabpanel"><InvestigateTab /></div>}
-        {activeTab === 'actions' && <div id="incident-panel-actions" role="tabpanel"><ActionsTab /></div>}
         {activeTab === 'history' && <div id="incident-panel-history" role="tabpanel"><HistoryTab /></div>}
+        {activeTab === 'alerts' && (
+          <div id="incident-panel-alerts" role="tabpanel">
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}>
+              <AlertsView />
+            </Suspense>
+          </div>
+        )}
         {activeTab === 'config' && (
           <div id="incident-panel-config" role="tabpanel" className="space-y-6">
             <Card>

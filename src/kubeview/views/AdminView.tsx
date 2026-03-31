@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Settings, Puzzle, Shield, Database, GitBranch,
   ArrowUpCircle, GitCompare,
 } from 'lucide-react';
+
+const CRDsView = lazy(() => import('./CRDsView'));
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../engine/query';
 import { fetchAgentEvalStatus } from '../engine/evalStatus';
@@ -75,7 +77,7 @@ interface AvailableUpdate {
   risks?: Array<{ name?: string; message?: string }>;
 }
 
-type Tab = 'overview' | 'readiness' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'gitops';
+type Tab = 'overview' | 'readiness' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'gitops' | 'crds';
 
 // --- Main component ---
 
@@ -386,6 +388,7 @@ export default function AdminView() {
     { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Shield className="w-3.5 h-3.5" /> },
     { id: 'certificates', label: 'Certificates', icon: <Shield className="w-3.5 h-3.5" /> },
     { id: 'gitops', label: 'GitOps', icon: <GitBranch className="w-3.5 h-3.5" /> },
+    { id: 'crds', label: `CRDs (${crds.length})`, icon: <Puzzle className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -553,6 +556,13 @@ export default function AdminView() {
 
         {/* ===== GITOPS ===== */}
         {activeTab === 'gitops' && <GitOpsConfig />}
+
+        {/* ===== CRDs ===== */}
+        {activeTab === 'crds' && (
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}>
+            <CRDsView />
+          </Suspense>
+        )}
 
       </div>
     </div>

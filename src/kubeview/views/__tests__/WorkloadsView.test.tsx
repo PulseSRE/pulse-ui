@@ -44,7 +44,7 @@ describe('WorkloadsView', () => {
 
   it('renders page header', () => {
     renderView();
-    expect(screen.getByText('Workloads')).toBeDefined();
+    expect(screen.getAllByText('Workloads').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows stat cards for resource types', () => {
