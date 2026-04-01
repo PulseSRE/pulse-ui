@@ -639,7 +639,10 @@ const TREE_STATUS_BG: Record<string, string> = {
   error: 'bg-red-500/10', pending: 'bg-blue-500/10', unknown: 'bg-slate-800',
 };
 
-function TreeNode({ node, nodes, depth = 0 }: { node: RelationshipTreeSpec['nodes'][0]; nodes: Map<string, RelationshipTreeSpec['nodes'][0]>; depth?: number }) {
+function TreeNode({ node, nodes, depth = 0, visited = new Set<string>() }: { node: RelationshipTreeSpec['nodes'][0]; nodes: Map<string, RelationshipTreeSpec['nodes'][0]>; depth?: number; visited?: Set<string> }) {
+  // Guard against infinite recursion from cycles or excessive depth
+  if (depth > 10 || visited.has(node.id)) return null;
+  visited.add(node.id);
   const children = (node.children || []).map((id) => nodes.get(id)).filter(Boolean);
   const icon = KIND_ICONS[node.kind] || '📄';
   const statusBorder = TREE_STATUS_COLORS[node.status || 'unknown'] || TREE_STATUS_COLORS.unknown;
@@ -677,7 +680,7 @@ function TreeNode({ node, nodes, depth = 0 }: { node: RelationshipTreeSpec['node
       {children.length > 0 && (
         <div className="relative">
           {children.map((child) => child && (
-            <TreeNode key={child.id} node={child} nodes={nodes} depth={depth + 1} />
+            <TreeNode key={child.id} node={child} nodes={nodes} depth={depth + 1} visited={visited} />
           ))}
         </div>
       )}
