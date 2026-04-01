@@ -253,7 +253,7 @@ export default function CustomView() {
             <button
               onClick={() => {
                 useUIStore.getState().openDock('agent');
-                useAgentStore.getState().connectAndSend(`Update my "${view.title}" view — add or modify widgets`);
+                useAgentStore.getState().connectAndSend(`Update my view "${view.title}" (ID: ${view.id}). It has ${view.layout.length} widgets. Use get_view_details("${view.id}") to see the current widgets, then modify as needed.`);
               }}
               className="p-1.5 rounded bg-violet-700 hover:bg-violet-600 text-white transition-colors"
               title="Edit with AI"
