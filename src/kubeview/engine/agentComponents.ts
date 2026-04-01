@@ -20,7 +20,7 @@ export interface DataTableSpec {
   kind: 'data_table';
   title?: string;
   description?: string;
-  columns: Array<{ id: string; header: string; width?: string }>;
+  columns: Array<{ id: string; header: string; width?: string; type?: string }>;
   rows: Array<Record<string, string | number | boolean>>;
   query?: string;
   timeRange?: string;

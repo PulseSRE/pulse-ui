@@ -214,8 +214,15 @@ function AgentDataTable({ spec, onAddToView }: { spec: DataTableSpec; onAddToVie
             {processedRows.map((row, i) => (
               <tr key={i} className="border-t border-slate-800 hover:bg-slate-800/30">
                 {visibleColumns.map((col) => (
-                  <td key={col.id} className="px-3 py-1.5 text-slate-300 whitespace-nowrap">
-                    <CellValue value={row[col.id]} columnId={col.id} row={row} />
+                  <td key={col.id} className="px-3 py-1.5 text-slate-300 whitespace-nowrap group/cell relative">
+                    <CellValue value={row[col.id]} columnId={col.id} columnType={col.type} row={row} />
+                    <button
+                      onClick={() => navigator.clipboard.writeText(String(row[col.id] ?? ''))}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 text-slate-600 hover:text-slate-300 transition-opacity"
+                      title="Copy"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2"/></svg>
+                    </button>
                   </td>
                 ))}
               </tr>
@@ -233,69 +240,154 @@ function AgentDataTable({ spec, onAddToView }: { spec: DataTableSpec; onAddToVie
   );
 }
 
+// ---------------------------------------------------------------------------
+// Column Renderer Registry — smart rendering based on column type
+// ---------------------------------------------------------------------------
+
 const LINK_STYLE = 'text-blue-400 hover:text-blue-300';
 const KIND_GVR: Record<string, string> = { Deployment: 'apps~v1~deployments', StatefulSet: 'apps~v1~statefulsets', DaemonSet: 'apps~v1~daemonsets' };
 
-function buildResourceLink(value: string, columnId: string, row: Record<string, unknown>): React.ReactElement | null {
-  if (columnId === 'name') {
+const STATUS_COLORS: Record<string, string> = {
+  running: 'text-emerald-400', active: 'text-emerald-400', available: 'text-emerald-400',
+  true: 'text-emerald-400', healthy: 'text-emerald-400', ready: 'text-emerald-400',
+  complete: 'text-emerald-400', bound: 'text-emerald-400',
+  warning: 'text-amber-400', pending: 'text-amber-400', progressing: 'text-amber-400', unknown: 'text-amber-400',
+  failed: 'text-red-400', error: 'text-red-400', crashloopbackoff: 'text-red-400',
+  false: 'text-red-400', degraded: 'text-red-400', unavailable: 'text-red-400',
+  'not ready': 'text-red-400', imagepullbackoff: 'text-red-400',
+};
+
+type CellRenderer = (value: unknown, row: Record<string, unknown>) => React.ReactNode;
+
+const COLUMN_RENDERERS: Record<string, CellRenderer> = {
+  resource_name: (v, row) => {
+    const str = String(v ?? '');
     const link = row._link ? String(row._link) : null;
-    if (link) return <a href={link} className={LINK_STYLE}>{value}</a>;
+    if (link) return <a href={link} className={LINK_STYLE}>{str}</a>;
     const gvr = row._gvr ? String(row._gvr) : '';
     const ns = String(row.namespace || '');
-    if (gvr) return <a href={`/r/${gvr}/${ns || '_'}/${value}`} className={LINK_STYLE}>{value}</a>;
-  }
-  if (columnId === 'namespace') return <a href={`/project/${value}`} className={LINK_STYLE}>{value}</a>;
-  if (columnId === 'node') return <a href={`/r/v1~nodes/_/${value}`} className={LINK_STYLE}>{value}</a>;
-  if (columnId === 'target' && value.includes('/')) {
-    const [kind, name] = value.split('/');
-    const gvr = KIND_GVR[kind];
-    const ns = String(row.namespace || '');
-    if (gvr && ns) return <a href={`/r/${gvr}/${ns}/${name}`} className={LINK_STYLE}>{value}</a>;
-  }
-  return null;
+    if (gvr) return <a href={`/r/${gvr}/${ns || '_'}/${str}`} className={LINK_STYLE}>{str}</a>;
+    return <>{str}</>;
+  },
+
+  namespace: (v) => <a href={`/project/${String(v)}`} className={LINK_STYLE}>{String(v)}</a>,
+
+  node: (v) => <a href={`/r/v1~nodes/_/${String(v)}`} className={LINK_STYLE}>{String(v)}</a>,
+
+  status: (v) => {
+    const str = String(v ?? '');
+    return <span className={STATUS_COLORS[str.toLowerCase()] || 'text-slate-300'}>{str}</span>;
+  },
+
+  severity: (v) => {
+    const str = String(v ?? '');
+    const lower = str.toLowerCase();
+    const color = lower === 'critical' || lower === 'error' ? 'text-red-400 font-medium' :
+      lower === 'warning' ? 'text-amber-400' : 'text-blue-400';
+    return <span className={color}>{str}</span>;
+  },
+
+  link: (v) => {
+    const str = String(v ?? '');
+    if (!str.startsWith('/') && !str.startsWith('http')) return <>{str}</>;
+    const label = str.includes('/logs/') ? 'View Logs' : str.split('/').pop() || 'Open';
+    return <a href={str} className="text-violet-400 hover:text-violet-300 underline underline-offset-2" title={str}>{label}</a>;
+  },
+
+  replicas: (v) => {
+    const str = String(v ?? '');
+    if (!str.includes('/')) return <>{str}</>;
+    const [ready, total] = str.split('/').map(Number);
+    const color = ready === total && total > 0 ? 'text-emerald-400' : ready > 0 ? 'text-amber-400' : 'text-red-400';
+    return <span className={color}>{str}</span>;
+  },
+
+  progress: (v) => {
+    const pct = typeof v === 'number' ? v : parseFloat(String(v ?? '0').replace('%', ''));
+    if (isNaN(pct)) return <>{String(v)}</>;
+    const color = pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+          <div className={`h-full ${color} rounded-full`} style={{ width: `${Math.min(pct, 100)}%` }} />
+        </div>
+        <span className="text-[10px] text-slate-400">{pct.toFixed(0)}%</span>
+      </div>
+    );
+  },
+
+  sparkline: (v) => {
+    const points = Array.isArray(v) ? v as number[] : [];
+    if (points.length < 2) return <>{String(v)}</>;
+    const max = Math.max(...points), min = Math.min(...points), range = max - min || 1;
+    const w = 60, h = 16;
+    const pts = points.map((p, i) => `${(i / (points.length - 1)) * w},${h - ((p - min) / range) * h}`).join(' ');
+    return <svg width={w} height={h} className="inline-block"><polyline points={pts} fill="none" stroke="#60a5fa" strokeWidth="1.5" /></svg>;
+  },
+
+  timestamp: (v) => {
+    const str = String(v ?? '');
+    try {
+      const date = new Date(str);
+      if (isNaN(date.getTime())) return <>{str}</>;
+      const ms = Date.now() - date.getTime();
+      const sec = Math.floor(ms / 1000);
+      const ago = sec < 60 ? `${sec}s ago` : sec < 3600 ? `${Math.floor(sec / 60)}m ago` : sec < 86400 ? `${Math.floor(sec / 3600)}h ago` : `${Math.floor(sec / 86400)}d ago`;
+      return <span className="text-slate-400" title={str}>{ago}</span>;
+    } catch { return <>{str}</>; }
+  },
+
+  labels: (v) => {
+    const str = String(v ?? '');
+    const pairs = str.split(',').map(s => s.trim()).filter(Boolean);
+    if (!pairs.length) return <span className="text-slate-600">(none)</span>;
+    return (
+      <div className="flex flex-wrap gap-0.5">
+        {pairs.slice(0, 3).map((p, i) => (
+          <span key={i} className="px-1 py-0 text-[9px] rounded bg-slate-700 text-slate-300">{p}</span>
+        ))}
+        {pairs.length > 3 && <span className="text-[9px] text-slate-500">+{pairs.length - 3}</span>}
+      </div>
+    );
+  },
+
+  boolean: (v) => {
+    const b = v === true || v === 'true' || v === 'True';
+    return b ? <span className="text-emerald-400">✓</span> : <span className="text-slate-500">✗</span>;
+  },
+
+  age: (v) => <span className="text-slate-400">{String(v ?? '')}</span>,
+  cpu: (v) => <span className="font-mono text-xs">{String(v ?? '')}</span>,
+  memory: (v) => <span className="font-mono text-xs">{String(v ?? '')}</span>,
+  text: (v) => <>{String(v ?? '')}</>,
+};
+
+/** Infer column type from ID when no type hint is provided */
+function _inferType(columnId: string, value: unknown): string {
+  if (columnId === 'name') return 'resource_name';
+  if (columnId === 'namespace') return 'namespace';
+  if (columnId === 'node') return 'node';
+  if (columnId === 'age') return 'age';
+  if (['status', 'phase', 'state'].includes(columnId)) return 'status';
+  if (['severity'].includes(columnId)) return 'severity';
+  if (['logs', 'link'].includes(columnId)) return 'link';
+  if (['ready', 'replicas', 'completions'].includes(columnId)) return 'replicas';
+  if (['labels', 'annotations'].includes(columnId)) return 'labels';
+  if (columnId.endsWith('_pct') || columnId === 'utilization') return 'progress';
+  if (['cpu', 'cpu_pct'].includes(columnId)) return 'cpu';
+  if (['memory', 'mem_pct'].includes(columnId)) return 'memory';
+  if (['suspended'].includes(columnId)) return 'boolean';
+  const str = String(value ?? '');
+  if (str.startsWith('/') || str.startsWith('http')) return 'link';
+  if (str.length > 18 && str.includes('T') && !isNaN(Date.parse(str))) return 'timestamp';
+  return 'text';
 }
 
-/** Render cell values with status coloring, links, and known patterns */
-function CellValue({ value, columnId, row }: { value: unknown; columnId: string; row?: Record<string, unknown> }) {
-  const str = String(value ?? '');
-
-  // Render explicit links — values starting with / or http
-  if (str.startsWith('/') || str.startsWith('http')) {
-    const label = columnId === 'logs' ? 'View Logs' : columnId === 'link' ? 'Open' : str.split('/').pop() || str;
-    return (
-      <a href={str} className="text-violet-400 hover:text-violet-300 underline underline-offset-2" title={str}>
-        {label}
-      </a>
-    );
-  }
-
-  // Auto-link resource names using row context
-  if (row && str) {
-    const resLink = buildResourceLink(str, columnId, row);
-    if (resLink) return resLink;
-  }
-
-  // Auto-color status-like columns
-  if (columnId === 'status' || columnId === 'phase' || columnId === 'state') {
-    const lower = str.toLowerCase();
-    if (['running', 'active', 'available', 'true', 'healthy', 'ready'].includes(lower)) {
-      return <span className="text-emerald-400">{str}</span>;
-    }
-    if (['warning', 'pending', 'progressing', 'unknown'].includes(lower)) {
-      return <span className="text-amber-400">{str}</span>;
-    }
-    if (['failed', 'error', 'crashloopbackoff', 'false', 'degraded', 'not ready', 'imagepullbackoff'].includes(lower)) {
-      return <span className="text-red-400">{str}</span>;
-    }
-  }
-  // Auto-color severity columns
-  if (columnId === 'severity' || columnId === 'type') {
-    const lower = str.toLowerCase();
-    if (lower === 'critical' || lower === 'error') return <span className="text-red-400 font-medium">{str}</span>;
-    if (lower === 'warning') return <span className="text-amber-400">{str}</span>;
-    if (lower === 'info' || lower === 'normal') return <span className="text-blue-400">{str}</span>;
-  }
-  return <>{str}</>;
+/** Smart cell renderer — dispatches to the right renderer based on column type */
+function CellValue({ value, columnId, columnType, row }: { value: unknown; columnId: string; columnType?: string; row?: Record<string, unknown> }) {
+  const type = columnType || _inferType(columnId, value);
+  const renderer = COLUMN_RENDERERS[type] || COLUMN_RENDERERS.text;
+  return <>{renderer(value, row || {})}</>;
 }
 
 function AgentInfoCardGrid({ spec }: { spec: InfoCardGridSpec }) {
@@ -326,7 +418,7 @@ const STATUS_ICONS = {
   unknown: HelpCircle,
 };
 
-const STATUS_COLORS = {
+const STATUS_LIST_COLORS: Record<string, string> = {
   healthy: 'text-emerald-400',
   warning: 'text-amber-400',
   error: 'text-red-400',
@@ -347,7 +439,7 @@ function AgentStatusList({ spec }: { spec: StatusListSpec }) {
           const Icon = STATUS_ICONS[item.status] || HelpCircle;
           return (
             <div key={i} className="flex items-center gap-2 px-3 py-1.5">
-              <Icon className={cn('h-3.5 w-3.5 shrink-0', STATUS_COLORS[item.status])} />
+              <Icon className={cn('h-3.5 w-3.5 shrink-0', STATUS_LIST_COLORS[item.status])} />
               <span className="text-xs text-slate-200 font-medium">{item.name}</span>
               {item.detail && <span className="text-xs text-slate-500 truncate ml-auto">{item.detail}</span>}
             </div>
