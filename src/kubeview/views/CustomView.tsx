@@ -343,6 +343,19 @@ export default function CustomView() {
                   </button>
                 )}
                 <div className={editMode ? 'pl-6' : ''}>
+                  {/* Editable widget title in edit mode */}
+                  {editMode && (spec as any).title && (
+                    <input
+                      defaultValue={(spec as any).title}
+                      onBlur={(e) => {
+                        if (e.target.value !== (spec as any).title) {
+                          updateWidget(view.id, i, { title: e.target.value } as any);
+                        }
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      className="w-full text-xs font-medium text-slate-300 bg-transparent border-b border-slate-700 focus:border-violet-500 outline-none mb-1 px-1 py-0.5"
+                    />
+                  )}
                   <ErrorBoundary>
                     <AgentComponentRenderer spec={spec} />
                   </ErrorBoundary>

@@ -19,14 +19,17 @@ export type ComponentSpec =
 export interface DataTableSpec {
   kind: 'data_table';
   title?: string;
+  description?: string;
   columns: Array<{ id: string; header: string; width?: string }>;
   rows: Array<Record<string, string | number | boolean>>;
-  query?: string;      // stored PromQL for live refresh
-  timeRange?: string;  // stored for refresh
+  query?: string;
+  timeRange?: string;
 }
 
 export interface InfoCardGridSpec {
   kind: 'info_card_grid';
+  title?: string;
+  description?: string;
   cards: Array<{ label: string; value: string; sub?: string }>;
 }
 
@@ -55,6 +58,7 @@ export interface ChartSpec {
   kind: 'chart';
   chartType?: 'line' | 'bar' | 'area';  // default 'line'
   title?: string;
+  description?: string;
   series: Array<{
     label: string;
     data: Array<[number, number]>; // [timestamp, value]

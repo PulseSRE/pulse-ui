@@ -253,7 +253,10 @@ function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onAddToView?: (spe
     <div className="my-2 border border-slate-700 rounded-lg overflow-hidden bg-slate-900/50">
       {/* Header with title, chart type switcher, and add-to-view button */}
       <div className="px-3 py-1.5 border-b border-slate-700 flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-300 truncate">{spec.title || 'Chart'}</span>
+        <div className="truncate">
+          <span className="text-xs font-medium text-slate-300">{spec.title || 'Chart'}</span>
+          {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
+        </div>
         <div className="flex items-center gap-1">
           {/* Chart type switcher */}
           {(['line', 'bar', 'area'] as const).map((type) => (
