@@ -124,6 +124,57 @@ else
   fail "Prometheus proxy not found in nginx config"
 fi
 
+# 10. View API CRUD
+echo ""
+echo "[View API]"
+VIEW_ID=""
+# Create
+CREATE_RESP=$(agent_exec curl -sf -X POST http://localhost:8080/views \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Integration Test View","description":"auto-test","layout":[{"kind":"key_value","pairs":[{"key":"test","value":"ok"}]}]}')
+if echo "$CREATE_RESP" | grep -q '"id"'; then
+  VIEW_ID=$(echo "$CREATE_RESP" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+  pass "POST /views → created $VIEW_ID"
+else
+  fail "POST /views failed: $CREATE_RESP"
+fi
+
+# List
+if [[ -n "$VIEW_ID" ]]; then
+  LIST_RESP=$(agent_exec curl -sf http://localhost:8080/views)
+  echo "$LIST_RESP" | grep -q "$VIEW_ID" && pass "GET /views → lists created view" || fail "GET /views missing created view"
+fi
+
+# Get
+if [[ -n "$VIEW_ID" ]]; then
+  GET_RESP=$(agent_exec curl -sf "http://localhost:8080/views/$VIEW_ID")
+  echo "$GET_RESP" | grep -q "Integration Test View" && pass "GET /views/$VIEW_ID → correct title" || fail "GET /views/$VIEW_ID wrong content"
+fi
+
+# Update
+if [[ -n "$VIEW_ID" ]]; then
+  UPDATE_RESP=$(agent_exec curl -sf -X PUT "http://localhost:8080/views/$VIEW_ID" \
+    -H "Content-Type: application/json" \
+    -d '{"title":"Updated Title"}')
+  echo "$UPDATE_RESP" | grep -q '"updated":true' && pass "PUT /views/$VIEW_ID → updated" || fail "PUT /views/$VIEW_ID failed"
+fi
+
+# Share
+if [[ -n "$VIEW_ID" ]]; then
+  SHARE_RESP=$(agent_exec curl -sf -X POST "http://localhost:8080/views/$VIEW_ID/share")
+  echo "$SHARE_RESP" | grep -q '"share_token"' && pass "POST /views/$VIEW_ID/share → token generated" || fail "POST /views/$VIEW_ID/share failed"
+fi
+
+# Delete
+if [[ -n "$VIEW_ID" ]]; then
+  DEL_RESP=$(agent_exec curl -sf -X DELETE "http://localhost:8080/views/$VIEW_ID")
+  echo "$DEL_RESP" | grep -q '"deleted":true' && pass "DELETE /views/$VIEW_ID → deleted" || fail "DELETE /views/$VIEW_ID failed"
+
+  # Verify gone
+  GONE_CODE=$(agent_exec curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080/views/$VIEW_ID")
+  [[ "$GONE_CODE" == "404" ]] && pass "GET deleted view → 404" || fail "GET deleted view returned $GONE_CODE (expected 404)"
+fi
+
 # Results
 echo ""
 echo "════════════════════════════════"
