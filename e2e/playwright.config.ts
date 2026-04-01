@@ -2,7 +2,7 @@ import { defineConfig, devices } from 'playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
@@ -19,13 +19,22 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  /* Start dev server before tests if not targeting a deployed instance */
+  /* Start mock K8s + dev server before tests (unless targeting a deployed instance) */
   ...(process.env.PULSE_URL ? {} : {
-    webServer: {
-      command: 'npm run dev',
-      url: 'http://localhost:9000',
-      reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
-    },
+    webServer: [
+      {
+        command: 'node mock-k8s-server.mjs',
+        cwd: __dirname,
+        url: 'http://localhost:8001/api/v1/nodes',
+        reuseExistingServer: true,
+        timeout: 10_000,
+      },
+      {
+        command: 'npm run dev',
+        url: 'http://localhost:9000',
+        reuseExistingServer: !process.env.CI,
+        timeout: 60_000,
+      },
+    ],
   }),
 });
