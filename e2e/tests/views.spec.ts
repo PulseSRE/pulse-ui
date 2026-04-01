@@ -353,3 +353,143 @@ test.describe('View UI: Render & Edit', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Component Type Rendering & Sizing
+// ---------------------------------------------------------------------------
+
+test.describe('View UI: All Component Types', () => {
+  let testViewId: string | null = null;
+
+  const allComponentsLayout = [
+    {
+      kind: 'data_table',
+      title: 'Test Table',
+      columns: [
+        { id: 'name', header: 'Name' },
+        { id: 'status', header: 'Status' },
+        { id: 'cpu', header: 'CPU' },
+      ],
+      rows: [
+        { name: 'pod-1', status: 'Running', cpu: '100m' },
+        { name: 'pod-2', status: 'Failed', cpu: '50m' },
+        { name: 'pod-3', status: 'Pending', cpu: '0m' },
+      ],
+    },
+    {
+      kind: 'info_card_grid',
+      cards: [
+        { label: 'Nodes', value: '3', sub: 'healthy' },
+        { label: 'Pods', value: '42', sub: 'running' },
+        { label: 'Alerts', value: '2', sub: 'firing' },
+        { label: 'CPU', value: '68%', sub: 'cluster avg' },
+      ],
+    },
+    {
+      kind: 'status_list',
+      title: 'Cluster Operators',
+      items: [
+        { name: 'dns', status: 'healthy', detail: 'Available=True' },
+        { name: 'ingress', status: 'warning', detail: 'Progressing' },
+        { name: 'etcd', status: 'error', detail: 'Degraded=True' },
+      ],
+    },
+    {
+      kind: 'chart',
+      chartType: 'line' as const,
+      title: 'CPU Over Time',
+      series: [
+        {
+          label: 'namespace-a',
+          data: Array.from({ length: 10 }, (_, i) => [Date.now() - (10 - i) * 60000, Math.random() * 100] as [number, number]),
+          color: '#60a5fa',
+        },
+      ],
+      yAxisLabel: 'millicores',
+      height: 300,
+      query: 'sum by (namespace) (rate(container_cpu_usage_seconds_total[5m]))',
+      timeRange: '1h',
+    },
+    {
+      kind: 'key_value',
+      title: 'Cluster Info',
+      pairs: [
+        { key: 'Version', value: 'OpenShift 4.16.5' },
+        { key: 'Platform', value: 'AWS' },
+      ],
+    },
+    {
+      kind: 'badge_list',
+      badges: [
+        { text: 'Healthy', variant: 'success' },
+        { text: 'Warning', variant: 'warning' },
+        { text: 'Critical', variant: 'error' },
+      ],
+    },
+  ];
+
+  test.beforeEach(async ({ page }) => {
+    testViewId = await createView(page, 'E2E All Components', allComponentsLayout);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (testViewId) {
+      await deleteView(page, testViewId);
+      testViewId = null;
+    }
+  });
+
+  test('all 6 component types render visibly', async ({ page }) => {
+    if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
+    await page.goto(`/custom/${testViewId}`);
+    await expect(page.locator('text=E2E All Components')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=Test Table')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('text=Nodes')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('text=Cluster Operators')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('text=CPU Over Time')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('text=Cluster Info')).toBeVisible({ timeout: 3_000 });
+    await expect(page.locator('text=Healthy')).toBeVisible({ timeout: 3_000 });
+  });
+
+  test('all widgets are full-width (>80% container)', async ({ page }) => {
+    if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
+    await page.goto(`/custom/${testViewId}`);
+    await expect(page.locator('text=E2E All Components')).toBeVisible({ timeout: 10_000 });
+
+    const container = page.locator('.react-grid-layout').first();
+    const containerBox = await container.boundingBox();
+    if (!containerBox) return;
+
+    const widgets = page.locator('.react-grid-item');
+    const widgetCount = await widgets.count();
+    expect(widgetCount).toBeGreaterThanOrEqual(6);
+
+    for (let i = 0; i < Math.min(widgetCount, 6); i++) {
+      const box = await widgets.nth(i).boundingBox();
+      if (box) {
+        expect(box.width / containerBox.width).toBeGreaterThan(0.8);
+      }
+    }
+  });
+
+  test('data table shows columns and rows', async ({ page }) => {
+    if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
+    await page.goto(`/custom/${testViewId}`);
+    await expect(page.locator('th:has-text("Name")')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('th:has-text("Status")')).toBeVisible();
+    await expect(page.locator('td:has-text("pod-1")')).toBeVisible();
+  });
+
+  test('chart shows PromQL query footer', async ({ page }) => {
+    if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
+    await page.goto(`/custom/${testViewId}`);
+    await expect(page.locator('text=PromQL:')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('status list shows all items', async ({ page }) => {
+    if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
+    await page.goto(`/custom/${testViewId}`);
+    await expect(page.locator('text=dns')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=etcd')).toBeVisible();
+  });
+});
