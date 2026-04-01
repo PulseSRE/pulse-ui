@@ -26,14 +26,16 @@ function generateDefaultLayout(specs: ComponentSpec[]): ReactGridLayout.Layout[]
   let y = 0;
   return specs.map((spec, i) => {
     // Height based on content type
+    // Heights tuned for rowHeight=60px
+    const rows = spec.kind === 'data_table' ? (spec as any).rows?.length || 5 : 0;
     const h =
       spec.kind === 'info_card_grid' ? 2 :
-      spec.kind === 'status_list' ? 3 :
+      spec.kind === 'status_list' ? Math.min(2 + Math.ceil(((spec as any).items?.length || 3) / 2), 6) :
       spec.kind === 'badge_list' ? 2 :
-      spec.kind === 'key_value' ? 2 :
-      spec.kind === 'chart' ? 4 :
-      spec.kind === 'data_table' ? 5 :
-      spec.kind === 'tabs' ? 6 :
+      spec.kind === 'key_value' ? Math.min(2 + Math.ceil(((spec as any).pairs?.length || 2) / 2), 5) :
+      spec.kind === 'chart' ? 6 :
+      spec.kind === 'data_table' ? Math.min(2 + Math.ceil(rows * 0.5), 8) :
+      spec.kind === 'tabs' ? 8 :
       3;
     const layout = { i: String(i), x: 0, y, w: 4, h, minW: 2, minH: 2 };
     y += h;
@@ -57,7 +59,7 @@ function positionsToLayout(positions: Record<number, { x: number; y: number; w: 
     if (pos) {
       return { i: String(i), ...pos, minW: 1, minH: 2 };
     }
-    return { i: String(i), x: 0, y: i * 4, w: 4, h: 4, minW: 2, minH: 2 };
+    return { i: String(i), x: 0, y: i * 5, w: 4, h: 5, minW: 2, minH: 1 };
   });
 }
 
@@ -288,7 +290,7 @@ export default function CustomView() {
             layouts={{ lg: currentLayout }}
             breakpoints={{ lg: 1024, md: 768, sm: 480 }}
             cols={{ lg: 4, md: 2, sm: 1 }}
-            rowHeight={100}
+            rowHeight={60}
             isDraggable={editMode}
             isResizable={editMode}
             onLayoutChange={handleLayoutChange}
