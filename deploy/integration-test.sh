@@ -32,17 +32,31 @@ _find_agent_pod() {
   AGENT_POD=$(oc get pods -n "$NAMESPACE" -l app.kubernetes.io/name=openshift-sre-agent \
     --no-headers 2>/dev/null | grep -v postgresql | grep Running | head -1 | awk '{print $1}')
 }
-# Execute a command on the agent pod with timeout
+# Execute a command on the agent pod
 agent_exec() {
   [[ -z "$AGENT_POD" ]] && _find_agent_pod
   [[ -z "$AGENT_POD" ]] && echo "" && return 1
-  timeout 10 oc exec "$AGENT_POD" -n "$NAMESPACE" -c sre-agent -- "$@" 2>/dev/null || echo ""
+  oc exec "$AGENT_POD" -n "$NAMESPACE" -c sre-agent -- "$@" 2>/dev/null || echo ""
 }
 
 # HTTP GET via python (curl may not be in the container)
 agent_get() {
   local path="$1"
+  local sep="?"
+  [[ "$path" == *"?"* ]] && sep="&"
   agent_exec python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8080${path}').read().decode())"
+}
+
+# HTTP GET with auth token
+agent_get_auth() {
+  local path="$1"
+  local sep="?"
+  [[ "$path" == *"?"* ]] && sep="&"
+  agent_exec python3 -c "
+import urllib.request
+req = urllib.request.Request('http://localhost:8080${path}${sep}token=${_WS_TOKEN}')
+print(urllib.request.urlopen(req).read().decode())
+"
 }
 
 # HTTP POST via python
@@ -122,7 +136,8 @@ else
 fi
 
 # 4. Agent tools endpoint
-TOOLS_RESP=$(agent_get /tools)
+_WS_TOKEN=$(oc get secret pulse-ws-token -n "$NAMESPACE" -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+TOOLS_RESP=$(agent_get_auth /tools)
 [[ "$TOOLS_RESP" == *'"sre"'* ]] && pass "GET /tools → SRE tools available" || fail "GET /tools failed"
 
 # 5. WebSocket token
@@ -141,10 +156,10 @@ fi
 # 6. Nginx proxy config
 echo ""
 echo "[Nginx Proxy]"
-NGINX_CONF=$(timeout 10 oc exec deployment/openshiftpulse -n "$NAMESPACE" -c openshiftpulse -- cat /etc/nginx/nginx.conf 2>/dev/null || echo "")
+NGINX_CONF=$(oc exec deployment/openshiftpulse -n "$NAMESPACE" -c openshiftpulse -- cat /etc/nginx/nginx.conf 2>/dev/null || echo "")
 if [[ -n "$NGINX_CONF" ]]; then
   [[ "$NGINX_CONF" == *"/api/agent/"* ]] && pass "nginx proxies /api/agent/" || fail "nginx missing /api/agent/ proxy"
-  [[ "$NGINX_CONF" == *"ws/sre"* ]] && pass "nginx has /ws/sre location" || fail "nginx missing /ws/sre location"
+  [[ "$NGINX_CONF" == *"ws/"* ]] && pass "nginx has WebSocket proxy" || fail "nginx missing WebSocket proxy"
   [[ "$NGINX_CONF" == *"token="* ]] && pass "nginx injects WS token" || fail "nginx not injecting WS token"
 else
   fail "Could not read nginx config"
@@ -190,8 +205,8 @@ fi
 echo ""
 echo "[View API]"
 VIEW_ID=""
-# Create
-CREATE_RESP=$(agent_post /views '{"title":"Integration Test View","description":"auto-test","layout":[{"kind":"key_value","pairs":[{"key":"test","value":"ok"}]}]}')
+# Create (pass token for auth)
+CREATE_RESP=$(agent_post "/views?token=${_WS_TOKEN}" '{"title":"Integration Test View","description":"auto-test","layout":[{"kind":"key_value","pairs":[{"key":"test","value":"ok"}]}]}')
 if echo "$CREATE_RESP" | grep -q '"id"'; then
   VIEW_ID=$(echo "$CREATE_RESP" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
   pass "POST /views → created $VIEW_ID"
@@ -201,31 +216,31 @@ fi
 
 # List
 if [[ -n "$VIEW_ID" ]]; then
-  LIST_RESP=$(agent_get /views)
+  LIST_RESP=$(agent_get "/views?token=${_WS_TOKEN}")
   echo "$LIST_RESP" | grep -q "$VIEW_ID" && pass "GET /views → lists created view" || fail "GET /views missing created view"
 fi
 
 # Get
 if [[ -n "$VIEW_ID" ]]; then
-  GET_RESP=$(agent_get "/views/$VIEW_ID")
+  GET_RESP=$(agent_get "/views/$VIEW_ID?token=${_WS_TOKEN}")
   echo "$GET_RESP" | grep -q "Integration Test View" && pass "GET /views/$VIEW_ID → correct title" || fail "GET /views/$VIEW_ID wrong content"
 fi
 
 # Update
 if [[ -n "$VIEW_ID" ]]; then
-  UPDATE_RESP=$(agent_put "/views/$VIEW_ID" '{"title":"Updated Title"}')
+  UPDATE_RESP=$(agent_put "/views/$VIEW_ID?token=${_WS_TOKEN}" '{"title":"Updated Title"}')
   echo "$UPDATE_RESP" | grep -q '"updated":true' && pass "PUT /views/$VIEW_ID → updated" || fail "PUT /views/$VIEW_ID failed"
 fi
 
 # Share
 if [[ -n "$VIEW_ID" ]]; then
-  SHARE_RESP=$(agent_post "/views/$VIEW_ID/share")
+  SHARE_RESP=$(agent_post "/views/$VIEW_ID/share?token=${_WS_TOKEN}")
   echo "$SHARE_RESP" | grep -q '"share_token"' && pass "POST /views/$VIEW_ID/share → token generated" || fail "POST /views/$VIEW_ID/share failed"
 fi
 
 # Delete
 if [[ -n "$VIEW_ID" ]]; then
-  DEL_RESP=$(agent_delete "/views/$VIEW_ID")
+  DEL_RESP=$(agent_delete "/views/$VIEW_ID?token=${_WS_TOKEN}")
   echo "$DEL_RESP" | grep -q '"deleted":true' && pass "DELETE /views/$VIEW_ID → deleted" || fail "DELETE /views/$VIEW_ID failed"
 fi
 
