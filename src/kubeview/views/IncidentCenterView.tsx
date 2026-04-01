@@ -41,9 +41,16 @@ const AUTO_FIX_CATEGORIES = [
 
 export default function IncidentCenterView() {
   const urlTab = new URLSearchParams(window.location.search).get('tab') as IncidentTab | null;
-  const [activeTab, setActiveTab] = useState<IncidentTab>(
+  const [activeTab, setActiveTabState] = useState<IncidentTab>(
     urlTab && ['now', 'investigate', 'history', 'alerts', 'config'].includes(urlTab) ? urlTab : 'now',
   );
+  const setActiveTab = (tab: IncidentTab) => {
+    setActiveTabState(tab);
+    const params = new URLSearchParams(window.location.search);
+    if (tab === 'now') params.delete('tab'); else params.set('tab', tab);
+    const qs = params.toString();
+    window.history.replaceState(null, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  };
   const connected = useMonitorStore((s) => s.connected);
   const monitorEnabled = useMonitorStore((s) => s.monitorEnabled);
   const setMonitorEnabled = useMonitorStore((s) => s.setMonitorEnabled);

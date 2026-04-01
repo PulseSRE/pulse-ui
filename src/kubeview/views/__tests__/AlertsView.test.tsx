@@ -46,6 +46,7 @@ vi.mock('../../components/metrics/prometheus', () => ({
   getTimeRange: vi.fn().mockReturnValue([0, 1]),
 }));
 
+const jsonHeaders = { get: (h: string) => h.toLowerCase() === 'content-type' ? 'application/json' : null };
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
@@ -66,12 +67,14 @@ function renderAlerts(queryClient?: QueryClient) {
       if (url.includes('/rules')) {
         return Promise.resolve({
           ok: true,
+          headers: jsonHeaders,
           json: () => Promise.resolve({ data: { groups: [] } }),
         });
       }
       if (url.includes('/silences')) {
         return Promise.resolve({
           ok: true,
+          headers: jsonHeaders,
           json: () => Promise.resolve([]),
         });
       }
@@ -213,6 +216,7 @@ describe('AlertsView', () => {
       if (url.includes('/rules')) {
         return Promise.resolve({
           ok: true,
+          headers: jsonHeaders,
           json: () => Promise.resolve({
             data: {
               groups: [{
@@ -240,6 +244,7 @@ describe('AlertsView', () => {
       if (url.includes('/silences')) {
         return Promise.resolve({
           ok: true,
+          headers: jsonHeaders,
           json: () => Promise.resolve([]),
         });
       }
@@ -261,12 +266,14 @@ describe('AlertsView', () => {
       if (url.includes('/rules')) {
         return Promise.resolve({
           ok: true,
+          headers: jsonHeaders,
           json: () => Promise.resolve({ data: { groups: [] } }),
         });
       }
       if (url.includes('/silences')) {
         return Promise.resolve({
           ok: true,
+          headers: jsonHeaders,
           json: () => Promise.resolve([
             {
               id: 'silence-1',

@@ -63,7 +63,16 @@ export default function IdentityView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
-  const [activeTab, setActiveTab] = useState<TabId>('users');
+  const urlTab = new URLSearchParams(window.location.search).get('tab') as TabId | null;
+  const [activeTab, setActiveTabState] = useState<TabId>(
+    urlTab && ['users', 'groups-sa', 'rbac', 'impersonation'].includes(urlTab) ? urlTab : 'users',
+  );
+  const setActiveTab = (tab: TabId) => {
+    setActiveTabState(tab);
+    const url = new URL(window.location.href);
+    if (tab === 'users') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
+    window.history.replaceState(null, '', url.toString());
+  };
   const [search, setSearch] = useState('');
 
   // ---- Data (useK8sListWatch for real-time updates) ----

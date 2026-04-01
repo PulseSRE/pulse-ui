@@ -395,6 +395,7 @@ function getCommandItems(
       { type: 'nav', id: 'onboarding', title: 'Production Readiness', subtitle: 'Readiness wizard — security, reliability, observability gates', icon: 'Shield', path: '/onboarding' },
       { type: 'nav', id: 'memory', title: "What I've Learned", subtitle: 'Learned runbooks, detected patterns, incident history', icon: 'Brain', path: '/memory' },
       { type: 'nav', id: 'reviews', title: 'Review Queue', subtitle: 'AI-proposed infrastructure changes — approve, reject, diff', icon: 'GitPullRequest', path: '/reviews' },
+      { type: 'nav', id: 'views', title: 'Manage Views', subtitle: 'Browse, open, share, and delete saved AI dashboards', icon: 'LayoutDashboard', path: '/views' },
     ];
 
     const matchingPages = builtinViews.filter((page) =>

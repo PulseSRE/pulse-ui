@@ -55,9 +55,18 @@ async function fetchIncidents(search = ''): Promise<Incident[]> {
 type Tab = 'runbooks' | 'patterns' | 'incidents';
 
 export default function MemoryView() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as Tab) || 'incidents';
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const [activeTab, setActiveTabState] = useState<Tab>(initialTab);
+  const setActiveTab = (tab: Tab) => {
+    setActiveTabState(tab);
+    if (tab === 'incidents') {
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', tab);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
   const [search, setSearch] = useState('');
   const [expandedRunbook, setExpandedRunbook] = useState<string | null>(null);
 

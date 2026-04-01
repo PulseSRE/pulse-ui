@@ -37,7 +37,16 @@ export default function ArgoCDView() {
   useEffect(() => {
     detectCompletedSteps();
   }, [available]);
-  const [activeTab, setActiveTab] = React.useState<Tab>('applications');
+  const urlTab = new URLSearchParams(window.location.search).get('tab') as Tab | null;
+  const [activeTab, setActiveTabState] = React.useState<Tab>(
+    urlTab && ['applications', 'history', 'drift', 'projects', 'rollouts'].includes(urlTab) ? urlTab : 'applications',
+  );
+  const setActiveTab = (tab: Tab) => {
+    setActiveTabState(tab);
+    const url = new URL(window.location.href);
+    if (tab === 'applications') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
+    window.history.replaceState(null, '', url.toString());
+  };
   const [syncing, setSyncing] = React.useState<string | null>(null);
   const [confirmSync, setConfirmSync] = React.useState<{name: string, ns: string} | null>(null);
 

@@ -28,7 +28,13 @@ import type { NodeDetail, PrometheusResult } from './compute/types';
 export default function ComputeView() {
   const go = useNavigateTab();
   const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const [computeTab, setComputeTab] = React.useState<'overview' | 'capacity'>(urlTab === 'capacity' ? 'capacity' : 'overview');
+  const [computeTab, setComputeTabState] = React.useState<'overview' | 'capacity'>(urlTab === 'capacity' ? 'capacity' : 'overview');
+  const setComputeTab = (tab: 'overview' | 'capacity') => {
+    setComputeTabState(tab);
+    const url = new URL(window.location.href);
+    if (tab === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
+    window.history.replaceState(null, '', url.toString());
+  };
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
 
   const { data: nodes = [] } = useK8sListWatch({ apiPath: '/api/v1/nodes' });
@@ -212,7 +218,7 @@ export default function ComputeView() {
         {/* Tabs */}
         <Card className="flex gap-1 p-1">
           {([['overview', 'Overview'], ['capacity', 'Capacity Planning']] as const).map(([id, label]) => (
-            <button key={id} role="tab" aria-selected={computeTab === id} aria-label={label} onClick={() => { const url = new URL(window.location.href); if (id === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', id); window.history.replaceState(null, '', url.toString()); setComputeTab(id); }}
+            <button key={id} role="tab" aria-selected={computeTab === id} aria-label={label} onClick={() => setComputeTab(id)}
               className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', computeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               {label}
             </button>

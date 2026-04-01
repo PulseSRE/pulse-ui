@@ -24,6 +24,7 @@ const CustomViewRedirect = lazy(() => import('../views/CustomView'));
 const IncidentCenterView = lazy(() => import('../views/IncidentCenterView'));
 const OnboardingView = lazy(() => import('../views/OnboardingView'));
 const ReviewQueueView = lazy(() => import('../views/ReviewQueueView'));
+const ViewsManagement = lazy(() => import('../views/ViewsManagement'));
 
 function CatchFallback() {
   return (
@@ -87,6 +88,7 @@ export function domainRoutes() {
       <Route path="incidents" element={<Lazy>{isFeatureEnabled('incidentCenter') ? <IncidentCenterView /> : <CatchFallback />}</Lazy>} />
       <Route path="onboarding" element={<Lazy>{isFeatureEnabled('onboarding') ? <OnboardingView /> : <CatchFallback />}</Lazy>} />
       <Route path="reviews" element={<Lazy>{isFeatureEnabled('reviewQueue') ? <ReviewQueueView /> : <CatchFallback />}</Lazy>} />
+      <Route path="views" element={<Lazy><ViewsManagement /></Lazy>} />
     </>
   );
 }

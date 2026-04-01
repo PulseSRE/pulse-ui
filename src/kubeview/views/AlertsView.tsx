@@ -108,10 +108,13 @@ export default function AlertsView() {
     queryFn: async () => {
       const res = await fetch('/api/prometheus/api/v1/rules');
       if (!res.ok) throw new Error(`Prometheus returned ${res.status} ${res.statusText}`);
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('Prometheus endpoint returned non-JSON response — is THANOS_URL configured?');
       const json = await res.json();
       return json.data?.groups || [];
     },
     refetchInterval: 30000,
+    retry: 1,
   });
 
   // Fetch silences from Alertmanager
@@ -120,9 +123,12 @@ export default function AlertsView() {
     queryFn: async () => {
       const res = await fetch('/api/alertmanager/api/v2/silences');
       if (!res.ok) throw new Error(`Alertmanager returned ${res.status} ${res.statusText}`);
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('Alertmanager endpoint returned non-JSON response — is ALERTMANAGER_URL configured?');
       return res.json();
     },
     refetchInterval: 60000,
+    retry: 1,
   });
 
   const backendUnavailable = !!(alertsError || silencesError);
@@ -501,7 +507,11 @@ export default function AlertsView() {
               <EmptyState
                 icon={<XCircle className="w-8 h-8 text-red-400" />}
                 title="Unable to reach alerting backend"
-                description="Check that Prometheus and Alertmanager are configured and accessible."
+                description={
+                  (alertsError?.message || silencesError?.message || '').includes('configured')
+                    ? 'The Prometheus or Alertmanager proxy is not configured. Set THANOS_URL and ALERTMANAGER_URL environment variables and restart the dev server.'
+                    : 'Check that Prometheus and Alertmanager are configured and accessible.'
+                }
                 action={{ label: 'Retry', onClick: () => { refetchAlerts(); refetchSilences(); } }}
               />
             ) : filteredAlerts.length === 0 ? (
