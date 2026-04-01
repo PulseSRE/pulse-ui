@@ -221,51 +221,37 @@ export default function CustomView() {
               Created {formatRelativeTime(view.generatedAt)} · {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Edit Mode Toggle */}
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={() => setEditMode(!editMode)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors ${
-                editMode
-                  ? 'bg-amber-700 hover:bg-amber-600 text-white'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100'
-              }`}
+              className={`p-1.5 rounded transition-colors ${editMode ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
+              title={editMode ? 'Done editing' : 'Edit layout'}
             >
-              {editMode ? (
-                <>
-                  <Eye className="w-3.5 h-3.5" />
-                  Done Editing
-                </>
-              ) : (
-                <>
-                  <Pencil className="w-3.5 h-3.5" />
-                  Edit Layout
-                </>
-              )}
+              {editMode ? <Eye className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
             </button>
             <button
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 rounded transition-colors"
+              className="p-1.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+              title={copied ? 'Link copied!' : 'Share view'}
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
-              {copied ? 'Link Copied!' : 'Share'}
+              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
             </button>
             <button
               onClick={() => {
                 useUIStore.getState().openDock('agent');
-                useAgentStore.getState().connectAndSend(`Update my "${view.title}" dashboard — add or modify widgets`);
+                useAgentStore.getState().connectAndSend(`Update my "${view.title}" view — add or modify widgets`);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-violet-700 hover:bg-violet-600 text-white rounded transition-colors"
+              className="p-1.5 rounded bg-violet-700 hover:bg-violet-600 text-white transition-colors"
+              title="Edit with AI"
             >
-              <Bot className="w-3.5 h-3.5" />
-              Edit with AI
+              <Bot className="w-4 h-4" />
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 hover:bg-red-900/50 text-slate-400 hover:text-red-400 rounded transition-colors"
+              className="p-1.5 rounded bg-slate-800 text-slate-400 hover:text-red-400 transition-colors"
+              title="Delete view"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
