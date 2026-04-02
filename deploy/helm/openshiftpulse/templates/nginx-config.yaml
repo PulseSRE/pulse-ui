@@ -81,21 +81,8 @@ data:
         {{- end }}
 
         {{- if .Values.agent.enabled }}
-        {{- $agentToken := "" -}}
-        {{- if .Values.agent.wsTokenSecret -}}
-          {{- $secret := lookup "v1" "Secret" .Release.Namespace .Values.agent.wsTokenSecret -}}
-          {{- if $secret -}}
-            {{- $agentToken = index $secret.data (.Values.agent.wsTokenSecretKey | default "token") | b64dec -}}
-          {{- else if .Values.agent.wsToken -}}
-            {{- $agentToken = .Values.agent.wsToken -}}
-          {{- else -}}
-            {{- fail (printf "agent.wsTokenSecret '%s' not found and agent.wsToken not set" .Values.agent.wsTokenSecret) -}}
-          {{- end -}}
-        {{- else -}}
-          {{- $agentToken = required "agent.wsToken or agent.wsTokenSecret is required when agent.enabled=true" .Values.agent.wsToken -}}
-        {{- end -}}
         location ~ ^/api/agent/ws/(sre|security|monitor|agent)$ {
-          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/$1?token={{ $agentToken }};
+          proxy_pass http://{{ .Values.agent.serviceName }}:8080/ws/$1?token=__AGENT_TOKEN__;
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
           proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
@@ -105,7 +92,7 @@ data:
 
         location /api/agent/ {
           proxy_pass http://{{ .Values.agent.serviceName }}:8080/;
-          proxy_set_header Authorization "Bearer {{ $agentToken }}";
+          proxy_set_header Authorization "Bearer __AGENT_TOKEN__";
           proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
           proxy_read_timeout 60s;
         }

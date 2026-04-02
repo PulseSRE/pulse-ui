@@ -83,13 +83,26 @@ spec:
       - name: openshiftpulse
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        command: ["nginx", "-g", "daemon off;"]
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          cp /etc/nginx/nginx.conf /tmp/nginx.conf
+          {{- if .Values.agent.enabled }}
+          TOKEN=$(cat /etc/nginx/agent-token/token)
+          sed -i "s|__AGENT_TOKEN__|${TOKEN}|g" /tmp/nginx.conf
+          {{- end }}
+          exec nginx -c /tmp/nginx.conf -g 'daemon off;'
         ports:
         - containerPort: 8080
         volumeMounts:
         - name: nginx-config
           mountPath: /etc/nginx/nginx.conf
           subPath: nginx.conf
+        {{- if .Values.agent.enabled }}
+        - name: agent-token
+          mountPath: /etc/nginx/agent-token
+          readOnly: true
+        {{- end }}
         - name: nginx-tmp
           mountPath: /tmp
         - name: nginx-log
@@ -123,6 +136,14 @@ spec:
       - name: nginx-config
         configMap:
           name: openshiftpulse-nginx
+      {{- if .Values.agent.enabled }}
+      - name: agent-token
+        secret:
+          secretName: {{ .Values.agent.wsTokenSecret | default "pulse-ws-token" }}
+          items:
+          - key: {{ .Values.agent.wsTokenSecretKey | default "token" }}
+            path: token
+      {{- end }}
       - name: nginx-tmp
         emptyDir: {}
       - name: nginx-log
