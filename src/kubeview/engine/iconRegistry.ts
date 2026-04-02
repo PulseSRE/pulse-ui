@@ -136,6 +136,19 @@ const iconRegistry: Record<string, LucideIcon> = {
  * @param fallback - Fallback icon to use if name not found (defaults to Search)
  * @returns The icon component
  */
+const KIND_ICON_MAP: Record<string, string> = {
+  Pod: 'Box', Deployment: 'Package', Service: 'Network', ConfigMap: 'FileText',
+  Secret: 'Lock', Node: 'Server', Namespace: 'Folder', Ingress: 'Globe',
+  PersistentVolumeClaim: 'HardDrive', StatefulSet: 'Database', DaemonSet: 'Layers',
+  Job: 'PlayCircle', CronJob: 'Clock', ReplicaSet: 'Copy', ServiceAccount: 'User',
+  Role: 'Shield', RoleBinding: 'Link', ClusterRole: 'ShieldCheck', ClusterRoleBinding: 'Link2',
+};
+
+/** Map a K8s resource kind to an icon name string. */
+export function getResourceIconName(kind: string): string {
+  return KIND_ICON_MAP[kind] || 'File';
+}
+
 export function getResourceIcon(name?: string, fallback: LucideIcon = Search): LucideIcon {
   if (!name) return fallback;
   return iconRegistry[name] || fallback;

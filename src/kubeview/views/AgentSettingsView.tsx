@@ -12,6 +12,7 @@ import { useTrustStore, TRUST_LABELS, TRUST_DESCRIPTIONS, type TrustLevel, type 
 import { useAgentStore } from '../store/agentStore';
 import { useUIStore } from '../store/uiStore';
 import { fetchAgentEvalStatus } from '../engine/evalStatus';
+import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 
 const MemoryView = lazy(() => import('./MemoryView'));
 const ViewsManagement = lazy(() => import('./ViewsManagement'));
@@ -128,6 +129,15 @@ function SettingsTabContent() {
   const communicationStyle = useTrustStore((s) => s.communicationStyle);
   const setCommunicationStyle = useTrustStore((s) => s.setCommunicationStyle);
   const [scanning, setScanning] = useState(false);
+  const [pendingTrustLevel, setPendingTrustLevel] = useState<TrustLevel | null>(null);
+
+  const handleTrustChange = (level: TrustLevel) => {
+    if (level >= 3 && trustLevel < 3) {
+      setPendingTrustLevel(level);
+    } else {
+      setTrustLevel(level);
+    }
+  };
 
   const { data: capabilities } = useQuery({
     queryKey: ['monitor', 'capabilities'],
@@ -275,7 +285,7 @@ function SettingsTabContent() {
               return (
                 <button
                   key={tl.level}
-                  onClick={() => setTrustLevel(tl.level)}
+                  onClick={() => handleTrustChange(tl.level)}
                   className={cn(
                     'px-4 py-3 rounded-lg border text-left transition-colors',
                     trustLevel === tl.level ? 'bg-violet-900/30 border-violet-700' : 'bg-slate-900 border-slate-800 hover:border-slate-700',
@@ -368,6 +378,21 @@ function SettingsTabContent() {
       <p className="text-xs text-slate-600 text-center">
         Preferences are saved locally and sent to the agent on each connection.
       </p>
+
+      <ConfirmDialog
+        open={pendingTrustLevel !== null}
+        onClose={() => setPendingTrustLevel(null)}
+        onConfirm={() => {
+          if (pendingTrustLevel !== null) {
+            setTrustLevel(pendingTrustLevel);
+            setPendingTrustLevel(null);
+          }
+        }}
+        title="Enable Auto-Fix?"
+        description={`Level ${pendingTrustLevel} allows the agent to automatically modify cluster resources (delete pods, restart deployments). Some actions cannot be rolled back. Are you sure?`}
+        confirmLabel="Enable"
+        variant="danger"
+      />
     </div>
   );
 }

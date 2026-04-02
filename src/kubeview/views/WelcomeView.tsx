@@ -412,5 +412,5 @@ function ClusterStatusPill({ isConnected, connectionStatus, nodeCount, readyCoun
 }
 
 function ShortcutKey({ keys }: { keys: string }) {
-  return <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px] font-mono text-slate-400 border border-slate-700/60">{keys}</kbd>;
+  return <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-xs font-mono text-slate-400 border border-slate-700/60">{keys}</kbd>;
 }

@@ -11,7 +11,7 @@ import { AIIconStatic, AI_ACCENT, aiGlowClass } from './agent/AIBranding';
 import type { K8sResource } from '../engine/renderers';
 import type { ResourceType } from '../engine/discovery';
 import { cn } from '@/lib/utils';
-import { getResourceIcon } from '../engine/iconRegistry';
+import { getResourceIcon, getResourceIconName } from '../engine/iconRegistry';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { fleetSearch } from '../engine/fleet';
 import type { FleetResult } from '../engine/fleet';
@@ -623,22 +623,3 @@ function renderGroups(
   return elements;
 }
 
-function getResourceIconName(kind: string): string {
-  const icons: Record<string, string> = {
-    Pod: 'Box',
-    Deployment: 'Package',
-    Service: 'Network',
-    ConfigMap: 'FileText',
-    Secret: 'Lock',
-    Node: 'Server',
-    Namespace: 'Folder',
-    Ingress: 'Globe',
-    PersistentVolumeClaim: 'HardDrive',
-    StatefulSet: 'Database',
-    DaemonSet: 'Layers',
-    Job: 'PlayCircle',
-    CronJob: 'Clock',
-  };
-
-  return icons[kind] || 'File';
-}

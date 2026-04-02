@@ -7,7 +7,7 @@
 import React from 'react';
 import {
   Globe, RefreshCw, Loader2, Plus, Info, Server,
-  CheckCircle, AlertTriangle, Layers, Bell, GitCompare, Box,
+  CheckCircle, AlertTriangle, Layers, Bell, GitCompare, Box, GitBranch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFleetStore } from '../store/fleetStore';
@@ -200,6 +200,14 @@ export default function FleetView() {
             className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <span className="inline-flex items-center gap-1.5">Compliance</span>
+          </button>
+          <button
+            onClick={() => go('/fleet/drift', 'Drift Detection')}
+            className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <GitBranch className="w-3 h-3" /> Drift
+            </span>
           </button>
         </div>
 

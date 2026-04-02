@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronRight, ChevronDown, Activity, Package, Globe, Server, HardDrive, Shield, Bell, Settings, LayoutDashboard, ShieldCheck, GitBranch, Layers, ClipboardCheck, Rocket } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Activity, Package, Globe, Server, HardDrive, Shield, Bell, Settings, LayoutDashboard, ShieldCheck, GitBranch, Layers, Rocket } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
 import { useCustomViewStore } from '../store/customViewStore';
-import { getResourceIcon } from '../engine/iconRegistry';
+import { getResourceIcon, getResourceIconName } from '../engine/iconRegistry';
 
 interface GroupedResources {
   [groupName: string]: Array<{
@@ -22,37 +22,13 @@ function getIcon(iconName: string) {
   return getResourceIcon(iconName);
 }
 
-function getResourceIconName(kind: string): string {
-  const icons: Record<string, string> = {
-    Pod: 'Box',
-    Deployment: 'Package',
-    Service: 'Network',
-    ConfigMap: 'FileText',
-    Secret: 'Lock',
-    Node: 'Server',
-    Namespace: 'Folder',
-    Ingress: 'Globe',
-    PersistentVolumeClaim: 'HardDrive',
-    StatefulSet: 'Database',
-    DaemonSet: 'Layers',
-    Job: 'PlayCircle',
-    CronJob: 'Clock',
-    ReplicaSet: 'Copy',
-    ServiceAccount: 'User',
-    Role: 'Shield',
-    RoleBinding: 'Link',
-    ClusterRole: 'ShieldCheck',
-    ClusterRoleBinding: 'Link2',
-  };
-
-  return icons[kind] || 'File';
-}
 
 export function ResourceBrowser() {
   const navigate = useNavigate();
   const closeBrowser = useUIStore((s) => s.closeBrowser);
   const addTab = useUIStore((s) => s.addTab);
   const resourceRegistry = useClusterStore((s) => s.resourceRegistry);
+  const customViews = useCustomViewStore((s) => s.views);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Core']));
@@ -197,7 +173,7 @@ export function ResourceBrowser() {
             },
           ] as const).map((group) => (
             <div key={group.section}>
-              <div className="mb-1 flex items-center gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+              <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
                 {group.section}
               </div>
               {group.items.map((page) => (
@@ -231,15 +207,15 @@ export function ResourceBrowser() {
                 navigate('/views');
                 closeBrowser();
               }}
-              className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+              className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
             >
               Manage
             </button>
           </div>
-          {useCustomViewStore.getState().views.length === 0 ? (
+          {customViews.length === 0 ? (
             <p className="px-2 py-1 text-xs text-slate-600">No views yet. Ask the AI to create one.</p>
           ) : (
-            useCustomViewStore.getState().views.map((v) => (
+            customViews.map((v) => (
               <button
                 key={v.id}
                 onClick={() => {

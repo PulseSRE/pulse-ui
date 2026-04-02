@@ -6,6 +6,7 @@ import { useCustomViewStore } from '../store/customViewStore';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 import { getResourceIcon } from '../engine/iconRegistry';
+import { getRouteIcon } from '../engine/navRegistry';
 import { pluralToKind } from '../engine/renderers/index';
 
 // Helper to get icon component from string name
@@ -63,29 +64,6 @@ const REDIRECT_PATHS = new Set([
   '/', '/dashboard', '/software', '/operators', '/operatorhub',
   '/morning-report', '/troubleshoot', '/config-compare', '/timeline',
 ]);
-
-const ROUTE_ICONS: Record<string, string> = {
-  '/agent': 'Bot',
-  '/pulse': 'Activity',
-  '/workloads': 'Package',
-  '/networking': 'Globe',
-  '/compute': 'Server',
-  '/storage': 'HardDrive',
-  '/incidents': 'Bell',
-  '/security': 'ShieldCheck',
-  '/gitops': 'GitBranch',
-  '/fleet': 'Layers',
-  '/admin': 'Settings',
-  '/identity': 'Shield',
-  '/readiness': 'Rocket',
-  '/welcome': 'Home',
-};
-
-function getTabIcon(path: string): string {
-  if (ROUTE_ICONS[path]) return ROUTE_ICONS[path];
-  if (path.startsWith('/custom/')) return 'LayoutDashboard';
-  return '';
-}
 
 export function TabBar() {
   const navigate = useNavigate();
@@ -151,7 +129,7 @@ export function TabBar() {
 
       addTab({
         title,
-        icon: getTabIcon(currentPath),
+        icon: getRouteIcon(currentPath),
         path: currentPath,
         pinned: false,
         closable: true,
