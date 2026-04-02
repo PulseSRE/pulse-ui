@@ -9,7 +9,6 @@ const CRDsView = lazy(() => import('./CRDsView'));
 
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../engine/query';
-import { fetchAgentEvalStatus } from '../engine/evalStatus';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import type { K8sResource } from '../engine/renderers';
 import type { ClusterVersion, ClusterOperator, Node, Condition } from '../engine/types';
@@ -228,11 +227,6 @@ export default function AdminView() {
     staleTime: 60000,
   });
 
-  const { data: evalStatus, isLoading: evalLoading } = useQuery({
-    queryKey: ['agent', 'eval-status'],
-    queryFn: () => fetchAgentEvalStatus().catch(() => null),
-    refetchInterval: 60000,
-  });
 
   // --- Computed values ---
 
@@ -397,61 +391,6 @@ export default function AdminView() {
           title="Administration"
           subtitle="Cluster configuration, updates, and snapshots"
         />
-
-        <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-200">Agent Eval Score</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Eval score from static fixtures. Use &apos;pulse-eval replay&apos; for live agent testing.
-              </p>
-            </div>
-            <span
-              className={cn(
-                'text-xs px-2.5 py-1 rounded border',
-                evalLoading
-                  ? 'bg-slate-800 text-slate-300 border-slate-700'
-                  : evalStatus?.quality_gate_passed
-                    ? 'bg-green-900/40 text-green-300 border-green-800/60'
-                    : evalStatus
-                      ? 'bg-amber-900/40 text-amber-300 border-amber-800/60'
-                      : 'bg-slate-800 text-slate-300 border-slate-700',
-              )}
-            >
-              {evalLoading ? 'Checking' : evalStatus ? (evalStatus.quality_gate_passed ? 'PASS' : 'FAIL') : 'Unavailable'}
-            </span>
-          </div>
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-            <div className="rounded border border-slate-800 bg-slate-950/70 p-2">
-              <div className="text-slate-400">Release gate</div>
-              <div className={cn(
-                'mt-1 font-medium',
-                evalStatus?.release
-                  ? (evalStatus.release.gate_passed ? 'text-green-300' : 'text-amber-300')
-                  : 'text-slate-300',
-              )}>
-                {evalStatus?.release ? (evalStatus.release.gate_passed ? 'PASS' : 'FAIL') : 'n/a'}
-              </div>
-            </div>
-            <div className="rounded border border-slate-800 bg-slate-950/70 p-2">
-              <div className="text-slate-400">Outcomes gate</div>
-              <div className={cn(
-                'mt-1 font-medium',
-                evalStatus?.outcomes
-                  ? (evalStatus.outcomes.gate_passed ? 'text-green-300' : 'text-amber-300')
-                  : 'text-slate-300',
-              )}>
-                {evalStatus?.outcomes ? (evalStatus.outcomes.gate_passed ? 'PASS' : 'FAIL') : 'n/a'}
-              </div>
-            </div>
-            <div className="rounded border border-slate-800 bg-slate-950/70 p-2">
-              <div className="text-slate-400">Last eval run</div>
-              <div className="mt-1 font-medium text-slate-300">
-                {evalStatus?.generated_at_ms ? new Date(evalStatus.generated_at_ms).toLocaleString() : 'n/a'}
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Tabs */}
         <div

@@ -80,6 +80,7 @@ export function CommandPalette() {
   const [fleetResults, setFleetResults] = useState<FleetResult<K8sResource>[]>([]);
   const [fleetLoading, setFleetLoading] = useState(false);
   const smartPrompts = useSmartPrompts();
+  const customViews = useCustomViewStore((s) => s.views);
   const askPulseEnabled = isFeatureEnabled('askPulse');
   const askPulse = useAskPulse(askPulseEnabled ? query : '');
   const showAskPulse = askPulseEnabled && askPulse.isNaturalLanguage && query.trim() && mode === 'default';
@@ -129,7 +130,7 @@ export function CommandPalette() {
   }, [searchAllClusters, query]);
 
   // Build command items based on mode
-  const items = getCommandItems(mode, query, resourceRegistry, location.pathname, smartPrompts);
+  const items = getCommandItems(mode, query, resourceRegistry, location.pathname, smartPrompts, customViews);
 
   const handleSelect = useCallback((item: CommandItem) => {
     // AI query items: send to dock agent panel
@@ -353,6 +354,7 @@ function getCommandItems(
   resourceRegistry: Map<string, ResourceType> | null,
   currentPath: string = '/',
   smartPrompts: SmartPromptItem[] = [],
+  customViewsList: Array<{ id: string; title: string; description?: string; layout?: any[] }> = [],
 ): CommandItem[] {
   const cleanQuery = query.replace(/^[/:?]/, '').toLowerCase();
 
@@ -403,7 +405,7 @@ function getCommandItems(
     items.push(...matchingPages);
 
     // Custom dashboards (AI-generated) — dedup by title, keep newest
-    const customViews = useCustomViewStore.getState().views;
+    const customViews = customViewsList;
     const seenTitles = new Set<string>();
     const matchingCustom: CommandItem[] = customViews
       .filter((v) => {
