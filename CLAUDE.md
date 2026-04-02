@@ -215,6 +215,18 @@ Helm umbrella chart in `deploy/helm/pulse/`. UI and agent always deployed togeth
 - OAuth cookie-expire: 168h (7 days), refresh: 1h
 - Agent repo auto-detected; override with `PULSE_AGENT_REPO` env var or `--agent-repo`
 
+## Deployment
+
+When deploying to OpenShift clusters, always verify NetworkPolicy egress rules, image pull access, and OAuth/TLS configuration before the first deploy attempt. Run a pre-deploy checklist rather than iterating through failures.
+
+**Pre-deploy checklist:**
+1. `oc whoami` — verify cluster auth works
+2. `oc get networkpolicy -n openshiftpulse` — check egress allows agent → Kubernetes API, Prometheus, Vertex AI
+3. `podman login --get-login quay.io` — verify image push access
+4. `oc get secret openshiftpulse-oauth-secrets -n openshiftpulse` — verify OAuth secrets exist (or will be created)
+5. `helm template deploy/helm/pulse/ --set ...` — dry-run to catch config errors before deploying
+6. Verify `ANTHROPIC_VERTEX_PROJECT_ID` or `ANTHROPIC_API_KEY` is set
+
 ### GitHub Pages
 - **UI**: https://alimobrem.github.io/OpenshiftPulse/ (cyberpunk theme, `docs/index.html`)
 - **Agent**: https://alimobrem.github.io/pulse-agent/ (cyberpunk theme, custom robot logo)
