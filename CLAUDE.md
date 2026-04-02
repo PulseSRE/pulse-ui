@@ -48,27 +48,34 @@ PULSE_URL=https://... PULSE_USER=cluster-admin PULSE_PASS=... npx tsx scripts/ca
 - URL pattern for resources: `/r/{group~version~plural}/{namespace}/{name}` (GVR encoding uses `~` separator)
 - **Feature flags**: All flags default to ON. Toggle in Admin > Overview > Feature Flags. Stored in localStorage via `engine/featureFlags.ts`.
 
-### Navigation Structure (14 views)
+### Navigation Structure
 ```
-Home:     Welcome (launchpad — stats, briefing, nav cards, collapsible more views)
-Operate:  Pulse, Incident Center, Reviews, Workloads (+Builds tab), Compute, Networking, Storage, Fleet
-Govern:   Identity & Access, Security, GitOps
-Platform: Admin (+CRDs tab, 10 tabs total), Onboarding
+Cluster:        Pulse, Workloads (+Builds tab), Networking, Compute, Storage
+Operations:     Incident Center (Now/Investigate/Actions/History/Alerts), Security, GitOps, Fleet
+Administration: Admin (7 tabs), Identity & Access, Production Readiness
+Agent:          Agent Settings (Settings/Memory/Views tabs)
 ```
 
 **Key routes:**
 - `/welcome` — launchpad with quick stats, AI briefing, 8-card nav grid
 - `/pulse` — health overview with topology map, insights rail, overnight activity
-- `/incidents` — unified incident triage (5 tabs: Now, Investigate, Alerts, History, Config)
-- `/reviews` — PR-style AI-proposed change review with approve/reject
+- `/incidents` — unified incident triage (5 tabs: Now, Investigate, Actions, History, Alerts)
+- `/agent` — consolidated agent config (trust level, monitoring, memory, views management)
 - `/identity` — merged Users + Groups + RBAC + Impersonation
-- `/onboarding` — production readiness wizard (30 gates, 6 categories)
+- `/readiness` — production readiness wizard (30 gates, 6 categories)
+- `/custom/:viewId` — AI-generated custom views (auto-saved, drag-drop grid layout)
 
-**Merged routes (redirect to parent view):**
+**Merged/redirect routes:**
 - `/alerts` → `/incidents?tab=alerts`
 - `/builds` → `/workloads?tab=builds`
 - `/crds` → `/admin?tab=crds`
 - `/monitor` → `/incidents`
+- `/reviews` → `/incidents?tab=actions`
+- `/memory` → `/agent?tab=memory`
+- `/views` → `/agent?tab=views`
+- `/onboarding` → `/readiness`
+- `/access-control` → `/identity?tab=rbac`
+- `/users` → `/identity?tab=users`
 
 **Dock panels**: Logs, Terminal, Events, Agent
 **StatusBar**: Findings badge, Pending reviews badge, Degraded indicator, Agent toggle
@@ -115,20 +122,21 @@ Platform: Admin (+CRDs tab, 10 tabs total), Onboarding
 - **Confirmation flow**: `confirm_request` with nonce → UI shows dialog → `confirm_response` with nonce echoed back
 - **Degraded mode**: `engine/degradedMode.ts` — 5 failure reasons, displayed via `DegradedBanner`
 - **Auto-fix**: at trust level 3/4, monitor fixes crashloop (pod delete) and workloads (deployment restart) WITHOUT confirmation gate. Has safety guardrails: max 3/scan, 5min cooldown, no bare pods.
-- **Agent version**: v1.9.3 (Protocol v2, 112 tools, 11 scanners)
+- **Agent version**: v1.13.0 (Protocol v2, 103 tools, 11 scanners)
+- **Custom views**: auto-saved to PostgreSQL on `create_dashboard`, user-scoped via OAuth token
+- **10 component types**: data_table, info_card_grid, chart, status_list, badge_list, key_value, relationship_tree, tabs, grid, section
 
 ### Incident Center (`/incidents`) — 5 tabs
 - **Now**: unified feed from `useIncidentFeed` hook (findings + alerts + errors), silence management
 - **Investigate**: correlation groups, evidence rendering (suspectedCause, evidence[], alternativesConsidered[])
-- **Alerts**: Prometheus alert rules, silences, firing alerts (merged from standalone `/alerts` view)
+- **Actions**: embedded ReviewQueueView — approve/reject AI-proposed changes with YAML diffs
 - **History**: chronological stream + fix history
-- **Config**: monitoring toggle, trust level (0-4), auto-fix categories, scan now
+- **Alerts**: Prometheus alert rules, silences, firing alerts (merged from standalone `/alerts` view)
 
-### Review Queue (`/reviews`)
-- **Data**: `useAllReviews()` maps `monitorStore.pendingActions` + `recentActions` → `ReviewItem[]` (memoized)
-- **Actions**: `approveReview` / `rejectReview` delegate to `monitorStore.approveAction` / `rejectAction`
-- **UI**: tabs (Pending/Approved/Rejected), search, risk filter, expandable cards with YAML diffs
-- **Connection indicator**: shows Live/Disconnected status from monitorStore
+### Agent Settings (`/agent`) — 3 tabs
+- **Settings**: trust level (0-4), monitoring toggle, scan now, auto-fix categories, communication style, eval score
+- **Memory**: agent's learned runbooks, detected patterns, incident history (embedded MemoryView)
+- **Views**: manage AI-generated custom dashboards (embedded ViewsManagement)
 
 ### Enhanced Pulse (`/pulse`)
 - **Briefing**: `fetchBriefing(12)` via TanStack Query, shows current state ("Right now: N incidents, N findings")
@@ -160,16 +168,17 @@ Platform: Admin (+CRDs tab, 10 tabs total), Onboarding
 - **Onboarding**: ReadinessWizard, ReadinessChecklist, GateCard, ReadinessScore, WaiverDialog, CategoryStep
 
 ### Views (14 top-level)
-- **Operate**: Pulse (briefing + map + insights), Incident Center (5 tabs incl. Alerts), Reviews, Workloads (+Builds tab), Compute, Networking, Storage, Fleet
-- **Govern**: Identity (4 tabs), Security, GitOps (ArgoCD)
-- **Platform**: Admin (10 tabs: Overview, Readiness, Operators, Config, Updates, Snapshots, Quotas, Certificates, GitOps, CRDs), Onboarding
+- **Cluster**: Pulse (briefing + map + insights), Workloads (+Builds tab), Networking, Compute, Storage
+- **Operations**: Incident Center (5 tabs: Now/Investigate/Actions/History/Alerts), Security, GitOps (ArgoCD), Fleet
+- **Administration**: Admin (7 tabs), Identity (4 tabs), Production Readiness
+- **Agent**: Agent Settings (Settings/Memory/Views), Custom Views
 
 ### Testing
 - **Framework**: vitest + jsdom + @testing-library/react
 - **Config**: `vitest.config.ts` — excludes `.claude/worktrees/**` and `e2e/`
 - **Coverage thresholds**: 40% statements, 30% branches, 35% functions, 40% lines (enforced in vitest.config.ts)
 - **Setup**: `src/kubeview/__tests__/setup.tsx` — factories, mock server, renderWithProviders
-- **1,778 unit tests** across 153 files (~8s)
+- **1,882 unit tests** across 160 files (~9s)
 - **E2E**: Playwright (28 scenarios) — `npm run e2e` auto-starts mock K8s + dev server
 - **E2E config**: `e2e/playwright.config.ts`, mock K8s in `e2e/mock-k8s-server.mjs`
 - **Integration stack**: `docker compose -f e2e/docker-compose.yml up` for full UI + Agent + mock K8s
@@ -189,16 +198,22 @@ Platform: Admin (+CRDs tab, 10 tabs total), Onboarding
 
 ### Deploy to OpenShift
 ```bash
-# UI only (quick) — build locally, push to Quay
-npm run build && podman build -t quay.io/amobrem/openshiftpulse:latest . && podman push quay.io/amobrem/openshiftpulse:latest && oc rollout restart deployment/openshiftpulse -n openshiftpulse
+# Deploy UI + Agent together (always — never deploy UI-only)
+./deploy/deploy.sh
+# Agent repo auto-detected from ../pulse-agent or ~/ali/pulse-agent
 
-# Full stack (UI + Agent)
-./deploy/deploy.sh --agent-repo ../pulse-agent
+# Skip image builds (reuse existing images)
+./deploy/deploy.sh --skip-build
 
-# Agent only (quick)
-cd ../pulse-agent && ./deploy/quick-deploy.sh openshiftpulse
+# Uninstall
+./deploy/deploy.sh --uninstall
 ```
-Helm chart in `deploy/helm/openshiftpulse/`. OAuth proxy, 2 replicas, PDB, topology spread. WS token auto-synced from agent secret on re-deploys. Container images go to `quay.io/amobrem/openshiftpulse` (UI) and `quay.io/amobrem/pulse-agent` (agent) — never use S2I builds on the cluster.
+Helm umbrella chart in `deploy/helm/pulse/`. UI and agent always deployed together to prevent token/config drift. OAuth secrets (cookie-secret, client-secret) persist across upgrades via Helm `lookup()`. Container images go to `quay.io/amobrem/openshiftpulse` (UI) and `quay.io/amobrem/pulse-agent` (agent) — never use S2I builds on the cluster.
+
+**Key deployment facts:**
+- WS token stored in `pulse-ws-token` Secret, persists across upgrades
+- OAuth cookie-expire: 168h (7 days), refresh: 1h
+- Agent repo auto-detected; override with `PULSE_AGENT_REPO` env var or `--agent-repo`
 
 ### GitHub Pages
 - **UI**: https://alimobrem.github.io/OpenshiftPulse/ (cyberpunk theme, `docs/index.html`)
