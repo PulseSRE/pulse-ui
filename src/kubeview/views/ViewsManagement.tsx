@@ -14,7 +14,26 @@ interface ViewVersion {
   version: number;
   action: string;
   title: string;
+  description?: string;
+  layout?: any[];
   created_at: string;
+}
+
+function describeChanges(current: ViewVersion, previous?: ViewVersion): string {
+  if (current.action === 'created') return 'Initial version';
+  if (!previous) return current.action;
+  const changes: string[] = [];
+  if (current.title !== previous.title) changes.push(`title: "${previous.title}" → "${current.title}"`);
+  const curWidgets = current.layout?.length ?? 0;
+  const prevWidgets = previous.layout?.length ?? 0;
+  if (curWidgets !== prevWidgets) {
+    const diff = curWidgets - prevWidgets;
+    changes.push(diff > 0 ? `+${diff} widget${diff > 1 ? 's' : ''}` : `${diff} widget${Math.abs(diff) > 1 ? 's' : ''}`);
+  } else if (current.layout && previous.layout && JSON.stringify(current.layout) !== JSON.stringify(previous.layout)) {
+    changes.push('layout modified');
+  }
+  if (current.description !== previous.description) changes.push('description updated');
+  return changes.length > 0 ? changes.join(', ') : current.action;
 }
 
 export default function ViewsManagement({ embedded = false }: { embedded?: boolean }) {
@@ -220,11 +239,14 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               {!loadingVersions && versions.length === 0 && (
                 <p className="text-xs text-slate-500 text-center py-8">No version history yet. Changes are snapshotted automatically when you edit a view.</p>
               )}
-              {versions.map((v) => (
+              {versions.map((v, i) => {
+                const previous = versions[i + 1]; // versions are sorted newest-first
+                return (
                 <div key={v.version} className="flex items-center justify-between rounded border border-slate-800 bg-slate-950 px-3 py-2">
                   <div>
-                    <div className="text-xs text-slate-300">v{v.version} — {v.action}</div>
-                    <div className="text-xs text-slate-500">{v.title} · {formatRelativeTime(new Date(v.created_at).getTime())}</div>
+                    <div className="text-xs text-slate-300">v{v.version} · {formatRelativeTime(new Date(v.created_at).getTime())}</div>
+                    <div className="text-xs text-slate-500">{describeChanges(v, previous)}</div>
+                    {v.layout && <div className="text-xs text-slate-600 mt-0.5">{v.layout.length} widget{v.layout.length !== 1 ? 's' : ''} · {v.title}</div>}
                   </div>
                   <button
                     onClick={() => restoreVersion(historyViewId, v.version)}
@@ -236,7 +258,8 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                     Restore
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </>
