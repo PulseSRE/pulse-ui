@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Settings, Puzzle, Shield, Database, GitBranch,
-  ArrowUpCircle, GitCompare, Gauge, Lock,
+  ArrowUpCircle, GitCompare, Gauge, Lock, Blocks,
 } from 'lucide-react';
+
+const CRDsView = lazy(() => import('./CRDsView'));
 
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../engine/query';
@@ -75,7 +77,7 @@ interface AvailableUpdate {
   risks?: Array<{ name?: string; message?: string }>;
 }
 
-type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates';
+type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'crds';
 
 // --- Main component ---
 
@@ -374,7 +376,7 @@ export default function AdminView() {
   const go = useNavigateTab();
   const savedSnapshots = loadSnapshots();
 
-  // --- Tab definitions (7 tabs after merging Certificates into Config, Snapshots into Updates) ---
+  // --- Tab definitions (8 tabs) ---
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; activeIcon: React.ReactNode }> = [
     { id: 'overview', label: 'Overview', icon: <Settings className="w-3.5 h-3.5 text-slate-400" />, activeIcon: <Settings className="w-3.5 h-3.5" /> },
@@ -384,6 +386,7 @@ export default function AdminView() {
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <GitCompare className="w-3.5 h-3.5" /> },
     { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Gauge className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Gauge className="w-3.5 h-3.5" /> },
     { id: 'certificates', label: 'Certificates', icon: <Lock className="w-3.5 h-3.5 text-red-400" />, activeIcon: <Lock className="w-3.5 h-3.5" /> },
+    { id: 'crds', label: `CRDs (${crds.length})`, icon: <Blocks className="w-3.5 h-3.5 text-indigo-400" />, activeIcon: <Blocks className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -565,6 +568,8 @@ export default function AdminView() {
         {/* ===== CERTIFICATES ===== */}
         {activeTab === 'certificates' && <CertificatesTab go={go} />}
 
+        {/* ===== CRDs ===== */}
+        {activeTab === 'crds' && <Suspense fallback={<div className="text-center py-8 text-slate-500 text-sm">Loading...</div>}><CRDsView /></Suspense>}
 
       </div>
     </div>
