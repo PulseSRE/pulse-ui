@@ -5,7 +5,8 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { Plus, ChevronDown } from 'lucide-react';
+import { Plus, ChevronDown, Radio, Pause, Loader2 } from 'lucide-react';
+import { useChartLiveData } from '../../hooks/useChartLiveData';
 import {
   LineChart, BarChart, AreaChart, PieChart, ScatterChart, RadarChart, Treemap,
   Line, Bar, Area, Pie, Scatter, Radar, Cell,
@@ -19,6 +20,14 @@ const CHART_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#3
 const _chartTimeFmt = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' });
 function formatTimestamp(ts: number) {
   return _chartTimeFmt.format(ts);
+}
+
+/** Format "Updated Xs ago" from a dataUpdatedAt timestamp */
+function formatUpdatedAgo(ts: number): string {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 5) return 'Updated just now';
+  if (sec < 60) return `Updated ${sec}s ago`;
+  return `Updated ${Math.floor(sec / 60)}m ago`;
 }
 
 type ChartType = NonNullable<ChartSpec['chartType']>;
@@ -35,6 +44,9 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
   const dropdownRef = useRef<HTMLDivElement>(null);
   const height = spec.height || 300;
 
+  // Live data hook — fetches fresh Prometheus data when spec.query is set
+  const { series: liveSeries, isLive, isFetching, error: liveError, lastUpdated, isPaused, togglePause } = useChartLiveData(spec);
+
   useEffect(() => {
     if (!dropdownOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -47,7 +59,7 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
   // Transform series data for time-series charts: [{time, series1, series2, ...}]
   const rechartsData = useMemo(() => {
     const timeMap = new Map<number, Record<string, number>>();
-    for (const series of spec.series) {
+    for (const series of liveSeries) {
       for (const [ts, val] of series.data) {
         const entry = timeMap.get(ts) || { time: ts };
         entry[series.label] = val;
@@ -55,34 +67,34 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
       }
     }
     return Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
-  }, [spec.series]);
+  }, [liveSeries]);
 
   // For pie/donut/treemap — aggregate latest values per series
   const pieData = useMemo(() => {
-    return spec.series.map((s, i) => ({
+    return liveSeries.map((s, i) => ({
       name: s.label,
       value: s.data.length > 0 ? s.data[s.data.length - 1][1] : 0,
       color: s.color || CHART_COLORS[i % CHART_COLORS.length],
     }));
-  }, [spec.series]);
+  }, [liveSeries]);
 
   // For radar — transform to radar format
   const radarData = useMemo(() => {
-    if (spec.series.length === 0) return [];
+    if (liveSeries.length === 0) return [];
     // Each data point becomes a radar axis
-    const latest = spec.series.map((s) => ({
+    const latest = liveSeries.map((s) => ({
       subject: s.label,
       value: s.data.length > 0 ? s.data[s.data.length - 1][1] : 0,
     }));
     return latest;
-  }, [spec.series]);
+  }, [liveSeries]);
 
   // For scatter — pair up data points
   const scatterData = useMemo(() => {
-    return spec.series.flatMap((s, i) =>
+    return liveSeries.flatMap((s, i) =>
       s.data.map(([x, y]) => ({ x, y, series: s.label, color: s.color || CHART_COLORS[i % CHART_COLORS.length] }))
     );
-  }, [spec.series]);
+  }, [liveSeries]);
 
   const renderChart = () => {
     switch (chartType) {
@@ -117,12 +129,12 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
             <XAxis dataKey="x" stroke="#64748b" tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={formatTimestamp} />
             <YAxis dataKey="y" stroke="#64748b" tick={{ fontSize: 10, fill: '#94a3b8' }} />
             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }} />
-            {spec.series.map((s, i) => {
+            {liveSeries.map((s, i) => {
               const color = s.color || CHART_COLORS[i % CHART_COLORS.length];
               const data = s.data.map(([x, y]) => ({ x, y }));
               return <Scatter key={s.label} name={s.label} data={data} fill={color} />;
             })}
-            {spec.series.length <= 6 && <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />}
+            {liveSeries.length <= 6 && <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />}
           </ScatterChart>
         );
 
@@ -165,8 +177,8 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
             <YAxis stroke="#64748b" tick={{ fontSize: 10, fill: '#94a3b8' }} />
             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
               labelFormatter={(l) => typeof l === 'number' ? formatTimestamp(l) : String(l)} />
-            {spec.series.length <= 6 && <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />}
-            {spec.series.map((s, i) => (
+            {liveSeries.length <= 6 && <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />}
+            {liveSeries.map((s, i) => (
               <Bar key={s.label} dataKey={s.label} stackId="stack" fill={s.color || CHART_COLORS[i % CHART_COLORS.length]} />
             ))}
           </BarChart>
@@ -180,8 +192,8 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
             <YAxis stroke="#64748b" tick={{ fontSize: 10, fill: '#94a3b8' }} />
             <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
               labelFormatter={(l) => typeof l === 'number' ? formatTimestamp(l) : String(l)} />
-            {spec.series.length <= 6 && <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />}
-            {spec.series.map((s, i) => {
+            {liveSeries.length <= 6 && <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />}
+            {liveSeries.map((s, i) => {
               const color = s.color || CHART_COLORS[i % CHART_COLORS.length];
               return <Area key={s.label} dataKey={s.label} stackId="stack" stroke={color} fill={color} fillOpacity={0.3} />;
             })}
@@ -201,8 +213,8 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
               contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
               labelFormatter={(label) => typeof label === 'number' ? formatTimestamp(label) : String(label)}
               labelStyle={{ color: '#94a3b8' }} />
-            {spec.series.length > 1 && spec.series.length <= 6 && <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />}
-            {spec.series.map((s, i) => {
+            {liveSeries.length > 1 && liveSeries.length <= 6 && <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />}
+            {liveSeries.map((s, i) => {
               const color = s.color || CHART_COLORS[i % CHART_COLORS.length];
               if (chartType === 'bar') return <Bar key={s.label} dataKey={s.label} fill={color} fillOpacity={0.8} />;
               if (chartType === 'area') return <Area key={s.label} dataKey={s.label} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={1.5} dot={false} />;
@@ -217,9 +229,44 @@ export default function AgentChart({ spec, onAddToView }: { spec: ChartSpec; onA
   return (
     <div className="my-2 border border-slate-700 rounded-lg overflow-hidden bg-slate-900/50 min-w-0">
       <div className="px-3 py-1.5 border-b border-slate-700 flex items-center justify-between">
-        <div className="truncate">
+        <div className="truncate flex items-center gap-2">
           <span className="text-xs font-medium text-slate-300">{spec.title || 'Chart'}</span>
-          {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
+          {spec.description && <span className="text-[10px] text-slate-500">{spec.description}</span>}
+          {/* Live indicator */}
+          {spec.query && (
+            <button
+              onClick={togglePause}
+              className={cn(
+                'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors',
+                isPaused
+                  ? 'bg-slate-700 text-slate-400 hover:text-slate-200'
+                  : isLive
+                    ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
+                    : 'bg-slate-700 text-slate-400',
+              )}
+              title={isPaused ? 'Resume auto-refresh' : 'Pause auto-refresh'}
+            >
+              {isFetching ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : isPaused ? (
+                <Pause className="w-3 h-3" />
+              ) : (
+                <Radio className="w-3 h-3" />
+              )}
+              {isPaused ? 'Paused' : isLive ? 'Live' : 'Static'}
+            </button>
+          )}
+          {/* Last updated timestamp */}
+          {isLive && lastUpdated && !isFetching && (
+            <span className="text-[10px] text-slate-600">
+              {formatUpdatedAgo(lastUpdated)}
+            </span>
+          )}
+          {liveError && (
+            <span className="text-[10px] text-red-400" title={liveError.message}>
+              Fetch error
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <div className="relative" ref={dropdownRef}>
