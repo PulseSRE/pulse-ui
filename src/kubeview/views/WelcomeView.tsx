@@ -10,7 +10,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchBriefing, fetchMemoryStats, type BriefingResponse, type MemoryStats } from '../engine/fixHistory';
-import { PreferencesPanel } from '../components/agent/PreferencesPanel';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -56,7 +55,6 @@ export default function WelcomeView() {
   const pendingActions = useMonitorStore((s) => s.pendingActions.length);
 
   const customViews = useCustomViewStore((s) => s.views);
-  const [showPrefs, setShowPrefs] = useState(false);
 
   const { data: memoryStats } = useQuery<MemoryStats>({
     queryKey: ['memory-stats'],
@@ -172,24 +170,16 @@ export default function WelcomeView() {
         <MoreViews go={go} memoryStats={memoryStats} customViews={customViews} />
 
         {/* ── Agent Preferences (collapsed) ── */}
-        <div className="rounded-lg border border-slate-800 bg-slate-900 overflow-hidden">
-          <button
-            onClick={() => setShowPrefs(!showPrefs)}
-            aria-expanded={showPrefs}
-            className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-slate-800/50 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-slate-500" />
-              <span className="text-xs font-medium text-slate-400">Agent Preferences</span>
-            </div>
-            <ChevronDown className={cn('w-3.5 h-3.5 text-slate-600 transition-transform', showPrefs && 'rotate-180')} />
-          </button>
-          {showPrefs && (
-            <div className="px-4 pb-4 pt-2 border-t border-slate-800">
-              <PreferencesPanel />
-            </div>
-          )}
-        </div>
+        <a
+          href="/agent"
+          className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Settings className="w-4 h-4 text-slate-500" />
+            <span className="text-xs font-medium text-slate-400">Agent Settings</span>
+          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-600 -rotate-90" />
+        </a>
 
         {/* ── Footer ── */}
         <footer className="flex items-center justify-center gap-4 text-xs text-slate-600 pb-4">
