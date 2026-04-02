@@ -458,19 +458,31 @@ VERSION=""
 if [[ "$NO_AGENT" == "false" ]]; then
   step "Health verification"
 
+  # Wait for rollout, then health check via the agent pod (not PostgreSQL)
+  wait_for_rollout "$AGENT_DEPLOY" "$NAMESPACE" 120
+
   HEALTHY=false
-  for i in $(seq 1 12); do
-    sleep 10
-    HEALTH=$(oc exec "deployment/$AGENT_DEPLOY" -n "$NAMESPACE" -- curl -sf http://localhost:8080/healthz 2>/dev/null || echo "")
-    if [[ "$HEALTH" == *"ok"* ]]; then
-      HEALTHY=true
-      info "Agent healthy!"
-      VERSION=$(oc exec "deployment/$AGENT_DEPLOY" -n "$NAMESPACE" -- curl -sf http://localhost:8080/version 2>/dev/null || echo "")
-      [[ -n "$VERSION" ]] && info "Agent: $VERSION"
-      break
-    fi
-    [[ $i -eq 12 ]] && warn "Agent health check failed after 120s"
-  done
+  # Target agent pod specifically — exclude StatefulSet pods (postgresql)
+  AGENT_POD=$(oc get pods -n "$NAMESPACE" -l "app.kubernetes.io/name=openshift-sre-agent" \
+    --field-selector=status.phase=Running --no-headers 2>/dev/null \
+    | grep -v postgresql | head -1 | awk '{print $1}')
+
+  if [[ -z "$AGENT_POD" ]]; then
+    warn "Could not find agent pod"
+  else
+    for i in $(seq 1 12); do
+      sleep 5
+      HEALTH=$(oc exec "$AGENT_POD" -n "$NAMESPACE" -- curl -sf http://localhost:8080/healthz 2>/dev/null || echo "")
+      if [[ "$HEALTH" == *"ok"* ]]; then
+        HEALTHY=true
+        info "Agent healthy!"
+        VERSION=$(oc exec "$AGENT_POD" -n "$NAMESPACE" -- curl -sf http://localhost:8080/version 2>/dev/null || echo "")
+        [[ -n "$VERSION" ]] && info "Agent: $VERSION"
+        break
+      fi
+      [[ $i -eq 12 ]] && warn "Agent health check failed after 60s"
+    done
+  fi
 fi
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
