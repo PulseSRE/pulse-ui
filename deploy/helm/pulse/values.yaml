@@ -75,7 +75,7 @@ agent:
     persistence:
       enabled: true
 
-  # Reference umbrella-owned WS token (set by deploy.sh: <release>-ws-token)
+  # Use umbrella-owned WS token secret (shared with UI nginx proxy)
   wsAuth:
-    existingSecret: ""
+    existingSecret: "pulse-ws-token"
     secretKey: "token"
