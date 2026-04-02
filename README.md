@@ -86,11 +86,11 @@ npm run dev    # http://localhost:9000
 
 | Category | What You Get |
 |----------|-------------|
-| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 112 tools, 10 runbooks, dynamic UI rendering (tables, charts, cards), dashboard generation, prompt caching, dynamic tool selection, cluster context injection. [pulse-agent](https://github.com/alimobrem/pulse-agent) |
+| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 112 tools, 10 runbooks, dynamic UI rendering (10 component types: data_table, info_card_grid, chart, status_list, badge_list, key_value, relationship_tree, tabs, grid, section), dashboard generation with auto-save to PostgreSQL, prompt caching, dynamic tool selection, cluster context injection. [pulse-agent](https://github.com/alimobrem/pulse-agent) |
 | **Predictive AI** | Live cluster-aware smart prompts: AI suggestions reflect actual issues (crash-looping pods, degraded operators, pending PVCs) not generic templates. Integrated into Command Palette (`?` mode), dock agent panel, and empty states. |
 | **Native AI Layer** | Unified intelligence layer across all surfaces: smart prompts adapt to cluster state, AI query mode in Command Palette (`?`), violet-branded AI surfaces, auto-expanding InlineAgent for unhealthy resources, "Ask AI" buttons on PulseView attention items, first-run onboarding, dock notification dot for background insights |
 | **Ask Pulse** | Natural language queries in Cmd+K — type a question, get AI-powered answers with action buttons. Dedicated WebSocket, falls back gracefully when agent is offline. |
-| **Review Queue** | GitHub-PR-style view of AI-proposed infrastructure changes with YAML diffs, risk badges, and approve/reject actions. Wired to live monitor data. |
+| **Review Queue** | GitHub-PR-style view of AI-proposed infrastructure changes with YAML diffs, risk badges, and approve/reject actions. Now merged into Incident Center Actions tab. |
 | **Enhanced Pulse** | AI morning briefing card, overnight agent activity feed, incident-driven insights rail, cost trend sparkline. All backed by real cluster data. |
 | **Ambient AI** | AI insights on every resource detail view, inline "Ask about this" agent, natural language table filters, dock agent panel, proactive background notifications, fleet-wide AI analysis |
 | **Error Intelligence** | Structured PulseError classification (7 categories), actionable suggestions on every error toast, "Ask AI" button for agent-assisted diagnosis, Admin > Errors tab for ops visibility, error tracking store with persistence |
@@ -98,7 +98,7 @@ npm run dev    # http://localhost:9000
 | **Cluster Health** | 77 automated checks (31 cluster + 46 domain) with YAML fix examples and "Why it matters" explanations. Actionable metrics: OOMKilled, CrashLoopBackOff, Pending pods, CPU throttling, Nodes Not Ready, API latency/error rate, etcd health. HyperShift-aware — hides control plane metrics unavailable on hosted clusters. |
 | **Daily Briefing** | Risk score ring, control plane status, certificate expiry, attention items with remediation steps. "Cluster Zen" calm state when everything is healthy. |
 | **Instant Navigation** | Hover-prefetch preloads view data before click — navigation feels instant with zero skeleton flash. Applied to Welcome tiles and Command Palette. |
-| **Incident Center** | Consolidates Monitor + Alerts + Errors + Timeline into 4 tabs: Now (live findings), Investigate (alerts + errors + AI root-cause investigation reports), Actions (auto-fix history + post-fix verification), History (correlated timeline). Trust controls are backend-capability-aware. |
+| **Incident Center** | Consolidates Monitor + Alerts + Errors + Review Queue into 4 tabs: Now (live findings), Investigate (alerts + errors + AI root-cause investigation reports), Actions (merged Review Queue + auto-fix history + post-fix verification), History (correlated timeline). Trust controls are backend-capability-aware. |
 | **Identity & Access** | Unified view merging User Management + Access Control into a single surface for users, groups, service accounts, RBAC audit, and impersonation |
 | **Incident Timeline** | Unified timeline merging alerts, events, rollouts, and config changes with correlation groups |
 | **Admin Overview** | Firing alerts, named degraded operators, cert warnings, quota hot spots, health score, and Agent quality gate status with PASS/FAIL emphasis — the 8am view |
@@ -114,9 +114,9 @@ npm run dev    # http://localhost:9000
 
 | Feature | Details |
 |---------|---------|
-| **AI Agent** | Chat with Claude-powered SRE/Security agent (v1.9.3, 112 tools). "Ask Agent" from any resource. Streaming, tool execution indicators, confirmation gates. |
+| **AI Agent** | Chat with Claude-powered SRE/Security agent (112 tools, 10 component types). "Ask Agent" from any resource. Streaming, tool execution indicators, confirmation gates. Agent Settings at `/agent` with Settings/Memory/Views tabs. |
 | **Ask Pulse** | Natural language queries in Cmd+K: type a question in the Command Palette, get AI-powered answers with action buttons. "Open in Agent" for full conversations. |
-| **Review Queue** | PR-style review of AI-proposed changes: YAML diffs, risk badges, business impact, approve/reject. Live data from monitor WebSocket. |
+| **Incident Actions** | PR-style review of AI-proposed changes merged into Incident Center: YAML diffs, risk badges, business impact, approve/reject. Live data from monitor WebSocket. |
 | **Native AI UX** | Unified violet-branded intelligence layer: `?` in Command Palette sends to agent, smart prompts adapt to cluster state, "Ask AI" on PulseView attention items, auto-expand InlineAgent for unhealthy resources, AI empty state suggestions, first-run onboarding card, dock agent notification dot. |
 | **Ambient AI** | AmbientInsight cards on pod/workload detail views. InlineAgent scoped conversations on every resource. NL table filters via AI-branded button. Agent dock panel accessible from any view. Background proactive notifications every 5 min. |
 | **Rich Confirmations** | Visual confirmation cards with risk badges (LOW/MEDIUM/HIGH), impact preview, rollback info, keyboard shortcuts (Y/N/Esc). |
@@ -144,7 +144,7 @@ npm run dev    # http://localhost:9000
 |------|-----------|
 | **Welcome** | Quick nav, cluster status with error recovery, all capabilities clickable, keyboard shortcuts |
 | **Pulse** | AI morning briefing, overnight agent activity feed, incident insights rail, cost trends. "Cluster Zen" calm state when healthy. Fleet mode: cluster health table, risk scores, AI analysis |
-| **Reviews** | AI-proposed infrastructure changes with YAML diffs, risk badges, approve/reject |
+| **Agent** | Consolidated agent hub: Settings, Memory, and Views tabs at `/agent` |
 | **Workloads** | Metrics + 6-check health audit, deployments sorted unhealthy-first |
 | **Compute** | Node metrics, CPU/memory bars, HyperShift-aware |
 | **Storage** | PVC health, capacity audit, CSI drivers |
@@ -185,16 +185,18 @@ npm run dev    # http://localhost:9000
 ```bash
 # Option A: Vertex AI (GCP)
 ANTHROPIC_VERTEX_PROJECT_ID=your-project CLOUD_ML_REGION=us-east5 \
-  ./deploy/deploy.sh --agent-repo ../pulse-agent --gcp-key ~/sa-key.json
+  ./deploy/deploy.sh --gcp-key ~/sa-key.json
 
 # Option B: Anthropic API (no GCP needed)
-ANTHROPIC_API_KEY=sk-ant-... ./deploy/deploy.sh --agent-repo ../pulse-agent
+ANTHROPIC_API_KEY=sk-ant-... ./deploy/deploy.sh
 
 # Verify
 ./deploy/integration-test.sh
 ```
 
-**How it works**: Uses an **umbrella Helm chart** (`deploy/helm/pulse/`) that deploys both UI and agent as subcharts in a single `helm upgrade --install`. Builds images locally with Podman, pushes to Quay.io, deploys atomically. Never uses S2I or on-cluster builds.
+**How it works**: Uses an **umbrella Helm chart** (`deploy/helm/pulse/`) that deploys both UI and agent as subcharts in a single `helm upgrade --install`. The deploy script auto-detects the agent repo (looks for `../pulse-agent` by default). Builds images locally with Podman, pushes to Quay.io, deploys atomically. Never uses S2I or on-cluster builds.
+
+**Session persistence**: OAuth cookie and client secrets are generated once and persisted in-cluster. Subsequent `helm upgrade` runs reuse existing secrets via `lookup()`, so users are never logged out on redeploy.
 
 **WS token**: The umbrella chart owns a shared WS token secret. Both the agent (via `secretKeyRef`) and the UI nginx proxy (via Helm `lookup()`) reference the same secret. No manual token management, no post-deploy sync verification.
 
@@ -219,7 +221,7 @@ npm run build && podman build --platform linux/amd64 -t quay.io/amobrem/openshif
   && oc rollout restart deployment/openshiftpulse -n openshiftpulse
 
 # Config-only change (no rebuild)
-./deploy/deploy.sh --skip-build --agent-repo ../pulse-agent
+./deploy/deploy.sh --skip-build
 ```
 
 ### Uninstall

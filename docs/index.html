@@ -367,19 +367,19 @@
     <div class="features">
       <div class="feature-card">
         <h3>AI SRE Agent <span class="badge badge-ai">AI</span></h3>
-        <p>Claude-powered diagnostics. 112 tools, auto-detection, streaming chat, confirmation gates. Runs 24/7 in your cluster.</p>
+        <p>Claude-powered diagnostics. 112 tools, 10 component types, auto-detection, streaming chat, confirmation gates. Runs 24/7 in your cluster.</p>
       </div>
       <div class="feature-card">
         <h3>Ask Pulse <span class="badge badge-new">NEW</span></h3>
         <p>Natural language in Cmd+K. Type a question, get real answers with action buttons. Dedicated WebSocket, 8s timeout.</p>
       </div>
       <div class="feature-card">
-        <h3>Review Queue <span class="badge badge-new">NEW</span></h3>
-        <p>PR-style review of AI-proposed changes. YAML diffs, risk badges, approve/reject. Wired to live monitor data.</p>
+        <h3>Agent Settings <span class="badge badge-new">NEW</span></h3>
+        <p>Consolidated agent hub at /agent. Settings, Memory, and Views tabs. Custom views auto-save to PostgreSQL.</p>
       </div>
       <div class="feature-card">
-        <h3>Incident Center</h3>
-        <p>Unified triage: findings + alerts + errors + timeline. AI investigation, auto-fix with verification, correlation groups.</p>
+        <h3>Incident Center <span class="badge badge-new">NEW</span></h3>
+        <p>Unified triage: Now, Investigate, Actions (merged Review Queue), History. AI investigation, auto-fix with verification, correlation groups.</p>
       </div>
       <div class="feature-card">
         <h3>Fleet Topology</h3>
@@ -482,9 +482,9 @@
       <span class="comment"># development</span><br>
       <span class="cmd">npm install</span> && <span class="cmd">oc login</span> && <span class="cmd">oc proxy</span> <span class="flag">--port=8001</span> &amp;<br>
       <span class="cmd">npm run dev</span> &nbsp;&nbsp;&nbsp;<span class="comment"># http://localhost:9000</span><br><br>
-      <span class="comment"># deploy to openshift (UI + AI agent)</span><br>
+      <span class="comment"># deploy to openshift (UI + AI agent, auto-detects agent repo)</span><br>
       <span class="flag">ANTHROPIC_VERTEX_PROJECT_ID</span>=your-project <span class="flag">CLOUD_ML_REGION</span>=us-east5 \<br>
-      &nbsp;&nbsp;<span class="cmd">./deploy/deploy.sh</span> <span class="flag">--agent-repo</span> ../pulse-agent <span class="flag">--gcp-key</span> ~/sa-key.json<br><br>
+      &nbsp;&nbsp;<span class="cmd">./deploy/deploy.sh</span> <span class="flag">--gcp-key</span> ~/sa-key.json<br><br>
       <span class="comment"># quick redeploy via quay.io</span><br>
       <span class="cmd">npm run build</span> && <span class="cmd">podman build</span> -t <span class="url">quay.io/amobrem/openshiftpulse:latest</span> . \<br>
       &nbsp;&nbsp;&& <span class="cmd">podman push</span> <span class="url">quay.io/amobrem/openshiftpulse:latest</span> \<br>
