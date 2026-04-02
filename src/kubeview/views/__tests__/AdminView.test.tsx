@@ -71,16 +71,14 @@ describe('AdminView', () => {
     cleanup();
   });
 
-  it('renders all 9 tabs', () => {
+  it('renders admin tabs', () => {
     renderAdmin();
     expect(screen.getByText('Overview')).toBeDefined();
-    expect(screen.getByText('Readiness')).toBeDefined();
     expect(screen.getByText('Cluster Config')).toBeDefined();
     expect(screen.getByText(/^Updates/)).toBeDefined();
     expect(screen.getByText(/^Snapshots/)).toBeDefined();
     expect(screen.getAllByText(/Quotas/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Certificates')).toBeDefined();
-    expect(screen.getByText('GitOps')).toBeDefined();
     expect(screen.getByText(/^Operators/)).toBeDefined();
   });
 

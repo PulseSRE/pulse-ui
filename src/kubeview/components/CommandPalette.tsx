@@ -392,11 +392,9 @@ function getCommandItems(
       { type: 'nav', id: 'gitops', title: 'GitOps', subtitle: 'ArgoCD applications, sync status, drift detection, auto-PR', icon: 'GitBranch', path: '/gitops' },
       { type: 'nav', id: 'fleet', title: 'Fleet', subtitle: 'Multi-cluster dashboard, health scores, cluster switching, comparison', icon: 'Globe', path: '/fleet' },
       { type: 'nav', id: 'admin', title: 'Administration', subtitle: 'Operators, config, updates, snapshots, quotas, certificates', icon: 'Settings', path: '/admin' },
-      { type: 'nav', id: 'onboarding', title: 'Production Readiness', subtitle: 'Readiness wizard — security, reliability, observability gates', icon: 'Shield', path: '/onboarding' },
-      { type: 'nav', id: 'memory', title: "What I've Learned", subtitle: 'Learned runbooks, detected patterns, incident history', icon: 'Brain', path: '/memory' },
+      { type: 'nav', id: 'readiness', title: 'Production Readiness', subtitle: 'Readiness wizard — security, reliability, observability gates', icon: 'Shield', path: '/readiness' },
       { type: 'nav', id: 'reviews', title: 'Review Queue', subtitle: 'AI-proposed infrastructure changes — approve, reject, diff', icon: 'GitPullRequest', path: '/reviews' },
-      { type: 'nav', id: 'views', title: 'Manage Views', subtitle: 'Browse, open, share, and delete your saved views', icon: 'LayoutDashboard', path: '/views' },
-      { type: 'nav', id: 'agent', title: 'Agent Settings', subtitle: 'Trust level, monitoring, communication style, auto-fix categories', icon: 'Bot', path: '/agent' },
+      { type: 'nav', id: 'agent', title: 'Agent Settings', subtitle: 'Trust level, monitoring, memory, views management', icon: 'Bot', path: '/agent' },
     ];
 
     const matchingPages = builtinViews.filter((page) =>

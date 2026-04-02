@@ -29,7 +29,7 @@ interface QuickAction {
 
 const quickActions: QuickAction[] = [
   { label: 'Incidents', route: '/incidents', title: 'Incidents' },
-  { label: 'Readiness', route: '/onboarding', title: 'Onboarding' },
+  { label: 'Readiness', route: '/readiness', title: 'Production Readiness' },
   { label: 'Alerts', route: '/alerts', title: 'Alerts' },
   { label: 'Reviews', route: '/reviews', title: 'Reviews' },
 ];

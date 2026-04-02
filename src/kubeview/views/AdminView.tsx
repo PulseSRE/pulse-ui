@@ -77,7 +77,7 @@ interface AvailableUpdate {
   risks?: Array<{ name?: string; message?: string }>;
 }
 
-type Tab = 'overview' | 'readiness' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'gitops' | 'crds';
+type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates';
 
 // --- Main component ---
 
@@ -380,15 +380,12 @@ export default function AdminView() {
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'overview', label: 'Overview', icon: <Settings className="w-3.5 h-3.5" /> },
-    { id: 'readiness', label: 'Readiness', icon: <Shield className="w-3.5 h-3.5" /> },
     { id: 'operators', label: `Operators (${operators.length})${opDegraded > 0 ? ` \u00b7 ${opDegraded} degraded` : ''}`, icon: <Puzzle className="w-3.5 h-3.5" /> },
     { id: 'config', label: 'Cluster Config', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'updates', label: `Updates${availableUpdates.length > 0 ? ` (${availableUpdates.length})` : ''}`, icon: <ArrowUpCircle className="w-3.5 h-3.5" /> },
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5" /> },
     { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Shield className="w-3.5 h-3.5" /> },
     { id: 'certificates', label: 'Certificates', icon: <Shield className="w-3.5 h-3.5" /> },
-    { id: 'gitops', label: 'GitOps', icon: <GitBranch className="w-3.5 h-3.5" /> },
-    { id: 'crds', label: `CRDs (${crds.length})`, icon: <Puzzle className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -478,6 +475,25 @@ export default function AdminView() {
         {activeTab === 'overview' && (
           <>
           <FeatureFlagsSection />
+
+          {/* Production Readiness summary */}
+          <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-200">Production Readiness</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Security, reliability, and observability gates for production clusters.
+                </p>
+              </div>
+              <a
+                href="/readiness"
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap"
+              >
+                View Details →
+              </a>
+            </div>
+          </div>
+
           <OverviewTab
             overviewLoading={overviewLoading}
             overviewError={overviewError}
@@ -518,9 +534,6 @@ export default function AdminView() {
           </>
         )}
 
-        {/* ===== READINESS ===== */}
-        {activeTab === 'readiness' && <ProductionReadiness />}
-
         {/* ===== OPERATORS ===== */}
         {activeTab === 'operators' && <OperatorsTab operators={operators} go={go} />}
 
@@ -554,15 +567,6 @@ export default function AdminView() {
         {/* ===== CERTIFICATES ===== */}
         {activeTab === 'certificates' && <CertificatesTab go={go} />}
 
-        {/* ===== GITOPS ===== */}
-        {activeTab === 'gitops' && <GitOpsConfig />}
-
-        {/* ===== CRDs ===== */}
-        {activeTab === 'crds' && (
-          <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}>
-            <CRDsView />
-          </Suspense>
-        )}
 
       </div>
     </div>
@@ -573,7 +577,7 @@ const FLAG_LABELS: Record<FeatureFlag, { label: string; description: string }> =
   incidentCenter: { label: 'Incident Center', description: 'Correlated incidents view at /incidents' },
   identityView: { label: 'Identity & Access', description: 'Unified identity management at /identity' },
   welcomeLaunchpad: { label: 'Welcome Launchpad', description: 'Enhanced welcome page with cluster state, onboarding CTA, and top issues' },
-  onboarding: { label: 'Onboarding Wizard', description: 'Guided cluster onboarding at /onboarding' },
+  onboarding: { label: 'Onboarding Wizard', description: 'Guided cluster readiness at /readiness' },
   reviewQueue: { label: 'Review Queue', description: 'AI-proposed infrastructure changes at /reviews' },
   enhancedPulse: { label: 'Enhanced Pulse', description: 'AI morning briefing and insights on Pulse page' },
   askPulse: { label: 'Ask Pulse', description: 'Natural language queries in Cmd+K search palette' },

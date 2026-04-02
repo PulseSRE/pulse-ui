@@ -1,15 +1,18 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, Suspense, lazy } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bot, Shield, MessageSquare, Activity, Play, Eye, Brain,
-  Zap, AlertTriangle, CheckCircle2, XCircle, Settings,
+  Zap, AlertTriangle, CheckCircle2, XCircle, Settings, LayoutDashboard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { useMonitorStore } from '../store/monitorStore';
 import { useTrustStore, TRUST_LABELS, TRUST_DESCRIPTIONS, type TrustLevel, type CommunicationStyle } from '../store/trustStore';
 import { useAgentStore } from '../store/agentStore';
+
+const MemoryView = lazy(() => import('./MemoryView'));
+const ViewsManagement = lazy(() => import('./ViewsManagement'));
 
 const TRUST_LEVELS = [
   { level: 0 as TrustLevel, label: 'Monitor Only', description: 'Observe and report findings. No automated actions.', icon: Eye },
@@ -31,7 +34,80 @@ const COMM_OPTIONS: { value: CommunicationStyle; label: string; description: str
   { value: 'technical', label: 'Technical', description: 'Deep technical detail, CLI examples' },
 ];
 
+type AgentTab = 'settings' | 'memory' | 'views';
+
 export default function AgentSettingsView() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as AgentTab) || 'settings';
+  const [activeTab, setActiveTabState] = useState<AgentTab>(initialTab);
+  const setActiveTab = (tab: AgentTab) => {
+    setActiveTabState(tab);
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'settings') next.delete('tab'); else next.set('tab', tab);
+    setSearchParams(next, { replace: true });
+  };
+
+  const agentTabs: Array<{ id: AgentTab; label: string; icon: React.ReactNode }> = [
+    { id: 'settings', label: 'Settings', icon: <Settings className="w-3.5 h-3.5" /> },
+    { id: 'memory', label: 'Memory', icon: <Brain className="w-3.5 h-3.5" /> },
+    { id: 'views', label: 'Views', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+  ];
+
+  return (
+    <div className="h-full overflow-auto bg-slate-950 p-6">
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+              <Bot className="w-6 h-6 text-violet-400" />
+              Agent
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">Settings, memory, and views management</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div
+          className="flex gap-1 bg-slate-900 rounded-lg border border-slate-800 p-1"
+          role="tablist"
+          aria-label="Agent tabs"
+        >
+          {agentTabs.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={activeTab === t.id}
+              tabIndex={activeTab === t.id ? 0 : -1}
+              onClick={() => setActiveTab(t.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+                activeTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
+              )}
+            >
+              {t.icon}{t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        {activeTab === 'settings' && <SettingsTabContent />}
+        {activeTab === 'memory' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}>
+            <MemoryView />
+          </Suspense>
+        )}
+        {activeTab === 'views' && (
+          <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}>
+            <ViewsManagement />
+          </Suspense>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SettingsTabContent() {
   const navigate = useNavigate();
   const connected = useAgentStore((s) => s.connected);
   const monitorEnabled = useMonitorStore((s) => s.monitorEnabled);
@@ -79,33 +155,22 @@ export default function AgentSettingsView() {
   };
 
   return (
-    <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Bot className="w-6 h-6 text-violet-400" />
-              Agent Settings
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">Configure trust, monitoring, communication, and auto-fix behavior</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {connected ? (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/30 border border-emerald-800 rounded-lg text-xs text-emerald-300">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Connected
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-slate-500" />
-                Disconnected
-              </span>
-            )}
-          </div>
+    <div className="max-w-3xl space-y-6">
+      {/* Connection status + version */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {connected ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-900/30 border border-emerald-800 rounded-lg text-xs text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Connected
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-slate-500" />
+              Disconnected
+            </span>
+          )}
         </div>
-
-        {/* Agent Info */}
         {versionInfo && (
           <div className="flex items-center gap-4 text-xs text-slate-500">
             <span>Agent v{versionInfo.agent}</span>
@@ -113,188 +178,161 @@ export default function AgentSettingsView() {
             <span>{versionInfo.tools} tools</span>
           </div>
         )}
+      </div>
 
-        {/* Monitoring */}
-        <Card>
-          <div className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-violet-400" />
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-200">Continuous Monitoring</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Automatically scan the cluster for issues and anomalies</p>
-                </div>
+      {/* Monitoring */}
+      <Card>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Activity className="w-5 h-5 text-violet-400" />
+              <div>
+                <h3 className="text-sm font-semibold text-slate-200">Continuous Monitoring</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Automatically scan the cluster for issues and anomalies</p>
               </div>
-              <button
-                onClick={() => setMonitorEnabled(!monitorEnabled)}
-                role="switch"
-                aria-checked={monitorEnabled}
-                className={cn('relative w-11 h-6 rounded-full transition-colors', monitorEnabled ? 'bg-violet-600' : 'bg-slate-700')}
-              >
-                <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', monitorEnabled && 'translate-x-5')} />
-              </button>
             </div>
+            <button
+              onClick={() => setMonitorEnabled(!monitorEnabled)}
+              role="switch"
+              aria-checked={monitorEnabled}
+              className={cn('relative w-11 h-6 rounded-full transition-colors', monitorEnabled ? 'bg-violet-600' : 'bg-slate-700')}
+            >
+              <span className={cn('absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform', monitorEnabled && 'translate-x-5')} />
+            </button>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleScanNow}
-                disabled={!monitorConnected || scanning}
-                className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md flex items-center gap-1.5 transition-colors"
-              >
-                {scanning ? <><Activity className="w-3.5 h-3.5 animate-pulse" />Scanning...</> : <><Play className="w-3.5 h-3.5" />Scan Now</>}
-              </button>
-              <button
-                onClick={() => navigate('/incidents')}
-                className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded-md transition-colors"
-              >
-                View Incidents
-              </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleScanNow}
+              disabled={!monitorConnected || scanning}
+              className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md flex items-center gap-1.5 transition-colors"
+            >
+              {scanning ? <><Activity className="w-3.5 h-3.5 animate-pulse" />Scanning...</> : <><Play className="w-3.5 h-3.5" />Scan Now</>}
+            </button>
+            <button
+              onClick={() => navigate('/incidents')}
+              className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 border border-slate-700 rounded-md transition-colors"
+            >
+              View Incidents
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Trust Level */}
+      <Card>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-blue-400" />
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200">Trust Level</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Controls what actions the agent can take autonomously</p>
             </div>
           </div>
-        </Card>
 
-        {/* Trust Level */}
+          <div className="text-xs text-slate-500 bg-slate-900/50 border border-slate-800 rounded-md px-3 py-2">
+            Trust controls are enforced server-side. Maximum trust for this environment: Level {maxTrustLevel}.
+          </div>
+
+          <div className="grid gap-2">
+            {visibleTrustLevels.map((tl) => {
+              const Icon = tl.icon;
+              return (
+                <button
+                  key={tl.level}
+                  onClick={() => setTrustLevel(tl.level)}
+                  className={cn(
+                    'px-4 py-3 rounded-lg border text-left transition-colors',
+                    trustLevel === tl.level ? 'bg-violet-900/30 border-violet-700' : 'bg-slate-900 border-slate-800 hover:border-slate-700',
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center', trustLevel === tl.level ? 'border-violet-500' : 'border-slate-600')}>
+                      {trustLevel === tl.level && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                    </div>
+                    <Icon className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-sm font-medium text-slate-200">Level {tl.level}: {tl.label}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1 ml-6">{tl.description}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {trustLevel >= 3 && (
+            <div className="flex items-start gap-2 px-3 py-2 bg-yellow-900/20 border border-yellow-800/50 rounded-md text-xs text-yellow-300">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              Auto-fixes are executed automatically and recorded in Fix History. Some actions cannot be rolled back.
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Auto-fix Categories */}
+      {trustLevel >= 2 && (
         <Card>
           <div className="p-4 space-y-4">
             <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-blue-400" />
+              <Zap className="w-5 h-5 text-amber-400" />
               <div>
-                <h3 className="text-sm font-semibold text-slate-200">Trust Level</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Controls what actions the agent can take autonomously</p>
+                <h3 className="text-sm font-semibold text-slate-200">Auto-fix Categories</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Select which issue types the agent can fix automatically</p>
               </div>
-            </div>
-
-            <div className="text-xs text-slate-500 bg-slate-900/50 border border-slate-800 rounded-md px-3 py-2">
-              Trust controls are enforced server-side. Maximum trust for this environment: Level {maxTrustLevel}.
             </div>
 
             <div className="grid gap-2">
-              {visibleTrustLevels.map((tl) => {
-                const Icon = tl.icon;
-                return (
-                  <button
-                    key={tl.level}
-                    onClick={() => setTrustLevel(tl.level)}
-                    className={cn(
-                      'px-4 py-3 rounded-lg border text-left transition-colors',
-                      trustLevel === tl.level ? 'bg-violet-900/30 border-violet-700' : 'bg-slate-900 border-slate-800 hover:border-slate-700',
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={cn('w-4 h-4 rounded-full border-2 flex items-center justify-center', trustLevel === tl.level ? 'border-violet-500' : 'border-slate-600')}>
-                        {trustLevel === tl.level && <div className="w-2 h-2 rounded-full bg-violet-500" />}
-                      </div>
-                      <Icon className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="text-sm font-medium text-slate-200">Level {tl.level}: {tl.label}</span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1 ml-6">{tl.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {trustLevel >= 3 && (
-              <div className="flex items-start gap-2 px-3 py-2 bg-yellow-900/20 border border-yellow-800/50 rounded-md text-xs text-yellow-300">
-                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                Auto-fixes are executed automatically and recorded in Fix History. Some actions cannot be rolled back.
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Auto-fix Categories */}
-        {trustLevel >= 2 && (
-          <Card>
-            <div className="p-4 space-y-4">
-              <div className="flex items-center gap-3">
-                <Zap className="w-5 h-5 text-amber-400" />
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-200">Auto-fix Categories</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Select which issue types the agent can fix automatically</p>
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                {AUTO_FIX_CATEGORIES.map((cat) => (
-                  <label
-                    key={cat.id}
-                    className={cn(
-                      'flex items-start gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors',
-                      autoFixCategories.includes(cat.id) ? 'bg-violet-900/20 border-violet-800' : 'bg-slate-900 border-slate-800 hover:border-slate-700',
-                    )}
-                  >
-                    <input type="checkbox" checked={autoFixCategories.includes(cat.id)} onChange={() => toggleAutoFixCategory(cat.id)} className="mt-0.5 rounded border-slate-600" />
-                    <div>
-                      <span className="text-sm font-medium text-slate-200">{cat.label}</span>
-                      <p className="text-xs text-slate-400 mt-0.5">{cat.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Communication Style */}
-        <Card>
-          <div className="p-4 space-y-4">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="w-5 h-5 text-violet-400" />
-              <div>
-                <h3 className="text-sm font-semibold text-slate-200">Communication Style</h3>
-                <p className="text-xs text-slate-400 mt-0.5">How the agent formats its responses</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {COMM_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setCommunicationStyle(opt.value)}
+              {AUTO_FIX_CATEGORIES.map((cat) => (
+                <label
+                  key={cat.id}
                   className={cn(
-                    'px-3 py-2.5 rounded-lg border text-center transition-colors',
-                    communicationStyle === opt.value ? 'bg-violet-900/30 border-violet-700' : 'bg-slate-900 border-slate-800 hover:border-slate-700',
+                    'flex items-start gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors',
+                    autoFixCategories.includes(cat.id) ? 'bg-violet-900/20 border-violet-800' : 'bg-slate-900 border-slate-800 hover:border-slate-700',
                   )}
                 >
-                  <div className="text-sm font-medium text-slate-200">{opt.label}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{opt.description}</div>
-                </button>
+                  <input type="checkbox" checked={autoFixCategories.includes(cat.id)} onChange={() => toggleAutoFixCategory(cat.id)} className="mt-0.5 rounded border-slate-600" />
+                  <div>
+                    <span className="text-sm font-medium text-slate-200">{cat.label}</span>
+                    <p className="text-xs text-slate-400 mt-0.5">{cat.description}</p>
+                  </div>
+                </label>
               ))}
             </div>
           </div>
         </Card>
+      )}
 
-        {/* Quick Links */}
-        <Card>
-          <div className="p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <Settings className="w-4 h-4 text-slate-400" />
-              Related
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: 'Incidents', path: '/incidents', icon: Zap, color: 'text-red-400' },
-                { label: 'Fix History', path: '/incidents?tab=history', icon: CheckCircle2, color: 'text-emerald-400' },
-                { label: 'What I\'ve Learned', path: '/memory', icon: Brain, color: 'text-pink-400' },
-                { label: 'Your Views', path: '/views', icon: Eye, color: 'text-violet-400' },
-              ].map((link) => (
-                <button
-                  key={link.path}
-                  onClick={() => navigate(link.path)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 transition-colors text-left"
-                >
-                  <link.icon className={cn('w-4 h-4', link.color)} />
-                  <span className="text-sm text-slate-300">{link.label}</span>
-                </button>
-              ))}
+      {/* Communication Style */}
+      <Card>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <MessageSquare className="w-5 h-5 text-violet-400" />
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200">Communication Style</h3>
+              <p className="text-xs text-slate-400 mt-0.5">How the agent formats its responses</p>
             </div>
           </div>
-        </Card>
 
-        <p className="text-xs text-slate-600 text-center">
-          Preferences are saved locally and sent to the agent on each connection.
-        </p>
-      </div>
+          <div className="grid grid-cols-3 gap-2">
+            {COMM_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setCommunicationStyle(opt.value)}
+                className={cn(
+                  'px-3 py-2.5 rounded-lg border text-center transition-colors',
+                  communicationStyle === opt.value ? 'bg-violet-900/30 border-violet-700' : 'bg-slate-900 border-slate-800 hover:border-slate-700',
+                )}
+              >
+                <div className="text-sm font-medium text-slate-200">{opt.label}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{opt.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <p className="text-xs text-slate-600 text-center">
+        Preferences are saved locally and sent to the agent on each connection.
+      </p>
     </div>
   );
 }

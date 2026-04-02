@@ -2,8 +2,6 @@ import { Navigate, Route, useParams } from 'react-router-dom';
 import React, { Suspense, lazy } from 'react';
 import { isFeatureEnabled } from '../engine/featureFlags';
 
-const AccessControlView = lazy(() => import('../views/AccessControlView'));
-const UserManagementView = lazy(() => import('../views/UserManagementView'));
 const StorageView = lazy(() => import('../views/StorageView'));
 const AdminView = lazy(() => import('../views/AdminView'));
 const WorkloadsView = lazy(() => import('../views/WorkloadsView'));
@@ -24,7 +22,6 @@ const CustomViewRedirect = lazy(() => import('../views/CustomView'));
 const IncidentCenterView = lazy(() => import('../views/IncidentCenterView'));
 const OnboardingView = lazy(() => import('../views/OnboardingView'));
 const ReviewQueueView = lazy(() => import('../views/ReviewQueueView'));
-const ViewsManagement = lazy(() => import('../views/ViewsManagement'));
 const AgentSettingsView = lazy(() => import('../views/AgentSettingsView'));
 
 function CatchFallback() {
@@ -69,8 +66,8 @@ export function domainRoutes() {
       <Route path="builds" element={<Navigate to="/workloads?tab=builds" replace />} />
       <Route path="crds" element={<Navigate to="/admin?tab=crds" replace />} />
       <Route path="security" element={<Lazy><SecurityView /></Lazy>} />
-      <Route path="access-control" element={<Lazy><AccessControlView /></Lazy>} />
-      <Route path="users" element={<Lazy><UserManagementView /></Lazy>} />
+      <Route path="access-control" element={<Navigate to="/identity?tab=rbac" replace />} />
+      <Route path="users" element={<Navigate to="/identity?tab=users" replace />} />
       {isFeatureEnabled('identityView') && (
         <Route path="identity" element={<Lazy><IdentityView /></Lazy>} />
       )}
@@ -87,9 +84,11 @@ export function domainRoutes() {
       <Route path="monitor" element={<Navigate to="/incidents" replace />} />
       <Route path="dynamic/:id" element={<Lazy><DynamicViewRoute /></Lazy>} />
       <Route path="incidents" element={<Lazy>{isFeatureEnabled('incidentCenter') ? <IncidentCenterView /> : <CatchFallback />}</Lazy>} />
-      <Route path="onboarding" element={<Lazy>{isFeatureEnabled('onboarding') ? <OnboardingView /> : <CatchFallback />}</Lazy>} />
+      <Route path="readiness" element={<Lazy>{isFeatureEnabled('onboarding') ? <OnboardingView /> : <CatchFallback />}</Lazy>} />
+      <Route path="onboarding" element={<Navigate to="/readiness" replace />} />
       <Route path="reviews" element={<Lazy>{isFeatureEnabled('reviewQueue') ? <ReviewQueueView /> : <CatchFallback />}</Lazy>} />
-      <Route path="views" element={<Lazy><ViewsManagement /></Lazy>} />
+      <Route path="memory" element={<Navigate to="/agent?tab=memory" replace />} />
+      <Route path="views" element={<Navigate to="/agent?tab=views" replace />} />
       <Route path="agent" element={<Lazy><AgentSettingsView /></Lazy>} />
     </>
   );

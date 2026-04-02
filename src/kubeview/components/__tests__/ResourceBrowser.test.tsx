@@ -188,24 +188,19 @@ describe('OpenShift Pulse ResourceBrowser', () => {
     expect(screen.queryByText('Core (v1)')).toBeNull();
   });
 
-  it('shows built-in pages in pinned section', () => {
+  it('shows grouped navigation sections', () => {
     renderBrowser();
     expect(screen.getByText('Cluster Pulse')).toBeDefined();
-    expect(screen.getByText('Builds')).toBeDefined();
     expect(screen.getByText('Administration')).toBeDefined();
+    expect(screen.getByText('CLUSTER')).toBeDefined();
+    expect(screen.getByText('OPERATIONS')).toBeDefined();
+    expect(screen.getByText('AGENT')).toBeDefined();
   });
 
   it('navigates to pulse on page click', () => {
     renderBrowser();
     fireEvent.click(screen.getByText('Cluster Pulse'));
     expect(navigateMock).toHaveBeenCalledWith('/pulse');
-    expect(closeBrowserMock).toHaveBeenCalled();
-  });
-
-  it('navigates to builds on page click', () => {
-    renderBrowser();
-    fireEvent.click(screen.getByText('Builds'));
-    expect(navigateMock).toHaveBeenCalledWith('/builds');
     expect(closeBrowserMock).toHaveBeenCalled();
   });
 

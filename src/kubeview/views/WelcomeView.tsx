@@ -165,7 +165,7 @@ export default function WelcomeView() {
           <NavCard icon={<Server className="w-5 h-5" />} color="text-blue-400" border="border-slate-800" title="Compute" sub="Nodes & capacity" onClick={() => go('/compute', 'Compute')} path="/compute" />
           <NavCard icon={<Globe className="w-5 h-5" />} color="text-cyan-400" border="border-slate-800" title="Networking" sub="Routes & policies" onClick={() => go('/networking', 'Networking')} path="/networking" />
           <NavCard icon={<HardDrive className="w-5 h-5" />} color="text-orange-400" border="border-slate-800" title="Storage" sub="PVCs & volumes" onClick={() => go('/storage', 'Storage')} path="/storage" />
-          <NavCard icon={<Shield className="w-5 h-5" />} color="text-emerald-400" border="border-emerald-500/20" title="Readiness" sub="30 production gates" onClick={() => go('/onboarding', 'Onboarding')} />
+          <NavCard icon={<Shield className="w-5 h-5" />} color="text-emerald-400" border="border-emerald-500/20" title="Readiness" sub="30 production gates" onClick={() => go('/readiness', 'Production Readiness')} />
         </div>
 
         {/* ── More Views (collapsible) ── */}

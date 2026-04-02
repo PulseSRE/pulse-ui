@@ -54,7 +54,7 @@ export function StatusBar() {
     if (path === '/security') return 'Security';
     if (path === '/gitops') return 'GitOps';
     if (path === '/fleet') return 'Fleet';
-    if (path === '/onboarding') return 'Production Readiness';
+    if (path === '/readiness') return 'Production Readiness';
     if (path === '/memory') return 'Memory';
     if (path === '/compute') return 'Compute';
     if (path.startsWith('/r/')) {

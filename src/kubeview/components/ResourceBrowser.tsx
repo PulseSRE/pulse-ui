@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronRight, ChevronDown, Star, Activity, Package, Globe, Server, HardDrive, Clock, Shield, Bell, Settings, LayoutDashboard, ShieldCheck, GitBranch, Layers, ClipboardCheck, Rocket, Brain } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Activity, Package, Globe, Server, HardDrive, Shield, Bell, Settings, LayoutDashboard, ShieldCheck, GitBranch, Layers, ClipboardCheck, Rocket } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
 import { useCustomViewStore } from '../store/customViewStore';
@@ -160,43 +160,62 @@ export function ResourceBrowser() {
         </div>
 
         {/* Views section */}
-        <div className="border-b border-slate-700 p-3">
-          <div className="mb-2 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            <Star className="h-3 w-3" />
-            Views
-          </div>
-          {[
-            { label: 'Cluster Pulse', icon: Activity, path: '/pulse', color: 'text-emerald-400' },
-            { label: 'Incidents', icon: Bell, path: '/incidents', color: 'text-red-400' },
-            { label: 'Workloads', icon: Package, path: '/workloads', color: 'text-blue-400' },
-            { label: 'Networking', icon: Globe, path: '/networking', color: 'text-cyan-400' },
-            { label: 'Compute', icon: Server, path: '/compute', color: 'text-blue-400' },
-            { label: 'Storage', icon: HardDrive, path: '/storage', color: 'text-orange-400' },
-            { label: 'Security', icon: ShieldCheck, path: '/security', color: 'text-red-400' },
-            { label: 'Identity & Access', icon: Shield, path: '/identity', color: 'text-teal-400' },
-            { label: 'GitOps', icon: GitBranch, path: '/gitops', color: 'text-green-400' },
-            { label: 'Fleet', icon: Layers, path: '/fleet', color: 'text-indigo-400' },
-            { label: 'Production Readiness', icon: Rocket, path: '/onboarding', color: 'text-amber-400' },
-            { label: 'Alerts', icon: Bell, path: '/alerts', color: 'text-amber-400' },
-            { label: 'Builds', icon: Clock, path: '/builds', color: 'text-orange-400' },
-            { label: 'Review Queue', icon: ClipboardCheck, path: '/reviews', color: 'text-violet-400' },
-            { label: 'Memory', icon: Brain, path: '/memory', color: 'text-pink-400' },
-            { label: 'Custom Resources', icon: Settings, path: '/crds', color: 'text-purple-400' },
-            { label: 'Agent Settings', icon: Settings, path: '/agent', color: 'text-violet-400' },
-            { label: 'Administration', icon: Settings, path: '/admin', color: 'text-slate-400' },
-          ].map((page) => (
-            <button
-              key={page.path}
-              onClick={() => {
-                addTab({ title: page.label, icon: page.icon.displayName || '', path: page.path, pinned: false, closable: true });
-                navigate(page.path);
-                closeBrowser();
-              }}
-              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700"
-            >
-              <page.icon className={`h-4 w-4 ${page.color}`} />
-              {page.label}
-            </button>
+        <div className="border-b border-slate-700 p-3 space-y-3">
+          {([
+            {
+              section: 'CLUSTER',
+              items: [
+                { label: 'Cluster Pulse', icon: Activity, path: '/pulse', color: 'text-emerald-400' },
+                { label: 'Workloads', icon: Package, path: '/workloads', color: 'text-blue-400' },
+                { label: 'Networking', icon: Globe, path: '/networking', color: 'text-cyan-400' },
+                { label: 'Compute', icon: Server, path: '/compute', color: 'text-blue-400' },
+                { label: 'Storage', icon: HardDrive, path: '/storage', color: 'text-orange-400' },
+              ],
+            },
+            {
+              section: 'OPERATIONS',
+              items: [
+                { label: 'Incidents', icon: Bell, path: '/incidents', color: 'text-red-400' },
+                { label: 'Security', icon: ShieldCheck, path: '/security', color: 'text-red-400' },
+                { label: 'GitOps', icon: GitBranch, path: '/gitops', color: 'text-green-400' },
+                { label: 'Fleet', icon: Layers, path: '/fleet', color: 'text-indigo-400' },
+              ],
+            },
+            {
+              section: 'ADMINISTRATION',
+              items: [
+                { label: 'Administration', icon: Settings, path: '/admin', color: 'text-slate-400' },
+                { label: 'Identity & Access', icon: Shield, path: '/identity', color: 'text-teal-400' },
+                { label: 'Production Readiness', icon: Rocket, path: '/readiness', color: 'text-amber-400' },
+              ],
+            },
+            {
+              section: 'AGENT',
+              items: [
+                { label: 'Review Queue', icon: ClipboardCheck, path: '/reviews', color: 'text-violet-400' },
+                { label: 'Agent Settings', icon: Settings, path: '/agent', color: 'text-violet-400' },
+              ],
+            },
+          ] as const).map((group) => (
+            <div key={group.section}>
+              <div className="mb-1 flex items-center gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                {group.section}
+              </div>
+              {group.items.map((page) => (
+                <button
+                  key={page.path}
+                  onClick={() => {
+                    addTab({ title: page.label, icon: page.icon.displayName || '', path: page.path, pinned: false, closable: true });
+                    navigate(page.path);
+                    closeBrowser();
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700"
+                >
+                  <page.icon className={`h-4 w-4 ${page.color}`} />
+                  {page.label}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
 
