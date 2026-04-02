@@ -2,7 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Settings, Puzzle, Shield, Database, GitBranch,
-  ArrowUpCircle, GitCompare,
+  ArrowUpCircle, GitCompare, Gauge, Lock,
 } from 'lucide-react';
 
 const CRDsView = lazy(() => import('./CRDsView'));
@@ -384,8 +384,8 @@ export default function AdminView() {
     { id: 'config', label: 'Cluster Config', icon: <Database className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Database className="w-3.5 h-3.5" /> },
     { id: 'updates', label: `Updates${availableUpdates.length > 0 ? ` (${availableUpdates.length})` : ''}`, icon: <ArrowUpCircle className="w-3.5 h-3.5 text-green-400" />, activeIcon: <ArrowUpCircle className="w-3.5 h-3.5" /> },
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <GitCompare className="w-3.5 h-3.5" /> },
-    { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Shield className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Shield className="w-3.5 h-3.5" /> },
-    { id: 'certificates', label: 'Certificates', icon: <Shield className="w-3.5 h-3.5 text-red-400" />, activeIcon: <Shield className="w-3.5 h-3.5" /> },
+    { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Gauge className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Gauge className="w-3.5 h-3.5" /> },
+    { id: 'certificates', label: 'Certificates', icon: <Lock className="w-3.5 h-3.5 text-red-400" />, activeIcon: <Lock className="w-3.5 h-3.5" /> },
   ];
 
   return (
