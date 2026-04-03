@@ -295,7 +295,7 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
               <span className="text-[10px] text-amber-400">{hoveredPod.restarts} restart{hoveredPod.restarts !== 1 ? 's' : ''}</span>
             )}
           </div>
-          <div className="text-[9px] text-slate-500 mt-1">Click to inspect · Right-click for actions</div>
+          <div className="text-[9px] text-slate-500 mt-1">Click to expand pods · Right-click for actions</div>
         </div>
       )}
 
@@ -317,6 +317,7 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
 export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewAll }: Props) {
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [expandedNode, setExpandedNode] = useState<string | null>(null);
 
   const sorted = [...nodes]
     .filter(nd => {
@@ -416,7 +417,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                   key={nd.name}
                   nd={nd}
                   pods={podsByNode?.[nd.name]}
-                  onClick={() => onNodeClick?.(nd.name)}
+                  onClick={() => setExpandedNode(expandedNode === nd.name ? null : nd.name)}
                   onPodClick={onPodClick}
                 />
               ))}
@@ -424,6 +425,86 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
           ));
         })()}
       </div>
+
+      {/* Expanded node pod panel */}
+      {expandedNode && (() => {
+        const nd = nodes.find(n => n.name === expandedNode);
+        const pods = podsByNode?.[expandedNode] || [];
+        if (!nd) return null;
+        const shortName = nd.name.replace(/^ip-/, '').replace(/\..*internal$/, '').replace(/\..*compute$/, '');
+        const statusKey = !nd.status.ready ? 'notReady' : nd.unschedulable ? 'cordoned' : nd.pressures.length > 0 ? 'pressure' : 'ready';
+        const color = STATUS[statusKey as keyof typeof STATUS].color;
+
+        return (
+          <div className="mt-4 rounded-lg border border-slate-700 bg-slate-900/90 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800 bg-slate-800/50">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                <span className="text-xs font-semibold text-slate-200">{shortName}</span>
+                <span className="text-[10px] text-slate-500">{nd.roles.join(', ')} · {pods.length}/{nd.podCap} pods</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNodeClick?.(nd.name)}
+                  className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Open Node →
+                </button>
+                <button
+                  onClick={() => setExpandedNode(null)}
+                  className="p-0.5 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Pod table */}
+            {pods.length === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-slate-500">No pods on this node</div>
+            ) : (
+              <div className="max-h-64 overflow-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-900">
+                    <tr className="text-left text-slate-500">
+                      <th className="px-3 py-1.5 font-medium">Pod</th>
+                      <th className="px-3 py-1.5 font-medium">Namespace</th>
+                      <th className="px-3 py-1.5 font-medium">Status</th>
+                      <th className="px-3 py-1.5 font-medium">Restarts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pods.map(pod => (
+                      <tr
+                        key={pod.name}
+                        className="border-t border-slate-800/50 hover:bg-slate-800/40 cursor-pointer transition-colors"
+                        onClick={() => onPodClick?.(pod.namespace, pod.name)}
+                      >
+                        <td className="px-3 py-1.5 text-blue-400 hover:text-blue-300 truncate max-w-[200px]">{pod.name}</td>
+                        <td className="px-3 py-1.5 text-slate-400">{pod.namespace}</td>
+                        <td className="px-3 py-1.5">
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: POD_STATUS_COLOR[pod.status] || '#6b7280' }} />
+                            <span style={{ color: POD_STATUS_COLOR[pod.status] || '#94a3b8' }}>{pod.status}</span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-1.5">
+                          {pod.restarts > 0 ? (
+                            <span className="text-amber-400">{pod.restarts}</span>
+                          ) : (
+                            <span className="text-slate-600">0</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* View all link */}
       {remaining > 0 && (
