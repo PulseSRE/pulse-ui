@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, X } from 'lucide-react';
+import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, X, Download, Upload } from 'lucide-react';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { EmptyState } from '../components/primitives/EmptyState';
@@ -86,6 +86,45 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
     loadViews();
   }, [loadViews]);
 
+  const handleExport = (view: ViewSpec) => {
+    const exportData = { title: view.title, description: view.description, layout: view.layout, positions: view.positions, templateId: view.templateId };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${view.title.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data.title || !data.layout) { alert('Invalid view file'); return; }
+        const saveView = useCustomViewStore.getState().saveView;
+        const viewSpec: ViewSpec = {
+          id: `cv-${Date.now().toString(36)}`,
+          title: data.title,
+          description: data.description || '',
+          layout: data.layout,
+          positions: data.positions || {},
+          templateId: data.templateId,
+          generatedAt: Date.now(),
+        };
+        await saveView(viewSpec);
+        loadViews();
+      } catch { alert('Failed to import view'); }
+    };
+    input.click();
+  };
+
   const handleShare = async (view: ViewSpec) => {
     const token = await shareView(view.id);
     if (token) {
@@ -110,9 +149,17 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               <LayoutDashboard className="w-6 h-6 text-violet-500" />
               Your Views
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              AI-generated dashboards saved to your account.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-400 mt-1">
+                AI-generated dashboards saved to your account.
+              </p>
+              <button
+                onClick={handleImport}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+              >
+                <Upload className="w-3.5 h-3.5" /> Import View
+              </button>
+            </div>
           </div>
         )}
 
@@ -182,6 +229,13 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                   >
                     <ExternalLink className="w-3 h-3" />
                     Open
+                  </button>
+                  <button
+                    onClick={() => handleExport(view)}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded text-xs bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                    title="Download as JSON"
+                  >
+                    <Download className="w-3 h-3" /> Export
                   </button>
                   <button
                     onClick={() => handleShare(view)}
