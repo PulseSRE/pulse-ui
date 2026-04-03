@@ -195,34 +195,26 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
 
         {/* View cards grid */}
         {sortedViews.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {sortedViews.map((view) => (
               <div
                 key={view.id}
-                className="group rounded-lg border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 transition-colors"
+                className="group rounded-lg border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 transition-colors flex items-center gap-4"
               >
-                {/* Card header */}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-100 truncate">
-                      {view.title}
-                    </h3>
-                    {view.description && (
-                      <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">
-                        {view.description}
-                      </p>
-                    )}
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-slate-100 truncate">{view.title}</h3>
+                  {view.description && (
+                    <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{view.description}</p>
+                  )}
+                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                    <span>{view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}</span>
+                    <span>Updated {formatRelativeTime(view.generatedAt)}</span>
                   </div>
                 </div>
 
-                {/* Meta */}
-                <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
-                  <span>{view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}</span>
-                  <span>Updated {formatRelativeTime(view.generatedAt)}</span>
-                </div>
-
                 {/* Actions */}
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => navigate(`/custom/${view.id}`)}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium bg-violet-700 hover:bg-violet-600 text-white transition-colors"
