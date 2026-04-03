@@ -205,14 +205,14 @@ export default function CustomView() {
 
   const handleTitleSave = () => {
     if (titleDraft.trim() && titleDraft !== view.title) {
-      updateView(view.id, { title: titleDraft.trim() });
+      updateView(view.id, { title: titleDraft.trim() }, true);
     }
     setEditingTitle(false);
   };
 
   const handleDescSave = () => {
     if (descDraft !== view.description) {
-      updateView(view.id, { description: descDraft.trim() });
+      updateView(view.id, { description: descDraft.trim() }, true);
     }
     setEditingDesc(false);
   };

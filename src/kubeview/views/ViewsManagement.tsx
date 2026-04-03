@@ -28,12 +28,29 @@ function describeChanges(current: ViewVersion, previous?: ViewVersion): string {
   const prevWidgets = previous.layout?.length ?? 0;
   if (curWidgets !== prevWidgets) {
     const diff = curWidgets - prevWidgets;
-    changes.push(diff > 0 ? `+${diff} widget${diff > 1 ? 's' : ''}` : `${diff} widget${Math.abs(diff) > 1 ? 's' : ''}`);
+    if (diff > 0 && current.layout && previous.layout) {
+      // Find which widgets were added
+      const prevKinds = previous.layout.map((w: any) => w.title || w.kind);
+      const added = current.layout
+        .filter((w: any) => !prevKinds.includes(w.title || w.kind))
+        .map((w: any) => w.title || w.kind)
+        .slice(0, 3);
+      changes.push(`+${diff} widget${diff > 1 ? 's' : ''}${added.length ? ': ' + added.join(', ') : ''}`);
+    } else {
+      changes.push(`${diff} widget${Math.abs(diff) > 1 ? 's' : ''}`);
+    }
   } else if (current.layout && previous.layout && JSON.stringify(current.layout) !== JSON.stringify(previous.layout)) {
-    changes.push('layout modified');
+    // Find which widgets changed
+    const changed: string[] = [];
+    for (let i = 0; i < curWidgets; i++) {
+      if (JSON.stringify(current.layout[i]) !== JSON.stringify(previous.layout?.[i])) {
+        changed.push((current.layout[i] as any)?.title || `widget ${i}`);
+      }
+    }
+    changes.push(changed.length ? `modified: ${changed.slice(0, 3).join(', ')}` : 'layout modified');
   }
   if (current.description !== previous.description) changes.push('description updated');
-  return changes.length > 0 ? changes.join(', ') : current.action;
+  return changes.length > 0 ? changes.join(' · ') : current.action;
 }
 
 export default function ViewsManagement({ embedded = false }: { embedded?: boolean }) {

@@ -32,7 +32,7 @@ interface CustomViewState {
   /** Delete a view from backend */
   deleteView: (id: string) => Promise<void>;
   /** Update view fields (title, description, layout, positions) */
-  updateView: (id: string, updates: Partial<ViewSpec>) => Promise<void>;
+  updateView: (id: string, updates: Partial<ViewSpec>, save?: boolean) => Promise<void>;
   /** Add a widget to an existing view */
   addWidget: (viewId: string, widget: ComponentSpec) => Promise<void>;
   /** Remove a widget by index */
@@ -146,7 +146,7 @@ export const useCustomViewStore = create<CustomViewState>()(
       }
     },
 
-    updateView: async (id, updates) => {
+    updateView: async (id, updates, save = false) => {
       const payload: Record<string, any> = {};
       if (updates.title !== undefined) payload.title = updates.title;
       if (updates.description !== undefined) payload.description = updates.description;
@@ -155,6 +155,7 @@ export const useCustomViewStore = create<CustomViewState>()(
         payload.layout = updates.layout.map(truncateForPersistence);
       }
       if (updates.positions !== undefined) payload.positions = updates.positions;
+      if (save) payload.save = true;
 
       try {
         await apiFetch(`/views/${id}`, {
@@ -175,14 +176,14 @@ export const useCustomViewStore = create<CustomViewState>()(
       const view = get().getView(viewId);
       if (!view) return;
       const newLayout = [...view.layout, truncateForPersistence(widget)];
-      await get().updateView(viewId, { layout: newLayout });
+      await get().updateView(viewId, { layout: newLayout }, true);
     },
 
     removeWidget: async (viewId, widgetIndex) => {
       const view = get().getView(viewId);
       if (!view) return;
       const newLayout = view.layout.filter((_, i) => i !== widgetIndex);
-      await get().updateView(viewId, { layout: newLayout });
+      await get().updateView(viewId, { layout: newLayout }, true);
     },
 
     updateWidget: async (viewId, widgetIndex, updates) => {
@@ -191,7 +192,7 @@ export const useCustomViewStore = create<CustomViewState>()(
       const newLayout = view.layout.map((spec, i) =>
         i === widgetIndex ? { ...spec, ...updates } as ComponentSpec : spec,
       );
-      await get().updateView(viewId, { layout: newLayout });
+      await get().updateView(viewId, { layout: newLayout }, true);
     },
 
     getView: (id) => get().views.find((v) => v.id === id),
