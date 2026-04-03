@@ -890,7 +890,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
 
         {/* All clear in Zone 3 */}
         {attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
-          <button onClick={() => go('/admin?tab=readiness', 'Readiness')} className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center hover:border-green-800/50 transition-colors">
+          <button onClick={() => go('/readiness', 'Readiness')} className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center hover:border-green-800/50 transition-colors">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
             <div className="text-sm font-medium text-slate-200">All clear</div>
             <div className="text-xs text-slate-500 mt-0.5">{nodes.length} nodes, {operators.length} operators, {userPods.length} user pods — no issues detected</div>
@@ -958,7 +958,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
           <button onClick={() => go('/security', 'Security')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">
             <Shield className="w-3 h-3" /> Security
           </button>
-          <button onClick={() => go('/admin?tab=readiness', 'Readiness')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">
+          <button onClick={() => go('/readiness', 'Readiness')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">
             <FileText className="w-3 h-3" /> Readiness
           </button>
           <button onClick={() => go('/admin?tab=certificates', 'Certificates')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">

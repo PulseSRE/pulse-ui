@@ -484,7 +484,7 @@ export default function ProductionReadiness() {
         : hasGitOps
         ? 'ArgoCD installed but Git repository not connected in Pulse. Configure in Admin → GitOps tab to enable auto-PR on resource edits.'
         : 'Install ArgoCD first, then configure the Git repository in Admin → GitOps.',
-      action: hasGitOps && !gitOpsConfigured ? { label: 'Configure GitOps', path: '/admin?tab=gitops' } : undefined,
+      action: hasGitOps && !gitOpsConfigured ? { label: 'Configure GitOps', path: '/gitops' } : undefined,
     });
 
     results.push({
