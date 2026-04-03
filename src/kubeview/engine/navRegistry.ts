@@ -61,3 +61,11 @@ export function getRouteIcon(path: string): string {
   if (path.startsWith('/custom/')) return 'LayoutDashboard';
   return '';
 }
+
+/** Route-to-color lookup (used by TabBar for colored tab icons) */
+export function getRouteColor(path: string): string {
+  const nav = getNavByPath(path);
+  if (nav) return nav.color || '';
+  if (path.startsWith('/custom/')) return 'text-violet-400';
+  return '';
+}

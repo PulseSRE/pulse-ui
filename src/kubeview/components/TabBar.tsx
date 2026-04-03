@@ -6,7 +6,7 @@ import { useCustomViewStore } from '../store/customViewStore';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 import { getResourceIcon } from '../engine/iconRegistry';
-import { getRouteIcon } from '../engine/navRegistry';
+import { getRouteIcon, getRouteColor } from '../engine/navRegistry';
 import { pluralToKind } from '../engine/renderers/index';
 
 // Helper to get icon component from string name
@@ -215,7 +215,7 @@ export function TabBar() {
               <Icon
                 className={cn(
                   'h-3.5 w-3.5 shrink-0',
-                  isActive ? 'text-emerald-400' : 'text-slate-500'
+                  isActive ? (getRouteColor(tab.path) || 'text-emerald-400') : 'text-slate-500'
                 )}
               />
             )}
