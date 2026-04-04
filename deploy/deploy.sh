@@ -340,7 +340,7 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
   step "Building & pushing images"
 
   cd "$PROJECT_DIR"
-  pnpm run build --silent
+  pnpm run build
   info "UI built (dist/)"
 
   info "Building UI and Agent images in parallel..."
