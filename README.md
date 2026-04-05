@@ -86,7 +86,7 @@ npm run dev    # http://localhost:9000
 
 | Category | What You Get |
 |----------|-------------|
-| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 72 tools, 10 runbooks, dynamic UI rendering (10 component types: data_table, info_card_grid, chart, status_list, badge_list, key_value, relationship_tree, tabs, grid, section), dashboard generation with auto-save to PostgreSQL, prompt caching, dynamic tool selection, cluster context injection. [pulse-agent](https://github.com/alimobrem/pulse-agent) |
+| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 105 tools, 73 PromQL recipes, 10 runbooks, dynamic UI rendering (10 component types: data_table, info_card_grid, chart, status_list, badge_list, key_value, relationship_tree, tabs, grid, section), dashboard generation with semantic layout engine and auto-save to PostgreSQL, prompt caching, dynamic tool selection, cluster context injection, intelligence loop for continuous improvement. [pulse-agent](https://github.com/alimobrem/pulse-agent) |
 | **Predictive AI** | Live cluster-aware smart prompts: AI suggestions reflect actual issues (crash-looping pods, degraded operators, pending PVCs) not generic templates. Integrated into Command Palette (`?` mode), dock agent panel, and empty states. |
 | **Native AI Layer** | Unified intelligence layer across all surfaces: smart prompts adapt to cluster state, AI query mode in Command Palette (`?`), violet-branded AI surfaces, auto-expanding InlineAgent for unhealthy resources, "Ask AI" buttons on PulseView attention items, first-run onboarding, dock notification dot for background insights |
 | **Ask Pulse** | Natural language queries in Cmd+K — type a question, get AI-powered answers with action buttons. Dedicated WebSocket, falls back gracefully when agent is offline. |
@@ -117,7 +117,7 @@ npm run dev    # http://localhost:9000
 
 | Feature | Details |
 |---------|---------|
-| **AI Agent** | Chat with Claude-powered SRE/Security agent (72 tools, 10 component types). "Ask Agent" from any resource. Streaming, tool execution indicators, confirmation gates. Agent Settings at `/agent` with Settings/Memory/Views tabs. |
+| **AI Agent** | Chat with Claude-powered SRE/Security agent (105 tools, 73 PromQL recipes, 10 component types). "Ask Agent" from any resource. Streaming, tool execution indicators, confirmation gates. Agent Settings at `/agent` with Settings/Memory/Views tabs. |
 | **Ask Pulse** | Natural language queries in Cmd+K: type a question in the Command Palette, get AI-powered answers with action buttons. "Open in Agent" for full conversations. |
 | **Incident Actions** | PR-style review of AI-proposed changes merged into Incident Center: YAML diffs, risk badges, business impact, approve/reject. Live data from monitor WebSocket. |
 | **Native AI UX** | Unified violet-branded intelligence layer: `?` in Command Palette sends to agent, smart prompts adapt to cluster state, "Ask AI" on PulseView attention items, auto-expand InlineAgent for unhealthy resources, AI empty state suggestions, first-run onboarding card, dock agent notification dot. |
@@ -322,7 +322,7 @@ Browser --> OAuth Proxy (8443/TLS) --> nginx (8080) --> K8s API / Prometheus / A
 ---
 
 <p align="center">
-  <strong>1,882 unit + 16 Helm + 53 E2E tests</strong> &bull; <strong>77 health checks</strong> &bull; <strong>~1s builds</strong> &bull; <strong>0 CVEs</strong> &bull; <strong>14 views</strong> &bull; <strong>72 AI tools</strong> &bull; <strong>500+ operators</strong>
+  <strong>1,882 unit + 16 Helm + 53 E2E tests</strong> &bull; <strong>77 health checks</strong> &bull; <strong>~1s builds</strong> &bull; <strong>0 CVEs</strong> &bull; <strong>14 views</strong> &bull; <strong>105 AI tools</strong> &bull; <strong>500+ operators</strong>
 </p>
 
 <p align="center">
