@@ -17,8 +17,10 @@ FAILURES=0
 echo "=== Helm Chart Tests ==="
 echo ""
 
-# Rebuild dependencies
-helm dependency build "$CHART_DIR" 2>/dev/null
+# Rebuild dependencies (skip if charts already exist — CI may not have file:// sources)
+if [ ! -d "$CHART_DIR/charts" ] || [ -z "$(ls -A "$CHART_DIR/charts/" 2>/dev/null)" ]; then
+  helm dependency build "$CHART_DIR" 2>/dev/null || true
+fi
 
 # Common values for all tests
 COMMON=(
