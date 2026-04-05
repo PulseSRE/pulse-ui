@@ -13,6 +13,9 @@ export function NodeGrid({ nodes, clusterName, onNodeClick }: NodeGridProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const hoveredNode = nodes.find(n => n.id === hoveredId) || null;
 
+  // Sort: unhealthy first (must be before early return — hooks can't be conditional)
+  const sorted = useMemo(() => [...nodes].sort((a, b) => a.healthScore - b.healthScore), [nodes]);
+
   if (nodes.length === 0) {
     return (
       <div className="text-center text-slate-400 py-8">
@@ -21,9 +24,6 @@ export function NodeGrid({ nodes, clusterName, onNodeClick }: NodeGridProps) {
       </div>
     );
   }
-
-  // Sort: unhealthy first
-  const sorted = useMemo(() => [...nodes].sort((a, b) => a.healthScore - b.healthScore), [nodes]);
 
   // Summary stats
   const totalPods = nodes.reduce((s, n) => s + n.podCount, 0);
