@@ -86,14 +86,30 @@ pnpm install
 oc login https://api.your-cluster:6443
 oc proxy --port=8001 &
 
-# 3. Start dev server
+# 3. Start dev server (rspack, hot reload)
 pnpm dev    # http://localhost:9000
 ```
 
-### Deploy to Cluster (One Command)
+### Build & Deploy to Cluster
+
+The `deploy.sh` script handles the full pipeline:
+
+```
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────┐
+│ pnpm build  │ ──▶ │ podman build │ ──▶ │ podman push  │ ──▶ │ helm     │
+│ (rspack)    │     │ (UI + Agent) │     │ (registry)   │     │ upgrade  │
+└─────────────┘     └──────────────┘     └──────────────┘     └──────────┘
+```
+
+**What happens under the hood:**
+1. **`pnpm build`** — rspack production build → `dist/`
+2. **`podman build`** — builds UI image (nginx + dist/) and Agent image (Python + sre_agent/) in parallel
+3. **`podman push`** — pushes both images to your registry (default: `quay.io/amobrem`)
+4. **`helm upgrade`** — deploys via umbrella chart (UI + Agent + PostgreSQL)
+5. **Health check** — waits for pods to be ready, verifies agent responds
 
 ```bash
-# Builds UI + Agent images, pushes to registry, deploys via Helm
+# Full build + deploy (UI + Agent)
 ./deploy/deploy.sh
 
 # Preview without applying
@@ -101,6 +117,18 @@ pnpm dev    # http://localhost:9000
 
 # Skip image builds (redeploy with existing images)
 ./deploy/deploy.sh --skip-build
+
+# Custom registry
+PULSE_UI_IMAGE=my-registry.io/pulse-ui PULSE_AGENT_IMAGE=my-registry.io/pulse-agent ./deploy/deploy.sh
+
+# Uninstall everything
+./deploy/deploy.sh --uninstall
+```
+
+**Required logins before deploy:**
+```bash
+oc login https://api.your-cluster:6443      # OpenShift cluster
+podman login quay.io                         # Container registry
 ```
 
 ## Screenshots
