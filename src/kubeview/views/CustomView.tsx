@@ -24,8 +24,32 @@ import { applyTemplate } from '../engine/layoutTemplates';
  *  If the view has a templateId, use template positions.
  *  Otherwise, stack full-width vertically.
  */
+/** Compute ideal height for a component spec (rowHeight=30 units) */
+function idealHeight(spec: ComponentSpec): number {
+  const rows = spec.kind === 'data_table' ? (spec as any).rows?.length || 5 : 0;
+  const gridItems = spec.kind === 'grid' ? ((spec as any).items?.length || 0) : 0;
+  const gridCols = spec.kind === 'grid' ? ((spec as any).columns || 2) : 1;
+  const gridRows = Math.ceil(gridItems / gridCols);
+  return (
+    spec.kind === 'info_card_grid' ? 5 :
+    spec.kind === 'grid' ? (3 + gridRows * 4) :
+    spec.kind === 'metric_card' ? 4 :
+    spec.kind === 'status_list' ? Math.min(4 + ((spec as any).items?.length || 3), 12) :
+    spec.kind === 'badge_list' ? 3 :
+    spec.kind === 'key_value' ? Math.min(4 + ((spec as any).pairs?.length || 2), 10) :
+    spec.kind === 'chart' ? 12 :
+    spec.kind === 'data_table' ? Math.min(4 + rows, 16) :
+    spec.kind === 'log_viewer' ? 12 :
+    spec.kind === 'yaml_viewer' ? 10 :
+    spec.kind === 'tabs' ? 16 :
+    spec.kind === 'bar_list' ? 8 :
+    spec.kind === 'progress_list' ? 8 :
+    spec.kind === 'stat_card' ? 4 :
+    6
+  );
+}
+
 function generateDefaultLayout(specs: ComponentSpec[], templateId?: string): ReactGridLayout.Layout[] {
-  // Try template-based layout first
   if (templateId) {
     const result = applyTemplate(templateId, specs);
     if (result) {
@@ -40,28 +64,7 @@ function generateDefaultLayout(specs: ComponentSpec[], templateId?: string): Rea
 
   let y = 0;
   return specs.map((spec, i) => {
-    // Height based on content type
-    // Heights tuned for rowHeight=30px (1 unit = 30px + 16px margin)
-    const rows = spec.kind === 'data_table' ? (spec as any).rows?.length || 5 : 0;
-    const gridItems = spec.kind === 'grid' ? ((spec as any).items?.length || 0) : 0;
-    const gridCols = spec.kind === 'grid' ? ((spec as any).columns || 2) : 1;
-    const gridRows = Math.ceil(gridItems / gridCols);
-    const h =
-      spec.kind === 'info_card_grid' ? 5 :
-      spec.kind === 'grid' ? (3 + gridRows * 4) :
-      spec.kind === 'metric_card' ? 4 :
-      spec.kind === 'status_list' ? Math.min(4 + ((spec as any).items?.length || 3), 12) :
-      spec.kind === 'badge_list' ? 3 :
-      spec.kind === 'key_value' ? Math.min(4 + ((spec as any).pairs?.length || 2), 10) :
-      spec.kind === 'chart' ? 12 :
-      spec.kind === 'data_table' ? Math.min(4 + rows, 16) :
-      spec.kind === 'log_viewer' ? 12 :
-      spec.kind === 'yaml_viewer' ? 10 :
-      spec.kind === 'tabs' ? 16 :
-      spec.kind === 'bar_list' ? 8 :
-      spec.kind === 'progress_list' ? 8 :
-      spec.kind === 'stat_card' ? 4 :
-      6;
+    const h = idealHeight(spec);
     const layout = { i: String(i), x: 0, y, w: 4, h, minW: 1, minH: 2 };
     y += h;
     return layout;
@@ -77,14 +80,16 @@ function layoutToPositions(layout: ReactGridLayout.Layout[]): Record<number, { x
   return positions;
 }
 
-/** Convert our positions map to react-grid-layout Layout[] */
-function positionsToLayout(positions: Record<number, { x: number; y: number; w: number; h: number }>, count: number): ReactGridLayout.Layout[] {
-  return Array.from({ length: count }, (_, i) => {
+/** Convert our positions map to react-grid-layout Layout[], clamping heights to content */
+function positionsToLayout(positions: Record<number, { x: number; y: number; w: number; h: number }>, specs: ComponentSpec[]): ReactGridLayout.Layout[] {
+  return Array.from({ length: specs.length }, (_, i) => {
     const pos = positions[i];
+    const ideal = idealHeight(specs[i]);
     if (pos) {
-      return { i: String(i), ...pos, minW: 1, minH: 2 };
+      // Clamp saved height to ideal — prevents oversized cells from stale positions
+      return { i: String(i), ...pos, h: Math.min(pos.h, ideal), minW: 1, minH: 2 };
     }
-    return { i: String(i), x: 0, y: i * 5, w: 4, h: 5, minW: 2, minH: 1 };
+    return { i: String(i), x: 0, y: i * 5, w: 4, h: ideal, minW: 1, minH: 2 };
   });
 }
 
@@ -180,7 +185,7 @@ export default function CustomView() {
   const currentLayout = useMemo(() => {
     if (!view) return [];
     if (view.positions && Object.keys(view.positions).length > 0) {
-      return positionsToLayout(view.positions, view.layout.length);
+      return positionsToLayout(view.positions, view.layout);
     }
     return generateDefaultLayout(view.layout, view.templateId);
   }, [view]);
