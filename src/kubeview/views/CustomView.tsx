@@ -48,8 +48,8 @@ function generateDefaultLayout(specs: ComponentSpec[], templateId?: string): Rea
     const gridRows = Math.ceil(gridItems / gridCols);
     const h =
       spec.kind === 'info_card_grid' ? 3 :
-      spec.kind === 'grid' ? Math.max(5, 2 + gridRows * 3) :
-      spec.kind === 'metric_card' ? 3 :
+      spec.kind === 'grid' ? (2 + gridRows * 2) :
+      spec.kind === 'metric_card' ? 2 :
       spec.kind === 'status_list' ? Math.min(2 + Math.ceil(((spec as any).items?.length || 3) / 2), 6) :
       spec.kind === 'badge_list' ? 2 :
       spec.kind === 'key_value' ? Math.min(2 + Math.ceil(((spec as any).pairs?.length || 2) / 2), 5) :
