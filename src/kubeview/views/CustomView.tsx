@@ -48,8 +48,8 @@ function generateDefaultLayout(specs: ComponentSpec[], templateId?: string): Rea
     const gridRows = Math.ceil(gridItems / gridCols);
     const h =
       spec.kind === 'info_card_grid' ? 3 :
-      spec.kind === 'grid' ? Math.max(3, 1 + gridRows * 2) :
-      spec.kind === 'metric_card' ? 2 :
+      spec.kind === 'grid' ? Math.max(5, 2 + gridRows * 3) :
+      spec.kind === 'metric_card' ? 3 :
       spec.kind === 'status_list' ? Math.min(2 + Math.ceil(((spec as any).items?.length || 3) / 2), 6) :
       spec.kind === 'badge_list' ? 2 :
       spec.kind === 'key_value' ? Math.min(2 + Math.ceil(((spec as any).pairs?.length || 2) / 2), 5) :
@@ -166,8 +166,8 @@ export default function CustomView() {
     if (!editMode) return;
     const style = document.createElement('style');
     style.textContent = `
-      .react-resizable-handle { background: none !important; width: 20px !important; height: 20px !important; }
-      .react-resizable-handle::after { content: ''; position: absolute; right: 6px; bottom: 6px; width: 8px; height: 8px; border-right: 2px solid #7c3aed; border-bottom: 2px solid #7c3aed; }
+      .react-resizable-handle { background: none !important; width: 28px !important; height: 28px !important; }
+      .react-resizable-handle::after { content: ''; position: absolute; right: 4px; bottom: 4px; width: 14px; height: 14px; border-right: 3px solid #7c3aed; border-bottom: 3px solid #7c3aed; border-radius: 2px; }
       .react-grid-item.react-grid-placeholder { background: rgba(124,58,237,0.15) !important; border: 1px dashed #7c3aed !important; border-radius: 8px; }
     `;
     document.head.appendChild(style);
@@ -373,15 +373,18 @@ export default function CustomView() {
             onLayoutChange={handleLayoutChange}
             draggableHandle=".widget-drag-handle"
             margin={[16, 16]}
+            useCSSTransforms={true}
+            compactType="vertical"
           >
             {view.layout.map((spec, i) => (
-              <div key={String(i)} className={`rounded-lg border bg-slate-900/80 p-3 relative group overflow-hidden transition-colors ${editMode ? 'border-slate-700 border-dashed' : 'border-slate-800 hover:border-slate-700'}`}>
+              <div key={String(i)} className={`rounded-lg border bg-slate-900/80 p-3 relative group overflow-y-auto overflow-x-hidden transition-colors ${editMode ? 'border-slate-700 border-dashed' : 'border-slate-800 hover:border-slate-700'}`}>
                 {editMode && (
                   <>
-                    <div className="widget-drag-handle absolute top-2 left-2 p-1 cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 transition-colors">
-                      <GripVertical className="w-4 h-4" />
+                    <div className="widget-drag-handle absolute inset-x-0 top-0 h-10 cursor-grab active:cursor-grabbing flex items-center px-3 bg-slate-800/50 rounded-t-lg border-b border-slate-700/50">
+                      <GripVertical className="w-4 h-4 text-slate-500" />
+                      <span className="text-[10px] text-slate-500 ml-1.5 select-none">Drag to move</span>
                     </div>
-                    <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                    <div className="absolute top-1.5 right-2 flex items-center gap-1 z-10">
                       <button
                         onClick={() => setWidgetToRemove(i)}
                         className="p-1 rounded bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
@@ -401,7 +404,7 @@ export default function CustomView() {
                     <Trash2 className="w-3 h-3" />
                   </button>
                 )}
-                <div className={editMode ? 'pl-6' : ''}>
+                <div className={editMode ? 'pt-10' : ''}>
                   {/* Editable widget title in edit mode */}
                   {editMode && (spec as any).title && (
                     <input
