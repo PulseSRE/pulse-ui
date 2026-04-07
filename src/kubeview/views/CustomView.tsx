@@ -405,18 +405,33 @@ export default function CustomView() {
                   </button>
                 )}
                 <div className={editMode ? 'pt-10' : ''}>
-                  {/* Editable widget title in edit mode */}
-                  {editMode && (spec as any).title && (
-                    <input
-                      defaultValue={(spec as any).title}
-                      onBlur={(e) => {
-                        if (e.target.value !== (spec as any).title) {
-                          updateWidget(view.id, i, { title: e.target.value } as any);
-                        }
-                      }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                      className="w-full text-xs font-medium text-slate-300 bg-transparent border-b border-slate-700 focus:border-violet-500 outline-none mb-1 px-1 py-0.5"
-                    />
+                  {/* Editable widget title and description in edit mode */}
+                  {editMode && (
+                    <>
+                      {(spec as any).title && (
+                        <input
+                          defaultValue={(spec as any).title}
+                          onBlur={(e) => {
+                            if (e.target.value !== (spec as any).title) {
+                              updateWidget(view.id, i, { title: e.target.value } as any);
+                            }
+                          }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                          className="w-full text-xs font-medium text-slate-300 bg-transparent border-b border-slate-700 focus:border-violet-500 outline-none mb-1 px-1 py-0.5"
+                        />
+                      )}
+                      <input
+                        defaultValue={(spec as any).description || ''}
+                        placeholder="Add description..."
+                        onBlur={(e) => {
+                          if (e.target.value !== ((spec as any).description || '')) {
+                            updateWidget(view.id, i, { description: e.target.value } as any);
+                          }
+                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        className="w-full text-[10px] text-slate-500 bg-transparent border-b border-slate-700/50 focus:border-violet-500 outline-none mb-1 px-1 py-0.5"
+                      />
+                    </>
                   )}
                   <ErrorBoundary>
                     <AgentComponentRenderer spec={spec} refreshInterval={refreshInterval || undefined} />
