@@ -81,9 +81,10 @@ function layoutToPositions(layout: ReactGridLayout.Layout[]): Record<number, { x
 }
 
 /** Convert our positions map to react-grid-layout Layout[], clamping heights to content */
-function positionsToLayout(positions: Record<number, { x: number; y: number; w: number; h: number }>, specs: ComponentSpec[]): ReactGridLayout.Layout[] {
+function positionsToLayout(positions: Record<string | number, { x: number; y: number; w: number; h: number }>, specs: ComponentSpec[]): ReactGridLayout.Layout[] {
   return Array.from({ length: specs.length }, (_, i) => {
-    const pos = positions[i];
+    // JSON keys are strings, so check both numeric and string keys
+    const pos = positions[i] || positions[String(i)];
     const ideal = idealHeight(specs[i]);
     if (pos) {
       // Clamp saved height to ideal — prevents oversized cells from stale positions
