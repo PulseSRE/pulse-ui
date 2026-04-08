@@ -30,6 +30,7 @@ function idealWidth(spec: ComponentSpec): number {
   if (spec.kind === 'chart' || spec.kind === 'log_viewer') return 2;
   if (spec.kind === 'key_value' || spec.kind === 'yaml_viewer' || spec.kind === 'relationship_tree') return 2;
   if (spec.kind === 'bar_list' || spec.kind === 'progress_list') return 2;
+  if (spec.kind === 'timeline') return 4;
   return 4; // data_table, grid, status_list, tabs, section — full width
 }
 
@@ -54,6 +55,7 @@ export function idealHeight(spec: ComponentSpec): number {
     spec.kind === 'bar_list' ? 6 :
     spec.kind === 'progress_list' ? 6 :
     spec.kind === 'stat_card' ? 3 :
+    spec.kind === 'timeline' ? 8 :
     5
   );
 }

@@ -132,7 +132,11 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
   const timeStr = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className={cn('flex gap-3 items-start group', isUser && 'flex-row-reverse')} role="article" aria-label={`${isUser ? 'You' : 'Agent'} at ${timeStr}`}>
+    <div className={cn(
+      'flex gap-3 items-start group',
+      isUser && 'flex-row-reverse',
+      isUser ? 'animate-[kv-msg-in-right_0.2s_ease-out_both]' : 'animate-[kv-msg-in-left_0.2s_ease-out_both]',
+    )} role="article" aria-label={`${isUser ? 'You' : 'Agent'} at ${timeStr}`}>
       {isUser ? (
         <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center shrink-0" aria-hidden="true">
           <span className="text-xs font-medium">You</span>

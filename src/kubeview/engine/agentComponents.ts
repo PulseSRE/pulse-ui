@@ -22,7 +22,8 @@ export type ComponentSpec =
   | NodeMapSpec
   | BarListSpec
   | ProgressListSpec
-  | StatCardSpec;
+  | StatCardSpec
+  | TimelineSpec;
 
 export interface RelationshipTreeSpec {
   kind: 'relationship_tree';
@@ -232,6 +233,29 @@ export interface StatCardSpec {
   trendGood?: 'up' | 'down';
   description?: string;
   status?: 'healthy' | 'warning' | 'error';
+}
+
+export interface TimelineSpec {
+  kind: 'timeline';
+  title?: string;
+  description?: string;
+  lanes: Array<{
+    label: string;
+    category: 'alert' | 'event' | 'rollout' | 'config';
+    events: Array<{
+      timestamp: number;
+      endTimestamp?: number;
+      label: string;
+      severity: 'critical' | 'warning' | 'info' | 'normal';
+      detail?: string;
+    }>;
+  }>;
+  correlations?: Array<{
+    from: number;
+    to: number;
+    label: string;
+  }>;
+  timeRange?: { start: number; end: number };
 }
 
 export interface ViewSpec {

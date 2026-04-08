@@ -102,6 +102,49 @@
   background: var(--kv-text-dim);
 }
 
+/* Micro-animations */
+.openshiftpulse button {
+  transition: transform var(--kv-transition-fast), background-color var(--kv-transition-fast), color var(--kv-transition-fast), border-color var(--kv-transition-fast), box-shadow var(--kv-transition-fast);
+}
+.openshiftpulse button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Focus ring */
+.openshiftpulse button:focus-visible,
+.openshiftpulse input:focus-visible,
+.openshiftpulse a:focus-visible {
+  outline: 2px solid var(--kv-pulse);
+  outline-offset: 2px;
+}
+
+/* Card/panel transitions */
+.openshiftpulse [class*="rounded-lg"][class*="border"] {
+  transition: border-color var(--kv-transition-fast), box-shadow var(--kv-transition-fast);
+}
+
+/* Staggered entrance */
+@keyframes kv-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.kv-enter { animation: kv-enter 0.3s ease-out both; }
+.kv-enter-1 { animation-delay: 0.05s; }
+.kv-enter-2 { animation-delay: 0.1s; }
+.kv-enter-3 { animation-delay: 0.15s; }
+.kv-enter-4 { animation-delay: 0.2s; }
+
+/* Chat message entrance */
+@keyframes kv-msg-in-left { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes kv-msg-in-right { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+.kv-msg-left { animation: kv-msg-in-left 0.2s ease-out both; }
+.kv-msg-right { animation: kv-msg-in-right 0.2s ease-out both; }
+
+/* Tooltip fade */
+@keyframes kv-tooltip-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.kv-tooltip { animation: kv-tooltip-in 0.15s ease-out both; }
+
+/* Status dot pulse */
+@keyframes kv-dot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.3); } }
+.kv-dot-pulse { animation: kv-dot-pulse 2s ease-in-out infinite; }
+
 /* Typography refinements */
 .openshiftpulse h1, .openshiftpulse h2, .openshiftpulse h3 {
   letter-spacing: -0.025em;
