@@ -72,6 +72,24 @@ export default function ToolsView() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Shared: ToolCard                                                    */
+/* ------------------------------------------------------------------ */
+
+function ToolCard({ tool }: { tool: ToolInfo }) {
+  return (
+    <div className="bg-slate-900/50 border border-slate-800/50 rounded-md px-3 py-2 space-y-0.5">
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs font-mono text-slate-200">{tool.name}</span>
+        {tool.requires_confirmation && (
+          <span className="text-[10px] px-1 py-0.5 rounded bg-amber-900/30 text-amber-400 border border-amber-800/30">write</span>
+        )}
+      </div>
+      <p className="text-[11px] text-slate-500 line-clamp-1">{tool.description}</p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Catalog Tab                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -124,6 +142,7 @@ function CatalogTab() {
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <input
+            aria-label="Search tools"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tools..."
@@ -131,6 +150,7 @@ function CatalogTab() {
           />
         </div>
         <select
+          aria-label="Filter by agent mode"
           value={modeFilter}
           onChange={(e) => setModeFilter(e.target.value)}
           className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -147,43 +167,18 @@ function CatalogTab() {
         <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>
       ) : (
         <div className="space-y-4">
-          {categories.sort().map((cat) => (
-            <div key={cat}>
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">{cat}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {filtered.filter((t) => t.category === cat).map((t) => (
-                  <div key={t.name} className="bg-slate-900/50 border border-slate-800/50 rounded-md px-3 py-2 space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-mono text-slate-200">{t.name}</span>
-                      {t.requires_confirmation && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-900/30 text-amber-400 border border-amber-800/30">write</span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-500 line-clamp-1">{t.description}</p>
-                  </div>
-                ))}
+          {[...categories.sort(), ...(filtered.some((t) => !t.category) ? ['uncategorized'] : [])].map((cat) => {
+            const catTools = filtered.filter((t) => cat === 'uncategorized' ? !t.category : t.category === cat);
+            if (catTools.length === 0) return null;
+            return (
+              <div key={cat}>
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">{cat}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {catTools.map((t) => <ToolCard key={t.name} tool={t} />)}
+                </div>
               </div>
-            </div>
-          ))}
-          {/* Uncategorized */}
-          {filtered.filter((t) => !t.category).length > 0 && (
-            <div>
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">uncategorized</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {filtered.filter((t) => !t.category).map((t) => (
-                  <div key={t.name} className="bg-slate-900/50 border border-slate-800/50 rounded-md px-3 py-2 space-y-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-mono text-slate-200">{t.name}</span>
-                      {t.requires_confirmation && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-900/30 text-amber-400 border border-amber-800/30">write</span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-500 line-clamp-1">{t.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
     </div>
@@ -209,6 +204,7 @@ function UsageTab() {
       {/* Filters row */}
       <div className="flex items-center gap-2 flex-wrap">
         <input
+          aria-label="Filter by tool name"
           value={toolFilter}
           onChange={(e) => setToolFilter(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && loadUsage({ tool_name: toolFilter || undefined, page: 1 })}
@@ -216,6 +212,7 @@ function UsageTab() {
           className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 w-36 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         <select
+          aria-label="Filter by agent mode"
           value={modeFilter}
           onChange={(e) => { setModeFilter(e.target.value); loadUsage({ agent_mode: e.target.value || undefined, page: 1 }); }}
           className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -226,6 +223,7 @@ function UsageTab() {
           <option value="view_designer">View Designer</option>
         </select>
         <select
+          aria-label="Filter by status"
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); loadUsage({ status: e.target.value || undefined, page: 1 }); }}
           className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -243,15 +241,15 @@ function UsageTab() {
         <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>
       ) : usage && usage.entries.length > 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs" aria-label="Tool usage log">
             <thead>
               <tr className="border-b border-slate-800">
-                <th className="text-left py-2 px-3 text-slate-400 font-medium">Time</th>
-                <th className="text-left py-2 px-3 text-slate-400 font-medium">Tool</th>
-                <th className="text-left py-2 px-3 text-slate-400 font-medium">Mode</th>
-                <th className="text-left py-2 px-3 text-slate-400 font-medium">Status</th>
-                <th className="text-right py-2 px-3 text-slate-400 font-medium">Duration</th>
-                <th className="text-right py-2 px-3 text-slate-400 font-medium">Size</th>
+                <th scope="col" className="text-left py-2 px-3 text-slate-400 font-medium">Time</th>
+                <th scope="col" className="text-left py-2 px-3 text-slate-400 font-medium">Tool</th>
+                <th scope="col" className="text-left py-2 px-3 text-slate-400 font-medium">Mode</th>
+                <th scope="col" className="text-left py-2 px-3 text-slate-400 font-medium">Status</th>
+                <th scope="col" className="text-right py-2 px-3 text-slate-400 font-medium">Duration</th>
+                <th scope="col" className="text-right py-2 px-3 text-slate-400 font-medium">Size</th>
               </tr>
             </thead>
             <tbody>
@@ -269,9 +267,10 @@ function UsageTab() {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
+            aria-label="Previous page"
             disabled={filters.page <= 1}
             onClick={() => loadUsage({ page: filters.page - 1 })}
-            className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30"
+            className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -279,9 +278,10 @@ function UsageTab() {
             Page {filters.page} of {totalPages}
           </span>
           <button
+            aria-label="Next page"
             disabled={filters.page >= totalPages}
             onClick={() => loadUsage({ page: filters.page + 1 })}
-            className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30"
+            className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -295,11 +295,23 @@ function UsageRow({ entry: e }: { entry: ToolUsageEntry }) {
   const [expanded, setExpanded] = useState(false);
   const time = new Date(e.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
+  const handleKeyDown = (ev: React.KeyboardEvent) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      setExpanded(!expanded);
+    }
+  };
+
   return (
     <>
       <tr
         className="border-b border-slate-800/50 hover:bg-slate-800/30 cursor-pointer"
         onClick={() => setExpanded(!expanded)}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="button"
+        aria-expanded={expanded}
+        aria-label={`${e.tool_name} — ${e.status} — ${e.duration_ms}ms`}
       >
         <td className="py-1.5 px-3 text-slate-400">{time}</td>
         <td className="py-1.5 px-3 font-mono text-slate-200">{e.tool_name}</td>
@@ -368,7 +380,14 @@ function StatsTab() {
           {stats.by_tool.slice(0, 10).map((t) => (
             <div key={t.tool_name} className="flex items-center gap-2 text-xs">
               <span className="w-36 truncate font-mono text-slate-300">{t.tool_name}</span>
-              <div className="flex-1 h-4 bg-slate-800 rounded-sm overflow-hidden">
+              <div
+                className="flex-1 h-4 bg-slate-800 rounded-sm overflow-hidden"
+                role="meter"
+                aria-label={`${t.tool_name}: ${t.count} calls`}
+                aria-valuenow={t.count}
+                aria-valuemin={0}
+                aria-valuemax={maxCount}
+              >
                 <div
                   className="h-full bg-blue-600/60 rounded-sm"
                   style={{ width: `${(t.count / maxCount) * 100}%` }}
@@ -460,7 +479,6 @@ function UnusedToolsSection({ tools, usedTools }: { tools: { sre: ToolInfo[]; se
   const usedCount = allTools.length - unused.length;
   const usagePct = allTools.length > 0 ? Math.round((usedCount / allTools.length) * 100) : 0;
 
-  // Group unused by category
   const byCategory: Record<string, string[]> = {};
   for (const t of unused) {
     const cat = t.category || 'uncategorized';
@@ -474,16 +492,15 @@ function UnusedToolsSection({ tools, usedTools }: { tools: { sre: ToolInfo[]; se
         <span className="text-xs text-slate-500">{usedCount}/{allTools.length} used ({usagePct}%)</span>
       </div>
 
-      {/* Coverage bar */}
-      <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+      <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-4" role="meter" aria-label={`Tool coverage: ${usagePct}%`} aria-valuenow={usagePct} aria-valuemin={0} aria-valuemax={100}>
         <div className="h-full bg-emerald-600/70 rounded-full" style={{ width: `${usagePct}%` }} />
       </div>
 
       {unused.length === 0 ? (
-        <p className="text-xs text-emerald-400">All tools have been used — nice!</p>
+        <p className="text-xs text-emerald-400">All tools have been used</p>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-amber-400">{unused.length} tools never called — consider removing from harness to reduce prompt size</p>
+          <p className="text-xs text-amber-400">{unused.length} tools never called</p>
           {Object.entries(byCategory).sort(([, a], [, b]) => b.length - a.length).map(([cat, names]) => (
             <div key={cat}>
               <div className="text-[11px] text-slate-400 mb-1">{cat} ({names.length})</div>
