@@ -47,7 +47,7 @@ describe('MemoryView', () => {
 
   it('renders page header', () => {
     renderView();
-    expect(screen.getByText("What I've Learned")).toBeDefined();
+    expect(screen.getByText("Agent Intelligence")).toBeDefined();
   });
 
   it('renders subtitle', () => {

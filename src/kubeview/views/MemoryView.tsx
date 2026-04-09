@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, ThumbsUp, Zap, History } from 'lucide-react';
+import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, ThumbsUp, Zap, History, Target, FileText, Activity, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
@@ -14,6 +14,7 @@ interface Runbook {
   tool_sequence: string[];
   success_count: number;
   total_count: number;
+  trigger_keywords?: string[];
 }
 
 interface Pattern {
@@ -29,6 +30,20 @@ interface Incident {
   outcome: string;
   score: number;
   timestamp?: number;
+  tools_used?: string[];
+}
+
+interface MemorySummary {
+  incidents_count: number;
+  runbooks_count: number;
+  patterns_count: number;
+  avg_score: number;
+}
+
+async function fetchSummary(): Promise<MemorySummary> {
+  const res = await fetch(`${AGENT_BASE}/memory/summary`);
+  if (!res.ok) throw new Error('Failed to fetch summary');
+  return await res.json();
 }
 
 async function fetchRunbooks(): Promise<Runbook[]> {
@@ -57,6 +72,13 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
   const [activeTab, setActiveTab] = useState<Tab>('incidents');
   const [search, setSearch] = useState('');
   const [expandedRunbook, setExpandedRunbook] = useState<string | null>(null);
+  const [expandedIncident, setExpandedIncident] = useState<number | null>(null);
+
+  const { data: summary } = useQuery({
+    queryKey: ['memory', 'summary'],
+    queryFn: fetchSummary,
+    staleTime: 30_000,
+  });
 
   const { data: runbooks = [], isLoading: rbLoading } = useQuery({
     queryKey: ['memory', 'runbooks'],
@@ -97,6 +119,24 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
     },
   };
 
+  const getSuccessRate = (successCount: number, totalCount: number) => {
+    if (totalCount === 0) return 0;
+    return (successCount / totalCount) * 100;
+  };
+
+  const getSuccessRateColor = (rate: number) => {
+    if (rate > 80) return 'bg-emerald-900/50 text-emerald-300';
+    if (rate > 50) return 'bg-amber-900/50 text-amber-300';
+    return 'bg-red-900/50 text-red-300';
+  };
+
+  const getPatternTypeColor = (type: string) => {
+    if (type === 'recurring') return 'bg-amber-900/50 text-amber-300';
+    if (type === 'time-based') return 'bg-blue-900/50 text-blue-300';
+    if (type === 'correlation') return 'bg-violet-900/50 text-violet-300';
+    return 'bg-slate-800 text-slate-400';
+  };
+
   return (
     <div className={embedded ? '' : 'h-full overflow-auto bg-slate-950 p-6'}>
       <div className={embedded ? 'space-y-6' : 'max-w-5xl mx-auto space-y-6'}>
@@ -104,12 +144,62 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         {!embedded && (
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Brain className="w-6 h-6 text-violet-500" />
-              What I've Learned
+              <Brain className="w-6 h-6 text-blue-500" />
+              Agent Intelligence
             </h1>
             <p className="text-sm text-slate-400 mt-1">
               The agent learns from every interaction. Give thumbs up on helpful responses to teach it reusable runbooks.
             </p>
+          </div>
+        )}
+
+        {/* Summary Cards */}
+        {!embedded && summary && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-500/10 rounded-lg">
+                  <History className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-slate-100">{summary.incidents_count}</div>
+                  <div className="text-xs text-slate-400">Incidents</div>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                  <BookOpen className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-slate-100">{summary.runbooks_count}</div>
+                  <div className="text-xs text-slate-400">Runbooks</div>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-violet-500/10 rounded-lg">
+                  <TrendingUp className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-slate-100">{summary.patterns_count}</div>
+                  <div className="text-xs text-slate-400">Patterns</div>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-500/10 rounded-lg">
+                  <Award className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-slate-100">{summary.avg_score.toFixed(1)}</div>
+                  <div className="text-xs text-slate-400">Avg Score / 10</div>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -155,44 +245,70 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 description="When you give thumbs up on a helpful agent response that used 2+ tools, the tool sequence is extracted as a reusable runbook. Try asking the agent to diagnose an issue, then give it a thumbs up."
               />
             )}
-            {runbooks.map((rb) => (
-              <Card key={rb.name} className="p-4">
-                <button
-                  onClick={() => setExpandedRunbook(expandedRunbook === rb.name ? null : rb.name)}
-                  className="w-full text-left flex items-start gap-3"
-                  aria-expanded={expandedRunbook === rb.name}
-                >
-                  {expandedRunbook === rb.name ? (
-                    <ChevronDown className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
-                  )}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-200">{rb.name}</span>
-                      <span className="text-xs text-emerald-400 flex items-center gap-1">
-                        <ThumbsUp className="w-3 h-3" />
-                        {rb.success_count}/{rb.total_count}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-0.5">{rb.description}</p>
-                  </div>
-                </button>
-                {expandedRunbook === rb.name && (
-                  <div className="mt-3 ml-7 pl-3 border-l-2 border-slate-700">
-                    <div className="text-xs font-medium text-slate-400 mb-2">Tool Sequence (the steps the agent will follow)</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {rb.tool_sequence.map((tool, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">
-                          {i > 0 && <span className="text-slate-600 mr-1">→</span>}
-                          {tool}
+            {runbooks.map((rb) => {
+              const successRate = getSuccessRate(rb.success_count, rb.total_count);
+              return (
+                <Card key={rb.name} className="p-4">
+                  <div className="flex items-start gap-3">
+                    <BookOpen className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-200">{rb.name}</h3>
+                          <p className="text-xs text-slate-400 mt-1">{rb.description}</p>
+                        </div>
+                        <span className={cn('text-xs px-2 py-0.5 rounded shrink-0', getSuccessRateColor(successRate))}>
+                          {successRate.toFixed(0)}% success
                         </span>
-                      ))}
+                      </div>
+                      {rb.trigger_keywords && rb.trigger_keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {rb.trigger_keywords.map((kw, i) => (
+                            <span key={i} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {rb.tool_sequence.map((tool, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            {i > 0 && <span className="text-slate-600">→</span>}
+                            <span className="text-xs bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded font-mono border border-blue-800/50">
+                              {tool}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {expandedRunbook === rb.name && (
+                        <div className="mt-3 pt-3 border-t border-slate-700">
+                          <div className="text-xs text-slate-500 space-y-1">
+                            <div>Success: {rb.success_count} / {rb.total_count} invocations</div>
+                            <div>Tools: {rb.tool_sequence.length} steps</div>
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setExpandedRunbook(expandedRunbook === rb.name ? null : rb.name)}
+                        className="text-xs text-blue-400 hover:text-blue-300 mt-2 flex items-center gap-1"
+                      >
+                        {expandedRunbook === rb.name ? (
+                          <>
+                            <ChevronDown className="w-3 h-3" />
+                            Hide details
+                          </>
+                        ) : (
+                          <>
+                            <ChevronRight className="w-3 h-3" />
+                            Show details
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
-                )}
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -207,31 +323,44 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 description="Patterns are detected automatically after every 10 incidents. Keep using the agent and patterns will emerge from your interaction history."
               />
             )}
-            {patterns.map((pat, i) => (
-              <Card key={i} className="p-4">
-                <div className="flex items-start gap-3">
-                  <span className={cn(
-                    'text-xs px-1.5 py-0.5 rounded font-medium shrink-0',
-                    pat.pattern_type === 'recurring' ? 'bg-amber-900/50 text-amber-300' : 'bg-blue-900/50 text-blue-300',
-                  )}>
-                    {pat.pattern_type}
-                  </span>
-                  <div>
-                    <div className="text-sm text-slate-200">{pat.description}</div>
-                    {pat.keywords && (Array.isArray(pat.keywords) ? pat.keywords : [pat.keywords]).length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {(Array.isArray(pat.keywords) ? pat.keywords : [pat.keywords]).map((kw: string, j: number) => (
-                          <span key={j} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">{kw}</span>
-                        ))}
+            {patterns.map((pat, i) => {
+              // Clean up description - remove JSON artifacts
+              const cleanDescription = pat.description
+                .replace(/^["']|["']$/g, '')
+                .replace(/\\n/g, ' ')
+                .trim();
+
+              return (
+                <Card key={i} className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Activity className="w-5 h-5 text-violet-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="text-sm text-slate-200">{cleanDescription}</p>
+                        <span className={cn('text-xs px-2 py-0.5 rounded font-medium shrink-0', getPatternTypeColor(pat.pattern_type))}>
+                          {pat.pattern_type}
+                        </span>
                       </div>
-                    )}
-                    {pat.frequency > 1 && (
-                      <span className="text-xs text-slate-500 mt-1 inline-block">Seen {pat.frequency}x</span>
-                    )}
+                      {pat.keywords && (Array.isArray(pat.keywords) ? pat.keywords : [pat.keywords]).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {(Array.isArray(pat.keywords) ? pat.keywords : [pat.keywords]).map((kw: string, j: number) => (
+                            <span key={j} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {pat.frequency > 0 && (
+                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                          <Target className="w-3 h-3" />
+                          Detected {pat.frequency}x
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -257,37 +386,111 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 description={search ? 'Try a different search term.' : 'Every agent interaction is automatically recorded and scored. Start chatting with the agent to build your incident history.'}
               />
             )}
-            {incidents.map((inc, i) => (
-              <Card key={i} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-200">{inc.query}</p>
-                    {inc.resolution && (
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{inc.resolution}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className={cn(
-                      'text-xs px-1.5 py-0.5 rounded',
-                      inc.outcome === 'resolved' ? 'bg-emerald-900/50 text-emerald-300' :
-                      inc.outcome === 'unresolved' ? 'bg-red-900/50 text-red-300' :
-                      'bg-slate-800 text-slate-400',
-                    )}>
-                      {inc.outcome || 'pending'}
-                    </span>
-                    <span
-                      className={cn(
-                        'text-xs font-mono',
-                        (inc.score ?? 0) >= 0.8 ? 'text-emerald-400' : (inc.score ?? 0) >= 0.5 ? 'text-amber-400' : 'text-slate-500',
+            {incidents.map((inc, i) => {
+              const isExpanded = expandedIncident === i;
+              const scoreValue = inc.score ?? 0;
+              const scorePercent = scoreValue * 10; // Convert 0-10 scale to 0-100%
+
+              return (
+                <Card key={i} className="p-4">
+                  <div className="flex items-start gap-3">
+                    <History className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <p className="text-sm text-slate-200 flex-1 line-clamp-2">
+                          {inc.query.length > 120 ? `${inc.query.slice(0, 120)}...` : inc.query}
+                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={cn(
+                            'text-xs px-2 py-0.5 rounded',
+                            inc.outcome === 'resolved' ? 'bg-emerald-900/50 text-emerald-300' :
+                            inc.outcome === 'unresolved' ? 'bg-red-900/50 text-red-300' :
+                            'bg-slate-800 text-slate-400',
+                          )}>
+                            {inc.outcome || 'unknown'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Score bar */}
+                      <div className="mb-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-slate-400">Quality</span>
+                          <span className={cn(
+                            'text-xs font-mono font-semibold',
+                            scoreValue >= 8 ? 'text-emerald-400' :
+                            scoreValue >= 5 ? 'text-amber-400' :
+                            'text-red-400',
+                          )}>
+                            {scoreValue.toFixed(1)}/10
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              'h-full transition-all',
+                              scoreValue >= 8 ? 'bg-emerald-500' :
+                              scoreValue >= 5 ? 'bg-amber-500' :
+                              'bg-red-500',
+                            )}
+                            style={{ width: `${scorePercent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {inc.timestamp && (
+                        <div className="text-xs text-slate-500 mb-2">
+                          {formatRelativeTime(inc.timestamp)}
+                        </div>
                       )}
-                      title={`Quality score: ${(inc.score ?? 0).toFixed(2)} (resolution 40%, efficiency 30%, safety 20%, speed 10%)`}
-                    >
-                      {inc.score?.toFixed(2) ?? '—'}
-                    </span>
+
+                      {isExpanded && (
+                        <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
+                          {inc.resolution && (
+                            <div>
+                              <div className="text-xs font-medium text-slate-400 mb-1">Resolution</div>
+                              <p className="text-xs text-slate-300">{inc.resolution}</p>
+                            </div>
+                          )}
+                          {inc.tools_used && inc.tools_used.length > 0 && (
+                            <div>
+                              <div className="text-xs font-medium text-slate-400 mb-1">Tools Used</div>
+                              <div className="flex flex-wrap gap-1">
+                                {inc.tools_used.map((tool, j) => (
+                                  <span key={j} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                                    {tool}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="text-xs text-slate-500">
+                            Score breakdown: resolution 40%, efficiency 30%, safety 20%, speed 10%
+                          </div>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => setExpandedIncident(isExpanded ? null : i)}
+                        className="text-xs text-blue-400 hover:text-blue-300 mt-2 flex items-center gap-1"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <ChevronDown className="w-3 h-3" />
+                            Hide details
+                          </>
+                        ) : (
+                          <>
+                            <ChevronRight className="w-3 h-3" />
+                            Show details
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
