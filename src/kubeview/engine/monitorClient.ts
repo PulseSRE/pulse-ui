@@ -99,6 +99,22 @@ export interface Resolution {
   timestamp: number;
 }
 
+export interface ScanReport {
+  scanId: number;
+  duration_ms: number;
+  total_findings: number;
+  scanners: Array<{
+    name: string;
+    displayName: string;
+    description: string;
+    duration_ms: number;
+    findings_count: number;
+    checks: string[];
+    status: 'clean' | 'warning' | 'error';
+  }>;
+  timestamp: number;
+}
+
 export type MonitorEvent =
   | ({ type: 'finding' } & Finding)
   | ({ type: 'action_report' } & ActionReport)
@@ -106,6 +122,7 @@ export type MonitorEvent =
   | ({ type: 'investigation_report' } & InvestigationReport)
   | ({ type: 'verification_report' } & VerificationReport)
   | ({ type: 'resolution' } & Resolution)
+  | ({ type: 'scan_report' } & ScanReport)
   | ({ type: 'monitor_status' } & MonitorStatus)
   | { type: 'findings_snapshot'; activeIds: string[]; timestamp: number }
   | { type: 'connected' }

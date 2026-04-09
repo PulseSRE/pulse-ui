@@ -36,6 +36,7 @@ interface MonitorState {
   lastScanTime: number;
   nextScanTime: number;
   activeWatches: string[];
+  scanReport: any;
 
   // Data
   findings: Finding[];
@@ -90,6 +91,7 @@ export const useMonitorStore = create<MonitorState>()(
       lastScanTime: 0,
       nextScanTime: 0,
       activeWatches: [],
+      scanReport: null,
 
       // Data
       findings: [],
@@ -236,6 +238,11 @@ export const useMonitorStore = create<MonitorState>()(
                 lastScanTime: event.lastScan,
                 nextScanTime: event.nextScan,
               });
+              break;
+            }
+
+            case 'scan_report': {
+              set({ scanReport: event });
               break;
             }
 
