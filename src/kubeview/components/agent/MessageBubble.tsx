@@ -101,15 +101,27 @@ export function RichContent({ content, components, onAddToView }: { content: str
     );
   }
 
+  const [showComponents, setShowComponents] = useState(false);
+
   return (
     <>
       <MarkdownRenderer content={content} />
       {components && components.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {components.map((spec, i) => (
-            <AgentComponentRenderer key={i} spec={spec} onAddToView={onAddToView} />
-          ))}
-        </div>
+        <>
+          <button
+            onClick={() => setShowComponents(!showComponents)}
+            className="mt-2 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+          >
+            {showComponents ? '▾ Hide details' : `▸ Show details (${components.length} component${components.length > 1 ? 's' : ''})`}
+          </button>
+          {showComponents && (
+            <div className="mt-1 space-y-1">
+              {components.map((spec, i) => (
+                <AgentComponentRenderer key={i} spec={spec} onAddToView={onAddToView} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </>
   );

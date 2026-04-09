@@ -145,28 +145,22 @@ export function DockAgentPanel() {
         {/* Streaming indicators */}
         {streaming && (
           <div className="space-y-1">
-            {thinkingText && (
-              <div className="flex items-start gap-2 text-xs text-purple-300/70 italic">
-                <Brain className="h-3.5 w-3.5 mt-0.5 shrink-0 text-purple-400" />
-                {thinkingText.slice(-300)}
+            {/* Compact status line showing what the agent is doing */}
+            {(thinkingText || activeTools.length > 0) && !streamingText && (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400" />
+                {activeTools.length > 0 ? (
+                  <span className="text-cyan-400">Using {activeTools[activeTools.length - 1]}...</span>
+                ) : (
+                  <span>Thinking...</span>
+                )}
               </div>
             )}
-            {activeTools.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-cyan-400">
-                <Wrench className="h-3.5 w-3.5 animate-spin" />
-                Calling {activeTools[activeTools.length - 1]}...
-              </div>
-            )}
-            {streamingComponents.length > 0 && (
-              <div className="max-w-full">
-                {streamingComponents.map((spec, i) => (
-                  <AgentComponentRenderer key={i} spec={spec} onAddToView={handleAddToView} />
-                ))}
-              </div>
-            )}
+            {/* Show streaming text as it arrives */}
             {streamingText && (
               <pre className="text-sm text-slate-300 whitespace-pre-wrap font-sans">{streamingText}</pre>
             )}
+            {/* Components will be visible in the final message via "Show details" */}
             {!streamingText && !thinkingText && activeTools.length === 0 && streamingComponents.length === 0 && (
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
