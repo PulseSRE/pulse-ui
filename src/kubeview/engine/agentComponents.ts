@@ -166,6 +166,8 @@ export interface MetricCardSpec {
   color?: string;
   /** Threshold values for sparkline color changes */
   thresholds?: { warning: number; critical: number };
+  /** Optional link — makes the card clickable, navigates to this path */
+  link?: string;
 }
 
 export interface NodeMapSpec {

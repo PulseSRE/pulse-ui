@@ -1087,11 +1087,17 @@ const METRIC_STATUS_BORDER: Record<string, string> = {
 };
 
 function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
+  const navigate = useNavigate();
   const color = spec.color || METRIC_STATUS_COLORS[spec.status || ''] || '#3b82f6';
+  const clickable = !!spec.link;
+
+  const handleClick = () => {
+    if (spec.link) navigate(spec.link);
+  };
 
   // If a PromQL query is provided, render the sparkline MetricCard
   if (spec.query) {
-    return (
+    const card = (
       <SparklineMetricCard
         title={spec.title}
         query={spec.query}
@@ -1100,11 +1106,27 @@ function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
         thresholds={spec.thresholds}
       />
     );
+    if (clickable) {
+      return (
+        <button onClick={handleClick} className="w-full text-left hover:ring-1 hover:ring-blue-500/50 rounded-lg transition-all">
+          {card}
+        </button>
+      );
+    }
+    return card;
   }
 
   // Static metric card (no query — just value + optional sparkline data)
+  const Tag = clickable ? 'button' : 'div';
   return (
-    <div className={cn('bg-gradient-to-br from-slate-900 to-slate-900/70 rounded-lg border p-3 transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)]', METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800')}>
+    <Tag
+      onClick={clickable ? handleClick : undefined}
+      className={cn(
+        'bg-gradient-to-br from-slate-900 to-slate-900/70 rounded-lg border p-3 transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)]',
+        METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800',
+        clickable && 'cursor-pointer hover:ring-1 hover:ring-blue-500/50 w-full text-left',
+      )}
+    >
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-slate-400">{spec.title}</span>
         <span className="text-sm font-mono font-bold" style={{ color }}>
@@ -1112,7 +1134,7 @@ function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
         </span>
       </div>
       {spec.description && <div className="text-xs text-slate-500">{spec.description}</div>}
-    </div>
+    </Tag>
   );
 }
 
