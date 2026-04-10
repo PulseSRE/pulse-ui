@@ -318,6 +318,12 @@ export class MonitorClient {
     this.ws.send(JSON.stringify({ type: 'action_response', actionId, approved: false }));
   }
 
+  /** Update which scanners are disabled on the server. */
+  setDisabledScanners(scannerIds: string[]) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ type: 'set_disabled_scanners', scannerIds }));
+  }
+
   /** Request fix history with optional filters and pagination. */
   requestFixHistory(filters?: Record<string, unknown>, page?: number) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {

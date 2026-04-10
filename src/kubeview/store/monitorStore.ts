@@ -65,6 +65,7 @@ interface MonitorState {
   connect: () => void;
   disconnect: () => void;
   triggerScan: () => void;
+  setDisabledScanners: (scannerIds: string[]) => void;
   dismissFinding: (id: string) => void;
   approveAction: (actionId: string) => void;
   rejectAction: (actionId: string) => void;
@@ -274,6 +275,10 @@ export const useMonitorStore = create<MonitorState>()(
 
       triggerScan: () => {
         if (client) client.triggerScan();
+      },
+
+      setDisabledScanners: (scannerIds: string[]) => {
+        if (client) client.setDisabledScanners(scannerIds);
       },
 
       dismissFinding: (id) => {

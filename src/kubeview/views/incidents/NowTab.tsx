@@ -37,7 +37,12 @@ function formatSilenceDuration(d: string): string {
   return SILENCE_DURATION_LABELS[d] || d;
 }
 
-async function createQuickSilence(alertName: string, duration = DEFAULT_SILENCE_DURATION) {
+async function createQuickSilence(
+  alertName: string,
+  duration = DEFAULT_SILENCE_DURATION,
+  namespace?: string,
+  severity?: string,
+) {
   // Parse duration string (e.g., '2h', '30m', '1d') into milliseconds
   const durationMatch = duration.match(/^(\d+)(m|h|d)$/);
   let durationMs = 2 * 60 * 60 * 1000; // default 2 hours
@@ -49,11 +54,15 @@ async function createQuickSilence(alertName: string, duration = DEFAULT_SILENCE_
     else if (unit === 'd') durationMs = value * 24 * 60 * 60 * 1000;
   }
   const endsAt = new Date(Date.now() + durationMs).toISOString();
+  // Scope silence to alertname + namespace + severity to avoid silencing across all namespaces
+  const matchers = [{ name: 'alertname', value: alertName, isRegex: false }];
+  if (namespace) matchers.push({ name: 'namespace', value: namespace, isRegex: false });
+  if (severity) matchers.push({ name: 'severity', value: severity, isRegex: false });
   const res = await fetch('/api/alertmanager/api/v2/silences', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      matchers: [{ name: 'alertname', value: alertName, isRegex: false }],
+      matchers,
       startsAt: new Date().toISOString(),
       endsAt,
       createdBy: useUIStore.getState().impersonateUser || 'pulse-ui',
@@ -147,10 +156,10 @@ export function NowTab() {
     [silences],
   );
 
-  const handleSilence = async (alertName: string, duration = DEFAULT_SILENCE_DURATION) => {
+  const handleSilence = async (alertName: string, duration = DEFAULT_SILENCE_DURATION, namespace?: string, severity?: string) => {
     const addToast = useUIStore.getState().addToast;
     try {
-      await createQuickSilence(alertName, duration);
+      await createQuickSilence(alertName, duration, namespace, severity);
       addToast({ type: 'success', title: 'Silence created', detail: `${alertName} silenced for ${formatSilenceDuration(duration)}` });
       queryClient.invalidateQueries({ queryKey: ['incidents', 'silences'] });
     } catch (err: unknown) {
@@ -278,7 +287,7 @@ export function NowTab() {
               onDismiss={incident.source === 'finding' ? () => dismissFinding(incident.id) : undefined}
               onSilence={
                 incident.source === 'prometheus-alert'
-                  ? (duration?: string) => handleSilence(incident.title, duration)
+                  ? (duration?: string) => handleSilence(incident.title, duration, incident.namespace, incident.severity)
                   : undefined
               }
             />
@@ -405,12 +414,10 @@ function IncidentCard({
           <button
             onClick={() => {
               useUIStore.getState().openDock('agent');
-              const agentStore = useAgentStore.getState();
-              if (agentStore.connected) {
-                agentStore.sendMessage(
-                  `The monitor detected this issue:\n\n"${incident.title}: ${incident.detail}"\n\nInvestigate this further. What is the root cause and what should I do to fix it?`,
-                );
-              }
+              const { connectAndSend } = useAgentStore.getState();
+              connectAndSend(
+                `The monitor detected this issue:\n\n"${incident.title}: ${incident.detail}"\n\nInvestigate this further. What is the root cause and what should I do to fix it?`,
+              );
             }}
             className="px-2.5 py-1.5 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded flex items-center gap-1.5 transition-colors"
           >

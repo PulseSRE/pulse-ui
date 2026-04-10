@@ -72,6 +72,8 @@ export function ScannerPanel() {
     });
   };
 
+  const setDisabledScannersBackend = useMonitorStore((s) => s.setDisabledScanners);
+
   const toggleEnabled = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setDisabledScanners((prev) => {
@@ -79,9 +81,10 @@ export function ScannerPanel() {
       if (next.has(id)) next.delete(id);
       else next.add(id);
       localStorage.setItem('pulse-disabled-scanners', JSON.stringify([...next]));
+      setDisabledScannersBackend([...next]);
       return next;
     });
-  }, []);
+  }, [setDisabledScannersBackend]);
 
   const resultMap = new Map(
     (scanReport?.scanners || []).map((s) => [s.name, s])
