@@ -32,27 +32,31 @@ describe('OpenShift Pulse Renderers', () => {
   });
 
   describe('getDefaultColumns', () => {
-    it('returns name and age columns for non-namespaced resources', () => {
+    it('returns name, age, labels, owner columns for non-namespaced resources', () => {
       const cols = getDefaultColumns(false);
 
-      expect(cols).toHaveLength(2);
+      expect(cols).toHaveLength(4);
       expect(cols[0].id).toBe('name');
       expect(cols[1].id).toBe('age');
+      expect(cols[2].id).toBe('labels');
+      expect(cols[3].id).toBe('owner');
     });
 
     it('includes namespace column for namespaced resources', () => {
       const cols = getDefaultColumns(true);
 
-      expect(cols).toHaveLength(3);
+      expect(cols).toHaveLength(5);
       expect(cols[0].id).toBe('name');
       expect(cols[1].id).toBe('namespace');
       expect(cols[2].id).toBe('age');
+      expect(cols[3].id).toBe('labels');
+      expect(cols[4].id).toBe('owner');
     });
 
-    it('columns are sortable', () => {
+    it('required columns are sortable', () => {
       const cols = getDefaultColumns(true);
-
-      expect(cols.every((c) => c.sortable)).toBe(true);
+      const sortableCols = cols.filter(c => c.id !== 'labels'); // labels not sortable
+      expect(sortableCols.every((c) => c.sortable)).toBe(true);
     });
   });
 

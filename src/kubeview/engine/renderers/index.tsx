@@ -173,6 +173,16 @@ export function renderAge(value: unknown): ReactNode {
   );
 }
 
+export function renderOwner(value: unknown): ReactNode {
+  if (!value || !Array.isArray(value) || value.length === 0) return null;
+  const owners = value as Array<{ kind: string; name: string }>;
+  return (
+    <span className="text-sm text-slate-400 truncate max-w-[200px]" title={owners.map(o => `${o.kind}/${o.name}`).join(', ')}>
+      {owners.map(o => `${o.kind}/${o.name}`).join(', ')}
+    </span>
+  );
+}
+
 export function renderStatus(value: unknown): ReactNode {
   const status = String(value || 'Unknown').toLowerCase();
 
@@ -730,6 +740,24 @@ export function getDefaultColumns(namespaced: boolean): ColumnDef[] {
     sortType: 'date',
     width: '10%',
     priority: 2,
+  });
+
+  cols.push({
+    id: 'labels',
+    header: 'Labels',
+    accessorFn: (resource) => resource.metadata.labels,
+    render: renderLabels,
+    sortable: false,
+    priority: 3,
+  });
+
+  cols.push({
+    id: 'owner',
+    header: 'Owner',
+    accessorFn: (resource) => resource.metadata.ownerReferences,
+    render: renderOwner,
+    sortable: true,
+    priority: 3,
   });
 
   return cols;

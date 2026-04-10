@@ -94,11 +94,13 @@ describe('OpenShift Pulse Enhancers', () => {
     it('returns default columns for unknown resource types', () => {
       const columns = getColumnsForResource('v1/configmaps', true);
 
-      // Should only have default columns
-      expect(columns).toHaveLength(3);
+      // Should have default columns: name, namespace, age, labels, owner
+      expect(columns).toHaveLength(5);
       expect(columns[0].id).toBe('name');
       expect(columns[1].id).toBe('namespace');
       expect(columns[2].id).toBe('age');
+      expect(columns[3].id).toBe('labels');
+      expect(columns[4].id).toBe('owner');
     });
 
     it('omits namespace column for cluster-scoped resources', () => {
