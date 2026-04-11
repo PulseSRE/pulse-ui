@@ -393,8 +393,7 @@ function getCommandItems(
       { type: 'nav', id: 'admin', title: 'Administration', subtitle: 'Operators, config, updates, quotas, certificates, CRDs', icon: 'Settings', path: '/admin' },
       { type: 'nav', id: 'readiness', title: 'Production Readiness', subtitle: 'Readiness wizard — security, reliability, observability gates', icon: 'Shield', path: '/readiness' },
       { type: 'nav', id: 'agent', title: 'Agent Settings', subtitle: 'Trust level, scanners, memory, views, tools', icon: 'Bot', path: '/agent' },
-      { type: 'nav', id: 'tools', title: 'Tools & Agents', subtitle: 'Tool catalog, usage analytics, agent modes', icon: 'Wrench', path: '/tools' },
-      { type: 'nav', id: 'extensions', title: 'Extensions', subtitle: 'Skills, MCP servers, components, skill analytics', icon: 'Puzzle', path: '/extensions' },
+      { type: 'nav', id: 'toolbox', title: 'Toolbox', subtitle: 'Tools, skills, connections, and analytics', icon: 'Wrench', path: '/toolbox' },
     ];
 
     const matchingPages = builtinViews.filter((page) =>

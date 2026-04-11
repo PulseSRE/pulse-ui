@@ -22,6 +22,7 @@ const OnboardingView = lazy(() => import('../views/OnboardingView'));
 const AgentSettingsView = lazy(() => import('../views/AgentSettingsView'));
 const ToolsView = lazy(() => import('../views/ToolsView'));
 const AdminExtensionsView = lazy(() => import('../views/AdminExtensionsView'));
+const ToolboxView = lazy(() => import('../views/ToolboxView'));
 
 function CatchFallback() {
   return (
@@ -89,8 +90,9 @@ export function domainRoutes() {
       <Route path="memory" element={<Navigate to="/agent?tab=memory" replace />} />
       <Route path="views" element={<Navigate to="/agent?tab=views" replace />} />
       <Route path="agent" element={<Lazy><AgentSettingsView /></Lazy>} />
-      <Route path="tools" element={<Lazy><ToolsView /></Lazy>} />
-      <Route path="extensions" element={<Lazy><AdminExtensionsView /></Lazy>} />
+      <Route path="toolbox" element={<Lazy><ToolboxView /></Lazy>} />
+      <Route path="tools" element={<Navigate to="/toolbox" replace />} />
+      <Route path="extensions" element={<Navigate to="/toolbox?tab=skills" replace />} />
     </>
   );
 }

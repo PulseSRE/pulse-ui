@@ -39,6 +39,7 @@ export interface ToolUsageEntry {
   requires_confirmation: boolean;
   was_confirmed: boolean | null;
   query_summary: string | null;
+  tool_source?: string;
 }
 
 export interface ToolStat {
@@ -80,6 +81,7 @@ export interface UsageFilters {
   session_id?: string;
   from?: string;
   to?: string;
+  source?: string;
   page: number;
   per_page: number;
 }

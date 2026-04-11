@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Bot, Shield, MessageSquare, Activity, Play, Eye, Brain,
-  Zap, AlertTriangle, CheckCircle2, XCircle, Settings, LayoutDashboard, Wrench,
+  Zap, AlertTriangle, CheckCircle2, XCircle, Settings, LayoutDashboard,
   FlaskConical, BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -39,7 +39,7 @@ const COMM_OPTIONS: { value: CommunicationStyle; label: string; description: str
   { value: 'technical', label: 'Technical', description: 'Deep technical detail, CLI examples' },
 ];
 
-type AgentTab = 'settings' | 'scanners' | 'memory' | 'views' | 'tools' | 'evals';
+type AgentTab = 'settings' | 'scanners' | 'memory' | 'views' | 'evals';
 
 export default function AgentSettingsView() {
   const { data: evalStatus } = useQuery({
@@ -62,7 +62,6 @@ export default function AgentSettingsView() {
     { id: 'scanners', label: 'Scanners', icon: <Shield className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <Shield className="w-3.5 h-3.5" /> },
     { id: 'memory', label: 'Memory', icon: <Brain className="w-3.5 h-3.5 text-pink-400" />, activeIcon: <Brain className="w-3.5 h-3.5" /> },
     { id: 'views', label: 'Views', icon: <LayoutDashboard className="w-3.5 h-3.5 text-emerald-400" />, activeIcon: <LayoutDashboard className="w-3.5 h-3.5" /> },
-    { id: 'tools', label: 'Tools', icon: <Wrench className="w-3.5 h-3.5 text-fuchsia-400" />, activeIcon: <Wrench className="w-3.5 h-3.5" /> },
     { id: 'evals', label: 'Evals', icon: <FlaskConical className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <FlaskConical className="w-3.5 h-3.5" /> },
   ];
 
@@ -116,7 +115,6 @@ export default function AgentSettingsView() {
             <ViewsManagement embedded />
           </Suspense>
         )}
-        {activeTab === 'tools' && <ToolsSummaryTab />}
         {activeTab === 'evals' && <EvalsTab evalStatus={evalStatus} />}
       </div>
     </div>
@@ -409,82 +407,6 @@ function SettingsTabContent() {
         confirmLabel="Enable"
         variant="danger"
       />
-    </div>
-  );
-}
-
-function ToolsSummaryTab() {
-  const navigate = useNavigate();
-  const { data: stats } = useQuery({
-    queryKey: ['tools', 'stats'],
-    queryFn: async () => {
-      const res = await fetch('/api/agent/tools/usage/stats');
-      if (!res.ok) return null;
-      return res.json();
-    },
-    staleTime: 30_000,
-  });
-
-  const { data: versionInfo } = useQuery({
-    queryKey: ['agent', 'version'],
-    queryFn: async () => {
-      const res = await fetch('/api/agent/version');
-      if (!res.ok) return null;
-      return res.json();
-    },
-    staleTime: 300_000,
-  });
-
-  return (
-    <div className="space-y-4">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[11px] text-slate-400 mb-1">Total Tools</div>
-          <div className="text-lg font-semibold text-slate-100">{versionInfo?.tools ?? '...'}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[11px] text-slate-400 mb-1">Calls (all time)</div>
-          <div className="text-lg font-semibold text-slate-100">{stats?.total_calls?.toLocaleString() ?? '...'}</div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[11px] text-slate-400 mb-1">Error Rate</div>
-          <div className="text-lg font-semibold text-slate-100">
-            {stats?.error_rate != null ? `${(stats.error_rate * 100).toFixed(1)}%` : '...'}
-          </div>
-        </div>
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[11px] text-slate-400 mb-1">Tools Used</div>
-          <div className="text-lg font-semibold text-slate-100">{stats?.unique_tools_used ?? '...'}</div>
-        </div>
-      </div>
-
-      {/* Top tools mini-list */}
-      {stats?.by_tool && stats.by_tool.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-xs font-medium text-slate-300 mb-2">Most Used Tools</h3>
-          <div className="space-y-1">
-            {stats.by_tool.slice(0, 5).map((t: { tool_name: string; count: number; error_count: number }) => (
-              <div key={t.tool_name} className="flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-300">{t.tool_name}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">{t.count} calls</span>
-                  {t.error_count > 0 && <span className="text-red-400">{t.error_count} errors</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Link to full page */}
-      <button
-        onClick={() => navigate('/tools')}
-        className="flex items-center gap-2 px-4 py-2 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-300 hover:text-slate-100 hover:border-slate-600 transition-colors"
-      >
-        <Wrench className="w-3.5 h-3.5 text-fuchsia-400" />
-        Open full Tools & Agents page
-      </button>
     </div>
   );
 }
