@@ -250,20 +250,18 @@ if [[ -n "${ANTHROPIC_VERTEX_PROJECT_ID:-}" ]]; then
   info "GCP credentials: $GCP_KEY"
 fi
 
-# Resolve image tags: git SHA for builds, "latest" for --skip-build
+# Resolve image tags: always use git SHA (never rely on mutable "latest")
 if [[ -z "$UI_TAG" ]]; then
-  if [[ "$SKIP_BUILD" == "true" ]]; then
-    UI_TAG="latest"
-  else
-    UI_TAG=$(git_tag "$PROJECT_DIR")
-  fi
+  UI_TAG=$(git_tag "$PROJECT_DIR")
 fi
 if [[ -z "$AGENT_TAG" ]]; then
-  if [[ "$SKIP_BUILD" == "true" ]]; then
-    AGENT_TAG="latest"
-  else
-    AGENT_TAG=$(git_tag "$AGENT_REPO")
-  fi
+  AGENT_TAG=$(git_tag "$AGENT_REPO")
+fi
+
+# Warn if --skip-build but images may not exist for these SHA tags
+if [[ "$SKIP_BUILD" == "true" ]]; then
+  warn "Using --skip-build with tags UI=$UI_TAG AGENT=$AGENT_TAG"
+  warn "Make sure these images exist on the registry (built from a previous deploy)"
 fi
 
 info "UI tag: $UI_TAG"
