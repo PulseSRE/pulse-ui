@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import {
   Wrench, List, BarChart3, History, Search, ChevronLeft, ChevronRight,
   AlertTriangle, CheckCircle2, Clock, Database, Bot, Shield, Palette, ArrowRight,
@@ -41,6 +42,23 @@ export default function ToolboxView() {
     { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <BarChart3 className="w-3.5 h-3.5" /> },
   ];
 
+  const tabIds = tabs.map((t) => t.id);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, index: number) => {
+    let nextIndex: number | null = null;
+    if (e.key === 'ArrowRight') {
+      nextIndex = (index + 1) % tabIds.length;
+    } else if (e.key === 'ArrowLeft') {
+      nextIndex = (index - 1 + tabIds.length) % tabIds.length;
+    }
+    if (nextIndex !== null) {
+      e.preventDefault();
+      setActiveTab(tabIds[nextIndex]);
+      tabRefs.current[nextIndex]?.focus();
+    }
+  }, [tabIds]);
+
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -53,13 +71,15 @@ export default function ToolboxView() {
         </div>
 
         <div className="flex gap-1 bg-slate-900 rounded-lg border border-slate-800 p-1" role="tablist" aria-label="Toolbox tabs">
-          {tabs.map((t) => (
+          {tabs.map((t, i) => (
             <button
               key={t.id}
+              ref={(el) => { tabRefs.current[i] = el; }}
               role="tab"
               aria-selected={activeTab === t.id}
               tabIndex={activeTab === t.id ? 0 : -1}
               onClick={() => setActiveTab(t.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, i)}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
                 activeTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
@@ -331,13 +351,13 @@ function SkillsTab() {
                 )}
               </div>
               <p className="text-xs text-slate-400">{String(skill.description)}</p>
-              <div className="flex items-center gap-3 text-[10px] text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-slate-500">
                 <span>{(skill.keywords as string[])?.length || 0} keywords</span>
                 <span>{(skill.categories as string[])?.length || 0} categories</span>
                 <span>{Number(skill.prompt_length)} chars</span>
               </div>
               {Boolean(skill.degraded) && (
-                <div className="text-[10px] text-amber-400">{String(skill.degraded_reason)}</div>
+                <div className="text-xs text-amber-400">{String(skill.degraded_reason)}</div>
               )}
             </button>
           ))}
@@ -410,8 +430,15 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
   const [editContent, setEditContent] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [diffFiles, setDiffFiles] = useState<{ v1: string; v2: string } | null>(null);
   const [diffResult, setDiffResult] = useState('');
+  const [showCloneInput, setShowCloneInput] = useState(false);
+  const [cloneName, setCloneName] = useState('');
+  const [cloneStatus, setCloneStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const cloneInputRef = useRef<HTMLInputElement>(null);
 
   const { data: detail, isLoading } = useQuery({
     queryKey: ['admin', 'skill-detail', name],
@@ -438,6 +465,7 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
 
   const handleSave = async () => {
     setSaveStatus('saving');
+    setSaveError(null);
     try {
       const res = await fetch(`/api/agent/admin/skills/${name}`, {
         method: 'PUT',
@@ -453,12 +481,54 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
         setTimeout(() => setSaveStatus('idle'), 2000);
       } else {
         const err = await res.json().catch(() => ({ detail: 'Save failed' }));
-        alert(err.detail || 'Save failed');
+        setSaveError(err.detail || 'Save failed');
         setSaveStatus('idle');
       }
     } catch {
-      alert('Network error');
+      setSaveError('Network error');
       setSaveStatus('idle');
+    }
+  };
+
+  const handleClone = async () => {
+    if (!cloneName.trim()) return;
+    setCloneStatus(null);
+    try {
+      const res = await fetch(`/api/agent/admin/skills/${name}/clone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_name: cloneName.trim() }),
+      });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
+        setCloneStatus({ type: 'success', message: `Skill cloned as '${cloneName.trim()}'` });
+        setCloneName('');
+        setShowCloneInput(false);
+      } else {
+        const err = await res.json().catch(() => ({ detail: 'Clone failed' }));
+        setCloneStatus({ type: 'error', message: err.detail || 'Clone failed' });
+      }
+    } catch {
+      setCloneStatus({ type: 'error', message: 'Network error' });
+    }
+  };
+
+  const handleDeleteSkill = async () => {
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/agent/admin/skills/${name}`, { method: 'DELETE' });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
+        setConfirmDelete(false);
+        onClose();
+      } else {
+        const err = await res.json().catch(() => ({ detail: 'Delete failed' }));
+        setDeleteError(err.detail || 'Delete failed');
+        setConfirmDelete(false);
+      }
+    } catch {
+      setDeleteError('Network error');
+      setConfirmDelete(false);
     }
   };
 
@@ -514,22 +584,7 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
                 <span className="flex items-center gap-1 text-xs text-emerald-400"><Check className="w-3.5 h-3.5" /> Saved</span>
               )}
               <button
-                onClick={async () => {
-                  const newName = prompt('New skill name (lowercase, underscores):');
-                  if (!newName) return;
-                  const res = await fetch(`/api/agent/admin/skills/${name}/clone`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ new_name: newName }),
-                  });
-                  if (res.ok) {
-                    queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
-                    alert(`Skill cloned as '${newName}'`);
-                  } else {
-                    const err = await res.json().catch(() => ({ detail: 'Clone failed' }));
-                    alert(err.detail);
-                  }
-                }}
+                onClick={() => { setShowCloneInput(!showCloneInput); setCloneStatus(null); setTimeout(() => cloneInputRef.current?.focus(), 50); }}
                 className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-md"
                 title="Clone as template"
               >
@@ -537,17 +592,7 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
               </button>
               {!['sre', 'security', 'view_designer'].includes(name) && (
                 <button
-                  onClick={async () => {
-                    if (!confirm(`Delete skill '${name}'? This cannot be undone.`)) return;
-                    const res = await fetch(`/api/agent/admin/skills/${name}`, { method: 'DELETE' });
-                    if (res.ok) {
-                      queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
-                      onClose();
-                    } else {
-                      const err = await res.json().catch(() => ({ detail: 'Delete failed' }));
-                      alert(err.detail);
-                    }
-                  }}
+                  onClick={() => { setConfirmDelete(true); setDeleteError(null); }}
                   className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
                   title="Delete skill"
                 >
@@ -580,6 +625,60 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
             ))}
           </div>
         </div>
+
+        {/* Clone input */}
+        {showCloneInput && (
+          <div className="mx-5 mt-3 flex items-center gap-2">
+            <input
+              ref={cloneInputRef}
+              value={cloneName}
+              onChange={(e) => setCloneName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleClone(); if (e.key === 'Escape') { setShowCloneInput(false); setCloneName(''); } }}
+              placeholder="new_skill_name (lowercase, underscores)"
+              className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button onClick={handleClone} disabled={!cloneName.trim()} className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50">Clone</button>
+            <button onClick={() => { setShowCloneInput(false); setCloneName(''); }} className="p-1.5 text-slate-400 hover:text-slate-200">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Status messages */}
+        {cloneStatus && (
+          <div className={cn(
+            'mx-5 mt-2 flex items-center gap-2 px-3 py-2 text-xs rounded-md border',
+            cloneStatus.type === 'success' ? 'bg-emerald-950/30 border-emerald-800/30 text-emerald-400' : 'bg-red-950/30 border-red-800/30 text-red-400',
+          )}>
+            {cloneStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+            {cloneStatus.message}
+            <button onClick={() => setCloneStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+          </div>
+        )}
+        {saveError && (
+          <div className="mx-5 mt-2 flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-red-950/30 border-red-800/30 text-red-400">
+            <XCircle className="w-3.5 h-3.5" />
+            {saveError}
+            <button onClick={() => setSaveError(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+          </div>
+        )}
+        {deleteError && (
+          <div className="mx-5 mt-2 flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-red-950/30 border-red-800/30 text-red-400">
+            <XCircle className="w-3.5 h-3.5" />
+            {deleteError}
+            <button onClick={() => setDeleteError(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={handleDeleteSkill}
+          title="Delete Skill"
+          description={`Delete skill '${name}'? This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+        />
 
         {isLoading ? (
           <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>
@@ -721,7 +820,7 @@ function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; onDiff:
               <span className="text-sm font-medium text-slate-100">{v.label}</span>
               {v.current && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-400 rounded">current</span>}
             </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">
+            <div className="text-xs text-slate-500 mt-0.5">
               {new Date(v.timestamp).toLocaleString()}
             </div>
           </div>
@@ -958,7 +1057,7 @@ function ConnectionsTab() {
                     </div>
                   </div>
                   <div className="text-xs text-slate-500 mt-1 font-mono">{String(conn.url)}</div>
-                  {Boolean(conn.error) && <div className="text-[10px] text-red-400 mt-2">{String(conn.error)}</div>}
+                  {Boolean(conn.error) && <div className="text-xs text-red-400 mt-2">{String(conn.error)}</div>}
                 </div>
 
                 {expanded && (
@@ -966,7 +1065,7 @@ function ConnectionsTab() {
                     {/* Toolset toggles */}
                     <div className="px-4 py-3 border-b border-slate-800/50">
                       <h4 className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-2">Toolsets</h4>
-                      <p className="text-[10px] text-slate-500 mb-3">Toggle toolsets to add or remove capabilities. The MCP server will restart.</p>
+                      <p className="text-xs text-slate-500 mb-3">Toggle toolsets to add or remove capabilities. The MCP server will restart.</p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {availableToolsets.map((ts) => {
                           const enabled = enabledToolsets.includes(ts);
@@ -1403,7 +1502,7 @@ function AnalyticsTab() {
                   <span className="text-sm font-medium text-slate-100">{String(skill.name)}</span>
                   <span className="text-lg font-bold text-slate-100">{Number(skill.invocations)}</span>
                 </div>
-                <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                <div className="flex items-center gap-3 text-xs text-slate-500">
                   <span>avg {Number(skill.avg_tools)} tools</span>
                   <span>{Number(skill.avg_duration_ms)}ms avg</span>
                   <span className="text-emerald-400">{Number(skill.feedback_positive)} positive</span>
@@ -1603,7 +1702,7 @@ function PromptAuditSection() {
       {/* Prompt Versions */}
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
         <h3 className="text-xs font-medium text-slate-300 mb-3">Prompt Versions</h3>
-        <p className="text-[10px] text-slate-500 mb-3">Click a skill to see distinct prompt hashes and when each was first/last seen.</p>
+        <p className="text-xs text-slate-500 mb-3">Click a skill to see distinct prompt hashes and when each was first/last seen.</p>
         <div className="flex flex-wrap gap-1.5 mb-3">
           {skillNames.map((name) => (
             <button

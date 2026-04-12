@@ -80,7 +80,7 @@ function FollowUpSuggestions({
   onSend,
   smartPrompts,
 }: {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string; components?: ComponentSpec[] }>;
   onSend: (msg: string) => void;
   smartPrompts: Array<{ prompt: string }>;
 }) {
@@ -89,9 +89,10 @@ function FollowUpSuggestions({
   if (!lastAssistant) return null;
 
   const text = lastAssistant.content.toLowerCase();
+  const hasComponents = Array.isArray(lastAssistant.components) && lastAssistant.components.length > 0;
   let suggestions: string[];
 
-  if (text.includes('dashboard') || text.includes('view') || text.includes('create_dashboard')) {
+  if (hasComponents || text.includes('dashboard') || text.includes('view') || text.includes('create_dashboard')) {
     suggestions = FOLLOW_UP_MAP.dashboard;
   } else if (text.includes('security') || text.includes('rbac') || text.includes('scan')) {
     suggestions = FOLLOW_UP_MAP.security;
@@ -134,20 +135,38 @@ function ChatHistoryPanel({
   activeSessionId: string | null;
 }) {
   const queryClient = useQueryClient();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['chat', 'sessions'],
     queryFn: fetchSessions,
     staleTime: 15_000,
   });
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
+  const handleDelete = async (id: string) => {
     await deleteSession(id);
     queryClient.invalidateQueries({ queryKey: ['chat', 'sessions'] });
+    setPendingDeleteId(null);
   };
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (pendingDeleteId) {
+          setPendingDeleteId(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, pendingDeleteId]);
 
   return (
     <div
+      ref={panelRef}
       className="absolute left-0 top-0 bottom-0 w-[280px] bg-slate-900 border-r border-slate-700 z-20 flex flex-col animate-in slide-in-from-left duration-200"
       data-testid="chat-history-panel"
     >
@@ -197,13 +216,13 @@ function ChatHistoryPanel({
             <MessageSquare className="h-3 w-3 mt-0.5 shrink-0 text-slate-500" />
             <div className="flex-1 min-w-0">
               <div className="text-xs text-slate-300 truncate">{session.title || 'Untitled'}</div>
-              <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+              <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                 <span>{formatRelativeTime(new Date(session.updated_at).getTime())}</span>
                 <span className="bg-slate-800 px-1.5 py-0.5 rounded-full">{session.message_count} msg{session.message_count !== 1 ? 's' : ''}</span>
               </div>
             </div>
             <button
-              onClick={(e) => handleDelete(e, session.id)}
+              onClick={(e) => { e.stopPropagation(); setPendingDeleteId(session.id); }}
               className="p-0.5 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all"
               aria-label={`Delete session ${session.title}`}
             >
@@ -212,6 +231,16 @@ function ChatHistoryPanel({
           </button>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={!!pendingDeleteId}
+        onClose={() => setPendingDeleteId(null)}
+        onConfirm={() => pendingDeleteId && handleDelete(pendingDeleteId)}
+        title="Delete Session"
+        description="Delete this chat session? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+      />
     </div>
   );
 }
@@ -250,6 +279,7 @@ export function DockAgentPanel() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -264,6 +294,7 @@ export function DockAgentPanel() {
   }, [messageCount, queryClient]);
 
   const handleLoadSession = useCallback(async (sessionId: string) => {
+    setLoadError(null);
     try {
       const msgs = await fetchSessionMessages(sessionId);
       const agentMessages = msgs.map((m, i) => ({
@@ -277,7 +308,7 @@ export function DockAgentPanel() {
       useAgentStore.setState({ messages: agentMessages, error: null });
       setActiveSessionId(sessionId);
     } catch {
-      // Silently fail — user can retry
+      setLoadError('Failed to load session. Please try again.');
     }
   }, []);
 
@@ -324,8 +355,8 @@ export function DockAgentPanel() {
     const text = input.trim();
     if (!text || streaming || !connected) return;
 
-    // Inject a one-time welcome message on first interaction
-    if (messages.length === 0 && agentVersionInfo) {
+    // Inject a one-time welcome message on first interaction (skip if session was loaded from history)
+    if (messages.length === 0 && agentVersionInfo && !activeSessionId) {
       const tools = agentVersionInfo.tools ?? 0;
       const skills = agentVersionInfo.skills ?? 0;
       const parts: string[] = [];
@@ -442,6 +473,13 @@ export function DockAgentPanel() {
                 Thinking...
               </div>
             )}
+          </div>
+        )}
+
+        {loadError && (
+          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/30 border border-red-900 rounded px-3 py-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            {loadError}
           </div>
         )}
 
