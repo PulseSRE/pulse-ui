@@ -6,7 +6,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, Database, Bot, Shield, Palette, ArrowRight,
   Puzzle, Server, Layers, RefreshCw, XCircle,
   Play, X, FileText, ChevronDown, Save, GitCompareArrows, Check,
-  Cable,
+  Cable, Trash2, Copy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToolUsageStore } from '../store/toolUsageStore';
@@ -512,6 +512,47 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
               )}
               {saveStatus === 'saved' && (
                 <span className="flex items-center gap-1 text-xs text-emerald-400"><Check className="w-3.5 h-3.5" /> Saved</span>
+              )}
+              <button
+                onClick={async () => {
+                  const newName = prompt('New skill name (lowercase, underscores):');
+                  if (!newName) return;
+                  const res = await fetch(`/api/agent/admin/skills/${name}/clone`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_name: newName }),
+                  });
+                  if (res.ok) {
+                    queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
+                    alert(`Skill cloned as '${newName}'`);
+                  } else {
+                    const err = await res.json().catch(() => ({ detail: 'Clone failed' }));
+                    alert(err.detail);
+                  }
+                }}
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-md"
+                title="Clone as template"
+              >
+                <Copy className="w-3.5 h-3.5" /> Clone
+              </button>
+              {!['sre', 'security', 'view_designer'].includes(name) && (
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Delete skill '${name}'? This cannot be undone.`)) return;
+                    const res = await fetch(`/api/agent/admin/skills/${name}`, { method: 'DELETE' });
+                    if (res.ok) {
+                      queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
+                      onClose();
+                    } else {
+                      const err = await res.json().catch(() => ({ detail: 'Delete failed' }));
+                      alert(err.detail);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md"
+                  title="Delete skill"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
               )}
               <button onClick={onClose} className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-slate-200">
                 <X className="w-4 h-4" />
