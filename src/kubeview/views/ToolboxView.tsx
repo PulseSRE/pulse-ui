@@ -1627,7 +1627,7 @@ interface PromptStats {
 }
 
 interface PromptVersion {
-  hash: string;
+  prompt_hash: string;
   first_seen: string;
   last_seen: string;
   count: number;
@@ -1742,10 +1742,10 @@ function PromptAuditSection() {
             ) : promptVersions && promptVersions.versions.length > 0 ? (
               <div className="space-y-1.5">
                 {promptVersions.versions.map((v) => (
-                  <div key={v.hash} className="flex items-center justify-between text-xs bg-slate-800/50 rounded px-3 py-2">
+                  <div key={v.prompt_hash} className="flex items-center justify-between text-xs bg-slate-800/50 rounded px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Hash className="w-3 h-3 text-slate-500" />
-                      <span className="font-mono text-slate-300">{v.hash.slice(0, 12)}</span>
+                      <span className="font-mono text-slate-300">{v.prompt_hash?.slice(0, 12) || '???'}</span>
                       <span className="text-slate-500">{v.count} uses</span>
                     </div>
                     <div className="flex items-center gap-3 text-[10px] text-slate-500">
