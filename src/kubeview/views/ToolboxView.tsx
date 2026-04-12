@@ -551,7 +551,14 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
   const availableFiles = SKILL_FILES.filter((f) => detail?.[f.key]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Skill detail: ${name}`}
+    >
       <div className="absolute inset-0 bg-black/50" />
       <div
         className="relative w-full max-w-3xl bg-slate-950 border-l border-slate-800 h-full overflow-auto shadow-2xl"
