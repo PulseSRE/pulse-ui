@@ -40,6 +40,7 @@ export function AgentHealth({
           readiness={readiness}
           memoryPatternCount={memoryPatternCount}
           onMemoryClick={onOpenMemoryDrawer}
+          onCardClick={onOpenEvalDrawer}
         />
       </div>
     </div>
@@ -134,18 +135,22 @@ function CoverageCard({ coverage, onClick }: { coverage: ScannerCoverage | null;
 }
 
 function OutcomesCard({
-  fixSummary, costStats, readiness, memoryPatternCount, onMemoryClick,
+  fixSummary, costStats, readiness, memoryPatternCount, onMemoryClick, onCardClick,
 }: {
   fixSummary: FixHistorySummary | null;
   costStats: CostStats | null;
   readiness: ReadinessSummary | null;
   memoryPatternCount: number;
   onMemoryClick: () => void;
+  onCardClick: () => void;
 }) {
   return (
-    <Card>
+    <Card onClick={onCardClick} className="group">
       <div className="p-4 space-y-3">
-        <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Outcomes</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Outcomes</h3>
+          <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+        </div>
 
         {fixSummary && (
           <div className="text-sm text-slate-200">
@@ -196,7 +201,7 @@ function OutcomesCard({
           <button onClick={onMemoryClick} className="text-xs text-violet-400 hover:text-violet-300">
             <Brain className="w-3 h-3 inline mr-1" />{memoryPatternCount} patterns learned
           </button>
-          {readiness && (
+          {readiness && readiness.total_gates > 0 && (
             <span className="text-xs text-slate-500">
               Readiness: {readiness.passed}/{readiness.total_gates}
             </span>
