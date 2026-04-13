@@ -43,6 +43,11 @@ export default function OnboardingView() {
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.json() as Promise<T>;
     },
+    fetchAgent: async <T = unknown,>(path: string): Promise<T> => {
+      const res = await fetch(`/api/agent${path}`);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return res.json() as Promise<T>;
+    },
     isHyperShift,
   }), [isHyperShift]);
 

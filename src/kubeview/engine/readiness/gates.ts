@@ -482,7 +482,7 @@ const trustLevelConfigured: ReadinessGate = {
   priority: 'optional',
   evaluate: (ctx) => safeEval(trustLevelConfigured, async () => {
     try {
-      const version = await ctx.fetchJson<any>('/api/agent/version');
+      const version = await ctx.fetchAgent<any>('/version');
       const v = version?.version || version?.gitVersion || 'unknown';
       return { status: 'passed', detail: `Agent reachable (${v})`, fixGuidance: '' };
     } catch {
@@ -500,7 +500,7 @@ const agentProtocolVersion: ReadinessGate = {
   priority: 'optional',
   evaluate: (ctx) => safeEval(agentProtocolVersion, async () => {
     try {
-      const version = await ctx.fetchJson<any>('/api/agent/version');
+      const version = await ctx.fetchAgent<any>('/version');
       const proto = version?.protocolVersion ?? version?.protocol ?? 0;
       if (proto >= 2) return { status: 'passed', detail: `Protocol v${proto}`, fixGuidance: '' };
       return { status: 'needs_attention', detail: `Protocol v${proto} — upgrade to v2 for autonomous scanning`, fixGuidance: 'Upgrade the OpenshiftPulse agent to a version that supports protocol v2.' };

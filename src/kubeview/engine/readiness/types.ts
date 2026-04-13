@@ -49,6 +49,8 @@ export interface ReadinessGate {
 export interface GateContext {
   /** Fetch JSON from the Kubernetes API proxy. Path is relative to /api/kubernetes/ */
   fetchJson: <T = unknown>(path: string) => Promise<T>;
+  /** Fetch JSON from the Pulse Agent API. Path is relative to /api/agent/ */
+  fetchAgent: <T = unknown>(path: string) => Promise<T>;
   /** Whether the cluster uses HyperShift hosted control planes */
   isHyperShift: boolean;
 }
