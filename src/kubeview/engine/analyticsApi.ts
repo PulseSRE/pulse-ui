@@ -56,9 +56,16 @@ export interface AccuracyStats {
 export interface CostStats {
   avg_tokens_per_incident: number;
   trend: { current: number; previous: number; delta_pct: number };
-  by_mode: Array<{ mode: string; avg_tokens: number; count: number }>;
+  by_mode: Array<{ mode: string; avg_tokens: number; count: number; cost_usd?: number }>;
   total_tokens: number;
   total_incidents: number;
+  cost?: {
+    total_usd: number;
+    avg_per_incident_usd: number;
+    input_usd: number;
+    output_usd: number;
+    cache_savings_usd: number;
+  };
 }
 
 export interface IntelligenceSections {

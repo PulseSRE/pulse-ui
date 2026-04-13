@@ -167,7 +167,23 @@ function OutcomesCard({
           </div>
         )}
 
-        {costStats && costStats.avg_tokens_per_incident > 0 && (
+        {costStats && costStats.cost && costStats.cost.total_usd > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs text-slate-400">
+              Cost ({costStats.total_incidents} conversations): <span className="text-slate-200 font-medium">${costStats.cost.total_usd.toFixed(2)}</span>
+              {costStats.trend.delta_pct !== 0 && (
+                <TrendBadge delta={costStats.trend.delta_pct} invertColor />
+              )}
+            </div>
+            <div className="text-xs text-slate-500">
+              ${costStats.cost.avg_per_incident_usd.toFixed(3)}/conversation · input ${costStats.cost.input_usd.toFixed(2)} · output ${costStats.cost.output_usd.toFixed(2)}
+              {costStats.cost.cache_savings_usd > 0 && (
+                <span className="text-emerald-500"> · saved ${costStats.cost.cache_savings_usd.toFixed(2)} (cache)</span>
+              )}
+            </div>
+          </div>
+        )}
+        {costStats && (!costStats.cost || costStats.cost.total_usd === 0) && costStats.avg_tokens_per_incident > 0 && (
           <div className="text-xs text-slate-400">
             Avg tokens/incident: <span className="text-slate-200">{(costStats.avg_tokens_per_incident / 1000).toFixed(1)}K</span>
             {costStats.trend.delta_pct !== 0 && (
