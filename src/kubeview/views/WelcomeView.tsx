@@ -17,7 +17,6 @@ import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { usePrefetchOnHover } from '../hooks/usePrefetchOnHover';
 import { useMonitorStore } from '../store/monitorStore';
 import { useIncidentFeed } from '../hooks/useIncidentFeed';
-import { isFeatureEnabled } from '../engine/featureFlags';
 import type { K8sResource } from '../engine/renderers';
 import type { Node, Condition } from '../engine/types';
 

@@ -18,7 +18,6 @@ import type { FleetResult } from '../engine/fleet';
 import { usePrefetchOnHover } from '../hooks/usePrefetchOnHover';
 import { useAskPulse } from '../hooks/useAskPulse';
 import { AskPulsePanel } from './AskPulsePanel';
-import { isFeatureEnabled } from '../engine/featureFlags';
 import { getRecentQueries } from '../engine/askPulseUtils';
 
 /** Capitalize first letter of each word: "deployments" → "Deployments", "poddisruptionbudgets" → "Poddisruptionbudgets" */
@@ -81,10 +80,9 @@ export function CommandPalette() {
   const [fleetLoading, setFleetLoading] = useState(false);
   const smartPrompts = useSmartPrompts();
   const customViews = useCustomViewStore((s) => s.views);
-  const askPulseEnabled = isFeatureEnabled('askPulse');
-  const askPulse = useAskPulse(askPulseEnabled ? query : '');
-  const showAskPulse = askPulseEnabled && askPulse.isNaturalLanguage && query.trim() && mode === 'default';
-  const recentAskQueries = useMemo(() => askPulseEnabled ? getRecentQueries() : [], [askPulseEnabled, open]);
+  const askPulse = useAskPulse(query);
+  const showAskPulse = askPulse.isNaturalLanguage && query.trim() && mode === 'default';
+  const recentAskQueries = useMemo(() => getRecentQueries(), [open]);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const multiCluster = isMultiCluster();
@@ -291,7 +289,7 @@ export function CommandPalette() {
                 onOpenInAgent={askPulse.openInAgent}
               />
             )}
-            {!query.trim() && askPulseEnabled && !searchAllClusters && recentAskQueries.length > 0 && (
+            {!query.trim() && !searchAllClusters && recentAskQueries.length > 0 && (
               <div className="mb-2">
                 <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
                   <Sparkles className="h-3 w-3" />

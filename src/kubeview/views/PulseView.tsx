@@ -11,7 +11,6 @@ import { useTrustStore } from '../store/trustStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useIncidentFeed } from '../hooks/useIncidentFeed';
-import { isFeatureEnabled } from '../engine/featureFlags';
 import { fetchBriefing, type BriefingResponse } from '../engine/fixHistory';
 import { ReportTab } from './pulse/ReportTab';
 import { FleetReportTab } from './pulse/FleetReportTab';
@@ -26,7 +25,6 @@ export default function PulseView() {
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const fleetMode = useFleetStore((s) => s.fleetMode);
-  const enhanced = isFeatureEnabled('enhancedPulse');
 
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const { data: nodes = [], isLoading: nodesLoading } = useK8sListWatch({ apiPath: '/api/v1/nodes' });
@@ -80,7 +78,7 @@ export default function PulseView() {
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
-    enabled: enhanced,
+    enabled: true,
   });
 
   const typedNodes = nodes as K8sResource[];
@@ -152,7 +150,7 @@ export default function PulseView() {
         </div>
 
         {/* ── AI Briefing (compact inline) ── */}
-        {enhanced && briefing && (
+        {briefing && (
           <div className="rounded-lg border border-violet-500/20 bg-slate-900 px-4 py-3 relative overflow-hidden">
             <div className="pointer-events-none absolute -inset-px rounded-lg bg-violet-500/5" />
             <div className="relative flex items-start gap-3">
@@ -216,7 +214,7 @@ export default function PulseView() {
               />
             </Suspense>
 
-            {enhanced && <OvernightActivityFeed />}
+            <OvernightActivityFeed />
 
             {fleetMode === 'multi' ? (
               <FleetReportTab />

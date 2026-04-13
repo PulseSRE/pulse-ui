@@ -25,8 +25,6 @@ import { SnapshotsTab } from './admin/SnapshotsTab';
 import { loadSnapshots } from '../engine/snapshot';
 import { GitOpsConfig } from '../components/GitOpsConfig';
 import { SectionHeader } from '../components/primitives/SectionHeader';
-import { getAllFlags, setFeatureFlag } from '../engine/featureFlags';
-import type { FeatureFlag } from '../engine/featureFlags';
 
 /** OpenShift Infrastructure resource (config.openshift.io/v1) */
 interface Infrastructure extends K8sResource {
@@ -424,8 +422,6 @@ export default function AdminView() {
         {/* ===== OVERVIEW ===== */}
         {activeTab === 'overview' && (
           <>
-          <FeatureFlagsSection />
-
           {/* Production Readiness summary */}
           <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
             <div className="flex items-center justify-between">
@@ -525,58 +521,3 @@ export default function AdminView() {
   );
 }
 
-const FLAG_LABELS: Record<FeatureFlag, { label: string; description: string }> = {
-  incidentCenter: { label: 'Incident Center', description: 'Correlated incidents view at /incidents' },
-  identityView: { label: 'Identity & Access', description: 'Unified identity management at /identity' },
-  welcomeLaunchpad: { label: 'Welcome Launchpad', description: 'Enhanced welcome page with cluster state, onboarding CTA, and top issues' },
-  onboarding: { label: 'Onboarding Wizard', description: 'Guided cluster readiness at /readiness' },
-  reviewQueue: { label: 'Review Queue', description: 'AI-proposed infrastructure changes at /reviews' },
-  enhancedPulse: { label: 'Enhanced Pulse', description: 'AI morning briefing and insights on Pulse page' },
-  askPulse: { label: 'Ask Pulse', description: 'Natural language queries in Cmd+K search palette' },
-};
-
-function FeatureFlagsSection() {
-  const [flags, setFlags] = React.useState(getAllFlags);
-
-  const toggle = (flag: FeatureFlag) => {
-    const next = !flags[flag];
-    setFeatureFlag(flag, next);
-    setFlags(getAllFlags());
-  };
-
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <Settings className="w-4 h-4 text-slate-400" />
-        <h3 className="text-sm font-semibold text-slate-200">Feature Flags</h3>
-        <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-800/50">Preview</span>
-      </div>
-      <p className="text-xs text-slate-500">Toggle experimental features. Changes take effect on next navigation.</p>
-      <div className="divide-y divide-slate-800/60">
-        {(Object.keys(FLAG_LABELS) as FeatureFlag[]).map((flag) => (
-          <div key={flag} className="flex items-center justify-between py-2.5">
-            <div>
-              <div className="text-sm text-slate-200">{FLAG_LABELS[flag].label}</div>
-              <div className="text-xs text-slate-500">{FLAG_LABELS[flag].description}</div>
-            </div>
-            <button
-              onClick={() => toggle(flag)}
-              className={cn(
-                'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-                flags[flag] ? 'bg-blue-600' : 'bg-slate-700',
-              )}
-              role="switch"
-              aria-checked={flags[flag]}
-              aria-label={`Toggle ${FLAG_LABELS[flag].label}`}
-            >
-              <span className={cn(
-                'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform',
-                flags[flag] ? 'translate-x-4' : 'translate-x-0',
-              )} />
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
