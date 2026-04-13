@@ -166,12 +166,12 @@ interface McpToolInfo extends ToolInfo {
 }
 
 function CatalogTab() {
-  const { tools, agents, toolsLoading, agentsLoading, loadTools, loadAgents } = useToolUsageStore();
+  const { tools, toolsLoading, loadTools } = useToolUsageStore();
   const [search, setSearch] = useState('');
   const [modeFilter, setModeFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
 
-  useEffect(() => { loadTools(); loadAgents(); }, [loadTools, loadAgents]);
+  useEffect(() => { loadTools(); }, [loadTools]);
 
   const allTools: Array<ToolInfo & { mode: string; source: string; mcp_server?: string }> = [];
   if (tools) {
@@ -201,25 +201,6 @@ function CatalogTab() {
 
   return (
     <div className="space-y-6">
-      {/* Agents overview */}
-      {!agentsLoading && agents.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {agents.map((a) => (
-            <div key={a.name} className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                {MODE_ICONS[a.name] || <Bot className="w-4 h-4 text-slate-400" />}
-                <span className="text-sm font-medium text-slate-100 capitalize">{a.name === 'view_designer' ? 'View Designer' : a.name.toUpperCase()}</span>
-              </div>
-              <p className="text-xs text-slate-400">{a.description}</p>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
-                <span>{a.tools_count} tools</span>
-                {a.has_write_tools && <span className="text-amber-400">write ops</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Filters */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
