@@ -18,7 +18,7 @@ import {
 } from '../engine/analyticsApi';
 import type { ToolInfo, ToolUsageEntry } from '../store/toolUsageStore';
 
-type ToolboxTab = 'catalog' | 'skills' | 'connections' | 'components' | 'usage' | 'analytics';
+type ToolboxTab = 'catalog' | 'skills' | 'plans' | 'connections' | 'components' | 'usage' | 'analytics';
 
 const SKILL_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Wrench, Shield, LayoutDashboard, TrendingUp, Puzzle, Bot, Database, Target,
@@ -54,6 +54,7 @@ export default function ToolboxView() {
   const tabs: Array<{ id: ToolboxTab; label: string; icon: React.ReactNode; activeIcon: React.ReactNode }> = [
     { id: 'catalog', label: 'Catalog', icon: <List className="w-3.5 h-3.5 text-fuchsia-400" />, activeIcon: <List className="w-3.5 h-3.5" /> },
     { id: 'skills', label: 'Skills', icon: <Puzzle className="w-3.5 h-3.5 text-violet-400" />, activeIcon: <Puzzle className="w-3.5 h-3.5" /> },
+    { id: 'plans', label: 'Plans', icon: <Target className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Target className="w-3.5 h-3.5" /> },
     { id: 'connections', label: 'Connections', icon: <Cable className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Cable className="w-3.5 h-3.5" /> },
     { id: 'components', label: 'Components', icon: <Layers className="w-3.5 h-3.5 text-emerald-400" />, activeIcon: <Layers className="w-3.5 h-3.5" /> },
     { id: 'usage', label: 'Usage Log', icon: <History className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <History className="w-3.5 h-3.5" /> },
@@ -110,6 +111,7 @@ export default function ToolboxView() {
 
         {activeTab === 'catalog' && <CatalogTab />}
         {activeTab === 'skills' && <SkillsTab />}
+        {activeTab === 'plans' && <PlansTab />}
         {activeTab === 'connections' && <ConnectionsTab />}
         {activeTab === 'components' && <ComponentsTab />}
         {activeTab === 'usage' && <UsageTab />}
@@ -394,9 +396,6 @@ function SkillsTab() {
         )}
       </div>
 
-      {/* Investigation Plan Templates */}
-      <PlanTemplatesSection />
-
       {/* Skill detail drawer */}
       {selectedSkill && (
         <SkillDetailDrawer name={selectedSkill} onClose={() => setSelectedSkill(null)} />
@@ -417,8 +416,30 @@ interface PlanTemplate {
   max_duration: number;
 }
 
-function PlanTemplatesSection() {
-  const [expanded, setExpanded] = useState(false);
+interface PlanPhaseDetail {
+  id: string;
+  skill_name: string;
+  required: boolean;
+  depends_on: string[];
+  timeout_seconds: number;
+  produces: string[];
+  branch_on: string | null;
+  branches: Record<string, string[]>;
+  parallel_with: string[] | null;
+  approval_required: boolean;
+  runs: string;
+}
+
+interface PlanDetail {
+  id: string;
+  name: string;
+  incident_type: string;
+  max_total_duration: number;
+  phases: PlanPhaseDetail[];
+}
+
+function PlansTab() {
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['plan-templates'],
@@ -429,48 +450,125 @@ function PlanTemplatesSection() {
     },
   });
 
+  const { data: planDetail } = useQuery({
+    queryKey: ['plan-template-detail', selectedPlan],
+    queryFn: async () => {
+      if (!selectedPlan) return null;
+      const res = await fetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan)}`);
+      if (!res.ok) return null;
+      return res.json() as Promise<PlanDetail>;
+    },
+    enabled: !!selectedPlan,
+  });
+
   const templates = data?.templates ?? [];
 
-  if (isLoading || templates.length === 0) return null;
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>;
+  }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg">
-      <button
-        onClick={() => setExpanded((prev) => !prev)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/30 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <Target className="w-4 h-4 text-cyan-400" />
-          <span className="text-sm font-medium text-slate-200">Investigation Plans</span>
-          <span className="text-xs px-1.5 py-0.5 bg-cyan-900/50 text-cyan-300 rounded">{templates.length}</span>
-        </div>
-        <ChevronDown className={cn('w-4 h-4 text-slate-400 transition-transform', expanded && 'rotate-180')} />
-      </button>
-      {expanded && (
-        <div className="border-t border-slate-800 divide-y divide-slate-800/50">
-          <div className="px-4 py-2">
-            <p className="text-[11px] text-slate-500">
-              Pre-defined investigation plans that the agent uses to resolve incidents. Each plan executes phases in order: triage, diagnose, remediate, verify.
-            </p>
-          </div>
+    <div className="space-y-4">
+      <p className="text-xs text-slate-500">
+        Investigation plans define multi-phase incident resolution. The agent matches findings to plans and executes phases in order.
+        New plans are auto-generated when the agent resolves novel incidents.
+      </p>
+
+      {templates.length === 0 ? (
+        <div className="text-center py-12 text-sm text-slate-500">No investigation plans loaded.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {templates.map((t) => (
-            <div key={t.id} className="px-4 py-3 flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-sm font-medium text-slate-200">{t.name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded border border-cyan-800/30">Plan</span>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-slate-500">
-                  <span>{t.phases} phases</span>
-                  <span>Matches: {t.incident_type}</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {Math.round(t.max_duration / 60)}m max
+            <button
+              key={t.id}
+              onClick={() => setSelectedPlan(selectedPlan === t.incident_type ? null : t.incident_type)}
+              className={cn(
+                'bg-slate-900 border rounded-lg p-4 text-left transition-colors hover:border-cyan-700/50',
+                selectedPlan === t.incident_type ? 'border-cyan-600' : 'border-slate-800',
+              )}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-slate-200">{t.name}</span>
+                <div className="flex items-center gap-1.5">
+                  {t.id.startsWith('auto-') && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded border border-amber-700/40">AI-generated</span>
+                  )}
+                  <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded border border-cyan-800/30">
+                    {t.phases} phases
                   </span>
                 </div>
               </div>
-            </div>
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <span>Trigger: {t.incident_type}</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {Math.round(t.max_duration / 60)}m max
+                </span>
+              </div>
+            </button>
           ))}
+        </div>
+      )}
+
+      {/* Plan detail */}
+      {selectedPlan && planDetail && (
+        <div className="bg-slate-900 border border-cyan-800/50 rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-200">{planDetail.name}</h3>
+            <button onClick={() => setSelectedPlan(null)} className="text-slate-500 hover:text-slate-300">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Phase flow visualization */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {planDetail.phases.map((phase, idx) => (
+              <div key={phase.id} className="flex items-center gap-1">
+                <div className={cn(
+                  'px-2.5 py-1 rounded text-xs font-medium border',
+                  phase.required ? 'bg-cyan-900/30 text-cyan-300 border-cyan-800/40' : 'bg-slate-800 text-slate-400 border-slate-700',
+                )}>
+                  {phase.id}
+                </div>
+                {idx < planDetail.phases.length - 1 && (
+                  <ArrowRight className="w-3 h-3 text-slate-600" />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Phase details */}
+          <div className="space-y-2">
+            {planDetail.phases.map((phase) => (
+              <div key={phase.id} className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-slate-200">{phase.id}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-500">skill: {phase.skill_name}</span>
+                    {phase.required && <span className="text-[10px] px-1 py-0.5 bg-red-900/30 text-red-400 rounded">required</span>}
+                    {phase.approval_required && <span className="text-[10px] px-1 py-0.5 bg-amber-900/30 text-amber-400 rounded">approval</span>}
+                    {phase.runs === 'always' && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded">always runs</span>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+                  <span>Timeout: {phase.timeout_seconds}s</span>
+                  {phase.depends_on.length > 0 && <span>After: {phase.depends_on.join(', ')}</span>}
+                  {phase.produces.length > 0 && <span>Produces: {phase.produces.join(', ')}</span>}
+                  {phase.branch_on && <span>Branches on: {phase.branch_on}</span>}
+                  {phase.parallel_with && <span>Parallel: {phase.parallel_with.join(', ')}</span>}
+                </div>
+                {phase.branches && Object.keys(phase.branches).length > 0 && (
+                  <div className="mt-1.5 space-y-0.5">
+                    {Object.entries(phase.branches).map(([val, skills]) => (
+                      <div key={val} className="text-[11px] text-slate-400">
+                        if {phase.branch_on} = <span className="text-cyan-400">{val}</span> → {skills.join(', ')}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
