@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v6.1.0, ~200 source files, 1953 unit tests + 53 E2E scenarios.
+OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v6.1.0, ~200 source files, 1944 unit tests + 53 E2E scenarios.
 
 ## Commands
 
@@ -16,7 +16,7 @@ pnpm dev                 # rspack dev server on port 9000
 pnpm build               # production build (~1s)
 
 # Tests
-pnpm exec vitest --run   # run all unit tests (~9s, 1953 tests)
+pnpm exec vitest --run   # run all unit tests (~9s, 1944 tests)
 pnpm exec vitest --run src/kubeview/views/__tests__/WorkloadsView.test.tsx  # single file
 pnpm exec vitest --run -t "test name pattern"  # single test by name
 
@@ -49,12 +49,12 @@ PULSE_URL=https://... PULSE_USER=cluster-admin PULSE_PASS=... pnpm exec tsx scri
 - **Shell**: `components/Shell.tsx` wraps all routes (CommandBar + TabBar + Dock + StatusBar)
 - **Routes**: `routes/resourceRoutes.tsx` (generic CRUD), `routes/domainRoutes.tsx` (domain views), `routes/redirects.tsx` (legacy + feature-gated redirects)
 - URL pattern for resources: `/r/{group~version~plural}/{namespace}/{name}` (GVR encoding uses `~` separator)
-- **Feature flags**: All flags default to ON. Toggle in Admin > Overview > Feature Flags. Stored in localStorage via `engine/featureFlags.ts`.
+- **Feature flags**: Removed — all features shipped. `engine/featureFlags.ts` deleted.
 
 ### Navigation Structure
 ```
 Cluster:        Pulse, Workloads (+Builds tab), Networking, Compute, Storage
-Operations:     Incident Center (Now/Investigate/Actions/History/Alerts), Security, GitOps, Fleet
+Operations:     Incident Center (Now/Investigate/Actions/Postmortems/History/Alerts), Impact Analysis, Security, GitOps, Fleet
 Administration: Admin (7 tabs), Identity & Access, Production Readiness
 Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capability Discovery), Toolbox (Catalog/Skills/Connections/Components/Usage/Analytics)
 ```
@@ -62,7 +62,8 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 **Key routes:**
 - `/welcome` — launchpad with quick stats, AI briefing, 8-card nav grid
 - `/pulse` — health overview with topology map, insights rail, overnight activity
-- `/incidents` — unified incident triage (5 tabs: Now, Investigate, Actions, History, Alerts)
+- `/incidents` — unified incident triage (6 tabs: Now, Investigate, Actions, Postmortems, History, Alerts)
+- `/topology` — impact analysis / dependency graph with blast radius visualization
 - `/agent` — agent config (trust level, scanners, memory, views, evals)
 - `/toolbox` — tools catalog, skills management, MCP connections, component registry, usage log, analytics
 - `/identity` — merged Users + Groups + RBAC + Impersonation
@@ -130,14 +131,15 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Auto-fix**: at trust level 3/4, monitor fixes crashloop (pod delete) and workloads (deployment restart) WITHOUT confirmation gate. Has safety guardrails: max 3/scan, 5min cooldown, no bare pods.
 - **Agent version**: v2.2.0 (Protocol v2, 111 tools [75 native + 36 MCP], 17 scanners)
 - **MCP integration**: OpenShift MCP server with 11 toolsets, 36 tools including Prometheus queries and Helm management
-- **Skills**: 5 skill packages (sre, security, view_designer, capacity_planner, postgres_troubleshooter) with hot reload, routing, and version history
+- **Skills**: 8 skill packages (sre, security, view_designer, capacity_planner, postgres_troubleshooter, plan-builder, postmortem, slo-management) with hot reload, routing, version history, and AI-generated skill badges
 - **Custom views**: auto-saved to PostgreSQL on `create_dashboard`, user-scoped via OAuth token
 - **19 component types**: data_table, info_card_grid, chart, status_list, badge_list, key_value, relationship_tree, tabs, grid, section, log_viewer, yaml_viewer, metric_card, node_map, resource_counts, bar_list, progress_list, donut_chart, summary_bar
 
-### Incident Center (`/incidents`) — 5 tabs
-- **Now**: unified feed from `useIncidentFeed` hook (findings + alerts + errors), silence management
+### Incident Center (`/incidents`) — 6 tabs
+- **Now**: unified feed from `useIncidentFeed` hook (findings + alerts + errors), silence management, inline investigation phase progress
 - **Investigate**: correlation groups, evidence rendering (suspectedCause, evidence[], alternativesConsidered[])
 - **Actions**: embedded ReviewQueueView — approve/reject AI-proposed changes with YAML diffs
+- **Postmortems**: auto-generated postmortem reports with timeline, root cause, blast radius, prevention recommendations
 - **History**: chronological stream + fix history
 - **Alerts**: Prometheus alert rules, silences, firing alerts (merged from standalone `/alerts` view)
 
@@ -150,7 +152,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 
 ### Toolbox (`/toolbox`) — 6 tabs
 - **Catalog**: all tools (native + MCP) with source badges, search, mode/source filter
-- **Skills**: skill packages with editor, version history, diff viewer, routing tester
+- **Skills**: skill packages with editor, version history, diff viewer, routing tester, investigation plan templates section, AI-generated skill badges
 - **Connections**: MCP server management with 11 toolset toggles
 - **Components**: 19 component kinds by category with mutation support
 - **Usage**: tool invocation audit log with source (native/mcp) column
@@ -187,7 +189,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 
 ### Views (14 top-level)
 - **Cluster**: Pulse (briefing + map + insights), Workloads (+Builds tab), Networking, Compute, Storage
-- **Operations**: Incident Center (5 tabs: Now/Investigate/Actions/History/Alerts), Security, GitOps (ArgoCD), Fleet
+- **Operations**: Incident Center (6 tabs: Now/Investigate/Actions/Postmortems/History/Alerts), Impact Analysis, Security, GitOps (ArgoCD), Fleet
 - **Administration**: Admin (7 tabs), Identity (4 tabs), Production Readiness
 - **Agent**: Mission Control (4 sections + 3 drawers), Toolbox (6 tabs), Custom Views
 
@@ -196,7 +198,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Config**: `vitest.config.ts` — excludes `.claude/worktrees/**` and `e2e/`
 - **Coverage thresholds**: 40% statements, 30% branches, 35% functions, 40% lines (enforced in vitest.config.ts)
 - **Setup**: `src/kubeview/__tests__/setup.tsx` — factories, mock server, renderWithProviders
-- **1,953 unit tests** across 164 files (~9s)
+- **1,944 unit tests** across 163 files (~9s)
 - **E2E**: Playwright (53 test cases across 6 specs) — `pnpm e2e` auto-starts mock K8s + agent (podman) + dev server, tears down containers after
 - **E2E config**: `e2e/playwright.config.ts`, mock K8s in `e2e/mock-k8s-server.mjs`, agent+pg in `e2e/docker-compose.agent.yml`
 - **E2E agent stack**: `e2e/start-agent.sh` / `e2e/stop-agent.sh` — starts real agent + PostgreSQL in podman containers
@@ -214,7 +216,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - Icons: lucide-react
 - When working with PatternFly (PF6), always check the PF6 API docs for component prop placement (e.g., selectableActions goes on CardHeader not Card). Do not assume PF5 patterns.
 - For dark-mode UI work, always verify text visibility, dropdown/menu contrast, and avoid glassmorphism effects that reduce readability. Test all CSS changes against both light and dark themes.
-- Feature flags: all default ON. Toggle in Admin. `isFeatureEnabled(flag)` to check. Current flags: `incidentCenter`, `identityView`, `welcomeLaunchpad`, `onboarding`, `reviewQueue`, `enhancedPulse`, `askPulse`
+- Feature flags: all shipped and removed. `engine/featureFlags.ts` deleted.
 - Trust level: always send as integer (0-4), never as string label
 - Confirmation nonce: always echo `nonce` from `confirm_request` back in `confirm_response`
 - Welcome page: every element must be clickable and link to a valid route
