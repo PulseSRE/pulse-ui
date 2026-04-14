@@ -439,7 +439,9 @@ interface PlanDetail {
 }
 
 function PlansTab() {
+  const queryClient = useQueryClient();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['plan-templates'],
@@ -515,9 +517,20 @@ function PlansTab() {
         <div className="bg-slate-900 border border-cyan-800/50 rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-200">{planDetail.name}</h3>
-            <button onClick={() => setSelectedPlan(null)} className="text-slate-500 hover:text-slate-300">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              {planDetail.id.startsWith('auto-') && (
+                <button
+                  onClick={() => setConfirmDelete(selectedPlan)}
+                  className="px-2 py-1 text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded border border-red-800/30 flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Delete
+                </button>
+              )}
+              <button onClick={() => setSelectedPlan(null)} className="text-slate-500 hover:text-slate-300">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Phase flow visualization */}
@@ -571,6 +584,27 @@ function PlansTab() {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Delete Plan Template"
+        description="Delete this auto-generated investigation plan? This cannot be undone. Built-in plans cannot be deleted."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={async () => {
+          if (!confirmDelete) return;
+          try {
+            const res = await fetch(`/api/agent/plan-templates/${encodeURIComponent(confirmDelete)}`, { method: 'DELETE' });
+            if (res.ok) {
+              queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
+              setSelectedPlan(null);
+            }
+          } catch { /* ignore */ }
+          setConfirmDelete(null);
+        }}
+      />
     </div>
   );
 }
