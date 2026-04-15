@@ -2311,6 +2311,25 @@ function AnalyticsTab() {
               </div>
             ))}
           </div>
+          {chains.trigrams && chains.trigrams.length > 0 && (
+            <>
+              <h4 className="text-[11px] font-medium text-slate-400 mt-4 mb-2">3-Step Workflows</h4>
+              <div className="space-y-1.5">
+                {chains.trigrams.slice(0, 5).map((t: { sequence: string[]; frequency: number; probability: number }, i: number) => (
+                  <div key={i} className="flex items-center gap-1.5 text-xs">
+                    {t.sequence.map((tool: string, j: number) => (
+                      <span key={j} className="flex items-center gap-1.5">
+                        {j > 0 && <ArrowRight className="w-3 h-3 text-slate-600" />}
+                        <span className="font-mono text-slate-300">{tool}</span>
+                      </span>
+                    ))}
+                    <span className="text-slate-500 ml-auto">{t.frequency}x</span>
+                    <span className="text-violet-400">{Math.round(t.probability * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

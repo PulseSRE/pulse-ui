@@ -69,8 +69,15 @@ export interface ChainBigram {
   probability: number;
 }
 
+export interface ChainTrigram {
+  sequence: string[];
+  frequency: number;
+  probability: number;
+}
+
 export interface ChainData {
   bigrams: ChainBigram[];
+  trigrams?: ChainTrigram[];
   total_sessions_analyzed: number;
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, AlertTriangle, CheckCircle, XCircle, AlertOctagon } from 'lucide-react';
+import { Bot, AlertTriangle, CheckCircle, XCircle, AlertOctagon, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   fetchFixHistorySummary,
@@ -114,10 +114,10 @@ export default function MissionControlView() {
 
         {/* KPI Dashboard */}
         {kpiQ.data?.kpis && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-            {Object.entries(kpiQ.data.kpis as Record<string, { label: string; value: number | string; unit: string; target: number | string; status: string }>).map(([key, kpi]) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+            {Object.entries(kpiQ.data.kpis as Record<string, { label: string; value: number | string; unit: string; target: number | string | null; status: string; description?: string }>).map(([key, kpi]) => (
               <div key={key} className={cn(
-                'bg-slate-900 border rounded-lg p-2.5 text-center',
+                'bg-slate-900 border rounded-lg p-2.5 text-center group relative',
                 kpi.status === 'pass' ? 'border-emerald-800/30' :
                 kpi.status === 'warn' ? 'border-amber-800/30' :
                 kpi.status === 'fail' ? 'border-red-800/30' :
@@ -126,6 +126,7 @@ export default function MissionControlView() {
                 <div className="flex items-center justify-center gap-1 mb-1">
                   {kpi.status === 'pass' ? <CheckCircle className="w-3 h-3 text-emerald-400" /> :
                    kpi.status === 'warn' ? <AlertTriangle className="w-3 h-3 text-amber-400" /> :
+                   kpi.status === 'info' ? <Activity className="w-3 h-3 text-blue-400" /> :
                    <XCircle className="w-3 h-3 text-red-400" />}
                   <span className="text-[10px] text-slate-500 truncate">{kpi.label}</span>
                 </div>
@@ -134,13 +135,20 @@ export default function MissionControlView() {
                   kpi.status === 'pass' ? 'text-emerald-400' :
                   kpi.status === 'warn' ? 'text-amber-400' :
                   kpi.status === 'fail' ? 'text-red-400' :
+                  kpi.status === 'info' ? 'text-blue-400' :
                   'text-slate-200',
                 )}>
                   {kpi.unit === 'ratio' ? `${Math.round((kpi.value as number) * 100)}%` :
                    kpi.unit === 'seconds' ? `${kpi.value}s` :
                    kpi.unit === 'ms' ? `${kpi.value}ms` :
+                   kpi.unit === 'chars' ? `${Math.round((kpi.value as number) / 1000)}K` :
                    String(kpi.value)}
                 </div>
+                {kpi.description && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    {kpi.description}
+                  </div>
+                )}
               </div>
             ))}
           </div>
