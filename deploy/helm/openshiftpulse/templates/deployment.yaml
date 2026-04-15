@@ -95,18 +95,22 @@ spec:
         - |
           cp /etc/nginx/nginx.conf /tmp/nginx.conf
           {{- if .Values.agent.enabled }}
-          if [ -f /etc/nginx/agent-token/token ]; then
-            TOKEN=$(cat /etc/nginx/agent-token/token)
-            if [ -z "$TOKEN" ]; then
-              echo "ERROR: Agent token file exists but is empty — WebSocket auth will fail" >&2
-              exit 1
+          # Token is injected at Helm template time via lookup(). Runtime sed is a
+          # safety net for edge cases where template-time injection missed.
+          if grep -q '__AGENT_TOKEN__' /tmp/nginx.conf; then
+            if [ -f /etc/nginx/agent-token/token ]; then
+              TOKEN=$(cat /etc/nginx/agent-token/token)
+              if [ -n "$TOKEN" ]; then
+                sed -i "s|__AGENT_TOKEN__|${TOKEN}|g" /tmp/nginx.conf
+                echo "Agent WS token injected at runtime (fallback)"
+              else
+                echo "WARNING: Token file empty and template placeholder not replaced — WebSocket auth may fail" >&2
+              fi
+            else
+              echo "WARNING: Token placeholder found but no secret mount — WebSocket auth may fail" >&2
             fi
-            sed -i "s|__AGENT_TOKEN__|${TOKEN}|g" /tmp/nginx.conf
-            echo "Agent WS token injected (${#TOKEN} chars)"
           else
-            echo "ERROR: Agent token file not found at /etc/nginx/agent-token/token — WebSocket auth will fail" >&2
-            echo "Check that secret '{{ .Values.agent.wsTokenSecret | default "pulse-ws-token" }}' exists in namespace" >&2
-            exit 1
+            echo "Agent WS token: injected at template time"
           fi
           {{- end }}
           SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token 2>/dev/null || echo "")

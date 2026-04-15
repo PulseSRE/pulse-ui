@@ -91,8 +91,21 @@ data:
         {{- end }}
 
         {{- if .Values.agent.enabled }}
+        {{- /* Resolve WS token at template time: literal value > lookup from secret > placeholder fallback */ -}}
+        {{- $agentSvc := .Values.agent.serviceName | default (printf "%s-openshift-sre-agent" .Release.Name) -}}
+        {{- $wsToken := .Values.agent.wsToken -}}
+        {{- if and (not $wsToken) .Values.agent.wsTokenSecret -}}
+          {{- $secret := lookup "v1" "Secret" .Release.Namespace .Values.agent.wsTokenSecret -}}
+          {{- if $secret -}}
+            {{- $key := .Values.agent.wsTokenSecretKey | default "token" -}}
+            {{- $wsToken = index $secret.data $key | b64dec -}}
+          {{- end -}}
+        {{- end -}}
+        {{- if not $wsToken }}
+          {{- $wsToken = "__AGENT_TOKEN__" -}}
+        {{- end }}
         location ~ ^/api/agent/ws/(sre|security|monitor|agent)$ {
-          proxy_pass http://{{ .Values.agent.serviceName | default (printf "%s-openshift-sre-agent" .Release.Name) }}:8080/ws/$1?token=__AGENT_TOKEN__;
+          proxy_pass http://{{ $agentSvc }}:8080/ws/$1?token={{ $wsToken }};
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
           proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
@@ -102,8 +115,8 @@ data:
         }
 
         location /api/agent/ {
-          proxy_pass http://{{ .Values.agent.serviceName | default (printf "%s-openshift-sre-agent" .Release.Name) }}:8080/;
-          proxy_set_header Authorization "Bearer __AGENT_TOKEN__";
+          proxy_pass http://{{ $agentSvc }}:8080/;
+          proxy_set_header Authorization "Bearer {{ $wsToken }}";
           proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
           proxy_set_header X-Forwarded-User $http_x_forwarded_user;
           proxy_read_timeout 60s;
