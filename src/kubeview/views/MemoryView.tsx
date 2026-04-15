@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, ThumbsUp, Zap, History, Target, FileText, Activity, Award } from 'lucide-react';
+import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, ThumbsUp, Zap, History, Target, FileText, Activity, Award, Download, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
@@ -73,6 +73,8 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
   const [search, setSearch] = useState('');
   const [expandedRunbook, setExpandedRunbook] = useState<string | null>(null);
   const [expandedIncident, setExpandedIncident] = useState<number | null>(null);
+  const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: summary } = useQuery({
     queryKey: ['memory', 'summary'],
@@ -97,6 +99,53 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
     queryFn: () => fetchIncidents(search),
     staleTime: 15_000,
   });
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch(`${AGENT_BASE}/memory/export`);
+      if (!res.ok) {
+        setImportStatus({ type: 'error', message: 'Export failed' });
+        return;
+      }
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pulse-memory-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setImportStatus({ type: 'error', message: 'Export failed' });
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await fetch(`${AGENT_BASE}/memory/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        setImportStatus({ type: 'error', message: 'Import failed' });
+        return;
+      }
+      const result = await res.json();
+      setImportStatus({
+        type: 'success',
+        message: `Imported ${result.runbooks_imported ?? 0} runbooks, ${result.patterns_imported ?? 0} patterns`,
+      });
+    } catch {
+      setImportStatus({ type: 'error', message: 'Invalid JSON file' });
+    }
+    // Reset file input so the same file can be re-imported
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const tabs: { id: Tab; label: string; count: number; icon: typeof Brain }[] = [
     { id: 'runbooks', label: 'Learned Runbooks', count: runbooks.length, icon: BookOpen },
@@ -152,6 +201,40 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
             </p>
           </div>
         )}
+
+        {/* Export / Import */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export Memory
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Import Memory
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleImport}
+            className="hidden"
+            aria-label="Import memory file"
+          />
+          {importStatus && (
+            <span className={cn(
+              'text-xs px-2 py-1 rounded',
+              importStatus.type === 'success' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300',
+            )}>
+              {importStatus.message}
+            </span>
+          )}
+        </div>
 
         {/* Summary Cards */}
         {!embedded && summary && (

@@ -1,8 +1,18 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import type { AgentEvalStatus, EvalSuiteSummary } from '../../engine/evalStatus';
+
+interface EvalHistoryRun {
+  suite: string;
+  score: number;
+  gate_passed: boolean;
+  scenario_count: number;
+  passed_count: number;
+  timestamp: string;
+}
 
 interface EvalDrawerProps {
   evalStatus: AgentEvalStatus | null | undefined;
@@ -40,8 +50,25 @@ const PROMPT_SECTION_DESCRIPTIONS: Record<string, string> = {
   component_hint_all: 'UI component schemas guiding the agent on chart, table, and metric card formats',
 };
 
+function formatEvalTimestamp(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+    ', ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
 export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const { data: history } = useQuery({
+    queryKey: ['eval-history', 'release'],
+    queryFn: async () => {
+      const res = await fetch('/api/agent/eval/history?suite=release&days=30');
+      if (!res.ok) return null;
+      return res.json() as Promise<{ runs: EvalHistoryRun[] }>;
+    },
+    staleTime: 60_000,
+  });
 
   const toggle = (suite: string) => setExpanded((prev) => (prev === suite ? null : suite));
 
@@ -125,6 +152,40 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
                   Current window: {evalStatus.outcomes.current_actions} actions &middot; Baseline: {evalStatus.outcomes.baseline_actions} actions
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Eval History Timeline */}
+        {history?.runs && history.runs.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Release Gate History (last 30 days)</h3>
+            <p className="text-[11px] text-slate-500 mb-3">
+              Score trend for the release eval suite. Each row is one eval run.
+            </p>
+            <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
+              <div className="space-y-2">
+                {history.runs.map((run, i) => {
+                  const pct = Math.round(run.score * 100);
+                  return (
+                    <div key={i} className="flex items-center gap-3 text-xs">
+                      {run.gate_passed
+                        ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        : <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+                      <span className={cn(
+                        'font-mono font-semibold w-12',
+                        run.gate_passed ? 'text-emerald-400' : 'text-red-400',
+                      )}>
+                        {pct.toFixed(1)}%
+                      </span>
+                      <span className="text-slate-500 w-36">{formatEvalTimestamp(run.timestamp)}</span>
+                      <span className="text-slate-500">
+                        {run.passed_count}/{run.scenario_count} pass
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
