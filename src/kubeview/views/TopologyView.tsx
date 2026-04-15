@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, Loader2, RefreshCw, AlertTriangle, Zap, Shield, Clock,
+  Network, Loader2, RefreshCw, AlertTriangle, Zap, Shield, Clock, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
@@ -252,7 +252,7 @@ export default function TopologyView() {
           </div>
         )}
 
-        {/* Graph */}
+        {/* Graph + Detail side-by-side */}
         {topology.nodes.length === 0 ? (
           <EmptyState
             icon={<Network className="w-8 h-8 text-slate-500" />}
@@ -260,103 +260,119 @@ export default function TopologyView() {
             description="The dependency graph is built during scan cycles. It will populate as the monitor scans your cluster."
           />
         ) : (
-          <GraphRenderer
-            nodes={topology.nodes}
-            edges={topology.edges}
-            hoveredNode={hoveredNode}
-            setHoveredNode={setHoveredNode}
-            selectedNode={selectedNode}
-            setSelectedNode={setSelectedNode}
-          />
-        )}
-
-        {/* Blast Radius Panel */}
-        {selectedNodeData && (
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Shield className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm font-semibold text-slate-200">
-                {selectedNodeData.kind}/{selectedNodeData.name}
-              </span>
-              {selectedNodeData.namespace && (
-                <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
-                  {selectedNodeData.namespace}
-                </span>
-              )}
-              {/* Status badge */}
-              <span className={cn('text-xs', STATUS_LABELS[selectedNodeData.status ?? 'healthy'].color)}>
-                {STATUS_LABELS[selectedNodeData.status ?? 'healthy'].label}
-              </span>
-              {/* Risk badge */}
-              {selectedNodeData.riskLevel && (
-                <span className={cn(
-                  'text-xs px-1.5 py-0.5 rounded border',
-                  RISK_COLORS[selectedNodeData.riskLevel],
-                )}>
-                  Risk: {selectedNodeData.risk} ({selectedNodeData.riskLevel})
-                </span>
-              )}
-              {selectedNodeData.recentlyChanged && (
-                <span className="text-xs px-1.5 py-0.5 bg-orange-950/50 text-orange-400 rounded border border-orange-900/50 flex items-center gap-1">
-                  <Zap className="w-3 h-3" /> Recently deployed
-                </span>
-              )}
-              <span className="text-xs text-slate-600 ml-auto">
-                Blast radius: {blastRadiusData?.length ?? '...'} resource{(blastRadiusData?.length ?? 0) !== 1 ? 's' : ''}
-              </span>
+          <div className={cn('flex gap-4', selectedNodeData ? '' : '')}>
+            {/* Graph — shrinks when detail is open */}
+            <div className={cn('min-w-0 transition-all', selectedNodeData ? 'flex-1' : 'w-full')}>
+              <GraphRenderer
+                nodes={topology.nodes}
+                edges={topology.edges}
+                hoveredNode={hoveredNode}
+                setHoveredNode={setHoveredNode}
+                selectedNode={selectedNode}
+                setSelectedNode={setSelectedNode}
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Upstream */}
-              <div>
-                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Upstream (depends on)
-                </h4>
-                {(() => {
-                  const upstream = topology.edges
-                    .filter(e => e.target === selectedNode)
-                    .map(e => ({ node: nodeMap.get(e.source), rel: e.relationship }))
-                    .filter((x): x is { node: TopoNode; rel: string } => !!x.node);
-                  if (upstream.length === 0) return <span className="text-xs text-slate-600">None</span>;
-                  return (
+            {/* Detail column */}
+            {selectedNodeData && (
+              <Card className="w-72 shrink-0 p-4 overflow-y-auto self-start max-h-[600px]">
+                {/* Close */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <Shield className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span className="text-xs font-semibold text-slate-200 truncate">
+                      {selectedNodeData.kind}/{selectedNodeData.name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedNode(null)}
+                    className="p-0.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                  {selectedNodeData.namespace && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
+                      {selectedNodeData.namespace}
+                    </span>
+                  )}
+                  <span className={cn('text-[10px]', STATUS_LABELS[selectedNodeData.status ?? 'healthy'].color)}>
+                    {STATUS_LABELS[selectedNodeData.status ?? 'healthy'].label}
+                  </span>
+                  {selectedNodeData.riskLevel && (
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded border',
+                      RISK_COLORS[selectedNodeData.riskLevel],
+                    )}>
+                      Risk: {selectedNodeData.risk}
+                    </span>
+                  )}
+                  {selectedNodeData.recentlyChanged && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-orange-950/50 text-orange-400 rounded border border-orange-900/50 flex items-center gap-0.5">
+                      <Zap className="w-2.5 h-2.5" /> Deployed
+                    </span>
+                  )}
+                </div>
+
+                {/* Blast radius count */}
+                <div className="text-xs text-slate-500 mb-3 pb-3 border-b border-slate-800">
+                  Blast radius: {blastRadiusData?.length ?? '...'} resource{(blastRadiusData?.length ?? 0) !== 1 ? 's' : ''}
+                </div>
+
+                {/* Upstream */}
+                <div className="mb-3">
+                  <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Upstream
+                  </h4>
+                  {(() => {
+                    const upstream = topology.edges
+                      .filter(e => e.target === selectedNode)
+                      .map(e => ({ node: nodeMap.get(e.source), rel: e.relationship }))
+                      .filter((x): x is { node: TopoNode; rel: string } => !!x.node);
+                    if (upstream.length === 0) return <span className="text-xs text-slate-600">None</span>;
+                    return (
+                      <div className="space-y-1">
+                        {upstream.map(({ node: n, rel }) => (
+                          <div key={n.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
+                            <span className="truncate">{n.kind}/{n.name}</span>
+                            <span className="text-slate-600 text-[10px] shrink-0">({rel})</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Downstream */}
+                <div>
+                  <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Downstream
+                  </h4>
+                  {!blastRadiusData ? (
+                    <Loader2 className="w-4 h-4 text-slate-600 animate-spin" />
+                  ) : blastRadiusData.length === 0 ? (
+                    <span className="text-xs text-slate-600">None (leaf node)</span>
+                  ) : (
                     <div className="space-y-1">
-                      {upstream.map(({ node: n, rel }) => (
-                        <div key={n.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(n.kind) }} />
-                          {n.kind}/{n.name}
-                          <span className="text-slate-600 text-[10px]">({rel})</span>
+                      {blastRadiusData.map((dep) => (
+                        <div key={dep.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: getKindColor(dep.kind) }} />
+                          <span className="truncate">{dep.kind}/{dep.name}</span>
+                          {dep.relationship && (
+                            <span className="text-slate-600 text-[10px] shrink-0">({dep.relationship})</span>
+                          )}
                         </div>
                       ))}
                     </div>
-                  );
-                })()}
-              </div>
-
-              {/* Downstream (from API) */}
-              <div>
-                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Downstream (blast radius)
-                </h4>
-                {!blastRadiusData ? (
-                  <Loader2 className="w-4 h-4 text-slate-600 animate-spin" />
-                ) : blastRadiusData.length === 0 ? (
-                  <span className="text-xs text-slate-600">None (leaf node)</span>
-                ) : (
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {blastRadiusData.map((dep) => (
-                      <div key={dep.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(dep.kind) }} />
-                        {dep.kind}/{dep.name}
-                        {dep.relationship && (
-                          <span className="text-slate-600 text-[10px]">({dep.relationship})</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
         )}
 
         {/* Recent Changes Timeline */}

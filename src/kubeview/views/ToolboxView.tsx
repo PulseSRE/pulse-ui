@@ -505,159 +505,161 @@ function PlansTab() {
       {templates.length === 0 ? (
         <div className="text-center py-12 text-sm text-slate-500">No investigation plans loaded.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {templates.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setSelectedPlan(selectedPlan === t.incident_type ? null : t.incident_type)}
-              className={cn(
-                'bg-slate-900 border rounded-lg p-4 text-left transition-colors hover:border-cyan-700/50',
-                selectedPlan === t.incident_type ? 'border-cyan-600' : 'border-slate-800',
-              )}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-slate-200">{t.name}</span>
-                <div className="flex items-center gap-1.5">
-                  {t.id.startsWith('auto-') && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded border border-amber-700/40">AI-generated</span>
-                  )}
-                  <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded border border-cyan-800/30">
-                    {t.phases} phases
+        <div className="flex gap-4">
+          {/* Plan list */}
+          <div className={cn('min-w-0 grid grid-cols-1 gap-3 content-start', selectedPlan && planDetail ? 'flex-1' : 'w-full sm:grid-cols-2')}>
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setSelectedPlan(selectedPlan === t.incident_type ? null : t.incident_type)}
+                className={cn(
+                  'bg-slate-900 border rounded-lg p-4 text-left transition-colors hover:border-cyan-700/50',
+                  selectedPlan === t.incident_type ? 'border-cyan-600' : 'border-slate-800',
+                )}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-slate-200">{t.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    {t.id.startsWith('auto-') && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded border border-amber-700/40">AI-generated</span>
+                    )}
+                    <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded border border-cyan-800/30">
+                      {t.phases} phases
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-500">
+                  <span>Trigger: {t.incident_type}</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {Math.round(t.max_duration / 60)}m max
                   </span>
                 </div>
-              </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
-                <span>Trigger: {t.incident_type}</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {Math.round(t.max_duration / 60)}m max
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Plan detail */}
-      {selectedPlan && planDetail && (
-        <div className="bg-slate-900 border border-cyan-800/50 rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-200">{planDetail.name}</h3>
-            <div className="flex items-center gap-2">
-              {editing ? (
-                <button
-                  onClick={async () => {
-                    try {
-                      await fetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan!)}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phases: editPhases }),
-                      });
-                      queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
-                      queryClient.invalidateQueries({ queryKey: ['plan-template-detail', selectedPlan] });
-                    } catch { /* ignore */ }
-                    setEditing(false);
-                  }}
-                  className="px-2 py-1 text-xs bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded border border-emerald-800/30 flex items-center gap-1 transition-colors"
-                >
-                  <Save className="w-3 h-3" />
-                  Save
-                </button>
-              ) : (
-                <button
-                  onClick={() => { setEditing(true); setEditPhases(planDetail.phases); }}
-                  className="px-2 py-1 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded border border-blue-800/30 flex items-center gap-1 transition-colors"
-                >
-                  Edit
-                </button>
-              )}
-              {planDetail.id.startsWith('auto-') && (
-                <button
-                  onClick={() => setConfirmDelete(selectedPlan)}
-                  className="px-2 py-1 text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded border border-red-800/30 flex items-center gap-1 transition-colors"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Delete
-                </button>
-              )}
-              <button onClick={() => setSelectedPlan(null)} className="text-slate-500 hover:text-slate-300">
-                <X className="w-4 h-4" />
               </button>
-            </div>
-          </div>
-
-          {/* Phase flow visualization */}
-          <div className="flex items-center gap-1 flex-wrap">
-            {planDetail.phases.map((phase, idx) => (
-              <div key={phase.id} className="flex items-center gap-1">
-                <div className={cn(
-                  'px-2.5 py-1 rounded text-xs font-medium border',
-                  phase.required ? 'bg-cyan-900/30 text-cyan-300 border-cyan-800/40' : 'bg-slate-800 text-slate-400 border-slate-700',
-                )}>
-                  {phase.id}
-                </div>
-                {idx < planDetail.phases.length - 1 && (
-                  <ArrowRight className="w-3 h-3 text-slate-600" />
-                )}
-              </div>
             ))}
           </div>
 
-          {/* Phase details */}
-          <div className="space-y-2">
-            {(editing ? editPhases : planDetail.phases).map((phase, phaseIdx) => (
-              <div key={phase.id} className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-slate-200">{phase.id}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-500">skill: {phase.skill_name}</span>
-                    {editing ? (
-                      <button
-                        onClick={() => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], required: !p[phaseIdx].required }; setEditPhases(p); }}
-                        className={cn('text-[10px] px-1 py-0.5 rounded cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-500')}
-                      >
-                        {phase.required ? 'required' : 'optional'}
-                      </button>
-                    ) : (
-                      <>
-                        {phase.required && <span className="text-[10px] px-1 py-0.5 bg-red-900/30 text-red-400 rounded">required</span>}
-                      </>
-                    )}
-                    {phase.approval_required && <span className="text-[10px] px-1 py-0.5 bg-amber-900/30 text-amber-400 rounded">approval</span>}
-                    {phase.runs === 'always' && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded">always runs</span>}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+          {/* Plan detail — side panel */}
+          {selectedPlan && planDetail && (
+            <div className="w-96 shrink-0 bg-slate-900 border border-cyan-800/50 rounded-lg p-4 space-y-4 self-start max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-200 truncate">{planDetail.name}</h3>
+                <div className="flex items-center gap-2 shrink-0">
                   {editing ? (
-                    <span className="flex items-center gap-1">
-                      Timeout:
-                      <input
-                        type="number"
-                        value={phase.timeout_seconds}
-                        onChange={(e) => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], timeout_seconds: parseInt(e.target.value) || 120 }; setEditPhases(p); }}
-                        className="w-16 px-1 py-0.5 text-[11px] bg-slate-700 border border-slate-600 rounded text-slate-200"
-                      />s
-                    </span>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await fetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan!)}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ phases: editPhases }),
+                          });
+                          queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
+                          queryClient.invalidateQueries({ queryKey: ['plan-template-detail', selectedPlan] });
+                        } catch { /* ignore */ }
+                        setEditing(false);
+                      }}
+                      className="px-2 py-1 text-xs bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded border border-emerald-800/30 flex items-center gap-1 transition-colors"
+                    >
+                      <Save className="w-3 h-3" />
+                      Save
+                    </button>
                   ) : (
-                    <span>Timeout: {phase.timeout_seconds}s</span>
+                    <button
+                      onClick={() => { setEditing(true); setEditPhases(planDetail.phases); }}
+                      className="px-2 py-1 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded border border-blue-800/30 flex items-center gap-1 transition-colors"
+                    >
+                      Edit
+                    </button>
                   )}
-                  {phase.depends_on.length > 0 && <span>After: {phase.depends_on.join(', ')}</span>}
-                  {phase.produces.length > 0 && <span>Produces: {phase.produces.join(', ')}</span>}
-                  {phase.branch_on && <span>Branches on: {phase.branch_on}</span>}
-                  {phase.parallel_with && <span>Parallel: {phase.parallel_with.join(', ')}</span>}
+                  {planDetail.id.startsWith('auto-') && (
+                    <button
+                      onClick={() => setConfirmDelete(selectedPlan)}
+                      className="px-2 py-1 text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded border border-red-800/30 flex items-center gap-1 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedPlan(null)} className="text-slate-500 hover:text-slate-300">
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                {phase.branches && Object.keys(phase.branches).length > 0 && (
-                  <div className="mt-1.5 space-y-0.5">
-                    {Object.entries(phase.branches).map(([val, skills]) => (
-                      <div key={val} className="text-[11px] text-slate-400">
-                        if {phase.branch_on} = <span className="text-cyan-400">{val}</span> → {skills.join(', ')}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
+
+              {/* Phase flow visualization */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {planDetail.phases.map((phase, idx) => (
+                  <div key={phase.id} className="flex items-center gap-1">
+                    <div className={cn(
+                      'px-2.5 py-1 rounded text-xs font-medium border',
+                      phase.required ? 'bg-cyan-900/30 text-cyan-300 border-cyan-800/40' : 'bg-slate-800 text-slate-400 border-slate-700',
+                    )}>
+                      {phase.id}
+                    </div>
+                    {idx < planDetail.phases.length - 1 && (
+                      <ArrowRight className="w-3 h-3 text-slate-600" />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Phase details */}
+              <div className="space-y-2">
+                {(editing ? editPhases : planDetail.phases).map((phase, phaseIdx) => (
+                  <div key={phase.id} className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-slate-200">{phase.id}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-500">{phase.skill_name}</span>
+                        {editing ? (
+                          <button
+                            onClick={() => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], required: !p[phaseIdx].required }; setEditPhases(p); }}
+                            className={cn('text-[10px] px-1 py-0.5 rounded cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-500')}
+                          >
+                            {phase.required ? 'required' : 'optional'}
+                          </button>
+                        ) : (
+                          <>
+                            {phase.required && <span className="text-[10px] px-1 py-0.5 bg-red-900/30 text-red-400 rounded">required</span>}
+                          </>
+                        )}
+                        {phase.approval_required && <span className="text-[10px] px-1 py-0.5 bg-amber-900/30 text-amber-400 rounded">approval</span>}
+                        {phase.runs === 'always' && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded">always runs</span>}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+                      {editing ? (
+                        <span className="flex items-center gap-1">
+                          Timeout:
+                          <input
+                            type="number"
+                            value={phase.timeout_seconds}
+                            onChange={(e) => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], timeout_seconds: parseInt(e.target.value) || 120 }; setEditPhases(p); }}
+                            className="w-16 px-1 py-0.5 text-[11px] bg-slate-700 border border-slate-600 rounded text-slate-200"
+                          />s
+                        </span>
+                      ) : (
+                        <span>Timeout: {phase.timeout_seconds}s</span>
+                      )}
+                      {phase.depends_on.length > 0 && <span>After: {phase.depends_on.join(', ')}</span>}
+                      {phase.produces.length > 0 && <span>Produces: {phase.produces.join(', ')}</span>}
+                      {phase.branch_on && <span>Branches on: {phase.branch_on}</span>}
+                      {phase.parallel_with && <span>Parallel: {phase.parallel_with.join(', ')}</span>}
+                    </div>
+                    {phase.branches && Object.keys(phase.branches).length > 0 && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {Object.entries(phase.branches).map(([val, skills]) => (
+                          <div key={val} className="text-[11px] text-slate-400">
+                            if {phase.branch_on} = <span className="text-cyan-400">{val}</span> → {skills.join(', ')}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
