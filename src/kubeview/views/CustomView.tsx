@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
-import { Trash2, Plus, LayoutDashboard, Bot, Share2, Check, GripVertical, Pencil, Eye, RefreshCw } from 'lucide-react';
+import { Trash2, Plus, LayoutDashboard, Bot, Share2, Check, GripVertical, Pencil, Eye, RefreshCw, Settings2 } from 'lucide-react';
+import { ChartEditPopover } from '../components/agent/ChartEditPopover';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { useAgentStore } from '../store/agentStore';
@@ -111,6 +112,7 @@ export default function CustomView() {
   const [refreshInterval, setRefreshInterval] = useState(60000);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [widgetToRemove, setWidgetToRemove] = useState<number | null>(null);
+  const [editingChart, setEditingChart] = useState<number | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
@@ -350,6 +352,15 @@ export default function CustomView() {
                       <GripVertical className="w-3 h-3 text-slate-600" />
                     </div>
                     <div className="absolute top-1.5 right-2 flex items-center gap-1 z-10">
+                      {spec.kind === 'chart' && (
+                        <button
+                          onClick={() => setEditingChart(editingChart === i ? null : i)}
+                          className="p-1 rounded bg-slate-800 text-slate-500 hover:text-blue-400 transition-colors"
+                          title="Edit chart"
+                        >
+                          <Settings2 className="w-3 h-3" />
+                        </button>
+                      )}
                       <button
                         onClick={() => setWidgetToRemove(i)}
                         className="p-1 rounded bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
@@ -395,6 +406,15 @@ export default function CustomView() {
                   <ErrorBoundary>
                     <AgentComponentRenderer spec={spec} refreshInterval={refreshInterval || undefined} />
                   </ErrorBoundary>
+                  {/* Chart edit popover */}
+                  {editingChart === i && spec.kind === 'chart' && (
+                    <ChartEditPopover
+                      spec={spec as any}
+                      viewId={view.id}
+                      widgetIndex={i}
+                      onClose={() => setEditingChart(null)}
+                    />
+                  )}
                 </div>
               </div>
             ))}
