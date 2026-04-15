@@ -31,7 +31,7 @@ const quickActions: QuickAction[] = [
   { label: 'Incidents', route: '/incidents', title: 'Incidents' },
   { label: 'Readiness', route: '/readiness', title: 'Production Readiness' },
   { label: 'Alerts', route: '/alerts', title: 'Alerts' },
-  { label: 'Reviews', route: '/reviews', title: 'Reviews' },
+  { label: 'Reviews', route: '/incidents?tab=actions', title: 'Review Queue' },
 ];
 
 export function InsightsRail({ className, onNavigate }: { className?: string; onNavigate?: (route: string, title: string) => void }) {

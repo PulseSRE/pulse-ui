@@ -91,7 +91,7 @@ export function MorningSummaryCard({ className }: { className?: string }) {
           label="Reviews"
           value={pendingReviews}
           valueClass={pendingReviews > 0 ? 'text-amber-400' : undefined}
-          onClick={() => go('/reviews', 'Reviews')}
+          onClick={() => go('/incidents?tab=actions', 'Review Queue')}
         />
       </div>
 

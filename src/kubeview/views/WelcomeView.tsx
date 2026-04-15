@@ -114,7 +114,7 @@ export default function WelcomeView() {
             label="Pending Reviews"
             value={pendingActions}
             valueClass={pendingActions > 0 ? 'text-amber-400' : 'text-slate-400'}
-            onClick={() => go('/reviews', 'Reviews')}
+            onClick={() => go('/incidents?tab=actions', 'Review Queue')}
           />
           <QuickStat
             label="Cluster"
@@ -157,7 +157,7 @@ export default function WelcomeView() {
         <div className="grid grid-cols-4 gap-2">
           <NavCard icon={<HeartPulse className="w-5 h-5" />} color="text-blue-400" border="border-blue-500/20" title="Pulse" sub="AI briefing, topology, overnight activity" onClick={() => go('/pulse', 'Pulse')} path="/pulse" />
           <NavCard icon={<Bell className="w-5 h-5" />} color="text-red-400" border="border-red-500/20" title="Incidents" sub="Triage alerts, review AI fixes, track history" onClick={() => go('/incidents', 'Incidents')} />
-          <NavCard icon={<GitPullRequest className="w-5 h-5" />} color="text-violet-400" border="border-violet-500/20" title="Reviews" sub="Approve or reject AI-proposed changes" onClick={() => go('/reviews', 'Reviews')} />
+          <NavCard icon={<GitPullRequest className="w-5 h-5" />} color="text-violet-400" border="border-violet-500/20" title="Reviews" sub="Approve or reject AI-proposed changes" onClick={() => go('/incidents?tab=actions', 'Review Queue')} />
           <NavCard icon={<Package className="w-5 h-5" />} color="text-blue-400" border="border-blue-500/20" title="Workloads" sub="Deployments, pods, health audit" onClick={() => go('/workloads', 'Workloads')} path="/workloads" />
           <NavCard icon={<Server className="w-5 h-5" />} color="text-blue-400" border="border-slate-800" title="Compute" sub="Node health, capacity planning, machines" onClick={() => go('/compute', 'Compute')} path="/compute" />
           <NavCard icon={<Globe className="w-5 h-5" />} color="text-cyan-400" border="border-slate-800" title="Networking" sub="Routes, services, network policies" onClick={() => go('/networking', 'Networking')} path="/networking" />

@@ -122,7 +122,7 @@ export default function PulseView() {
                 icon={<GitPullRequest className="w-3 h-3" />}
                 label={`${pendingReviews} review${pendingReviews !== 1 ? 's' : ''}`}
                 color="violet"
-                onClick={() => go('/reviews', 'Reviews')}
+                onClick={() => go('/incidents?tab=actions', 'Review Queue')}
               />
             )}
             <button
