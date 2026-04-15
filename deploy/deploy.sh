@@ -492,8 +492,13 @@ fi
 # Delete MCP deployment before upgrade to avoid field manager conflicts.
 # The toolset toggle API patches .args at runtime, which creates field ownership
 # under "OpenAPI-Generator" that conflicts with Helm on the next upgrade.
-# MCP server is stateless — Helm recreates it with clean ownership.
+# Delete resources with known field manager conflicts before helm upgrade.
+# MCP server: toolset toggle API patches .args at runtime under "OpenAPI-Generator".
+# nginx configmap: manual oc replace/patch creates "kubectl-replace" ownership.
+# Both are stateless — Helm recreates them with clean ownership.
 oc delete deployment -l app.kubernetes.io/component=mcp-server \
+  -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+oc delete configmap openshiftpulse-nginx \
   -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
 
 helm upgrade --install "$RELEASE" deploy/helm/pulse/ \
