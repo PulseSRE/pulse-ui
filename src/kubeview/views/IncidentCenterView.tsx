@@ -10,7 +10,7 @@ import { InvestigateTab } from './incidents/InvestigateTab';
 import { HistoryTab } from './incidents/HistoryTab';
 
 const AlertsView = lazy(() => import('./AlertsView'));
-const ReviewQueueView = lazy(() => import('./ReviewQueueView'));
+const ActionsTab = lazy(() => import('./incidents/ActionsTab').then(m => ({ default: m.ActionsTab })));
 const PostmortemsTab = lazy(() => import('./incidents/PostmortemsTab').then(m => ({ default: m.PostmortemsTab })));
 
 type IncidentTab = 'now' | 'investigate' | 'actions' | 'postmortems' | 'history' | 'alerts';
@@ -121,7 +121,7 @@ export default function IncidentCenterView() {
         {activeTab === 'actions' && (
           <div id="incident-panel-actions" role="tabpanel">
             <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}>
-              <ReviewQueueView />
+              <ActionsTab />
             </Suspense>
           </div>
         )}
