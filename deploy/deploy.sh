@@ -32,7 +32,6 @@ _WS_TOKEN_OVERRIDE="${PULSE_AGENT_WS_TOKEN:-}"
 GCP_KEY_FILE=""
 DRY_RUN=false
 UNINSTALL=false
-SKIP_BUILD=false
 ROLLBACK=false
 HELM_SETS=()
 
@@ -61,7 +60,6 @@ while [[ $# -gt 0 ]]; do
     --agent-tag)  AGENT_TAG="$2"; shift 2 ;;
     --dry-run)    DRY_RUN=true; shift ;;
     --uninstall)  UNINSTALL=true; shift ;;
-    --skip-build) SKIP_BUILD=true; shift ;;
     --rollback)   ROLLBACK=true; shift ;;
     --set)        HELM_SETS+=("--set" "$2"); shift 2 ;;
     --help|-h)
@@ -80,7 +78,6 @@ Options:
   --agent-tag TAG     Agent image tag (default: git SHA short)
   --dry-run           Preview what will be deployed without deploying
   --uninstall         Remove all Pulse resources from the cluster
-  --skip-build        Skip image builds, use existing images
   --rollback          Roll back to the previous Helm revision
   --set KEY=VALUE     Pass custom Helm --set values (repeatable)
                       e.g. --set agent.mcp.enabled=true
@@ -204,15 +201,13 @@ for cmd in oc helm pnpm podman; do
 done
 oc whoami &>/dev/null || { error "Not logged in to OpenShift. Run 'oc login' first."; exit 1; }
 
-if [[ "$SKIP_BUILD" == "false" ]]; then
-  if ! podman info &>/dev/null; then
-    error "Podman machine not running. Start it: podman machine start"
-    exit 1
-  fi
-  if ! podman login --get-login quay.io &>/dev/null; then
-    error "Not logged in to Quay.io. Run: podman login quay.io"
-    exit 1
-  fi
+if ! podman info &>/dev/null; then
+  error "Podman machine not running. Start it: podman machine start"
+  exit 1
+fi
+if ! podman login --get-login quay.io &>/dev/null; then
+  error "Not logged in to Quay.io. Run: podman login quay.io"
+  exit 1
 fi
 
 info "Tools: oc, helm, pnpm, podman — OK"
@@ -256,12 +251,6 @@ if [[ -z "$UI_TAG" ]]; then
 fi
 if [[ -z "$AGENT_TAG" ]]; then
   AGENT_TAG=$(git_tag "$AGENT_REPO")
-fi
-
-# Warn if --skip-build but images may not exist for these SHA tags
-if [[ "$SKIP_BUILD" == "true" ]]; then
-  warn "Using --skip-build with tags UI=$UI_TAG AGENT=$AGENT_TAG"
-  warn "Make sure these images exist on the registry (built from a previous deploy)"
 fi
 
 info "UI tag: $UI_TAG"
@@ -338,7 +327,6 @@ fi
 
 # ─── Phase 2: Build & Push Images (parallel) ────────────────────────────────
 
-if [[ "$SKIP_BUILD" == "false" ]]; then
   step "Building & pushing images"
 
   cd "$PROJECT_DIR"
@@ -383,9 +371,6 @@ if [[ "$SKIP_BUILD" == "false" ]]; then
     cat /tmp/pulse-ui-push.log
     exit 1
   fi
-else
-  info "Skipping image builds (--skip-build)"
-fi
 
 # ─── Phase 3: Helm Deploy (single umbrella install) ─────────────────────────
 
@@ -498,9 +483,9 @@ helm dependency update deploy/helm/pulse/ >/dev/null 2>&1 || true
 # Recover from stuck helm state (pending-install/pending-upgrade from interrupted deploys)
 HELM_STATUS=$(helm status "$RELEASE" -n "$NAMESPACE" -o json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('info',{}).get('status',''))" 2>/dev/null) || true
 if [[ "$HELM_STATUS" == pending-* ]]; then
-  warn "Helm release stuck in '$HELM_STATUS' — cleaning up for fresh install"
-  helm uninstall "$RELEASE" -n "$NAMESPACE" --no-hooks 2>/dev/null || true
-  # Force-delete the release secret if uninstall fails
+  warn "Helm release stuck in '$HELM_STATUS' — deleting release metadata only"
+  # Delete only the helm release secret, NOT the actual resources.
+  # This lets helm do a fresh install while preserving PVCs, secrets, etc.
   oc delete secret -l owner=helm,name="$RELEASE" -n "$NAMESPACE" 2>/dev/null || true
 fi
 

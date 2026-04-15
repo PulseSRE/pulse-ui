@@ -128,9 +128,6 @@ The `deploy.sh` script handles the full pipeline:
 # Preview without applying
 ./deploy/deploy.sh --dry-run
 
-# Skip image builds (redeploy with existing images)
-./deploy/deploy.sh --skip-build
-
 # Custom registry
 PULSE_UI_IMAGE=my-registry.io/pulse-ui PULSE_AGENT_IMAGE=my-registry.io/pulse-agent ./deploy/deploy.sh
 
@@ -310,7 +307,7 @@ ANTHROPIC_API_KEY=sk-ant-... ./deploy/deploy.sh
 
 **Build context**: `.dockerignore` reduces frontend build context from ~500MB to ~5MB.
 
-**Other features**: `--dry-run` to preview, `--uninstall` to clean up, `--skip-build` to redeploy with existing images. Images tagged with git SHA for rollback safety. Proxy chain health check validates connectivity end-to-end.
+**Other features**: `--dry-run` to preview, `--uninstall` to clean up, `--rollback` to revert. Images tagged with git SHA for rollback safety. Proxy chain health check validates connectivity end-to-end.
 
 **Prerequisites**: `oc` (logged in), `helm`, `pnpm`, `podman` (logged in to your registry).
 
@@ -331,7 +328,7 @@ pnpm build && podman build --platform linux/amd64 -t ${PULSE_UI_IMAGE:-quay.io/y
   && oc rollout restart deployment/openshiftpulse -n openshiftpulse
 
 # Config-only change (no rebuild)
-./deploy/deploy.sh --skip-build
+./deploy/deploy.sh --rollback
 ```
 
 ### Uninstall
