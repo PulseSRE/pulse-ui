@@ -1,25 +1,18 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, Loader2, RefreshCw, AlertTriangle,
+  Network, Loader2, RefreshCw, AlertTriangle, Zap, Shield, Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { useUIStore } from '../store/uiStore';
+import GraphRenderer, {
+  type TopoNode, type TopoEdge, getKindColor, layoutGraph,
+} from '../components/topology/GraphRenderer';
+import { agentFetch } from '../engine/safeQuery';
 
-interface TopoNode {
-  id: string;
-  kind: string;
-  name: string;
-  namespace: string;
-}
-
-interface TopoEdge {
-  source: string;
-  target: string;
-  relationship: string;
-}
+// ── Types ─────────────────────────────────────────────────────────────
 
 interface TopologyData {
   nodes: TopoNode[];
@@ -32,151 +25,78 @@ interface TopologyData {
   };
 }
 
+interface BlastRadiusNode {
+  id: string;
+  kind: string;
+  name: string;
+  namespace: string;
+  relationship: string;
+}
+
+// ── Data fetching ─────────────────────────────────────────────────────
+
 async function fetchTopology(namespace?: string): Promise<TopologyData> {
   const params = namespace ? `?namespace=${encodeURIComponent(namespace)}` : '';
-  const res = await fetch(`/api/agent/topology${params}`);
+  const res = await agentFetch(`/api/agent/topology${params}`);
   if (!res.ok) throw new Error(`Topology fetch failed (${res.status})`);
   return res.json();
 }
 
-const KIND_COLORS: Record<string, string> = {
-  Deployment: '#3b82f6',
-  ReplicaSet: '#60a5fa',
-  StatefulSet: '#2563eb',
-  DaemonSet: '#1d4ed8',
-  Pod: '#22c55e',
-  Service: '#06b6d4',
-  ConfigMap: '#eab308',
-  Secret: '#ef4444',
-  PVC: '#f97316',
-  Node: '#64748b',
-  Ingress: '#8b5cf6',
-  Route: '#a78bfa',
+async function fetchBlastRadius(nodeId: string): Promise<BlastRadiusNode[]> {
+  const res = await agentFetch(
+    `/api/agent/topology/blast-radius?node_id=${encodeURIComponent(nodeId)}`
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.resources ?? [];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+const RISK_COLORS: Record<string, string> = {
+  critical: 'text-red-400 bg-red-950/50 border-red-900/50',
+  high: 'text-orange-400 bg-orange-950/50 border-orange-900/50',
+  medium: 'text-yellow-400 bg-yellow-950/50 border-yellow-900/50',
+  low: 'text-green-400 bg-green-950/50 border-green-900/50',
 };
 
-function getColor(kind: string): string {
-  return KIND_COLORS[kind] ?? '#64748b';
-}
-
-// Relationship-aware layout: roots on the left, leaves on the right
-interface LayoutNode extends TopoNode {
-  x: number;
-  y: number;
-}
-
-const RELATIONSHIP_LABELS: Record<string, string> = {
-  owns: 'owns',
-  selects: 'selects',
-  mounts: 'mounts',
-  references: 'refs',
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  healthy: { label: 'Healthy', color: 'text-green-400' },
+  warning: { label: 'Warning', color: 'text-yellow-400' },
+  error: { label: 'Error', color: 'text-red-400' },
 };
 
-function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] {
-  if (nodes.length === 0) return [];
-
-  const nodeIds = new Set(nodes.map(n => n.id));
-
-  // Build adjacency for BFS layering (source → targets)
-  const children = new Map<string, string[]>();
-  const parents = new Map<string, string[]>();
-  for (const e of edges) {
-    if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) continue;
-    if (!children.has(e.source)) children.set(e.source, []);
-    children.get(e.source)!.push(e.target);
-    if (!parents.has(e.target)) parents.set(e.target, []);
-    parents.get(e.target)!.push(e.source);
-  }
-
-  // Find roots (nodes with no parents) — these go on the left
-  const roots = nodes.filter(n => !parents.has(n.id) || parents.get(n.id)!.length === 0);
-  if (roots.length === 0) {
-    // No clear roots — use kind hierarchy as fallback
-    const kindPriority: Record<string, number> = { Node: 0, Service: 1, Deployment: 2, StatefulSet: 2, DaemonSet: 2, ReplicaSet: 3, Pod: 4, ConfigMap: 5, Secret: 5, PVC: 5 };
-    roots.push(...nodes.filter(n => (kindPriority[n.kind] ?? 2) <= 2));
-    if (roots.length === 0) roots.push(nodes[0]);
-  }
-
-  // BFS to assign layers
-  const layers = new Map<string, number>();
-  const queue: string[] = [];
-  for (const r of roots) {
-    if (!layers.has(r.id)) {
-      layers.set(r.id, 0);
-      queue.push(r.id);
-    }
-  }
-  while (queue.length > 0) {
-    const curr = queue.shift()!;
-    const currLayer = layers.get(curr)!;
-    for (const child of children.get(curr) ?? []) {
-      if (!layers.has(child)) {
-        layers.set(child, currLayer + 1);
-        queue.push(child);
-      }
-    }
-  }
-  // Assign unvisited nodes to layer 0
-  for (const n of nodes) {
-    if (!layers.has(n.id)) layers.set(n.id, 0);
-  }
-
-  // Group by layer
-  const byLayer = new Map<number, TopoNode[]>();
-  for (const n of nodes) {
-    const layer = layers.get(n.id) ?? 0;
-    if (!byLayer.has(layer)) byLayer.set(layer, []);
-    byLayer.get(layer)!.push(n);
-  }
-
-  const colWidth = 220;
-  const rowHeight = 56;
-  const paddingX = 40;
-  const paddingY = 40;
-
-  const result: LayoutNode[] = [];
-  const sortedLayers = [...byLayer.keys()].sort((a, b) => a - b);
-  for (const layer of sortedLayers) {
-    const group = byLayer.get(layer)!;
-    // Sort within layer by kind then name for consistency
-    group.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
-    group.forEach((node, row) => {
-      result.push({
-        ...node,
-        x: paddingX + layer * colWidth,
-        y: paddingY + row * rowHeight,
-      });
-    });
-  }
-  return result;
-}
+// ── Component ─────────────────────────────────────────────────────────
 
 export default function TopologyView() {
-  // Default to the active namespace from uiStore, fallback to 'openshiftpulse'
   const activeNs = useUIStore((s) => s.selectedNamespace);
   const [selectedNamespace, setSelectedNamespace] = useState<string>(
     activeNs && activeNs !== '*' ? activeNs : 'openshiftpulse',
   );
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
 
-  // Always fetch with namespace filter to avoid dumping the entire cluster
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['topology', selectedNamespace],
     queryFn: () => fetchTopology(selectedNamespace || undefined),
     refetchInterval: 120_000,
   });
 
-  // Fetch namespace list separately (lightweight — just needs the node list for distinct namespaces)
   const { data: allData } = useQuery({
     queryKey: ['topology', '__all_ns_list__'],
     queryFn: () => fetchTopology(),
-    staleTime: 300_000, // 5 min cache
+    staleTime: 300_000,
     refetchOnWindowFocus: false,
   });
 
+  // Blast radius from API (richer than client-side BFS)
+  const { data: blastRadiusData } = useQuery({
+    queryKey: ['topology-blast-radius', selectedNode],
+    queryFn: () => fetchBlastRadius(selectedNode!),
+    enabled: !!selectedNode,
+  });
+
   const topology = data ?? { nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } };
-  const layout = useMemo(() => layoutGraph(topology.nodes, topology.edges), [topology.nodes, topology.edges]);
 
   const namespaces = useMemo(() => {
     const ns = new Set<string>();
@@ -186,60 +106,31 @@ export default function TopologyView() {
     return [...ns].sort();
   }, [allData]);
 
+  const layout = useMemo(() => layoutGraph(topology.nodes, topology.edges), [topology.nodes, topology.edges]);
   const nodeMap = useMemo(() => {
-    const map = new Map<string, LayoutNode>();
+    const map = new Map<string, TopoNode>();
     for (const n of layout) map.set(n.id, n);
     return map;
   }, [layout]);
 
-  const connectedToHovered = useMemo(() => {
-    if (!hoveredNode) return new Set<string>();
-    const ids = new Set<string>([hoveredNode]);
-    for (const e of topology.edges) {
-      if (e.source === hoveredNode) ids.add(e.target);
-      if (e.target === hoveredNode) ids.add(e.source);
+  // Stats
+  const healthCounts = useMemo(() => {
+    const counts = { healthy: 0, warning: 0, error: 0, recentlyChanged: 0, atRisk: 0 };
+    for (const n of topology.nodes) {
+      if (n.status === 'error') counts.error++;
+      else if (n.status === 'warning') counts.warning++;
+      else counts.healthy++;
+      if (n.recentlyChanged) counts.recentlyChanged++;
+      if (n.risk && n.risk > 0) counts.atRisk++;
     }
-    return ids;
-  }, [hoveredNode, topology.edges]);
+    return counts;
+  }, [topology.nodes]);
 
-  const blastRadius = useMemo(() => {
-    if (!selectedNode) return new Set<string>();
-    const visited = new Set<string>([selectedNode]);
-    const queue = [selectedNode];
-    const adj = new Map<string, string[]>();
-    for (const e of topology.edges) {
-      if (!adj.has(e.source)) adj.set(e.source, []);
-      adj.get(e.source)!.push(e.target);
-    }
-    while (queue.length > 0) {
-      const curr = queue.shift()!;
-      for (const next of adj.get(curr) ?? []) {
-        if (!visited.has(next)) {
-          visited.add(next);
-          queue.push(next);
-        }
-      }
-    }
-    return visited;
-  }, [selectedNode, topology.edges]);
-
-  const edgeMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const e of topology.edges) {
-      map.set(`${e.source}→${e.target}`, e.relationship);
-    }
-    return map;
-  }, [topology.edges]);
-
-  const svgWidth = useMemo(() => {
-    if (layout.length === 0) return 800;
-    return Math.max(800, Math.max(...layout.map(n => n.x)) + 240);
-  }, [layout]);
-
-  const svgHeight = useMemo(() => {
-    if (layout.length === 0) return 400;
-    return Math.max(400, Math.max(...layout.map(n => n.y)) + 100);
-  }, [layout]);
+  // Recently changed nodes for timeline
+  const recentlyChanged = useMemo(
+    () => topology.nodes.filter(n => n.recentlyChanged),
+    [topology.nodes],
+  );
 
   if (isLoading) {
     return (
@@ -270,6 +161,8 @@ export default function TopologyView() {
     );
   }
 
+  const selectedNodeData = selectedNode ? nodeMap.get(selectedNode) : null;
+
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-[1400px] mx-auto space-y-4">
@@ -281,7 +174,7 @@ export default function TopologyView() {
               Impact Analysis
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Resource dependencies and blast radius — click a node to see what it affects
+              Resource dependencies, risk overlay, and blast radius
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -306,40 +199,56 @@ export default function TopologyView() {
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           <Card className="p-3">
             <div className="text-xs text-slate-500 mb-1">Resources</div>
             <div className="text-xl font-bold text-slate-100">{topology.nodes.length}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-slate-500 mb-1">Relationships</div>
-            <div className="text-xl font-bold text-slate-100">{topology.edges.length}</div>
+            <div className="text-xs text-slate-500 mb-1">Healthy</div>
+            <div className="text-xl font-bold text-green-400">{healthCounts.healthy}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-slate-500 mb-1">Resource Types</div>
-            <div className="text-xl font-bold text-slate-100">
-              {new Set(topology.nodes.map(n => n.kind)).size}
+            <div className="text-xs text-slate-500 mb-1">Issues</div>
+            <div className="text-xl font-bold text-red-400">
+              {healthCounts.error + healthCounts.warning}
             </div>
+          </Card>
+          <Card className="p-3">
+            <div className="text-xs text-slate-500 mb-1">At Risk</div>
+            <div className="text-xl font-bold text-orange-400">{healthCounts.atRisk}</div>
           </Card>
           <Card className="p-3">
             <div className="text-xs text-slate-500 mb-1">
               {selectedNode ? 'Blast Radius' : 'Click a node'}
             </div>
             <div className="text-xl font-bold text-slate-100">
-              {selectedNode ? blastRadius.size - 1 : '-'}
+              {blastRadiusData ? blastRadiusData.length : selectedNode ? '...' : '-'}
             </div>
           </Card>
         </div>
 
         {/* Legend */}
         {topology.nodes.length > 0 && (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {/* Kind colors */}
             {[...new Set(topology.nodes.map(n => n.kind))].sort().map((kind) => (
               <div key={kind} className="flex items-center gap-1.5 text-xs text-slate-400">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: getColor(kind) }} />
+                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: getKindColor(kind) }} />
                 {kind} ({topology.nodes.filter(n => n.kind === kind).length})
               </div>
             ))}
+            {/* Status legend */}
+            <span className="text-slate-700">|</span>
+            <div className="flex items-center gap-1 text-xs text-slate-500">
+              <span className="w-2 h-2 rounded-full bg-green-500" /> Healthy
+            </div>
+            <div className="flex items-center gap-1 text-xs text-slate-500">
+              <span className="w-2 h-2 rounded-full bg-yellow-500" /> Warning
+            </div>
+            <div className="flex items-center gap-1 text-xs text-slate-500">
+              <span className="w-2 h-2 rounded-full bg-red-500" /> Error
+            </div>
           </div>
         )}
 
@@ -351,162 +260,136 @@ export default function TopologyView() {
             description="The dependency graph is built during scan cycles. It will populate as the monitor scans your cluster."
           />
         ) : (
-          <Card className="overflow-auto">
-            <svg
-              ref={svgRef}
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="w-full"
-              style={{ minHeight: Math.min(svgHeight, 600) }}
-            >
-              {/* Edges with curved paths */}
-              {topology.edges.map((edge, i) => {
-                const from = nodeMap.get(edge.source);
-                const to = nodeMap.get(edge.target);
-                if (!from || !to) return null;
-
-                const isHighlighted = hoveredNode
-                  ? connectedToHovered.has(edge.source) && connectedToHovered.has(edge.target)
-                  : selectedNode
-                    ? blastRadius.has(edge.source) && blastRadius.has(edge.target)
-                    : false;
-
-                const opacity = hoveredNode || selectedNode
-                  ? isHighlighted ? 0.8 : 0.06
-                  : 0.3;
-
-                const x1 = from.x + 160;
-                const y1 = from.y + 18;
-                const x2 = to.x;
-                const y2 = to.y + 18;
-                const midX = (x1 + x2) / 2;
-
-                const relLabel = RELATIONSHIP_LABELS[edge.relationship] || edge.relationship;
-
-                return (
-                  <g key={`${edge.source}:${edge.target}`}>
-                    <path
-                      d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
-                      fill="none"
-                      stroke={isHighlighted ? '#06b6d4' : '#334155'}
-                      strokeWidth={isHighlighted ? 2 : 1}
-                      opacity={opacity}
-                    />
-                    {/* Relationship label on highlighted edges */}
-                    {isHighlighted && (
-                      <text
-                        x={midX}
-                        y={(y1 + y2) / 2 - 4}
-                        fill="#06b6d4"
-                        fontSize={8}
-                        textAnchor="middle"
-                        opacity={0.8}
-                      >
-                        {relLabel}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-
-              {/* Nodes */}
-              {layout.map((node) => {
-                const isHovered = hoveredNode === node.id;
-                const isConnected = connectedToHovered.has(node.id);
-                const isInBlast = blastRadius.has(node.id);
-                const isSelected = selectedNode === node.id;
-                const dimmed = (hoveredNode && !isConnected) || (selectedNode && !isInBlast);
-
-                return (
-                  <g
-                    key={node.id}
-                    transform={`translate(${node.x}, ${node.y})`}
-                    onMouseEnter={() => setHoveredNode(node.id)}
-                    onMouseLeave={() => setHoveredNode(null)}
-                    onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
-                    className="cursor-pointer"
-                    opacity={dimmed ? 0.12 : 1}
-                  >
-                    <rect
-                      x={0} y={0} width={160} height={36} rx={6}
-                      fill={isSelected ? getColor(node.kind) + '33' : '#0f172a'}
-                      stroke={isSelected ? getColor(node.kind) : isHovered ? '#94a3b8' : '#334155'}
-                      strokeWidth={isSelected ? 2 : 1}
-                    />
-                    <rect x={0} y={0} width={4} height={36} rx={2} fill={getColor(node.kind)} />
-                    <text x={14} y={14} fill={getColor(node.kind)} fontSize={9} fontWeight={600}>
-                      {node.kind}
-                    </text>
-                    <text x={14} y={27} fill="#cbd5e1" fontSize={10} fontFamily="monospace">
-                      {node.name.length > 18 ? node.name.slice(0, 17) + '\u2026' : node.name}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </Card>
+          <GraphRenderer
+            nodes={topology.nodes}
+            edges={topology.edges}
+            hoveredNode={hoveredNode}
+            setHoveredNode={setHoveredNode}
+            selectedNode={selectedNode}
+            setSelectedNode={setSelectedNode}
+          />
         )}
 
-        {/* Selected node detail */}
-        {selectedNode && (() => {
-          const node = nodeMap.get(selectedNode);
-          if (!node) return null;
-          const upstream = topology.edges
-            .filter(e => e.target === selectedNode)
-            .map(e => ({ node: nodeMap.get(e.source), rel: e.relationship }))
-            .filter((x): x is { node: LayoutNode; rel: string } => !!x.node);
-          const downstream = topology.edges
-            .filter(e => e.source === selectedNode)
-            .map(e => ({ node: nodeMap.get(e.target), rel: e.relationship }))
-            .filter((x): x is { node: LayoutNode; rel: string } => !!x.node);
-          return (
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: getColor(node.kind) }} />
-                <span className="text-sm font-semibold text-slate-200">{node.kind}/{node.name}</span>
-                {node.namespace && (
-                  <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{node.namespace}</span>
-                )}
-                <span className="text-xs text-slate-600 ml-auto">
-                  Blast radius: {blastRadius.size - 1} resource{blastRadius.size - 1 !== 1 ? 's' : ''}
+        {/* Blast Radius Panel */}
+        {selectedNodeData && (
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-semibold text-slate-200">
+                {selectedNodeData.kind}/{selectedNodeData.name}
+              </span>
+              {selectedNodeData.namespace && (
+                <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
+                  {selectedNodeData.namespace}
                 </span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Upstream (depends on)</h4>
-                  {upstream.length === 0 ? (
-                    <span className="text-xs text-slate-600">None</span>
-                  ) : (
+              )}
+              {/* Status badge */}
+              <span className={cn('text-xs', STATUS_LABELS[selectedNodeData.status ?? 'healthy'].color)}>
+                {STATUS_LABELS[selectedNodeData.status ?? 'healthy'].label}
+              </span>
+              {/* Risk badge */}
+              {selectedNodeData.riskLevel && (
+                <span className={cn(
+                  'text-xs px-1.5 py-0.5 rounded border',
+                  RISK_COLORS[selectedNodeData.riskLevel],
+                )}>
+                  Risk: {selectedNodeData.risk} ({selectedNodeData.riskLevel})
+                </span>
+              )}
+              {selectedNodeData.recentlyChanged && (
+                <span className="text-xs px-1.5 py-0.5 bg-orange-950/50 text-orange-400 rounded border border-orange-900/50 flex items-center gap-1">
+                  <Zap className="w-3 h-3" /> Recently deployed
+                </span>
+              )}
+              <span className="text-xs text-slate-600 ml-auto">
+                Blast radius: {blastRadiusData?.length ?? '...'} resource{(blastRadiusData?.length ?? 0) !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Upstream */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Upstream (depends on)
+                </h4>
+                {(() => {
+                  const upstream = topology.edges
+                    .filter(e => e.target === selectedNode)
+                    .map(e => ({ node: nodeMap.get(e.source), rel: e.relationship }))
+                    .filter((x): x is { node: TopoNode; rel: string } => !!x.node);
+                  if (upstream.length === 0) return <span className="text-xs text-slate-600">None</span>;
+                  return (
                     <div className="space-y-1">
                       {upstream.map(({ node: n, rel }) => (
                         <div key={n.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getColor(n.kind) }} />
+                          <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(n.kind) }} />
                           {n.kind}/{n.name}
                           <span className="text-slate-600 text-[10px]">({rel})</span>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-                <div>
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Downstream (blast radius)</h4>
-                  {downstream.length === 0 ? (
-                    <span className="text-xs text-slate-600">None</span>
-                  ) : (
-                    <div className="space-y-1">
-                      {downstream.map(({ node: n, rel }) => (
-                        <div key={n.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getColor(n.kind) }} />
-                          {n.kind}/{n.name}
-                          <span className="text-slate-600 text-[10px]">({rel})</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
-            </Card>
-          );
-        })()}
+
+              {/* Downstream (from API) */}
+              <div>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Downstream (blast radius)
+                </h4>
+                {!blastRadiusData ? (
+                  <Loader2 className="w-4 h-4 text-slate-600 animate-spin" />
+                ) : blastRadiusData.length === 0 ? (
+                  <span className="text-xs text-slate-600">None (leaf node)</span>
+                ) : (
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {blastRadiusData.map((dep) => (
+                      <div key={dep.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(dep.kind) }} />
+                        {dep.kind}/{dep.name}
+                        {dep.relationship && (
+                          <span className="text-slate-600 text-[10px]">({dep.relationship})</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Recent Changes Timeline */}
+        {recentlyChanged.length > 0 && (
+          <Card className="p-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              Recently Changed ({recentlyChanged.length})
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {recentlyChanged.map((node) => (
+                <button
+                  key={node.id}
+                  onClick={() => setSelectedNode(node.id)}
+                  className={cn(
+                    'text-xs font-mono px-2.5 py-1.5 rounded border transition-colors flex items-center gap-1.5',
+                    selectedNode === node.id
+                      ? 'bg-orange-950/50 border-orange-700 text-orange-300'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-orange-800 hover:text-orange-400',
+                  )}
+                >
+                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(node.kind) }} />
+                  {node.kind}/{node.name}
+                  {node.riskLevel && node.riskLevel !== 'low' && (
+                    <span className={cn('text-[10px] px-1 rounded', RISK_COLORS[node.riskLevel])}>
+                      {node.riskLevel}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

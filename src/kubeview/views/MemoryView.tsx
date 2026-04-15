@@ -352,7 +352,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                           {successRate.toFixed(0)}% success
                         </span>
                       </div>
-                      {rb.trigger_keywords && rb.trigger_keywords.length > 0 && (
+                      {Array.isArray(rb.trigger_keywords) && rb.trigger_keywords.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-2">
                           {rb.trigger_keywords.map((kw, i) => (
                             <span key={i} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
