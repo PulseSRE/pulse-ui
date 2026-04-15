@@ -151,7 +151,7 @@ if [[ -z "$WS_TOKEN" ]]; then
     -o jsonpath='{.spec.template.spec.containers[?(@.name=="sre-agent")].env[?(@.name=="PULSE_AGENT_WS_TOKEN")].valueFrom.secretKeyRef.name}' 2>/dev/null || echo "")
   [[ -n "$WS_SECRET" ]] && WS_TOKEN="(from secret: $WS_SECRET)"
 fi
-[[ -n "$WS_TOKEN" ]] && pass "PULSE_AGENT_WS_TOKEN is set $WS_TOKEN" || fail "PULSE_AGENT_WS_TOKEN not set — WS auth will fail"
+[[ -n "$WS_TOKEN" ]] && pass "PULSE_AGENT_WS_TOKEN is set (redacted)" || fail "PULSE_AGENT_WS_TOKEN not set — WS auth will fail"
 
 # 6. Nginx proxy config
 echo ""
