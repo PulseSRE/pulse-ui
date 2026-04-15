@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
+import { safeQuery } from '../engine/safeQuery';
 import type { K8sResource } from '../engine/renderers';
 import type { PersistentVolumeClaim, PersistentVolume, StorageClass, VolumeSnapshot, CSIDriver } from '../engine/types';
 import { useUIStore } from '../store/uiStore';
@@ -33,17 +34,17 @@ export default function StorageView() {
   });
   const { data: csiDrivers = [] } = useQuery<CSIDriver[]>({
     queryKey: ['storage', 'csidrivers'],
-    queryFn: () => k8sList('/apis/storage.k8s.io/v1/csidrivers').catch(() => []) as Promise<CSIDriver[]>,
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/storage.k8s.io/v1/csidrivers'))) ?? [] as CSIDriver[],
     staleTime: 120000,
   });
   const { data: volumeSnapshots = [] } = useQuery<VolumeSnapshot[]>({
     queryKey: ['storage', 'volumesnapshots', nsFilter],
-    queryFn: () => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshots', nsFilter).catch(() => []) as Promise<VolumeSnapshot[]>,
+    queryFn: async () => ((await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshots', nsFilter))) ?? []) as VolumeSnapshot[],
     staleTime: 60000,
   });
   const { data: volumeSnapshotClasses = [] } = useQuery<K8sResource[]>({
     queryKey: ['storage', 'volumesnapshotclasses'],
-    queryFn: () => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshotclasses').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshotclasses'))) ?? [],
     staleTime: 120000,
   });
   const { data: resourceQuotas = [] } = useK8sListWatch({ apiPath: '/api/v1/resourcequotas', namespace: nsFilter });

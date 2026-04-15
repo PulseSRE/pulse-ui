@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
+import { safeQuery } from '../engine/safeQuery';
 import type { K8sResource } from '../engine/renderers';
 import type { Service, Route, Ingress, NetworkPolicy, Condition } from '../engine/types';
 import { useUIStore } from '../store/uiStore';
@@ -35,12 +36,12 @@ export default function NetworkingView() {
   // Cluster-scoped: endpoints, ingress controller
   const { data: endpoints = [] } = useQuery<K8sResource[]>({
     queryKey: ['networking', 'endpoints', nsFilter],
-    queryFn: () => k8sList('/api/v1/endpoints', nsFilter).catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/api/v1/endpoints', nsFilter))) ?? [],
     staleTime: 30000,
   });
   const { data: ingressControllers = [] } = useQuery<K8sResource[]>({
     queryKey: ['networking', 'ingresscontrollers'],
-    queryFn: () => k8sList('/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers'))) ?? [],
     staleTime: 120000,
   });
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useVisibilityAwareInterval } from '../hooks/useVisibilityAwareInterval';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
@@ -18,6 +19,7 @@ import {
   fetchFixHistorySummary, fetchSLOStatus,
   fetchFixStrategies, fetchLearningFeed,
 } from '../engine/analyticsApi';
+import { safeQuery } from '../engine/safeQuery';
 import type { ToolInfo, ToolUsageEntry } from '../store/toolUsageStore';
 
 type ToolboxTab = 'catalog' | 'skills' | 'plans' | 'slo' | 'connections' | 'components' | 'usage' | 'analytics';
@@ -1920,7 +1922,8 @@ function UsageTab() {
   const [modeFilter, setModeFilter] = useState(filters.agent_mode || '');
   const [statusFilter, setStatusFilter] = useState(filters.status || '');
 
-  useEffect(() => { loadUsage(); const iv = setInterval(loadUsage, 5000); return () => clearInterval(iv); }, [loadUsage]);
+  useEffect(() => { loadUsage(); }, [loadUsage]);
+  useVisibilityAwareInterval(loadUsage, 5000);
 
   const totalPages = usage ? Math.ceil(usage.total / usage.per_page) : 0;
 
@@ -2102,13 +2105,13 @@ function AnalyticsTab() {
 
   const { data: intelligence } = useQuery({
     queryKey: ['analytics', 'intelligence'],
-    queryFn: () => fetchIntelligenceSections().catch(() => null),
+    queryFn: () => safeQuery(() => fetchIntelligenceSections()),
     staleTime: 60_000,
   });
 
   const { data: promptAnalytics } = useQuery({
     queryKey: ['analytics', 'prompt'],
-    queryFn: () => fetchPromptStats().catch(() => null),
+    queryFn: () => safeQuery(() => fetchPromptStats()),
     staleTime: 60_000,
   });
 
@@ -2122,7 +2125,9 @@ function AnalyticsTab() {
     refetchInterval: 30_000,
   });
 
-  useEffect(() => { loadStats(); loadChains(); loadTools(); const iv = setInterval(() => { loadStats(); loadChains(); }, 10000); return () => clearInterval(iv); }, [loadStats, loadChains, loadTools]);
+  useEffect(() => { loadStats(); loadChains(); loadTools(); }, [loadStats, loadChains, loadTools]);
+  const refreshAnalytics = useCallback(() => { loadStats(); loadChains(); }, [loadStats, loadChains]);
+  useVisibilityAwareInterval(refreshAnalytics, 10000);
 
   if (statsLoading && !stats) {
     return <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>;
@@ -2487,43 +2492,43 @@ interface PromptVersion {
 function OrcaAnalyticsSection() {
   const { data: topology } = useQuery({
     queryKey: ['analytics', 'topology-summary'],
-    queryFn: () => fetchTopologySummary().catch(() => null),
+    queryFn: () => safeQuery(() => fetchTopologySummary()),
     staleTime: 60_000,
   });
 
   const { data: templates } = useQuery({
     queryKey: ['analytics', 'plan-templates'],
-    queryFn: () => fetchPlanTemplates().catch(() => []),
+    queryFn: async () => (await safeQuery(() => fetchPlanTemplates())) ?? [],
     staleTime: 60_000,
   });
 
   const { data: postmortemCount } = useQuery({
     queryKey: ['analytics', 'postmortem-count'],
-    queryFn: () => fetchPostmortemCount().catch(() => 0),
+    queryFn: async () => (await safeQuery(() => fetchPostmortemCount())) ?? 0,
     staleTime: 60_000,
   });
 
   const { data: sloData } = useQuery({
     queryKey: ['analytics', 'slo-status'],
-    queryFn: () => fetchSLOStatus().catch(() => ({ slos: [], total: 0 })),
+    queryFn: async () => (await safeQuery(() => fetchSLOStatus())) ?? { slos: [], total: 0 },
     staleTime: 60_000,
   });
 
   const { data: fixSummary } = useQuery({
     queryKey: ['analytics', 'fix-summary'],
-    queryFn: () => fetchFixHistorySummary(30).catch(() => null),
+    queryFn: () => safeQuery(() => fetchFixHistorySummary(30)),
     staleTime: 60_000,
   });
 
   const { data: strategies } = useQuery({
     queryKey: ['analytics', 'fix-strategies'],
-    queryFn: () => fetchFixStrategies(30).catch(() => ({ strategies: [], days: 30 })),
+    queryFn: async () => (await safeQuery(() => fetchFixStrategies(30))) ?? { strategies: [], days: 30 },
     staleTime: 60_000,
   });
 
   const { data: learning } = useQuery({
     queryKey: ['analytics', 'learning-feed'],
-    queryFn: () => fetchLearningFeed(7).catch(() => ({ events: [], days: 7 })),
+    queryFn: async () => (await safeQuery(() => fetchLearningFeed(7))) ?? { events: [], days: 7 },
     staleTime: 60_000,
   });
 

@@ -5,6 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryInstant } from '../../components/metrics/prometheus';
+import { safeQuery } from '../../engine/safeQuery';
 import { useClusterStore } from '../../store/clusterStore';
 
 export type Lookback = '7d' | '30d' | '90d';
@@ -52,44 +53,44 @@ export function useCapacityProjections(lookback: Lookback = '30d'): CapacityProj
   // Current usage ratios
   const { data: cpuCurrent, isLoading: l1 } = useQuery({
     queryKey: ['capacity', 'cpu-current', isHyperShift],
-    queryFn: () => queryInstant(`sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / ${cpuDivisor}`).catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant(`sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / ${cpuDivisor}`))) ?? [],
     refetchInterval: 60000,
   });
   const { data: memCurrent, isLoading: l2 } = useQuery({
     queryKey: ['capacity', 'mem-current'],
-    queryFn: () => queryInstant('1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)').catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant('1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)'))) ?? [],
     refetchInterval: 60000,
   });
   const { data: diskCurrent, isLoading: l3 } = useQuery({
     queryKey: ['capacity', 'disk-current'],
-    queryFn: () => queryInstant('1 - sum(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}) / sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})').catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant('1 - sum(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}) / sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})'))) ?? [],
     refetchInterval: 60000,
   });
   const { data: podsCurrent, isLoading: l4 } = useQuery({
     queryKey: ['capacity', 'pods-current'],
-    queryFn: () => queryInstant('sum(kubelet_running_pods) / sum(kube_node_status_allocatable{resource="pods"})').catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant('sum(kubelet_running_pods) / sum(kube_node_status_allocatable{resource="pods"})'))) ?? [],
     refetchInterval: 60000,
   });
 
   // Projected usage at +90 days using predict_linear
   const { data: cpuProjected, isLoading: l5 } = useQuery({
     queryKey: ['capacity', 'cpu-projected', lookback, isHyperShift],
-    queryFn: () => queryInstant(`predict_linear(sum(rate(node_cpu_seconds_total{mode!="idle"}[5m]))[${lookback}:5m], ${HORIZON_SECONDS}) / ${cpuDivisor}`).catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear(sum(rate(node_cpu_seconds_total{mode!="idle"}[5m]))[${lookback}:5m], ${HORIZON_SECONDS}) / ${cpuDivisor}`))) ?? [],
     refetchInterval: 300000,
   });
   const { data: memProjected, isLoading: l6 } = useQuery({
     queryKey: ['capacity', 'mem-projected', lookback],
-    queryFn: () => queryInstant(`predict_linear((sum(node_memory_MemTotal_bytes) - sum(node_memory_MemAvailable_bytes))[${lookback}:5m], ${HORIZON_SECONDS}) / sum(node_memory_MemTotal_bytes)`).catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear((sum(node_memory_MemTotal_bytes) - sum(node_memory_MemAvailable_bytes))[${lookback}:5m], ${HORIZON_SECONDS}) / sum(node_memory_MemTotal_bytes)`))) ?? [],
     refetchInterval: 300000,
   });
   const { data: diskProjected, isLoading: l7 } = useQuery({
     queryKey: ['capacity', 'disk-projected', lookback],
-    queryFn: () => queryInstant(`predict_linear((sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) - sum(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}))[${lookback}:5m], ${HORIZON_SECONDS}) / sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})`).catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear((sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) - sum(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}))[${lookback}:5m], ${HORIZON_SECONDS}) / sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})`))) ?? [],
     refetchInterval: 300000,
   });
   const { data: podsProjected, isLoading: l8 } = useQuery({
     queryKey: ['capacity', 'pods-projected', lookback],
-    queryFn: () => queryInstant(`predict_linear(sum(kubelet_running_pods)[${lookback}:5m], ${HORIZON_SECONDS}) / sum(kube_node_status_allocatable{resource="pods"})`).catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear(sum(kubelet_running_pods)[${lookback}:5m], ${HORIZON_SECONDS}) / sum(kube_node_status_allocatable{resource="pods"})`))) ?? [],
     refetchInterval: 300000,
   });
 

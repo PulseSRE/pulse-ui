@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useVisibilityAwareInterval } from '../hooks/useVisibilityAwareInterval';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Bot, Bell, GitPullRequest } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
@@ -38,10 +39,7 @@ export function StatusBar() {
 
   const [relativeTime, setRelativeTime] = useState(formatRelativeTime(lastSyncTime));
 
-  useEffect(() => {
-    const interval = setInterval(() => setRelativeTime(formatRelativeTime(lastSyncTime)), 1000);
-    return () => clearInterval(interval);
-  }, [lastSyncTime]);
+  useVisibilityAwareInterval(() => setRelativeTime(formatRelativeTime(lastSyncTime)), 1000);
 
   // Derive current page info from URL
   const pageInfo = (() => {

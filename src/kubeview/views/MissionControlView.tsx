@@ -153,6 +153,9 @@ export default function MissionControlView() {
           </div>
         )}
 
+        {/* Agent Intelligence Summary */}
+        <AgentIntelligenceCard />
+
         <TrustPolicy
           maxTrustLevel={capQ.data?.max_trust_level ?? 0}
           scannerCount={coverageQ.data?.active_scanners ?? 0}
@@ -189,6 +192,80 @@ export default function MissionControlView() {
       {drawerOpen === 'scanner' && <ScannerDrawer coverage={coverageQ.data ?? null} onClose={() => setDrawerOpen(null)} />}
       {drawerOpen === 'eval' && <EvalDrawer evalStatus={evalQ.data} onClose={() => setDrawerOpen(null)} />}
       {drawerOpen === 'memory' && <MemoryDrawer onClose={() => setDrawerOpen(null)} />}
+    </div>
+  );
+}
+
+function AgentIntelligenceCard() {
+  const { data: learning } = useQuery({
+    queryKey: ['agent', 'learning-mc'],
+    queryFn: async () => {
+      const res = await fetch('/api/agent/analytics/learning?days=7');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: fixStrategies } = useQuery({
+    queryKey: ['agent', 'fix-strategies-mc'],
+    queryFn: async () => {
+      const res = await fetch('/api/agent/analytics/fix-strategies?days=30');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const events = learning?.events ?? [];
+  const strategies = fixStrategies?.strategies ?? [];
+
+  if (events.length === 0 && strategies.length === 0) return null;
+
+  const selectionSummary = events.find((e: Record<string, unknown>) => e.type === 'selection_summary');
+  const routingDecisions = events.filter((e: Record<string, unknown>) => e.type === 'routing_decision');
+  const postmortemCount = events.find((e: Record<string, unknown>) => e.type === 'postmortems_generated');
+  const topStrategy = strategies[0];
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+          <Bot className="w-3.5 h-3.5 text-cyan-400" />
+          Agent Intelligence
+        </h3>
+        <a href="/toolbox?tab=analytics" className="text-[10px] text-slate-500 hover:text-slate-300">
+          Full analytics →
+        </a>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        {selectionSummary && (
+          <div>
+            <div className="text-slate-500 mb-0.5">Routing</div>
+            <div className="text-slate-200">{String((selectionSummary as Record<string, unknown>).description).split(',')[0]}</div>
+          </div>
+        )}
+        {postmortemCount && (
+          <div>
+            <div className="text-slate-500 mb-0.5">Postmortems</div>
+            <div className="text-teal-400">{String((postmortemCount as Record<string, unknown>).description)}</div>
+          </div>
+        )}
+        {topStrategy && (
+          <div>
+            <div className="text-slate-500 mb-0.5">Top Fix Strategy</div>
+            <div className="text-slate-200">
+              {topStrategy.tool}: {Math.round(topStrategy.success_rate * 100)}%
+            </div>
+          </div>
+        )}
+        {routingDecisions.length > 0 && (
+          <div>
+            <div className="text-slate-500 mb-0.5">Recent Routing</div>
+            <div className="text-slate-200">{routingDecisions.length} decisions</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

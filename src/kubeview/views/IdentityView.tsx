@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet, k8sDelete } from '../engine/query';
+import { safeQuery } from '../engine/safeQuery';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import type { K8sResource } from '../engine/renderers';
 import type {
@@ -98,14 +99,14 @@ export default function IdentityView() {
   // OAuth config
   const { data: oauthConfig } = useQuery({
     queryKey: ['users', 'oauth'],
-    queryFn: () => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster').catch(() => null),
+    queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster')),
     staleTime: 120000,
   });
 
   // OAuth access tokens (recent sessions)
   const { data: accessTokens = [] } = useQuery<K8sResource[]>({
     queryKey: ['users', 'oauthaccesstokens'],
-    queryFn: () => k8sList('/apis/oauth.openshift.io/v1/oauthaccesstokens').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/oauth.openshift.io/v1/oauthaccesstokens'))) ?? [],
     staleTime: 60000,
   });
 

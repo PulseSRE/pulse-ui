@@ -9,6 +9,7 @@ import { Cloud, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import { queryInstant } from '../../components/metrics/prometheus';
+import { safeQuery } from '../../engine/safeQuery';
 import type { K8sResource } from '../../engine/renderers';
 import type { NodePool, Condition } from '../../engine/types';
 import type { NodeDetail } from './types';
@@ -79,7 +80,7 @@ function RegularSummary({ nodeDetails, clusterVersion, platform }: {
 
   const { data: etcdData } = useQuery({
     queryKey: ['compute', 'etcd-leader'],
-    queryFn: () => queryInstant('max(etcd_server_has_leader)').catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant('max(etcd_server_has_leader)'))) ?? [],
     refetchInterval: 30000,
   });
   const etcdHasLeader = Array.isArray(etcdData) && etcdData.length > 0 && Number(etcdData[0]?.value) === 1;

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, Loader2, RefreshCw,
+  Network, Loader2, RefreshCw, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
@@ -35,7 +35,7 @@ interface TopologyData {
 async function fetchTopology(namespace?: string): Promise<TopologyData> {
   const params = namespace ? `?namespace=${encodeURIComponent(namespace)}` : '';
   const res = await fetch(`/api/agent/topology${params}`);
-  if (!res.ok) return { nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } };
+  if (!res.ok) throw new Error(`Topology fetch failed (${res.status})`);
   return res.json();
 }
 
@@ -161,7 +161,7 @@ export default function TopologyView() {
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Always fetch with namespace filter to avoid dumping the entire cluster
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['topology', selectedNamespace],
     queryFn: () => fetchTopology(selectedNamespace || undefined),
     refetchInterval: 120_000,
@@ -245,6 +245,27 @@ export default function TopologyView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="mb-4 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-950/50 border border-red-900/50">
+            <AlertTriangle className="w-7 h-7 text-red-400" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-100 mb-1">Failed to load topology data</h2>
+          <p className="text-sm text-red-400 mb-4">{error instanceof Error ? error.message : 'Unknown error'}</p>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 font-medium mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

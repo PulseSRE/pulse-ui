@@ -1,5 +1,6 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronUp, ChevronDown, Trash2, Plus, Filter, Columns3, Download, Loader2, FileEdit, Sparkles, Inbox, AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
@@ -269,6 +270,15 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   }, [sortedResources, currentPage, perPage]);
 
   const totalPages = Math.ceil(sortedResources.length / perPage);
+
+  // Virtualization
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: paginatedResources.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 36,
+    overscan: 20,
+  });
 
   // Keyboard navigation for table
   React.useEffect(() => {
@@ -759,7 +769,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
 
       {/* Table + Preview */}
       <div className="flex-1 flex overflow-hidden">
-      <div className={cn('overflow-auto', previewResource ? 'flex-1' : 'w-full')}>
+      <div ref={tableContainerRef} className={cn('overflow-auto', previewResource ? 'flex-1' : 'w-full')}>
         {isLoading ? (
           <div className="flex flex-col gap-2 p-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -879,76 +889,100 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
                   </td>
                 </tr>
               )}
-              {paginatedResources.map((resource, rowIndex) => {
-                const uid = resource.metadata.uid || '';
-                const isSelected = selectedRows.has(uid);
-                const isFocused = rowIndex === focusedRow;
+              {paginatedResources.length > 0 && (
+                <tr>
+                  <td colSpan={visibleColumns.length + 2} style={{ padding: 0 }}>
+                    <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+                      {virtualizer.getVirtualItems().map((virtualRow) => {
+                        const rowIndex = virtualRow.index;
+                        const resource = paginatedResources[rowIndex];
+                        const uid = resource.metadata.uid || '';
+                        const isSelected = selectedRows.has(uid);
+                        const isFocused = rowIndex === focusedRow;
 
-                return (
-                  <tr
-                    key={uid}
-                    onClick={(e) => { setFocusedRow(rowIndex); handleRowClick(resource, e); }}
-                    className={cn(
-                      'hover:bg-slate-800/70 transition-colors cursor-pointer',
-                      isSelected && 'bg-slate-900/70',
-                      isFocused && 'ring-1 ring-inset ring-blue-500/50 bg-blue-950/20'
-                    )}
-                  >
-                    <td className="px-4 py-3">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleRowSelect(uid)}
-                        className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
-                      />
-                    </td>
-                    {visibleColumns.map((column) => {
-                      const value = column.accessorFn(resource);
-                      return (
-                        <td key={column.id} className="px-4 py-3">
-                          {column.render(value, resource)}
-                        </td>
-                      );
-                    })}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {enhancer?.inlineActions?.map((action) => (
-                          <div key={action.id}>
-                            {action.render(resource, handleAction)}
+                        return (
+                          <div
+                            key={uid}
+                            data-index={virtualRow.index}
+                            ref={virtualizer.measureElement}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              transform: `translateY(${virtualRow.start}px)`,
+                            }}
+                          >
+                            <table className="w-full"><tbody>
+                              <tr
+                                onClick={(e) => { setFocusedRow(rowIndex); handleRowClick(resource, e); }}
+                                className={cn(
+                                  'hover:bg-slate-800/70 transition-colors cursor-pointer border-b border-slate-800',
+                                  isSelected && 'bg-slate-900/70',
+                                  isFocused && 'ring-1 ring-inset ring-blue-500/50 bg-blue-950/20'
+                                )}
+                              >
+                                <td className="px-4 py-3" style={{ width: 48 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleRowSelect(uid)}
+                                    className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </td>
+                                {visibleColumns.map((column) => {
+                                  const value = column.accessorFn(resource);
+                                  return (
+                                    <td key={column.id} className="px-4 py-3" style={{ width: column.width }}>
+                                      {column.render(value, resource)}
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-1">
+                                    {enhancer?.inlineActions?.map((action) => (
+                                      <div key={action.id}>
+                                        {action.render(resource, handleAction)}
+                                      </div>
+                                    ))}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const gvrUrl = gvrKey.replace(/\//g, '~');
+                                        const ns = resource.metadata.namespace;
+                                        const yamlPath = ns ? `/yaml/${gvrUrl}/${ns}/${resource.metadata.name}` : `/yaml/${gvrUrl}/_/${resource.metadata.name}`;
+                                        addTab({ title: `${resource.metadata.name} (YAML)`, path: yamlPath, pinned: false, closable: true });
+                                        navigate(yamlPath);
+                                      }}
+                                      className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors disabled:opacity-50', canUpdate ? 'text-slate-500 hover:bg-blue-900/50 hover:text-blue-400' : 'text-slate-700 cursor-not-allowed')}
+                                      title={canUpdate ? 'Edit YAML' : 'No update permission'}
+                                      disabled={!canUpdate}
+                                    >
+                                      <FileEdit className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleAction('delete-single', { resource }); }}
+                                      disabled={!canDelete || inlineActionLoading === `${resource.metadata.uid}-delete-single`}
+                                      className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors disabled:opacity-50',
+                                        canDelete ? 'text-slate-500 hover:bg-red-900/50 hover:text-red-400' : 'text-slate-700 cursor-not-allowed'
+                                      )}
+                                      title={canDelete ? 'Delete' : 'No delete permission'}
+                                    >
+                                      {inlineActionLoading === `${resource.metadata.uid}-delete-single`
+                                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        : <Trash2 className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody></table>
                           </div>
-                        ))}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const gvrUrl = gvrKey.replace(/\//g, '~');
-                            const ns = resource.metadata.namespace;
-                            const yamlPath = ns ? `/yaml/${gvrUrl}/${ns}/${resource.metadata.name}` : `/yaml/${gvrUrl}/_/${resource.metadata.name}`;
-                            addTab({ title: `${resource.metadata.name} (YAML)`, path: yamlPath, pinned: false, closable: true });
-                            navigate(yamlPath);
-                          }}
-                          className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors disabled:opacity-50', canUpdate ? 'text-slate-500 hover:bg-blue-900/50 hover:text-blue-400' : 'text-slate-700 cursor-not-allowed')}
-                          title={canUpdate ? 'Edit YAML' : 'No update permission'}
-                          disabled={!canUpdate}
-                        >
-                          <FileEdit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleAction('delete-single', { resource }); }}
-                          disabled={!canDelete || inlineActionLoading === `${resource.metadata.uid}-delete-single`}
-                          className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors disabled:opacity-50',
-                            canDelete ? 'text-slate-500 hover:bg-red-900/50 hover:text-red-400' : 'text-slate-700 cursor-not-allowed'
-                          )}
-                          title={canDelete ? 'Delete' : 'No delete permission'}
-                        >
-                          {inlineActionLoading === `${resource.metadata.uid}-delete-single`
-                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            : <Trash2 className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                        );
+                      })}
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}

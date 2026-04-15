@@ -5,6 +5,7 @@ import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 import type { AuditCheck } from '../components/audit/types';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
+import { safeQuery } from '../engine/safeQuery';
 import { queryInstant } from '../components/metrics/prometheus';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { CHART_COLORS } from '../engine/colors';
@@ -46,35 +47,35 @@ export default function ComputeView() {
 
   const { data: machines = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machines'],
-    queryFn: () => k8sList('/apis/machine.openshift.io/v1beta1/machines').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/machine.openshift.io/v1beta1/machines'))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: machineSets = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinesets'],
-    queryFn: () => k8sList('/apis/machine.openshift.io/v1beta1/machinesets').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/machine.openshift.io/v1beta1/machinesets'))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: healthChecks = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinehealthchecks'],
-    queryFn: () => k8sList('/apis/machine.openshift.io/v1beta1/machinehealthchecks').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/machine.openshift.io/v1beta1/machinehealthchecks'))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: machineAutoscalers = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1beta1/machineautoscalers'],
-    queryFn: () => k8sList('/apis/autoscaling.openshift.io/v1beta1/machineautoscalers').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1beta1/machineautoscalers'))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: clusterAutoscaler = [] } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1/clusterautoscalers'],
-    queryFn: () => k8sList('/apis/autoscaling.openshift.io/v1/clusterautoscalers').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1/clusterautoscalers'))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
@@ -82,7 +83,7 @@ export default function ComputeView() {
   // NodePools (HyperShift only)
   const { data: nodePools = [] } = useQuery<K8sResource[]>({
     queryKey: ['compute', 'nodepools'],
-    queryFn: () => k8sList('/apis/hypershift.openshift.io/v1beta1/nodepools').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/hypershift.openshift.io/v1beta1/nodepools'))) ?? [],
     staleTime: 60000,
     enabled: isHyperShift,
   });
@@ -90,37 +91,41 @@ export default function ComputeView() {
   // Per-node CPU usage from Prometheus (joined via kube_node_info for reliable node name matching)
   const { data: nodeCpuMetrics = [] } = useQuery({
     queryKey: ['compute', 'node-cpu'],
-    queryFn: () => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) kube_node_info').catch(() =>
-      queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)').catch(() => [])
-    ),
+    queryFn: async () => {
+      const result = await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) kube_node_info'));
+      if (result !== null) return result;
+      return (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)'))) ?? [];
+    },
     refetchInterval: 30000,
   });
 
   // Per-node memory usage from Prometheus (joined via kube_node_info for reliable node name matching)
   const { data: nodeMemMetrics = [] } = useQuery({
     queryKey: ['compute', 'node-mem'],
-    queryFn: () => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) kube_node_info').catch(() =>
-      queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100').catch(() => [])
-    ),
+    queryFn: async () => {
+      const result = await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) kube_node_info'));
+      if (result !== null) return result;
+      return (await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100'))) ?? [];
+    },
     refetchInterval: 30000,
   });
 
   // MachineConfig resources
   const { data: machineConfigPools = [] } = useQuery<K8sResource[]>({
     queryKey: ['compute', 'machineconfigpools'],
-    queryFn: () => k8sList('/apis/machineconfiguration.openshift.io/v1/machineconfigpools').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/machineconfiguration.openshift.io/v1/machineconfigpools'))) ?? [],
     staleTime: 60000,
   });
 
   // Cluster totals
   const { data: clusterCpu } = useQuery({
     queryKey: ['compute', 'cluster-cpu'],
-    queryFn: () => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / sum(machine_cpu_cores) * 100').catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / sum(machine_cpu_cores) * 100'))) ?? [],
     refetchInterval: 30000,
   });
   const { data: clusterMem } = useQuery({
     queryKey: ['compute', 'cluster-mem'],
-    queryFn: () => queryInstant('(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100').catch(() => []),
+    queryFn: async () => (await safeQuery(() => queryInstant('(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100'))) ?? [],
     refetchInterval: 30000,
   });
 

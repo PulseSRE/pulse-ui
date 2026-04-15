@@ -119,6 +119,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
 
   const [graph, setGraph] = useState<DependencyGraph | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [blastRadiusNode, setBlastRadiusNode] = useState<string | null>(null);
 
@@ -129,10 +130,14 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
     }
     let cancelled = false;
     setLoading(true);
+    setFetchError(null);
     buildDependencyGraph(kind, name, namespace).then((g) => {
       if (!cancelled) { setGraph(g); setLoading(false); }
-    }).catch(() => {
-      if (!cancelled) setLoading(false);
+    }).catch((err) => {
+      if (!cancelled) {
+        setFetchError(err instanceof Error ? err.message : 'Failed to load dependency data');
+        setLoading(false);
+      }
     });
     return () => { cancelled = true; };
   }, [kind, name, namespace]);
@@ -185,6 +190,25 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
     return (
       <div className="h-full flex items-center justify-center bg-slate-950 text-slate-400">
         Dependency graph requires a namespaced resource.
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="h-full flex flex-col bg-slate-950">
+        <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-3">
+          <button onClick={() => go(`/r/${gvrUrl}/${namespace}/${name}`, name)} className="p-1 rounded hover:bg-slate-800 text-slate-400">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <GitBranch className="w-4 h-4 text-purple-400" />
+          <span className="text-sm font-medium text-slate-200">Dependencies: {name}</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">
+            Failed to load dependency data
+          </div>
+        </div>
       </div>
     );
   }

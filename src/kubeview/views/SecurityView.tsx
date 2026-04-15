@@ -72,13 +72,13 @@ export default function SecurityView() {
   });
   const { data: externalSecrets = [] } = useQuery<K8sResource[]>({
     queryKey: ['security', 'externalsecrets'],
-    queryFn: () => k8sList<K8sResource>('/apis/external-secrets.io/v1beta1/externalsecrets').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1beta1/externalsecrets'))) ?? [],
     staleTime: 120000,
     enabled: hasExternalSecrets,
   });
   const { data: sealedSecrets = [] } = useQuery<K8sResource[]>({
     queryKey: ['security', 'sealedsecrets'],
-    queryFn: () => k8sList<K8sResource>('/apis/bitnami.com/v1alpha1/sealedsecrets').catch(() => []),
+    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/bitnami.com/v1alpha1/sealedsecrets'))) ?? [],
     staleTime: 120000,
     enabled: hasSealedSecrets,
   });
@@ -87,7 +87,7 @@ export default function SecurityView() {
   const { data: acsInstalled = false } = useQuery({
     queryKey: ['security', 'acs'],
     queryFn: async () => {
-      const csvs = await k8sList<K8sResource>('/apis/operators.coreos.com/v1alpha1/clusterserviceversions').catch(() => []);
+      const csvs = (await safeQuery(() => k8sList<K8sResource>('/apis/operators.coreos.com/v1alpha1/clusterserviceversions'))) ?? [];
       return csvs.some((csv) => csv.metadata?.name?.includes('rhacs') || csv.metadata?.name?.includes('stackrox'));
     },
     staleTime: 300000,

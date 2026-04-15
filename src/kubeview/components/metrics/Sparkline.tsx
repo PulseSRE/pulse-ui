@@ -7,6 +7,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { queryRange, getTimeRange } from './prometheus';
+import { safeQuery } from '../../engine/safeQuery';
 
 interface SparklineProps {
   query: string;
@@ -35,9 +36,9 @@ export function Sparkline({
 }: SparklineProps) {
   const { data: series = [] } = useQuery({
     queryKey: ['sparkline', query, duration],
-    queryFn: () => {
+    queryFn: async () => {
       const [start, end] = getTimeRange(duration);
-      return queryRange(query, start, end).catch(() => []);
+      return (await safeQuery(() => queryRange(query, start, end))) ?? [];
     },
     refetchInterval: refreshInterval,
     staleTime: 30000,
@@ -111,9 +112,9 @@ export function MetricCard({
 }) {
   const { data: series = [] } = useQuery({
     queryKey: ['metric-card', query, duration],
-    queryFn: () => {
+    queryFn: async () => {
       const [start, end] = getTimeRange(duration);
-      return queryRange(query, start, end).catch(() => []);
+      return (await safeQuery(() => queryRange(query, start, end))) ?? [];
     },
     refetchInterval: 60000,
     staleTime: 30000,

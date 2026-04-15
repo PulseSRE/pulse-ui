@@ -94,6 +94,20 @@ vi.mock('@/lib/utils', () => ({
   cn: (...args: any[]) => args.filter(Boolean).join(' '),
 }));
 
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 36,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 36,
+        size: 36,
+        key: i,
+      })),
+    measureElement: () => {},
+  }),
+}));
+
 // Now import the component
 import TableView from '../TableView';
 

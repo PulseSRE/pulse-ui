@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../../engine/query';
+import { safeQuery } from '../../engine/safeQuery';
 import { AIIconStatic, AI_ACCENT, PromptPill } from '../../components/agent/AIBranding';
 import { useUIStore } from '../../store/uiStore';
 import { useAgentStore } from '../../store/agentStore';
@@ -257,14 +258,14 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   type PromResult = { metric: Record<string, string>; value: number };
   const { data: firingAlerts = [], isError: alertsError } = useQuery<PromResult[]>({
     queryKey: ['prom', 'firing-alerts'],
-    queryFn: () => queryInstant('ALERTS{alertstate="firing"}').catch((): PromResult[] => []),
+    queryFn: async () => ((await safeQuery(() => queryInstant('ALERTS{alertstate="firing"}'))) ?? []) as PromResult[],
     staleTime: 30_000, refetchInterval: 60_000,
   });
 
   const { data: apiLatency } = useQuery<number | null>({
     queryKey: ['prom', 'api-latency'],
     queryFn: async () => {
-      const result = await queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))').catch(() => []);
+      const result = (await safeQuery(() => queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))'))) ?? [];
       return result.length > 0 ? result[0].value * 1000 : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
@@ -273,7 +274,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   const { data: etcdLeaderChanges } = useQuery<number | null>({
     queryKey: ['prom', 'etcd-leader-changes'],
     queryFn: async () => {
-      const result = await queryInstant('max(changes(etcd_server_is_leader[1h]))').catch(() => []);
+      const result = (await safeQuery(() => queryInstant('max(changes(etcd_server_is_leader[1h]))'))) ?? [];
       return result.length > 0 ? result[0].value : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
@@ -281,7 +282,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
 
   const { data: pvUsage = [] } = useQuery<PromResult[]>({
     queryKey: ['prom', 'pv-usage'],
-    queryFn: () => queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100').catch((): PromResult[] => []),
+    queryFn: async () => ((await safeQuery(() => queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100'))) ?? []) as PromResult[],
     staleTime: 60_000, refetchInterval: 120_000,
   });
 
@@ -293,7 +294,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
 
   const { data: clusterVersion } = useQuery<K8sResource | null>({
     queryKey: ['k8s', 'get', 'clusterversion'],
-    queryFn: () => k8sGet<K8sResource>('/apis/config.openshift.io/v1/clusterversions/version').catch(() => null),
+    queryFn: () => safeQuery(() => k8sGet<K8sResource>('/apis/config.openshift.io/v1/clusterversions/version')),
     staleTime: 300_000, refetchInterval: 600_000,
   });
 

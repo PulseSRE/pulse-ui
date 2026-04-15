@@ -7,6 +7,7 @@
  */
 
 import type { ReadinessGate, GateContext, GateResult, GateStatus } from './types';
+import { safeQuery } from '../safeQuery';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -223,8 +224,8 @@ const secretsManagement: ReadinessGate = {
   priority: 'recommended',
   evaluate: (ctx) => safeEval(secretsManagement, async () => {
     const [extSecrets, sealedSecrets] = await Promise.all([
-      listItems(ctx, '/apis/external-secrets.io/v1beta1/externalsecrets').catch(() => []),
-      listItems(ctx, '/apis/bitnami.com/v1alpha1/sealedsecrets').catch(() => []),
+      safeQuery(() => listItems(ctx, '/apis/external-secrets.io/v1beta1/externalsecrets')).then(r => r ?? []),
+      safeQuery(() => listItems(ctx, '/apis/bitnami.com/v1alpha1/sealedsecrets')).then(r => r ?? []),
     ]);
     const hasExt = extSecrets.length > 0;
     const hasSealed = sealedSecrets.length > 0;
@@ -408,7 +409,7 @@ const etcdBackup: ReadinessGate = {
   priority: 'blocking',
   evaluate: (ctx) => safeEval(etcdBackup, async () => {
     if (ctx.isHyperShift) return { status: 'passed', detail: 'Managed by hosting provider', fixGuidance: '' };
-    const items = await listItems(ctx, '/apis/config.openshift.io/v1/backups').catch(() => []);
+    const items = (await safeQuery(() => listItems(ctx, '/apis/config.openshift.io/v1/backups'))) ?? [];
     return {
       status: items.length > 0 ? 'passed' : 'needs_attention',
       detail: items.length > 0 ? 'Backup configured' : 'No automated backup configured',
