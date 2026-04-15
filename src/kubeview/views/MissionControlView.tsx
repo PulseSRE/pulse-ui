@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, AlertTriangle } from 'lucide-react';
+import { Bot, AlertTriangle, CheckCircle, XCircle, AlertOctagon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   fetchFixHistorySummary,
   fetchScannerCoverage,
@@ -84,6 +85,16 @@ export default function MissionControlView() {
     staleTime: 5 * 60_000,
   });
 
+  const kpiQ = useQuery({
+    queryKey: ['agent', 'kpi'],
+    queryFn: async () => {
+      const res = await fetch('/api/agent/kpi?days=7');
+      if (!res.ok) return null;
+      return res.json();
+    },
+    refetchInterval: 60_000,
+  });
+
   const dataQueries = [evalQ, fixQ, coverageQ, confidenceQ, accuracyQ, costQ, recsQ, readinessQ];
   const anyError = dataQueries.some((q) => q.isError);
   const anyLoading = dataQueries.every((q) => q.isLoading);
@@ -100,6 +111,40 @@ export default function MissionControlView() {
             </span>
           )}
         </div>
+
+        {/* KPI Dashboard */}
+        {kpiQ.data?.kpis && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            {Object.entries(kpiQ.data.kpis as Record<string, { label: string; value: number | string; unit: string; target: number | string; status: string }>).map(([key, kpi]) => (
+              <div key={key} className={cn(
+                'bg-slate-900 border rounded-lg p-2.5 text-center',
+                kpi.status === 'pass' ? 'border-emerald-800/30' :
+                kpi.status === 'warn' ? 'border-amber-800/30' :
+                kpi.status === 'fail' ? 'border-red-800/30' :
+                'border-slate-800',
+              )}>
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  {kpi.status === 'pass' ? <CheckCircle className="w-3 h-3 text-emerald-400" /> :
+                   kpi.status === 'warn' ? <AlertTriangle className="w-3 h-3 text-amber-400" /> :
+                   <XCircle className="w-3 h-3 text-red-400" />}
+                  <span className="text-[10px] text-slate-500 truncate">{kpi.label}</span>
+                </div>
+                <div className={cn(
+                  'text-sm font-bold',
+                  kpi.status === 'pass' ? 'text-emerald-400' :
+                  kpi.status === 'warn' ? 'text-amber-400' :
+                  kpi.status === 'fail' ? 'text-red-400' :
+                  'text-slate-200',
+                )}>
+                  {kpi.unit === 'ratio' ? `${Math.round((kpi.value as number) * 100)}%` :
+                   kpi.unit === 'seconds' ? `${kpi.value}s` :
+                   kpi.unit === 'ms' ? `${kpi.value}ms` :
+                   String(kpi.value)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {anyError && (
           <div className="flex items-center gap-2 text-xs text-amber-300/80 bg-amber-500/5 rounded-md px-3 py-2 border border-amber-500/10">
