@@ -370,6 +370,11 @@ export function DockAgentPanel() {
     const text = input.trim();
     if (!text || streaming || !connected) return;
 
+    // Track agent query with page context
+    import('../../../kubeview/engine/sessionTracker').then(({ trackAgentQuery }) => {
+      trackAgentQuery(location.pathname, text);
+    }).catch(() => {});
+
     // Inject a one-time welcome message on first interaction (skip if session was loaded from history)
     if (messages.length === 0 && agentVersionInfo && !activeSessionId) {
       const tools = agentVersionInfo.tools ?? 0;

@@ -8,6 +8,7 @@ import { ResourceBrowser } from './ResourceBrowser';
 import { ToastContainer } from './feedback/Toast';
 import { ErrorBoundary, CssHealthCheck } from './ErrorBoundary';
 import { SaveViewWatcher } from './agent/SaveViewWatcher';
+import { SessionTracker } from './SessionTracker';
 import { useKeyboardShortcuts, useDiscovery } from '../hooks';
 import { useCapabilityDetection } from '../hooks/useCapabilityDetection';
 import { useShallow } from 'zustand/react/shallow';
@@ -137,6 +138,7 @@ export function Shell() {
       {browserOpen && <ResourceBrowser />}
       <ToastContainer />
       <SaveViewWatcher />
+      <SessionTracker />
       <CssHealthCheck />
     </div>
   );

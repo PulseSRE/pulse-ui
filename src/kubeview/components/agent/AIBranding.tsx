@@ -87,7 +87,14 @@ export function PromptPill({
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => {
+        onClick();
+        // Track suggestion click
+        import('../../engine/sessionTracker').then(({ trackSuggestionClick }) => {
+          const text = typeof children === 'string' ? children : '';
+          trackSuggestionClick(window.location.pathname, text);
+        }).catch(() => {});
+      }}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors',
         AI_ACCENT.border,
