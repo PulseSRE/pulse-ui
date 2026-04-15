@@ -909,13 +909,12 @@ function SLOTab() {
 /* Skill Detail Drawer                                                 */
 /* ------------------------------------------------------------------ */
 
-type SkillFile = 'raw_content' | 'evals_content' | 'mcp_content' | 'layouts_content' | 'components_content';
+type SkillFile = 'raw_content' | 'evals_content' | 'mcp_content' | 'components_content';
 
 const SKILL_FILES: Array<{ key: SkillFile; label: string; filename: string }> = [
   { key: 'raw_content', label: 'skill.md', filename: 'skill.md' },
   { key: 'evals_content', label: 'evals.yaml', filename: 'evals.yaml' },
   { key: 'mcp_content', label: 'mcp.yaml', filename: 'mcp.yaml' },
-  { key: 'layouts_content', label: 'layouts.yaml', filename: 'layouts.yaml' },
   { key: 'components_content', label: 'components.yaml', filename: 'components.yaml' },
 ];
 
