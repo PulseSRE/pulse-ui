@@ -117,6 +117,19 @@ function LiveAgentTable({ spec, onAddToView, refreshInterval }: { spec: DataTabl
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
 
+  // Auto-hide columns beyond 6 to prevent horizontal overflow
+  const MAX_DEFAULT_COLS = 6;
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {
+    if (result.columns.length <= MAX_DEFAULT_COLS) return new Set<string>();
+    return new Set(result.columns.slice(MAX_DEFAULT_COLS).map((c) => c.id));
+  });
+  const [showSettings, setShowSettings] = useState(false);
+
+  const visibleColumns = useMemo(
+    () => result.columns.filter((c) => !hiddenCols.has(c.id)),
+    [result.columns, hiddenCols],
+  );
+
   // Convert K8s resources to flat rows for rendering, preserving the original resource ref
   const processedRows = useMemo(() => {
     let items = result.resources.map((r) => {
@@ -191,6 +204,13 @@ function LiveAgentTable({ spec, onAddToView, refreshInterval }: { spec: DataTabl
               aria-label="Search table"
             />
           </div>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={cn('p-0.5 rounded transition-colors', showSettings ? 'text-violet-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
+            title="Table settings"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+          </button>
           {onAddToView && (
             <button
               onClick={() => onAddToView(spec)}
@@ -203,12 +223,34 @@ function LiveAgentTable({ spec, onAddToView, refreshInterval }: { spec: DataTabl
         </div>
       </div>
 
+      {/* Column visibility settings */}
+      {showSettings && (
+        <div className="px-3 py-2 bg-slate-800/80 border-b border-slate-700">
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Columns</div>
+          <div className="flex flex-wrap gap-1">
+            {result.columns.map((col) => (
+              <button
+                key={col.id}
+                onClick={() => setHiddenCols((prev) => { const next = new Set(prev); if (next.has(col.id)) next.delete(col.id); else next.add(col.id); return next; })}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors',
+                  hiddenCols.has(col.id) ? 'bg-slate-900 text-slate-600' : 'bg-slate-700 text-slate-300',
+                )}
+              >
+                {hiddenCols.has(col.id) ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+                {col.header}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Table */}
-      <div className="overflow-x-auto" role="region" aria-label={spec.title || 'Live data table'}>
+      <div className="overflow-auto max-h-[60vh]" role="region" aria-label={spec.title || 'Live data table'}>
         <table className="w-full text-xs" role="table">
           <thead>
             <tr className="bg-slate-800/30 sticky top-0 z-[1]">
-              {result.columns.map((col) => (
+              {visibleColumns.map((col) => (
                 <th
                   key={col.id}
                   className="px-3 py-1.5 text-left text-slate-400 font-medium whitespace-nowrap select-none bg-slate-800/80"
@@ -226,7 +268,7 @@ function LiveAgentTable({ spec, onAddToView, refreshInterval }: { spec: DataTabl
                 className="border-t border-slate-800 hover:bg-slate-800/40 transition-colors cursor-pointer"
                 onClick={() => handleRowClick(row)}
               >
-                {result.columns.map((col) => (
+                {visibleColumns.map((col) => (
                   <td key={col.id} className="px-3 py-1.5 whitespace-nowrap">
                     {col.render(row[col.id], row._resource as K8sResource)}
                   </td>
