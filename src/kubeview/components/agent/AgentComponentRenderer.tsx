@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { CheckCircle, AlertTriangle, XCircle, Clock, HelpCircle, ChevronDown, ChevronUp, ChevronRight, Plus, ArrowUpDown, ArrowUp, ArrowDown, Settings2, Eye, EyeOff, Filter, Search, Download, Radio, Pause, Loader2 } from 'lucide-react';
 import { useMultiSourceTable } from '../../hooks/useMultiSourceTable';
 import type { K8sResource } from '../../engine/renderers';
+import { ResourceTable } from '../table/ResourceTable';
 
 // Lazy-load the chart component to keep recharts (~150KB) out of the initial bundle
 const LazyAgentChart = lazy(() => import('./AgentChart'));
@@ -113,26 +114,10 @@ function AgentDataTable({ spec, onAddToView, refreshInterval }: { spec: DataTabl
 function LiveAgentTable({ spec, onAddToView, refreshInterval }: { spec: DataTableSpec; onAddToView?: (spec: ComponentSpec) => void; refreshInterval?: number }) {
   const navigate = useNavigate();
   const result = useMultiSourceTable(spec.datasources!, refreshInterval);
-  const PAGE_SIZE = 15;
-  const [page, setPage] = useState(0);
-  const [search, setSearch] = useState('');
 
-  // Auto-hide columns beyond 6 to prevent horizontal overflow
-  const MAX_DEFAULT_COLS = 6;
-  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {
-    if (result.columns.length <= MAX_DEFAULT_COLS) return new Set<string>();
-    return new Set(result.columns.slice(MAX_DEFAULT_COLS).map((c) => c.id));
-  });
-  const [showSettings, setShowSettings] = useState(false);
-
-  const visibleColumns = useMemo(
-    () => result.columns.filter((c) => !hiddenCols.has(c.id)),
-    [result.columns, hiddenCols],
-  );
-
-  // Convert K8s resources to flat rows for rendering, preserving the original resource ref
-  const processedRows = useMemo(() => {
-    let items = result.resources.map((r) => {
+  // Convert K8s resources to flat rows for ResourceTable
+  const flatRows = useMemo(() =>
+    result.resources.map((r) => {
       const row: Record<string, unknown> = { _resource: r };
       for (const col of result.columns) {
         row[col.id] = col.accessorFn(r);
@@ -143,465 +128,104 @@ function LiveAgentTable({ spec, onAddToView, refreshInterval }: { spec: DataTabl
       row._namespace = r.metadata?.namespace || '';
       row._name = r.metadata?.name || '';
       return row;
-    });
-    if (search) {
-      const q = search.toLowerCase();
-      items = items.filter((row) =>
-        Object.values(row).some((v) => v !== row._resource && String(v ?? '').toLowerCase().includes(q)),
-      );
-    }
-    return items;
-  }, [result.resources, result.columns, search]);
+    }),
+  [result.resources, result.columns]);
+
+  // Convert ColumnDef[] to TableColumn[] for ResourceTable
+  const tableColumns = useMemo(() =>
+    result.columns.map((c) => ({ id: c.id, header: c.header, width: c.width })),
+  [result.columns]);
 
   const handleRowClick = useCallback((row: Record<string, unknown>) => {
     const gvr = row._gvr ? String(row._gvr) : '';
     const name = String(row._name || '');
     const ns = String(row._namespace || '');
-    if (gvr && name) {
-      navigate(`/r/${gvr}/${ns || '_'}/${name}`);
-    }
+    if (gvr && name) navigate(`/r/${gvr}/${ns || '_'}/${name}`);
   }, [navigate]);
 
-  return (
-    <div className="my-2 border border-slate-700 rounded-lg overflow-hidden min-w-0">
-      {/* Header */}
-      <div className="px-3 py-1.5 bg-slate-800/50 border-b border-slate-700 text-xs font-medium text-slate-300 flex items-center justify-between gap-2">
-        <div className="truncate flex-shrink-0 flex items-center gap-2">
-          <span>{spec.title || 'Live Table'}</span>
-          {spec.description && <span className="text-[10px] text-slate-500">{spec.description}</span>}
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {/* Live indicator */}
-          <button
-            onClick={result.togglePause}
-            className={cn(
-              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors',
-              result.isPaused
-                ? 'bg-slate-700 text-slate-400 hover:text-slate-200'
-                : result.isLive
-                  ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
-                  : 'bg-slate-700 text-slate-400',
-            )}
-            title={result.isPaused ? 'Resume auto-refresh' : 'Pause auto-refresh'}
-          >
-            {result.isLoading ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : result.isPaused ? (
-              <Pause className="w-3 h-3" />
-            ) : (
-              <Radio className="w-3 h-3" />
-            )}
-            {result.isPaused ? 'Paused' : result.isLive ? 'Live' : 'Connecting'}
-          </button>
-          {/* Search */}
-          <div className="relative">
-            <Search className="w-3 h-3 absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-600" />
-            <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-              placeholder="Search..."
-              className="w-28 pl-5 pr-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-300 placeholder-slate-600 outline-none focus:border-violet-500 focus:w-40 transition-all"
-              aria-label="Search table"
-            />
-          </div>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={cn('p-0.5 rounded transition-colors', showSettings ? 'text-violet-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
-            title="Table settings"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-          </button>
-          {onAddToView && (
-            <button
-              onClick={() => onAddToView(spec)}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors flex-shrink-0"
-              title="Add to View"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
+  // Custom cell renderer that uses the enhancer's column.render()
+  const renderCell = useCallback((value: unknown, columnId: string, _type: string | undefined, row: Record<string, unknown>) => {
+    const col = result.columns.find((c) => c.id === columnId);
+    if (col) return col.render(value, row._resource as K8sResource);
+    return <>{String(value ?? '')}</>;
+  }, [result.columns]);
 
-      {/* Column visibility settings */}
-      {showSettings && (
-        <div className="px-3 py-2 bg-slate-800/80 border-b border-slate-700">
-          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Columns</div>
-          <div className="flex flex-wrap gap-1">
-            {result.columns.map((col) => (
-              <button
-                key={col.id}
-                onClick={() => setHiddenCols((prev) => { const next = new Set(prev); if (next.has(col.id)) next.delete(col.id); else next.add(col.id); return next; })}
-                className={cn(
-                  'flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors',
-                  hiddenCols.has(col.id) ? 'bg-slate-900 text-slate-600' : 'bg-slate-700 text-slate-300',
-                )}
-              >
-                {hiddenCols.has(col.id) ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
-                {col.header}
-              </button>
-            ))}
-          </div>
-        </div>
+  const liveIndicator = (
+    <button
+      onClick={result.togglePause}
+      className={cn(
+        'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors',
+        result.isPaused
+          ? 'bg-slate-700 text-slate-400 hover:text-slate-200'
+          : result.isLive
+            ? 'bg-emerald-900/40 text-emerald-400 hover:bg-emerald-900/60'
+            : 'bg-slate-700 text-slate-400',
       )}
+      title={result.isPaused ? 'Resume auto-refresh' : 'Pause auto-refresh'}
+    >
+      {result.isLoading ? (
+        <Loader2 className="w-3 h-3 animate-spin" />
+      ) : result.isPaused ? (
+        <Pause className="w-3 h-3" />
+      ) : (
+        <Radio className="w-3 h-3" />
+      )}
+      {result.isPaused ? 'Paused' : result.isLive ? 'Live' : 'Connecting'}
+    </button>
+  );
 
-      {/* Table */}
-      <div className="overflow-auto max-h-[60vh]" role="region" aria-label={spec.title || 'Live data table'}>
-        <table className="w-full text-xs" role="table">
-          <thead>
-            <tr className="bg-slate-800/30 sticky top-0 z-[1]">
-              {visibleColumns.map((col) => (
-                <th
-                  key={col.id}
-                  className="px-3 py-1.5 text-left text-slate-400 font-medium whitespace-nowrap select-none bg-slate-800/80"
-                  style={col.width ? { width: col.width } : undefined}
-                >
-                  {col.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {processedRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((row, i) => (
-              <tr
-                key={i}
-                className="border-t border-slate-800 hover:bg-slate-800/40 transition-colors cursor-pointer"
-                onClick={() => handleRowClick(row)}
-              >
-                {visibleColumns.map((col) => (
-                  <td key={col.id} className="px-3 py-1.5 whitespace-nowrap">
-                    {col.render(row[col.id], row._resource as K8sResource)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+  const footerExtra = (
+    <>
+      {result.sources.length > 1 && (
+        <span>Sources: {result.sources.map((s) => `${s.label} (${s.count})`).join(' + ')}</span>
+      )}
+      {result.enrichmentUpdatedAt !== null && (
+        <span>Enrichment: {Math.round((Date.now() - result.enrichmentUpdatedAt) / 1000)}s ago</span>
+      )}
+    </>
+  );
 
-      {/* Footer */}
-      <div className="px-3 py-1 bg-slate-800/30 border-t border-slate-700 text-[10px] text-slate-500 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span>
-            {processedRows.length > PAGE_SIZE
-              ? `${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, processedRows.length)} of ${processedRows.length}`
-              : `${processedRows.length} rows`}
-          </span>
-          {result.sources.length > 1 && (
-            <span>
-              Sources: {result.sources.map((s) => `${s.label} (${s.count})`).join(' + ')}
-            </span>
-          )}
-          {result.enrichmentUpdatedAt !== null && (
-            <span>Enrichment: {Math.round((Date.now() - result.enrichmentUpdatedAt) / 1000)}s ago</span>
-          )}
-        </div>
-        {processedRows.length > PAGE_SIZE && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              ←
-            </button>
-            <span>{page + 1}/{Math.ceil(processedRows.length / PAGE_SIZE)}</span>
-            <button
-              onClick={() => setPage((p) => Math.min(Math.ceil(processedRows.length / PAGE_SIZE) - 1, p + 1))}
-              disabled={(page + 1) * PAGE_SIZE >= processedRows.length}
-              className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              →
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+  return (
+    <ResourceTable
+      title={spec.title}
+      description={spec.description}
+      columns={tableColumns}
+      rows={flatRows}
+      renderCell={renderCell}
+      onRowClick={handleRowClick}
+      onAddToView={onAddToView}
+      spec={spec}
+      headerExtra={liveIndicator}
+      footerExtra={footerExtra}
+    />
   );
 }
 
 /** Static data table for inline chat rendering */
 function StaticAgentTable({ spec, onAddToView }: { spec: DataTableSpec; onAddToView?: (spec: ComponentSpec) => void }) {
   const navigate = useNavigate();
-  const PAGE_SIZE = 15;
-  const [page, setPage] = useState(0);
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [search, setSearch] = useState('');
-  // Auto-hide columns beyond 6 to prevent horizontal scrollbar
-  const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => {
-    const MAX_DEFAULT_COLS = 6;
-    if (spec.columns.length <= MAX_DEFAULT_COLS) return new Set<string>();
-    return new Set(spec.columns.slice(MAX_DEFAULT_COLS).map((c) => c.id));
-  });
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [showSettings, setShowSettings] = useState(false);
 
-  const handleSort = useCallback((colId: string) => {
-    if (sortCol === colId) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortCol(colId);
-      setSortDir('asc');
-    }
-  }, [sortCol]);
-
-  const toggleCol = useCallback((colId: string) => {
-    setHiddenCols((prev) => {
-      const next = new Set(prev);
-      if (next.has(colId)) next.delete(colId);
-      else next.add(colId);
-      return next;
-    });
-  }, []);
-
-  const handleRowClick = useCallback((row: Record<string, string | number | boolean>) => {
+  const handleRowClick = useCallback((row: Record<string, unknown>) => {
     const gvr = row._gvr ? String(row._gvr) : '';
     const name = String(row.name || '');
     const ns = String(row.namespace || '');
-    if (gvr && name) {
-      navigate(`/r/${gvr}/${ns || '_'}/${name}`);
-    }
+    if (gvr && name) navigate(`/r/${gvr}/${ns || '_'}/${name}`);
   }, [navigate]);
 
-  const visibleColumns = useMemo(
-    () => spec.columns.filter((c) => !hiddenCols.has(c.id)),
-    [spec.columns, hiddenCols],
-  );
-
-  const processedRows = useMemo(() => {
-    let rows = [...spec.rows];
-    // Apply global search
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((row) =>
-        Object.values(row).some((v) => String(v ?? '').toLowerCase().includes(q))
-      );
-    }
-    // Apply per-column filters
-    for (const [colId, filterVal] of Object.entries(filters)) {
-      if (!filterVal) continue;
-      const lower = filterVal.toLowerCase();
-      rows = rows.filter((row) => String(row[colId] ?? '').toLowerCase().includes(lower));
-    }
-    // Apply sort
-    if (sortCol) {
-      rows.sort((a, b) => {
-        const av = a[sortCol] ?? '';
-        const bv = b[sortCol] ?? '';
-        const cmp = typeof av === 'number' && typeof bv === 'number'
-          ? av - bv
-          : String(av).localeCompare(String(bv), undefined, { numeric: true });
-        return sortDir === 'asc' ? cmp : -cmp;
-      });
-    }
-    return rows;
-  }, [spec.rows, search, filters, sortCol, sortDir]);
-
-  const handleExport = useCallback((format: 'csv' | 'json') => {
-    const cols = spec.columns.filter((c) => !c.id.startsWith('_'));
-    const exportTitle = spec.title || 'export';
-    const date = new Date().toISOString().slice(0, 10);
-    if (format === 'csv') {
-      const header = cols.map((c) => c.header).join(',');
-      const csvRows = processedRows.map((row) =>
-        cols.map((c) => {
-          const val = String(row[c.id] ?? '').replace(/"/g, '""');
-          return val.includes(',') || val.includes('"') ? `"${val}"` : val;
-        }).join(',')
-      );
-      const blob = new Blob([header + '\n' + csvRows.join('\n')], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${exportTitle}-${date}.csv`;
-      a.click();
-    } else {
-      const data = processedRows.map((row) => {
-        const obj: Record<string, unknown> = {};
-        for (const c of cols) obj[c.id] = row[c.id];
-        return obj;
-      });
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${exportTitle}-${date}.json`;
-      a.click();
-    }
-  }, [spec, processedRows]);
-
   return (
-    <div className="my-2 border border-slate-700 rounded-lg overflow-hidden min-w-0">
-      {/* Header */}
-      <div className="px-3 py-1.5 bg-slate-800/50 border-b border-slate-700 text-xs font-medium text-slate-300 flex items-center justify-between gap-2">
-        <div className="truncate flex-shrink-0">
-          <span>{spec.title || 'Table'}</span>
-          {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
-          {(search || Object.values(filters).some(Boolean)) && (
-            <span className="text-[10px] text-violet-400 ml-2">
-              ({processedRows.length}/{spec.rows.length})
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Search */}
-          <div className="relative">
-            <Search className="w-3 h-3 absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-600" />
-            <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-              placeholder="Search..."
-              className="w-28 pl-5 pr-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-300 placeholder-slate-600 outline-none focus:border-violet-500 focus:w-40 transition-all"
-              aria-label="Search table"
-            />
-          </div>
-          {/* Export */}
-          <div className="relative group/export">
-            <button className="p-0.5 text-slate-500 hover:text-slate-300 rounded transition-colors" title="Export">
-              <Download className="w-3.5 h-3.5" />
-            </button>
-            <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded shadow-lg hidden group-hover/export:block z-20">
-              <button onClick={() => handleExport('csv')} className="block w-full px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 whitespace-nowrap">Export CSV</button>
-              <button onClick={() => handleExport('json')} className="block w-full px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 whitespace-nowrap">Export JSON</button>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={cn('p-0.5 rounded transition-colors', showSettings ? 'text-violet-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
-            title="Table settings"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-          </button>
-          {onAddToView && (
-            <button
-              onClick={() => onAddToView(spec)}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors flex-shrink-0"
-              title="Add to View"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Settings panel — column visibility + filters */}
-      {showSettings && (
-        <div className="px-3 py-2 bg-slate-800/80 border-b border-slate-700 space-y-2">
-          <div className="text-[10px] text-slate-500 uppercase tracking-wider">Columns</div>
-          <div className="flex flex-wrap gap-1">
-            {spec.columns.map((col) => (
-              <button
-                key={col.id}
-                onClick={() => toggleCol(col.id)}
-                className={cn(
-                  'flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors',
-                  hiddenCols.has(col.id)
-                    ? 'bg-slate-900 text-slate-600'
-                    : 'bg-slate-700 text-slate-300',
-                )}
-              >
-                {hiddenCols.has(col.id) ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
-                {col.header}
-              </button>
-            ))}
-          </div>
-          <div className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Filters</div>
-          <div className="flex flex-wrap gap-2">
-            {visibleColumns.slice(0, 5).map((col) => (
-              <div key={col.id} className="flex items-center gap-1">
-                <Filter className="w-2.5 h-2.5 text-slate-600" />
-                <input
-                  placeholder={col.header}
-                  value={filters[col.id] || ''}
-                  onChange={(e) => setFilters((f) => ({ ...f, [col.id]: e.target.value }))}
-                  className="w-24 px-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-300 placeholder-slate-600 outline-none focus:border-violet-500"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+    <ResourceTable
+      title={spec.title}
+      description={spec.description}
+      columns={spec.columns}
+      rows={spec.rows as Array<Record<string, unknown>>}
+      renderCell={(value, columnId, columnType, row) => (
+        <CellValue value={value} columnId={columnId} columnType={columnType} row={row} />
       )}
-
-      {/* Table */}
-      <div className="overflow-x-auto" role="region" aria-label={spec.title || 'Data table'}>
-        <table className="w-full text-xs" role="table">
-          <thead>
-            <tr className="bg-slate-800/30 sticky top-0 z-[1]">
-              {visibleColumns.map((col) => (
-                <th
-                  key={col.id}
-                  className="px-3 py-1.5 text-left text-slate-400 font-medium whitespace-nowrap cursor-pointer hover:text-slate-200 select-none bg-slate-800/80"
-                  style={col.width ? { width: col.width } : undefined}
-                  onClick={() => handleSort(col.id)}
-                >
-                  <span className="flex items-center gap-1">
-                    {col.header}
-                    {sortCol === col.id ? (
-                      sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 opacity-30" />
-                    )}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {processedRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((row, i) => (
-              <tr
-                key={i}
-                className={cn('border-t border-slate-800 hover:bg-slate-800/40 transition-colors', row._gvr && 'cursor-pointer')}
-                onClick={() => row._gvr && handleRowClick(row)}
-              >
-                {visibleColumns.map((col) => (
-                  <td key={col.id} className="px-3 py-1.5 text-slate-300 whitespace-nowrap group/cell relative">
-                    <CellValue value={row[col.id]} columnId={col.id} columnType={col.type} row={row} />
-                    <button
-                      onClick={() => navigator.clipboard.writeText(String(row[col.id] ?? ''))}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 text-slate-600 hover:text-slate-300 transition-opacity"
-                      title="Copy"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" strokeWidth="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2"/></svg>
-                    </button>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer with pagination */}
-      <div className="px-3 py-1 bg-slate-800/30 border-t border-slate-700 text-[10px] text-slate-500 flex items-center justify-between">
-        <span>
-          {processedRows.length > PAGE_SIZE
-            ? `${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, processedRows.length)} of ${processedRows.length}`
-            : `${processedRows.length} rows`}
-          {processedRows.length !== spec.rows.length && ` (${spec.rows.length} total)`}
-        </span>
-        <div className="flex items-center gap-1">
-          {spec.query && <span className="truncate mr-2" title={spec.query}>Query: {spec.query}</span>}
-          {processedRows.length > PAGE_SIZE && (
-            <>
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                ←
-              </button>
-              <span>{page + 1}/{Math.ceil(processedRows.length / PAGE_SIZE)}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(Math.ceil(processedRows.length / PAGE_SIZE) - 1, p + 1))}
-                disabled={(page + 1) * PAGE_SIZE >= processedRows.length}
-                className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                →
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+      onRowClick={spec.rows.some((r) => r._gvr) ? handleRowClick : undefined}
+      onAddToView={onAddToView}
+      spec={spec}
+      footerExtra={spec.query ? <span className="truncate" title={spec.query}>Query: {spec.query}</span> : undefined}
+    />
   );
 }
 
