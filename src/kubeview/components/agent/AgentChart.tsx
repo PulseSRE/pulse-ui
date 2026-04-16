@@ -363,14 +363,10 @@ export default function AgentChart({ spec, onAddToView, refreshInterval }: { spe
       </div>
 
       {activeQuery && (
-        <button
-          onClick={() => setEditorOpen(true)}
-          className="w-full px-3 py-1 border-t border-slate-700 text-[10px] text-slate-600 hover:text-slate-300 truncate text-left transition-colors"
-          title="Click to edit chart"
-        >
-          PromQL: <span className="font-mono">{activeQuery}</span>
-          {isEdited && <span className="text-violet-400 ml-1">(edited)</span>}
-        </button>
+        <div className="px-3 py-1 border-t border-slate-700 text-[10px] text-slate-500 flex items-center justify-between">
+          <span>Range: {timeRange}</span>
+          {isEdited && <span className="text-violet-400">edited</span>}
+        </div>
       )}
 
       {/* Chart Editor Modal */}
