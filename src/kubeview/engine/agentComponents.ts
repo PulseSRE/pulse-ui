@@ -147,6 +147,8 @@ export interface ChartSpec {
   height?: number;
   query?: string;      // stored PromQL for live refresh + editing
   timeRange?: string;  // stored for refresh
+  /** Warning/critical threshold lines on the chart */
+  thresholds?: { warning?: number; critical?: number };
 }
 
 export interface TabsSpec {

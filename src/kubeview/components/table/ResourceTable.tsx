@@ -295,6 +295,13 @@ export function ResourceTable({
             </tr>
           </thead>
           <tbody>
+            {processedRows.length === 0 && (
+              <tr>
+                <td colSpan={visibleColumns.length + (showActions ? 1 : 0)} className="px-4 py-8 text-center text-sm text-slate-500">
+                  {rows.length === 0 ? 'No data available' : 'No rows match your search'}
+                </td>
+              </tr>
+            )}
             {processedRows.slice(page * pageSize, (page + 1) * pageSize).map((row, i) => (
               <tr
                 key={i}

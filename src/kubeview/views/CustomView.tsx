@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { Trash2, Plus, LayoutDashboard, Bot, Share2, Check, GripVertical, Pencil, Eye, RefreshCw, Settings2 } from 'lucide-react';
+import { Trash2, Plus, LayoutDashboard, Bot, Share2, Check, GripVertical, Pencil, Eye, RefreshCw, Settings2, Clock } from 'lucide-react';
 import { ChartEditPopover } from '../components/agent/ChartEditPopover';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
@@ -110,6 +110,9 @@ export default function CustomView() {
     { label: 'Off', ms: 0 },
   ];
   const [refreshInterval, setRefreshInterval] = useState(60000);
+  const TIME_RANGE_OPTIONS = ['1h', '6h', '24h', '3d', '7d'];
+  const [globalTimeRange, setGlobalTimeRange] = useState('1h');
+  const [hoverTimestamp, setHoverTimestamp] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [widgetToRemove, setWidgetToRemove] = useState<number | null>(null);
   const [editingChart, setEditingChart] = useState<number | null>(null);
@@ -276,6 +279,21 @@ export default function CustomView() {
                 </button>
               ))}
             </div>
+            {/* Time range selector */}
+            <div className="flex items-center gap-0.5 bg-slate-800 rounded px-1 py-0.5">
+              <Clock className="w-3 h-3 text-slate-500" />
+              {TIME_RANGE_OPTIONS.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setGlobalTimeRange(t)}
+                  className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
+                    globalTimeRange === t ? 'bg-violet-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => setEditMode(!editMode)}
               className={`p-1.5 rounded transition-colors ${editMode ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
@@ -404,7 +422,19 @@ export default function CustomView() {
                     </>
                   )}
                   <ErrorBoundary>
-                    <AgentComponentRenderer spec={spec} refreshInterval={refreshInterval || undefined} />
+                    <AgentComponentRenderer
+                      spec={spec}
+                      refreshInterval={refreshInterval || undefined}
+                      globalTimeRange={globalTimeRange}
+                      hoverTimestamp={hoverTimestamp}
+                      onHoverTimestamp={setHoverTimestamp}
+                      onSpecChange={(newSpec) => {
+                        if (!view) return;
+                        const newLayout = [...view.layout];
+                        newLayout[i] = newSpec;
+                        updateView(view.id, { layout: newLayout });
+                      }}
+                    />
                   </ErrorBoundary>
                   {/* Chart edit popover */}
                   {editingChart === i && spec.kind === 'chart' && (

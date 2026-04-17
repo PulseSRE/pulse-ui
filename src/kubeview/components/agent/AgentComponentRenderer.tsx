@@ -49,9 +49,13 @@ interface Props {
   depth?: number;
   onAddToView?: (spec: ComponentSpec) => void;
   refreshInterval?: number;
+  globalTimeRange?: string;
+  hoverTimestamp?: number | null;
+  onHoverTimestamp?: (ts: number | null) => void;
+  onSpecChange?: (spec: ComponentSpec) => void;
 }
 
-export function AgentComponentRenderer({ spec, depth = 0, onAddToView, refreshInterval }: Props) {
+export function AgentComponentRenderer({ spec, depth = 0, onAddToView, refreshInterval, globalTimeRange, hoverTimestamp, onHoverTimestamp, onSpecChange }: Props) {
   if (depth > MAX_DEPTH) {
     return <div className="text-xs text-slate-500 italic">Content nested too deeply</div>;
   }
@@ -67,7 +71,7 @@ export function AgentComponentRenderer({ spec, depth = 0, onAddToView, refreshIn
     case 'key_value':
       return <AgentKeyValue spec={spec} />;
     case 'chart':
-      return <Suspense fallback={<div className="h-48 flex items-center justify-center text-slate-500 text-xs">Loading chart...</div>}><LazyAgentChart spec={spec} onAddToView={onAddToView} refreshInterval={refreshInterval} /></Suspense>;
+      return <Suspense fallback={<div className="h-48 flex items-center justify-center text-slate-500 text-xs">Loading chart...</div>}><LazyAgentChart spec={spec} onAddToView={onAddToView} refreshInterval={refreshInterval} globalTimeRange={globalTimeRange} hoverTimestamp={hoverTimestamp} onHoverTimestamp={onHoverTimestamp} onSpecChange={onSpecChange} /></Suspense>;
     case 'tabs':
       return <AgentTabs spec={spec} depth={depth} />;
     case 'grid':

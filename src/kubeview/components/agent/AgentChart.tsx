@@ -12,7 +12,7 @@ import {
   LineChart, BarChart, AreaChart, PieChart, ScatterChart, RadarChart, Treemap,
   Line, Bar, Area, Pie, Scatter, Radar, Cell,
   XAxis, YAxis, Tooltip, Legend, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, CartesianGrid,
+  ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from 'recharts';
 import type { ChartSpec, ComponentSpec } from '../../engine/agentComponents';
 
@@ -51,7 +51,11 @@ const CHART_TYPE_LABELS: Record<ChartType, string> = {
   radar: 'Radar', treemap: 'Treemap',
 };
 
-export default function AgentChart({ spec, onAddToView, refreshInterval }: { spec: ChartSpec; onAddToView?: (spec: ComponentSpec) => void; refreshInterval?: number }) {
+export default function AgentChart({ spec, onAddToView, refreshInterval, globalTimeRange, hoverTimestamp, onHoverTimestamp, onSpecChange }: {
+  spec: ChartSpec; onAddToView?: (spec: ComponentSpec) => void; refreshInterval?: number;
+  globalTimeRange?: string; hoverTimestamp?: number | null; onHoverTimestamp?: (ts: number | null) => void;
+  onSpecChange?: (spec: ComponentSpec) => void;
+}) {
   const [chartType, setChartType] = useState<ChartType>(spec.chartType || 'line');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -74,15 +78,19 @@ export default function AgentChart({ spec, onAddToView, refreshInterval }: { spe
     return colors;
   });
 
+  const [thresholds, setThresholds] = useState(spec.thresholds || {});
+
   const height = chartHeight;
   const isEdited = activeQuery !== (spec.query || '') || chartTitle !== (spec.title || '') || chartHeight !== (spec.height || 300);
 
   // Build a spec with all active (possibly edited) properties for the live data hook
+  // globalTimeRange overrides per-chart timeRange when set
+  const effectiveTimeRange = globalTimeRange || timeRange || spec.timeRange;
   const activeSpec = useMemo(() => ({
     ...spec,
     query: activeQuery || spec.query,
-    timeRange: timeRange || spec.timeRange,
-  }), [spec, activeQuery, timeRange]);
+    timeRange: effectiveTimeRange,
+  }), [spec, activeQuery, effectiveTimeRange]);
 
   // Live data hook — fetches fresh Prometheus data when spec.query is set
   const { series: liveSeries, isLive, isFetching, error: liveError, lastUpdated, isPaused, togglePause } = useChartLiveData(activeSpec, refreshInterval);
@@ -254,7 +262,10 @@ export default function AgentChart({ spec, onAddToView, refreshInterval }: { spe
             <Tooltip
               contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
               labelFormatter={(label) => typeof label === 'number' ? formatTimestamp(label) : String(label)}
-              labelStyle={{ color: '#94a3b8' }} />
+              labelStyle={{ color: '#94a3b8' }}
+              cursor={{ stroke: '#475569' }}
+            />
+            {hoverTimestamp != null && <ReferenceLine x={hoverTimestamp} stroke="#6366f1" strokeDasharray="3 3" />}
             {showLegend && liveSeries.length > 1 && liveSeries.length <= 6 && <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />}
             {liveSeries.map((s, i) => {
               const color = seriesColors[s.label] || s.color || CHART_COLORS[i % CHART_COLORS.length];
@@ -262,6 +273,12 @@ export default function AgentChart({ spec, onAddToView, refreshInterval }: { spe
               if (chartType === 'area') return <Area key={s.label} dataKey={s.label} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={1.5} dot={false} />;
               return <Line key={s.label} dataKey={s.label} stroke={color} strokeWidth={1.5} dot={false} />;
             })}
+            {thresholds.warning != null && (
+              <ReferenceLine y={thresholds.warning} stroke="#f59e0b" strokeDasharray="6 3" label={{ value: `Warning: ${thresholds.warning}`, position: 'right', fill: '#f59e0b', fontSize: 10 }} />
+            )}
+            {thresholds.critical != null && (
+              <ReferenceLine y={thresholds.critical} stroke="#ef4444" strokeDasharray="6 3" label={{ value: `Critical: ${thresholds.critical}`, position: 'right', fill: '#ef4444', fontSize: 10 }} />
+            )}
           </ChartComponent>
         );
       }
@@ -382,6 +399,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval }: { spe
           timeRange={timeRange}
           showLegend={showLegend}
           seriesColors={seriesColors}
+          thresholds={thresholds}
           seriesLabels={liveSeries.map((s) => s.label)}
           onApply={(edits) => {
             setActiveQuery(edits.query);
@@ -394,7 +412,10 @@ export default function AgentChart({ spec, onAddToView, refreshInterval }: { spe
             setTimeRange(edits.timeRange);
             setShowLegend(edits.showLegend);
             setSeriesColors(edits.seriesColors);
+            setThresholds(edits.thresholds);
             setEditorOpen(false);
+            // Persist changes to the saved view
+            onSpecChange?.({ ...spec, ...edits, chartType: edits.chartType as ChartType, query: edits.query, title: edits.title, description: edits.description, height: edits.chartHeight });
           }}
           onClose={() => setEditorOpen(false)}
         />
@@ -415,24 +436,26 @@ interface ChartEditorEdits {
   timeRange: string;
   showLegend: boolean;
   seriesColors: Record<string, string>;
+  thresholds: { warning?: number; critical?: number };
 }
 
 const TIME_RANGE_OPTIONS = ['5m', '15m', '30m', '1h', '3h', '6h', '12h', '24h', '3d', '7d'];
 
 function ChartEditorModal({
   query, title, description, chartType, chartHeight, yAxisLabel, xAxisLabel,
-  timeRange, showLegend, seriesColors, seriesLabels, onApply, onClose,
+  timeRange, showLegend, seriesColors, thresholds, seriesLabels, onApply, onClose,
 }: {
   query: string; title: string; description: string; chartType: string;
   chartHeight: number; yAxisLabel: string; xAxisLabel: string;
   timeRange: string; showLegend: boolean; seriesColors: Record<string, string>;
+  thresholds: { warning?: number; critical?: number };
   seriesLabels: string[];
   onApply: (edits: ChartEditorEdits) => void;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<ChartEditorEdits>({
     query, title, description, chartType, chartHeight, yAxisLabel, xAxisLabel,
-    timeRange, showLegend, seriesColors: { ...seriesColors },
+    timeRange, showLegend, seriesColors: { ...seriesColors }, thresholds: { ...thresholds },
   });
 
   const update = <K extends keyof ChartEditorEdits>(key: K, value: ChartEditorEdits[K]) =>
@@ -538,6 +561,39 @@ function ChartEditorModal({
               <div>
                 <label className={labelClass}>X-Axis Label</label>
                 <input value={draft.xAxisLabel} onChange={(e) => update('xAxisLabel', e.target.value)} className={inputClass} placeholder="e.g., Time" />
+              </div>
+            </div>
+          </div>
+
+          {/* Thresholds */}
+          <div className={sectionClass}>
+            <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Thresholds</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Warning</label>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                  <input
+                    type="number"
+                    value={draft.thresholds.warning ?? ''}
+                    onChange={(e) => update('thresholds', { ...draft.thresholds, warning: e.target.value ? Number(e.target.value) : undefined })}
+                    className={inputClass}
+                    placeholder="e.g., 80"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={labelClass}>Critical</label>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  <input
+                    type="number"
+                    value={draft.thresholds.critical ?? ''}
+                    onChange={(e) => update('thresholds', { ...draft.thresholds, critical: e.target.value ? Number(e.target.value) : undefined })}
+                    className={inputClass}
+                    placeholder="e.g., 95"
+                  />
+                </div>
               </div>
             </div>
           </div>
