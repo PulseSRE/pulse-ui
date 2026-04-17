@@ -18,7 +18,7 @@ import { useToolUsageStore } from '../store/toolUsageStore';
 import {
   fetchIntelligenceSections, fetchPromptStats,
   fetchTopologySummary, fetchPlanTemplates, fetchPostmortemCount,
-  fetchFixHistorySummary, fetchSLOStatus,
+  fetchFixHistorySummary,
   fetchFixStrategies, fetchLearningFeed,
   fetchSessionAnalytics,
 } from '../engine/analyticsApi';
@@ -835,65 +835,122 @@ function SLOTab() {
           <p className="text-xs text-slate-500 mt-1">Add a Service Level Objective to track error budget burn rate from live Prometheus data.</p>
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-          {/* Header row */}
-          <div className="grid grid-cols-12 gap-0 px-4 py-2 border-b border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider">
-            <div className="col-span-4">Service</div>
-            <div className="col-span-1 text-center">Target</div>
-            <div className="col-span-1 text-center">Current</div>
-            <div className="col-span-4">Error Budget</div>
-            <div className="col-span-1 text-center">Burn</div>
-            <div className="col-span-1"></div>
-          </div>
-          {/* SLO rows */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {slos.map((slo: Record<string, unknown>) => {
             const budgetPct = Math.round((slo.error_budget_remaining as number) * 100);
             const alertLevel = slo.alert_level as string;
-            const budgetColor = budgetPct > 50 ? 'bg-emerald-500' : budgetPct > 20 ? 'bg-amber-500' : 'bg-red-500';
-            const textColor = budgetPct > 50 ? 'text-emerald-400' : budgetPct > 20 ? 'text-amber-400' : 'text-red-400';
+            const burnRate = (slo.burn_rate as number) || 0;
+            const target = (slo.target as number) || 0;
+            const currentVal = slo.current_value as number | undefined;
+            const windowDays = slo.window_days as number;
+            const description = slo.description as string | undefined;
+
+            const gaugeColor = alertLevel === 'critical' ? '#ef4444' : alertLevel === 'warning' ? '#f59e0b' : '#10b981';
+            const gaugeBg = alertLevel === 'critical' ? 'rgba(239,68,68,0.08)' : alertLevel === 'warning' ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)';
+            const fillDeg = Math.round((budgetPct / 100) * 270);
+
+            const burnLabel = burnRate > 2 ? 'CRITICAL' : burnRate > 1 ? 'ELEVATED' : 'NORMAL';
+            const burnColor = burnRate > 2 ? 'text-red-400' : burnRate > 1 ? 'text-amber-400' : 'text-emerald-400';
+
             return (
-              <div key={`${slo.service}:${slo.type}`} className="grid grid-cols-12 gap-0 px-4 py-3 border-b border-slate-800/50 items-center hover:bg-slate-800/20 transition-colors">
-                {/* Service + type + status */}
-                <div className="col-span-4 flex items-center gap-2 min-w-0">
+              <div
+                key={`${slo.service}:${slo.type}`}
+                className={cn(
+                  'relative bg-slate-900 rounded-xl p-5 transition-all hover:ring-1',
+                  alertLevel === 'critical' ? 'border border-red-900/50 hover:ring-red-800/40' :
+                  alertLevel === 'warning' ? 'border border-amber-900/40 hover:ring-amber-800/30' :
+                  'border border-slate-800 hover:ring-slate-700/50',
+                )}
+              >
+                {/* Delete button */}
+                <button
+                  onClick={() => setConfirmDelete({ service: String(slo.service), type: String(slo.type) })}
+                  className="absolute top-3 right-3 text-slate-700 hover:text-red-400 transition-colors p-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Header: service name + type badge + status */}
+                <div className="flex items-start gap-2.5 mb-4 pr-6">
                   <div className={cn(
-                    'w-2 h-2 rounded-full shrink-0',
-                    alertLevel === 'critical' ? 'bg-red-500' : alertLevel === 'warning' ? 'bg-amber-500' : 'bg-emerald-500',
+                    'w-2.5 h-2.5 rounded-full shrink-0 mt-1',
+                    alertLevel === 'critical' ? 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]' :
+                    alertLevel === 'warning' ? 'bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.4)]' :
+                    'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]',
                   )} />
                   <div className="min-w-0">
-                    <div className="text-xs font-medium text-slate-200 truncate">{String(slo.service).replace('pulse-openshift-sre-agent', 'agent').replace('openshiftpulse', 'ui')}</div>
-                    <div className="text-[10px] text-slate-500">{String(slo.type)} · {(slo.window_days as number)}d</div>
+                    <div className="text-sm font-semibold text-slate-100 truncate">{String(slo.service).replace('pulse-openshift-sre-agent', 'agent').replace('openshiftpulse', 'ui')}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-medium">{String(slo.type)}</span>
+                      <span className="text-[10px] text-slate-600">{windowDays}d window</span>
+                    </div>
+                    {description && <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">{description}</p>}
                   </div>
                 </div>
-                {/* Target */}
-                <div className="col-span-1 text-center text-xs text-slate-400">
-                  {((slo.target as number) * 100).toFixed(1)}%
-                </div>
-                {/* Current */}
-                <div className="col-span-1 text-center text-xs text-slate-200">
-                  {slo.current_value ? `${((slo.current_value as number) * 100).toFixed(1)}%` : '-'}
-                </div>
-                {/* Error Budget bar */}
-                <div className="col-span-4 flex items-center gap-2">
-                  <div className="flex-1 h-2.5 bg-slate-800 rounded-full overflow-hidden">
+
+                {/* Gauge + Metrics row */}
+                <div className="flex items-center gap-5">
+                  {/* Radial gauge */}
+                  <div className="relative shrink-0 w-[88px] h-[88px]">
+                    <svg viewBox="0 0 100 100" className="w-full h-full -rotate-[135deg]">
+                      {/* Background arc */}
+                      <circle
+                        cx="50" cy="50" r="40"
+                        fill="none"
+                        stroke="currentColor"
+                        className="text-slate-800"
+                        strokeWidth="7"
+                        strokeDasharray={`${270 * (Math.PI * 80) / 360} ${(Math.PI * 80)}`}
+                        strokeLinecap="round"
+                      />
+                      {/* Filled arc */}
+                      <circle
+                        cx="50" cy="50" r="40"
+                        fill="none"
+                        stroke={gaugeColor}
+                        strokeWidth="7"
+                        strokeDasharray={`${fillDeg * (Math.PI * 80) / 360} ${(Math.PI * 80)}`}
+                        strokeLinecap="round"
+                        style={{ filter: `drop-shadow(0 0 4px ${gaugeColor}40)` }}
+                      />
+                    </svg>
+                    {/* Center label */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-lg font-bold text-slate-100 leading-none">{budgetPct}%</span>
+                      <span className="text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">budget</span>
+                    </div>
+                    {/* Subtle glow behind gauge */}
                     <div
-                      className={cn('h-full rounded-full transition-all', budgetColor + '/70')}
-                      style={{ width: `${Math.max(budgetPct, 2)}%` }}
+                      className="absolute inset-0 rounded-full -z-10 blur-xl opacity-30"
+                      style={{ backgroundColor: gaugeBg }}
                     />
                   </div>
-                  <span className={cn('text-xs font-semibold w-10 text-right', textColor)}>{budgetPct}%</span>
-                </div>
-                {/* Burn rate */}
-                <div className="col-span-1 text-center text-xs text-slate-400">
-                  {((slo.burn_rate as number) * 100).toFixed(1)}%
-                </div>
-                {/* Delete */}
-                <div className="col-span-1 text-right">
-                  <button
-                    onClick={() => setConfirmDelete({ service: String(slo.service), type: String(slo.type) })}
-                    className="text-slate-700 hover:text-red-400 transition-colors p-1"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+
+                  {/* Metrics grid */}
+                  <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Target</div>
+                      <div className="text-sm font-semibold text-slate-200">{(target * 100).toFixed(1)}%</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Current</div>
+                      <div className="text-sm font-semibold text-slate-200">
+                        {currentVal ? `${(currentVal * 100).toFixed(2)}%` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Burn Rate</div>
+                      <div className={cn('text-sm font-semibold', burnColor)}>
+                        {burnRate.toFixed(2)}x
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Status</div>
+                      <div className={cn('text-[10px] font-bold uppercase tracking-wider', burnColor)}>
+                        {burnLabel}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -2828,12 +2885,6 @@ function OrcaAnalyticsSection() {
     staleTime: 60_000,
   });
 
-  const { data: sloData } = useQuery({
-    queryKey: ['analytics', 'slo-status'],
-    queryFn: async () => (await safeQuery(() => fetchSLOStatus())) ?? { slos: [], total: 0 },
-    staleTime: 60_000,
-  });
-
   const { data: fixSummary } = useQuery({
     queryKey: ['analytics', 'fix-summary'],
     queryFn: () => safeQuery(() => fetchFixHistorySummary(30)),
@@ -2852,7 +2903,7 @@ function OrcaAnalyticsSection() {
     staleTime: 60_000,
   });
 
-  const hasData = topology || (templates && templates.length > 0) || (postmortemCount && postmortemCount > 0) || fixSummary || sloData?.slos?.length;
+  const hasData = topology || (templates && templates.length > 0) || (postmortemCount && postmortemCount > 0) || fixSummary;
   if (!hasData) return null;
 
   return (
@@ -2971,57 +3022,6 @@ function OrcaAnalyticsSection() {
                 <div className="text-[10px] text-slate-500">{kind}s</div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Service Health Targets (SLO) */}
-      {sloData && sloData.slos.length > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-xs font-medium text-slate-300 mb-1">Service Health Targets</h3>
-          <p className="text-[11px] text-slate-500 mb-3">SLO burn rates from live Prometheus data. Red = error budget depleted.</p>
-          <div className="space-y-2">
-            {sloData.slos.map((slo) => {
-              const budgetPct = Math.round(slo.error_budget_remaining * 100);
-              return (
-                <div key={`${slo.service}:${slo.type}`} className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-medium text-slate-200">{slo.service}</span>
-                      <span className="text-[10px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded">{slo.type}</span>
-                      <span className={cn(
-                        'text-[10px] px-1 py-0.5 rounded',
-                        slo.alert_level === 'critical' ? 'bg-red-900/50 text-red-300' :
-                        slo.alert_level === 'warning' ? 'bg-amber-900/50 text-amber-300' :
-                        'bg-emerald-900/50 text-emerald-300',
-                      )}>
-                        {slo.alert_level}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className={cn(
-                            'h-full rounded-full',
-                            budgetPct > 50 ? 'bg-emerald-500/70' :
-                            budgetPct > 20 ? 'bg-amber-500/70' :
-                            'bg-red-500/70',
-                          )}
-                          style={{ width: `${Math.max(budgetPct, 2)}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-slate-500 w-14 text-right">
-                        {budgetPct}% left
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xs text-slate-300">{(slo.target * 100).toFixed(1)}%</div>
-                    <div className="text-[10px] text-slate-500">{slo.window_days}d window</div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       )}
