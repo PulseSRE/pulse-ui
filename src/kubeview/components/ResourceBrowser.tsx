@@ -120,7 +120,7 @@ export function ResourceBrowser() {
       {/* Sidebar */}
       <div
         ref={browserRef}
-        className="fixed left-0 top-0 z-50 h-full w-80 border-r border-slate-700 bg-slate-800 shadow-2xl"
+        className="fixed left-0 top-0 z-50 h-full w-80 flex flex-col border-r border-slate-700 bg-slate-800 shadow-2xl"
       >
         {/* Header */}
         <div className="border-b border-slate-700 p-4">
@@ -204,7 +204,7 @@ export function ResourceBrowser() {
         </div>
 
         {/* Resource groups */}
-        <div className="flex-1 overflow-auto p-3">
+        <div className="flex-1 overflow-auto thin-scrollbar p-3">
           {filteredGroups.map((group) => {
             const isExpanded = expandedGroups.has(group);
             const resources = groupedResources[group];
