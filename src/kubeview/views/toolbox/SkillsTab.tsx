@@ -72,8 +72,36 @@ export function SkillsTab() {
     }
   };
 
+  const totalInvocations = (skillStats?.skills ?? []).reduce((sum: number, s: Record<string, unknown>) => sum + Number(s.invocations ?? 0), 0);
+  const avgDuration = (skillStats?.skills ?? []).length > 0
+    ? Math.round((skillStats?.skills ?? []).reduce((sum: number, s: Record<string, unknown>) => sum + Number(s.avg_duration_ms ?? 0), 0) / (skillStats?.skills ?? []).length)
+    : 0;
+  const totalHandoffs = (skillStats?.handoffs ?? []).reduce((sum: number, h: { count: number }) => sum + h.count, 0);
+
   return (
     <div className="space-y-4">
+      {/* Overview Stats */}
+      {totalInvocations > 0 && (
+        <div className="grid grid-cols-4 gap-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{totalInvocations}</div>
+            <div className="text-[10px] text-slate-500">Total Invocations</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{skills.length}</div>
+            <div className="text-[10px] text-slate-500">Skills Active</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{avgDuration}ms</div>
+            <div className="text-[10px] text-slate-500">Avg Duration</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{totalHandoffs}</div>
+            <div className="text-[10px] text-slate-500">Handoffs</div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <span className="text-sm text-slate-400">{skills.length} skills loaded</span>
         <button

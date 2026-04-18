@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Puzzle, RefreshCw, Save, Check, Copy, Trash2, X,
@@ -63,6 +63,16 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   });
 
   const versions = versionsData?.versions || [];
+
+  const { data: usageStats } = useQuery({
+    queryKey: ['skill-usage-detail', name],
+    queryFn: async () => {
+      const res = await fetch(`/api/agent/skills/usage/${encodeURIComponent(name)}/trend?days=30`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ runs: number; sparkline?: number[]; duration_sparkline?: number[]; days_active?: number }>;
+    },
+    staleTime: 60_000,
+  });
 
   const handleSave = async () => {
     setSaveStatus('saving');
@@ -212,6 +222,28 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
               </button>
             </div>
           </div>
+
+          {/* Usage stats + sparkline */}
+          {usageStats && usageStats.runs > 0 && (
+            <div className="flex items-center gap-4 mb-3 px-1">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-slate-500">30d:</span>
+                <span className="text-slate-200 font-medium">{usageStats.runs} runs</span>
+                {usageStats.days_active && <span className="text-slate-500">{usageStats.days_active} days active</span>}
+              </div>
+              {usageStats.sparkline && usageStats.sparkline.length > 1 && (
+                <div className="flex items-end gap-px h-5 flex-1 max-w-32">
+                  {usageStats.sparkline.map((v, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-violet-500/40 rounded-sm min-h-[2px]"
+                      style={{ height: `${(v / Math.max(...usageStats.sparkline!, 1)) * 100}%` }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Panel tabs */}
           <div className="flex gap-1">

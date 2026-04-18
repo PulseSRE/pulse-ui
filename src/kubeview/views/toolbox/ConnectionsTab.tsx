@@ -84,8 +84,34 @@ export function ConnectionsTab() {
     }
   };
 
+  const connectedCount = connections.filter((c) => c.status === 'connected').length;
+  const totalMcpTools = connections.reduce((sum, c) => sum + (Number(c.tools_count) || 0), 0);
+  const activeToolsets = connections.reduce((sum, c) => sum + ((c.toolsets as string[])?.length || 0), 0);
+
   return (
     <div className="space-y-4">
+      {/* Overview Stats */}
+      {connections.length > 0 && (
+        <div className="grid grid-cols-4 gap-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{connections.length}</div>
+            <div className="text-[10px] text-slate-500">Servers</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className={`text-lg font-bold ${connectedCount === connections.length ? 'text-emerald-400' : 'text-amber-400'}`}>{connectedCount}</div>
+            <div className="text-[10px] text-slate-500">Connected</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{totalMcpTools}</div>
+            <div className="text-[10px] text-slate-500">MCP Tools</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{activeToolsets}</div>
+            <div className="text-[10px] text-slate-500">Toolsets</div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="text-sm text-slate-400">{connections.length} MCP server{connections.length !== 1 ? 's' : ''} configured</div>
         <div className="flex items-center gap-2">

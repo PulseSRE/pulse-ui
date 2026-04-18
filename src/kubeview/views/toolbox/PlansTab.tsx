@@ -93,8 +93,40 @@ export function PlansTab() {
     return <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>;
   }
 
+  const avgSuccessRate = planStats.length > 0
+    ? Math.round(planStats.reduce((sum, ps) => {
+        const good = ps.by_status?.complete ?? ps.by_status?.completed ?? 0;
+        return sum + (ps.total_runs > 0 ? good / ps.total_runs : 0);
+      }, 0) / planStats.length * 100)
+    : 0;
+  const avgDuration = planStats.length > 0
+    ? Math.round(planStats.reduce((sum, ps) => sum + ps.avg_duration_ms, 0) / planStats.length)
+    : 0;
+
   return (
     <div className="space-y-4">
+      {/* Overview Stats */}
+      {totalExecutions > 0 && (
+        <div className="grid grid-cols-4 gap-2">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{totalExecutions}</div>
+            <div className="text-[10px] text-slate-500">Executions</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{templates.length}</div>
+            <div className="text-[10px] text-slate-500">Plan Templates</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className={`text-lg font-bold ${avgSuccessRate >= 80 ? 'text-emerald-400' : avgSuccessRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{avgSuccessRate}%</div>
+            <div className="text-[10px] text-slate-500">Avg Success</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold text-slate-100">{avgDuration >= 60000 ? `${Math.round(avgDuration / 60000)}m` : `${Math.round(avgDuration / 1000)}s`}</div>
+            <div className="text-[10px] text-slate-500">Avg Duration</div>
+          </div>
+        </div>
+      )}
+
       <p className="text-xs text-slate-500">
         Investigation plans define multi-phase incident resolution. The agent matches findings to plans and executes phases in order.
         New plans are auto-generated when the agent resolves novel incidents.
@@ -280,6 +312,34 @@ export function PlansTab() {
                 <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded border border-amber-700/40">AI-generated</span>
               )}
             </div>
+
+            {/* Per-plan execution stats */}
+            {(() => {
+              const ps = planStats.find((p) => p.template_name === planDetail.name || p.incident_type === planDetail.incident_type);
+              if (!ps || ps.total_runs === 0) return null;
+              const successCount = ps.by_status?.complete ?? ps.by_status?.completed ?? 0;
+              const successRate = Math.round((successCount / ps.total_runs) * 100);
+              return (
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                    <div className="text-sm font-bold text-slate-100">{ps.total_runs}</div>
+                    <div className="text-[9px] text-slate-500">Runs</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                    <div className={`text-sm font-bold ${successRate >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>{successRate}%</div>
+                    <div className="text-[9px] text-slate-500">Success</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                    <div className="text-sm font-bold text-slate-100">{ps.avg_duration_ms >= 60000 ? `${Math.round(ps.avg_duration_ms / 60000)}m` : `${Math.round(ps.avg_duration_ms / 1000)}s`}</div>
+                    <div className="text-[9px] text-slate-500">Avg Time</div>
+                  </div>
+                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                    <div className="text-sm font-bold text-blue-400">{Math.round(ps.avg_confidence * 100)}%</div>
+                    <div className="text-[9px] text-slate-500">Confidence</div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Phase flow visualization */}
             <div className="flex items-center gap-1 flex-wrap">
