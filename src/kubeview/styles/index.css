@@ -97,12 +97,13 @@
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 
-/* Thin scrollbar for sidebar */
+/* Thin violet scrollbar for sidebar and panels */
 .openshiftpulse .thin-scrollbar { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-.openshiftpulse .thin-scrollbar:hover { scrollbar-color: var(--kv-border) transparent; }
+.openshiftpulse .thin-scrollbar:hover { scrollbar-color: rgba(139, 92, 246, 0.4) transparent; }
 .openshiftpulse .thin-scrollbar::-webkit-scrollbar { width: 4px; }
 .openshiftpulse .thin-scrollbar::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px; }
-.openshiftpulse .thin-scrollbar:hover::-webkit-scrollbar-thumb { background: var(--kv-border); }
+.openshiftpulse .thin-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.4); }
+.openshiftpulse .thin-scrollbar::-webkit-scrollbar-thumb:active { background: rgba(139, 92, 246, 0.6); }
 
 .openshiftpulse ::-webkit-scrollbar-track {
   background: transparent;
