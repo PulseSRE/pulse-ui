@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.4.1] - 2026-04-18
+
+Scrollbar and ResourceBrowser fixes.
+
+### Fixed
+- **Scrollbar CSS rewrite** — removed `scrollbar-color` property that caused Chrome 121+ to ignore `::-webkit-scrollbar` pseudo-elements, resulting in gray 15px default scrollbars instead of 6px violet
+- **`.openshiftpulse` class missing from DOM** — all custom scrollbar CSS was scoped to this class but it was never applied to the Shell root element
+- **ResourceBrowser scroll** — added `flex flex-col` to sidebar container and wrapped views + dashboards + resource groups in a single scrollable body so users can scroll through all content
+- **ResourceBrowser `min-h-0`** — prevents flexbox from refusing to shrink below content height
+
+### Stats
+- **1,942 tests** across 162 test files
+- Selector routing: 55/55 (100%)
+- Release gate: all 15 scenarios PASS
+
+---
+
 ## [6.2.0] - 2026-04-14
 
 ORCA UI Surfaces release matching Agent v2.3.0.
