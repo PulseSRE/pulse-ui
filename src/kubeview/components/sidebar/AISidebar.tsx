@@ -75,7 +75,7 @@ export function AISidebar() {
       if (!useAgentStore.getState().streaming) {
         setMode('dashboard');
       }
-    }, 30_000);
+    }, 60_000);
     return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
   }, [mode, streaming, setMode]);
 

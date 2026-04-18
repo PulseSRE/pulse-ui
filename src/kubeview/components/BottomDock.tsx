@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { X } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
+import { X, AlertTriangle, Activity, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
+import { useK8sListWatch } from '../hooks/useK8sListWatch';
+import type { K8sResource } from '../engine/renderers';
 
 const LogStream = lazy(() => import('./logs/LogStream'));
 const PodTerminal = lazy(() => import('./PodTerminal'));
@@ -140,10 +142,84 @@ export function BottomDock() {
           )
         )}
 
-        {panel === 'events' && (
-          <div className="p-4 text-sm text-slate-500">No events</div>
-        )}
+        {panel === 'events' && <EventStream />}
       </div>
     </div>
   );
+}
+
+function EventStream() {
+  const { data: rawEvents = [] } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/events?limit=200' });
+
+  const events = useMemo(() => {
+    return [...rawEvents]
+      .sort((a, b) => {
+        const tsA = (a as any).lastTimestamp || (a as any).metadata?.creationTimestamp || '';
+        const tsB = (b as any).lastTimestamp || (b as any).metadata?.creationTimestamp || '';
+        return new Date(tsB).getTime() - new Date(tsA).getTime();
+      })
+      .slice(0, 100);
+  }, [rawEvents]);
+
+  if (events.length === 0) {
+    return <div className="p-4 text-sm text-slate-500">No events in the cluster</div>;
+  }
+
+  return (
+    <div className="overflow-y-auto thin-scrollbar h-full">
+      <table className="w-full text-xs">
+        <thead className="sticky top-0 bg-slate-900 border-b border-slate-800">
+          <tr className="text-left text-slate-500">
+            <th className="px-3 py-1.5 font-medium w-16">Type</th>
+            <th className="px-3 py-1.5 font-medium">Reason</th>
+            <th className="px-3 py-1.5 font-medium">Object</th>
+            <th className="px-3 py-1.5 font-medium">Message</th>
+            <th className="px-3 py-1.5 font-medium w-20">Age</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-800/50">
+          {events.map((evt) => {
+            const e = evt as any;
+            const type = e.type || 'Normal';
+            const reason = e.reason || '';
+            const obj = e.involvedObject ? `${e.involvedObject.kind}/${e.involvedObject.name}` : '';
+            const ns = e.involvedObject?.namespace || e.metadata?.namespace || '';
+            const message = (e.message || '').slice(0, 120);
+            const ts = e.lastTimestamp || e.metadata?.creationTimestamp;
+            const age = ts ? formatAge(new Date(ts)) : '';
+            const isWarning = type === 'Warning';
+
+            return (
+              <tr key={e.metadata?.uid || `${obj}-${reason}-${ts}`} className={cn('hover:bg-slate-800/30', isWarning && 'text-amber-300/90')}>
+                <td className="px-3 py-1.5">
+                  <span className="flex items-center gap-1">
+                    {isWarning ? <AlertTriangle className="w-3 h-3 text-amber-400" /> : <Info className="w-3 h-3 text-slate-600" />}
+                    {type}
+                  </span>
+                </td>
+                <td className="px-3 py-1.5 font-mono text-slate-300">{reason}</td>
+                <td className="px-3 py-1.5">
+                  <span className="text-slate-400">{obj}</span>
+                  {ns && <span className="text-slate-600 ml-1">({ns})</span>}
+                </td>
+                <td className="px-3 py-1.5 text-slate-400 truncate max-w-[400px]">{message}</td>
+                <td className="px-3 py-1.5 text-slate-600">{age}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function formatAge(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const secs = Math.floor(diff / 1000);
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
 }
