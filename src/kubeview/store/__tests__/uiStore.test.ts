@@ -255,29 +255,48 @@ describe('uiStore', () => {
   // --- Dock ---
 
   describe('dock', () => {
-    it('opens and closes', () => {
-      useUIStore.getState().openDock('logs');
-      expect(useUIStore.getState().dockPanel).toBe('logs');
+    it('opens and closes bottom dock', () => {
+      useUIStore.getState().openBottomDock('logs');
+      expect(useUIStore.getState().bottomDockPanel).toBe('logs');
 
-      useUIStore.getState().closeDock();
-      expect(useUIStore.getState().dockPanel).toBeNull();
+      useUIStore.getState().closeBottomDock();
+      expect(useUIStore.getState().bottomDockPanel).toBeNull();
     });
 
-    it('switches panels', () => {
-      useUIStore.getState().openDock('logs');
-      useUIStore.getState().openDock('terminal');
-      expect(useUIStore.getState().dockPanel).toBe('terminal');
+    it('switches bottom dock panels', () => {
+      useUIStore.getState().openBottomDock('logs');
+      useUIStore.getState().openBottomDock('terminal');
+      expect(useUIStore.getState().bottomDockPanel).toBe('terminal');
     });
 
-    it('clamps dock width', () => {
-      useUIStore.getState().setDockWidth(100);
-      expect(useUIStore.getState().dockWidth).toBe(300);
+    it('legacy openDock agent opens AI sidebar', () => {
+      useUIStore.getState().openDock('agent');
+      expect(useUIStore.getState().aiSidebarExpanded).toBe(true);
+      expect(useUIStore.getState().aiSidebarMode).toBe('chat');
+    });
 
-      useUIStore.getState().setDockWidth(1200);
-      expect(useUIStore.getState().dockWidth).toBe(900);
+    it('legacy openDock logs opens bottom dock', () => {
+      useUIStore.getState().openDock('logs');
+      expect(useUIStore.getState().bottomDockPanel).toBe('logs');
+    });
 
-      useUIStore.getState().setDockWidth(500);
-      expect(useUIStore.getState().dockWidth).toBe(500);
+    it('toggles AI sidebar', () => {
+      useUIStore.getState().collapseAISidebar();
+      expect(useUIStore.getState().aiSidebarExpanded).toBe(false);
+
+      useUIStore.getState().toggleAISidebar();
+      expect(useUIStore.getState().aiSidebarExpanded).toBe(true);
+    });
+
+    it('clamps bottom dock height', () => {
+      useUIStore.getState().setBottomDockHeight(100);
+      expect(useUIStore.getState().bottomDockHeight).toBe(150);
+
+      useUIStore.getState().setBottomDockHeight(500);
+      expect(useUIStore.getState().bottomDockHeight).toBe(400);
+
+      useUIStore.getState().setBottomDockHeight(250);
+      expect(useUIStore.getState().bottomDockHeight).toBe(250);
     });
   });
 

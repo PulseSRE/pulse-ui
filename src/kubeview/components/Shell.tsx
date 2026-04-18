@@ -1,7 +1,8 @@
 import { Outlet } from 'react-router-dom';
 import { CommandBar } from './CommandBar';
 import { TabBar } from './TabBar';
-import { Dock } from './Dock';
+import { BottomDock } from './BottomDock';
+import { AISidebar } from './sidebar/AISidebar';
 import { StatusBar } from './StatusBar';
 import { CommandPalette } from './CommandPalette';
 import { ResourceBrowser } from './ResourceBrowser';
@@ -19,46 +20,33 @@ import { useCustomViewStore } from '../store/customViewStore';
 import { registerBuiltinEnhancers } from '../engine/enhancers/register';
 import { startAgentNotifications, stopAgentNotifications } from '../engine/agentNotifications';
 import { useAgentStore } from '../store/agentStore';
-import { useMonitorStore } from '../store/monitorStore';
 import { useEffect } from 'react';
-import { Bot } from 'lucide-react';
 
-// Register enhancers once at module load
 registerBuiltinEnhancers();
 
 export function Shell() {
-  // Initialize keyboard shortcuts
   useKeyboardShortcuts();
-
-  // Trigger API discovery on mount
   useDiscovery();
-
-  // Detect agent capability changes (new tools/skills) and toast
   useCapabilityDetection();
 
-  // Start background agent notifications
   useEffect(() => {
     startAgentNotifications();
     return () => stopAgentNotifications();
   }, []);
 
-  // Load custom views from backend on mount
   useEffect(() => {
     useCustomViewStore.getState().loadViews();
   }, []);
 
-  // Auto-connect agent WebSocket so it's always ready
   useEffect(() => {
     const state = useAgentStore.getState();
     if (!state.connected) state.connect();
   }, []);
 
-  // Get overlay state
-  const { commandPaletteOpen, browserOpen, dockPanel, viewBuilderMode, exitViewBuilder, impersonateUser, clearImpersonation, sessionExpired } =
+  const { commandPaletteOpen, browserOpen, viewBuilderMode, exitViewBuilder, impersonateUser, clearImpersonation, sessionExpired } =
     useUIStore(useShallow((s) => ({
       commandPaletteOpen: s.commandPaletteOpen,
       browserOpen: s.browserOpen,
-      dockPanel: s.dockPanel,
       viewBuilderMode: s.viewBuilderMode,
       exitViewBuilder: s.exitViewBuilder,
       impersonateUser: s.impersonateUser,
@@ -66,16 +54,9 @@ export function Shell() {
       sessionExpired: s.degradedReasons.has('session_expired'),
     })));
 
-  const findingsCount = useMonitorStore((s) => s.findings.length);
-  const unreadCount = useMonitorStore((s) => s.unreadCount);
-  const hasUnreadInsight = useAgentStore((s) => s.hasUnreadInsight);
-  const openDock = useUIStore((s) => s.openDock);
-  const dockHidden = !dockPanel && !viewBuilderMode;
-  const hasPulse = unreadCount > 0 || hasUnreadInsight;
-
   return (
     <div className="flex h-screen flex-col bg-slate-900 text-slate-100">
-      {/* Session expired modal — blocks interaction until user re-authenticates */}
+      {/* Session expired modal */}
       {sessionExpired && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="bg-slate-900 border border-red-700 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6 space-y-4">
@@ -116,13 +97,9 @@ export function Shell() {
         </div>
       )}
 
-      {/* Command bar at top */}
       <CommandBar />
-
-      {/* Tab bar */}
       <TabBar />
 
-      {/* Builder mode banner */}
       {viewBuilderMode && (
         <div className="flex items-center justify-between px-4 py-1.5 bg-violet-900/50 border-b border-violet-700 text-xs">
           <span className="text-violet-200">Building View — add widgets from the chat, drag to arrange, resize to fit</span>
@@ -130,37 +107,23 @@ export function Shell() {
         </div>
       )}
 
-      {/* Main content area + right dock */}
+      {/* Main layout: content column + AI sidebar */}
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-auto">
-          <ErrorBoundary>
-            <Outlet />
-          </ErrorBoundary>
-        </main>
+        {/* Left column: main content + bottom dock */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <main className="flex-1 overflow-auto">
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
+          </main>
+          <BottomDock />
+        </div>
 
-        {/* Dock (right-side panel) — forced open in builder mode */}
-        {(dockPanel || viewBuilderMode) && <Dock />}
+        {/* AI Sidebar — always present on the right */}
+        <AISidebar />
       </div>
 
-      {/* Status bar at bottom */}
       <StatusBar />
-
-      {/* Floating AI button — persistent teammate indicator */}
-      {dockHidden && (
-        <button
-          onClick={() => openDock('agent')}
-          title="Ask AI (Cmd+J)"
-          className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-violet-700 shadow-lg transition-transform hover:scale-110"
-        >
-          <Bot className="h-5 w-5 text-white" />
-          {findingsCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-slate-900 bg-red-500" />
-          )}
-          {hasPulse && (
-            <span className="absolute inset-0 animate-ping rounded-full bg-violet-400 opacity-30" />
-          )}
-        </button>
-      )}
 
       {/* Overlay components */}
       {commandPaletteOpen && <CommandPalette />}

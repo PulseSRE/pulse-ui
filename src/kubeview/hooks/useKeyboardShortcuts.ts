@@ -40,30 +40,21 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Cmd+J - Toggle dock (opens agent panel if closed)
-      // Note: Chrome intercepts Cmd+J for Downloads — Cmd+Shift+A is the reliable alternative
+      // Cmd+J - Toggle AI sidebar
       if (meta && e.key === 'j') {
         e.preventDefault();
-        if (state.dockPanel) {
-          state.closeDock();
-        } else {
-          state.openDock('agent');
-        }
+        state.toggleAISidebar();
         return;
       }
 
-      // Cmd+Shift+A - Toggle agent dock (reliable, no browser conflict)
+      // Cmd+Shift+A - Toggle AI sidebar (reliable, no browser conflict)
       if (meta && e.shiftKey && (e.key === 'a' || e.key === 'A')) {
         e.preventDefault();
-        if (state.dockPanel === 'agent') {
-          state.closeDock();
-        } else {
-          state.openDock('agent');
-        }
+        state.toggleAISidebar();
         return;
       }
 
-      // Escape - close overlays (priority order: command palette > browser > action panel > dock)
+      // Escape - close overlays (priority order: command palette > browser > sidebar)
       if (e.key === 'Escape') {
         if (state.commandPaletteOpen) {
           e.preventDefault();
@@ -71,9 +62,9 @@ export function useKeyboardShortcuts() {
         } else if (state.browserOpen) {
           e.preventDefault();
           state.closeBrowser();
-        } else if (state.dockPanel) {
+        } else if (state.aiSidebarExpanded) {
           e.preventDefault();
-          state.closeDock();
+          state.collapseAISidebar();
         }
         return;
       }

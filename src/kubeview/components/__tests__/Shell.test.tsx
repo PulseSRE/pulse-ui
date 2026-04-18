@@ -17,6 +17,9 @@ const _mockUIState: Record<string, any> = {
   commandPaletteOpen: false,
   browserOpen: false,
   dockPanel: null,
+  bottomDockPanel: null,
+  aiSidebarExpanded: true,
+  aiSidebarMode: 'dashboard',
   impersonateUser: null,
   clearImpersonation: vi.fn(),
   degradedReasons: new Set(),
@@ -34,15 +37,30 @@ const _mockUIState: Record<string, any> = {
   toggleBrowser: vi.fn(),
   openDock: vi.fn(),
   closeDock: vi.fn(),
+  expandAISidebar: vi.fn(),
+  collapseAISidebar: vi.fn(),
+  toggleAISidebar: vi.fn(),
+  setAISidebarMode: vi.fn(),
+  bottomDockHeight: 250,
+  setBottomDockHeight: vi.fn(),
+  openBottomDock: vi.fn(),
+  closeBottomDock: vi.fn(),
+  dockWidth: 420,
+  setDockWidth: vi.fn(),
   dockHeight: 250,
   setDockHeight: vi.fn(),
   toasts: [],
   removeToast: vi.fn(),
   isHyperShift: false,
+  viewBuilderMode: false,
+  exitViewBuilder: vi.fn(),
 };
 
 vi.mock('../../store/uiStore', () => ({
-  useUIStore: (selector: any) => selector(_mockUIState),
+  useUIStore: Object.assign(
+    (selector: any) => selector(_mockUIState),
+    { getState: () => _mockUIState },
+  ),
 }));
 
 vi.mock('../../store/monitorStore', () => ({
@@ -53,6 +71,8 @@ vi.mock('../../store/monitorStore', () => ({
         toggleNotificationCenter: vi.fn(),
         findings: [],
         unreadCount: 0,
+        connected: false,
+        activeSkill: null,
       };
       return selector(state);
     },
@@ -67,10 +87,12 @@ vi.mock('../../store/agentStore', () => ({
         connected: false,
         hasUnreadInsight: false,
         setUnreadInsight: vi.fn(),
+        streaming: false,
+        messages: [],
       };
       return selector(state);
     },
-    { getState: () => ({ connected: false, connect: vi.fn() }) },
+    { getState: () => ({ connected: false, connect: vi.fn(), streaming: false }) },
   ),
 }));
 
@@ -101,8 +123,11 @@ vi.mock('../CommandBar', () => ({
 vi.mock('../TabBar', () => ({
   TabBar: () => <div data-testid="tab-bar">TabBar</div>,
 }));
-vi.mock('../Dock', () => ({
-  Dock: () => <div data-testid="dock">Dock</div>,
+vi.mock('../BottomDock', () => ({
+  BottomDock: () => <div data-testid="bottom-dock">BottomDock</div>,
+}));
+vi.mock('../sidebar/AISidebar', () => ({
+  AISidebar: () => <div data-testid="ai-sidebar">AISidebar</div>,
 }));
 vi.mock('../StatusBar', () => ({
   StatusBar: () => <div data-testid="status-bar">StatusBar</div>,
@@ -140,7 +165,6 @@ describe('Shell', () => {
     cleanup();
     _mockUIState.commandPaletteOpen = false;
     _mockUIState.browserOpen = false;
-    _mockUIState.dockPanel = null;
     _mockUIState.impersonateUser = null;
   });
 
@@ -152,15 +176,14 @@ describe('Shell', () => {
     expect(screen.getByTestId('outlet')).toBeDefined();
   });
 
-  it('does not render Dock when dockPanel is null', () => {
+  it('renders AI sidebar always', () => {
     renderShell();
-    expect(screen.queryByTestId('dock')).toBeNull();
+    expect(screen.getByTestId('ai-sidebar')).toBeDefined();
   });
 
-  it('renders Dock when dockPanel is set', () => {
-    _mockUIState.dockPanel = 'logs';
+  it('renders BottomDock always', () => {
     renderShell();
-    expect(screen.getByTestId('dock')).toBeDefined();
+    expect(screen.getByTestId('bottom-dock')).toBeDefined();
   });
 
   it('renders impersonation banner when impersonateUser is set', () => {
@@ -180,9 +203,7 @@ describe('Shell', () => {
     _mockUIState.degradedReasons = new Set(['session_expired']);
     renderShell();
     expect(screen.getByText('Session Expired')).toBeDefined();
-    expect(screen.getByText('Your OAuth token has expired')).toBeDefined();
     expect(screen.getByText('Re-authenticate')).toBeDefined();
-    expect(screen.getByText('Dismiss')).toBeDefined();
     _mockUIState.degradedReasons = new Set();
   });
 

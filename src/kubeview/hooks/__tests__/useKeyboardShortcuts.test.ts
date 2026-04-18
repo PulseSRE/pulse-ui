@@ -60,12 +60,12 @@ describe('useKeyboardShortcuts', () => {
     expect(useUIStore.getState().commandPaletteOpen).toBe(true);
   });
 
-  it('Cmd+J closes dock when open', () => {
-    useUIStore.setState({ dockPanel: 'logs' });
+  it('Cmd+J toggles AI sidebar', () => {
+    useUIStore.setState({ aiSidebarExpanded: true });
     renderHook(() => useKeyboardShortcuts());
 
     fireKey('j', { metaKey: true });
-    expect(useUIStore.getState().dockPanel).toBeNull();
+    expect(useUIStore.getState().aiSidebarExpanded).toBe(false);
   });
 
   it('Escape closes command palette first', () => {
@@ -85,12 +85,12 @@ describe('useKeyboardShortcuts', () => {
     expect(useUIStore.getState().browserOpen).toBe(false);
   });
 
-  it('Escape closes dock when all overlays are closed', () => {
-    useUIStore.setState({ dockPanel: 'terminal' });
+  it('Escape closes AI sidebar when all overlays are closed', () => {
+    useUIStore.setState({ aiSidebarExpanded: true });
     renderHook(() => useKeyboardShortcuts());
 
     fireKey('Escape');
-    expect(useUIStore.getState().dockPanel).toBeNull();
+    expect(useUIStore.getState().aiSidebarExpanded).toBe(false);
   });
 
   it('does not respond to key without meta/ctrl', () => {

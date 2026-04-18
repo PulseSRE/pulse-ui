@@ -58,18 +58,33 @@ interface UIState {
   toggleBrowser: () => void;
   closeBrowser: () => void;
 
-  // Dock (right-side panel)
+  // AI Sidebar (right-side, always present)
+  aiSidebarExpanded: boolean;
+  aiSidebarMode: 'dashboard' | 'chat';
+  expandAISidebar: () => void;
+  collapseAISidebar: () => void;
+  toggleAISidebar: () => void;
+  setAISidebarMode: (mode: 'dashboard' | 'chat') => void;
+
+  // Bottom Dock (logs/terminal/events)
+  bottomDockPanel: 'logs' | 'terminal' | 'events' | null;
+  bottomDockHeight: number;
+  dockContext: { namespace: string; podName: string; containerName?: string } | null;
+  terminalContext: { namespace: string; podName: string; containerName: string; isNode?: boolean } | null;
+  openBottomDock: (panel: 'logs' | 'terminal' | 'events') => void;
+  closeBottomDock: () => void;
+  setBottomDockHeight: (height: number) => void;
+  setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
+  openTerminal: (ctx: { namespace: string; podName: string; containerName: string; isNode?: boolean }) => void;
+
+  // Legacy adapter — redirects 'agent' to sidebar, others to bottom dock
   dockPanel: DockPanel;
   dockWidth: number;
   dockFullscreen: boolean;
-  dockContext: { namespace: string; podName: string; containerName?: string } | null;
-  terminalContext: { namespace: string; podName: string; containerName: string; isNode?: boolean } | null;
   openDock: (panel: DockPanel) => void;
   closeDock: () => void;
   setDockWidth: (width: number) => void;
   toggleDockFullscreen: () => void;
-  setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
-  openTerminal: (ctx: { namespace: string; podName: string; containerName: string; isNode?: boolean }) => void;
 
   // View Builder (split-screen mode)
   viewBuilderMode: boolean;
@@ -254,23 +269,46 @@ export const useUIStore = create<UIState>()(
       toggleBrowser: () => set((state) => ({ browserOpen: !state.browserOpen })),
       closeBrowser: () => set({ browserOpen: false }),
 
-      // Dock (right-side panel)
-      dockPanel: null,
-      dockWidth: 420,
-      dockFullscreen: false,
+      // AI Sidebar
+      aiSidebarExpanded: true,
+      aiSidebarMode: 'dashboard' as const,
+
+      expandAISidebar: () => set({ aiSidebarExpanded: true }),
+      collapseAISidebar: () => set({ aiSidebarExpanded: false }),
+      toggleAISidebar: () => set((s) => ({ aiSidebarExpanded: !s.aiSidebarExpanded })),
+      setAISidebarMode: (mode) => set({ aiSidebarMode: mode }),
+
+      // Bottom Dock
+      bottomDockPanel: null,
+      bottomDockHeight: 250,
       dockContext: null,
       terminalContext: null,
 
+      openBottomDock: (panel) => set({ bottomDockPanel: panel }),
+      closeBottomDock: () => set({ bottomDockPanel: null }),
+      setBottomDockHeight: (height) => set({ bottomDockHeight: Math.max(150, Math.min(400, height)) }),
+
+      setDockContext: (ctx) => set({ dockContext: ctx }),
+
+      openTerminal: (ctx) => {
+        set({ terminalContext: ctx, bottomDockPanel: 'terminal' });
+      },
+
+      // Legacy adapter — all 18+ openDock('agent') callsites keep working
+      dockPanel: null as DockPanel,
+      dockWidth: 420,
+      dockFullscreen: false,
+
       openDock: (panel) => {
-        set({ dockPanel: panel });
+        if (panel === 'agent' || panel === 'monitor') {
+          set({ aiSidebarExpanded: true, aiSidebarMode: 'chat' });
+        } else if (panel) {
+          set({ bottomDockPanel: panel as 'logs' | 'terminal' | 'events' });
+        }
       },
 
       closeDock: () => {
-        set({ dockPanel: null, dockFullscreen: false });
-      },
-
-      setDockContext: (ctx) => {
-        set({ dockContext: ctx });
+        set({ bottomDockPanel: null });
       },
 
       setDockWidth: (width) => {
@@ -280,10 +318,6 @@ export const useUIStore = create<UIState>()(
 
       toggleDockFullscreen: () => {
         set((s) => ({ dockFullscreen: !s.dockFullscreen }));
-      },
-
-      openTerminal: (ctx) => {
-        set({ terminalContext: ctx, dockPanel: 'terminal' });
       },
 
       // View Builder
@@ -376,12 +410,13 @@ export const useUIStore = create<UIState>()(
     {
       name: 'openshiftpulse-ui-storage',
       partialize: (state) => ({
-        // Only persist these fields
         tabs: state.tabs,
         activeTabId: state.activeTabId,
         selectedNamespace: state.selectedNamespace,
         dockWidth: state.dockWidth,
-      } as Pick<UIState, 'tabs' | 'activeTabId' | 'selectedNamespace' | 'dockWidth'>),
+        aiSidebarExpanded: state.aiSidebarExpanded,
+        bottomDockHeight: state.bottomDockHeight,
+      } as Pick<UIState, 'tabs' | 'activeTabId' | 'selectedNamespace' | 'dockWidth' | 'aiSidebarExpanded' | 'bottomDockHeight'>),
       merge: (persisted, current) => {
         if (persisted == null) return current;
         const persistedState = persisted as Partial<Pick<UIState, 'tabs' | 'activeTabId'>>;
