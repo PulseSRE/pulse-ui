@@ -76,7 +76,7 @@ export function domainRoutes() {
       <Route path="readiness" element={<Lazy><OnboardingView /></Lazy>} />
       <Route path="onboarding" element={<Navigate to="/readiness" replace />} />
       <Route path="reviews" element={<Navigate to="/incidents?tab=actions" replace />} />
-      <Route path="memory" element={<Navigate to="/agent?tab=memory" replace />} />
+      <Route path="memory" element={<Navigate to="/agent" replace />} />
       <Route path="views" element={<Lazy><ViewsManagement /></Lazy>} />
       <Route path="agent" element={<Lazy><PulseAgentView /></Lazy>} />
       <Route path="toolbox" element={<Navigate to="/agent?tab=tools" replace />} />

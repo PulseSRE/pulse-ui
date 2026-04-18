@@ -29,23 +29,17 @@ vi.mock('../../store/monitorStore', () => ({
   ),
 }));
 
-const mockAnalytics = {
-  fetchFixHistorySummary: vi.fn().mockResolvedValue({ total_actions: 10, completed: 8, failed: 1, rolled_back: 1, success_rate: 0.8, rollback_rate: 0.1, avg_resolution_ms: 120000, by_category: [], trend: { current_week: 10, previous_week: 7, delta: 3 } }),
-  fetchScannerCoverage: vi.fn().mockResolvedValue({ active_scanners: 12, total_scanners: 17, coverage_pct: 78, categories: [], per_scanner: [] }),
-  fetchConfidenceCalibration: vi.fn().mockResolvedValue({ accuracy_pct: 92, rating: 'good', brier_score: 0.08, total_predictions: 45, buckets: [] }),
-  fetchAccuracyStats: vi.fn().mockResolvedValue({ avg_quality_score: 0.82, quality_trend: { current: 0.82, previous: 0.74, delta: 0.08 }, anti_patterns: [], learning: { total_runbooks: 5, new_this_month: 1, runbook_success_rate: 0.9, total_patterns: 3, pattern_types: {} }, override_rate: { overrides: 1, total_proposed: 10, rate: 0.1 }, dimensions: {} }),
-  fetchCostStats: vi.fn().mockResolvedValue({ avg_tokens_per_incident: 12000, trend: { current: 12000, previous: 14000, delta_pct: -14.3 }, by_mode: [], total_tokens: 0, total_incidents: 0 }),
-  fetchRecommendations: vi.fn().mockResolvedValue({ recommendations: [{ type: 'scanner', title: 'Enable cert scanner', description: 'Detect expiring certs', action: { kind: 'enable_scanner', scanner: 'certs' } }] }),
-  fetchReadinessSummary: vi.fn().mockResolvedValue({ total_gates: 30, passed: 28, failed: 1, attention: 1, pass_rate: 0.93, attention_items: [] }),
-  fetchCapabilities: vi.fn().mockResolvedValue({ max_trust_level: 4 }),
-  fetchAgentVersion: vi.fn().mockResolvedValue({ agent: '2.0.0', protocol: 2, tools: 111 }),
+vi.mock('../../engine/analyticsApi', () => ({
+  fetchFixHistorySummary: vi.fn().mockResolvedValue({ total_actions: 0, completed: 0, failed: 0, rolled_back: 0, success_rate: 0, rollback_rate: 0, avg_resolution_ms: 0, by_category: [], trend: { current_week: 0, previous_week: 0, delta: 0 }, verification: { resolved: 0, still_failing: 0, improved: 0, pending: 0, resolution_rate: 0 } }),
+  fetchScannerCoverage: vi.fn().mockResolvedValue({ active_scanners: 17, total_scanners: 17, scanners: [] }),
+  fetchCapabilities: vi.fn().mockResolvedValue({ max_trust_level: 3, supported_auto_fix_categories: ['crashloop'] }),
+  fetchAgentVersion: vi.fn().mockResolvedValue({ agent: '2.4.0', protocol: '2', tools: 118, skills: 7 }),
   fetchAgentHealth: vi.fn().mockResolvedValue({ status: 'ok', circuit_breaker: { state: 'closed', failure_count: 0, recovery_timeout: 60 }, errors: { total: 0, by_category: {}, recent: [] }, investigations: {}, autofix_paused: false }),
-};
-
-vi.mock('../../engine/analyticsApi', () => mockAnalytics);
+  fetchAgentActivity: vi.fn().mockResolvedValue({ events: [], period_days: 7 }),
+}));
 
 vi.mock('../../engine/evalStatus', () => ({
-  fetchAgentEvalStatus: vi.fn().mockResolvedValue({ quality_gate_passed: true, release: { average_overall: 0.85, dimension_averages: { safety: 0.9, relevance: 0.8 }, blocker_counts: { policy_violation: 0, hallucinated_tool: 0 }, gate_passed: true, scenario_count: 20 } }),
+  fetchAgentEvalStatus: vi.fn().mockResolvedValue(null),
 }));
 
 function createQueryClient() {
@@ -56,7 +50,7 @@ async function renderView() {
   const PulseAgentView = (await import('../PulseAgentView')).default;
   return render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/pulse-agent']}>
+      <MemoryRouter initialEntries={['/agent']}>
         <PulseAgentView />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -69,58 +63,40 @@ describe('PulseAgentView', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders "Pulse Agent" page header', async () => {
+  it('renders page header', async () => {
     await renderView();
     expect(screen.getByText('Pulse Agent')).toBeDefined();
   });
 
-  it('renders trust level selector', async () => {
+  it('renders tab bar with all tabs', async () => {
+    await renderView();
+    expect(screen.getByText('Overview')).toBeDefined();
+    expect(screen.getByText('Tools')).toBeDefined();
+    expect(screen.getByText('Skills')).toBeDefined();
+    expect(screen.getByText('SkillPlan')).toBeDefined();
+    expect(screen.getByText('MCP')).toBeDefined();
+    expect(screen.getByText('Analytics')).toBeDefined();
+  });
+
+  it('defaults to overview tab with status sentence', async () => {
+    await renderView();
+    expect(await screen.findByText(/monitoring your cluster/i)).toBeDefined();
+  });
+
+  it('renders trust controls on overview', async () => {
     await renderView();
     expect(screen.getByText('Trust Level')).toBeDefined();
-    expect(screen.getByText('Observe')).toBeDefined();
-    expect(screen.getByText('Autonomous')).toBeDefined();
   });
 
-  it('renders agent health section', async () => {
+  it('renders version info in footer', async () => {
     await renderView();
-    expect(await screen.findByText('Agent Health')).toBeDefined();
-    expect(await screen.findByText('Quality Gate')).toBeDefined();
-    expect(await screen.findByText('Coverage')).toBeDefined();
-    expect(await screen.findByText('Outcomes')).toBeDefined();
+    expect(await screen.findByText(/v2\.4\.0/)).toBeDefined();
+    expect(await screen.findByText(/118 tools/)).toBeDefined();
+    expect(await screen.findByText(/7 skills/)).toBeDefined();
   });
 
-  it('renders agent accuracy section', async () => {
+  it('shows empty activity state', async () => {
     await renderView();
-    expect(await screen.findByText('Agent Accuracy')).toBeDefined();
-  });
-
-  it('displays version info when available', async () => {
-    await renderView();
-    expect(await screen.findByText(/v2\.0\.0/)).toBeDefined();
-    expect(await screen.findByText(/111 tools/)).toBeDefined();
-  });
-
-  it('hides version info when not available', async () => {
-    mockAnalytics.fetchAgentVersion.mockResolvedValueOnce(null);
-    await renderView();
-    expect(screen.getByText('Pulse Agent')).toBeDefined();
-    expect(screen.queryByText(/v2\.0\.0/)).toBeNull();
-  });
-
-  it('renders capability discovery when recommendations exist', async () => {
-    await renderView();
-    expect(await screen.findByText('Enable cert scanner')).toBeDefined();
-  });
-
-  it('shows error banner when a query fails', async () => {
-    mockAnalytics.fetchFixHistorySummary.mockRejectedValueOnce(new Error('fail'));
-    await renderView();
-    expect(await screen.findByText(/Some analytics data is unavailable/)).toBeDefined();
-  });
-
-  it('re-exports MissionControlView as default', async () => {
-    const pulseModule = await import('../PulseAgentView');
-    const mcModule = await import('../MissionControlView');
-    expect(pulseModule.default).toBe(mcModule.default);
+    expect(await screen.findByText(/no activity yet/i)).toBeDefined();
   });
 });

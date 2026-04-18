@@ -30,16 +30,12 @@ vi.mock('../../store/monitorStore', () => ({
 }));
 
 vi.mock('../../engine/analyticsApi', () => ({
-  fetchFixHistorySummary: vi.fn().mockResolvedValue({ total_actions: 0, completed: 0, failed: 0, rolled_back: 0, success_rate: 0, rollback_rate: 0, avg_resolution_ms: 0, by_category: [], trend: { current_week: 0, previous_week: 0, delta: 0 } }),
-  fetchScannerCoverage: vi.fn().mockResolvedValue({ active_scanners: 0, total_scanners: 0, coverage_pct: 0, categories: [], per_scanner: [] }),
-  fetchConfidenceCalibration: vi.fn().mockResolvedValue({ accuracy_pct: 0, rating: 'insufficient_data', brier_score: 0, total_predictions: 0, buckets: [] }),
-  fetchAccuracyStats: vi.fn().mockResolvedValue(null),
-  fetchCostStats: vi.fn().mockResolvedValue(null),
-  fetchRecommendations: vi.fn().mockResolvedValue({ recommendations: [] }),
-  fetchReadinessSummary: vi.fn().mockResolvedValue(null),
-  fetchCapabilities: vi.fn().mockResolvedValue({ max_trust_level: 4 }),
+  fetchFixHistorySummary: vi.fn().mockResolvedValue({ total_actions: 0, completed: 0, failed: 0, rolled_back: 0, success_rate: 0, rollback_rate: 0, avg_resolution_ms: 0, by_category: [], trend: { current_week: 0, previous_week: 0, delta: 0 }, verification: { resolved: 0, still_failing: 0, improved: 0, pending: 0, resolution_rate: 0 } }),
+  fetchScannerCoverage: vi.fn().mockResolvedValue({ active_scanners: 17, total_scanners: 17, scanners: [] }),
+  fetchCapabilities: vi.fn().mockResolvedValue({ max_trust_level: 4, supported_auto_fix_categories: [] }),
   fetchAgentVersion: vi.fn().mockResolvedValue(null),
   fetchAgentHealth: vi.fn().mockResolvedValue({ status: 'ok', circuit_breaker: { state: 'closed', failure_count: 0, recovery_timeout: 60 }, errors: { total: 0, by_category: {}, recent: [] }, investigations: {}, autofix_paused: false }),
+  fetchAgentActivity: vi.fn().mockResolvedValue({ events: [], period_days: 7 }),
 }));
 
 vi.mock('../../engine/evalStatus', () => ({
@@ -75,8 +71,8 @@ describe('AgentSettingsView (redirects to PulseAgent)', () => {
     expect(screen.getByText('Trust Level')).toBeDefined();
   });
 
-  it('renders agent health section', async () => {
+  it('renders status sentence on overview', async () => {
     renderView();
-    expect(await screen.findByText('Agent Health')).toBeDefined();
+    expect(await screen.findByText(/monitoring your cluster/i)).toBeDefined();
   });
 });

@@ -151,6 +151,7 @@ export interface AgentVersionInfo {
   agent: string;
   protocol: number;
   tools: number;
+  skills: number;
 }
 
 export const fetchCapabilities = async (): Promise<AgentCapabilities> => {
@@ -288,3 +289,20 @@ export interface AgentHealthStatus {
 
 export const fetchAgentHealth = () =>
   get<AgentHealthStatus>(`${AGENT_BASE}/health`);
+
+export interface ActivityEvent {
+  type: 'auto_fix' | 'fix_failed' | 'rollback' | 'self_healed' | 'postmortem' | 'investigation';
+  description: string;
+  link: string;
+  count: number;
+  category?: string;
+  namespace?: string;
+}
+
+export interface AgentActivity {
+  events: ActivityEvent[];
+  period_days: number;
+}
+
+export const fetchAgentActivity = (days = 7) =>
+  get<AgentActivity>(`${AGENT_BASE}/activity?days=${days}`);
