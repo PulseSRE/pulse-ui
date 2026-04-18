@@ -87,10 +87,10 @@
   overflow: hidden;
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling — thin violet globally */
 .openshiftpulse ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 /* Hide scrollbar on tab bar */
@@ -109,13 +109,15 @@
   background: transparent;
 }
 
+.openshiftpulse { scrollbar-width: thin; scrollbar-color: rgba(139, 92, 246, 0.3) transparent; }
+
 .openshiftpulse ::-webkit-scrollbar-thumb {
-  background: var(--kv-border);
-  border-radius: 4px;
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 2px;
 }
 
 .openshiftpulse ::-webkit-scrollbar-thumb:hover {
-  background: var(--kv-text-dim);
+  background: rgba(139, 92, 246, 0.5);
 }
 
 /* Micro-animations */
