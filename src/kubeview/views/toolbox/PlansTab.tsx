@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, ArrowRight, Save, Trash2 } from 'lucide-react';
+import { Clock, ArrowRight, Save, Trash2, BarChart3, CheckCircle2, XCircle, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
@@ -62,7 +62,32 @@ export function PlansTab() {
     enabled: !!selectedPlan,
   });
 
+  const { data: analyticsData } = useQuery({
+    queryKey: ['plan-analytics'],
+    queryFn: async () => {
+      const res = await fetch('/api/agent/analytics/plans?days=30');
+      if (!res.ok) return null;
+      return res.json() as Promise<{
+        templates: Array<{
+          template_name: string;
+          incident_type: string;
+          total_runs: number;
+          by_status: Record<string, number>;
+          avg_duration_ms: number;
+          avg_completion_rate: number;
+          avg_confidence: number;
+          phases?: Array<{ phase_id: string; status: string; count: number; avg_confidence: number }>;
+        }>;
+        total_executions: number;
+        days: number;
+      }>;
+    },
+    staleTime: 60_000,
+  });
+
   const templates = data?.templates ?? [];
+  const planStats = analyticsData?.templates ?? [];
+  const totalExecutions = analyticsData?.total_executions ?? 0;
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>;
@@ -108,6 +133,98 @@ export function PlansTab() {
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Plan Execution Analytics */}
+      {totalExecutions > 0 && (
+        <div className="border-t border-slate-800 pt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-cyan-400" />
+              Execution Analytics
+            </h2>
+            <span className="text-[10px] text-slate-500">{totalExecutions} total executions &middot; last 30 days</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {planStats.map((ps) => {
+              const successCount = ps.by_status?.complete ?? ps.by_status?.completed ?? 0;
+              const failedCount = ps.by_status?.failed ?? 0;
+              const partialCount = ps.by_status?.partial ?? 0;
+              const successRate = ps.total_runs > 0 ? Math.round((successCount / ps.total_runs) * 100) : 0;
+
+              return (
+                <div key={ps.template_name} className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-200">{ps.template_name}</span>
+                    <span className="text-xs text-slate-500">{ps.total_runs} runs</span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                    <div>
+                      <div className={cn('text-lg font-bold', successRate >= 80 ? 'text-emerald-400' : successRate >= 50 ? 'text-amber-400' : 'text-red-400')}>
+                        {successRate}%
+                      </div>
+                      <div className="text-slate-500">Success</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-slate-200">
+                        {ps.avg_duration_ms >= 60000 ? `${Math.round(ps.avg_duration_ms / 60000)}m` : `${Math.round(ps.avg_duration_ms / 1000)}s`}
+                      </div>
+                      <div className="text-slate-500">Avg time</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-slate-200">{Math.round(ps.avg_completion_rate * 100)}%</div>
+                      <div className="text-slate-500">Phases done</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-blue-400">{Math.round(ps.avg_confidence * 100)}%</div>
+                      <div className="text-slate-500">Confidence</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-2.5 h-2.5" />{successCount} complete</span>
+                    {partialCount > 0 && <span className="flex items-center gap-1 text-amber-400"><Activity className="w-2.5 h-2.5" />{partialCount} partial</span>}
+                    {failedCount > 0 && <span className="flex items-center gap-1 text-red-400"><XCircle className="w-2.5 h-2.5" />{failedCount} failed</span>}
+                  </div>
+
+                  {/* Phase-level breakdown */}
+                  {ps.phases && ps.phases.length > 0 && (
+                    <div className="border-t border-slate-800 pt-2 space-y-1">
+                      <div className="text-[10px] text-slate-500">Phase breakdown</div>
+                      {ps.phases.map((ph) => (
+                        <div key={`${ph.phase_id}-${ph.status}`} className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-400">{ph.phase_id}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              ph.status === 'complete' || ph.status === 'completed' ? 'text-emerald-400' :
+                              ph.status === 'failed' ? 'text-red-400' :
+                              'text-amber-400',
+                            )}>
+                              {ph.count}x {ph.status}
+                            </span>
+                            <span className="text-slate-600">{Math.round(ph.avg_confidence * 100)}% conf</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {totalExecutions === 0 && templates.length > 0 && (
+        <div className="border-t border-slate-800 pt-6">
+          <div className="flex items-center gap-2 mb-2">
+            <BarChart3 className="w-4 h-4 text-slate-600" />
+            <h2 className="text-sm font-semibold text-slate-500">Execution Analytics</h2>
+          </div>
+          <p className="text-xs text-slate-600">No plan executions yet. Analytics will appear once the agent runs investigation plans.</p>
         </div>
       )}
 
