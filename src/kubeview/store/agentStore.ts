@@ -209,7 +209,10 @@ export const useAgentStore = create<AgentState>()(
               set({ activeSkills: event.skills });
               break;
             case 'skill_progress':
-              // Update skill status — UI can show per-skill progress
+              if (event.tool && event.status === 'tool_use') {
+                const toolLabel = `${event.skill}:${event.tool}`;
+                set((s) => ({ activeTools: [...s.activeTools, toolLabel] }));
+              }
               break;
             case 'confirm_request':
               set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce } });
