@@ -61,6 +61,7 @@ export default function TopologyMap({ nodes, pods, events = [], go }: TopologyMa
         stats={stats}
         onClusterClick={isFleet ? (cluster) => setActiveCluster(cluster.id) : undefined}
         onNavigateToNode={navigateToNode}
+        onNavigate={go}
       />
     </div>
   );

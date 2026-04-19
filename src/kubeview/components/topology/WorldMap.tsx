@@ -35,6 +35,7 @@ interface WorldMapProps {
   stats: MapStats;
   onClusterClick?: (cluster: MapCluster) => void;
   onNavigateToNode?: (nodeName: string) => void;
+  onNavigate?: (path: string, title: string) => void;
 }
 
 interface ViewState {
@@ -59,7 +60,7 @@ function utilizationColor(pct: number): string {
   return '#10b981';
 }
 
-export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtilization = [], podMovements = [], stats, onClusterClick, onNavigateToNode }: WorldMapProps) {
+export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtilization = [], podMovements = [], stats, onClusterClick, onNavigateToNode, onNavigate }: WorldMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [viewState, setViewState] = useState<ViewState | null>(null);
   const [hoveredCluster, setHoveredCluster] = useState<MapCluster | null>(null);
@@ -243,7 +244,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
 
   // Event + movement positions
   const evtPos = useMemo(() => events.slice(0, 10).map((evt, i) => { const z = zones.find(zn => (evt.zone && zn.zone === evt.zone) || (evt.nodeName && zn.nodeNames.includes(evt.nodeName))); if (!z) return null; const p = projection([z.longitude, z.latitude]); if (!p) return null; const a = (i / 10) * Math.PI * 2, o = 30 + i * 3; return { evt, x: p[0] + Math.cos(a) * o, y: p[1] + Math.sin(a) * o, zx: p[0], zy: p[1] }; }).filter(Boolean) as Array<{ evt: MapEvent; x: number; y: number; zx: number; zy: number }>, [events, zones, projection]);
-  const mvPos = useMemo(() => podMovements.slice(0, 8).map((mv, i) => { const z = zones.find(zn => mv.nodeName && zn.nodeNames.includes(mv.nodeName)); if (!z) return null; const p = projection([z.longitude, z.latitude]); if (!p) return null; const a = (i / 8) * Math.PI * 2 + Math.PI / 4; return { mv, x: p[0] + Math.cos(a) * 45, y: p[1] + Math.sin(a) * 45 }; }).filter(Boolean) as Array<{ mv: PodMovement; x: number; y: number }>, [podMovements, zones, projection]);
+  const mvPos = useMemo(() => podMovements.slice(0, 5).map((mv, i) => { const z = zones.find(zn => mv.nodeName && zn.nodeNames.includes(mv.nodeName)); if (!z) return null; const p = projection([z.longitude, z.latitude]); if (!p) return null; const a = (i / 5) * Math.PI * 2 + Math.PI / 4; return { mv, x: p[0] + Math.cos(a) * 28, y: p[1] + Math.sin(a) * 28 }; }).filter(Boolean) as Array<{ mv: PodMovement; x: number; y: number }>, [podMovements, zones, projection]);
 
   // Connection lines
   const connLines = useMemo(() => { if (clusters.length < 2 || cPos.length < 2) return []; const hub = cPos[0]; return cPos.slice(1).map(cp => ({ id: `${hub.c.id}-${cp.c.id}`, path: `M${hub.x},${hub.y} Q${(hub.x + cp.x) / 2},${Math.min(hub.y, cp.y) - 20} ${cp.x},${cp.y}`, ok: cp.c.healthGrade === 'healthy' })); }, [cPos, clusters.length]);
@@ -271,33 +272,33 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
 
         <div className="h-4 w-px bg-slate-800" />
 
-        {/* Stats */}
+        {/* Stats — clickable */}
         <div className="flex items-center gap-5 text-xs">
-          <span className="flex items-center gap-1.5 text-slate-400">
+          <button onClick={() => onNavigate?.('/compute', 'Compute')} className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors">
             <Server className="w-3 h-3" />
             <span className={statColor(stats.totalNodes - stats.readyNodes, 1, 2)}>{stats.readyNodes}</span>
             <span className="text-slate-600">/ {stats.totalNodes} nodes</span>
-          </span>
-          <span className="flex items-center gap-1.5 text-slate-400">
+          </button>
+          <button onClick={() => onNavigate?.('/workloads', 'Workloads')} className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors">
             <Box className="w-3 h-3" />
             <span className="text-emerald-400">{stats.runningPods}</span>
             {stats.failedPods > 0 && <span className="text-red-400">({stats.failedPods} failed)</span>}
             {stats.pendingPods > 0 && <span className="text-amber-400">({stats.pendingPods} pending)</span>}
             <span className="text-slate-600">pods</span>
-          </span>
-          <span className="flex items-center gap-1.5">
+          </button>
+          <button onClick={() => onNavigate?.('/compute', 'Compute')} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
             <Cpu className="w-3 h-3 text-slate-400" />
             <span className={statColor(stats.avgCpu, 70, 90)}>{stats.avgCpu}%</span>
-          </span>
-          <span className="flex items-center gap-1.5">
+          </button>
+          <button onClick={() => onNavigate?.('/compute', 'Compute')} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
             <MemoryStick className="w-3 h-3 text-slate-400" />
             <span className={statColor(stats.avgMem, 70, 90)}>{stats.avgMem}%</span>
-          </span>
+          </button>
           {stats.alerts > 0 && (
-            <span className="flex items-center gap-1.5">
+            <button onClick={() => onNavigate?.('/incidents', 'Incidents')} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
               <AlertTriangle className="w-3 h-3 text-red-400" />
               <span className="text-red-400">{stats.alerts}</span>
-            </span>
+            </button>
           )}
         </div>
 
