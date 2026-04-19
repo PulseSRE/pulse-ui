@@ -110,13 +110,13 @@ function Block({ block }: { block: BlockNode }) {
       return (
         <Tag className={cn('pl-4 space-y-0.5', block.ordered ? 'list-decimal' : 'list-disc')}>
           {block.items.map((item, i) => (
-            <li key={i} className="text-slate-300 text-sm"><InlineText text={item} /></li>
+            <li key={i} className="text-slate-300 text-sm break-words"><InlineText text={item} /></li>
           ))}
         </Tag>
       );
     }
     case 'paragraph':
-      return <p className="text-slate-300 whitespace-pre-wrap"><InlineText text={block.text} /></p>;
+      return <p className="text-slate-300 whitespace-pre-wrap break-words"><InlineText text={block.text} /></p>;
   }
 }
 

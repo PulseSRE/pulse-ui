@@ -186,7 +186,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
         Icon && <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', mode === 'sre' ? 'text-blue-400' : 'text-red-400')} aria-hidden="true" />
       )}
       <div className={cn(
-        'max-w-3xl rounded-lg px-4 py-2.5 text-sm relative',
+        'max-w-3xl min-w-0 rounded-lg px-4 py-2.5 text-sm relative overflow-x-auto',
         isUser
           ? 'bg-blue-600/20 border border-blue-500/30 text-slate-100'
           : 'bg-slate-800 border border-slate-700 text-slate-200',
