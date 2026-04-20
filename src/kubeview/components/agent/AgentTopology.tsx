@@ -2,7 +2,8 @@
  * AgentTopology — inline topology graph rendered from agent tool output.
  *
  * Reuses the GraphRenderer from the topology view, scoped to the nodes/edges
- * returned by the agent tool (e.g. get_resource_relationships).
+ * returned by the agent tool (e.g. get_topology_graph).
+ * Includes perspective quick-launch pills for one-click view switching.
  */
 
 import { useState, useMemo } from 'react';
@@ -10,10 +11,21 @@ import { cn } from '@/lib/utils';
 import { Network, Plus } from 'lucide-react';
 import type { TopologySpec, ComponentSpec } from '../../engine/agentComponents';
 import GraphRenderer, { getKindColor } from '../topology/GraphRenderer';
+import { PromptPill } from './AIBranding';
+import { useAgentStore } from '../../store/agentStore';
+
+const PERSPECTIVES = [
+  { label: 'Physical', prompt: 'Show physical topology with hardware metrics' },
+  { label: 'Logical', prompt: 'Show logical app structure topology' },
+  { label: 'Network', prompt: 'Show network flow topology' },
+  { label: 'Multi-Tenant', prompt: 'Show multi-tenant topology grouped by namespace' },
+  { label: 'Helm', prompt: 'Show Helm release topology' },
+] as const;
 
 export default function AgentTopology({ spec, onAddToView }: { spec: TopologySpec; onAddToView?: (spec: ComponentSpec) => void }) {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const sendMessage = useAgentStore((s) => s.sendMessage);
 
   const healthCounts = useMemo(() => {
     const c = { healthy: 0, warning: 0, error: 0 };
@@ -69,6 +81,20 @@ export default function AgentTopology({ spec, onAddToView }: { spec: TopologySpe
         ))}
       </div>
 
+      {/* Perspective pills */}
+      <div className="px-3 py-1.5 border-b border-slate-800 flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] text-slate-600 mr-1">View:</span>
+        {PERSPECTIVES.map((p) => {
+          const ns = spec.nodes[0]?.namespace;
+          const prompt = ns ? `${p.prompt} for namespace ${ns}` : p.prompt;
+          return (
+            <PromptPill key={p.label} onClick={() => sendMessage(prompt)}>
+              {p.label}
+            </PromptPill>
+          );
+        })}
+      </div>
+
       {/* Graph */}
       <div className={cn('flex', selectedNode ? 'gap-0' : '')}>
         <div className={cn('min-w-0', selectedNode ? 'flex-1' : 'w-full')}>
@@ -79,6 +105,8 @@ export default function AgentTopology({ spec, onAddToView }: { spec: TopologySpe
             setHoveredNode={setHoveredNode}
             selectedNode={selectedNode}
             setSelectedNode={setSelectedNode}
+            layoutHint={spec.layout_hint}
+            includeMetrics={spec.include_metrics}
           />
         </div>
 
@@ -103,6 +131,14 @@ export default function AgentTopology({ spec, onAddToView }: { spec: TopologySpe
               </div>
               {node.namespace && (
                 <span className="text-[10px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded mb-2 inline-block">{node.namespace}</span>
+              )}
+
+              {/* Metrics detail */}
+              {node.metrics && (
+                <div className="mt-2 text-[10px] text-slate-400 space-y-0.5">
+                  <div>CPU: {node.metrics.cpu_usage}/{node.metrics.cpu_capacity} ({node.metrics.cpu_percent}%)</div>
+                  <div>Memory: {node.metrics.memory_usage}/{node.metrics.memory_capacity} ({node.metrics.memory_percent}%)</div>
+                </div>
               )}
 
               {upstream.length > 0 && (

@@ -1,12 +1,9 @@
 /**
  * GraphRenderer — SVG-based dependency graph with risk overlay and health status.
  *
- * Extracted from TopologyView to keep the view layer thin.
- * Renders nodes with:
- *   - Risk-colored borders (green/yellow/orange/red)
- *   - Health status dots (healthy/warning/error)
- *   - Pulsing glow for recently changed resources
- *   - Blast radius highlighting on click
+ * Supports 3 layout strategies: top-down (default), left-to-right, grouped.
+ * Renders nodes with kind-color bars, health dots, risk badges, metric bars,
+ * and grouped container boxes.
  */
 
 import { useMemo, useRef, type Dispatch, type SetStateAction } from 'react';
@@ -23,6 +20,15 @@ export interface TopoNode {
   risk?: number;
   riskLevel?: 'critical' | 'high' | 'medium' | 'low';
   recentlyChanged?: boolean;
+  group?: string;
+  metrics?: {
+    cpu_usage: string;
+    cpu_capacity: string;
+    cpu_percent: number;
+    memory_usage: string;
+    memory_capacity: string;
+    memory_percent: number;
+  };
 }
 
 export interface TopoEdge {
@@ -57,6 +63,7 @@ const KIND_COLORS: Record<string, string> = {
   NetworkPolicy: '#6366f1',
   ServiceAccount: '#f472b6',
   HelmRelease: '#a855f7',
+  Summary: '#475569',
 };
 
 const RISK_BORDER_COLORS: Record<string, string> = {
@@ -85,17 +92,21 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
   uses: 'uses',
 };
 
+const KIND_PRIORITY: Record<string, number> = {
+  HelmRelease: 0, Route: 1, Ingress: 1, HPA: 1, NetworkPolicy: 1,
+  Node: 0, Service: 2, Deployment: 3, StatefulSet: 3, DaemonSet: 3,
+  CronJob: 3, Job: 4, ReplicaSet: 4, Pod: 5,
+  ServiceAccount: 6, ConfigMap: 6, Secret: 6, PVC: 6,
+};
+
 export function getKindColor(kind: string): string {
   return KIND_COLORS[kind] ?? '#64748b';
 }
 
-// ── Layout ────────────────────────────────────────────────────────────
+// ── Layout helpers ───────────────────────────────────────────────────
 
-export function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] {
-  if (nodes.length === 0) return [];
-
+function bfsLayers(nodes: TopoNode[], edges: TopoEdge[]): Map<string, number> {
   const nodeIds = new Set(nodes.map(n => n.id));
-
   const children = new Map<string, string[]>();
   const parents = new Map<string, string[]>();
   for (const e of edges) {
@@ -106,26 +117,16 @@ export function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] 
     parents.get(e.target)!.push(e.source);
   }
 
-  // Assign layers via BFS from roots (nodes with no parents)
   const roots = nodes.filter(n => !parents.has(n.id) || parents.get(n.id)!.length === 0);
   if (roots.length === 0) {
-    const kindPriority: Record<string, number> = {
-      HelmRelease: 0, Route: 1, Ingress: 1, HPA: 1, NetworkPolicy: 1,
-      Node: 0, Service: 2, Deployment: 3, StatefulSet: 3, DaemonSet: 3,
-      CronJob: 3, Job: 4, ReplicaSet: 4, Pod: 5,
-      ServiceAccount: 6, ConfigMap: 6, Secret: 6, PVC: 6,
-    };
-    roots.push(...nodes.filter(n => (kindPriority[n.kind] ?? 3) <= 2));
+    roots.push(...nodes.filter(n => (KIND_PRIORITY[n.kind] ?? 3) <= 2));
     if (roots.length === 0) roots.push(nodes[0]);
   }
 
   const layers = new Map<string, number>();
   const queue: string[] = [];
   for (const r of roots) {
-    if (!layers.has(r.id)) {
-      layers.set(r.id, 0);
-      queue.push(r.id);
-    }
+    if (!layers.has(r.id)) { layers.set(r.id, 0); queue.push(r.id); }
   }
   while (queue.length > 0) {
     const curr = queue.shift()!;
@@ -141,20 +142,31 @@ export function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] 
   for (const n of nodes) {
     if (!layers.has(n.id)) layers.set(n.id, 0);
   }
+  return layers;
+}
 
+function groupByLayer(nodes: TopoNode[], layers: Map<string, number>): Map<number, TopoNode[]> {
   const byLayer = new Map<number, TopoNode[]>();
   for (const n of nodes) {
     const layer = layers.get(n.id) ?? 0;
     if (!byLayer.has(layer)) byLayer.set(layer, []);
     byLayer.get(layer)!.push(n);
   }
+  return byLayer;
+}
+
+// ── Layout strategies ────────────────────────────────────────────────
+
+export function layoutTopDown(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] {
+  if (nodes.length === 0) return [];
+
+  const layers = bfsLayers(nodes, edges);
+  const byLayer = groupByLayer(nodes, layers);
 
   const colWidth = 260;
   const rowHeight = 64;
   const paddingX = 30;
   const paddingY = 30;
-
-  // Limit columns to prevent horizontal overflow — wrap long layers
   const maxPerLayer = 6;
 
   const result: LayoutNode[] = [];
@@ -163,19 +175,97 @@ export function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] 
   for (const layer of [...byLayer.keys()].sort((a, b) => a - b)) {
     const group = byLayer.get(layer)!;
     group.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
-
     const rows = Math.ceil(group.length / maxPerLayer);
     group.forEach((node, idx) => {
       const col = idx % maxPerLayer;
       const row = Math.floor(idx / maxPerLayer);
-      result.push({
-        ...node,
-        x: paddingX + col * colWidth,
-        y: paddingY + globalYOffset + row * rowHeight,
-      });
+      result.push({ ...node, x: paddingX + col * colWidth, y: paddingY + globalYOffset + row * rowHeight });
     });
     globalYOffset += rows * rowHeight + 40;
   }
+  return result;
+}
+
+export const layoutGraph = layoutTopDown;
+
+export function layoutLeftToRight(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] {
+  if (nodes.length === 0) return [];
+
+  const layers = bfsLayers(nodes, edges);
+  const byLayer = groupByLayer(nodes, layers);
+
+  const colWidth = 260;
+  const rowHeight = 64;
+  const paddingX = 30;
+  const paddingY = 30;
+
+  const result: LayoutNode[] = [];
+  let globalXOffset = 0;
+
+  for (const layer of [...byLayer.keys()].sort((a, b) => a - b)) {
+    const group = byLayer.get(layer)!;
+    group.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
+    group.forEach((node, idx) => {
+      result.push({ ...node, x: paddingX + globalXOffset, y: paddingY + idx * rowHeight });
+    });
+    globalXOffset += colWidth;
+  }
+  return result;
+}
+
+export function layoutGrouped(nodes: TopoNode[], _edges: TopoEdge[]): LayoutNode[] {
+  if (nodes.length === 0) return [];
+
+  const groups = new Map<string, TopoNode[]>();
+  for (const n of nodes) {
+    const g = n.group ?? 'default';
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g)!.push(n);
+  }
+
+  const nodeWidth = 170;
+  const rowHeight = 50;
+  const groupGap = 30;
+  const headerHeight = 28;
+  const internalPadding = 16;
+  const paddingX = 30;
+  const paddingY = 30;
+  const maxGroupsPerRow = 3;
+  const nodesPerRow = 2;
+
+  const groupEntries = [...groups.entries()];
+  const groupHeights = groupEntries.map(([, members]) => {
+    const rows = Math.ceil(members.length / nodesPerRow);
+    return headerHeight + internalPadding * 2 + rows * rowHeight;
+  });
+  const maxGroupWidth = nodeWidth * nodesPerRow + internalPadding * 2;
+
+  const result: LayoutNode[] = [];
+
+  groupEntries.forEach(([, members], gIdx) => {
+    const groupCol = gIdx % maxGroupsPerRow;
+    const groupRow = Math.floor(gIdx / maxGroupsPerRow);
+
+    let yOffset = 0;
+    for (let r = 0; r < groupRow; r++) {
+      const rowStart = r * maxGroupsPerRow;
+      const rowEnd = Math.min(rowStart + maxGroupsPerRow, groupHeights.length);
+      yOffset += Math.max(...groupHeights.slice(rowStart, rowEnd)) + groupGap;
+    }
+
+    const groupX = paddingX + groupCol * (maxGroupWidth + groupGap);
+    const groupY = paddingY + yOffset;
+
+    members.forEach((node, idx) => {
+      const col = idx % nodesPerRow;
+      const row = Math.floor(idx / nodesPerRow);
+      result.push({
+        ...node,
+        x: groupX + internalPadding + col * nodeWidth,
+        y: groupY + headerHeight + internalPadding + row * rowHeight,
+      });
+    });
+  });
   return result;
 }
 
@@ -188,19 +278,21 @@ interface GraphRendererProps {
   setHoveredNode: Dispatch<SetStateAction<string | null>>;
   selectedNode: string | null;
   setSelectedNode: Dispatch<SetStateAction<string | null>>;
+  layoutHint?: 'top-down' | 'left-to-right' | 'grouped';
+  includeMetrics?: boolean;
 }
 
 export default function GraphRenderer({
-  nodes,
-  edges,
-  hoveredNode,
-  setHoveredNode,
-  selectedNode,
-  setSelectedNode,
+  nodes, edges, hoveredNode, setHoveredNode, selectedNode, setSelectedNode,
+  layoutHint, includeMetrics,
 }: GraphRendererProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const layout = useMemo(() => layoutGraph(nodes, edges), [nodes, edges]);
+  const layout = useMemo(() => {
+    if (layoutHint === 'left-to-right') return layoutLeftToRight(nodes, edges);
+    if (layoutHint === 'grouped') return layoutGrouped(nodes, edges);
+    return layoutTopDown(nodes, edges);
+  }, [nodes, edges, layoutHint]);
 
   const nodeMap = useMemo(() => {
     const map = new Map<string, LayoutNode>();
@@ -277,6 +369,36 @@ export default function GraphRenderer({
           `}</style>
         </defs>
 
+        {/* Group containers (for grouped layout) */}
+        {layoutHint === 'grouped' && (() => {
+          const groupMap = new Map<string, LayoutNode[]>();
+          for (const n of layout) {
+            const g = n.group ?? 'default';
+            if (!groupMap.has(g)) groupMap.set(g, []);
+            groupMap.get(g)!.push(n);
+          }
+          return [...groupMap.entries()].map(([groupName, members]) => {
+            const nodeH = includeMetrics ? 52 : 44;
+            const minX = Math.min(...members.map(m => m.x)) - 16;
+            const minY = Math.min(...members.map(m => m.y)) - 28;
+            const maxX = Math.max(...members.map(m => m.x)) + 176;
+            const maxY = Math.max(...members.map(m => m.y)) + nodeH;
+            return (
+              <g key={`group-${groupName}`}>
+                <rect
+                  x={minX} y={minY}
+                  width={maxX - minX} height={maxY - minY}
+                  rx={8} fill="#0f172a" fillOpacity={0.5}
+                  stroke="#334155" strokeWidth={1} strokeDasharray="4 2"
+                />
+                <text x={minX + 8} y={minY + 16} fill="#94a3b8" fontSize={11} fontWeight={600}>
+                  {groupName}
+                </text>
+              </g>
+            );
+          });
+        })()}
+
         {/* Edges */}
         {edges.map((edge) => {
           const from = nodeMap.get(edge.source);
@@ -293,18 +415,37 @@ export default function GraphRenderer({
             ? isHighlighted ? 0.8 : 0.06
             : 0.3;
 
-          const x1 = from.x + 80;
-          const y1 = from.y + 36;
-          const x2 = to.x + 80;
-          const y2 = to.y;
-          const midY = (y1 + y2) / 2;
+          const nodeH = includeMetrics && from.metrics ? 44 : 36;
+          let d: string;
+          let labelX: number;
+          let labelY: number;
+
+          if (layoutHint === 'left-to-right') {
+            const x1 = from.x + 160;
+            const y1 = from.y + nodeH / 2;
+            const x2 = to.x;
+            const y2 = to.y + nodeH / 2;
+            const midX = (x1 + x2) / 2;
+            d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+            labelX = midX;
+            labelY = (y1 + y2) / 2 - 4;
+          } else {
+            const x1 = from.x + 80;
+            const y1 = from.y + nodeH;
+            const x2 = to.x + 80;
+            const y2 = to.y;
+            const midY = (y1 + y2) / 2;
+            d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+            labelX = (x1 + x2) / 2;
+            labelY = midY - 4;
+          }
 
           const relLabel = RELATIONSHIP_LABELS[edge.relationship] || edge.relationship;
 
           return (
             <g key={`${edge.source}:${edge.target}`}>
               <path
-                d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
+                d={d}
                 fill="none"
                 stroke={isHighlighted ? '#06b6d4' : '#334155'}
                 strokeWidth={isHighlighted ? 2 : 1}
@@ -312,8 +453,8 @@ export default function GraphRenderer({
               />
               {isHighlighted && (
                 <text
-                  x={(x1 + x2) / 2}
-                  y={midY - 4}
+                  x={labelX}
+                  y={labelY}
                   fill="#06b6d4"
                   fontSize={8}
                   textAnchor="middle"
@@ -339,12 +480,11 @@ export default function GraphRenderer({
             ? RISK_BORDER_COLORS[node.riskLevel]
             : undefined;
           const statusColor = STATUS_DOT_COLORS[node.status ?? 'healthy'];
-
-          // Border color priority: selected > risk > hover > default
           const borderColor = isSelected
             ? kindColor
             : riskBorder ?? (isHovered ? '#94a3b8' : '#334155');
           const borderWidth = isSelected || riskBorder ? 2 : 1;
+          const nodeH = includeMetrics && node.metrics ? 44 : 36;
 
           return (
             <g
@@ -359,13 +499,13 @@ export default function GraphRenderer({
             >
               {/* Node body */}
               <rect
-                x={0} y={0} width={160} height={36} rx={6}
+                x={0} y={0} width={160} height={nodeH} rx={6}
                 fill={isSelected ? kindColor + '33' : '#0f172a'}
                 stroke={borderColor}
                 strokeWidth={borderWidth}
               />
               {/* Kind color bar */}
-              <rect x={0} y={0} width={4} height={36} rx={2} fill={kindColor} />
+              <rect x={0} y={0} width={4} height={nodeH} rx={2} fill={kindColor} />
               {/* Health status dot */}
               <circle
                 cx={150} cy={8} r={4}
@@ -394,6 +534,22 @@ export default function GraphRenderer({
                   </text>
                 </g>
               )}
+              {/* Metric bars */}
+              {includeMetrics && node.metrics && (() => {
+                const m = node.metrics!;
+                const barWidth = 130;
+                const cpuColor = m.cpu_percent >= 80 ? '#ef4444' : m.cpu_percent >= 60 ? '#eab308' : '#3b82f6';
+                const memColor = m.memory_percent >= 80 ? '#ef4444' : m.memory_percent >= 60 ? '#eab308' : '#22c55e';
+                return (
+                  <g data-testid="metric-bar">
+                    <title>{`CPU: ${m.cpu_usage}/${m.cpu_capacity} (${m.cpu_percent}%) | Memory: ${m.memory_usage}/${m.memory_capacity} (${m.memory_percent}%)`}</title>
+                    <rect x={14} y={32} width={barWidth} height={3} rx={1} fill="#1e293b" />
+                    <rect x={14} y={32} width={barWidth * m.cpu_percent / 100} height={3} rx={1} fill={cpuColor} />
+                    <rect x={14} y={37} width={barWidth} height={3} rx={1} fill="#1e293b" />
+                    <rect x={14} y={37} width={barWidth * m.memory_percent / 100} height={3} rx={1} fill={memColor} />
+                  </g>
+                );
+              })()}
             </g>
           );
         })}

@@ -350,10 +350,24 @@ export function truncateForPersistence(spec: ComponentSpec): ComponentSpec {
   return spec;
 }
 
+export type LayoutHint = 'top-down' | 'left-to-right' | 'grouped';
+
+export interface NodeMetrics {
+  cpu_usage: string;
+  cpu_capacity: string;
+  cpu_percent: number;
+  memory_usage: string;
+  memory_capacity: string;
+  memory_percent: number;
+}
+
 export interface TopologySpec {
   kind: 'topology';
   title?: string;
   description?: string;
+  layout_hint?: LayoutHint;
+  include_metrics?: boolean;
+  group_by?: string;
   nodes: Array<{
     id: string;
     kind: string;
@@ -363,6 +377,8 @@ export interface TopologySpec {
     risk?: number;
     riskLevel?: 'critical' | 'high' | 'medium' | 'low';
     recentlyChanged?: boolean;
+    group?: string;
+    metrics?: NodeMetrics;
   }>;
   edges: Array<{
     source: string;
