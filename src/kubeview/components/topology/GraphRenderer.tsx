@@ -43,6 +43,8 @@ const KIND_COLORS: Record<string, string> = {
   ReplicaSet: '#60a5fa',
   StatefulSet: '#2563eb',
   DaemonSet: '#1d4ed8',
+  Job: '#1e40af',
+  CronJob: '#1e3a8a',
   Pod: '#22c55e',
   Service: '#06b6d4',
   ConfigMap: '#eab308',
@@ -51,6 +53,10 @@ const KIND_COLORS: Record<string, string> = {
   Node: '#64748b',
   Ingress: '#8b5cf6',
   Route: '#a78bfa',
+  HPA: '#14b8a6',
+  NetworkPolicy: '#6366f1',
+  ServiceAccount: '#f472b6',
+  HelmRelease: '#a855f7',
 };
 
 const RISK_BORDER_COLORS: Record<string, string> = {
@@ -72,6 +78,11 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
   mounts: 'mounts',
   references: 'refs',
   schedules: 'schedules',
+  routes_to: 'routes',
+  applies_to: 'policy',
+  scales: 'scales',
+  manages: 'manages',
+  uses: 'uses',
 };
 
 export function getKindColor(kind: string): string {
@@ -95,13 +106,16 @@ export function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] 
     parents.get(e.target)!.push(e.source);
   }
 
+  // Assign layers via BFS from roots (nodes with no parents)
   const roots = nodes.filter(n => !parents.has(n.id) || parents.get(n.id)!.length === 0);
   if (roots.length === 0) {
     const kindPriority: Record<string, number> = {
-      Node: 0, Service: 1, Deployment: 2, StatefulSet: 2, DaemonSet: 2,
-      ReplicaSet: 3, Pod: 4, ConfigMap: 5, Secret: 5, PVC: 5,
+      HelmRelease: 0, Route: 1, Ingress: 1, HPA: 1, NetworkPolicy: 1,
+      Node: 0, Service: 2, Deployment: 3, StatefulSet: 3, DaemonSet: 3,
+      CronJob: 3, Job: 4, ReplicaSet: 4, Pod: 5,
+      ServiceAccount: 6, ConfigMap: 6, Secret: 6, PVC: 6,
     };
-    roots.push(...nodes.filter(n => (kindPriority[n.kind] ?? 2) <= 2));
+    roots.push(...nodes.filter(n => (kindPriority[n.kind] ?? 3) <= 2));
     if (roots.length === 0) roots.push(nodes[0]);
   }
 
@@ -117,7 +131,8 @@ export function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] 
     const curr = queue.shift()!;
     const currLayer = layers.get(curr)!;
     for (const child of children.get(curr) ?? []) {
-      if (!layers.has(child)) {
+      const existing = layers.get(child);
+      if (existing === undefined || existing < currLayer + 1) {
         layers.set(child, currLayer + 1);
         queue.push(child);
       }
@@ -134,18 +149,32 @@ export function layoutGraph(nodes: TopoNode[], edges: TopoEdge[]): LayoutNode[] 
     byLayer.get(layer)!.push(n);
   }
 
-  const colWidth = 220;
-  const rowHeight = 56;
-  const paddingX = 40;
-  const paddingY = 40;
+  const colWidth = 260;
+  const rowHeight = 64;
+  const paddingX = 30;
+  const paddingY = 30;
+
+  // Limit columns to prevent horizontal overflow — wrap long layers
+  const maxPerLayer = 6;
 
   const result: LayoutNode[] = [];
+  let globalYOffset = 0;
+
   for (const layer of [...byLayer.keys()].sort((a, b) => a - b)) {
     const group = byLayer.get(layer)!;
     group.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
-    group.forEach((node, row) => {
-      result.push({ ...node, x: paddingX + layer * colWidth, y: paddingY + row * rowHeight });
+
+    const rows = Math.ceil(group.length / maxPerLayer);
+    group.forEach((node, idx) => {
+      const col = idx % maxPerLayer;
+      const row = Math.floor(idx / maxPerLayer);
+      result.push({
+        ...node,
+        x: paddingX + col * colWidth,
+        y: paddingY + globalYOffset + row * rowHeight,
+      });
     });
+    globalYOffset += rows * rowHeight + 40;
   }
   return result;
 }
@@ -264,18 +293,18 @@ export default function GraphRenderer({
             ? isHighlighted ? 0.8 : 0.06
             : 0.3;
 
-          const x1 = from.x + 160;
-          const y1 = from.y + 18;
-          const x2 = to.x;
-          const y2 = to.y + 18;
-          const midX = (x1 + x2) / 2;
+          const x1 = from.x + 80;
+          const y1 = from.y + 36;
+          const x2 = to.x + 80;
+          const y2 = to.y;
+          const midY = (y1 + y2) / 2;
 
           const relLabel = RELATIONSHIP_LABELS[edge.relationship] || edge.relationship;
 
           return (
             <g key={`${edge.source}:${edge.target}`}>
               <path
-                d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
+                d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
                 fill="none"
                 stroke={isHighlighted ? '#06b6d4' : '#334155'}
                 strokeWidth={isHighlighted ? 2 : 1}
@@ -283,8 +312,8 @@ export default function GraphRenderer({
               />
               {isHighlighted && (
                 <text
-                  x={midX}
-                  y={(y1 + y2) / 2 - 4}
+                  x={(x1 + x2) / 2}
+                  y={midY - 4}
                   fill="#06b6d4"
                   fontSize={8}
                   textAnchor="middle"
