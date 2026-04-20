@@ -484,7 +484,7 @@ export default function GraphRenderer({
             ? kindColor
             : riskBorder ?? (isHovered ? '#94a3b8' : '#334155');
           const borderWidth = isSelected || riskBorder ? 2 : 1;
-          const nodeH = includeMetrics && node.metrics ? 44 : 36;
+          const nodeH = includeMetrics && node.metrics ? 48 : 36;
 
           return (
             <g
@@ -543,10 +543,10 @@ export default function GraphRenderer({
                 return (
                   <g data-testid="metric-bar">
                     <title>{`CPU: ${m.cpu_usage}/${m.cpu_capacity} (${m.cpu_percent}%) | Memory: ${m.memory_usage}/${m.memory_capacity} (${m.memory_percent}%)`}</title>
-                    <rect x={14} y={32} width={barWidth} height={3} rx={1} fill="#1e293b" />
-                    <rect x={14} y={32} width={barWidth * m.cpu_percent / 100} height={3} rx={1} fill={cpuColor} />
-                    <rect x={14} y={37} width={barWidth} height={3} rx={1} fill="#1e293b" />
-                    <rect x={14} y={37} width={barWidth * m.memory_percent / 100} height={3} rx={1} fill={memColor} />
+                    <rect x={14} y={32} width={barWidth} height={5} rx={2} fill="#1e293b" />
+                    <rect x={14} y={32} width={barWidth * m.cpu_percent / 100} height={5} rx={2} fill={cpuColor} />
+                    <rect x={14} y={39} width={barWidth} height={5} rx={2} fill="#1e293b" />
+                    <rect x={14} y={39} width={barWidth * m.memory_percent / 100} height={5} rx={2} fill={memColor} />
                   </g>
                 );
               })()}
