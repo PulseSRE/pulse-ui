@@ -62,7 +62,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
     abortRef.current = controller;
     const timeout = setTimeout(() => controller.abort(), 10000);
 
-    const ns = spec.nodes[0]?.namespace || '';
+    const ns = initialSpec.nodes.find(n => n.namespace)?.namespace || '';
     const params = new URLSearchParams();
     if (ns) params.set('namespace', ns);
     params.set('kinds', p.kinds);
@@ -101,7 +101,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
     } finally {
       setLoading(false);
     }
-  }, [spec.nodes]);
+  }, [initialSpec.nodes]);
 
   const resetToOriginal = useCallback(() => {
     abortRef.current?.abort();
