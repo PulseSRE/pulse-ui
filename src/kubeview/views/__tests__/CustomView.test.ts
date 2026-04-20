@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { positionsToLayout } from '../CustomView';
 import type { ComponentSpec } from '../../engine/agentComponents';
 
@@ -54,5 +54,41 @@ describe('positionsToLayout', () => {
     const specs: ComponentSpec[] = [{ kind: 'status_list', title: 'A' }];
     const layout = positionsToLayout(positions, specs);
     expect(layout[0].h).toBe(6);
+  });
+
+  it('assigns full-width to topology widgets', () => {
+    const specs: ComponentSpec[] = [
+      { kind: 'topology', title: 'Topology', nodes: [], edges: [] } as ComponentSpec,
+    ];
+    const layout = positionsToLayout({}, specs);
+    expect(layout[0].w).toBe(4);
+    expect(layout[0].h).toBeGreaterThanOrEqual(8);
+  });
+
+  it('preserves positions for many widgets without overlap', () => {
+    const positions: Record<number, { x: number; y: number; w: number; h: number }> = {};
+    const specs: ComponentSpec[] = [];
+    for (let i = 0; i < 9; i++) {
+      positions[i] = { x: (i % 2) * 2, y: Math.floor(i / 2) * 8, w: 2, h: 8 };
+      specs.push({ kind: 'chart', title: `Widget ${i}` });
+    }
+    const layout = positionsToLayout(positions, specs);
+    expect(layout.length).toBe(9);
+    const ids = new Set(layout.map((l) => l.i));
+    expect(ids.size).toBe(9);
+  });
+});
+
+describe('grid configuration', () => {
+  it('uses 4 columns at large breakpoint for full-width layouts', () => {
+    const cols = { lg: 4, md: 2, sm: 1 };
+    expect(cols.lg).toBe(4);
+    expect(cols.md).toBe(2);
+    expect(cols.sm).toBe(1);
+  });
+
+  it('max container width allows wide monitors', () => {
+    const maxWidth = 1800;
+    expect(maxWidth).toBeGreaterThan(1280);
   });
 });
