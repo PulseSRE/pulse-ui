@@ -107,11 +107,14 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     try {
       const queryFilters = { ...filters };
       if (groupBy) queryFilters.group_by = groupBy;
-      const data = await fetchInbox(queryFilters);
+      const [data, globalStats] = await Promise.all([
+        fetchInbox(queryFilters),
+        fetchInboxStats(),
+      ]);
       set({
         items: data.items,
         groups: data.groups,
-        stats: data.stats,
+        stats: globalStats,
         total: data.total,
         loading: false,
       });
