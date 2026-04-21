@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import {
   Clock, User, Calendar, Tag, ArrowUpCircle, Bot, Loader2,
   ArrowRight, RotateCcw, Archive, Search, CheckCircle2, ShieldCheck,
+  ChevronDown, ChevronRight, Play, SkipForward, XCircle, AlertTriangle,
+  MessageSquare, RefreshCw,
 } from 'lucide-react';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
+import { Tooltip } from '../../components/primitives/Tooltip';
 import { formatRelativeTime } from '../../engine/formatters';
 import {
   escalateInboxItem,
@@ -18,6 +21,19 @@ import { useAgentStore } from '../../store/agentStore';
 import { useUIStore } from '../../store/uiStore';
 import { InboxLifecycleStepper } from './InboxLifecycle';
 
+// ---- Types ----
+
+interface ActionPlanStep {
+  title: string;
+  description: string;
+  tool: string | null;
+  tool_input: Record<string, unknown> | null;
+  risk: 'low' | 'medium' | 'high';
+  status: 'pending' | 'running' | 'complete' | 'failed' | 'skipped';
+}
+
+// ---- Helpers ----
+
 function formatDueDate(ts: number): string {
   const date = new Date(ts * 1000);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -28,6 +44,198 @@ function buildInvestigatePrompt(item: InboxItem): string {
   const ns = item.namespace ? ` in namespace ${item.namespace}` : '';
   return `Investigate: ${item.title}${ns}. ${item.summary || ''} Resources: ${resources}`.trim();
 }
+
+function buildStepPrompt(item: InboxItem, step: ActionPlanStep): string {
+  const base = `Execute action plan step for "${item.title}": ${step.title}. ${step.description}`;
+  if (step.tool && step.tool_input) {
+    return `${base} Use tool ${step.tool} with input: ${JSON.stringify(step.tool_input)}`;
+  }
+  return base;
+}
+
+// ---- Collapsible Section ----
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 text-left group"
+      >
+        {open
+          ? <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+          : <ChevronRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+        }
+        <div className="min-w-0">
+          <span className="text-xs font-medium text-slate-300 group-hover:text-slate-100 transition-colors">
+            {title}
+          </span>
+          <p className="text-[10px] text-slate-600 leading-tight">{subtitle}</p>
+        </div>
+      </button>
+      {open && <div className="mt-2 ml-5">{children}</div>}
+    </div>
+  );
+}
+
+// ---- Risk Badge ----
+
+function RiskBadge({ risk }: { risk: 'low' | 'medium' | 'high' }) {
+  const variant = risk === 'high' ? 'error' : risk === 'medium' ? 'warning' : 'success';
+  return <Badge variant={variant} size="sm">{risk}</Badge>;
+}
+
+// ---- Step Status Icon ----
+
+function StepStatusIcon({ status }: { status: ActionPlanStep['status'] }) {
+  switch (status) {
+    case 'complete':
+      return <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />;
+    case 'failed':
+      return <XCircle className="w-4 h-4 text-red-400 shrink-0" />;
+    case 'running':
+      return <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />;
+    case 'skipped':
+      return <SkipForward className="w-4 h-4 text-slate-600 shrink-0" />;
+    default:
+      return <div className="w-4 h-4 rounded-full border-2 border-slate-600 shrink-0" />;
+  }
+}
+
+// ---- Action Plan Section ----
+
+function ActionPlanSection({
+  steps,
+  item,
+  onClose,
+}: {
+  steps: ActionPlanStep[];
+  item: InboxItem;
+  onClose: () => void;
+}) {
+  const openAgentWithPrompt = (prompt: string) => {
+    useAgentStore.getState().connectAndSend(prompt);
+    useUIStore.getState().expandAISidebar();
+    useUIStore.getState().setAISidebarMode('chat');
+    onClose();
+  };
+
+  return (
+    <div className="rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-3 space-y-3">
+      <div>
+        <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
+          <Play className="w-3.5 h-3.5" />
+          Action Plan
+        </div>
+        <p className="text-[10px] text-slate-600 mt-0.5 ml-5">How to fix it</p>
+      </div>
+
+      <ol className="space-y-2">
+        {steps.map((step, idx) => {
+          const isDone = step.status === 'complete' || step.status === 'skipped';
+          const isFailed = step.status === 'failed';
+          const isRunning = step.status === 'running';
+          const canAct = step.status === 'pending';
+
+          return (
+            <li
+              key={idx}
+              className={`rounded-md border p-2.5 space-y-1.5 ${
+                isFailed
+                  ? 'border-red-800/50 bg-red-950/10'
+                  : isDone
+                    ? 'border-slate-700/30 bg-slate-900/30 opacity-60'
+                    : isRunning
+                      ? 'border-blue-800/50 bg-blue-950/10'
+                      : 'border-slate-700/50 bg-slate-900/50'
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                <span className="text-xs font-mono text-slate-600 mt-0.5 shrink-0 w-4 text-right">
+                  {idx + 1}.
+                </span>
+                <StepStatusIcon status={step.status} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-sm font-medium ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+                      {step.title}
+                    </span>
+                    <RiskBadge risk={step.risk} />
+                    {step.tool && (
+                      <Tooltip content={`Tool: ${step.tool}`}>
+                        <Badge variant="outline" size="sm" className="font-mono">
+                          {step.tool}
+                        </Badge>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{step.description}</p>
+                </div>
+              </div>
+
+              {canAct && (
+                <div className="flex items-center gap-1.5 ml-10">
+                  {step.tool ? (
+                    <Tooltip content="Open agent chat with tool context pre-filled">
+                      <Button
+                        size="sm"
+                        onClick={() => openAgentWithPrompt(buildStepPrompt(item, step))}
+                      >
+                        <Play className="w-3 h-3" />
+                        Execute
+                      </Button>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip content="Ask the agent to help with this step">
+                      <Button
+                        size="sm"
+                        onClick={() => openAgentWithPrompt(buildStepPrompt(item, step))}
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        Ask Agent
+                      </Button>
+                    </Tooltip>
+                  )}
+                  <Tooltip content="Skip this step">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        // Optimistic: we don't persist skip to backend yet
+                        // (action endpoint doesn't exist). UI-only for now.
+                      }}
+                    >
+                      <SkipForward className="w-3 h-3" />
+                      Skip
+                    </Button>
+                  </Tooltip>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="text-[10px] text-slate-600 flex items-center gap-1">
+        <span>{steps.filter((s) => s.status === 'complete').length}/{steps.length} steps complete</span>
+      </div>
+    </div>
+  );
+}
+
+// ---- Investigation Card ----
 
 function InvestigationCard({ report }: { report: InvestigationReport }) {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -73,7 +281,7 @@ function InvestigationCard({ report }: { report: InvestigationReport }) {
             <ul className="mt-1 space-y-1 text-xs text-slate-400">
               {report.evidence.map((e, i) => (
                 <li key={i} className="flex items-start gap-1.5">
-                  <span className="text-slate-600 mt-0.5">•</span>
+                  <span className="text-slate-600 mt-0.5">&#8226;</span>
                   <span>{e}</span>
                 </li>
               ))}
@@ -84,6 +292,8 @@ function InvestigationCard({ report }: { report: InvestigationReport }) {
     </div>
   );
 }
+
+// ---- Main Component ----
 
 export function TaskDetailDrawer({
   item,
@@ -119,6 +329,9 @@ export function TaskDetailDrawer({
   const triageAction = String(item.metadata?.triage_action || 'monitor');
   const triageUrgency = String(item.metadata?.triage_urgency || 'can-wait');
   const dismissReason = String(item.metadata?.dismiss_reason || '');
+  const actionPlan = (item.metadata?.action_plan ?? null) as ActionPlanStep[] | null;
+  const blastRadius = item.metadata?.blast_radius as Record<string, unknown> | undefined;
+  const agentError = String(item.metadata?.agent_error || '');
 
   const handleInvestigate = () => {
     useAgentStore.getState().connectAndSend(buildInvestigatePrompt(item));
@@ -168,6 +381,18 @@ export function TaskDetailDrawer({
           </div>
         )}
 
+        {item.status === 'agent_review_failed' && (
+          <div className="rounded-lg border border-red-800/50 bg-red-950/30 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-red-400">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Agent analysis failed
+            </div>
+            {agentError && (
+              <p className="text-sm text-slate-400">{agentError}</p>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 flex-wrap">
           {item.namespace && (
             <Badge variant="outline">
@@ -177,33 +402,85 @@ export function TaskDetailDrawer({
           )}
         </div>
 
+        {/* AI Triage — collapsible */}
         {triaged && (
-          <div className="rounded-lg border border-violet-800/50 bg-violet-950/30 p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-medium text-violet-400">
-              <Bot className="w-3.5 h-3.5" />
-              AI Triage
+          <CollapsibleSection
+            title="AI Triage"
+            subtitle="How urgent is this?"
+          >
+            <div className="rounded-lg border border-violet-800/50 bg-violet-950/30 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-violet-400">
+                <Bot className="w-3.5 h-3.5" />
+                AI Triage
+              </div>
+              {triageAssessment && (
+                <p className="text-sm text-slate-300">{triageAssessment}</p>
+              )}
+              <div className="flex items-center gap-3 text-xs">
+                <Badge variant={
+                  triageAction === 'investigate' ? 'warning' :
+                  triageAction === 'dismiss' ? 'info' : 'default'
+                }>
+                  {triageAction}
+                </Badge>
+                <Badge variant={
+                  triageUrgency === 'immediate' ? 'error' :
+                  triageUrgency === 'soon' ? 'warning' : 'default'
+                }>
+                  {triageUrgency}
+                </Badge>
+              </div>
             </div>
-            {triageAssessment && (
-              <p className="text-sm text-slate-300">{triageAssessment}</p>
-            )}
-            <div className="flex items-center gap-3 text-xs">
-              <Badge variant={
-                triageAction === 'investigate' ? 'warning' :
-                triageAction === 'dismiss' ? 'info' : 'default'
-              }>
-                {triageAction}
-              </Badge>
-              <Badge variant={
-                triageUrgency === 'immediate' ? 'error' :
-                triageUrgency === 'soon' ? 'warning' : 'default'
-              }>
-                {triageUrgency}
-              </Badge>
-            </div>
-          </div>
+          </CollapsibleSection>
         )}
 
-        {investigation && <InvestigationCard report={investigation} />}
+        {/* Investigation — collapsible */}
+        {investigation && (
+          <CollapsibleSection
+            title="Investigation"
+            subtitle="What's the root cause?"
+          >
+            <InvestigationCard report={investigation} />
+          </CollapsibleSection>
+        )}
+
+        {/* Action Plan — always expanded when present */}
+        {actionPlan && actionPlan.length > 0 && (
+          <ActionPlanSection steps={actionPlan} item={item} onClose={onClose} />
+        )}
+
+        {/* Blast Radius — collapsible */}
+        {blastRadius && (
+          <CollapsibleSection
+            title="Blast Radius"
+            subtitle="What else could be affected?"
+          >
+            <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-amber-400">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Blast Radius
+              </div>
+              {typeof blastRadius.summary === 'string' && blastRadius.summary && (
+                <p className="text-sm text-slate-300">{blastRadius.summary}</p>
+              )}
+              {Array.isArray(blastRadius.affected) && blastRadius.affected.length > 0 && (
+                <ul className="space-y-1 text-xs text-slate-400">
+                  {(blastRadius.affected as Array<{ kind?: string; name?: string }>).map((a, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-amber-600 mt-0.5">&#8226;</span>
+                      <span>{a.kind ? `${a.kind}/` : ''}{a.name || String(a)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {blastRadius.score != null && (
+                <div className="text-xs text-slate-500">
+                  Impact score: <span className="text-amber-300">{String(blastRadius.score)}</span>
+                </div>
+              )}
+            </div>
+          </CollapsibleSection>
+        )}
 
         {item.summary && !triageAssessment && (
           <p className="text-sm text-slate-400 leading-relaxed">{item.summary}</p>
@@ -256,6 +533,23 @@ export function TaskDetailDrawer({
               <Button size="sm" variant="ghost" onClick={() => { advanceStatus(item.id, 'acknowledged'); claim(item.id); }}>
                 <CheckCircle2 className="w-4 h-4 mr-1" />
                 Skip AI — Claim Now
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+                <Archive className="w-4 h-4 mr-1" />
+                Dismiss
+              </Button>
+            </>
+          )}
+
+          {item.status === 'agent_review_failed' && (
+            <>
+              <Button size="sm" onClick={() => handleAdvance('new')}>
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Retry Agent Analysis
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleInvestigate}>
+                <MessageSquare className="w-4 h-4 mr-1" />
+                Investigate Manually
               </Button>
               <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
                 <Archive className="w-4 h-4 mr-1" />
@@ -363,7 +657,7 @@ export function TaskDetailDrawer({
             </Button>
           )}
 
-          {!item.claimed_by && !['acknowledged', 'agent_cleared', 'agent_reviewing', 'resolved', 'archived', 'escalated'].includes(item.status) && (
+          {!item.claimed_by && !['acknowledged', 'agent_cleared', 'agent_reviewing', 'agent_review_failed', 'resolved', 'archived', 'escalated'].includes(item.status) && (
             <Button size="sm" variant="ghost" onClick={() => claim(item.id)}>Claim</Button>
           )}
         </div>

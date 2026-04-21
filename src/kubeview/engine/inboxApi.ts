@@ -7,7 +7,7 @@
 
 export type InboxItemType = 'finding' | 'task' | 'alert' | 'assessment';
 export type InboxSeverity = 'critical' | 'warning' | 'info';
-export type AgentStatus = 'agent_reviewing' | 'agent_cleared';
+export type AgentStatus = 'agent_reviewing' | 'agent_cleared' | 'agent_review_failed';
 export type FindingStatus = 'new' | 'acknowledged' | 'investigating' | 'action_taken' | 'verifying' | 'resolved' | 'archived' | AgentStatus;
 export type TaskStatus = 'new' | 'in_progress' | 'resolved' | 'archived' | AgentStatus;
 export type AlertStatus = 'new' | 'acknowledged' | 'resolved' | 'archived' | AgentStatus;

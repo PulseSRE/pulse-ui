@@ -110,6 +110,11 @@ export function InboxItem({
                   <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
                 </Tooltip>
               )}
+              {item.status === 'agent_review_failed' && (
+                <Tooltip content={String(item.metadata?.agent_error || 'Agent analysis failed')}>
+                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                </Tooltip>
+              )}
               {item.status !== 'agent_reviewing' && item.status !== 'agent_cleared' && !!item.metadata?.triaged && (
                 <Tooltip content={`AI: ${String(item.metadata.triage_action || 'triaged')} · ${String(item.metadata.triage_urgency || '')}`}>
                   <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0" />

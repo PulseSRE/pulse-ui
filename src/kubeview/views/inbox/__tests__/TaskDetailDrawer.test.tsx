@@ -83,6 +83,7 @@ const ALL_STATUSES: Array<{ status: string; item_type: string; metadata?: Record
   { status: 'new', item_type: 'task' },
   { status: 'agent_reviewing', item_type: 'task' },
   { status: 'in_progress', item_type: 'task' },
+  { status: 'agent_review_failed', item_type: 'finding', metadata: { agent_error: 'Timeout during analysis' } },
   { status: 'acknowledged', item_type: 'alert' },
   { status: 'acknowledged', item_type: 'assessment' },
 ];
@@ -159,5 +160,50 @@ describe('TaskDetailDrawer — no dead-end states', () => {
     const item = makeItem({ item_type: 'task', status: 'in_progress' });
     render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
     expect(screen.getAllByText(/Mark Done/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('agent_review_failed shows error message and retry/manual/dismiss buttons', () => {
+    const item = makeItem({
+      status: 'agent_review_failed',
+      metadata: { agent_error: 'Timeout during analysis' },
+    });
+    render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
+    expect(screen.getAllByText(/Agent analysis failed/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Timeout during analysis/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Retry Agent Analysis/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Investigate Manually/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Dismiss/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('action plan renders numbered steps with execute/skip buttons', () => {
+    const item = makeItem({
+      status: 'investigating',
+      metadata: {
+        action_plan: [
+          {
+            title: 'Scale down replicas',
+            description: 'Reduce to 1 replica to stop thrashing',
+            tool: 'scale_deployment',
+            tool_input: { name: 'web', namespace: 'prod', replicas: 1 },
+            risk: 'medium',
+            status: 'pending',
+          },
+          {
+            title: 'Check pod logs',
+            description: 'Review recent logs for root cause',
+            tool: null,
+            tool_input: null,
+            risk: 'low',
+            status: 'complete',
+          },
+        ],
+      },
+    });
+    render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
+    expect(screen.getAllByText(/Action Plan/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Scale down replicas/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Execute/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Skip/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/1\/2 steps complete/i).length).toBeGreaterThanOrEqual(1);
   });
 });
