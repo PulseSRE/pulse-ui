@@ -58,9 +58,10 @@ interface Props {
   hoverTimestamp?: number | null;
   onHoverTimestamp?: (ts: number | null) => void;
   onSpecChange?: (spec: ComponentSpec) => void;
+  viewId?: string;
 }
 
-export function AgentComponentRenderer({ spec, depth = 0, onAddToView, refreshInterval, globalTimeRange, hoverTimestamp, onHoverTimestamp, onSpecChange }: Props) {
+export function AgentComponentRenderer({ spec, depth = 0, onAddToView, refreshInterval, globalTimeRange, hoverTimestamp, onHoverTimestamp, onSpecChange, viewId }: Props) {
   if (depth > MAX_DEPTH) {
     return <div className="text-xs text-slate-500 italic">Content nested too deeply</div>;
   }
@@ -106,7 +107,7 @@ export function AgentComponentRenderer({ spec, depth = 0, onAddToView, refreshIn
     case 'topology':
       return <Suspense fallback={<div className="h-48 flex items-center justify-center text-slate-500 text-xs">Loading topology...</div>}><LazyAgentTopology spec={spec} onAddToView={onAddToView} /></Suspense>;
     case 'action_button':
-      return <AgentActionButton spec={spec as ActionButtonSpec} />;
+      return <AgentActionButton spec={spec as ActionButtonSpec} viewId={viewId} />;
     case 'confidence_badge':
       return <AgentConfidenceBadge spec={spec as ConfidenceBadgeSpec} />;
     case 'resolution_tracker':

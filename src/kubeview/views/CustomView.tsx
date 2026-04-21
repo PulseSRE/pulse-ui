@@ -440,6 +440,7 @@ export default function CustomView() {
                   <ErrorBoundary>
                     <AgentComponentRenderer
                       spec={spec}
+                      viewId={viewId}
                       refreshInterval={refreshInterval || undefined}
                       globalTimeRange={globalTimeRange}
                       hoverTimestamp={hoverTimestamp}
