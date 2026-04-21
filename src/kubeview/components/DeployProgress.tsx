@@ -64,7 +64,7 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
       const allEvents = await k8sList<Event>(`/api/v1/namespaces/${namespace}/events`);
       return allEvents
         .filter((e) => {
-          const ref = (e as unknown as K8sResource & { involvedObject?: { name?: string } }).involvedObject;
+          const ref = e.involvedObject;
           return ref?.name === name || pods.some((p) => ref?.name === p.metadata.name);
         })
         .sort((a, b) => {

@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useK8sListWatch } from './useK8sListWatch';
 import { k8sGet } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
-import type { K8sResource } from '../engine/renderers';
 import type { Event, ReplicaSet, Deployment, ClusterVersion, ClusterOperator } from '../engine/types';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../engine/types/timeline';
 import {
@@ -40,7 +39,7 @@ interface UseIncidentTimelineOptions {
 
 export function useIncidentTimeline({ timeRange, namespace, categories }: UseIncidentTimelineOptions) {
   // Events
-  const { data: rawEvents = [], isLoading: eventsLoading } = useK8sListWatch<K8sResource>({
+  const { data: rawEvents = [], isLoading: eventsLoading } = useK8sListWatch<Event>({
     apiPath: '/api/v1/events?limit=500',
     enabled: categories?.has('event') ?? false,
   });
@@ -63,12 +62,12 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   });
 
   // ReplicaSets + Deployments for rollouts
-  const { data: replicaSets = [], isLoading: rsLoading } = useK8sListWatch<K8sResource>({
+  const { data: replicaSets = [], isLoading: rsLoading } = useK8sListWatch<ReplicaSet>({
     apiPath: '/apis/apps/v1/replicasets',
     namespace,
     enabled: categories?.has('rollout'),
   });
-  const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch<K8sResource>({
+  const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch<Deployment>({
     apiPath: '/apis/apps/v1/deployments',
     namespace,
     enabled: categories?.has('rollout'),
@@ -81,7 +80,7 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     staleTime: 60000,
     enabled: categories?.has('config'),
   });
-  const { data: operators = [], isLoading: opsLoading } = useK8sListWatch<K8sResource>({
+  const { data: operators = [], isLoading: opsLoading } = useK8sListWatch<ClusterOperator>({
     apiPath: '/apis/config.openshift.io/v1/clusteroperators',
     enabled: categories?.has('config'),
   });
@@ -96,16 +95,16 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     let all: TimelineEntry[] = [];
 
     if (categories?.has('event') && rawEvents) {
-      all = all.concat(eventsToTimeline((rawEvents || []) as unknown as Event[]));
+      all = all.concat(eventsToTimeline(rawEvents || []));
     }
     if (categories?.has('alert') && alertGroups) {
       all = all.concat(alertsToTimeline(alertGroups || []));
     }
     if (categories?.has('rollout')) {
-      all = all.concat(rolloutsToTimeline((replicaSets || []) as unknown as ReplicaSet[], (deployments || []) as unknown as Deployment[]));
+      all = all.concat(rolloutsToTimeline(replicaSets || [], deployments || []));
     }
     if (categories?.has('config')) {
-      all = all.concat(configChangesToTimeline(clusterVersion || null, (operators || []) as unknown as ClusterOperator[]));
+      all = all.concat(configChangesToTimeline(clusterVersion || null, operators || []));
     }
 
     // Filter by namespace
