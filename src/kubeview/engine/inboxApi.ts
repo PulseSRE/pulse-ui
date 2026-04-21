@@ -144,6 +144,14 @@ export async function pinInboxItem(id: string): Promise<void> {
   await _fetch(`${AGENT_BASE}/inbox/${id}/pin`, { method: 'POST' });
 }
 
+export async function advanceInboxStatus(id: string, status: string): Promise<void> {
+  await _fetch(`${AGENT_BASE}/inbox/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+}
+
 export async function restoreInboxItem(id: string): Promise<void> {
   await _fetch(`${AGENT_BASE}/inbox/${id}/restore`, { method: 'POST' });
 }

@@ -16,6 +16,7 @@ import {
   resolveInboxItem,
   pinInboxItem,
   createInboxTask,
+  advanceInboxStatus,
   restoreInboxItem,
   type InboxItem,
   type InboxGroup,
@@ -225,12 +226,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
 
   advanceStatus: async (id, status) => {
     try {
-      const res = await fetch(`/api/agent/inbox/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error(`${res.status}`);
+      await advanceInboxStatus(id, status);
       get().refresh();
       return true;
     } catch {
