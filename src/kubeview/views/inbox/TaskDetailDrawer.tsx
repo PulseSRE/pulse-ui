@@ -1,4 +1,4 @@
-import { Clock, User, Calendar, Tag, ArrowUpCircle } from 'lucide-react';
+import { Clock, User, Calendar, Tag, ArrowUpCircle, Bot } from 'lucide-react';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
@@ -6,10 +6,18 @@ import { formatRelativeTime } from '../../engine/formatters';
 import { escalateInboxItem } from '../../engine/inboxApi';
 import type { InboxItem } from '../../engine/inboxApi';
 import { useInboxStore } from '../../store/inboxStore';
+import { useAgentStore } from '../../store/agentStore';
+import { useUIStore } from '../../store/uiStore';
 
 function formatDueDate(ts: number): string {
   const date = new Date(ts * 1000);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function buildInvestigatePrompt(item: InboxItem): string {
+  const resources = item.resources.map((r) => `${r.kind}/${r.name}`).join(', ');
+  const ns = item.namespace ? ` in namespace ${item.namespace}` : '';
+  return `Investigate: ${item.title}${ns}. ${item.summary || ''} Resources: ${resources}`.trim();
 }
 
 export function TaskDetailDrawer({
@@ -22,6 +30,27 @@ export function TaskDetailDrawer({
   const resolve = useInboxStore((s) => s.resolve);
   const claim = useInboxStore((s) => s.claim);
   const refresh = useInboxStore((s) => s.refresh);
+  const setSelectedItem = useInboxStore((s) => s.setSelectedItem);
+
+  const handleEscalate = async () => {
+    try {
+      const result = await escalateInboxItem(item.id);
+      refresh();
+      if (result.finding_id) {
+        setSelectedItem(result.finding_id);
+      }
+    } catch {
+      /* handled by toast */
+    }
+  };
+
+  const handleInvestigate = () => {
+    const prompt = buildInvestigatePrompt(item);
+    useAgentStore.getState().connectAndSend(prompt);
+    useUIStore.getState().expandAISidebar();
+    useUIStore.getState().setAISidebarMode('chat');
+    onClose();
+  };
 
   return (
     <DrawerShell title={item.title} onClose={onClose}>
@@ -73,23 +102,22 @@ export function TaskDetailDrawer({
           </div>
         )}
 
-        <div className="flex gap-2 pt-4 border-t border-slate-800">
+        <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800">
+          <Button size="sm" onClick={handleInvestigate}>
+            <Bot className="w-4 h-4 mr-1" />
+            Investigate with AI
+          </Button>
           {!item.claimed_by && (
             <Button size="sm" variant="ghost" onClick={() => claim(item.id)}>Claim</Button>
           )}
           {item.item_type === 'assessment' && item.status === 'acknowledged' && (
-            <Button size="sm" variant="ghost" onClick={async () => {
-              try {
-                await escalateInboxItem(item.id);
-                refresh();
-              } catch { /* handled by store */ }
-            }}>
+            <Button size="sm" variant="ghost" onClick={handleEscalate}>
               <ArrowUpCircle className="w-4 h-4 mr-1" />
               Escalate to Incident
             </Button>
           )}
           {item.item_type !== 'assessment' && item.status !== 'resolved' && item.status !== 'escalated' && (
-            <Button size="sm" onClick={() => resolve(item.id)}>Mark Resolved</Button>
+            <Button size="sm" variant="ghost" onClick={() => resolve(item.id)}>Mark Resolved</Button>
           )}
         </div>
       </div>
