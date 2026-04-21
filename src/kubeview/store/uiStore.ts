@@ -150,7 +150,7 @@ let toastIdCounter = 0;
 
 const DEFAULT_TABS: Tab[] = [
   { id: 'pulse', title: 'Pulse', icon: 'HeartPulse', path: '/pulse', pinned: true, closable: false },
-  { id: 'incidents', title: 'Incidents', icon: 'Siren', path: '/incidents', pinned: true, closable: true },
+  { id: 'inbox', title: 'Inbox', icon: 'Inbox', path: '/inbox', pinned: true, closable: true },
   { id: 'agent', title: 'Pulse Agent', icon: 'Bot', path: '/agent', pinned: true, closable: true },
 ];
 
