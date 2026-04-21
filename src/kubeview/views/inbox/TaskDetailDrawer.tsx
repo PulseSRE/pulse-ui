@@ -63,6 +63,15 @@ export function TaskDetailDrawer({
       <div className="space-y-4 p-4">
         <InboxLifecycleStepper itemType={item.item_type} status={item.status} />
 
+        {item.status === 'escalated' && !!item.metadata?.escalated_to && (
+          <button
+            onClick={() => { setSelectedItem(String(item.metadata!.escalated_to)); }}
+            className="w-full text-left rounded-lg border border-violet-800/50 bg-violet-950/30 px-3 py-2 text-sm text-violet-300 hover:bg-violet-900/30 transition-colors"
+          >
+            Escalated to finding — click to view →
+          </button>
+        )}
+
         <div className="flex items-center gap-2 flex-wrap">
           {item.namespace && (
             <Badge variant="outline">
