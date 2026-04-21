@@ -32,7 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'storage', label: 'Storage', icon: 'HardDrive', path: '/storage', group: 'cluster', subtitle: 'PVCs, storage classes, CSI drivers', keywords: ['pvs', 'pvcs', 'storageclasses', 'csi', 'persistent', 'volumes'], color: 'text-orange-400' },
 
   // Operations
-  { id: 'incidents', label: 'Incident Center', icon: 'Bell', path: '/incidents', group: 'operations', subtitle: 'Real-time incidents, correlation, auto-remediation', keywords: ['incidents', 'alerts', 'timeline', 'postmortems', 'review', 'queue'], color: 'text-red-400' },
+  { id: 'inbox', label: 'Inbox', icon: 'Inbox', path: '/inbox', group: 'operations', subtitle: 'Unified SRE worklist — findings, tasks, alerts, assessments', keywords: ['inbox', 'incidents', 'tasks', 'alerts', 'findings', 'queue', 'triage'], color: 'text-violet-400' },
   { id: 'topology', label: 'Impact Analysis', icon: 'Network', path: '/topology', group: 'operations', subtitle: 'Dependency graph and blast radius', keywords: ['topology', 'graph', 'dependencies', 'blast', 'radius', 'impact'], color: 'text-cyan-400' },
   { id: 'security', label: 'Security', icon: 'ShieldCheck', path: '/security', group: 'operations', subtitle: 'Pod security, RBAC analysis, image scanning', keywords: ['security', 'audit', 'sccs', 'rbac', 'network', 'policies', 'access', 'scanning'], color: 'text-red-400' },
   { id: 'gitops', label: 'GitOps', icon: 'GitBranch', path: '/gitops', group: 'operations', subtitle: 'ArgoCD applications, sync status, rollouts', keywords: ['argocd', 'sync', 'drift', 'detection', 'rollouts', 'git'], color: 'text-green-400' },

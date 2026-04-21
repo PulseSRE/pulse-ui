@@ -146,7 +146,7 @@ describe('OpenShift Pulse CommandPalette', () => {
     renderPalette();
     expect(screen.getByText('Cluster Pulse')).toBeDefined();
     expect(screen.getByText('Security')).toBeDefined();
-    expect(screen.getByText('Incident Center')).toBeDefined();
+    expect(screen.getByText('Inbox')).toBeDefined();
     expect(screen.getByText('Administration')).toBeDefined();
   });
 
@@ -161,7 +161,7 @@ describe('OpenShift Pulse CommandPalette', () => {
     renderPalette();
     const input = screen.getByPlaceholderText(/Search resources/);
     fireEvent.change(input, { target: { value: 'incident' } });
-    expect(screen.getByText('Incident Center')).toBeDefined();
+    expect(screen.getByText('Inbox')).toBeDefined();
     expect(screen.queryByText('Nodes')).toBeNull();
     expect(screen.queryByText('Deployments')).toBeNull();
   });

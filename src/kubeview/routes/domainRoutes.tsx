@@ -17,6 +17,7 @@ const FleetWorkloadsView = lazy(() => import('../views/fleet/FleetWorkloadsView'
 const FleetAlertsView = lazy(() => import('../views/fleet/FleetAlertsView'));
 const DriftDetectorView = lazy(() => import('../views/fleet/DriftDetectorView').then(m => ({ default: m.DriftDetectorView })));
 const IncidentCenterView = lazy(() => import('../views/IncidentCenterView'));
+const InboxPage = lazy(() => import('../views/InboxPage').then(m => ({ default: m.InboxPage })));
 const OnboardingView = lazy(() => import('../views/OnboardingView'));
 const PulseAgentView = lazy(() => import('../views/PulseAgentView'));
 const ViewsManagement = lazy(() => import('../views/ViewsManagement'));
@@ -61,7 +62,7 @@ export function domainRoutes() {
       <Route path="users" element={<Navigate to="/identity?tab=users" replace />} />
       <Route path="identity" element={<Lazy><IdentityView /></Lazy>} />
       <Route path="admin" element={<Lazy><AdminView /></Lazy>} />
-      <Route path="alerts" element={<Navigate to="/incidents?tab=alerts" replace />} />
+      <Route path="alerts" element={<Navigate to="/inbox?type=alert" replace />} />
       <Route path="gitops" element={<Lazy><ArgoCDView /></Lazy>} />
       <Route path="fleet" element={<Lazy><FleetView /></Lazy>} />
       <Route path="fleet/compare" element={<Lazy><CompareView /></Lazy>} />
@@ -70,12 +71,13 @@ export function domainRoutes() {
       <Route path="fleet/alerts" element={<Lazy><FleetAlertsView /></Lazy>} />
       <Route path="fleet/r/:gvr" element={<Lazy><FleetResourceRoute /></Lazy>} />
       <Route path="fleet/drift" element={<Lazy><DriftDetectorView /></Lazy>} />
-      <Route path="monitor" element={<Navigate to="/incidents" replace />} />
+      <Route path="inbox" element={<Lazy><InboxPage /></Lazy>} />
+      <Route path="monitor" element={<Navigate to="/inbox" replace />} />
       <Route path="dynamic/:id" element={<DynamicViewRedirectRoute />} />
-      <Route path="incidents" element={<Lazy><IncidentCenterView /></Lazy>} />
+      <Route path="incidents" element={<Navigate to="/inbox" replace />} />
       <Route path="readiness" element={<Lazy><OnboardingView /></Lazy>} />
       <Route path="onboarding" element={<Navigate to="/readiness" replace />} />
-      <Route path="reviews" element={<Navigate to="/incidents?tab=actions" replace />} />
+      <Route path="reviews" element={<Navigate to="/inbox?preset=needs_approval" replace />} />
       <Route path="memory" element={<Navigate to="/agent" replace />} />
       <Route path="views" element={<Lazy><ViewsManagement /></Lazy>} />
       <Route path="agent" element={<Lazy><PulseAgentView /></Lazy>} />
