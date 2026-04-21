@@ -43,7 +43,7 @@ export function AgentActionButton({ spec, viewId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [viewId, spec.action, spec.action_input, executeAction]);
+  }, [viewId, spec, executeAction]);
 
   const handleClick = useCallback(() => {
     if (isWrite) {
