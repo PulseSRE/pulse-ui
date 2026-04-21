@@ -355,6 +355,33 @@ export function TaskDetailDrawer({
       <div className="space-y-4 p-4">
         <InboxLifecycleStepper itemType={item.item_type} status={item.status} />
 
+        {item.view_id && (
+          <a
+            href={`/custom/${item.view_id}`}
+            className="flex items-center gap-2 w-full rounded-lg border border-blue-800/50 bg-blue-950/30 px-3 py-2.5 text-sm font-medium text-blue-300 hover:bg-blue-900/30 transition-colors"
+          >
+            <Search className="w-4 h-4" />
+            Open Investigation View
+            <ArrowRight className="w-4 h-4 ml-auto" />
+          </a>
+        )}
+
+        {String(item.metadata?.view_status || '') === 'generating' && !item.view_id && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Building investigation view...
+          </div>
+        )}
+
+        {String(item.metadata?.view_status || '') === 'failed' && !item.view_id && (
+          <div className="flex items-center justify-between rounded-lg border border-red-800/50 bg-red-950/20 px-3 py-2.5 text-sm text-red-400">
+            <span>View generation failed</span>
+            <Button size="sm" variant="ghost" onClick={() => { advanceStatus(item.id, 'acknowledged'); claim(item.id); }}>
+              Retry
+            </Button>
+          </div>
+        )}
+
         {item.status === 'escalated' && !!item.metadata?.escalated_to && (
           <button
             onClick={() => setSelectedItem(String(item.metadata!.escalated_to))}
