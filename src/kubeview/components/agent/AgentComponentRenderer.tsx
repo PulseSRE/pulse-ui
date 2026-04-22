@@ -832,23 +832,62 @@ const LOG_LEVEL_STYLES: Record<string, string> = {
 function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState<string | null>(null);
+  type LogLevel = 'error' | 'warn' | 'info' | 'debug';
+  const [fetchedLines, setFetchedLines] = useState<Array<{ timestamp?: string; level: LogLevel; message: string; source?: string }>>([]);
+
+  // Auto-fetch logs when spec has namespace/resource but no pre-populated lines
+  const extra = spec as unknown as Record<string, unknown>;
+  const ns = extra.namespace as string || '';
+  const resource = extra.resource as string || '';
+  const container = extra.container as string || '';
+  const tail = (extra.tail as number) || 200;
+
+  useEffect(() => {
+    if ((spec.lines || []).length > 0 || !ns || !resource) return;
+    let cancelled = false;
+    const params = new URLSearchParams({ tailLines: String(tail) });
+    if (container) params.set('container', container);
+    // Try current logs first, then previous
+    const fetchLogs = async (previous: boolean) => {
+      if (previous) params.set('previous', 'true');
+      const res = await fetch(`/api/kubernetes/api/v1/namespaces/${ns}/pods/${resource}/log?${params}`);
+      if (!res.ok) return '';
+      return res.text();
+    };
+    (async () => {
+      let text = await fetchLogs(false);
+      if (!text) text = await fetchLogs(true);
+      if (cancelled || !text) return;
+      const parsed = text.split('\n').filter(Boolean).map(line => {
+        const level: LogLevel = /error|fatal|panic/i.test(line) ? 'error'
+          : /warn/i.test(line) ? 'warn'
+          : /info/i.test(line) ? 'info' : 'debug';
+        const tsMatch = line.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s*/);
+        return { timestamp: tsMatch?.[1] || '', level, message: tsMatch ? line.slice(tsMatch[0].length) : line, source: resource };
+      });
+      setFetchedLines(parsed);
+    })();
+    return () => { cancelled = true; };
+  }, [ns, resource, container, tail]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const effectiveLines = (spec.lines || []).length > 0 ? spec.lines : fetchedLines;
 
   const filtered = useMemo(() => {
-    let lines = spec.lines || [];
+    let lines = effectiveLines || [];
     if (levelFilter) lines = lines.filter((l) => l.level === levelFilter);
     if (search) {
       const q = search.toLowerCase();
       lines = lines.filter((l) => l.message.toLowerCase().includes(q) || l.source?.toLowerCase().includes(q));
     }
     return lines;
-  }, [spec.lines, search, levelFilter]);
+  }, [effectiveLines, search, levelFilter]);
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950 overflow-hidden">
       {spec.title && (
         <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
           <span className="text-xs font-medium text-slate-300">{spec.title}</span>
-          <span className="text-xs text-slate-500">{(spec.lines || []).length} lines</span>
+          <span className="text-xs text-slate-500">{(effectiveLines || []).length} lines</span>
         </div>
       )}
       <div className="px-3 py-1.5 border-b border-slate-800 flex items-center gap-2">
