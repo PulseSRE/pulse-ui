@@ -124,13 +124,21 @@ function ActionPlanSection({
   item: InboxItem;
   onClose: () => void;
 }) {
+  const [stepStatuses, setStepStatuses] = useState<Record<number, ActionPlanStep['status']>>({});
+
+  const getStatus = (idx: number) => stepStatuses[idx] || steps[idx]?.status || 'pending';
+  const setStatus = (idx: number, status: ActionPlanStep['status']) => {
+    setStepStatuses((prev) => ({ ...prev, [idx]: status }));
+  };
+
   const advanceToInProgress = () => {
     if (item.status === 'claimed') {
       useInboxStore.getState().advanceStatus(item.id, 'in_progress');
     }
   };
 
-  const openAgentWithPrompt = (prompt: string) => {
+  const openAgentWithPrompt = (prompt: string, stepIdx: number) => {
+    setStatus(stepIdx, 'running');
     advanceToInProgress();
     useAgentStore.getState().connectAndSend(prompt);
     useUIStore.getState().expandAISidebar();
@@ -150,10 +158,11 @@ function ActionPlanSection({
 
       <ol className="space-y-2">
         {steps.map((step, idx) => {
-          const isDone = step.status === 'complete' || step.status === 'skipped';
-          const isFailed = step.status === 'failed';
-          const isRunning = step.status === 'running';
-          const canAct = step.status === 'pending';
+          const status = getStatus(idx);
+          const isDone = status === 'complete' || status === 'skipped';
+          const isFailed = status === 'failed';
+          const isRunning = status === 'running';
+          const canAct = status === 'pending';
 
           return (
             <li
@@ -172,7 +181,7 @@ function ActionPlanSection({
                 <span className="text-xs font-mono text-slate-600 mt-0.5 shrink-0 w-4 text-right">
                   {idx + 1}.
                 </span>
-                <StepStatusIcon status={step.status} />
+                <StepStatusIcon status={status} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-sm font-medium ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
@@ -197,7 +206,7 @@ function ActionPlanSection({
                     <Tooltip content="Open agent chat with tool context pre-filled">
                       <Button
                         size="sm"
-                        onClick={() => openAgentWithPrompt(buildStepPrompt(item, step))}
+                        onClick={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)}
                       >
                         <Play className="w-3 h-3" />
                         Execute
@@ -207,7 +216,7 @@ function ActionPlanSection({
                     <Tooltip content="Ask the agent to help with this step">
                       <Button
                         size="sm"
-                        onClick={() => openAgentWithPrompt(buildStepPrompt(item, step))}
+                        onClick={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)}
                       >
                         <MessageSquare className="w-3 h-3" />
                         Ask Agent
@@ -219,7 +228,7 @@ function ActionPlanSection({
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        step.status = 'skipped';
+                        setStatus(idx, 'skipped');
                         useUIStore.getState().addToast({ type: 'success', title: `Skipped: ${step.title}` });
                       }}
                     >
@@ -235,7 +244,7 @@ function ActionPlanSection({
       </ol>
 
       <div className="text-[10px] text-slate-600 flex items-center gap-1">
-        <span>{steps.filter((s) => s.status === 'complete').length}/{steps.length} steps complete</span>
+        <span>{steps.filter((_, i) => getStatus(i) === 'complete').length}/{steps.length} steps complete</span>
       </div>
     </div>
   );
