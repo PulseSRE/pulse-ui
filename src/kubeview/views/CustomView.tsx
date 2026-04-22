@@ -7,6 +7,7 @@ import { useAgentStore } from '../store/agentStore';
 import { AgentComponentRenderer } from '../components/agent/AgentComponentRenderer';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { WidgetErrorBoundary } from '../components/agent/WidgetErrorBoundary';
 import { formatRelativeTime } from '../engine/formatters';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -437,7 +438,7 @@ export default function CustomView() {
                       )}
                     </>
                   )}
-                  <ErrorBoundary>
+                  <WidgetErrorBoundary title={(spec as any).title || `Widget ${i + 1}`} kind={spec.kind}>
                     <AgentComponentRenderer
                       spec={spec}
                       viewId={viewId}
@@ -452,7 +453,7 @@ export default function CustomView() {
                         updateView(view.id, { layout: newLayout });
                       }}
                     />
-                  </ErrorBoundary>
+                  </WidgetErrorBoundary>
                   {/* Chart edit popover */}
                   {editingChart === i && spec.kind === 'chart' && (
                     <ChartEditPopover

@@ -342,29 +342,29 @@ export const MAX_PERSISTED_ROWS = 50;
 
 /** Truncate a component spec for persistence */
 export function truncateForPersistence(spec: ComponentSpec): ComponentSpec {
-  if (spec.kind === 'data_table' && spec.rows.length > MAX_PERSISTED_ROWS) {
+  if (spec.kind === 'data_table' && (spec.rows || []).length > MAX_PERSISTED_ROWS) {
     return { ...spec, rows: spec.rows.slice(0, MAX_PERSISTED_ROWS) };
   }
-  if (spec.kind === 'log_viewer' && spec.lines.length > MAX_PERSISTED_ROWS) {
+  if (spec.kind === 'log_viewer' && (spec.lines || []).length > MAX_PERSISTED_ROWS) {
     return { ...spec, lines: spec.lines.slice(-MAX_PERSISTED_ROWS) };
   }
-  if (spec.kind === 'resolution_tracker' && spec.steps.length > MAX_PERSISTED_ROWS) {
+  if (spec.kind === 'resolution_tracker' && (spec.steps || []).length > MAX_PERSISTED_ROWS) {
     return { ...spec, steps: spec.steps.slice(-MAX_PERSISTED_ROWS) };
   }
   if (spec.kind === 'tabs') {
     return {
       ...spec,
-      tabs: spec.tabs.map((tab) => ({
+      tabs: (spec.tabs || []).map((tab) => ({
         ...tab,
-        components: tab.components.map(truncateForPersistence),
+        components: (tab.components || []).map(truncateForPersistence),
       })),
     };
   }
   if (spec.kind === 'grid') {
-    return { ...spec, items: spec.items.map(truncateForPersistence) };
+    return { ...spec, items: (spec.items || []).map(truncateForPersistence) };
   }
   if (spec.kind === 'section') {
-    return { ...spec, components: spec.components.map(truncateForPersistence) };
+    return { ...spec, components: (spec.components || []).map(truncateForPersistence) };
   }
   return spec;
 }

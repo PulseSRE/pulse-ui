@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { CheckCircle, AlertTriangle, XCircle, Clock, HelpCircle, ChevronDown, ChevronUp, ChevronRight, Plus, Radio, Pause, Loader2 } from 'lucide-react';
 import { useMultiSourceTable } from '../../hooks/useMultiSourceTable';
 import type { K8sResource } from '../../engine/renderers';
+import { normalizeAgentProps } from '../../engine/normalizeAgentProps';
 import { ResourceTable } from '../table/ResourceTable';
 
 // Lazy-load the chart component to keep recharts (~150KB) out of the initial bundle
@@ -63,7 +64,8 @@ interface Props {
   viewId?: string;
 }
 
-export function AgentComponentRenderer({ spec, depth = 0, onAddToView, refreshInterval, globalTimeRange, hoverTimestamp, onHoverTimestamp, onSpecChange, viewId }: Props) {
+export function AgentComponentRenderer({ spec: rawSpec, depth = 0, onAddToView, refreshInterval, globalTimeRange, hoverTimestamp, onHoverTimestamp, onSpecChange, viewId }: Props) {
+  const spec = useMemo(() => normalizeAgentProps(rawSpec), [rawSpec]);
   if (depth > MAX_DEPTH) {
     return <div className="text-xs text-slate-500 italic">Content nested too deeply</div>;
   }
@@ -427,12 +429,10 @@ function CellValue({ value, columnId, columnType, row }: { value: unknown; colum
 }
 
 function AgentInfoCardGrid({ spec }: { spec: InfoCardGridSpec }) {
-  const extra = spec as unknown as Record<string, unknown>;
-  const cards = (spec.cards || (extra.props as Record<string, unknown>)?.cards || []) as Array<Record<string, string>>;
   return (
     <div className="my-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-      {cards.map((card, i) => (
-        <InfoCard key={i} label={card.label || card.title || ''} value={card.value || card.text || ''} sub={card.sub} className="!p-2 !text-xs" />
+      {(spec.cards || []).map((card, i) => (
+        <InfoCard key={i} label={card.label} value={card.value} sub={card.sub} className="!p-2 !text-xs" />
       ))}
     </div>
   );
@@ -725,7 +725,7 @@ function AgentRelationshipTree({ spec, onAddToView }: { spec: RelationshipTreeSp
 function AgentTabs({ spec, depth = 0 }: { spec: TabsSpec; depth?: number }) {
   const [activeTab, setActiveTab] = useState(0);
 
-  if (!spec.tabs.length) return null;
+  if (!spec.tabs?.length) return null;
 
   return (
     <div className="my-2 border border-slate-700 rounded-lg overflow-hidden min-w-0">
@@ -746,7 +746,7 @@ function AgentTabs({ spec, depth = 0 }: { spec: TabsSpec; depth?: number }) {
         ))}
       </div>
       <div className="p-2">
-        {spec.tabs[activeTab].components.map((child, i) => (
+        {(spec.tabs[activeTab]?.components || []).map((child, i) => (
           <AgentComponentRenderer key={i} spec={child} depth={depth + 1} />
         ))}
       </div>
@@ -772,7 +772,7 @@ function AgentGrid({ spec, depth = 0 }: { spec: GridSpec; depth?: number }) {
         className="grid gap-3"
         style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
       >
-        {spec.items.map((item, i) => {
+        {(spec.items || []).map((item, i) => {
           const spanFull = item.kind === 'resource_counts' || item.kind === 'data_table' || item.kind === 'status_list';
           return (
             <div key={i} style={spanFull ? { gridColumn: `1 / -1` } : undefined}>
@@ -926,7 +926,7 @@ function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
 // ─── YAML Viewer ─────────────────────────────────────────────────────────────
 
 function AgentYamlViewer({ spec }: { spec: YamlViewerSpec }) {
-  const content = spec.content || (spec as unknown as Record<string, unknown>).yaml as string || '';
+  const content = spec.content || '';
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -1025,7 +1025,7 @@ function AgentProgressList({ spec }: { spec: ProgressListSpec }) {
         </div>
       )}
       <div className="p-3 space-y-2.5">
-        {spec.items.map((item, i) => {
+        {(spec.items || []).map((item, i) => {
           const pct = item.max > 0 ? (item.value / item.max) * 100 : 0;
           return (
             <div key={i}>
@@ -1056,7 +1056,7 @@ function AgentProgressList({ spec }: { spec: ProgressListSpec }) {
 function AgentStatCard({ spec }: { spec: StatCardSpec }) {
   const extra = spec as unknown as Record<string, unknown>;
   const query = extra.query as string || '';
-  const title = spec.title || extra.label as string || '';
+  const title = spec.title || '';
   const [liveValue, setLiveValue] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1214,7 +1214,7 @@ function AgentTimeline({ spec }: { spec: TimelineSpec }) {
 
   // Regroup lanes by severity when toggled
   const lanes = useMemo(() => {
-    if (grouping === 'source') return spec.lanes;
+    if (grouping === 'source') return spec.lanes || [];
     const bySeverity: Record<string, Array<TimelineSpec['lanes'][0]['events'][0]>> = { critical: [], warning: [], info: [], normal: [] };
     for (const lane of spec.lanes || []) {
       for (const evt of lane.events) bySeverity[evt.severity]?.push(evt);
