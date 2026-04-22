@@ -143,7 +143,6 @@ function ActionPlanSection({
     useAgentStore.getState().connectAndSend(prompt);
     useUIStore.getState().expandAISidebar();
     useUIStore.getState().setAISidebarMode('chat');
-    onClose();
   };
 
   return (
