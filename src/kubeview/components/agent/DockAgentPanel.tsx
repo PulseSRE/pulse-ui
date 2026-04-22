@@ -17,6 +17,8 @@ import { ThinkingIndicator } from './ThinkingIndicator';
 import { ConfirmationCard } from './ConfirmationCard';
 import { ConfirmDialog } from '../feedback/ConfirmDialog';
 import { PromptPill } from './AIBranding';
+import { ActionPlanTracker } from './ActionPlanTracker';
+import { useActionPlanStore } from '../../store/actionPlanStore';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '../../engine/formatters';
 
@@ -363,6 +365,7 @@ export function DockAgentPanel() {
 
   const handleNewChat = useCallback(() => {
     clearChat();
+    useActionPlanStore.getState().clearExecution();
     setActiveSessionId(null);
   }, [clearChat]);
 
@@ -426,6 +429,8 @@ export function DockAgentPanel() {
       useAgentStore.setState((s) => ({ messages: [welcomeMsg, ...s.messages] }));
     }
 
+    useActionPlanStore.getState().clearAwaitingCompletion();
+
     const ctx = currentViewId ? { kind: 'custom_view', name: '', viewId: currentViewId } : undefined;
     sendMessage(text, ctx);
     setInput('');
@@ -477,6 +482,8 @@ export function DockAgentPanel() {
             : 'Monitoring: All clear'
           : 'Monitoring: Disconnected'}
       </button>
+
+      <ActionPlanTracker />
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-3" role="log" aria-label="Agent messages">
@@ -647,7 +654,11 @@ export function DockAgentPanel() {
       <ConfirmDialog
         open={confirmClear}
         onClose={() => setConfirmClear(false)}
-        onConfirm={() => { clearChat(); setConfirmClear(false); }}
+        onConfirm={() => {
+          clearChat();
+          useActionPlanStore.getState().clearExecution();
+          setConfirmClear(false);
+        }}
         title="Clear Conversation"
         description="Clear the conversation? The agent will lose context about the current incident."
         confirmLabel="Clear"

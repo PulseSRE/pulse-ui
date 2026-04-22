@@ -86,6 +86,15 @@ function flushDeltas(set: (fn: (s: AgentState) => Partial<AgentState>) => void) 
   }));
 }
 
+function notifyPlanStore(action: 'complete' | 'fail') {
+  import('./actionPlanStore').then(({ useActionPlanStore }) => {
+    const ps = useActionPlanStore.getState();
+    if (ps.execution?.awaitingCompletion) {
+      action === 'complete' ? ps.completeActiveStep() : ps.failActiveStep();
+    }
+  }).catch(() => {});
+}
+
 /** Reset all streaming accumulators — call on any terminal event */
 function resetStreamingState() {
   pendingTextDelta = '';
@@ -163,6 +172,7 @@ export const useAgentStore = create<AgentState>()(
               break;
             case 'disconnected':
               resetStreamingState();
+              notifyPlanStore('fail');
               // If we were mid-stream, save partial response as a message
               if (get().streaming) {
                 const partial = get().streamingText;
@@ -265,6 +275,7 @@ export const useAgentStore = create<AgentState>()(
                 streamingComponents: [],
                 pendingConfirm: null,
               }));
+              notifyPlanStore('complete');
               break;
             }
             case 'error':
@@ -280,6 +291,7 @@ export const useAgentStore = create<AgentState>()(
                 activeSkills: [],
                 streamingComponents: [],
               });
+              notifyPlanStore('fail');
               break;
             case 'feedback_ack': {
               const toast = event.runbookExtracted
@@ -366,6 +378,7 @@ export const useAgentStore = create<AgentState>()(
 
       cancelQuery: () => {
         resetStreamingState();
+        notifyPlanStore('fail');
         if (client) {
           client.disconnect();
         }

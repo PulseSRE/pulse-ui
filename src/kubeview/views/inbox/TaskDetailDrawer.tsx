@@ -9,6 +9,7 @@ import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { Tooltip } from '../../components/primitives/Tooltip';
+import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { formatRelativeTime } from '../../engine/formatters';
 import {
   fetchInboxInvestigation,
@@ -18,20 +19,8 @@ import {
 import { useInboxStore } from '../../store/inboxStore';
 import { useAgentStore } from '../../store/agentStore';
 import { useUIStore } from '../../store/uiStore';
+import { useActionPlanStore, resolveStepStatus, isStepDone, type ActionPlanStep } from '../../store/actionPlanStore';
 import { InboxLifecycleStepper } from './InboxLifecycle';
-
-// ---- Types ----
-
-interface ActionPlanStep {
-  title: string;
-  description: string;
-  tool: string | null;
-  tool_input: Record<string, unknown> | null;
-  risk: 'low' | 'medium' | 'high';
-  status: 'pending' | 'running' | 'complete' | 'failed' | 'skipped';
-}
-
-// ---- Helpers ----
 
 function formatDueDate(ts: number): string {
   const date = new Date(ts * 1000);
@@ -52,7 +41,6 @@ function buildStepPrompt(item: InboxItem, step: ActionPlanStep): string {
   return base;
 }
 
-// ---- Collapsible Section ----
 
 function CollapsibleSection({
   title,
@@ -89,14 +77,12 @@ function CollapsibleSection({
   );
 }
 
-// ---- Risk Badge ----
 
 function RiskBadge({ risk }: { risk: 'low' | 'medium' | 'high' }) {
   const variant = risk === 'high' ? 'error' : risk === 'medium' ? 'warning' : 'success';
   return <Badge variant={variant} size="sm">{risk}</Badge>;
 }
 
-// ---- Step Status Icon ----
 
 function StepStatusIcon({ status }: { status: ActionPlanStep['status'] }) {
   switch (status) {
@@ -113,7 +99,6 @@ function StepStatusIcon({ status }: { status: ActionPlanStep['status'] }) {
   }
 }
 
-// ---- Action Plan Section ----
 
 function ActionPlanSection({
   steps,
@@ -124,11 +109,26 @@ function ActionPlanSection({
   item: InboxItem;
   onClose: () => void;
 }) {
-  const [stepStatuses, setStepStatuses] = useState<Record<number, ActionPlanStep['status']>>({});
+  const execution = useActionPlanStore((s) => s.execution);
 
-  const getStatus = (idx: number) => stepStatuses[idx] || steps[idx]?.status || 'pending';
-  const setStatus = (idx: number, status: ActionPlanStep['status']) => {
-    setStepStatuses((prev) => ({ ...prev, [idx]: status }));
+  const getStatus = (idx: number): ActionPlanStep['status'] => {
+    if (execution && execution.itemId === item.id) {
+      return resolveStepStatus(execution, idx);
+    }
+    return steps[idx]?.status ?? 'pending';
+  };
+
+  const ensureExecution = () => {
+    const ps = useActionPlanStore.getState();
+    if (ps.execution && ps.execution.itemId !== item.id) {
+      useUIStore.getState().addToast({
+        type: 'warning',
+        title: `Replaced tracker for "${ps.execution.itemTitle}"`,
+      });
+    }
+    if (!ps.execution || ps.execution.itemId !== item.id) {
+      ps.startExecution(item.id, item.title, steps);
+    }
   };
 
   const advanceToInProgress = () => {
@@ -138,11 +138,19 @@ function ActionPlanSection({
   };
 
   const openAgentWithPrompt = (prompt: string, stepIdx: number) => {
-    setStatus(stepIdx, 'running');
+    ensureExecution();
+    useActionPlanStore.getState().startStep(stepIdx);
     advanceToInProgress();
     useAgentStore.getState().connectAndSend(prompt);
     useUIStore.getState().expandAISidebar();
     useUIStore.getState().setAISidebarMode('chat');
+    onClose();
+  };
+
+  const handleSkip = (idx: number, title: string) => {
+    ensureExecution();
+    useActionPlanStore.getState().setStepStatus(idx, 'skipped');
+    useUIStore.getState().addToast({ type: 'success', title: `Skipped: ${title}` });
   };
 
   return (
@@ -158,10 +166,10 @@ function ActionPlanSection({
       <ol className="space-y-2">
         {steps.map((step, idx) => {
           const status = getStatus(idx);
-          const isDone = status === 'complete' || status === 'skipped';
+          const isDone = isStepDone(status);
           const isFailed = status === 'failed';
           const isRunning = status === 'running';
-          const canAct = status === 'pending';
+          const canAct = status === 'pending' || status === 'failed';
 
           return (
             <li
@@ -208,7 +216,7 @@ function ActionPlanSection({
                         onClick={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)}
                       >
                         <Play className="w-3 h-3" />
-                        Execute
+                        {isFailed ? 'Retry' : 'Execute'}
                       </Button>
                     </Tooltip>
                   ) : (
@@ -218,23 +226,22 @@ function ActionPlanSection({
                         onClick={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)}
                       >
                         <MessageSquare className="w-3 h-3" />
-                        Ask Agent
+                        {isFailed ? 'Retry' : 'Ask Agent'}
                       </Button>
                     </Tooltip>
                   )}
-                  <Tooltip content="Skip this step">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setStatus(idx, 'skipped');
-                        useUIStore.getState().addToast({ type: 'success', title: `Skipped: ${step.title}` });
-                      }}
-                    >
-                      <SkipForward className="w-3 h-3" />
-                      Skip
-                    </Button>
-                  </Tooltip>
+                  {!isFailed && (
+                    <Tooltip content="Skip this step">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleSkip(idx, step.title)}
+                      >
+                        <SkipForward className="w-3 h-3" />
+                        Skip
+                      </Button>
+                    </Tooltip>
+                  )}
                 </div>
               )}
             </li>
@@ -249,7 +256,6 @@ function ActionPlanSection({
   );
 }
 
-// ---- Investigation Card ----
 
 function InvestigationCard({ report }: { report: InvestigationReport }) {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -307,7 +313,6 @@ function InvestigationCard({ report }: { report: InvestigationReport }) {
   );
 }
 
-// ---- Main Component ----
 
 export function TaskDetailDrawer({
   item,
@@ -321,9 +326,8 @@ export function TaskDetailDrawer({
   const dismiss = useInboxStore((s) => s.dismiss);
   const restore = useInboxStore((s) => s.restore);
   const advanceStatus = useInboxStore((s) => s.advanceStatus);
-  const refresh = useInboxStore((s) => s.refresh);
-  const setSelectedItem = useInboxStore((s) => s.setSelectedItem);
 
+  const [confirmDismiss, setConfirmDismiss] = useState(false);
   const [investigation, setInvestigation] = useState<InvestigationReport | null>(null);
 
   useEffect(() => {
@@ -360,6 +364,12 @@ export function TaskDetailDrawer({
   };
 
   const handleAdvance = (status: string) => advanceStatus(item.id, status);
+
+  const handleResolve = () => {
+    resolve(item.id);
+    const ps = useActionPlanStore.getState();
+    if (ps.execution?.itemId === item.id) ps.clearExecution();
+  };
 
   return (
     <DrawerShell title={item.title} onClose={onClose}>
@@ -566,7 +576,7 @@ export function TaskDetailDrawer({
                 <CheckCircle2 className="w-4 h-4 mr-1" />
                 Skip AI — Claim Now
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                 <Archive className="w-4 h-4 mr-1" />
                 Dismiss
               </Button>
@@ -583,7 +593,7 @@ export function TaskDetailDrawer({
                 <MessageSquare className="w-4 h-4 mr-1" />
                 Investigate Manually
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                 <Archive className="w-4 h-4 mr-1" />
                 Dismiss
               </Button>
@@ -596,7 +606,7 @@ export function TaskDetailDrawer({
                 <RotateCcw className="w-4 h-4 mr-1" />
                 Restore to Inbox
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                 <Archive className="w-4 h-4 mr-1" />
                 Archive
               </Button>
@@ -618,7 +628,7 @@ export function TaskDetailDrawer({
                 </Button>
               </Tooltip>
               <Tooltip content="Archive — will be deleted after 30 days">
-                <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                   <Archive className="w-4 h-4 mr-1" />
                   Dismiss
                 </Button>
@@ -635,13 +645,13 @@ export function TaskDetailDrawer({
                 </Button>
               </Tooltip>
               <Tooltip content="Mark as resolved">
-                <Button size="sm" variant="ghost" onClick={() => resolve(item.id)}>
+                <Button size="sm" variant="ghost" onClick={handleResolve}>
                   <CheckCircle2 className="w-4 h-4 mr-1" />
                   Resolve
                 </Button>
               </Tooltip>
               <Tooltip content="Archive — will be deleted after 30 days">
-                <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                   <Archive className="w-4 h-4 mr-1" />
                   Dismiss
                 </Button>
@@ -652,7 +662,7 @@ export function TaskDetailDrawer({
           {item.status === 'in_progress' && (
             <>
               <Tooltip content="Mark this item as resolved">
-                <Button size="sm" onClick={() => resolve(item.id)}>
+                <Button size="sm" onClick={handleResolve}>
                   <CheckCircle2 className="w-4 h-4 mr-1" />
                   Resolve
                 </Button>
@@ -664,7 +674,7 @@ export function TaskDetailDrawer({
                 </Button>
               </Tooltip>
               <Tooltip content="Archive — will be deleted after 30 days">
-                <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                   <Archive className="w-4 h-4 mr-1" />
                   Dismiss
                 </Button>
@@ -673,13 +683,23 @@ export function TaskDetailDrawer({
           )}
 
           {item.status === 'resolved' && (
-            <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
               <Archive className="w-4 h-4 mr-1" />
               Archive
             </Button>
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDismiss}
+        onClose={() => setConfirmDismiss(false)}
+        onConfirm={() => { dismiss(item.id); setConfirmDismiss(false); onClose(); }}
+        title="Dismiss item?"
+        description="This item will be archived and removed from your active inbox. You can restore it later if needed."
+        confirmLabel="Dismiss"
+        variant="warning"
+      />
     </DrawerShell>
   );
 }
