@@ -551,8 +551,8 @@ export function TaskDetailDrawer({
           </div>
         )}
 
-        {/* Forward buttons — simplified lifecycle */}
-        <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800">
+        {/* Forward buttons — sticky footer so they're always visible */}
+        <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-4 -mb-4 z-10">
           {item.status === 'new' && (
             <Button size="sm" onClick={handleInvestigate}>
               <Bot className="w-4 h-4 mr-1" />
