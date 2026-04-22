@@ -243,11 +243,16 @@ const StaticAgentTable = React.memo(function StaticAgentTable({ spec, onAddToVie
     <CellValue value={value} columnId={columnId} columnType={columnType} row={row} />
   ), []);
 
+  const safeColumns = useMemo(
+    () => spec.columns.map((c) => ({ ...c, id: c.id || c.header?.toLowerCase().replace(/\s+/g, '_') || `col_${Math.random().toString(36).slice(2, 6)}` })),
+    [spec.columns],
+  );
+
   return (
     <ResourceTable
       title={spec.title}
       description={spec.description}
-      columns={spec.columns}
+      columns={safeColumns}
       rows={spec.rows as Array<Record<string, unknown>>}
       renderCell={renderCell}
       onRowClick={spec.rows.some((r) => r._gvr) ? handleRowClick : undefined}
@@ -383,6 +388,7 @@ const COLUMN_RENDERERS: Record<string, CellRenderer> = {
 
 /** Infer column type from ID when no type hint is provided */
 function _inferType(columnId: string, value: unknown): string {
+  if (!columnId) return 'text';
   if (columnId === 'name') return 'resource_name';
   if (columnId === 'namespace') return 'namespace';
   if (columnId === 'node') return 'node';
