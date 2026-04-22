@@ -157,10 +157,12 @@ const DEFAULT_TABS: Tab[] = [
 // Default toast durations (ms)
 const TOAST_DURATIONS = {
   success: 5000,
-  error: 0, // persistent
+  error: 15000,
   warning: 8000,
   undo: 5000,
 };
+
+const MAX_VISIBLE_TOASTS = 3;
 
 export const useUIStore = create<UIState>()(
   persist<
@@ -353,21 +355,28 @@ export const useUIStore = create<UIState>()(
       toasts: [],
 
       addToast: (toast) => {
+        // Deduplicate: skip if a toast with the same title and type already exists
+        const existing = get().toasts;
+        if (existing.some((t) => t.title === toast.title && t.type === toast.type)) {
+          return existing.find((t) => t.title === toast.title)!.id;
+        }
+
         const id = `toast-${++toastIdCounter}`;
         const duration = toast.duration !== undefined ? toast.duration : TOAST_DURATIONS[toast.type];
 
         const newToast: ToastData = { ...toast, id };
-        set((state) => ({ toasts: [...state.toasts, newToast] }));
+        set((state) => {
+          const updated = [...state.toasts, newToast];
+          // Cap visible toasts — drop oldest when over limit
+          if (updated.length > MAX_VISIBLE_TOASTS) {
+            return { toasts: updated.slice(-MAX_VISIBLE_TOASTS) };
+          }
+          return { toasts: updated };
+        });
 
-        // Auto-dismiss after duration
         if (duration > 0) {
           setTimeout(() => {
             get().removeToast(id);
-            // For undo toasts, execute default action if not manually dismissed
-            if (toast.type === 'undo' && toast.action) {
-              // The action was not clicked, so this is a timeout
-              // We don't execute the undo action on timeout
-            }
           }, duration);
         }
 
