@@ -239,13 +239,15 @@ export const useMonitorStore = create<MonitorState>()(
                 findings: s.findings.filter((f) => f.id !== resolution.findingId),
                 unreadCount: s.unreadCount + 1,
               }));
-              // Toast so the user knows an issue resolved
-              const resolvedLabel = resolution.resolvedBy === 'auto-fix' ? 'Auto-fixed' : 'Self-healed';
-              useUIStore.getState().addToast({
-                type: 'success',
-                title: `${resolution.title || 'Issue resolved'}`,
-                detail: resolvedLabel,
-              });
+              // Only toast auto-fix resolutions — self-healed is too noisy
+              // (scanner frequency tiers cause findings to appear/disappear)
+              if (resolution.resolvedBy === 'auto-fix') {
+                useUIStore.getState().addToast({
+                  type: 'success',
+                  title: `${resolution.title || 'Issue resolved'}`,
+                  detail: 'Auto-fixed',
+                });
+              }
               break;
             }
 
