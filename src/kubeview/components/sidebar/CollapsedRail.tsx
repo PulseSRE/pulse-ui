@@ -11,9 +11,16 @@ export function CollapsedRail() {
   const Icon = status.icon;
   const isAnimated = status.type === 'streaming' || status.type === 'investigating';
 
+  const setAISidebarMode = useUIStore((s) => s.setAISidebarMode);
+
+  const handleClick = () => {
+    expandAISidebar();
+    setAISidebarMode(status.type === 'findings' ? 'dashboard' : 'chat');
+  };
+
   return (
     <button
-      onClick={expandAISidebar}
+      onClick={handleClick}
       className="w-12 h-full flex flex-col items-center py-4 gap-3 bg-slate-900 border-l border-slate-800 hover:bg-slate-800/50 transition-colors cursor-pointer shrink-0"
       title="Expand AI Sidebar (Cmd+J)"
     >

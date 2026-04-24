@@ -976,7 +976,10 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
           </div>
           <div className="flex flex-wrap gap-2">
             {generateSmartPrompts({
-              failedPods: failedPods.map(p => ({ name: p.metadata.name, namespace: p.metadata.namespace || '', status: 'Failed' })),
+              failedPods: failedPods.map(p => {
+                const reason = p.status?.containerStatuses?.find((cs: any) => cs.state?.waiting)?.state?.waiting?.reason || p.status?.phase || 'Failed';
+                return { name: p.metadata.name, namespace: p.metadata.namespace || '', status: reason };
+              }),
               degradedOperators: degradedOperators.map(o => ({ name: o.metadata.name })),
               currentView: '/pulse',
             }).slice(0, 4).map((sp, i) => (

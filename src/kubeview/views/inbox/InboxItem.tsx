@@ -146,6 +146,11 @@ export function InboxItem({
                 <span><InboxLifecycleBadge itemType={item.item_type} status={item.status} /></span>
               </Tooltip>
             </div>
+            {(item.status === 'resolved' || item.status === 'agent_cleared') && item.metadata?.dismiss_reason ? (
+              <p className="text-xs text-emerald-500/70 mt-1 line-clamp-1">
+                {String(item.metadata.dismiss_reason)}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
