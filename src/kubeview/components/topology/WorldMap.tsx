@@ -157,7 +157,8 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
   const onNode = useCallback((n: MapNode) => { setViewState(p => ({ ...(p || defaultView), zoom: 'node' as ZoomLevel, selectedNode: n })); }, [defaultView]);
 
   // Interactions
-  const handleWheel = useCallback((e: React.WheelEvent) => { e.preventDefault(); const d = e.deltaY > 0 ? -0.3 : 0.3; setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.max(0.5, Math.min(8, b.scale + d * b.scale * 0.3)) }; }); }, [defaultView]);
+  const handleWheel = useCallback((e: WheelEvent) => { e.preventDefault(); const d = e.deltaY > 0 ? -0.3 : 0.3; setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.max(0.5, Math.min(8, b.scale + d * b.scale * 0.3)) }; }); }, [defaultView]);
+  useEffect(() => { const el = svgRef.current; if (!el) return; el.addEventListener('wheel', handleWheel, { passive: false }); return () => el.removeEventListener('wheel', handleWheel); }, [handleWheel]);
   const drag = useRef({ on: false, lx: 0, ly: 0 });
   const onMD = useCallback((e: React.MouseEvent) => { if (e.button !== 0) return; drag.current = { on: true, lx: e.clientX, ly: e.clientY }; }, []);
   const onMM = useCallback((e: React.MouseEvent) => { if (!drag.current.on) return; const dx = e.clientX - drag.current.lx, dy = e.clientY - drag.current.ly; drag.current.lx = e.clientX; drag.current.ly = e.clientY; const sf = 0.3 / cv.scale; setViewState(p => { const b = p || defaultView; return { ...b, center: [b.center[0] - dx * sf, b.center[1] + dy * sf] as [number, number] }; }); }, [cv.scale, defaultView]);
@@ -352,7 +353,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
 
         {/* SVG */}
         <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} className="w-full h-full" style={{ transition: animating ? `all ${FLY_DURATION}ms cubic-bezier(0.4,0,0.2,1)` : undefined, cursor: drag.current.on ? 'grabbing' : 'grab' }}
-          onWheel={handleWheel} onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onDoubleClick={handleDblClick}>
+          onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onDoubleClick={handleDblClick}>
 
           {/* SVG Defs for glow effects */}
           <defs>
