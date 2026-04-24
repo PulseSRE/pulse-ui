@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, X, Download, Upload } from 'lucide-react';
 import { useCustomViewStore } from '../store/customViewStore';
@@ -243,16 +244,27 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               return (
               <div
                 key={view.id}
-                className="group relative rounded-lg border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-900/80 hover:border-violet-800/50 hover:from-slate-900 hover:to-violet-950/20 transition-all cursor-pointer overflow-hidden"
+                className={cn(
+                  'group relative rounded-lg border bg-gradient-to-r from-slate-900 to-slate-900/80 transition-all cursor-pointer overflow-hidden',
+                  view.view_type === 'incident' ? 'border-slate-800 hover:border-red-800/50 hover:to-red-950/20'
+                    : view.view_type === 'assessment' ? 'border-slate-800 hover:border-amber-800/50 hover:to-amber-950/20'
+                    : 'border-slate-800 hover:border-violet-800/50 hover:to-violet-950/20'
+                )}
                 onClick={() => navigate(`/custom/${view.id}`)}
               >
-                {/* Left accent bar */}
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-600 rounded-l" />
+                {/* Left accent bar — color-coded by type */}
+                <div className={cn('absolute left-0 top-0 bottom-0 w-1 rounded-l',
+                  view.view_type === 'incident' ? 'bg-red-500' : view.view_type === 'assessment' ? 'bg-amber-500' : 'bg-violet-600'
+                )} />
 
                 <div className="flex items-center gap-4 p-4 pl-5">
                   {/* Icon */}
-                  <div className="shrink-0 w-10 h-10 rounded-lg bg-violet-600/10 border border-violet-800/30 flex items-center justify-center">
-                    <LayoutDashboard className="w-5 h-5 text-violet-400" />
+                  <div className={cn('shrink-0 w-10 h-10 rounded-lg border flex items-center justify-center',
+                    view.view_type === 'incident' ? 'bg-red-600/10 border-red-800/30' : view.view_type === 'assessment' ? 'bg-amber-600/10 border-amber-800/30' : 'bg-violet-600/10 border-violet-800/30'
+                  )}>
+                    <LayoutDashboard className={cn('w-5 h-5',
+                      view.view_type === 'incident' ? 'text-red-400' : view.view_type === 'assessment' ? 'text-amber-400' : 'text-violet-400'
+                    )} />
                   </div>
 
                   {/* Info */}

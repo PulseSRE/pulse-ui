@@ -307,7 +307,7 @@ export default function IdentityView() {
               </div>
               <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
                 {filteredUsers.length === 0 ? (
-                  <EmptyState icon={<User className="w-8 h-8" />} title="No users found" description="No OpenShift users match your search." />
+                  <EmptyState icon={<User className="w-8 h-8" />} title="No users found" description="OpenShift User objects are created on first console login. Users authenticating only via CLI or API won't appear here." />
                 ) : filteredUsers.map((user: K8sResourceExt) => {
                   const uRoles = userRoles.get(user.metadata.name) || [];
                   const isAdmin = uRoles.some((r) => r === 'cluster-admin');

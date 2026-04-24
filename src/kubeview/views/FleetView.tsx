@@ -78,24 +78,28 @@ export default function FleetView() {
                 done={acmAvailable}
               />
               {!acmAvailable && !acmDetecting && (
-                <div className="ml-11 rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-xs text-slate-400 space-y-3">
-                  <p className="text-slate-300 font-medium">ACM not detected. To install:</p>
-                  <ol className="list-decimal list-inside space-y-2">
-                    <li>
-                      Install the <span className="text-blue-400">Advanced Cluster Management</span> operator from OperatorHub:
-                      <pre className="mt-1 bg-slate-900 rounded px-2 py-1 text-slate-300 overflow-x-auto">oc create ns open-cluster-management{'\n'}# Then install from OperatorHub in the OpenShift Console{'\n'}# Or via CLI:{'\n'}cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operators.coreos.com/v1alpha1{'\n'}kind: Subscription{'\n'}metadata:{'\n'}  name: advanced-cluster-management{'\n'}  namespace: open-cluster-management{'\n'}spec:{'\n'}  channel: release-2.12{'\n'}  name: advanced-cluster-management{'\n'}  source: redhat-operators{'\n'}  sourceNamespace: openshift-marketplace{'\n'}EOF</pre>
-                    </li>
-                    <li>
-                      Create a <span className="text-blue-400">MultiClusterHub</span> resource:
-                      <pre className="mt-1 bg-slate-900 rounded px-2 py-1 text-slate-300 overflow-x-auto">cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operator.open-cluster-management.io/v1{'\n'}kind: MultiClusterHub{'\n'}metadata:{'\n'}  name: multiclusterhub{'\n'}  namespace: open-cluster-management{'\n'}spec: {'{}'}{'\n'}EOF</pre>
-                    </li>
-                    <li>Wait for the operator to become ready (~5 min), then import clusters via the ACM console or <code className="text-blue-400">clusteradm</code> CLI.</li>
-                    <li>Click <span className="text-blue-400">Detect ACM</span> above once your clusters are imported.</li>
-                  </ol>
-                  <p className="text-slate-500">
-                    Alternatively, use <span className="text-blue-400">Multicluster Engine (MCE)</span> if you only need cluster lifecycle management without governance.
-                  </p>
-                </div>
+                <details className="ml-11 rounded-lg border border-slate-700 bg-slate-800/50 text-xs text-slate-400">
+                  <summary className="px-4 py-3 cursor-pointer text-slate-300 font-medium hover:text-slate-100 transition-colors">
+                    ACM not detected — show installation instructions
+                  </summary>
+                  <div className="px-4 pb-4 space-y-3">
+                    <ol className="list-decimal list-inside space-y-2">
+                      <li>
+                        Install the <span className="text-blue-400">Advanced Cluster Management</span> operator from OperatorHub:
+                        <pre className="mt-1 bg-slate-900 rounded px-2 py-1 text-slate-300 overflow-x-auto">oc create ns open-cluster-management{'\n'}# Then install from OperatorHub in the OpenShift Console{'\n'}# Or via CLI:{'\n'}cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operators.coreos.com/v1alpha1{'\n'}kind: Subscription{'\n'}metadata:{'\n'}  name: advanced-cluster-management{'\n'}  namespace: open-cluster-management{'\n'}spec:{'\n'}  channel: release-2.12{'\n'}  name: advanced-cluster-management{'\n'}  source: redhat-operators{'\n'}  sourceNamespace: openshift-marketplace{'\n'}EOF</pre>
+                      </li>
+                      <li>
+                        Create a <span className="text-blue-400">MultiClusterHub</span> resource:
+                        <pre className="mt-1 bg-slate-900 rounded px-2 py-1 text-slate-300 overflow-x-auto">cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operator.open-cluster-management.io/v1{'\n'}kind: MultiClusterHub{'\n'}metadata:{'\n'}  name: multiclusterhub{'\n'}  namespace: open-cluster-management{'\n'}spec: {'{}'}{'\n'}EOF</pre>
+                      </li>
+                      <li>Wait for the operator to become ready (~5 min), then import clusters via the ACM console or <code className="text-blue-400">clusteradm</code> CLI.</li>
+                      <li>Click <span className="text-blue-400">Detect ACM</span> above once your clusters are imported.</li>
+                    </ol>
+                    <p className="text-slate-500">
+                      Alternatively, use <span className="text-blue-400">Multicluster Engine (MCE)</span> if you only need cluster lifecycle management without governance.
+                    </p>
+                  </div>
+                </details>
               )}
               <StepCard
                 number={2}
