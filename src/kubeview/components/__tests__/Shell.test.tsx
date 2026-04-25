@@ -253,12 +253,12 @@ describe('Shell', () => {
     _mockUIState.degradedReasons = new Set();
   });
 
-  it('session expired modal dismiss button removes session_expired reason', () => {
+  it('session expired modal has no dismiss button', () => {
     _mockUIState.degradedReasons = new Set(['session_expired']);
     renderShell();
 
-    fireEvent.click(screen.getByText('Dismiss'));
-    expect(_mockRemoveDegraded).toHaveBeenCalledWith('session_expired');
+    expect(screen.queryByText('Dismiss')).toBeNull();
+    expect(screen.getByText('Log in now')).toBeDefined();
     _mockUIState.degradedReasons = new Set();
   });
 });

@@ -158,12 +158,14 @@ const MONITOR_ENDPOINT = '/api/agent/ws/monitor';
 const BASE_RECONNECT_DELAY = 1000;
 const MAX_RECONNECT_DELAY = 30_000;
 const HIDDEN_RECONNECT_DELAY = 60_000;
+const TOKEN_REFRESH_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours
 
 export class MonitorClient {
   private ws: WebSocket | null = null;
   private handlers: Set<EventHandler> = new Set();
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _connected = false;
   private _disconnectedByUser = false;
   private trustLevel = 1;
@@ -210,6 +212,7 @@ export class MonitorClient {
       this._connected = true;
       this.reconnectAttempts = 0;
       this.emit({ type: 'connected' });
+      this.scheduleTokenRefresh();
 
       // Send subscription message with trust level and auto-fix categories
       this.ws?.send(
@@ -282,6 +285,17 @@ export class MonitorClient {
     }, delay + jitter);
   }
 
+  private scheduleTokenRefresh() {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      if (this._connected && !this._disconnectedByUser) {
+        this.reconnectAttempts = 0;
+        this.connect(this.trustLevel, this.autoFixCategories);
+      }
+    }, TOKEN_REFRESH_INTERVAL);
+  }
+
   private handleVisibilityChange() {
     if (this._disconnectedByUser) return;
 
@@ -305,6 +319,10 @@ export class MonitorClient {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
     }
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);

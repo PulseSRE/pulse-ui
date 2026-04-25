@@ -5,6 +5,7 @@
  */
 
 import { getImpersonationHeaders } from '../../engine/query';
+import { checkAuth } from '../../engine/safeQuery';
 
 const PROM_BASE = '/api/prometheus';
 
@@ -58,6 +59,7 @@ export async function queryRange(
 
   const url = `${PROM_BASE}/api/v1/query_range?${params}`;
   const res = await fetch(url, { headers: getImpersonationHeaders() });
+  checkAuth(res);
 
   if (!res.ok) {
     throw new Error(`Prometheus query failed: ${res.status} ${res.statusText}`);
@@ -86,6 +88,7 @@ export async function queryInstant(
 
   const url = `${PROM_BASE}/api/v1/query?${params}`;
   const res = await fetch(url, { headers: getImpersonationHeaders() });
+  checkAuth(res);
 
   if (!res.ok) {
     throw new Error(`Prometheus query failed: ${res.status} ${res.statusText}`);
@@ -109,6 +112,7 @@ export async function queryInstant(
 export async function getMetricNames(): Promise<string[]> {
   const url = `${PROM_BASE}/api/v1/label/__name__/values`;
   const res = await fetch(url, { headers: getImpersonationHeaders() });
+  checkAuth(res);
 
   if (!res.ok) {
     throw new Error(`Failed to fetch metric names: ${res.status} ${res.statusText}`);
@@ -132,6 +136,7 @@ export async function getLabelValues(labelName: string): Promise<string[]> {
   }
   const url = `${PROM_BASE}/api/v1/label/${labelName}/values`;
   const res = await fetch(url, { headers: getImpersonationHeaders() });
+  checkAuth(res);
 
   if (!res.ok) {
     throw new Error(`Failed to fetch label values: ${res.status} ${res.statusText}`);

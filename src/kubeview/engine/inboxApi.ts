@@ -64,10 +64,12 @@ export interface InboxFilters {
 
 // ---- REST helpers ----
 
+import { agentFetch } from './safeQuery';
+
 const AGENT_BASE = '/api/agent';
 
 async function _fetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+  const res = await agentFetch(url, init);
   if (!res.ok) {
     throw new Error(`Inbox API error: ${res.status} ${res.statusText}`);
   }
@@ -163,7 +165,7 @@ export interface InvestigationReport {
 }
 
 export async function fetchInboxInvestigation(id: string): Promise<InvestigationReport | null> {
-  const res = await fetch(`${AGENT_BASE}/inbox/${id}/investigation`);
+  const res = await agentFetch(`${AGENT_BASE}/inbox/${id}/investigation`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Inbox API error: ${res.status} ${res.statusText}`);
   return res.json();

@@ -44,7 +44,7 @@ describe('fixHistory', () => {
       );
 
       const result = await fetchFixHistory();
-      expect(fetch).toHaveBeenCalledWith('/api/agent/fix-history');
+      expect((fetch as any).mock.calls[0][0]).toBe('/api/agent/fix-history');
       expect(result.actions).toHaveLength(1);
       expect(result.total).toBe(1);
     });
@@ -113,7 +113,7 @@ describe('fixHistory', () => {
       );
 
       const result = await fetchActionDetail('a1');
-      expect(fetch).toHaveBeenCalledWith('/api/agent/fix-history/a1');
+      expect((fetch as any).mock.calls[0][0]).toBe('/api/agent/fix-history/a1');
       expect(result.id).toBe('a1');
     });
 
@@ -127,7 +127,7 @@ describe('fixHistory', () => {
       );
 
       await fetchActionDetail('a/b');
-      expect(fetch).toHaveBeenCalledWith('/api/agent/fix-history/a%2Fb');
+      expect((fetch as any).mock.calls[0][0]).toBe('/api/agent/fix-history/a%2Fb');
     });
 
     it('throws on non-ok response', async () => {

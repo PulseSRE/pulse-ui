@@ -65,20 +65,12 @@ function SessionExpiredModal() {
             style={{ width: `${((SESSION_REDIRECT_SECONDS - countdown) / SESSION_REDIRECT_SECONDS) * 100}%` }}
           />
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={redirectNow}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
-          >
-            Log in now
-          </button>
-          <button
-            onClick={() => useUIStore.getState().removeDegradedReason('session_expired')}
-            className="px-4 py-2.5 text-sm text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            Dismiss
-          </button>
-        </div>
+        <button
+          onClick={redirectNow}
+          className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+        >
+          Log in now
+        </button>
       </div>
     </div>
   );

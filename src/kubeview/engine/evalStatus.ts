@@ -1,3 +1,5 @@
+import { checkAuth } from './safeQuery';
+
 export interface EvalSuiteSummary {
   gate_passed: boolean;
   scenario_count: number;
@@ -59,12 +61,14 @@ export interface EvalTrend {
 
 export async function fetchEvalTrend(suite: string = 'release'): Promise<EvalTrend | null> {
   const res = await fetch(`/api/agent/eval/trend?suite=${suite}`);
+  checkAuth(res);
   if (!res.ok) return null;
   return res.json();
 }
 
 export async function fetchAgentEvalStatus(): Promise<AgentEvalStatus | null> {
   const res = await fetch('/api/agent/eval/status');
+  checkAuth(res);
   if (!res.ok) return null;
   const data = await res.json();
   // Validate response shape before returning

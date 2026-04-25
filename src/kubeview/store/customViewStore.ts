@@ -56,18 +56,22 @@ interface CustomViewState {
 }
 
 async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`${AGENT_BASE}${path}`, {
+  const rawRes = await fetch(`${AGENT_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
     },
   });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || res.statusText);
+  if (rawRes.status === 401) {
+    const { useUIStore } = await import('./uiStore');
+    useUIStore.getState().addDegradedReason('session_expired');
   }
-  return res.json();
+  if (!rawRes.ok) {
+    const error = await rawRes.json().catch(() => ({ error: rawRes.statusText }));
+    throw new Error(error.error || rawRes.statusText);
+  }
+  return rawRes.json();
 }
 
 export const useCustomViewStore = create<CustomViewState>()(

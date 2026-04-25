@@ -41,6 +41,8 @@ export interface FixHistoryResponse {
 
 // ---- REST helpers ----
 
+import { agentFetch } from './safeQuery';
+
 const AGENT_BASE = '/api/agent';
 
 /** Fetch paginated fix history with optional filters. */
@@ -57,7 +59,7 @@ export async function fetchFixHistory(params?: {
 
   const qs = query.toString();
   const url = `${AGENT_BASE}/fix-history${qs ? `?${qs}` : ''}`;
-  const res = await fetch(url);
+  const res = await agentFetch(url);
   if (!res.ok) {
     throw new Error(`Failed to fetch fix history: ${res.status} ${res.statusText}`);
   }
@@ -66,7 +68,7 @@ export async function fetchFixHistory(params?: {
 
 /** Fetch details for a single action record. */
 export async function fetchActionDetail(id: string): Promise<ActionRecord> {
-  const res = await fetch(`${AGENT_BASE}/fix-history/${encodeURIComponent(id)}`);
+  const res = await agentFetch(`${AGENT_BASE}/fix-history/${encodeURIComponent(id)}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch action detail: ${res.status} ${res.statusText}`);
   }
@@ -84,7 +86,7 @@ export interface BriefingResponse {
 }
 
 export async function fetchBriefing(hours = 12): Promise<BriefingResponse> {
-  const res = await fetch(`${AGENT_BASE}/briefing?hours=${hours}`);
+  const res = await agentFetch(`${AGENT_BASE}/briefing?hours=${hours}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch briefing: ${res.status} ${res.statusText}`);
   }
@@ -93,7 +95,7 @@ export async function fetchBriefing(hours = 12): Promise<BriefingResponse> {
 
 /** Request a rollback for a completed action. */
 export async function requestRollback(actionId: string): Promise<void> {
-  const res = await fetch(
+  const res = await agentFetch(
     `${AGENT_BASE}/fix-history/${encodeURIComponent(actionId)}/rollback`,
     { method: 'POST' },
   );

@@ -23,69 +23,69 @@ describe('analyticsApi', () => {
   it('fetchFixHistorySummary calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ total_actions: 5 }) });
     const result = await fetchFixHistorySummary(7);
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/fix-history/summary?days=7');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/fix-history/summary?days=7');
     expect(result.total_actions).toBe(5);
   });
 
   it('fetchScannerCoverage calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ coverage_pct: 78 }) });
     const result = await fetchScannerCoverage();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/monitor/coverage?days=7');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/monitor/coverage?days=7');
     expect(result.coverage_pct).toBe(78);
   });
 
   it('fetchConfidenceCalibration calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ rating: 'good' }) });
     const result = await fetchConfidenceCalibration();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/confidence?days=30');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/confidence?days=30');
     expect(result.rating).toBe('good');
   });
 
   it('fetchAccuracyStats calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ avg_quality_score: 0.85 }) });
     const result = await fetchAccuracyStats();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/accuracy?days=30');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/accuracy?days=30');
     expect(result.avg_quality_score).toBe(0.85);
   });
 
   it('fetchCostStats calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ total_tokens: 50000 }) });
     const result = await fetchCostStats();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/cost?days=30');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/cost?days=30');
     expect(result.total_tokens).toBe(50000);
   });
 
   it('fetchIntelligenceSections calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ query_reliability: {} }) });
     const result = await fetchIntelligenceSections();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/intelligence?days=7&mode=sre');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/intelligence?days=7&mode=sre');
     expect(result.query_reliability).toBeDefined();
   });
 
   it('fetchPromptStats calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ stats: { total_prompts: 100 } }) });
     const result = await fetchPromptStats();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/prompt?days=30');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/prompt?days=30');
     expect(result.stats.total_prompts).toBe(100);
   });
 
   it('fetchPromptStats passes skill parameter', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ stats: {} }) });
     await fetchPromptStats(30, 'sre');
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/prompt?days=30&skill=sre');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/prompt?days=30&skill=sre');
   });
 
   it('fetchRecommendations calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ recommendations: [] }) });
     const result = await fetchRecommendations();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/recommendations');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/recommendations');
     expect(result.recommendations).toEqual([]);
   });
 
   it('fetchReadinessSummary calls correct endpoint', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ pass_rate: 0.93 }) });
     const result = await fetchReadinessSummary();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/readiness');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/readiness');
     expect(result.pass_rate).toBe(0.93);
   });
 
@@ -130,7 +130,7 @@ describe('analyticsApi', () => {
     };
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockData) });
     const result = await fetchSessionAnalytics();
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/sessions?days=7');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/sessions?days=7');
     expect(result.summary.total_sessions).toBe(25);
     expect(result.pages).toHaveLength(1);
     expect(result.top_suggestions[0].clicks).toBe(8);
@@ -139,6 +139,6 @@ describe('analyticsApi', () => {
   it('fetchSessionAnalytics passes custom days parameter', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ summary: {}, pages: [], days: 30 }) });
     await fetchSessionAnalytics(30);
-    expect(mockFetch).toHaveBeenCalledWith('/api/agent/analytics/sessions?days=30');
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/agent/analytics/sessions?days=30');
   });
 });

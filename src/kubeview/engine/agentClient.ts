@@ -90,6 +90,7 @@ const AGENT_BASE = '/api/agent';
 const SUPPORTED_PROTOCOLS = ['1', '2'];
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 5;
+const TOKEN_REFRESH_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours
 
 export class AgentClient {
   private ws: WebSocket | null = null;
@@ -97,6 +98,7 @@ export class AgentClient {
   private handlers: Set<EventHandler> = new Set();
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _connected = false;
 
   constructor(mode: AgentMode = 'sre') {
@@ -160,6 +162,7 @@ export class AgentClient {
       this._connected = true;
       this.reconnectAttempts = 0;
       this.emit({ type: 'connected' });
+      this.scheduleTokenRefresh();
     };
 
     this.ws.onmessage = (event) => {
@@ -203,11 +206,26 @@ export class AgentClient {
     }, RECONNECT_DELAY * this.reconnectAttempts + Math.random() * 1000);
   }
 
+  private scheduleTokenRefresh() {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      if (this._connected) {
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    }, TOKEN_REFRESH_INTERVAL);
+  }
+
   /** Disconnect and stop reconnecting. */
   disconnect() {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
     }
     this.reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // prevent reconnect
     if (this.ws) {

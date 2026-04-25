@@ -1,9 +1,11 @@
 /** Typed fetch functions for Pulse Agent analytics endpoints. */
 
+import { agentFetch } from './safeQuery';
+
 const AGENT_BASE = '/api/agent';
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await agentFetch(path);
   if (!res.ok) throw new Error(`Analytics API error: ${res.status} on ${path}`);
   return res.json();
 }
@@ -155,13 +157,13 @@ export interface AgentVersionInfo {
 }
 
 export const fetchCapabilities = async (): Promise<AgentCapabilities> => {
-  const res = await fetch(`${AGENT_BASE}/monitor/capabilities`);
+  const res = await agentFetch(`${AGENT_BASE}/monitor/capabilities`);
   if (!res.ok) return { max_trust_level: 0 };
   return res.json();
 };
 
 export const fetchAgentVersion = async (): Promise<AgentVersionInfo | null> => {
-  const res = await fetch(`${AGENT_BASE}/version`);
+  const res = await agentFetch(`${AGENT_BASE}/version`);
   if (!res.ok) return null;
   return res.json();
 };

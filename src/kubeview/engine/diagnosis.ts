@@ -5,6 +5,7 @@
 
 import type { K8sResource } from './renderers/index';
 import type { PersistentVolumeClaim } from './types';
+import { checkAuth } from './safeQuery';
 
 export interface Diagnosis {
   severity: 'critical' | 'warning' | 'info';
@@ -670,6 +671,7 @@ export async function enrichDiagnosesWithLogs(
 
 async function defaultLogFetch(url: string): Promise<string> {
   const res = await fetch(url);
+  checkAuth(res);
   if (!res.ok) return '';
   return res.text();
 }

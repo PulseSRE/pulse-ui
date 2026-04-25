@@ -5,6 +5,8 @@
  * using layout templates defined in the backend registry.
  */
 
+import { agentFetch } from './safeQuery';
+
 export interface ComponentLayout {
   type: string;  // primitive type: stat_card, grid, bar_list, progress_list, key_value, status_list
   label?: string;
@@ -42,7 +44,7 @@ export async function fetchComponentRegistry(): Promise<Record<string, Component
 
   _fetching = true;
   try {
-    const res = await fetch('/api/agent/components');
+    const res = await agentFetch('/api/agent/components');
     if (!res.ok) return {};
     _cache = await res.json();
     return _cache || {};
