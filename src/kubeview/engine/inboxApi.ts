@@ -142,6 +142,19 @@ export async function pinInboxItem(id: string): Promise<void> {
   await _fetch(`${AGENT_BASE}/inbox/${id}/pin`, { method: 'POST' });
 }
 
+export async function recordInboxStep(
+  id: string,
+  action: 'execute' | 'skip',
+  stepIndex: number,
+  stepTitle: string,
+): Promise<void> {
+  await _fetch(`${AGENT_BASE}/inbox/${id}/step`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, step_index: stepIndex, step_title: stepTitle }),
+  });
+}
+
 export async function advanceInboxStatus(id: string, status: string): Promise<void> {
   await _fetch(`${AGENT_BASE}/inbox/${id}`, {
     method: 'PATCH',

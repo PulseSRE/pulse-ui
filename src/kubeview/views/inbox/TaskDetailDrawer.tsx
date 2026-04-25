@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { formatRelativeTime } from '../../engine/formatters';
 import {
   fetchInboxInvestigation,
+  recordInboxStep,
   type InboxItem,
   type InvestigationReport,
 } from '../../engine/inboxApi';
@@ -141,6 +142,7 @@ function ActionPlanSection({
     ensureExecution();
     useActionPlanStore.getState().startStep(stepIdx);
     advanceToInProgress();
+    recordInboxStep(item.id, 'execute', stepIdx, steps[stepIdx]?.title ?? '').catch(() => {});
     useAgentStore.getState().connectAndSend(prompt);
     useUIStore.getState().expandAISidebar();
     useUIStore.getState().setAISidebarMode('chat');
@@ -150,6 +152,7 @@ function ActionPlanSection({
   const handleSkip = (idx: number, title: string) => {
     ensureExecution();
     useActionPlanStore.getState().setStepStatus(idx, 'skipped');
+    recordInboxStep(item.id, 'skip', idx, title).catch(() => {});
     useUIStore.getState().addToast({ type: 'success', title: `Skipped: ${title}` });
   };
 
