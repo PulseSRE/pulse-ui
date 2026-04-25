@@ -21,6 +21,10 @@ const OnboardingView = lazy(() => import('../views/OnboardingView'));
 const PulseAgentView = lazy(() => import('../views/PulseAgentView'));
 const ViewsManagement = lazy(() => import('../views/ViewsManagement'));
 const AdminExtensionsView = lazy(() => import('../views/AdminExtensionsView'));
+const AlertsView = lazy(() => import('../views/AlertsView'));
+const OperatorCatalogView = lazy(() => import('../views/OperatorCatalogView'));
+const ProjectDashboard = lazy(() => import('../views/ProjectDashboard'));
+const TimelineView = lazy(() => import('../views/TimelineView'));
 const SloView = lazy(() => import('../views/SloView'));
 const TopologyView = lazy(() => import('../views/TopologyView'));
 
@@ -61,7 +65,7 @@ export function domainRoutes() {
       <Route path="users" element={<Navigate to="/identity?tab=users" replace />} />
       <Route path="identity" element={<Lazy><IdentityView /></Lazy>} />
       <Route path="admin" element={<Lazy><AdminView /></Lazy>} />
-      <Route path="alerts" element={<Navigate to="/inbox?type=alert" replace />} />
+      <Route path="alerts" element={<Lazy><AlertsView /></Lazy>} />
       <Route path="gitops" element={<Lazy><ArgoCDView /></Lazy>} />
       <Route path="fleet" element={<Lazy><FleetView /></Lazy>} />
       <Route path="fleet/compare" element={<Lazy><CompareView /></Lazy>} />
@@ -83,6 +87,10 @@ export function domainRoutes() {
       <Route path="toolbox" element={<Navigate to="/agent?tab=tools" replace />} />
       <Route path="slo" element={<Lazy><SloView /></Lazy>} />
       <Route path="topology" element={<Lazy><TopologyView /></Lazy>} />
+      <Route path="operators" element={<Lazy><OperatorCatalogView /></Lazy>} />
+      <Route path="operatorhub" element={<Navigate to="/operators" replace />} />
+      <Route path="project/:namespace" element={<Lazy><ProjectDashboard /></Lazy>} />
+      <Route path="timeline" element={<Lazy><TimelineView /></Lazy>} />
       <Route path="tools" element={<Navigate to="/agent?tab=tools" replace />} />
       <Route path="extensions" element={<Navigate to="/agent?tab=skills" replace />} />
     </>
