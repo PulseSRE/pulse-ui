@@ -109,7 +109,9 @@ export default function OperatorCatalogView() {
   const filtered = useMemo(() => {
     let result = dedupedPackages;
 
-    if (catalogFilter !== 'all') {
+    if (catalogFilter === 'installed') {
+      result = result.filter(p => installedNames.has(p.metadata.name));
+    } else if (catalogFilter !== 'all') {
       result = result.filter(p => p.status.catalogSource.replace(/-4\.\d+$/, '') === catalogFilter);
     }
 
@@ -132,7 +134,7 @@ export default function OperatorCatalogView() {
       const bName = b.status.channels?.[0]?.currentCSVDesc?.displayName || b.metadata.name;
       return aName.localeCompare(bName);
     });
-  }, [dedupedPackages, search, catalogFilter]);
+  }, [dedupedPackages, search, catalogFilter, installedNames]);
 
   // Install operator
   const handleInstall = async (pkg: PackageManifest, channel: string, ns: string) => {
@@ -817,6 +819,9 @@ export default function OperatorCatalogView() {
               className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex gap-1 bg-slate-900 rounded-lg p-1" role="tablist" aria-label="Catalog filter">
+            <button role="tab" aria-selected={catalogFilter === 'installed'} onClick={() => setCatalogFilter('installed')} className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === 'installed' ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+              Installed ({installedNames.size})
+            </button>
             <button role="tab" aria-selected={catalogFilter === 'all'} onClick={() => setCatalogFilter('all')} className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               All ({dedupedPackages.length})
             </button>
