@@ -15,7 +15,10 @@ interface AccessReviewSpec {
   namespace?: string; // optional — omit for cluster-scoped check
 }
 
+const WRITE_VERBS = new Set(['create', 'update', 'patch', 'delete', 'deletecollection']);
+
 async function checkAccess(spec: AccessReviewSpec): Promise<boolean> {
+  const failOpen = !WRITE_VERBS.has(spec.verb);
   try {
     const body = {
       apiVersion: 'authorization.k8s.io/v1',
@@ -36,11 +39,11 @@ async function checkAccess(spec: AccessReviewSpec): Promise<boolean> {
       body: JSON.stringify(body),
     });
 
-    if (!res.ok) return true; // Fail open — don't hide features if check fails
+    if (!res.ok) return failOpen;
     const data = await res.json();
     return data.status?.allowed === true;
   } catch {
-    return true; // Fail open
+    return failOpen;
   }
 }
 

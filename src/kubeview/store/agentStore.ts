@@ -334,7 +334,10 @@ export const useAgentStore = create<AgentState>()(
       },
 
       sendMessage: (content, context, fleetMode) => {
-        if (!client) return;
+        if (!client) {
+          set({ error: 'Agent not connected — try again in a moment' });
+          return;
+        }
         resetStreamingState();
 
         const userMsg: AgentMessage = {

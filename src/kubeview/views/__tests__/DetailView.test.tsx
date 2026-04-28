@@ -27,6 +27,13 @@ vi.mock('../../store/uiStore', () => ({
   },
 }));
 
+vi.mock('../../hooks/useCanI', () => ({
+  useCanI: () => ({ allowed: true, isLoading: false }),
+  useCanDelete: () => ({ allowed: true, isLoading: false }),
+  useCanCreate: () => ({ allowed: true, isLoading: false }),
+  useCanUpdate: () => ({ allowed: true, isLoading: false }),
+}));
+
 vi.mock('../../store/clusterStore', () => ({
   useClusterStore: (selector: any) => {
     const state = { resourceRegistry: new Map() };

@@ -134,7 +134,7 @@ export const useMonitorStore = create<MonitorState>()(
       notificationCenterOpen: false,
 
       connect: () => {
-        if (client && get().connected) return;
+        if (client && client.connected && get().connected) return;
         if (unsubscribe) unsubscribe();
         if (client) client.disconnect();
 
