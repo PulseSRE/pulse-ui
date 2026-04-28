@@ -12,6 +12,13 @@ export default defineConfig({
     baseURL: process.env.PULSE_URL || 'http://localhost:9000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    storageState: {
+      cookies: [],
+      origins: [{
+        origin: process.env.PULSE_URL || 'http://localhost:9000',
+        localStorage: [{ name: 'openshiftpulse-tour-completed', value: 'true' }],
+      }],
+    },
   },
   projects: [
     {

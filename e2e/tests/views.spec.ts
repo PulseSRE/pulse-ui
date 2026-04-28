@@ -316,29 +316,23 @@ test.describe('View UI: Render & Edit', () => {
     if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
     await gotoView(page, testViewId, 'E2E UI Test View');
 
-    // Click the title to enter edit mode
     const heading = page.locator('h1').filter({ hasText: 'E2E UI Test View' });
     await heading.click();
-    // Input should appear
-    const input = page.locator('input').first();
+    const input = page.locator('input.border-violet-500');
     await expect(input).toBeVisible({ timeout: 5_000 });
 
-    // Clear and type new title
     await input.fill('Renamed View');
     await input.press('Enter');
 
-    // Title should update
-    await expect(page.locator('text=Renamed View').first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('h1').filter({ hasText: 'Renamed View' })).toBeVisible({ timeout: 5_000 });
   });
 
   test('share button copies link', async ({ page }) => {
     if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
     await gotoView(page, testViewId, 'E2E UI Test View');
 
-    // Click Share (icon button with title="Share view")
     await page.click('button[title="Share view"]');
-    // Button title changes to "Link copied!"
-    await expect(page.locator('button[title="Link copied!"]')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('button[title="Link copied!"]')).toBeVisible({ timeout: 1_500 });
   });
 
   test('view not found shows empty state', async ({ page }) => {
@@ -506,10 +500,11 @@ test.describe('View UI: All Component Types', () => {
     await expect(page.locator('td:has-text("pod-1")')).toBeVisible();
   });
 
-  test('chart shows PromQL query footer', async ({ page }) => {
+  test('chart renders title and range footer', async ({ page }) => {
     if (!testViewId) { test.skip(true, 'Agent unavailable'); return; }
     await page.goto(`/custom/${testViewId}`);
-    await expect(page.locator('text=PromQL:')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=CPU Over Time')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('text=Range:')).toBeVisible({ timeout: 5_000 });
   });
 
   test('status list shows all items', async ({ page }) => {

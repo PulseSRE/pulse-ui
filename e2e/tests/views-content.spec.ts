@@ -1,19 +1,16 @@
 import { test, expect } from 'playwright/test';
 
 test.describe('View Content', () => {
-  test('Welcome page shows navigation cards', async ({ page }) => {
-    await page.goto('/welcome');
-    await expect(page.locator('text=OpenShift Pulse').first()).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('text=Pulse').first()).toBeVisible();
-    await expect(page.locator('text=Workloads').first()).toBeVisible();
-    await expect(page.locator('text=Compute').first()).toBeVisible();
+  test('Pulse page shows cluster overview', async ({ page }) => {
+    await page.goto('/pulse');
+    await expect(page.locator('text=Cluster Pulse').first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test('Welcome page cards are clickable', async ({ page }) => {
-    await page.goto('/welcome');
-    await expect(page.locator('text=OpenShift Pulse').first()).toBeVisible({ timeout: 15_000 });
-    await page.locator('text=Workloads').first().click();
-    await page.waitForURL(/workloads/, { timeout: 10_000 });
+  test('Pulse page compute pill navigates to compute', async ({ page }) => {
+    await page.goto('/pulse');
+    await expect(page.locator('text=Cluster Pulse').first()).toBeVisible({ timeout: 15_000 });
+    await page.locator('text=nodes').first().click();
+    await page.waitForURL(/compute/, { timeout: 10_000 });
   });
 
   test('Admin view loads and shows in status bar', async ({ page }) => {
@@ -33,8 +30,8 @@ test.describe('View Content', () => {
   });
 
   test('StatusBar shows connection status', async ({ page }) => {
-    await page.goto('/welcome');
-    await expect(page.locator('text=OpenShift Pulse').first()).toBeVisible({ timeout: 15_000 });
+    await page.goto('/pulse');
+    await expect(page.locator('text=Cluster Pulse').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('text=Connected').first()).toBeVisible({ timeout: 5_000 });
   });
 });
