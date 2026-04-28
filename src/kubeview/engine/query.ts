@@ -11,12 +11,6 @@ import { useUIStore } from '../store/uiStore';
 import { parseK8sErrorResponse, wrapNetworkError } from './errors';
 import type { K8sResource } from './renderers';
 
-/** Detect 401 responses and flag session expiry via degraded mode */
-function checkSessionExpiry(response: Response) {
-  if (response.status === 401) {
-    useUIStore.getState().addDegradedReason('session_expired');
-  }
-}
 
 /** Sanitize a value for safe interpolation into PromQL label matchers */
 export function sanitizePromQL(value: string): string {
@@ -78,7 +72,7 @@ export async function k8sList<T = K8sResource>(
   }
 
   if (!response.ok) {
-    checkSessionExpiry(response);
+
     throw await parseK8sErrorResponse(response, { operation: 'list', apiPath });
   }
 
@@ -106,7 +100,7 @@ export async function k8sGet<T = K8sResource>(apiPath: string, clusterId?: strin
   }
 
   if (!response.ok) {
-    checkSessionExpiry(response);
+
     throw await parseK8sErrorResponse(response, { operation: 'get', apiPath });
   }
 
@@ -132,7 +126,7 @@ export async function k8sCreate<T>(apiPath: string, body: T, clusterId?: string)
   }
 
   if (!response.ok) {
-    checkSessionExpiry(response);
+
     throw await parseK8sErrorResponse(response, { operation: 'create', apiPath });
   }
 
@@ -158,7 +152,7 @@ export async function k8sUpdate<T>(apiPath: string, body: T, clusterId?: string)
   }
 
   if (!response.ok) {
-    checkSessionExpiry(response);
+
     throw await parseK8sErrorResponse(response, { operation: 'update', apiPath });
   }
 
@@ -189,7 +183,7 @@ export async function k8sPatch<T>(
   }
 
   if (!response.ok) {
-    checkSessionExpiry(response);
+
     throw await parseK8sErrorResponse(response, { operation: 'patch', apiPath });
   }
 
@@ -235,7 +229,7 @@ export async function k8sDelete(apiPath: string, clusterId?: string): Promise<vo
   }
 
   if (!response.ok && response.status !== 404) {
-    checkSessionExpiry(response);
+
     throw await parseK8sErrorResponse(response, { operation: 'delete', apiPath });
   }
 }

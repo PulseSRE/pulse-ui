@@ -3,6 +3,8 @@
  * Provides user-friendly messages and actionable suggestions.
  */
 
+import { useUIStore } from '../store/uiStore';
+
 export type ErrorCategory =
   | 'permission'
   | 'not_found'
@@ -174,6 +176,10 @@ export async function parseK8sErrorResponse(
   response: Response,
   ctx: ErrorContext,
 ): Promise<PulseError> {
+  if (response.status === 401) {
+    useUIStore.getState().addDegradedReason('session_expired');
+  }
+
   let body: K8sStatusResponse = {};
   let rawMessage = `${ctx.operation} failed: ${response.statusText}`;
 
