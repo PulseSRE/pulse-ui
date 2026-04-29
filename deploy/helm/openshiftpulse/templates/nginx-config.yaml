@@ -40,8 +40,11 @@ data:
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
+        resolver 172.30.0.10 valid=30s ipv6=off;
+        set $k8s_api "https://kubernetes.default.svc";
+
         location /api/kubernetes/ {
-          proxy_pass https://kubernetes.default.svc/;
+          proxy_pass $k8s_api/;
           proxy_ssl_verify on;
           proxy_ssl_trusted_certificate /var/run/secrets/kubernetes.io/serviceaccount/ca.crt;
           # Use the authenticated user's OAuth token so Kubernetes RBAC is enforced.
@@ -58,8 +61,9 @@ data:
         }
 
         {{- if .Values.monitoring.prometheus.enabled }}
+        set $prom_upstream "https://{{ .Values.monitoring.prometheus.host }}";
         location /api/prometheus/ {
-          proxy_pass https://{{ .Values.monitoring.prometheus.host }}/;
+          proxy_pass $prom_upstream/;
           proxy_ssl_verify on;
           proxy_ssl_trusted_certificate /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt;
           # Try user OAuth token first, fall back to SA token (set by entrypoint)
@@ -83,8 +87,9 @@ data:
         {{- end }}
 
         {{- if .Values.monitoring.alertmanager.enabled }}
+        set $am_upstream "https://{{ .Values.monitoring.alertmanager.host }}";
         location /api/alertmanager/ {
-          proxy_pass https://{{ .Values.monitoring.alertmanager.host }}/;
+          proxy_pass $am_upstream/;
           proxy_ssl_verify on;
           proxy_ssl_trusted_certificate /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt;
           set $am_token $http_x_forwarded_access_token;
@@ -122,8 +127,9 @@ data:
         {{- if not $wsToken }}
           {{- $wsToken = "__AGENT_TOKEN__" -}}
         {{- end }}
+        set $agent_upstream "http://{{ $agentSvc }}:8080";
         location ~ ^/api/agent/ws/(sre|security|monitor|agent)$ {
-          proxy_pass http://{{ $agentSvc }}:8080/ws/$1?token={{ $wsToken }};
+          proxy_pass $agent_upstream/ws/$1?token={{ $wsToken }};
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
           proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
@@ -133,7 +139,7 @@ data:
         }
 
         location /api/agent/ {
-          proxy_pass http://{{ $agentSvc }}:8080/;
+          proxy_pass $agent_upstream/;
           proxy_set_header Authorization "Bearer {{ $wsToken }}";
           proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
           proxy_set_header X-Forwarded-User $http_x_forwarded_user;
