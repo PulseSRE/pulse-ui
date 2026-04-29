@@ -41,14 +41,20 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
-    - ports:
+    - to:
+        - namespaceSelector: {}
+      ports:
         - protocol: TCP
           port: 443
         - protocol: TCP
           port: 6443
         - protocol: TCP
           port: 9091
-    - ports:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-dns
+      ports:
         - protocol: TCP
           port: 53
         - protocol: UDP
