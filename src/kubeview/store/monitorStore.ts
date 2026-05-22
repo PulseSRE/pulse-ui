@@ -91,6 +91,18 @@ let unsubscribe: (() => void) | null = null;
 // H10: request counter to prevent stale fix history responses from overwriting newer data
 let _fixHistoryRequestId = 0;
 
+let _inboxRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function debouncedInboxRefresh() {
+  if (_inboxRefreshTimer) clearTimeout(_inboxRefreshTimer);
+  _inboxRefreshTimer = setTimeout(() => {
+    _inboxRefreshTimer = null;
+    import('./inboxStore').then(({ useInboxStore }) => {
+      useInboxStore.getState().refresh();
+    });
+  }, 500);
+}
+
 function capArray<T>(arr: T[], max: number): T[] {
   return arr.length > max ? arr.slice(-max) : arr;
 }
@@ -296,9 +308,7 @@ export const useMonitorStore = create<MonitorState>()(
             }
 
             case 'inbox_item_created': {
-              import('./inboxStore').then(({ useInboxStore }) => {
-                useInboxStore.getState().refresh();
-              });
+              debouncedInboxRefresh();
               if (event.severity === 'critical') {
                 useUIStore.getState().addToast({
                   type: 'warning',
@@ -312,9 +322,7 @@ export const useMonitorStore = create<MonitorState>()(
             case 'inbox_item_updated':
             case 'inbox_item_claimed':
             case 'inbox_item_resolved': {
-              import('./inboxStore').then(({ useInboxStore }) => {
-                useInboxStore.getState().refresh();
-              });
+              debouncedInboxRefresh();
               break;
             }
 

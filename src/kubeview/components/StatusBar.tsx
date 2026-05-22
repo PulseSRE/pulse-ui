@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { DEGRADED_MESSAGES } from '../engine/degradedMode';
 import { useUIStore } from '../store/uiStore';
 import { useFleetStore } from '../store/fleetStore';
+import { useInboxStore } from '../store/inboxStore';
 import { useMonitorStore } from '../store/monitorStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
@@ -31,10 +32,8 @@ export function StatusBar() {
   const activeCluster = useFleetStore((s) => s.clusters.find(c => c.id === s.activeClusterId));
 
   const navigate = useNavigate();
-  const { findingsCount, pendingReviewCount } = useMonitorStore(useShallow((s) => ({
-    findingsCount: s.findings.length,
-    pendingReviewCount: s.pendingActions.length,
-  })));
+  const findingsCount = useInboxStore((s) => s.stats?.needs_attention ?? 0);
+  const pendingReviewCount = useMonitorStore((s) => s.pendingActions.length);
 
   const [relativeTime, setRelativeTime] = useState(formatRelativeTime(lastSyncTime));
 

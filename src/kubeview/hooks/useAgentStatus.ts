@@ -1,5 +1,6 @@
 import { Bot, Loader2, AlertTriangle, Search } from 'lucide-react';
 import { useAgentStore } from '../store/agentStore';
+import { useInboxStore } from '../store/inboxStore';
 import { useMonitorStore } from '../store/monitorStore';
 
 export type AgentStatusType = 'streaming' | 'investigating' | 'findings' | 'connected' | 'offline';
@@ -16,10 +17,9 @@ export interface AgentStatus {
 export function useAgentStatus(): AgentStatus {
   const streaming = useAgentStore((s) => s.streaming);
   const monitorConnected = useMonitorStore((s) => s.connected);
-  const findingsCount = useMonitorStore((s) => s.findings.length);
-  const criticalCount = useMonitorStore(
-    (s) => s.findings.filter((f) => f.severity === 'critical').length,
-  );
+  const inboxStats = useInboxStore((s) => s.stats);
+  const findingsCount = inboxStats?.needs_attention ?? 0;
+  const criticalCount = inboxStats?.critical ?? 0;
   const activeSkill = useMonitorStore((s) => s.activeSkill);
 
   if (streaming) {
