@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { Search, Ship, Loader2, Plus, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
+import { Search, Ship, Loader2, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
-import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { K8S_BASE as BASE } from '../../engine/gvr';
 import DeployProgress from '../../components/DeployProgress';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
@@ -11,6 +10,8 @@ import { FormField } from './FormField';
 import type { Secret } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { showErrorToast } from '../../engine/errorToast';
+import { getHelmInstallRuntimeConfig } from '../../config/runtime';
+import { buildHelmInstallResources } from './helmInstall';
 
 /** HelmChartRepository CRD — not yet in engine/types, defined locally. */
 interface HelmChartRepository {
@@ -46,6 +47,17 @@ interface HelmRepo {
   chartCount: number;
 }
 
+async function createOrKeepResource(path: string, resource: unknown): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(resource),
+  });
+  if (res.ok || res.status === 409) return;
+  const err = await res.json().catch(() => ({ message: res.statusText }));
+  throw new Error(err.message || res.statusText);
+}
+
 function parseHelmIndex(text: string, repoName: string, repoUrl: string): HelmChart[] {
   const charts: HelmChart[] = [];
   const seen = new Set<string>();
@@ -56,8 +68,6 @@ function parseHelmIndex(text: string, repoName: string, repoUrl: string): HelmCh
   const lines = text.split('\n');
   let currentChart: Partial<HelmChart> = {};
   let inEntries = false;
-  let indent = 0;
-
   for (const line of lines) {
     if (line.match(/^entries:/)) {
       inEntries = true;
@@ -125,7 +135,6 @@ function parseHelmIndex(text: string, repoName: string, repoUrl: string): HelmCh
 
 export function HelmTab() {
   const addToast = useUIStore((s) => s.addToast);
-  const go = useNavigateTab();
   const queryClient = useQueryClient();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const [search, setSearch] = useState('');
@@ -252,34 +261,24 @@ export function HelmTab() {
     }
     setInstalling(selectedChart.name);
     try {
-      const job = {
-        apiVersion: 'batch/v1',
-        kind: 'Job',
-        metadata: {
-          name: `helm-install-${sanitizedName}`,
-          namespace: ns,
-          labels: { app: 'helm-install', chart: selectedChart.name },
-        },
-        spec: {
-          backoffLimit: 0,
-          template: {
-            spec: {
-              restartPolicy: 'Never',
-              serviceAccountName: 'default',
-              containers: [{
-                name: 'helm',
-                image: 'alpine/helm:latest',
-                command: ['helm', 'install', sanitizedName, selectedChart.name, '--repo', repoUrl, '--namespace', ns, '--wait', '--timeout', '5m'],
-              }],
-            },
-          },
-        },
-      };
+      const runtimeConfig = getHelmInstallRuntimeConfig();
+      const resources = buildHelmInstallResources({
+        namespace: ns,
+        releaseName: sanitizedName,
+        chartName: selectedChart.name,
+        repoUrl,
+        runnerImage: runtimeConfig.runnerImage,
+        serviceAccountName: runtimeConfig.serviceAccountName,
+      });
+
+      await createOrKeepResource(`/api/v1/namespaces/${ns}/serviceaccounts`, resources.serviceAccount);
+      await createOrKeepResource(`/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/roles`, resources.role);
+      await createOrKeepResource(`/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/rolebindings`, resources.roleBinding);
 
       const res = await fetch(`${BASE}/apis/batch/v1/namespaces/${ns}/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(job),
+        body: JSON.stringify(resources.job),
       });
 
       if (!res.ok) {

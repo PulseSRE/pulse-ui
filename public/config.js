@@ -1,0 +1,1 @@
+window.__OPENSHIFTPULSE_CONFIG__ = window.__OPENSHIFTPULSE_CONFIG__ || {};

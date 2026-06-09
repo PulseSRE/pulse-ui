@@ -36,6 +36,12 @@ monitoring:
   selfMonitor:
     enabled: true
 
+# In-cluster Helm installs use a project-owned runner image. Leave empty to
+# fail closed rather than execute a mutable third-party image.
+helmInstall:
+  runnerImage: ""
+  serviceAccountName: openshiftpulse-helm-installer
+
 # Resource limits
 resources:
   app:

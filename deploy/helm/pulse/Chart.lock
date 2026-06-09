@@ -4,6 +4,6 @@ dependencies:
   version: 4.7.0
 - name: openshift-sre-agent
   repository: file://../../../../pulse-agent/chart
-  version: 2.6.0
-digest: sha256:a9ce7715a3e0c6ae6513674f5de98df4be4d79627d42a96091fe7d620fa69d17
-generated: "2026-04-28T18:09:47.246482-07:00"
+  version: 1.13.0
+digest: sha256:0408c4a4e57404efbda9a53cf921bb4cde8634b182e14bdb7c87cdc8d760aca5
+generated: "2026-06-09T16:58:30.041978735+02:00"
