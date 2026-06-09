@@ -11,6 +11,7 @@ import { useCustomViewStore } from '../../store/customViewStore';
 import { useUIStore } from '../../store/uiStore';
 import { useTrustStore } from '../../store/trustStore';
 import { useSmartPrompts } from '../../hooks/useSmartPrompts';
+import { useInboxStore } from '../../store/inboxStore';
 import { useMonitorStore } from '../../store/monitorStore';
 import { MessageBubble } from './MessageBubble';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -320,8 +321,8 @@ export function DockAgentPanel() {
     staleTime: 300_000,
   });
   const monitorConnected = useMonitorStore((s) => s.connected);
-  const monitorFindings = useMonitorStore((s) => s.findings);
-  const monitorCritical = monitorFindings.filter((f) => f.severity === 'critical').length;
+  const inboxNeedsAttention = useInboxStore((s) => s.stats?.needs_attention ?? 0);
+  const inboxCritical = useInboxStore((s) => s.stats?.critical ?? 0);
   const navigate = useNavigate();
   const go = useNavigateTab();
   const queryClient = useQueryClient();
@@ -469,16 +470,16 @@ export function DockAgentPanel() {
         className={cn(
           'flex items-center gap-1.5 px-3 py-1 text-xs border-b border-slate-800 transition-colors hover:bg-slate-800/50 w-full text-left',
           monitorConnected
-            ? monitorFindings.length > 0
-              ? monitorCritical > 0 ? 'text-red-400' : 'text-amber-400'
+            ? inboxNeedsAttention > 0
+              ? inboxCritical > 0 ? 'text-red-400' : 'text-amber-400'
               : 'text-green-400'
             : 'text-slate-500',
         )}
       >
         <Shield className="h-3 w-3 shrink-0" />
         {monitorConnected
-          ? monitorFindings.length > 0
-            ? `Monitoring: ${monitorFindings.length} finding${monitorFindings.length !== 1 ? 's' : ''}`
+          ? inboxNeedsAttention > 0
+            ? `Monitoring: ${inboxNeedsAttention} finding${inboxNeedsAttention !== 1 ? 's' : ''}`
             : 'Monitoring: All clear'
           : 'Monitoring: Disconnected'}
       </button>

@@ -3,6 +3,7 @@ import { X, CheckCheck, ChevronDown, ChevronRight, AlertTriangle, TrendingUp, Li
 import { cn } from '@/lib/utils';
 import { FindingCard } from './FindingCard';
 import { PredictionCard } from './PredictionCard';
+import { useInboxStore } from '../../store/inboxStore';
 import { useMonitorStore } from '../../store/monitorStore';
 
 export interface NotificationCenterProps {
@@ -17,6 +18,7 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
   const predictions = useMonitorStore((s) => s.predictions);
   const pendingActions = useMonitorStore((s) => s.pendingActions);
   const unreadCount = useMonitorStore((s) => s.unreadCount);
+  const inboxNeedsAttention = useInboxStore((s) => s.stats?.needs_attention ?? 0);
   const markAllRead = useMonitorStore((s) => s.markAllRead);
   const dismissFinding = useMonitorStore((s) => s.dismissFinding);
   const approveAction = useMonitorStore((s) => s.approveAction);
@@ -105,9 +107,9 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
         <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-slate-100">Notifications</h2>
-            {unreadCount > 0 && (
+            {inboxNeedsAttention > 0 && (
               <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">
-                {unreadCount}
+                {inboxNeedsAttention}
               </span>
             )}
           </div>

@@ -28,6 +28,7 @@ export function InboxHeader({
   const stats = useInboxStore((s) => s.stats);
   const activePreset = useInboxStore((s) => s.activePreset);
   const setPreset = useInboxStore((s) => s.setPreset);
+  const currentUser = useInboxStore((s) => s.currentUser);
 
   const newCount = stats.new ?? 0;
   const totalOpen = stats.needs_attention ?? 0;
@@ -97,7 +98,7 @@ export function InboxHeader({
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-300',
               )}
             >
-              {preset.label}
+              {preset.id === 'my_items' && currentUser ? `My Items (${currentUser})` : preset.label}
               {count > 0 && (
                 <span className={cn(
                   'px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none',

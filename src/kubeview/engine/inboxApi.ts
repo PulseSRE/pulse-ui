@@ -49,6 +49,7 @@ export interface InboxResponse {
   groups: InboxGroup[];
   stats: Record<string, number>;
   total: number;
+  current_user?: string;
 }
 
 export interface InboxFilters {

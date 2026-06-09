@@ -48,6 +48,7 @@ interface InboxState {
   activePreset: Preset;
   groupBy: string | null;
   selectedItemId: string | null;
+  currentUser: string | null;
   loading: boolean;
   error: string | null;
 
@@ -79,6 +80,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   activePreset: 'needs_attention',
   groupBy: null,
   selectedItemId: null,
+  currentUser: null,
   loading: false,
   error: null,
 
@@ -118,6 +120,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
         groups: data.groups,
         stats: globalStats,
         total: data.total,
+        currentUser: data.current_user ?? null,
         loading: false,
       });
     } catch (err) {

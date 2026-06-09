@@ -20,6 +20,7 @@ export function InboxPage() {
   const [drawerItem, setDrawerItem] = useState<InboxItemType | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const didRestoreRef = useRef(false);
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'inbox');
 
   const items = useInboxStore((s) => s.items);
   const groups = useInboxStore((s) => s.groups);
@@ -45,6 +46,10 @@ export function InboxPage() {
     const preset = searchParams.get('preset');
     if (preset) {
       useInboxStore.getState().setPreset(preset as 'needs_attention' | 'agent_cleared' | 'my_items' | 'archived' | 'all');
+    }
+    const tab = searchParams.get('tab');
+    if (tab === 'activity' || tab === 'inbox') {
+      setActiveTab(tab);
     }
   }, [searchParams, setSelectedItem]);
 
@@ -80,6 +85,16 @@ export function InboxPage() {
     setDrawerItem(null);
   }, [setSelectedItem]);
 
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === 'inbox') next.delete('tab');
+    else next.set('tab', value);
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const handleClearFilters = useCallback(() => {
     useInboxStore.getState().setFilters({});
   }, []);
@@ -91,7 +106,7 @@ export function InboxPage() {
     <div className="flex flex-col h-full">
       <InboxHeader onNewTask={() => setNewTaskOpen(true)} />
 
-      <Tabs defaultValue="inbox">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="px-4 py-2 border-b border-slate-800">
           <TabsList>
             <TabsTrigger value="inbox">Inbox</TabsTrigger>
