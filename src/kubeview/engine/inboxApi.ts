@@ -57,6 +57,7 @@ export interface InboxFilters {
   status?: string;
   namespace?: string;
   claimed_by?: string;
+  created_by?: string;
   severity?: string;
   group_by?: string;
   limit?: number;

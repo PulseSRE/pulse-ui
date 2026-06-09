@@ -403,7 +403,7 @@ export function TaskDetailDrawer({
         {String(item.metadata?.view_status || '') === 'failed' && !item.view_id && (
           <div className="flex items-center justify-between rounded-lg border border-red-800/50 bg-red-950/20 px-3 py-2.5 text-sm text-red-400">
             <span>View generation failed</span>
-            <Button size="sm" variant="ghost" onClick={() => { advanceStatus(item.id, 'acknowledged'); claim(item.id); }}>
+            <Button size="sm" variant="ghost" onClick={() => claim(item.id)}>
               Retry
             </Button>
           </div>

@@ -82,7 +82,7 @@ export function InboxFilterBar() {
   const groupBy = useInboxStore((s) => s.groupBy);
   const setGroupBy = useInboxStore((s) => s.setGroupBy);
 
-  const currentSource = filters.claimed_by || '';
+  const currentSource = filters.created_by || '';
   const currentStatus = filters.status || '';
   const currentSeverity = filters.severity || '';
   const statusOptions = STATUS_OPTIONS.default;
@@ -95,7 +95,7 @@ export function InboxFilterBar() {
         label="Filter by source"
         value={currentSource}
         options={SOURCE_OPTIONS}
-        onChange={(v) => setFilters({ ...filters, claimed_by: v || undefined })}
+        onChange={(v) => setFilters({ ...filters, created_by: v || undefined })}
         active={!!currentSource}
       />
       <Tooltip
