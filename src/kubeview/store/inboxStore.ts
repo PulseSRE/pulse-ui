@@ -122,7 +122,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
       });
     } catch (err) {
       handleAuthError(String(err));
-      set({ error: String(err), loading: false, selectedItemId: null });
+      set({ error: String(err), loading: false });
     }
   },
 

@@ -280,16 +280,16 @@ function InvestigationCard({ report }: { report: InvestigationReport }) {
       {report.summary && (
         <p className="text-sm text-slate-300">{report.summary}</p>
       )}
-      {report.suspected_cause && (
+      {(report.suspected_cause || report.suspectedCause) && (
         <div className="text-sm">
           <span className="text-slate-500">Suspected cause: </span>
-          <span className="text-amber-300">{report.suspected_cause}</span>
+          <span className="text-amber-300">{report.suspected_cause || report.suspectedCause}</span>
         </div>
       )}
-      {report.recommended_fix && (
+      {(report.recommended_fix || report.recommendedFix) && (
         <div className="text-sm">
           <span className="text-slate-500">Recommended: </span>
-          <span className="text-emerald-300">{report.recommended_fix}</span>
+          <span className="text-emerald-300">{report.recommended_fix || report.recommendedFix}</span>
         </div>
       )}
       {report.evidence?.length > 0 && (

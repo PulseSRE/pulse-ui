@@ -319,7 +319,13 @@ export const useMonitorStore = create<MonitorState>()(
               break;
             }
 
-            case 'inbox_item_updated':
+            case 'inbox_item_updated': {
+              // Lightweight: metadata change only — update stats, skip full list refresh
+              import('./inboxStore').then(({ useInboxStore }) => {
+                useInboxStore.getState().refreshStats();
+              });
+              break;
+            }
             case 'inbox_item_claimed':
             case 'inbox_item_resolved': {
               debouncedInboxRefresh();

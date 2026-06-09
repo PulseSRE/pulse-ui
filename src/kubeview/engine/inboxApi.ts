@@ -171,10 +171,13 @@ export interface InvestigationReport {
   id: string;
   summary: string;
   suspected_cause: string;
+  suspectedCause?: string;
   recommended_fix: string;
+  recommendedFix?: string;
   confidence: number;
   evidence: string[];
   alternatives_considered: string[];
+  alternativesConsidered?: string[];
 }
 
 export async function fetchInboxInvestigation(id: string): Promise<InvestigationReport | null> {
