@@ -47,13 +47,13 @@ interface HelmRepo {
   chartCount: number;
 }
 
-async function createOrKeepResource(path: string, resource: unknown): Promise<void> {
+async function applyResource(path: string, resource: unknown): Promise<void> {
   const res = await fetch(`${BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/apply-patch+yaml' },
     body: JSON.stringify(resource),
   });
-  if (res.ok || res.status === 409) return;
+  if (res.ok) return;
   const err = await res.json().catch(() => ({ message: res.statusText }));
   throw new Error(err.message || res.statusText);
 }
@@ -271,9 +271,18 @@ export function HelmTab() {
         serviceAccountName: runtimeConfig.serviceAccountName,
       });
 
-      await createOrKeepResource(`/api/v1/namespaces/${ns}/serviceaccounts`, resources.serviceAccount);
-      await createOrKeepResource(`/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/roles`, resources.role);
-      await createOrKeepResource(`/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/rolebindings`, resources.roleBinding);
+      await applyResource(
+        `/api/v1/namespaces/${ns}/serviceaccounts/${resources.serviceAccount.metadata.name}?fieldManager=openshiftpulse&force=true`,
+        resources.serviceAccount,
+      );
+      await applyResource(
+        `/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/roles/${resources.role.metadata.name}?fieldManager=openshiftpulse&force=true`,
+        resources.role,
+      );
+      await applyResource(
+        `/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/rolebindings/${resources.roleBinding.metadata.name}?fieldManager=openshiftpulse&force=true`,
+        resources.roleBinding,
+      );
 
       const res = await fetch(`${BASE}/apis/batch/v1/namespaces/${ns}/jobs`, {
         method: 'POST',

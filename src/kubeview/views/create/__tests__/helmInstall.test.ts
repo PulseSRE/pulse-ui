@@ -3,12 +3,13 @@ import { buildHelmInstallResources } from '../helmInstall';
 
 describe('buildHelmInstallResources', () => {
   it('uses a digest-pinned runner image and dedicated service account', () => {
+    const runnerImage = `quay.io/example/pulse-helm-runner@sha256:${'a'.repeat(64)}`;
     const resources = buildHelmInstallResources({
       namespace: 'demo',
       releaseName: 'my-app',
       chartName: 'nginx',
       repoUrl: 'https://charts.example.com',
-      runnerImage: 'quay.io/example/pulse-helm-runner@sha256:abcdef',
+      runnerImage,
       serviceAccountName: 'openshiftpulse-helm-installer',
     });
 
@@ -19,9 +20,7 @@ describe('buildHelmInstallResources', () => {
       { kind: 'ServiceAccount', name: 'openshiftpulse-helm-installer', namespace: 'demo' },
     ]);
     expect(resources.job.spec.template.spec.serviceAccountName).toBe('openshiftpulse-helm-installer');
-    expect(resources.job.spec.template.spec.containers[0].image).toBe(
-      'quay.io/example/pulse-helm-runner@sha256:abcdef',
-    );
+    expect(resources.job.spec.template.spec.containers[0].image).toBe(runnerImage);
     expect(resources.job.spec.template.spec.containers[0].securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       readOnlyRootFilesystem: true,
@@ -36,6 +35,17 @@ describe('buildHelmInstallResources', () => {
       chartName: 'nginx',
       repoUrl: 'https://charts.example.com',
       runnerImage: 'alpine/helm:latest',
+      serviceAccountName: 'openshiftpulse-helm-installer',
+    })).toThrow(/digest-pinned/);
+  });
+
+  it('rejects malformed digest references', () => {
+    expect(() => buildHelmInstallResources({
+      namespace: 'demo',
+      releaseName: 'my-app',
+      chartName: 'nginx',
+      repoUrl: 'https://charts.example.com',
+      runnerImage: 'quay.io/example/pulse-helm-runner@sha256:abcdef',
       serviceAccountName: 'openshiftpulse-helm-installer',
     })).toThrow(/digest-pinned/);
   });

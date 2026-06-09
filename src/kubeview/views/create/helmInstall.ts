@@ -7,8 +7,10 @@ interface BuildHelmInstallResourcesInput {
   serviceAccountName: string;
 }
 
+export const HELM_RUNNER_IMAGE_DIGEST_PATTERN = /^[^\s@]+@sha256:[a-f0-9]{64}$/i;
+
 function assertDigestPinnedImage(image: string): void {
-  if (!/^[^@]+@sha256:[a-f0-9]{6,}$/i.test(image)) {
+  if (!HELM_RUNNER_IMAGE_DIGEST_PATTERN.test(image)) {
     throw new Error('Helm runner image must be digest-pinned');
   }
 }

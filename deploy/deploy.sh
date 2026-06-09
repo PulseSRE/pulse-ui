@@ -254,7 +254,7 @@ fi
 if [[ -z "$AGENT_TAG" ]]; then
   AGENT_TAG=$(git_tag "$AGENT_REPO")
 fi
-if [[ -n "$HELM_RUNNER_IMAGE_REF" && "$HELM_RUNNER_IMAGE_REF" != *@sha256:* ]]; then
+if [[ -n "$HELM_RUNNER_IMAGE_REF" && ! "$HELM_RUNNER_IMAGE_REF" =~ ^[^[:space:]@]+@sha256:[a-fA-F0-9]{64}$ ]]; then
   error "PULSE_HELM_RUNNER_IMAGE_REF must be an immutable digest reference (repo@sha256:...)"
   exit 1
 fi
@@ -378,6 +378,7 @@ fi
 
   if [[ -z "$HELM_RUNNER_IMAGE_REF" ]]; then
     podman push --digestfile /tmp/pulse-helm-runner.digest "${HELM_RUNNER_IMAGE}:${UI_TAG}"
+    [[ -s /tmp/pulse-helm-runner.digest ]] || { error "Helm runner push did not produce a digest"; exit 1; }
     podman push "${HELM_RUNNER_IMAGE}:latest"
     HELM_RUNNER_DIGEST=$(cat /tmp/pulse-helm-runner.digest)
     HELM_RUNNER_IMAGE_REF="${HELM_RUNNER_IMAGE}@${HELM_RUNNER_DIGEST}"
