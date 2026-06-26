@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v6.2.0"><img src="https://img.shields.io/badge/release-v6.2.0-2563eb?style=for-the-badge" alt="Version"></a>
-  <img src="https://img.shields.io/badge/tests-1908%20unit%20%2B%2013%20Helm%20%2B%2053%20E2E-10b981?style=for-the-badge" alt="Tests">
+  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v2.7.1"><img src="https://img.shields.io/badge/release-v2.7.1-2563eb?style=for-the-badge" alt="Version"></a>
+  <img src="https://img.shields.io/badge/tests-2045-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-77-f59e0b?style=for-the-badge" alt="Health Checks">
   <img src="https://img.shields.io/badge/CVEs-0-10b981?style=for-the-badge" alt="CVEs">
   <img src="https://img.shields.io/badge/license-MIT-6366f1?style=for-the-badge" alt="License">
@@ -267,7 +267,7 @@ podman login quay.io                         # Container registry
 | **State** | Zustand + TanStack Query | Client + server state separation |
 | **Real-time** | WebSocket watches | Instant updates, 60s polling fallback |
 | **Styling** | Tailwind CSS 3.4 + Radix UI | Utility-first, headless components, CVA variants |
-| **Testing** | Vitest + Playwright + Helm | 1,908 unit + 13 Helm + 53 E2E in ~9s |
+| **Testing** | Vitest + Playwright + Helm | 2,045 unit + 13 Helm + 57 E2E in ~9s |
 | **Charts** | recharts + SVG sparklines | Rich charts with lightweight inline sparklines |
 | **Security** | Red Hat UBI images | 0 CVEs, all images from Red Hat registries |
 
@@ -434,7 +434,7 @@ Browser --> OAuth Proxy (8443/TLS) --> nginx (8080) --> K8s API / Prometheus / A
 ---
 
 <p align="center">
-  <strong>1,908 unit + 13 Helm + 53 E2E tests</strong> &bull; <strong>77 health checks</strong> &bull; <strong>~1s builds</strong> &bull; <strong>0 CVEs</strong> &bull; <strong>18 views</strong> &bull; <strong>122 AI tools</strong> &bull; <strong>7 skills</strong> &bull; <strong>500+ operators</strong>
+  <strong>2,045 tests</strong> &bull; <strong>77 health checks</strong> &bull; <strong>~1s builds</strong> &bull; <strong>0 CVEs</strong> &bull; <strong>25 views</strong> &bull; <strong>154 AI tools</strong> &bull; <strong>7 skills</strong> &bull; <strong>500+ operators</strong>
 </p>
 
 <p align="center">
