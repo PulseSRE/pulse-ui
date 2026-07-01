@@ -1,6 +1,36 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { describeToolAction, riskLevel } from '../MessageBubble';
+import { render } from '@testing-library/react';
+import { describeToolAction, riskLevel, RichContent } from '../MessageBubble';
+
+const HTML_CONTENT = '<!DOCTYPE html><html><body>Generated dashboard</body></html>';
+const PLAIN_CONTENT = 'Just a plain text response.';
+
+describe('RichContent', () => {
+  // Regression: RichContent used to call useState() after an early return
+  // (when content contains an embedded HTML document), violating the Rules
+  // of Hooks. Switching a single instance between HTML and plain content
+  // across renders would then throw "Rendered fewer/more hooks than
+  // expected" in React. All hooks must now be called unconditionally.
+
+  it('renders HTML content without throwing', () => {
+    expect(() => render(<RichContent content={HTML_CONTENT} />)).not.toThrow();
+  });
+
+  it('renders plain content without throwing', () => {
+    expect(() => render(<RichContent content={PLAIN_CONTENT} />)).not.toThrow();
+  });
+
+  it('does not violate Rules of Hooks when re-rendering from HTML to plain content', () => {
+    const { rerender } = render(<RichContent content={HTML_CONTENT} />);
+    expect(() => rerender(<RichContent content={PLAIN_CONTENT} />)).not.toThrow();
+  });
+
+  it('does not violate Rules of Hooks when re-rendering from plain to HTML content', () => {
+    const { rerender } = render(<RichContent content={PLAIN_CONTENT} />);
+    expect(() => rerender(<RichContent content={HTML_CONTENT} />)).not.toThrow();
+  });
+});
 
 describe('describeToolAction', () => {
   it('returns correct text for scale_deployment', () => {

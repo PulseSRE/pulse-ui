@@ -62,6 +62,9 @@ export function riskLevel(tool: string, input: Record<string, unknown>): { level
 /** Detect HTML documents in content and render them in a sandboxed iframe */
 export function RichContent({ content, components, onAddToView }: { content: string; components?: ComponentSpec[]; onAddToView?: (spec: ComponentSpec) => void }) {
   const [expanded, setExpanded] = useState(false);
+  // Must be called unconditionally, before the early return below --
+  // hooks can't be called conditionally (Rules of Hooks).
+  const [showComponents, setShowComponents] = useState(false);
 
   const htmlMatch = content.match(/<!DOCTYPE html[\s\S]*<\/html>/i)
     || content.match(/```html\s*\n(<!DOCTYPE html[\s\S]*?<\/html>)\s*\n```/i);
@@ -100,8 +103,6 @@ export function RichContent({ content, components, onAddToView }: { content: str
       </>
     );
   }
-
-  const [showComponents, setShowComponents] = useState(false);
 
   return (
     <>
