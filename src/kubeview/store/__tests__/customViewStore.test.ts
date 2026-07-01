@@ -32,7 +32,7 @@ function mockFetch(response: any = {}, ok = true) {
 
 describe('customViewStore', () => {
   beforeEach(() => {
-    useCustomViewStore.setState({ views: [], loading: false, currentUser: null });
+    useCustomViewStore.setState({ views: [], loading: false, currentUser: null, activeBuilderId: null });
     vi.restoreAllMocks();
   });
 
@@ -46,7 +46,8 @@ describe('customViewStore', () => {
 
   it('saves a new view', async () => {
     const fetchSpy = mockFetch({ id: 'v1', owner: 'testuser' });
-    await useCustomViewStore.getState().saveView(makeView({ id: 'v1' }));
+    const saved = await useCustomViewStore.getState().saveView(makeView({ id: 'v1' }));
+    expect(saved).toBe(true);
     const views = useCustomViewStore.getState().views;
     expect(views).toHaveLength(1);
     expect(views[0].id).toBe('v1');
@@ -54,6 +55,13 @@ describe('customViewStore', () => {
       '/api/agent/views',
       expect.objectContaining({ method: 'POST' }),
     );
+  });
+
+  it('saveView returns false on API failure', async () => {
+    mockFetch({ error: 'Server error' }, false);
+    const saved = await useCustomViewStore.getState().saveView(makeView({ id: 'v-fail' }));
+    expect(saved).toBe(false);
+    expect(useCustomViewStore.getState().views).toHaveLength(0);
   });
 
   // ---- deleteView ----
@@ -172,5 +180,68 @@ describe('customViewStore', () => {
     mockFetch({ error: 'Server error' }, false);
     await useCustomViewStore.getState().saveView(makeView({ id: 'v1' }));
     expect(useCustomViewStore.getState().views).toHaveLength(0);
+  });
+
+  // ---- createAndAddWidget ----
+
+  it('createAndAddWidget creates a new view and returns its id', async () => {
+    mockFetch({ id: 'cv-1', owner: 'testuser' });
+    const viewId = await useCustomViewStore.getState().createAndAddWidget(makeWidget('First'));
+    expect(viewId).not.toBeNull();
+    expect(useCustomViewStore.getState().activeBuilderId).toBe(viewId);
+    expect(useCustomViewStore.getState().views).toHaveLength(1);
+  });
+
+  it('createAndAddWidget returns null and does not set activeBuilderId when save fails', async () => {
+    // Regression: a failed save() must not leave activeBuilderId pointing at
+    // a view that was never persisted -- later widget mutations would
+    // silently target a non-existent view.
+    mockFetch({ error: 'Server error' }, false);
+    const viewId = await useCustomViewStore.getState().createAndAddWidget(makeWidget('Doomed'));
+    expect(viewId).toBeNull();
+    expect(useCustomViewStore.getState().activeBuilderId).toBeNull();
+    expect(useCustomViewStore.getState().views).toHaveLength(0);
+  });
+
+  it('createAndAddWidget adds to the active builder view without re-saving when one exists', async () => {
+    mockFetch({ id: 'v1', owner: 'testuser' });
+    await useCustomViewStore.getState().saveView(makeView({ id: 'v1', layout: [] }));
+    useCustomViewStore.getState().setActiveBuilderId('v1');
+
+    mockFetch({ updated: true });
+    const viewId = await useCustomViewStore.getState().createAndAddWidget(makeWidget('Added'));
+    expect(viewId).toBe('v1');
+    expect(useCustomViewStore.getState().views[0].layout).toHaveLength(1);
+  });
+
+  // ---- claimSharedView ----
+
+  it('claimSharedView reloads views bypassing the debounce window', async () => {
+    // Regression: claimSharedView must use forceLoadViews(), not loadViews(),
+    // otherwise a recent load elsewhere in the app silently no-ops the reload
+    // and the newly claimed view never appears.
+    const existing = { id: 'v1', title: 'Existing', description: '', icon: '', layout: [], positions: {}, created_at: new Date().toISOString(), owner: 'testuser' };
+    const cloned = { ...existing, id: 'cloned-1', title: 'Cloned' };
+
+    // Prime the debounce window so a plain loadViews() call would no-op afterward.
+    // Use forceLoadViews() here (not loadViews()) since the debounce timestamp is
+    // module-level state that can carry over from earlier tests in this file.
+    mockFetch({ views: [existing], owner: 'testuser' });
+    await useCustomViewStore.getState().forceLoadViews();
+    expect(useCustomViewStore.getState().views).toHaveLength(1);
+
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 'cloned-1' }), statusText: 'OK' } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ views: [existing, cloned], owner: 'testuser' }),
+        statusText: 'OK',
+      } as Response);
+
+    const id = await useCustomViewStore.getState().claimSharedView('share-token-123');
+    expect(id).toBe('cloned-1');
+    // The whole point of the fix: the clone shows up immediately even though
+    // we just loaded views a moment ago (well within the 5s debounce window).
+    expect(useCustomViewStore.getState().views.map((v) => v.id)).toContain('cloned-1');
   });
 });

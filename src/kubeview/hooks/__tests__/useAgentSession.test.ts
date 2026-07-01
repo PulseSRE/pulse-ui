@@ -18,7 +18,7 @@ vi.mock('../../engine/agentClient', () => ({
     connect() { mockConnect(); }
     disconnect() { mockDisconnect(); }
     send(content: string, context?: unknown) { mockSend(content, context); }
-    confirm(approved: boolean) { mockConfirm(approved); }
+    confirm(approved: boolean, nonce?: string) { mockConfirm(approved, nonce); }
     clear() { mockClear(); }
     get connected() { return true; }
   },
@@ -119,14 +119,37 @@ describe('useAgentSession', () => {
     act(() => emit({ type: 'connected' }));
     act(() => result.current.send('Scale it'));
 
-    act(() => emit({ type: 'confirm_request', tool: 'scale_deployment', input: { name: 'app', replicas: 3 } }));
-    expect(result.current.pendingConfirm).toEqual({ tool: 'scale_deployment', input: { name: 'app', replicas: 3 } });
+    act(() => emit({ type: 'confirm_request', tool: 'scale_deployment', input: { name: 'app', replicas: 3 }, nonce: 'abc123' }));
+    expect(result.current.pendingConfirm).toEqual({ tool: 'scale_deployment', input: { name: 'app', replicas: 3 }, nonce: 'abc123' });
   });
 
   it('confirm sends response via client', () => {
     const { result } = renderHook(() => useAgentSession());
     act(() => result.current.confirm(true));
-    expect(mockConfirm).toHaveBeenCalledWith(true);
+    expect(mockConfirm).toHaveBeenCalledWith(true, undefined);
+  });
+
+  it('confirm forwards the pending nonce to the client', () => {
+    // Regression: confirm() must round-trip the server-issued nonce, or the
+    // backend rejects the response as unauthorized/replay even when the
+    // user approved the action.
+    const { result } = renderHook(() => useAgentSession());
+    act(() => emit({ type: 'connected' }));
+    act(() => result.current.send('Scale it'));
+    act(() => emit({ type: 'confirm_request', tool: 'scale_deployment', input: {}, nonce: 'nonce-xyz' }));
+
+    act(() => result.current.confirm(true));
+    expect(mockConfirm).toHaveBeenCalledWith(true, 'nonce-xyz');
+  });
+
+  it('confirm(false) still forwards the pending nonce on denial', () => {
+    const { result } = renderHook(() => useAgentSession());
+    act(() => emit({ type: 'connected' }));
+    act(() => result.current.send('Scale it'));
+    act(() => emit({ type: 'confirm_request', tool: 'scale_deployment', input: {}, nonce: 'nonce-deny' }));
+
+    act(() => result.current.confirm(false));
+    expect(mockConfirm).toHaveBeenCalledWith(false, 'nonce-deny');
   });
 
   it('clear resets state and sends clear to client', () => {

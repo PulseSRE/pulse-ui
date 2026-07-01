@@ -215,11 +215,13 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): AgentSess
   }, [context]);
 
   const confirm = useCallback((approved: boolean) => {
-    clientRef.current?.confirm(approved);
+    // Nonce must round-trip back to the server -- confirm_response without it
+    // (or with a stale one) is rejected as unauthorized/replay by the backend.
+    clientRef.current?.confirm(approved, state.pendingConfirm?.nonce);
     if (!approved) {
       dispatch({ type: 'done', full_response: 'Action denied by user.', components: [] });
     }
-  }, []);
+  }, [state.pendingConfirm]);
 
   const clear = useCallback(() => {
     clientRef.current?.clear();

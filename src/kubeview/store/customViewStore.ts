@@ -27,8 +27,8 @@ interface CustomViewState {
 
   /** Fetch all views from backend for the current user */
   loadViews: () => Promise<void>;
-  /** Save a new view to backend */
-  saveView: (view: ViewSpec) => Promise<void>;
+  /** Save a new view to backend. Returns false (and sets `error`) if the save failed. */
+  saveView: (view: ViewSpec) => Promise<boolean>;
   /** Delete a view from backend */
   deleteView: (id: string) => Promise<void>;
   /** Update view fields (title, description, layout, positions) */
@@ -137,10 +137,12 @@ export const useCustomViewStore = create<CustomViewState>()(
           views: [...s.views, { ...truncated, owner: result.owner }],
           currentUser: result.owner,
         }));
+        return true;
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Failed to save view';
         console.error('Failed to save view:', msg);
         set({ error: msg });
+        return false;
       }
     },
 
@@ -221,7 +223,8 @@ export const useCustomViewStore = create<CustomViewState>()(
         layout: [truncateForPersistence(widget)],
         generatedAt: Date.now(),
       };
-      await get().saveView(newView);
+      const saved = await get().saveView(newView);
+      if (!saved) return null;
       set({ activeBuilderId: newView.id });
       return newView.id;
     },
@@ -233,8 +236,9 @@ export const useCustomViewStore = create<CustomViewState>()(
         const result = await apiFetch(`/views/claim/${shareToken}`, {
           method: 'POST',
         });
-        // Reload views to include the clone
-        await get().loadViews();
+        // Force-reload (bypassing the 5s debounce) so the newly claimed view
+        // is guaranteed to appear immediately, even right after a recent load.
+        await get().forceLoadViews();
         return result.id;
       } catch (e) {
         console.error('Failed to claim shared view:', e);

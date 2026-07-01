@@ -11,3 +11,5 @@ dist
 coverage/
 package-lock.json
 .claude/
+playwright-report/
+test-results/
