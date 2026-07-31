@@ -1,11 +1,11 @@
-FROM registry.access.redhat.com/ubi9/nginx-122:latest
+FROM registry.access.redhat.com/ubi9/nodejs-20:latest
 
-# Copy built static files (UBI nginx serves from /opt/app-root/src)
-COPY dist/ /opt/app-root/src/
+WORKDIR /app
+COPY . .
 
-# Entrypoint just starts nginx — config is mounted via ConfigMap in production
-COPY entrypoint.sh /opt/app-root/entrypoint.sh
+USER 1001
 
-EXPOSE 8080
+EXPOSE 3000
 
-ENTRYPOINT ["/opt/app-root/entrypoint.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
