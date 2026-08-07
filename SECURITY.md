@@ -22,10 +22,10 @@ We aim to acknowledge reports within 48 hours and provide a fix within 7 days fo
 |-------|-----------|
 | **User authentication** | OAuth proxy sidecar with OAuthClient (`user:full` scope — required for write operations) |
 | **User authorization** | User's OAuth token forwarded via `X-Forwarded-Access-Token` header to K8s API |
-| **Service account** | Minimal ClusterRole (`openshiftpulse-reader`) with read-only access + token review for OAuth proxy |
+| **Service account** | Minimal ClusterRole (`openshiftpulse-reader`) scoped to `tokenreviews`/`subjectaccessreviews` (`create`) + API discovery — no read access to cluster resources |
 | **Secrets** | OAuth client secret and cookie secret mounted from a K8s Secret via files (`--client-secret-file`, `--cookie-secret-file`) |
 
-The service account does **not** perform API calls on behalf of users. All user actions (create, update, delete, scale, patch) use the user's own OAuth token forwarded by the proxy. The SA exists only for pod identity and OAuth proxy token validation.
+The service account does **not** perform API calls on behalf of users, and holds no `get`/`list`/`watch` grants on any cluster resource (including Secrets) — that permission was removed since it went unused: all user actions, both reads and writes, use the user's own OAuth token forwarded by the proxy, which fails closed (401) if the token is missing. The SA exists only for pod identity and OAuth proxy token validation (TokenReview + SubjectAccessReview).
 
 ### Data Flow
 
@@ -148,18 +148,11 @@ A comprehensive security audit was performed covering authentication, injection 
 
 ## RBAC Model
 
-The service account ClusterRole (`openshiftpulse-reader`) has **read-only** access:
+The service account ClusterRole (`openshiftpulse-reader`) grants **no read or write access to any cluster resource**. It exists solely so the OAuth proxy sidecar can validate the user's bearer token and authorize requests:
 
 ```yaml
-# Core resources
-- apiGroups: [""]
-  resources: [configmaps, endpoints, events, namespaces, nodes, pods, pods/log, ...]
-  verbs: [get, list, watch]
-
-# Apps, Batch, RBAC, Networking, Storage, CRDs, OpenShift resources
-  verbs: [get, list, watch]
-
-# OAuth proxy requirements
+- nonResourceURLs: ["/api", "/api/*", "/apis", "/apis/*", "/version"]
+  verbs: [get]
 - apiGroups: [authentication.k8s.io]
   resources: [tokenreviews]
   verbs: [create]
@@ -168,10 +161,11 @@ The service account ClusterRole (`openshiftpulse-reader`) has **read-only** acce
   verbs: [create]
 ```
 
-Write operations (create, update, delete, scale, patch) are performed using the **user's own OAuth token**, not the service account token. This means:
-- Users can only modify resources they have RBAC access to
+All operations against cluster resources — reads (list/watch/get) and writes (create, update, delete, scale, patch) alike — are performed using the **user's own OAuth token**, forwarded via `X-Forwarded-Access-Token` and required by nginx (requests without it get a 401, with no service-account fallback). This means:
+- Users can only see or modify resources they have RBAC access to
 - The app cannot escalate privileges beyond the user's own permissions
 - Audit logs correctly attribute changes to the user, not the service account
+- Compromise of the pod (SA token) does not expose Secrets or any other resource cluster-wide, since the SA itself was never granted read access to them
 
 ---
 
