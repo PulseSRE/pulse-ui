@@ -3,14 +3,14 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:ae09ecc3d754bc1726cbda3e
 ARG HELM_VERSION=3.15.4
 ARG TARGETARCH=amd64
 
-RUN microdnf install -y ca-certificates curl gzip tar && microdnf clean all
-RUN curl -fsSLo /tmp/helm.tar.gz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
- && curl -fsSLo /tmp/helm.tar.gz.sha256sum "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz.sha256sum" \
- && cd /tmp \
- && sha256sum -c helm.tar.gz.sha256sum \
- && tar -xzf helm.tar.gz \
+RUN microdnf install -y ca-certificates gzip tar && microdnf clean all
+RUN cd /tmp \
+ && curl -fsSLO "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
+ && curl -fsSLO "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz.sha256sum" \
+ && sha256sum -c "helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz.sha256sum" \
+ && tar -xzf "helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
  && install -m 0755 "linux-${TARGETARCH}/helm" /usr/local/bin/helm \
- && rm -rf /tmp/helm.tar.gz /tmp/helm.tar.gz.sha256sum "/tmp/linux-${TARGETARCH}"
+ && rm -rf "helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" "helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz.sha256sum" "linux-${TARGETARCH}"
 
 USER 1001
 WORKDIR /tmp/work
