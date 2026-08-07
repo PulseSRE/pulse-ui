@@ -24,6 +24,10 @@ openshiftpulse:
       enabled: true
       host: alertmanager-main.openshift-monitoring.svc:9094
 
+  helmInstall:
+    runnerImage: ""
+    serviceAccountName: openshiftpulse-helm-installer
+
   agent:
     enabled: true
     # Auto-derived from release name if empty: <release>-openshift-sre-agent
@@ -65,6 +69,9 @@ agent:
     allowWriteOperations: false
     allowSecretAccess: false
 
+  mcp:
+    enabled: false
+
   database:
     type: postgresql
     postgresql:
@@ -79,3 +86,10 @@ agent:
   wsAuth:
     existingSecret: "pulse-ws-token"
     secretKey: "token"
+
+# Compatibility for stale packaged dependencies that were not aliased as
+# `agent`. Keep this until the archived dependency is refreshed everywhere.
+openshift-sre-agent:
+  enabled: true
+  mcp:
+    enabled: false

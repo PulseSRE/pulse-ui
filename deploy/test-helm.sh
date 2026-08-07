@@ -40,7 +40,14 @@ AGENT_VALUES=(
   --set agent.enabled=true
   --set agent.image.repository=quay.io/test/agent
   --set agent.image.tag=test
+  --set agent.wsAuth.existingSecret=pulse-ws-token
   --set agent.anthropicApiKey.existingSecret=test-secret
+  # Compatibility for stale packaged dependencies before helm dependency update.
+  --set openshift-sre-agent.enabled=true
+  --set openshift-sre-agent.image.repository=quay.io/test/agent
+  --set openshift-sre-agent.image.tag=test
+  --set openshift-sre-agent.wsAuth.existingSecret=pulse-ws-token
+  --set openshift-sre-agent.anthropicApiKey.existingSecret=test-secret
 )
 
 # 1. Helm lint
@@ -53,8 +60,7 @@ fi
 
 # 2. Template renders without errors
 echo "--- Template rendering ---"
-RENDERED=$(helm template pulse "$CHART_DIR" "${COMMON[@]}" "${AGENT_VALUES[@]}" 2>&1)
-if [[ $? -eq 0 ]]; then
+if RENDERED=$(helm template pulse "$CHART_DIR" "${COMMON[@]}" "${AGENT_VALUES[@]}" 2>&1); then
   pass "Template renders (agent enabled)"
 else
   fail "Template renders (agent enabled)"
@@ -118,10 +124,10 @@ else
 fi
 
 # 10. Agent disabled renders without errors
-RENDERED_NO_AGENT=$(helm template pulse "$CHART_DIR" "${COMMON[@]}" \
+if RENDERED_NO_AGENT=$(helm template pulse "$CHART_DIR" "${COMMON[@]}" \
   --set openshiftpulse.agent.enabled=false \
-  --set agent.enabled=false 2>&1)
-if [[ $? -eq 0 ]]; then
+  --set agent.enabled=false \
+  --set openshift-sre-agent.enabled=false 2>&1); then
   pass "Template renders (agent disabled)"
 else
   fail "Template renders (agent disabled)"
@@ -147,6 +153,32 @@ if has "$RENDERED" "RollingUpdate"; then
   pass "RollingUpdate strategy configured"
 else
   fail "RollingUpdate strategy missing"
+fi
+
+# 14. User token proxy must fail closed instead of falling back to service-account token
+if has "$RENDERED" "__SA_TOKEN__"; then
+  fail "nginx config still contains service-account token fallback"
+else
+  pass "nginx config has no service-account token fallback"
+fi
+
+if has "$RENDERED" "X-Forwarded-Access-Token header is required"; then
+  pass "nginx returns 401 when forwarded access token is missing"
+else
+  fail "nginx missing-token 401 guard not rendered"
+fi
+
+if has "$RENDERED" "sed -i \"s|__SA_TOKEN__"; then
+  fail "deployment still injects service-account token into nginx"
+else
+  pass "deployment does not inject service-account token into nginx"
+fi
+
+# 15. MCP server must not render by default
+if has "$RENDERED" "app.kubernetes.io/component: mcp-server"; then
+  fail "MCP server renders by default"
+else
+  pass "MCP server disabled by default"
 fi
 
 # Summary

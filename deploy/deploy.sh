@@ -16,7 +16,7 @@
 set -euo pipefail
 DEPLOY_START=$(date +%s)
 VALUES_FILE="/tmp/pulse-deploy-values-$$.yaml"
-trap 'rm -f /tmp/pulse-ui-build.log /tmp/pulse-ui-push.log "$VALUES_FILE"' EXIT
+trap 'rm -f /tmp/pulse-ui-build.log /tmp/pulse-ui-push.log /tmp/pulse-helm-runner.digest "$VALUES_FILE"' EXIT
 
 # ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -26,6 +26,8 @@ NAMESPACE="openshiftpulse"
 RELEASE="pulse"
 UI_IMAGE="${PULSE_UI_IMAGE:-quay.io/amobrem/openshiftpulse}"
 AGENT_IMAGE="${PULSE_AGENT_IMAGE:-quay.io/amobrem/pulse-agent}"
+HELM_RUNNER_IMAGE="${PULSE_HELM_RUNNER_IMAGE:-quay.io/amobrem/pulse-helm-runner}"
+HELM_RUNNER_IMAGE_REF="${PULSE_HELM_RUNNER_IMAGE_REF:-}"
 UI_TAG=""
 AGENT_TAG=""
 _WS_TOKEN_OVERRIDE="${PULSE_AGENT_WS_TOKEN:-}"
@@ -252,6 +254,10 @@ fi
 if [[ -z "$AGENT_TAG" ]]; then
   AGENT_TAG=$(git_tag "$AGENT_REPO")
 fi
+if [[ -n "$HELM_RUNNER_IMAGE_REF" && ! "$HELM_RUNNER_IMAGE_REF" =~ ^[^[:space:]@]+@sha256:[a-fA-F0-9]{64}$ ]]; then
+  error "PULSE_HELM_RUNNER_IMAGE_REF must be an immutable digest reference (repo@sha256:...)"
+  exit 1
+fi
 
 info "UI tag: $UI_TAG"
 info "Agent tag: $AGENT_TAG"
@@ -305,6 +311,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
   echo "  Namespace:     $NAMESPACE"
   echo "  UI image:      ${UI_IMAGE}:${UI_TAG}"
   echo "  Agent image:   ${AGENT_IMAGE}:${AGENT_TAG}"
+  echo "  Helm runner:   ${HELM_RUNNER_IMAGE_REF:-${HELM_RUNNER_IMAGE}:${UI_TAG} (digest resolved after push)}"
   if [[ -n "${ANTHROPIC_VERTEX_PROJECT_ID:-}" ]]; then
     echo "  AI backend:    Vertex AI (${ANTHROPIC_VERTEX_PROJECT_ID} / ${CLOUD_ML_REGION:-us-east5})"
   elif [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
@@ -333,9 +340,14 @@ fi
   pnpm run build
   info "UI built (dist/)"
 
-  info "Building UI and Agent images in parallel..."
+  info "Building UI, Agent, and Helm runner images..."
   podman build --platform linux/amd64 -t "${UI_IMAGE}:${UI_TAG}" "$PROJECT_DIR" &>/tmp/pulse-ui-build.log &
   UI_BUILD_PID=$!
+
+  if [[ -z "$HELM_RUNNER_IMAGE_REF" ]]; then
+    podman build --platform linux/amd64 -t "${HELM_RUNNER_IMAGE}:${UI_TAG}" -f "$PROJECT_DIR/Dockerfile.helm-runner" "$PROJECT_DIR"
+    info "Helm runner image built"
+  fi
 
   cd "$AGENT_REPO"
   # Default Dockerfile is the full single-stage build.
@@ -355,6 +367,7 @@ fi
   info "Pushing images..."
   podman tag "${UI_IMAGE}:${UI_TAG}" "${UI_IMAGE}:latest"
   podman tag "${AGENT_IMAGE}:${AGENT_TAG}" "${AGENT_IMAGE}:latest"
+  [[ -z "$HELM_RUNNER_IMAGE_REF" ]] && podman tag "${HELM_RUNNER_IMAGE}:${UI_TAG}" "${HELM_RUNNER_IMAGE}:latest"
 
   podman push "${UI_IMAGE}:${UI_TAG}" &>/tmp/pulse-ui-push.log &
   UI_PUSH_PID=$!
@@ -362,6 +375,15 @@ fi
   podman push "${AGENT_IMAGE}:${AGENT_TAG}"
   podman push "${AGENT_IMAGE}:latest"
   info "Pushed ${AGENT_IMAGE}:${AGENT_TAG} + latest"
+
+  if [[ -z "$HELM_RUNNER_IMAGE_REF" ]]; then
+    podman push --digestfile /tmp/pulse-helm-runner.digest "${HELM_RUNNER_IMAGE}:${UI_TAG}"
+    [[ -s /tmp/pulse-helm-runner.digest ]] || { error "Helm runner push did not produce a digest"; exit 1; }
+    podman push "${HELM_RUNNER_IMAGE}:latest"
+    HELM_RUNNER_DIGEST=$(cat /tmp/pulse-helm-runner.digest)
+    HELM_RUNNER_IMAGE_REF="${HELM_RUNNER_IMAGE}@${HELM_RUNNER_DIGEST}"
+    info "Pushed Helm runner ${HELM_RUNNER_IMAGE_REF}"
+  fi
 
   if wait $UI_PUSH_PID; then
     podman push "${UI_IMAGE}:latest"
@@ -433,14 +455,21 @@ fi
 # Generate values file (keeps secrets out of process listings)
 AI_BACKEND="none"
 AI_VALUES=""
+AI_VALUES_COMPAT=""
 if [[ -n "${ANTHROPIC_VERTEX_PROJECT_ID:-}" ]]; then
   AI_VALUES="  vertexAI:
+    projectId: ${ANTHROPIC_VERTEX_PROJECT_ID}
+    region: ${CLOUD_ML_REGION:-us-east5}
+    existingSecret: gcp-sa-key"
+  AI_VALUES_COMPAT="  vertexAI:
     projectId: ${ANTHROPIC_VERTEX_PROJECT_ID}
     region: ${CLOUD_ML_REGION:-us-east5}
     existingSecret: gcp-sa-key"
   AI_BACKEND="vertex"
 elif [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
   AI_VALUES="  anthropicApiKey:
+    existingSecret: anthropic-api-key"
+  AI_VALUES_COMPAT="  anthropicApiKey:
     existingSecret: anthropic-api-key"
   AI_BACKEND="anthropic"
 fi
@@ -474,6 +503,9 @@ openshiftpulse:
       enabled: $MONITORING_ENABLED
     alertmanager:
       enabled: $MONITORING_ENABLED
+  helmInstall:
+    runnerImage: "$HELM_RUNNER_IMAGE_REF"
+    serviceAccountName: openshiftpulse-helm-installer
   agent:
     enabled: true
     serviceName: $AGENT_DEPLOY
@@ -487,9 +519,24 @@ agent:
   rbac:
     allowWriteOperations: ${AGENT_ALLOW_WRITES:-false}
     allowSecretAccess: ${AGENT_ALLOW_SECRETS:-false}
+  mcp:
+    enabled: false
   wsAuth:
     existingSecret: $WS_SECRET
 $AI_VALUES
+openshift-sre-agent:
+  enabled: true
+  image:
+    repository: $AGENT_IMAGE
+    tag: "$AGENT_TAG"
+  rbac:
+    allowWriteOperations: ${AGENT_ALLOW_WRITES:-false}
+    allowSecretAccess: ${AGENT_ALLOW_SECRETS:-false}
+  mcp:
+    enabled: false
+  wsAuth:
+    existingSecret: $WS_SECRET
+$AI_VALUES_COMPAT
 YAML
 chmod 600 "$VALUES_FILE"
 

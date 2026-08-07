@@ -4,6 +4,7 @@ import ReactRefreshPlugin from '@rspack/plugin-react-refresh';
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import path from 'path';
+import { fetchHelmRepoIndex } from './src/dev/helmRepoProxy';
 
 const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
 
@@ -138,31 +139,9 @@ export default defineConfig({
           res.end('Missing url parameter');
           return;
         }
-        // Validate URL: must be http(s), no internal/link-local addresses
         try {
-          const parsed = new URL(repoUrl);
-          if (!['http:', 'https:'].includes(parsed.protocol)) {
-            res.writeHead(400, { 'Content-Type': 'text/plain' });
-            res.end('URL must use http or https protocol');
-            return;
-          }
-          const host = parsed.hostname.replace(/^\[|\]$/g, ''); // strip IPv6 brackets
-          if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|169\.254\.|localhost$|::1$|::ffff:|fd[0-9a-f]{2}:|fe80:)/i.test(host)) {
-            res.writeHead(403, { 'Content-Type': 'text/plain' });
-            res.end('Internal/private addresses are not allowed');
-            return;
-          }
-        } catch {
-          res.writeHead(400, { 'Content-Type': 'text/plain' });
-          res.end('Invalid URL');
-          return;
-        }
-        try {
-          const target = repoUrl.endsWith('/index.yaml') ? repoUrl : `${repoUrl.replace(/\/$/, '')}/index.yaml`;
-          const response = await fetch(target, { signal: AbortSignal.timeout(30000) });
-          if (!response.ok) throw new Error(`${response.status}`);
-          const text = await response.text();
-          res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+          const text = await fetchHelmRepoIndex(repoUrl);
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
           res.end(text);
         } catch (err: unknown) {
           res.writeHead(502, { 'Content-Type': 'text/plain' });
