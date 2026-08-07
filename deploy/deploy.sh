@@ -455,13 +455,8 @@ fi
 # Generate values file (keeps secrets out of process listings)
 AI_BACKEND="none"
 AI_VALUES=""
-AI_VALUES_COMPAT=""
 if [[ -n "${ANTHROPIC_VERTEX_PROJECT_ID:-}" ]]; then
   AI_VALUES="  vertexAI:
-    projectId: ${ANTHROPIC_VERTEX_PROJECT_ID}
-    region: ${CLOUD_ML_REGION:-us-east5}
-    existingSecret: gcp-sa-key"
-  AI_VALUES_COMPAT="  vertexAI:
     projectId: ${ANTHROPIC_VERTEX_PROJECT_ID}
     region: ${CLOUD_ML_REGION:-us-east5}
     existingSecret: gcp-sa-key"
@@ -469,10 +464,9 @@ if [[ -n "${ANTHROPIC_VERTEX_PROJECT_ID:-}" ]]; then
 elif [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
   AI_VALUES="  anthropicApiKey:
     existingSecret: anthropic-api-key"
-  AI_VALUES_COMPAT="  anthropicApiKey:
-    existingSecret: anthropic-api-key"
   AI_BACKEND="anthropic"
 fi
+AI_VALUES_COMPAT="$AI_VALUES"
 
 # Warn if upgrading and write ops were previously enabled but env var not set
 if [[ -z "${AGENT_ALLOW_WRITES:-}" ]]; then

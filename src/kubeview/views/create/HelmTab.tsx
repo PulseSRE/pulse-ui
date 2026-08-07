@@ -50,7 +50,7 @@ interface HelmRepo {
 async function applyResource(path: string, resource: unknown): Promise<void> {
   const res = await fetch(`${BASE}${path}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/apply-patch+yaml' },
+    headers: { 'Content-Type': 'application/apply-patch+json' },
     body: JSON.stringify(resource),
   });
   if (res.ok) return;

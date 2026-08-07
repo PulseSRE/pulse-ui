@@ -42,8 +42,13 @@ export function buildHelmInstallResources(input: BuildHelmInstallResourcesInput)
       rules: [
         {
           apiGroups: [''],
-          resources: ['configmaps', 'endpoints', 'persistentvolumeclaims', 'pods', 'secrets', 'serviceaccounts', 'services'],
+          resources: ['configmaps', 'endpoints', 'persistentvolumeclaims', 'pods', 'services'],
           verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete'],
+        },
+        {
+          apiGroups: [''],
+          resources: ['secrets'],
+          verbs: ['get', 'list', 'create', 'update', 'delete'],
         },
         {
           apiGroups: ['apps'],

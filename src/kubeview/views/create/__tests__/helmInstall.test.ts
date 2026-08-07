@@ -26,6 +26,15 @@ describe('buildHelmInstallResources', () => {
       readOnlyRootFilesystem: true,
       runAsNonRoot: true,
     });
+
+    const coreRule = resources.role.rules.find((r) => r.apiGroups.includes('') && r.resources.includes('pods'));
+    expect(coreRule?.resources).not.toContain('secrets');
+    expect(coreRule?.resources).not.toContain('serviceaccounts');
+
+    const secretsRule = resources.role.rules.find((r) => r.resources.includes('secrets'));
+    expect(secretsRule).toBeDefined();
+    expect(secretsRule?.verbs).not.toContain('watch');
+    expect(secretsRule?.verbs).not.toContain('patch');
   });
 
   it('rejects mutable runner image tags', () => {
