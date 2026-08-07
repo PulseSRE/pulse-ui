@@ -101,6 +101,10 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "msw"
-    ]
+    ],
+    "overrides": {
+      "vite": "8.2.1",
+      "minimatch@3>brace-expansion": "1.1.18"
+    }
   }
 }
