@@ -64,7 +64,7 @@ export function ErrorsTab() {
           role="tab"
           aria-selected={filter === 'all'}
           onClick={() => setFilter('all')}
-          className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', filter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800')}
+          className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', filter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800')}
         >
           All ({errors.length})
         </button>
@@ -72,7 +72,7 @@ export function ErrorsTab() {
           role="tab"
           aria-selected={filter === 'unresolved'}
           onClick={() => setFilter('unresolved')}
-          className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', filter === 'unresolved' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800')}
+          className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', filter === 'unresolved' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800')}
         >
           Unresolved ({unresolvedCount})
         </button>
@@ -84,7 +84,7 @@ export function ErrorsTab() {
               role="tab"
               aria-selected={filter === cat}
               onClick={() => setFilter(cat as ErrorCategory)}
-              className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', filter === cat ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800')}
+              className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', filter === cat ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800')}
             >
               {cfg.label} ({count})
             </button>
@@ -119,7 +119,7 @@ export function ErrorsTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-slate-200">{error.userMessage}</span>
-                    <span className={cn('text-xs px-1.5 py-0.5 rounded', cfg.color, 'bg-slate-800')}>
+                    <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', cfg.color, 'bg-slate-800')}>
                       {cfg.label}
                     </span>
                     {error.statusCode > 0 && (

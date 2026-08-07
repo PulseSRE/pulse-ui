@@ -75,11 +75,11 @@ export function PostmortemCard({
             <span className="text-sm font-medium text-slate-200">
               {postmortem.incident_type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
             </span>
-            <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
+            <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">
               {postmortem.plan_id}
             </span>
             {postmortem.confidence >= 0.8 && (
-              <span className="text-xs px-1.5 py-0.5 bg-emerald-900/50 text-emerald-300 rounded flex items-center gap-1">
+              <span className="text-xs px-1.5 py-0.5 bg-emerald-900/50 text-emerald-300 rounded-sm flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" />
                 High confidence
               </span>
@@ -105,7 +105,7 @@ export function PostmortemCard({
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyMarkdown}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm transition-colors"
             >
               <Copy className="w-3 h-3" />
               Copy as Markdown
@@ -113,7 +113,7 @@ export function PostmortemCard({
             {onInvestigate && (
               <button
                 onClick={handleInvestigate}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-sm transition-colors"
               >
                 <Bot className="w-3 h-3" />
                 Investigate Further
@@ -150,7 +150,7 @@ export function PostmortemCard({
             <Section title="Impact / Blast Radius" icon={Activity}>
               <div className="flex flex-wrap gap-1">
                 {postmortem.blast_radius.map((r, i) => (
-                  <span key={i} className="text-xs font-mono px-1.5 py-0.5 bg-red-900/30 text-red-300 rounded border border-red-800/30">
+                  <span key={i} className="text-xs font-mono px-1.5 py-0.5 bg-red-900/30 text-red-300 rounded-sm border border-red-800/30">
                     {r}
                   </span>
                 ))}

@@ -144,10 +144,10 @@ function SkillsTab() {
                     ? <AlertTriangle className="w-4 h-4 text-amber-400" />
                     : <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
                   <span className="text-sm font-medium text-slate-100">{String(skill.name)}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded text-slate-500">v{Number(skill.version)}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded-sm text-slate-500">v{Number(skill.version)}</span>
                 </div>
                 {Boolean(skill.write_tools) && (
-                  <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/30 text-amber-400 rounded border border-amber-800/30">write</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/30 text-amber-400 rounded-sm border border-amber-800/30">write</span>
                 )}
               </div>
               <p className="text-xs text-slate-400">{String(skill.description)}</p>
@@ -176,7 +176,7 @@ function SkillsTab() {
             onChange={(e) => setTestQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && testRouting()}
             placeholder="Type a query to see which skill handles it..."
-            className="flex-1 px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
           <button onClick={testRouting} className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">Test</button>
         </div>
@@ -377,7 +377,7 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
 
                 {detail.degraded && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-950/30 border border-amber-800/30 rounded-md text-xs text-amber-400">
-                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     {detail.degraded_reason}
                   </div>
                 )}
@@ -404,7 +404,7 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
                     <h3 className="text-xs font-medium text-slate-300 mb-2">Required Tools</h3>
                     <div className="flex flex-wrap gap-1">
                       {detail.requires_tools.map((t: string) => (
-                        <span key={t} className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{t}</span>
+                        <span key={t} className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-mono">{t}</span>
                       ))}
                     </div>
                   </div>
@@ -435,14 +435,14 @@ function SkillDetailDrawer({ name, onClose }: { name: string; onClose: () => voi
                       <textarea
                         value={editContent}
                         onChange={(e) => { setEditContent(e.target.value); setDirty(true); setSaveStatus('idle'); }}
-                        className="w-full h-[500px] px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full h-[500px] px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                         spellCheck={false}
                       />
                     ) : (
                       <textarea
                         readOnly
                         value={detail[activeFile] || ''}
-                        className="w-full h-96 px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-none"
+                        className="w-full h-96 px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-hidden"
                       />
                     )}
                   </div>
@@ -499,7 +499,7 @@ function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; onDiff:
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-slate-100">{v.label}</span>
-              {v.current && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-400 rounded">current</span>}
+              {v.current && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-400 rounded-sm">current</span>}
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5">
               {new Date(v.timestamp).toLocaleString()}
@@ -508,7 +508,7 @@ function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; onDiff:
           {!v.current && i > 0 && (
             <button
               onClick={() => onDiff(v.filename, 'skill.md')}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm"
             >
               <GitCompareArrows className="w-3 h-3" /> Diff vs current
             </button>
@@ -710,7 +710,7 @@ function MCPTab() {
                     <div className="flex items-center gap-2">
                       {conn.connected ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-red-400" />}
                       <span className="text-sm font-medium text-slate-100">{String(conn.name)}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded text-slate-500">{String(conn.transport)}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded-sm text-slate-500">{String(conn.transport)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400">{tools.length} tools</span>
@@ -759,7 +759,7 @@ function MCPTab() {
                         </h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                           {tools.map((tool) => (
-                            <div key={tool} className="text-[11px] font-mono text-slate-300 bg-slate-800/50 rounded px-2 py-1 truncate" title={tool}>
+                            <div key={tool} className="text-[11px] font-mono text-slate-300 bg-slate-800/50 rounded-sm px-2 py-1 truncate" title={tool}>
                               {tool}
                             </div>
                           ))}
@@ -811,13 +811,13 @@ function ComponentsTab() {
                 <div key={name} className="bg-slate-900/50 border border-slate-800/50 rounded-md px-3 py-2 space-y-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-mono text-slate-200">{name}</span>
-                    {comp.is_container && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded">container</span>}
+                    {comp.is_container && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded-sm">container</span>}
                   </div>
                   <p className="text-[11px] text-slate-500">{comp.description}</p>
                   {comp.supports_mutations.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
                       {comp.supports_mutations.map((m) => (
-                        <span key={m} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{m}</span>
+                        <span key={m} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded-sm">{m}</span>
                       ))}
                     </div>
                   )}

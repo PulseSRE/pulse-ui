@@ -39,7 +39,7 @@ export function UnusedToolsSection({ tools, usedTools }: { tools: { sre: ToolInf
               <div className="text-[11px] text-slate-400 mb-1">{cat} ({names.length})</div>
               <div className="flex flex-wrap gap-1">
                 {names.map((n) => (
-                  <span key={n} className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-800 text-slate-500 rounded border border-slate-700">{n}</span>
+                  <span key={n} className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-800 text-slate-500 rounded-sm border border-slate-700">{n}</span>
                 ))}
               </div>
             </div>

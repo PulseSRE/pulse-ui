@@ -435,7 +435,7 @@ export default function OperatorCatalogView() {
               <div className="text-sm font-medium text-slate-200">{step.title}</div>
               <div className="text-xs text-slate-500 mt-0.5">{step.description}</div>
             </div>
-            <button onClick={() => go(step.path, step.label)} className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded shrink-0">
+            <button onClick={() => go(step.path, step.label)} className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm shrink-0">
               {step.label} <ArrowRight className="w-3 h-3" />
             </button>
           </div>
@@ -543,12 +543,12 @@ export default function OperatorCatalogView() {
             <div className="flex-1">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-slate-100">{desc?.displayName || selectedOp.metadata.name}</h1>
-                {isInstalled && <span className="text-xs px-2 py-0.5 bg-green-900/50 text-green-300 rounded border border-green-800">Installed</span>}
+                {isInstalled && <span className="text-xs px-2 py-0.5 bg-green-900/50 text-green-300 rounded-sm border border-green-800">Installed</span>}
               </div>
               <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
                 <span>{desc?.provider?.name || selectedOp.status.provider?.name}</span>
                 <span>v{desc?.version}</span>
-                {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded border', catalogInfo.color)}>{catalogInfo.label}</span>}
+                {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded-sm border', catalogInfo.color)}>{catalogInfo.label}</span>}
               </div>
             </div>
           </div>
@@ -566,7 +566,7 @@ export default function OperatorCatalogView() {
               <div>
                 <label className="text-xs text-slate-400 block mb-1">Channel</label>
                 <select value={selectedChannel} onChange={(e) => setSelectedChannel(e.target.value)}
-                  className="px-3 py-2 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 w-full max-w-xs">
+                  className="px-3 py-2 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-full max-w-xs">
                   {channels.map(ch => <option key={ch.name} value={ch.name}>{ch.name} (v{ch.currentCSVDesc?.version})</option>)}
                 </select>
               </div>
@@ -574,7 +574,7 @@ export default function OperatorCatalogView() {
               <div>
                 <label className="text-xs text-slate-400 block mb-1">Install Namespace</label>
                 <input type="text" value={installNs} onChange={(e) => setInstallNs(e.target.value)}
-                  className="px-3 py-2 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 w-full max-w-xs font-mono" />
+                  className="px-3 py-2 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-full max-w-xs font-mono" />
                 <div className="text-xs text-slate-500 mt-1">
                   {allNsSupported ? 'This operator supports all namespaces — openshift-operators is recommended.' : 'This operator requires its own namespace.'}
                 </div>
@@ -582,7 +582,7 @@ export default function OperatorCatalogView() {
 
               <div className="flex items-center gap-3">
                 <button onClick={() => handleInstall(selectedOp, selectedChannel, installNs)} disabled={installing}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50">
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
                   {installing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
                   {installing ? 'Installing...' : 'Install'}
                 </button>
@@ -616,10 +616,10 @@ export default function OperatorCatalogView() {
                         <div className="text-xs text-slate-600 font-mono mt-0.5">{crd.name} ({crd.version})</div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => go(`/r/${gvrUrl}`, crd.kind)} className="px-2.5 py-1 text-xs text-slate-300 border border-slate-700 rounded hover:border-slate-600 hover:text-slate-200">
+                        <button onClick={() => go(`/r/${gvrUrl}`, crd.kind)} className="px-2.5 py-1 text-xs text-slate-300 border border-slate-700 rounded-sm hover:border-slate-600 hover:text-slate-200">
                           Browse
                         </button>
-                        <button onClick={() => go(`/create/${gvrUrl}`, `Create ${crd.kind}`)} className="px-2.5 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-500 flex items-center gap-1">
+                        <button onClick={() => go(`/create/${gvrUrl}`, `Create ${crd.kind}`)} className="px-2.5 py-1 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500 flex items-center gap-1">
                           Create <ArrowRight className="w-3 h-3" />
                         </button>
                       </div>
@@ -638,7 +638,7 @@ export default function OperatorCatalogView() {
                 <button
                   onClick={() => setShowUninstallDialog(true)}
                   disabled={uninstalling}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {uninstalling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                   {uninstalling ? 'Uninstalling...' : 'Uninstall'}
@@ -691,14 +691,14 @@ export default function OperatorCatalogView() {
                             const total = cs.length || 1;
                             return (
                               <button key={pod.metadata.uid} onClick={() => go(`/r/v1~pods/${installedCsvNs}/${pod.metadata.name}`, pod.metadata.name)}
-                                className="w-full flex items-center justify-between py-1 px-2 rounded hover:bg-slate-800/50 text-left">
+                                className="w-full flex items-center justify-between py-1 px-2 rounded-sm hover:bg-slate-800/50 text-left">
                                 <div className="flex items-center gap-2">
                                   <div className={cn('w-1.5 h-1.5 rounded-full', phase === 'Running' && ready === total ? 'bg-green-500' : 'bg-yellow-500')} />
                                   <span className="text-xs text-slate-300 font-mono">{pod.metadata.name}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-slate-500 font-mono">{ready}/{total}</span>
-                                  <span className={cn('text-xs px-1.5 py-0.5 rounded', phase === 'Running' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{phase}</span>
+                                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', phase === 'Running' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{phase}</span>
                                 </div>
                               </button>
                             );
@@ -736,7 +736,7 @@ export default function OperatorCatalogView() {
             <h3 className="text-xs text-slate-400 mb-2">Install Modes</h3>
             <div className="flex flex-wrap gap-2">
               {desc?.installModes?.map((m: any) => (
-                <span key={m.type} className={cn('text-xs px-2 py-1 rounded border', m.supported ? 'bg-green-900/30 text-green-300 border-green-800' : 'bg-slate-800 text-slate-500 border-slate-700')}>
+                <span key={m.type} className={cn('text-xs px-2 py-1 rounded-sm border', m.supported ? 'bg-green-900/30 text-green-300 border-green-800' : 'bg-slate-800 text-slate-500 border-slate-700')}>
                   {m.type}: {m.supported ? '✓' : '✗'}
                 </span>
               ))}
@@ -785,7 +785,7 @@ export default function OperatorCatalogView() {
                 </p>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {orphanedCrds.map((crd) => (
-                    <span key={crd.name} className="text-xs font-mono px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700">
+                    <span key={crd.name} className="text-xs font-mono px-2 py-0.5 bg-slate-800 text-slate-300 rounded-sm border border-slate-700">
                       {crd.kind}
                     </span>
                   ))}
@@ -794,7 +794,7 @@ export default function OperatorCatalogView() {
                   <button
                     onClick={handleCleanupCrds}
                     disabled={cleaningCrds}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded-sm disabled:opacity-50"
                   >
                     {cleaningCrds ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                     {cleaningCrds ? 'Cleaning...' : 'Delete CRDs'}
@@ -816,20 +816,20 @@ export default function OperatorCatalogView() {
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search operators..."
-              className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex gap-1 bg-slate-900 rounded-lg p-1" role="tablist" aria-label="Catalog filter">
-            <button role="tab" aria-selected={catalogFilter === 'installed'} onClick={() => setCatalogFilter('installed')} className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === 'installed' ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+            <button role="tab" aria-selected={catalogFilter === 'installed'} onClick={() => setCatalogFilter('installed')} className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === 'installed' ? 'bg-green-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               Installed ({installedNames.size})
             </button>
-            <button role="tab" aria-selected={catalogFilter === 'all'} onClick={() => setCatalogFilter('all')} className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+            <button role="tab" aria-selected={catalogFilter === 'all'} onClick={() => setCatalogFilter('all')} className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === 'all' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               All ({dedupedPackages.length})
             </button>
             {catalogs.map(([name, count]) => {
               const info = CATALOG_LABELS[name];
               return (
                 <button key={name} role="tab" aria-selected={catalogFilter === name} onClick={() => setCatalogFilter(name)}
-                  className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === name ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+                  className={cn('px-3 py-1.5 text-xs rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', catalogFilter === name ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
                   {info?.label || name} ({count})
                 </button>
               );
@@ -854,9 +854,9 @@ export default function OperatorCatalogView() {
                   className={cn('flex items-start gap-3 p-4 bg-slate-900 rounded-lg border text-left transition-colors hover:border-blue-600',
                     isInstalled ? 'border-green-800' : 'border-slate-800')}>
                   {desc?.icon?.[0]?.base64data ? (
-                    <img src={`data:${desc.icon[0].mediatype};base64,${desc.icon[0].base64data}`} className="w-10 h-10 rounded shrink-0" alt="" />
+                    <img src={`data:${desc.icon[0].mediatype};base64,${desc.icon[0].base64data}`} className="w-10 h-10 rounded-sm shrink-0" alt="" />
                   ) : (
-                    <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center shrink-0"><Puzzle className="w-5 h-5 text-slate-600" /></div>
+                    <div className="w-10 h-10 rounded-sm bg-slate-800 flex items-center justify-center shrink-0"><Puzzle className="w-5 h-5 text-slate-600" /></div>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -865,7 +865,7 @@ export default function OperatorCatalogView() {
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5 line-clamp-2">{desc?.description?.slice(0, 100) || 'No description'}</div>
                     <div className="flex items-center gap-2 mt-2">
-                      {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded border', catalogInfo.color)}>{catalogInfo.label}</span>}
+                      {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded-sm border', catalogInfo.color)}>{catalogInfo.label}</span>}
                       <span className="text-xs text-slate-500">v{desc?.version}</span>
                       {isPopular && <Star className="w-3 h-3 text-yellow-500" />}
                     </div>

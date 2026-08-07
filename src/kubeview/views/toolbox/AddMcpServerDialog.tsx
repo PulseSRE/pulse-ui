@@ -75,7 +75,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. my-mcp-server"
-            className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
@@ -83,7 +83,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
           <select
             value={transport}
             onChange={(e) => setTransport(e.target.value as 'sse' | 'stdio')}
-            className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           >
             <option value="sse">SSE (HTTP)</option>
             <option value="stdio">stdio (subprocess)</option>
@@ -99,7 +99,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder={transport === 'sse' ? 'http://localhost:8081' : 'npx @modelcontextprotocol/server-everything'}
-          className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+          className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500 font-mono"
         />
       </div>
 

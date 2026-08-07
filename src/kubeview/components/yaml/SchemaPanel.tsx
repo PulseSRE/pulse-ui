@@ -87,7 +87,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search fields..."
-            className="w-full pl-7 pr-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-7 pr-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
       )}
       {error && (
         <div className="p-3 text-xs text-yellow-400 flex items-start gap-2">
-          <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
@@ -129,9 +129,9 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
         <div className="border-t border-slate-700 p-3 bg-slate-950/50 max-h-48 overflow-auto">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="font-mono text-xs text-white">{selectedField.path || selectedField.name}</span>
-            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">{selectedField.type}</span>
-            {selectedField.required && <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-400">Required</span>}
-            {selectedField.format && <span className="text-xs px-1.5 py-0.5 rounded bg-slate-700 text-slate-400">{selectedField.format}</span>}
+            <span className="text-xs px-1.5 py-0.5 rounded-sm bg-slate-700 text-slate-300">{selectedField.type}</span>
+            {selectedField.required && <span className="text-xs px-1.5 py-0.5 rounded-sm bg-red-900/50 text-red-400">Required</span>}
+            {selectedField.format && <span className="text-xs px-1.5 py-0.5 rounded-sm bg-slate-700 text-slate-400">{selectedField.format}</span>}
           </div>
           {selectedField.description && (
             <p className="text-[11px] text-slate-400 leading-relaxed mb-2">{selectedField.description}</p>
@@ -143,7 +143,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
             <div className="mt-1.5">
               <span className="text-xs text-slate-500">Values: </span>
               <div className="flex flex-wrap gap-1 mt-0.5">
-                {selectedField.enum.map((v) => <code key={v} className="text-xs px-1 py-0.5 bg-slate-700 rounded text-slate-300">{v}</code>)}
+                {selectedField.enum.map((v) => <code key={v} className="text-xs px-1 py-0.5 bg-slate-700 rounded-sm text-slate-300">{v}</code>)}
               </div>
             </div>
           )}
@@ -182,11 +182,11 @@ function FieldTree({ field, selectedPath, onSelect, level = 0, searchQuery = '' 
         onClick={() => { onSelect(field); if (hasChildren) setIsExpanded(!isExpanded); }}
       >
         {hasChildren ? (
-          isExpanded ? <ChevronDown className="w-3 h-3 text-slate-500 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 text-slate-500 flex-shrink-0" />
-        ) : <span className="w-3 flex-shrink-0" />}
+          isExpanded ? <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" /> : <ChevronRight className="w-3 h-3 text-slate-500 shrink-0" />
+        ) : <span className="w-3 shrink-0" />}
         <span className={cn('font-mono', isActive ? 'text-blue-400' : field.required ? 'text-slate-200' : 'text-slate-400')}>{field.name}</span>
         {field.required && <span className="text-red-400 text-xs">*</span>}
-        <span className="text-xs text-slate-600 ml-auto flex-shrink-0">{field.type}</span>
+        <span className="text-xs text-slate-600 ml-auto shrink-0">{field.type}</span>
       </div>
       {hasChildren && isExpanded && children.map((child) => (
         <FieldTree key={child.path} field={child} selectedPath={selectedPath} onSelect={onSelect} level={level + 1} searchQuery={searchQuery} />

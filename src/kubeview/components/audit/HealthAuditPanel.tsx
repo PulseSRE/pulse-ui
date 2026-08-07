@@ -67,7 +67,7 @@ export function HealthAuditPanel({
                   <p className="text-xs text-slate-400">{check.description}</p>
 
                   {/* Why it matters */}
-                  <div className="bg-blue-950/20 border border-blue-900/50 rounded p-3">
+                  <div className="bg-blue-950/20 border border-blue-900/50 rounded-sm p-3">
                     <div className="text-xs font-medium text-blue-300 mb-1">Why it matters</div>
                     <p className="text-xs text-slate-400">{check.why}</p>
                   </div>
@@ -88,7 +88,7 @@ export function HealthAuditPanel({
                             <button
                               key={item.metadata?.uid || idx}
                               onClick={() => onNavigateItem?.(check, item, idx)}
-                              className="flex items-center justify-between w-full py-1 px-2 rounded hover:bg-slate-800/50 text-left transition-colors"
+                              className="flex items-center justify-between w-full py-1 px-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors"
                             >
                               <div className="flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
@@ -115,7 +115,7 @@ export function HealthAuditPanel({
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {check.passing.slice(0, 8).map((item, idx) => (
-                          <span key={item.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded">
+                          <span key={item.metadata?.uid || idx} className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded-sm">
                             {itemName(item, idx)}
                           </span>
                         ))}
@@ -131,7 +131,7 @@ export function HealthAuditPanel({
                     <div className="text-xs text-slate-500 font-medium mb-1">
                       {check.fixLabel ?? 'How to fix:'}
                     </div>
-                    <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded overflow-x-auto whitespace-pre-wrap">{check.yamlExample}</pre>
+                    <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded-sm overflow-x-auto whitespace-pre-wrap">{check.yamlExample}</pre>
                   </div>
                 </div>
               )}

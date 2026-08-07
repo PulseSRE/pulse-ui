@@ -85,7 +85,7 @@ export function ThinkingIndicator({
           <div className="thinking-orb" />
           <span className="text-xs text-slate-300 font-medium">{phaseLabel}</span>
           {activeTools.length > 0 && (
-            <span className="text-[10px] text-violet-400 font-mono bg-violet-500/10 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-violet-400 font-mono bg-violet-500/10 px-1.5 py-0.5 rounded-sm">
               {activeTools[activeTools.length - 1]}
             </span>
           )}
@@ -104,7 +104,7 @@ export function ThinkingIndicator({
       <div className="thinking-border absolute inset-0 rounded-xl" />
 
       {/* Inner content */}
-      <div className="relative bg-slate-900/95 m-[1px] rounded-[11px] px-4 py-3 space-y-2.5">
+      <div className="relative bg-slate-900/95 m-px rounded-[11px] px-4 py-3 space-y-2.5">
         {/* Header row */}
         <div className="flex items-center gap-3">
           {/* Animated orb */}

@@ -76,7 +76,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
       <div
         ref={drawerRef}
         tabIndex={-1}
-        className="relative w-[480px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-none"
+        className="relative w-[480px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -99,7 +99,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={cn(
-                    'text-xs px-1.5 py-0.5 rounded',
+                    'text-xs px-1.5 py-0.5 rounded-sm',
                     lifecycle.detection.severity === 'critical' ? 'bg-red-900/50 text-red-300' :
                     lifecycle.detection.severity === 'warning' ? 'bg-amber-900/50 text-amber-300' :
                     'bg-blue-900/50 text-blue-300',
@@ -134,7 +134,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 )}
                 <div className="flex items-center gap-2">
                   <span className={cn(
-                    'text-xs px-1.5 py-0.5 rounded',
+                    'text-xs px-1.5 py-0.5 rounded-sm',
                     lifecycle.impact.risk_level === 'high' ? 'bg-red-900/50 text-red-300' :
                     lifecycle.impact.risk_level === 'medium' ? 'bg-amber-900/50 text-amber-300' :
                     'bg-emerald-900/50 text-emerald-300',
@@ -149,7 +149,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Blast Radius</div>
                     <div className="flex flex-wrap gap-1">
                       {lifecycle.impact.blast_radius.map((r) => (
-                        <span key={r.id} className="text-xs font-mono px-1.5 py-0.5 bg-red-900/20 text-red-300 rounded border border-red-800/30">
+                        <span key={r.id} className="text-xs font-mono px-1.5 py-0.5 bg-red-900/20 text-red-300 rounded-sm border border-red-800/30">
                           {r.kind}/{r.name}
                         </span>
                       ))}
@@ -161,7 +161,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dependencies</div>
                     <div className="flex flex-wrap gap-1">
                       {lifecycle.impact.upstream_dependencies.map((r) => (
-                        <span key={r.id} className="text-xs font-mono px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
+                        <span key={r.id} className="text-xs font-mono px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">
                           {r.kind}/{r.name}
                         </span>
                       ))}
@@ -181,7 +181,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
             {lifecycle.investigation && (
               <div className="space-y-2">
                 {lifecycle.investigation.suspectedCause && (
-                  <div className="px-3 py-2 rounded bg-violet-950/40 border border-violet-800/40">
+                  <div className="px-3 py-2 rounded-sm bg-violet-950/40 border border-violet-800/40">
                     <div className="text-[10px] font-medium text-violet-300 mb-0.5">Suspected Cause</div>
                     <p className="text-xs text-slate-200">{lifecycle.investigation.suspectedCause}</p>
                   </div>
@@ -199,11 +199,11 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   </div>
                 )}
                 {lifecycle.investigation.securityFollowup && (
-                  <div className="px-3 py-2 rounded bg-red-950/30 border border-red-800/30">
+                  <div className="px-3 py-2 rounded-sm bg-red-950/30 border border-red-800/30">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-medium text-red-300">Security Assessment</span>
                       <span className={cn(
-                        'text-[10px] px-1.5 py-0.5 rounded',
+                        'text-[10px] px-1.5 py-0.5 rounded-sm',
                         lifecycle.investigation.securityFollowup.riskLevel === 'high' ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300',
                       )}>
                         {lifecycle.investigation.securityFollowup.riskLevel}
@@ -230,7 +230,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono text-slate-200">{lifecycle.action.tool}</span>
-                  <span className={cn('text-xs px-1.5 py-0.5 rounded', {
+                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', {
                     'bg-green-900/50 text-green-300': lifecycle.action.status === 'completed',
                     'bg-yellow-900/50 text-yellow-300': lifecycle.action.status === 'executing',
                     'bg-red-900/50 text-red-300': lifecycle.action.status === 'failed',
@@ -262,7 +262,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className={cn(
-                    'text-xs px-1.5 py-0.5 rounded font-medium',
+                    'text-xs px-1.5 py-0.5 rounded-sm font-medium',
                     (lifecycle.verification?.status === 'verified' || lifecycle.action?.verificationStatus === 'verified')
                       ? 'bg-emerald-900/50 text-emerald-300'
                       : 'bg-amber-900/50 text-amber-300',
@@ -283,7 +283,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   </div>
                 )}
                 {confidenceStats && confidenceStats.total_predictions > 0 && (
-                  <div className="mt-2 px-3 py-2 rounded bg-slate-800/50 border border-slate-700/50">
+                  <div className="mt-2 px-3 py-2 rounded-sm bg-slate-800/50 border border-slate-700/50">
                     <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Agent Confidence Trends (30d)</div>
                     <div className="flex items-center gap-3 text-xs">
                       <div>
@@ -297,7 +297,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                         <span className="text-slate-300 font-mono">{confidenceStats.accuracy_pct.toFixed(1)}%</span>
                       </div>
                       <span className={cn(
-                        'text-[10px] px-1.5 py-0.5 rounded',
+                        'text-[10px] px-1.5 py-0.5 rounded-sm',
                         confidenceStats.rating === 'good' ? 'bg-emerald-900/40 text-emerald-300' :
                         confidenceStats.rating === 'fair' ? 'bg-amber-900/40 text-amber-300' :
                         'bg-red-900/40 text-red-300',
@@ -323,7 +323,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   {lifecycle.postmortem.incident_type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                 </p>
                 {lifecycle.postmortem.root_cause && (
-                  <div className="px-3 py-2 rounded bg-slate-800/50 border border-slate-700/50">
+                  <div className="px-3 py-2 rounded-sm bg-slate-800/50 border border-slate-700/50">
                     <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Root Cause</div>
                     <p className="text-xs text-slate-300">{lifecycle.postmortem.root_cause}</p>
                   </div>
@@ -355,32 +355,32 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
               <div className="space-y-2">
                 {lifecycle.learning.scaffolded_skill && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-1.5 py-0.5 bg-violet-900/40 text-violet-300 rounded">Skill</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-violet-900/40 text-violet-300 rounded-sm">Skill</span>
                     <span className="text-xs text-slate-300">{lifecycle.learning.scaffolded_skill.name}</span>
                   </div>
                 )}
                 {lifecycle.learning.scaffolded_plan && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded">Plan</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded-sm">Plan</span>
                     <span className="text-xs text-slate-300">{lifecycle.learning.scaffolded_plan.name} ({lifecycle.learning.scaffolded_plan.phases} phases)</span>
                   </div>
                 )}
                 {lifecycle.learning.scaffolded_eval && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-1.5 py-0.5 bg-emerald-900/40 text-emerald-300 rounded">Eval</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-emerald-900/40 text-emerald-300 rounded-sm">Eval</span>
                     <span className="text-xs text-slate-300 font-mono">{lifecycle.learning.scaffolded_eval.scenario_id}</span>
                   </div>
                 )}
                 {lifecycle.learning.learned_runbook && (
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded">Runbook</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm">Runbook</span>
                       <span className="text-xs text-slate-300">{lifecycle.learning.learned_runbook.name}</span>
                       <span className="text-xs text-slate-500">{lifecycle.learning.learned_runbook.success_count} successes</span>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {lifecycle.learning.learned_runbook.tool_sequence.map((tool, i) => (
-                        <span key={i} className="text-xs font-mono px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{tool}</span>
+                        <span key={i} className="text-xs font-mono px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{tool}</span>
                       ))}
                     </div>
                   </div>

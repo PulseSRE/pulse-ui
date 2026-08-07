@@ -99,7 +99,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full mt-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:border-blue-500"
+          className="w-full mt-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:border-blue-500"
           placeholder="Chart title"
         />
       </div>
@@ -112,7 +112,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
             <textarea
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full h-24 px-3 py-2 text-sm font-mono bg-slate-800 text-slate-200 resize-none focus:outline-none"
+              className="w-full h-24 px-3 py-2 text-sm font-mono bg-slate-800 text-slate-200 resize-none focus:outline-hidden"
               placeholder="rate(container_cpu_usage_seconds_total[5m])"
             />
           }>
@@ -170,7 +170,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
           <select
             value={chartType}
             onChange={(e) => setChartType(e.target.value)}
-            className="w-full mt-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:border-blue-500"
+            className="w-full mt-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:border-blue-500"
           >
             {CHART_TYPES.map((t) => (
               <option key={t.value} value={t.value}>{t.label}</option>
@@ -206,7 +206,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
           type="text"
           value={yAxisLabel}
           onChange={(e) => setYAxisLabel(e.target.value)}
-          className="w-full mt-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:border-blue-500"
+          className="w-full mt-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:border-blue-500"
           placeholder="e.g. CPU (cores)"
         />
       </div>

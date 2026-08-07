@@ -55,7 +55,7 @@ export function SearchInput({
         onChange={(e) => setInternalValue(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-10 pr-10 text-sm text-slate-300 placeholder-slate-500 outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-10 pr-10 text-sm text-slate-300 placeholder-slate-500 outline-hidden transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
       />
       {internalValue && (
         <button

@@ -251,7 +251,7 @@ export default function OnboardingView() {
             <span className="text-sm text-red-400">Evaluation failed: {evalError.message}</span>
             <button
               onClick={() => window.location.reload()}
-              className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors"
+              className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors"
             >
               Retry
             </button>

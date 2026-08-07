@@ -28,13 +28,13 @@ export function UsageTab() {
           onChange={(e) => setToolFilter(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && loadUsage({ tool_name: toolFilter || undefined, page: 1 })}
           placeholder="Tool name..."
-          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 w-36 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 w-36 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
         />
         <select
           aria-label="Filter by skill"
           value={modeFilter}
           onChange={(e) => { setModeFilter(e.target.value); loadUsage({ agent_mode: e.target.value || undefined, page: 1 }); }}
-          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
         >
           <option value="">All skills</option>
           <option value="sre">SRE</option>
@@ -49,7 +49,7 @@ export function UsageTab() {
           aria-label="Filter by status"
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); loadUsage({ status: e.target.value || undefined, page: 1 }); }}
-          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
         >
           <option value="">All statuses</option>
           <option value="success">Success</option>
@@ -94,7 +94,7 @@ export function UsageTab() {
             aria-label="Previous page"
             disabled={filters.page <= 1}
             onClick={() => loadUsage({ page: filters.page - 1 })}
-            className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="p-1 rounded-sm text-slate-400 hover:text-slate-200 disabled:opacity-30 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -105,7 +105,7 @@ export function UsageTab() {
             aria-label="Next page"
             disabled={filters.page >= totalPages}
             onClick={() => loadUsage({ page: filters.page + 1 })}
-            className="p-1 rounded text-slate-400 hover:text-slate-200 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="p-1 rounded-sm text-slate-400 hover:text-slate-200 disabled:opacity-30 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

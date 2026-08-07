@@ -96,11 +96,11 @@ export function TableBody({
         <div className="flex flex-col gap-2 p-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 animate-pulse">
-              <div className="w-4 h-4 bg-slate-800 rounded" />
-              <div className="h-4 bg-slate-800 rounded flex-1 max-w-[200px]" />
-              <div className="h-4 bg-slate-800 rounded flex-1 max-w-[120px]" />
-              <div className="h-4 bg-slate-800 rounded w-20" />
-              <div className="h-4 bg-slate-800 rounded w-16" />
+              <div className="w-4 h-4 bg-slate-800 rounded-sm" />
+              <div className="h-4 bg-slate-800 rounded-sm flex-1 max-w-[200px]" />
+              <div className="h-4 bg-slate-800 rounded-sm flex-1 max-w-[120px]" />
+              <div className="h-4 bg-slate-800 rounded-sm w-20" />
+              <div className="h-4 bg-slate-800 rounded-sm w-16" />
             </div>
           ))}
         </div>
@@ -140,7 +140,7 @@ export function TableBody({
                 type="checkbox"
                 checked={selectedRows.size === paginatedResources.length && paginatedResources.length > 0}
                 onChange={onSelectAll}
-                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
+                className="w-4 h-4 rounded-sm border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
               />
             </th>
             {visibleColumns.map((column) => (
@@ -180,7 +180,7 @@ export function TableBody({
                     value={columnFilters[column.id] || ''}
                     onChange={(e) => onColumnFilterChange(column.id, e.target.value)}
                     placeholder={`Filter ${column.header}...`}
-                    className="w-full px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                   />
                 </th>
               ))}
@@ -260,7 +260,7 @@ export function TableBody({
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => onRowSelect(uid)}
-                    className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
+                    className="w-4 h-4 rounded-sm border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 {visibleColumns.map((column) => {
@@ -287,7 +287,7 @@ export function TableBody({
                         addTab({ title: `${resource.metadata.name} (YAML)`, path: yamlPath, pinned: false, closable: true });
                         navigate(yamlPath);
                       }}
-                      className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors disabled:opacity-50', canUpdate ? 'text-slate-500 hover:bg-blue-900/50 hover:text-blue-400' : 'text-slate-700 cursor-not-allowed')}
+                      className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded-sm transition-colors disabled:opacity-50', canUpdate ? 'text-slate-500 hover:bg-blue-900/50 hover:text-blue-400' : 'text-slate-700 cursor-not-allowed')}
                       title={canUpdate ? 'Edit YAML' : 'No update permission'}
                       disabled={!canUpdate}
                     >
@@ -296,7 +296,7 @@ export function TableBody({
                     <button
                       onClick={(e) => { e.stopPropagation(); handleAction('delete-single', { resource }); }}
                       disabled={!canDelete || inlineActionLoading === `${resource.metadata.uid}-delete-single`}
-                      className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors disabled:opacity-50',
+                      className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded-sm transition-colors disabled:opacity-50',
                         canDelete ? 'text-slate-500 hover:bg-red-900/50 hover:text-red-400' : 'text-slate-700 cursor-not-allowed'
                       )}
                       title={canDelete ? 'Delete' : 'No delete permission'}

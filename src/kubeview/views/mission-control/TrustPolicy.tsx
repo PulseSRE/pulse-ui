@@ -184,7 +184,7 @@ export function TrustPolicy({ maxTrustLevel, scannerCount, fixSummary, supported
                     !disabled && 'hover:border-slate-500 cursor-pointer',
                   )}
                 >
-                  <div className={cn('mt-0.5 w-3 h-3 rounded border shrink-0', enabled && !disabled ? 'bg-violet-500 border-violet-400' : 'border-slate-600')} />
+                  <div className={cn('mt-0.5 w-3 h-3 rounded-sm border shrink-0', enabled && !disabled ? 'bg-violet-500 border-violet-400' : 'border-slate-600')} />
                   <div>
                     <div className="font-medium">{cat.label}</div>
                     <div className="text-[10px] text-slate-500 mt-0.5">{cat.description}</div>
@@ -204,7 +204,7 @@ export function TrustPolicy({ maxTrustLevel, scannerCount, fixSummary, supported
                 key={style.id}
                 onClick={() => setCommunicationStyle(style.id)}
                 className={cn(
-                  'px-2.5 py-1 rounded text-xs transition-colors',
+                  'px-2.5 py-1 rounded-sm text-xs transition-colors',
                   communicationStyle === style.id
                     ? 'bg-slate-700 text-slate-200'
                     : 'text-slate-500 hover:text-slate-300',

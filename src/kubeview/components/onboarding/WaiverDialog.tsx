@@ -40,7 +40,7 @@ export function WaiverDialog({ gateTitle, open, onClose, onConfirm }: WaiverDial
       <div className="relative w-full max-w-md bg-slate-900 rounded-xl border border-slate-700 shadow-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-100">Waive Gate</h3>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200 rounded" aria-label="Close">
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200 rounded-sm" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -58,7 +58,7 @@ export function WaiverDialog({ gateTitle, open, onClose, onConfirm }: WaiverDial
             rows={3}
             className={cn(
               'w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-200',
-              'placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent',
+              'placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-violet-500 focus:border-transparent',
               'resize-none',
             )}
             autoFocus

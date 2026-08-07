@@ -111,7 +111,7 @@ export default function TimelineView() {
                 key={range}
                 onClick={() => setTimeRange(range)}
                 className={cn(
-                  'px-3 py-1.5 text-xs rounded transition-colors',
+                  'px-3 py-1.5 text-xs rounded-sm transition-colors',
                   timeRange === range ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-slate-200'
                 )}
               >
@@ -131,7 +131,7 @@ export default function TimelineView() {
                   key={cat}
                   onClick={() => toggleCategory(cat)}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors',
+                    'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors',
                     active ? 'bg-slate-700 text-slate-200' : 'text-slate-500 hover:text-slate-400'
                   )}
                 >
@@ -243,10 +243,10 @@ function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: 
       onClick={hasResource ? onClick : undefined}
     >
       {/* Timeline dot */}
-      <div className={cn('absolute -left-[25px] top-5 w-3 h-3 rounded-full border-2 border-slate-950', severityDot)} />
+      <div className={cn('absolute left-[-25px] top-5 w-3 h-3 rounded-full border-2 border-slate-950', severityDot)} />
 
       <div className="flex items-start gap-3">
-        <div className={cn('flex-shrink-0 mt-0.5', cfg.color)}>
+        <div className={cn('shrink-0 mt-0.5', cfg.color)}>
           <Icon className="w-4 h-4" />
         </div>
 
@@ -255,7 +255,7 @@ function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: 
             <span className="text-xs text-slate-500">
               {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
-            <span className={cn('px-1.5 py-0.5 text-xs rounded', {
+            <span className={cn('px-1.5 py-0.5 text-xs rounded-sm', {
               'bg-red-900/50 text-red-300': entry.severity === 'critical',
               'bg-amber-900/50 text-amber-300': entry.severity === 'warning',
               'bg-blue-900/50 text-blue-300': entry.severity === 'info',
@@ -333,7 +333,7 @@ function CorrelationRow({ group, expanded, onToggle, onEntryClick }: {
           {group.entries.map((entry) => (
             <div
               key={entry.id}
-              className={cn('flex items-center gap-3 p-2 rounded text-sm', entry.resource && 'cursor-pointer hover:bg-slate-800/50')}
+              className={cn('flex items-center gap-3 p-2 rounded-sm text-sm', entry.resource && 'cursor-pointer hover:bg-slate-800/50')}
               onClick={() => entry.resource && onEntryClick(entry)}
             >
               <span className="text-xs text-slate-600 w-16 shrink-0">

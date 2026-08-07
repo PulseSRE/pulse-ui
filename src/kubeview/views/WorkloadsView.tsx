@@ -164,7 +164,7 @@ export default function WorkloadsView() {
           <Card className="flex gap-1 p-1">
             {([['overview', 'Workloads', <Package className="w-3.5 h-3.5" />], ['builds', 'Builds', <Hammer className="w-3.5 h-3.5" />]] as const).map(([id, label, icon]) => (
               <button key={id} role="tab" aria-selected={activeTab === id} aria-label={label as string} onClick={() => switchTab(id as Tab)}
-                className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+                className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
                 {icon}{label}
               </button>
             ))}
@@ -191,7 +191,7 @@ export default function WorkloadsView() {
         <Card className="flex gap-1 p-1">
           {([['overview', 'Workloads', <Package className="w-3.5 h-3.5" />], ['builds', 'Builds', <Hammer className="w-3.5 h-3.5" />]] as const).map(([id, label, icon]) => (
             <button key={id} role="tab" aria-selected={activeTab === id} aria-label={label as string} onClick={() => switchTab(id as Tab)}
-              className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+              className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               {icon}{label}
             </button>
           ))}
@@ -201,8 +201,8 @@ export default function WorkloadsView() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="bg-slate-900 rounded-lg border border-slate-800 p-3 animate-pulse">
-                <div className="h-3 bg-slate-800 rounded w-2/3 mb-2" />
-                <div className="h-5 bg-slate-800 rounded w-1/3" />
+                <div className="h-3 bg-slate-800 rounded-sm w-2/3 mb-2" />
+                <div className="h-5 bg-slate-800 rounded-sm w-1/3" />
               </div>
             ))}
           </div>
@@ -228,14 +228,14 @@ export default function WorkloadsView() {
           <button onClick={() => go('/r/apps~v1~deployments', 'Deployments')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthyDeploys.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Deployments</span>
-              {unhealthyDeploys.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{unhealthyDeploys.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+              {unhealthyDeploys.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{unhealthyDeploys.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{deployments.length}</div>
           </button>
           <button onClick={() => go('/r/apps~v1~statefulsets', 'StatefulSets')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthySS.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">StatefulSets</span>
-              {unhealthySS.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{unhealthySS.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+              {unhealthySS.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{unhealthySS.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{statefulsets.length}</div>
           </button>
@@ -246,14 +246,14 @@ export default function WorkloadsView() {
           <button onClick={() => go('/r/v1~pods', 'Pods')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', crashingPods.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Pods</span>
-              {crashingPods.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{crashingPods.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+              {crashingPods.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{crashingPods.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{pods.length}</div>
           </button>
           <button onClick={() => go('/r/batch~v1~jobs', 'Jobs')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedJobs.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Jobs</span>
-              {failedJobs.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{failedJobs.length}</span>}
+              {failedJobs.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{failedJobs.length}</span>}
             </div>
             <div className="text-xl font-bold text-slate-100">{jobs.length}</div>
           </button>
@@ -366,11 +366,11 @@ export default function WorkloadsView() {
                   const s = getDeploymentStatus(d);
                   return (
                     <button key={d.metadata.uid} onClick={() => go(`/r/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, d.metadata.name)}
-                      className="w-full flex items-center justify-between p-2 rounded hover:bg-slate-800/50 text-left transition-colors">
+                      className="w-full flex items-center justify-between p-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                         <span className="text-sm text-slate-200 truncate">{d.metadata.name}</span>
-                        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{d.metadata.namespace}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{d.metadata.namespace}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-red-400">{s.ready}/{s.desired}</span>
@@ -391,11 +391,11 @@ export default function WorkloadsView() {
                   const restarts = (p.status?.containerStatuses || []).reduce((s: number, c: ContainerStatus) => s + (c.restartCount || 0), 0);
                   return (
                     <button key={p.metadata.uid} onClick={() => go(`/r/v1~pods/${p.metadata.namespace}/${p.metadata.name}`, p.metadata.name)}
-                      className="w-full flex items-center justify-between p-2 rounded hover:bg-slate-800/50 text-left transition-colors">
+                      className="w-full flex items-center justify-between p-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                         <span className="text-sm text-slate-200 truncate">{p.metadata.name}</span>
-                        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{p.metadata.namespace}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{p.metadata.namespace}</span>
                       </div>
                       <span className="text-xs font-mono text-amber-400">{restarts} restarts</span>
                     </button>
@@ -472,11 +472,11 @@ export default function WorkloadsView() {
             <div className="space-y-1">
               {failedJobs.slice(0, 8).map((j) => (
                 <button key={j.metadata.uid} onClick={() => go(`/r/batch~v1~jobs/${j.metadata.namespace}/${j.metadata.name}`, j.metadata.name)}
-                  className="w-full flex items-center justify-between p-2 rounded hover:bg-slate-800/50 text-left transition-colors">
+                  className="w-full flex items-center justify-between p-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                     <span className="text-sm text-slate-200 truncate">{j.metadata.name}</span>
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{j.metadata.namespace}</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{j.metadata.namespace}</span>
                   </div>
                   <ArrowRight className="w-3 h-3 text-slate-600" />
                 </button>

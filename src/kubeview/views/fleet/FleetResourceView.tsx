@@ -205,7 +205,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
       unknown: 'bg-slate-800 text-slate-400',
     };
     return (
-      <span className={cn('text-xs px-1.5 py-0.5 rounded', colors[status] || colors.unknown)}>
+      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', colors[status] || colors.unknown)}>
         {reason || status}
       </span>
     );
@@ -248,7 +248,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
             <select
               value={clusterFilter}
               onChange={(e) => setClusterFilter(e.target.value)}
-              className="text-xs bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200"
+              className="text-xs bg-slate-900 border border-slate-700 rounded-sm px-2 py-1.5 text-slate-200"
               aria-label="Filter by cluster"
             >
               <option value="all">All clusters</option>
@@ -263,7 +263,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
               value={namespaceFilter}
               onChange={(e) => setNamespaceFilter(e.target.value)}
               placeholder="Namespace..."
-              className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 w-32"
+              className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 w-32"
               aria-label="Filter by namespace"
             />
             {/* Search */}
@@ -274,7 +274,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search..."
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 w-48"
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 w-48"
               />
             </div>
           </div>
@@ -299,11 +299,11 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
           <div className="flex flex-col gap-2 p-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 animate-pulse">
-                <div className="h-4 bg-slate-800 rounded w-28" />
-                <div className="h-4 bg-slate-800 rounded flex-1 max-w-[200px]" />
-                <div className="h-4 bg-slate-800 rounded w-24" />
-                <div className="h-4 bg-slate-800 rounded w-20" />
-                <div className="h-4 bg-slate-800 rounded w-16" />
+                <div className="h-4 bg-slate-800 rounded-sm w-28" />
+                <div className="h-4 bg-slate-800 rounded-sm flex-1 max-w-[200px]" />
+                <div className="h-4 bg-slate-800 rounded-sm w-24" />
+                <div className="h-4 bg-slate-800 rounded-sm w-20" />
+                <div className="h-4 bg-slate-800 rounded-sm w-16" />
               </div>
             ))}
           </div>

@@ -59,7 +59,7 @@ export function DeleteProgressOverlay({ items, onClose }: DeleteProgressOverlayP
                     <div className="text-xs text-slate-500">{item.kind} · {item.ns}</div>
                     {item.error && <div className="text-xs text-red-400 mt-0.5">{item.error}</div>}
                   </div>
-                  <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                     item.status === 'done' ? 'bg-green-900/50 text-green-300' :
                     item.status === 'error' ? 'bg-red-900/50 text-red-300' :
                     'bg-blue-900/50 text-blue-300'

@@ -138,7 +138,7 @@ export default function MultiContainerLogs({
         <button
           onClick={() => setSelectedContainer('all')}
           className={cn(
-            'px-3 py-1.5 text-sm rounded whitespace-nowrap transition-colors',
+            'px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-colors',
             selectedContainer === 'all'
               ? 'bg-blue-600 text-white'
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -152,7 +152,7 @@ export default function MultiContainerLogs({
             key={container.name}
             onClick={() => setSelectedContainer(container.name)}
             className={cn(
-              'flex items-center gap-2 px-3 py-1.5 text-sm rounded whitespace-nowrap transition-colors',
+              'flex items-center gap-2 px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-colors',
               selectedContainer === container.name
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -192,12 +192,12 @@ export default function MultiContainerLogs({
                   )}
                 >
                   {/* Line number */}
-                  <div className="w-14 flex-shrink-0 text-right pr-3 text-slate-500 select-none">
+                  <div className="w-14 shrink-0 text-right pr-3 text-slate-500 select-none">
                     {index + 1}
                   </div>
 
                   {/* Container name prefix */}
-                  <div className={cn('w-32 flex-shrink-0 pr-3 font-semibold', line.containerColor)}>
+                  <div className={cn('w-32 shrink-0 pr-3 font-semibold', line.containerColor)}>
                     [{line.containerName}]
                   </div>
 

@@ -236,7 +236,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                   {usageStats.sparkline.map((v, i) => (
                     <div
                       key={i}
-                      className="flex-1 bg-violet-500/40 rounded-sm min-h-[2px]"
+                      className="flex-1 bg-violet-500/40 rounded-xs min-h-[2px]"
                       style={{ height: `${(v / Math.max(...usageStats.sparkline!, 1)) * 100}%` }}
                     />
                   ))}
@@ -275,7 +275,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
               onChange={(e) => setCloneName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleClone(); if (e.key === 'Escape') { setShowCloneInput(false); setCloneName(''); } }}
               placeholder="new_skill_name (lowercase, underscores)"
-              className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
             />
             <button onClick={handleClone} disabled={!cloneName.trim()} className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50">Clone</button>
             <button onClick={() => { setShowCloneInput(false); setCloneName(''); }} className="p-1.5 text-slate-400 hover:text-slate-200">
@@ -336,7 +336,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
 
                 {detail.degraded && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-950/30 border border-amber-800/30 rounded-md text-xs text-amber-400">
-                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     {detail.degraded_reason}
                   </div>
                 )}
@@ -363,7 +363,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                     <h3 className="text-xs font-medium text-slate-300 mb-2">Required Tools</h3>
                     <div className="flex flex-wrap gap-1">
                       {detail.requires_tools.map((t: string) => (
-                        <span key={t} className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{t}</span>
+                        <span key={t} className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-mono">{t}</span>
                       ))}
                     </div>
                   </div>
@@ -394,14 +394,14 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                       <textarea
                         value={editContent}
                         onChange={(e) => { setEditContent(e.target.value); setDirty(true); setSaveStatus('idle'); }}
-                        className="w-full h-[500px] px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full h-[500px] px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                         spellCheck={false}
                       />
                     ) : (
                       <textarea
                         readOnly
                         value={detail[activeFile] || ''}
-                        className="w-full h-96 px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-none"
+                        className="w-full h-96 px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-hidden"
                       />
                     )}
                   </div>

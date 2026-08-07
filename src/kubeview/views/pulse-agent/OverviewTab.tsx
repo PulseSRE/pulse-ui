@@ -128,8 +128,8 @@ function ActivitySection({ events, isLoading }: { events: ActivityEvent[]; isLoa
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
         <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recent Activity</h2>
         <div className="animate-pulse space-y-2">
-          <div className="h-4 bg-slate-800 rounded w-3/4" />
-          <div className="h-4 bg-slate-800 rounded w-1/2" />
+          <div className="h-4 bg-slate-800 rounded-sm w-3/4" />
+          <div className="h-4 bg-slate-800 rounded-sm w-1/2" />
         </div>
       </div>
     );

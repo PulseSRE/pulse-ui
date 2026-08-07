@@ -139,7 +139,7 @@ export function ScannerPanel() {
         {[...categories.entries()].map(([category, catScanners]) => (
           <div key={category}>
             <div className="px-3 py-1.5 bg-slate-900/50">
-              <span className={cn('text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded border', CATEGORY_COLOR[category] || 'text-slate-400')}>
+              <span className={cn('text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-sm border', CATEGORY_COLOR[category] || 'text-slate-400')}>
                 {category}
               </span>
             </div>
@@ -166,13 +166,13 @@ export function ScannerPanel() {
                         <>
                           <span className="text-[10px] text-slate-600 tabular-nums">{result.duration_ms}ms</span>
                           {result.findings_count > 0 && (
-                            <span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1 rounded">{result.findings_count}</span>
+                            <span className="text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1 rounded-sm">{result.findings_count}</span>
                           )}
                         </>
                       )}
                       <button
                         onClick={(e) => toggleEnabled(scanner.id, e)}
-                        className="p-0.5 hover:bg-slate-700 rounded transition-colors"
+                        className="p-0.5 hover:bg-slate-700 rounded-sm transition-colors"
                         title={isDisabled ? 'Enable scanner' : 'Disable scanner'}
                       >
                         {isDisabled

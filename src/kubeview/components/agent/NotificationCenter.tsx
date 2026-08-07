@@ -98,7 +98,7 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-slate-700 bg-slate-900 shadow-2xl outline-none"
+        className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-slate-700 bg-slate-900 shadow-2xl outline-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Notification center"
@@ -116,7 +116,7 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={markAllRead}
-              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+              className="flex items-center gap-1 rounded-sm px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
               aria-label="Mark all read"
             >
               <CheckCheck className="h-3 w-3" aria-hidden="true" />
@@ -124,7 +124,7 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
             </button>
             <button
               onClick={onClose}
-              className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+              className="rounded-sm p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
               aria-label="Close notification center"
             >
               <X className="h-4 w-4" />
@@ -139,7 +139,7 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
               key={btn.value}
               onClick={() => setSeverityFilter(btn.value)}
               className={cn(
-                'rounded px-2 py-0.5 text-xs font-medium transition-colors',
+                'rounded-sm px-2 py-0.5 text-xs font-medium transition-colors',
                 severityFilter === btn.value
                   ? 'bg-slate-700 text-slate-100'
                   : 'text-slate-500 hover:text-slate-300',
@@ -225,13 +225,13 @@ export function NotificationCenter({ open, onClose }: NotificationCenterProps) {
                       <div className="mt-1.5 flex items-center gap-2">
                         <button
                           onClick={() => approveAction(a.id)}
-                          className="px-2 py-0.5 text-xs rounded bg-emerald-700 text-white hover:bg-emerald-600 transition-colors"
+                          className="px-2 py-0.5 text-xs rounded-sm bg-emerald-700 text-white hover:bg-emerald-600 transition-colors"
                         >
                           Approve
                         </button>
                         <button
                           onClick={() => rejectAction(a.id)}
-                          className="px-2 py-0.5 text-xs rounded bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+                          className="px-2 py-0.5 text-xs rounded-sm bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
                         >
                           Reject
                         </button>

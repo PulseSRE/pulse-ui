@@ -17,7 +17,7 @@ export function StatCard({ label, value, subtitle, issues, bar, barColor, onClic
     <div onClick={onClick} className={cn('bg-slate-900 rounded-lg border p-3', onClick && 'cursor-pointer hover:border-slate-600', issues ? 'border-yellow-800' : 'border-slate-800')}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-slate-400">{label}</span>
-        {issues ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{issues}</span> : null}
+        {issues ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{issues}</span> : null}
       </div>
       <div className="text-xl font-bold text-slate-100">{value}</div>
       {subtitle && <div className="text-xs text-slate-500 mt-0.5">{subtitle}</div>}

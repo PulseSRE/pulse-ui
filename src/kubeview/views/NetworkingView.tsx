@@ -121,8 +121,8 @@ export default function NetworkingView() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="bg-slate-900 rounded-lg border border-slate-800 p-3 animate-pulse">
-                <div className="h-3 bg-slate-800 rounded w-2/3 mb-2" />
-                <div className="h-5 bg-slate-800 rounded w-1/3" />
+                <div className="h-3 bg-slate-800 rounded-sm w-2/3 mb-2" />
+                <div className="h-5 bg-slate-800 rounded-sm w-1/3" />
               </div>
             ))}
           </div>
@@ -231,7 +231,7 @@ export default function NetworkingView() {
                         <span className="text-sm text-blue-400 font-mono truncate">{ep.host}{ep.path !== '/' ? ep.path : ''}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
-                        <span className={cn('px-1 py-0.5 rounded', ep.type === 'Route' ? 'bg-blue-900/30 text-blue-400' : 'bg-purple-900/30 text-purple-400')}>{ep.type}</span>
+                        <span className={cn('px-1 py-0.5 rounded-sm', ep.type === 'Route' ? 'bg-blue-900/30 text-blue-400' : 'bg-purple-900/30 text-purple-400')}>{ep.type}</span>
                         <span>{ep.name}</span>
                         <span className="text-slate-600">{ep.ns}</span>
                       </div>
@@ -272,7 +272,7 @@ export default function NetworkingView() {
                   const lbIP = svc.status?.loadBalancer?.ingress?.[0]?.hostname || svc.status?.loadBalancer?.ingress?.[0]?.ip || 'Pending';
                   return (
                     <button key={svc.metadata.uid} onClick={() => go(`/r/v1~services/${svc.metadata.namespace}/${svc.metadata.name}`, svc.metadata.name)}
-                      className="flex items-center justify-between w-full py-1.5 px-2 rounded hover:bg-slate-800/50 text-left transition-colors">
+                      className="flex items-center justify-between w-full py-1.5 px-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                       <span className="text-xs text-slate-300">{svc.metadata.name}</span>
                       <span className="text-xs font-mono text-slate-500">{lbIP}</span>
                     </button>
@@ -295,12 +295,12 @@ export default function NetworkingView() {
                 const domain = icStatus?.domain || icSpec?.domain || '';
                 const replicas = icStatus?.availableReplicas ?? '?';
                 return (
-                  <div key={ic.metadata.uid} className="flex items-center justify-between py-2.5 px-3 rounded hover:bg-slate-800/50">
+                  <div key={ic.metadata.uid} className="flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-slate-800/50">
                     <div>
                       <div className="flex items-center gap-2">
                         {isAvailable ? <Activity className="w-3.5 h-3.5 text-green-400" /> : <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                         <span className="text-sm font-medium text-slate-200">{ic.metadata.name}</span>
-                        <span className={cn('text-xs px-1.5 py-0.5 rounded', isAvailable ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>{isAvailable ? 'Available' : 'Degraded'}</span>
+                        <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', isAvailable ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>{isAvailable ? 'Available' : 'Degraded'}</span>
                       </div>
                       {domain && <div className="text-xs text-slate-500 mt-0.5 font-mono">*.{domain}</div>}
                     </div>
@@ -318,11 +318,11 @@ export default function NetworkingView() {
             <div className="space-y-1">
               {notAdmittedRoutes.map((r) => (
                 <button key={r.metadata.uid} onClick={() => go(`/r/route.openshift.io~v1~routes/${r.metadata.namespace}/${r.metadata.name}`, r.metadata.name)}
-                  className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
+                  className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-red-500" />
                     <span className="text-sm text-slate-200">{r.metadata.name}</span>
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{r.metadata.namespace}</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{r.metadata.namespace}</span>
                   </div>
                   <span className="text-xs text-slate-500 font-mono">{r.spec?.host || '—'}</span>
                 </button>
@@ -347,7 +347,7 @@ export default function NetworkingView() {
               <p className="text-sm text-slate-400">No network policies configured</p>
               <p className="text-xs text-slate-600 mt-1">All pod-to-pod traffic is allowed by default</p>
               <button onClick={() => go('/create/networking.k8s.io~v1~networkpolicies', 'Create NetworkPolicy')}
-                className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">
+                className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors">
                 Create Network Policy
               </button>
             </div>
@@ -359,11 +359,11 @@ export default function NetworkingView() {
                 const policyTypes = np.spec?.policyTypes || [];
                 return (
                   <button key={np.metadata.uid} onClick={() => go(`/r/networking.k8s.io~v1~networkpolicies/${np.metadata.namespace}/${np.metadata.name}`, np.metadata.name)}
-                    className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
+                    className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-slate-200">{np.metadata.name}</span>
-                        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{np.metadata.namespace}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{np.metadata.namespace}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                         {policyTypes.includes('Ingress') && <span>{ingressRules} ingress rule{ingressRules !== 1 ? 's' : ''}</span>}

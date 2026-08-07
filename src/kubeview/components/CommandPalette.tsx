@@ -215,7 +215,7 @@ export function CommandPalette() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={mode === 'query' ? 'Ask Pulse Agent anything...' : 'Search resources, actions, or queries...'}
-              className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 outline-none"
+              className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 outline-hidden"
               role="combobox"
               aria-expanded="true"
               aria-controls="command-palette-results"
@@ -269,7 +269,7 @@ export function CommandPalette() {
                         onClick={() => {
                           closeCommandPalette();
                         }}
-                        className="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-slate-300 hover:bg-slate-700 transition-colors"
+                        className="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-slate-300 hover:bg-slate-700 transition-colors"
                       >
                         <Search className="h-4 w-4 shrink-0 text-slate-500" />
                         <div className="flex-1 overflow-hidden">
@@ -304,7 +304,7 @@ export function CommandPalette() {
                   <button
                     key={q}
                     onClick={() => setQuery(q)}
-                    className="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-slate-300 hover:bg-slate-700 transition-colors"
+                    className="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-slate-300 hover:bg-slate-700 transition-colors"
                   >
                     <Sparkles className="h-4 w-4 shrink-0 text-violet-400/60" />
                     <span className="truncate text-sm">{q}</span>
@@ -571,7 +571,7 @@ function CommandPaletteItem({ item, isSelected, onSelect }: {
       onClick={() => onSelect(item)}
       {...hoverProps}
       className={cn(
-        'flex w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors',
+        'flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left transition-colors',
         isSelected
           ? 'bg-emerald-600 text-white'
           : 'text-slate-300 hover:bg-slate-700'

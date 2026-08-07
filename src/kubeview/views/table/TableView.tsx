@@ -543,7 +543,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
                 setPerPage(Number(e.target.value));
                 setCurrentPage(0);
               }}
-              className="text-xs bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200"
+              className="text-xs bg-slate-900 border border-slate-700 rounded-sm px-2 py-1 text-slate-200"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -559,14 +559,14 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
               <button
                 onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
                 disabled={currentPage === 0}
-                className="px-2 py-1 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={currentPage === totalPages - 1}
-                className="px-2 py-1 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>

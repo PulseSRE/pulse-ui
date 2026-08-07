@@ -72,7 +72,7 @@ export function OperatorInstallStep({ onComplete }: Props) {
         <h3 className="text-lg font-medium text-slate-100">Install OpenShift GitOps</h3>
         <p className="text-sm text-slate-400 mt-1">
           This will install the OpenShift GitOps operator, which deploys ArgoCD in the
-          <code className="text-xs bg-slate-800 px-1 py-0.5 rounded mx-1">openshift-gitops</code> namespace.
+          <code className="text-xs bg-slate-800 px-1 py-0.5 rounded-sm mx-1">openshift-gitops</code> namespace.
         </p>
       </div>
 

@@ -307,13 +307,13 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
 
         {/* Controls */}
         <div className="flex items-center gap-1">
-          <div className="flex items-center gap-0.5 bg-slate-800/60 rounded p-0.5 mr-1">
-            <button onClick={() => setOverlay(overlay === 'cpu' ? 'none' : 'cpu')} className={`px-1.5 py-0.5 rounded text-xs transition-colors ${overlay === 'cpu' ? 'bg-blue-600/30 text-blue-300' : 'text-slate-500 hover:text-slate-300'}`}>CPU</button>
-            <button onClick={() => setOverlay(overlay === 'memory' ? 'none' : 'memory')} className={`px-1.5 py-0.5 rounded text-xs transition-colors ${overlay === 'memory' ? 'bg-violet-600/30 text-violet-300' : 'text-slate-500 hover:text-slate-300'}`}>MEM</button>
+          <div className="flex items-center gap-0.5 bg-slate-800/60 rounded-sm p-0.5 mr-1">
+            <button onClick={() => setOverlay(overlay === 'cpu' ? 'none' : 'cpu')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'cpu' ? 'bg-blue-600/30 text-blue-300' : 'text-slate-500 hover:text-slate-300'}`}>CPU</button>
+            <button onClick={() => setOverlay(overlay === 'memory' ? 'none' : 'memory')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'memory' ? 'bg-violet-600/30 text-violet-300' : 'text-slate-500 hover:text-slate-300'}`}>MEM</button>
           </div>
 
           {searchOpen ? (
-            <input type="text" value={searchQuery} onChange={(e) => search(e.target.value)} onBlur={() => { if (!searchQuery) setSearchOpen(false); }} placeholder="Search..." className="w-32 px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500" autoFocus />
+            <input type="text" value={searchQuery} onChange={(e) => search(e.target.value)} onBlur={() => { if (!searchQuery) setSearchOpen(false); }} placeholder="Search..." className="w-32 px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500" autoFocus />
           ) : (
             <button onClick={() => setSearchOpen(true)} className="p-1 text-slate-500 hover:text-slate-200 transition-colors"><Search className="w-3.5 h-3.5" /></button>
           )}
@@ -323,7 +323,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
             {filterOpen && (
               <div className="absolute right-0 top-7 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-1 z-20">
                 {(['all', 'healthy', 'warning', 'degraded', 'critical'] as HealthFilter[]).map(f => (
-                  <button key={f} onClick={() => { setHealthFilter(f); setFilterOpen(false); }} className={`block w-full text-left px-3 py-1.5 text-xs rounded transition-colors ${healthFilter === f ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-700/50'}`}>
+                  <button key={f} onClick={() => { setHealthFilter(f); setFilterOpen(false); }} className={`block w-full text-left px-3 py-1.5 text-xs rounded-sm transition-colors ${healthFilter === f ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-700/50'}`}>
                     <span className="flex items-center gap-2">{f !== 'all' && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: HEALTH_COLORS[f] }} />}<span className="capitalize">{f === 'all' ? 'All' : f}</span></span>
                   </button>
                 ))}
@@ -342,9 +342,9 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
         {/* Zoom controls */}
         {cv.zoom === 'world' && (
           <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-0.5">
-            <button onClick={() => setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.min(8, b.scale * 1.5) }; })} className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded border border-slate-700/50 transition-colors">+</button>
-            <button onClick={() => setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.max(0.5, b.scale / 1.5) }; })} className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded border border-slate-700/50 transition-colors">−</button>
-            <button onClick={reset} className="w-6 h-6 flex items-center justify-center text-xs text-slate-500 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded border border-slate-700/50 transition-colors">↺</button>
+            <button onClick={() => setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.min(8, b.scale * 1.5) }; })} className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-sm border border-slate-700/50 transition-colors">+</button>
+            <button onClick={() => setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.max(0.5, b.scale / 1.5) }; })} className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-sm border border-slate-700/50 transition-colors">−</button>
+            <button onClick={reset} className="w-6 h-6 flex items-center justify-center text-xs text-slate-500 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-sm border border-slate-700/50 transition-colors">↺</button>
           </div>
         )}
         {cv.zoom !== 'world' && (

@@ -198,7 +198,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
     return (
       <div className="h-full flex flex-col bg-slate-950">
         <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-3">
-          <button onClick={() => go(`/r/${gvrUrl}/${namespace}/${name}`, name)} className="p-1 rounded hover:bg-slate-800 text-slate-400">
+          <button onClick={() => go(`/r/${gvrUrl}/${namespace}/${name}`, name)} className="p-1 rounded-sm hover:bg-slate-800 text-slate-400">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <GitBranch className="w-4 h-4 text-purple-400" />
@@ -217,7 +217,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
     return (
       <div className="h-full flex flex-col bg-slate-950">
         <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-3">
-          <button onClick={() => go(`/r/${gvrUrl}/${namespace}/${name}`, name)} className="p-1 rounded hover:bg-slate-800 text-slate-400">
+          <button onClick={() => go(`/r/${gvrUrl}/${namespace}/${name}`, name)} className="p-1 rounded-sm hover:bg-slate-800 text-slate-400">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <GitBranch className="w-4 h-4 text-purple-400" />
@@ -244,7 +244,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => go(`/r/${gvrUrl}/${namespace}/${name}`, name)} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200">
+          <button onClick={() => go(`/r/${gvrUrl}/${namespace}/${name}`, name)} className="p-1 rounded-sm hover:bg-slate-800 text-slate-400 hover:text-slate-200">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <GitBranch className="w-4 h-4 text-purple-400" />
@@ -253,7 +253,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {uniqueKinds.map((k) => (
-            <span key={k} className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded" style={{ backgroundColor: `${getColor(k)}20`, color: getColor(k) }}>
+            <span key={k} className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs rounded-sm" style={{ backgroundColor: `${getColor(k)}20`, color: getColor(k) }}>
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getColor(k) }} />
               {k}
             </span>

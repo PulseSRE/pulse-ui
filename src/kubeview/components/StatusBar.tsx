@@ -82,7 +82,7 @@ export function StatusBar() {
         {findingsCount > 0 && (
           <button
             onClick={() => navigate('/inbox')}
-            className="flex items-center gap-1 text-red-400 px-1.5 py-0.5 rounded hover:bg-red-500/10 transition-colors"
+            className="flex items-center gap-1 text-red-400 px-1.5 py-0.5 rounded-sm hover:bg-red-500/10 transition-colors"
             title={`${findingsCount} active finding${findingsCount !== 1 ? 's' : ''}`}
           >
             <Bell className="h-3 w-3" />
@@ -92,7 +92,7 @@ export function StatusBar() {
         {pendingReviewCount > 0 && (
           <button
             onClick={() => navigate('/inbox?preset=needs_approval')}
-            className="flex items-center gap-1 text-amber-400 px-1.5 py-0.5 rounded hover:bg-amber-500/10 transition-colors"
+            className="flex items-center gap-1 text-amber-400 px-1.5 py-0.5 rounded-sm hover:bg-amber-500/10 transition-colors"
             title={`${pendingReviewCount} pending review${pendingReviewCount !== 1 ? 's' : ''}`}
           >
             <GitPullRequest className="h-3 w-3" />
@@ -111,7 +111,7 @@ export function StatusBar() {
         <button
           onClick={toggleAISidebar}
           className={cn(
-            'flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors',
+            'flex items-center gap-1 px-1.5 py-0.5 rounded-sm transition-colors',
             aiSidebarExpanded ? 'bg-blue-600/30 text-blue-400' : 'text-slate-500 hover:text-slate-300'
           )}
           title="Toggle Agent (Cmd+Shift+A)"

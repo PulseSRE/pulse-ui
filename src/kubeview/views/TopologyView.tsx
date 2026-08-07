@@ -181,7 +181,7 @@ export default function TopologyView() {
             <select
               value={selectedNamespace}
               onChange={(e) => { setSelectedNamespace(e.target.value); setSelectedNode(null); }}
-              className="px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
             >
               <option value="">All namespaces</option>
               {namespaces.map((ns) => (
@@ -234,7 +234,7 @@ export default function TopologyView() {
             {/* Kind colors */}
             {[...new Set(topology.nodes.map(n => n.kind))].sort().map((kind) => (
               <div key={kind} className="flex items-center gap-1.5 text-xs text-slate-400">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: getKindColor(kind) }} />
+                <span className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: getKindColor(kind) }} />
                 {kind} ({topology.nodes.filter(n => n.kind === kind).length})
               </div>
             ))}
@@ -286,7 +286,7 @@ export default function TopologyView() {
                   </div>
                   <button
                     onClick={() => setSelectedNode(null)}
-                    className="p-0.5 rounded text-slate-500 hover:text-slate-300 transition-colors"
+                    className="p-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -295,7 +295,7 @@ export default function TopologyView() {
                 {/* Badges */}
                 <div className="flex flex-wrap items-center gap-1.5 mb-3">
                   {selectedNodeData.namespace && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">
+                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">
                       {selectedNodeData.namespace}
                     </span>
                   )}
@@ -304,14 +304,14 @@ export default function TopologyView() {
                   </span>
                   {selectedNodeData.riskLevel && (
                     <span className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded border',
+                      'text-[10px] px-1.5 py-0.5 rounded-sm border',
                       RISK_COLORS[selectedNodeData.riskLevel],
                     )}>
                       Risk: {selectedNodeData.risk}
                     </span>
                   )}
                   {selectedNodeData.recentlyChanged && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-orange-950/50 text-orange-400 rounded border border-orange-900/50 flex items-center gap-0.5">
+                    <span className="text-[10px] px-1.5 py-0.5 bg-orange-950/50 text-orange-400 rounded-sm border border-orange-900/50 flex items-center gap-0.5">
                       <Zap className="w-2.5 h-2.5" /> Deployed
                     </span>
                   )}
@@ -337,7 +337,7 @@ export default function TopologyView() {
                       <div className="space-y-1">
                         {upstream.map(({ node: n, rel }) => (
                           <div key={n.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
+                            <span className="w-2 h-2 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
                             <span className="truncate">{n.kind}/{n.name}</span>
                             <span className="text-slate-600 text-[10px] shrink-0">({rel})</span>
                           </div>
@@ -360,7 +360,7 @@ export default function TopologyView() {
                     <div className="space-y-1">
                       {blastRadiusData.map((dep) => (
                         <div key={dep.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: getKindColor(dep.kind) }} />
+                          <span className="w-2 h-2 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(dep.kind) }} />
                           <span className="truncate">{dep.kind}/{dep.name}</span>
                           {dep.relationship && (
                             <span className="text-slate-600 text-[10px] shrink-0">({dep.relationship})</span>
@@ -388,16 +388,16 @@ export default function TopologyView() {
                   key={node.id}
                   onClick={() => setSelectedNode(node.id)}
                   className={cn(
-                    'text-xs font-mono px-2.5 py-1.5 rounded border transition-colors flex items-center gap-1.5',
+                    'text-xs font-mono px-2.5 py-1.5 rounded-sm border transition-colors flex items-center gap-1.5',
                     selectedNode === node.id
                       ? 'bg-orange-950/50 border-orange-700 text-orange-300'
                       : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-orange-800 hover:text-orange-400',
                   )}
                 >
-                  <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(node.kind) }} />
+                  <span className="w-2 h-2 rounded-xs" style={{ backgroundColor: getKindColor(node.kind) }} />
                   {node.kind}/{node.name}
                   {node.riskLevel && node.riskLevel !== 'low' && (
-                    <span className={cn('text-[10px] px-1 rounded', RISK_COLORS[node.riskLevel])}>
+                    <span className={cn('text-[10px] px-1 rounded-sm', RISK_COLORS[node.riskLevel])}>
                       {node.riskLevel}
                     </span>
                   )}

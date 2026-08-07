@@ -608,7 +608,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
             ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
               {controlPlaneOps.map(op => (
-                <button key={op.name} onClick={() => go(`/r/config.openshift.io~v1~clusteroperators/_/${op.name}`, op.name)} className="flex items-center gap-2 hover:bg-slate-800/50 rounded px-1.5 py-1 -mx-1.5 transition-colors text-left">
+                <button key={op.name} onClick={() => go(`/r/config.openshift.io~v1~clusteroperators/_/${op.name}`, op.name)} className="flex items-center gap-2 hover:bg-slate-800/50 rounded-sm px-1.5 py-1 -mx-1.5 transition-colors text-left">
                   <StatusDot ok={op.found && op.available && !op.degraded} />
                   <span className="text-xs text-slate-300 truncate">{op.name}</span>
                 </button>
@@ -617,7 +617,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded hover:bg-slate-800 transition-colors text-left">
+              <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-sm hover:bg-slate-800 transition-colors text-left">
                 <Gauge className="w-4 h-4 text-slate-400" />
                 <div>
                   <div className="text-xs text-slate-500">API Latency (p99)</div>
@@ -626,7 +626,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                   </div>
                 </div>
               </button>
-              <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded hover:bg-slate-800 transition-colors text-left">
+              <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-sm hover:bg-slate-800 transition-colors text-left">
                 <Database className="w-4 h-4 text-slate-400" />
                 <div>
                   <div className="text-xs text-slate-500">Etcd Leader Changes (1h)</div>
@@ -656,7 +656,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                     const color = days < 7 ? 'text-red-400' : 'text-amber-400';
                     return (
                       <button key={`${cert.namespace}/${cert.name}`} onClick={() => go(`/r/v1~secrets/${cert.namespace}/${cert.name}`, cert.name)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-slate-800/50 rounded transition-colors text-left text-xs group">
+                        className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-slate-800/50 rounded-sm transition-colors text-left text-xs group">
                         <span className="text-slate-300 truncate flex-1">{cert.name}</span>
                         <span className="text-slate-500">{cert.namespace}</span>
                         <span className={cn('font-mono font-medium', color)}>{days}d</span>
@@ -673,7 +673,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                 <div className="flex flex-wrap gap-1.5">
                   {degradedOperators.map(op => (
                     <button key={op.metadata.name} onClick={() => go('/admin?tab=operators', 'Operators')}
-                      className="text-xs px-2 py-0.5 bg-red-900/30 text-red-300 rounded hover:bg-red-900/50 transition-colors">
+                      className="text-xs px-2 py-0.5 bg-red-900/30 text-red-300 rounded-sm hover:bg-red-900/50 transition-colors">
                       {op.metadata.name}
                     </button>
                   ))}
@@ -734,7 +734,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                     );
                     return (
                       <button key={n.metadata.name} onClick={() => go(`/r/v1~nodes/_/${n.metadata.name}`, n.metadata.name)}
-                        className="w-full flex items-center gap-2 text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded transition-colors">
+                        className="w-full flex items-center gap-2 text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded-sm transition-colors">
                         <span className="text-slate-300">{n.metadata.name}</span>
                         <span className="text-amber-400">{conditions.map((c) => c.type).join(', ')}</span>
                       </button>
@@ -753,7 +753,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                 </div>
                 <div className="space-y-1">
                   {pvOverloaded.slice(0, 5).map((pv, i) => (
-                    <button key={i} onClick={() => go('/storage', 'Storage')} className="w-full flex items-center justify-between text-xs px-2 py-1 hover:bg-slate-800/50 rounded transition-colors text-left">
+                    <button key={i} onClick={() => go('/storage', 'Storage')} className="w-full flex items-center justify-between text-xs px-2 py-1 hover:bg-slate-800/50 rounded-sm transition-colors text-left">
                       <span className="text-slate-300 truncate">{pv.metric.persistentvolumeclaim || pv.metric.namespace || 'unknown'}</span>
                       <span className="text-amber-400 font-mono">{pv.value.toFixed(1)}%</span>
                     </button>
@@ -770,7 +770,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
                 </div>
                 <div className="space-y-1">
                   {quotaOverages.slice(0, 5).map((q, i) => (
-                    <button key={i} onClick={() => go('/admin?tab=quotas', 'Quotas')} className="w-full flex items-center gap-2 text-xs px-2 py-1 hover:bg-slate-800/50 rounded transition-colors text-left">
+                    <button key={i} onClick={() => go('/admin?tab=quotas', 'Quotas')} className="w-full flex items-center gap-2 text-xs px-2 py-1 hover:bg-slate-800/50 rounded-sm transition-colors text-left">
                       <span className="text-slate-300">{q.namespace}/{q.name}</span>
                       <span className="text-slate-500">{q.resource}</span>
                       <span className="text-red-400 font-mono ml-auto">{q.used} / {q.hard}</span>
@@ -859,7 +859,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
             <div className="space-y-1">
               {pendingPods.slice(0, 3).map((p) => (
                 <button key={p.metadata.uid} onClick={() => go(`/r/v1~pods/${p.metadata.namespace}/${p.metadata.name}`, p.metadata.name)}
-                  className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded transition-colors">
+                  className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded-sm transition-colors">
                   <span className="text-slate-300">{p.metadata.name}</span>
                   <span className="text-slate-500">{p.metadata.namespace}</span>
                 </button>
@@ -878,7 +878,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
             <div className="space-y-1">
               {topRestartingPods.map(({ pod, restarts }) => (
                 <button key={pod.metadata.uid} onClick={() => go(`/r/v1~pods/${pod.metadata.namespace}/${pod.metadata.name}`, pod.metadata.name)}
-                  className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded transition-colors">
+                  className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded-sm transition-colors">
                   <span className="text-slate-300">{pod.metadata.name}</span>
                   <span className="text-amber-400 font-mono">{restarts} restarts</span>
                 </button>
@@ -933,9 +933,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
               <div className="space-y-1">
                 {recentChanges.map((ev, i) => (
                   <button key={i} onClick={() => go(ev.path, ev.name)}
-                    className="w-full flex items-center gap-2 text-xs text-left hover:bg-slate-800/50 px-2 py-1.5 rounded transition-colors group">
+                    className="w-full flex items-center gap-2 text-xs text-left hover:bg-slate-800/50 px-2 py-1.5 rounded-sm transition-colors group">
                     <span className="text-slate-500 w-10 shrink-0 text-right font-mono">{ev.ago}</span>
-                    <span className={cn('px-1 py-0.5 rounded text-xs font-medium shrink-0',
+                    <span className={cn('px-1 py-0.5 rounded-sm text-xs font-medium shrink-0',
                       ev.reason === 'Unhealthy' || ev.reason === 'BackOff' ? 'bg-red-900/40 text-red-300' :
                       ev.reason === 'Pulled' || ev.reason === 'Created' || ev.reason === 'Started' || ev.reason === 'Scheduled' || ev.reason === 'Killing' ? 'bg-green-900/40 text-green-300' :
                       'bg-slate-800 text-slate-400'
@@ -954,16 +954,16 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
 
         {/* Quick links */}
         <div className="flex items-center gap-3">
-          <button onClick={() => go('/security', 'Security')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">
+          <button onClick={() => go('/security', 'Security')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-sm transition-colors flex items-center gap-1.5">
             <Shield className="w-3 h-3" /> Security
           </button>
-          <button onClick={() => go('/readiness', 'Readiness')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">
+          <button onClick={() => go('/readiness', 'Readiness')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-sm transition-colors flex items-center gap-1.5">
             <FileText className="w-3 h-3" /> Readiness
           </button>
-          <button onClick={() => go('/admin?tab=certificates', 'Certificates')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">
+          <button onClick={() => go('/admin?tab=certificates', 'Certificates')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-sm transition-colors flex items-center gap-1.5">
             <Lock className="w-3 h-3" /> Certificates
           </button>
-          <button onClick={() => go('/alerts', 'Alerts')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded transition-colors flex items-center gap-1.5">
+          <button onClick={() => go('/alerts', 'Alerts')} className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-sm transition-colors flex items-center gap-1.5">
             <AlertTriangle className="w-3 h-3" /> Alerts
           </button>
         </div>

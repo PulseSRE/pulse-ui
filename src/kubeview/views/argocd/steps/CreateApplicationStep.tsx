@@ -53,7 +53,7 @@ interface Props {
 }
 
 const NAME_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-const INPUT_CLASS = 'w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none';
+const INPUT_CLASS = 'w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden';
 
 function buildApplicationYAML(opts: {
   name: string;
@@ -399,7 +399,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
             }}
             placeholder={isAppOfApps ? 'my-cluster' : 'my-app'}
             className={cn(
-              'w-full px-3 py-2 text-sm bg-slate-800 border rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none',
+              'w-full px-3 py-2 text-sm bg-slate-800 border rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden',
               (isAppOfApps ? clusterName : name) && !nameValid ? 'border-red-500' : 'border-slate-700',
             )}
           />
@@ -489,7 +489,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
                 type="checkbox"
                 checked={createNamespace}
                 onChange={(e) => setCreateNamespace(e.target.checked)}
-                className="rounded border-slate-600 bg-slate-800 text-violet-600 focus:ring-violet-500"
+                className="rounded-sm border-slate-600 bg-slate-800 text-violet-600 focus:ring-violet-500"
               />
               Create namespace if it doesn't exist
             </label>

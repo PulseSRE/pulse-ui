@@ -92,7 +92,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
           {kind === 'Secret' && (
             <button
               onClick={() => setShowValues(!showValues)}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs bg-slate-800 text-slate-300 rounded hover:bg-slate-700"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs bg-slate-800 text-slate-300 rounded-sm hover:bg-slate-700"
             >
               {showValues ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
               {showValues ? 'Hide' : 'Reveal'}
@@ -102,7 +102,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
             <>
               <button
                 onClick={handleAddEntry}
-                className="flex items-center gap-1.5 px-2 py-1 text-xs bg-slate-800 text-slate-300 rounded hover:bg-slate-700"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs bg-slate-800 text-slate-300 rounded-sm hover:bg-slate-700"
               >
                 <Plus className="w-3 h-3" />
                 Add
@@ -111,7 +111,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
                 onClick={handleSave}
                 disabled={!hasChanges || saving}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1 text-xs rounded transition-colors',
+                  'flex items-center gap-1.5 px-3 py-1 text-xs rounded-sm transition-colors',
                   hasChanges ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-slate-700 text-slate-500 cursor-not-allowed'
                 )}
               >
@@ -133,7 +133,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
           entries.map((entry, idx) => (
             <div key={idx} className="flex items-start gap-3 px-4 py-3 group hover:bg-slate-800/30">
               {/* Key */}
-              <div className="w-48 flex-shrink-0">
+              <div className="w-48 shrink-0">
                 {editingKey === idx || entry.isNew ? (
                   <input
                     type="text"
@@ -141,7 +141,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
                     onChange={(e) => handleUpdateKey(idx, e.target.value)}
                     onBlur={() => setEditingKey(null)}
                     placeholder="key"
-                    className="w-full px-2 py-1 text-xs font-mono bg-slate-800 border border-slate-600 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full px-2 py-1 text-xs font-mono bg-slate-800 border border-slate-600 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                     autoFocus={entry.isNew}
                   />
                 ) : (
@@ -159,7 +159,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
               <div className="flex-1 min-w-0">
                 {readOnly ? (
                   <pre className={cn(
-                    'text-xs font-mono p-2 bg-slate-950 rounded max-h-32 overflow-auto whitespace-pre-wrap break-all',
+                    'text-xs font-mono p-2 bg-slate-950 rounded-sm max-h-32 overflow-auto whitespace-pre-wrap break-all',
                     showValues ? 'text-slate-300' : 'text-slate-600'
                   )}>
                     {showValues ? entry.value : '••••••••••'}
@@ -170,19 +170,19 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
                     onChange={(e) => handleUpdateValue(idx, e.target.value)}
                     disabled={!showValues && kind === 'Secret'}
                     rows={Math.min(5, Math.max(1, entry.value.split('\n').length))}
-                    className="w-full px-2 py-1 text-xs font-mono bg-slate-950 border border-slate-800 rounded text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y"
+                    className="w-full px-2 py-1 text-xs font-mono bg-slate-950 border border-slate-800 rounded-sm text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-blue-500 resize-y"
                     placeholder="value"
                   />
                 )}
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
-                <button onClick={() => handleCopy(idx)} className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700" title="Copy value">
+              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
+                <button onClick={() => handleCopy(idx)} className="p-1 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-slate-700" title="Copy value">
                   {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
                 {!readOnly && (
-                  <button onClick={() => handleRemoveEntry(idx)} className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-slate-700" title="Remove entry">
+                  <button onClick={() => handleRemoveEntry(idx)} className="p-1 rounded-sm text-slate-500 hover:text-red-400 hover:bg-slate-700" title="Remove entry">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}

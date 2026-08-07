@@ -398,9 +398,9 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-slate-800 rounded" />
-            <div className="h-6 bg-slate-800 rounded w-48" />
-            <div className="h-5 bg-slate-800 rounded w-20" />
+            <div className="w-8 h-8 bg-slate-800 rounded-sm" />
+            <div className="h-6 bg-slate-800 rounded-sm w-48" />
+            <div className="h-5 bg-slate-800 rounded-sm w-20" />
           </div>
           <div className="grid grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (

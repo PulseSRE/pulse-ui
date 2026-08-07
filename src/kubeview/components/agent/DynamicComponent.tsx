@@ -150,9 +150,9 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
           {items.map((item, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
               <span className="w-28 truncate text-slate-300">{String(item.label || '')}</span>
-              <div className="flex-1 h-4 bg-slate-800 rounded-sm overflow-hidden">
+              <div className="flex-1 h-4 bg-slate-800 rounded-xs overflow-hidden">
                 <div
-                  className="h-full bg-blue-600/60 rounded-sm"
+                  className="h-full bg-blue-600/60 rounded-xs"
                   style={{ width: `${(Number(item.value || 0) / maxValue) * 100}%` }}
                 />
               </div>

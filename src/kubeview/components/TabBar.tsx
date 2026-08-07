@@ -210,10 +210,10 @@ export function TabBar() {
               setContextMenu({ x: e.clientX, y: e.clientY, tabId: tab.id });
             }}
             className={cn(
-              'group flex h-7 items-center gap-1.5 rounded px-2.5 text-sm transition-colors cursor-pointer select-none',
+              'group flex h-7 items-center gap-1.5 rounded-sm px-2.5 text-sm transition-colors cursor-pointer select-none',
               tab.pinned ? 'px-2.5 shrink-0' : 'min-w-[100px] max-w-[200px]',
               isActive
-                ? 'bg-slate-900 text-slate-100 shadow-sm'
+                ? 'bg-slate-900 text-slate-100 shadow-xs'
                 : 'text-slate-400 hover:bg-slate-700 hover:text-slate-200',
               isDragOver && 'border-l-2 border-blue-500',
               draggedIdx === tabIndex && 'opacity-50'
@@ -251,7 +251,7 @@ export function TabBar() {
             {tab.pinned ? (
               <button
                 onClick={(e) => { e.stopPropagation(); unpinTab(tab.id); }}
-                className="rounded p-0.5 opacity-0 transition-opacity hover:bg-slate-600 group-hover:opacity-100 text-blue-400"
+                className="rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-slate-600 group-hover:opacity-100 text-blue-400"
                 title="Unpin tab"
               >
                 <PinOff className="h-3 w-3" />
@@ -259,7 +259,7 @@ export function TabBar() {
             ) : tab.closable && !tab.pinned ? (
               <button
                 onClick={(e) => { e.stopPropagation(); pinTab(tab.id); }}
-                className="rounded p-0.5 opacity-0 transition-opacity hover:bg-slate-600 group-hover:opacity-100"
+                className="rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-slate-600 group-hover:opacity-100"
                 title="Pin tab"
               >
                 <Pin className="h-3 w-3" />
@@ -270,7 +270,7 @@ export function TabBar() {
             {tab.closable && (
               <button
                 onClick={(e) => handleTabClose(e, tab.id)}
-                className="rounded p-0.5 opacity-0 transition-opacity hover:bg-slate-600 group-hover:opacity-100"
+                className="rounded-sm p-0.5 opacity-0 transition-opacity hover:bg-slate-600 group-hover:opacity-100"
                 aria-label="Close tab"
               >
                 <X className="h-3 w-3" />
@@ -283,7 +283,7 @@ export function TabBar() {
       {/* Add tab button */}
       <button
         onClick={openCommandPalette}
-        className="flex h-7 w-7 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
+        className="flex h-7 w-7 items-center justify-center rounded-sm text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
         title="New tab (⌘K)"
       >
         <Plus className="h-4 w-4" />
@@ -293,7 +293,7 @@ export function TabBar() {
       {tabs.filter((t) => t.closable && !t.pinned).length > 2 && (
         <button
           onClick={handleCloseAll}
-          className="ml-auto flex h-7 items-center gap-1 rounded px-2 text-xs text-slate-500 transition-colors hover:bg-slate-700 hover:text-slate-300"
+          className="ml-auto flex h-7 items-center gap-1 rounded-sm px-2 text-xs text-slate-500 transition-colors hover:bg-slate-700 hover:text-slate-300"
           title="Close all tabs"
         >
           <X className="h-3 w-3" />

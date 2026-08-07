@@ -117,7 +117,7 @@ export function CorrelationGroupRow({
               <div
                 key={entry.id}
                 className={cn(
-                  'flex items-center gap-3 px-2 py-1.5 rounded text-sm',
+                  'flex items-center gap-3 px-2 py-1.5 rounded-sm text-sm',
                   entry.resource && 'cursor-pointer hover:bg-slate-800/50',
                 )}
                 role={entry.resource ? 'button' : undefined}

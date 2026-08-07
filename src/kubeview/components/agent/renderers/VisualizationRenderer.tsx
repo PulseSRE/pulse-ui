@@ -117,7 +117,7 @@ export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
     <Tag
       onClick={clickable ? handleClick : undefined}
       className={cn(
-        'bg-gradient-to-br from-slate-900 to-slate-900/70 rounded-lg border p-3 transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)] h-full',
+        'bg-linear-to-br from-slate-900 to-slate-900/70 rounded-lg border p-3 transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)] h-full',
         METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800',
         clickable && 'cursor-pointer hover:ring-1 hover:ring-blue-500/50 w-full text-left',
       )}
@@ -165,9 +165,9 @@ export function AgentBarList({ spec }: { spec: BarListSpec }) {
             ) : (
               <span className="w-40 min-w-[100px] truncate font-mono text-slate-300" title={item.label}>{item.label}</span>
             )}
-            <div className="flex-1 h-4 bg-slate-800 rounded-sm overflow-hidden">
+            <div className="flex-1 h-4 bg-slate-800 rounded-xs overflow-hidden">
               <div
-                className="h-full rounded-sm"
+                className="h-full rounded-xs"
                 style={{
                   width: `${(item.value / maxValue) * 100}%`,
                   backgroundColor: item.color || '#3b82f6',
@@ -282,7 +282,7 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
 
   return (
     <div className={cn(
-      'bg-gradient-to-br from-slate-900 to-slate-900/70 rounded-lg border p-4 flex flex-col items-center justify-center text-center transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)]',
+      'bg-linear-to-br from-slate-900 to-slate-900/70 rounded-lg border p-4 flex flex-col items-center justify-center text-center transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)]',
       METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800'
     )}>
       <span className="text-xs text-slate-400 mb-1">{title}</span>
@@ -398,7 +398,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
           {spec.title && <span>{spec.title}</span>}
           {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <div className="flex items-center bg-slate-900 rounded-md border border-slate-700 overflow-hidden">
             <button
               onClick={() => setGrouping('source')}
@@ -721,13 +721,13 @@ export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
           placeholder="Search logs..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-transparent text-xs text-slate-300 placeholder-slate-600 outline-none"
+          className="flex-1 bg-transparent text-xs text-slate-300 placeholder-slate-600 outline-hidden"
         />
         {['error', 'warn', 'info', 'debug'].map((lvl) => (
           <button
             key={lvl}
             onClick={() => setLevelFilter(levelFilter === lvl ? null : lvl)}
-            className={cn('text-xs px-1.5 py-0.5 rounded', levelFilter === lvl ? 'bg-slate-700 text-slate-200' : 'text-slate-500 hover:text-slate-300')}
+            className={cn('text-xs px-1.5 py-0.5 rounded-sm', levelFilter === lvl ? 'bg-slate-700 text-slate-200' : 'text-slate-500 hover:text-slate-300')}
           >
             {lvl}
           </button>

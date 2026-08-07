@@ -82,7 +82,7 @@ export function GenericDetailLayout({
         {/* Spec (simplified) */}
         {spec && Object.keys(spec).length > 0 && (
           <DetailSection title="Spec" collapsible>
-            <pre className="text-xs text-slate-300 font-mono bg-slate-950 p-3 rounded overflow-auto max-h-96">
+            <pre className="text-xs text-slate-300 font-mono bg-slate-950 p-3 rounded-sm overflow-auto max-h-96">
               {jsonToYaml(spec)}
             </pre>
           </DetailSection>
@@ -91,7 +91,7 @@ export function GenericDetailLayout({
         {/* Status (simplified) */}
         {status && Object.keys(status).length > 0 && (
           <DetailSection title="Status" collapsible>
-            <pre className="text-xs text-slate-300 font-mono bg-slate-950 p-3 rounded overflow-auto max-h-96">
+            <pre className="text-xs text-slate-300 font-mono bg-slate-950 p-3 rounded-sm overflow-auto max-h-96">
               {jsonToYaml(status)}
             </pre>
           </DetailSection>
@@ -145,9 +145,9 @@ export function GenericDetailLayout({
             <ErrorBoundary fallbackTitle="AI insight unavailable">
               <Suspense fallback={
                 <div className="animate-pulse space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
-                  <div className="h-4 w-32 bg-slate-800 rounded" />
-                  <div className="h-3 w-full bg-slate-800 rounded" />
-                  <div className="h-3 w-3/4 bg-slate-800 rounded" />
+                  <div className="h-4 w-32 bg-slate-800 rounded-sm" />
+                  <div className="h-3 w-full bg-slate-800 rounded-sm" />
+                  <div className="h-3 w-3/4 bg-slate-800 rounded-sm" />
                 </div>
               }>
                 <AmbientInsight
@@ -160,8 +160,8 @@ export function GenericDetailLayout({
             <ErrorBoundary fallbackTitle="Inline agent unavailable">
               <Suspense fallback={
                 <div className="animate-pulse space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
-                  <div className="h-4 w-24 bg-slate-800 rounded" />
-                  <div className="h-8 w-full bg-slate-800 rounded" />
+                  <div className="h-4 w-24 bg-slate-800 rounded-sm" />
+                  <div className="h-8 w-full bg-slate-800 rounded-sm" />
                   <div className="flex gap-2">
                     <div className="h-6 w-28 bg-slate-800 rounded-full" />
                     <div className="h-6 w-28 bg-slate-800 rounded-full" />
@@ -223,7 +223,7 @@ function ContainersSection({ containers, status }: { containers: Container[]; st
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium text-slate-200">{container.name}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${isReady ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'}`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-sm ${isReady ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'}`}>
                     {stateLabel}
                   </span>
                   {restarts > 0 && (
@@ -281,7 +281,7 @@ function ManagedPodsCard({ pods, go }: { pods: K8sResource[]; go: (path: string,
                 {waiting && <span className="text-xs text-yellow-400">{waiting.reason}</span>}
                 {restarts > 0 && <span className="text-xs text-slate-500">{restarts} restarts</span>}
                 <span className={cn('text-xs font-mono', ready === total ? 'text-green-400' : 'text-yellow-400')}>{ready}/{total}</span>
-                <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                   podPhase === 'Running' ? 'bg-green-900/50 text-green-300' :
                   podPhase === 'Failed' ? 'bg-red-900/50 text-red-300' :
                   'bg-yellow-900/50 text-yellow-300'

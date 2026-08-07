@@ -131,13 +131,13 @@ export default function CRDsView() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, kind, group, or short name..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 placeholder-slate-500 outline-hidden focus:border-blue-500"
             />
           </div>
           <select
             value={groupFilter}
             onChange={(e) => setGroupFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 outline-none"
+            className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-200 outline-hidden"
           >
             <option value="all">All Groups ({apiGroups.length})</option>
             {apiGroups.map(g => (
@@ -185,7 +185,7 @@ export default function CRDsView() {
                             : <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
                           }
                           <span className="text-sm font-medium text-slate-200">{kind}</span>
-                          <span className={cn('text-xs px-1.5 py-0.5 rounded', scope === 'Namespaced' ? 'bg-blue-900/50 text-blue-300' : 'bg-purple-900/50 text-purple-300')}>
+                          <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', scope === 'Namespaced' ? 'bg-blue-900/50 text-blue-300' : 'bg-purple-900/50 text-purple-300')}>
                             {scope}
                           </span>
                           {shortNames.length > 0 && (
@@ -203,13 +203,13 @@ export default function CRDsView() {
                       <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={() => go(`/r/apiextensions.k8s.io~v1~customresourcedefinitions/_/${crd.metadata.name}`, kind)}
-                          className="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors"
+                          className="px-2.5 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm transition-colors"
                         >
                           Definition
                         </button>
                         <button
                           onClick={() => go(instancesPath, `${plural}`)}
-                          className="px-2.5 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors flex items-center gap-1"
+                          className="px-2.5 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors flex items-center gap-1"
                         >
                           Instances <ArrowRight className="w-3 h-3" />
                         </button>

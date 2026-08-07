@@ -59,7 +59,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
         <Icon className={cn('shrink-0', badge.text, compact ? 'h-3.5 w-3.5 mt-0.5' : 'h-4 w-4 mt-0.5')} aria-hidden="true" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 font-medium', badge.bg, badge.text, compact ? 'text-xs' : 'text-xs')}>
+            <span className={cn('inline-flex items-center rounded-sm px-1.5 py-0.5 font-medium', badge.bg, badge.text, compact ? 'text-xs' : 'text-xs')}>
               {badge.label}
             </span>
             <span className="text-xs text-slate-500">{finding.category}</span>
@@ -95,13 +95,13 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
               {visibleResources.map((r) => (
                 <span
                   key={`${r.kind}-${r.namespace || ''}-${r.name}`}
-                  className="inline-flex items-center rounded bg-slate-900 px-1.5 py-0.5 text-xs font-mono text-slate-300"
+                  className="inline-flex items-center rounded-sm bg-slate-900 px-1.5 py-0.5 text-xs font-mono text-slate-300"
                 >
                   {r.kind}/{r.namespace ? `${r.namespace}/` : ''}{r.name}
                 </span>
               ))}
               {remaining > 0 && (
-                <span className="inline-flex items-center rounded bg-slate-900 px-1.5 py-0.5 text-xs text-slate-500">
+                <span className="inline-flex items-center rounded-sm bg-slate-900 px-1.5 py-0.5 text-xs text-slate-500">
                   +{remaining} more
                 </span>
               )}
@@ -114,7 +114,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
               <button
                 onClick={() => onInvestigate(finding)}
                 className={cn(
-                  'flex items-center gap-1 rounded bg-slate-700 text-slate-200 transition-colors hover:bg-slate-600',
+                  'flex items-center gap-1 rounded-sm bg-slate-700 text-slate-200 transition-colors hover:bg-slate-600',
                   compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs',
                 )}
               >
@@ -126,7 +126,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
               <button
                 onClick={() => setConfirmDismiss(true)}
                 className={cn(
-                  'flex items-center gap-1 rounded bg-slate-700 text-slate-400 transition-colors hover:bg-slate-600 hover:text-slate-200',
+                  'flex items-center gap-1 rounded-sm bg-slate-700 text-slate-400 transition-colors hover:bg-slate-600 hover:text-slate-200',
                   compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs',
                 )}
               >
@@ -138,7 +138,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
               <button
                 onClick={() => setConfirmAutoFix(true)}
                 className={cn(
-                  'flex items-center gap-1 rounded bg-emerald-700 text-white transition-colors hover:bg-emerald-600',
+                  'flex items-center gap-1 rounded-sm bg-emerald-700 text-white transition-colors hover:bg-emerald-600',
                   compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs',
                 )}
               >

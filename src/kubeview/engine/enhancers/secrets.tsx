@@ -25,7 +25,7 @@ export const secretEnhancer: ResourceEnhancer = {
         }
 
         return (
-          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${color}`} title={type}>
+          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-sm ${color}`} title={type}>
             {shortType}
           </span>
         );

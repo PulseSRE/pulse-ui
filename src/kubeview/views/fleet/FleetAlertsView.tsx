@@ -157,7 +157,7 @@ export default function FleetAlertsView() {
       none: 'bg-slate-800 text-slate-400',
     };
     return (
-      <span className={cn('text-xs px-1.5 py-0.5 rounded capitalize', colors[severity] || colors.none)}>
+      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm capitalize', colors[severity] || colors.none)}>
         {severity}
       </span>
     );
@@ -223,7 +223,7 @@ export default function FleetAlertsView() {
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value)}
-              className="text-xs bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200"
+              className="text-xs bg-slate-900 border border-slate-700 rounded-sm px-2 py-1.5 text-slate-200"
               aria-label="Filter by severity"
             >
               <option value="all">All severities</option>
@@ -235,7 +235,7 @@ export default function FleetAlertsView() {
             <select
               value={clusterFilter}
               onChange={(e) => setClusterFilter(e.target.value)}
-              className="text-xs bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-200"
+              className="text-xs bg-slate-900 border border-slate-700 rounded-sm px-2 py-1.5 text-slate-200"
               aria-label="Filter by cluster"
             >
               <option value="all">All clusters</option>
@@ -251,7 +251,7 @@ export default function FleetAlertsView() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search alerts..."
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 w-48"
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 w-48"
               />
             </div>
           </div>
@@ -292,7 +292,7 @@ export default function FleetAlertsView() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-200">{alert.alertName}</span>
                       {correlationCount > 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-violet-900/50 text-violet-300 border border-violet-800/50">
+                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-violet-900/50 text-violet-300 border border-violet-800/50">
                           Firing on {correlationCount} clusters
                         </span>
                       )}
@@ -303,7 +303,7 @@ export default function FleetAlertsView() {
                   <td className="px-4 py-3 text-xs text-slate-500">{alert.activeAt ? formatDuration(alert.activeAt) : '-'}</td>
                   <td className="px-4 py-3">
                     <span className={cn(
-                      'text-xs px-1.5 py-0.5 rounded',
+                      'text-xs px-1.5 py-0.5 rounded-sm',
                       alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300'
                     )}>
                       {alert.state}

@@ -182,7 +182,7 @@ export function ResourceTable({
     <div className="my-2 border border-slate-700 rounded-lg overflow-hidden min-w-0">
       {/* Header */}
       <div className="px-3 py-1.5 bg-slate-800/50 border-b border-slate-700 text-xs font-medium text-slate-300 flex items-center justify-between gap-2">
-        <div className="truncate flex-shrink-0 flex items-center gap-2">
+        <div className="truncate shrink-0 flex items-center gap-2">
           <span>{title || 'Table'}</span>
           {description && <span className="text-[10px] text-slate-500">{description}</span>}
           {(search || Object.values(filters).some(Boolean)) && (
@@ -192,29 +192,29 @@ export function ResourceTable({
           )}
           {headerExtra}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <div className="relative">
             <Search className="w-3 h-3 absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-600" />
             <input
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); }}
               placeholder="Search..."
-              className="w-28 pl-5 pr-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-300 placeholder-slate-600 outline-none focus:border-violet-500 focus:w-40 transition-all"
+              className="w-28 pl-5 pr-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 placeholder-slate-600 outline-hidden focus:border-violet-500 focus:w-40 transition-all"
               aria-label="Search table"
             />
           </div>
           <div className="relative group/export">
-            <button className="p-0.5 text-slate-500 hover:text-slate-300 rounded transition-colors" title="Export">
+            <button className="p-0.5 text-slate-500 hover:text-slate-300 rounded-sm transition-colors" title="Export">
               <Download className="w-3.5 h-3.5" />
             </button>
-            <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded shadow-lg hidden group-hover/export:block z-20">
+            <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-sm shadow-lg hidden group-hover/export:block z-20">
               <button onClick={() => handleExport('csv')} className="block w-full px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 whitespace-nowrap">Export CSV</button>
               <button onClick={() => handleExport('json')} className="block w-full px-3 py-1 text-xs text-slate-300 hover:bg-slate-700 whitespace-nowrap">Export JSON</button>
             </div>
           </div>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={cn('p-0.5 rounded transition-colors', showSettings ? 'text-violet-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
+            className={cn('p-0.5 rounded-sm transition-colors', showSettings ? 'text-violet-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
             title="Table settings"
           >
             <Settings2 className="w-3.5 h-3.5" />
@@ -222,7 +222,7 @@ export function ResourceTable({
           {onAddToView && spec && (
             <button
               onClick={() => onAddToView(spec)}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors flex-shrink-0"
+              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors shrink-0"
               title="Add to View"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -241,7 +241,7 @@ export function ResourceTable({
                 key={col.id}
                 onClick={() => toggleCol(col.id)}
                 className={cn(
-                  'flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors',
+                  'flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs transition-colors',
                   hiddenCols.has(col.id) ? 'bg-slate-900 text-slate-600' : 'bg-slate-700 text-slate-300',
                 )}
               >
@@ -259,7 +259,7 @@ export function ResourceTable({
                   placeholder={col.header}
                   value={filters[col.id] || ''}
                   onChange={(e) => setFilters((f) => ({ ...f, [col.id]: e.target.value }))}
-                  className="w-24 px-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-300 placeholder-slate-600 outline-none focus:border-violet-500"
+                  className="w-24 px-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 placeholder-slate-600 outline-hidden focus:border-violet-500"
                 />
               </div>
             ))}
@@ -271,7 +271,7 @@ export function ResourceTable({
       <div className="overflow-auto" style={maxHeight ? { maxHeight } : undefined} role="region" aria-label={title || 'Data table'}>
         <table className="w-full text-xs" role="table">
           <thead>
-            <tr className="bg-slate-800/30 sticky top-0 z-[1]">
+            <tr className="bg-slate-800/30 sticky top-0 z-1">
               {visibleColumns.map((col) => (
                 <th
                   key={col.id}
@@ -343,7 +343,7 @@ export function ResourceTable({
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
-              className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-1.5 py-0.5 rounded-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               ←
             </button>
@@ -351,7 +351,7 @@ export function ResourceTable({
             <button
               onClick={() => setPage((p) => Math.min(Math.ceil(processedRows.length / pageSize) - 1, p + 1))}
               disabled={(page + 1) * pageSize >= processedRows.length}
-              className="px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-1.5 py-0.5 rounded-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               →
             </button>
@@ -406,7 +406,7 @@ function RowActions({ row, navigate, onDelete }: {
   if (!gvr || !name) return null;
 
   const isPod = gvr.includes('pods') || gvr === 'v1~pods';
-  const btnClass = 'p-1 text-slate-600 hover:text-slate-300 rounded transition-colors';
+  const btnClass = 'p-1 text-slate-600 hover:text-slate-300 rounded-sm transition-colors';
 
   return (
     <div className="flex items-center gap-0.5">

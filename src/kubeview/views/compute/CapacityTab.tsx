@@ -41,7 +41,7 @@ export function CapacityTab() {
               key={lb}
               onClick={() => setLookback(lb)}
               className={cn(
-                'px-3 py-1.5 text-xs rounded transition-colors',
+                'px-3 py-1.5 text-xs rounded-sm transition-colors',
                 lookback === lb ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-slate-200'
               )}
             >

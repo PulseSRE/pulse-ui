@@ -99,7 +99,7 @@ function Toast({ id: _id, type, title, detail, duration, action, category, sugge
       )}
 
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 pt-0.5">{icon}</div>
+        <div className="shrink-0 pt-0.5">{icon}</div>
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="font-medium text-slate-100">{title}</div>
@@ -110,7 +110,7 @@ function Toast({ id: _id, type, title, detail, duration, action, category, sugge
 
         <button
           onClick={handleClose}
-          className="flex-shrink-0 text-slate-400 transition-colors hover:text-slate-200"
+          className="shrink-0 text-slate-400 transition-colors hover:text-slate-200"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -134,7 +134,7 @@ function Toast({ id: _id, type, title, detail, duration, action, category, sugge
           {type === 'error' && (
             <button
               onClick={copyError}
-              className="rounded px-3 py-1 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-slate-100"
+              className="rounded-sm px-3 py-1 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-slate-100"
             >
               Copy Error
             </button>
@@ -142,7 +142,7 @@ function Toast({ id: _id, type, title, detail, duration, action, category, sugge
           {type === 'error' && (
             <button
               onClick={handleAskAI}
-              className="flex items-center gap-1 rounded px-3 py-1 text-sm text-violet-300 transition-colors hover:bg-violet-900/40 hover:text-violet-200"
+              className="flex items-center gap-1 rounded-sm px-3 py-1 text-sm text-violet-300 transition-colors hover:bg-violet-900/40 hover:text-violet-200"
             >
               <Bot className="h-3.5 w-3.5" />
               Ask AI
@@ -155,7 +155,7 @@ function Toast({ id: _id, type, title, detail, duration, action, category, sugge
                 handleClose();
               }}
               className={cn(
-                'rounded px-3 py-1 text-sm font-medium transition-colors',
+                'rounded-sm px-3 py-1 text-sm font-medium transition-colors',
                 type === 'undo'
                   ? 'bg-blue-500 text-white hover:bg-blue-600'
                   : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'

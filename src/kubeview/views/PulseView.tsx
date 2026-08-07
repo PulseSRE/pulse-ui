@@ -244,13 +244,13 @@ export default function PulseView() {
             <button
               onClick={handleScanNow}
               disabled={!monitorConnected || scanning}
-              className="px-2.5 py-1 rounded bg-violet-500/10 text-xs text-violet-400 hover:bg-violet-500/20 disabled:opacity-40 flex items-center gap-1"
+              className="px-2.5 py-1 rounded-sm bg-violet-500/10 text-xs text-violet-400 hover:bg-violet-500/20 disabled:opacity-40 flex items-center gap-1"
             >
               {scanning ? <><Activity className="w-3 h-3 animate-spin" />Scanning...</> : 'Scan Now'}
             </button>
             <button
               onClick={() => setMonitorEnabled(!monitorEnabled)}
-              className={cn('px-2.5 py-1 rounded text-xs', monitorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500')}
+              className={cn('px-2.5 py-1 rounded-sm text-xs', monitorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500')}
             >
               {monitorEnabled ? 'Monitoring On' : 'Monitoring Off'}
             </button>
@@ -275,8 +275,8 @@ export default function PulseView() {
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="bg-slate-900 rounded-lg border border-slate-800 p-6 animate-pulse">
-                <div className="h-4 bg-slate-800 rounded w-1/3 mb-3" />
-                <div className="h-3 bg-slate-800 rounded w-2/3" />
+                <div className="h-4 bg-slate-800 rounded-sm w-1/3 mb-3" />
+                <div className="h-3 bg-slate-800 rounded-sm w-2/3" />
               </div>
             ))}
           </div>

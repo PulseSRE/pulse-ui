@@ -143,7 +143,7 @@ const COLUMN_RENDERERS: Record<string, CellRenderer> = {
     return (
       <div className="flex flex-wrap gap-0.5">
         {pairs.slice(0, 3).map((p, i) => (
-          <span key={i} className="px-1 py-0 text-[9px] rounded bg-slate-700 text-slate-300">{p}</span>
+          <span key={i} className="px-1 py-0 text-[9px] rounded-sm bg-slate-700 text-slate-300">{p}</span>
         ))}
         {pairs.length > 3 && <span className="text-[9px] text-slate-500">+{pairs.length - 3}</span>}
       </div>
@@ -267,7 +267,7 @@ export const LiveAgentTable = React.memo(function LiveAgentTable({ spec, onAddTo
     <button
       onClick={result.togglePause}
       className={cn(
-        'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors',
+        'flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-medium transition-colors',
         result.isPaused
           ? 'bg-slate-700 text-slate-400 hover:text-slate-200'
           : result.isLive
@@ -359,7 +359,7 @@ export function AgentInfoCardGrid({ spec }: { spec: InfoCardGridSpec }) {
   return (
     <div className="my-2 grid grid-cols-2 md:grid-cols-4 gap-2">
       {(spec.cards || []).map((card, i) => (
-        <InfoCard key={i} label={card.label} value={card.value} sub={card.sub} className="!p-2 !text-xs" />
+        <InfoCard key={i} label={card.label} value={card.value} sub={card.sub} className="p-2! text-xs!" />
       ))}
     </div>
   );

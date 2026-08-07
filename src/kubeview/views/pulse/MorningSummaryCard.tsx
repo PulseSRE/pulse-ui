@@ -23,11 +23,11 @@ export function MorningSummaryCard({ className }: { className?: string }) {
   if (isLoading) {
     return (
       <div className={cn('relative rounded-lg border border-violet-500/30 bg-slate-900 p-5 overflow-hidden animate-pulse', className)}>
-        <div className="h-6 w-48 bg-slate-700 rounded mb-4" />
+        <div className="h-6 w-48 bg-slate-700 rounded-sm mb-4" />
         <div className="grid grid-cols-4 gap-3 mb-4">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-14 bg-slate-700 rounded" />)}
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-14 bg-slate-700 rounded-sm" />)}
         </div>
-        <div className="h-4 bg-slate-700 rounded w-3/4" />
+        <div className="h-4 bg-slate-700 rounded-sm w-3/4" />
       </div>
     );
   }

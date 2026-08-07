@@ -66,7 +66,7 @@ export function TreeNode({ node, nodes, depth = 0, visited = new Set<string>() }
               <span className="text-xs font-medium text-slate-200">{node.kind}/{node.name}</span>
             )}
             {node.status && node.status !== 'unknown' && (
-              <span className={cn('text-[9px] px-1 rounded', node.status === 'healthy' ? 'bg-emerald-900/50 text-emerald-400' : node.status === 'error' ? 'bg-red-900/50 text-red-400' : 'bg-amber-900/50 text-amber-400')}>
+              <span className={cn('text-[9px] px-1 rounded-sm', node.status === 'healthy' ? 'bg-emerald-900/50 text-emerald-400' : node.status === 'error' ? 'bg-red-900/50 text-red-400' : 'bg-amber-900/50 text-amber-400')}>
                 {node.status}
               </span>
             )}
@@ -106,7 +106,7 @@ export function AgentRelationshipTree({ spec, onAddToView }: { spec: Relationshi
           {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
         </div>
         {onAddToView && (
-          <button onClick={() => onAddToView(spec)} className="p-0.5 text-slate-500 hover:text-emerald-400 rounded transition-colors" title="Add to View">
+          <button onClick={() => onAddToView(spec)} className="p-0.5 text-slate-500 hover:text-emerald-400 rounded-sm transition-colors" title="Add to View">
             <Plus className="w-3.5 h-3.5" />
           </button>
         )}

@@ -30,7 +30,7 @@ export function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; 
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-slate-100">{v.label}</span>
-              {v.current && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-400 rounded">current</span>}
+              {v.current && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-400 rounded-sm">current</span>}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
               {new Date(v.timestamp).toLocaleString()}
@@ -39,7 +39,7 @@ export function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; 
           {!v.current && i > 0 && (
             <button
               onClick={() => onDiff(v.filename, 'skill.md')}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm"
             >
               <GitCompareArrows className="w-3 h-3" /> Diff vs current
             </button>

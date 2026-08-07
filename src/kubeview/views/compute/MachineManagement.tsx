@@ -72,13 +72,13 @@ function HyperShiftSection({ nodePools, go }: { nodePools: NodePool[]; go: (path
                         isDegraded ? 'bg-red-500' : isUpdating ? 'bg-blue-500 animate-pulse' : ready === desired ? 'bg-green-500' : 'bg-yellow-500'
                       )} />
                       <span className="text-sm font-medium text-slate-200">{np.metadata.name}</span>
-                      {instanceType && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{instanceType}</span>}
+                      {instanceType && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-mono">{instanceType}</span>}
                       {autoScale && (
-                        <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">
+                        <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm">
                           auto {autoScale.min}-{autoScale.max}
                         </span>
                       )}
-                      {autoRepair && <span className="text-xs px-1.5 py-0.5 bg-emerald-900/50 text-emerald-300 rounded">auto-repair</span>}
+                      {autoRepair && <span className="text-xs px-1.5 py-0.5 bg-emerald-900/50 text-emerald-300 rounded-sm">auto-repair</span>}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       {version && <span className="text-xs text-slate-500 font-mono">{version}</span>}
@@ -122,7 +122,7 @@ function MachineSetsCard({ machineSets, machineAutoscalers, go }: { machineSets:
               <div className="flex items-center gap-2 min-w-0">
                 <div className={cn('w-2 h-2 rounded-full shrink-0', ready === desired ? 'bg-green-500' : 'bg-yellow-500')} />
                 <span className="text-sm text-slate-200 truncate">{ms.metadata.name}</span>
-                {autoscaler && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded shrink-0">autoscaled {autoscaler.spec?.minReplicas}-{autoscaler.spec?.maxReplicas}</span>}
+                {autoscaler && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm shrink-0">autoscaled {autoscaler.spec?.minReplicas}-{autoscaler.spec?.maxReplicas}</span>}
               </div>
               <span className={cn('text-xs font-mono shrink-0', ready === desired ? 'text-green-400' : 'text-yellow-400')}>{ready}/{desired}</span>
             </button>
@@ -156,8 +156,8 @@ function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {instanceType && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{instanceType}</span>}
-                <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                {instanceType && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-mono">{instanceType}</span>}
+                <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                   phase === 'Running' ? 'bg-green-900/50 text-green-300' :
                   phase === 'Provisioning' ? 'bg-yellow-900/50 text-yellow-300' :
                   'bg-red-900/50 text-red-300'
@@ -210,7 +210,7 @@ function AutoscalingCard({ clusterAutoscaler, machineAutoscalers, go }: { cluste
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">Autoscaling</h2>
-        {clusterAutoscaler.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Enabled</span>}
+        {clusterAutoscaler.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded-sm">Enabled</span>}
       </div>
       <div className="p-4 space-y-3">
         {clusterAutoscaler.length === 0 && machineAutoscalers.length === 0 ? (
@@ -235,10 +235,10 @@ function AutoscalingCard({ clusterAutoscaler, machineAutoscalers, go }: { cluste
             </div>
 
             <div className="flex items-center gap-3">
-              <button onClick={() => go('/create/autoscaling.openshift.io~v1~clusterautoscalers', 'Create ClusterAutoscaler')} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-500 flex items-center gap-1">
+              <button onClick={() => go('/create/autoscaling.openshift.io~v1~clusterautoscalers', 'Create ClusterAutoscaler')} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500 flex items-center gap-1">
                 Create ClusterAutoscaler <ArrowRight className="w-3 h-3" />
               </button>
-              <button onClick={() => go('/create/autoscaling.openshift.io~v1beta1~machineautoscalers', 'Create MachineAutoscaler')} className="px-3 py-1.5 text-xs bg-slate-800 text-slate-200 rounded hover:bg-slate-700 flex items-center gap-1">
+              <button onClick={() => go('/create/autoscaling.openshift.io~v1beta1~machineautoscalers', 'Create MachineAutoscaler')} className="px-3 py-1.5 text-xs bg-slate-800 text-slate-200 rounded-sm hover:bg-slate-700 flex items-center gap-1">
                 Create MachineAutoscaler <ArrowRight className="w-3 h-3" />
               </button>
             </div>
@@ -246,7 +246,7 @@ function AutoscalingCard({ clusterAutoscaler, machineAutoscalers, go }: { cluste
         ) : (
           <>
             {(clusterAutoscaler as ClusterAutoscalerResource[]).map((ca) => (
-              <div key={ca.metadata.uid} className="p-3 bg-slate-800/50 rounded border border-slate-700">
+              <div key={ca.metadata.uid} className="p-3 bg-slate-800/50 rounded-sm border border-slate-700">
                 <div className="text-sm text-slate-200 mb-2">Cluster Autoscaler</div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div><span className="text-slate-500">Min nodes:</span> <span className="text-slate-300">{ca.spec?.resourceLimits?.minNodesTotal ?? '—'}</span></div>

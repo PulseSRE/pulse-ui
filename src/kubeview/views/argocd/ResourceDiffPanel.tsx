@@ -79,7 +79,7 @@ export function ResourceDiffPanel({ resource, appName, appNamespace }: ResourceD
       <p className="text-xs text-slate-500 mb-2">
         This shows the current state on the cluster. To see the desired state, check the Git repository.
       </p>
-      <pre className="text-xs text-slate-300 font-mono bg-slate-950 p-3 rounded overflow-auto max-h-80 border border-slate-800">
+      <pre className="text-xs text-slate-300 font-mono bg-slate-950 p-3 rounded-sm overflow-auto max-h-80 border border-slate-800">
         {yaml}
       </pre>
     </div>

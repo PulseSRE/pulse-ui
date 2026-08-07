@@ -286,7 +286,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
   };
 
   return (
-    <div className="my-2 border border-slate-700 rounded-lg overflow-hidden bg-gradient-to-b from-slate-900/80 to-slate-900/40 min-w-0">
+    <div className="my-2 border border-slate-700 rounded-lg overflow-hidden bg-linear-to-b from-slate-900/80 to-slate-900/40 min-w-0">
       <div className="px-3 py-1.5 border-b border-slate-700 flex items-center justify-between">
         <div className="truncate flex items-center gap-2">
           <span className="text-xs font-medium text-slate-300">{chartTitle || 'Chart'}</span>
@@ -297,7 +297,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
             <button
               onClick={togglePause}
               className={cn(
-                'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors',
+                'flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-medium transition-colors',
                 isPaused
                   ? 'bg-slate-700 text-slate-400 hover:text-slate-200'
                   : isLive
@@ -332,7 +332,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded-sm bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
             >
               {CHART_TYPE_LABELS[chartType]}
               <ChevronDown className="w-3 h-3" />
@@ -356,7 +356,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
           </div>
           <button
             onClick={() => setEditorOpen(true)}
-            className="p-0.5 text-slate-500 hover:text-violet-400 hover:bg-slate-800 rounded transition-colors"
+            className="p-0.5 text-slate-500 hover:text-violet-400 hover:bg-slate-800 rounded-sm transition-colors"
             title="Edit chart"
           >
             <Settings className="w-3.5 h-3.5" />
@@ -364,7 +364,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
           {onAddToView && (
             <button
               onClick={() => onAddToView({ ...spec, chartType, query: activeQuery || spec.query, title: chartTitle, description: chartDesc, yAxisLabel, xAxisLabel, height: chartHeight })}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors"
+              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors"
               title="Add to View"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -468,11 +468,11 @@ function ChartEditorModal({
   }, [onClose]);
 
   const labelClass = 'text-[11px] text-slate-400 font-medium';
-  const inputClass = 'w-full px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-600 outline-none focus:border-violet-500';
+  const inputClass = 'w-full px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 outline-hidden focus:border-violet-500';
   const sectionClass = 'space-y-2';
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-100 flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60" />
       <div
         className="relative bg-slate-950 border border-slate-700 rounded-lg shadow-2xl w-full max-w-lg max-h-[80vh] overflow-auto"
@@ -506,7 +506,7 @@ function ChartEditorModal({
                     key={t}
                     onClick={() => update('timeRange', t)}
                     className={cn(
-                      'px-2 py-0.5 text-[10px] rounded border transition-colors',
+                      'px-2 py-0.5 text-[10px] rounded-sm border transition-colors',
                       draft.timeRange === t
                         ? 'bg-violet-600 border-violet-500 text-white'
                         : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200',
@@ -602,7 +602,7 @@ function ChartEditorModal({
           <div className={sectionClass}>
             <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Legend & Colors</div>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={draft.showLegend} onChange={(e) => update('showLegend', e.target.checked)} className="rounded" />
+              <input type="checkbox" checked={draft.showLegend} onChange={(e) => update('showLegend', e.target.checked)} className="rounded-sm" />
               <span className="text-xs text-slate-300">Show legend</span>
             </label>
             {seriesLabels.length > 0 && (
@@ -613,7 +613,7 @@ function ChartEditorModal({
                       type="color"
                       value={draft.seriesColors[label] || CHART_COLORS[i % CHART_COLORS.length]}
                       onChange={(e) => update('seriesColors', { ...draft.seriesColors, [label]: e.target.value })}
-                      className="w-6 h-6 rounded border border-slate-700 cursor-pointer bg-transparent"
+                      className="w-6 h-6 rounded-sm border border-slate-700 cursor-pointer bg-transparent"
                     />
                     <span className="text-xs text-slate-400 truncate">{label}</span>
                   </div>
@@ -625,12 +625,12 @@ function ChartEditorModal({
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-slate-950 border-t border-slate-800 px-4 py-3 flex items-center justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 rounded transition-colors">
+          <button onClick={onClose} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 rounded-sm transition-colors">
             Cancel
           </button>
           <button
             onClick={() => onApply(draft)}
-            className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors font-medium"
+            className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors font-medium"
           >
             Apply
           </button>

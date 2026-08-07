@@ -155,7 +155,7 @@ export function renderNamespace(value: unknown): ReactNode {
 
   return (
     <span
-      className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-slate-700 text-slate-300"
+      className="inline-block px-2 py-0.5 text-xs font-medium rounded-sm bg-slate-700 text-slate-300"
     >
       {ns}
     </span>
@@ -202,7 +202,7 @@ export function renderOwner(value: unknown, resource?: K8sResource): ReactNode {
 
   return (
     <Link to={href} className="inline-flex items-center gap-1.5 group max-w-[220px]" title={`${owner.kind}/${owner.name}`}>
-      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${colorClass}`}>{abbrev}</span>
+      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm border ${colorClass}`}>{abbrev}</span>
       <span className="text-sm text-slate-400 group-hover:text-slate-200 truncate transition-colors">{owner.name}</span>
     </Link>
   );
@@ -249,7 +249,7 @@ export function renderLabels(value: unknown): ReactNode {
       {visible.map(([key, val]) => (
         <span
           key={key}
-          className="inline-block px-1.5 py-0.5 text-xs bg-slate-800 text-slate-300 rounded border border-slate-600"
+          className="inline-block px-1.5 py-0.5 text-xs bg-slate-800 text-slate-300 rounded-sm border border-slate-600"
           title={`${key}=${val}`}
         >
           {key.length > 15 ? `${key.slice(0, 12)}...` : key}
@@ -363,7 +363,7 @@ export function renderConditions(value: unknown): ReactNode {
         return (
           <span
             key={i}
-            className={`inline-block px-2 py-0.5 text-xs rounded ${color}`}
+            className={`inline-block px-2 py-0.5 text-xs rounded-sm ${color}`}
             title={String(cond.message ?? '')}
           >
             {type}

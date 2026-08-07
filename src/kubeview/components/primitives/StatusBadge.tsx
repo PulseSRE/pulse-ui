@@ -18,7 +18,7 @@ export function StatusBadge({ resource }: { resource: K8sResource }) {
   const colorClass = colorMap[status] || 'bg-slate-900/50 text-slate-400 border-slate-700';
 
   return (
-    <span className={cn('px-2 py-1 text-xs rounded border', colorClass)}>
+    <span className={cn('px-2 py-1 text-xs rounded-sm border', colorClass)}>
       {reason}
     </span>
   );

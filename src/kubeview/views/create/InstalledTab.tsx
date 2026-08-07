@@ -117,7 +117,7 @@ export function InstalledTab() {
           placeholder="Search installed software..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-900 text-slate-100 border border-slate-800 rounded-lg focus:outline-none focus:border-blue-500"
+          className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-900 text-slate-100 border border-slate-800 rounded-lg focus:outline-hidden focus:border-blue-500"
         />
       </div>
 
@@ -127,7 +127,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Package className="w-4 h-4 text-purple-400" />
             Operators
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{filteredSubscriptions.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredSubscriptions.length}</span>
           </h3>
           <button
             onClick={() => go('/create/v1~pods?tab=operators', 'Operators')}
@@ -150,7 +150,7 @@ export function InstalledTab() {
               return (
                 <div
                   key={`${ns}-${name}`}
-                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded border border-slate-700 hover:border-slate-600 transition-colors"
+                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded-sm border border-slate-700 hover:border-slate-600 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <button
@@ -202,7 +202,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Ship className="w-4 h-4 text-blue-400" />
             Helm Releases
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{filteredHelmReleases.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredHelmReleases.length}</span>
           </h3>
         </div>
         {filteredHelmReleases.length === 0 ? (
@@ -212,7 +212,7 @@ export function InstalledTab() {
             {filteredHelmReleases.slice(0, 5).map((release: { name?: string; namespace?: string; version?: string; status?: string }, i: number) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-3 bg-slate-800/50 rounded border border-slate-700"
+                className="flex items-center justify-between p-3 bg-slate-800/50 rounded-sm border border-slate-700"
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-slate-100">{release.name}</div>
@@ -225,7 +225,7 @@ export function InstalledTab() {
                   </div>
                 </div>
                 <span className={cn(
-                  'text-xs px-2 py-1 rounded',
+                  'text-xs px-2 py-1 rounded-sm',
                   release.status === 'deployed'
                     ? 'bg-green-900/50 text-green-300 border border-green-800'
                     : 'bg-yellow-900/50 text-yellow-300 border border-yellow-800'
@@ -249,7 +249,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Box className="w-4 h-4 text-blue-400" />
             Deployments
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{filteredDeployments.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredDeployments.length}</span>
           </h3>
           <button
             onClick={() => go('/workloads', 'Workloads')}
@@ -273,7 +273,7 @@ export function InstalledTab() {
               return (
                 <div
                   key={`${ns}-${name}`}
-                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded border border-slate-700 hover:border-slate-600 transition-colors"
+                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded-sm border border-slate-700 hover:border-slate-600 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <button
@@ -297,7 +297,7 @@ export function InstalledTab() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn(
-                      'text-xs px-2 py-1 rounded',
+                      'text-xs px-2 py-1 rounded-sm',
                       isReady
                         ? 'bg-green-900/50 text-green-300 border border-green-800'
                         : 'bg-yellow-900/50 text-yellow-300 border border-yellow-800'
@@ -328,7 +328,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Database className="w-4 h-4 text-cyan-400" />
             StatefulSets
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{filteredStatefulSets.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredStatefulSets.length}</span>
           </h3>
           <button
             onClick={() => go('/workloads', 'Workloads')}
@@ -352,7 +352,7 @@ export function InstalledTab() {
               return (
                 <div
                   key={`${ns}-${name}`}
-                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded border border-slate-700 hover:border-slate-600 transition-colors"
+                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded-sm border border-slate-700 hover:border-slate-600 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <button
@@ -376,7 +376,7 @@ export function InstalledTab() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={cn(
-                      'text-xs px-2 py-1 rounded',
+                      'text-xs px-2 py-1 rounded-sm',
                       isReady
                         ? 'bg-green-900/50 text-green-300 border border-green-800'
                         : 'bg-yellow-900/50 text-yellow-300 border border-yellow-800'

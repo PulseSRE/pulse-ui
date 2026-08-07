@@ -87,7 +87,7 @@ export function GitOpsConfig() {
               <h3 className="text-sm font-semibold text-amber-300">ArgoCD is not installed</h3>
               <p className="text-xs text-slate-400 mt-1">
                 The OpenShift GitOps operator must be installed before configuring GitOps integration.
-                This will deploy ArgoCD in the <code className="text-xs bg-slate-800 px-1 py-0.5 rounded font-mono">openshift-gitops</code> namespace
+                This will deploy ArgoCD in the <code className="text-xs bg-slate-800 px-1 py-0.5 rounded-sm font-mono">openshift-gitops</code> namespace
                 and enable application sync, drift detection, and auto-PR on save.
               </p>
               <p className="text-xs text-slate-500 mt-2">
@@ -116,7 +116,7 @@ export function GitOpsConfig() {
                   key={p}
                   onClick={() => setForm({ ...form, provider: p })}
                   className={cn(
-                    'px-3 py-1.5 text-xs rounded transition-colors capitalize',
+                    'px-3 py-1.5 text-xs rounded-sm transition-colors capitalize',
                     form.provider === p ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
                   )}
                 >
@@ -135,7 +135,7 @@ export function GitOpsConfig() {
               value={form.repoUrl}
               onChange={(e) => setForm({ ...form, repoUrl: e.target.value })}
               placeholder={`https://${form.provider}.com/org/gitops-repo`}
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
             />
           </div>
 
@@ -148,7 +148,7 @@ export function GitOpsConfig() {
               value={form.baseBranch}
               onChange={(e) => setForm({ ...form, baseBranch: e.target.value })}
               placeholder="main"
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
             />
           </div>
 
@@ -167,7 +167,7 @@ export function GitOpsConfig() {
                   value={form.token}
                   onChange={(e) => setForm({ ...form, token: e.target.value })}
                   placeholder={form.provider === 'github' ? 'ghp_...' : form.provider === 'gitlab' ? 'glpat-...' : 'App password'}
-                  className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none font-mono pr-10"
+                  className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden font-mono pr-10"
                 />
                 <button
                   onClick={() => setShowToken(!showToken)}
@@ -193,13 +193,13 @@ export function GitOpsConfig() {
               value={form.pathPrefix}
               onChange={(e) => setForm({ ...form, pathPrefix: e.target.value })}
               placeholder="clusters/production/"
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
             />
           </div>
 
           {/* Test result */}
           {testResult && (
-            <div className={cn('flex items-center gap-2 p-2 rounded text-sm',
+            <div className={cn('flex items-center gap-2 p-2 rounded-sm text-sm',
               testResult.success ? 'bg-emerald-950/30 text-emerald-300' : 'bg-red-950/30 text-red-300'
             )}>
               {testResult.success ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
@@ -212,7 +212,7 @@ export function GitOpsConfig() {
             <button
               onClick={handleSave}
               disabled={saving || !form.repoUrl || !form.token}
-              className="px-4 py-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
               Save Configuration

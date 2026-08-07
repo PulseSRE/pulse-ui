@@ -152,7 +152,7 @@ export default function MultiPodLogs({
         <button
           onClick={() => setSelectedPod('all')}
           className={cn(
-            'px-3 py-1.5 text-sm rounded whitespace-nowrap transition-colors',
+            'px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-colors',
             selectedPod === 'all'
               ? 'bg-blue-600 text-white'
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -166,7 +166,7 @@ export default function MultiPodLogs({
             key={podName}
             onClick={() => setSelectedPod(podName)}
             className={cn(
-              'flex items-center gap-2 px-3 py-1.5 text-sm rounded whitespace-nowrap transition-colors',
+              'flex items-center gap-2 px-3 py-1.5 text-sm rounded-sm whitespace-nowrap transition-colors',
               selectedPod === podName
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -207,12 +207,12 @@ export default function MultiPodLogs({
                   )}
                 >
                   {/* Line number */}
-                  <div className="w-14 flex-shrink-0 text-right pr-3 text-slate-500 select-none">
+                  <div className="w-14 shrink-0 text-right pr-3 text-slate-500 select-none">
                     {index + 1}
                   </div>
 
                   {/* Pod name prefix */}
-                  <div className={cn('w-32 flex-shrink-0 pr-3 font-semibold', line.podColor)}>
+                  <div className={cn('w-32 shrink-0 pr-3 font-semibold', line.podColor)}>
                     [{line.podName}]
                   </div>
 

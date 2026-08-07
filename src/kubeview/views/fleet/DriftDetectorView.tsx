@@ -95,7 +95,7 @@ export function DriftDetectorView() {
             <select
               value={resourceType}
               onChange={e => setResourceType(e.target.value)}
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
               aria-label="Resource type"
             >
               <option value="">Select type...</option>
@@ -114,7 +114,7 @@ export function DriftDetectorView() {
               value={namespace}
               onChange={e => setNamespace(e.target.value)}
               placeholder="default"
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
               aria-label="Namespace"
             />
           </div>
@@ -126,7 +126,7 @@ export function DriftDetectorView() {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="my-deployment"
-              className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
               aria-label="Resource name"
             />
           </div>
@@ -136,7 +136,7 @@ export function DriftDetectorView() {
               onClick={handleCompare}
               disabled={!canCompare || loading}
               className={cn(
-                'flex w-full items-center justify-center gap-2 rounded px-4 py-2 text-sm font-medium transition-colors',
+                'flex w-full items-center justify-center gap-2 rounded-sm px-4 py-2 text-sm font-medium transition-colors',
                 !canCompare || loading
                   ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-500',

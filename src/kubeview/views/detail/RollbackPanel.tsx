@@ -216,9 +216,9 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
                         onClick={() => setExpandedRevision(isOpen ? null : rev.number)}
                       >
                         {isOpen ? (
-                          <ChevronDown className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                          <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                         ) : (
-                          <ChevronRight className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                          <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                         )}
 
                         <span className="font-mono text-slate-200">#{rev.number}</span>
@@ -243,7 +243,7 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
                               e.stopPropagation();
                               setRollbackTarget(rev);
                             }}
-                            className="ml-3 flex items-center gap-1 rounded bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-400 opacity-0 group-hover:opacity-100 hover:bg-amber-500/25 transition-all"
+                            className="ml-3 flex items-center gap-1 rounded-sm bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-400 opacity-0 group-hover:opacity-100 hover:bg-amber-500/25 transition-all"
                           >
                             <RotateCcw className="h-3 w-3" /> Rollback
                           </button>

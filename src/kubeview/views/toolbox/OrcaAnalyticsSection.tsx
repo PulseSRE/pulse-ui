@@ -178,9 +178,9 @@ export function OrcaAnalyticsSection() {
               <div key={`${s.category}:${s.tool}`} className="flex items-center gap-3 text-xs">
                 <span className="w-20 text-slate-400 truncate">{s.category}</span>
                 <span className="w-32 font-mono text-slate-300 truncate">{s.tool}</span>
-                <div className="flex-1 h-3 bg-slate-800 rounded-sm overflow-hidden">
+                <div className="flex-1 h-3 bg-slate-800 rounded-xs overflow-hidden">
                   <div
-                    className={cn('h-full rounded-sm', s.success_rate >= 0.7 ? 'bg-emerald-600/60' : s.success_rate >= 0.4 ? 'bg-amber-600/60' : 'bg-red-600/60')}
+                    className={cn('h-full rounded-xs', s.success_rate >= 0.7 ? 'bg-emerald-600/60' : s.success_rate >= 0.4 ? 'bg-amber-600/60' : 'bg-red-600/60')}
                     style={{ width: `${s.success_rate * 100}%` }}
                   />
                 </div>

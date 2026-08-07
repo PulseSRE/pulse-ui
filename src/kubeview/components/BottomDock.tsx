@@ -76,7 +76,7 @@ export function BottomDock() {
               onClick={() => openBottomDock(t.id)}
               onDoubleClick={closeBottomDock}
               className={cn(
-                'px-2 py-1 rounded transition-colors',
+                'px-2 py-1 rounded-sm transition-colors',
                 panel === t.id ? 'bg-slate-700 text-emerald-400' : 'text-slate-400 hover:text-slate-200',
               )}
             >
@@ -86,7 +86,7 @@ export function BottomDock() {
         </div>
         <button
           onClick={closeBottomDock}
-          className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
+          className="rounded-sm p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
           title="Close"
         >
           <X className="h-3.5 w-3.5" />

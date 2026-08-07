@@ -97,7 +97,7 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                   setTimeout(() => setCopied(false), 2000);
                 }}
                 className={cn(
-                  'flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors',
+                  'flex items-center gap-1 px-2 py-1 text-xs rounded-sm transition-colors',
                   copied ? 'text-emerald-400 bg-emerald-900/30' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800',
                 )}
               >
@@ -111,12 +111,12 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
             <div className="mt-3 space-y-2 text-xs text-slate-500">
               <p><strong className="text-slate-400">Before applying:</strong> Update the following fields:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li><code className="bg-slate-800 px-1 rounded">metadata.name</code> — your application name</li>
-                <li><code className="bg-slate-800 px-1 rounded">spec.source.repoURL</code> — your Git repository URL</li>
-                <li><code className="bg-slate-800 px-1 rounded">spec.source.path</code> — directory containing your K8s manifests</li>
-                <li><code className="bg-slate-800 px-1 rounded">spec.destination.namespace</code> — target namespace on this cluster</li>
+                <li><code className="bg-slate-800 px-1 rounded-sm">metadata.name</code> — your application name</li>
+                <li><code className="bg-slate-800 px-1 rounded-sm">spec.source.repoURL</code> — your Git repository URL</li>
+                <li><code className="bg-slate-800 px-1 rounded-sm">spec.source.path</code> — directory containing your K8s manifests</li>
+                <li><code className="bg-slate-800 px-1 rounded-sm">spec.destination.namespace</code> — target namespace on this cluster</li>
               </ul>
-              <p className="mt-2">Apply with: <code className="bg-slate-800 px-1.5 py-0.5 rounded font-mono">oc apply -f application.yaml</code></p>
+              <p className="mt-2">Apply with: <code className="bg-slate-800 px-1.5 py-0.5 rounded-sm font-mono">oc apply -f application.yaml</code></p>
             </div>
           </Card>
         )}
@@ -177,24 +177,24 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                       >
                         {app.metadata.name}
                       </button>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded', SYNC_COLORS[sync?.status || 'Unknown'])}>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', SYNC_COLORS[sync?.status || 'Unknown'])}>
                         {sync?.status || 'Unknown'}
                       </span>
                       {automated && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-violet-900/50 text-violet-300">Auto</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-violet-900/50 text-violet-300">Auto</span>
                       )}
                       {syncInProgress && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300 flex items-center gap-1">
+                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-900/50 text-blue-300 flex items-center gap-1">
                           <Loader2 className="w-2.5 h-2.5 animate-spin" /> Syncing{syncDuration ? ` ${syncDuration}s` : ''}
                         </span>
                       )}
                       {syncFailed && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-300 flex items-center gap-1">
+                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-red-900/50 text-red-300 flex items-center gap-1">
                           <AlertOctagon className="w-2.5 h-2.5" /> Sync Failed
                         </span>
                       )}
                       {pruneCount > 0 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-900/50 text-amber-300" title={`${pruneCount} resource${pruneCount > 1 ? 's' : ''} pending deletion`}>
+                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-amber-900/50 text-amber-300" title={`${pruneCount} resource${pruneCount > 1 ? 's' : ''} pending deletion`}>
                           {pruneCount} prune
                         </span>
                       )}
@@ -228,7 +228,7 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                       onSync(app.metadata.name, app.metadata.namespace || '');
                     }}
                     disabled={isSyncing}
-                    className="px-2 py-1 text-xs text-slate-400 rounded hover:bg-blue-900/50 hover:text-blue-300 transition-colors disabled:opacity-50"
+                    className="px-2 py-1 text-xs text-slate-400 rounded-sm hover:bg-blue-900/50 hover:text-blue-300 transition-colors disabled:opacity-50"
                     title="Trigger sync"
                   >
                     {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -242,7 +242,7 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                 <div className="px-4 pb-4 space-y-3 border-t border-slate-800/50 bg-slate-800/10">
                   {/* Sync error message (A) */}
                   {syncFailed && syncMessage && (
-                    <div className="flex items-start gap-2 p-3 rounded bg-red-950/20 border border-red-900/30 mt-3">
+                    <div className="flex items-start gap-2 p-3 rounded-sm bg-red-950/20 border border-red-900/30 mt-3">
                       <AlertOctagon className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                       <div>
                         <div className="text-xs font-medium text-red-300">Sync Error</div>
@@ -274,7 +274,7 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                       <div className="flex flex-wrap gap-2">
                         {externalURLs.map((url, i) => (
                           <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                            className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2 py-1 bg-slate-800 rounded">
+                            className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-2 py-1 bg-slate-800 rounded-sm">
                             <Globe className="w-3 h-3" /> {url.replace(/^https?:\/\//, '').split('/')[0]}
                             <ExternalLink className="w-2.5 h-2.5" />
                           </a>
@@ -329,7 +329,7 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                         <div className="relative ml-2 border-l border-slate-700 pl-3 space-y-2">
                           {conditionsWithTime.map((cond, i) => (
                             <div key={i} className="relative">
-                              <div className="absolute -left-[15px] top-1 w-2 h-2 rounded-full bg-amber-500/70 border border-slate-800" />
+                              <div className="absolute left-[-15px] top-1 w-2 h-2 rounded-full bg-amber-500/70 border border-slate-800" />
                               <div className="flex items-baseline gap-2">
                                 <span className="text-xs font-medium text-amber-400/80">{cond.type}</span>
                                 <span className="text-xs text-slate-600">{timeAgo(cond.lastTransitionTime!)}</span>

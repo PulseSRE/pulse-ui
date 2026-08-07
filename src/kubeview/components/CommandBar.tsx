@@ -117,7 +117,7 @@ export function CommandBar() {
   }
 
   return (
-    <div className="flex h-11 items-center justify-between border-b border-slate-700/50 bg-gradient-to-r from-slate-800 to-slate-800/95 px-4">
+    <div className="flex h-11 items-center justify-between border-b border-slate-700/50 bg-linear-to-r from-slate-800 to-slate-800/95 px-4">
       {/* Left section: Logo + Search */}
       <div className="flex items-center gap-4">
         {/* Logo */}
@@ -150,7 +150,7 @@ export function CommandBar() {
         >
           <Search className="h-3.5 w-3.5" />
           <span className="flex-1 text-left text-xs">Search resources, views...</span>
-          <kbd className="rounded bg-slate-700/70 px-1.5 py-0.5 text-xs font-mono text-slate-400">⌘K</kbd>
+          <kbd className="rounded-sm bg-slate-700/70 px-1.5 py-0.5 text-xs font-mono text-slate-400">⌘K</kbd>
         </button>
 
         {/* Quick create */}
@@ -196,7 +196,7 @@ export function CommandBar() {
                 <span className="text-xs text-slate-500 hidden xl:inline">{clusterInfo.platform}</span>
               )}
               {isHyperShift && (
-                <span className="text-xs px-1.5 py-0.5 bg-blue-900/60 text-blue-300 rounded border border-blue-700/50 hidden lg:inline" title="Control plane managed externally. etcd, API server, and scheduler run in a management cluster.">Hosted</span>
+                <span className="text-xs px-1.5 py-0.5 bg-blue-900/60 text-blue-300 rounded-sm border border-blue-700/50 hidden lg:inline" title="Control plane managed externally. etcd, API server, and scheduler run in a management cluster.">Hosted</span>
               )}
             </div>
           )}
@@ -222,7 +222,7 @@ export function CommandBar() {
                     <div className={cn('h-1.5 w-1.5 rounded-full shrink-0', cluster.status === 'connected' ? 'bg-emerald-500' : 'bg-red-500')} />
                     <span className="flex-1 truncate">{cluster.name}</span>
                     {cluster.environment && (
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded">{cluster.environment}</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded-sm">{cluster.environment}</span>
                     )}
                     {cluster.id === activeClusterId && <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
                   </button>
@@ -270,7 +270,7 @@ export function CommandBar() {
                         }
                       }}
                       placeholder="Type to filter..."
-                      className="w-full pl-8 pr-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full pl-8 pr-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-md text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                       autoFocus
                     />
                   </div>
@@ -400,7 +400,7 @@ export function CommandBar() {
                         if (e.key === 'Escape') { setShowImpersonateInput(false); setImpersonateInput(''); }
                       }}
                       placeholder="username or system:serviceaccount:ns:name"
-                      className="w-full px-2 py-1 text-xs bg-slate-900 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-2 py-1 text-xs bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                       autoFocus
                     />
                     <div className="text-xs text-slate-500">Enter to apply, Esc to cancel</div>

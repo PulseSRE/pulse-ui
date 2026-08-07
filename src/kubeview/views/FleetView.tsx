@@ -86,11 +86,11 @@ export default function FleetView() {
                     <ol className="list-decimal list-inside space-y-2">
                       <li>
                         Install the <span className="text-blue-400">Advanced Cluster Management</span> operator from OperatorHub:
-                        <pre className="mt-1 bg-slate-900 rounded px-2 py-1 text-slate-300 overflow-x-auto">oc create ns open-cluster-management{'\n'}# Then install from OperatorHub in the OpenShift Console{'\n'}# Or via CLI:{'\n'}cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operators.coreos.com/v1alpha1{'\n'}kind: Subscription{'\n'}metadata:{'\n'}  name: advanced-cluster-management{'\n'}  namespace: open-cluster-management{'\n'}spec:{'\n'}  channel: release-2.12{'\n'}  name: advanced-cluster-management{'\n'}  source: redhat-operators{'\n'}  sourceNamespace: openshift-marketplace{'\n'}EOF</pre>
+                        <pre className="mt-1 bg-slate-900 rounded-sm px-2 py-1 text-slate-300 overflow-x-auto">oc create ns open-cluster-management{'\n'}# Then install from OperatorHub in the OpenShift Console{'\n'}# Or via CLI:{'\n'}cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operators.coreos.com/v1alpha1{'\n'}kind: Subscription{'\n'}metadata:{'\n'}  name: advanced-cluster-management{'\n'}  namespace: open-cluster-management{'\n'}spec:{'\n'}  channel: release-2.12{'\n'}  name: advanced-cluster-management{'\n'}  source: redhat-operators{'\n'}  sourceNamespace: openshift-marketplace{'\n'}EOF</pre>
                       </li>
                       <li>
                         Create a <span className="text-blue-400">MultiClusterHub</span> resource:
-                        <pre className="mt-1 bg-slate-900 rounded px-2 py-1 text-slate-300 overflow-x-auto">cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operator.open-cluster-management.io/v1{'\n'}kind: MultiClusterHub{'\n'}metadata:{'\n'}  name: multiclusterhub{'\n'}  namespace: open-cluster-management{'\n'}spec: {'{}'}{'\n'}EOF</pre>
+                        <pre className="mt-1 bg-slate-900 rounded-sm px-2 py-1 text-slate-300 overflow-x-auto">cat {'<<'}EOF | oc apply -f -{'\n'}apiVersion: operator.open-cluster-management.io/v1{'\n'}kind: MultiClusterHub{'\n'}metadata:{'\n'}  name: multiclusterhub{'\n'}  namespace: open-cluster-management{'\n'}spec: {'{}'}{'\n'}EOF</pre>
                       </li>
                       <li>Wait for the operator to become ready (~5 min), then import clusters via the ACM console or <code className="text-blue-400">clusteradm</code> CLI.</li>
                       <li>Click <span className="text-blue-400">Detect ACM</span> above once your clusters are imported.</li>
@@ -142,7 +142,7 @@ export default function FleetView() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="px-3 py-1.5 text-xs text-slate-400 rounded hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
             Refresh All
@@ -169,7 +169,7 @@ export default function FleetView() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => go('/fleet/r/apps~v1~deployments', 'Fleet Resources')}
-            className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <span className="inline-flex items-center gap-1.5">
               <Layers className="w-3 h-3" /> Resources
@@ -177,7 +177,7 @@ export default function FleetView() {
           </button>
           <button
             onClick={() => go('/fleet/workloads', 'Fleet Workloads')}
-            className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <span className="inline-flex items-center gap-1.5">
               <Box className="w-3 h-3" /> Workloads
@@ -185,7 +185,7 @@ export default function FleetView() {
           </button>
           <button
             onClick={() => go('/fleet/alerts', 'Fleet Alerts')}
-            className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <span className="inline-flex items-center gap-1.5">
               <Bell className="w-3 h-3" /> Alerts
@@ -193,7 +193,7 @@ export default function FleetView() {
           </button>
           <button
             onClick={() => go('/fleet/compare', 'Fleet Compare')}
-            className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <span className="inline-flex items-center gap-1.5">
               <GitCompare className="w-3 h-3" /> Compare
@@ -201,13 +201,13 @@ export default function FleetView() {
           </button>
           <button
             onClick={() => go('/fleet/compliance', 'Fleet Compliance')}
-            className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <span className="inline-flex items-center gap-1.5">Compliance</span>
           </button>
           <button
             onClick={() => go('/fleet/drift', 'Drift Detection')}
-            className="px-3 py-1.5 text-xs rounded border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
           >
             <span className="inline-flex items-center gap-1.5">
               <GitBranch className="w-3 h-3" /> Drift

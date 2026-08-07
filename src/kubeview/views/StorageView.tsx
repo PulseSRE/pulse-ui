@@ -122,8 +122,8 @@ export default function StorageView() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="bg-slate-900 rounded-lg border border-slate-800 p-3 animate-pulse">
-                <div className="h-3 bg-slate-800 rounded w-2/3 mb-2" />
-                <div className="h-5 bg-slate-800 rounded w-1/3" />
+                <div className="h-3 bg-slate-800 rounded-sm w-2/3 mb-2" />
+                <div className="h-5 bg-slate-800 rounded-sm w-1/3" />
               </div>
             ))}
           </div>
@@ -227,11 +227,11 @@ export default function StorageView() {
                   const classStats = pvcByClass.find(([name]) => name === sc.metadata.name);
                   return (
                     <button key={sc.metadata.uid} onClick={() => go(`/r/storage.k8s.io~v1~storageclasses/_/${sc.metadata.name}`, sc.metadata.name)}
-                      className="flex items-start justify-between w-full py-2.5 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
+                      className="flex items-start justify-between w-full py-2.5 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-200">{sc.metadata.name}</span>
-                          {isDefault && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">default</span>}
+                          {isDefault && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm">default</span>}
                         </div>
                         <div className="text-xs text-slate-500 mt-0.5">{provisioner}</div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-slate-600">
@@ -266,7 +266,7 @@ export default function StorageView() {
             ) : (
               <div className="space-y-2">
                 {csiDrivers.map((driver) => (
-                  <div key={driver.metadata.uid} className="py-2 px-3 rounded hover:bg-slate-800/50">
+                  <div key={driver.metadata.uid} className="py-2 px-3 rounded-sm hover:bg-slate-800/50">
                     <div className="text-sm text-slate-200 font-medium">{driver.metadata.name}</div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                       {driver.spec?.attachRequired !== false && <span>Attach required</span>}
@@ -313,11 +313,11 @@ export default function StorageView() {
             <div className="space-y-1">
               {pendingPVCs.map((pvc) => (
                 <button key={pvc.metadata.uid} onClick={() => go(`/r/v1~persistentvolumeclaims/${pvc.metadata.namespace}/${pvc.metadata.name}`, pvc.metadata.name)}
-                  className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
+                  className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-500" />
                     <span className="text-sm text-slate-200">{pvc.metadata.name}</span>
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{pvc.metadata.namespace}</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{pvc.metadata.namespace}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-slate-500">{pvc.spec?.resources?.requests?.storage || '?'}</span>
@@ -345,7 +345,7 @@ export default function StorageView() {
             <div className="space-y-1">
               {releasedPVs.map((pv) => (
                 <button key={pv.metadata.uid} onClick={() => go(`/r/v1~persistentvolumes/_/${pv.metadata.name}`, pv.metadata.name)}
-                  className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
+                  className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="text-sm text-slate-200">{pv.metadata.name}</span>
@@ -371,11 +371,11 @@ export default function StorageView() {
               {volumeSnapshots.slice(0, 10).map((snap) => {
                 const ready = snap.status?.readyToUse;
                 return (
-                  <div key={snap.metadata.uid} className="flex items-center justify-between py-2 px-3 rounded hover:bg-slate-800/50">
+                  <div key={snap.metadata.uid} className="flex items-center justify-between py-2 px-3 rounded-sm hover:bg-slate-800/50">
                     <div className="flex items-center gap-2">
                       {ready ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <AlertCircle className="w-3.5 h-3.5 text-amber-500" />}
                       <span className="text-sm text-slate-200">{snap.metadata.name}</span>
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{snap.metadata.namespace}</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{snap.metadata.namespace}</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-500">
                       <span>Source: {snap.spec?.source?.persistentVolumeClaimName || '—'}</span>

@@ -316,7 +316,7 @@ export default function LogStream({
     const parts = text.split(new RegExp(`(${escaped})`, 'gi'));
     return parts.map((part, i) =>
       part.toLowerCase() === query.toLowerCase() ? (
-        <span key={i} className="bg-amber-900/50 rounded px-0.5">
+        <span key={i} className="bg-amber-900/50 rounded-sm px-0.5">
           {part}
         </span>
       ) : (
@@ -341,7 +341,7 @@ export default function LogStream({
               placeholder="Search logs... (prefix with - to exclude)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -362,7 +362,7 @@ export default function LogStream({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsFollowing(!isFollowing)}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 transition-colors"
+            className="p-1.5 hover:bg-slate-700 rounded-sm text-slate-300 transition-colors"
             title={isFollowing ? 'Pause streaming' : 'Resume streaming'}
           >
             {isFollowing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -371,7 +371,7 @@ export default function LogStream({
           <button
             onClick={() => setShowTimestamps(!showTimestamps)}
             className={cn(
-              'px-2 py-1.5 text-xs font-mono rounded transition-colors',
+              'px-2 py-1.5 text-xs font-mono rounded-sm transition-colors',
               showTimestamps
                 ? 'bg-slate-700 text-slate-200'
                 : 'hover:bg-slate-700 text-slate-400'
@@ -384,7 +384,7 @@ export default function LogStream({
           <button
             onClick={() => setWordWrap(!wordWrap)}
             className={cn(
-              'p-1.5 rounded transition-colors',
+              'p-1.5 rounded-sm transition-colors',
               wordWrap ? 'bg-slate-700 text-slate-200' : 'hover:bg-slate-700 text-slate-400'
             )}
             title="Toggle word wrap"
@@ -394,7 +394,7 @@ export default function LogStream({
 
           <button
             onClick={handleCopy}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 transition-colors"
+            className="p-1.5 hover:bg-slate-700 rounded-sm text-slate-300 transition-colors"
             title="Copy logs"
           >
             <Copy className="w-4 h-4" />
@@ -402,7 +402,7 @@ export default function LogStream({
 
           <button
             onClick={handleDownload}
-            className="p-1.5 hover:bg-slate-700 rounded text-slate-300 transition-colors"
+            className="p-1.5 hover:bg-slate-700 rounded-sm text-slate-300 transition-colors"
             title="Download logs"
           >
             <Download className="w-4 h-4" />
@@ -445,7 +445,7 @@ export default function LogStream({
             )}
           >
             {/* Line number */}
-            <div className="w-14 flex-shrink-0 text-right pr-3 text-slate-500 select-none">
+            <div className="w-14 shrink-0 text-right pr-3 text-slate-500 select-none">
               {index + 1}
             </div>
 
@@ -482,7 +482,7 @@ export default function LogStream({
               containerRef.current.scrollTop = containerRef.current.scrollHeight;
             }
           }}
-          className="absolute bottom-4 right-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded shadow-lg transition-colors"
+          className="absolute bottom-4 right-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-sm shadow-lg transition-colors"
         >
           Scroll to bottom
         </button>

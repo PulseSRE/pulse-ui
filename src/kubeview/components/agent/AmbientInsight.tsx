@@ -220,9 +220,9 @@ export function AmbientInsight({
           </button>
         </div>
         <div className="space-y-2 animate-pulse">
-          <div className="h-3 bg-slate-700 rounded w-3/4" />
-          <div className="h-3 bg-slate-700 rounded w-1/2" />
-          <div className="h-3 bg-slate-700 rounded w-5/6" />
+          <div className="h-3 bg-slate-700 rounded-sm w-3/4" />
+          <div className="h-3 bg-slate-700 rounded-sm w-1/2" />
+          <div className="h-3 bg-slate-700 rounded-sm w-5/6" />
         </div>
       </div>
     );

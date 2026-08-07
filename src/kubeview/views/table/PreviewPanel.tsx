@@ -26,7 +26,7 @@ export function PreviewPanel({ resource, gvrKey, onClose }: PreviewPanelProps) {
   }, [gvrKey, resource, addTab, navigate]);
 
   return (
-    <div className="w-80 border-l border-slate-800 bg-slate-900 overflow-auto flex-shrink-0">
+    <div className="w-80 border-l border-slate-800 bg-slate-900 overflow-auto shrink-0">
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
         <span className="text-sm font-semibold text-slate-200 truncate">{resource.metadata.name}</span>
         <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
@@ -51,7 +51,7 @@ export function PreviewPanel({ resource, gvrKey, onClose }: PreviewPanelProps) {
             <div className="text-slate-500 mb-1">Labels:</div>
             <div className="flex flex-wrap gap-1">
               {Object.entries(resource.metadata.labels).slice(0, 8).map(([k, v]) => (
-                <span key={k} className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded text-xs font-mono">{k.split('/').pop()}={v}</span>
+                <span key={k} className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded-sm text-xs font-mono">{k.split('/').pop()}={v}</span>
               ))}
             </div>
           </div>
@@ -59,13 +59,13 @@ export function PreviewPanel({ resource, gvrKey, onClose }: PreviewPanelProps) {
         {Boolean(resource.spec) && (
           <div>
             <div className="text-slate-500 mb-1">Spec:</div>
-            <pre className="text-xs text-emerald-400 font-mono bg-slate-950 p-2 rounded overflow-auto max-h-48">{String(jsonToYaml(resource.spec)).slice(0, 500)}</pre>
+            <pre className="text-xs text-emerald-400 font-mono bg-slate-950 p-2 rounded-sm overflow-auto max-h-48">{String(jsonToYaml(resource.spec)).slice(0, 500)}</pre>
           </div>
         )}
         <div className="pt-2 border-t border-slate-800">
           <button
             onClick={handleOpenDetail}
-            className="w-full px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+            className="w-full px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors"
           >
             Open Detail View &rarr;
           </button>

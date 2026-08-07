@@ -42,7 +42,7 @@ export function InsightsRail({ className, onNavigate }: { className?: string; on
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 bg-slate-800 rounded animate-pulse" />
+              <div key={i} className="h-12 bg-slate-800 rounded-sm animate-pulse" />
             ))}
           </div>
         ) : incidents.length === 0 ? (

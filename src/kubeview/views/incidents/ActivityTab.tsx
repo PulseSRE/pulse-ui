@@ -205,7 +205,7 @@ export function ActivityTab() {
             role="radio"
             aria-checked={viewMode === 'by-date'}
             onClick={() => setViewMode('by-date')}
-            className={cn('px-3 py-1.5 text-xs rounded transition-colors', viewMode === 'by-date' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
+            className={cn('px-3 py-1.5 text-xs rounded-sm transition-colors', viewMode === 'by-date' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
           >
             By Date
           </button>
@@ -213,7 +213,7 @@ export function ActivityTab() {
             role="radio"
             aria-checked={viewMode === 'by-resource'}
             onClick={() => setViewMode('by-resource')}
-            className={cn('px-3 py-1.5 text-xs rounded transition-colors', viewMode === 'by-resource' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
+            className={cn('px-3 py-1.5 text-xs rounded-sm transition-colors', viewMode === 'by-resource' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
           >
             By Resource
           </button>
@@ -225,7 +225,7 @@ export function ActivityTab() {
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={cn('px-3 py-1.5 text-xs rounded transition-colors', timeRange === range ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
+              className={cn('px-3 py-1.5 text-xs rounded-sm transition-colors', timeRange === range ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
             >
               {range}
             </button>
@@ -241,7 +241,7 @@ export function ActivityTab() {
                 key={id}
                 onClick={() => toggleCategory(id)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded transition-colors',
+                  'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors',
                   active ? 'bg-slate-700 text-slate-200' : 'text-slate-500 hover:text-slate-400',
                 )}
               >
@@ -261,7 +261,7 @@ export function ActivityTab() {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search activity..."
             aria-label="Search activity"
-            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
           />
         </div>
       </div>
@@ -316,7 +316,7 @@ export function ActivityTab() {
                     <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded">{event.type}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm">{event.type}</span>
                         {event.timestamp && (
                           <span className="text-xs text-slate-500">{formatRelativeTime(event.timestamp)}</span>
                         )}

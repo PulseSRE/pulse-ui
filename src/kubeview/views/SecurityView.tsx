@@ -298,7 +298,7 @@ export default function SecurityView() {
                   useUIStore.getState().setAISidebarMode('chat');
                   useAgentStore.getState().connectAndSend(prompt);
                 }}
-                className="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-300 hover:bg-indigo-900/40 hover:text-indigo-300 border border-slate-700 hover:border-indigo-700/50 transition-colors"
+                className="px-2.5 py-1 text-xs rounded-sm bg-slate-800 text-slate-300 hover:bg-indigo-900/40 hover:text-indigo-300 border border-slate-700 hover:border-indigo-700/50 transition-colors"
               >
                 {prompt}
               </button>
@@ -310,8 +310,8 @@ export default function SecurityView() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="bg-slate-900 rounded-lg border border-slate-800 p-4 animate-pulse">
-                <div className="h-8 bg-slate-800 rounded w-1/3 mx-auto mb-2" />
-                <div className="h-3 bg-slate-800 rounded w-2/3 mx-auto" />
+                <div className="h-8 bg-slate-800 rounded-sm w-1/3 mx-auto mb-2" />
+                <div className="h-3 bg-slate-800 rounded-sm w-2/3 mx-auto" />
               </div>
             ))}
           </div>
@@ -388,7 +388,7 @@ export default function SecurityView() {
             <div className="divide-y divide-slate-800">
               {clusterAdmins.map((admin, i) => (
                 <div key={i} className="px-4 py-2.5 flex items-center gap-3">
-                  <span className={cn('text-xs px-1.5 py-0.5 rounded', admin.kind === 'User' ? 'bg-blue-900/50 text-blue-300' : admin.kind === 'Group' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-800 text-slate-400')}>
+                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', admin.kind === 'User' ? 'bg-blue-900/50 text-blue-300' : admin.kind === 'Group' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-800 text-slate-400')}>
                     {admin.kind}
                   </span>
                   <span className="text-sm text-slate-200 font-mono">{admin.name}</span>
@@ -420,7 +420,7 @@ export default function SecurityView() {
               <div className="flex flex-wrap gap-2">
                 {unprotectedNamespaces.map((ns) => (
                   <button key={ns.metadata?.name} onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
-                    className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded hover:bg-yellow-900/40 transition-colors">
+                    className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded-sm hover:bg-yellow-900/40 transition-colors">
                     {ns.metadata?.name}
                   </button>
                 ))}

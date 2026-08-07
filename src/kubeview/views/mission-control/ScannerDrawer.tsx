@@ -88,7 +88,7 @@ export function ScannerDrawer({ coverage, onClose }: ScannerDrawerProps) {
                     {scanner.name.replace(/^scan_/, '').replace(/_/g, ' ')}
                   </span>
                   {info?.autoFixable && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400 border border-emerald-800/40">auto-fix</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-emerald-900/40 text-emerald-400 border border-emerald-800/40">auto-fix</span>
                   )}
                   {info && (
                     <span className={cn('text-[9px]', SEVERITY_COLORS[info.severity] || 'text-slate-500')}>{info.severity}</span>

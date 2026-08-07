@@ -248,7 +248,7 @@ function KpiSection() {
               </div>
               {noData && <div className="text-[9px] text-slate-600 mt-0.5">No data yet</div>}
               {info && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-left w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 space-y-0.5">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-sm text-[10px] text-left w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 space-y-0.5">
                   <div className="text-slate-300">{info.explain}</div>
                   <div className="text-blue-400">{info.action}</div>
                 </div>

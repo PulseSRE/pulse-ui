@@ -115,18 +115,18 @@ export default function NodeLogsView() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => go(`/r/v1~nodes/_/${name}`, name)} className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Back to node">
+          <button onClick={() => go(`/r/v1~nodes/_/${name}`, name)} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Back to node">
             <ArrowLeft size={16} />
           </button>
           <Server className="w-4 h-4 text-slate-400" />
           <span className="text-sm font-medium text-slate-200">Node Logs</span>
-          <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded">{name}</span>
+          <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{name}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleRefresh} className="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200" title="Refresh">
+          <button onClick={handleRefresh} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" title="Refresh">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button onClick={handleDownload} disabled={!logContent} className="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Download">
+          <button onClick={handleDownload} disabled={!logContent} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Download">
             <Download className="w-4 h-4" />
           </button>
         </div>
@@ -141,7 +141,7 @@ export default function NodeLogsView() {
             aria-selected={activeSource === src.id}
             onClick={() => setActiveSource(src.id)}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
               activeSource === src.id ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'
             )}
           >
@@ -170,7 +170,7 @@ export default function NodeLogsView() {
                   selectedFile === file ? 'bg-blue-950/50 text-blue-300' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                 )}
               >
-                <FileText className="w-3 h-3 flex-shrink-0" />
+                <FileText className="w-3 h-3 shrink-0" />
                 {file}
               </button>
             ))
@@ -188,7 +188,7 @@ export default function NodeLogsView() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter log lines..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
               />
               {searchQuery && (
                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">

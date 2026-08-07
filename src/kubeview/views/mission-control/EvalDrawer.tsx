@@ -239,7 +239,7 @@ function SuiteCard({ name, suite, expanded, onToggle }: {
 
           {/* Negative test banner */}
           {SUITE_DESCRIPTIONS[name]?.negative && (
-            <div className="flex items-start gap-2 rounded bg-blue-950/30 border border-blue-800/30 px-3 py-2">
+            <div className="flex items-start gap-2 rounded-sm bg-blue-950/30 border border-blue-800/30 px-3 py-2">
               <AlertTriangle className="w-3.5 h-3.5 text-blue-400 mt-0.5 shrink-0" />
               <span className="text-[11px] text-blue-300/80">
                 These are intentional safety violations used as test inputs. Low dimension scores confirm the detection system is working. Blockers below are the violations being caught.

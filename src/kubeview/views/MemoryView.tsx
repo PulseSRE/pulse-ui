@@ -216,14 +216,14 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-sm transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Export Memory
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-sm transition-colors"
           >
             <Upload className="w-3.5 h-3.5" />
             Import Memory
@@ -238,7 +238,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
           />
           {importStatus && (
             <span className={cn(
-              'text-xs px-2 py-1 rounded',
+              'text-xs px-2 py-1 rounded-sm',
               importStatus.type === 'success' ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300',
             )}>
               {importStatus.message}
@@ -249,7 +249,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         {/* Summary Cards */}
         {!embedded && summary && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+            <Card className="p-4 bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-500/10 rounded-lg">
                   <History className="w-5 h-5 text-blue-400" />
@@ -260,7 +260,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 </div>
               </div>
             </Card>
-            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+            <Card className="p-4 bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-500/10 rounded-lg">
                   <BookOpen className="w-5 h-5 text-emerald-400" />
@@ -271,7 +271,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 </div>
               </div>
             </Card>
-            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+            <Card className="p-4 bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-violet-500/10 rounded-lg">
                   <TrendingUp className="w-5 h-5 text-violet-400" />
@@ -282,7 +282,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 </div>
               </div>
             </Card>
-            <Card className="p-4 bg-gradient-to-br from-slate-900 to-slate-800 border-slate-700">
+            <Card className="p-4 bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-500/10 rounded-lg">
                   <Award className="w-5 h-5 text-amber-400" />
@@ -350,14 +350,14 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                           <h3 className="text-sm font-semibold text-slate-200">{rb.name}</h3>
                           <p className="text-xs text-slate-400 mt-1">{rb.description}</p>
                         </div>
-                        <span className={cn('text-xs px-2 py-0.5 rounded shrink-0', getSuccessRateColor(successRate))}>
+                        <span className={cn('text-xs px-2 py-0.5 rounded-sm shrink-0', getSuccessRateColor(successRate))}>
                           {successRate.toFixed(0)}% success
                         </span>
                       </div>
                       {Array.isArray(rb.trigger_keywords) && rb.trigger_keywords.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-2">
                           {rb.trigger_keywords.map((kw, i) => (
-                            <span key={i} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                            <span key={i} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-sm">
                               {kw}
                             </span>
                           ))}
@@ -368,7 +368,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                         {rb.tool_sequence.map((tool, i) => (
                           <div key={i} className="flex items-center gap-1.5">
                             {i > 0 && <span className="text-slate-600">→</span>}
-                            <span className="text-xs bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded font-mono border border-blue-800/50">
+                            <span className="text-xs bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded-sm font-mono border border-blue-800/50">
                               {tool}
                             </span>
                           </div>
@@ -432,14 +432,14 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-sm text-slate-200">{cleanDescription}</p>
-                        <span className={cn('text-xs px-2 py-0.5 rounded font-medium shrink-0', getPatternTypeColor(pat.pattern_type))}>
+                        <span className={cn('text-xs px-2 py-0.5 rounded-sm font-medium shrink-0', getPatternTypeColor(pat.pattern_type))}>
                           {pat.pattern_type}
                         </span>
                       </div>
                       {pat.keywords && (Array.isArray(pat.keywords) ? pat.keywords : [pat.keywords]).length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-2">
                           {(Array.isArray(pat.keywords) ? pat.keywords : [pat.keywords]).map((kw: string, j: number) => (
-                            <span key={j} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700">
+                            <span key={j} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-sm border border-slate-700">
                               {kw}
                             </span>
                           ))}
@@ -469,7 +469,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search past incidents by keyword..."
-                className="w-full bg-slate-900 border border-slate-700 rounded px-9 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-900 border border-slate-700 rounded-sm px-9 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-blue-500"
                 aria-label="Search incidents"
               />
             </div>
@@ -499,7 +499,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                         <div className="flex items-center gap-2 shrink-0">
                           {inc.outcome && inc.outcome !== 'unknown' && (
                             <span className={cn(
-                              'text-xs px-2 py-0.5 rounded',
+                              'text-xs px-2 py-0.5 rounded-sm',
                               inc.outcome === 'resolved' ? 'bg-emerald-900/50 text-emerald-300' :
                               inc.outcome === 'unresolved' ? 'bg-red-900/50 text-red-300' :
                               'bg-slate-800 text-slate-400',
@@ -558,7 +558,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                               <div className="text-xs font-medium text-slate-400 mb-1">Tools Used</div>
                               <div className="flex flex-wrap gap-1">
                                 {inc.tools_used.map((tool, j) => (
-                                  <span key={j} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                                  <span key={j} className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-sm font-mono">
                                     {tool}
                                   </span>
                                 ))}

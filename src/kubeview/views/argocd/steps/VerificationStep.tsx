@@ -85,7 +85,7 @@ export function VerificationStep({ onClose }: Props) {
               href={exportSummary.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs rounded transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs rounded-sm transition-colors"
             >
               <GitBranch className="w-3.5 h-3.5" />
               View Pull Request

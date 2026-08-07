@@ -153,7 +153,7 @@ export const podEnhancer: ResourceEnhancer = {
         return (
           <Link
             to={`/logs/${namespace}/${name}`}
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-blue-900/50 hover:text-blue-400 transition-colors"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-blue-900/50 hover:text-blue-400 transition-colors"
             title="View Logs"
           >
             <ScrollText className="w-3.5 h-3.5" />
@@ -169,7 +169,7 @@ export const podEnhancer: ResourceEnhancer = {
         return (
           <button
             onClick={() => onAction('restart', { resource })}
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
             title="Restart Pod (delete to trigger recreation)"
           >
             <RotateCw className="w-3.5 h-3.5" />

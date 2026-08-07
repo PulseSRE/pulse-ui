@@ -48,9 +48,9 @@ function MachineConfigPoolsCard({ machineConfigPools, go }: { machineConfigPools
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-slate-200">{mcp.metadata.name}</span>
-                  {isDegraded && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">Degraded</span>}
-                  {isUpdating && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">Updating</span>}
-                  {isUpdated && !isUpdating && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded">Updated</span>}
+                  {isDegraded && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded-sm">Degraded</span>}
+                  {isUpdating && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm">Updating</span>}
+                  {isUpdated && !isUpdating && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded-sm">Updated</span>}
                 </div>
                 <span className={cn('text-xs font-mono', readyCount === machineCount ? 'text-green-400' : 'text-yellow-400')}>
                   {readyCount}/{machineCount} ready
@@ -85,7 +85,7 @@ function MachineConfigQuickAccess({ go }: { go: (path: string, title: string) =>
             { label: 'ContainerRuntimeConfigs', path: '/r/machineconfiguration.openshift.io~v1~containerruntimeconfigs', desc: 'CRI-O runtime settings (pids limit, log size)' },
           ].map((item) => (
             <button key={item.label} onClick={() => go(item.path, item.label)}
-              className="flex items-center justify-between w-full py-2 px-3 rounded hover:bg-slate-800/50 text-left transition-colors">
+              className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
               <div>
                 <div className="text-sm text-slate-200">{item.label}</div>
                 <div className="text-xs text-slate-500">{item.desc}</div>

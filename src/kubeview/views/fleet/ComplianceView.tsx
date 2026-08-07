@@ -321,7 +321,7 @@ export default function ComplianceView() {
           <button
             onClick={runFullScan}
             disabled={loading}
-            className="px-3 py-1.5 text-xs text-slate-400 rounded hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             {loading ? 'Scanning...' : 'Re-scan'}
@@ -446,7 +446,7 @@ export default function ComplianceView() {
                       <div
                         key={clusterId}
                         className={cn(
-                          'rounded border p-3',
+                          'rounded-sm border p-3',
                           diverges ? 'border-amber-800/50 bg-amber-950/20' : 'border-slate-800 bg-slate-900/50'
                         )}
                       >

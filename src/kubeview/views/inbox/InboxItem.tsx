@@ -92,7 +92,7 @@ export function InboxItem({
         onClick={() => setSelectedItem(item.id)}
       >
         <div className="px-4 py-3 flex items-start gap-3">
-          <SeverityIcon className={cn('w-5 h-5 flex-shrink-0 mt-0.5', SEVERITY_ICON_COLOR[severity])} />
+          <SeverityIcon className={cn('w-5 h-5 shrink-0 mt-0.5', SEVERITY_ICON_COLOR[severity])} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -102,29 +102,29 @@ export function InboxItem({
               )}
               {item.status === 'agent_reviewing' && (
                 <Tooltip content="Agent is investigating">
-                  <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse flex-shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse shrink-0" />
                 </Tooltip>
               )}
               {item.status === 'agent_cleared' && (
                 <Tooltip content={String(item.metadata?.dismiss_reason || 'Cleared by agent')}>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 </Tooltip>
               )}
               {item.status === 'agent_review_failed' && (
                 <Tooltip content={String(item.metadata?.agent_error || 'Agent analysis failed')}>
-                  <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                 </Tooltip>
               )}
               {item.status !== 'agent_reviewing' && item.status !== 'agent_cleared' && !!item.metadata?.triaged && (
                 <Tooltip content={`AI: ${String(item.metadata.triage_action || 'triaged')} · ${String(item.metadata.triage_urgency || '')}`}>
-                  <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0" />
+                  <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
                 </Tooltip>
               )}
               {hasApproval && (
-                <span className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" title="Pending approval" />
+                <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" title="Pending approval" />
               )}
               {isPinned && (
-                <Pin className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                <Pin className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
               )}
             </div>
 
@@ -153,12 +153,12 @@ export function InboxItem({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {item.status === 'new' && (
               <Tooltip content="Acknowledge">
                 <button
                   onClick={(e) => { e.stopPropagation(); acknowledge(item.id); }}
-                  className="p-1.5 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
                   aria-label="Acknowledge"
                 >
                   <Eye className="w-4 h-4" />
@@ -169,7 +169,7 @@ export function InboxItem({
               <Tooltip content="Claim">
                 <button
                   onClick={(e) => { e.stopPropagation(); claim(item.id); }}
-                  className="p-1.5 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
                   aria-label="Claim"
                 >
                   <CheckCircle2 className="w-4 h-4" />
@@ -180,7 +180,7 @@ export function InboxItem({
               <Dropdown
                 trigger={
                   <button
-                    className="p-1.5 rounded hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
                     aria-label="Snooze"
                   >
                     <PauseCircle className="w-4 h-4" />
@@ -194,7 +194,7 @@ export function InboxItem({
               <button
                 onClick={(e) => { e.stopPropagation(); pin(item.id); }}
                 className={cn(
-                  'p-1.5 rounded hover:bg-slate-800 transition-colors',
+                  'p-1.5 rounded-sm hover:bg-slate-800 transition-colors',
                   isPinned ? 'text-yellow-500' : 'text-slate-500 hover:text-slate-300',
                 )}
                 aria-label={isPinned ? 'Unpin' : 'Pin'}
@@ -205,7 +205,7 @@ export function InboxItem({
             <Tooltip content="Dismiss">
               <button
                 onClick={onDismissClick}
-                className="p-1.5 rounded hover:bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
+                className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
                 aria-label="Dismiss"
               >
                 <Trash2 className="w-4 h-4" />

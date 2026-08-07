@@ -31,7 +31,7 @@ export function AgentConfidenceBadge({ spec }: { spec: ConfidenceBadgeSpec }) {
   if (spec.title) {
     return (
       <div className={cn('flex items-center gap-3 rounded-lg border px-3 py-2', bgColor)}>
-        <Icon className={cn('w-5 h-5 flex-shrink-0', color)} />
+        <Icon className={cn('w-5 h-5 shrink-0', color)} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={cn('text-sm font-semibold', color)}>{pct}%</span>

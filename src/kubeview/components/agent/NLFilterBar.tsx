@@ -127,7 +127,7 @@ export function NLFilterBar({ resourceKind, columns, onFiltersApplied }: NLFilte
     <div className="space-y-1">
       <div
         className={cn(
-          'flex items-center gap-2 rounded border transition-colors',
+          'flex items-center gap-2 rounded-sm border transition-colors',
           'bg-slate-900 border-slate-700 focus-within:border-blue-500/50',
           'px-3 py-1.5'
         )}
@@ -146,7 +146,7 @@ export function NLFilterBar({ resourceKind, columns, onFiltersApplied }: NLFilte
           disabled={loading}
           className={cn(
             'flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500',
-            'outline-none border-none',
+            'outline-hidden border-none',
             'disabled:opacity-50'
           )}
         />

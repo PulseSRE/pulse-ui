@@ -47,7 +47,7 @@ export function AgentResolutionTracker({ spec }: { spec: ResolutionTrackerSpec }
                   <div className="text-xs text-slate-400 mt-0.5">{step.detail}</div>
                 )}
                 {step.output && (
-                  <pre className="mt-1 p-2 bg-slate-950 rounded text-[11px] text-slate-300 font-mono overflow-x-auto max-h-32 whitespace-pre-wrap">
+                  <pre className="mt-1 p-2 bg-slate-950 rounded-sm text-[11px] text-slate-300 font-mono overflow-x-auto max-h-32 whitespace-pre-wrap">
                     {step.output}
                   </pre>
                 )}

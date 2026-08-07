@@ -55,8 +55,8 @@ function BuildLogsView({ namespace, buildName }: { namespace: string; buildName:
       <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2">
         <span className="text-sm text-slate-400">Build Logs</span>
         <span className="text-sm font-medium">{buildName}</span>
-        <span className="text-xs px-2 py-0.5 bg-orange-900/50 text-orange-300 rounded">Build</span>
-        <span className="text-xs px-2 py-0.5 bg-slate-700 rounded text-slate-300">{namespace}</span>
+        <span className="text-xs px-2 py-0.5 bg-orange-900/50 text-orange-300 rounded-sm">Build</span>
+        <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
       </div>
       <div className="flex-1 overflow-auto bg-slate-950 p-4 font-mono text-xs text-slate-300">
         {isLoading && <div className="text-slate-500">Loading build logs...</div>}
@@ -91,8 +91,8 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
       <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2 flex-wrap">
         <span className="text-sm text-slate-400">Logs</span>
         <span className="text-sm font-medium">{name}</span>
-        <span className="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded">{kind}</span>
-        <span className="text-xs px-2 py-0.5 bg-slate-700 rounded text-slate-300">{namespace}</span>
+        <span className="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded-sm">{kind}</span>
+        <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
         <span className="text-xs text-slate-500 ml-auto">{podNames.length} pod{podNames.length !== 1 ? 's' : ''}</span>
       </div>
 
@@ -102,7 +102,7 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
           role="tab"
           aria-selected={!selectedPod}
           onClick={() => setSelectedPod(null)}
-          className={cn('px-3 py-1 text-xs rounded whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', !selectedPod ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}
+          className={cn('px-3 py-1 text-xs rounded-sm whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', !selectedPod ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}
         >
           All Pods
         </button>
@@ -116,7 +116,7 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
               role="tab"
               aria-selected={selectedPod === pn}
               onClick={() => setSelectedPod(pn)}
-              className={cn('px-3 py-1 text-xs rounded whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+              className={cn('px-3 py-1 text-xs rounded-sm whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
                 selectedPod === pn ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
               )}
             >
@@ -204,7 +204,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
         <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2">
           <span className="text-sm text-slate-400">Logs</span>
           <span className="text-sm font-medium">{podName}</span>
-          <span className="text-xs px-2 py-0.5 bg-slate-700 rounded text-slate-300">{namespace}</span>
+          <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
         </div>
         <div className="flex-1 overflow-hidden">
           <LogStream namespace={namespace} podName={podName} containerName={containers[0]?.name} />

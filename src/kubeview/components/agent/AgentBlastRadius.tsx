@@ -34,13 +34,13 @@ export function AgentBlastRadius({ spec }: { spec: BlastRadiusSpec }) {
               aria-label={`${item.kind_abbrev} ${item.name}: ${item.status} — ${item.status_detail}`}
               className="px-3 py-2.5 flex items-center gap-3"
             >
-              <span className={cn('text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border', style.bg, style.text, style.border)}>
+              <span className={cn('text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-sm border', style.bg, style.text, style.border)}>
                 {item.kind_abbrev}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-slate-200 truncate">{item.name}</span>
-                  <span className={cn('text-[10px] px-1 rounded', style.bg, style.text)}>
+                  <span className={cn('text-[10px] px-1 rounded-sm', style.bg, style.text)}>
                     {item.status}
                   </span>
                 </div>

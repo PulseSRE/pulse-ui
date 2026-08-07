@@ -85,7 +85,7 @@ export function AddLabelDialog({
                 value={labelKey}
                 onChange={(e) => onLabelKeyChange(e.target.value)}
                 placeholder="e.g. app.kubernetes.io/name"
-                className="w-full px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
                 autoFocus
                 required
               />
@@ -98,7 +98,7 @@ export function AddLabelDialog({
                 value={labelValue}
                 onChange={(e) => onLabelValueChange(e.target.value)}
                 placeholder="e.g. my-app"
-                className="w-full px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-1.5 text-sm bg-slate-800 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
               />
             </div>
           </div>
@@ -107,14 +107,14 @@ export function AddLabelDialog({
               type="button"
               onClick={onClose}
               disabled={actionLoading === 'label'}
-              className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 rounded-sm hover:bg-slate-800 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={actionLoading === 'label' || !labelKey.trim()}
-              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-500 rounded-sm transition-colors disabled:opacity-50"
             >
               {actionLoading === 'label' ? 'Adding...' : 'Add'}
             </button>

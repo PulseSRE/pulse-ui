@@ -123,7 +123,7 @@ export function Dropdown({ trigger, items, align = 'right' }: DropdownProps) {
                   isActive && !item.disabled && 'bg-slate-700'
                 )}
               >
-                {item.icon && <span className="flex-shrink-0">{item.icon}</span>}
+                {item.icon && <span className="shrink-0">{item.icon}</span>}
                 <span>{item.label}</span>
               </button>
             );

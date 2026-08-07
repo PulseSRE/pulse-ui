@@ -12,7 +12,7 @@ export function ActionMenu({ items }: { items: ActionMenuItem[] }) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="px-2 py-1.5 text-xs bg-slate-800 text-slate-400 rounded hover:bg-slate-700 hover:text-slate-200 flex items-center"
+        className="px-2 py-1.5 text-xs bg-slate-800 text-slate-400 rounded-sm hover:bg-slate-700 hover:text-slate-200 flex items-center"
         title="More actions"
       >
         <MoreHorizontal className="w-4 h-4" />

@@ -451,7 +451,7 @@ export default function AlertsView() {
             <div className="text-xs text-slate-500 font-medium mb-2">Most frequent alerts</div>
             <div className="flex flex-wrap gap-2">
               {topAlertNames.map(([name, count]) => (
-                <button key={name} onClick={() => setSearchQuery(name)} className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition-colors">
+                <button key={name} onClick={() => setSearchQuery(name)} className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm transition-colors">
                   <span className="font-medium">{name}</span>
                   <span className="text-slate-500">×{count}</span>
                 </button>
@@ -468,14 +468,14 @@ export default function AlertsView() {
               { id: 'rules' as Tab, label: `Rules (${allRules.length})` },
               { id: 'silences' as Tab, label: `Silences (${activeSilences.length})` },
             ]).map((tab) => (
-              <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+              <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
                 {tab.label}
               </button>
             ))}
           </div>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search alerts..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search alerts..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
           </div>
           {activeTab === 'firing' && (
             <>
@@ -526,7 +526,7 @@ export default function AlertsView() {
                 <Card key={groupName}>
                   <div className="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
                     <span className="text-sm font-medium text-slate-200">{groupName}</span>
-                    <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded">{alerts.length}</span>
+                    <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{alerts.length}</span>
                   </div>
                   <div className="divide-y divide-slate-800">
                     {alerts.map((item, idx) => <AlertRow key={idx} item={item} go={go} onSilence={openSilenceFormForAlert} />)}
@@ -561,15 +561,15 @@ export default function AlertsView() {
                   className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/30 cursor-pointer"
                   onClick={() => copyToClipboard(rule.query, 'PromQL copied')}
                 >
-                  {rule.alertCount > 0 ? <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" /> : <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                  {rule.alertCount > 0 ? <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" /> : <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-200 font-medium">{rule.name}</span>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded', rule.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{rule.severity}</span>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', rule.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{rule.severity}</span>
                     </div>
                     <div className="text-xs text-slate-500 font-mono mt-0.5 truncate">{rule.query}</div>
                   </div>
-                  {rule.alertCount > 0 && <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded">{rule.alertCount} firing</span>}
+                  {rule.alertCount > 0 && <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{rule.alertCount} firing</span>}
                 </div>
               ))}
             </div>
@@ -616,21 +616,21 @@ export default function AlertsView() {
                             placeholder="Label name"
                             value={matcher.name}
                             onChange={(e) => updateMatcher(idx, 'name', e.target.value)}
-                            className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                           />
                           <input
                             type="text"
                             placeholder="Value"
                             value={matcher.value}
                             onChange={(e) => updateMatcher(idx, 'value', e.target.value)}
-                            className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                           />
                           <label className="flex items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
                             <input
                               type="checkbox"
                               checked={matcher.isRegex}
                               onChange={(e) => updateMatcher(idx, 'isRegex', e.target.checked)}
-                              className="rounded border-slate-700"
+                              className="rounded-sm border-slate-700"
                             />
                             Regex
                           </label>
@@ -671,7 +671,7 @@ export default function AlertsView() {
                           key={preset.label}
                           onClick={() => setDuration(preset.hours)}
                           className={cn(
-                            'px-3 py-1.5 text-xs rounded border',
+                            'px-3 py-1.5 text-xs rounded-sm border',
                             silenceForm.endsAt && Math.abs(new Date(silenceForm.endsAt).getTime() - new Date(silenceForm.startsAt).getTime() - preset.hours * 60 * 60 * 1000) < 1000
                               ? 'bg-blue-600 border-blue-500 text-white'
                               : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'
@@ -696,7 +696,7 @@ export default function AlertsView() {
                       onChange={(e) => setSilenceForm((prev) => ({ ...prev, comment: e.target.value }))}
                       placeholder="Explain why this alert is being silenced..."
                       rows={3}
-                      className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
@@ -707,7 +707,7 @@ export default function AlertsView() {
                       type="text"
                       value={silenceForm.createdBy}
                       onChange={(e) => setSilenceForm((prev) => ({ ...prev, createdBy: e.target.value }))}
-                      className="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
@@ -715,14 +715,14 @@ export default function AlertsView() {
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       onClick={resetSilenceForm}
-                      className="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded"
+                      className="px-4 py-2 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={createSilence}
                       disabled={isSubmitting}
-                      className="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? 'Creating...' : 'Create Silence'}
                     </button>
@@ -742,11 +742,11 @@ export default function AlertsView() {
               activeSilences.map((silence) => (
                 <Card key={silence.id}>
                   <div className="px-4 py-3 flex items-start gap-3">
-                    <VolumeX className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    <VolumeX className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-slate-200">{silence.comment || 'No comment'}</span>
-                        <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded">{silence.status.state}</span>
+                        <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm">{silence.status.state}</span>
                       </div>
                       <div className="space-y-1 mb-2">
                         {silence.matchers.map((m, i) => (
@@ -762,7 +762,7 @@ export default function AlertsView() {
                     </div>
                     <button
                       onClick={() => setConfirmExpire(silence.id)}
-                      className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded flex items-center gap-1.5 flex-shrink-0"
+                      className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm flex items-center gap-1.5 shrink-0"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Expire
@@ -804,13 +804,13 @@ function AlertRow({ item, go, onSilence }: {
 
   return (
     <div className="px-4 py-3 flex items-start gap-3">
-      {item.severity === 'critical' ? <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" /> : <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />}
+      {item.severity === 'critical' ? <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /> : <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-sm font-medium text-slate-200">{item.rule}</span>
-          <span className={cn('text-xs px-1.5 py-0.5 rounded', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : item.severity === 'warning' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-blue-900/50 text-blue-300')}>{item.severity}</span>
-          <span className={cn('text-xs px-1.5 py-0.5 rounded', item.alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300')}>{item.alert.state}</span>
-          {item.isSilenced && <span className="text-xs px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded flex items-center gap-1"><VolumeX className="w-2.5 h-2.5" /> silenced</span>}
+          <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : item.severity === 'warning' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-blue-900/50 text-blue-300')}>{item.severity}</span>
+          <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', item.alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300')}>{item.alert.state}</span>
+          {item.isSilenced && <span className="text-xs px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded-sm flex items-center gap-1"><VolumeX className="w-2.5 h-2.5" /> silenced</span>}
           {item.firingDuration && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {item.firingDuration}</span>}
         </div>
 
@@ -820,7 +820,7 @@ function AlertRow({ item, go, onSilence }: {
             go(resourceDetailUrl({ apiVersion, kind: resourceKind, metadata: { name: resourceName, namespace: resourceNs } }), resourceName);
           }} className="flex items-center gap-2 mb-1 text-xs text-blue-400 hover:text-blue-300">
             {resourceKind}/{resourceName}
-            {resourceNs && <span className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{resourceNs}</span>}
+            {resourceNs && <span className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{resourceNs}</span>}
             <ArrowRight className="w-3 h-3" />
           </button>
         )}
@@ -844,7 +844,7 @@ function AlertRow({ item, go, onSilence }: {
 
       <button
         onClick={(e) => { e.stopPropagation(); onSilence(item.alert.labels); }}
-        className={cn('px-2.5 py-1.5 text-xs rounded flex items-center gap-1.5 flex-shrink-0 transition-colors',
+        className={cn('px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 shrink-0 transition-colors',
           item.isSilenced ? 'bg-slate-700 text-slate-400' : 'bg-blue-600 hover:bg-blue-700 text-white')}
         title={item.isSilenced ? 'Already silenced' : 'Silence this alert'}
       >

@@ -35,7 +35,7 @@ export function InboxGroup({
         <span className="text-sm font-medium text-slate-300 truncate">
           {group.correlation_key}
         </span>
-        <span className="text-xs text-slate-500 ml-auto flex-shrink-0">
+        <span className="text-xs text-slate-500 ml-auto shrink-0">
           {group.count} items
         </span>
       </button>

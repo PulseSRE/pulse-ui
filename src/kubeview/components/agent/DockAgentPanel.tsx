@@ -226,7 +226,7 @@ function ChatHistoryPanel({
       {/* New chat button */}
       <button
         onClick={() => { onNewChat(); onClose(); }}
-        className="flex items-center gap-2 mx-2 mt-2 mb-1 px-3 py-1.5 text-xs text-blue-400 bg-blue-950/30 border border-blue-800/40 rounded hover:bg-blue-900/40 transition-colors"
+        className="flex items-center gap-2 mx-2 mt-2 mb-1 px-3 py-1.5 text-xs text-blue-400 bg-blue-950/30 border border-blue-800/40 rounded-sm hover:bg-blue-900/40 transition-colors"
       >
         <Plus className="h-3 w-3" />
         New Chat
@@ -248,7 +248,7 @@ function ChatHistoryPanel({
             key={session.id}
             onClick={() => { onLoadSession(session.id); onClose(); }}
             className={cn(
-              'group w-full flex items-start gap-2 px-2 py-1.5 rounded text-left transition-colors',
+              'group w-full flex items-start gap-2 px-2 py-1.5 rounded-sm text-left transition-colors',
               activeSessionId === session.id
                 ? 'bg-blue-950/40 border border-blue-800/50'
                 : 'hover:bg-slate-800/60 border border-transparent',
@@ -523,14 +523,14 @@ export function DockAgentPanel() {
         )}
 
         {loadError && (
-          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/30 border border-red-900 rounded px-3 py-1.5">
+          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/30 border border-red-900 rounded-sm px-3 py-1.5">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             {loadError}
           </div>
         )}
 
         {error && (
-          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/30 border border-red-900 rounded px-3 py-1.5">
+          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/30 border border-red-900 rounded-sm px-3 py-1.5">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             {error}
           </div>
@@ -554,7 +554,7 @@ export function DockAgentPanel() {
 
       {/* Feedback toast */}
       {feedbackToast && (
-        <div role="status" aria-live="polite" className="mx-3 mb-1 px-3 py-1.5 text-xs text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 rounded animate-in fade-in">
+        <div role="status" aria-live="polite" className="mx-3 mb-1 px-3 py-1.5 text-xs text-emerald-300 bg-emerald-950/40 border border-emerald-800/50 rounded-sm animate-in fade-in">
           {feedbackToast}
         </div>
       )}
@@ -562,7 +562,7 @@ export function DockAgentPanel() {
       {/* Input */}
       <div className="border-t border-slate-700 px-3 py-2 flex items-end gap-2">
         <div className={cn(
-          'flex items-center gap-1 text-xs px-1.5 py-0.5 rounded',
+          'flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-sm',
           connected ? 'text-green-400 bg-green-950/30' : 'text-red-400 bg-red-950/30',
         )}>
           {mode.toUpperCase()} · L{trustLevel}
@@ -616,7 +616,7 @@ export function DockAgentPanel() {
             disabled={streaming || !connected}
             rows={1}
             className={cn(
-              'w-full bg-slate-900 border rounded px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none resize-none overflow-y-auto',
+              'w-full bg-slate-900 border rounded-sm px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden resize-none overflow-y-auto',
               streaming ? 'border-blue-500/50 opacity-60 cursor-not-allowed' : 'border-slate-700 focus:border-blue-500',
               !connected && 'opacity-40',
             )}
@@ -630,7 +630,7 @@ export function DockAgentPanel() {
         {streaming ? (
           <button
             onClick={cancelQuery}
-            className="p-1.5 rounded bg-red-700 hover:bg-red-600 text-white transition-colors shrink-0"
+            className="p-1.5 rounded-sm bg-red-700 hover:bg-red-600 text-white transition-colors shrink-0"
             aria-label="Stop"
           >
             <StopCircle className="h-3.5 w-3.5" />
@@ -640,7 +640,7 @@ export function DockAgentPanel() {
             onClick={handleSend}
             disabled={!input.trim() || !connected}
             className={cn(
-              'p-1.5 rounded transition-colors shrink-0',
+              'p-1.5 rounded-sm transition-colors shrink-0',
               input.trim() && connected
                 ? 'bg-blue-600 hover:bg-blue-500 text-white'
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed',

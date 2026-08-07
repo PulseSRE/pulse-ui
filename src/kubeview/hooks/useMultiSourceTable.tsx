@@ -405,7 +405,7 @@ export function useMultiSourceTable(
           render: (value: unknown) => {
             const label = String(value || '');
             return (
-              <span className="inline-block px-1.5 py-0.5 text-xs rounded bg-slate-700 text-slate-300">
+              <span className="inline-block px-1.5 py-0.5 text-xs rounded-sm bg-slate-700 text-slate-300">
                 {label}
               </span>
             );

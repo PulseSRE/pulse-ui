@@ -153,7 +153,7 @@ export function FleetReportTab() {
           onClick={handleRefresh}
           disabled={refreshing}
           className={cn(
-            'flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors',
+            'flex items-center gap-2 px-3 py-1.5 rounded-sm text-sm transition-colors',
             'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}

@@ -240,13 +240,13 @@ function NamespaceCharts({ namespace }: { namespace: string }) {
           <BarChart3 className="w-4 h-4 text-cyan-400" />
           Resource Metrics
         </h2>
-        <div className="flex bg-slate-800 rounded text-xs">
+        <div className="flex bg-slate-800 rounded-sm text-xs">
           {(['1h', '6h', '24h'] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
               className={cn(
-                'px-2.5 py-1 rounded transition-colors',
+                'px-2.5 py-1 rounded-sm transition-colors',
                 timeRange === range ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
               )}
             >

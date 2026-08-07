@@ -85,7 +85,7 @@ function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: Co
   return (
     <div
       ref={ref}
-      className="fixed z-[100] min-w-[180px] rounded-lg border border-slate-700 bg-slate-900 shadow-2xl py-1 animate-in fade-in zoom-in-95 duration-100"
+      className="fixed z-100 min-w-[180px] rounded-lg border border-slate-700 bg-slate-900 shadow-2xl py-1 animate-in fade-in zoom-in-95 duration-100"
       style={{ left: x, top: y }}
     >
       {items.map((item, i) => (
@@ -213,7 +213,7 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
 
       {/* Hex border */}
       <div
-        className="absolute inset-[1px] transition-all duration-200"
+        className="absolute inset-px transition-all duration-200"
         style={{
           clipPath: HEX_CLIP,
           background: `linear-gradient(135deg, ${status.color}30, ${status.color}10)`,
@@ -246,7 +246,7 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
               {pods.slice(0, 30).map((pod) => (
                 <div
                   key={pod.name}
-                  className="rounded-sm cursor-pointer hover:scale-150 hover:z-10 transition-transform"
+                  className="rounded-xs cursor-pointer hover:scale-150 hover:z-10 transition-transform"
                   style={{
                     width: 7, height: 7,
                     background: POD_STATUS_COLOR[pod.status] || '#6b7280',
@@ -259,12 +259,12 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
                 />
               ))}
               {Array.from({ length: Math.max(0, Math.min(nd.podCap - pods.length, 20)) }, (_, i) => (
-                <div key={`e-${i}`} className="rounded-sm" style={{ width: 7, height: 7, background: '#1e293b', opacity: 0.2 }} />
+                <div key={`e-${i}`} className="rounded-xs" style={{ width: 7, height: 7, background: '#1e293b', opacity: 0.2 }} />
               ))}
             </>
           ) : (
             Array.from({ length: Math.min(nd.podCap, 25) }, (_, i) => (
-              <div key={i} className="rounded-sm" style={{
+              <div key={i} className="rounded-xs" style={{
                 width: 7, height: 7,
                 background: i < nd.podCount ? (podPct > 90 ? '#ef4444' : podPct > 75 ? '#f59e0b' : '#10b981') : '#1e293b',
                 opacity: i < nd.podCount ? 0.9 : 0.2,
@@ -295,7 +295,7 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
 
       {/* Status badge — outside clip-path so it's never clipped */}
       <div
-        className={cn('absolute -top-1 right-2 px-1.5 py-0.5 rounded text-[7px] font-semibold z-10', !nd.status.ready && 'animate-pulse')}
+        className={cn('absolute -top-1 right-2 px-1.5 py-0.5 rounded-sm text-[7px] font-semibold z-10', !nd.status.ready && 'animate-pulse')}
         style={{ color: status.color, background: `${status.color}15`, border: `1px solid ${status.color}40` }}
       >
         {status.label}
@@ -355,7 +355,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
   const totalCap = nodes.reduce((sum, n) => sum + n.podCap, 0);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-gradient-to-br from-slate-900/80 to-slate-950 p-5">
+    <div className="rounded-xl border border-slate-800 bg-linear-to-br from-slate-900/80 to-slate-950 p-5">
       {/* Inject pulse animation CSS */}
       <style>{pulseKeyframes}</style>
 
@@ -389,7 +389,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Filter nodes..."
-            className="bg-transparent text-xs text-slate-300 placeholder-slate-600 outline-none flex-1"
+            className="bg-transparent text-xs text-slate-300 placeholder-slate-600 outline-hidden flex-1"
           />
           {filter && (
             <button onClick={() => setFilter('')} className="text-slate-500 hover:text-slate-300">
@@ -483,7 +483,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                 </button>
                 <button
                   onClick={() => setExpandedNode(null)}
-                  className="p-0.5 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="p-0.5 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

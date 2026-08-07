@@ -32,7 +32,7 @@ export const TabsTrigger = React.forwardRef<
       'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
       'text-slate-400 hover:text-slate-200',
       'data-[state=active]:bg-blue-600 data-[state=active]:text-white',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+      'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
       'disabled:pointer-events-none disabled:opacity-50',
       className
     )}
@@ -48,7 +48,7 @@ export const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn('focus-visible:outline-none', className)}
+    className={cn('focus-visible:outline-hidden', className)}
     {...props}
   />
 ));

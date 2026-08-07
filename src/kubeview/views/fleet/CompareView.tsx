@@ -72,7 +72,7 @@ export default function CompareView({ clusterA, clusterB }: CompareViewProps) {
               onClick={handleCompare}
               disabled={loading || !selectedA || !selectedB || selectedA === selectedB}
               className={cn(
-                'flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
                 loading || !selectedA || !selectedB || selectedA === selectedB
                   ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                   : 'bg-emerald-600 text-white hover:bg-emerald-500'
@@ -90,7 +90,7 @@ export default function CompareView({ clusterA, clusterB }: CompareViewProps) {
               <select
                 value={selectedA}
                 onChange={(e) => setSelectedA(e.target.value)}
-                className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
                 aria-label="Select Cluster A"
               >
                 {clusters.map(c => (
@@ -104,7 +104,7 @@ export default function CompareView({ clusterA, clusterB }: CompareViewProps) {
               <select
                 value={selectedB}
                 onChange={(e) => setSelectedB(e.target.value)}
-                className="w-full rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
                 aria-label="Select Cluster B"
               >
                 {clusters.map(c => (

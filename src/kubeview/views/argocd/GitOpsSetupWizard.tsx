@@ -114,7 +114,7 @@ export function GitOpsSetupWizard() {
             </h3>
             <button
               onClick={closeWizard}
-              className="p-1.5 text-slate-400 hover:text-slate-200 rounded transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-200 rounded-sm transition-colors"
               aria-label="Close wizard"
             >
               <X className="w-5 h-5" />

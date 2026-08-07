@@ -310,13 +310,13 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
           <input
             type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search name, namespace, issuer..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-blue-600"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:border-blue-600"
           />
         </div>
         <div className="flex items-center gap-2">
           {statusFilter !== 'all' && (
             <button onClick={() => setStatusFilter('all')}
-              className="text-xs px-2 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">
+              className="text-xs px-2 py-1 bg-slate-800 text-slate-300 rounded-sm hover:bg-slate-700 transition-colors">
               Clear filter
             </button>
           )}
@@ -411,7 +411,7 @@ function IssuerBadge({ issuer }: { issuer: string }) {
     'manual': 'bg-slate-800 text-slate-400 border-slate-700',
   };
   return (
-    <span className={cn('inline-block px-1.5 py-0.5 rounded text-xs border', styles[issuer] || styles.manual)}>
+    <span className={cn('inline-block px-1.5 py-0.5 rounded-sm text-xs border', styles[issuer] || styles.manual)}>
       {issuer}
     </span>
   );

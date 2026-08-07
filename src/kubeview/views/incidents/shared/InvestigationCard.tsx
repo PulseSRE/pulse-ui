@@ -23,7 +23,7 @@ export function InvestigationCard({
       onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClickFinding(report.findingId); } } : undefined}
     >
       <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-        <span className={cn('px-1.5 py-0.5 rounded', report.status === 'completed' ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300')}>
+        <span className={cn('px-1.5 py-0.5 rounded-sm', report.status === 'completed' ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300')}>
           {report.status}
         </span>
         <span>{report.category}</span>
@@ -45,7 +45,7 @@ export function InvestigationCard({
       <div className="text-sm text-slate-200">{report.summary || 'Investigation completed'}</div>
 
       {report.suspectedCause && (
-        <div className="mt-2 px-3 py-2 rounded bg-violet-950/40 border border-violet-800/40">
+        <div className="mt-2 px-3 py-2 rounded-sm bg-violet-950/40 border border-violet-800/40">
           <div className="text-xs font-medium text-violet-300 mb-0.5">Suspected Cause</div>
           <div className="text-sm text-slate-200">{report.suspectedCause}</div>
         </div>
@@ -70,11 +70,11 @@ export function InvestigationCard({
       )}
 
       {report.securityFollowup && (
-        <div className="mt-2 px-3 py-2 rounded bg-red-950/30 border border-red-800/30">
+        <div className="mt-2 px-3 py-2 rounded-sm bg-red-950/30 border border-red-800/30">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-medium text-red-300">Security Assessment</span>
             <span className={cn(
-              'text-xs px-1.5 py-0.5 rounded',
+              'text-xs px-1.5 py-0.5 rounded-sm',
               report.securityFollowup.riskLevel === 'high' ? 'bg-red-900/50 text-red-300' :
               report.securityFollowup.riskLevel === 'medium' ? 'bg-amber-900/50 text-amber-300' :
               'bg-slate-800 text-slate-400',

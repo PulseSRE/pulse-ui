@@ -101,9 +101,9 @@ export function OverviewTab({
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="bg-slate-900 rounded-lg border border-slate-800 p-6 animate-pulse">
-              <div className="h-4 bg-slate-800 rounded w-1/3 mb-3" />
-              <div className="h-3 bg-slate-800 rounded w-2/3 mb-2" />
-              <div className="h-3 bg-slate-800 rounded w-1/2" />
+              <div className="h-4 bg-slate-800 rounded-sm w-1/3 mb-3" />
+              <div className="h-3 bg-slate-800 rounded-sm w-2/3 mb-2" />
+              <div className="h-3 bg-slate-800 rounded-sm w-1/2" />
             </div>
           ))}
         </div>
@@ -147,7 +147,7 @@ export function OverviewTab({
           {firingAlerts.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2 ml-8">
               {[...new Set(firingAlerts.map(a => a.labels?.alertname).filter(Boolean))].slice(0, 3).map(name => (
-                <span key={name} className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300">{name}</span>
+                <span key={name} className="text-xs px-2 py-0.5 rounded-sm bg-slate-800 text-slate-300">{name}</span>
               ))}
               {new Set(firingAlerts.map(a => a.labels?.alertname)).size > 3 && (
                 <span className="text-xs text-slate-500">+{new Set(firingAlerts.map(a => a.labels?.alertname)).size - 3} more</span>
@@ -224,7 +224,7 @@ export function OverviewTab({
                 {expiringCerts.slice(0, 3).map((cert) => (
                   <div key={`${cert.namespace}/${cert.name}`} className="flex items-center justify-between text-xs">
                     <span className="text-slate-300 truncate">{cert.namespace}/{cert.name}</span>
-                    <span className={cn('shrink-0 ml-2 px-1.5 py-0.5 rounded',
+                    <span className={cn('shrink-0 ml-2 px-1.5 py-0.5 rounded-sm',
                       cert.daysLeft <= 7 ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300'
                     )}>{cert.daysLeft <= 0 ? 'Expired' : `${cert.daysLeft}d left`}</span>
                   </div>
@@ -321,7 +321,7 @@ export function OverviewTab({
                     <span className="text-sm text-slate-200">{name}</span>
                     {detail && <span className="text-xs text-slate-500">{detail}</span>}
                   </div>
-                  <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                     status === 'healthy' ? 'bg-green-900/50 text-green-300' :
                     status === 'degraded' ? 'bg-red-900/50 text-red-300' :
                     status === 'progressing' ? 'bg-blue-900/50 text-blue-300' :
@@ -343,7 +343,7 @@ export function OverviewTab({
               {degradedOperators.length > 0 && (
                 <div className="mt-2 space-y-1.5">
                   {degradedOperators.map((op) => (
-                    <div key={op.name} className="flex items-start gap-2 p-2 rounded bg-red-950/20 border border-red-900/30">
+                    <div key={op.name} className="flex items-start gap-2 p-2 rounded-sm bg-red-950/20 border border-red-900/30">
                       <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <span className="text-xs font-medium text-red-300">{op.name}</span>
@@ -391,9 +391,9 @@ export function OverviewTab({
           ) : (
             <div className="space-y-1">
               {identityProviders.map((idp, i) => (
-                <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-slate-800/50">
+                <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-sm hover:bg-slate-800/50">
                   <span className="text-sm text-slate-200">{idp.name}</span>
-                  <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded">{idp.type}</span>
+                  <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{idp.type}</span>
                 </div>
               ))}
             </div>
@@ -412,14 +412,14 @@ export function OverviewTab({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-300">Default Certificate</span>
-              <span className={cn('text-xs px-1.5 py-0.5 rounded',
+              <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                 ingressConfig?.spec?.defaultCertificate ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'
               )}>{ingressConfig?.spec?.defaultCertificate ? 'Custom' : 'Self-signed'}</span>
             </div>
             {certExpiry && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-300">Router Cert Expires</span>
-                <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                   certExpiry.daysLeft < 30 ? 'bg-red-900/50 text-red-300' :
                   certExpiry.daysLeft < 90 ? 'bg-yellow-900/50 text-yellow-300' :
                   'bg-green-900/50 text-green-300'
@@ -459,7 +459,7 @@ export function OverviewTab({
 
               return (
                 <button key={i} onClick={() => { if (objectName && objectKind) go(`/r/v1~${objectKind.toLowerCase()}s/${ns}/${objectName}`, objectName); }}
-                  className="w-full flex items-start gap-2.5 p-2 rounded hover:bg-slate-800/50 text-left transition-colors">
+                  className="w-full flex items-start gap-2.5 p-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

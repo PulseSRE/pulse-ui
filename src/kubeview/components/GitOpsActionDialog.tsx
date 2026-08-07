@@ -100,7 +100,7 @@ export function GitOpsActionDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={status === 'idle' || status === 'done' || status === 'error' ? onClose : undefined} />
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={status === 'idle' || status === 'done' || status === 'error' ? onClose : undefined} />
       <div
         role="dialog"
         aria-modal="true"
@@ -135,7 +135,7 @@ export function GitOpsActionDialog({
               <div className="flex items-center gap-2 mb-1">
                 <Zap className="w-4 h-4 text-violet-400" />
                 <span className="text-sm font-medium text-violet-200">Apply Now + Create PR</span>
-                <span className="text-xs px-1.5 py-0.5 bg-violet-900/50 text-violet-300 rounded ml-auto">Recommended</span>
+                <span className="text-xs px-1.5 py-0.5 bg-violet-900/50 text-violet-300 rounded-sm ml-auto">Recommended</span>
               </div>
               <p className="text-xs text-slate-400">
                 Apply the change immediately and create a PR to sync Git. Cluster will be out-of-sync until PR is merged.
@@ -199,7 +199,7 @@ export function GitOpsActionDialog({
                 href={prUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-sm transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" /> View Pull Request
               </a>
@@ -216,7 +216,7 @@ export function GitOpsActionDialog({
             <AlertTriangle className="w-8 h-8 text-red-400 mx-auto" />
             <p className="text-sm text-red-300">{error}</p>
             <div className="flex gap-2 justify-center">
-              <button onClick={() => setStatus('idle')} className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded hover:bg-slate-700">Try Again</button>
+              <button onClick={() => setStatus('idle')} className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded-sm hover:bg-slate-700">Try Again</button>
               <button onClick={onClose} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Close</button>
             </div>
           </div>

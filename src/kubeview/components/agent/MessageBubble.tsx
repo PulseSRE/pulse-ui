@@ -256,7 +256,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
                   onClick={() => { sendFeedback(true, message.id); setFeedbackGiven('up'); }}
                   disabled={feedbackGiven !== null}
                   className={cn(
-                    'p-1 rounded transition-colors',
+                    'p-1 rounded-sm transition-colors',
                     feedbackGiven === 'up' ? 'text-green-400 bg-green-950/40' : 'text-slate-500 hover:text-green-400 hover:bg-green-950/30',
                     feedbackGiven === 'down' && 'hidden',
                   )}
@@ -269,7 +269,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
                   onClick={() => { sendFeedback(false, message.id); setFeedbackGiven('down'); }}
                   disabled={feedbackGiven !== null}
                   className={cn(
-                    'p-1 rounded transition-colors',
+                    'p-1 rounded-sm transition-colors',
                     feedbackGiven === 'down' ? 'text-red-400 bg-red-950/40' : 'text-slate-500 hover:text-red-400 hover:bg-red-950/30',
                     feedbackGiven === 'up' && 'hidden',
                   )}

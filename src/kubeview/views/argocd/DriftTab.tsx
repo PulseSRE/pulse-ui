@@ -85,7 +85,7 @@ export function DriftTab({ applications, onSync, syncing, go }: DriftTabProps) {
                     onSync(app.metadata.name, app.metadata.namespace || '');
                   }}
                   disabled={isSyncing}
-                  className="px-2.5 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 flex items-center gap-1"
+                  className="px-2.5 py-1 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors disabled:opacity-50 flex items-center gap-1"
                 >
                   {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                   Sync
@@ -157,7 +157,7 @@ function ResourceRow({ resource, go, showDiff, onToggleDiff }: {
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {resource.requiresPruning && (
-          <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-300" title="Will be deleted on next sync with prune enabled">
+          <span className="text-xs px-1.5 py-0.5 rounded-sm bg-red-900/50 text-red-300" title="Will be deleted on next sync with prune enabled">
             prune
           </span>
         )}
@@ -177,7 +177,7 @@ function ResourceRow({ resource, go, showDiff, onToggleDiff }: {
           <button
             onClick={(e) => { e.stopPropagation(); onToggleDiff(); }}
             className={cn(
-              'px-1.5 py-0.5 text-xs rounded flex items-center gap-1 transition-colors',
+              'px-1.5 py-0.5 text-xs rounded-sm flex items-center gap-1 transition-colors',
               showDiff
                 ? 'bg-violet-900/50 text-violet-300'
                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'

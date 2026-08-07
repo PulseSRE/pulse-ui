@@ -62,7 +62,7 @@ export const nodeEnhancer: ResourceEnhancer = {
             {roleList.map((role) => (
               <span
                 key={role}
-                className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-blue-900 text-blue-300"
+                className="inline-block px-2 py-0.5 text-xs font-medium rounded-sm bg-blue-900 text-blue-300"
               >
                 {role}
               </span>
@@ -208,7 +208,7 @@ export const nodeEnhancer: ResourceEnhancer = {
           <button
             onClick={() => onAction('drain', { resource })}
             disabled={!unschedulable}
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded hover:bg-orange-900/50 hover:text-orange-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title={unschedulable ? 'Drain node' : 'Cordon first to drain'}
           >
             <ArrowDownToLine className="w-3.5 h-3.5" />

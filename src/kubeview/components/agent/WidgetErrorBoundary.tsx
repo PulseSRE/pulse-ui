@@ -43,7 +43,7 @@ export class WidgetErrorBoundary extends React.Component<Props, State> {
             <summary className="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400">
               Error details
             </summary>
-            <pre className="mt-1 text-[10px] text-red-400/70 bg-slate-950 rounded p-2 overflow-auto max-h-24 whitespace-pre-wrap">
+            <pre className="mt-1 text-[10px] text-red-400/70 bg-slate-950 rounded-sm p-2 overflow-auto max-h-24 whitespace-pre-wrap">
               {this.state.error?.message || 'Unknown error'}
             </pre>
           </details>

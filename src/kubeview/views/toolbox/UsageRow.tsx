@@ -31,7 +31,7 @@ export function UsageRow({ entry: e }: { entry: ToolUsageEntry }) {
         <td className="py-1.5 px-3"><SourceBadge source={e.tool_source} /></td>
         <td className="py-1.5 px-3">
           <span className={cn(
-            'text-[10px] px-1.5 py-0.5 rounded',
+            'text-[10px] px-1.5 py-0.5 rounded-sm',
             e.agent_mode === 'sre' ? 'bg-violet-900/30 text-violet-400' :
             e.agent_mode === 'security' ? 'bg-red-900/30 text-red-400' :
             e.agent_mode === 'view_designer' ? 'bg-emerald-900/30 text-emerald-400' :

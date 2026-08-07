@@ -39,7 +39,7 @@ export function GitOpsInfoCard({ kind, namespace, name }: GitOpsInfoCardProps) {
       <div className="flex items-center gap-2 mb-3">
         <GitBranch className="w-4 h-4 text-violet-400" />
         <span className="text-sm font-semibold text-slate-100">GitOps</span>
-        <span className={cn('text-xs px-1.5 py-0.5 rounded',
+        <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
           syncInfo.syncStatus === 'Synced' ? 'bg-emerald-900/50 text-emerald-300' :
           syncInfo.syncStatus === 'OutOfSync' ? 'bg-amber-900/50 text-amber-300' :
           'bg-slate-800 text-slate-400'

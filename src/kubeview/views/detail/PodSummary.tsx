@@ -24,12 +24,12 @@ function formatAge(timestamp: string | undefined): string {
 }
 
 function ProbeTag({ label, probe }: { label: string; probe: Probe | undefined }) {
-  if (!probe) return <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-600 rounded">{label}: none</span>;
+  if (!probe) return <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-600 rounded-sm">{label}: none</span>;
   const type = probe.httpGet ? 'HTTP' : probe.tcpSocket ? 'TCP' : probe.exec ? 'Exec' : 'gRPC';
   const detail = probe.httpGet ? `:${probe.httpGet.port}${probe.httpGet.path || '/'}` :
     probe.tcpSocket ? `:${probe.tcpSocket.port}` : '';
   return (
-    <span className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded" title={`${type}${detail}`}>
+    <span className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded-sm" title={`${type}${detail}`}>
       {label}: {type}{detail}
     </span>
   );
@@ -175,7 +175,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-slate-200">{c.name}</span>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                         terminated?.exitCode === 0 ? 'bg-green-900/50 text-green-300' :
                         state?.waiting ? 'bg-yellow-900/50 text-yellow-300' : 'bg-slate-800 text-slate-400'
                       )}>{stateLabel}</span>
@@ -217,7 +217,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-slate-200">{c.name}</span>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                         isReady ? 'bg-green-900/50 text-green-300' :
                         state?.waiting ? 'bg-yellow-900/50 text-yellow-300' :
                         state?.terminated ? 'bg-slate-800 text-slate-400' : 'bg-yellow-900/50 text-yellow-300'
@@ -235,12 +235,12 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {hasLimits ? (
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded flex items-center gap-1">
+                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm flex items-center gap-1">
                         <Cpu className="w-3 h-3" /> {c.resources?.limits?.cpu || '—'}
                         <MemoryStick className="w-3 h-3 ml-1" /> {c.resources?.limits?.memory || '—'}
                       </span>
                     ) : (
-                      <span className="text-xs px-1.5 py-0.5 bg-yellow-900/30 text-yellow-400 rounded">no limits</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-yellow-900/30 text-yellow-400 rounded-sm">no limits</span>
                     )}
                     {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
                   </div>
@@ -287,7 +287,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
                       </div>
                     )}
                     {state?.waiting?.message && (
-                      <div className="text-xs text-yellow-400 bg-yellow-900/20 px-2 py-1 rounded">{state.waiting.message}</div>
+                      <div className="text-xs text-yellow-400 bg-yellow-900/20 px-2 py-1 rounded-sm">{state.waiting.message}</div>
                     )}
                     {state?.terminated && (
                       <div className="text-xs text-slate-400 space-y-0.5">
@@ -346,7 +346,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
                   <div className="flex-1 min-w-0">
                     <span className="text-sm text-slate-200">{v.name}</span>
                   </div>
-                  <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{type}</span>
+                  <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{type}</span>
                   {ref && (
                     <span className="text-xs text-slate-500 font-mono truncate max-w-48">{ref}</span>
                   )}

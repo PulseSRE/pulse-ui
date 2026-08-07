@@ -156,7 +156,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
                   <select
                     value={activeContainer}
                     onChange={(e) => setSelectedContainer(e.target.value)}
-                    className="text-xs bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-slate-300"
+                    className="text-xs bg-slate-800 border border-slate-700 rounded-sm px-1.5 py-0.5 text-slate-300"
                   >
                     {containers.map((c) => (
                       <option key={c.name} value={c.name}>{c.name}</option>
@@ -168,7 +168,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer">
                   <input type="checkbox" checked={showPrevious} onChange={(e) => setShowPrevious(e.target.checked)}
-                    className="rounded border-slate-600" />
+                    className="rounded-sm border-slate-600" />
                   Previous
                 </label>
                 <button onClick={() => go(`/logs/${logPodNs}/${logPodName}`, `${logPodName} (Logs)`)}
@@ -178,7 +178,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
             {logsLoading ? (
               <div className="flex items-center gap-2 py-4 text-xs text-slate-500"><Loader2 className="w-3 h-3 animate-spin" /> Loading logs...</div>
             ) : logText ? (
-              <pre className="text-xs text-slate-400 font-mono bg-slate-950 rounded p-3 max-h-48 overflow-auto whitespace-pre-wrap">
+              <pre className="text-xs text-slate-400 font-mono bg-slate-950 rounded-sm p-3 max-h-48 overflow-auto whitespace-pre-wrap">
                 {logText.split('\n').slice(-50).join('\n') || 'No log output'}
               </pre>
             ) : (

@@ -137,7 +137,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
           value={clusterName}
           onChange={(e) => setClusterName(e.target.value)}
           placeholder="my-cluster"
-          className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none"
+          className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
         />
         <p className="text-xs text-slate-500 mt-1">Used as the folder name in your Git repository.</p>
       </div>
@@ -200,10 +200,10 @@ export function SelectResourcesStep({ onComplete }: Props) {
             value={nsSearch}
             onChange={(e) => setNsSearch(e.target.value)}
             placeholder="Search namespaces..."
-            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-none"
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
           />
         </div>
-        <div className="max-h-40 overflow-y-auto border border-slate-700 rounded bg-slate-800/50 p-1.5 space-y-0.5">
+        <div className="max-h-40 overflow-y-auto border border-slate-700 rounded-sm bg-slate-800/50 p-1.5 space-y-0.5">
           {loadingNs ? (
             <div className="flex items-center gap-2 p-2 text-sm text-slate-400">
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -215,7 +215,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
             filteredNamespaces.map((ns) => (
               <label
                 key={ns}
-                className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-700/50 cursor-pointer"
+                className="flex items-center gap-2 px-2 py-1 rounded-sm hover:bg-slate-700/50 cursor-pointer"
               >
                 <input
                   type="checkbox"

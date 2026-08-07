@@ -91,7 +91,7 @@ export function DashboardMode() {
             onKeyDown={handleKeyDown}
             placeholder="Ask Pulse anything..."
             rows={1}
-            className="flex-1 resize-none bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="flex-1 resize-none bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-violet-500"
           />
           <button
             onClick={handleSend}

@@ -103,13 +103,13 @@ export function PredictionCard({ prediction, onPrevent, compact }: PredictionCar
               {visibleResources.map((r) => (
                 <span
                   key={`${r.kind}-${r.namespace || ''}-${r.name}`}
-                  className="inline-flex items-center rounded bg-slate-900 px-1.5 py-0.5 text-xs font-mono text-slate-300"
+                  className="inline-flex items-center rounded-sm bg-slate-900 px-1.5 py-0.5 text-xs font-mono text-slate-300"
                 >
                   {r.kind}/{r.namespace ? `${r.namespace}/` : ''}{r.name}
                 </span>
               ))}
               {remaining > 0 && (
-                <span className="inline-flex items-center rounded bg-slate-900 px-1.5 py-0.5 text-xs text-slate-500">
+                <span className="inline-flex items-center rounded-sm bg-slate-900 px-1.5 py-0.5 text-xs text-slate-500">
                   +{remaining} more
                 </span>
               )}
@@ -118,7 +118,7 @@ export function PredictionCard({ prediction, onPrevent, compact }: PredictionCar
 
           {/* Recommended action tip */}
           {prediction.recommendedAction && !compact && (
-            <div className="mt-2 flex items-start gap-1.5 rounded bg-blue-950/30 border border-blue-900/50 px-2.5 py-1.5">
+            <div className="mt-2 flex items-start gap-1.5 rounded-sm bg-blue-950/30 border border-blue-900/50 px-2.5 py-1.5">
               <Lightbulb className="h-3 w-3 text-blue-400 mt-0.5 shrink-0" aria-hidden="true" />
               <span className="text-xs text-blue-300">{prediction.recommendedAction}</span>
             </div>
@@ -130,7 +130,7 @@ export function PredictionCard({ prediction, onPrevent, compact }: PredictionCar
               <button
                 onClick={() => onPrevent(prediction)}
                 className={cn(
-                  'flex items-center gap-1 rounded bg-blue-700 text-white transition-colors hover:bg-blue-600',
+                  'flex items-center gap-1 rounded-sm bg-blue-700 text-white transition-colors hover:bg-blue-600',
                   compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs',
                 )}
               >

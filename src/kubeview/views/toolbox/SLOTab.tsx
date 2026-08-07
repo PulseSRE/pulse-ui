@@ -82,7 +82,7 @@ export function SLOTab() {
                 value={newSLO.service}
                 onChange={(e) => setNewSLO({ ...newSLO, service: e.target.value })}
                 placeholder="e.g., checkout-api"
-                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
               />
             </div>
             <div>
@@ -90,7 +90,7 @@ export function SLOTab() {
               <select
                 value={newSLO.type}
                 onChange={(e) => setNewSLO({ ...newSLO, type: e.target.value })}
-                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
               >
                 <option value="availability">Availability</option>
                 <option value="latency">Latency (p99)</option>
@@ -103,7 +103,7 @@ export function SLOTab() {
                 value={newSLO.target}
                 onChange={(e) => setNewSLO({ ...newSLO, target: e.target.value })}
                 placeholder="99.9"
-                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
               />
             </div>
             <div>
@@ -112,7 +112,7 @@ export function SLOTab() {
                 value={newSLO.window_days}
                 onChange={(e) => setNewSLO({ ...newSLO, window_days: e.target.value })}
                 placeholder="30"
-                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
               />
             </div>
           </div>
@@ -122,7 +122,7 @@ export function SLOTab() {
               value={newSLO.description}
               onChange={(e) => setNewSLO({ ...newSLO, description: e.target.value })}
               placeholder="e.g., Checkout must be available 99.9% over rolling 30d"
-              className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -184,7 +184,7 @@ export function SLOTab() {
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-100 truncate">{String(slo.service).replace('pulse-openshift-sre-agent', 'agent').replace('openshiftpulse', 'ui')}</div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-medium">{String(slo.type)}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-medium">{String(slo.type)}</span>
                       <span className="text-[10px] text-slate-600">{windowDays}d window</span>
                     </div>
                     {description && <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">{description}</p>}
@@ -193,7 +193,7 @@ export function SLOTab() {
 
                 <div className="flex items-center gap-5">
                   <div className="relative shrink-0 w-[88px] h-[88px]">
-                    <svg viewBox="0 0 100 100" className="w-full h-full -rotate-[135deg]">
+                    <svg viewBox="0 0 100 100" className="w-full h-full rotate-[-135deg]">
                       <circle
                         cx="50" cy="50" r="40"
                         fill="none"

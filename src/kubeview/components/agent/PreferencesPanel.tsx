@@ -34,7 +34,7 @@ export function PreferencesPanel() {
               key={level}
               onClick={() => setTrustLevel(level)}
               className={cn(
-                'px-2 py-2 rounded text-xs text-center transition-colors',
+                'px-2 py-2 rounded-sm text-xs text-center transition-colors',
                 trustLevel === level
                   ? 'bg-blue-600 text-white'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700',
@@ -60,7 +60,7 @@ export function PreferencesPanel() {
               key={opt.value}
               onClick={() => setCommunicationStyle(opt.value)}
               className={cn(
-                'px-3 py-2 rounded text-xs text-center transition-colors',
+                'px-3 py-2 rounded-sm text-xs text-center transition-colors',
                 communicationStyle === opt.value
                   ? 'bg-violet-600 text-white'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700',

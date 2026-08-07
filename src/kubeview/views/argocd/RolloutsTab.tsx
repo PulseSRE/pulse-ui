@@ -89,11 +89,11 @@ export function RolloutsTab({ rollouts, go }: RolloutsTabProps) {
                       >
                         {rollout.metadata.name}
                       </button>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded', STRATEGY_COLORS[strategy])}>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', STRATEGY_COLORS[strategy])}>
                         {strategy}
                       </span>
                       <span className={cn(
-                        'text-xs px-1.5 py-0.5 rounded',
+                        'text-xs px-1.5 py-0.5 rounded-sm',
                         phase === 'Healthy' ? 'bg-emerald-900/50 text-emerald-300' :
                         phase === 'Paused' ? 'bg-amber-900/50 text-amber-300' :
                         phase === 'Degraded' ? 'bg-red-900/50 text-red-300' :

@@ -14,19 +14,18 @@ import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { ComponentSpec } from '../engine/agentComponents';
 
-// react-grid-layout (pnpm add react-grid-layout @types/react-grid-layout)
-import { Responsive, WidthProvider } from 'react-grid-layout';
+// react-grid-layout
+import { Responsive, verticalCompactor, useContainerWidth } from 'react-grid-layout';
+import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-
-const ResponsiveGrid = WidthProvider(Responsive);
 
 /* Layout is backend-authoritative. The engine computes positions
    via compute_layout() and the frontend renders them verbatim.
    No idealWidth/idealHeight/generateDefaultLayout/applyTemplate. */
 
 /** Convert react-grid-layout Layout[] to our positions map */
-function layoutToPositions(layout: ReactGridLayout.Layout[]): Record<number, { x: number; y: number; w: number; h: number }> {
+function layoutToPositions(layout: readonly LayoutItem[]): Record<number, { x: number; y: number; w: number; h: number }> {
   const positions: Record<number, { x: number; y: number; w: number; h: number }> = {};
   for (const item of layout) {
     positions[Number(item.i)] = { x: item.x, y: item.y, w: item.w, h: item.h };
@@ -37,7 +36,7 @@ function layoutToPositions(layout: ReactGridLayout.Layout[]): Record<number, { x
 /** Convert positions map to react-grid-layout Layout[].
  *  Backend computes all positions — frontend just renders them.
  *  Missing positions get a safe full-width default appended below existing widgets. */
-export function positionsToLayout(positions: Record<string | number, { x: number; y: number; w: number; h: number }>, specs: ComponentSpec[]): ReactGridLayout.Layout[] {
+export function positionsToLayout(positions: Record<string | number, { x: number; y: number; w: number; h: number }>, specs: ComponentSpec[]): LayoutItem[] {
   // Compute max_y from existing positions for appending missing widgets
   let maxY = 0;
   for (const pos of Object.values(positions)) {
@@ -107,13 +106,14 @@ export default function CustomView() {
     };
   }, [viewId]);
 
-  // Force grid remount when sidebar toggles so WidthProvider remeasures
+  const { width: gridWidth, containerRef: gridContainerRef, measureWidth } = useContainerWidth();
+
+  // Re-measure grid width when sidebar toggles
   const sidebarExpanded = useUIStore((s) => s.aiSidebarExpanded);
-  const [gridKey, setGridKey] = useState(0);
   useEffect(() => {
-    const timer = setTimeout(() => setGridKey((k) => k + 1), 350);
+    const timer = setTimeout(() => measureWidth(), 350);
     return () => clearTimeout(timer);
-  }, [sidebarExpanded]);
+  }, [sidebarExpanded, measureWidth]);
 
   // Derive layout from already-subscribed view to avoid redundant selector
   const viewLayout = view?.layout;
@@ -171,7 +171,7 @@ export default function CustomView() {
   }, [view]);
 
   const handleLayoutChange = useCallback(
-    (layout: ReactGridLayout.Layout[]) => {
+    (layout: Layout, _layouts: Partial<Record<string, Layout>>) => {
       if (!view || !editMode) return;
       // Debounce saves
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
@@ -258,7 +258,7 @@ export default function CustomView() {
                   if (e.key === 'Enter') handleTitleSave();
                   if (e.key === 'Escape') setEditingTitle(false);
                 }}
-                className="text-2xl font-bold text-slate-100 bg-transparent border-b border-violet-500 outline-none w-full"
+                className="text-2xl font-bold text-slate-100 bg-transparent border-b border-violet-500 outline-hidden w-full"
               />
             ) : (
               <h1
@@ -282,7 +282,7 @@ export default function CustomView() {
                   if (e.key === 'Enter') handleDescSave();
                   if (e.key === 'Escape') setEditingDesc(false);
                 }}
-                className="text-sm text-slate-400 bg-transparent border-b border-slate-600 outline-none w-full mt-1"
+                className="text-sm text-slate-400 bg-transparent border-b border-slate-600 outline-hidden w-full mt-1"
                 placeholder="Add a description..."
               />
             ) : (
@@ -300,9 +300,9 @@ export default function CustomView() {
               Created {formatRelativeTime(view.generatedAt)} · {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {/* Refresh interval selector */}
-            <div className="flex items-center gap-0.5 bg-slate-800 rounded px-1 py-0.5">
+            <div className="flex items-center gap-0.5 bg-slate-800 rounded-sm px-1 py-0.5">
               <RefreshCw className="w-3 h-3 text-slate-500" />
               {REFRESH_OPTIONS.map((opt) => (
                 <button
@@ -319,7 +319,7 @@ export default function CustomView() {
               ))}
             </div>
             {/* Time range selector */}
-            <div className="flex items-center gap-0.5 bg-slate-800 rounded px-1 py-0.5">
+            <div className="flex items-center gap-0.5 bg-slate-800 rounded-sm px-1 py-0.5">
               <Clock className="w-3 h-3 text-slate-500" />
               {TIME_RANGE_OPTIONS.map((t) => (
                 <button
@@ -335,14 +335,14 @@ export default function CustomView() {
             </div>
             <button
               onClick={() => setEditMode(!editMode)}
-              className={`p-1.5 rounded transition-colors ${editMode ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
+              className={`p-1.5 rounded-sm transition-colors ${editMode ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
               title={editMode ? 'Done editing' : 'Edit layout'}
             >
               {editMode ? <Eye className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
             </button>
             <button
               onClick={handleShare}
-              className="p-1.5 rounded bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+              className="p-1.5 rounded-sm bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
               title={copied ? 'Link copied!' : 'Share view'}
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
@@ -353,14 +353,14 @@ export default function CustomView() {
                 useUIStore.getState().setAISidebarMode('chat');
                 useAgentStore.getState().connectAndSend(`Update my view "${view.title}" (ID: ${view.id}). It has ${view.layout.length} widgets. Use get_view_details("${view.id}") to see the current widgets, then modify as needed.`);
               }}
-              className="p-1.5 rounded bg-violet-700 hover:bg-violet-600 text-white transition-colors"
+              className="p-1.5 rounded-sm bg-violet-700 hover:bg-violet-600 text-white transition-colors"
               title="Edit with AI"
             >
               <Bot className="w-4 h-4" />
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
-              className="p-1.5 rounded bg-slate-800 text-slate-400 hover:text-red-400 transition-colors"
+              className="p-1.5 rounded-sm bg-slate-800 text-slate-400 hover:text-red-400 transition-colors"
               title="Delete view"
             >
               <Trash2 className="w-4 h-4" />
@@ -370,7 +370,7 @@ export default function CustomView() {
 
         {/* Edit mode hint */}
         {editMode && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded bg-amber-900/20 border border-amber-800/50 text-xs text-amber-300">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-sm bg-amber-900/20 border border-amber-800/50 text-xs text-amber-300">
             <GripVertical className="w-4 h-4" />
             Drag widgets to reorder. Resize from bottom-right corner. Click "Done Editing" when finished.
           </div>
@@ -389,19 +389,18 @@ export default function CustomView() {
             ]}
           />
         ) : (
-          <ResponsiveGrid
-            key={gridKey}
+          <div ref={gridContainerRef}>
+          <Responsive
+            width={gridWidth}
             layouts={{ lg: currentLayout }}
             breakpoints={{ lg: 1024, md: 768, sm: 480 }}
             cols={{ lg: 4, md: 2, sm: 1 }}
             rowHeight={32}
-            isDraggable={editMode}
-            isResizable={editMode}
+            dragConfig={{ enabled: editMode, handle: '.widget-drag-handle', bounded: false, threshold: 3 }}
+            resizeConfig={{ enabled: editMode, handles: ['se'] as const }}
             onLayoutChange={handleLayoutChange}
-            draggableHandle=".widget-drag-handle"
-            margin={[12, 8]}
-            useCSSTransforms={true}
-            compactType="vertical"
+            margin={[12, 8] as const}
+            compactor={verticalCompactor}
           >
             {view.layout.map((spec, i) => (
               <div key={String(i)} className={`rounded-lg border bg-slate-900/80 p-3 relative group overflow-hidden transition-all duration-200 ${editMode ? 'border-slate-700 border-dashed' : 'border-slate-800 hover:border-slate-600 hover:shadow-[0_0_15px_rgba(37,99,235,0.06)]'}`} style={{ animationDelay: `${i * 50}ms` }}>
@@ -414,7 +413,7 @@ export default function CustomView() {
                       {spec.kind === 'chart' && (
                         <button
                           onClick={() => setEditingChart(editingChart === i ? null : i)}
-                          className="p-1 rounded bg-slate-800 text-slate-500 hover:text-blue-400 transition-colors"
+                          className="p-1 rounded-sm bg-slate-800 text-slate-500 hover:text-blue-400 transition-colors"
                           title="Edit chart"
                         >
                           <Settings2 className="w-3 h-3" />
@@ -422,7 +421,7 @@ export default function CustomView() {
                       )}
                       <button
                         onClick={() => setWidgetToRemove(i)}
-                        className="p-1 rounded bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
+                        className="p-1 rounded-sm bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
                         title="Remove widget"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -444,7 +443,7 @@ export default function CustomView() {
                             }
                           }}
                           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                          className="w-full text-xs font-medium text-slate-300 bg-transparent border-b border-slate-700 focus:border-violet-500 outline-none mb-1 px-1 py-0.5"
+                          className="w-full text-xs font-medium text-slate-300 bg-transparent border-b border-slate-700 focus:border-violet-500 outline-hidden mb-1 px-1 py-0.5"
                         />
                       )}
                       {((spec as any).description || (spec as any).title) && (
@@ -457,7 +456,7 @@ export default function CustomView() {
                             }
                           }}
                           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                          className="w-full text-[10px] text-slate-500 bg-transparent border-b border-slate-700/50 focus:border-violet-500 outline-none mb-1 px-1 py-0.5"
+                          className="w-full text-[10px] text-slate-500 bg-transparent border-b border-slate-700/50 focus:border-violet-500 outline-hidden mb-1 px-1 py-0.5"
                         />
                       )}
                     </>
@@ -490,7 +489,8 @@ export default function CustomView() {
                 </div>
               </div>
             ))}
-          </ResponsiveGrid>
+          </Responsive>
+          </div>
         )}
       </div>
 

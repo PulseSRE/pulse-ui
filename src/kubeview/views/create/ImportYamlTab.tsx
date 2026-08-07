@@ -129,7 +129,7 @@ export function ImportYamlTab({ onImport }: { onImport: (yaml: string) => void }
       </div>
       <div>
         <label className="text-xs text-slate-400 block mb-1">Or paste YAML here</label>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="apiVersion: v1&#10;kind: ConfigMap&#10;metadata:&#10;  name: my-config&#10;..." rows={12} className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="apiVersion: v1&#10;kind: ConfigMap&#10;metadata:&#10;  name: my-config&#10;..." rows={12} className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
 
         {validation && (
           <div className={cn('mt-2 p-3 rounded-lg border text-xs', validation.valid ? 'bg-green-950/30 border-green-900' : 'bg-red-950/30 border-red-900')}>
@@ -147,7 +147,7 @@ export function ImportYamlTab({ onImport }: { onImport: (yaml: string) => void }
               <div className="space-y-1">
                 {validation.errors.map((err, i) => (
                   <div key={i} className="flex items-start gap-2 text-red-300">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>{err}</span>
                   </div>
                 ))}
@@ -159,7 +159,7 @@ export function ImportYamlTab({ onImport }: { onImport: (yaml: string) => void }
         {text.trim() && (
           <div className="flex items-center gap-2 mt-2">
             <button onClick={() => handleValidatedImport(text)} disabled={!validation?.valid && !text.includes('apiVersion')}
-              className={cn('flex items-center gap-1.5 px-4 py-2 text-sm rounded transition-colors',
+              className={cn('flex items-center gap-1.5 px-4 py-2 text-sm rounded-sm transition-colors',
                 validation?.valid ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200')}>
               <Plus className="w-4 h-4" /> {validation?.valid ? 'Open in Editor' : 'Open Anyway'}
             </button>

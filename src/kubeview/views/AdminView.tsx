@@ -440,7 +440,7 @@ export default function AdminView() {
           }}
         >
           {tabs.map((t) => (
-            <button key={t.id} role="tab" aria-selected={activeTab === t.id} aria-controls={`admin-panel-${t.id}`} tabIndex={activeTab === t.id ? 0 : -1} onClick={() => setActiveTab(t.id)} className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+            <button key={t.id} role="tab" aria-selected={activeTab === t.id} aria-controls={`admin-panel-${t.id}`} tabIndex={activeTab === t.id ? 0 : -1} onClick={() => setActiveTab(t.id)} className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               {activeTab === t.id ? t.activeIcon : t.icon}{t.label}
             </button>
           ))}

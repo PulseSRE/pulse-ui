@@ -120,7 +120,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
           {/* Risk badge + trust level */}
           <div className="flex items-center gap-2">
             <span className={cn(
-              'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium',
+              'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-medium',
               risk.level === 'HIGH' && 'bg-red-900/50 text-red-300',
               risk.level === 'MEDIUM' && 'bg-amber-900/50 text-amber-300',
               risk.level === 'LOW' && 'bg-green-900/50 text-green-300',
@@ -135,7 +135,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
 
           {/* What will happen */}
           {impact && (
-            <div className="rounded bg-slate-900/50 border border-slate-700 px-3 py-2">
+            <div className="rounded-sm bg-slate-900/50 border border-slate-700 px-3 py-2">
               <h4 className="text-xs font-medium text-slate-400 mb-1">What will happen</h4>
               <p className="text-xs text-slate-300">{impact}</p>
             </div>
@@ -143,7 +143,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
 
           {/* Rollback info */}
           {rollback && (
-            <div className="rounded bg-slate-900/50 border border-slate-700 px-3 py-2">
+            <div className="rounded-sm bg-slate-900/50 border border-slate-700 px-3 py-2">
               <h4 className="text-xs font-medium text-slate-400 mb-1">Rollback</h4>
               <p className="text-xs text-slate-300">{rollback}</p>
             </div>
@@ -152,7 +152,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
           {/* Raw parameters */}
           <details>
             <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-300">Show raw parameters</summary>
-            <pre className="text-xs text-slate-400 bg-slate-900 rounded p-2 mt-1 overflow-auto max-h-32">
+            <pre className="text-xs text-slate-400 bg-slate-900 rounded-sm p-2 mt-1 overflow-auto max-h-32">
               {JSON.stringify(confirm.input, null, 2)}
             </pre>
           </details>
@@ -163,7 +163,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
               <p className="text-xs text-slate-400">Observe mode — write operations are blocked. Change trust level to enable actions.</p>
               <button
                 onClick={handleDeny}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 text-slate-300 rounded transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 text-slate-300 rounded-sm transition-colors"
               >
                 Dismiss
               </button>
@@ -174,7 +174,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
               <>
                 <button
                   onClick={handleDeny}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-sm transition-colors"
                   aria-label="Deny operation"
                 >
                   <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -182,7 +182,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
                 </button>
                 <button
                   onClick={handleApprove}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded-sm transition-colors"
                   aria-label="Approve high-risk operation"
                 >
                   <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -193,19 +193,19 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
               <>
                 <button
                   onClick={handleApprove}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded-sm transition-colors"
                   aria-label="Approve operation (Y)"
                 >
                   <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  Approve <kbd className="ml-1 text-xs opacity-60 bg-green-900 px-1 rounded">Y</kbd>
+                  Approve <kbd className="ml-1 text-xs opacity-60 bg-green-900 px-1 rounded-sm">Y</kbd>
                 </button>
                 <button
                   onClick={handleDeny}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded-sm transition-colors"
                   aria-label="Deny operation (N)"
                 >
                   <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  Deny <kbd className="ml-1 text-xs opacity-60 bg-red-900 px-1 rounded">N</kbd>
+                  Deny <kbd className="ml-1 text-xs opacity-60 bg-red-900 px-1 rounded-sm">N</kbd>
                 </button>
               </>
             )}

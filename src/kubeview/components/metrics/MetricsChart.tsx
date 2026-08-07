@@ -445,7 +445,7 @@ export function MetricsChart({
       {/* Hover tooltip */}
       {tooltipData && effectiveHoverTime !== null && (
         <div
-          className="absolute bg-slate-800 text-white text-xs rounded px-2 py-1.5 shadow-lg pointer-events-none z-10"
+          className="absolute bg-slate-800 text-white text-xs rounded-sm px-2 py-1.5 shadow-lg pointer-events-none z-10"
           style={{
             left: Math.min(xScale(effectiveHoverTime) + 10, containerWidth - 150),
             top: padding.top + 10,
@@ -471,7 +471,7 @@ export function MetricsChart({
           {series.map((s) => (
             <div key={s.id} className="flex items-center gap-1.5">
               <div
-                className="w-3 h-0.5 rounded"
+                className="w-3 h-0.5 rounded-sm"
                 style={{ backgroundColor: s.color }}
               />
               <span className="text-slate-400">{s.label}</span>
@@ -480,7 +480,7 @@ export function MetricsChart({
           {thresholds.map((t, i) => (
             <div key={`legend-threshold-${i}`} className="flex items-center gap-1.5">
               <div
-                className="w-3 h-0.5 rounded border-dashed"
+                className="w-3 h-0.5 rounded-sm border-dashed"
                 style={{ borderColor: t.color, borderTopWidth: 1 }}
               />
               <span className="text-slate-400">{t.label}</span>

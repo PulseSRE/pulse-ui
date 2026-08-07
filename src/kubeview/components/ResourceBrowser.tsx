@@ -125,14 +125,14 @@ export function ResourceBrowser() {
         {/* Header */}
         <div className="border-b border-slate-700 p-4">
           <h2 className="mb-3 text-lg font-semibold text-slate-100">Browse Resources</h2>
-          <div className="flex items-center gap-2 rounded border border-slate-600 bg-slate-900 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-sm border border-slate-600 bg-slate-900 px-3 py-2">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search resources..."
-              className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-none"
+              className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-hidden"
             />
           </div>
         </div>
@@ -156,7 +156,7 @@ export function ResourceBrowser() {
                         navigate(page.path);
                         closeBrowser();
                       }}
-                      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${location.pathname === page.path ? 'bg-slate-700/60 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                      className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors ${location.pathname === page.path ? 'bg-slate-700/60 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
                     >
                       <Icon className={`h-4 w-4 ${page.color || ''}`} />
                       {page.label}
@@ -196,7 +196,7 @@ export function ResourceBrowser() {
                     navigate(`/custom/${v.id}`);
                     closeBrowser();
                   }}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700"
                 >
                   <LayoutDashboard className="h-4 w-4 text-violet-400" />
                   <span className="truncate">{v.title}</span>
@@ -246,7 +246,7 @@ export function ResourceBrowser() {
                           <button
                             key={`${resource.group}-${resource.version}-${resource.plural}`}
                             onClick={() => handleResourceClick(resource)}
-                            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
                           >
                             <Icon className="h-3.5 w-3.5" />
                             <span className="flex-1 truncate text-left">{resource.plural}</span>
@@ -263,7 +263,7 @@ export function ResourceBrowser() {
 
         {/* Footer */}
         <div className="border-t border-slate-700 p-3 text-xs text-slate-500">
-          Press <kbd className="rounded bg-slate-700 px-1.5 py-0.5">⌘B</kbd> to close
+          Press <kbd className="rounded-sm bg-slate-700 px-1.5 py-0.5">⌘B</kbd> to close
         </div>
       </div>
     </>

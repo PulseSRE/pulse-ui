@@ -105,7 +105,7 @@ export function ConfirmDialog({
         <div className="mb-4 flex items-start gap-3">
           <div
             className={cn(
-              'flex-shrink-0 rounded-full p-2',
+              'shrink-0 rounded-full p-2',
               variant === 'danger' ? 'bg-red-500/10' : 'bg-amber-500/10'
             )}
           >

@@ -159,8 +159,8 @@ export function ExportStep({ onComplete }: Props) {
         <h3 className="text-lg font-medium text-slate-100">Export & Commit</h3>
         <p className="text-sm text-slate-400 mt-1">
           Exporting {categories.length} categor{categories.length === 1 ? 'y' : 'ies'} to{' '}
-          <code className="text-xs bg-slate-800 px-1 py-0.5 rounded">{clusterName}/</code> in{' '}
-          <code className="text-xs bg-slate-800 px-1 py-0.5 rounded">{repoUrl || 'repository'}</code>
+          <code className="text-xs bg-slate-800 px-1 py-0.5 rounded-sm">{clusterName}/</code> in{' '}
+          <code className="text-xs bg-slate-800 px-1 py-0.5 rounded-sm">{repoUrl || 'repository'}</code>
         </p>
       </div>
 
@@ -184,7 +184,7 @@ export function ExportStep({ onComplete }: Props) {
                 key={cat.id}
                 className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/50"
               >
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   {progress.status === 'pending' && <Circle className="w-4 h-4 text-slate-500" />}
                   {progress.status === 'running' && <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
                   {progress.status === 'done' && progress.fileCount > 0 && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}

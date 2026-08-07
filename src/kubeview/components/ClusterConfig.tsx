@@ -193,7 +193,7 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
         <div className="text-sm text-slate-500 py-2">No identity providers configured</div>
       ) : (
         providers.map((p: any, i: number) => (
-          <div key={i} className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700">
+          <div key={i} className="flex items-center justify-between p-3 rounded-sm bg-slate-800/50 border border-slate-700">
             <div>
               <div className="text-sm font-medium text-slate-200">{p.name}</div>
               <div className="text-xs text-slate-500">{p.type} · mapping: {p.mappingMethod || 'claim'}</div>
@@ -205,10 +205,10 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
         ))
       )}
       {adding ? (
-        <div className="p-4 rounded bg-slate-800/50 border border-blue-800 space-y-3">
+        <div className="p-4 rounded-sm bg-slate-800/50 border border-blue-800 space-y-3">
           <div className="flex gap-2">
-            <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Provider name" className="flex-1 px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
-            <select value={newType} onChange={(e) => { setNewType(e.target.value); setSecretName(''); setClientID(''); setIssuer(''); setLdapUrl(''); setOrgs(''); }} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200">
+            <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Provider name" className="flex-1 px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500" autoFocus />
+            <select value={newType} onChange={(e) => { setNewType(e.target.value); setSecretName(''); setClientID(''); setIssuer(''); setLdapUrl(''); setOrgs(''); }} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
               <option>HTPasswd</option>
               <option>LDAP</option>
               <option>GitHub</option>
@@ -238,7 +238,7 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
           )}
 
           <div className="flex items-center gap-2 pt-1">
-            <button onClick={handleAddProvider} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-500 disabled:opacity-50">
+            <button onClick={handleAddProvider} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500 disabled:opacity-50">
               {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Add Provider
             </button>
             <button onClick={resetForm} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Cancel</button>
@@ -365,13 +365,13 @@ function ImageEditor({ data, apiPath }: { data: any; apiPath: string }) {
         <div className="text-xs text-slate-500">Additional trusted CAs: <span className="text-slate-300 font-mono">{spec.additionalTrustedCA.name}</span></div>
       )}
       <div className="flex items-center gap-2 pt-1">
-        <input type="text" value={newReg} onChange={(e) => setNewReg(e.target.value)} placeholder="registry.example.com" className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 w-64 focus:outline-none focus:ring-1 focus:ring-blue-500" onKeyDown={(e) => e.key === 'Enter' && handleAddRegistry()} />
-        <select value={regType} onChange={(e) => setRegType(e.target.value as 'allowed' | 'blocked' | 'insecure')} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200">
+        <input type="text" value={newReg} onChange={(e) => setNewReg(e.target.value)} placeholder="registry.example.com" className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-64 focus:outline-hidden focus:ring-1 focus:ring-blue-500" onKeyDown={(e) => e.key === 'Enter' && handleAddRegistry()} />
+        <select value={regType} onChange={(e) => setRegType(e.target.value as 'allowed' | 'blocked' | 'insecure')} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
           <option value="allowed">Allowed</option>
           <option value="blocked">Blocked</option>
           <option value="insecure">Insecure</option>
         </select>
-        <button onClick={handleAddRegistry} disabled={saving || !newReg.trim()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-500 disabled:opacity-50">
+        <button onClick={handleAddRegistry} disabled={saving || !newReg.trim()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500 disabled:opacity-50">
           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Add
         </button>
       </div>
@@ -390,7 +390,7 @@ function RegistryList({ label, items, color, description, onRemove, disabled }: 
       <div className="text-xs text-slate-400 mb-1">{label} <span className="text-slate-600">— {description}</span></div>
       <div className="flex flex-wrap gap-1.5">
         {items.map((r, i) => (
-          <span key={i} className={cn('px-2 py-1 text-xs rounded border font-mono flex items-center gap-1.5', bgColor, textColor)}>
+          <span key={i} className={cn('px-2 py-1 text-xs rounded-sm border font-mono flex items-center gap-1.5', bgColor, textColor)}>
             {r}
             <button onClick={() => onRemove(r)} disabled={disabled} className="hover:text-white disabled:opacity-50" title="Remove">
               <Trash2 className="w-3 h-3" />
@@ -476,7 +476,7 @@ function SchedulerEditor({ data, apiPath }: { data: any; apiPath: string }) {
   return (
     <div className="space-y-3">
       {profiles.map((p) => (
-        <label key={p.value} className={cn('flex items-start gap-3 p-3 rounded border cursor-pointer transition-colors',
+        <label key={p.value} className={cn('flex items-start gap-3 p-3 rounded-sm border cursor-pointer transition-colors',
           selectedProfile === p.value ? 'bg-blue-950/30 border-blue-800' : 'bg-slate-800/30 border-slate-700 hover:border-slate-600'
         )}>
           <input type="radio" name="scheduler-profile" value={p.value} checked={selectedProfile === p.value} onChange={() => setSelectedProfile(p.value)} className="mt-0.5" />
@@ -529,7 +529,7 @@ function APIServerEditor({ data, apiPath }: { data: any; apiPath: string }) {
         <div className="text-xs text-slate-400 mb-2">TLS Security Profile</div>
         <div className="space-y-2">
           {tlsProfiles.map((p) => (
-            <label key={p.value} className={cn('flex items-start gap-3 p-3 rounded border cursor-pointer transition-colors',
+            <label key={p.value} className={cn('flex items-start gap-3 p-3 rounded-sm border cursor-pointer transition-colors',
               selectedTls === p.value ? 'bg-blue-950/30 border-blue-800' : 'bg-slate-800/30 border-slate-700 hover:border-slate-600'
             )}>
               <input type="radio" name="tls-profile" value={p.value} checked={selectedTls === p.value} onChange={() => setSelectedTls(p.value)} className="mt-0.5" />
@@ -591,7 +591,7 @@ function DNSEditor({ data, apiPath }: { data: any; apiPath: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="p-3 bg-red-900/20 border border-red-800 rounded text-xs text-red-300 flex items-start gap-2">
+      <div className="p-3 bg-red-900/20 border border-red-800 rounded-sm text-xs text-red-300 flex items-start gap-2">
         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
         <span>Changing DNS configuration can break cluster routing and certificate validation. Only modify if you understand the impact.</span>
       </div>
@@ -631,14 +631,14 @@ function NetworkEditor({ data, apiPath }: { data: any; apiPath: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="p-3 bg-red-900/20 border border-red-800 rounded text-xs text-red-300 flex items-start gap-2">
+      <div className="p-3 bg-red-900/20 border border-red-800 rounded-sm text-xs text-red-300 flex items-start gap-2">
         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
         <span>Network type and CIDRs are set at install time. Changing the network type can cause cluster-wide network disruption. CIDRs cannot be modified post-install.</span>
       </div>
       <div>
         <label className="text-xs text-slate-400 block mb-1">Network Type</label>
         <select value={networkType} onChange={(e) => { setNetworkType(e.target.value); setDirty(true); }}
-          className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500">
           <option value="OVNKubernetes">OVNKubernetes</option>
           <option value="OpenShiftSDN">OpenShiftSDN</option>
         </select>
@@ -647,7 +647,7 @@ function NetworkEditor({ data, apiPath }: { data: any; apiPath: string }) {
         <div>
           <div className="text-xs text-slate-400 mb-1">Cluster Network — Pod CIDRs (read-only)</div>
           {clusterNetwork.map((net: any, i: number) => (
-            <div key={i} className="px-2 py-1.5 bg-slate-800/50 rounded border border-slate-700 mb-1">
+            <div key={i} className="px-2 py-1.5 bg-slate-800/50 rounded-sm border border-slate-700 mb-1">
               <span className="text-sm font-mono text-slate-200">{net.cidr}</span>
               {net.hostPrefix && <span className="text-xs text-slate-500 ml-2">/{net.hostPrefix}</span>}
             </div>
@@ -658,7 +658,7 @@ function NetworkEditor({ data, apiPath }: { data: any; apiPath: string }) {
         <div>
           <div className="text-xs text-slate-400 mb-1">Service Network (read-only)</div>
           {serviceNetwork.map((cidr: string, i: number) => (
-            <div key={i} className="px-2 py-1.5 bg-slate-800/50 rounded border border-slate-700 mb-1">
+            <div key={i} className="px-2 py-1.5 bg-slate-800/50 rounded-sm border border-slate-700 mb-1">
               <span className="text-sm font-mono text-slate-200">{cidr}</span>
             </div>
           ))}
@@ -699,13 +699,13 @@ function FeatureGateEditor({ data, apiPath }: { data: any; apiPath: string }) {
   return (
     <div className="space-y-3">
       {(featureSet === 'TechPreviewNoUpgrade' || spec.featureSet === 'TechPreviewNoUpgrade') && (
-        <div className="p-3 bg-red-900/20 border border-red-800 rounded text-xs text-red-300 flex items-start gap-2">
+        <div className="p-3 bg-red-900/20 border border-red-800 rounded-sm text-xs text-red-300 flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span><strong>TechPreviewNoUpgrade is IRREVERSIBLE.</strong> Once enabled, the cluster cannot be upgraded or reverted to Default. Tech Preview features may be unstable and unsupported.</span>
         </div>
       )}
       {featureSet !== 'TechPreviewNoUpgrade' && spec.featureSet !== 'TechPreviewNoUpgrade' && (
-        <div className="p-3 bg-yellow-900/20 border border-yellow-800 rounded text-xs text-yellow-300 flex items-start gap-2">
+        <div className="p-3 bg-yellow-900/20 border border-yellow-800 rounded-sm text-xs text-yellow-300 flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>Changing the feature set affects cluster behavior and may enable unstable features. Some changes are irreversible.</span>
         </div>
@@ -713,7 +713,7 @@ function FeatureGateEditor({ data, apiPath }: { data: any; apiPath: string }) {
       <div>
         <label className="text-xs text-slate-400 block mb-1">Feature Set</label>
         <select value={featureSet} onChange={(e) => { setFeatureSet(e.target.value); setDirty(true); }}
-          className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500">
           <option value="">Default</option>
           <option value="LatencySensitive">LatencySensitive</option>
           <option value="TechPreviewNoUpgrade">TechPreviewNoUpgrade (irreversible!)</option>
@@ -725,7 +725,7 @@ function FeatureGateEditor({ data, apiPath }: { data: any; apiPath: string }) {
           <div className="text-xs text-slate-400 mb-1">Enabled Features ({enabled.length})</div>
           <div className="flex flex-wrap gap-1.5">
             {enabled.slice(0, 15).map((fg: any, i: number) => (
-              <span key={i} className="px-2 py-0.5 text-xs bg-green-900/30 border border-green-800 text-green-300 rounded font-mono">{fg.name}</span>
+              <span key={i} className="px-2 py-0.5 text-xs bg-green-900/30 border border-green-800 text-green-300 rounded-sm font-mono">{fg.name}</span>
             ))}
             {enabled.length > 15 && <span className="text-xs text-slate-500">+{enabled.length - 15} more</span>}
           </div>
@@ -736,7 +736,7 @@ function FeatureGateEditor({ data, apiPath }: { data: any; apiPath: string }) {
           <div className="text-xs text-slate-400 mb-1">Disabled Features ({disabled.length})</div>
           <div className="flex flex-wrap gap-1.5">
             {disabled.slice(0, 15).map((fg: any, i: number) => (
-              <span key={i} className="px-2 py-0.5 text-xs bg-slate-800/50 border border-slate-700 text-slate-400 rounded font-mono">{fg.name}</span>
+              <span key={i} className="px-2 py-0.5 text-xs bg-slate-800/50 border border-slate-700 text-slate-400 rounded-sm font-mono">{fg.name}</span>
             ))}
             {disabled.length > 15 && <span className="text-xs text-slate-500">+{disabled.length - 15} more</span>}
           </div>
@@ -838,7 +838,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-xs text-slate-400 mb-1">{label}</div>
-      <div className="text-sm text-slate-200 font-mono bg-slate-800/50 px-2 py-1.5 rounded border border-slate-700">
+      <div className="text-sm text-slate-200 font-mono bg-slate-800/50 px-2 py-1.5 rounded-sm border border-slate-700">
         {value}
       </div>
     </div>
@@ -852,9 +852,9 @@ function FieldRow({ label, value, onChange, placeholder, multiline }: {
     <div>
       <label className="text-xs text-slate-400 block mb-1">{label}</label>
       {multiline ? (
-        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 placeholder-slate-500 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 font-mono resize-none focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
       ) : (
-        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded text-slate-200 placeholder-slate-500 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 font-mono focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
       )}
     </div>
   );
@@ -865,7 +865,7 @@ function SaveBar({ saving, onSave, onReset, warning }: {
 }) {
   return (
     <div className="flex items-center gap-2 pt-1">
-      <button onClick={onSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-500 disabled:opacity-50">
+      <button onClick={onSave} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500 disabled:opacity-50">
         {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
       </button>
       <button onClick={onReset} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Reset</button>

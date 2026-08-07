@@ -65,16 +65,16 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
           {/* Metadata */}
           <div className="flex flex-wrap gap-2">
             {tool.category && (
-              <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+              <span className="text-[10px] px-2 py-0.5 rounded-sm bg-slate-800 text-slate-400 border border-slate-700">
                 {tool.category}
               </span>
             )}
             {tool.requires_confirmation ? (
-              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-900/30 text-amber-400 border border-amber-800/30 flex items-center gap-1">
+              <span className="text-[10px] px-2 py-0.5 rounded-sm bg-amber-900/30 text-amber-400 border border-amber-800/30 flex items-center gap-1">
                 <Shield className="w-2.5 h-2.5" /> Write (requires confirmation)
               </span>
             ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-900/20 text-emerald-400 border border-emerald-800/30 flex items-center gap-1">
+              <span className="text-[10px] px-2 py-0.5 rounded-sm bg-emerald-900/20 text-emerald-400 border border-emerald-800/30 flex items-center gap-1">
                 <CheckCircle2 className="w-2.5 h-2.5" /> Read-only
               </span>
             )}
@@ -88,7 +88,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
               <div className="flex flex-wrap gap-1.5">
                 {skills.map((s) => (
                   <span key={s} className={cn(
-                    'text-[10px] px-2 py-0.5 rounded',
+                    'text-[10px] px-2 py-0.5 rounded-sm',
                     s === 'sre' ? 'bg-violet-900/20 text-violet-400' :
                     s === 'security' ? 'bg-red-900/20 text-red-400' :
                     s === 'view_designer' ? 'bg-emerald-900/20 text-emerald-400' :
@@ -138,7 +138,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
               <h3 className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-2">Recent calls</h3>
               <div className="space-y-1.5 max-h-64 overflow-auto">
                 {recentCalls.slice(0, 10).map((call: { id?: string; timestamp?: string; status?: string; duration_ms?: number; error?: string }, i: number) => (
-                  <div key={call.id ?? i} className="bg-slate-900 border border-slate-800 rounded px-3 py-2 text-xs flex items-center gap-2">
+                  <div key={call.id ?? i} className="bg-slate-900 border border-slate-800 rounded-sm px-3 py-2 text-xs flex items-center gap-2">
                     {call.status === 'error' ? (
                       <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
                     ) : (

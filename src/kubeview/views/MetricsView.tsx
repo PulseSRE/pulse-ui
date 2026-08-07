@@ -58,24 +58,24 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(backPath)}
-            className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200"
+            className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200"
           >
             <ArrowLeft size={16} />
           </button>
           <span className="text-sm text-slate-400">Metrics</span>
           <span className="text-sm font-medium">{name}</span>
           {namespace && (
-            <span className="text-xs px-2 py-0.5 bg-slate-700 rounded text-slate-300">{namespace}</span>
+            <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex bg-slate-800 rounded text-xs">
+          <div className="flex bg-slate-800 rounded-sm text-xs">
             {(Object.keys(TIME_RANGES) as TimeRange[]).map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
                 className={cn(
-                  'px-3 py-1.5 rounded transition-colors',
+                  'px-3 py-1.5 rounded-sm transition-colors',
                   timeRange === range
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-400 hover:text-slate-200'
@@ -169,7 +169,7 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
       </div>
       {isLoading ? (
         <div className="h-48 flex items-center justify-center">
-          <div className="kv-skeleton w-full h-full rounded" />
+          <div className="kv-skeleton w-full h-full rounded-sm" />
         </div>
       ) : error || series.length === 0 ? (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">

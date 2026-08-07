@@ -98,7 +98,7 @@ export default function FleetSnapshotView() {
               onClick={handleCaptureAll}
               disabled={loading || clusters.length < 2}
               className={cn(
-                'flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors',
                 loading || clusters.length < 2
                   ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
                   : 'bg-emerald-600 text-white hover:bg-emerald-500'
@@ -191,7 +191,7 @@ export default function FleetSnapshotView() {
               {[...divergentFields].sort().map(field => (
                 <span
                   key={field}
-                  className="inline-block rounded bg-amber-900/40 px-2 py-1 text-xs font-medium text-amber-300"
+                  className="inline-block rounded-sm bg-amber-900/40 px-2 py-1 text-xs font-medium text-amber-300"
                 >
                   {field}
                 </span>

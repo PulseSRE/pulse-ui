@@ -80,7 +80,7 @@ export function SessionAnalyticsSection() {
               key={d}
               onClick={() => setDays(d)}
               className={cn(
-                'px-2 py-0.5 text-[11px] rounded transition-colors',
+                'px-2 py-0.5 text-[11px] rounded-sm transition-colors',
                 days === d ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200',
               )}
             >
@@ -112,8 +112,8 @@ export function SessionAnalyticsSection() {
               {pages.slice(0, 8).map((p) => (
                 <div key={p.page} className="flex items-center gap-2 text-xs">
                   <span className="w-28 truncate font-mono text-slate-300" title={p.page}>{formatPage(p.page)}</span>
-                  <div className="flex-1 h-4 bg-slate-800 rounded-sm overflow-hidden" role="meter" aria-label={`${p.page}: ${p.views} views`} aria-valuenow={p.views} aria-valuemin={0} aria-valuemax={maxViews}>
-                    <div className="h-full bg-indigo-600/50 rounded-sm" style={{ width: `${(p.views / maxViews) * 100}%` }} />
+                  <div className="flex-1 h-4 bg-slate-800 rounded-xs overflow-hidden" role="meter" aria-label={`${p.page}: ${p.views} views`} aria-valuenow={p.views} aria-valuemin={0} aria-valuemax={maxViews}>
+                    <div className="h-full bg-indigo-600/50 rounded-xs" style={{ width: `${(p.views / maxViews) * 100}%` }} />
                   </div>
                   <span className="w-10 text-right text-slate-400">{p.views}</span>
                   <span className="w-12 text-right text-slate-500 text-[10px]">{p.sessions} sess</span>
@@ -136,8 +136,8 @@ export function SessionAnalyticsSection() {
                 return (
                   <div key={t.page} className="flex items-center gap-2 text-xs">
                     <span className="w-28 truncate font-mono text-slate-300" title={t.page}>{formatPage(t.page)}</span>
-                    <div className="flex-1 h-4 bg-slate-800 rounded-sm overflow-hidden" role="meter" aria-label={`${t.page}: ${formatDuration(t.avg_seconds)} avg`} aria-valuenow={t.avg_seconds} aria-valuemin={0} aria-valuemax={maxSec}>
-                      <div className="h-full bg-amber-600/40 rounded-sm" style={{ width: `${(t.avg_seconds / maxSec) * 100}%` }} />
+                    <div className="flex-1 h-4 bg-slate-800 rounded-xs overflow-hidden" role="meter" aria-label={`${t.page}: ${formatDuration(t.avg_seconds)} avg`} aria-valuenow={t.avg_seconds} aria-valuemin={0} aria-valuemax={maxSec}>
+                      <div className="h-full bg-amber-600/40 rounded-xs" style={{ width: `${(t.avg_seconds / maxSec) * 100}%` }} />
                     </div>
                     <span className="w-12 text-right text-slate-400">{formatDuration(t.avg_seconds)}</span>
                     <span className="w-8 text-right text-slate-500 text-[10px]">n={t.samples}</span>
@@ -163,8 +163,8 @@ export function SessionAnalyticsSection() {
               {agent_queries_by_page.slice(0, 8).map((q) => (
                 <div key={q.page} className="flex items-center gap-2 text-xs">
                   <span className="w-24 truncate font-mono text-slate-300" title={q.page}>{formatPage(q.page)}</span>
-                  <div className="flex-1 h-3 bg-slate-800 rounded-sm overflow-hidden">
-                    <div className="h-full bg-emerald-600/50 rounded-sm" style={{ width: `${(q.queries / maxQueries) * 100}%` }} />
+                  <div className="flex-1 h-3 bg-slate-800 rounded-xs overflow-hidden">
+                    <div className="h-full bg-emerald-600/50 rounded-xs" style={{ width: `${(q.queries / maxQueries) * 100}%` }} />
                   </div>
                   <span className="w-8 text-right text-slate-400">{q.queries}</span>
                 </div>
@@ -184,7 +184,7 @@ export function SessionAnalyticsSection() {
             <div className="space-y-2">
               {top_suggestions.slice(0, 6).map((s, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs">
-                  <span className="shrink-0 w-5 h-5 rounded bg-sky-900/40 text-sky-400 flex items-center justify-center text-[10px] font-medium">{s.clicks}</span>
+                  <span className="shrink-0 w-5 h-5 rounded-sm bg-sky-900/40 text-sky-400 flex items-center justify-center text-[10px] font-medium">{s.clicks}</span>
                   <span className="text-slate-300 leading-tight line-clamp-2">{s.suggestion}</span>
                 </div>
               ))}

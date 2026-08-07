@@ -198,7 +198,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Config**: `vitest.config.ts` — excludes `.claude/worktrees/**` and `e2e/`
 - **Coverage thresholds**: 40% statements, 30% branches, 35% functions, 40% lines (enforced in vitest.config.ts)
 - **Setup**: `src/kubeview/__tests__/setup.tsx` — factories, mock server, renderWithProviders
-- **2,020 unit tests** across 166 files (~9s)
+- **2,045 unit tests** across 169 files (~14s)
 - **E2E**: Playwright (57 test cases across 7 specs) — `pnpm e2e` auto-starts mock K8s + agent (podman) + dev server, tears down containers after
 - **E2E config**: `e2e/playwright.config.ts`, mock K8s in `e2e/mock-k8s-server.mjs`, agent+pg in `e2e/docker-compose.agent.yml`
 - **E2E agent stack**: `e2e/start-agent.sh` / `e2e/stop-agent.sh` — starts real agent + PostgreSQL in podman containers
@@ -212,8 +212,11 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - This project uses TypeScript strictly. Always ensure imports are valid, types are correct, and avoid introducing type regressions when editing files. Run `tsc --noEmit` after making changes to TypeScript files.
 
 ### UI Framework & Styling
-- CSS: Tailwind with slate/violet color scheme
-- Icons: lucide-react
+- CSS: Tailwind CSS v4 (`@import 'tailwindcss'` + `@theme` in CSS, no JS config) with slate/violet color scheme
+- Icons: lucide-react v1
+- Grid: react-grid-layout v2 (`useContainerWidth` hook, `dragConfig`/`resizeConfig` props, `verticalCompactor`)
+- Build: Rspack v2
+- Lint: ESLint v10 + eslint-plugin-react-hooks v7 (React Compiler rules disabled, classic `rules-of-hooks`/`exhaustive-deps` only)
 - When working with PatternFly (PF6), always check the PF6 API docs for component prop placement (e.g., selectableActions goes on CardHeader not Card). Do not assume PF5 patterns.
 - For dark-mode UI work, always verify text visibility, dropdown/menu contrast, and avoid glassmorphism effects that reduce readability. Test all CSS changes against both light and dark themes.
 - Feature flags: all shipped and removed. `engine/featureFlags.ts` deleted.

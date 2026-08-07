@@ -149,9 +149,9 @@ export function PlansTab() {
                 <span className="text-sm font-medium text-slate-200">{t.name}</span>
                 <div className="flex items-center gap-1.5">
                   {t.id.startsWith('auto-') && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded border border-amber-700/40">AI-generated</span>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm border border-amber-700/40">AI-generated</span>
                   )}
-                  <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded border border-cyan-800/30">
+                  <span className="text-[10px] px-1.5 py-0.5 bg-cyan-900/30 text-cyan-400 rounded-sm border border-cyan-800/30">
                     {t.phases} phases
                   </span>
                 </div>
@@ -280,7 +280,7 @@ export function PlansTab() {
                     } catch { /* ignore */ }
                     setEditing(false);
                   }}
-                  className="px-2 py-1 text-xs bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded border border-emerald-800/30 flex items-center gap-1 transition-colors"
+                  className="px-2 py-1 text-xs bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded-sm border border-emerald-800/30 flex items-center gap-1 transition-colors"
                 >
                   <Save className="w-3 h-3" />
                   Save
@@ -288,7 +288,7 @@ export function PlansTab() {
               ) : (
                 <button
                   onClick={() => { setEditing(true); setEditPhases(planDetail.phases); }}
-                  className="px-2 py-1 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded border border-blue-800/30 flex items-center gap-1 transition-colors"
+                  className="px-2 py-1 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-sm border border-blue-800/30 flex items-center gap-1 transition-colors"
                 >
                   Edit
                 </button>
@@ -296,7 +296,7 @@ export function PlansTab() {
               {planDetail.id.startsWith('auto-') && (
                 <button
                   onClick={() => setConfirmDelete(selectedPlan)}
-                  className="px-2 py-1 text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded border border-red-800/30 flex items-center gap-1 transition-colors"
+                  className="px-2 py-1 text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-sm border border-red-800/30 flex items-center gap-1 transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   Delete
@@ -309,7 +309,7 @@ export function PlansTab() {
               <span>Trigger: <span className="text-slate-300">{planDetail.incident_type}</span></span>
               <span>Phases: <span className="text-slate-300">{planDetail.phases.length}</span></span>
               {planDetail.id.startsWith('auto-') && (
-                <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded border border-amber-700/40">AI-generated</span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm border border-amber-700/40">AI-generated</span>
               )}
             </div>
 
@@ -321,19 +321,19 @@ export function PlansTab() {
               const successRate = Math.round((successCount / ps.total_runs) * 100);
               return (
                 <div className="grid grid-cols-4 gap-2">
-                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                  <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className="text-sm font-bold text-slate-100">{ps.total_runs}</div>
                     <div className="text-[9px] text-slate-500">Runs</div>
                   </div>
-                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                  <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className={`text-sm font-bold ${successRate >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>{successRate}%</div>
                     <div className="text-[9px] text-slate-500">Success</div>
                   </div>
-                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                  <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className="text-sm font-bold text-slate-100">{ps.avg_duration_ms >= 60000 ? `${Math.round(ps.avg_duration_ms / 60000)}m` : `${Math.round(ps.avg_duration_ms / 1000)}s`}</div>
                     <div className="text-[9px] text-slate-500">Avg Time</div>
                   </div>
-                  <div className="bg-slate-800/50 rounded px-2 py-1.5 text-center">
+                  <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className="text-sm font-bold text-blue-400">{Math.round(ps.avg_confidence * 100)}%</div>
                     <div className="text-[9px] text-slate-500">Confidence</div>
                   </div>
@@ -346,7 +346,7 @@ export function PlansTab() {
               {planDetail.phases.map((phase, idx) => (
                 <div key={phase.id} className="flex items-center gap-1">
                   <div className={cn(
-                    'px-2.5 py-1 rounded text-xs font-medium border',
+                    'px-2.5 py-1 rounded-sm text-xs font-medium border',
                     phase.required ? 'bg-cyan-900/30 text-cyan-300 border-cyan-800/40' : 'bg-slate-800 text-slate-400 border-slate-700',
                   )}>
                     {phase.id}
@@ -369,17 +369,17 @@ export function PlansTab() {
                       {editing ? (
                         <button
                           onClick={() => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], required: !p[phaseIdx].required }; setEditPhases(p); }}
-                          className={cn('text-[10px] px-1 py-0.5 rounded cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-500')}
+                          className={cn('text-[10px] px-1 py-0.5 rounded-sm cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-500')}
                         >
                           {phase.required ? 'required' : 'optional'}
                         </button>
                       ) : (
                         <>
-                          {phase.required && <span className="text-[10px] px-1 py-0.5 bg-red-900/30 text-red-400 rounded">required</span>}
+                          {phase.required && <span className="text-[10px] px-1 py-0.5 bg-red-900/30 text-red-400 rounded-sm">required</span>}
                         </>
                       )}
-                      {phase.approval_required && <span className="text-[10px] px-1 py-0.5 bg-amber-900/30 text-amber-400 rounded">approval</span>}
-                      {phase.runs === 'always' && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded">always runs</span>}
+                      {phase.approval_required && <span className="text-[10px] px-1 py-0.5 bg-amber-900/30 text-amber-400 rounded-sm">approval</span>}
+                      {phase.runs === 'always' && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded-sm">always runs</span>}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
@@ -390,7 +390,7 @@ export function PlansTab() {
                           type="number"
                           value={phase.timeout_seconds}
                           onChange={(e) => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], timeout_seconds: parseInt(e.target.value) || 120 }; setEditPhases(p); }}
-                          className="w-16 px-1 py-0.5 text-[11px] bg-slate-700 border border-slate-600 rounded text-slate-200"
+                          className="w-16 px-1 py-0.5 text-[11px] bg-slate-700 border border-slate-600 rounded-sm text-slate-200"
                         />s
                       </span>
                     ) : (

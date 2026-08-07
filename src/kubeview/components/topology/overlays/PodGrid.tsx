@@ -89,7 +89,7 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
         {/* Phase summary bar */}
         <div className="flex items-center gap-1">
           {Object.entries(phaseCounts).map(([phase, count]) => (
-            <div key={phase} className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 border border-slate-700">
+            <div key={phase} className="flex items-center gap-1 px-2 py-0.5 rounded-sm bg-slate-800 border border-slate-700">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PHASE_COLORS[phase] || '#64748b' }} />
               <span className="text-xs text-slate-300">{count}</span>
               <span className="text-xs text-slate-500">{phase}</span>

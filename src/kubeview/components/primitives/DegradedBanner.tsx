@@ -30,7 +30,7 @@ export function DegradedBanner({ reason, onRetry, className, collapsible = false
           {collapsible && (
             <button
               onClick={() => setCollapsed((c) => !c)}
-              className="rounded p-0.5 text-amber-400 transition-colors hover:bg-amber-500/20"
+              className="rounded-sm p-0.5 text-amber-400 transition-colors hover:bg-amber-500/20"
               aria-label={collapsed ? 'Expand details' : 'Collapse details'}
             >
               {collapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
@@ -42,7 +42,7 @@ export function DegradedBanner({ reason, onRetry, className, collapsible = false
       {onRetry && (
         <button
           onClick={onRetry}
-          className="shrink-0 flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20"
+          className="shrink-0 flex items-center gap-1 rounded-sm px-2 py-1 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20"
         >
           <RotateCw className="h-3 w-3" />
           Retry

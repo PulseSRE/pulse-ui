@@ -22,7 +22,7 @@ export function DetailViewTabBar({ activeTab, onTabChange, conditions, eventCoun
   return (
     <div className="flex gap-1 bg-slate-900 rounded-lg p-1 w-fit" role="tablist" aria-label="Detail tabs">
       {(['overview', 'conditions', 'events'] as const).map((tab) => (
-        <button key={tab} role="tab" aria-selected={activeTab === tab} onClick={() => onTabChange(tab)} className={cn('px-4 py-1.5 text-xs rounded-md transition-colors capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+        <button key={tab} role="tab" aria-selected={activeTab === tab} onClick={() => onTabChange(tab)} className={cn('px-4 py-1.5 text-xs rounded-md transition-colors capitalize focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
           {tab === 'events' ? `Events (${eventCount})` : tab === 'conditions' ? `Conditions (${conditions.length})` : tab}
         </button>
       ))}
@@ -62,7 +62,7 @@ export function ConditionsTable({ conditions }: ConditionsTableProps) {
                     </td>
                     <td className="px-4 py-2.5 text-slate-200 font-medium">{cond.type}</td>
                     <td className="px-4 py-2.5">
-                      <span className={cn('text-xs px-2 py-0.5 rounded', isGood ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>
+                      <span className={cn('text-xs px-2 py-0.5 rounded-sm', isGood ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>
                         {cond.status}
                       </span>
                     </td>
@@ -107,7 +107,7 @@ export function EventsList({ events }: EventsListProps) {
             return (
               <div key={idx} className="px-4 py-3">
                 <div className="flex items-start gap-2">
-                  {type === 'Warning' ? <AlertCircle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0 mt-0.5" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />}
+                  {type === 'Warning' ? <AlertCircle className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
                   <div className="flex-1">
                     <div className="text-xs text-slate-500 mb-0.5">{timestamp ? new Date(timestamp).toLocaleString() : ''}</div>
                     <div className="text-xs font-medium text-slate-200">{event.reason}</div>

@@ -154,7 +154,7 @@ export function PromptAuditSection() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className={cn(
-                            'text-[10px] px-1.5 py-0.5 rounded font-medium',
+                            'text-[10px] px-1.5 py-0.5 rounded-sm font-medium',
                             v.is_current
                               ? 'bg-emerald-900/40 text-emerald-400 border border-emerald-800/40'
                               : 'bg-slate-700/50 text-slate-400',

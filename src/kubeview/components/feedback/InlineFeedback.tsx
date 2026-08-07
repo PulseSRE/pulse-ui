@@ -58,7 +58,7 @@ interface ErrorIndicatorProps {
 export function ErrorIndicator({ message, className }: ErrorIndicatorProps) {
   return (
     <div className={cn('flex items-center gap-2 text-red-500', className)}>
-      <XCircle className="h-5 w-5 flex-shrink-0" />
+      <XCircle className="h-5 w-5 shrink-0" />
       <span className="text-sm">{message}</span>
     </div>
   );

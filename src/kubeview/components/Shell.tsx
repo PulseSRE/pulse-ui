@@ -45,7 +45,7 @@ function SessionExpiredModal() {
   }, [countdown, redirectNow]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" role="dialog" aria-labelledby="session-expired-title">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 backdrop-blur-xs" role="dialog" aria-labelledby="session-expired-title">
       <div className="bg-slate-900 border border-red-700 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-red-900/50 flex items-center justify-center">
@@ -113,7 +113,7 @@ export function Shell() {
       {impersonateUser && (
         <div className="flex items-center justify-between px-4 py-1.5 bg-amber-900/50 border-b border-amber-700 text-xs">
           <span className="text-amber-200">Impersonating <span className="font-mono font-bold">{impersonateUser}</span> — all API requests use this identity</span>
-          <button onClick={clearImpersonation} className="px-2 py-0.5 text-amber-300 hover:text-white bg-amber-800 hover:bg-amber-700 rounded transition-colors">Stop</button>
+          <button onClick={clearImpersonation} className="px-2 py-0.5 text-amber-300 hover:text-white bg-amber-800 hover:bg-amber-700 rounded-sm transition-colors">Stop</button>
         </div>
       )}
 
@@ -123,7 +123,7 @@ export function Shell() {
       {viewBuilderMode && (
         <div className="flex items-center justify-between px-4 py-1.5 bg-violet-900/50 border-b border-violet-700 text-xs">
           <span className="text-violet-200">Building View — add widgets from the chat, drag to arrange, resize to fit</span>
-          <button onClick={() => { exitViewBuilder(); useCustomViewStore.getState().setActiveBuilderId(null); }} className="px-3 py-1 text-white bg-violet-700 hover:bg-violet-600 rounded font-medium transition-colors">Done</button>
+          <button onClick={() => { exitViewBuilder(); useCustomViewStore.getState().setActiveBuilderId(null); }} className="px-3 py-1 text-white bg-violet-700 hover:bg-violet-600 rounded-sm font-medium transition-colors">Done</button>
         </div>
       )}
 

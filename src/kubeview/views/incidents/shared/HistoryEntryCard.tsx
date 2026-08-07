@@ -34,10 +34,10 @@ export function HistoryEntryCard({ entry, onClick }: { entry: TimelineEntry; onC
       onKeyDown={hasResource ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
     >
       {/* Timeline dot */}
-      <div className={cn('absolute -left-[25px] top-5 w-3 h-3 rounded-full border-2 border-slate-950', severityDot[entry.severity] || 'bg-slate-500')} />
+      <div className={cn('absolute left-[-25px] top-5 w-3 h-3 rounded-full border-2 border-slate-950', severityDot[entry.severity] || 'bg-slate-500')} />
 
       <div className="flex items-start gap-3">
-        <div className={cn('flex-shrink-0 mt-0.5', cfg.color)}>
+        <div className={cn('shrink-0 mt-0.5', cfg.color)}>
           <Icon className="w-4 h-4" />
         </div>
 
@@ -47,7 +47,7 @@ export function HistoryEntryCard({ entry, onClick }: { entry: TimelineEntry; onC
               {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
             <span
-              className={cn('px-1.5 py-0.5 text-xs rounded', {
+              className={cn('px-1.5 py-0.5 text-xs rounded-sm', {
                 'bg-red-900/50 text-red-300': entry.severity === 'critical',
                 'bg-amber-900/50 text-amber-300': entry.severity === 'warning',
                 'bg-blue-900/50 text-blue-300': entry.severity === 'info',

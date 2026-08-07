@@ -108,7 +108,7 @@ export function TableToolbar({
             {/* Create button */}
             {canCreate && resourcePlural !== 'nodes' && <button
               onClick={onCreate}
-              className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-500 flex items-center gap-1.5 font-medium"
+              className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500 flex items-center gap-1.5 font-medium"
             >
               <Plus className="w-3 h-3" />
               Create
@@ -119,7 +119,7 @@ export function TableToolbar({
                 <button
                   onClick={onBulkDelete}
                   disabled={!canDelete}
-                  className={cn('px-3 py-1.5 text-xs text-white rounded flex items-center gap-1.5',
+                  className={cn('px-3 py-1.5 text-xs text-white rounded-sm flex items-center gap-1.5',
                     canDelete ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-700 cursor-not-allowed opacity-50'
                   )}
                   title={canDelete ? `Delete ${selectedCount} selected` : 'No delete permission'}
@@ -131,13 +131,13 @@ export function TableToolbar({
             )}
             {/* Export */}
             <div className="relative">
-              <button onClick={onToggleExport} className="p-1.5 bg-slate-900 border border-slate-700 rounded text-slate-400 hover:text-slate-200 transition-colors" title="Export">
+              <button onClick={onToggleExport} className="p-1.5 bg-slate-900 border border-slate-700 rounded-sm text-slate-400 hover:text-slate-200 transition-colors" title="Export">
                 <Download className="w-4 h-4" />
               </button>
               {showExport && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={onToggleExport} />
-                  <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded border border-slate-600 bg-slate-800 shadow-xl py-1">
+                  <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-sm border border-slate-600 bg-slate-800 shadow-xl py-1">
                     <button onClick={() => onExport('csv')} className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700">Export CSV</button>
                     <button onClick={() => onExport('json')} className="w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-slate-700">Export JSON</button>
                   </div>
@@ -152,14 +152,14 @@ export function TableToolbar({
                 value={searchInput}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Search..."
-                className="pl-9 pr-3 py-1.5 text-sm bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                className="pl-9 pr-3 py-1.5 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
               />
             </div>
             {/* Filter toggle */}
             <button
               onClick={onToggleFilters}
               className={cn(
-                'p-1.5 rounded transition-colors',
+                'p-1.5 rounded-sm transition-colors',
                 showFilters ? 'bg-blue-600 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
               )}
               title="Column filters"
@@ -169,7 +169,7 @@ export function TableToolbar({
             <button
               onClick={onToggleNLFilter}
               className={cn(
-                'p-1.5 rounded transition-colors',
+                'p-1.5 rounded-sm transition-colors',
                 showNLFilter ? 'bg-amber-600 text-white' : 'bg-slate-900 border border-slate-700 text-slate-400 hover:text-slate-200'
               )}
               title="AI filter"
@@ -180,7 +180,7 @@ export function TableToolbar({
             <div className="relative">
               <button
                 onClick={onToggleColumnPicker}
-                className="p-1.5 bg-slate-900 border border-slate-700 rounded text-slate-400 hover:text-slate-200 transition-colors"
+                className="p-1.5 bg-slate-900 border border-slate-700 rounded-sm text-slate-400 hover:text-slate-200 transition-colors"
                 title="Column picker"
               >
                 <Columns3 className="w-4 h-4" />
@@ -188,15 +188,15 @@ export function TableToolbar({
               {showColumnPicker && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={onToggleColumnPicker} />
-                  <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded border border-slate-600 bg-slate-800 shadow-xl p-2 space-y-1 max-h-80 overflow-auto">
+                  <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-sm border border-slate-600 bg-slate-800 shadow-xl p-2 space-y-1 max-h-80 overflow-auto">
                     <div className="text-xs text-slate-500 px-2 py-1 font-semibold">Show/Hide Columns</div>
                     {columns.map((col) => (
-                      <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-700 rounded cursor-pointer">
+                      <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-700 rounded-sm cursor-pointer">
                         <input
                           type="checkbox"
                           checked={!hiddenColumns.has(col.id)}
                           onChange={() => onToggleColumn(col.id)}
-                          className="rounded"
+                          className="rounded-sm"
                         />
                         {col.header}
                       </label>
@@ -223,8 +223,8 @@ export function TableToolbar({
           <ErrorBoundary fallbackTitle="AI filter failed to load">
             <Suspense fallback={
               <div className="flex items-center gap-3 animate-pulse">
-                <div className="h-8 bg-slate-800 rounded flex-1" />
-                <div className="h-8 w-20 bg-slate-800 rounded" />
+                <div className="h-8 bg-slate-800 rounded-sm flex-1" />
+                <div className="h-8 w-20 bg-slate-800 rounded-sm" />
               </div>
             }>
               <NLFilterBar

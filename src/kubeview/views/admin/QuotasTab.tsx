@@ -131,7 +131,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
           <div className="text-center py-6">
             <div className="text-sm text-slate-500 mb-2">No resource quotas configured</div>
             <p className="text-xs text-slate-600 max-w-md mx-auto">Resource quotas limit total CPU, memory, and object counts per namespace. Without quotas, a single namespace can consume all cluster resources.</p>
-            <button onClick={() => go('/create/v1~resourcequotas', 'Create ResourceQuota')} className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">Create ResourceQuota</button>
+            <button onClick={() => go('/create/v1~resourcequotas', 'Create ResourceQuota')} className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors">Create ResourceQuota</button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -145,7 +145,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
                     className="w-full px-4 py-2.5 flex items-center justify-between bg-slate-800/30 hover:bg-slate-800/60 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-slate-200">{q.metadata.name}</span>
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{q.metadata.namespace}</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{q.metadata.namespace}</span>
                     </div>
                     <span className="text-xs text-slate-500">{resources.length} resource{resources.length !== 1 ? 's' : ''}</span>
                   </button>
@@ -183,7 +183,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
           <div className="text-center py-6">
             <div className="text-sm text-slate-500 mb-2">No limit ranges configured</div>
             <p className="text-xs text-slate-600 max-w-md mx-auto">LimitRanges set default and max CPU/memory for containers that don't specify their own. Without them, containers can request unlimited resources.</p>
-            <button onClick={() => go('/create/v1~limitranges', 'Create LimitRange')} className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors">Create LimitRange</button>
+            <button onClick={() => go('/create/v1~limitranges', 'Create LimitRange')} className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors">Create LimitRange</button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -195,7 +195,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
                     className="w-full px-4 py-2.5 flex items-center justify-between bg-slate-800/30 hover:bg-slate-800/60 transition-colors">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-slate-200">{lr.metadata.name}</span>
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{lr.metadata.namespace}</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{lr.metadata.namespace}</span>
                     </div>
                     <span className="text-xs text-slate-500">{limits.length} limit{limits.length !== 1 ? 's' : ''}</span>
                   </button>
@@ -247,7 +247,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
           <div className="flex flex-wrap gap-2">
             {unprotectedNs.map((ns) => (
               <button key={ns.metadata?.name} onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
-                className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded hover:bg-yellow-900/40 transition-colors">
+                className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded-sm hover:bg-yellow-900/40 transition-colors">
                 {ns.metadata?.name}
               </button>
             ))}

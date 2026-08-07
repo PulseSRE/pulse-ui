@@ -68,7 +68,7 @@ export function ProjectsTab() {
                 <FolderKanban className={cn('w-4 h-4', isDefault ? 'text-violet-400' : 'text-slate-400')} />
                 <span className="text-sm font-medium text-slate-200">{project.metadata.name}</span>
                 {isDefault && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-violet-900/50 text-violet-300">default</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-sm bg-violet-900/50 text-violet-300">default</span>
                 )}
               </div>
               {roles.length > 0 && (
@@ -93,7 +93,7 @@ export function ProjectsTab() {
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {sourceRepos.slice(0, 6).map((repo, i) => (
-                      <span key={i} className="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 truncate max-w-xs" title={repo}>
+                      <span key={i} className="text-xs font-mono px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-400 truncate max-w-xs" title={repo}>
                         {repo === '*' ? '* (all)' : repo.replace(/^https?:\/\//, '').replace(/\.git$/, '')}
                       </span>
                     ))}
@@ -119,7 +119,7 @@ export function ProjectsTab() {
                         dest.server ? `@ ${dest.server.replace(/^https?:\/\//, '')}` : dest.name ? `@ ${dest.name}` : '',
                       ].filter(Boolean).join(' ');
                       return (
-                        <span key={i} className="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400" title={`${dest.server || dest.name || ''} / ${dest.namespace || '*'}`}>
+                        <span key={i} className="text-xs font-mono px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-400" title={`${dest.server || dest.name || ''} / ${dest.namespace || '*'}`}>
                           {label}
                         </span>
                       );

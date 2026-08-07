@@ -167,7 +167,7 @@ export function QuickDeployTab() {
 
         {port && (
           <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-            <input type="checkbox" checked={createRoute} onChange={(e) => setCreateRoute(e.target.checked)} className="rounded" />
+            <input type="checkbox" checked={createRoute} onChange={(e) => setCreateRoute(e.target.checked)} className="rounded-sm" />
             Create Route (expose externally via HTTPS)
           </label>
         )}
@@ -186,10 +186,10 @@ export function QuickDeployTab() {
           {envVars.map((env, idx) => (
             <div key={idx} className="flex items-center gap-2 mb-2">
               <input type="text" value={env.name} onChange={(e) => updateEnvVar(idx, 'name', e.target.value)} placeholder="NAME"
-                className="flex-1 px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="flex-1 px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
               <span className="text-slate-600">=</span>
               <input type="text" value={env.value} onChange={(e) => updateEnvVar(idx, 'value', e.target.value)} placeholder="value"
-                className="flex-1 px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                className="flex-1 px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
               <button onClick={() => removeEnvVar(idx)} className="p-1 text-slate-500 hover:text-red-400" title="Remove">
                 <AlertCircle className="w-3.5 h-3.5" />
               </button>
@@ -214,7 +214,7 @@ export function QuickDeployTab() {
         </div>
 
         <div className="flex items-center gap-3 pt-2">
-          <button onClick={handleDeploy} disabled={deploying || !name.trim() || !image.trim()} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50">
+          <button onClick={handleDeploy} disabled={deploying || !name.trim() || !image.trim()} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
             {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Box className="w-4 h-4" />}
             {deploying ? 'Deploying...' : 'Deploy'}
           </button>

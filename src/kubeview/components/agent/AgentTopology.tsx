@@ -165,7 +165,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
           {onAddToView && (
             <button
               onClick={() => onAddToView(spec)}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors"
+              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors"
               title="Add to View"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -178,7 +178,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
       <div className="px-3 py-1 border-b border-slate-800 flex flex-wrap items-center gap-x-3 gap-y-0.5">
         {[...new Set(spec.nodes.map(n => n.kind))].sort().map((kind) => (
           <div key={kind} className="flex items-center gap-1 text-[11px] text-slate-500">
-            <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(kind) }} />
+            <span className="w-2 h-2 rounded-xs" style={{ backgroundColor: getKindColor(kind) }} />
             {kind}
           </div>
         ))}
@@ -242,11 +242,11 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
           return (
             <div className="w-56 shrink-0 border-l border-slate-800 p-3 text-xs overflow-y-auto max-h-[400px]">
               <div className="flex items-center gap-1.5 mb-2">
-                <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: getKindColor(node.kind) }} />
+                <span className="w-2 h-2 rounded-xs" style={{ backgroundColor: getKindColor(node.kind) }} />
                 <span className="font-semibold text-slate-200 truncate">{node.kind}/{node.name}</span>
               </div>
               {node.namespace && (
-                <span className="text-[11px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded mb-2 inline-block">{node.namespace}</span>
+                <span className="text-[11px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded-sm mb-2 inline-block">{node.namespace}</span>
               )}
 
               {node.metrics && (
@@ -261,7 +261,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
                   <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Upstream</div>
                   {upstream.map((n: any) => (
                     <div key={n.id} className="flex items-center gap-1 text-slate-400 mb-0.5 text-[11px]">
-                      <span className="w-1.5 h-1.5 rounded-sm shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
+                      <span className="w-1.5 h-1.5 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
                       <span className="truncate">{n.kind}/{n.name}</span>
                       <span className="text-slate-600 text-[10px]">({n.rel})</span>
                     </div>
@@ -274,7 +274,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
                   <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Downstream</div>
                   {downstream.map((n: any) => (
                     <div key={n.id} className="flex items-center gap-1 text-slate-400 mb-0.5 text-[11px]">
-                      <span className="w-1.5 h-1.5 rounded-sm shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
+                      <span className="w-1.5 h-1.5 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
                       <span className="truncate">{n.kind}/{n.name}</span>
                       <span className="text-slate-600 text-[10px]">({n.rel})</span>
                     </div>

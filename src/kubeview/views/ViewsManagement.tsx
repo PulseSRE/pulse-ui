@@ -174,7 +174,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               </p>
               <button
                 onClick={handleImport}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
               >
                 <Upload className="w-3.5 h-3.5" /> Import View
               </button>
@@ -185,7 +185,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
         {/* Import button in embedded mode */}
         {embedded && (
           <div className="flex justify-end mb-3">
-            <button onClick={handleImport} className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
+            <button onClick={handleImport} className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">
               <Upload className="w-3.5 h-3.5" /> Import View
             </button>
           </div>
@@ -245,7 +245,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               <div
                 key={view.id}
                 className={cn(
-                  'group relative rounded-lg border bg-gradient-to-r from-slate-900 to-slate-900/80 transition-all cursor-pointer overflow-hidden',
+                  'group relative rounded-lg border bg-linear-to-r from-slate-900 to-slate-900/80 transition-all cursor-pointer overflow-hidden',
                   view.view_type === 'incident' ? 'border-slate-800 hover:border-red-800/50 hover:to-red-950/20'
                     : view.view_type === 'assessment' ? 'border-slate-800 hover:border-amber-800/50 hover:to-amber-950/20'
                     : 'border-slate-800 hover:border-violet-800/50 hover:to-violet-950/20'
@@ -289,28 +289,28 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                   <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleExport(view)}
-                      className="p-1.5 rounded text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                      className="p-1.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
                       title="Export as JSON"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleShare(view)}
-                      className="p-1.5 rounded text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                      className="p-1.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
                       title={copiedId === view.id ? 'Copied!' : 'Share'}
                     >
                       {copiedId === view.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
                     </button>
                     <button
                       onClick={() => openHistory(view.id)}
-                      className="p-1.5 rounded text-slate-500 hover:text-violet-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1.5 rounded-sm text-slate-500 hover:text-violet-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
                       title="Version history"
                     >
                       <History className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setDeleteTarget(view)}
-                      className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1.5 rounded-sm text-slate-500 hover:text-red-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
                       title="Delete view"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -334,7 +334,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                 <History className="w-4 h-4 text-violet-400" />
                 Version History
               </h3>
-              <button onClick={() => setHistoryViewId(null)} className="p-1 rounded hover:bg-slate-800 text-slate-400">
+              <button onClick={() => setHistoryViewId(null)} className="p-1 rounded-sm hover:bg-slate-800 text-slate-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -350,7 +350,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               {versions.map((v, i) => {
                 const previous = versions[i + 1]; // versions are sorted newest-first
                 return (
-                <div key={v.version} className="flex items-center justify-between rounded border border-slate-800 bg-slate-950 px-3 py-2">
+                <div key={v.version} className="flex items-center justify-between rounded-sm border border-slate-800 bg-slate-950 px-3 py-2">
                   <div>
                     <div className="text-xs text-slate-300">v{v.version} · {formatRelativeTime(new Date(v.created_at).getTime())}</div>
                     <div className="text-xs text-slate-500">{describeChanges(v, previous)}</div>
@@ -359,7 +359,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                   <button
                     onClick={() => restoreVersion(historyViewId, v.version)}
                     disabled={restoringVersion !== null}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-violet-400 hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-sm text-xs text-violet-400 hover:bg-slate-800 disabled:opacity-50 transition-colors"
                     title="Restore this version"
                   >
                     {restoringVersion === v.version ? <Loader2 className="w-3 h-3 animate-spin" /> : <Undo2 className="w-3 h-3" />}

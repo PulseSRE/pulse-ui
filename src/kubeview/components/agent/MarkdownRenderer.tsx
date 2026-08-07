@@ -110,13 +110,13 @@ function Block({ block }: { block: BlockNode }) {
       return (
         <Tag className={cn('pl-4 space-y-0.5', block.ordered ? 'list-decimal' : 'list-disc')}>
           {block.items.map((item, i) => (
-            <li key={i} className="text-slate-300 text-sm break-words"><InlineText text={item} /></li>
+            <li key={i} className="text-slate-300 text-sm wrap-break-word"><InlineText text={item} /></li>
           ))}
         </Tag>
       );
     }
     case 'paragraph':
-      return <p className="text-slate-300 whitespace-pre-wrap break-words"><InlineText text={block.text} /></p>;
+      return <p className="text-slate-300 whitespace-pre-wrap wrap-break-word"><InlineText text={block.text} /></p>;
   }
 }
 
@@ -152,7 +152,7 @@ function InlineText({ text }: { text: string }) {
     if (first.type === 'bold') {
       parts.push(<strong key={key++} className="text-slate-100 font-semibold">{first.match[1]}</strong>);
     } else if (first.type === 'code') {
-      parts.push(<code key={key++} className="bg-slate-800 text-cyan-300 px-1 py-0.5 rounded text-xs font-mono">{first.match[1]}</code>);
+      parts.push(<code key={key++} className="bg-slate-800 text-cyan-300 px-1 py-0.5 rounded-sm text-xs font-mono">{first.match[1]}</code>);
     }
 
     remaining = remaining.slice(first.index + first.match[0].length);

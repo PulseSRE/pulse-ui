@@ -253,7 +253,7 @@ export default function ComputeView() {
         <Card className="flex gap-1 p-1">
           {([['overview', 'Overview'], ['capacity', 'Capacity Planning']] as const).map(([id, label]) => (
             <button key={id} role="tab" aria-selected={computeTab === id} aria-label={label} onClick={() => setComputeTab(id)}
-              className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', computeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+              className={cn('px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', computeTab === id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
               {label}
             </button>
           ))}
@@ -664,8 +664,8 @@ spec:
       }
       renderItemBadges={(check, item) => (
         <>
-          {item._pressureTypes && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded">{item._pressureTypes as string}</span>}
-          {item._kubeletVersion && <span className="text-xs px-1.5 py-0.5 bg-yellow-900/50 text-yellow-300 rounded font-mono">{item._kubeletVersion as string}</span>}
+          {item._pressureTypes && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{item._pressureTypes as string}</span>}
+          {item._kubeletVersion && <span className="text-xs px-1.5 py-0.5 bg-yellow-900/50 text-yellow-300 rounded-sm font-mono">{item._kubeletVersion as string}</span>}
         </>
       )}
     />

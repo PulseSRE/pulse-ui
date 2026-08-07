@@ -128,11 +128,11 @@ export function SnapshotsTab() {
     <div className="space-y-6">
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <button onClick={handleCapture} disabled={capturing} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50">
+        <button onClick={handleCapture} disabled={capturing} className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
           {capturing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Capture Snapshot
         </button>
-        <button onClick={handleImportSnapshot} className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">
+        <button onClick={handleImportSnapshot} className="flex items-center gap-2 px-3 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-sm">
           <Upload className="w-3.5 h-3.5" /> Import
         </button>
       </div>
@@ -150,7 +150,7 @@ export function SnapshotsTab() {
         <Panel title={`Saved Snapshots (${savedSnapshots.length})`} icon={<Database className="w-4 h-4 text-slate-400" />}>
           <div className="space-y-2">
             {savedSnapshots.map((snap) => (
-              <div key={snap.id} className="flex items-center gap-3 p-2 rounded hover:bg-slate-800/50">
+              <div key={snap.id} className="flex items-center gap-3 p-2 rounded-sm hover:bg-slate-800/50">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-200 font-medium">{snap.label}</div>
                   <div className="text-xs text-slate-500">{new Date(snap.timestamp).toLocaleString()} \u00b7 v{snap.clusterVersion} \u00b7 {snap.nodes.count} nodes \u00b7 {snap.crds.length} CRDs</div>
@@ -159,7 +159,7 @@ export function SnapshotsTab() {
                   if (e.target.value === 'left') { setCompareLeft(snap.id); if (compareRight === snap.id) setCompareRight(''); }
                   else if (e.target.value === 'right') { setCompareRight(snap.id); if (compareLeft === snap.id) setCompareLeft(''); }
                   else { if (compareLeft === snap.id) setCompareLeft(''); if (compareRight === snap.id) setCompareRight(''); }
-                }} className="px-2 py-1 text-xs bg-slate-800 border border-slate-600 rounded text-slate-300">
+                }} className="px-2 py-1 text-xs bg-slate-800 border border-slate-600 rounded-sm text-slate-300">
                   <option value="">\u2014</option>
                   <option value="left">Left</option>
                   <option value="right">Right</option>
@@ -178,7 +178,7 @@ export function SnapshotsTab() {
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-100">Comparison \u2014 {changedCount} change{changedCount !== 1 ? 's' : ''}</h2>
             <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-              <input type="checkbox" checked={showOnlyChanges} onChange={(e) => setShowOnlyChanges(e.target.checked)} className="rounded" />
+              <input type="checkbox" checked={showOnlyChanges} onChange={(e) => setShowOnlyChanges(e.target.checked)} className="rounded-sm" />
               Show only changes
             </label>
           </div>

@@ -36,7 +36,7 @@ export function InboxLifecycleBadge({
   return (
     <div className="inline-flex items-center gap-px rounded-md bg-slate-800/80 border border-slate-700/50 px-1 py-0.5">
       {isCleared && (
-        <span className="px-1.5 py-0.5 text-[10px] leading-none rounded-sm text-emerald-400 font-medium">
+        <span className="px-1.5 py-0.5 text-[10px] leading-none rounded-xs text-emerald-400 font-medium">
           Cleared ✓
         </span>
       )}
@@ -50,7 +50,7 @@ export function InboxLifecycleBadge({
           <div key={step.key} className="flex items-center">
             <span
               className={cn(
-                'px-1.5 py-0.5 text-[10px] leading-none rounded-sm',
+                'px-1.5 py-0.5 text-[10px] leading-none rounded-xs',
                 isCurrent && isProcessing && 'bg-violet-600 text-white font-medium animate-pulse',
                 isCurrent && !isProcessing && 'bg-violet-600 text-white font-medium',
                 isPast && 'text-emerald-400',

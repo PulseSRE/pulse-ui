@@ -138,7 +138,7 @@ export default function DiffPreview({
           <button
             onClick={onDiscard}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X className="w-3.5 h-3.5" />
             Discard
@@ -146,7 +146,7 @@ export default function DiffPreview({
           <button
             onClick={onApply}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -187,7 +187,7 @@ export default function DiffPreview({
                     line.type === 'unchanged' && 'border-transparent text-slate-500'
                   )}
                 >
-                  <span className="w-6 flex-shrink-0 text-slate-600 select-none">
+                  <span className="w-6 shrink-0 text-slate-600 select-none">
                     {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
                   </span>
                   <span className="whitespace-pre">{line.content || ' '}</span>

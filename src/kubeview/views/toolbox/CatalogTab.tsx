@@ -136,14 +136,14 @@ export function CatalogTab() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tools..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <select
           aria-label="Filter by source"
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value)}
-          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
         >
           <option value="all">All sources ({allTools.length})</option>
           <option value="native">Native ({nativeCount})</option>
@@ -204,11 +204,11 @@ export function CatalogTab() {
                         const match = allTools.find((at) => at.name === t.tool_name);
                         if (match) setSelectedTool(match);
                       }}
-                      className="flex items-center gap-2 text-xs w-full hover:bg-slate-800/50 rounded px-1 py-0.5 transition-colors"
+                      className="flex items-center gap-2 text-xs w-full hover:bg-slate-800/50 rounded-sm px-1 py-0.5 transition-colors"
                     >
                       <span className="w-36 truncate font-mono text-slate-300 text-left">{t.tool_name}</span>
-                      <div className="flex-1 h-4 bg-slate-800 rounded-sm overflow-hidden">
-                        <div className="h-full bg-blue-600/60 rounded-sm" style={{ width: `${(t.count / maxCount) * 100}%` }} />
+                      <div className="flex-1 h-4 bg-slate-800 rounded-xs overflow-hidden">
+                        <div className="h-full bg-blue-600/60 rounded-xs" style={{ width: `${(t.count / maxCount) * 100}%` }} />
                       </div>
                       <span className="w-10 text-right text-slate-400">{t.count}</span>
                       {t.error_count > 0 && <span className="text-red-400 text-[10px]">{t.error_count} err</span>}

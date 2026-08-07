@@ -218,7 +218,7 @@ export default function BuildsView() {
           <button onClick={() => go('/r/build.openshift.io~v1~builds', 'Builds')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedBuilds.length > 0 ? 'border-red-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Builds</span>
-              {failedBuilds.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{failedBuilds.length}</span>}
+              {failedBuilds.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{failedBuilds.length}</span>}
             </div>
             <div className="text-xl font-bold text-slate-100">{builds.length}</div>
           </button>
@@ -354,7 +354,7 @@ export default function BuildsView() {
                         <span className="text-slate-500">{lastBuildTime}</span>
                       </div>
                       <button onClick={() => handleTriggerBuild(bc)}
-                        className="p-1.5 rounded hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100"
                         title="Start build">
                         <Play className="w-3.5 h-3.5" />
                       </button>
@@ -523,7 +523,7 @@ export default function BuildsView() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {tags.slice(0, 4).map((tag: { tag: string }) => (
-                        <span key={tag.tag} className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded">{tag.tag}</span>
+                        <span key={tag.tag} className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{tag.tag}</span>
                       ))}
                       {tags.length > 4 && <span className="text-xs text-slate-500">+{tags.length - 4}</span>}
                     </div>

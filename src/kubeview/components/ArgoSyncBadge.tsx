@@ -50,7 +50,7 @@ export function ArgoSyncBadge({ kind, namespace, name, showLabel = false }: Argo
     return (
       <button
         onClick={handleClick}
-        className={cn('inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs border transition-colors hover:brightness-110', config.bg)}
+        className={cn('inline-flex items-center gap-1.5 px-2 py-1 rounded-sm text-xs border transition-colors hover:brightness-110', config.bg)}
         title={`ArgoCD: ${config.label} · App: ${syncInfo.appName}${shortSha ? ` · ${shortSha}` : ''}`}
       >
         <GitBranch className="w-3 h-3 text-slate-500" />
@@ -64,7 +64,7 @@ export function ArgoSyncBadge({ kind, namespace, name, showLabel = false }: Argo
   return (
     <button
       onClick={handleClick}
-      className={cn('inline-flex items-center gap-0.5 p-0.5 rounded transition-colors hover:bg-slate-800')}
+      className={cn('inline-flex items-center gap-0.5 p-0.5 rounded-sm transition-colors hover:bg-slate-800')}
       title={`ArgoCD: ${config.label} · App: ${syncInfo.appName}${shortSha ? ` · ${shortSha}` : ''}`}
     >
       <GitBranch className="w-3 h-3 text-slate-600" />

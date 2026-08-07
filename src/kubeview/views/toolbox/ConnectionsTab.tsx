@@ -233,9 +233,9 @@ export function ConnectionsTab() {
                     <div className="flex items-center gap-2">
                       {conn.connected ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-red-400" />}
                       <span className="text-sm font-medium text-slate-100">{String(conn.name)}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded text-slate-500">{String(conn.transport)}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded-sm text-slate-500">{String(conn.transport)}</span>
                       {isStandalone && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-900/30 text-violet-400 border border-violet-800/30">custom</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-violet-900/30 text-violet-400 border border-violet-800/30">custom</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -243,7 +243,7 @@ export function ConnectionsTab() {
                       {isStandalone && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setConfirmRemove(String(conn.name)); }}
-                          className="p-1 text-slate-500 hover:text-red-400 transition-colors rounded hover:bg-slate-800"
+                          className="p-1 text-slate-500 hover:text-red-400 transition-colors rounded-sm hover:bg-slate-800"
                           title="Remove server"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -279,7 +279,7 @@ export function ConnectionsTab() {
                                 )}
                               >
                                 <div className={cn(
-                                  'w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0',
+                                  'w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0',
                                   enabled ? 'bg-blue-600 border-blue-500' : 'border-slate-600',
                                 )}>
                                   {enabled && <Check className="w-2.5 h-2.5 text-white" />}
@@ -299,7 +299,7 @@ export function ConnectionsTab() {
                         </h4>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                           {tools.map((tool) => (
-                            <div key={tool} className="text-[11px] font-mono text-slate-300 bg-slate-800/50 rounded px-2 py-1 truncate" title={tool}>
+                            <div key={tool} className="text-[11px] font-mono text-slate-300 bg-slate-800/50 rounded-sm px-2 py-1 truncate" title={tool}>
                               {tool}
                             </div>
                           ))}

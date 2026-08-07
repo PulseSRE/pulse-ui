@@ -123,7 +123,7 @@ export function NodeGrid({ nodes, clusterName, onNodeClick }: NodeGridProps) {
                   {node.conditions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {node.conditions.map(c => (
-                        <span key={c} className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <span key={c} className="text-xs px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-400 border border-amber-500/20">
                           {c.replace('Pressure', '')}
                         </span>
                       ))}

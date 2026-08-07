@@ -73,7 +73,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
         <div
           ref={drawerRef}
           tabIndex={-1}
-          className="relative w-[520px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-none"
+          className="relative w-[520px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -126,7 +126,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                   key={f.id}
                   onClick={() => setFilter(f.id)}
                   className={cn(
-                    'px-2.5 py-1 text-xs rounded transition-colors',
+                    'px-2.5 py-1 text-xs rounded-sm transition-colors',
                     filter === f.id ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800',
                   )}
                 >
@@ -157,14 +157,14 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                     {outcomeIcon(r.outcome)}
                     <span className="text-xs font-mono text-slate-300">{r.tool}</span>
                     <span className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded font-medium',
+                      'text-[10px] px-1.5 py-0.5 rounded-sm font-medium',
                       r.outcome === 'verified' ? 'bg-emerald-900/40 text-emerald-300' :
                       r.outcome === 'improved' ? 'bg-blue-900/40 text-blue-300' :
                       'bg-amber-900/40 text-amber-300',
                     )}>
                       {outcomeLabel(r.outcome)}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{r.category}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{r.category}</span>
                   </div>
                   {r.reasoning && (
                     <p className="text-xs text-slate-400 mb-1 line-clamp-2">{r.reasoning}</p>

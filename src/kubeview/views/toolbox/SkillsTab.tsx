@@ -134,24 +134,24 @@ export function SkillsTab() {
                   <div className="flex items-center gap-2 min-w-0">
                     <SkillIcon className={cn('w-4 h-4 shrink-0', skill.degraded ? 'text-amber-400' : 'text-violet-400')} />
                     <span className="text-sm font-medium text-slate-100 truncate">{String(skill.display_name || skill.name)}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded text-slate-500 shrink-0">v{Number(skill.version)}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded-sm text-slate-500 shrink-0">v{Number(skill.version)}</span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {skill.generated_by === 'auto' && !skill.reviewed && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded border border-amber-700/40">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm border border-amber-700/40">
                         AI-generated · Needs review
                       </span>
                     )}
                     {skill.generated_by === 'auto' && Boolean(skill.reviewed) && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-emerald-900/30 text-emerald-400 rounded border border-emerald-800/30">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-emerald-900/30 text-emerald-400 rounded-sm border border-emerald-800/30">
                         AI-generated · Reviewed
                       </span>
                     )}
                     {!skill.builtin && !skill.generated_by && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-violet-900/30 text-violet-400 rounded border border-violet-800/30">custom</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-violet-900/30 text-violet-400 rounded-sm border border-violet-800/30">custom</span>
                     )}
                     {Boolean(skill.write_tools) && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/30 text-amber-400 rounded border border-amber-800/30">write</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/30 text-amber-400 rounded-sm border border-amber-800/30">write</span>
                     )}
                   </div>
                 </div>
@@ -182,7 +182,7 @@ export function SkillsTab() {
             onChange={(e) => setTestQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && testRouting()}
             placeholder="Type a query to see which skill handles it..."
-            className="flex-1 px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
           <button onClick={testRouting} className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">Test</button>
         </div>
@@ -269,7 +269,7 @@ function SkillStatsCard({ skill, onSelect }: { skill: Record<string, unknown>; o
           {sparkline.map((v, i) => (
             <div
               key={i}
-              className="flex-1 bg-violet-500/40 rounded-sm min-h-[2px]"
+              className="flex-1 bg-violet-500/40 rounded-xs min-h-[2px]"
               style={{ height: `${(v / maxVal) * 100}%` }}
               title={`${v} calls`}
             />

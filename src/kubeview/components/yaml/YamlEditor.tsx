@@ -462,7 +462,7 @@ export default function YamlEditor({
             {originalValue && (
               <button
                 onClick={() => setShowDiffMode(!showDiffMode)}
-                className={cn('flex items-center gap-1 px-2 py-0.5 rounded transition-colors', showDiffMode ? 'bg-purple-600 text-white' : 'hover:bg-slate-800')}
+                className={cn('flex items-center gap-1 px-2 py-0.5 rounded-sm transition-colors', showDiffMode ? 'bg-purple-600 text-white' : 'hover:bg-slate-800')}
                 title="Show diff against original"
               >
                 <GitCompare className="w-3 h-3" />
@@ -471,7 +471,7 @@ export default function YamlEditor({
             )}
             <button
               onClick={() => setSidePanel(sidePanel === 'schema' ? 'none' : 'schema')}
-              className={cn('flex items-center gap-1 px-2 py-0.5 rounded transition-colors', sidePanel === 'schema' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800')}
+              className={cn('flex items-center gap-1 px-2 py-0.5 rounded-sm transition-colors', sidePanel === 'schema' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800')}
               title="API Schema"
             >
               <BookOpen className="w-3 h-3" />
@@ -479,7 +479,7 @@ export default function YamlEditor({
             </button>
             <button
               onClick={() => setSidePanel(sidePanel === 'snippets' ? 'none' : 'snippets')}
-              className={cn('flex items-center gap-1 px-2 py-0.5 rounded transition-colors', sidePanel === 'snippets' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800')}
+              className={cn('flex items-center gap-1 px-2 py-0.5 rounded-sm transition-colors', sidePanel === 'snippets' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800')}
               title="Insert snippet"
             >
               <Puzzle className="w-3 h-3" />
@@ -487,7 +487,7 @@ export default function YamlEditor({
             </button>
             <button
               onClick={() => setSidePanel(sidePanel === 'help' ? 'none' : 'help')}
-              className={cn('flex items-center gap-1 px-2 py-0.5 rounded transition-colors', sidePanel === 'help' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800')}
+              className={cn('flex items-center gap-1 px-2 py-0.5 rounded-sm transition-colors', sidePanel === 'help' ? 'bg-blue-600 text-white' : 'hover:bg-slate-800')}
               title="YAML help"
             >
               <HelpCircle className="w-3 h-3" />
@@ -497,7 +497,7 @@ export default function YamlEditor({
               <button
                 onClick={handleSave}
                 disabled={!hasChanges || isSaving}
-                className={cn('flex items-center gap-1 px-2 py-0.5 rounded transition-colors', hasChanges ? 'hover:bg-slate-800 text-emerald-400' : 'opacity-50 cursor-not-allowed')}
+                className={cn('flex items-center gap-1 px-2 py-0.5 rounded-sm transition-colors', hasChanges ? 'hover:bg-slate-800 text-emerald-400' : 'opacity-50 cursor-not-allowed')}
                 title="Save (⌘S)"
               >
                 <Save className="w-3 h-3" />
@@ -510,7 +510,7 @@ export default function YamlEditor({
 
       {/* Inline Diff View */}
       {showDiffMode && originalValue && (
-        <div className="w-80 flex-shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
+        <div className="w-80 shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-700">
             <span className="text-sm font-semibold text-slate-200">Changes</span>
             <button onClick={() => setShowDiffMode(false)} className="text-slate-400 hover:text-slate-200" aria-label="Close diff">
@@ -546,7 +546,7 @@ export default function YamlEditor({
                 <div className="space-y-1">
                   <div className="text-xs text-slate-500 mb-2">{diffs.length} change{diffs.length !== 1 ? 's' : ''}</div>
                   {diffs.map((d, i) => (
-                    <div key={i} className="rounded overflow-hidden">
+                    <div key={i} className="rounded-sm overflow-hidden">
                       {d.old !== undefined && (
                         <div className="bg-red-950/30 text-red-300 px-2 py-0.5 border-l-2 border-red-500">
                           <span className="text-red-500/50 mr-2">{d.lineNum}</span>- {d.old}
@@ -568,7 +568,7 @@ export default function YamlEditor({
 
       {/* Side Panel */}
       {sidePanel !== 'none' && (
-        <div className="w-72 flex-shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
+        <div className="w-72 shrink-0 border-l border-slate-700 bg-slate-900 flex flex-col overflow-hidden">
           {sidePanel === 'schema' ? (
             <SchemaPanel gvk={resourceGvk} yamlContent={internalValue} />
           ) : (
@@ -595,13 +595,13 @@ export default function YamlEditor({
                       <button
                         key={cs.label}
                         onClick={() => insertAtCursor(cs.yaml)}
-                        className="w-full flex items-start gap-2 p-2 rounded hover:bg-slate-800 transition-colors text-left"
+                        className="w-full flex items-start gap-2 p-2 rounded-sm hover:bg-slate-800 transition-colors text-left"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-slate-200">{cs.label}</div>
                           <div className="text-xs text-slate-500">{cs.description}</div>
                         </div>
-                        <Copy className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+                        <Copy className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                       </button>
                     ))}
                     <div className="border-t border-slate-700 my-2" />
@@ -614,16 +614,16 @@ export default function YamlEditor({
                   <button
                     key={snippet.prefix}
                     onClick={() => insertSnippet(snippet)}
-                    className="w-full flex items-start gap-2 p-2 rounded hover:bg-slate-800 transition-colors text-left"
+                    className="w-full flex items-start gap-2 p-2 rounded-sm hover:bg-slate-800 transition-colors text-left"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-slate-200">{snippet.label}</div>
                       <div className="text-xs text-slate-500">{snippet.description}</div>
                     </div>
                     {copiedSnippet === snippet.prefix ? (
-                      <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                      <Check className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
                     ) : (
-                      <Copy className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+                      <Copy className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                     )}
                   </button>
                 ))}
@@ -650,7 +650,7 @@ export default function YamlEditor({
                   <h4 className="font-semibold text-slate-300 mb-2">Autocomplete</h4>
                   <p className="text-slate-400 leading-relaxed">
                     Start typing any K8s field name and autocomplete will suggest options.
-                    Press <kbd className="px-1 py-0.5 bg-slate-700 rounded text-xs">Ctrl+Space</kbd> to
+                    Press <kbd className="px-1 py-0.5 bg-slate-700 rounded-sm text-xs">Ctrl+Space</kbd> to
                     manually trigger. After a colon, values like API versions and kinds are suggested.
                   </p>
                 </div>
@@ -695,7 +695,7 @@ function KbdRow({ keys, label }: { keys: string; label: string }) {
   return (
     <div className="flex items-center justify-between py-0.5">
       <span className="text-slate-400">{label}</span>
-      <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-xs font-mono text-slate-300">{keys}</kbd>
+      <kbd className="px-1.5 py-0.5 bg-slate-700 rounded-sm text-xs font-mono text-slate-300">{keys}</kbd>
     </div>
   );
 }
@@ -713,7 +713,7 @@ function CodeExample({ title, code }: { title: string; code: string }) {
           {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
         </button>
       </div>
-      <pre className="bg-slate-950 rounded p-2 text-[11px] text-emerald-400 font-mono overflow-x-auto">{code}</pre>
+      <pre className="bg-slate-950 rounded-sm p-2 text-[11px] text-emerald-400 font-mono overflow-x-auto">{code}</pre>
     </div>
   );
 }

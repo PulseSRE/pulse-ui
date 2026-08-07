@@ -53,7 +53,7 @@ export function NodeTable({ nodeDetails, totalCount, go }: NodeTableProps) {
                     {nd.taints.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {nd.taints.map((t, i) => (
-                          <span key={i} className={cn('text-xs px-1 py-0.5 rounded font-mono',
+                          <span key={i} className={cn('text-xs px-1 py-0.5 rounded-sm font-mono',
                             t.effect === 'NoSchedule' ? 'bg-yellow-900/30 text-yellow-400' :
                             t.effect === 'NoExecute' ? 'bg-red-900/30 text-red-400' :
                             'bg-slate-800 text-slate-500'
@@ -66,16 +66,16 @@ export function NodeTable({ nodeDetails, totalCount, go }: NodeTableProps) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded', nd.status.ready ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', nd.status.ready ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>
                         {nd.status.ready ? 'Ready' : 'NotReady'}
                       </span>
                       {nd.pressures.length > 0 && nd.pressures.map((p: string) => (
-                        <span key={p} className="text-xs px-1 py-0.5 bg-red-900/50 text-red-300 rounded">{p}</span>
+                        <span key={p} className="text-xs px-1 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{p}</span>
                       ))}
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1">{nd.roles.map((r: string) => <span key={r} className={cn('text-xs px-1.5 py-0.5 rounded', r === 'master' || r === 'control-plane' ? 'bg-purple-900/50 text-purple-300' : r === 'infra' ? 'bg-orange-900/50 text-orange-300' : 'bg-blue-900/50 text-blue-300')}>{r}</span>)}</div>
+                    <div className="flex gap-1">{nd.roles.map((r: string) => <span key={r} className={cn('text-xs px-1.5 py-0.5 rounded-sm', r === 'master' || r === 'control-plane' ? 'bg-purple-900/50 text-purple-300' : r === 'infra' ? 'bg-orange-900/50 text-orange-300' : 'bg-blue-900/50 text-blue-300')}>{r}</span>)}</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ export function NodeTable({ nodeDetails, totalCount, go }: NodeTableProps) {
                   </td>
                   <td className="px-4 py-3">
                     {nd.instanceType ? (
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded font-mono">{nd.instanceType}</span>
+                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-mono">{nd.instanceType}</span>
                     ) : (
                       <span className="text-xs text-slate-600">{nd.nodeInfo.architecture}</span>
                     )}

@@ -197,11 +197,11 @@ export function DryRunPanel({ yaml, apiPath, method, onClose }: DryRunPanelProps
         </div>
         <div className="flex items-center gap-2">
           {result.status !== 'loading' && (
-            <button onClick={runDryRun} className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 rounded hover:bg-slate-700 transition-colors">
+            <button onClick={runDryRun} className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-slate-200 rounded-sm hover:bg-slate-700 transition-colors">
               <RefreshCw className="w-3 h-3" /> Re-validate
             </button>
           )}
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 p-1 rounded hover:bg-slate-700">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 p-1 rounded-sm hover:bg-slate-700">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -277,7 +277,7 @@ export function DryRunPanel({ yaml, apiPath, method, onClose }: DryRunPanelProps
             Server result YAML
           </button>
           {showFullYaml && (
-            <pre className="mt-2 p-3 bg-slate-950 rounded border border-slate-800 text-xs font-mono max-h-64 overflow-auto">
+            <pre className="mt-2 p-3 bg-slate-950 rounded-sm border border-slate-800 text-xs font-mono max-h-64 overflow-auto">
               {serverLinesDiff.map(({ line, isNew }, i) => (
                 <div key={i} className={cn(isNew && 'bg-green-950/30 text-green-400')}>
                   {isNew && <span className="text-green-600 mr-1">+</span>}

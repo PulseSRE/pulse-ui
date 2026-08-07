@@ -53,13 +53,13 @@ export function ComponentsTab() {
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-mono text-slate-200">{name}</span>
-                    {comp.is_container && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded">container</span>}
+                    {comp.is_container && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded-sm">container</span>}
                   </div>
                   <p className="text-[11px] text-slate-500">{comp.description}</p>
                   {comp.supports_mutations.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
                       {comp.supports_mutations.map((m) => (
-                        <span key={m} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded">{m}</span>
+                        <span key={m} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded-sm">{m}</span>
                       ))}
                     </div>
                   )}
@@ -75,8 +75,8 @@ export function ComponentsTab() {
             <p className="text-sm text-slate-300">{selectedComp.description}</p>
 
             <div className="flex flex-wrap gap-2">
-              <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded">{selectedComp.category}</span>
-              {selectedComp.is_container && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/30 text-blue-400 rounded">container</span>}
+              <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{selectedComp.category}</span>
+              {selectedComp.is_container && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/30 text-blue-400 rounded-sm">container</span>}
             </div>
 
             {selectedComp.required_fields.length > 0 && (
@@ -84,7 +84,7 @@ export function ComponentsTab() {
                 <h4 className="text-xs font-semibold text-slate-300 mb-1">Required Fields</h4>
                 <div className="flex flex-wrap gap-1">
                   {selectedComp.required_fields.map((f) => (
-                    <span key={f} className="text-xs font-mono px-2 py-0.5 bg-red-900/20 text-red-300 rounded border border-red-800/30">{f}</span>
+                    <span key={f} className="text-xs font-mono px-2 py-0.5 bg-red-900/20 text-red-300 rounded-sm border border-red-800/30">{f}</span>
                   ))}
                 </div>
               </div>
@@ -95,7 +95,7 @@ export function ComponentsTab() {
                 <h4 className="text-xs font-semibold text-slate-300 mb-1">Optional Fields</h4>
                 <div className="flex flex-wrap gap-1">
                   {selectedComp.optional_fields.map((f) => (
-                    <span key={f} className="text-xs font-mono px-2 py-0.5 bg-slate-800 text-slate-400 rounded">{f}</span>
+                    <span key={f} className="text-xs font-mono px-2 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{f}</span>
                   ))}
                 </div>
               </div>
@@ -106,7 +106,7 @@ export function ComponentsTab() {
                 <h4 className="text-xs font-semibold text-slate-300 mb-1">Supported Mutations</h4>
                 <div className="flex flex-wrap gap-1">
                   {selectedComp.supports_mutations.map((m) => (
-                    <span key={m} className="text-xs px-2 py-0.5 bg-violet-900/20 text-violet-300 rounded border border-violet-800/30">{m}</span>
+                    <span key={m} className="text-xs px-2 py-0.5 bg-violet-900/20 text-violet-300 rounded-sm border border-violet-800/30">{m}</span>
                   ))}
                 </div>
               </div>
@@ -115,7 +115,7 @@ export function ComponentsTab() {
             {selectedComp.example && Object.keys(selectedComp.example).length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-slate-300 mb-1">Example Spec</h4>
-                <pre className="text-[11px] font-mono bg-slate-900 border border-slate-800 rounded p-3 overflow-auto max-h-64 text-slate-300">
+                <pre className="text-[11px] font-mono bg-slate-900 border border-slate-800 rounded-sm p-3 overflow-auto max-h-64 text-slate-300">
                   {JSON.stringify(selectedComp.example, null, 2)}
                 </pre>
               </div>

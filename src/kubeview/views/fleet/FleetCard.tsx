@@ -53,7 +53,7 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
             <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', healthGradeColor(health.grade))} />
             <span className="text-sm font-semibold text-slate-100 truncate">{cluster.name}</span>
             {cluster.environment && (
-              <span className={cn('text-xs px-1.5 py-0.5 rounded border shrink-0', envClass)}>
+              <span className={cn('text-xs px-1.5 py-0.5 rounded-sm border shrink-0', envClass)}>
                 {cluster.environment}
               </span>
             )}

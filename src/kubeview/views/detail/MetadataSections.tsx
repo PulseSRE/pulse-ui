@@ -43,11 +43,11 @@ export function LabelsSection({ resource, onAddLabel, actionLoading }: LabelsSec
       <div className="space-y-1.5">
         {Object.entries(labels).map(([key, value]) => (
           <div key={key} className="flex items-center gap-2 group">
-            <span className="text-xs text-slate-400 font-mono flex-shrink-0 w-48 truncate" title={key}>{key}</span>
+            <span className="text-xs text-slate-400 font-mono shrink-0 w-48 truncate" title={key}>{key}</span>
             <span className="text-xs text-slate-200 font-mono flex-1">{value}</span>
             <button
               onClick={() => copyToClipboard(`${key}=${value}`, 'Label copied')}
-              className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 rounded text-slate-500 hover:text-slate-300 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-opacity"
               title="Copy label"
             >
               <Copy className="w-3 h-3" />
@@ -85,13 +85,13 @@ export function AnnotationsSection({ resource }: AnnotationsSectionProps) {
       <div className="space-y-2">
         {filtered.map(([key, value]) => (
           <div key={key} className="flex items-start gap-2 group">
-            <span className="text-xs text-slate-400 font-mono flex-shrink-0 w-48 truncate" title={key}>{key}</span>
+            <span className="text-xs text-slate-400 font-mono shrink-0 w-48 truncate" title={key}>{key}</span>
             <span className="text-xs text-slate-200 font-mono break-all flex-1">
               {String(value).length > 200 ? String(value).slice(0, 200) + '...' : value}
             </span>
             <button
               onClick={() => copyToClipboard(`${key}: ${value}`, 'Annotation copied')}
-              className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 rounded text-slate-500 hover:text-slate-300 transition-opacity flex-shrink-0"
+              className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-opacity shrink-0"
               title="Copy annotation"
             >
               <Copy className="w-3 h-3" />

@@ -59,7 +59,7 @@ export function GateCard({ gate, result, waived, waiverReason, onReVerify, onWai
             <span className="text-xs text-slate-500 block truncate">{gate.whyItMatters}</span>
           </div>
         </div>
-        <span className={cn('text-xs font-medium px-2 py-0.5 rounded', cfg.color, 'bg-slate-800')}>
+        <span className={cn('text-xs font-medium px-2 py-0.5 rounded-sm', cfg.color, 'bg-slate-800')}>
           {cfg.label}
         </span>
       </button>

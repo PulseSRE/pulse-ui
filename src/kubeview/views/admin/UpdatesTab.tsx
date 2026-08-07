@@ -145,7 +145,7 @@ export function UpdatesTab({
             <span className="text-sm text-slate-400">Channel</span>
             {showChannelEdit ? (
               <div className="flex items-center gap-2">
-                <select value={channelEdit} onChange={(e) => setChannelEdit(e.target.value)} className="px-2 py-1 text-sm bg-slate-800 border border-slate-600 rounded text-slate-200 w-48" autoFocus>
+                <select value={channelEdit} onChange={(e) => setChannelEdit(e.target.value)} className="px-2 py-1 text-sm bg-slate-800 border border-slate-600 rounded-sm text-slate-200 w-48" autoFocus>
                   {(() => {
                     const ver = cvVersion.match(/^(\d+\.\d+)/)?.[1] || '';
                     const majMin = ver ? [ver] : [];
@@ -157,7 +157,7 @@ export function UpdatesTab({
                     return options.map(ch => <option key={ch} value={ch}>{ch}</option>);
                   })()}
                 </select>
-                <button onClick={handleChangeChannel} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-500">Save</button>
+                <button onClick={handleChangeChannel} className="px-2 py-1 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500">Save</button>
                 <button onClick={() => setShowChannelEdit(false)} className="px-2 py-1 text-xs text-slate-400 hover:text-slate-200">Cancel</button>
               </div>
             ) : (
@@ -241,17 +241,17 @@ export function UpdatesTab({
               const currentParts = cvVersion?.split('.') || [];
               const minorSkip = versionParts[1] && currentParts[1] ? parseInt(versionParts[1]) - parseInt(currentParts[1]) : 0;
               return (
-                <div key={i} className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700">
+                <div key={i} className="flex items-center justify-between p-3 rounded-sm bg-slate-800/50 border border-slate-700">
                   <div>
                     <span className="text-sm font-medium text-slate-200">{u.version}</span>
-                    {i === 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-blue-900 text-blue-300 rounded">Recommended</span>}
-                    {minorSkip > 1 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-amber-900 text-amber-300 rounded">Skips {minorSkip - 1} minor</span>}
-                    {u.risks && u.risks.length > 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded">{u.risks.length} known risk{u.risks.length > 1 ? 's' : ''}</span>}
+                    {i === 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-blue-900 text-blue-300 rounded-sm">Recommended</span>}
+                    {minorSkip > 1 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-amber-900 text-amber-300 rounded-sm">Skips {minorSkip - 1} minor</span>}
+                    {u.risks && u.risks.length > 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{u.risks.length} known risk{u.risks.length > 1 ? 's' : ''}</span>}
                   </div>
                   <button
                     onClick={() => handleStartUpdate(u.version)}
                     disabled={updating || isUpdating}
-                    className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowUpCircle className="w-3 h-3" />}
                     Update
@@ -280,7 +280,7 @@ export function UpdatesTab({
               const isAvailable = available?.status === 'True';
               const version = op.status?.versions?.find((v) => v.name === 'operator')?.version || '';
               return (
-                <div key={op.metadata.uid} className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-800/30 rounded">
+                <div key={op.metadata.uid} className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-800/30 rounded-sm">
                   <div className="flex items-center gap-2">
                     {isDegraded ? <XCircle className="w-3.5 h-3.5 text-red-500" /> :
                      isProgressing ? <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" /> :
@@ -289,7 +289,7 @@ export function UpdatesTab({
                   </div>
                   <div className="flex items-center gap-2">
                     {version && <span className="text-xs font-mono text-slate-500">{version}</span>}
-                    <span className={cn('text-xs px-1.5 py-0.5 rounded',
+                    <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                       isDegraded ? 'bg-red-900/50 text-red-300' :
                       isProgressing ? 'bg-blue-900/50 text-blue-300' :
                       'bg-green-900/50 text-green-300'
@@ -312,7 +312,7 @@ export function UpdatesTab({
             const endTime = h.completionTime ? new Date(h.completionTime) : null;
             const duration = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
             return (
-              <div key={i} className="flex items-center justify-between py-2 px-2 hover:bg-slate-800/30 rounded">
+              <div key={i} className="flex items-center justify-between py-2 px-2 hover:bg-slate-800/30 rounded-sm">
                 <div className="flex items-center gap-2">
                   {h.state === 'Completed' ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> :
                    h.state === 'Partial' ? <RefreshCw className="w-3.5 h-3.5 text-yellow-500 animate-spin" /> :

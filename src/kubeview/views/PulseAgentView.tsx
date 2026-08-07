@@ -81,7 +81,7 @@ export default function PulseAgentView() {
               onClick={() => setActiveTab(t.id)}
               onKeyDown={(e) => handleTabKeyDown(e, i)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
+                'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
                 activeTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
               )}
             >

@@ -80,7 +80,7 @@ function QualityCard({ evalStatus, confidence, onClick }: { evalStatus: AgentEva
             <Shield className="w-3 h-3" />
             <span>Confidence accuracy: {confidence.accuracy_pct}%</span>
             <span className={cn(
-              'px-1.5 py-0.5 rounded text-[10px] font-medium',
+              'px-1.5 py-0.5 rounded-sm text-[10px] font-medium',
               confidence.rating === 'good' ? 'bg-emerald-500/10 text-emerald-400' :
               confidence.rating === 'fair' ? 'bg-amber-500/10 text-amber-400' :
               'bg-red-500/10 text-red-400',

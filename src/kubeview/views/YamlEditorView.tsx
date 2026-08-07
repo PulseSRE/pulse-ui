@@ -131,16 +131,16 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
       {/* Header — same style as CreateView */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => go(backPath, name)} className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Go back">
+          <button onClick={() => go(backPath, name)} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Go back">
             <ArrowLeft size={16} />
           </button>
           <span className="text-sm font-medium text-slate-200">Edit {name}</span>
           <span className="text-xs text-slate-500">{kind} · {gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]}</span>
-          {namespace && <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded">{namespace}</span>}
+          {namespace && <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{namespace}</span>}
         </div>
         <div className="flex items-center gap-2">
           {hasChanges && (
-            <button onClick={handleDiscard} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded bg-slate-700 hover:bg-slate-600 text-slate-300">
+            <button onClick={handleDiscard} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-sm bg-slate-700 hover:bg-slate-600 text-slate-300">
               <RotateCcw size={12} /> Discard
             </button>
           )}
@@ -170,7 +170,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
       {/* Save error banner */}
       {saveError && (
         <div className="flex items-start gap-2 px-4 py-2 bg-red-950/50 border-b border-red-900 text-sm">
-          <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <div className="text-red-300 text-xs flex-1">{saveError}</div>
           <button onClick={() => setSaveError(null)} className="text-red-400 hover:text-red-300 text-xs">Dismiss</button>
         </div>
