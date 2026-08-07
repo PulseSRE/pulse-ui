@@ -27,18 +27,9 @@
 │  │  └──────────────────────────────────────────────────┘  │ │
 │  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                     LogContext (Modal)                       │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Context (5 lines before & after)                      │ │
-│  │  Structured Fields                                      │ │
-│  │  Similar Occurrences                                    │ │
-│  │  Raw Log Line                                           │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  [Copy Line] [Copy with Context]                            │
-└─────────────────────────────────────────────────────────────┘
 ```
+
+> A `LogContext` modal (context lines, structured fields, similar occurrences) was explored during design but was never built. `LogStream`'s `onLineClick` callback exists and is wired for this purpose, but no component currently consumes it to render a context panel.
 
 ## Component Responsibilities
 
@@ -50,7 +41,7 @@
 - Parse log lines with LogParser
 - Render log lines with syntax highlighting
 - Handle auto-scroll behavior
-- Provide search, filtering, download, copy
+- Provide search, filtering, download, copy (search is a plain inline `<input>` in the toolbar — there is no dedicated `LogSearch` component, regex support, or match navigation)
 
 **State:**
 - `lines: ParsedLogLine[]` - All parsed log lines
@@ -63,20 +54,6 @@
 GET /api/kubernetes/api/v1/namespaces/{ns}/pods/{pod}/log
   ?container={name}&timestamps=true&tailLines=1000&follow=true
 ```
-
-### LogSearch
-**Purpose:** Advanced search with regex support
-**Responsibilities:**
-- Accept search query
-- Auto-detect regex patterns
-- Find matching line indices
-- Provide match navigation (up/down)
-- Support negative filtering with `-` prefix
-
-**Props:**
-- `lines: ParsedLogLine[]` - Lines to search
-- `onMatchesChange: (indices: number[]) => void`
-- `onActiveMatchChange: (index: number) => void`
 
 ### MultiContainerLogs
 **Purpose:** Container switcher for multi-container pods
@@ -105,21 +82,6 @@ GET /api/kubernetes/api/v1/namespaces/{ns}/pods/{pod}/log
 - `selectedPod: string` - Current pod or 'all'
 - `mergedLogs: MergedLogLine[]` - Merged logs from all pods
 
-### LogContext
-**Purpose:** Context panel for clicked log line
-**Responsibilities:**
-- Show surrounding context (±5 lines)
-- Display structured fields (JSON/logfmt)
-- Find similar error occurrences
-- Calculate occurrence stats (count, time range, duration)
-- Copy line or context to clipboard
-
-**Props:**
-- `line: ParsedLogLine` - Selected line
-- `lineIndex: number` - Line position
-- `allLines: ParsedLogLine[]` - All lines for context
-- `onClose: () => void`
-
 ## Utilities
 
 ### LogParser
@@ -143,6 +105,7 @@ GET /api/kubernetes/api/v1/namespaces/{ns}/pods/{pod}/log
 
 ### LogCollapse
 **Purpose:** Collapse repeated similar log lines
+**Status:** Implemented and tested (`LogCollapse.test.ts`), but not currently wired into `LogStream` or any other component — it's exported from `index.ts` but has no real consumer yet.
 **Functions:**
 - `areSimilar(a: string, b: string): boolean`
 - `collapseRepeatedLines(lines: ParsedLogLine[], threshold: number): (ParsedLogLine | CollapsedGroup)[]`
@@ -187,23 +150,19 @@ User enables Follow
 
 ### Search
 ```
-User types search query
-  → LogSearch receives query
-    → Auto-detect regex
-      → Filter lines by query
-        → Return match indices
-          → Parent highlights matches
+User types in the inline search input
+  → LogStream filters lines[] by substring match (case-insensitive)
+    → `-` prefix negates the filter
+      → Matching lines re-rendered with highlighted substrings
 ```
 
 ### Context Click
 ```
 User clicks log line
-  → onLineClick callback
-    → Parent opens LogContext modal
-      → Get ±5 lines context
-        → Find similar errors
-          → Calculate stats
-            → Render context panel
+  → onLineClick callback fires with the clicked ParsedLogLine
+    → (no built-in consumer today — a LogContext panel showing
+       surrounding lines, structured fields, and similar occurrences
+       was explored but never implemented)
 ```
 
 ## Performance Considerations
@@ -212,8 +171,8 @@ User clicks log line
 2. **Streaming:** Efficient chunk processing with TextDecoder
 3. **No virtualization:** Browser native scrolling is fast enough for 10k lines
 4. **Smart auto-scroll:** Only scrolls when user is at bottom
-5. **Similarity detection:** Regex-based normalization is fast enough
-6. **Memo/useMemo:** Used for expensive computations (filtering, collapsing)
+5. **Similarity detection:** Regex-based normalization is fast enough (though `collapseRepeatedLines` isn't called from any component yet — see LogCollapse status above)
+6. **Memo/useMemo:** Not currently used for search filtering in `LogStream` — filtering re-runs on every render
 
 ## Styling Strategy
 
@@ -234,8 +193,11 @@ All components use:
 ## Testing Strategy
 
 Unit tests for:
-- **LogParser:** Format detection, line parsing, level normalization
-- **LogCollapse:** Similarity detection, collapsing logic
+- **LogParser:** Format detection, line parsing, level normalization (`LogParser.test.ts`)
+- **LogCollapse:** Similarity detection, collapsing logic (`LogCollapse.test.ts`)
+- **LogStream:** Fetch/render behavior, container auto-detection, error states (`__tests__/LogStream.test.tsx`)
+
+There are also two orphaned logic-only test files, `__tests__/LogSearch.test.ts` and `__tests__/LogContext.test.ts`, that test search/context-extraction logic in isolation for the `LogSearch`/`LogContext` components described above — those components were never built, so these tests exercise standalone functions only, not any React component.
 
 Integration tests (future):
 - Fetch logs from mock K8s API

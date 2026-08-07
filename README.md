@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/alimobrem/OpenshiftPulse/releases/tag/v2.7.1"><img src="https://img.shields.io/badge/release-v2.7.1-2563eb?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/PulseSRE/pulse-ui/releases/tag/v2.7.1"><img src="https://img.shields.io/badge/release-v2.7.1-2563eb?style=for-the-badge" alt="Version"></a>
   <img src="https://img.shields.io/badge/tests-2045-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-77-f59e0b?style=for-the-badge" alt="Health Checks">
   <img src="https://img.shields.io/badge/CVEs-0-10b981?style=for-the-badge" alt="CVEs">
@@ -67,7 +67,7 @@ If you're deploying your own instance, here's what to change:
 | **Container registry** | env vars or Helm values | `quay.io/amobrem` | Your registry (e.g., `quay.io/your-org`) |
 | **Claude API** | env var or Helm secret | none | Your Anthropic API key or GCP Vertex AI project |
 | **CI image push** | `.github/workflows/` | `quay.io/amobrem` | Your registry |
-| **GitHub Pages** | `docs/index.html` | `alimobrem.github.io` | Your GitHub Pages URL |
+| **GitHub Pages** | `docs/index.html` | `PulseSRE.github.io` | Your GitHub Pages URL |
 
 Everything else (RBAC, OAuth, WS tokens, PostgreSQL) is auto-configured by the deploy script.
 
@@ -171,11 +171,11 @@ podman login quay.io                         # Container registry
 
 | Category | What You Get |
 |----------|-------------|
-| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 122 tools (86 native + 36 MCP), 7 skills (sre, security, view_designer, capacity_planner, plan_builder, postmortem, slo_management), 73 PromQL recipes, 10 runbooks, ORCA multi-signal routing (6-channel skill selector), dynamic UI rendering (19 component types), dashboard generation with semantic layout engine and auto-save to PostgreSQL, prompt caching, dynamic tool selection, cluster context injection, intelligence loop for continuous improvement. Follow-up suggestions after each response, welcome message on first connect. [pulse-agent](https://github.com/alimobrem/pulse-agent) |
+| **AI Agent** | Claude-powered SRE diagnostics and security scanning. 138 tools (102 native + 36 MCP), 7 skills (sre, security, view_designer, capacity_planner, plan_builder, postmortem, slo_management), 83 PromQL recipes, 10 runbooks, ORCA multi-signal routing (6-channel skill selector), dynamic UI rendering (25 component types), dashboard generation with semantic layout engine and auto-save to PostgreSQL, prompt caching, dynamic tool selection, cluster context injection, intelligence loop for continuous improvement. Follow-up suggestions after each response, welcome message on first connect. [pulse-agent](https://github.com/PulseSRE/pulse-agent) |
 | **Predictive AI** | Live cluster-aware smart prompts: AI suggestions reflect actual issues (crash-looping pods, degraded operators, pending PVCs) not generic templates. Integrated into Command Palette (`?` mode), dock agent panel, and empty states. |
 | **Native AI Layer** | Unified intelligence layer across all surfaces: smart prompts adapt to cluster state, AI query mode in Command Palette (`?`), violet-branded AI surfaces, auto-expanding InlineAgent for unhealthy resources, "Ask AI" buttons on PulseView attention items, first-run onboarding, dock notification dot for background insights |
 | **Ask Pulse** | Natural language queries in Cmd+K — type a question, get AI-powered answers with action buttons. Dedicated WebSocket, falls back gracefully when agent is offline. |
-| **Review Queue** | GitHub-PR-style view of AI-proposed infrastructure changes with YAML diffs, risk badges, and approve/reject actions. Now merged into Incident Center Actions tab. |
+| **Review Queue** | GitHub-PR-style view of AI-proposed infrastructure changes with YAML diffs, risk badges, and approve/reject actions. Now part of the Inbox task lifecycle (claim/investigate/resolve). |
 | **Enhanced Pulse** | AI morning briefing card, overnight agent activity feed, incident-driven insights rail, cost trend sparkline. All backed by real cluster data. |
 | **Ambient AI** | AI insights on every resource detail view, inline "Ask about this" agent, natural language table filters, dock agent panel, proactive background notifications, fleet-wide AI analysis |
 | **Error Intelligence** | Structured PulseError classification (7 categories), actionable suggestions on every error toast, "Ask AI" button for agent-assisted diagnosis, error tracking store with persistence |
@@ -183,7 +183,7 @@ podman login quay.io                         # Container registry
 | **Cluster Health** | 77 automated checks (31 cluster + 46 domain) with YAML fix examples and "Why it matters" explanations. Actionable metrics: OOMKilled, CrashLoopBackOff, Pending pods, CPU throttling, Nodes Not Ready, API latency/error rate, etcd health. HyperShift-aware — hides control plane metrics unavailable on hosted clusters. |
 | **Daily Briefing** | Risk score ring, control plane status, certificate expiry, attention items with remediation steps. "Cluster Zen" calm state when everything is healthy. |
 | **Instant Navigation** | Hover-prefetch preloads view data before click — navigation feels instant with zero skeleton flash. Applied to Welcome tiles and Command Palette. |
-| **Incident Center** | Consolidates Monitor + Alerts + Errors + Review Queue into 5 tabs: Now (live findings), Investigate (alerts + errors + AI root-cause investigation reports), Actions (merged Review Queue + auto-fix history + post-fix verification), History (correlated timeline), Alerts (severity filters, silence lifecycle). Trust controls are backend-capability-aware. |
+| **Unified Inbox** | Consolidates Monitor findings, alerts, and predictions into a single worklist at `/inbox` with two views: **Inbox** (grouped tasks with presets — Needs Attention, Agent Cleared, My Items, Archived, All — plus filters and a task detail drawer) and **Activity** (chronological feed across Events, Alerts, Agent, Rollouts, Config). Full lifecycle: claim, acknowledge, snooze, dismiss, investigate, resolve, escalate, restore, pin. Trust controls are backend-capability-aware. |
 | **Identity & Access** | Unified view merging User Management + Access Control into a single surface for users, groups, service accounts, RBAC audit, and impersonation |
 | **Incident Timeline** | Unified timeline merging alerts, events, rollouts, and config changes with correlation groups |
 | **Admin Overview** | Firing alerts, named degraded operators, cert warnings, quota hot spots, health score, and Agent quality gate status with PASS/FAIL emphasis — the 8am view |
@@ -195,7 +195,7 @@ podman login quay.io                         # Container registry
 | **Trust Escalation** | Confirmation dialog for agent trust level 3/4 escalation, preventing accidental grant of destructive capabilities |
 | **Version History** | Custom view version history panel — browse, compare, and restore previous versions of agent-generated views |
 | **Live Chart Refresh** | Charts auto-refresh with Live/Paused toggle indicator. Visual feedback for real-time vs. static data |
-| **Custom Dashboards** | AI-generated views with 73 PromQL recipes, semantic auto-layout engine, view validator (dedup, schema, title quality), quality critic (0-10 scoring). Plan → Build → Critique → Present workflow. Clone, delete, version history, share. User-scoped with owner-based access control |
+| **Custom Dashboards** | AI-generated views with 83 PromQL recipes, semantic auto-layout engine, view validator (dedup, schema, title quality), quality critic (0-10 scoring). Plan → Build → Critique → Present workflow. Clone, delete, version history, share. User-scoped with owner-based access control |
 | **Tool Analytics** | Full tool call audit log (PostgreSQL), tool chain discovery (bigram analysis), usage stats API, token tracking per turn. Tools page with catalog, usage log, and analytics tabs — includes unused tools coverage chart for prompt optimization |
 | **Feature Flags** | localStorage-based feature flag system with toggle UI in Admin. Gate unreleased features, A/B test surfaces, disable features without redeployment |
 | **Security** | 10 audit checks incl. ACS/StackRox detection, HyperShift-adapted. [Full details](SECURITY.md) |
@@ -204,9 +204,9 @@ podman login quay.io                         # Container registry
 
 | Feature | Details |
 |---------|---------|
-| **AI Agent** | Chat with Claude-powered SRE/Security agent (122 tools, 7 skills, 73 PromQL recipes, 19 component types). "Ask Agent" from any resource. Streaming, tool execution indicators, confirmation gates. Follow-up suggestions after each response, welcome message on first connect, capability change toast notifications. Mission Control at `/agent` with Trust Policy, Agent Health, Agent Accuracy, and Capability Discovery sections. |
+| **AI Agent** | Chat with Claude-powered SRE/Security agent (138 tools, 7 skills, 83 PromQL recipes, 25 component types). "Ask Agent" from any resource. Streaming, tool execution indicators, confirmation gates. Follow-up suggestions after each response, welcome message on first connect, capability change toast notifications. Mission Control at `/agent` with Trust Policy, Agent Health, Agent Accuracy, and Capability Discovery sections. |
 | **Ask Pulse** | Natural language queries in Cmd+K: type a question in the Command Palette, get AI-powered answers with action buttons. "Open in Agent" for full conversations. |
-| **Incident Actions** | PR-style review of AI-proposed changes merged into Incident Center: YAML diffs, risk badges, business impact, approve/reject. Live data from monitor WebSocket. |
+| **Inbox Task Lifecycle** | PR-style review of AI-proposed changes as inbox tasks: YAML diffs, risk badges, business impact, approve/reject via claim/investigate/resolve actions. Live data from monitor WebSocket. |
 | **Native AI UX** | Unified violet-branded intelligence layer: `?` in Command Palette sends to agent, smart prompts adapt to cluster state, "Ask AI" on PulseView attention items, auto-expand InlineAgent for unhealthy resources, AI empty state suggestions, first-run onboarding card, dock agent notification dot. |
 | **Ambient AI** | AmbientInsight cards on pod/workload detail views. InlineAgent scoped conversations on every resource. NL table filters via AI-branded button. Agent dock panel accessible from any view. Background proactive notifications every 5 min. |
 | **Rich Confirmations** | Visual confirmation cards with risk badges (LOW/MEDIUM/HIGH), impact preview, rollback info, keyboard shortcuts (Y/N/Esc). |
@@ -228,18 +228,18 @@ podman login quay.io                         # Container registry
 | **Smart Diagnosis** | 10 error patterns from pod logs with specific fix suggestions |
 | **Auto-Generated Tables** | Sortable, searchable, j/k navigation, CSV/JSON export |
 
-### Views (18 routable + 5 merged)
+### Views (20 routable + 4 merged)
 
 | View | Highlights |
 |------|-----------|
 | **Welcome** | Quick nav, cluster status with error recovery, all capabilities clickable, keyboard shortcuts |
+| **Onboarding** | First-run setup flow for new clusters/users |
 | **Pulse** | AI morning briefing, overnight agent activity feed, incident insights rail, cost trends. "Cluster Zen" calm state when healthy. Fleet mode: cluster health table, risk scores, AI analysis |
 | **Agent** | Mission Control at `/agent` — Trust Policy, Agent Health, Agent Accuracy, and Capability Discovery |
 | **Workloads** | Metrics + 6-check health audit, deployments sorted unhealthy-first |
 | **Compute** | Node hex map with role filters, cluster type summary (HyperShift vs self-managed), capacity planning, machine management |
 | **Storage** | PVC health, capacity audit, CSI drivers |
 | **Networking** | Routes, network policies, ingress health |
-| **Alerts** | Now a tab in Incident Center — severity filters, silence lifecycle |
 | **Builds** | Now a tab in Workloads — BuildConfigs, ImageStreams, one-click trigger |
 | **Access Control** | Now merged into Identity — RBAC audit (6 checks), recent changes |
 | **User Management** | Now merged into Identity — Users/groups/SAs, impersonation, identity audit |
@@ -247,11 +247,12 @@ podman login quay.io                         # Container registry
 | **Security** | 10 checks, SCC audit, ACS detection |
 | **GitOps** | 4-step setup wizard, ArgoCD Applications, sync history, drift, Rollouts (canary/blue-green), Projects |
 | **Identity** | Unified view merging Users, Groups, Service Accounts, RBAC audit, and impersonation at `/identity` |
-| **Incidents** | 5 tabs: Now (live findings), Investigate (alerts + errors + AI investigation), Actions (review queue + auto-fix), History (correlated timeline), Alerts |
+| **Inbox** | Unified worklist at `/inbox` — Inbox tab (grouped tasks, presets, filters, task detail drawer) and Activity tab (Events, Alerts, Agent, Rollouts, Config feed). Full lifecycle: claim, acknowledge, snooze, dismiss, investigate, resolve, escalate, restore, pin |
+| **SLOs** | SLO/SLI registry with error budgets and burn-rate status per service |
 | **Readiness** | Production readiness program — 30 gates across 6 categories, wizard + checklist modes, waiver workflow |
 | **Fleet** | Multi-cluster dashboard, cross-cluster search, comparison, compliance, cert heat map |
 | **Custom Views** | AI-generated dashboards at `/custom/:viewId`. Agent creates views via `create_dashboard` tool with metric cards, charts, and tables. Semantic auto-layout, version history, clone, delete, share. Plan → Build → Critique workflow |
-| **Toolbox** | Consolidated tools hub at `/toolbox` — 8 tabs: Catalog (all 122 tools with native/MCP source badges), Skills (7 skill packages with status and routing config), Plans (plan templates and active executions), SLOs (SLO registry with burn rates), Connections (MCP server management with toolset toggles), Components (19 component kinds with mutation support), Usage (tool invocation audit log), Analytics (routing accuracy, fix strategies, agent learning) |
+| **Toolbox** | Consolidated tools hub at `/toolbox` — 8 tabs: Catalog (all 138 tools with native/MCP source badges), Skills (7 skill packages with status and routing config), Plans (plan templates and active executions), SLOs (SLO registry with burn rates), Connections (MCP server management with toolset toggles), Components (25 component kinds with mutation support), Usage (tool invocation audit log), Analytics (routing accuracy, fix strategies, agent learning) |
 | **Project** | Namespace-scoped dashboard at `/project/:namespace` with resource summary and health overview |
 | **Claim** | Share token claim view at `/share/:shareToken` for accepting shared custom views |
 | **Admin** | 8 tabs: Overview, Operators, Config, Updates, Snapshots, Quotas, Certificates, CRDs |
@@ -397,23 +398,6 @@ src/kubeview/
 └── App.tsx              # Shell + routes (~45 lines)
 ```
 
-## Recent Code Review (Apr 2026)
-
-**Harsh review of src/kubeview/ (inbox/, agent/, views/, components/, stores/, engine/)** and linked pulse-agent backend completed. Critical production blockers addressed minimally in `TaskDetailDrawer.tsx:272` (inline CSS fixed via Tailwind arbitrary + TODO; tsc/lint/tests verified clean post-commit). 
-
-**Key issues noted (not all fixed per strict "minimal targeted changes only, no refactors" rules):**
-- Type safety: loose `Record<string,unknown>` metadata + casts (lines 350-352), `any` in tests.
-- Zustand: excessive `getState()` (stale closure risk in drawer/stores).
-- Error handling: silent catches, no ErrorBoundary.
-- A11y: missing aria on CollapsibleSection.
-- Maintainability: 711-line drawer with duplicated status logic.
-- Dark mode/Tailwind vs PF inconsistency.
-- pulse-agent: API shape mismatches, weak error contracts.
-
-**Whipped into shape:** Inline CSS blocker, verified production-ready for this component. Full hardening would require broader work (deferred). See CHANGELOG.md and this commit (ccac83b).
-
-*(Updated per "always update README after commit" rule. Focus remained on TaskDetailDrawer per query.)*
-
 ```
 Browser --> OAuth Proxy (8443/TLS) --> nginx (8080) --> K8s API / Prometheus / Alertmanager
                   |                                  \
@@ -434,14 +418,14 @@ Browser --> OAuth Proxy (8443/TLS) --> nginx (8080) --> K8s API / Prometheus / A
 ---
 
 <p align="center">
-  <strong>2,045 tests</strong> &bull; <strong>77 health checks</strong> &bull; <strong>~1s builds</strong> &bull; <strong>0 CVEs</strong> &bull; <strong>25 views</strong> &bull; <strong>154 AI tools</strong> &bull; <strong>7 skills</strong> &bull; <strong>500+ operators</strong>
+  <strong>2,045 tests</strong> &bull; <strong>77 health checks</strong> &bull; <strong>~1s builds</strong> &bull; <strong>0 CVEs</strong> &bull; <strong>24 views</strong> &bull; <strong>138 AI tools</strong> &bull; <strong>7 skills</strong> &bull; <strong>25 component types</strong> &bull; <strong>500+ operators</strong>
 </p>
 
 <p align="center">
-  <a href="https://github.com/alimobrem/OpenshiftPulse/releases">Releases</a> &bull;
+  <a href="https://github.com/PulseSRE/pulse-ui/releases">Releases</a> &bull;
   <a href="SECURITY.md">Security</a> &bull;
   <a href="CHANGELOG.md">Changelog</a> &bull;
-  <a href="https://github.com/alimobrem/OpenshiftPulse/issues">Issues</a>
+  <a href="https://github.com/PulseSRE/pulse-ui/issues">Issues</a>
 </p>
 
 <p align="center">MIT License</p>

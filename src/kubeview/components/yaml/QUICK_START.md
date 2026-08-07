@@ -2,10 +2,10 @@
 
 ## Installation
 
-All dependencies are already installed. Just import and use:
+All dependencies are already installed. There is no barrel `index.ts` in this directory — import directly from each file:
 
 ```tsx
-import { YamlEditor } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 ```
 
 ## Common Use Cases
@@ -13,7 +13,7 @@ import { YamlEditor } from '@/kubeview/components/yaml';
 ### 1. Simple Read-Only Viewer
 
 ```tsx
-import { YamlEditor } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 
 <YamlEditor
   value={resourceYaml}
@@ -25,7 +25,7 @@ import { YamlEditor } from '@/kubeview/components/yaml';
 ### 2. Editable with Save
 
 ```tsx
-import { YamlEditor } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 import { useState } from 'react';
 
 function MyEditor() {
@@ -52,7 +52,7 @@ function MyEditor() {
 ### 3. With Diff Preview Before Save
 
 ```tsx
-import { YamlEditor } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 import { useState } from 'react';
 
 function EditorWithDiff() {
@@ -71,34 +71,27 @@ function EditorWithDiff() {
 }
 ```
 
-### 4. Resource Creation from Paste
+### 4. Server-Side Dry-Run Validation
 
 ```tsx
-import { YamlEditor, PasteDetector, PasteActionDialog } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
+import { DryRunPanel } from '@/kubeview/components/yaml/DryRunPanel';
 import { useState } from 'react';
 
-function CreateResource() {
-  const [yaml, setYaml] = useState('');
-  const [detection, setDetection] = useState(null);
+function EditorWithDryRun() {
+  const [yaml, setYaml] = useState(currentYaml);
+  const [showDryRun, setShowDryRun] = useState(false);
 
   return (
     <>
-      <PasteDetector onDetected={setDetection} />
+      <YamlEditor value={yaml} onChange={setYaml} onSave={handleSave} />
 
-      <YamlEditor
-        value={yaml}
-        onChange={setYaml}
-        onSave={createResource}
-      />
-
-      {detection && (
-        <PasteActionDialog
-          detection={detection}
-          onCreateResource={() => {
-            setYaml(detection.raw);
-            setDetection(null);
-          }}
-          onDismiss={() => setDetection(null)}
+      {showDryRun && (
+        <DryRunPanel
+          yaml={yaml}
+          apiPath="/apis/apps/v1/namespaces/default/deployments/my-app"
+          method="PUT"
+          onClose={() => setShowDryRun(false)}
         />
       )}
     </>
@@ -106,27 +99,12 @@ function CreateResource() {
 }
 ```
 
-### 5. Multi-Document YAML
+`DryRunPanel` submits the YAML to the K8s API with `?dryRun=All`, so it validates against the live API server (field errors, server warnings, and defaults that would be applied) without persisting anything.
+
+### 5. Insert Snippets
 
 ```tsx
-import { MultiDocHandler } from '@/kubeview/components/yaml';
-
-<MultiDocHandler
-  yaml={multiDocYaml}
-  onCreateAll={async (resources) => {
-    for (const r of resources) {
-      await createResource(r.raw);
-    }
-  }}
-  onCreateOne={createResource}
-  onClose={() => setShowDialog(false)}
-/>
-```
-
-### 6. Insert Snippets
-
-```tsx
-import { snippets, resolveSnippet } from '@/kubeview/components/yaml';
+import { snippets, resolveSnippet } from '@/kubeview/components/yaml/SnippetEngine';
 
 // Get all snippets
 const allSnippets = snippets;
@@ -142,15 +120,15 @@ const yaml = resolveSnippet(deploySnippet);
 setYaml(yaml);
 ```
 
-### 7. Complete Editor with Schema Panel
+### 6. Complete Editor with Schema Panel
 
 ```tsx
-import { YamlEditor, SchemaPanel } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
+import SchemaPanel from '@/kubeview/components/yaml/SchemaPanel';
 import { useState } from 'react';
 
 function CompleteEditor() {
   const [yaml, setYaml] = useState(initialYaml);
-  const [cursorPath, setCursorPath] = useState('');
 
   return (
     <div className="flex h-screen">
@@ -167,10 +145,8 @@ function CompleteEditor() {
       <div className="w-96">
         <SchemaPanel
           gvk={{ group: 'apps', version: 'v1', kind: 'Deployment' }}
-          currentPath={cursorPath}
-          onNavigate={(path) => {
-            console.log('Jump to:', path);
-            setCursorPath(path);
+          onInsertField={(path, example) => {
+            console.log('Insert field:', path, example);
           }}
         />
       </div>
@@ -179,16 +155,19 @@ function CompleteEditor() {
 }
 ```
 
+`SchemaPanel` fetches the live OpenAPI schema for the given `gvk` (or auto-detects it from `yamlContent` if `gvk` isn't passed) via `fetchSchema()` in `engine/schema.ts` — no mock data, and results are cached in memory.
+
 ## Available Snippets
 
-Use these prefixes to get YAML templates:
+29 built-in snippets across five categories. Use these prefixes to get YAML templates:
+
+**Core workloads**
 
 | Prefix | Resource | Description |
 |--------|----------|-------------|
 | `deploy` | Deployment | Standard deployment with container |
 | `svc` | Service | ClusterIP service |
 | `ing` | Ingress | Ingress with host/path rules |
-| `pvc` | PersistentVolumeClaim | Storage claim |
 | `cm` | ConfigMap | Configuration data |
 | `secret` | Secret | Opaque secret |
 | `rb` | RoleBinding | RBAC role binding |
@@ -197,6 +176,44 @@ Use these prefixes to get YAML templates:
 | `ns` | Namespace | New namespace |
 | `sa` | ServiceAccount | Service account |
 | `np` | NetworkPolicy | Network policy rules |
+
+**Storage**
+
+| Prefix | Resource | Description |
+|--------|----------|-------------|
+| `pvc` | PersistentVolumeClaim | Storage claim |
+| `pvc-rwx` | PVC (ReadWriteMany) | Shared PVC for multiple pods |
+| `pvc-block` | PVC (Block Volume) | Raw block device for databases/high-perf I/O |
+| `pvc-snapshot` | PVC from Snapshot | Restore a PVC from a VolumeSnapshot |
+| `pvc-clone` | PVC Clone | Clone an existing PVC |
+| `volumesnapshot` | VolumeSnapshot | Point-in-time snapshot of a PVC |
+| `storageclass` | StorageClass | Dynamic provisioning storage class |
+
+**Autoscaling**
+
+| Prefix | Resource | Description |
+|--------|----------|-------------|
+| `clusterautoscaler` | ClusterAutoscaler | Cluster-wide node autoscaling |
+| `machineautoscaler` | MachineAutoscaler | Min/max replicas for a MachineSet |
+
+**Operators / GitOps**
+
+| Prefix | Resource | Description |
+|--------|----------|-------------|
+| `sub-logging` | Cluster Logging Operator | Log collection operator subscription |
+| `sub-loki` | Loki Operator | Scalable log storage operator subscription |
+| `sub-coo` | Cluster Observability Operator | Monitoring/tracing/dashboards subscription |
+| `sub-externalsecrets` | External Secrets Operator | Vault/AWS/GCP secret sync subscription |
+| `sub-oadp` | OADP Operator | Backup/restore operator subscription |
+| `sub-quay` | Quay Operator | Enterprise container registry subscription |
+| `sub-gitops` | OpenShift GitOps (ArgoCD) | Declarative cluster management subscription |
+
+**Logging**
+
+| Prefix | Resource | Description |
+|--------|----------|-------------|
+| `lokistack` | LokiStack | Log storage instance |
+| `clusterlogforwarder` | ClusterLogForwarder | Log collection and forwarding config |
 
 ## Keyboard Shortcuts
 
@@ -243,13 +260,24 @@ interface DiffPreviewProps {
 
 ```tsx
 interface SchemaPanelProps {
-  gvk: {                           // Resource type
+  gvk?: {                           // Resource type (optional if yamlContent is provided)
     group: string;
     version: string;
     kind: string;
   };
-  currentPath?: string;            // Current cursor path
-  onNavigate?: (path: string) => void; // Navigate callback
+  yamlContent?: string;             // Used to auto-detect GVK from apiVersion/kind if gvk isn't passed
+  onInsertField?: (path: string, example: string) => void; // Insert-field callback
+}
+```
+
+### DryRunPanel
+
+```tsx
+interface DryRunPanelProps {
+  yaml: string;                     // YAML to validate
+  apiPath: string;                  // K8s API path, e.g. /apis/apps/v1/namespaces/default/deployments/my-app
+  method: 'POST' | 'PUT';           // POST for create, PUT for update
+  onClose: () => void;
 }
 ```
 
@@ -284,11 +312,11 @@ function App() {
 
 ## Testing
 
-The components are tested with Vitest:
+The components are tested with Vitest. There are 4 files in `__tests__/` (29 tests total), but only 2 map to components that actually exist — `SnippetEngine.test.ts` (8 tests) and `DiffPreview.test.tsx` (4 tests). `MultiDocHandler.test.ts` (9 tests) and `PasteDetector.test.ts` (8 tests) are orphaned: they test logic extracted from components that were explored but never built.
 
 ```tsx
 import { render, screen } from '@testing-library/react';
-import { YamlEditor } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 
 test('renders editor', () => {
   render(<YamlEditor value="apiVersion: v1\nkind: Pod" />);
@@ -317,15 +345,11 @@ pnpm test -- yaml
 - Provide `originalValue` prop
 - Ensure `value` differs from `originalValue`
 
-### Paste detection not working
-- Wrap editor with `<PasteDetector>`
-- Ensure `onDetected` callback is provided
-- Check that pasted text has `apiVersion`, `kind`, and `metadata.name`
+### Dry-run validation not showing
+- Render `<DryRunPanel>` only when you actually want to validate (e.g. `showDryRun` state), it auto-runs on mount
+- Ensure `apiPath` matches a real K8s API path the current user can access
+- Check the browser console/network tab if the panel shows no result — a 404/403 usually means the `apiPath` or RBAC is wrong
 
 ## Next Steps
-
-See `examples/CompleteExample.tsx` for a full integration example with all features.
-
-See `README.md` for detailed API documentation.
 
 See `IMPLEMENTATION.md` for implementation details and architecture.

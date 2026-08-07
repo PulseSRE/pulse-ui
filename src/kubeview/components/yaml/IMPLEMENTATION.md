@@ -11,7 +11,11 @@ This implementation provides a complete schema-aware YAML editing system for Kub
    - Line numbers, fold gutter, bracket matching, active line highlighting
    - Cmd+S / Ctrl+S save shortcut
    - Status bar with line/column position, language indicator, error count
-   - Integrated diff preview support
+   - K8s-aware autocomplete: top-level/nested keyword completion plus common value completion (`kind`, `apiVersion`, restart policies, etc.), triggered via `@codemirror/autocomplete`
+   - Built-in YAML linter (`@codemirror/lint`): flags tabs, odd (non-2-space) indentation, and missing required `apiVersion`/`kind`/`metadata` fields as inline diagnostics
+   - Context-aware sub-snippets: detects the resource `kind` in the document and offers kind-specific fragments (e.g. "Readiness Probe" and "Container" for `Deployment`/`Pod`/etc., "Service Port" for `Service`, "Storage Class" for `PersistentVolumeClaim`) via a side panel
+   - Inline diff panel (toggled by a "Diff" toolbar button) showing the current buffer against `originalValue` directly in the editor, separate from the pre-save `DiffPreview` modal
+   - Help side panel with keyboard-shortcut reference and usage tips
    - Height customization, read-only mode
    - Props: `value`, `onChange`, `readOnly`, `height`, `onSave`, `showDiff`, `originalValue`, `resourceGvk`
 
@@ -27,55 +31,39 @@ This implementation provides a complete schema-aware YAML editing system for Kub
 
 3. **`SchemaPanel.tsx`** (Schema documentation panel)
    - Right-side panel showing field documentation
-   - Hierarchical tree view of resource schema
-   - Field details: type, required status, description, default, enum, min/max
-   - Click to navigate to field
-   - Currently uses mock schema data (real implementation would fetch from K8s API server)
-   - Props: `gvk`, `currentPath`, `onNavigate`
+   - Hierarchical tree view of resource schema, with search-to-filter
+   - Field details: type, required status, description, default, enum, min/max, pattern
+   - Fetches **live** OpenAPI schemas via `fetchSchema()` in `engine/schema.ts` (tries OpenAPI v3 first, falls back to the v2/Swagger endpoint), with an in-memory cache — no mock data
+   - Auto-detects the resource's GVK from `apiVersion`/`kind` in the YAML content if no `gvk` prop is passed
+   - Props: `gvk?`, `yamlContent?`, `onInsertField?`
 
 4. **`SnippetEngine.ts`** (Resource snippets)
-   - 12 built-in snippets for common resources:
-     - `deploy` - Deployment
-     - `svc` - Service (ClusterIP)
-     - `ing` - Ingress
-     - `pvc` - PersistentVolumeClaim
-     - `cm` - ConfigMap
-     - `secret` - Secret (Opaque)
-     - `rb` - RoleBinding
-     - `cj` - CronJob
-     - `hpa` - HorizontalPodAutoscaler
-     - `ns` - Namespace
-     - `sa` - ServiceAccount
-     - `np` - NetworkPolicy
+   - 29 built-in snippets for common resources, spanning:
+     - **Core workloads:** `deploy` (Deployment), `svc` (Service), `ing` (Ingress), `cm` (ConfigMap), `secret` (Secret), `rb` (RoleBinding), `cj` (CronJob), `hpa` (HorizontalPodAutoscaler), `ns` (Namespace), `sa` (ServiceAccount), `np` (NetworkPolicy)
+     - **Storage:** `pvc`, `pvc-rwx` (ReadWriteMany), `pvc-block` (Block Volume), `pvc-snapshot`, `pvc-clone`, `volumesnapshot`, `storageclass`
+     - **Autoscaling:** `hpa`, `clusterautoscaler`, `machineautoscaler`
+     - **Operators / GitOps (OLM Subscriptions):** `sub-logging`, `sub-loki`, `sub-coo`, `sub-externalsecrets`, `sub-oadp`, `sub-quay`, `sub-gitops`
+     - **Logging:** `lokistack`, `clusterlogforwarder`
    - Functions: `getSnippetSuggestions(prefix)`, `resolveSnippet(snippet)`
    - Placeholder resolution: `${N:default}` → `default`
 
-5. **`MultiDocHandler.tsx`** (Multi-document YAML handler)
-   - Detects and parses YAML separated by `---`
-   - Regex-based extraction of kind, apiVersion, metadata.name, metadata.namespace
-   - Shows dialog listing all detected resources
-   - "Create All" button to create all resources in sequence
-   - "Create One" button for individual resource creation
-   - Props: `yaml`, `onCreateAll`, `onCreateOne`, `onClose`
-
-6. **`PasteDetector.tsx`** (Paste detection)
-   - Detects pasted K8s YAML via clipboard events
-   - Validates presence of `apiVersion`, `kind`, `metadata.name`
-   - Detects multi-document YAML (contains `---`)
-   - Counts documents in multi-doc YAML
-   - Component version: `<PasteDetector onDetected={...} />`
-   - Hook version: `usePasteDetector(editorRef)`
-   - Action dialog component: `<PasteActionDialog ... />`
+5. **`DryRunPanel.tsx`** (Server-side dry-run validation)
+   - Submits the current YAML to the K8s API with `?dryRun=All` (`POST` for create, `PUT` for update) to validate against the live API server without persisting anything
+   - Shows validation errors (including field-level causes from the K8s API response), server-emitted `Warning` header text, and a diff of server-applied defaults (fields the API server would add/change)
+   - Collapsible "server-applied defaults" list and full server-result YAML preview (new lines highlighted)
+   - Auto-runs on mount, with a manual "Re-validate" button
+   - Props: `yaml`, `apiPath`, `method` (`'POST' | 'PUT'`), `onClose`
 
 ### Supporting Files
 
-7. **`index.ts`** - Barrel export for all components and types
-8. **`README.md`** - Complete documentation with usage examples
-9. **`IMPLEMENTATION.md`** - This file
-10. **`examples/CompleteExample.tsx`** - Full-featured editor example
-11. **`examples/SnippetExample.tsx`** - Snippet browser example
-12. **`__tests__/SnippetEngine.test.ts`** - Snippet engine tests (12 tests)
-13. **`__tests__/DiffPreview.test.tsx`** - DiffPreview component tests (5 tests)
+6. **`IMPLEMENTATION.md`** - This file
+7. **`QUICK_START.md`** - Quick-start usage guide
+8. **`__tests__/SnippetEngine.test.ts`** - Snippet engine tests (8 tests)
+9. **`__tests__/DiffPreview.test.tsx`** - DiffPreview component tests (4 tests)
+10. **`__tests__/MultiDocHandler.test.ts`** - Orphaned: tests multi-document YAML parsing logic in isolation; there is no `MultiDocHandler` component in the codebase (9 tests)
+11. **`__tests__/PasteDetector.test.ts`** - Orphaned: tests paste-detection logic in isolation; there is no `PasteDetector` component in the codebase (8 tests)
+
+> **Not implemented:** `MultiDocHandler.tsx`, `PasteDetector.tsx`, a barrel `index.ts`, and an `examples/` directory were planned/explored (their logic is partially covered by the two orphaned test files above) but were never built. There is no `README.md` in this directory today — this file and `QUICK_START.md` are the only docs. All real imports use direct file paths (e.g. `import YamlEditor from '@/kubeview/components/yaml/YamlEditor'`), not a barrel import.
 
 ## Design System Compliance
 
@@ -118,10 +106,7 @@ All dependencies are already installed in the project:
 
 ### With Existing YamlEditor
 
-The existing `/src/components/YamlEditor.tsx` is kept intact. The new KubeView editor is in `/src/kubeview/components/yaml/` and can coexist or replace it:
-
-- Old editor: PatternFly-based, JSON/YAML toggle, clean view, minimap
-- New editor: Tailwind-based, schema-aware, diff preview, paste detection
+The old PatternFly-based `/src/components/YamlEditor.tsx` (JSON/YAML toggle, clean view, minimap) has since been removed — this Tailwind-based, schema-aware editor in `/src/kubeview/components/yaml/` is now the only YAML editor in the codebase. It's used via `src/kubeview/views/YamlEditorView.tsx`.
 
 ### Code Splitting
 
@@ -143,9 +128,7 @@ function App() {
 
 ### K8s API Integration
 
-For real K8s API integration, update these areas:
-
-1. **YamlEditor onSave**: Send PUT request to K8s API
+1. **YamlEditor `onSave`**: the caller wires this to a real K8s API request — the editor itself is transport-agnostic:
    ```tsx
    const handleSave = async (value: string) => {
      const res = await fetch(apiUrl, {
@@ -156,33 +139,18 @@ For real K8s API integration, update these areas:
      // Handle response...
    };
    ```
+   For pre-flight validation before committing to that PUT/POST, pair it with `DryRunPanel` (see above), which calls the same endpoint with `?dryRun=All`.
 
-2. **SchemaPanel**: Fetch schema from OpenAPI endpoint
-   ```tsx
-   const schema = await fetch(
-     '/openapi/v2'
-   ).then(r => r.json());
-   ```
-
-3. **MultiDocHandler**: POST each resource
-   ```tsx
-   const createResource = async (doc: ParsedDocument) => {
-     const { apiVersion, kind, metadata } = doc.parsed;
-     const url = buildK8sUrl(apiVersion, kind, metadata.namespace);
-     await fetch(url, {
-       method: 'POST',
-       headers: { 'Content-Type': 'application/yaml' },
-       body: doc.raw,
-     });
-   };
-   ```
+2. **SchemaPanel**: already fetches live schemas — no integration work needed. It calls `fetchSchema(group, version, kind)` from `engine/schema.ts`, which hits `${K8S_BASE}/openapi/v3/apis/{group}/{version}` (falling back to `${K8S_BASE}/openapi/v2`) and caches both the raw OpenAPI spec and the parsed per-resource schema in memory.
 
 ## Testing
 
-17 tests total across 2 test files:
+29 tests total across 4 files in `__tests__/`, though only 2 files map to components that actually exist:
 
-- `SnippetEngine.test.ts`: 12 tests covering snippet search, resolution, structure
-- `DiffPreview.test.tsx`: 5 tests covering rendering, interaction, loading states
+- `SnippetEngine.test.ts`: 8 tests covering snippet search, resolution, structure (real — tests `SnippetEngine.ts`)
+- `DiffPreview.test.tsx`: 4 tests covering rendering, interaction, loading states (real — tests `DiffPreview.tsx`)
+- `MultiDocHandler.test.ts`: 9 tests — orphaned, tests parsing logic extracted from a `MultiDocHandler` component that was never built
+- `PasteDetector.test.ts`: 8 tests — orphaned, tests detection logic extracted from a `PasteDetector` component that was never built
 
 Run tests:
 ```bash
@@ -191,10 +159,12 @@ pnpm test -- yaml
 
 ## Usage Examples
 
+All imports below use direct file paths — there is no barrel `index.ts` in this directory.
+
 ### Basic Editor
 
 ```tsx
-import { YamlEditor } from '@/kubeview/components/yaml';
+import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 
 <YamlEditor
   value={yaml}
@@ -219,28 +189,31 @@ import { YamlEditor } from '@/kubeview/components/yaml';
 ### With Schema Panel
 
 ```tsx
+import SchemaPanel from '@/kubeview/components/yaml/SchemaPanel';
+
 <div className="flex">
-  <YamlEditor ... />
+  <YamlEditor resourceGvk={{ group: 'apps', version: 'v1', kind: 'Deployment' }} ... />
   <SchemaPanel
     gvk={{ group: 'apps', version: 'v1', kind: 'Deployment' }}
-    currentPath={cursorPath}
+    onInsertField={(path, example) => console.log('Insert', path, example)}
   />
 </div>
 ```
 
-### With Paste Detection
+### With Dry-Run Validation Before Save
 
 ```tsx
-<PasteDetector onDetected={(detection) => {
-  if (detection.isMultiDoc) {
-    // Show multi-doc handler
-  } else {
-    // Insert single resource
-  }
-}} />
-```
+import { DryRunPanel } from '@/kubeview/components/yaml/DryRunPanel';
 
-See `examples/CompleteExample.tsx` for a full integration example.
+{showDryRun && (
+  <DryRunPanel
+    yaml={yaml}
+    apiPath="/apis/apps/v1/namespaces/default/deployments/my-app"
+    method="PUT"
+    onClose={() => setShowDryRun(false)}
+  />
+)}
+```
 
 ## Performance Considerations
 
@@ -251,54 +224,50 @@ See `examples/CompleteExample.tsx` for a full integration example.
 
 ## Future Enhancements
 
-Potential improvements for future versions:
+Potential improvements for future versions (note: live OpenAPI schema fetching, server-side dry-run validation, and a basic structural YAML linter are already implemented — see `SchemaPanel.tsx`, `DryRunPanel.tsx`, and the linter in `YamlEditor.tsx` above):
 
-1. **Real Schema Fetching**: Integrate with K8s OpenAPI endpoints
-2. **Autocomplete**: Use schema to provide field autocompletion
-3. **Validation**: Real-time YAML validation against schema
-4. **Field Navigation**: Jump to field on schema panel click
-5. **Snippet Customization**: User-defined custom snippets
-6. **Undo/Redo Stack**: Enhanced history management
-7. **Collaborative Editing**: Real-time multi-user support
-8. **YAML Formatting**: Auto-format on paste/save
-9. **Search/Replace**: Advanced find/replace in editor
-10. **Minimap**: Visual overview for large files
+1. **Schema-driven autocomplete**: Autocomplete currently offers a static list of common K8s keywords/values — wiring it to the live schema from `SchemaPanel`/`engine/schema.ts` would make suggestions resource-aware
+2. **Field Navigation**: Jump from the editor cursor directly to the matching field in `SchemaPanel`
+3. **Snippet Customization**: User-defined custom snippets
+4. **Undo/Redo Stack**: Enhanced history management
+5. **Collaborative Editing**: Real-time multi-user support
+6. **YAML Formatting**: Auto-format on paste/save
+7. **Search/Replace**: Advanced find/replace in editor
+8. **Minimap**: Visual overview for large files
+9. **Multi-document support**: Detecting and handling `---`-separated multi-resource YAML (explored in the orphaned `MultiDocHandler.test.ts`/`PasteDetector.test.ts` logic, but no UI was ever built)
 
 ## File Structure
 
 ```
 src/kubeview/components/yaml/
-├── YamlEditor.tsx           # Main editor component
-├── DiffPreview.tsx          # Diff preview with apply/discard
-├── SchemaPanel.tsx          # Schema documentation panel
-├── SnippetEngine.ts         # Resource snippets
-├── MultiDocHandler.tsx      # Multi-document YAML handler
-├── PasteDetector.tsx        # Paste detection + dialog
-├── index.ts                 # Barrel exports
-├── README.md                # User documentation
+├── YamlEditor.tsx           # Main editor component (autocomplete, linter, sub-snippets, inline diff, help panel)
+├── DiffPreview.tsx          # Pre-save diff preview with apply/discard
+├── SchemaPanel.tsx          # Live OpenAPI schema documentation panel
+├── SnippetEngine.ts         # 29 built-in resource snippets
+├── DryRunPanel.tsx          # Server-side dry-run validation panel
 ├── IMPLEMENTATION.md        # This file
-├── examples/
-│   ├── CompleteExample.tsx  # Full-featured editor
-│   └── SnippetExample.tsx   # Snippet browser
+├── QUICK_START.md           # Quick-start usage guide
 └── __tests__/
-    ├── SnippetEngine.test.ts
-    └── DiffPreview.test.tsx
+    ├── SnippetEngine.test.ts    # Real — tests SnippetEngine.ts
+    ├── DiffPreview.test.tsx     # Real — tests DiffPreview.tsx
+    ├── MultiDocHandler.test.ts  # Orphaned — no MultiDocHandler component exists
+    └── PasteDetector.test.ts    # Orphaned — no PasteDetector component exists
 ```
 
 ## Summary
 
-This implementation provides a complete, production-ready YAML editing system for Kubernetes resources with:
+This implementation provides a schema-aware YAML editing system for Kubernetes resources with:
 
-- ✅ Schema-aware editing (foundation for future enhancements)
-- ✅ Diff preview with LCS algorithm
-- ✅ 12 built-in resource snippets
-- ✅ Multi-document YAML support
-- ✅ Paste detection with auto-resource creation
+- ✅ K8s-aware autocomplete, structural YAML linting, and context-aware sub-snippets
+- ✅ Diff preview with LCS algorithm, plus an inline diff view in the editor itself
+- ✅ 29 built-in resource snippets across workloads, storage, autoscaling, operators/GitOps, and logging
+- ✅ Live OpenAPI schema panel (v3 with v2/Swagger fallback, cached)
+- ✅ Server-side dry-run validation panel (`DryRunPanel`)
 - ✅ Dark theme design system compliance
-- ✅ Comprehensive documentation
-- ✅ 17 unit tests
+- ✅ 12 unit tests covering the components that actually ship (`SnippetEngine`, `DiffPreview`) — plus 17 more in two orphaned test files for a `MultiDocHandler`/`PasteDetector` that were never built
 - ✅ Code-splitting ready
 - ✅ TypeScript types throughout
 - ✅ No dependencies added (all already installed)
+- ❌ No multi-document YAML support or paste-detection UI yet (logic was explored, see orphaned tests above, but no component was built)
 
 The components are modular and can be used independently or composed together for a full-featured editing experience.

@@ -6,8 +6,6 @@
 import {
   // Components
   MetricsChart,
-  PromQLEditor,
-  CorrelatedTimeline,
 
   // Auto-Metrics
   getMetricsForResource,
@@ -60,16 +58,18 @@ const series = results.map(r => ({
 }));
 ```
 
-### Execute custom PromQL
+### Self-fetching sparkline / metric card
 
 ```tsx
-<PromQLEditor
-  value={query}
-  onChange={setQuery}
-  onExecute={async (q) => {
-    const results = await queryRange(q, start, end);
-    // Convert to series...
-  }}
+import { Sparkline, MetricCard } from '@/kubeview/components/metrics/Sparkline';
+
+<Sparkline query="rate(container_cpu_usage_seconds_total{pod=\"nginx-abc\"}[5m])" duration="1h" unit="%" />
+
+<MetricCard
+  title="API Latency (p99)"
+  query='histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le))'
+  unit="s"
+  thresholds={{ warning: 1, critical: 5 }}
 />
 ```
 
@@ -107,9 +107,11 @@ console.log(result.rootCause);
 | Resource Type | Metrics Available |
 |--------------|-------------------|
 | `v1/pods` | CPU, Memory, Network I/O, Restarts |
-| `apps/v1/deployments` | CPU, Memory, Replicas |
+| `apps/v1/deployments` | CPU, Memory, Replicas, Available Replicas |
 | `v1/nodes` | CPU, Memory, Disk, Pod Count |
 | `apps/v1/statefulsets` | CPU, Memory, Replicas |
+| `v1/namespaces` | CPU, CPU by Pod, Memory, Memory by Pod, Pod Count, Network RX/TX, Restarts |
+| `project.openshift.io/v1/projects` | Same as namespaces (OpenShift Projects) |
 | `apps/v1/daemonsets` | CPU, Memory, Desired Pods |
 
 ## Format Functions
@@ -201,19 +203,16 @@ pnpm test -- src/kubeview/components/metrics
 ```
 
 Coverage:
-- ✅ Component rendering
-- ✅ User interactions (hover, click, keyboard)
-- ✅ Format functions
+- ✅ Format functions (`AutoMetrics`, `prometheus.ts`)
 - ✅ Narrative rules
 - ✅ Query resolution
-- ✅ Event grouping
+- ❌ No component-rendering or user-interaction tests exist yet
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
 | Charts not showing | Check `/api/prometheus` proxy in rspack.config.ts |
-| No autocomplete | Verify Prometheus `/api/v1/label/__name__/values` |
 | Threshold lines missing | Ensure threshold query returns scalar value |
 | High memory usage | Reduce step size or limit time range |
 

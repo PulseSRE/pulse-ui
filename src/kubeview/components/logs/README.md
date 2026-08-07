@@ -34,31 +34,6 @@ import { LogStream } from '@/kubeview/components/logs';
 - Line numbers
 - Limited to 10,000 lines for performance
 
-### LogSearch
-
-Advanced search component with regex support and match navigation.
-
-```tsx
-import { LogSearch } from '@/kubeview/components/logs';
-
-const [lines, setLines] = useState<ParsedLogLine[]>([]);
-const [matches, setMatches] = useState<number[]>([]);
-const [activeMatch, setActiveMatch] = useState(0);
-
-<LogSearch
-  lines={lines}
-  onMatchesChange={(indices) => setMatches(indices)}
-  onActiveMatchChange={(index) => setActiveMatch(index)}
-/>
-```
-
-**Features:**
-- Auto-detect regex patterns
-- Negative filtering with `-` prefix
-- Match count display
-- Up/Down navigation between matches
-- Keyboard shortcuts (Enter, Shift+Enter, Escape)
-
 ### MultiContainerLogs
 
 Container switcher for multi-container pods with merged view.
@@ -104,28 +79,7 @@ import { MultiPodLogs } from '@/kubeview/components/logs';
 - Truncated pod names for readability
 - Timestamp-based merging
 
-### LogContext
-
-Context panel shown when clicking a log line.
-
-```tsx
-import { LogContext } from '@/kubeview/components/logs';
-
-<LogContext
-  line={selectedLine}
-  lineIndex={selectedIndex}
-  allLines={lines}
-  onClose={() => setSelectedLine(null)}
-/>
-```
-
-**Features:**
-- Shows 5 lines before and after
-- Highlights selected line
-- Shows structured fields (for JSON/logfmt)
-- Finds similar occurrences of errors
-- Shows occurrence count, time range, duration
-- Copy line or copy with context
+> **Not implemented:** A `LogContext` panel (surrounding lines, structured fields, similar-occurrence detection) was explored during design but never built. `LogStream`'s `onLineClick` prop still fires on line clicks — see [`INTEGRATION.md`](./INTEGRATION.md) for an example of wiring up your own click handler.
 
 ## Utilities
 
@@ -167,7 +121,7 @@ The parser automatically strips and parses this.
 
 ### LogCollapse
 
-Utility to collapse repeated similar log lines.
+Utility to collapse repeated similar log lines. **Note:** implemented and unit-tested, but not currently called from `LogStream` or any other component — there is no UI hook for it yet.
 
 ```tsx
 import { collapseRepeatedLines, isCollapsedGroup } from '@/kubeview/components/logs';
@@ -272,35 +226,21 @@ function DeploymentLogsTab({ deployment, pods }: { deployment: V1Deployment; pod
 }
 ```
 
-### Advanced log viewer with context
+### Reacting to line clicks
 
 ```tsx
-function AdvancedLogViewer() {
+function LogViewerWithClickHandling() {
   const [selectedLine, setSelectedLine] = useState<ParsedLogLine | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [allLines, setAllLines] = useState<ParsedLogLine[]>([]);
 
   return (
     <>
       <LogStream
         namespace="default"
         podName="my-pod"
-        onLineClick={(line) => {
-          // Find line index
-          const index = allLines.findIndex(l => l.raw === line.raw);
-          setSelectedLine(line);
-          setSelectedIndex(index);
-        }}
+        onLineClick={(line) => setSelectedLine(line)}
       />
 
-      {selectedLine && (
-        <LogContext
-          line={selectedLine}
-          lineIndex={selectedIndex}
-          allLines={allLines}
-          onClose={() => setSelectedLine(null)}
-        />
-      )}
+      {selectedLine && <pre>{selectedLine.raw}</pre>}
     </>
   );
 }
@@ -317,3 +257,6 @@ pnpm test -- src/kubeview/components/logs/
 Test files:
 - `LogParser.test.ts` - Parser and format detection
 - `LogCollapse.test.ts` - Line collapsing and similarity detection
+- `__tests__/LogStream.test.tsx` - Fetch/render behavior, container auto-detection, error states
+- `__tests__/LogSearch.test.ts` - Orphaned: tests search-filtering logic extracted from the never-built `LogSearch` component
+- `__tests__/LogContext.test.ts` - Orphaned: tests context-extraction logic extracted from the never-built `LogContext` component

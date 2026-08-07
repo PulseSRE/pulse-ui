@@ -36,7 +36,7 @@ Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. Bo
 | `GET` | `/admin/skills/{name}/versions` | token | Version history for a skill |
 | `GET` | `/admin/skills/{name}/diff` | token | Diff between two skill versions |
 | `POST` | `/admin/mcp/toolsets` | token | Toggle MCP toolsets on/off |
-| `GET` | `/components` | token | Component registry — list all 19 component kinds with schemas |
+| `GET` | `/components` | token | Component registry — list all 25 component kinds with schemas |
 
 **Authentication:** Token-authenticated endpoints accept `Authorization: Bearer <token>` header or `?token=<token>` query parameter. The token is `PULSE_AGENT_WS_TOKEN`. Unauthenticated requests return 401.
 
@@ -45,8 +45,8 @@ Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. Bo
 ```json
 {
   "protocol": "2",
-  "agent": "1.5.0",
-  "tools": 109,
+  "agent": "2.7.1",
+  "tools": 138,
   "features": ["component_specs", "ws_token_auth", "rate_limiting", "monitor", "fix_history", "predictions"]
 }
 ```
@@ -92,18 +92,23 @@ The `agent` version is read dynamically from the installed package metadata. The
 
 ## WebSocket Endpoints
 
+Only two WebSocket routes are registered by the agent today — `/ws/sre` and
+`/ws/security` as separate top-level routes **no longer exist**. All chat
+traffic goes through `/ws/agent`, which classifies each message and routes
+it to the appropriate skill internally (7 skills, not just SRE/Security —
+see pulse-agent's `API_CONTRACT.md` and `CLAUDE.md` for the full ORCA
+routing design).
+
 | Path | Auth | Description |
 |------|------|-------------|
-| `/ws/sre?token=...` | token | SRE agent chat |
-| `/ws/security?token=...` | token | Security scanner chat |
+| `/ws/agent?token=...` | token | Auto-routing orchestrated agent — classifies intent per message and routes to the matching skill (sre, security, view_designer, capacity_planner, plan_builder, postmortem, slo_management) |
 | `/ws/monitor?token=...` | token | Autonomous cluster monitoring (Protocol v2) |
-| `/ws/agent?token=...` | token | Auto-routing orchestrated agent — classifies intent per message and routes to SRE or Security |
 
 All WebSocket endpoints require `PULSE_AGENT_WS_TOKEN` via the `token` query parameter. Connections without a valid token are closed with code `4001`.
 
 ---
 
-## Chat Protocol (`/ws/sre`, `/ws/security`, `/ws/agent`)
+## Chat Protocol (`/ws/agent`)
 
 ### Client-to-Server Messages
 
@@ -459,25 +464,21 @@ Sent after each scan cycle. Contains the IDs of all currently active findings. T
 
 ---
 
-## Agent Protocol (`/ws/agent`)
+## Routing (`/ws/agent` internals)
 
-The `/ws/agent` endpoint uses the same client-to-server and server-to-client message types as the chat protocol (`/ws/sre`, `/ws/security`). The difference is that each incoming `message` is classified by an intent classifier (`orchestrator.py`) and automatically routed to the appropriate agent (SRE or Security) with the correct system prompt and tool set.
-
-### Client-to-Server Messages
-
-- `message`: `{type, content, context?, fleet?}` — same as chat protocol
-- `confirm_response`: `{type, approved, nonce}` — same as chat protocol
-- `clear`: `{type}` — clears conversation history
-
-### Server-to-Client Events
-
-- `text_delta`, `thinking_delta`, `tool_use`, `component`, `confirm_request` (with nonce), `done`, `error`, `cleared` — same as chat protocol
+`/ws/agent` is the only chat endpoint (see note above — `/ws/sre`/`/ws/security` were removed). Each incoming `message` is classified by the ORCA skill selector and routed internally to one of 7 skills (sre, security, view_designer, capacity_planner, plan_builder, postmortem, slo_management) with that skill's own system prompt and tool set. This routing is entirely server-side and transparent to the message/event schema documented above — the UI does not need to know which skill handled a given turn.
 
 ---
 
 ## Component Specs
 
 Structured UI components returned by agent tools via the `component` event. The UI renders these inline in the chat.
+
+There are **25 component kinds** total (`GET /components` returns the full
+registry with schemas). The 9 below were the original set; the rest were
+added since and are only summarized here — see the live `/components`
+response or pulse-agent's `component_registry.py` for authoritative field
+lists.
 
 | `kind` | Description | Key Fields |
 |--------|-------------|------------|
@@ -490,6 +491,22 @@ Structured UI components returned by agent tools via the `component` event. The 
 | `tabs` | Tabbed content | `tabs[]{label, content: ComponentSpec}` |
 | `grid` | Grid layout | `columns`, `items: ComponentSpec[]` |
 | `section` | Titled section | `title`, `content: ComponentSpec` |
+| `relationship_tree` | Resource ownership tree | `nodes[]`, `rootId` |
+| `log_viewer` | Searchable log lines | `lines[]{message, level?, timestamp?}` |
+| `yaml_viewer` | Read-only YAML display | `content`, `language?` |
+| `metric_card` | Single KPI with optional sparkline | `title`, `value`, `query?`, `thresholds?` |
+| `node_map` | Cluster node health map | `nodes[]`, `pods?` |
+| `bar_list` | Ranked horizontal bars | `items[]{label, value}` |
+| `progress_list` | Utilization progress bars | `items[]{label, value, max}` |
+| `stat_card` | Single big stat with trend | `title`, `value`, `trend?` |
+| `timeline` | Correlated event lanes | `lanes[]`, `correlations?` |
+| `resource_counts` | Clickable namespace resource summary | `items[]{resource, count, gvr?}` |
+| `topology` | Dependency graph visualization | `nodes[]`, `edges[]`, `perspective` |
+| `action_button` | Executes a tool from a component | `label`, `tool`, `input` |
+| `confidence_badge` | Confidence score indicator | `score`, `label?` |
+| `resolution_tracker` | Fix verification progress | `status`, `steps[]` |
+| `blast_radius` | Impact-scope visualization | `resources[]`, `severity` |
+| `status_pipeline` | Multi-stage status indicator | `stages[]{label, status}` |
 
 ### Badge Variants
 
@@ -527,9 +544,12 @@ The UI sends a `GET /version` request before connecting. If the agent's `protoco
 
 ### Release Compatibility Matrix
 
+> Starting with the org move to PulseSRE and the rename to `pulse-ui`, the UI's version numbering was reset from the `v6.x` line to a fresh `v2.x` line. Both repos now share the same version number for each release.
+
 | UI Version | Agent Version | Protocol | Status |
 |------------|--------------|----------|--------|
-| v6.2.0 | v2.3.0 | 2 | Current |
+| v2.7.1 | v2.7.1 | 2 | Current |
+| v6.2.0 | v2.3.0 | 2 | Compatible (pre versioning reset) |
 | v6.1.0 | v2.2.0 | 2 | Compatible |
 | v6.0.0 | v2.0.0 | 2 | Compatible |
 | v5.21.0 | v1.16.0 | 2 | Compatible |

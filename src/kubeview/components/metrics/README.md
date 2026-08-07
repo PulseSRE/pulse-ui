@@ -41,63 +41,52 @@ import { MetricsChart } from '@/kubeview/components/metrics';
 />
 ```
 
-### PromQLEditor.tsx
-PromQL query editor with autocomplete and history.
+### Sparkline.tsx
+Minimal inline SVG sparkline chart for a single PromQL time series. Self-fetching — pass a query and it handles the range query, refresh, and rendering internally. **Not re-exported from the `index.ts` barrel** — import directly from the file.
 
 **Features:**
-- Monospace code editor styling
-- Metric name autocomplete from Prometheus API
-- Query history dropdown
-- Execute on Enter key
-- Loading state support
+- Pure SVG, no chart library dependency
+- Self-fetches via `queryRange` + React Query, with configurable `refreshInterval` (default 60s) for live auto-refresh
+- Shows current value with unit suffix
+- "No data" fallback state
 
 **Usage:**
 ```tsx
-import { PromQLEditor } from '@/kubeview/components/metrics';
+import { Sparkline } from '@/kubeview/components/metrics/Sparkline';
 
-const [query, setQuery] = useState('');
-const [history, setHistory] = useState<string[]>([]);
-
-<PromQLEditor
-  value={query}
-  onChange={setQuery}
-  onExecute={(q) => {
-    // Execute query
-    setHistory([q, ...history]);
-  }}
-  history={history}
-  loading={false}
+<Sparkline
+  query="rate(container_cpu_usage_seconds_total{pod=\"nginx-abc\"}[5m])"
+  duration="1h"
+  color="#3b82f6"
+  unit="%"
+  label="CPU"
 />
 ```
 
-### CorrelatedTimeline.tsx
-Synchronized time ruler for correlation views.
-
-**Features:**
-- Horizontal time axis with configurable range
-- Event markers (events, alerts, changes)
-- Drag-to-select time range
-- Hover synchronization
-- Event tooltips
+### MetricCard
+Also exported from `Sparkline.tsx` (same direct-import caveat as above). A card-styled sparkline with title, current value, trend arrow, and optional warning/critical thresholds that recolor the value and line. Used throughout the app (`ControlPlaneMetrics.tsx`, `ComputeView.tsx`, `NetworkingView.tsx`, `StorageView.tsx`, `WorkloadsView.tsx`, `AlertsView.tsx`, and more).
 
 **Usage:**
 ```tsx
-import { CorrelatedTimeline } from '@/kubeview/components/metrics';
+import { MetricCard } from '@/kubeview/components/metrics/Sparkline';
 
-<CorrelatedTimeline
-  timeRange={[startTimestamp, endTimestamp]}
-  onTimeRangeChange={([start, end]) => {
-    // Update charts to new time range
-  }}
-  onHoverTime={(timestamp) => {
-    // Sync hover across charts
-  }}
-  hoverTime={null}
-  events={[
-    { timestamp: 1704067200, label: 'Pod Created', type: 'event', color: '#10b981' },
-    { timestamp: 1704067260, label: 'CPU Alert', type: 'alert', color: '#ef4444' },
-  ]}
+<MetricCard
+  title="API Latency (p99)"
+  query='histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le))'
+  unit="s"
+  color="#3b82f6"
+  thresholds={{ warning: 1, critical: 5 }}
 />
+```
+
+### ControlPlaneMetrics.tsx
+Production dashboard of `MetricCard`s for OpenShift control-plane health: API latency (p99), API error rate, API request rate, and (on non-HyperShift clusters) etcd leader status, etcd WAL fsync latency, and etcd DB size. On HyperShift clusters it swaps the etcd cards for a single "Hosted CP Requests" card, since etcd isn't directly observable. Also **not re-exported from the barrel** — import directly.
+
+**Usage:**
+```tsx
+import { ControlPlaneMetrics } from '@/kubeview/components/metrics/ControlPlaneMetrics';
+
+<ControlPlaneMetrics />
 ```
 
 ### AutoMetrics.ts
@@ -135,10 +124,36 @@ console.log(formatCores(0.25));                 // "250m"
 
 **Supported Resource Types:**
 - `v1/pods`: CPU, Memory, Network I/O, Restarts
-- `apps/v1/deployments`: CPU, Memory, Replicas
+- `apps/v1/deployments`: CPU, Memory, Replicas, Available Replicas
 - `v1/nodes`: CPU, Memory, Disk, Pod Count
 - `apps/v1/statefulsets`: CPU, Memory, Replicas
+- `v1/namespaces`: CPU, CPU by Pod, Memory, Memory by Pod, Pod Count, Network RX/TX, Restarts
+- `project.openshift.io/v1/projects`: Same metrics as namespaces (OpenShift Projects)
 - `apps/v1/daemonsets`: CPU, Memory, Desired Pods
+
+### prometheus.ts
+Low-level Prometheus/Thanos API client used by `Sparkline`, `MetricCard`, and the CHEATSHEET/INTEGRATION examples above.
+
+**Features:**
+- `queryRange(query, start, end, step?)` / `queryInstant(query, time?)` — execute PromQL against the `/api/prometheus` proxy
+- `getMetricNames()` / `getLabelValues(labelName)` — for autocomplete-style lookups
+- `seriesToDataPoints(series)` — convert a `PrometheusSeries` into `{ timestamp, value }[]` for `MetricsChart`
+- `parseDuration(duration)` / `formatDuration(seconds)` / `getTimeRange(duration)` — Prometheus duration string helpers (e.g. `"1h"`, `"6h"`, `"24h"`, `"7d"`)
+- `usePrometheusRange(query, timeRange, enabled?)` / `usePrometheusInstant(query, enabled?)` — React hooks wrapping the above with `loading`/`error`/`data` state
+
+**Usage:**
+```tsx
+import { queryRange, getTimeRange, usePrometheusRange } from '@/kubeview/components/metrics';
+
+const [start, end] = getTimeRange('1h');
+const series = await queryRange('rate(container_cpu_usage_seconds_total[5m])', start, end);
+
+// or as a hook
+const { data, loading, error } = usePrometheusRange(
+  'rate(container_cpu_usage_seconds_total[5m])',
+  getTimeRange('1h')
+);
+```
 
 ### Narrative.ts
 Rule-based incident story builder.
@@ -179,12 +194,9 @@ const groups = groupEvents(result.events);
 
 ## Testing
 
-Tests are located in `__tests__/metrics.test.tsx` covering:
-- Component rendering
-- User interactions (hover, click, keyboard)
-- Data formatting functions
-- Narrative rule matching
-- Event grouping
+Tests are located in `__tests__/`:
+- `metrics.test.tsx` — `AutoMetrics` (`getMetricsForResource`, `resolveQuery`, format functions) and `Narrative.buildNarrative` rule matching. No component-rendering or user-interaction tests exist today.
+- `prometheus.test.ts` — `prometheus.ts` API client functions (`queryRange`, `queryInstant`, `getMetricNames`, `getLabelValues`, `seriesToDataPoints`, `parseDuration`, `formatDuration`, `getTimeRange`)
 
 Run tests with:
 ```bash

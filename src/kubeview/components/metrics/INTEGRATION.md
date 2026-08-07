@@ -69,53 +69,38 @@ export function PodMetricsView({ pod }: { pod: K8sResource }) {
 }
 ```
 
-### 2. Custom PromQL Query
+### 2. Self-Fetching Sparkline / MetricCard
+
+`Sparkline` and `MetricCard` (in `Sparkline.tsx`, imported directly — not part of the `index.ts` barrel) handle their own data fetching, so you don't need to wire up `queryRange`/`useState` yourself for simple cases:
 
 ```tsx
-import { PromQLEditor, MetricsChart, queryRange } from '@/kubeview/components/metrics';
+import { Sparkline, MetricCard } from '@/kubeview/components/metrics/Sparkline';
 
-export function CustomMetricsView() {
-  const [query, setQuery] = useState('');
-  const [series, setSeries] = useState<ChartSeries[]>([]);
-  const [history, setHistory] = useState<string[]>([]);
-
-  const handleExecute = async (q: string) => {
-    const timeRange: [number, number] = [
-      Math.floor(Date.now() / 1000) - 3600,
-      Math.floor(Date.now() / 1000),
-    ];
-
-    const results = await queryRange(q, timeRange[0], timeRange[1]);
-
-    const chartSeries: ChartSeries[] = results.map((result, i) => ({
-      id: `series-${i}`,
-      label: result.metric.__name__ || `Series ${i + 1}`,
-      color: ['#3b82f6', '#10b981', '#f59e0b'][i % 3],
-      data: seriesToDataPoints(result),
-    }));
-
-    setSeries(chartSeries);
-    setHistory([q, ...history.filter((h) => h !== q).slice(0, 9)]);
-  };
-
+export function QuickResourceMetrics() {
   return (
-    <div>
-      <PromQLEditor
-        value={query}
-        onChange={setQuery}
-        onExecute={handleExecute}
-        history={history}
+    <div className="grid grid-cols-2 gap-3">
+      <MetricCard
+        title="CPU Usage"
+        query='rate(container_cpu_usage_seconds_total{pod="nginx-abc",container!="",container!="POD"}[5m])'
+        unit=""
+        thresholds={{ warning: 0.8, critical: 1.2 }}
       />
-      <MetricsChart series={series} height={300} />
+      <Sparkline
+        query='container_memory_working_set_bytes{pod="nginx-abc"}'
+        unit=" B"
+        label="Mem"
+      />
     </div>
   );
 }
 ```
 
-### 3. Correlation View with Synchronized Charts
+Both components refresh themselves on an interval (`refreshInterval`, default 60s) via React Query, so no manual polling is needed.
+
+### 3. Synchronized Charts
 
 ```tsx
-import { MetricsChart, CorrelatedTimeline } from '@/kubeview/components/metrics';
+import { MetricsChart } from '@/kubeview/components/metrics';
 
 export function CorrelationView() {
   const [timeRange, setTimeRange] = useState<[number, number]>([
@@ -124,23 +109,8 @@ export function CorrelationView() {
   ]);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
 
-  // Fetch events, alerts, and metrics
-  const events = [
-    { timestamp: timeRange[0] + 300, label: 'Pod Created', type: 'event', color: '#10b981' },
-    { timestamp: timeRange[0] + 900, label: 'CPU Alert', type: 'alert', color: '#ef4444' },
-  ];
-
   return (
     <div className="space-y-4">
-      {/* Timeline with events */}
-      <CorrelatedTimeline
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-        onHoverTime={setHoverTime}
-        hoverTime={hoverTime}
-        events={events}
-      />
-
       {/* CPU Chart - synchronized hover */}
       <MetricsChart
         series={cpuSeries}
@@ -278,7 +248,7 @@ function MetricsDashboard({ resource }: { resource: K8sResource }) {
       <TimeRangeSelector onChange={setTimeRange} />
 
       {queries.map((query) => (
-        <MetricCard
+        <ResourceMetricChart
           key={query.id}
           query={query}
           resource={resource}
@@ -289,7 +259,10 @@ function MetricsDashboard({ resource }: { resource: K8sResource }) {
   );
 }
 
-function MetricCard({ query, resource, timeRange }) {
+// Note: this is a hand-rolled example component distinct from the real
+// `MetricCard` exported by `Sparkline.tsx` (see above) — it's named
+// differently here to avoid confusion with that self-fetching component.
+function ResourceMetricChart({ query, resource, timeRange }) {
   const [series, setSeries] = useState<ChartSeries[]>([]);
 
   useEffect(() => {
@@ -397,17 +370,12 @@ function PodMetrics({ pod }: { pod: K8sResource }) {
 - Ensure `timeRange` prop changes trigger useEffect dependencies
 - Check browser console for fetch errors
 
-### Autocomplete not working
-- Verify Prometheus `/api/v1/label/__name__/values` endpoint is accessible
-- Check CORS settings if accessing from different origin
-
 ### Threshold lines not showing
 - Ensure threshold queries return scalar values
 - Check that threshold values are within the Y-axis range
 
 ## Next Steps
 
-- Add auto-refresh for live monitoring
 - Implement zoom controls (brush selection already supported)
 - Add export to CSV/PNG
 - Integrate with Alertmanager for silencing

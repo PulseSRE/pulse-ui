@@ -135,7 +135,7 @@ A comprehensive security audit was performed covering authentication, injection 
 
 ### Packages
 - All packages sourced from the official registry (`registry.npmjs.org`) via pnpm
-- `pnpm audit` reports **0 vulnerabilities** (as of v6.2.0)
+- `pnpm audit` reports **0 vulnerabilities** (as of v2.7.1)
 - No custom `.npmrc` overriding the registry
 - No deprecated packages in production dependencies
 

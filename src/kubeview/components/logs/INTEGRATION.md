@@ -144,29 +144,19 @@ export default function SimpleLogViewer({
 }
 ```
 
-## Advanced: Custom Log Analysis
+## Advanced: Reacting to Line Clicks
 
-Example with log context and custom analysis:
+`LogStream` exposes an `onLineClick` callback so a parent can react when a user clicks a line (for example, to log it or feed it into your own custom panel). Note there is no built-in `LogContext` component shipped today — a context panel (surrounding lines, structured fields, similar occurrences) was explored but never implemented, so you'd need to build your own if you want that UX.
 
 ```tsx
 import React, { useState, useCallback } from 'react';
-import { LogStream, LogContext, type ParsedLogLine } from '@/kubeview/components/logs';
+import { LogStream, type ParsedLogLine } from '@/kubeview/components/logs';
 
-export default function AdvancedLogViewer() {
-  const [allLines, setAllLines] = useState<ParsedLogLine[]>([]);
+export default function LogViewerWithClickHandling() {
   const [selectedLine, setSelectedLine] = useState<ParsedLogLine | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const handleLineClick = useCallback((line: ParsedLogLine) => {
-    const index = allLines.findIndex((l) => l.raw === line.raw);
     setSelectedLine(line);
-    setSelectedIndex(index);
-  }, [allLines]);
-
-  // You would need to extend LogStream to expose parsed lines
-  // or fetch them separately
-  const handleLinesUpdate = useCallback((lines: ParsedLogLine[]) => {
-    setAllLines(lines);
   }, []);
 
   return (
@@ -178,12 +168,9 @@ export default function AdvancedLogViewer() {
       />
 
       {selectedLine && (
-        <LogContext
-          line={selectedLine}
-          lineIndex={selectedIndex}
-          allLines={allLines}
-          onClose={() => setSelectedLine(null)}
-        />
+        <pre className="absolute bottom-0 right-0 p-3 bg-slate-900 text-slate-200 text-xs">
+          {selectedLine.raw}
+        </pre>
       )}
     </div>
   );

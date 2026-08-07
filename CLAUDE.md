@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.5.0, ~200 source files, 2020 unit tests + 53 E2E scenarios.
+OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.7.1, ~200 source files, 2,045 unit tests + 57 E2E scenarios.
 
 ## Commands
 
@@ -21,7 +21,7 @@ pnpm exec vitest --run src/kubeview/views/__tests__/WorkloadsView.test.tsx  # si
 pnpm exec vitest --run -t "test name pattern"  # single test by name
 
 # Helm chart validation (no cluster needed)
-./deploy/test-helm.sh    # 12 tests: lint, template, security, token leak check
+./deploy/test-helm.sh    # 13 tests: lint, template, security, token leak check
 
 # Type checking
 pnpm type-check          # tsc --noEmit
@@ -121,7 +121,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 ### Agent Integration
 - **Default agent mode**: `auto` — uses `/ws/agent` endpoint which auto-routes between SRE and Security based on query intent
 - **Agent endpoint**: `/ws/agent?token=...` — auto-routing orchestrated agent (classifies intent per message)
-- **Legacy endpoints**: `/ws/sre` and `/ws/security` still available for explicit mode selection
+- **No separate mode endpoints**: `/ws/sre` and `/ws/security` do not exist as standalone routes — `/ws/agent` classifies intent per message and routes internally to one of 7 skills
 - **Monitor WebSocket**: `engine/monitorClient.ts` → `store/monitorStore.ts` — single connection via `agentNotifications.ts`
 - **Ask Pulse**: `hooks/useAskPulse.ts` — dedicated `AgentClient` WebSocket for Cmd+K NL queries (separate from dock chat)
 - **Trust level**: sent as integer (0-4) to backend, NOT as label string
@@ -129,7 +129,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Confirmation flow**: `confirm_request` with nonce → UI shows dialog → `confirm_response` with nonce echoed back
 - **Degraded mode**: `engine/degradedMode.ts` — 5 failure reasons, displayed via `DegradedBanner`
 - **Auto-fix**: at trust level 3/4, monitor fixes crashloop (pod delete) and workloads (deployment restart) WITHOUT confirmation gate. Has safety guardrails: max 3/scan, 5min cooldown, no bare pods.
-- **Agent version**: v2.5.0 (Protocol v2, 138 tools [102 native + 36 MCP], 24 scanners)
+- **Agent version**: v2.7.1 (Protocol v2, 138 tools [102 native + 36 MCP], 22 scanners)
 - **MCP integration**: OpenShift MCP server with 11 toolsets, 36 tools including Prometheus queries and Helm management
 - **Skills**: 7 skill packages (sre, security, view_designer, capacity_planner, plan-builder, postmortem, slo-management) with hot reload, routing, version history, and AI-generated skill badges
 - **Custom views**: auto-saved to PostgreSQL on `create_dashboard`, user-scoped via OAuth token
@@ -154,7 +154,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Catalog**: all tools (native + MCP) with source badges, search, mode/source filter
 - **Skills**: skill packages with editor, version history, diff viewer, routing tester, investigation plan templates section, AI-generated skill badges
 - **Connections**: MCP server management with 11 toolset toggles
-- **Components**: 19 component kinds by category with mutation support
+- **Components**: 25 component kinds by category with mutation support
 - **Usage**: tool invocation audit log with source (native/mcp) column
 - **Analytics**: merged tool stats + skill usage + by-source breakdown + handoffs
 
@@ -199,7 +199,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Coverage thresholds**: 40% statements, 30% branches, 35% functions, 40% lines (enforced in vitest.config.ts)
 - **Setup**: `src/kubeview/__tests__/setup.tsx` — factories, mock server, renderWithProviders
 - **2,020 unit tests** across 166 files (~9s)
-- **E2E**: Playwright (53 test cases across 6 specs) — `pnpm e2e` auto-starts mock K8s + agent (podman) + dev server, tears down containers after
+- **E2E**: Playwright (57 test cases across 7 specs) — `pnpm e2e` auto-starts mock K8s + agent (podman) + dev server, tears down containers after
 - **E2E config**: `e2e/playwright.config.ts`, mock K8s in `e2e/mock-k8s-server.mjs`, agent+pg in `e2e/docker-compose.agent.yml`
 - **E2E agent stack**: `e2e/start-agent.sh` / `e2e/stop-agent.sh` — starts real agent + PostgreSQL in podman containers
 - Do not use `sed` to edit test files — use the Edit tool instead. Sed commands have repeatedly mangled test files requiring manual cleanup.
@@ -246,7 +246,7 @@ Helm umbrella chart in `deploy/helm/pulse/`. UI and agent always deployed togeth
 When deploying to OpenShift clusters, always verify NetworkPolicy egress rules, image pull access, and OAuth/TLS configuration before the first deploy attempt. Run a pre-deploy checklist rather than iterating through failures.
 
 **Pre-deploy checklist (run before every deploy):**
-1. `./deploy/test-helm.sh` — validate Helm charts locally (12 tests, no cluster needed)
+1. `./deploy/test-helm.sh` — validate Helm charts locally (13 tests, no cluster needed)
 2. `oc whoami` — verify cluster auth works
 3. `oc get networkpolicy -n openshiftpulse` — check egress allows agent → Kubernetes API, Prometheus, Vertex AI
 4. `podman login --get-login quay.io` — verify image push access
@@ -264,7 +264,7 @@ When fixing PostgreSQL deployment issues, validate password encoding, avoid rese
 - **PostgreSQL password**: `oc delete secret pulse-openshift-sre-agent-pg-auth -n openshiftpulse` then redeploy. Requires PostgreSQL pod restart.
 
 ### GitHub Pages
-- **UI**: https://alimobrem.github.io/OpenshiftPulse/ (cyberpunk theme, `docs/index.html`)
-- **Agent**: https://alimobrem.github.io/pulse-agent/ (cyberpunk theme, custom robot logo)
+- **UI**: https://PulseSRE.github.io/pulse-ui/ (cyberpunk theme, `docs/index.html`)
+- **Agent**: https://PulseSRE.github.io/pulse-agent/ (cyberpunk theme, custom robot logo)
 - Cross-linked between projects
 - Screenshots captured via Playwright: `scripts/capture-screenshots.ts`
