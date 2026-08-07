@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.7.1, ~200 source files, 2,045 unit tests + 57 E2E scenarios.
+OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.7.1, ~200 source files, 2,069 unit tests (172 files) + 57 E2E scenarios.
 
 ## Commands
 
@@ -16,7 +16,7 @@ pnpm dev                 # rspack dev server on port 9000
 pnpm build               # production build (~1s)
 
 # Tests
-pnpm exec vitest --run   # run all unit tests (~9s, 2020 tests)
+pnpm exec vitest --run   # run all unit tests (~9s, 2069 tests)
 pnpm exec vitest --run src/kubeview/views/__tests__/WorkloadsView.test.tsx  # single file
 pnpm exec vitest --run -t "test name pattern"  # single test by name
 
