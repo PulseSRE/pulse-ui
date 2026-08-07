@@ -16,7 +16,7 @@ dependencies:
     repository: "file://../openshiftpulse"
 
   - name: openshift-sre-agent
-    version: "1.13.0"
+    version: "2.7.1"
     repository: "file://../../../../pulse-agent/chart"
     alias: agent
     condition: agent.enabled
