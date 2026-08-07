@@ -134,6 +134,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Skills**: 7 skill packages (sre, security, view_designer, capacity_planner, plan-builder, postmortem, slo-management) with hot reload, routing, version history, and AI-generated skill badges
 - **Custom views**: auto-saved to PostgreSQL on `create_dashboard`, user-scoped via OAuth token
 - **25 component types**: metric_card, info_card_grid, stat_card, resource_counts, data_table, key_value, bar_list, progress_list, chart, node_map, timeline, status_list, badge_list, log_viewer, yaml_viewer, relationship_tree, tabs, grid, section, topology, confidence_badge, resolution_tracker, blast_radius, status_pipeline, action_button
+- **Intelligence bridge**: `normalizeAgentProps.ts` normalizes field aliases (label→name for status_list, label→text for badge_list, warning→warn for log_viewer, values→data for chart, props flattening). `getKnownKinds()` in `componentRegistry.ts` lists all 25 kinds with native renderers
 
 ### Incident Center (`/incidents`) — 6 tabs
 - **Now**: unified feed from `useIncidentFeed` hook (findings + alerts + errors), silence management, inline investigation phase progress

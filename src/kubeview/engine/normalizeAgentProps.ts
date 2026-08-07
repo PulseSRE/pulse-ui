@@ -51,6 +51,51 @@ function normalizeKindSpecific(spec: ComponentSpec): ComponentSpec {
       return spec;
     }
 
+    case 'status_list': {
+      if (Array.isArray(raw.items)) {
+        const items = (raw.items as Array<RawSpec>).map((item) => ({
+          ...item,
+          name: (item.name || item.label || '') as string,
+          status: item.status === 'info' ? 'unknown' : (item.status || 'unknown') as string,
+        }));
+        return { ...spec, items } as unknown as ComponentSpec;
+      }
+      return spec;
+    }
+
+    case 'badge_list': {
+      if (Array.isArray(raw.badges)) {
+        const badges = (raw.badges as Array<RawSpec>).map((badge) => ({
+          ...badge,
+          text: (badge.text || badge.label || '') as string,
+        }));
+        return { ...spec, badges } as unknown as ComponentSpec;
+      }
+      return spec;
+    }
+
+    case 'log_viewer': {
+      if (Array.isArray(raw.lines)) {
+        const lines = (raw.lines as Array<RawSpec>).map((line) => ({
+          ...line,
+          level: line.level === 'warning' ? 'warn' : (line.level || 'info') as string,
+        }));
+        return { ...spec, lines } as unknown as ComponentSpec;
+      }
+      return spec;
+    }
+
+    case 'chart': {
+      if (Array.isArray(raw.series)) {
+        const series = (raw.series as Array<RawSpec>).map((s) => ({
+          ...s,
+          data: (s.data || s.values || []) as unknown[],
+        }));
+        return { ...spec, series } as unknown as ComponentSpec;
+      }
+      return spec;
+    }
+
     default:
       return spec;
   }
