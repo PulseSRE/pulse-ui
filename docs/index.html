@@ -339,7 +339,7 @@
   <section class="hero">
     <img src="logo.svg" alt="OpenShift Pulse">
     <h1>OPENSHIFT PULSE</h1>
-    <div class="version">v2.7.1 // OPERATIONAL</div>
+    <div class="version">v2.8.0 // OPERATIONAL</div>
     <p class="tagline">AI-powered platform operations. Built for the engineer who checks their cluster at <em>0800 Monday</em>.</p>
     <div class="hero-buttons">
       <a href="https://github.com/PulseSRE/pulse-ui" class="btn btn-primary">[ DEPLOY ]</a>
@@ -351,10 +351,10 @@
   <div class="neon-divider"></div>
 
   <div class="stats-bar">
-    <div class="stat"><div class="stat-value">2,045</div><div class="stat-label">Tests</div></div>
+    <div class="stat"><div class="stat-value">2,069</div><div class="stat-label">Tests</div></div>
     <div class="stat"><div class="stat-value magenta">25</div><div class="stat-label">Views</div></div>
-    <div class="stat"><div class="stat-value">138</div><div class="stat-label">AI Tools</div></div>
-    <div class="stat"><div class="stat-value magenta">19</div><div class="stat-label">Widget Types</div></div>
+    <div class="stat"><div class="stat-value">154</div><div class="stat-label">AI Tools</div></div>
+    <div class="stat"><div class="stat-value magenta">25</div><div class="stat-label">Widget Types</div></div>
     <div class="stat"><div class="stat-value green">0</div><div class="stat-label">CVEs</div></div>
     <div class="stat"><div class="stat-value yellow">~1s</div><div class="stat-label">Build</div></div>
   </div>
@@ -367,19 +367,19 @@
     <div class="features">
       <div class="feature-card">
         <h3>AI SRE Agent <span class="badge badge-ai">AI</span></h3>
-        <p>Claude-powered diagnostics. 138 tools (102 native + 36 MCP), 7 skills, ORCA multi-signal routing, adaptive tool selection, 25 component types, streaming chat, confirmation gates. Agent v2.7.1 with live tables + unified inbox.</p>
+        <p>Claude-powered diagnostics. 154 tools (118 native + 36 MCP), 7 skills, ORCA multi-signal routing, adaptive tool selection, 25 component types, streaming chat, confirmation gates. Agent v2.8.0 with intelligence bridge + unified inbox.</p>
       </div>
       <div class="feature-card">
-        <h3>Ask Pulse <span class="badge badge-new">NEW</span></h3>
+        <h3>Ask Pulse</h3>
         <p>Natural language in Cmd+K. Type a question, get real answers with action buttons. Dedicated WebSocket, 8s timeout.</p>
       </div>
       <div class="feature-card">
-        <h3>Mission Control <span class="badge badge-new">NEW</span></h3>
+        <h3>Mission Control</h3>
         <p>Single-page agent dashboard at /agent. Trust Policy, Agent Health, Agent Accuracy, Capability Discovery sections with slide-over drawers for scanner, eval, and memory details.</p>
       </div>
       <div class="feature-card">
-        <h3>Incident Center <span class="badge badge-new">NEW</span></h3>
-        <p>Active, Timeline, Review Queue, History, Alerts. AI investigation with collapsed thinking/tools. Auto-fix with verification, correlation groups.</p>
+        <h3>Incident Center</h3>
+        <p>Now, Investigate, Actions, Postmortems, History, Alerts. 6 tabs. AI investigation with collapsed thinking/tools. Auto-fix with verification, correlation groups.</p>
       </div>
       <div class="feature-card">
         <h3>Fleet Topology</h3>
@@ -390,7 +390,7 @@
         <p>30 gates, 6 categories. Wizard + checklist modes. Waivers, continuous re-checks, blocking gates for critical paths.</p>
       </div>
       <div class="feature-card">
-        <h3>Morning Briefing <span class="badge badge-new">NEW</span></h3>
+        <h3>Morning Briefing</h3>
         <p>AI overnight summary. Agent actions, incidents, current cluster state. The 30-second standup replacement.</p>
       </div>
       <div class="feature-card">
@@ -402,16 +402,32 @@
         <p>CodeMirror with K8s autocomplete, 71 snippets, inline diff. Server-side dry-run before applying.</p>
       </div>
       <div class="feature-card">
-        <h3>Deploy Hardening <span class="badge badge-new">NEW</span></h3>
+        <h3>Deploy Hardening</h3>
         <p>Values file replaces 20+ --set flags. --atomic Helm upgrade with auto-rollback. Startup probes on all containers. Deploy history log.</p>
       </div>
       <div class="feature-card">
-        <h3>Self-Monitoring <span class="badge badge-new">NEW</span></h3>
+        <h3>Self-Monitoring</h3>
         <p>ServiceMonitor + 4 PrometheusRules: UIDown, AgentDown, AgentHighRestarts, PostgreSQLDown. Alerts on your alerts.</p>
       </div>
       <div class="feature-card">
-        <h3>Helm Test Suite <span class="badge badge-new">NEW</span></h3>
+        <h3>Helm Test Suite</h3>
         <p>13 Helm chart tests run in CI without a cluster. 88 new scanner unit tests. E2E tests now run on every PR.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Ops Inbox <span class="badge badge-ai">AI</span></h3>
+        <p>Unified SRE worklist. 13 proactive generators surface cert expiry, capacity, SLO burns, RBAC drift. Claim, snooze, escalate, resolve. Priority scoring with dedup.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Intelligence Bridge <span class="badge badge-ai">AI</span></h3>
+        <p>25 component specs. Agent tools return structured UI primitives — metrics cards, status pipelines, blast radius maps, confidence badges. normalize + validate before render.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Toolbox</h3>
+        <p>Consolidated admin panel. Tools, Skills, MCP servers, Components, Usage analytics, and AI analytics in 6 tabs. Toggle MCP toolsets live.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Predictive Analytics <span class="badge badge-ai">AI</span></h3>
+        <p>4 trend scanners: memory pressure, disk pressure, HPA exhaustion, error rate acceleration. Prometheus predict_linear() with actionable forecasts.</p>
       </div>
     </div>
   </section>
@@ -492,13 +508,13 @@
     <p class="subtitle">Operational in 30 seconds.</p>
     <div class="code-block">
       <span class="comment"># development</span><br>
-      <span class="cmd">npm install</span> && <span class="cmd">oc login</span> && <span class="cmd">oc proxy</span> <span class="flag">--port=8001</span> &amp;<br>
-      <span class="cmd">npm run dev</span> &nbsp;&nbsp;&nbsp;<span class="comment"># http://localhost:9000</span><br><br>
+      <span class="cmd">pnpm install</span> && <span class="cmd">oc login</span> && <span class="cmd">oc proxy</span> <span class="flag">--port=8001</span> &amp;<br>
+      <span class="cmd">pnpm dev</span> &nbsp;&nbsp;&nbsp;<span class="comment"># http://localhost:9000</span><br><br>
       <span class="comment"># deploy to openshift (UI + AI agent, auto-detects agent repo)</span><br>
       <span class="flag">ANTHROPIC_VERTEX_PROJECT_ID</span>=your-project <span class="flag">CLOUD_ML_REGION</span>=us-east5 \<br>
       &nbsp;&nbsp;<span class="cmd">./deploy/deploy.sh</span> <span class="flag">--gcp-key</span> ~/sa-key.json<br><br>
       <span class="comment"># quick redeploy via quay.io</span><br>
-      <span class="cmd">npm run build</span> && <span class="cmd">podman build</span> -t <span class="url">quay.io/amobrem/openshiftpulse:latest</span> . \<br>
+      <span class="cmd">pnpm build</span> && <span class="cmd">podman build</span> -t <span class="url">quay.io/amobrem/openshiftpulse:latest</span> . \<br>
       &nbsp;&nbsp;&& <span class="cmd">podman push</span> <span class="url">quay.io/amobrem/openshiftpulse:latest</span> \<br>
       &nbsp;&nbsp;&& <span class="cmd">oc rollout restart</span> deployment/openshiftpulse -n openshiftpulse
     </div>
