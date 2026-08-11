@@ -314,7 +314,7 @@ export const useUIStore = create<UIState>()(
 
       // Legacy adapter — DEPRECATED: migrate remaining callsites in engine/ and components/ to
       // expandAISidebar() + setAISidebarMode('chat') for agent, openBottomDock() for logs/terminal/events.
-      // Remove once engine/agentNotifications.ts, engine/actions.ts, components/ErrorBoundary.tsx,
+      // Remove once engine/agentNotifications.ts, components/ErrorBoundary.tsx,
       // components/onboarding/GateCard.tsx, components/feedback/Toast.tsx, components/CommandPalette.tsx,
       // components/agent/AIOnboarding.tsx, and components/StatusBar.tsx are migrated.
       dockPanel: null as DockPanel,
