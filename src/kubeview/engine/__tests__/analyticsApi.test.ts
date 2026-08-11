@@ -123,7 +123,7 @@ describe('analyticsApi', () => {
       summary: { total_sessions: 25, total_page_views: 180, unique_pages: 8, total_queries: 42, avg_duration_seconds: 35.2 },
       pages: [{ page: '/pulse', views: 50, sessions: 20 }],
       time_on_page: [{ page: '/pulse', avg_seconds: 45.3, samples: 18 }],
-      agent_queries_by_page: [{ page: '/incidents', queries: 15 }],
+      agent_queries_by_page: [{ page: '/inbox', queries: 15 }],
       top_suggestions: [{ suggestion: 'Show me crashlooping pods', clicks: 8 }],
       feature_usage: [{ feature: 'chart_edit', uses: 12 }],
       days: 7,

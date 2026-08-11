@@ -31,7 +31,7 @@ afterEach(() => {
 
 describe('sessionTracker', () => {
   it('trackPageView queues and flushes a page_view event', async () => {
-    trackPageView('/incidents', '/pulse');
+    trackPageView('/inbox', '/pulse');
     await flushEvents();
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -40,7 +40,7 @@ describe('sessionTracker', () => {
     );
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const event = body.events.find((e: { event_type: string }) => e.event_type === 'page_view');
-    expect(event.page).toBe('/incidents');
+    expect(event.page).toBe('/inbox');
     expect(event.data.from).toBe('/pulse');
   });
 
@@ -63,13 +63,13 @@ describe('sessionTracker', () => {
   });
 
   it('trackSuggestionClick captures text and page', async () => {
-    trackSuggestionClick('/incidents', 'Build me a dashboard for this');
+    trackSuggestionClick('/inbox', 'Build me a dashboard for this');
     await flushEvents();
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const event = body.events.find((e: { event_type: string }) => e.event_type === 'suggestion_click');
     expect(event.data.text).toBe('Build me a dashboard for this');
-    expect(event.page).toBe('/incidents');
+    expect(event.page).toBe('/inbox');
   });
 
   it('trackFeatureUse records feature name', async () => {
@@ -83,7 +83,7 @@ describe('sessionTracker', () => {
 
   it('batches multiple events in one flush', async () => {
     trackPageView('/pulse');
-    trackPageView('/incidents');
+    trackPageView('/inbox');
     trackPageView('/compute');
     await flushEvents();
 

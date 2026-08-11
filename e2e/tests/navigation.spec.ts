@@ -41,12 +41,6 @@ test.describe('Navigation', () => {
     await expect(page.locator('text=Inbox').first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test('redirects /incidents to /inbox preserving query params', async ({ page }) => {
-    await page.goto('/incidents?preset=needs_approval');
-    await page.waitForURL(/inbox/, { timeout: 10_000 });
-    expect(page.url()).toContain('preset=needs_approval');
-  });
-
   test('Identity view loads', async ({ page }) => {
     await page.goto('/identity');
     await expect(page.locator('text=Identity').first()).toBeVisible({ timeout: 15_000 });
@@ -67,8 +61,8 @@ test.describe('Navigation', () => {
     await expect(page.locator('text=Alerts').first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test('redirects /builds to /workloads', async ({ page }) => {
-    await page.goto('/builds');
-    await page.waitForURL(/workloads/, { timeout: 10_000 });
+  test('unknown routes fall back to /pulse', async ({ page }) => {
+    await page.goto('/nonexistent-page');
+    await page.waitForURL(/pulse/, { timeout: 10_000 });
   });
 });
