@@ -7,6 +7,7 @@ import {
 import { K8S_BASE as BASE } from '../../engine/gvr';
 import { useUIStore } from '../../store/uiStore';
 import { resourceToYaml } from '../../engine/yamlUtils';
+import { getImpersonationHeaders } from '../../engine/query';
 
 export interface DryRunPanelProps {
   yaml: string;
@@ -27,16 +28,6 @@ interface DiffEntry {
   path: string;
   type: 'added' | 'modified';
   value: string;
-}
-
-function getImpersonationHeaders(): Record<string, string> {
-  const { impersonateUser, impersonateGroups } = useUIStore.getState();
-  if (!impersonateUser) return {};
-  const headers: Record<string, string> = { 'Impersonate-User': impersonateUser };
-  if (impersonateGroups.length > 0) {
-    headers['Impersonate-Group'] = impersonateGroups.join(',');
-  }
-  return headers;
 }
 
 function computeYamlDiffs(inputYaml: string, serverYaml: string): DiffEntry[] {
