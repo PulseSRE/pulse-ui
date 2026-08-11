@@ -28,9 +28,6 @@ const VIEW_DATA_REQUIREMENTS: Record<string, string[]> = {
     '/apis/batch/v1/cronjobs',
     '/apis/apps/v1/replicasets',
     '/apis/policy/v1/poddisruptionbudgets',
-    '/apis/build.openshift.io/v1/builds',
-    '/apis/build.openshift.io/v1/buildconfigs',
-    '/apis/image.openshift.io/v1/imagestreams',
   ],
   '/compute': [
     '/api/v1/nodes',

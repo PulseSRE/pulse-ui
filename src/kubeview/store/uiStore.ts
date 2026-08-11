@@ -472,19 +472,13 @@ export const useUIStore = create<UIState>()(
         if (persisted == null) return current;
         const persistedState = persisted as Partial<Pick<UIState, 'tabs' | 'activeTabId'>>;
 
-        // Paths that are redirects — discard tabs for these on rehydration
-        const STALE_PATHS = new Set([
-          '/', '/dashboard',
-        ]);
-
         // Re-assign unique IDs to persisted tabs to avoid key collisions
         const seen = new Set<string>();
         const tabs = (persistedState.tabs || current.tabs).map((tab: Tab) => {
           // Deduplicate by path
           if (seen.has(tab.path)) return null;
           seen.add(tab.path);
-          // Drop tabs for redirect paths or untitled tabs
-          if (STALE_PATHS.has(tab.path)) return null;
+          if (tab.path === '/' || tab.path === '/dashboard') return null;
           if (tab.title === 'Untitled' && !tab.pinned) return null;
           // Fix empty/untitled titles from older persisted state
           const title = tab.title?.trim() || tab.path.split('/').filter(Boolean).pop() || 'Untitled';

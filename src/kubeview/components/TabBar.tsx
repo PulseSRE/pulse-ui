@@ -61,10 +61,6 @@ export function getTabTitle(path: string): string {
   return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
-const REDIRECT_PATHS = new Set([
-  '/', '/dashboard',
-]);
-
 export function TabBar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -121,8 +117,6 @@ export function TabBar() {
     }
   };
 
-  // (REDIRECT_PATHS hoisted to module scope)
-
   // Sync active tab with current route
   useEffect(() => {
     // Don't create tabs while a close-triggered navigation is pending
@@ -136,7 +130,7 @@ export function TabBar() {
       if (activeTabId !== matchingTab.id) {
         setActiveTab(matchingTab.id);
       }
-    } else if (!REDIRECT_PATHS.has(currentPath)) {
+    } else if (currentPath !== '/' && currentPath !== '/dashboard') {
       // Create a new tab for this path (skip redirects and pinned defaults)
       const title = getTabTitle(currentPath);
 

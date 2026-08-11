@@ -1,4 +1,4 @@
-import { Route } from 'react-router-dom';
+import { Route, useParams } from 'react-router-dom';
 import React, { Suspense, lazy } from 'react';
 import { LoadingFallback } from '../components/LoadingFallback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -28,8 +28,6 @@ const ProjectDashboard = lazy(() => import('../views/ProjectDashboard'));
 const TimelineView = lazy(() => import('../views/TimelineView'));
 const SloView = lazy(() => import('../views/SloView'));
 const TopologyView = lazy(() => import('../views/TopologyView'));
-
-import { useParams } from 'react-router-dom';
 
 function Lazy({ children, fallbackTitle }: { children: React.ReactNode; fallbackTitle?: string }) {
   return (
