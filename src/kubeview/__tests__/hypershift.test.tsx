@@ -153,47 +153,6 @@ describe('HyperShift UI - ReportTab', () => {
   });
 });
 
-describe('HyperShift UI - ProductionReadiness', () => {
-  let ProductionReadiness: any;
-  beforeEach(async () => {
-    const mod = await import('../components/ProductionReadiness');
-    ProductionReadiness = mod.default;
-  });
-
-  it('shows "Hosted Control Plane" check as pass on HyperShift', () => {
-    useClusterStore.setState({ isHyperShift: true, controlPlaneTopology: 'External' });
-    qcWrap(<ProductionReadiness />);
-    expect(screen.getByText('Hosted Control Plane')).toBeDefined();
-    expect(screen.getByText(/Managed externally/)).toBeDefined();
-  });
-
-  it('shows "High Availability Control Plane" on traditional cluster', () => {
-    useClusterStore.setState({ isHyperShift: false, controlPlaneTopology: 'HighlyAvailable' });
-    qcWrap(<ProductionReadiness />);
-    expect(screen.getByText('High Availability Control Plane')).toBeDefined();
-  });
-
-  it('shows etcd backup as pass with hosting provider message on HyperShift', () => {
-    useClusterStore.setState({ isHyperShift: true, controlPlaneTopology: 'External' });
-    qcWrap(<ProductionReadiness />);
-    expect(screen.getByText('Managed by hosting provider')).toBeDefined();
-  });
-
-  it('hides Machine Health Checks and Autoscaling checks on HyperShift', () => {
-    useClusterStore.setState({ isHyperShift: true, controlPlaneTopology: 'External' });
-    qcWrap(<ProductionReadiness />);
-    expect(screen.queryByText('Machine Health Checks')).toBeNull();
-    expect(screen.queryByText('Cluster Autoscaling')).toBeNull();
-  });
-
-  it('shows Machine Health Checks and Autoscaling on traditional cluster', () => {
-    useClusterStore.setState({ isHyperShift: false, controlPlaneTopology: 'HighlyAvailable' });
-    qcWrap(<ProductionReadiness />);
-    expect(screen.getByText('Machine Health Checks')).toBeDefined();
-    expect(screen.getByText('Cluster Autoscaling')).toBeDefined();
-  });
-});
-
 describe('HyperShift UI - ComputeView health audit', () => {
   const workerNode = {
     metadata: { name: 'worker-1', uid: 'w1', labels: { 'node-role.kubernetes.io/worker': '' }, creationTimestamp: '2025-01-01T00:00:00Z' },

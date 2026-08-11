@@ -22,12 +22,6 @@ export {
 export type { MetricQuery, ResourceMetrics } from './AutoMetrics';
 
 export {
-  buildNarrative,
-  groupEvents,
-} from './Narrative';
-export type { NarrativeEvent, NarrativeResult } from './Narrative';
-
-export {
   queryRange,
   queryInstant,
   getMetricNames,

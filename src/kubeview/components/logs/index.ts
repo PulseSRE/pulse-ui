@@ -10,4 +10,3 @@ export { default as MultiContainerLogs } from './MultiContainerLogs';
 export { default as MultiPodLogs } from './MultiPodLogs';
 
 export * from './LogParser';
-export * from './LogCollapse';
