@@ -474,8 +474,7 @@ export const useUIStore = create<UIState>()(
 
         // Paths that are redirects — discard tabs for these on rehydration
         const STALE_PATHS = new Set([
-          '/', '/dashboard', '/software', '/operators', '/operatorhub',
-          '/morning-report', '/troubleshoot', '/config-compare', '/timeline',
+          '/', '/dashboard',
         ]);
 
         // Re-assign unique IDs to persisted tabs to avoid key collisions

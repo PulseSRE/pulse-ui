@@ -191,7 +191,7 @@ export function OverviewTab({
         <InfoCard label="Cluster Age" value={clusterAge?.label || '\u2014'} sub={clusterAge?.date ? new Date(clusterAge.date).toLocaleDateString() : ''} />
         <InfoCard label="Nodes" value={String(nodes.length)} sub={`${nodeRoles.map(([r, c]) => `${c} ${r}`).join(', ')} \u2192`} onClick={() => go('/compute', 'Compute')} />
         <InfoCard label="Namespaces" value={String(nsStats.total)} sub={`${nsStats.user} user, ${nsStats.system} system \u2192`} onClick={() => setActiveTab('quotas')} />
-        <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups \u2192`} onClick={() => go('/crds', 'Custom Resources')} />
+        <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups \u2192`} onClick={() => go('/admin?tab=crds', 'Custom Resources')} />
       </MetricGrid>
 
       {/* Update banner */}

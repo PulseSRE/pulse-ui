@@ -62,8 +62,7 @@ export function getTabTitle(path: string): string {
 }
 
 const REDIRECT_PATHS = new Set([
-  '/', '/dashboard', '/software', '/operators', '/operatorhub',
-  '/morning-report', '/troubleshoot', '/config-compare', '/timeline',
+  '/', '/dashboard',
 ]);
 
 export function TabBar() {

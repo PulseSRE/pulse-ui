@@ -5,7 +5,7 @@ import PulseView from './views/PulseView';
 
 import CustomView from './views/CustomView';
 import ClaimView from './views/ClaimView';
-import { resourceRoutes, domainRoutes, redirectRoutes } from './routes';
+import { resourceRoutes, domainRoutes } from './routes';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,9 +40,6 @@ export default function OpenshiftPulseApp() {
 
             {/* Domain views (workloads, networking, compute, storage, etc.) */}
             {domainRoutes()}
-
-            {/* Legacy redirects */}
-            {redirectRoutes()}
 
             {/* Catch-all */}
             <Route path="*" element={<Navigate to="/pulse" replace />} />
