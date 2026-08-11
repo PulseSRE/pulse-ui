@@ -6,7 +6,7 @@ vi.mock('../../store/uiStore', () => ({
   },
 }));
 
-import { k8sList, k8sGet, k8sCreate, k8sUpdate, k8sPatch, k8sDelete, k8sLogs } from '../query';
+import { k8sList, k8sGet, k8sCreate, k8sPatch, k8sDelete, k8sLogs } from '../query';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -138,19 +138,6 @@ describe('k8sCreate', () => {
     mockError(409, 'already exists');
 
     await expect(k8sCreate('/api/v1/pods', {})).rejects.toThrow('already exists');
-  });
-});
-
-describe('k8sUpdate', () => {
-  it('sends PUT with JSON body', async () => {
-    const body = { metadata: { name: 'test' } };
-    mockOk(body);
-
-    await k8sUpdate('/api/v1/namespaces/default/pods/test', body);
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ method: 'PUT' }),
-    );
   });
 });
 

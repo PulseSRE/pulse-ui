@@ -134,32 +134,6 @@ export async function k8sCreate<T>(apiPath: string, body: T, clusterId?: string)
 }
 
 /**
- * Update a resource (full replace)
- */
-export async function k8sUpdate<T>(apiPath: string, body: T, clusterId?: string): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${getClusterBase(clusterId)}${apiPath}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getImpersonationHeaders(),
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    throw wrapNetworkError(e, { operation: 'update', apiPath });
-  }
-
-  if (!response.ok) {
-
-    throw await parseK8sErrorResponse(response, { operation: 'update', apiPath });
-  }
-
-  return response.json();
-}
-
-/**
  * Patch a resource
  */
 export async function k8sPatch<T>(
@@ -232,26 +206,6 @@ export async function k8sDelete(apiPath: string, clusterId?: string): Promise<vo
 
     throw await parseK8sErrorResponse(response, { operation: 'delete', apiPath });
   }
-}
-
-/**
- * Hook to list resources
- */
-export function useK8sList<T = K8sResource>(
-  apiPath: string,
-  namespace?: string,
-  options?: {
-    enabled?: boolean;
-    refetchInterval?: number | false;
-    clusterId?: string;
-  }
-) {
-  return useQuery<T[], Error>({
-    queryKey: ['k8s', 'list', apiPath, namespace, options?.clusterId],
-    queryFn: () => k8sList<T>(apiPath, namespace, options?.clusterId),
-    enabled: options?.enabled !== false,
-    refetchInterval: options?.refetchInterval,
-  } as UseQueryOptions<T[], Error>);
 }
 
 // Note: useK8sWatch was removed — it had race conditions (stale data, missing list resourceVersion).

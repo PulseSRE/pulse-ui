@@ -14,14 +14,14 @@ export interface NavItem {
   color?: string;
 }
 
-export const GROUP_LABELS: Record<NavItem['group'], string> = {
+const GROUP_LABELS: Record<NavItem['group'], string> = {
   cluster: 'CLUSTER',
   operations: 'OPERATIONS',
   administration: 'ADMINISTRATION',
   agent: 'AGENT',
 };
 
-export const GROUP_ORDER: NavItem['group'][] = ['cluster', 'operations', 'administration', 'agent'];
+const GROUP_ORDER: NavItem['group'][] = ['cluster', 'operations', 'administration', 'agent'];
 
 export const NAV_ITEMS: NavItem[] = [
   // Cluster
