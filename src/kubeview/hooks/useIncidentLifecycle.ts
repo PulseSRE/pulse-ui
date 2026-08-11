@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useMonitorStore } from '../store/monitorStore';
+import { agentFetch } from '../engine/safeQuery';
 import type {
   Finding, ActionReport, InvestigationReport, VerificationReport,
 } from '../engine/monitorClient';
@@ -60,20 +61,20 @@ async function fetchImpact(findingId: string, resource?: { kind: string; name: s
     if (resource.namespace) params.set('namespace', resource.namespace);
   }
   const qs = params.toString();
-  const res = await fetch(`/api/agent/incidents/${findingId}/impact${qs ? `?${qs}` : ''}`);
+  const res = await agentFetch(`/api/agent/incidents/${findingId}/impact${qs ? `?${qs}` : ''}`);
   if (!res.ok) return null;
   return res.json();
 }
 
 async function fetchLearning(findingId: string, category?: string): Promise<LearningArtifacts | null> {
   const qs = category ? `?category=${encodeURIComponent(category)}` : '';
-  const res = await fetch(`/api/agent/incidents/${findingId}/learning${qs}`);
+  const res = await agentFetch(`/api/agent/incidents/${findingId}/learning${qs}`);
   if (!res.ok) return null;
   return res.json();
 }
 
 async function fetchPostmortems(): Promise<Postmortem[]> {
-  const res = await fetch('/api/agent/postmortems');
+  const res = await agentFetch('/api/agent/postmortems');
   if (!res.ok) return [];
   const data = await res.json();
   return data.postmortems ?? [];

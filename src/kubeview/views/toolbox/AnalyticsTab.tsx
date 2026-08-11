@@ -4,7 +4,7 @@ import {
   FileText, DollarSign, CheckCircle, XCircle, Activity, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { safeQuery } from '../../engine/safeQuery';
+import { safeQuery, agentFetch } from '../../engine/safeQuery';
 import {
   fetchIntelligenceSections,
   fetchPromptStats,
@@ -201,7 +201,7 @@ function KpiSection() {
   const { data: kpiData } = useQuery({
     queryKey: ['analytics', 'kpi'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/kpi?days=7');
+      const res = await agentFetch('/api/agent/kpi?days=7');
       if (!res.ok) return null;
       return res.json();
     },

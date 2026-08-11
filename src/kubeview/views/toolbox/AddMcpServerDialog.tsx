@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Play, Plus, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 
 export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [name, setName] = useState('');
@@ -16,7 +17,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
     setTestResult(null);
     setError('');
     try {
-      const res = await fetch('/api/agent/admin/mcp/test', {
+      const res = await agentFetch('/api/agent/admin/mcp/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, transport }),
@@ -38,7 +39,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
     setAdding(true);
     setError('');
     try {
-      const res = await fetch('/api/agent/admin/mcp', {
+      const res = await agentFetch('/api/agent/admin/mcp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, url, transport }),

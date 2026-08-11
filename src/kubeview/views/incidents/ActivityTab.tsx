@@ -16,6 +16,7 @@ import { resourceDetailUrl } from '../../engine/gvr';
 import { formatRelativeTime } from '../../engine/formatters';
 import { getDateKey } from '../../engine/dateUtils';
 import { fetchLearningFeed } from '../../engine/analyticsApi';
+import { agentFetch } from '../../engine/safeQuery';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../../engine/types/timeline';
 import { CorrelationGroupRow } from './shared/CorrelationGroupRow';
 import { HistoryEntryCard } from './shared/HistoryEntryCard';
@@ -37,7 +38,7 @@ const ACTIVITY_CATEGORIES: { id: ActivityCategory; label: string; icon: React.El
 ];
 
 async function fetchPostmortems(): Promise<{ postmortems: Postmortem[]; total: number }> {
-  const res = await fetch('/api/agent/postmortems');
+  const res = await agentFetch('/api/agent/postmortems');
   if (!res.ok) return { postmortems: [], total: 0 };
   return res.json();
 }

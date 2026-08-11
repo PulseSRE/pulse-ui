@@ -7,6 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useToolUsageStore } from '../../store/toolUsageStore';
+import { agentFetch } from '../../engine/safeQuery';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { AddMcpServerDialog } from './AddMcpServerDialog';
 
@@ -21,7 +22,7 @@ export function ConnectionsTab() {
   const { data: mcpData, isLoading } = useQuery({
     queryKey: ['admin', 'mcp'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/admin/mcp');
+      const res = await agentFetch('/api/agent/admin/mcp');
       if (!res.ok) return { connections: [], available_toolsets: [] };
       return res.json() as Promise<{
         connections: Array<Record<string, unknown>>;
@@ -50,7 +51,7 @@ export function ConnectionsTab() {
     setUpdating(true);
     setMcpStatus(null);
     try {
-      const res = await fetch('/api/agent/admin/mcp/toolsets', {
+      const res = await agentFetch('/api/agent/admin/mcp/toolsets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ toolsets: newToolsets }),
@@ -75,7 +76,7 @@ export function ConnectionsTab() {
     if (!confirmRemove) return;
     setMcpStatus(null);
     try {
-      const res = await fetch(`/api/agent/admin/mcp/${encodeURIComponent(confirmRemove)}`, { method: 'DELETE' });
+      const res = await agentFetch(`/api/agent/admin/mcp/${encodeURIComponent(confirmRemove)}`, { method: 'DELETE' });
       const data = await res.json().catch(() => ({ detail: 'Unknown error' }));
       if (res.ok) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'mcp'] });

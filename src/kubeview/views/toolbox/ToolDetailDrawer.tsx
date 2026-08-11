@@ -4,6 +4,7 @@ import {
   Database, CheckCircle2, XCircle, Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 import type { ToolInfo } from '../../store/toolUsageStore';
 import { SourceBadge } from './SourceBadge';
 
@@ -16,7 +17,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
   const { data: usageData } = useQuery({
     queryKey: ['tool-detail-usage', tool.name],
     queryFn: async () => {
-      const res = await fetch(`/api/agent/tools/usage?tool_name=${encodeURIComponent(tool.name)}&limit=20`);
+      const res = await agentFetch(`/api/agent/tools/usage?tool_name=${encodeURIComponent(tool.name)}&limit=20`);
       if (!res.ok) return null;
       return res.json();
     },
@@ -26,7 +27,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
   const { data: statsData } = useQuery({
     queryKey: ['tool-detail-stats'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/tools/usage/stats');
+      const res = await agentFetch('/api/agent/tools/usage/stats');
       if (!res.ok) return null;
       return res.json();
     },

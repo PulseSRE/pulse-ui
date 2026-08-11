@@ -3,6 +3,8 @@
  * Events batched and flushed every 30s or on page unload.
  */
 
+import { agentFetch } from './safeQuery';
+
 const SESSION_KEY = 'pulse-session-id';
 const FLUSH_INTERVAL = 30_000;
 const MAX_BATCH = 50;
@@ -42,7 +44,7 @@ async function flush() {
 
   const batch = queue.splice(0, MAX_BATCH);
   try {
-    await fetch('/api/agent/analytics/events', {
+    await agentFetch('/api/agent/analytics/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ events: batch }),

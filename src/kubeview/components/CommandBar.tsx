@@ -7,6 +7,7 @@ import { useClusterStore } from '../store/clusterStore';
 import { useFleetStore } from '../store/fleetStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../engine/safeQuery';
 import { performLogout } from '../engine/auth';
 
 export function CommandBar() {
@@ -91,7 +92,7 @@ export function CommandBar() {
   const { data: issueCount = 0 } = useQuery({
     queryKey: ['toolbar', 'inbox-attention'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/inbox/stats');
+      const res = await agentFetch('/api/agent/inbox/stats');
       if (!res.ok) return 0;
       const data = await res.json();
       return data.needs_attention ?? 0;

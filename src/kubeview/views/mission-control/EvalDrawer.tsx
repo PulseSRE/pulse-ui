@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
+import { agentFetch } from '../../engine/safeQuery';
 import type { AgentEvalStatus, EvalSuiteSummary } from '../../engine/evalStatus';
 
 interface EvalHistoryRun {
@@ -63,7 +64,7 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
   const { data: history } = useQuery({
     queryKey: ['eval-history', 'release'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/eval/history?suite=release&days=30');
+      const res = await agentFetch('/api/agent/eval/history?suite=release&days=30');
       if (!res.ok) return null;
       return res.json() as Promise<{ runs: EvalHistoryRun[] }>;
     },

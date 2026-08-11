@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 
 interface ComponentInfo {
@@ -19,7 +20,7 @@ export function ComponentsTab() {
   const { data: components, isLoading } = useQuery({
     queryKey: ['admin', 'components'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/components');
+      const res = await agentFetch('/api/agent/components');
       if (!res.ok) return null;
       return res.json() as Promise<Record<string, ComponentInfo>>;
     },

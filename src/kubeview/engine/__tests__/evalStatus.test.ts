@@ -19,7 +19,7 @@ describe('fetchAgentEvalStatus', () => {
 
     const result = await fetchAgentEvalStatus();
     expect(result).toEqual(data);
-    expect(fetch).toHaveBeenCalledWith('/api/agent/eval/status');
+    expect(fetch).toHaveBeenCalledWith('/api/agent/eval/status', undefined);
   });
 
   it('returns null on non-ok response', async () => {

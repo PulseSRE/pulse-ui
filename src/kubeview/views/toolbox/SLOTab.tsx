@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TrendingUp, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 
 export function SLOTab() {
@@ -13,7 +14,7 @@ export function SLOTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['slo-status'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/slo');
+      const res = await agentFetch('/api/agent/slo');
       if (!res.ok) return { slos: [], total: 0 };
       return res.json();
     },
@@ -25,7 +26,7 @@ export function SLOTab() {
   const addSLO = async () => {
     if (!newSLO.service.trim()) return;
     try {
-      await fetch('/api/agent/slo', {
+      await agentFetch('/api/agent/slo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -44,7 +45,7 @@ export function SLOTab() {
 
   const deleteSLO = async (service: string, type: string) => {
     try {
-      await fetch(`/api/agent/slo/${encodeURIComponent(service)}/${encodeURIComponent(type)}`, { method: 'DELETE' });
+      await agentFetch(`/api/agent/slo/${encodeURIComponent(service)}/${encodeURIComponent(type)}`, { method: 'DELETE' });
       queryClient.invalidateQueries({ queryKey: ['slo-status'] });
     } catch { /* ignore */ }
     setConfirmDelete(null);

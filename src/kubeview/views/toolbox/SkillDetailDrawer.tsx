@@ -6,6 +6,7 @@ import {
   ArrowRight, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { VersionsPanel } from './VersionsPanel';
 import type { VersionEntry } from './VersionsPanel';
@@ -44,7 +45,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   const { data: detail, isLoading } = useQuery({
     queryKey: ['admin', 'skill-detail', name],
     queryFn: async () => {
-      const res = await fetch(`/api/agent/skills/${name}`);
+      const res = await agentFetch(`/api/agent/skills/${name}`);
       if (!res.ok) return null;
       const data = await res.json();
       if (!dirty) setEditContent(data.raw_content || '');
@@ -55,7 +56,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   const { data: versionsData } = useQuery({
     queryKey: ['admin', 'skill-versions', name],
     queryFn: async () => {
-      const res = await fetch(`/api/agent/admin/skills/${name}/versions`);
+      const res = await agentFetch(`/api/agent/admin/skills/${name}/versions`);
       if (!res.ok) return { versions: [] };
       return res.json() as Promise<{ versions: VersionEntry[] }>;
     },
@@ -67,7 +68,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   const { data: usageStats } = useQuery({
     queryKey: ['skill-usage-detail', name],
     queryFn: async () => {
-      const res = await fetch(`/api/agent/skills/usage/${encodeURIComponent(name)}/trend?days=30`);
+      const res = await agentFetch(`/api/agent/skills/usage/${encodeURIComponent(name)}/trend?days=30`);
       if (!res.ok) return null;
       return res.json() as Promise<{ runs: number; sparkline?: number[]; duration_sparkline?: number[]; days_active?: number }>;
     },
@@ -78,7 +79,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
     setSaveStatus('saving');
     setSaveError(null);
     try {
-      const res = await fetch(`/api/agent/admin/skills/${name}`, {
+      const res = await agentFetch(`/api/agent/admin/skills/${name}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: editContent }),
@@ -105,7 +106,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
     if (!cloneName.trim()) return;
     setCloneStatus(null);
     try {
-      const res = await fetch(`/api/agent/admin/skills/${name}/clone`, {
+      const res = await agentFetch(`/api/agent/admin/skills/${name}/clone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ new_name: cloneName.trim() }),
@@ -127,7 +128,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   const handleDeleteSkill = async () => {
     setDeleteError(null);
     try {
-      const res = await fetch(`/api/agent/admin/skills/${name}`, { method: 'DELETE' });
+      const res = await agentFetch(`/api/agent/admin/skills/${name}`, { method: 'DELETE' });
       if (res.ok) {
         queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
         setConfirmDelete(false);
@@ -147,7 +148,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
     setDiffFiles({ v1, v2 });
     setDiffResult('Loading...');
     try {
-      const res = await fetch(`/api/agent/admin/skills/${name}/diff?v1=${encodeURIComponent(v1)}&v2=${encodeURIComponent(v2)}`);
+      const res = await agentFetch(`/api/agent/admin/skills/${name}/diff?v1=${encodeURIComponent(v1)}&v2=${encodeURIComponent(v2)}`);
       if (res.ok) {
         const data = await res.json();
         setDiffResult(data.diff || '(no changes)');

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Hash, Database, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 import { StatCard } from './StatCard';
 
 interface PromptStats {
@@ -41,7 +42,7 @@ export function PromptAuditSection() {
   const { data: promptStats, isLoading } = useQuery({
     queryKey: ['admin', 'prompt-stats'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/prompt/stats?days=30');
+      const res = await agentFetch('/api/agent/prompt/stats?days=30');
       if (!res.ok) return null;
       return res.json() as Promise<PromptStats>;
     },
@@ -52,7 +53,7 @@ export function PromptAuditSection() {
     queryKey: ['admin', 'prompt-versions', selectedSkill],
     queryFn: async () => {
       if (!selectedSkill) return null;
-      const res = await fetch(`/api/agent/prompt/versions/${encodeURIComponent(selectedSkill)}`);
+      const res = await agentFetch(`/api/agent/prompt/versions/${encodeURIComponent(selectedSkill)}`);
       if (!res.ok) return null;
       return res.json() as Promise<{ versions: PromptVersion[] }>;
     },
