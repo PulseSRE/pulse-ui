@@ -5,6 +5,7 @@ import {
   RefreshCw, Play, ArrowRight, BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 import { SkillDetailDrawer } from './SkillDetailDrawer';
 
 const SKILL_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -29,7 +30,7 @@ export function SkillsTab() {
   const { data: skills = [], isLoading } = useQuery({
     queryKey: ['admin', 'skills'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/skills');
+      const res = await agentFetch('/api/agent/skills');
       if (!res.ok) return [];
       return res.json();
     },
@@ -38,7 +39,7 @@ export function SkillsTab() {
   const { data: skillStats } = useQuery({
     queryKey: ['admin', 'skill-usage-skills-tab'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/skills/usage?days=30');
+      const res = await agentFetch('/api/agent/skills/usage?days=30');
       if (!res.ok) return null;
       return res.json();
     },
@@ -47,7 +48,7 @@ export function SkillsTab() {
 
   const reloadMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/agent/admin/skills/reload', { method: 'POST' });
+      const res = await agentFetch('/api/agent/admin/skills/reload', { method: 'POST' });
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] }),
@@ -56,7 +57,7 @@ export function SkillsTab() {
   const testRouting = async () => {
     if (!testQuery.trim()) return;
     try {
-      const res = await fetch('/api/agent/admin/skills/test', {
+      const res = await agentFetch('/api/agent/admin/skills/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: testQuery }),

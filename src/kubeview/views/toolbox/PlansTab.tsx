@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, ArrowRight, Save, Trash2, BarChart3, CheckCircle2, XCircle, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { agentFetch } from '../../engine/safeQuery';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 
@@ -45,7 +46,7 @@ export function PlansTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['plan-templates'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/plan-templates');
+      const res = await agentFetch('/api/agent/plan-templates');
       if (!res.ok) return { templates: [] };
       return res.json() as Promise<{ templates: PlanTemplate[] }>;
     },
@@ -55,7 +56,7 @@ export function PlansTab() {
     queryKey: ['plan-template-detail', selectedPlan],
     queryFn: async () => {
       if (!selectedPlan) return null;
-      const res = await fetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan)}`);
+      const res = await agentFetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan)}`);
       if (!res.ok) return null;
       return res.json() as Promise<PlanDetail>;
     },
@@ -65,7 +66,7 @@ export function PlansTab() {
   const { data: analyticsData } = useQuery({
     queryKey: ['plan-analytics'],
     queryFn: async () => {
-      const res = await fetch('/api/agent/analytics/plans?days=30');
+      const res = await agentFetch('/api/agent/analytics/plans?days=30');
       if (!res.ok) return null;
       return res.json() as Promise<{
         templates: Array<{
