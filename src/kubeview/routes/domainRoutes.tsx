@@ -1,4 +1,4 @@
-import { Route, useParams } from 'react-router-dom';
+import { Route, Navigate, useParams } from 'react-router-dom';
 import React, { Suspense, lazy } from 'react';
 import { LoadingFallback } from '../components/LoadingFallback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -66,6 +66,7 @@ export function domainRoutes() {
       <Route path="readiness" element={<Lazy fallbackTitle="Readiness"><OnboardingView /></Lazy>} />
       <Route path="views" element={<Lazy fallbackTitle="Views"><ViewsManagement /></Lazy>} />
       <Route path="agent" element={<Lazy fallbackTitle="Agent"><PulseAgentView /></Lazy>} />
+      <Route path="toolbox" element={<Navigate to="/agent" replace />} />
       <Route path="slo" element={<Lazy fallbackTitle="SLO"><SloView /></Lazy>} />
       <Route path="topology" element={<Lazy fallbackTitle="Topology"><TopologyView /></Lazy>} />
       <Route path="operators" element={<Lazy fallbackTitle="Operators"><OperatorCatalogView /></Lazy>} />
