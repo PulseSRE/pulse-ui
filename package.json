@@ -71,6 +71,7 @@
   "devDependencies": {
     "@rspack/cli": "^2.1.8",
     "@rspack/core": "^2.1.8",
+    "@rspack/dev-server": "^2.2.0",
     "@rspack/plugin-react-refresh": "^2.0.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
