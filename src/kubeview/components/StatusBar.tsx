@@ -36,8 +36,12 @@ export function StatusBar() {
   const pendingReviewCount = useMonitorStore((s) => s.pendingActions.length);
 
   const [relativeTime, setRelativeTime] = useState(formatRelativeTime(lastSyncTime));
+  const [isStale, setIsStale] = useState(false);
 
-  useVisibilityAwareInterval(() => setRelativeTime(formatRelativeTime(lastSyncTime)), 1000);
+  useVisibilityAwareInterval(() => {
+    setRelativeTime(formatRelativeTime(lastSyncTime));
+    setIsStale(Date.now() - lastSyncTime > 5 * 60 * 1000);
+  }, 1000);
 
   // Derive current page info from URL
   const pageInfo = (() => {
@@ -71,7 +75,23 @@ export function StatusBar() {
           <div className={cn('h-1.5 w-1.5 rounded-full', connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'reconnecting' ? 'bg-yellow-500' : 'bg-red-500')} />
           <span>{connectionStatus === 'connected' ? 'Connected' : connectionStatus}</span>
         </div>
-        <span>synced {relativeTime} ago</span>
+        <span
+          className={isStale ? 'text-amber-400' : undefined}
+          title={isStale ? 'Data may be stale — session may be expired or connectivity lost' : undefined}
+        >
+          synced {relativeTime} ago
+          {isStale && !degradedReasons.has('session_expired') && (
+            <span className="ml-1 text-amber-400">· may be stale</span>
+          )}
+        </span>
+        {degradedReasons.has('session_expired') && (
+          <button
+            onClick={() => { window.location.href = '/'; }}
+            className="ml-2 px-2 py-0.5 text-xs rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+          >
+            Session expired — click to log in again
+          </button>
+        )}
         {activeOperation && <span className="text-emerald-400">{activeOperation}</span>}
         {isMultiCluster() && activeCluster && <span className="text-blue-400">· {activeCluster.name}</span>}
         {pageInfo && <span className="text-slate-400">· {pageInfo}</span>}

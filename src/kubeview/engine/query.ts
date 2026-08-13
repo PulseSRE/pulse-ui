@@ -72,7 +72,10 @@ export async function k8sList<T = K8sResource>(
   }
 
   if (!response.ok) {
-
+    if (response.status === 401) {
+      const { checkAuth } = await import('./safeQuery');
+      checkAuth(response);
+    }
     throw await parseK8sErrorResponse(response, { operation: 'list', apiPath });
   }
 
@@ -100,7 +103,10 @@ export async function k8sGet<T = K8sResource>(apiPath: string, clusterId?: strin
   }
 
   if (!response.ok) {
-
+    if (response.status === 401) {
+      const { checkAuth } = await import('./safeQuery');
+      checkAuth(response);
+    }
     throw await parseK8sErrorResponse(response, { operation: 'get', apiPath });
   }
 

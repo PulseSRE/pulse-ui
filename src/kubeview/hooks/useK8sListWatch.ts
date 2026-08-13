@@ -34,6 +34,8 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
 }: UseK8sListWatchOptions) {
   const queryClient = useQueryClient();
   const setConnectionStatus = useUIStore((s) => s.setConnectionStatus);
+  const addDegradedReason = useUIStore((s) => s.addDegradedReason);
+  const setLastSyncTime = useUIStore((s) => s.setLastSyncTime);
   const isVisible = useDocumentVisibility();
 
   const queryKey = ['k8s', 'list', apiPath, namespace, clusterId];
@@ -92,6 +94,7 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
             });
 
             setConnectionStatus('connected');
+            setLastSyncTime(Date.now());
           }
         },
         undefined, // resourceVersion
@@ -104,7 +107,27 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
     return () => {
       subscription?.unsubscribe();
     };
-  }, [apiPath, namespace, enabled, clusterId, queryClient, setConnectionStatus]);
+  }, [apiPath, namespace, enabled, clusterId, queryClient, setConnectionStatus, setLastSyncTime]);
+
+  useEffect(() => {
+    if (query.isSuccess && query.dataUpdatedAt > 0) {
+      setLastSyncTime(query.dataUpdatedAt);
+    }
+  }, [query.isSuccess, query.dataUpdatedAt, setLastSyncTime]);
+
+  useEffect(() => {
+    if (query.isError && query.error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = query.error as any;
+      const status: number | undefined = err?.status;
+      const category: string | undefined = err?.category;
+      if (status === 401) {
+        addDegradedReason('session_expired');
+      } else if (status === 403 && category !== 'quota') {
+        addDegradedReason('rbac_denied');
+      }
+    }
+  }, [query.isError, query.error, addDegradedReason]);
 
   return query;
 }

@@ -22,6 +22,8 @@ vi.mock('../../store/uiStore', () => ({
       addTab: addTabMock,
       selectedNamespace: 'default',
       setDockContext: vi.fn(),
+      setLastSyncTime: vi.fn(),
+      addDegradedReason: vi.fn(),
     };
     return selector(state);
   },
