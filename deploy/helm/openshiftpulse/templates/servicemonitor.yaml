@@ -9,21 +9,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: openshiftpulse
+      app: pulse-openshift-sre-agent
   endpoints:
-  - port: https
-    scheme: https
-    tlsConfig:
-      insecureSkipVerify: true
-    path: /oauth/healthz
-    interval: 30s
-  {{- if .Values.agent.enabled }}
   - port: http
-    targetPort: 8080
     scheme: http
-    path: /healthz
+    path: /metrics
     interval: 30s
-  {{- end }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
