@@ -26,6 +26,16 @@ spec:
       ports:
         - protocol: TCP
           port: 8443
+    # Allow Prometheus (user workload monitoring) to scrape the UI health endpoints
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-user-workload-monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8443
   egress:
     - {}
 {{- end }}
