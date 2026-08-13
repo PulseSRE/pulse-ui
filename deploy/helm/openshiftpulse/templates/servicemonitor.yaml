@@ -52,7 +52,7 @@ spec:
         summary: "Pulse Agent restarting frequently"
         description: "The agent container has restarted {{ "{{ $value }}" }} times in the last hour."
     - alert: PulsePostgreSQLDown
-      expr: up{job="openshiftpulse", container="postgresql"} == 0
+      expr: kube_statefulset_status_ready_replicas{namespace="{{ include "openshiftpulse.namespace" . }}", statefulset="pulse-openshift-sre-agent-postgresql"} == 0
       for: 3m
       labels:
         severity: critical
