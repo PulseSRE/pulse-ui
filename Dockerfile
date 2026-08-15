@@ -5,6 +5,7 @@ COPY dist/ /opt/app-root/src/
 
 # Entrypoint just starts nginx — config is mounted via ConfigMap in production
 COPY entrypoint.sh /opt/app-root/entrypoint.sh
+RUN chmod +x /opt/app-root/entrypoint.sh
 
 EXPOSE 8080
 
