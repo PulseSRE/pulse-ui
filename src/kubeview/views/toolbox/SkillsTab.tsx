@@ -241,7 +241,7 @@ function SkillStatsCard({ skill, onSelect }: { skill: Record<string, unknown>; o
   const { data: trend } = useQuery({
     queryKey: ['skill-trend', String(skill.name)],
     queryFn: async () => {
-      const res = await fetch(`/api/agent/skills/usage/${encodeURIComponent(String(skill.name))}/trend?days=30`);
+      const res = await agentFetch(`/api/agent/skills/usage/${encodeURIComponent(String(skill.name))}/trend?days=30`);
       if (!res.ok) return null;
       return res.json() as Promise<{ sparkline?: number[]; duration_sparkline?: number[]; runs: number; days_active?: number }>;
     },

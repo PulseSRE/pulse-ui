@@ -271,7 +271,7 @@ export function PlansTab() {
                 <button
                   onClick={async () => {
                     try {
-                      await fetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan!)}`, {
+                      await agentFetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan!)}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phases: editPhases }),
@@ -429,7 +429,7 @@ export function PlansTab() {
         onConfirm={async () => {
           if (!confirmDelete) return;
           try {
-            const res = await fetch(`/api/agent/plan-templates/${encodeURIComponent(confirmDelete)}`, { method: 'DELETE' });
+            const res = await agentFetch(`/api/agent/plan-templates/${encodeURIComponent(confirmDelete)}`, { method: 'DELETE' });
             if (res.ok) {
               queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
               setSelectedPlan(null);

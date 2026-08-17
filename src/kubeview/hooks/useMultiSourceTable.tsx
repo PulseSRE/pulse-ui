@@ -68,6 +68,7 @@ function Sparkline({ values, width = 48, height = 16 }: { values: number[]; widt
 }
 import { getDefaultColumns } from '../engine/renderers';
 import { getImpersonationHeaders } from '../engine/query';
+import { agentFetch } from '../engine/safeQuery';
 
 const DEFAULT_ENRICHMENT_INTERVAL_MS = 30_000;
 
@@ -251,7 +252,7 @@ export function useMultiSourceTable(
               tailLines: String(ds.tailLines || 100),
             });
             if (ds.labelSelector) params.set('labelSelector', ds.labelSelector);
-            const res = await fetch(`/api/agent/log-counts?${params}`, {
+            const res = await agentFetch(`/api/agent/log-counts?${params}`, {
               headers: getImpersonationHeaders(),
             });
             if (res.ok) {

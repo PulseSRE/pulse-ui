@@ -9,6 +9,7 @@ import { buildCategoryViews, computeScore } from '../components/onboarding/types
 import { ALL_GATES, evaluateAllGates } from '../engine/readiness/gates';
 import type { GateContext } from '../engine/readiness/types';
 import { useClusterStore } from '../store/clusterStore';
+import { agentFetch } from '../engine/safeQuery';
 
 const STORAGE_KEY = 'openshiftpulse:onboarding-completed';
 
@@ -44,7 +45,7 @@ export default function OnboardingView() {
       return res.json() as Promise<T>;
     },
     fetchAgent: async <T = unknown,>(path: string): Promise<T> => {
-      const res = await fetch(`/api/agent${path}`);
+      const res = await agentFetch(`/api/agent${path}`);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.json() as Promise<T>;
     },

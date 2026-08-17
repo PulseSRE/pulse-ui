@@ -2,7 +2,7 @@ apiVersion: v2
 name: pulse
 description: "OpenShift Pulse — unified deploy of UI + AI SRE Agent"
 version: 3.1.0
-appVersion: "2.6.0"
+appVersion: "2.8.0"
 type: application
 keywords:
   - openshift
