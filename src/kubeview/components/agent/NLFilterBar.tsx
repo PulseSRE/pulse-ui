@@ -39,7 +39,9 @@ export function NLFilterBar({ resourceKind, columns, onFiltersApplied }: NLFilte
     setLoading(true);
     setError(null);
 
-    const client = new AgentClient('sre');
+    // 'sre' mode was removed from the agent's WebSocket API (see pulse-agent#fcce7b0) —
+    // only 'auto' (/ws/agent) and 'monitor' (/ws/monitor) remain. Using 'sre' here 403s.
+    const client = new AgentClient('auto');
     clientRef.current = client;
 
     let responseText = '';

@@ -140,7 +140,9 @@ function subscribeToActionReportToasts() {
 function query(): Promise<string> {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const c = new AgentClient('sre');
+    // 'sre' mode was removed from the agent's WebSocket API (see pulse-agent#fcce7b0) —
+    // only 'auto' (/ws/agent) and 'monitor' (/ws/monitor) remain. Using 'sre' here 403s.
+    const c = new AgentClient('auto');
     client = c;
 
     function cleanup() {

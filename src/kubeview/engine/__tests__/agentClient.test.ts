@@ -52,6 +52,19 @@ describe('AgentClient', () => {
     expect(client.connected).toBe(false);
   });
 
+  it('defaults to auto mode and connects to /ws/agent, not the removed /ws/sre endpoint', async () => {
+    // Regression test: the agent's WebSocket API removed /ws/sre and /ws/security
+    // (only /ws/agent and /ws/monitor remain). AgentClient must never default to
+    // 'sre', or every consumer that omits an explicit mode gets a 403 at connect.
+    const defaultClient = new AgentClient();
+    defaultClient.connect();
+    await new Promise((r) => setTimeout(r, 10));
+    const ws = (defaultClient as any).ws as MockWebSocket;
+    expect(ws.url).toContain('/ws/agent');
+    expect(ws.url).not.toContain('/ws/sre');
+    defaultClient.disconnect();
+  });
+
   it('connects and emits connected event', async () => {
     const events: string[] = [];
     client.on((e) => events.push(e.type));
