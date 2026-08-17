@@ -442,10 +442,22 @@ export const useAgentStore = create<AgentState>()(
     }),
     {
       name: 'openshiftpulse-agent',
+      version: 1,
       partialize: (state) => ({
         messages: state.messages.slice(-50), // Only persist last 50 messages
         mode: state.mode,
       }),
+      // v0 -> v1: 'sre' and 'security' were removed from the agent's WebSocket
+      // API (only /ws/agent and /ws/monitor remain — see pulse-agent#fcce7b0).
+      // Browsers that persisted mode: 'sre' before that migration would otherwise
+      // reconnect to the now-403'ing endpoint forever ("Pulse AI: Offline").
+      migrate: (persistedState) => {
+        const state = persistedState as { messages: AgentMessage[]; mode: AgentMode } | undefined;
+        if (state && ((state.mode as string) === 'sre' || (state.mode as string) === 'security')) {
+          return { ...state, mode: 'auto' as AgentMode };
+        }
+        return state;
+      },
     },
   ),
 );

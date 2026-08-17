@@ -66,6 +66,18 @@ describe('agentStore', () => {
     lastMockHandlers = null;
   });
 
+  it('migrates a stale persisted "sre" mode to "auto" (removed /ws/sre endpoint)', () => {
+    // Regression test: browsers that persisted mode: 'sre' before the agent
+    // removed /ws/sre and /ws/security must be healed on load, or the agent
+    // panel silently reconnects to a 403'ing endpoint forever ("Offline").
+    const migrate = useAgentStore.persist.getOptions().migrate;
+    expect(migrate).toBeTypeOf('function');
+    expect(migrate!({ mode: 'sre', messages: [] }, 0)).toEqual({ mode: 'auto', messages: [] });
+    expect(migrate!({ mode: 'security', messages: [] }, 0)).toEqual({ mode: 'auto', messages: [] });
+    // Already-healthy state should pass through unchanged
+    expect(migrate!({ mode: 'auto', messages: [] }, 1)).toEqual({ mode: 'auto', messages: [] });
+  });
+
   it('initializes with default state', () => {
     const state = useAgentStore.getState();
     expect(state.mode).toBe('sre');

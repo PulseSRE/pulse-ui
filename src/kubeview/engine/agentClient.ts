@@ -101,7 +101,7 @@ export class AgentClient {
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _connected = false;
 
-  constructor(mode: AgentMode = 'sre') {
+  constructor(mode: AgentMode = 'auto') {
     this.mode = mode;
   }
 
