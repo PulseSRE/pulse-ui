@@ -69,13 +69,13 @@ export function UpgradeProgressPanel({
           <div className="flex items-start gap-3">
             <AlertOctagon className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-red-300">Update appears stuck \u2014 requested {mismatch.mismatchKind} does not match what&apos;s active</div>
+              <div className="text-sm font-medium text-red-300">Update appears stuck {'\u2014'} requested {mismatch.mismatchKind} does not match what&apos;s active</div>
               <div className="text-xs text-slate-400 mt-1">
                 <span className="text-slate-300">spec.desiredUpdate</span> requests <span className="font-mono text-slate-300">{mismatch.requestedVersion}</span>
-                {mismatch.requestedImage && <> (<span className="font-mono text-slate-300">{mismatch.requestedImage.slice(0, 28)}\u2026</span>)</>}
+                {mismatch.requestedImage && <> (<span className="font-mono text-slate-300">{mismatch.requestedImage.slice(0, 28)}{'\u2026'}</span>)</>}
                 {', but the cluster is still targeting '}
                 <span className="font-mono text-slate-300">{mismatch.actualVersion || '\u2014'}</span>
-                {mismatch.actualImage && <> (<span className="font-mono text-slate-300">{mismatch.actualImage.slice(0, 28)}\u2026</span>)</>}
+                {mismatch.actualImage && <> (<span className="font-mono text-slate-300">{mismatch.actualImage.slice(0, 28)}{'\u2026'}</span>)</>}
                 {'. cluster-version-operator treats '}{mismatch.mismatchKind}{' as authoritative and has not started \u2014 '}
                 {mismatch.minutesSinceProgressingStable !== null
                   ? `no progress for ${mismatch.minutesSinceProgressingStable} min.`
@@ -91,7 +91,7 @@ export function UpgradeProgressPanel({
                   </button>
                 ) : (
                   <span className="text-xs text-slate-500">
-                    {mismatch.requestedVersion} is no longer listed under Available Updates below \u2014 select it again once it reappears, or correct spec.desiredUpdate directly with <code className="mx-1 px-1 bg-slate-800 rounded-sm">oc adm upgrade --to-image=&lt;correct digest&gt;</code>.
+                    {mismatch.requestedVersion} is no longer listed under Available Updates below {'\u2014'} select it again once it reappears, or correct spec.desiredUpdate directly with <code className="mx-1 px-1 bg-slate-800 rounded-sm">oc adm upgrade --to-image=&lt;correct digest&gt;</code>.
                   </span>
                 )}
               </div>
@@ -115,7 +115,7 @@ export function UpgradeProgressPanel({
                 </div>
               ) : (
                 <p className="text-xs text-slate-500 mt-2">
-                  Boundaries like this commonly require an administrator acknowledgment \u2014 run <code className="mx-1 px-1 bg-slate-800 rounded-sm">oc adm upgrade</code> for the exact <code className="mx-1 px-1 bg-slate-800 rounded-sm">admin-acks</code> ConfigMap key this cluster needs before the update can proceed.
+                  Boundaries like this commonly require an administrator acknowledgment {'\u2014'} run <code className="mx-1 px-1 bg-slate-800 rounded-sm">oc adm upgrade</code> for the exact <code className="mx-1 px-1 bg-slate-800 rounded-sm">admin-acks</code> ConfigMap key this cluster needs before the update can proceed.
                 </p>
               )}
             </div>
@@ -207,7 +207,7 @@ export function UpgradeProgressPanel({
                 <div className="text-xs">
                   <span className="font-mono text-red-300">{n.name}</span>
                   <span className="text-slate-400 ml-2">
-                    {[n.unschedulable && 'cordoned/unschedulable', !n.ready && 'NotReady'].filter(Boolean).join(', ')} \u2014 can stall a drain indefinitely
+                    {[n.unschedulable && 'cordoned/unschedulable', !n.ready && 'NotReady'].filter(Boolean).join(', ')} {'\u2014'} can stall a drain indefinitely
                   </span>
                 </div>
               </div>
@@ -217,7 +217,7 @@ export function UpgradeProgressPanel({
                 <Ban className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <span className="font-mono text-red-300">{pdb.namespace}/{pdb.name}</span>
-                  <span className="text-slate-400 ml-2">allows 0 disruptions \u2014 blocks draining {pdb.blockedNodeNames.join(', ')}</span>
+                  <span className="text-slate-400 ml-2">allows 0 disruptions {'\u2014'} blocks draining {pdb.blockedNodeNames.join(', ')}</span>
                 </div>
               </div>
             ))}
