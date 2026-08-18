@@ -76,3 +76,53 @@ jobs:
           echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+
+  # ── Scheduled-failure notifier ──────────────────────────────────────────
+  #
+  # This weekly run went red on 2026-08-09 and stayed red — the Playwright
+  # config had stopped loading entirely, so the whole E2E suite was dead for
+  # eleven days and the only trace was a red dot nobody was looking at.
+  #
+  # The "Post summary" step above writes to the job summary, which is only
+  # visible to someone who already opened the run. That is the gap this closes.
+  #
+  # Deliberately limited to `schedule`. Tag-triggered runs have a human
+  # watching a release; the unattended weekly run does not.
+  notify-on-scheduled-failure:
+    needs: [e2e]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Weekly E2E run is failing"
+
+          # One issue per outage, not one per week.
+          EXISTING=$(gh issue list --repo "$REPO" --state open \
+            --search "\"$TITLE\" in:title" --json number --jq '.[0].number // empty')
+
+          BODY=$(printf '%s\n' \
+            "The scheduled \`E2E Tests\` run failed." \
+            "" \
+            "Run: $RUN_URL" \
+            "Commit: \`${GITHUB_SHA:0:7}\`" \
+            "" \
+            "This runs weekly and unattended, so nothing else will surface it." \
+            "The Playwright report is attached to the run as an artifact." \
+            "" \
+            "Close this once the run is green again — a new issue opens if it breaks later.")
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$REPO" --body "$BODY"
+            echo "Commented on existing issue #$EXISTING"
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" --body "$BODY"
+            echo "Opened a new failure issue"
+          fi
