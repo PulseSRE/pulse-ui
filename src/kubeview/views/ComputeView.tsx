@@ -88,24 +88,36 @@ export default function ComputeView() {
     enabled: isHyperShift,
   });
 
-  // Per-node CPU usage from Prometheus (joined via kube_node_info for reliable node name matching)
+  // Per-node CPU usage from Prometheus. Tries the kube_node_info join first
+  // (gives reliable node-name matching on clusters where node-exporter's
+  // `instance` label isn't the node name), falling back to the plain
+  // by-instance query if the join errors — e.g. on clusters where
+  // kube_node_info has no `instance` label at all, which makes `on(instance)`
+  // match every node into one ambiguous group ("duplicate series for the
+  // match group") and Thanos rejects the query outright (422). safeQuery only
+  // swallows 404s, so that failure must be caught here or the plain query
+  // never runs and the UI shows no data.
   const { data: nodeCpuMetrics = [] } = useQuery({
     queryKey: ['compute', 'node-cpu'],
     queryFn: async () => {
-      const result = await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) kube_node_info'));
-      if (result !== null) return result;
-      return (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)'))) ?? [];
+      try {
+        return await queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) kube_node_info');
+      } catch {
+        return (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)'))) ?? [];
+      }
     },
     refetchInterval: 30000,
   });
 
-  // Per-node memory usage from Prometheus (joined via kube_node_info for reliable node name matching)
+  // Per-node memory usage from Prometheus — same join-then-fallback strategy as node-cpu above.
   const { data: nodeMemMetrics = [] } = useQuery({
     queryKey: ['compute', 'node-mem'],
     queryFn: async () => {
-      const result = await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) kube_node_info'));
-      if (result !== null) return result;
-      return (await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100'))) ?? [];
+      try {
+        return await queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) kube_node_info');
+      } catch {
+        return (await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100'))) ?? [];
+      }
     },
     refetchInterval: 30000,
   });
