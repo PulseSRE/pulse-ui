@@ -170,6 +170,51 @@ describe('UpdatesTab', () => {
     expect(screen.getByText('Start Update')).toBeDefined();
   });
 
+  // Regression: reported "I clicked cluster update but nothing is happening".
+  // Root cause: the PATCH used JSON merge-patch semantics, which merges
+  // nested objects field-by-field rather than replacing them — sending just
+  // { version } left any pre-existing spec.desiredUpdate.image on the live
+  // object untouched. ClusterVersion's desiredUpdate.image is authoritative
+  // over .version when both are set, so a stale image paired with a new
+  // version made the whole update silently a no-op (CVO logs "Update work
+  // is equal to current target; no change required" and never starts),
+  // while the UI still showed a success toast because the PATCH itself
+  // succeeded. Confirmed live on a real cluster: exactly this mismatch.
+  it('sends both version and image together so a merge-patch cannot reintroduce a stale image', async () => {
+    const { k8sPatch } = await import('../../../engine/query');
+    renderTab({
+      availableUpdates: [{ version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:newdigest' }],
+    });
+
+    fireEvent.click(screen.getByText('Update'));
+    fireEvent.click(screen.getByText('Start Update'));
+
+    await vi.waitFor(() => {
+      expect(k8sPatch).toHaveBeenCalledWith(
+        '/apis/config.openshift.io/v1/clusterversions/version',
+        { spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:newdigest' } } },
+        'application/merge-patch+json',
+      );
+    });
+  });
+
+  it('refuses to patch (and never silently no-ops) when an available update has no image', async () => {
+    const { k8sPatch } = await import('../../../engine/query');
+    const { showErrorToast } = await import('../../../engine/errorToast');
+    vi.mocked(k8sPatch).mockClear();
+    renderTab({
+      availableUpdates: [{ version: '4.21.28' }], // no image field
+    });
+
+    fireEvent.click(screen.getByText('Update'));
+    fireEvent.click(screen.getByText('Start Update'));
+
+    await vi.waitFor(() => {
+      expect(showErrorToast).toHaveBeenCalled();
+    });
+    expect(k8sPatch).not.toHaveBeenCalled();
+  });
+
   it('shows channel change UI when Change button is clicked', () => {
     renderTab({ cvVersion: '4.15.3', cvChannel: 'stable-4.15' });
 

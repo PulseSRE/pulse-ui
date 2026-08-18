@@ -63,7 +63,7 @@ export function UpdatesTab({
     variant: 'danger' | 'warning'; onConfirm: () => void;
   } | null>(null);
 
-  const handleStartUpdate = (version: string) => {
+  const handleStartUpdate = (version: string, image: string | undefined) => {
     setConfirmDialog({
       title: `Start cluster update to ${version}?`,
       description: `This will rolling-restart all nodes in the cluster. The update process cannot be easily reversed. Make sure you have a recent etcd backup before proceeding.`,
@@ -73,8 +73,22 @@ export function UpdatesTab({
         setConfirmDialog(null);
         setUpdating(true);
         try {
+          // JSON merge-patch merges nested objects field-by-field rather than
+          // replacing them, so a patch of just { version } here would leave
+          // any existing spec.desiredUpdate.image untouched. ClusterVersion's
+          // spec.desiredUpdate.image is authoritative over .version when both
+          // are set — CVO targets the image, using version only for display.
+          // A stale image (e.g. left over from a prior desiredUpdate) paired
+          // with a new version silently makes this a no-op: CVO logs "Update
+          // work is equal to current target; no change required" and never
+          // starts the upgrade, while the UI shows a success toast because
+          // the PATCH request itself succeeds. Always send the full pair so
+          // a merge can never reintroduce a mismatched image.
+          if (!image) {
+            throw new Error(`No image digest available for ${version} — refusing to patch desiredUpdate with version only, which can silently no-op against a stale image.`);
+          }
           await k8sPatch('/apis/config.openshift.io/v1/clusterversions/version', {
-            spec: { desiredUpdate: { version } },
+            spec: { desiredUpdate: { version, image } },
           }, 'application/merge-patch+json');
           addToast({ type: 'success', title: 'Cluster update started', detail: `Updating to ${version}` });
           queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
@@ -249,7 +263,7 @@ export function UpdatesTab({
                     {u.risks && u.risks.length > 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{u.risks.length} known risk{u.risks.length > 1 ? 's' : ''}</span>}
                   </div>
                   <button
-                    onClick={() => handleStartUpdate(u.version)}
+                    onClick={() => handleStartUpdate(u.version, u.image)}
                     disabled={updating || isUpdating}
                     className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50 flex items-center gap-1.5"
                   >
