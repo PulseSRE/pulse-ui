@@ -245,18 +245,18 @@ export function renderLabels(value: unknown): ReactNode {
   const remaining = entries.length - visible.length;
 
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-nowrap items-center gap-1 overflow-hidden">
       {visible.map(([key, val]) => (
         <span
           key={key}
-          className="inline-block px-1.5 py-0.5 text-xs bg-slate-800 text-slate-300 rounded-sm border border-slate-600"
+          className="inline-block shrink-0 px-1.5 py-0.5 text-xs bg-slate-800 text-slate-300 rounded-sm border border-slate-600"
           title={`${key}=${val}`}
         >
           {key.length > 15 ? `${key.slice(0, 12)}...` : key}
         </span>
       ))}
       {remaining > 0 && (
-        <span className="inline-block px-1.5 py-0.5 text-xs text-slate-500">
+        <span className="inline-block shrink-0 px-1.5 py-0.5 text-xs text-slate-500">
           +{remaining}
         </span>
       )}

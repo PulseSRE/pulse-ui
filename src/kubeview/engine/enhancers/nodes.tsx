@@ -4,14 +4,42 @@ import type { ResourceEnhancer } from './index';
 import type { Node } from '../types';
 import { getNodeStatus } from '../renderers/statusUtils';
 import { parseMem, formatMem } from '../formatting';
+import { renderLabels, renderOwner } from '../renderers/index';
 
 export const nodeEnhancer: ResourceEnhancer = {
   matches: ['v1/nodes'],
 
+  // Nodes carry more list-view columns than most resources (roles, version,
+  // cpu, memory, pods, taints, age, on top of the shared name/labels/owner),
+  // so every column below gets an explicit width — otherwise all of them
+  // (plus the shared, normally-unwidthed labels/owner columns) split the
+  // remaining space equally and everything truncates, even short values.
+  // These override the shared default labels/owner columns (same `id`) for
+  // nodes specifically; owner is rarely populated for Node objects so it
+  // gets a smaller share than labels.
   columns: [
+    {
+      id: 'labels',
+      header: 'Labels',
+      accessorFn: (resource) => resource.metadata.labels,
+      render: renderLabels,
+      sortable: false,
+      width: '10%',
+      priority: 4,
+    },
+    {
+      id: 'owner',
+      header: 'Owner',
+      accessorFn: (resource) => resource.metadata.ownerReferences,
+      render: renderOwner,
+      sortable: true,
+      width: '5%',
+      priority: 5,
+    },
     {
       id: 'status',
       header: 'Status',
+      width: '8%',
       accessorFn: (resource) => {
         const nodeStatus = getNodeStatus(resource);
         return nodeStatus.ready ? 'Ready' : 'NotReady';
@@ -49,6 +77,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'roles',
       header: 'Roles',
+      width: '10%',
       accessorFn: (resource) => {
         const nodeStatus = getNodeStatus(resource);
         return nodeStatus.roles.join(', ') || 'worker';
@@ -58,11 +87,11 @@ export const nodeEnhancer: ResourceEnhancer = {
         const roleList = roles.split(', ').filter(Boolean);
 
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-nowrap items-center gap-1 overflow-hidden" title={roles}>
             {roleList.map((role) => (
               <span
                 key={role}
-                className="inline-block px-2 py-0.5 text-xs font-medium rounded-sm bg-blue-900 text-blue-300"
+                className="inline-block shrink-0 px-2 py-0.5 text-xs font-medium rounded-sm bg-blue-900 text-blue-300"
               >
                 {role}
               </span>
@@ -76,6 +105,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'version',
       header: 'Version',
+      width: '7%',
       accessorFn: (resource) => {
         const status = resource.status as Record<string, unknown> | undefined;
         const nodeInfo = status?.nodeInfo as Record<string, unknown> | undefined;
@@ -94,6 +124,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'cpu',
       header: 'CPU',
+      width: '6%',
       accessorFn: (resource) => {
         const n = resource as Node;
         return n.status?.capacity?.cpu ?? '-';
@@ -106,6 +137,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'memory',
       header: 'Memory',
+      width: '7%',
       accessorFn: (resource) => {
         const n = resource as Node;
         const cap = n.status?.capacity?.memory;
@@ -119,6 +151,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'pods',
       header: 'Pods',
+      width: '5%',
       accessorFn: (resource) => {
         const n = resource as Node;
         return n.status?.allocatable?.pods ?? '-';
@@ -131,6 +164,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'taints',
       header: 'Taints',
+      width: '10%',
       accessorFn: (resource) => {
         const n = resource as Node;
         const taints = n.spec?.taints ?? [];
@@ -141,9 +175,9 @@ export const nodeEnhancer: ResourceEnhancer = {
         if (v === 'None') return <span className="text-xs text-slate-600">None</span>;
         const taints = v.split(', ');
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-nowrap items-center gap-1 overflow-hidden" title={v}>
             {taints.map((t, i) => (
-              <span key={i} className={`text-xs px-1 py-0.5 rounded font-mono ${
+              <span key={i} className={`shrink-0 text-xs px-1 py-0.5 rounded font-mono ${
                 t.includes('NoExecute') ? 'bg-red-900/30 text-red-400' :
                 t.includes('NoSchedule') ? 'bg-yellow-900/30 text-yellow-400' :
                 'bg-slate-800 text-slate-500'
@@ -158,6 +192,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'age',
       header: 'Age',
+      width: '6%',
       accessorFn: (resource) => resource.metadata.creationTimestamp,
       render: (value) => {
         if (!value) return <span className="text-xs text-slate-500">-</span>;
