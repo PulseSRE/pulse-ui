@@ -40,7 +40,7 @@ export type { PolicyRule, RoleRef, Subject, ClusterRole, ClusterRoleBinding, Rol
 export type { Ingress, NetworkPolicy, Route } from './networking';
 
 // OpenShift
-export type { ClusterVersion, ClusterOperator, BuildConfig, Build, ImageStream, MachineSet, Machine, NodePool } from './openshift';
+export type { ClusterVersion, ClusterOperator, BuildConfig, Build, ImageStream, MachineSet, Machine, NodePool, MachineConfigPool } from './openshift';
 
 // Storage
 export type { StorageClass, VolumeSnapshot, CSIDriver } from './storage';
@@ -86,6 +86,7 @@ export type TypedK8sResource =
   | import('./openshift').ImageStream
   | import('./openshift').MachineSet
   | import('./openshift').Machine
+  | import('./openshift').MachineConfigPool
   | import('./storage').StorageClass
   | import('./storage').VolumeSnapshot
   | import('./storage').CSIDriver;
