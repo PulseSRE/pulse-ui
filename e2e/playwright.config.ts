@@ -1,4 +1,15 @@
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, devices } from 'playwright/test';
+
+// package.json sets "type": "module" (4431493, "major dependency upgrades
+// across frontend stack"), so this config is loaded as native ESM and the
+// CommonJS __dirname global does not exist. Playwright threw
+// "ReferenceError: __dirname is not defined in ES module scope" while loading
+// the config, before running a single test -- which is why every E2E run since
+// 2026-08-07 failed identically.
+const configDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: './tests',
@@ -33,14 +44,14 @@ export default defineConfig({
     webServer: [
       {
         command: 'node mock-k8s-server.mjs',
-        cwd: __dirname,
+        cwd: configDir,
         url: 'http://localhost:8001/api/v1/nodes',
         reuseExistingServer: true,
         timeout: 10_000,
       },
       {
         command: 'bash start-agent.sh',
-        cwd: __dirname,
+        cwd: configDir,
         url: 'http://localhost:8080/healthz',
         reuseExistingServer: true,
         timeout: 120_000,
