@@ -56,8 +56,15 @@ export async function k8sList<T = K8sResource>(
   const base = getClusterBase(clusterId);
   let url = `${base}${apiPath}`;
 
-  // Add namespace to path if specified and not "all"
-  if (namespace && namespace !== 'all' && !apiPath.includes('/namespaces/')) {
+  // Add namespace to path if specified and not an "all namespaces" sentinel.
+  // '*' is the sentinel the rest of the app actually uses (useUIStore's
+  // selectedNamespace defaults to '*', not 'all') — without this, any
+  // caller that forwards selectedNamespace straight through (e.g.
+  // usePrefetchOnHover) builds a malformed /namespaces/*/... URL. That's
+  // always a 404, and for cluster-scoped resources like nodes it's invalid
+  // regardless of namespace value. 'all' is kept for backward compatibility
+  // with existing callers/tests that already relied on it.
+  if (namespace && namespace !== 'all' && namespace !== '*' && !apiPath.includes('/namespaces/')) {
     const parts = apiPath.split('/');
     const resourceIndex = parts.length - 1;
     parts.splice(resourceIndex, 0, 'namespaces', namespace);

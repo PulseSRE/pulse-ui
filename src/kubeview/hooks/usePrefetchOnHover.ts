@@ -69,6 +69,24 @@ const VIEW_DATA_REQUIREMENTS: Record<string, string[]> = {
 };
 
 /**
+ * Cluster-scoped resources must never get a namespace segment, regardless
+ * of what the user has selected — unlike TableView (which only calls
+ * useK8sListWatch with the resource it's actually showing), this hook
+ * blindly reuses the same `namespace` for every path in a view's
+ * requirements list, so a namespaced-and-cluster-scoped mix (e.g. /compute's
+ * pods + nodes) needs to know which is which. Mirrors the
+ * `likelyClusterScoped` heuristic in TableView.tsx.
+ */
+function isLikelyClusterScoped(apiPath: string): boolean {
+  const resourceName = apiPath.split('?')[0].split('/').filter(Boolean).pop() ?? '';
+  return resourceName.startsWith('cluster')
+    || resourceName === 'nodes'
+    || resourceName === 'namespaces'
+    || resourceName === 'persistentvolumes'
+    || resourceName.includes('customresourcedefinition');
+}
+
+/**
  * Convert a GVR URL segment (e.g. "apps~v1~deployments") to an API path.
  * Mirrors the logic in TableView and buildApiPath.
  */
@@ -119,15 +137,25 @@ export function usePrefetchOnHover(path: string) {
 
     timerRef.current = setTimeout(() => {
       const apiPaths = getApiPathsForRoute(path);
-      // Read namespace from store (same as views do)
-      const namespace = useUIStore.getState().selectedNamespace;
+      // Read namespace from store (same as views do), normalized the same
+      // way every view does it (e.g. WorkloadsView's `nsFilter`): '*' means
+      // "all namespaces" and must become undefined, not be forwarded
+      // literally — otherwise this prefetch's query key can never match the
+      // real view's, so nothing here would ever actually get reused.
+      const rawNamespace = useUIStore.getState().selectedNamespace;
+      const namespace = rawNamespace && rawNamespace !== '*' ? rawNamespace : undefined;
 
       for (const apiPath of apiPaths) {
+        // Cluster-scoped resources (nodes, namespaces, PVs, CRDs, ...) never
+        // take a namespace — mixing in the currently-selected one produces
+        // an always-404 /namespaces/{ns}/{resource} URL regardless of
+        // whether that namespace is a real one or the '*' "all" sentinel.
+        const effectiveNamespace = isLikelyClusterScoped(apiPath) ? undefined : namespace;
         // Use the same query key pattern as useK8sListWatch:
         // ['k8s', 'list', apiPath, namespace, clusterId]
         queryClient.prefetchQuery({
-          queryKey: ['k8s', 'list', apiPath, namespace, undefined],
-          queryFn: () => k8sList(apiPath, namespace),
+          queryKey: ['k8s', 'list', apiPath, effectiveNamespace, undefined],
+          queryFn: () => k8sList(apiPath, effectiveNamespace),
           staleTime: PREFETCH_STALE_TIME,
         });
       }

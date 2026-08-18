@@ -89,6 +89,19 @@ describe('k8sList', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/kubernetes/api/v1/pods', expect.any(Object));
   });
 
+  // Regression: reported live 404 for /api/kubernetes/api/v1/namespaces/*/nodes.
+  // '*' — not 'all' — is the sentinel useUIStore's selectedNamespace actually
+  // uses for "all namespaces" everywhere else in the app; without this,
+  // any caller that forwards it straight through builds a malformed
+  // /namespaces/*/... URL, which 404s for every resource and is invalid
+  // for cluster-scoped ones (like nodes) regardless of namespace value.
+  it('skips namespace injection for "*" (the app\'s actual "all namespaces" sentinel)', async () => {
+    mockOk({ apiVersion: 'v1', kind: 'NodeList', items: [] });
+
+    await k8sList('/api/v1/nodes', '*');
+    expect(mockFetch).toHaveBeenCalledWith('/api/kubernetes/api/v1/nodes', expect.any(Object));
+  });
+
   it('skips namespace injection if already present', async () => {
     mockOk({ apiVersion: 'v1', kind: 'PodList', items: [] });
 

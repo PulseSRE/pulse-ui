@@ -68,9 +68,35 @@ describe('usePrefetchOnHover', () => {
       vi.advanceTimersByTime(200);
     });
 
-    // /compute requires /api/v1/nodes and /api/v1/pods
-    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/nodes', 'default');
+    // /compute requires /api/v1/nodes (cluster-scoped — must never get a
+    // namespace, even a real one, not just the '*' "all" sentinel) and
+    // /api/v1/pods (namespaced — gets the current namespace).
+    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/nodes', undefined);
     expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', 'default');
+  });
+
+  // Regression: reported error was a live 404 for
+  // /api/kubernetes/api/v1/namespaces/*/nodes — this hook forwarded
+  // selectedNamespace ('*' by default, but the same bug applies to any real
+  // namespace too) straight into k8sList for every path in a view's list,
+  // including cluster-scoped ones, producing a malformed URL. Nodes must
+  // never get a namespace regardless of what's selected.
+  it('never applies a namespace to cluster-scoped resources, even when a real namespace is selected', () => {
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => usePrefetchOnHover('/compute'), { wrapper });
+
+    act(() => {
+      result.current.onMouseEnter();
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    for (const call of k8sListMock.mock.calls) {
+      if (call[0] === '/api/v1/nodes') {
+        expect(call[1]).toBeUndefined();
+      }
+    }
   });
 
   it('cancels prefetch when onMouseLeave fires before debounce', () => {
