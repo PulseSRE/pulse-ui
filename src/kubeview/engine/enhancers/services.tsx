@@ -4,10 +4,15 @@ import type { ResourceEnhancer } from './index';
 export const serviceEnhancer: ResourceEnhancer = {
   matches: ['v1/services'],
 
+  // Fixed pixel widths sized to content, not percentages — see the comment
+  // on getDefaultColumns for why (ports/selector previously used
+  // percentages too, which shrink proportionally with the container and
+  // re-truncate on a narrower window).
   columns: [
     {
       id: 'type',
       header: 'Type',
+      width: '130px',
       accessorFn: (resource) => {
         const spec = resource.spec as Record<string, unknown> | undefined;
         return spec?.type ?? 'ClusterIP';
@@ -36,6 +41,7 @@ export const serviceEnhancer: ResourceEnhancer = {
     {
       id: 'clusterIP',
       header: 'Cluster IP',
+      width: '130px',
       accessorFn: (resource) => {
         const spec = resource.spec as Record<string, unknown> | undefined;
         return spec?.clusterIP ?? '-';
@@ -91,7 +97,7 @@ export const serviceEnhancer: ResourceEnhancer = {
         );
       },
       sortable: false,
-      width: '20%',
+      width: '260px',
       priority: 12,
     },
     {
@@ -122,7 +128,7 @@ export const serviceEnhancer: ResourceEnhancer = {
         );
       },
       sortable: false,
-      width: '20%',
+      width: '220px',
       priority: 13,
     },
   ],

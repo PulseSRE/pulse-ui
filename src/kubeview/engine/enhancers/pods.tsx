@@ -8,10 +8,15 @@ import { getPodStatus } from '../renderers/statusUtils';
 export const podEnhancer: ResourceEnhancer = {
   matches: ['v1/pods'],
 
+  // Fixed pixel widths sized to content, not percentages — see the comment
+  // on getDefaultColumns for why: percentages re-truncate everything as
+  // soon as the window (or the Pulse AI panel) narrows, since every column
+  // shrinks proportionally with the container.
   columns: [
     {
       id: 'status',
       header: 'Status',
+      width: '150px',
       accessorFn: (resource) => {
         const podStatus = getPodStatus(resource);
         return podStatus.reason ?? podStatus.phase;
@@ -39,7 +44,7 @@ export const podEnhancer: ResourceEnhancer = {
         const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${colorMap[color] || 'bg-slate-500'}`;
 
         return (
-          <span className="inline-flex items-center text-sm">
+          <span className="inline-flex items-center text-sm" title={displayText}>
             <span className={dotClass} />
             <span>{displayText}</span>
           </span>
@@ -51,6 +56,7 @@ export const podEnhancer: ResourceEnhancer = {
     {
       id: 'ready',
       header: 'Ready',
+      width: '70px',
       accessorFn: (resource) => {
         const p = resource as Pod;
         const containerStatuses = p.status?.containerStatuses ?? [];
@@ -75,6 +81,7 @@ export const podEnhancer: ResourceEnhancer = {
     {
       id: 'restarts',
       header: 'Restarts',
+      width: '90px',
       accessorFn: (resource) => {
         const podStatus = getPodStatus(resource);
         return podStatus.restartCount;
@@ -96,6 +103,7 @@ export const podEnhancer: ResourceEnhancer = {
     {
       id: 'node',
       header: 'Node',
+      width: '180px',
       accessorFn: (resource) => {
         const p = resource as Pod;
         return p.spec?.nodeName ?? '-';
@@ -110,6 +118,7 @@ export const podEnhancer: ResourceEnhancer = {
           <Link
             to={`/r/v1~nodes/_/${nodeName}`}
             className="text-blue-400 hover:text-blue-300 hover:underline text-sm"
+            title={nodeName}
           >
             {nodeName}
           </Link>
@@ -121,6 +130,7 @@ export const podEnhancer: ResourceEnhancer = {
     {
       id: 'ip',
       header: 'IP',
+      width: '110px',
       accessorFn: (resource) => {
         const p = resource as Pod;
         return p.status?.podIP ?? '-';

@@ -4,10 +4,13 @@ import type { ResourceEnhancer } from './index';
 export const secretEnhancer: ResourceEnhancer = {
   matches: ['v1/secrets'],
 
+  // Fixed pixel widths sized to content, not percentages — see the comment
+  // on getDefaultColumns for why.
   columns: [
     {
       id: 'type',
       header: 'Type',
+      width: '190px',
       accessorFn: (resource) => {
         return resource.type ?? 'Opaque';
       },
@@ -36,6 +39,7 @@ export const secretEnhancer: ResourceEnhancer = {
     {
       id: 'keys',
       header: 'Data Keys',
+      width: '220px',
       accessorFn: (resource) => {
         const data = resource.data as Record<string, unknown> | undefined;
         const keys = data ? Object.keys(data) : [];
