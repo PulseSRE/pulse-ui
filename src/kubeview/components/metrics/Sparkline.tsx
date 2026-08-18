@@ -44,7 +44,13 @@ export function Sparkline({
     staleTime: 30000,
   });
 
-  const values = series[0]?.values?.map(([, v]) => parseFloat(v)) || [];
+  // Prometheus can legitimately return "NaN"/"+Inf"/"-Inf" samples (e.g. a
+  // rate() or division query with no data at that instant) — parseFloat
+  // passes those straight through as non-finite numbers, and a single one
+  // anywhere in the series poisons Math.min/Math.max for the whole array,
+  // producing a `NaN` SVG path ("M2,NaN L2.98,NaN ...") that fails to render.
+  // Drop non-finite samples so the line just has a small gap instead.
+  const values = (series[0]?.values?.map(([, v]) => parseFloat(v)) || []).filter(Number.isFinite);
 
   if (values.length < 2) {
     return (
@@ -120,7 +126,9 @@ export function MetricCard({
     staleTime: 30000,
   });
 
-  const values = series[0]?.values?.map(([, v]) => parseFloat(v)) || [];
+  // See the matching comment in Sparkline above: filter out non-finite
+  // Prometheus samples before they poison min/max and produce a NaN path.
+  const values = (series[0]?.values?.map(([, v]) => parseFloat(v)) || []).filter(Number.isFinite);
   const current = values.length > 0 ? values[values.length - 1] : null;
   const min = values.length > 0 ? Math.min(...values) : 0;
   const max = values.length > 0 ? Math.max(...values) : 0;

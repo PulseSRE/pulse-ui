@@ -219,7 +219,10 @@ export function useMultiSourceTable(
             const series = await queryRange(ds.query, start, now, step);
             results[ds.id] = series.map((s) => ({
               metric: s.metric,
-              values: s.values.map(([, v]) => parseFloat(v)),
+              // Prometheus can return "NaN"/"+Inf"/"-Inf" samples (e.g. a
+              // rate() with no data at that instant); a single one poisons
+              // Sparkline's Math.min/Math.max below and breaks the chart.
+              values: s.values.map(([, v]) => parseFloat(v)).filter(Number.isFinite),
             }));
           } catch {
             results[ds.id] = [];
