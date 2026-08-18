@@ -17,6 +17,15 @@ export const nodeEnhancer: ResourceEnhancer = {
   // These override the shared default labels/owner columns (same `id`) for
   // nodes specifically; owner is rarely populated for Node objects so it
   // gets a smaller share than labels.
+  //
+  // Widths are fixed pixels, not percentages: this content has a fairly
+  // predictable max length (a kubelet version, a core count, "NotReady"),
+  // so a pixel floor keeps it legible on any window size. Percentages
+  // looked fine on a full-width panel but re-truncated everything as soon
+  // as the window (or the Pulse AI side panel) narrowed, since every
+  // column shrinks proportionally with the container. The table already
+  // scrolls horizontally (TableBody's outer `overflow-auto`), so on a
+  // narrow window it scrolls instead of mangling text again.
   columns: [
     {
       id: 'labels',
@@ -24,7 +33,7 @@ export const nodeEnhancer: ResourceEnhancer = {
       accessorFn: (resource) => resource.metadata.labels,
       render: renderLabels,
       sortable: false,
-      width: '10%',
+      width: '180px',
       priority: 4,
     },
     {
@@ -33,13 +42,13 @@ export const nodeEnhancer: ResourceEnhancer = {
       accessorFn: (resource) => resource.metadata.ownerReferences,
       render: renderOwner,
       sortable: true,
-      width: '5%',
+      width: '70px',
       priority: 5,
     },
     {
       id: 'status',
       header: 'Status',
-      width: '8%',
+      width: '100px',
       accessorFn: (resource) => {
         const nodeStatus = getNodeStatus(resource);
         return nodeStatus.ready ? 'Ready' : 'NotReady';
@@ -77,7 +86,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'roles',
       header: 'Roles',
-      width: '10%',
+      width: '170px',
       accessorFn: (resource) => {
         const nodeStatus = getNodeStatus(resource);
         return nodeStatus.roles.join(', ') || 'worker';
@@ -105,7 +114,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'version',
       header: 'Version',
-      width: '7%',
+      width: '100px',
       accessorFn: (resource) => {
         const status = resource.status as Record<string, unknown> | undefined;
         const nodeInfo = status?.nodeInfo as Record<string, unknown> | undefined;
@@ -116,7 +125,7 @@ export const nodeEnhancer: ResourceEnhancer = {
           return <span className="text-slate-500">-</span>;
         }
 
-        return <span className="font-mono text-xs text-slate-300">{String(value)}</span>;
+        return <span className="font-mono text-xs text-slate-300" title={String(value)}>{String(value)}</span>;
       },
       sortable: true,
       priority: 12,
@@ -124,12 +133,12 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'cpu',
       header: 'CPU',
-      width: '6%',
+      width: '90px',
       accessorFn: (resource) => {
         const n = resource as Node;
         return n.status?.capacity?.cpu ?? '-';
       },
-      render: (value) => <span className="font-mono text-xs text-slate-300">{String(value)} cores</span>,
+      render: (value) => <span className="font-mono text-xs text-slate-300" title={`${String(value)} cores`}>{String(value)} cores</span>,
       sortable: true,
       sortType: 'number',
       priority: 12,
@@ -137,21 +146,21 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'memory',
       header: 'Memory',
-      width: '7%',
+      width: '90px',
       accessorFn: (resource) => {
         const n = resource as Node;
         const cap = n.status?.capacity?.memory;
         if (!cap) return '-';
         return formatMem(parseMem(cap));
       },
-      render: (value) => <span className="font-mono text-xs text-slate-300">{String(value)}</span>,
+      render: (value) => <span className="font-mono text-xs text-slate-300" title={String(value)}>{String(value)}</span>,
       sortable: true,
       priority: 13,
     },
     {
       id: 'pods',
       header: 'Pods',
-      width: '5%',
+      width: '70px',
       accessorFn: (resource) => {
         const n = resource as Node;
         return n.status?.allocatable?.pods ?? '-';
@@ -164,7 +173,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'taints',
       header: 'Taints',
-      width: '10%',
+      width: '180px',
       accessorFn: (resource) => {
         const n = resource as Node;
         const taints = n.spec?.taints ?? [];
@@ -192,7 +201,7 @@ export const nodeEnhancer: ResourceEnhancer = {
     {
       id: 'age',
       header: 'Age',
-      width: '6%',
+      width: '70px',
       accessorFn: (resource) => resource.metadata.creationTimestamp,
       render: (value) => {
         if (!value) return <span className="text-xs text-slate-500">-</span>;
