@@ -288,3 +288,26 @@ describe('secretEnhancer', () => {
     expect(col?.sortType).toBe('number');
   });
 });
+
+// Regression guard for the "table columns pervasively truncated / rows
+// growing tall" class of bug (Nodes, then Pods, then every other resource
+// list): a column with no explicit width falls back to an equal flex share
+// of whatever space is left after the widthed columns, so adding a new
+// enhancer column and forgetting a width silently squeezes every other
+// unwidthed column too. Percentage widths have their own, subtler failure
+// mode — they looked fine on a full-width panel but re-truncated everything
+// as soon as the window (or the Pulse AI side panel) narrowed, since every
+// percentage column shrinks proportionally with the container. Fail loudly
+// here instead of relying on someone noticing a screenshot.
+describe('enhancer column widths', () => {
+  const enhancers = { podEnhancer, deploymentEnhancer, nodeEnhancer, serviceEnhancer, secretEnhancer };
+
+  for (const [enhancerName, enhancer] of Object.entries(enhancers)) {
+    it(`${enhancerName}: every column has an explicit, non-percentage width`, () => {
+      for (const col of enhancer.columns) {
+        expect(col.width, `${enhancerName} column "${col.id}" must have a width`).toBeTruthy();
+        expect(col.width, `${enhancerName} column "${col.id}" must use a fixed pixel width, not a percentage (percentages shrink with the container and re-truncate on a narrow window)`).toMatch(/^\d+px$/);
+      }
+    });
+  }
+});

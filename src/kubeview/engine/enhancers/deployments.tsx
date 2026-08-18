@@ -7,10 +7,13 @@ import { getDeploymentStatus } from '../renderers/statusUtils';
 export const deploymentEnhancer: ResourceEnhancer = {
   matches: ['apps/v1/deployments', 'apps/v1/statefulsets', 'apps/v1/daemonsets'],
 
+  // Fixed pixel widths sized to content, not percentages — see the comment
+  // on getDefaultColumns for why.
   columns: [
     {
       id: 'status',
       header: 'Status',
+      width: '150px',
       accessorFn: (resource) => {
         const status = getDeploymentStatus(resource);
         if (status.available) return 'Available';
@@ -36,7 +39,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
         const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${colorMap[color] || 'bg-slate-500'}`;
 
         return (
-          <span className="inline-flex items-center text-sm">
+          <span className="inline-flex items-center text-sm" title={status}>
             <span className={dotClass} />
             <span>{status}</span>
           </span>
@@ -48,6 +51,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
     {
       id: 'ready',
       header: 'Ready',
+      width: '70px',
       accessorFn: (resource) => {
         const status = getDeploymentStatus(resource);
         return `${status.ready}/${status.desired}`;
@@ -94,12 +98,13 @@ export const deploymentEnhancer: ResourceEnhancer = {
         );
       },
       sortable: false,
-      width: '25%',
+      width: '260px',
       priority: 12,
     },
     {
       id: 'strategy',
       header: 'Strategy',
+      width: '130px',
       accessorFn: (resource) => {
         const spec = resource.spec as Record<string, unknown> | undefined;
         const strategy = spec?.strategy as Record<string, unknown> | undefined;

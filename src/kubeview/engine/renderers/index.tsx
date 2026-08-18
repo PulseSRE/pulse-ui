@@ -156,6 +156,7 @@ export function renderNamespace(value: unknown): ReactNode {
   return (
     <span
       className="inline-block px-2 py-0.5 text-xs font-medium rounded-sm bg-slate-700 text-slate-300"
+      title={ns}
     >
       {ns}
     </span>
@@ -730,7 +731,18 @@ function renderAutoValue(value: unknown): ReactNode {
   return React.createElement('span', { className: 'text-sm text-slate-300' }, str);
 }
 
-// Default columns that every resource gets
+// Default columns that every resource gets.
+//
+// `name` is the one column left as a percentage: resource names have no
+// realistic upper bound, and letting it grow with the viewport is actually
+// desirable. Every other column below uses a fixed pixel width sized to its
+// typical content instead — percentages looked fine on a full-width panel
+// but re-truncated everything ("Read..." for "Ready", single-letter label
+// badges, etc.) as soon as the window (or the Pulse AI side panel) narrowed,
+// since every percentage column shrinks proportionally with the container.
+// The table already scrolls horizontally on overflow, so a narrow window
+// now scrolls instead of mangling text again. See the Nodes enhancer for
+// the original instance of this bug and fix.
 export function getDefaultColumns(namespaced: boolean): ColumnDef[] {
   const cols: ColumnDef[] = [
     {
@@ -751,7 +763,7 @@ export function getDefaultColumns(namespaced: boolean): ColumnDef[] {
       accessorFn: (resource) => resource.metadata.namespace,
       render: renderNamespace,
       sortable: true,
-      width: '15%',
+      width: '190px',
       priority: 1,
     });
   }
@@ -763,7 +775,7 @@ export function getDefaultColumns(namespaced: boolean): ColumnDef[] {
     render: renderAge,
     sortable: true,
     sortType: 'date',
-    width: '10%',
+    width: '70px',
     priority: 2,
   });
 
@@ -773,6 +785,7 @@ export function getDefaultColumns(namespaced: boolean): ColumnDef[] {
     accessorFn: (resource) => resource.metadata.labels,
     render: renderLabels,
     sortable: false,
+    width: '170px',
     priority: 3,
   });
 
@@ -782,6 +795,7 @@ export function getDefaultColumns(namespaced: boolean): ColumnDef[] {
     accessorFn: (resource) => resource.metadata.ownerReferences,
     render: renderOwner,
     sortable: true,
+    width: '150px',
     priority: 3,
   });
 
