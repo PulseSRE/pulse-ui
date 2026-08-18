@@ -4,11 +4,13 @@
 
 import { test, expect } from 'playwright/test';
 
+import { bailUnlessStackAvailable } from './stack-guard';
+
 test.describe('Integration: Agent Health', () => {
   test('agent health endpoint is reachable from UI', async ({ page }) => {
     const response = await page.goto('/api/agent/health');
     if (!response || response.status() !== 200) {
-      test.skip(true, 'Agent not running — skipping');
+      bailUnlessStackAvailable('Agent not running — skipping');
       return;
     }
     const body = await response.json();
