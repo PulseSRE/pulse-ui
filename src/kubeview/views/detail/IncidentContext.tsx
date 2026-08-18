@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { ScrollText, Loader2 } from 'lucide-react';
 import { k8sLogs } from '../../engine/query';
+import { pickDefaultContainer } from '../../components/logs/pickDefaultContainer';
 import { MetricCard } from '../../components/metrics/Sparkline';
 import { CHART_COLORS } from '../../engine/colors';
 import type { K8sResource } from '../../engine/renderers';
@@ -62,7 +63,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   const [selectedContainer, setSelectedContainer] = React.useState<string>('');
   const [showPrevious, setShowPrevious] = React.useState(false);
 
-  const activeContainer = selectedContainer || containers[0]?.name || '';
+  const activeContainer = selectedContainer || pickDefaultContainer(containers.map((c) => c.name)) || '';
   const logPodName = isPod ? resource.metadata.name : worstPodName;
   const logPodNs = isPod ? namespace : worstPodNs;
 

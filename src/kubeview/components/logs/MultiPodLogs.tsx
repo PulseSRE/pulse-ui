@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import LogStream from './LogStream';
 import { parseLogLine, type ParsedLogLine } from './LogParser';
+import { pickDefaultContainer } from './pickDefaultContainer';
 
 interface MultiPodLogsProps {
   namespace: string;
@@ -71,9 +72,10 @@ export default function MultiPodLogs({
               const podRes = await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}`);
               if (podRes.ok) {
                 const podData = await podRes.json();
-                const firstContainer = podData?.spec?.containers?.[0]?.name;
-                if (firstContainer) {
-                  params.set('container', firstContainer);
+                const containerNames = (podData?.spec?.containers ?? []).map((c: { name?: string }) => c.name);
+                const defaultContainer = pickDefaultContainer(containerNames);
+                if (defaultContainer) {
+                  params.set('container', defaultContainer);
                   response = await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`);
                 }
               }
