@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '../../../engine/formatters';
 import { MetricCard as SparklineMetricCard } from '../../metrics/Sparkline';
+import { pickDefaultContainer } from '../../logs/pickDefaultContainer';
 import type {
   ComponentSpec,
   ChartSpec,
@@ -676,6 +677,25 @@ export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
     const fetchLogs = async (previous: boolean) => {
       if (previous) params.set('previous', 'true');
       const res = await fetch(`/api/kubernetes/api/v1/namespaces/${ns}/pods/${resource}/log?${params}`);
+      // A pod-level log request without `container` 400s for any
+      // multi-container pod. The AI-generated spec doesn't always know
+      // which container to pick, so fall back to a sensible default
+      // instead of silently showing "no logs" for the whole widget.
+      if (res.status === 400 && !params.has('container')) {
+        try {
+          const podRes = await fetch(`/api/kubernetes/api/v1/namespaces/${ns}/pods/${resource}`);
+          if (podRes.ok) {
+            const podData = await podRes.json();
+            const containerNames = (podData?.spec?.containers ?? []).map((c: { name?: string }) => c.name);
+            const defaultContainer = pickDefaultContainer(containerNames);
+            if (defaultContainer) {
+              params.set('container', defaultContainer);
+              return fetchLogs(previous);
+            }
+          }
+        } catch { /* fall through to empty */ }
+        return '';
+      }
       if (!res.ok) return '';
       return res.text();
     };

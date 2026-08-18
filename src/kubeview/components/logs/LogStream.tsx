@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Play, Pause, WrapText, Download, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseLogLine, detectLogFormat, type ParsedLogLine, type LogFormat } from './LogParser';
+import { pickDefaultContainer } from './pickDefaultContainer';
 
 interface LogStreamProps {
   namespace: string;
@@ -93,9 +94,10 @@ export default function LogStream({
           });
           if (podRes.ok) {
             const podData = await podRes.json();
-            const firstContainer = podData?.spec?.containers?.[0]?.name;
-            if (firstContainer) {
-              const retryUrl = url + (url.includes('?') ? '&' : '?') + `container=${encodeURIComponent(firstContainer)}`;
+            const containerNames = (podData?.spec?.containers ?? []).map((c: { name?: string }) => c.name);
+            const defaultContainer = pickDefaultContainer(containerNames);
+            if (defaultContainer) {
+              const retryUrl = url + (url.includes('?') ? '&' : '?') + `container=${encodeURIComponent(defaultContainer)}`;
               response = await fetch(retryUrl, { signal: abortControllerRef.current.signal });
             }
           }

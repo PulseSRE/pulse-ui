@@ -62,6 +62,26 @@ describe('LogStream', () => {
     expect(screen.getByText('log line 2')).toBeTruthy();
   });
 
+  // Regression: the auto-detected default used to be spec.containers[0]
+  // unconditionally, which for many real pods (including this cluster's own
+  // acm-agent pods) is a sidecar like oauth-proxy — logs "worked" but showed
+  // the wrong container by default instead of the actual app.
+  it('skips a known sidecar container and picks the app container as the default', async () => {
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(400, 'must specify container'));
+    vi.mocked(fetch).mockReturnValueOnce(
+      mockFetchResponse(200, { spec: { containers: [{ name: 'oauth-proxy' }, { name: 'streamlit-app' }] } })
+    );
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, 'app log line'));
+
+    await act(async () => {
+      render(<LogStream namespace="acm-agent" podName="acm-agent-54875b54c8-klmb4" />);
+    });
+
+    const calls = vi.mocked(fetch).mock.calls;
+    expect(calls[2][0]).toContain('container=streamlit-app');
+    expect(screen.getByText('app log line')).toBeTruthy();
+  });
+
   it('shows error on non-400 failure', async () => {
     vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(500, 'Internal Server Error'));
 
