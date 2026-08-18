@@ -2,7 +2,7 @@
  * OpenShift-specific resource types.
  */
 
-import type { ObjectMeta, Condition } from './common';
+import type { ObjectMeta, Condition, LabelSelector } from './common';
 
 export interface ClusterVersion {
   apiVersion: 'config.openshift.io/v1';
@@ -19,8 +19,55 @@ export interface ClusterVersion {
     history?: Array<{ state: string; version: string; startedTime?: string; completionTime?: string; image?: string }>;
     conditions?: Condition[];
     availableUpdates?: Array<{ version: string; image?: string }>;
+    // Conditional updates (config.openshift.io/v1 ClusterVersion.status.conditionalUpdates):
+    // recommended updates that carry known, structured risks for this cluster's
+    // specific configuration (e.g. platform, topology). Distinct from
+    // availableUpdates, which lists updates with no known caveats. Each risk's
+    // `message`/`url` are authored by the OpenShift update recommendation
+    // service — surface them verbatim rather than summarizing.
+    conditionalUpdates?: Array<{
+      release?: { version?: string; image?: string; url?: string };
+      risks?: Array<{
+        name?: string;
+        message?: string;
+        url?: string;
+        matchingRules?: Array<{ type?: string; [key: string]: unknown }>;
+      }>;
+      conditions?: Condition[];
+    }>;
     observedGeneration?: number;
     versionHash?: string;
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * MachineConfigPool (machineconfiguration.openshift.io/v1) — the real
+ * mechanism OpenShift node updates roll out through. `master`/`worker` (and
+ * any custom pools) each track their own rollout: how many machines in the
+ * pool are updated, ready, degraded, or unavailable, plus which rendered
+ * MachineConfig they're converging on.
+ */
+export interface MachineConfigPool {
+  apiVersion: 'machineconfiguration.openshift.io/v1';
+  kind: 'MachineConfigPool';
+  metadata: ObjectMeta;
+  spec?: {
+    paused?: boolean;
+    maxUnavailable?: number | string;
+    configuration?: { name?: string; source?: Array<{ apiVersion?: string; kind?: string; name?: string }> };
+    machineConfigSelector?: LabelSelector;
+    nodeSelector?: LabelSelector;
+  };
+  status?: {
+    conditions?: Condition[];
+    configuration?: { name?: string; source?: Array<{ apiVersion?: string; kind?: string; name?: string }> };
+    machineCount?: number;
+    readyMachineCount?: number;
+    updatedMachineCount?: number;
+    degradedMachineCount?: number;
+    unavailableMachineCount?: number;
+    observedGeneration?: number;
   };
   [key: string]: unknown;
 }

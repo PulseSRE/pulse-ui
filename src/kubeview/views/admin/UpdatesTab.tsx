@@ -7,18 +7,24 @@ import {
 import { cn } from '@/lib/utils';
 import { k8sPatch } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
-import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition } from '../../engine/types';
+import { resourceDetailUrl } from '../../engine/gvr';
+import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition, MachineConfigPool, Pod } from '../../engine/types';
 import { useUIStore } from '../../store/uiStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { Panel } from '../../components/primitives/Panel';
 import { SnapshotsTab } from './SnapshotsTab';
+import { UpgradeProgressPanel } from './UpgradeProgressPanel';
 import { showErrorToast } from '../../engine/errorToast';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
   spec?: {
     selector?: { matchLabels?: Record<string, string> };
+    [key: string]: unknown;
+  };
+  status?: {
+    disruptionsAllowed?: number;
     [key: string]: unknown;
   };
 }
@@ -43,6 +49,9 @@ export interface UpdatesTabProps {
   pdbs: PodDisruptionBudget[];
   etcdBackupExists: boolean | undefined;
   isHyperShift: boolean;
+  machineConfigPools: MachineConfigPool[];
+  pods: Pod[];
+  go: (path: string, title: string) => void;
 }
 
 export function UpdatesTab({
@@ -50,6 +59,7 @@ export function UpdatesTab({
   availableUpdates, isUpdating,
   operators, nodes, deployments, pdbs,
   etcdBackupExists, isHyperShift,
+  machineConfigPools, pods, go,
 }: UpdatesTabProps) {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
@@ -147,6 +157,18 @@ export function UpdatesTab({
           </>
         );
       })()}
+
+      {/* Real-time rollout progress, blocker detection, and stuck-update diagnosis */}
+      <UpgradeProgressPanel
+        clusterVersion={clusterVersion}
+        isUpdating={isUpdating}
+        nodes={nodes}
+        machineConfigPools={machineConfigPools}
+        pdbs={pdbs}
+        pods={pods}
+        availableUpdates={availableUpdates}
+        onReapplyUpdate={handleStartUpdate}
+      />
 
       {/* Current version + channel */}
       <Panel title="Current Version" icon={<Settings className="w-4 h-4 text-slate-400" />}>
@@ -287,21 +309,30 @@ export function UpdatesTab({
             {operators.map((op) => {
               const conds: Condition[] = op.status?.conditions || [];
               const progressing = conds.find((c) => c.type === 'Progressing');
-              const available = conds.find((c) => c.type === 'Available');
               const degraded = conds.find((c) => c.type === 'Degraded');
               const isProgressing = progressing?.status === 'True';
               const isDegraded = degraded?.status === 'True';
-              const isAvailable = available?.status === 'True';
               const version = op.status?.versions?.find((v) => v.name === 'operator')?.version || '';
+              // Surface *why* — the actual blocking condition message/reason, not just a badge.
+              const detailMessage = isDegraded ? (degraded?.message || degraded?.reason)
+                : isProgressing ? (progressing?.message || progressing?.reason)
+                : '';
               return (
-                <div key={op.metadata.uid} className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-800/30 rounded-sm">
-                  <div className="flex items-center gap-2">
-                    {isDegraded ? <XCircle className="w-3.5 h-3.5 text-red-500" /> :
-                     isProgressing ? <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" /> :
-                     <CheckCircle className="w-3.5 h-3.5 text-green-500" />}
-                    <span className="text-sm text-slate-200">{op.metadata.name}</span>
+                <button
+                  key={op.metadata.uid}
+                  onClick={() => go(resourceDetailUrl({ apiVersion: 'config.openshift.io/v1', kind: 'ClusterOperator', metadata: { name: op.metadata.name } }), op.metadata.name)}
+                  className="w-full flex items-start justify-between gap-2 py-1.5 px-2 hover:bg-slate-800/30 rounded-sm text-left transition-colors"
+                >
+                  <div className="flex items-start gap-2 min-w-0">
+                    {isDegraded ? <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" /> :
+                     isProgressing ? <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin shrink-0 mt-0.5" /> :
+                     <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
+                    <div className="min-w-0">
+                      <span className="text-sm text-slate-200">{op.metadata.name}</span>
+                      {detailMessage && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{detailMessage}</p>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {version && <span className="text-xs font-mono text-slate-500">{version}</span>}
                     <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                       isDegraded ? 'bg-red-900/50 text-red-300' :
@@ -311,7 +342,7 @@ export function UpdatesTab({
                       {isDegraded ? 'Degraded' : isProgressing ? 'Updating' : 'Ready'}
                     </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

@@ -12,7 +12,7 @@ import { k8sList, k8sGet } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import type { K8sResource } from '../engine/renderers';
-import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition, Namespace } from '../engine/types';
+import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition, Namespace, MachineConfigPool, Pod } from '../engine/types';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useClusterStore } from '../store/clusterStore';
 import ClusterConfig from '../components/ClusterConfig';
@@ -92,6 +92,10 @@ interface LimitRange extends K8sResource {
 interface PodDisruptionBudget extends K8sResource {
   spec?: {
     selector?: { matchLabels?: Record<string, string> };
+    [key: string]: unknown;
+  };
+  status?: {
+    disruptionsAllowed?: number;
     [key: string]: unknown;
   };
 }
@@ -256,6 +260,23 @@ export default function AdminView() {
     queryKey: ['k8s', 'list', '/apis/apps/v1/deployments'],
     queryFn: async () => (await safeQuery(() => k8sList<Deployment>('/apis/apps/v1/deployments'))) ?? [],
     staleTime: 60000,
+  });
+
+  // Same queryKey ComputeView uses for MachineConfigPools — real per-pool node
+  // rollout progress (updatedMachineCount/machineCount, Degraded/Updating
+  // conditions), shared cache when both views have fetched it.
+  const { data: machineConfigPools = [] } = useQuery<MachineConfigPool[]>({
+    queryKey: ['compute', 'machineconfigpools'],
+    queryFn: async () => (await safeQuery(() => k8sList<MachineConfigPool>('/apis/machineconfiguration.openshift.io/v1/machineconfigpools'))) ?? [],
+    staleTime: 60000,
+  });
+
+  // Pods are only needed to correlate PodDisruptionBudgets against nodes
+  // that are actually draining right now — skip the cluster-wide fetch
+  // entirely unless an update is actively progressing.
+  const { data: pods = [] } = useK8sListWatch<Pod>({
+    apiPath: '/api/v1/pods',
+    enabled: (clusterVersion?.status?.conditions || []).some((c: Condition) => c.type === 'Progressing' && c.status === 'True'),
   });
 
   const { data: etcdBackupExists } = useQuery({
@@ -528,6 +549,9 @@ export default function AdminView() {
             pdbs={pdbs}
             etcdBackupExists={etcdBackupExists}
             isHyperShift={isHyperShift}
+            machineConfigPools={machineConfigPools}
+            pods={pods}
+            go={go}
           />
         )}
 

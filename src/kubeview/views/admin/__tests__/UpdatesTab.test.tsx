@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
-import type { ClusterVersion } from '../../../engine/types';
+import type { ClusterVersion, ClusterOperator, Node, MachineConfigPool, Pod } from '../../../engine/types';
 import type { UpdatesTabProps } from '../UpdatesTab';
 
 // --- Mocks ---
@@ -49,6 +49,9 @@ function renderTab(props: Partial<UpdatesTabProps> = {}) {
     pdbs: [],
     etcdBackupExists: false,
     isHyperShift: false,
+    machineConfigPools: [],
+    pods: [],
+    go: vi.fn(),
     ...props,
   };
 
@@ -356,5 +359,123 @@ describe('UpdatesTab', () => {
     });
 
     expect(screen.getByText('Managed by hosting provider')).toBeDefined();
+  });
+
+  it('shows the actual Degraded condition message on operators, not just a badge, and links to the operator detail page', () => {
+    const go = vi.fn();
+    const operators: ClusterOperator[] = [{
+      apiVersion: 'config.openshift.io/v1', kind: 'ClusterOperator',
+      metadata: { name: 'etcd', uid: 'co-etcd', creationTimestamp: '2026-01-01T00:00:00Z' },
+      status: {
+        conditions: [
+          { type: 'Available', status: 'False' },
+          { type: 'Degraded', status: 'True', message: 'EtcdMembersDegraded: 1 of 3 members are unhealthy' },
+        ],
+      },
+    }];
+
+    renderTab({ isUpdating: true, operators, go });
+
+    expect(screen.getByText('EtcdMembersDegraded: 1 of 3 members are unhealthy')).toBeDefined();
+    fireEvent.click(screen.getByText('etcd'));
+    expect(go).toHaveBeenCalledWith('/r/config.openshift.io~v1~clusteroperators/_/etcd', 'etcd');
+  });
+
+  // Regression: this is the read-path counterpart to the stale-image write-path
+  // fix (#50) — spec.desiredUpdate can also be set directly by other tooling
+  // (e.g. `oc adm upgrade`), so the UI must still be able to detect and explain
+  // a stuck/no-op update even when this app's own PATCH logic wasn't involved.
+  it('shows a stuck-update banner with a working Re-apply button when spec.desiredUpdate silently no-ops', async () => {
+    const cv = makeClusterVersion({
+      spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:oldimage' } },
+      status: {
+        desired: { version: '4.21.27', image: 'quay.io/openshift-release-dev/ocp-release@sha256:oldimage' },
+        conditions: [{ type: 'Progressing', status: 'False', lastTransitionTime: new Date(Date.now() - 10 * 60000).toISOString() }],
+        history: [],
+      },
+    });
+
+    renderTab({
+      clusterVersion: cv,
+      availableUpdates: [{ version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:correct-new-image' }],
+    });
+
+    expect(screen.getByText(/Update appears stuck/)).toBeDefined();
+
+    const { k8sPatch } = await import('../../../engine/query');
+    fireEvent.click(screen.getByText('Re-apply update to 4.21.28'));
+    fireEvent.click(screen.getByText('Start Update'));
+    await vi.waitFor(() => {
+      expect(k8sPatch).toHaveBeenCalledWith(
+        '/apis/config.openshift.io/v1/clusterversions/version',
+        { spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:correct-new-image' } } },
+        'application/merge-patch+json',
+      );
+    });
+  });
+
+  it('does not show a stuck-update banner while a real update is progressing', () => {
+    const cv = makeClusterVersion({
+      spec: { desiredUpdate: { version: '4.21.28', image: 'sha256:new' } },
+      status: {
+        desired: { version: '4.21.27', image: 'sha256:old' },
+        conditions: [{ type: 'Progressing', status: 'True', message: 'Working towards 4.21.28', lastTransitionTime: new Date().toISOString() }],
+        history: [],
+      },
+    });
+    renderTab({ clusterVersion: cv, isUpdating: true });
+    expect(screen.queryByText(/Update appears stuck/)).toBeNull();
+  });
+
+  it('shows real MachineConfigPool rollout progress during an update', () => {
+    const pools: MachineConfigPool[] = [{
+      apiVersion: 'machineconfiguration.openshift.io/v1', kind: 'MachineConfigPool',
+      metadata: { name: 'worker', uid: 'mcp-worker', creationTimestamp: '2026-01-01T00:00:00Z' },
+      status: {
+        machineCount: 6, updatedMachineCount: 3, readyMachineCount: 3, degradedMachineCount: 0, unavailableMachineCount: 0,
+        conditions: [{ type: 'Updated', status: 'False' }, { type: 'Updating', status: 'True' }, { type: 'Degraded', status: 'False' }],
+      },
+    }];
+
+    renderTab({ isUpdating: true, machineConfigPools: pools });
+
+    expect(screen.getByText('Node Rollout Progress')).toBeDefined();
+    expect(screen.getByText('worker')).toBeDefined();
+    expect(screen.getByText('3/6 nodes updated')).toBeDefined();
+  });
+
+  it('shows a PDB drain blocker when it has 0 disruptions allowed and covers a pod on a node mid-rollout', () => {
+    const nodes: Node[] = [{
+      apiVersion: 'v1', kind: 'Node',
+      metadata: {
+        name: 'worker-1', uid: 'node-worker-1', creationTimestamp: '2026-01-01T00:00:00Z',
+        annotations: {
+          'machineconfiguration.openshift.io/state': 'Working',
+          'machineconfiguration.openshift.io/desiredConfig': 'rendered-worker-new',
+          'machineconfiguration.openshift.io/currentConfig': 'rendered-worker-old',
+        },
+      },
+      status: { conditions: [{ type: 'Ready', status: 'True' }] },
+    }];
+    const pods: Pod[] = [{
+      apiVersion: 'v1', kind: 'Pod',
+      metadata: { name: 'checkout-1', namespace: 'checkout', uid: 'pod-1', creationTimestamp: '2026-01-01T00:00:00Z', labels: { app: 'checkout' } },
+      spec: { containers: [], nodeName: 'worker-1' },
+    }];
+
+    renderTab({
+      isUpdating: true,
+      nodes,
+      pdbs: [{
+        apiVersion: 'policy/v1', kind: 'PodDisruptionBudget',
+        metadata: { name: 'checkout-pdb', namespace: 'checkout', uid: 'pdb-1' },
+        spec: { selector: { matchLabels: { app: 'checkout' } } },
+        status: { disruptionsAllowed: 0 },
+      }],
+      pods,
+    });
+
+    expect(screen.getByText('Drain Blockers')).toBeDefined();
+    expect(screen.getByText('checkout/checkout-pdb')).toBeDefined();
   });
 });

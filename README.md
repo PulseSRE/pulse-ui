@@ -255,7 +255,7 @@ podman login quay.io                         # Container registry
 | **Toolbox** | Consolidated tools hub at `/toolbox` — 8 tabs: Catalog (all 138 tools with native/MCP source badges), Skills (7 skill packages with status and routing config), Plans (plan templates and active executions), SLOs (SLO registry with burn rates), Connections (MCP server management with toolset toggles), Components (25 component kinds with mutation support), Usage (tool invocation audit log), Analytics (routing accuracy, fix strategies, agent learning) |
 | **Project** | Namespace-scoped dashboard at `/project/:namespace` with resource summary and health overview |
 | **Claim** | Share token claim view at `/share/:shareToken` for accepting shared custom views |
-| **Admin** | 8 tabs: Overview, Operators, Config, Updates, Snapshots, Quotas, Certificates, CRDs |
+| **Admin** | 8 tabs: Overview, Operators, Config, Updates, Snapshots, Quotas, Certificates, CRDs. Updates tab has real-time upgrade progress and blocker detection: per-MachineConfigPool/per-node rollout status, evidence-based ETA from observed rollout rate, and stuck-update diagnosis (stale desiredUpdate mismatch, Upgradeable=False/admin-ack, conditional update risks, PDB/node drain blockers) with concrete remediation actions |
 
 ---
 
