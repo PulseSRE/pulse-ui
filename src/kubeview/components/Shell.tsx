@@ -32,7 +32,17 @@ function SessionExpiredModal() {
 
   const redirectNow = useCallback(() => {
     disconnectAll();
-    window.location.href = '/';
+    // Must be oauth-proxy's own sign-out endpoint, not '/'. oauth-proxy's
+    // session cookie (--cookie-expire=168h) outlives the underlying OpenShift
+    // OAuth access token it forwards (typically ~24h), so once the access
+    // token expires the cookie itself is still "valid" from oauth-proxy's
+    // perspective. Navigating to '/' re-serves the app under that same
+    // still-valid-but-useless session instead of triggering a fresh login —
+    // which is exactly why this modal appeared to do nothing when clicked.
+    // /oauth/sign_out clears the session cookie server-side first, so the
+    // subsequent redirect to '/' has no session and correctly starts a new
+    // OAuth flow.
+    window.location.href = '/oauth/sign_out';
   }, []);
 
   useEffect(() => {
