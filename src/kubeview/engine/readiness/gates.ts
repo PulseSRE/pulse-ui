@@ -223,10 +223,17 @@ const secretsManagement: ReadinessGate = {
   category: 'security',
   priority: 'recommended',
   evaluate: (ctx) => safeEval(secretsManagement, async () => {
-    const [extSecrets, sealedSecrets] = await Promise.all([
+    // ESO 0.17+ (mid-2025) stops serving external-secrets.io/v1beta1 in
+    // favor of v1 (breaking change; see external-secrets/external-secrets#4785
+    // and the v0.17.0 release notes). ESO installs still on <0.17 only serve
+    // v1beta1. Check both rather than assuming one; either finding an
+    // ExternalSecret means the gate passes.
+    const [extSecretsV1, extSecretsV1beta1, sealedSecrets] = await Promise.all([
+      safeQuery(() => listItems(ctx, '/apis/external-secrets.io/v1/externalsecrets')).then(r => r ?? []),
       safeQuery(() => listItems(ctx, '/apis/external-secrets.io/v1beta1/externalsecrets')).then(r => r ?? []),
       safeQuery(() => listItems(ctx, '/apis/bitnami.com/v1alpha1/sealedsecrets')).then(r => r ?? []),
     ]);
+    const extSecrets = [...extSecretsV1, ...extSecretsV1beta1];
     const hasExt = extSecrets.length > 0;
     const hasSealed = sealedSecrets.length > 0;
     if (hasExt) return { status: 'passed', detail: `${extSecrets.length} ExternalSecret${extSecrets.length !== 1 ? 's' : ''}`, fixGuidance: '' };

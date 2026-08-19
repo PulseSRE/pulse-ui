@@ -350,8 +350,11 @@ export default function OperatorCatalogView() {
       { title: 'Create a QuayRegistry', description: 'Deploy a Quay registry instance with managed storage and database', path: '/create/quay.redhat.com~v1~quayregistries', label: 'Create QuayRegistry' },
     ];
     if (name.includes('external-secrets')) return [
-      { title: 'Create a SecretStore', description: 'Connect to your secret provider (Vault, AWS Secrets Manager, GCP)', path: '/create/external-secrets.io~v1beta1~secretstores', label: 'Create SecretStore' },
-      { title: 'Create an ExternalSecret', description: 'Sync a secret from your provider into a K8s Secret', path: '/create/external-secrets.io~v1beta1~externalsecrets', label: 'Create ExternalSecret' },
+      // ESO 0.17+ (mid-2025) stopped serving external-secrets.io/v1beta1 —
+      // a fresh catalog install lands on a current ESO version, so these
+      // creation links use v1 (see external-secrets/external-secrets#4785).
+      { title: 'Create a SecretStore', description: 'Connect to your secret provider (Vault, AWS Secrets Manager, GCP)', path: '/create/external-secrets.io~v1~secretstores', label: 'Create SecretStore' },
+      { title: 'Create an ExternalSecret', description: 'Sync a secret from your provider into a K8s Secret', path: '/create/external-secrets.io~v1~externalsecrets', label: 'Create ExternalSecret' },
     ];
     if (name.includes('servicemesh') || name.includes('istio')) return [
       { title: 'Create a ServiceMeshControlPlane', description: 'Deploy the Istio control plane in your namespace', path: '/create/maistra.io~v2~servicemeshcontrolplanes', label: 'Create SMCP' },

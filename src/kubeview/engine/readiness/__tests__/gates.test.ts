@@ -98,6 +98,60 @@ describe('etcd-backup gate', () => {
   });
 });
 
+describe('secrets-mgmt gate', () => {
+  it('detects an ExternalSecret under the current external-secrets.io/v1 (ESO 0.17+)', async () => {
+    const fetchJson = vi.fn(async (path: string) => {
+      if (path === '/apis/external-secrets.io/v1/externalsecrets') {
+        return { items: [{ metadata: { name: 'db-creds' } }] };
+      }
+      return notFound();
+    });
+
+    const result = await findGate('secrets-mgmt').evaluate(makeCtx(fetchJson));
+
+    expect(fetchJson).toHaveBeenCalledWith('/apis/external-secrets.io/v1/externalsecrets');
+    expect(result.status).toBe('passed');
+    expect(result.detail).toBe('1 ExternalSecret');
+  });
+
+  it('still detects a legacy external-secrets.io/v1beta1 ExternalSecret (ESO <0.17)', async () => {
+    const fetchJson = vi.fn(async (path: string) => {
+      if (path === '/apis/external-secrets.io/v1beta1/externalsecrets') {
+        return { items: [{ metadata: { name: 'db-creds' } }] };
+      }
+      return notFound();
+    });
+
+    const result = await findGate('secrets-mgmt').evaluate(makeCtx(fetchJson));
+
+    expect(fetchJson).toHaveBeenCalledWith('/apis/external-secrets.io/v1beta1/externalsecrets');
+    expect(result.status).toBe('passed');
+    expect(result.detail).toBe('1 ExternalSecret');
+  });
+
+  it('falls back to SealedSecrets when no ExternalSecret is found on either version', async () => {
+    const fetchJson = vi.fn(async (path: string) => {
+      if (path === '/apis/bitnami.com/v1alpha1/sealedsecrets') {
+        return { items: [{ metadata: { name: 'sealed-1' } }] };
+      }
+      return notFound();
+    });
+
+    const result = await findGate('secrets-mgmt').evaluate(makeCtx(fetchJson));
+
+    expect(result.status).toBe('passed');
+    expect(result.detail).toBe('1 SealedSecret');
+  });
+
+  it('reports needs_attention when no external secrets operator is detected on any version', async () => {
+    const fetchJson = vi.fn(async () => notFound());
+
+    const result = await findGate('secrets-mgmt').evaluate(makeCtx(fetchJson));
+
+    expect(result.status).toBe('needs_attention');
+  });
+});
+
 describe('log-forwarding gate', () => {
   it('detects a ClusterLogForwarder under the current observability.openshift.io group (Logging 6.0+)', async () => {
     const fetchJson = vi.fn(async (path: string) => {

@@ -72,7 +72,15 @@ export default function SecurityView() {
   });
   const { data: externalSecrets = [] } = useQuery<K8sResource[]>({
     queryKey: ['security', 'externalsecrets'],
-    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1beta1/externalsecrets'))) ?? [],
+    queryFn: async () => {
+      // ESO 0.17+ serves ExternalSecret at v1 (v1beta1 is no longer served);
+      // ESO installs still on <0.17 only serve v1beta1 — check both.
+      const [v1, v1beta1] = await Promise.all([
+        safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1/externalsecrets')),
+        safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1beta1/externalsecrets')),
+      ]);
+      return [...(v1 ?? []), ...(v1beta1 ?? [])];
+    },
     staleTime: 120000,
     enabled: hasExternalSecrets,
   });
