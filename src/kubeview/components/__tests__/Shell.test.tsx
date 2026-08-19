@@ -261,4 +261,22 @@ describe('Shell', () => {
     expect(screen.getByText('Log in now')).toBeDefined();
     _mockUIState.degradedReasons = new Set();
   });
+
+  // Regression: "Log in now" (and the auto-redirect on countdown) used to
+  // navigate to '/' instead of '/oauth/sign_out'. oauth-proxy's session
+  // cookie outlives the OpenShift OAuth access token it forwards, so '/'
+  // just re-served the app under that same still-"valid" (per oauth-proxy)
+  // but useless session — the modal appeared to do nothing when clicked.
+  // Only /oauth/sign_out actually clears the cookie and forces a fresh login.
+  it('"Log in now" redirects to /oauth/sign_out, not /', () => {
+    _mockUIState.degradedReasons = new Set(['session_expired']);
+    const location = { ...window.location, href: 'http://localhost/' };
+    Object.defineProperty(window, 'location', { value: location, writable: true });
+
+    renderShell();
+    fireEvent.click(screen.getByText('Log in now'));
+
+    expect(window.location.href).toBe('/oauth/sign_out');
+    _mockUIState.degradedReasons = new Set();
+  });
 });
