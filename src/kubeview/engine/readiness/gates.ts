@@ -264,7 +264,17 @@ const logForwarding: ReadinessGate = {
   category: 'observability',
   priority: 'recommended',
   evaluate: (ctx) => safeEval(logForwarding, async () => {
-    const items = await listItems(ctx, '/apis/logging.openshift.io/v1/clusterlogforwarders');
+    // Logging 6.0+ (current) serves ClusterLogForwarder under
+    // observability.openshift.io/v1 — logging.openshift.io/v1 was removed
+    // for that resource (see Red Hat OpenShift Logging 6.0 release notes,
+    // LOG-5803). Older 5.x installs may still only have the legacy group,
+    // so check both rather than assuming one; either finding a forwarder
+    // means the gate passes.
+    const [current, legacy] = await Promise.all([
+      safeQuery(() => listItems(ctx, '/apis/observability.openshift.io/v1/clusterlogforwarders')).then(r => r ?? []),
+      safeQuery(() => listItems(ctx, '/apis/logging.openshift.io/v1/clusterlogforwarders')).then(r => r ?? []),
+    ]);
+    const items = [...current, ...legacy];
     return {
       status: items.length > 0 ? 'passed' : 'needs_attention',
       detail: items.length > 0 ? 'Configured' : 'Not configured — logs only available on cluster',
@@ -409,7 +419,11 @@ const etcdBackup: ReadinessGate = {
   priority: 'blocking',
   evaluate: (ctx) => safeEval(etcdBackup, async () => {
     if (ctx.isHyperShift) return { status: 'passed', detail: 'Managed by hosting provider', fixGuidance: '' };
-    const items = (await safeQuery(() => listItems(ctx, '/apis/config.openshift.io/v1/backups'))) ?? [];
+    // Backup is served at config.openshift.io/v1alpha1 (feature-gated by
+    // AutomatedEtcdBackup), not v1 — see openshift/api's
+    // config/v1alpha1/types_backup.go. v1 has never existed for this
+    // resource, so probing it always 404s even when backups are configured.
+    const items = (await safeQuery(() => listItems(ctx, '/apis/config.openshift.io/v1alpha1/backups'))) ?? [];
     return {
       status: items.length > 0 ? 'passed' : 'needs_attention',
       detail: items.length > 0 ? 'Backup configured' : 'No automated backup configured',
@@ -458,9 +472,20 @@ const notificationRouting: ReadinessGate = {
   whyItMatters: 'Without notification routing, alerts fire silently. Teams are not notified of critical issues until they discover them manually.',
   category: 'operations',
   priority: 'recommended',
-  evaluate: (ctx) => safeEval(notificationRouting, async () => {
+  evaluate: (_ctx) => safeEval(notificationRouting, async () => {
     try {
-      const receivers = await ctx.fetchJson<any[]>('/api/v1/namespaces/openshift-monitoring/services/alertmanager-main:web/proxy/api/v2/receivers');
+      // Go through the operator's dedicated /api/alertmanager/ proxy (same
+      // path AlertsView uses for silences) rather than the generic
+      // Kubernetes API server service-proxy subresource: the apiserver's
+      // service proxy assumes plain HTTP for a port named "web" (no
+      // "https:" scheme prefix), which Alertmanager's TLS-terminating
+      // listener rejects with a raw "Client sent an HTTP request to an
+      // HTTPS server." 400 — and even with the scheme prefix, that proxy
+      // path does not forward the caller's bearer token to the backend, so
+      // Alertmanager's kube-rbac-proxy sidecar then rejects it with 401.
+      const res = await fetch('/api/alertmanager/api/v2/receivers');
+      if (!res.ok) throw new Error(`Alertmanager returned ${res.status} ${res.statusText}`);
+      const receivers = (await res.json()) as any[];
       const nonDefault = (receivers || []).filter((r: any) => r.name !== 'Default' && r.name !== 'null' && r.name !== 'watchdog');
       return {
         status: nonDefault.length > 0 ? 'passed' : 'needs_attention',

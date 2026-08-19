@@ -281,7 +281,9 @@ export default function AdminView() {
 
   const { data: etcdBackupExists } = useQuery({
     queryKey: ['admin', 'etcd-backup'],
-    queryFn: async () => { const items = await safeQuery(() => k8sList('/apis/config.openshift.io/v1/backups')); return items ? items.length > 0 : false; },
+    // Backup is served at config.openshift.io/v1alpha1 (feature-gated by
+    // AutomatedEtcdBackup), not v1 — v1 has never existed for this resource.
+    queryFn: async () => { const items = await safeQuery(() => k8sList('/apis/config.openshift.io/v1alpha1/backups')); return items ? items.length > 0 : false; },
     staleTime: 60000,
   });
 
