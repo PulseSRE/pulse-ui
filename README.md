@@ -18,10 +18,10 @@
 </p>
 
 <p align="center">
+  <a href="#install">Install</a> &bull;
   <a href="#-quick-start">Quick Start</a> &bull;
   <a href="#-screenshots">Screenshots</a> &bull;
   <a href="#-features">Features</a> &bull;
-  <a href="#-deploy-to-openshift">Deploy</a> &bull;
   <a href="API_CONTRACT.md">API Contract</a> &bull;
   <a href="SECURITY.md">Security</a> &bull;
   <a href="CHANGELOG.md">Changelog</a>
@@ -49,43 +49,30 @@ Real-time Kubernetes dashboard built with React, TypeScript, and WebSocket watch
 
 ---
 
-## Prerequisites
+## Install
 
-- **Node.js 24+** and **pnpm** — for building the UI
-- **OpenShift 4.14+** or **ROSA** — with OAuth proxy support
-- **Podman** or **Docker** — for building container images
-- **Helm 3+** — for deployment
-- **oc CLI** — logged into target cluster
-- **Container registry** — writable push access (Quay.io, Docker Hub, etc.)
+**Install via the [pulse-operator](https://github.com/PulseSRE/pulse-operator)** — an OLM-managed Kubernetes Operator that deploys the full stack (this UI, [pulse-agent](https://github.com/PulseSRE/pulse-agent), and PostgreSQL) from a single `OpenShiftPulse` custom resource, with automatic upgrades, self-healing, and status conditions. See the operator's [README](https://github.com/PulseSRE/pulse-operator#install-via-olm) for the full CatalogSource → Subscription → CR walkthrough.
 
-### Fork & Deploy Checklist
+This repo builds the standalone UI container image the operator consumes (`quay.io/amobrem/openshiftpulse`) — you don't build or deploy it directly; the operator manages the Deployment, Route, OAuthClient, and RBAC for you. To point the operator at your own fork's image, set `spec.ui.image` on the `OpenShiftPulse` CR (no Helm values or manual manifests needed).
 
-If you're deploying your own instance, here's what to change:
+### Fork Checklist
+
+If you're maintaining your own fork, here's what to change:
 
 | What | Where | Default | Change to |
 |------|-------|---------|-----------|
-| **Container registry** | env vars or Helm values | `quay.io/amobrem` | Your registry (e.g., `quay.io/your-org`) |
-| **Claude API** | env var or Helm secret | none | Your Anthropic API key or GCP Vertex AI project |
 | **CI image push** | `.github/workflows/` | `quay.io/amobrem` | Your registry |
 | **GitHub Pages** | `docs/index.html` | `PulseSRE.github.io` | Your GitHub Pages URL |
 
-Everything else (RBAC, OAuth, WS tokens, PostgreSQL) is auto-configured by the deploy script.
+## Prerequisites
 
-```bash
-# 1. Set your registry
-export PULSE_UI_IMAGE=your-registry.io/your-org/openshiftpulse
-export PULSE_AGENT_IMAGE=your-registry.io/your-org/pulse-agent
+For local development (see [Quick Start](#-quick-start) below):
 
-# 2. Set your Claude API credentials (pick one)
-export ANTHROPIC_API_KEY=sk-ant-...                    # Anthropic direct
-# OR
-export ANTHROPIC_VERTEX_PROJECT_ID=your-gcp-project    # Vertex AI
+- **Node.js 24+** and **pnpm** — for building the UI
+- **OpenShift 4.14+** or **ROSA** — with OAuth proxy support
+- **oc CLI** — logged into target cluster
 
-# 3. Login and deploy
-oc login https://api.your-cluster:6443
-podman login your-registry.io
-./deploy/deploy.sh
-```
+For a quick local image rebuild against an already-installed stack (see [Quick Redeploy](#quick-redeploy) below), you'll also want **Podman** or **Docker** and push access to a container registry.
 
 ## Quick Start
 
@@ -103,42 +90,15 @@ oc proxy --port=8001 &
 pnpm dev    # http://localhost:9000
 ```
 
-### Build & Deploy to Cluster
+### Quick Redeploy
 
-The `deploy.sh` script handles the full pipeline:
-
-```
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────┐
-│ pnpm build  │ ──▶ │ podman build │ ──▶ │ podman push  │ ──▶ │ helm     │
-│ (rspack)    │     │ (UI + Agent) │     │ (registry)   │     │ upgrade  │
-└─────────────┘     └──────────────┘     └──────────────┘     └──────────┘
-```
-
-**What happens under the hood:**
-1. **`pnpm build`** — rspack production build → `dist/`
-2. **`podman build`** — builds UI image (nginx + dist/) and Agent image (Python + sre_agent/) in parallel
-3. **`podman push`** — pushes both images to your registry (default: `quay.io/amobrem`)
-4. **`helm upgrade`** — deploys via umbrella chart (UI + Agent + PostgreSQL)
-5. **Health check** — waits for pods to be ready, verifies agent responds
+If the operator already has a stack running and you just want to test a locally-built UI image against it:
 
 ```bash
-# Full build + deploy (UI + Agent)
-./deploy/deploy.sh
-
-# Preview without applying
-./deploy/deploy.sh --dry-run
-
-# Custom registry
-PULSE_UI_IMAGE=my-registry.io/pulse-ui PULSE_AGENT_IMAGE=my-registry.io/pulse-agent ./deploy/deploy.sh
-
-# Uninstall everything
-./deploy/deploy.sh --uninstall
-```
-
-**Required logins before deploy:**
-```bash
-oc login https://api.your-cluster:6443      # OpenShift cluster
-podman login quay.io                         # Container registry
+pnpm build && podman build --platform linux/amd64 -t ${PULSE_UI_IMAGE:-quay.io/your-org/openshiftpulse}:latest . \
+  && podman push ${PULSE_UI_IMAGE:-quay.io/your-org/openshiftpulse}:latest \
+  && oc patch openshiftpulse <cr-name> -n <namespace> --type=merge \
+       -p '{"spec":{"ui":{"image":"'"${PULSE_UI_IMAGE:-quay.io/your-org/openshiftpulse}"':latest"}}}'
 ```
 
 ## Screenshots
@@ -274,69 +234,15 @@ podman login quay.io                         # Container registry
 
 ---
 
-## Deploy to OpenShift
+## Operator-Managed Stack
 
-> **Requires `cluster-admin`** — creates ClusterRole, ClusterRoleBinding, OAuthClient.
+Once installed via the [pulse-operator](https://github.com/PulseSRE/pulse-operator) (see [Install](#install) above), the operator handles everything documented here as manual Helm steps in older versions of this README:
 
-### One-Command Deploy (UI + Agent)
-
-```bash
-# Option A: Vertex AI (GCP)
-ANTHROPIC_VERTEX_PROJECT_ID=your-project CLOUD_ML_REGION=us-east5 \
-  ./deploy/deploy.sh --gcp-key ~/sa-key.json
-
-# Option B: Anthropic API (no GCP needed)
-ANTHROPIC_API_KEY=sk-ant-... ./deploy/deploy.sh
-
-# Verify
-./deploy/integration-test.sh
-```
-
-**How it works**: Uses an **umbrella Helm chart** (`deploy/helm/pulse/`) that deploys both UI and agent as subcharts in a single `helm upgrade --install --atomic`. The deploy script auto-detects the agent repo (looks for `../pulse-agent` by default). Builds images locally with Podman, pushes to Quay.io, deploys atomically with auto-rollback on failure. A values file replaces 20+ `--set` flags. Never uses S2I or on-cluster builds.
-
-**Deploy tracking**: Every deploy records duration timing and writes to a local history log (`~/.pulse-deploy-history.jsonl`). A ConfigMap with deploy metadata is written to the cluster. Optional `--slack-webhook` sends notifications on success/failure.
-
-**Startup probes**: All 4 containers (oauth-proxy, nginx, agent, postgresql) have startup probes for reliable rollout detection.
-
-**Self-monitoring**: A ServiceMonitor and 4 PrometheusRules (UIDown, AgentDown, AgentHighRestarts, PostgreSQLDown) are deployed by default.
-
-**Rollback**: `--rollback` flag reverts to the previous Helm release. Failed health checks trigger automatic rollback.
-
-**Session persistence**: OAuth cookie (168h TTL) and client secrets are generated once and persisted in-cluster. Subsequent `helm upgrade` runs reuse existing secrets via `lookup()`, so users are never logged out on redeploy.
-
-**WS token**: Stored as a Kubernetes Secret (not ConfigMap). The umbrella chart owns the shared WS token secret. Both the agent (via `secretKeyRef`) and the UI nginx proxy (via Helm `lookup()`) reference the same secret. No manual token management.
-
-**Build context**: `.dockerignore` reduces frontend build context from ~500MB to ~5MB.
-
-**Other features**: `--dry-run` to preview, `--uninstall` to clean up, `--rollback` to revert. Images tagged with git SHA for rollback safety. Proxy chain health check validates connectivity end-to-end.
-
-**Prerequisites**: `oc` (logged in), `helm`, `pnpm`, `podman` (logged in to your registry).
-
-### Helm Charts
-
-| Chart | Path | Description |
-|-------|------|-------------|
-| **pulse** (umbrella) | `deploy/helm/pulse/` | Single install for UI + Agent |
-| openshiftpulse | `deploy/helm/openshiftpulse/` | UI only (standalone) |
-| openshift-sre-agent | `pulse-agent/chart/` | Agent only (standalone) |
-
-### Quick Redeploy
-
-```bash
-# UI only (skip agent rebuild)
-pnpm build && podman build --platform linux/amd64 -t ${PULSE_UI_IMAGE:-quay.io/your-org/openshiftpulse}:latest . \
-  && podman push ${PULSE_UI_IMAGE:-quay.io/your-org/openshiftpulse}:latest \
-  && oc rollout restart deployment/openshiftpulse -n openshiftpulse
-
-# Config-only change (no rebuild)
-./deploy/deploy.sh --rollback
-```
-
-### Uninstall
-
-```bash
-./deploy/deploy.sh --uninstall
-```
+- **RBAC, OAuth, Route, OAuthClient** — reconciled automatically from the `OpenShiftPulse` CR; no `cluster-admin` Helm install step required from you directly (the operator's own installation needs cluster-admin once, via OLM).
+- **Upgrades** — bump `spec.agent.image`/`spec.ui.image` on the CR; the operator tracks rollout health (`status.phase: Upgrading`) and automatically rolls back to the last known-healthy image if a new one doesn't become ready in time.
+- **Self-monitoring** — a ServiceMonitor and PrometheusRules (`PulseAgentDown`, `PulseAgentHighRestarts`, `PulsePostgreSQLDown`) are deployed by default.
+- **Session persistence** — OAuth cookie and client secrets are generated once and persisted in-cluster; you're never logged out by a redeploy.
+- **Uninstall** — delete the `OpenShiftPulse` CR (`oc delete openshiftpulse <name> -n <namespace>`); the operator's finalizer cleans up cluster-scoped RBAC and the OAuthClient. See the operator's [Uninstall docs](https://github.com/PulseSRE/pulse-operator#uninstall) for removing the operator itself.
 
 ### Security
 
@@ -345,12 +251,10 @@ OAuth proxy with per-user auth. Non-root containers, read-only filesystem, CSP h
 <details>
 <summary><strong>Troubleshooting</strong></summary>
 
+Most RBAC/OAuth setup (`tokenreviews`/`subjectaccessreviews` grants, `user:full` scope) is now unconditionally re-applied by the [pulse-operator](https://github.com/PulseSRE/pulse-operator) on every reconcile, so it can't silently drift out of the correct state the way a one-time Helm install could. A malformed `cookie-secret` or Route/TLS drift specifically will also self-heal — check `oc get events -n <namespace>` for a `SelfHealed` event if you see either. The following are for issues the operator doesn't cover:
+
 | Problem | Fix |
 |---------|-----|
-| 503 on login | Delete TLS secret, re-add `serving-cert-secret-name` annotation |
-| 403 on API calls | OAuthClient needs `user:full` in `scopeRestrictions` |
-| oauth-proxy crash (tokenreviews) | ClusterRole needs tokenreviews/subjectaccessreviews — re-apply manifests |
-| cookie_secret error | Regenerate with `openssl rand -hex 16` (not base64) |
 | Metrics blank (SSL error) | Use `service-ca.crt` (not `ca.crt`) for Prometheus/Alertmanager |
 | Build stuck | Check configmap quota (`oc get resourcequota`) — need headroom (set >=50) |
 | Pods not scheduling | Need 2+ nodes for topology spread constraints |
