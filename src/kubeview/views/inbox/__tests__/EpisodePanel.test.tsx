@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import { EpisodePanel } from '../EpisodePanel';
 
 const fetchOpenEpisodes = vi.fn();
@@ -59,6 +59,11 @@ describe('EpisodePanel', () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
     detachSymptom.mockResolvedValue(undefined);
   });
+
+  // vitest.config.ts registers no setupFiles, so Testing Library's automatic
+  // cleanup is not installed — without this, renders stack up in the same
+  // document and queries match elements from previous tests.
+  afterEach(cleanup);
 
   it('renders nothing when no episode is open', async () => {
     fetchOpenEpisodes.mockResolvedValue([]);

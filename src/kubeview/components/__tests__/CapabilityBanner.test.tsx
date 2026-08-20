@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
 import { CapabilityBanner } from '../primitives/CapabilityBanner';
 
 const state: { findings: Array<Record<string, unknown>> } = { findings: [] };
@@ -24,6 +24,10 @@ function finding(over: Record<string, unknown> = {}) {
 }
 
 describe('CapabilityBanner', () => {
+  // No setupFiles in vitest.config.ts, so Testing Library's automatic cleanup
+  // is not installed and renders would otherwise accumulate across tests.
+  afterEach(cleanup);
+
   it('stays out of the way when nothing is degraded', () => {
     state.findings = [];
     const { container } = render(<CapabilityBanner />);
