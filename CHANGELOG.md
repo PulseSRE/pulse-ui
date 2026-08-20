@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Reset the inbox: count from now, keep the history
+- A **Reset** control in the inbox header. It archives everything open, re-baselines every counting scanner and rescans, so what comes back is what is happening rather than what has ever happened. Nothing is deleted — archived items keep their rows and their history
+- The confirmation names what it is about to take — "Archive 33 open items and count from now" — including pinned and claimed work, rather than asking a generic "are you sure?"
+- Afterwards it says what it did: items archived, episodes closed, and whether the rescan ran. A reset whose rescan failed says so instead of handing back a blank page that reads as data loss
+
 ## [2.12.0] - 2026-08-20
 
 ### The episode card shows the work already done, and can be cleared

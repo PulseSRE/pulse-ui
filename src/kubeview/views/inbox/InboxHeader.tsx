@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { useInboxStore } from '../../store/inboxStore';
+import { InboxResetButton } from './InboxResetButton';
 
 type Preset = 'needs_attention' | 'agent_cleared' | 'my_items' | 'archived' | 'all';
 
@@ -76,10 +77,13 @@ export function InboxHeader({
             </div>
           )}
         </div>
-        <Button size="sm" onClick={onNewTask}>
-          <Plus className="w-4 h-4 mr-1" />
-          New Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <InboxResetButton />
+          <Button size="sm" onClick={onNewTask}>
+            <Plus className="w-4 h-4 mr-1" />
+            New Task
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2" role="group" aria-label="Quick filters">
