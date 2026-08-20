@@ -26,6 +26,7 @@ import { useTrustStore } from '../store/trustStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useIncidentFeed } from '../hooks/useIncidentFeed';
+import { OpenEpisodeBanner } from './pulse/OpenEpisodeBanner';
 import { ReportTab } from './pulse/ReportTab';
 import { FleetReportTab } from './pulse/FleetReportTab';
 import { formatRelativeTime } from '../engine/formatters';
@@ -186,6 +187,10 @@ export default function PulseView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-5">
+
+        {/* An open episode outranks everything below it — those tiles are
+            showing its symptoms. */}
+        <OpenEpisodeBanner onOpen={() => go('/inbox', 'Inbox')} />
 
         {/* ── Cluster Posture Bar ── */}
         <ClusterPostureBar

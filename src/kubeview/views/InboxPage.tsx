@@ -133,7 +133,7 @@ export function InboxPage() {
 
           {activePreset === 'archived' && (
             <div className="mx-4 mt-2 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm text-slate-400">
-              <span className="font-medium text-slate-300">Archived items</span> are automatically deleted after 30 days. You can review past incidents, postmortems, and resolved issues here.
+              <span className="font-medium text-slate-300">Archived items</span> are automatically deleted after 30 days. You can review past incidents, postmortems, and resolved issues here. Items nobody claimed or acted on for 48 hours are archived automatically — hover the grey dot to see why.
             </div>
           )}
 
