@@ -38,6 +38,25 @@ export interface EpisodeSymptom {
   detached_by: string | null;
 }
 
+/** Config, RBAC or deployment activity shortly before an episode began. */
+export interface EpisodeChange {
+  category: string;
+  title: string;
+  namespace: string;
+  at: number;
+  seconds_before: number;
+}
+
+/** How often this cause has come back, and on what cadence if it has one. */
+export interface EpisodeRecurrence {
+  occurrences: number;
+  recurring: boolean;
+  first_seen?: number;
+  window_seconds?: number;
+  interval_seconds?: number;
+  prior_episode_ids?: string[];
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await agentFetch(`${AGENT_BASE}${path}`);
   if (!res.ok) throw new Error(`Episode API error: ${res.status} on ${path}`);
@@ -49,9 +68,13 @@ export async function fetchOpenEpisodes(): Promise<Episode[]> {
   return data.episodes ?? [];
 }
 
-export async function fetchEpisode(
-  id: string,
-): Promise<{ episode: Episode; symptoms: EpisodeSymptom[] }> {
+export async function fetchEpisode(id: string): Promise<{
+  episode: Episode;
+  symptoms: EpisodeSymptom[];
+  /** Optional so an older agent, which sends neither, still renders. */
+  changes?: EpisodeChange[];
+  recurrence?: EpisodeRecurrence;
+}> {
   return get(`/episodes/${encodeURIComponent(id)}`);
 }
 

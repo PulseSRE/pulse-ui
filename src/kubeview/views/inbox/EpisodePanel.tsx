@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Ban, ChevronDown, ChevronRight, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { detachSymptom, fetchEpisode, fetchOpenEpisodes } from '../../engine/episodeApi';
-import type { Episode, EpisodeSymptom } from '../../engine/episodeApi';
+import type { Episode, EpisodeChange, EpisodeRecurrence, EpisodeSymptom } from '../../engine/episodeApi';
 
 /**
  * Shows open episodes above the inbox: a cause, with the findings it explains
@@ -22,19 +22,43 @@ function since(startedAt: number): string {
   return `${Math.round(mins / 1440)}d`;
 }
 
+function duration(seconds: number): string {
+  if (seconds < 90) return `${Math.round(seconds)}s`;
+  if (seconds < 5400) return `${Math.round(seconds / 60)}m`;
+  if (seconds < 172800) return `${Math.round(seconds / 3600)}h`;
+  return `${Math.round(seconds / 86400)}d`;
+}
+
+/** "6th time in 11h, every 2h" — the sentence that turns a page into a diagnosis. */
+function recurrenceLine(r: EpisodeRecurrence): string | null {
+  if (!r.recurring || r.occurrences < 2) return null;
+  const parts = [`${r.occurrences} times`];
+  if (r.window_seconds) parts.push(`in ${duration(r.window_seconds)}`);
+  if (r.interval_seconds) parts.push(`· every ${duration(r.interval_seconds)}`);
+  return parts.join(' ');
+}
+
 function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () => void }) {
   const [expanded, setExpanded] = useState(true);
   const [symptoms, setSymptoms] = useState<EpisodeSymptom[]>([]);
+  const [changes, setChanges] = useState<EpisodeChange[]>([]);
+  const [recurrence, setRecurrence] = useState<EpisodeRecurrence | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetchEpisode(episode.id)
       .then((d) => {
-        if (!cancelled) setSymptoms(d.symptoms.filter((s) => s.detached_at == null));
+        if (cancelled) return;
+        setSymptoms(d.symptoms.filter((s) => s.detached_at == null));
+        setChanges(d.changes ?? []);
+        setRecurrence(d.recurrence ?? null);
       })
       .catch(() => {
-        if (!cancelled) setSymptoms([]);
+        if (cancelled) return;
+        setSymptoms([]);
+        setChanges([]);
+        setRecurrence(null);
       });
     return () => {
       cancelled = true;
@@ -55,6 +79,11 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
     [episode.id, onChanged],
   );
 
+  // Prefer the real sentence; fall back to the flag for an agent that only
+  // reports that a prior episode existed.
+  const recurrenceLabel =
+    (recurrence ? recurrenceLine(recurrence) : null) ?? (episode.recurrence_of ? 'recurring' : null);
+
   return (
     <div className="rounded-lg border border-red-500/25 bg-red-500/[0.06]">
       <div className="flex items-start gap-2 px-3 py-2.5">
@@ -71,10 +100,10 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
               {symptoms.length} {symptoms.length === 1 ? 'symptom' : 'symptoms'}
               {episode.namespaces.length > 0 && ` across ${episode.namespaces.length} namespaces`}
             </span>
-            {episode.recurrence_of && (
-              <span className="inline-flex items-center gap-1 text-amber-400">
+            {recurrenceLabel && (
+              <span className="inline-flex items-center gap-1 font-medium text-amber-400">
                 <History className="h-3 w-3" />
-                recurring
+                {recurrenceLabel}
               </span>
             )}
           </div>
@@ -90,6 +119,25 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           </button>
         )}
       </div>
+
+      {expanded && changes.length > 0 && (
+        <div className="border-t border-red-500/15 px-3 py-2">
+          <p className="mb-1.5 text-[11px] text-slate-500">
+            Changed shortly before it started — not necessarily the cause.
+          </p>
+          <ul className="space-y-0.5">
+            {changes.map((c) => (
+              <li key={`${c.category}-${c.at}`} className="flex items-center gap-2 py-0.5 text-xs">
+                <span className="w-20 shrink-0 text-right tabular-nums text-amber-400/80">
+                  −{duration(c.seconds_before)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-slate-300">{c.title}</span>
+                <span className="shrink-0 truncate text-slate-500">{c.namespace}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {expanded && symptoms.length > 0 && (
         <div className="border-t border-red-500/15 px-3 py-2">
