@@ -49,6 +49,8 @@ export interface InboxResponse {
   groups: InboxGroup[];
   stats: Record<string, number>;
   total: number;
+  /** How many items an open episode already explains, and so were left out. */
+  collapsedIntoEpisodes?: number;
   current_user?: string;
 }
 

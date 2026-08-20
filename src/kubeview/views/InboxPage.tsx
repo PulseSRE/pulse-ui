@@ -33,6 +33,7 @@ export function InboxPage() {
   const refresh = useInboxStore((s) => s.refresh);
   const filters = useInboxStore((s) => s.filters);
   const activePreset = useInboxStore((s) => s.activePreset);
+  const collapsedIntoEpisodes = useInboxStore((s) => s.collapsedIntoEpisodes);
 
   useEffect(() => {
     refresh();
@@ -122,6 +123,12 @@ export function InboxPage() {
           {/* Open episodes sit above the queue: a cause with its symptoms
               folded under it, so the list is not read cause-last. */}
           <EpisodePanel />
+          {collapsedIntoEpisodes > 0 && (
+            <p className="px-4 pt-2 text-xs text-slate-500">
+              {collapsedIntoEpisodes} {collapsedIntoEpisodes === 1 ? 'item is' : 'items are'} explained by an
+              open episode above and left out of the list below.
+            </p>
+          )}
           <InboxFilterBar />
 
           {activePreset === 'archived' && (

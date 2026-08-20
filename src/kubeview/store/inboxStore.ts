@@ -44,6 +44,7 @@ interface InboxState {
   groups: InboxGroup[];
   stats: Record<string, number>;
   total: number;
+  collapsedIntoEpisodes: number;
   filters: InboxFilters;
   activePreset: Preset;
   groupBy: string | null;
@@ -76,6 +77,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
   groups: [],
   stats: {},
   total: 0,
+  collapsedIntoEpisodes: 0,
   filters: { status: '__needs_attention__' },
   activePreset: 'needs_attention',
   groupBy: null,
@@ -120,6 +122,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
         groups: data.groups,
         stats: globalStats,
         total: data.total,
+        collapsedIntoEpisodes: data.collapsedIntoEpisodes ?? 0,
         currentUser: data.current_user ?? null,
         loading: false,
       });
