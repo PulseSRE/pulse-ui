@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.10.0] - 2026-08-20
+
+### Episodes in the inbox
+- Open episodes now sit above the queue: a cause with the findings it explains folded underneath, labelled as not separate problems. During a real control-plane outage the monitor produced fourteen findings in one second — nine `Deployment degraded` rated critical and one etcd warning that caused the other thirteen, which did not make the top thirteen by priority
+- Every symptom carries a **Not related** control. It records that the correlation was wrong and never re-attaches — an operator correcting it is the only ground truth the agent gets about its own causal model
+- Symptoms are collapsed out of the list below, with a count of how many were folded away. Items vanishing from a work queue with no explanation is its own way of losing trust
+- New capability banner: when a scanner or the AI backend has been failing, it says so above the queue rather than as another row, and states that anything the broken scanner covers is unknown rather than clear
+- Scanner drawer describes `control_plane` and `degraded`
+
 ## [2.4.1] - 2026-04-18
 
 Scrollbar and ResourceBrowser fixes.
