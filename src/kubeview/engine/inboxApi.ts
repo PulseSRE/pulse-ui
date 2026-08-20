@@ -142,6 +142,22 @@ export async function escalateInboxItem(id: string): Promise<{ finding_id: strin
   return _fetch(`${AGENT_BASE}/inbox/${id}/escalate`, { method: 'POST' });
 }
 
+export interface InboxResetResult {
+  reset_at: number;
+  reset_by: string;
+  items_archived: number;
+  pinned_archived: number;
+  claimed_archived: number;
+  episodes_closed: number;
+  containers_baselined: number;
+  rescanned: boolean;
+  rescan_error?: string;
+}
+
+export async function resetInbox(): Promise<InboxResetResult> {
+  return _fetch(`${AGENT_BASE}/inbox/reset`, { method: 'POST' });
+}
+
 export async function pinInboxItem(id: string): Promise<void> {
   await _fetch(`${AGENT_BASE}/inbox/${id}/pin`, { method: 'POST' });
 }
