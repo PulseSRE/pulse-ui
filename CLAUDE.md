@@ -227,18 +227,28 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - No mock data fallbacks: all features use real backend data, show empty/error states when unavailable
 
 ### Deploy to OpenShift
+
+Install is the [pulse-operator](https://github.com/PulseSRE/pulse-operator)'s job, not this
+repo's. It reconciles the UI, the agent, and PostgreSQL from one `OpenShiftPulse` CR. The
+operator's README is the canonical walkthrough — do not restate the steps here, because two
+copies of install instructions is how they end up disagreeing.
+
+To test a locally-built UI image against a stack the operator already runs, build and push,
+then repoint the CR:
+
 ```bash
-# Deploy UI + Agent together (always — never deploy UI-only)
-./deploy/deploy.sh
-# Agent repo auto-detected from ../pulse-agent or ~/ali/pulse-agent
-
-# Skip image builds (reuse existing images)
-./deploy/deploy.sh --skip-build
-
-# Uninstall
-./deploy/deploy.sh --uninstall
+pnpm build && podman build --platform linux/amd64 -t $PULSE_UI_IMAGE . && podman push $PULSE_UI_IMAGE
+oc patch openshiftpulse <cr-name> -n <namespace> --type=merge \
+  -p '{"spec":{"ui":{"image":"'"$PULSE_UI_IMAGE"'"}}}'
 ```
-Helm umbrella chart in `deploy/helm/pulse/`. UI and agent always deployed together to prevent token/config drift. OAuth secrets (cookie-secret, client-secret) persist across upgrades via Helm `lookup()`. Container images go to `quay.io/amobrem/openshiftpulse` (UI) and `quay.io/amobrem/pulse-agent` (agent) — never use S2I builds on the cluster.
+
+`deploy/deploy.sh` and the Helm umbrella chart in `deploy/helm/pulse/` still exist and still
+work, but they are a **legacy local-development path** — they build images with Podman and
+push to a registry you must own. They are not how anyone installs Pulse. Reach for them only
+when working on the chart itself; otherwise use the operator, or the CR patch above.
+
+Container images go to `quay.io/amobrem/openshiftpulse` (UI) and `quay.io/amobrem/pulse-agent`
+(agent) — never use S2I builds on the cluster.
 
 **Key deployment facts:**
 - WS token stored in `pulse-ws-token` Secret, persists across upgrades
