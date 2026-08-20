@@ -24,6 +24,8 @@ const SCANNER_INFO: Record<string, { description: string; autoFixable?: boolean;
   audit_events: { description: 'High-frequency Warning events that may indicate emerging issues', severity: 'info' },
   audit_auth: { description: 'Auth anomalies — kubeadmin usage, login failures, service account token creation', severity: 'info' },
   security_posture: { description: 'Pod security violations — privileged containers, host networking, missing security contexts', severity: 'warning' },
+  control_plane: { description: 'etcd and API server degradation — leader changes, refused writes, peer and disk latency, request latency, cluster-wide LIST rate', severity: 'critical' },
+  degraded: { description: "Pulse's own failing scanners and backends, so an empty result is never mistaken for a clean cluster", severity: 'warning' },
   stuck: { description: 'Deletions that never completed — namespaces, pods, PVCs, or CRDs held open by a finalizer', severity: 'critical' },
   hot_loop: { description: 'Controllers burning API server capacity without making progress — sustained work-queue retries or write amplification', severity: 'warning' },
 };
