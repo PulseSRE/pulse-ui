@@ -9,6 +9,8 @@ import { InboxHeader } from './inbox/InboxHeader';
 import { InboxFilterBar } from './inbox/InboxFilterBar';
 import { InboxItem } from './inbox/InboxItem';
 import { InboxGroup } from './inbox/InboxGroup';
+import { EpisodePanel } from './inbox/EpisodePanel';
+import { CapabilityBanner } from '../components/primitives/CapabilityBanner';
 import { NewTaskDialog } from './inbox/NewTaskDialog';
 import { TaskDetailDrawer } from './inbox/TaskDetailDrawer';
 import { ActivityTab } from './incidents/ActivityTab';
@@ -115,6 +117,11 @@ export function InboxPage() {
         </div>
 
         <TabsContent value="inbox" className="flex-1 flex flex-col overflow-hidden">
+          {/* What Pulse cannot currently see, before the queue of what it can. */}
+          <CapabilityBanner className="mx-4 mt-3" />
+          {/* Open episodes sit above the queue: a cause with its symptoms
+              folded under it, so the list is not read cause-last. */}
+          <EpisodePanel />
           <InboxFilterBar />
 
           {activePreset === 'archived' && (
