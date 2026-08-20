@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Ban, ChevronDown, ChevronRight, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
 import { detachSymptom, fetchEpisode, fetchOpenEpisodes } from '../../engine/episodeApi';
 import type { Episode, EpisodeChange, EpisodeRecurrence, EpisodeSymptom } from '../../engine/episodeApi';
 
@@ -15,26 +16,12 @@ import type { Episode, EpisodeChange, EpisodeRecurrence, EpisodeSymptom } from '
  * that list top-down sends you to the wrong problem.
  */
 
-function since(startedAt: number): string {
-  const mins = Math.max(0, Math.round((Date.now() / 1000 - startedAt) / 60));
-  if (mins < 60) return `${mins}m`;
-  if (mins < 1440) return `${Math.round(mins / 60)}h`;
-  return `${Math.round(mins / 1440)}d`;
-}
-
-function duration(seconds: number): string {
-  if (seconds < 90) return `${Math.round(seconds)}s`;
-  if (seconds < 5400) return `${Math.round(seconds / 60)}m`;
-  if (seconds < 172800) return `${Math.round(seconds / 3600)}h`;
-  return `${Math.round(seconds / 86400)}d`;
-}
-
 /** "6th time in 11h, every 2h" — the sentence that turns a page into a diagnosis. */
 function recurrenceLine(r: EpisodeRecurrence): string | null {
   if (!r.recurring || r.occurrences < 2) return null;
   const parts = [`${r.occurrences} times`];
-  if (r.window_seconds) parts.push(`in ${duration(r.window_seconds)}`);
-  if (r.interval_seconds) parts.push(`· every ${duration(r.interval_seconds)}`);
+  if (r.window_seconds) parts.push(`in ${formatShortDuration(r.window_seconds)}`);
+  if (r.interval_seconds) parts.push(`· every ${formatShortDuration(r.interval_seconds)}`);
   return parts.join(' ');
 }
 
@@ -95,7 +82,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
             <span>{episode.cause_category}</span>
-            <span>started {since(episode.started_at)} ago</span>
+            <span>started {formatElapsed(episode.started_at)} ago</span>
             <span>
               {symptoms.length} {symptoms.length === 1 ? 'symptom' : 'symptoms'}
               {episode.namespaces.length > 0 && ` across ${episode.namespaces.length} namespaces`}
@@ -129,7 +116,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             {changes.map((c) => (
               <li key={`${c.category}-${c.at}`} className="flex items-center gap-2 py-0.5 text-xs">
                 <span className="w-20 shrink-0 text-right tabular-nums text-amber-400/80">
-                  −{duration(c.seconds_before)}
+                  −{formatShortDuration(c.seconds_before)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-slate-300">{c.title}</span>
                 <span className="shrink-0 truncate text-slate-500">{c.namespace}</span>

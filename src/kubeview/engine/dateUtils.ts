@@ -57,3 +57,32 @@ export function formatAge(date: Date): string {
   if (mins > 0) return `${mins}m ago`;
   return 'just now';
 }
+
+/**
+ * A span of seconds as the coarsest unit that still reads precisely: 45s, 12m,
+ * 3h, 2d.
+ *
+ * Deliberately not named formatDuration — that already exists above and takes
+ * two ISO strings, returning compound units like "5m 30s". This takes a number
+ * of seconds and returns one unit, for places where the span is a label rather
+ * than a measurement ("every 2h", "−7m").
+ */
+export function formatShortDuration(seconds: number): string {
+  const s = Math.max(0, seconds);
+  if (s < 90) return `${Math.round(s)}s`;
+  const mins = Math.round(s / 60);
+  if (mins < 90) return `${mins}m`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+}
+
+/**
+ * How long ago a unix-seconds timestamp was, as a bare span with no "ago".
+ *
+ * Not formatAge — that takes a Date and appends "ago". This is for phrasing
+ * that supplies its own preposition, like "running 30m".
+ */
+export function formatElapsed(startedAtSeconds: number): string {
+  return formatShortDuration(Date.now() / 1000 - startedAtSeconds);
+}
