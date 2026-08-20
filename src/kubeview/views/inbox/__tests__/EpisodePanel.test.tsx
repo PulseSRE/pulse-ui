@@ -7,10 +7,20 @@ const fetchOpenEpisodes = vi.fn();
 const fetchEpisode = vi.fn();
 const detachSymptom = vi.fn();
 
+const dismissEpisode = vi.fn();
+
 vi.mock('../../../engine/episodeApi', () => ({
   fetchOpenEpisodes: (...a: unknown[]) => fetchOpenEpisodes(...a),
   fetchEpisode: (...a: unknown[]) => fetchEpisode(...a),
   detachSymptom: (...a: unknown[]) => detachSymptom(...a),
+  dismissEpisode: (...a: unknown[]) => dismissEpisode(...a),
+}));
+
+// The agent panel opens a WebSocket; not what these tests are about.
+vi.mock('../../../components/agent/InlineAgent', () => ({
+  InlineAgent: ({ initialPrompt }: { initialPrompt?: string }) => (
+    <div data-testid="inline-agent">{initialPrompt}</div>
+  ),
 }));
 
 const EPISODE = {
@@ -203,5 +213,81 @@ describe('EpisodePanel context', () => {
     fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, recurrence_of: 'ep-earlier' }]);
     render(<EpisodePanel />);
     expect(await screen.findByText('recurring')).toBeTruthy();
+  });
+});
+
+
+// ── the work already done, and the ways out ───────────────────────────────
+
+describe('EpisodePanel investigation and dismissal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchOpenEpisodes.mockResolvedValue([EPISODE]);
+    dismissEpisode.mockResolvedValue(undefined);
+  });
+
+  afterEach(cleanup);
+
+  it('shows what the agent already concluded', async () => {
+    fetchEpisode.mockResolvedValue({
+      episode: EPISODE,
+      symptoms: SYMPTOMS,
+      investigation: {
+        id: 'inv-1', status: 'completed', summary: 's', suspected_cause: 'peer latency',
+        recommended_fix: 'check the network path', confidence: 0.8, error: null,
+        timestamp: 1, failed: false,
+      },
+    });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/peer latency/)).toBeTruthy();
+    expect(screen.getByText(/check the network path/)).toBeTruthy();
+  });
+
+  it('says the investigation failed rather than showing nothing', async () => {
+    fetchEpisode.mockResolvedValue({
+      episode: EPISODE,
+      symptoms: SYMPTOMS,
+      investigation: {
+        id: 'inv-1', status: 'failed', summary: null, suspected_cause: null,
+        recommended_fix: null, confidence: null, error: 'Connection error.',
+        timestamp: 1, failed: true,
+      },
+    });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/Connection error/)).toBeTruthy();
+    expect(screen.getByText(/without\s+root-cause analysis/)).toBeTruthy();
+  });
+
+  it('hands the agent everything the card already knows', async () => {
+    fetchEpisode.mockResolvedValue({
+      episode: EPISODE,
+      symptoms: SYMPTOMS,
+      investigation: {
+        id: 'inv-1', status: 'completed', summary: null, suspected_cause: 'x',
+        recommended_fix: null, confidence: null, error: null, timestamp: 1, failed: false,
+      },
+      recurrence: { occurrences: 6, recurring: true, window_seconds: 39600, interval_seconds: 7200 },
+      changes: [{ category: 'audit_rbac', title: 'cluster-admin granted', namespace: 'ns', at: 1, seconds_before: 120 }],
+    });
+    render(<EpisodePanel />);
+    const prompt = (await screen.findByTestId('inline-agent')).textContent || '';
+    expect(prompt).toContain(EPISODE.cause_title);
+    expect(prompt).toContain('cluster-admin granted');
+    expect(prompt).toContain('6 times');
+    expect(prompt).toContain('What should I do about it?');
+  });
+
+  it('an operator can dismiss the episode', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
+    render(<EpisodePanel />);
+    fireEvent.click(await screen.findByText('Dismiss'));
+    await waitFor(() => expect(dismissEpisode).toHaveBeenCalledWith('ep-1'));
+  });
+
+  it('renders against an agent that returns no investigation', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
+    expect(screen.queryByTestId('inline-agent')).toBeNull();
   });
 });

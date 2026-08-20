@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Ban, ChevronDown, ChevronRight, History } from 'lucide-react';
+import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { InlineAgent } from '../../components/agent/InlineAgent';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
-import { detachSymptom, fetchEpisode, fetchOpenEpisodes } from '../../engine/episodeApi';
-import type { Episode, EpisodeChange, EpisodeRecurrence, EpisodeSymptom } from '../../engine/episodeApi';
+import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes } from '../../engine/episodeApi';
+import type {
+  Episode,
+  EpisodeChange,
+  EpisodeInvestigation,
+  EpisodeRecurrence,
+  EpisodeSymptom,
+} from '../../engine/episodeApi';
 
 /**
  * Shows open episodes above the inbox: a cause, with the findings it explains
@@ -30,6 +37,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
   const [symptoms, setSymptoms] = useState<EpisodeSymptom[]>([]);
   const [changes, setChanges] = useState<EpisodeChange[]>([]);
   const [recurrence, setRecurrence] = useState<EpisodeRecurrence | null>(null);
+  const [investigation, setInvestigation] = useState<EpisodeInvestigation | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,12 +48,14 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
         setSymptoms(d.symptoms.filter((s) => s.detached_at == null));
         setChanges(d.changes ?? []);
         setRecurrence(d.recurrence ?? null);
+        setInvestigation(d.investigation ?? null);
       })
       .catch(() => {
         if (cancelled) return;
         setSymptoms([]);
         setChanges([]);
         setRecurrence(null);
+        setInvestigation(null);
       });
     return () => {
       cancelled = true;
@@ -71,6 +81,22 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
   const recurrenceLabel =
     (recurrence ? recurrenceLine(recurrence) : null) ?? (episode.recurrence_of ? 'recurring' : null);
 
+  const handleDismiss = useCallback(async () => {
+    await dismissEpisode(episode.id);
+    onChanged();
+  }, [episode.id, onChanged]);
+
+  /** Everything the card knows, so the agent is not asked to re-derive it. */
+  const askPrompt = [
+    `${episode.cause_title}.`,
+    symptoms.length ? `${symptoms.length} symptoms across ${episode.namespaces.length} namespaces.` : '',
+    recurrenceLabel ? `Recurring: ${recurrenceLabel}.` : '',
+    changes.length ? `Changed just before: ${changes.map((c) => c.title).join('; ')}.` : '',
+    'What should I do about it?',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className="rounded-lg border border-red-500/25 bg-red-500/[0.06]">
       <div className="flex items-start gap-2 px-3 py-2.5">
@@ -95,6 +121,14 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             )}
           </div>
         </div>
+        <button
+          onClick={handleDismiss}
+          title="Close this episode — the cause reopens a new one if it returns"
+          className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+        >
+          <Check className="h-3 w-3" />
+          Dismiss
+        </button>
         {symptoms.length > 0 && (
           <button
             onClick={() => setExpanded((e) => !e)}
@@ -106,6 +140,49 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           </button>
         )}
       </div>
+
+      {expanded && investigation && (
+        <div className="border-t border-red-500/15 px-3 py-2">
+          <p className="mb-1.5 text-[11px] text-slate-500">
+            {investigation.failed ? 'The agent tried to investigate and could not' : 'Investigated by the agent'}
+          </p>
+          {investigation.failed ? (
+            <p className="text-xs text-amber-300/80">
+              {investigation.error || 'The investigation failed.'} Findings below reached you without
+              root-cause analysis behind them.
+            </p>
+          ) : (
+            <div className="space-y-1 text-xs text-slate-300">
+              {investigation.suspected_cause && (
+                <p>
+                  <span className="text-slate-500">Suspected cause </span>
+                  {investigation.suspected_cause}
+                </p>
+              )}
+              {investigation.recommended_fix && (
+                <p>
+                  <span className="text-slate-500">Recommended </span>
+                  {investigation.recommended_fix}
+                </p>
+              )}
+            </div>
+          )}
+          {/* The prompt carries everything the card already knows, so the
+              agent is not paid to re-derive the cause, the blast radius and
+              the recent changes before answering the only question the
+              deterministic layer cannot: what to do about it. */}
+          <InlineAgent
+            className="mt-2"
+            context={{ kind: 'Episode', name: episode.id, namespace: episode.namespaces[0] }}
+            initialPrompt={askPrompt}
+            quickPrompts={[
+              'What should I do about this?',
+              'Is this safe to ignore?',
+              'What would confirm the cause?',
+            ]}
+          />
+        </div>
+      )}
 
       {expanded && changes.length > 0 && (
         <div className="border-t border-red-500/15 px-3 py-2">

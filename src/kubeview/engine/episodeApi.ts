@@ -57,6 +57,19 @@ export interface EpisodeRecurrence {
   prior_episode_ids?: string[];
 }
 
+/** The investigation the agent already ran against this episode's cause. */
+export interface EpisodeInvestigation {
+  id: string;
+  status: string;
+  summary: string | null;
+  suspected_cause: string | null;
+  recommended_fix: string | null;
+  confidence: number | null;
+  error: string | null;
+  timestamp: number;
+  failed: boolean;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await agentFetch(`${AGENT_BASE}${path}`);
   if (!res.ok) throw new Error(`Episode API error: ${res.status} on ${path}`);
@@ -74,6 +87,7 @@ export async function fetchEpisode(id: string): Promise<{
   /** Optional so an older agent, which sends neither, still renders. */
   changes?: EpisodeChange[];
   recurrence?: EpisodeRecurrence;
+  investigation?: EpisodeInvestigation | null;
 }> {
   return get(`/episodes/${encodeURIComponent(id)}`);
 }
@@ -93,4 +107,17 @@ export async function detachSymptom(episodeId: string, correlationKey: string): 
     body: JSON.stringify({ correlationKey }),
   });
   if (!res.ok) throw new Error(`Could not detach symptom: ${res.status}`);
+}
+
+/**
+ * Close an episode an operator says is over.
+ *
+ * The cause re-firing later opens a new episode rather than reviving this one,
+ * so dismissing cannot hide a problem that comes back.
+ */
+export async function dismissEpisode(episodeId: string): Promise<void> {
+  const res = await agentFetch(`${AGENT_BASE}/episodes/${encodeURIComponent(episodeId)}/dismiss`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Could not dismiss episode: ${res.status}`);
 }

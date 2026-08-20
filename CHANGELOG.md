@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### The episode card shows the work already done, and can be cleared
+- The card now shows the investigation the agent already ran against the cause — suspected cause and recommended fix, or the error if it failed. A failed attempt is shown rather than hidden: an empty panel reads as "nothing worth investigating", which is the opposite of what happened
+- Ask a follow-up without re-explaining anything. The prompt carries the cause, blast radius, recurrence and what changed just before, so the agent answers the one question the deterministic layer cannot — what to do about it — rather than re-deriving what the card already says
+- A **Dismiss** control, because until now the only way an episode ended was its cause resolving. If the cause returns it opens a new episode, so dismissing cannot hide a problem that comes back
+
 ## [2.11.0] - 2026-08-20
 
 ### Episodes show what changed and how often
