@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, History } from 'lucide-react';
 import { fetchOpenEpisodes } from '../../engine/episodeApi';
 import type { Episode } from '../../engine/episodeApi';
+import { formatElapsed } from '../../engine/dateUtils';
 
 /**
  * Puts an open episode at the top of the landing view.
@@ -15,13 +16,6 @@ import type { Episode } from '../../engine/episodeApi';
  * open episode outranks every tile beneath it by construction: those tiles are
  * showing its symptoms.
  */
-
-function since(startedAt: number): string {
-  const mins = Math.max(0, Math.round((Date.now() / 1000 - startedAt) / 60));
-  if (mins < 60) return `${mins}m`;
-  if (mins < 1440) return `${Math.round(mins / 60)}h`;
-  return `${Math.round(mins / 1440)}d`;
-}
 
 export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -62,7 +56,7 @@ export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
           <span className="truncate text-sm font-medium text-slate-100">{first.cause_title}</span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-          <span>running {since(first.started_at)}</span>
+          <span>running {formatElapsed(first.started_at)}</span>
           <span>
             {first.symptom_count} {first.symptom_count === 1 ? 'symptom' : 'symptoms'}
             {first.namespaces.length > 0 && ` across ${first.namespaces.length} namespaces`}
