@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Episodes show what changed and how often
+- An episode now lists the config, RBAC and deployment activity from the half hour before it started, each marked with how long before — `−2m cluster-admin granted to svc/deployer`. Labelled *not necessarily the cause*, because it reports what happened nearby and leaves the inference to the reader
+- The bare `recurring` badge is now the sentence that matters: `6 times in 11h · every 2h`. A cadence is only shown when the returns are regular enough to be one; irregular recurrence says how often but invents no pattern
+- Both fields are optional, so an agent that sends neither still renders the episode
+
 ## [2.10.0] - 2026-08-20
 
 ### Episodes in the inbox

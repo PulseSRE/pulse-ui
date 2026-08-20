@@ -121,3 +121,87 @@ describe('EpisodePanel', () => {
     expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
   });
 });
+
+
+// ── the context the agent now returns alongside the symptoms ──────────────
+
+const CHANGES = [
+  {
+    category: 'audit_deployment',
+    title: 'ocm-controller rolled out',
+    namespace: 'multicluster-engine',
+    at: 1786000000,
+    seconds_before: 420,
+  },
+  {
+    category: 'audit_rbac',
+    title: 'cluster-admin granted to svc/deployer',
+    namespace: 'open-cluster-management',
+    at: 1786000200,
+    seconds_before: 120,
+  },
+];
+
+describe('EpisodePanel context', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchOpenEpisodes.mockResolvedValue([EPISODE]);
+    detachSymptom.mockResolvedValue(undefined);
+  });
+
+  afterEach(cleanup);
+
+  it('names the cadence when the cause keeps coming back', async () => {
+    fetchEpisode.mockResolvedValue({
+      episode: EPISODE,
+      symptoms: SYMPTOMS,
+      recurrence: { occurrences: 6, recurring: true, window_seconds: 39600, interval_seconds: 7200 },
+    });
+    render(<EpisodePanel />);
+    // "6 times in 11h · every 2h" — the sentence that turns a page into a diagnosis
+    expect(await screen.findByText(/6 times in 11h/)).toBeTruthy();
+    expect(screen.getByText(/every 2h/)).toBeTruthy();
+  });
+
+  it('says nothing about cadence when the returns are irregular', async () => {
+    fetchEpisode.mockResolvedValue({
+      episode: EPISODE,
+      symptoms: SYMPTOMS,
+      recurrence: { occurrences: 3, recurring: true, window_seconds: 39600 },
+    });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/3 times in 11h/)).toBeTruthy();
+    expect(screen.queryByText(/every/)).toBeNull();
+  });
+
+  it('shows what changed before it started, with how long before', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: CHANGES });
+    render(<EpisodePanel />);
+    expect(await screen.findByText('cluster-admin granted to svc/deployer')).toBeTruthy();
+    expect(screen.getByText('−2m')).toBeTruthy();
+    expect(screen.getByText('−7m')).toBeTruthy();
+  });
+
+  it('does not claim the change caused it', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: CHANGES });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/not necessarily the cause/i)).toBeTruthy();
+  });
+
+  it('renders against an agent that sends neither field', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
+    expect(screen.queryByText(/not necessarily the cause/i)).toBeNull();
+  });
+
+  it('falls back to the plain flag when only recurrence_of is known', async () => {
+    fetchEpisode.mockResolvedValue({
+      episode: { ...EPISODE, recurrence_of: 'ep-earlier' },
+      symptoms: SYMPTOMS,
+    });
+    fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, recurrence_of: 'ep-earlier' }]);
+    render(<EpisodePanel />);
+    expect(await screen.findByText('recurring')).toBeTruthy();
+  });
+});
