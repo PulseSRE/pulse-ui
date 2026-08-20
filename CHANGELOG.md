@@ -1,18 +1,16 @@
 # Changelog
 
-## [Unreleased]
-
-### One front door
-- An open episode now appears at the top of Cluster Pulse, above every tile, with one click through to it. The episode panel lived only inside the Inbox tab, so at 03:00 you still landed on the dashboard and had to know to go looking — which was the audit item, not what had been built
-- Archived items say why. Anything expired for inactivity carries the reason in a tooltip, and the archived view explains the 48-hour rule. Work that moves on its own has to account for itself
-- The scanner drawer describes all 27 scanners; `trend_memory`, `trend_disk`, `trend_hpa`, `trend_errors` and `slo_burn` had none and rendered as bare toggles
-
-## [Unreleased]
+## [2.11.0] - 2026-08-20
 
 ### Episodes show what changed and how often
 - An episode now lists the config, RBAC and deployment activity from the half hour before it started, each marked with how long before — `−2m cluster-admin granted to svc/deployer`. Labelled *not necessarily the cause*, because it reports what happened nearby and leaves the inference to the reader
 - The bare `recurring` badge is now the sentence that matters: `6 times in 11h · every 2h`. A cadence is only shown when the returns are regular enough to be one; irregular recurrence says how often but invents no pattern
 - Both fields are optional, so an agent that sends neither still renders the episode
+
+### One front door
+- An open episode now appears at the top of Cluster Pulse, above every tile, with one click through to it. The episode panel lived only inside the Inbox tab, so at 03:00 you still landed on the dashboard and had to know to go looking — which was the audit item, not what had been built
+- Archived items say why. Anything expired for inactivity carries the reason in a tooltip, and the archived view explains the 48-hour rule. Work that moves on its own has to account for itself
+- The scanner drawer describes all 27 scanners; `trend_memory`, `trend_disk`, `trend_hpa`, `trend_errors` and `slo_burn` had none and rendered as bare toggles
 
 ## [2.10.0] - 2026-08-20
 
