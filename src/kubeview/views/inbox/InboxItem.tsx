@@ -110,6 +110,12 @@ export function InboxItem({
                   <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 </Tooltip>
               )}
+              {item.status === 'archived' && !!item.metadata?.archived_reason && (
+                /* Work that moved on its own has to say why it moved. */
+                <Tooltip content={String(item.metadata.archived_reason)}>
+                  <span className="w-2 h-2 rounded-full bg-slate-500 shrink-0" />
+                </Tooltip>
+              )}
               {item.status === 'agent_review_failed' && (
                 <Tooltip content={String(item.metadata?.agent_error || 'Agent analysis failed')}>
                   <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
