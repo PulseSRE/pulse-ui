@@ -71,13 +71,38 @@ describe('ComputeView', () => {
     expect(screen.getByText('Nodes')).toBeTruthy();
   });
 
-  // Regression: on clusters where kube_node_info has no `instance` label,
-  // `on(instance) group_left(node) kube_node_info` makes Thanos collapse every
-  // node into one ambiguous match group and reject the query with a
-  // non-404 error (422 "duplicate series for the match group"). safeQuery only
-  // swallows 404s, so the plain by-instance fallback query must be tried
-  // explicitly — otherwise the hex map/table show "—" for every node's
-  // CPU/memory forever, even though Prometheus itself is reachable and healthy.
+  // Regression: kube_node_info (kube-state-metrics) never has an `instance`
+  // label of its own — only `node` — so joining on it with bare
+  // `on(instance) group_left(node) kube_node_info` gives every node's series
+  // the same empty match key `{}` and Thanos rejects the query with a 422
+  // ("duplicate series for the match group"). The query must project
+  // kube_node_info's `node` label onto a synthetic `instance` label via
+  // `label_replace(...)` before joining so the match key is unique per node.
+  it('joins kube_node_info via label_replace(node -> instance) to avoid the ambiguous-match 422', async () => {
+    const { queryInstant } = await import('../../components/metrics/prometheus');
+    const seenQueries: string[] = [];
+    (queryInstant as any).mockImplementation((query: string) => {
+      seenQueries.push(query);
+      return Promise.resolve([]);
+    });
+
+    renderView();
+
+    await screen.findByText('Compute');
+
+    const cpuQuery = seenQueries.find((q) => q.includes('node_cpu_seconds_total'));
+    const memQuery = seenQueries.find((q) => q.includes('node_memory_MemAvailable_bytes') && q.includes('kube_node_info'));
+
+    expect(cpuQuery).toContain('label_replace(kube_node_info, "instance", "$1", "node", "(.+)")');
+    expect(cpuQuery).not.toMatch(/on\(instance\)\s+group_left\(node\)\s+kube_node_info\b/);
+    expect(memQuery).toContain('label_replace(kube_node_info, "instance", "$1", "node", "(.+)")');
+  });
+
+  // Defensive fallback: safeQuery only swallows 404s, so any other failure
+  // (e.g. a cluster where the label_replace assumption somehow still doesn't
+  // hold) must be caught explicitly and retried as a plain by-instance query
+  // — otherwise the hex map/table show "—" for every node's CPU/memory
+  // forever, even though Prometheus itself is reachable and healthy.
   it('falls back to the plain per-node query and still shows CPU/memory when the kube_node_info join errors', async () => {
     const { queryInstant } = await import('../../components/metrics/prometheus');
     (queryInstant as any).mockImplementation((query: string) => {
