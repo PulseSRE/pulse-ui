@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.13.0] - 2026-08-20
 
 ### Reset the inbox: count from now, keep the history
 - A **Reset** control in the inbox header. It archives everything open, re-baselines every counting scanner and rescans, so what comes back is what is happening rather than what has ever happened. Nothing is deleted — archived items keep their rows and their history
