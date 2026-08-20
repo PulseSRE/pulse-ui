@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.12.0] - 2026-08-20
 
 ### The episode card shows the work already done, and can be cleared
 - The card now shows the investigation the agent already ran against the cause — suspected cause and recommended fix, or the error if it failed. A failed attempt is shown rather than hidden: an empty panel reads as "nothing worth investigating", which is the opposite of what happened
