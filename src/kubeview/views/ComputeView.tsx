@@ -88,20 +88,26 @@ export default function ComputeView() {
     enabled: isHyperShift,
   });
 
-  // Per-node CPU usage from Prometheus. Tries the kube_node_info join first
-  // (gives reliable node-name matching on clusters where node-exporter's
-  // `instance` label isn't the node name), falling back to the plain
-  // by-instance query if the join errors — e.g. on clusters where
-  // kube_node_info has no `instance` label at all, which makes `on(instance)`
-  // match every node into one ambiguous group ("duplicate series for the
-  // match group") and Thanos rejects the query outright (422). safeQuery only
-  // swallows 404s, so that failure must be caught here or the plain query
-  // never runs and the UI shows no data.
+  // Per-node CPU usage from Prometheus, joined against kube_node_info to get
+  // a reliable `node` label. kube_node_info (from kube-state-metrics) has no
+  // `instance` label of its own — only `node` — so `on(instance)` against the
+  // bare metric gives every series the same empty match key `{}` and Thanos
+  // rejects the query outright with a 422 ("found duplicate series for the
+  // match group {} ... many-to-many matching not allowed"). label_replace
+  // projects kube_node_info's `node` label onto a synthetic `instance` label
+  // first, so the match key is unique per node and the join succeeds. This
+  // relies on node-exporter's `instance` label already being the Kubernetes
+  // node name, which OpenShift's cluster-monitoring-operator guarantees via a
+  // relabeling rule on the node-exporter ServiceMonitor
+  // (`__meta_kubernetes_pod_node_name` -> `instance`). The plain by-instance
+  // query remains as a defensive fallback in case that relabeling assumption
+  // ever doesn't hold; safeQuery only swallows 404s, so a non-404 failure
+  // (like the 422 above) must still be caught here or the fallback never runs.
   const { data: nodeCpuMetrics = [] } = useQuery({
     queryKey: ['compute', 'node-cpu'],
     queryFn: async () => {
       try {
-        return await queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) kube_node_info');
+        return await queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")');
       } catch {
         return (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)'))) ?? [];
       }
@@ -114,7 +120,7 @@ export default function ComputeView() {
     queryKey: ['compute', 'node-mem'],
     queryFn: async () => {
       try {
-        return await queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) kube_node_info');
+        return await queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")');
       } catch {
         return (await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100'))) ?? [];
       }
