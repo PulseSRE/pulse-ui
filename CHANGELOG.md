@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.15.0] - 2026-08-21
 
 ### Approve a fix the agent proposed while you were asleep
 - A **fixes waiting on you** strip above the inbox, listing what the agent proposed and nobody has answered. Trust level 2 means ask first, and the question used to be asked over a WebSocket with 120 seconds to reply — at 03:00 it was never answered, and the agent took no action at all. Proposals now outlive the moment, which only helps if there is somewhere to see them
