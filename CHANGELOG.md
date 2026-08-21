@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.16.2] - 2026-08-21
+
+### A long fix-failure message could blow out the "Fixes applied" row
+- The failed-fix line in the Inbox's Fixes-applied banner rendered `Failed: ${error}` with no truncation. pulse-agent already cleans up Kubernetes API failures before they reach the UI, but nothing stopped an unexpectedly long message from wrapping past the row -- as a safety net, it is now clamped to a single line with the full text available on hover
+
 ## [2.16.1] - 2026-08-21
 
 ### "Started" now means when the condition began, not when Pulse noticed it again
