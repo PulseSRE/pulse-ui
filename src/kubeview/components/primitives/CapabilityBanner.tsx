@@ -23,6 +23,19 @@ export function CapabilityBanner({ className }: { className?: string }) {
 
   const critical = degraded.some((f) => f.severity === 'critical');
 
+  // Two different kinds of degraded, and calling both "not seeing everything"
+  // gets one of them wrong. A blind scanner means the picture is incomplete; no
+  // notification channel means the picture is fine and nobody will ever be
+  // shown it. An operator reading "not seeing everything" about the second
+  // would go looking for a broken scanner.
+  const reachable = degraded.filter((f) => f.resources?.[0]?.name !== 'notifications');
+  const blindOnly = reachable.length === degraded.length;
+  const headline = blindOnly
+    ? 'Pulse is not seeing everything'
+    : reachable.length === 0
+      ? 'Pulse cannot reach anyone'
+      : 'Pulse is not seeing everything, and cannot reach anyone';
+
   return (
     <div
       role="alert"
@@ -42,8 +55,8 @@ export function CapabilityBanner({ className }: { className?: string }) {
       <div className="min-w-0 flex-1">
         <div className={cn('font-medium', critical ? 'text-red-200' : 'text-amber-200')}>
           {degraded.length === 1
-            ? 'Pulse is not seeing everything'
-            : `Pulse is not seeing everything — ${degraded.length} capabilities affected`}
+            ? headline
+            : `${headline} — ${degraded.length} capabilities affected`}
         </div>
         <ul className="mt-1 space-y-0.5">
           {degraded.map((f) => (
@@ -53,7 +66,9 @@ export function CapabilityBanner({ className }: { className?: string }) {
           ))}
         </ul>
         <p className={cn('mt-1', critical ? 'text-red-300/60' : 'text-amber-300/60')}>
-          Treat anything these cover as unknown rather than clear.
+          {blindOnly
+            ? 'Treat anything these cover as unknown rather than clear.'
+            : 'What Pulse knows is not reaching anyone who is not looking at this screen.'}
         </p>
       </div>
     </div>

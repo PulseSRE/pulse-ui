@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Being unreachable is not the same as being blind
+- The capability banner said "Pulse is not seeing everything" for every degraded capability. That is right for a scanner that has stopped reporting and wrong for a missing notification channel, where the picture is complete and nobody will ever be shown it — an operator reading the old wording would go hunting a broken scanner. It now says **"Pulse cannot reach anyone"**, or names both when both are true
+
 ## [2.15.0] - 2026-08-21
 
 ### Approve a fix the agent proposed while you were asleep
