@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.16.1] - 2026-08-21
+
+### "Started" now means when the condition began, not when Pulse noticed it again
+- The episode banner and the inbox's cause card both measured "started"/"running" from `started_at` -- the moment Pulse opened *this* episode row, not the moment the condition itself began. Observed live: two alerts that had been firing for two days and two-and-a-half hours respectively both read "started 7s ago," because each had just reopened a fresh episode after a gap. A cause that has been happening for two days looked brand new
+- Both now read `cause_started_at` when the agent reports it (from Prometheus, for firing alerts) and fall back to `started_at` for causes that don't -- matching the fallback the agent's own "what changed before this started" panel has used since v2.15.0
+
 ## [2.16.0] - 2026-08-21
 
 ### Being unreachable is not the same as being blind

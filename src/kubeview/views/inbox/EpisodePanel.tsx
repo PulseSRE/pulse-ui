@@ -108,7 +108,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
             <span>{episode.cause_category}</span>
-            <span>started {formatElapsed(episode.started_at)} ago</span>
+            <span>started {formatElapsed(episode.cause_started_at ?? episode.started_at)} ago</span>
             <span>
               {symptoms.length} {symptoms.length === 1 ? 'symptom' : 'symptoms'}
               {episode.namespaces.length > 0 && ` across ${episode.namespaces.length} namespaces`}

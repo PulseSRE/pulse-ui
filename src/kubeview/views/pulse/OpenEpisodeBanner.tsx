@@ -56,7 +56,7 @@ export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
           <span className="truncate text-sm font-medium text-slate-100">{first.cause_title}</span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-          <span>running {formatElapsed(first.started_at)}</span>
+          <span>running {formatElapsed(first.cause_started_at ?? first.started_at)}</span>
           <span>
             {first.symptom_count} {first.symptom_count === 1 ? 'symptom' : 'symptoms'}
             {first.namespaces.length > 0 && ` across ${first.namespaces.length} namespaces`}

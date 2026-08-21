@@ -19,6 +19,14 @@ export interface Episode {
   cause_finding_id: string | null;
   cause_layer: number;
   started_at: number;
+  /**
+   * When the condition itself began, if the cause reported its own onset
+   * (firing alerts, from Prometheus). Null for causes that don't -- fall
+   * back to started_at for those. Distinct from started_at, which is only
+   * when Pulse got around to opening an episode for it: a cause firing for
+   * days looks freshly-started every time its episode reopens after a gap.
+   */
+  cause_started_at: number | null;
   ended_at: number | null;
   last_seen_at: number;
   symptom_count: number;
