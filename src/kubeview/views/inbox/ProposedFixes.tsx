@@ -98,8 +98,13 @@ export function ProposedFixes() {
 
       {finished.map(([id, message]) => (
         <div key={id} className="flex items-center gap-2 px-3 py-2 text-xs text-slate-400">
-          <Check className="w-3.5 h-3.5 text-emerald-400" />
-          {message}
+          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          {/* Backend messages are cleaned up before they get here, but a
+              single-line clamp is a cheap safety net against anything long
+              blowing out this row's layout. */}
+          <span className="min-w-0 truncate" title={message}>
+            {message}
+          </span>
         </div>
       ))}
     </div>

@@ -76,6 +76,20 @@ describe('ProposedFixes', () => {
     await waitFor(() => expect(screen.getByText(/Failed: api server said no/)).toBeDefined());
   });
 
+  it('a long failure message is clamped to one line as a layout safety net', async () => {
+    // The backend cleans up ApiException text before this ever arrives, but a
+    // clamp here means a surprise wall of text can never blow out this row —
+    // the full message is still available on hover via title.
+    const longMessage =
+      'pods "klusterlet-646d4fdd8b-4kz56" is forbidden: User "system:serviceaccount:openshiftpulse:pulse-openshift-sre-agent" cannot delete resource "pods" in API group "" in the namespace "open-cluster-management-agent"';
+    vi.mocked(approveFix).mockResolvedValue({ ...PROPOSAL, status: 'failed', error: longMessage });
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    fireEvent.click(screen.getByText('Approve'));
+    const messageEl = await waitFor(() => screen.getByTitle(`Failed: ${longMessage}`));
+    expect(messageEl.className).toContain('truncate');
+  });
+
   it('surfaces a refusal, because the agent refuses on purpose', async () => {
     vi.mocked(approveFix).mockRejectedValue(
       new Error('The condition this was proposed for is no longer being reported — nothing to fix'),
