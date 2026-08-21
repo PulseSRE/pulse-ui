@@ -31,6 +31,7 @@ const EPISODE = {
   cause_finding_id: 'f-1',
   cause_layer: 0,
   started_at: Math.floor(Date.now() / 1000) - 600,
+  cause_started_at: null,
   ended_at: null,
   last_seen_at: Math.floor(Date.now() / 1000),
   symptom_count: 2,
@@ -86,6 +87,27 @@ describe('EpisodePanel', () => {
     render(<EpisodePanel />);
     expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
     expect(screen.getByText('Cause')).toBeTruthy();
+  });
+
+  it('measures "started" from the episode when the cause reports no onset of its own', async () => {
+    fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, started_at: Math.floor(Date.now() / 1000) - 600 }]);
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/started 10m ago/)).toBeTruthy();
+  });
+
+  it('measures "started" from the cause\'s own onset, not from when Pulse opened the episode', async () => {
+    // Observed live: a cause firing for two days, an episode reopened seconds
+    // ago after a gap -- "started 7s ago" for a condition nowhere near new.
+    fetchOpenEpisodes.mockResolvedValue([
+      {
+        ...EPISODE,
+        started_at: Math.floor(Date.now() / 1000) - 7,
+        cause_started_at: Math.floor(Date.now() / 1000) - 2 * 86400,
+      },
+    ]);
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/started 2d ago/)).toBeTruthy();
+    expect(screen.queryByText(/started 7s ago/)).toBeNull();
   });
 
   it('shows the blast radius so the list is not mistaken for separate problems', async () => {

@@ -24,6 +24,7 @@ const EPISODE = {
   cause_finding_id: 'f-1',
   cause_layer: 0,
   started_at: Math.floor(Date.now() / 1000) - 1800,
+  cause_started_at: null,
   ended_at: null,
   last_seen_at: Math.floor(Date.now() / 1000),
   symptom_count: 8,
@@ -57,6 +58,21 @@ describe('OpenEpisodeBanner', () => {
     render(<OpenEpisodeBanner onOpen={vi.fn()} />);
     expect(await screen.findByText(/running 30m/)).toBeTruthy();
     expect(screen.getByText(/8 symptoms across 2 namespaces/)).toBeTruthy();
+  });
+
+  it('measures "running" from the cause\'s own onset, not from when the episode reopened', async () => {
+    // Observed live: a cause firing for two days, an episode reopened seconds
+    // ago after a gap -- "running 7s" for a condition nowhere near new.
+    fetchOpenEpisodes.mockResolvedValue([
+      {
+        ...EPISODE,
+        started_at: Math.floor(Date.now() / 1000) - 7,
+        cause_started_at: Math.floor(Date.now() / 1000) - 2 * 86400,
+      },
+    ]);
+    render(<OpenEpisodeBanner onOpen={vi.fn()} />);
+    expect(await screen.findByText(/running 2d/)).toBeTruthy();
+    expect(screen.queryByText(/running 7s/)).toBeNull();
   });
 
   it('takes you to the incident in one click', async () => {
