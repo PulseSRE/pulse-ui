@@ -93,6 +93,26 @@ export async function fetchBriefing(hours = 12): Promise<BriefingResponse> {
   return res.json();
 }
 
+/**
+ * Approve a fix the agent proposed while nobody was connected to answer it.
+ *
+ * The agent re-derives the plan from the finding as it stands now rather than
+ * replaying what it proposed earlier, so this can be refused: a 409 means the
+ * condition cleared, somebody else approved it first, or no automated fix
+ * applies any more. Those are answers, not errors — surface the message.
+ */
+export async function approveFix(actionId: string): Promise<ActionRecord> {
+  const res = await agentFetch(
+    `${AGENT_BASE}/fix-history/${encodeURIComponent(actionId)}/approve`,
+    { method: 'POST' },
+  );
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(body?.error || `Failed to approve fix: ${res.status} ${res.statusText}`);
+  }
+  return body as ActionRecord;
+}
+
 /** Request a rollback for a completed action. */
 export async function requestRollback(actionId: string): Promise<void> {
   const res = await agentFetch(

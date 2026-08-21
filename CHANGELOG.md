@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Approve a fix the agent proposed while you were asleep
+- A **fixes waiting on you** strip above the inbox, listing what the agent proposed and nobody has answered. Trust level 2 means ask first, and the question used to be asked over a WebSocket with 120 seconds to reply — at 03:00 it was never answered, and the agent took no action at all. Proposals now outlive the moment, which only helps if there is somewhere to see them
+- Above the inbox rather than inside it: an unanswered proposal is the one thing on the screen waiting on a *person*, and everything below it is waiting on the cluster
+- Each row says what would be done and to what, then gets out of the way once answered. A fix that ran and failed says so rather than reading as success
+- A refusal is shown as the agent worded it — the condition cleared, somebody else approved it first, no automated fix applies any more. Those are answers, not errors, and it re-reads the list rather than trusting what it had
+
 ## [2.14.0] - 2026-08-20
 
 ### Tracks pulse-agent v2.14.0
