@@ -1,6 +1,6 @@
 {
   "name": "openshift-pulse",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "description": "OpenShift Pulse — Next-generation OpenShift Console",
   "private": true,
   "type": "module",

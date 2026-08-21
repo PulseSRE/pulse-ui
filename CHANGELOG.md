@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.14.0] - 2026-08-20
+
+### Tracks pulse-agent v2.14.0
+- No UI code changes. The episode panel, the front-door banner and the inbox's symptom collapsing were all built already and have had nothing to show: every finding on a real cluster arrived as an alert, and alerts could not head an episode. The agent fix makes episodes form, so these surfaces light up without touching them
+
 ## [2.13.0] - 2026-08-20
 
 ### Reset the inbox: count from now, keep the history
