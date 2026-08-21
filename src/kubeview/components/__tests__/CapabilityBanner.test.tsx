@@ -65,3 +65,34 @@ describe('CapabilityBanner', () => {
     expect(screen.getByRole('alert').className).toContain('red');
   });
 });
+
+describe('CapabilityBanner — being unreachable is not the same as being blind', () => {
+  afterEach(cleanup);
+
+  const NOTIFICATIONS = finding({
+    id: 'f-notify',
+    title: 'Nothing Pulse finds will reach anyone',
+    resources: [{ kind: 'Agent', name: 'notifications' }],
+  });
+
+  it('a blind scanner still reads as not seeing everything', () => {
+    state.findings = [finding()];
+    render(<CapabilityBanner />);
+    expect(screen.getByText(/Pulse is not seeing everything/)).toBeDefined();
+    expect(screen.getByText(/unknown rather than clear/)).toBeDefined();
+  });
+
+  it('no notification channel reads as cannot reach anyone', () => {
+    state.findings = [NOTIFICATIONS];
+    render(<CapabilityBanner />);
+    expect(screen.getByText(/Pulse cannot reach anyone/)).toBeDefined();
+    // An operator told "not seeing everything" would go hunting a broken scanner.
+    expect(screen.queryByText(/unknown rather than clear/)).toBeNull();
+  });
+
+  it('both at once says both', () => {
+    state.findings = [finding(), NOTIFICATIONS];
+    render(<CapabilityBanner />);
+    expect(screen.getByText(/not seeing everything, and cannot reach anyone/)).toBeDefined();
+  });
+});
