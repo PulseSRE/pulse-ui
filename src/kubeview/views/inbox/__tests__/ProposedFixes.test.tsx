@@ -1,0 +1,103 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { ProposedFixes } from '../ProposedFixes';
+import { approveFix, fetchFixHistory } from '../../../engine/fixHistory';
+
+vi.mock('../../../engine/fixHistory', () => ({
+  fetchFixHistory: vi.fn(),
+  approveFix: vi.fn(),
+}));
+
+const PROPOSAL = {
+  id: 'a-1',
+  findingId: 'f-1',
+  timestamp: Date.now(),
+  category: 'crashloop',
+  tool: '',
+  input: {},
+  status: 'proposed' as const,
+  beforeState: '',
+  afterState: '',
+  reasoning: 'Auto-fix for crashloop: Pod api-7f9 restarting (12x)',
+  durationMs: 0,
+  rollbackAvailable: false,
+  resources: [{ kind: 'Pod', name: 'api-7f9', namespace: 'prod' }],
+};
+
+describe('ProposedFixes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(fetchFixHistory).mockResolvedValue({ actions: [PROPOSAL], total: 1, page: 1, pageSize: 20 });
+    vi.mocked(approveFix).mockResolvedValue({ ...PROPOSAL, status: 'completed', tool: 'delete_pod' });
+  });
+
+  afterEach(cleanup);
+
+  it('shows nothing at all when no fix is waiting', async () => {
+    vi.mocked(fetchFixHistory).mockResolvedValue({ actions: [], total: 0, page: 1, pageSize: 20 });
+    const { container } = render(<ProposedFixes />);
+    await waitFor(() => expect(fetchFixHistory).toHaveBeenCalled());
+    expect(container.textContent).toBe('');
+  });
+
+  it('asks only for proposals, not the whole fix history', async () => {
+    render(<ProposedFixes />);
+    await waitFor(() => expect(fetchFixHistory).toHaveBeenCalled());
+    expect(vi.mocked(fetchFixHistory).mock.calls[0][0]).toEqual({ filters: { status: 'proposed' } });
+  });
+
+  it('says how many are waiting on a person', async () => {
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText(/1 fix waiting on you/)).toBeDefined());
+    // What it would do, and what it would do it to.
+    expect(screen.getByText(/Auto-fix for crashloop/)).toBeDefined();
+    expect(screen.getByText(/Pod api-7f9 · proposed/)).toBeDefined();
+  });
+
+  it('approving runs the fix and takes it off the list', async () => {
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(approveFix).toHaveBeenCalledWith('a-1'));
+    await waitFor(() => expect(screen.getByText(/Ran delete_pod/)).toBeDefined());
+    expect(screen.queryByText('Approve')).toBeNull();
+  });
+
+  it('a fix that ran and failed says so rather than reading as success', async () => {
+    vi.mocked(approveFix).mockResolvedValue({
+      ...PROPOSAL,
+      status: 'failed',
+      error: 'api server said no',
+    });
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(screen.getByText(/Failed: api server said no/)).toBeDefined());
+  });
+
+  it('surfaces a refusal, because the agent refuses on purpose', async () => {
+    vi.mocked(approveFix).mockRejectedValue(
+      new Error('The condition this was proposed for is no longer being reported — nothing to fix'),
+    );
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(screen.getByText(/no longer being reported/)).toBeDefined());
+  });
+
+  it('a refusal re-reads the list rather than trusting stale state', async () => {
+    vi.mocked(approveFix).mockRejectedValue(new Error('Somebody else just approved this'));
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(vi.mocked(fetchFixHistory).mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it('a list that will not load stays quiet instead of shouting over the inbox', async () => {
+    vi.mocked(fetchFixHistory).mockRejectedValue(new Error('network'));
+    const { container } = render(<ProposedFixes />);
+    await waitFor(() => expect(fetchFixHistory).toHaveBeenCalled());
+    expect(container.textContent).toBe('');
+  });
+});

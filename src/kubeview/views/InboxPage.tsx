@@ -10,6 +10,7 @@ import { InboxFilterBar } from './inbox/InboxFilterBar';
 import { InboxItem } from './inbox/InboxItem';
 import { InboxGroup } from './inbox/InboxGroup';
 import { EpisodePanel } from './inbox/EpisodePanel';
+import { ProposedFixes } from './inbox/ProposedFixes';
 import { CapabilityBanner } from '../components/primitives/CapabilityBanner';
 import { NewTaskDialog } from './inbox/NewTaskDialog';
 import { TaskDetailDrawer } from './inbox/TaskDetailDrawer';
@@ -108,6 +109,7 @@ export function InboxPage() {
   return (
     <div className="flex flex-col h-full">
       <InboxHeader onNewTask={() => setNewTaskOpen(true)} />
+      <ProposedFixes />
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="px-4 py-2 border-b border-slate-800">
