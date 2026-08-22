@@ -216,7 +216,7 @@ export default function ClusterKnowledge() {
 
         {factList.length === 0 ? (
           <EmptyState
-            icon={Building2}
+            icon={<Building2 className="w-10 h-10 text-slate-600" />}
             title="Nothing recorded yet"
             description="Pulse records facts as it learns them, and you can add them directly. Until then it treats this cluster like any other."
           />
@@ -284,7 +284,7 @@ export default function ClusterKnowledge() {
           <p className="text-xs text-slate-500">Loading…</p>
         ) : (baselines.data || []).length === 0 ? (
           <EmptyState
-            icon={Gauge}
+            icon={<Gauge className="w-10 h-10 text-slate-600" />}
             title={`No baselines for ${namespace}`}
             description="Baselines build up as Pulse observes a workload. Until one exists, readings are reported as raw values."
           />
