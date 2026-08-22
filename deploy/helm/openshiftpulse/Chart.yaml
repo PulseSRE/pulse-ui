@@ -2,7 +2,7 @@ apiVersion: v2
 name: openshiftpulse
 description: OpenShift Pulse — Next-generation OpenShift Console for Day-2 Operations
 version: 4.7.0
-appVersion: "2.16.0"
+appVersion: "2.17.0"
 type: application
 keywords:
   - openshift
