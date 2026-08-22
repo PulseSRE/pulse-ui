@@ -8,6 +8,13 @@
 - A real zero is still reported as zero. Turning genuine quiet into "unknown" would be the same lie pointing the other way
 - An explicit guard stopping the alarm border lighting on an unknown came back out: a mutation test passed with it removed, because the failed query leaves the alert list empty and the count is already zero. The assertion stays, guarding a different mistake — making the border react to the error state itself
 
+### "No alerts firing", sourced from a failed request
+- Administration rendered a green **"No alerts firing"** badge on a cluster whose alert backend it could not reach. The query swallowed its own failure — `if (!res.ok) return []` — so an unreachable Prometheus produced an empty list and the Overview read it as good news
+- Third instance of the same failure in this UI: the posture bar said "All clear", the Alerts tiles said "Firing 0", Administration said "No alerts firing" in emerald. Absence of data presented as absence of problems, on the page an operator opens to ask whether the cluster is healthy
+- The query now throws so the failure exists to be read, and the badge only appears when the request actually succeeded. Otherwise: *"Alert status unavailable — could not reach Prometheus"*
+- A real quiet cluster still gets its all-clear. Turning genuine quiet into a permanent unknown would be the same lie pointing the other way
+- The presentation fix alone was not enough: restoring `return []` passed every prop-driven test in the file, because `alertsUnavailable` is a prop and the swallowing happens in `AdminView`. Two source-level assertions now cover the seam
+
 ### The trust page showed your preference as the agent's state
 - With the agent reporting `effective_trust_level: 2`, the Pulse Agent page rendered **level 1's** summary — because `TrustPolicy` reads `useTrustStore`, this browser's localStorage preference, while taking only `maxTrustLevel` from the server. The front-door badge was fixed to read the agent's real level; the page that *configures* trust was not
 - The summary now describes the level the agent is actually running at, and says so plainly when this browser has a different one selected. Hovering another level still previews that level — that is the point of hovering
