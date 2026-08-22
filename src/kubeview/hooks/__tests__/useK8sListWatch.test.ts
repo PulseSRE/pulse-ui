@@ -20,7 +20,12 @@ vi.mock('../../engine/query', () => ({
 // Mock uiStore
 vi.mock('../../store/uiStore', () => ({
   useUIStore: (selector: any) => {
-    const state = { setConnectionStatus: vi.fn(), setLastSyncTime: vi.fn(), addDegradedReason: vi.fn() };
+    const state = {
+      setConnectionStatus: vi.fn(),
+      setLastSyncTime: vi.fn(),
+      addDegradedReason: vi.fn(),
+      removeDegradedReason: vi.fn(),
+    };
     return selector(state);
   },
 }));
