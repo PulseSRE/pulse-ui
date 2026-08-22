@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import ClusterKnowledge, { formatMetricValue } from '../memory/ClusterKnowledge';
@@ -46,6 +46,9 @@ describe('formatMetricValue', () => {
 
 describe('ClusterKnowledge', () => {
   beforeEach(() => {
+    // vitest globals are off here, so RTL's auto-cleanup is not registered and
+    // renders would otherwise accumulate across tests in this file.
+    cleanup();
     mockFetch.mockReset();
   });
 
