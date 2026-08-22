@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### A cause that explains nothing led the queue
+- Two control-plane memory episodes opened in the same second on the reference cluster: `HighOverallControlPlaneMemory` with **8 symptoms** and `ControlPlaneNodeMemoryHigh` with **none**. Neither can explain the other — equal causal layers — so symptom ownership went entirely to whichever claimed them first, and the loser still rendered as a full-width red cause card *above* the one doing the explaining
+- Episodes are now ordered by how much they explain, and one explaining nothing drops the red alarm styling for neutral slate. An episode is a claim that one thing explains others; until it explains something it has made no claim, and dressing it identically spends the operator's attention on the wrong card
+- It also reads **"explains nothing yet"** rather than "0 symptoms" — a bare zero reads like a count that failed to load
+- The first version of this keyed off the asynchronously-loaded symptom list, so *every* card flashed grey "explains nothing yet" before flipping to red on each load. It now reads `symptom_count` from the list payload until the detail fetch answers. Caught by its own test failing only in the full suite run, then pinned deterministically with a detail fetch that never resolves
+
 ### Approve buttons for symptoms of a cause we had already named
 - The Inbox showed **"4 fixes waiting on you"**, each with an Approve button, targeting exactly the four pods the same screen labelled *"Explained by the cause above — not separate problems"* under an open `HighOverallControlPlaneMemory` episode. Same pods, same restart counts, one screen
 - Approving any of them restarts a pod whose cause is control-plane memory pressure; it crashloops again while the memory stays high. The agent's causal model knew that, and the panel with the buttons did not say
