@@ -35,6 +35,7 @@ function recurrenceLine(r: EpisodeRecurrence): string | null {
 function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () => void }) {
   const [expanded, setExpanded] = useState(true);
   const [symptoms, setSymptoms] = useState<EpisodeSymptom[]>([]);
+  const [symptomsLoaded, setSymptomsLoaded] = useState(false);
   const [changes, setChanges] = useState<EpisodeChange[]>([]);
   const [recurrence, setRecurrence] = useState<EpisodeRecurrence | null>(null);
   const [investigation, setInvestigation] = useState<EpisodeInvestigation | null>(null);
@@ -46,6 +47,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
       .then((d) => {
         if (cancelled) return;
         setSymptoms(d.symptoms.filter((s) => s.detached_at == null));
+        setSymptomsLoaded(true);
         setChanges(d.changes ?? []);
         setRecurrence(d.recurrence ?? null);
         setInvestigation(d.investigation ?? null);
@@ -97,21 +99,56 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
     .filter(Boolean)
     .join(' ');
 
+  // An episode is a claim that one thing explains others. Until it explains
+  // something it has made no claim, and dressing it in the same red alarm as a
+  // cause with eight symptoms underneath spends the operator's attention on
+  // the wrong card.
+  //
+  // Read from the list payload until the detail fetch answers. Basing this on
+  // the async `symptoms` alone meant every card rendered "explains nothing
+  // yet" in grey for a beat and then flipped to red — a flash of the wrong
+  // state on every episode, every load. `symptom_count` arrives with the list.
+  const explainsNothing = symptomsLoaded ? symptoms.length === 0 : episode.symptom_count === 0;
+
   return (
-    <div className="rounded-lg border border-red-500/25 bg-red-500/[0.06]">
+    <div
+      className={cn(
+        'rounded-lg border',
+        explainsNothing
+          ? 'border-slate-700/60 bg-slate-800/30'
+          : 'border-red-500/25 bg-red-500/[0.06]',
+      )}
+    >
       <div className="flex items-start gap-2 px-3 py-2.5">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+        <AlertTriangle
+          className={cn('mt-0.5 h-4 w-4 shrink-0', explainsNothing ? 'text-slate-500' : 'text-red-400')}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">Cause</span>
+            <span
+              className={cn(
+                'text-[10px] font-semibold uppercase tracking-wider',
+                explainsNothing ? 'text-slate-500' : 'text-red-400',
+              )}
+            >
+              Cause
+            </span>
             <span className="truncate text-sm font-medium text-slate-100">{episode.cause_title}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
             <span>{episode.cause_category}</span>
             <span>started {formatElapsed(episode.cause_started_at ?? episode.started_at)} ago</span>
             <span>
-              {symptoms.length} {symptoms.length === 1 ? 'symptom' : 'symptoms'}
-              {episode.namespaces.length > 0 && ` across ${episode.namespaces.length} namespaces`}
+              {explainsNothing ? (
+                // "0 symptoms" reads like a count that failed to load. Saying
+                // it in words makes clear this is a state, not a gap.
+                'explains nothing yet'
+              ) : (
+                <>
+                  {symptoms.length} {symptoms.length === 1 ? 'symptom' : 'symptoms'}
+                  {episode.namespaces.length > 0 && ` across ${episode.namespaces.length} namespaces`}
+                </>
+              )}
             </span>
             {recurrenceLabel && (
               <span className="inline-flex items-center gap-1 font-medium text-amber-400">
@@ -240,7 +277,13 @@ export function EpisodePanel() {
 
   const load = useCallback(() => {
     fetchOpenEpisodes()
-      .then(setEpisodes)
+      // Most explanatory first. Two control-plane memory episodes opened in
+      // the same second on the reference cluster: one explained eight
+      // symptoms, its twin explained none, and the empty one rendered first.
+      // Neither can explain the other — equal causal layers — so symptom
+      // ownership went entirely to whichever claimed them, and the loser
+      // still took a full-width card at the top of the queue.
+      .then((list) => setEpisodes([...list].sort((a, b) => b.symptom_count - a.symptom_count)))
       .catch(() => setEpisodes([]));
   }, []);
 

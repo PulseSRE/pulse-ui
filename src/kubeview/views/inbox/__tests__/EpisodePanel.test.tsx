@@ -313,3 +313,98 @@ describe('EpisodePanel investigation and dismissal', () => {
     expect(screen.queryByTestId('inline-agent')).toBeNull();
   });
 });
+
+/**
+ * A cause that explains nothing.
+ *
+ * Two control-plane memory episodes opened in the same second on the reference
+ * cluster: `HighOverallControlPlaneMemory` with eight symptoms, and
+ * `ControlPlaneNodeMemoryHigh` with none. Neither can explain the other — they
+ * sit at the same causal layer — so symptom ownership went entirely to
+ * whichever claimed them first, and the loser still rendered as a full-width
+ * red cause card, ahead of the one doing the explaining.
+ *
+ * An episode is a claim that one thing explains others. Until it explains
+ * something it has made no claim.
+ */
+describe('an episode that explains nothing does not lead the queue', () => {
+  const EMPTY = {
+    ...EPISODE,
+    id: 'ep-empty',
+    cause_title: 'ControlPlaneNodeMemoryHigh',
+    symptom_count: 0,
+    namespaces: [],
+    correlation_key: 'alerts::Alert/ControlPlaneNodeMemoryHigh',
+  };
+  const FULL = { ...EPISODE, id: 'ep-full', cause_title: 'HighOverallControlPlaneMemory', symptom_count: 8 };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    detachSymptom.mockResolvedValue(undefined);
+    fetchEpisode.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === 'ep-empty'
+          ? { episode: EMPTY, symptoms: [] }
+          : { episode: FULL, symptoms: SYMPTOMS },
+      ),
+    );
+  });
+
+  afterEach(cleanup);
+
+  it('puts the cause that explains the most first', async () => {
+    // Returned worst-first by the API, as it was on the cluster.
+    fetchOpenEpisodes.mockResolvedValue([EMPTY, FULL]);
+    render(<EpisodePanel />);
+    await waitFor(() => expect(screen.getByText('HighOverallControlPlaneMemory')).toBeDefined());
+    const rendered = document.body.textContent ?? '';
+    expect(rendered.indexOf('HighOverallControlPlaneMemory')).toBeLessThan(
+      rendered.indexOf('ControlPlaneNodeMemoryHigh'),
+    );
+  });
+
+  it('says so in words rather than showing a bare zero', async () => {
+    // "0 symptoms" reads like a count that failed to load.
+    fetchOpenEpisodes.mockResolvedValue([EMPTY]);
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/explains nothing yet/)).toBeDefined();
+    expect(screen.queryByText(/0 symptoms/)).toBeNull();
+  });
+
+  it('does not dress it as an alarm', async () => {
+    fetchOpenEpisodes.mockResolvedValue([EMPTY]);
+    const { container } = render(<EpisodePanel />);
+    await screen.findByText(/explains nothing yet/);
+    const card = container.querySelector('div[class*="rounded-lg"][class*="border"]');
+    expect(card?.className).not.toMatch(/border-red/);
+  });
+
+  it('does not flash "explains nothing" while its symptoms are still loading', async () => {
+    // The list payload carries symptom_count synchronously; the symptom detail
+    // arrives later. Reading only the async list meant every card rendered
+    // grey "explains nothing yet" for a beat and then flipped to red.
+    // A detail fetch that never resolves pins the pre-load state.
+    fetchOpenEpisodes.mockResolvedValue([FULL]);
+    fetchEpisode.mockImplementation(() => new Promise(() => {}));
+    const { container } = render(<EpisodePanel />);
+    await screen.findByText('HighOverallControlPlaneMemory');
+    expect(screen.queryByText(/explains nothing yet/)).toBeNull();
+    const card = container.querySelector('div[class*="rounded-lg"][class*="border"]');
+    expect(card?.className).toMatch(/border-red/);
+  });
+
+  it('trusts the list payload for an empty episode before detail loads too', async () => {
+    fetchOpenEpisodes.mockResolvedValue([EMPTY]);
+    fetchEpisode.mockImplementation(() => new Promise(() => {}));
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/explains nothing yet/)).toBeDefined();
+  });
+
+  it('an episode that does explain something keeps the alarm', async () => {
+    fetchOpenEpisodes.mockResolvedValue([FULL]);
+    const { container } = render(<EpisodePanel />);
+    await screen.findByText('HighOverallControlPlaneMemory');
+    const card = container.querySelector('div[class*="rounded-lg"][class*="border"]');
+    expect(card?.className).toMatch(/border-red/);
+  });
+});
