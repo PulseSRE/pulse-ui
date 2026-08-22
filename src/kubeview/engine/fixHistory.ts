@@ -19,6 +19,13 @@ export interface ActionRecord {
   afterState: string;
   error?: string;
   reasoning: string;
+  /**
+   * Cause title of the open episode that already explains this finding.
+   *
+   * Present when the agent's own causal model says this fix treats a symptom.
+   * Absent on older agents, and on proposals nothing explains.
+   */
+  explainedBy?: string;
   durationMs: number;
   rollbackAvailable: boolean;
   rollbackAction?: { tool: string; input: Record<string, unknown> };

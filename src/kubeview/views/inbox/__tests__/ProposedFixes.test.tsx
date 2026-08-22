@@ -108,6 +108,45 @@ describe('ProposedFixes', () => {
     await waitFor(() => expect(vi.mocked(fetchFixHistory).mock.calls.length).toBeGreaterThan(1));
   });
 
+  it('warns when the fix treats a symptom of a known cause', async () => {
+    // On the reference cluster all four fixes awaiting approval targeted the
+    // exact four pods the same screen called "Explained by the cause above —
+    // not separate problems". The Approve button said nothing about it.
+    vi.mocked(fetchFixHistory).mockResolvedValue({
+      actions: [{ ...PROPOSAL, explainedBy: 'HighOverallControlPlaneMemory' }],
+      total: 1, page: 1, pageSize: 20,
+    });
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText(/HighOverallControlPlaneMemory/)).toBeDefined());
+    expect(screen.getByText(/treats the symptom, not the cause/)).toBeDefined();
+  });
+
+  it('still offers the fix — the operator decides, they are just not blind', async () => {
+    // Suppressing it would be worse: a stopgap restart is sometimes right.
+    vi.mocked(fetchFixHistory).mockResolvedValue({
+      actions: [{ ...PROPOSAL, explainedBy: 'HighOverallControlPlaneMemory' }],
+      total: 1, page: 1, pageSize: 20,
+    });
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+  });
+
+  it('says nothing when no episode explains the finding', async () => {
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    expect(screen.queryByText(/treats the symptom/)).toBeNull();
+  });
+
+  it('an agent too old to send the field is not treated as a cause', async () => {
+    vi.mocked(fetchFixHistory).mockResolvedValue({
+      actions: [{ ...PROPOSAL, explainedBy: undefined }],
+      total: 1, page: 1, pageSize: 20,
+    });
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    expect(screen.queryByText(/treats the symptom/)).toBeNull();
+  });
+
   it('a list that will not load stays quiet instead of shouting over the inbox', async () => {
     vi.mocked(fetchFixHistory).mockRejectedValue(new Error('network'));
     const { container } = render(<ProposedFixes />);

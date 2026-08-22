@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Approve buttons for symptoms of a cause we had already named
+- The Inbox showed **"4 fixes waiting on you"**, each with an Approve button, targeting exactly the four pods the same screen labelled *"Explained by the cause above — not separate problems"* under an open `HighOverallControlPlaneMemory` episode. Same pods, same restart counts, one screen
+- Approving any of them restarts a pod whose cause is control-plane memory pressure; it crashloops again while the memory stays high. The agent's causal model knew that, and the panel with the buttons did not say
+- A proposal that the agent marks `explainedBy` now reads **"Symptom of *&lt;cause&gt;* — fixing this treats the symptom, not the cause"**, beside the button rather than buried in the reasoning text
+- The Approve button stays. A stopgap restart is sometimes the right call and it is the operator's to make — it is only wrong to ask them to make it blind
+
 ### The map took most of the first screen, and then moved it
 - `WorldMap` hardcoded a 520px container. Measured against the reference cluster on a 1440x900 desktop: **57.8% of the viewport**, for a drawing of seven nodes — and it pushed Heartbeat, Healthy and the utilisation metrics below the fold. The front door led with a picture and hid the numbers an operator opens it for
 - Now `clamp(280px, 42vh, 520px)`. On that same 1440x900 screen the map is 378px and all three readouts sit above the fold; on a 1280x720 laptop it is 302px; on anything shorter the 280px floor keeps it legible. The 520px ceiling means nothing changes on a large display
