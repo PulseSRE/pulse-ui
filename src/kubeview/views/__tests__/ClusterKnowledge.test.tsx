@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import ClusterKnowledge, { formatMetricValue } from '../memory/ClusterKnowledge';
@@ -56,9 +56,11 @@ describe('ClusterKnowledge', () => {
     });
     renderWithProviders(<ClusterKnowledge />);
 
-    await waitFor(() => expect(screen.getByText('Awaiting outcome')).toBeDefined());
+    // wait on data-dependent text; the static labels render before the query settles
+    expect(await screen.findByText(/78% of judged trajectories/)).toBeDefined();
+    expect(screen.getByText('Awaiting outcome')).toBeDefined();
     expect(screen.getByText('7')).toBeDefined();
-    expect(screen.getByText(/78% of judged trajectories/)).toBeDefined();
+    expect(screen.getByText('3')).toBeDefined();
   });
 
   it('groups environment facts by scope and shows their source', async () => {
@@ -73,7 +75,7 @@ describe('ClusterKnowledge', () => {
     });
     renderWithProviders(<ClusterKnowledge />);
 
-    await waitFor(() => expect(screen.getByText('prometheus_retention')).toBeDefined());
+    expect(await screen.findByText('prometheus_retention')).toBeDefined();
     expect(screen.getByText('30 days')).toBeDefined();
     expect(screen.getByText('payments')).toBeDefined();
     expect(screen.getByText('via operator')).toBeDefined();
@@ -87,7 +89,7 @@ describe('ClusterKnowledge', () => {
     });
     renderWithProviders(<ClusterKnowledge />);
 
-    await waitFor(() => expect(screen.getByText('Nothing recorded yet')).toBeDefined());
+    expect(await screen.findByText('Nothing recorded yet')).toBeDefined();
     expect(screen.getByText(/treats this cluster like any other/)).toBeDefined();
   });
 
@@ -98,8 +100,7 @@ describe('ClusterKnowledge', () => {
     });
     renderWithProviders(<ClusterKnowledge />);
 
-    await waitFor(() => expect(screen.getByText('Nothing recorded yet')).toBeDefined());
+    expect(await screen.findByText(/Enter a namespace/)).toBeDefined();
     expect(mockFetch.mock.calls.some(([url]) => String(url).includes('/memory/baselines'))).toBe(false);
-    expect(screen.getByText(/Enter a namespace/)).toBeDefined();
   });
 });
