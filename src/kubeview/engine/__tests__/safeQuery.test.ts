@@ -4,10 +4,12 @@ import { safeQuery, checkAuth, agentFetch } from '../safeQuery';
 
 // Mock uiStore
 const mockAddDegradedReason = vi.fn();
+const mockRemoveDegradedReason = vi.fn();
 vi.mock('../../store/uiStore', () => ({
   useUIStore: {
     getState: () => ({
       addDegradedReason: mockAddDegradedReason,
+      removeDegradedReason: mockRemoveDegradedReason,
     }),
   },
 }));

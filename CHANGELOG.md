@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### The session-expired modal could be raised but never lowered
+- `session_expired` was added from seven call sites and removed from none outside the test suite, while every other degraded reason already cleared itself — `observability_unavailable` in the incident hooks, `polling_fallback` and `agent_unreachable` in agent notifications. So a single transient 401 pinned the modal for the life of the page
+- Not a theoretical window: on a cluster whose API server is restarting and dropping TLS handshakes, a one-off 401 is routine. The operator is told their session expired while every request behind the modal succeeds. Reported from real use, twice
+- A 2xx from behind the OAuth proxy is proof the session is good — the proxy would have answered 401 itself — so a success now retracts the claim. A 500 or a 403 does not: neither says anything about the session, and clearing on them would hide a genuinely expired one behind an unrelated fault
+
 ## [2.16.2] - 2026-08-21
 
 ### A long fix-failure message could blow out the "Fixes applied" row

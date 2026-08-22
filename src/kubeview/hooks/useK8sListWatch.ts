@@ -35,6 +35,7 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
   const queryClient = useQueryClient();
   const setConnectionStatus = useUIStore((s) => s.setConnectionStatus);
   const addDegradedReason = useUIStore((s) => s.addDegradedReason);
+  const removeDegradedReason = useUIStore((s) => s.removeDegradedReason);
   const setLastSyncTime = useUIStore((s) => s.setLastSyncTime);
   const isVisible = useDocumentVisibility();
 
@@ -112,8 +113,13 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
   useEffect(() => {
     if (query.isSuccess && query.dataUpdatedAt > 0) {
       setLastSyncTime(query.dataUpdatedAt);
+      // A successful watch is proof the session is valid, so retract the
+      // session-expired claim. Without this the flag only ever accumulates:
+      // one transient 401 and the modal stays up while every request behind
+      // it succeeds.
+      removeDegradedReason('session_expired');
     }
-  }, [query.isSuccess, query.dataUpdatedAt, setLastSyncTime]);
+  }, [query.isSuccess, query.dataUpdatedAt, setLastSyncTime, removeDegradedReason]);
 
   useEffect(() => {
     if (query.isError && query.error) {
