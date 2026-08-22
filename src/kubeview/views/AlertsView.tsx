@@ -410,28 +410,37 @@ export default function AlertsView() {
           )}
         </div>
 
+        {/* A count is a claim. When the backend is unreachable we have no
+            counts, and rendering "0 Firing" in the same bold numeral as a real
+            zero tells an operator the cluster is quiet at precisely the moment
+            we cannot see it. Compute already gets this right — it renders
+            "Unknown" and "No data" rather than dashes of zero — so this
+            follows the in-house precedent rather than inventing one.
+
+            Same failure the posture bar had on the front door: absence of data
+            presented as absence of problems. */}
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', firingAlerts.length > 0 ? 'border-red-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Firing</div>
-            <div className="text-xl font-bold text-slate-100">{firingAlerts.length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : firingAlerts.length}</div>
           </button>
           <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Pending</div>
-            <div className="text-xl font-bold text-slate-100">{pendingAlerts.length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : pendingAlerts.length}</div>
             <div className="text-xs text-slate-600 mt-0.5">About to fire</div>
           </button>
           <button onClick={() => setActiveTab('silences')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Silenced</div>
-            <div className="text-xl font-bold text-slate-100">{allAlerts.filter(a => a.isSilenced).length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : allAlerts.filter(a => a.isSilenced).length}</div>
           </button>
           <button onClick={() => setActiveTab('rules')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Alert Rules</div>
-            <div className="text-xl font-bold text-slate-100">{allRules.length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : allRules.length}</div>
           </button>
           <button onClick={() => setActiveTab('silences')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Active Silences</div>
-            <div className="text-xl font-bold text-slate-100">{activeSilences.length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : activeSilences.length}</div>
           </button>
         </div>
 
