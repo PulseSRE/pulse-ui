@@ -154,11 +154,14 @@ export default function AdminView() {
     apiPath: '/apis/config.openshift.io/v1/clusteroperators',
   });
 
-  const { data: firingAlerts = [] } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
+  const { data: firingAlerts = [], error: firingAlertsError } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
     queryKey: ['admin', 'firing-alerts'],
     queryFn: async () => {
       const res = await fetch('/api/prometheus/api/v1/alerts');
-      if (!res.ok) return [];
+      // Throw, don't swallow. Returning [] here turned "Prometheus is not
+      // reachable" into "no alerts are firing", and the Overview rendered a
+      // green all-clear on the strength of a failed request.
+      if (!res.ok) throw new Error(`Prometheus returned ${res.status} ${res.statusText}`);
       const json = await res.json();
       return (json.data?.alerts || []).filter((a: { state: string }) => a.state === 'firing');
     },
@@ -494,6 +497,7 @@ export default function AdminView() {
             overviewLoading={overviewLoading}
             overviewError={overviewError}
             firingAlerts={firingAlerts}
+            alertsUnavailable={!!firingAlertsError}
             alertCounts={alertCounts}
             operators={operators}
             opDegraded={opDegraded}

@@ -207,3 +207,73 @@ describe('OverviewTab', () => {
     expect(screen.getByText('Back-off restarting failed container')).toBeDefined();
   });
 });
+
+/**
+ * "No alerts firing", sourced from a failed request.
+ *
+ * The query swallowed its own failure — `if (!res.ok) return []` — so an
+ * unreachable Prometheus produced an empty list, and the Overview rendered a
+ * green all-clear on the strength of a request that never succeeded.
+ *
+ * Third instance of the same failure in this UI: the posture bar called it
+ * "All clear", the Alerts tiles called it "Firing 0", and Administration
+ * called it "No alerts firing" in emerald. Absence of data presented as
+ * absence of problems, on the page an operator opens to ask whether the
+ * cluster is healthy.
+ */
+describe('an unreachable Prometheus is not an all-clear', () => {
+  afterEach(cleanup);
+
+  it('does not claim no alerts are firing when the query failed', () => {
+    render(<OverviewTab {...makeProps({ firingAlerts: [], alertsUnavailable: true })} />);
+    expect(screen.queryByText('No alerts firing')).toBeNull();
+  });
+
+  it('says the status is unavailable, and why', () => {
+    render(<OverviewTab {...makeProps({ firingAlerts: [], alertsUnavailable: true })} />);
+    expect(screen.getByText(/Alert status unavailable/)).toBeDefined();
+    expect(screen.getByText(/could not reach Prometheus/)).toBeDefined();
+  });
+
+  it('still gives the all-clear when it genuinely looked and found none', () => {
+    // The fix must not turn a real quiet cluster into a permanent unknown.
+    render(<OverviewTab {...makeProps({ firingAlerts: [], alertsUnavailable: false })} />);
+    expect(screen.getByText('No alerts firing')).toBeDefined();
+    expect(screen.queryByText(/Alert status unavailable/)).toBeNull();
+  });
+
+  it('says nothing either way while the page is still loading', () => {
+    render(<OverviewTab {...makeProps({ firingAlerts: [], alertsUnavailable: true, overviewLoading: true })} />);
+    expect(screen.queryByText(/Alert status unavailable/)).toBeNull();
+    expect(screen.queryByText('No alerts firing')).toBeNull();
+  });
+});
+
+describe('the alert query surfaces its failure instead of swallowing it', () => {
+  /**
+   * The presentation fix above is worth nothing if the query keeps turning a
+   * failed request into an empty list. `alertsUnavailable` can only ever be
+   * true if the queryFn throws, and that lives in AdminView — outside the
+   * props this file otherwise drives, so it is asserted at the source.
+   *
+   * Mutation-tested: restoring `if (!res.ok) return []` passed every
+   * prop-driven test in this file. This is the assertion that catches it.
+   */
+  it('throws on a non-ok response rather than returning an empty list', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const src = readFileSync(resolve(__dirname, '../../AdminView.tsx'), 'utf8');
+    const start = src.indexOf("queryKey: ['admin', 'firing-alerts']");
+    expect(start, "the firing-alerts query should still exist").toBeGreaterThan(-1);
+    const block = src.slice(start, start + 700);
+    expect(block).toMatch(/if \(!res\.ok\) throw new Error/);
+    expect(block).not.toMatch(/if \(!res\.ok\) return \[\]/);
+  });
+
+  it('passes the failure down to the Overview', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const src = readFileSync(resolve(__dirname, '../../AdminView.tsx'), 'utf8');
+    expect(src).toMatch(/alertsUnavailable=\{!!firingAlertsError\}/);
+  });
+});
