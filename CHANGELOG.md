@@ -7,6 +7,13 @@
 - Now `clamp(280px, 42vh, 520px)`. On that same 1440x900 screen the map is 378px and all three readouts sit above the fold; on a 1280x720 laptop it is 302px; on anything shorter the 280px floor keeps it legible. The 520px ceiling means nothing changes on a large display
 - Separately, PulseView's Suspense skeleton reserved `h-[420px]` for a map that renders at 520, so the whole page below it **jumped 100px** the moment the lazy chunk landed. Both now read one exported constant, and a test fails if the skeleton drifts back to a literal
 
+### The trust ladder described a different agent than the one that ships
+- Level 1 read **"Confirm — every action requires your explicit approval"**. The agent never enters `auto_fix` below level 2, so level 1 proposes nothing and there is nothing to approve. An operator who wanted supervised remediation read that, chose 1, and got an agent that did nothing at all — the `total_actions: 0` symptom, named right there on the control
+- Level 2 read "Batch — low-risk auto-approved" and is in fact the level that asks: it proposes every fix and waits for you. The two were the wrong way round
+- Levels 3 and 4 promised LOW/MEDIUM/HIGH risk tiers. Nothing implements them — `risk_level` exists only in investigation output and the fix path never reads it. What separates 3 from 4 is category filtering
+- The ladder now reads: **0 Observe** (watches only, writes blocked), **1 Manual** (you act, the agent does not), **2 Propose** (proposes fixes, you approve), **3 Bounded** (fixes allowed categories itself), **4 Autonomous** (fixes anything it can). Behaviour is unchanged — the names were wrong, not the ladder
+- `PulseView` kept its own copy of the level names, which is how the badge tooltip and Mission Control came to describe different agents. Both now render from one exported map, and a test fails if a screen starts restating the ladder again
+
 ### The trust badge on the front door reported a browser preference
 - `Agent · Trust 1` came from `useTrustStore` — zustand `persist` on localStorage, keyed per hostname. It is sent to the agent when the monitor socket connects and **never read back**. So the badge showed what this tab had asked for, not what the agent was doing
 - Two operators on one cluster could read two different trust levels off the same agent. Since the server-side floor is now `settings.monitor.max_trust_level`, both of them could be wrong about what it would do with nobody watching — on a badge whose entire job is to answer that question

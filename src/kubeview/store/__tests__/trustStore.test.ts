@@ -122,7 +122,11 @@ describe('trustStore', () => {
 
   it('has level 4 label and description', () => {
     expect(TRUST_LABELS[4]).toBe('Autonomous');
-    expect(TRUST_DESCRIPTIONS[4]).toBe('Agent auto-fixes known issues from runbooks. All actions are logged and reversible.');
+    // Was pinned to "auto-fixes known issues from runbooks". There are no
+    // runbooks in the fix path — level 4 applies every auto-fixable finding it
+    // can, unfiltered. The old text made the most autonomous level sound like
+    // the most constrained one.
+    expect(TRUST_DESCRIPTIONS[4]).toBe('The agent applies any fix it can, without asking. All actions are logged.');
   });
 
   it('manages autoFixCategories state', () => {
