@@ -37,6 +37,12 @@ interface FleetState {
   // ACM detection
   acmAvailable: boolean;
   acmDetecting: boolean;
+  /**
+   * Whether detection has actually run. `acmAvailable: false` on its own
+   * cannot tell "we looked and ACM is absent" from "we have not looked",
+   * and the Fleet page was rendering the second as the first.
+   */
+  acmChecked: boolean;
 
   // Clusters
   clusters: ClusterConnection[];
@@ -64,6 +70,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
   connectionMode: 'none',
   acmAvailable: false,
   acmDetecting: false,
+  acmChecked: false,
   clusters: getAllConnections(),
   activeClusterId: getActiveClusterId(),
   healthPolling: false,
@@ -85,7 +92,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
             ? 'Permission denied. You need cluster-admin or managedcluster read access.'
             : `Failed to detect ACM (${res.status} ${res.statusText})`;
         useUIStore.getState().addToast({ type: 'warning', title: 'ACM Detection', detail, duration: 8000 });
-        set({ acmAvailable: false, acmDetecting: false });
+        set({ acmAvailable: false, acmDetecting: false, acmChecked: true });
         return;
       }
 
@@ -118,6 +125,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
       set({
         acmAvailable: true,
         acmDetecting: false,
+        acmChecked: true,
         connectionMode: 'acm',
         fleetMode: allConns.length > 1 ? 'multi' : 'single',
         clusters: allConns,
@@ -134,7 +142,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
         title: 'ACM Detection Failed',
         detail: e instanceof Error ? e.message : 'Network error — is the cluster reachable?',
       });
-      set({ acmAvailable: false, acmDetecting: false });
+      set({ acmAvailable: false, acmDetecting: false, acmChecked: true });
     }
   },
 

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### "ACM not detected", before ever looking
+- `detectACM` was wired only to a button. Nothing ran it on mount, so Fleet rendered **"ACM not detected — show installation instructions"** purely from the store's initial `acmAvailable: false`
+- The reference cluster is an ACM hub: `MultiClusterHub` Running for 354 days, v2.17.0, *"All hub components ready"*, one `ManagedCluster` registered, 62 ACM CRDs, and the endpoint the detector calls returning 200. Fleet told the operator ACM was absent and offered YAML to create a hub that already existed — applying it would have been a genuinely bad outcome
+- Detection now runs on mount, and the page does not claim absence until it has actually looked. `acmAvailable: false` alone cannot tell "we looked and it is not there" from "we have not looked", so the store tracks `acmChecked` as a separate fact
+- Same family as the rest of this UI's confident empty states — a default rendered as a finding — and the fourth instance found this session
+
 ### "Firing 0" while it could not see the alerting backend
 - The Alerts page rendered `Firing 0 · Pending 0 · Silenced 0 · Alert Rules 0` in bold numerals directly above its own message, *"Backend unavailable"*. A count is a claim, and zero at the moment we have no data tells an operator the cluster is quiet precisely when we cannot see whether it is
 - The same failure the posture bar had on the front door, and the opposite of what the Compute page already does — it renders `Unknown` and `No data` rather than inventing numbers. This follows that in-house precedent: every tile reads `—` in muted slate when the backend is unreachable
