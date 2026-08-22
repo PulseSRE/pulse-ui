@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.16.0, ~200 source files, 2,128 unit tests (175 files) + 57 E2E scenarios.
+OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.17.0, ~200 source files, 2,128 unit tests (175 files) + 57 E2E scenarios.
 
 ## Commands
 
@@ -129,7 +129,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 - **Confirmation flow**: `confirm_request` with nonce → UI shows dialog → `confirm_response` with nonce echoed back
 - **Degraded mode**: `engine/degradedMode.ts` — 5 failure reasons, displayed via `DegradedBanner`
 - **Auto-fix**: at trust level 3/4, monitor fixes crashloop (pod delete) and workloads (deployment restart) WITHOUT confirmation gate. Has safety guardrails: max 3/scan, 5min cooldown, no bare pods.
-- **Agent version**: v2.16.0 (Protocol v2, 104 native tools + MCP, 27 scanners)
+- **Agent version**: v2.17.0 (Protocol v2, 104 native tools + MCP, 27 scanners)
 - **Episodes**: an open episode appears above the queue in the Inbox and above every tile on Cluster Pulse — a cause with the findings it explains folded underneath, plus what changed just before it and how often it has returned. Symptoms are collapsed out of the list and the count is shown, because work vanishing from a queue with no explanation is its own trust problem. Every symptom carries a "Not related" control wired to the detach endpoint; that correction is the only ground truth the agent gets about its own correlation
 - **Time formatting**: `formatShortDuration(seconds)` and `formatElapsed(unixSeconds)` in `dateUtils` return one coarse unit with no suffix. Distinct from the older `formatDuration(startISO, endISO)` and `formatAge(Date)` in the same file — check which you want before adding a third
 - **MCP integration**: OpenShift MCP server with 11 toolsets, 36 tools including Prometheus queries and Helm management
@@ -284,3 +284,5 @@ When fixing PostgreSQL deployment issues, validate password encoding, avoid rese
 - **Agent**: https://PulseSRE.github.io/pulse-agent/ (cyberpunk theme, custom robot logo)
 - Cross-linked between projects
 - Screenshots captured via Playwright: `scripts/capture-screenshots.ts`
+
+- `views/memory/ClusterKnowledge.tsx` — the "This Cluster" tab in Memory. Three sections backed by the agent's `/memory/environment`, `/memory/baselines` and `/memory/learning` endpoints: the verified-learning gate counters (a diagnosis becomes a reusable skill only once its fix is confirmed), operator-correctable facts about this cluster grouped by scope, and learned per-workload baselines. Baselines under 20 samples render as "not used yet" rather than as a norm, matching what the agent does with them.
