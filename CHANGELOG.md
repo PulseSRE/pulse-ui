@@ -17,6 +17,10 @@
 - Every inbox row rendered all five lifecycle stages inline — `New › Triaged › Claimed › In Progress › Resolved`. Read down a real inbox that is the same five words on every row, taking more width than the finding's own title. Measured on the reference cluster at 32 open items, the phrase dominating the screen was identical on all of them
 - The row now shows five dots filled to the current stage, and names only that stage. Position stays legible, the full ladder is on hover, and the stepper in the detail drawer — where one item's whole progression is the point — is unchanged
 
+### The My Items pill printed an identity hash at you
+- When the agent cannot resolve a real username it falls back to `user-<16 hex>` — stable, unforgeable, and exactly the right thing to key data on. It is not a thing to show a person. Observed live: the filter pill read **"My Items (user-5451b787f74974ba)"**, telling the reader nothing they did not know and spending half the pill's width to say it
+- A real name is still shown. An opaque fallback, or no user at all, now reads simply "My Items"
+
 ### The session-expired modal could be raised but never lowered
 - `session_expired` was added from seven call sites and removed from none outside the test suite, while every other degraded reason already cleared itself — `observability_unavailable` in the incident hooks, `polling_fallback` and `agent_unreachable` in agent notifications. So a single transient 401 pinned the modal for the life of the page
 - Not a theoretical window: on a cluster whose API server is restarting and dropping TLS handshakes, a one-off 401 is routine. The operator is told their session expired while every request behind the modal succeeds. Reported from real use, twice

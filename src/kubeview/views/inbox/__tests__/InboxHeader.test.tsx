@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { InboxHeader } from '../InboxHeader';
+
+// Mutable so a test can vary one field (e.g. currentUser) without restating
+// the whole store.
+let stateOverride: Record<string, unknown> = {};
 
 vi.mock('../../../store/inboxStore', () => ({
   useInboxStore: vi.fn((selector) => {
@@ -9,6 +13,8 @@ vi.mock('../../../store/inboxStore', () => ({
       stats: { new: 3, total: 10, agent_cleared: 5, critical: 2, warning: 4 },
       activePreset: null,
       setPreset: vi.fn(),
+      refresh: vi.fn(),
+      ...stateOverride,
     };
     return selector(state);
   }),
@@ -45,5 +51,30 @@ describe('InboxHeader', () => {
     render(<InboxHeader onNewTask={onNewTask} />);
     expect(screen.getAllByText(/Critical/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Warning/).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('the My Items pill does not print an identity hash at you', () => {
+  afterEach(cleanup);
+
+  it('names a real user', () => {
+    stateOverride = { currentUser: 'kube:admin' };
+    render(<InboxHeader onNewTask={vi.fn()} />);
+    expect(screen.getByText(/My Items \(kube:admin\)/)).toBeDefined();
+  });
+
+  it('says just My Items when the identity is the agent opaque fallback', () => {
+    // Observed live: "My Items (user-5451b787f74974ba)". The hash is the right
+    // thing to key data on and the wrong thing to show a person.
+    stateOverride = { currentUser: 'user-5451b787f74974ba' };
+    render(<InboxHeader onNewTask={vi.fn()} />);
+    expect(screen.getByText('My Items')).toBeDefined();
+    expect(screen.queryByText(/user-5451b/)).toBeNull();
+  });
+
+  it('says just My Items when there is no user at all', () => {
+    stateOverride = { currentUser: null };
+    render(<InboxHeader onNewTask={vi.fn()} />);
+    expect(screen.getByText('My Items')).toBeDefined();
   });
 });
