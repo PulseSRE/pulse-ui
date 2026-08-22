@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Loader2, Wrench } from 'lucide-react';
+import { Check, GitBranch, Loader2, Wrench } from 'lucide-react';
 import { Button } from '../../components/primitives/Button';
 import { approveFix, fetchFixHistory, type ActionRecord } from '../../engine/fixHistory';
 import { formatElapsed } from '../../engine/dateUtils';
@@ -87,6 +87,23 @@ export function ProposedFixes() {
                 {action.resources?.[0] ? `${action.resources[0].kind} ${action.resources[0].name}` : action.category}
                 {action.timestamp ? ` · proposed ${formatElapsed(Math.floor(action.timestamp / 1000))} ago` : ''}
               </div>
+              {/* The agent's causal model already knows this is a symptom.
+                  Measured on the reference cluster: all four fixes awaiting
+                  approval targeted the exact four pods the same screen called
+                  "Explained by the cause above — not separate problems".
+                  Restarting them treats a symptom of control-plane memory
+                  pressure and they crashloop again while the cause persists.
+                  Said out loud rather than suppressed — a stopgap restart is
+                  sometimes the right call, but never a blind one. */}
+              {action.explainedBy && (
+                <div className="mt-1 flex items-start gap-1.5 text-xs text-amber-400/90">
+                  <GitBranch className="w-3.5 h-3.5 shrink-0 mt-px" />
+                  <span>
+                    Symptom of <span className="font-medium">{action.explainedBy}</span> — fixing this
+                    treats the symptom, not the cause
+                  </span>
+                </div>
+              )}
               {errors[action.id] && <div className="text-xs text-red-400 mt-1">{errors[action.id]}</div>}
             </div>
             <Button size="sm" onClick={() => approve(action)} disabled={busy === action.id}>
