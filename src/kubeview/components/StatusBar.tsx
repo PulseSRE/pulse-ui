@@ -79,7 +79,9 @@ export function StatusBar() {
           className={isStale ? 'text-amber-400' : undefined}
           title={isStale ? 'Data may be stale — session may be expired or connectivity lost' : undefined}
         >
-          synced {relativeTime} ago
+          {/* formatRelativeTime already ends in "ago" — appending another
+              produced "synced 26s ago ago" in the status bar of every page. */}
+          synced {relativeTime}
           {isStale && !degradedReasons.has('session_expired') && (
             <span className="ml-1 text-amber-400">· may be stale</span>
           )}

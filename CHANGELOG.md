@@ -8,6 +8,11 @@
 - A real finding outranks not having scanned. Findings can arrive before `lastScanTime` is set, and reporting "checking" over a known problem would be the same lie pointing the other way
 - Same failure the capability banner was built to prevent, one screen earlier: absence of data presented as absence of problems
 
+### Relative times said "ago" twice, and sometimes counted backwards
+- The status bar rendered `synced {formatRelativeTime(t)} ago` while the function already ends in "ago" — **"synced 26s ago ago"**, in the status bar of every page
+- `formatRelativeTime` subtracted an agent timestamp from the browser's clock without a floor. Two machines, two clocks: a beat of skew rendered **"Last scan: -1s ago"** on the landing page. Anything under five seconds now reads "just now", which absorbs the skew and reads better besides
+- The first fix added a `Math.max(0, …)` as well. A mutation test passed with it removed, proving it was dead code — the "just now" branch already covered the case — so it came back out
+
 ### The session-expired modal could be raised but never lowered
 - `session_expired` was added from seven call sites and removed from none outside the test suite, while every other degraded reason already cleared itself — `observability_unavailable` in the incident hooks, `polling_fallback` and `agent_unreachable` in agent notifications. So a single transient 401 pinned the modal for the life of the page
 - Not a theoretical window: on a cluster whose API server is restarting and dropping TLS handshakes, a one-off 401 is routine. The operator is told their session expired while every request behind the modal succeeds. Reported from real use, twice
