@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import {
   HeartPulse, Shield, Activity,
-  AlertTriangle,
+  AlertTriangle, HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '../components/primitives/Tooltip';
@@ -33,7 +33,20 @@ import { formatRelativeTime } from '../engine/formatters';
 
 const ClusterResourceMap = lazy(() => import('../components/topology/TopologyMap'));
 
-type PostureLevel = 'green' | 'yellow' | 'red';
+/**
+ * `unknown` is not a shade of green.
+ *
+ * Before the first scan lands, every count is zero — and zero criticals read as
+ * "all clear" when it actually means "nothing has looked yet". The posture bar
+ * asserted health on an empty result set, on the landing page, as the first
+ * thing an operator sees. It even computed "No scan yet" for the line beside
+ * the claim, so the component held the evidence against itself.
+ *
+ * A monitoring product saying "all clear" before it knows is the same failure
+ * as an empty investigation panel reading as "nothing worth investigating":
+ * absence of data presented as absence of problems.
+ */
+type PostureLevel = 'unknown' | 'green' | 'yellow' | 'red';
 
 function ClusterPostureBar({
   findings,
@@ -52,9 +65,12 @@ function ClusterPostureBar({
   const warningCount = incidentCounts.warning;
   const autoFixedCount = findings.filter((f) => (f as any).autoFixable).length;
 
+  // A real finding outranks not having scanned: if something already came back
+  // critical, say so rather than "checking". Only genuine silence is unknown.
   let level: PostureLevel = 'green';
   if (criticalCount > 0) level = 'red';
   else if (warningCount > 0 || findings.length > 0) level = 'yellow';
+  else if (!lastScanTime) level = 'unknown';
 
   const topFinding = findings.length > 0 ? findings[0] : null;
 
@@ -63,24 +79,27 @@ function ClusterPostureBar({
     : 'No scan yet';
 
   const borderColor: Record<PostureLevel, string> = {
+    unknown: 'border-l-slate-500',
     green: 'border-l-emerald-500',
     yellow: 'border-l-amber-500',
     red: 'border-l-red-500',
   };
 
   const bgColor: Record<PostureLevel, string> = {
+    unknown: 'bg-slate-500/5',
     green: 'bg-emerald-500/5',
     yellow: 'bg-amber-500/5',
     red: 'bg-red-500/5',
   };
 
   const iconColor: Record<PostureLevel, string> = {
+    unknown: 'text-slate-400',
     green: 'text-emerald-400',
     yellow: 'text-amber-400',
     red: 'text-red-400',
   };
 
-  const Icon = level === 'green' ? Shield : AlertTriangle;
+  const Icon = level === 'unknown' ? HelpCircle : level === 'green' ? Shield : AlertTriangle;
 
   return (
     <div
@@ -93,6 +112,12 @@ function ClusterPostureBar({
     >
       <Icon className={cn('w-4 h-4 shrink-0', iconColor[level])} />
       <span className="text-slate-200 truncate">
+        {level === 'unknown' && (
+          <>
+            Checking the cluster…
+            <span className="text-slate-500"> | {scanLabel} | Agent: {monitorConnected ? 'healthy' : 'disconnected'}</span>
+          </>
+        )}
         {level === 'green' && (
           <>
             All clear — 0 critical, 0 warnings

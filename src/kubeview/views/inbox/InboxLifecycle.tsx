@@ -21,6 +21,21 @@ const STATUS_MAP: Record<string, string> = {
   agent_cleared: 'resolved',
 };
 
+/**
+ * Where this item is, not the whole ladder.
+ *
+ * This used to render all five stages inline — `New › Triaged › Claimed › In
+ * Progress › Resolved` — on every row. Read down a real inbox and that is the
+ * same five words twenty times over, taking more width than the finding's own
+ * title. Measured on the reference cluster: 32 open items, and the phrase that
+ * dominated the screen was identical on every one of them.
+ *
+ * A list answers "where is each of these"; one item's full progression is the
+ * detail view's job, which is what InboxLifecycleStepper already does in the
+ * drawer. So the badge keeps the position — five dots, filled to here — and
+ * spends its words on the one stage that differs between rows. The full ladder
+ * stays available on hover for anyone who wants it.
+ */
 export function InboxLifecycleBadge({
   itemType,
   status,
@@ -32,40 +47,49 @@ export function InboxLifecycleBadge({
   const isCleared = status === 'agent_cleared';
   const mappedStatus = STATUS_MAP[status] || status;
   const currentIdx = isCleared ? steps.length : steps.findIndex((s) => s.key === mappedStatus);
+  const isProcessing = status === 'agent_reviewing';
+  const current = steps[currentIdx];
+
+  const ladder = steps.map((s, i) => (i === currentIdx ? `${s.label} ←` : s.label)).join(' › ');
+
+  if (isCleared) {
+    return (
+      <span
+        className="inline-flex items-center rounded-md bg-slate-800/80 border border-slate-700/50 px-1.5 py-0.5 text-[10px] leading-none text-emerald-400 font-medium"
+        title={`Cleared by the agent — ${ladder}`}
+      >
+        Cleared ✓
+      </span>
+    );
+  }
 
   return (
-    <div className="inline-flex items-center gap-px rounded-md bg-slate-800/80 border border-slate-700/50 px-1 py-0.5">
-      {isCleared && (
-        <span className="px-1.5 py-0.5 text-[10px] leading-none rounded-xs text-emerald-400 font-medium">
-          Cleared ✓
-        </span>
-      )}
-      {!isCleared && steps.map((step, idx) => {
-        const isCurrent = step.key === mappedStatus;
-        const isPast = idx < currentIdx;
-        const isLast = idx === steps.length - 1;
-        const isProcessing = status === 'agent_reviewing';
-
-        return (
-          <div key={step.key} className="flex items-center">
-            <span
-              className={cn(
-                'px-1.5 py-0.5 text-[10px] leading-none rounded-xs',
-                isCurrent && isProcessing && 'bg-violet-600 text-white font-medium animate-pulse',
-                isCurrent && !isProcessing && 'bg-violet-600 text-white font-medium',
-                isPast && 'text-emerald-400',
-                !isCurrent && !isPast && 'text-slate-600',
-              )}
-            >
-              {step.label}
-            </span>
-            {!isLast && (
-              <span className={cn('text-[8px]', isPast ? 'text-emerald-600' : 'text-slate-700')}>›</span>
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md bg-slate-800/80 border border-slate-700/50 px-1.5 py-0.5"
+      title={ladder}
+    >
+      <span className="flex items-center gap-0.5" aria-hidden="true">
+        {steps.map((step, idx) => (
+          <span
+            key={step.key}
+            className={cn(
+              'w-1 h-1 rounded-full',
+              idx < currentIdx && 'bg-emerald-500',
+              idx === currentIdx && (isProcessing ? 'bg-violet-400 animate-pulse' : 'bg-violet-400'),
+              idx > currentIdx && 'bg-slate-600',
             )}
-          </div>
-        );
-      })}
-    </div>
+          />
+        ))}
+      </span>
+      <span
+        className={cn(
+          'text-[10px] leading-none font-medium',
+          isProcessing ? 'text-violet-300 animate-pulse' : 'text-slate-300',
+        )}
+      >
+        {current?.label ?? mappedStatus}
+      </span>
+    </span>
   );
 }
 

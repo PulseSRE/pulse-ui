@@ -12,7 +12,7 @@ keywords:
 
 dependencies:
   - name: openshiftpulse
-    version: "4.7.0"
+    version: "4.8.0"
     repository: "file://../openshiftpulse"
 
   - name: openshift-sre-agent

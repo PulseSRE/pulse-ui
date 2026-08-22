@@ -21,6 +21,20 @@ const SEVERITY_BADGES: Array<{ key: string; label: string; color: string }> = [
   { key: 'info', label: 'Info', color: 'bg-blue-500/15 text-blue-400' },
 ];
 
+/**
+ * The agent falls back to `user-<16 hex>` when it cannot resolve a real name —
+ * a stable, unforgeable identity, and exactly the right thing to key data on.
+ * It is not a thing to show a person. Observed live: the filter pill read
+ * "My Items (user-5451b787f74974ba)", which tells the reader nothing they did
+ * not already know and costs half the pill's width to say it.
+ */
+const OPAQUE_IDENTITY = /^user-[0-9a-f]{16}$/;
+
+function myItemsLabel(currentUser: string | null | undefined): string {
+  if (!currentUser || OPAQUE_IDENTITY.test(currentUser)) return 'My Items';
+  return `My Items (${currentUser})`;
+}
+
 export function InboxHeader({
   onNewTask,
 }: {
@@ -102,7 +116,7 @@ export function InboxHeader({
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-300',
               )}
             >
-              {preset.id === 'my_items' && currentUser ? `My Items (${currentUser})` : preset.label}
+              {preset.id === 'my_items' ? myItemsLabel(currentUser) : preset.label}
               {count > 0 && (
                 <span className={cn(
                   'px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none',

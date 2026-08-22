@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased]
+
+### "All clear" was the loading state
+- Before the first scan lands every count is zero, and the posture bar read zero criticals as health — on the landing page, as the first thing an operator sees. It rendered "All clear — 0 critical, 0 warnings | No scan yet" in one sentence, holding the evidence against its own claim
+- There is now an `unknown` posture: **"Checking the cluster…"**, in neutral slate rather than green, with the reason still shown beside it. `unknown` is not a shade of green
+- A real finding outranks not having scanned. Findings can arrive before `lastScanTime` is set, and reporting "checking" over a known problem would be the same lie pointing the other way
+- Same failure the capability banner was built to prevent, one screen earlier: absence of data presented as absence of problems
+
+### Relative times said "ago" twice, and sometimes counted backwards
+- The status bar rendered `synced {formatRelativeTime(t)} ago` while the function already ends in "ago" — **"synced 26s ago ago"**, in the status bar of every page
+- `formatRelativeTime` subtracted an agent timestamp from the browser's clock without a floor. Two machines, two clocks: a beat of skew rendered **"Last scan: -1s ago"** on the landing page. Anything under five seconds now reads "just now", which absorbs the skew and reads better besides
+- The first fix added a `Math.max(0, …)` as well. A mutation test passed with it removed, proving it was dead code — the "just now" branch already covered the case — so it came back out
+
+### A list says where each item is, not the whole ladder
+- Every inbox row rendered all five lifecycle stages inline — `New › Triaged › Claimed › In Progress › Resolved`. Read down a real inbox that is the same five words on every row, taking more width than the finding's own title. Measured on the reference cluster at 32 open items, the phrase dominating the screen was identical on all of them
+- The row now shows five dots filled to the current stage, and names only that stage. Position stays legible, the full ladder is on hover, and the stepper in the detail drawer — where one item's whole progression is the point — is unchanged
+
+### The My Items pill printed an identity hash at you
+- When the agent cannot resolve a real username it falls back to `user-<16 hex>` — stable, unforgeable, and exactly the right thing to key data on. It is not a thing to show a person. Observed live: the filter pill read **"My Items (user-5451b787f74974ba)"**, telling the reader nothing they did not know and spending half the pill's width to say it
+- A real name is still shown. An opaque fallback, or no user at all, now reads simply "My Items"
+
+### The session-expired modal could be raised but never lowered
+- `session_expired` was added from seven call sites and removed from none outside the test suite, while every other degraded reason already cleared itself — `observability_unavailable` in the incident hooks, `polling_fallback` and `agent_unreachable` in agent notifications. So a single transient 401 pinned the modal for the life of the page
+- Not a theoretical window: on a cluster whose API server is restarting and dropping TLS handshakes, a one-off 401 is routine. The operator is told their session expired while every request behind the modal succeeds. Reported from real use, twice
+- A 2xx from behind the OAuth proxy is proof the session is good — the proxy would have answered 401 itself — so a success now retracts the claim. A 500 or a 403 does not: neither says anything about the session, and clearing on them would hide a genuinely expired one behind an unrelated fault
+
 ## [2.16.2] - 2026-08-21
 
 ### A long fix-failure message could blow out the "Fixes applied" row

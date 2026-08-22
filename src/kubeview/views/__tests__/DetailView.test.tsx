@@ -24,6 +24,7 @@ vi.mock('../../store/uiStore', () => ({
       setDockContext: vi.fn(),
       setLastSyncTime: vi.fn(),
       addDegradedReason: vi.fn(),
+      removeDegradedReason: vi.fn(),
     };
     return selector(state);
   },
