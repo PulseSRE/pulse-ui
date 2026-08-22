@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### "All clear" was the loading state
+- Before the first scan lands every count is zero, and the posture bar read zero criticals as health — on the landing page, as the first thing an operator sees. It rendered "All clear — 0 critical, 0 warnings | No scan yet" in one sentence, holding the evidence against its own claim
+- There is now an `unknown` posture: **"Checking the cluster…"**, in neutral slate rather than green, with the reason still shown beside it. `unknown` is not a shade of green
+- A real finding outranks not having scanned. Findings can arrive before `lastScanTime` is set, and reporting "checking" over a known problem would be the same lie pointing the other way
+- Same failure the capability banner was built to prevent, one screen earlier: absence of data presented as absence of problems
+
 ### The session-expired modal could be raised but never lowered
 - `session_expired` was added from seven call sites and removed from none outside the test suite, while every other degraded reason already cleared itself — `observability_unavailable` in the incident hooks, `polling_fallback` and `agent_unreachable` in agent notifications. So a single transient 401 pinned the modal for the life of the page
 - Not a theoretical window: on a cluster whose API server is restarting and dropping TLS handshakes, a one-off 401 is routine. The operator is told their session expired while every request behind the modal succeeds. Reported from real use, twice
