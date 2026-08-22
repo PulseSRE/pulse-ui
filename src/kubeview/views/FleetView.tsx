@@ -24,11 +24,20 @@ export default function FleetView() {
   const addToast = useUIStore((s) => s.addToast);
   const {
     fleetMode, clusters, activeClusterId,
-    acmAvailable, acmDetecting,
+    acmAvailable, acmDetecting, acmChecked,
     setActiveCluster, refreshAllHealth, detectACM,
   } = useFleetStore();
 
   const [refreshing, setRefreshing] = React.useState(false);
+
+  // Look before reporting. `detectACM` was only ever wired to a button, so the
+  // page rendered "ACM not detected — show installation instructions" without
+  // having checked. On a hub with a MultiClusterHub running for 354 days that
+  // told the operator ACM was absent and offered YAML to create one that
+  // already existed.
+  React.useEffect(() => {
+    if (!acmChecked && !acmDetecting) void detectACM();
+  }, [acmChecked, acmDetecting, detectACM]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -77,7 +86,7 @@ export default function FleetView() {
                 onClick={!acmDetecting ? () => detectACM() : undefined}
                 done={acmAvailable}
               />
-              {!acmAvailable && !acmDetecting && (
+              {acmChecked && !acmAvailable && !acmDetecting && (
                 <details className="ml-11 rounded-lg border border-slate-700 bg-slate-800/50 text-xs text-slate-400">
                   <summary className="px-4 py-3 cursor-pointer text-slate-300 font-medium hover:text-slate-100 transition-colors">
                     ACM not detected — show installation instructions
