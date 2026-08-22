@@ -145,7 +145,17 @@ export const fetchReadinessSummary = () =>
   get<ReadinessSummary>(`${AGENT_BASE}/analytics/readiness`);
 
 export interface AgentCapabilities {
+  /** The ceiling a client may select. Mission Control greys out levels above it. */
   max_trust_level: number;
+  /**
+   * The level the agent's scan loop is actually running at — which a
+   * subscriber may raise above the configured floor. This is the number to
+   * show an operator who wants to know what the agent will do unattended;
+   * `max_trust_level` only says what they are allowed to ask for.
+   *
+   * Optional because an older agent will not send it.
+   */
+  effective_trust_level?: number;
   supported_auto_fix_categories?: string[];
 }
 

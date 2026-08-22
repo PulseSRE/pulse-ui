@@ -71,7 +71,16 @@ vi.mock('../../engine/diagnosis', () => ({
   diagnoseResource: () => [],
 }));
 
-import PulseView from '../PulseView';
+// Partial mock: PulseView pulls only fetchCapabilities from this module, but
+// components rendered inside it use the rest, so keep the real exports.
+const capabilitiesMock = vi.fn();
+vi.mock('../../engine/analyticsApi', async () => {
+  const actual = await vi.importActual<any>('../../engine/analyticsApi');
+  return { ...actual, fetchCapabilities: (...a: any[]) => capabilitiesMock(...a) };
+});
+
+import PulseView, { trustDivergenceNote } from '../PulseView';
+import { useTrustStore } from '../../store/trustStore';
 
 function setMockData(data: Record<string, { data: any[]; isLoading: boolean }>) {
   for (const key of Object.keys(_mockListWatchData)) {
@@ -199,5 +208,88 @@ describe('PulseView', () => {
 
     renderPulse();
     expect(screen.getByText('Control Plane')).toBeDefined();
+  });
+});
+
+
+/**
+ * The trust badge on the front door reported a browser preference.
+ *
+ * `useTrustStore` is zustand `persist` on localStorage, keyed per hostname. It
+ * is sent to the agent when the monitor socket connects and never read back,
+ * so the badge showed what this tab had asked for rather than what the agent
+ * was doing. Two operators on one cluster could read two different trust
+ * levels off the same agent — and since the server-side floor is now set by
+ * `settings.monitor.max_trust_level`, both could be wrong about what it would
+ * do with nobody watching.
+ */
+describe('the trust badge reports the agent, not the tab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setMockData({});
+    useTrustStore.setState({ trustLevel: 1 });
+  });
+
+  afterEach(cleanup);
+
+  it('shows the level the agent is running at, not the one this tab asked for', async () => {
+    capabilitiesMock.mockResolvedValue({ max_trust_level: 3, effective_trust_level: 3 });
+    renderPulse();
+    expect(await screen.findByText(/Trust 3/)).toBeDefined();
+    expect(screen.queryByText(/Trust 1/)).toBeNull();
+  });
+
+  // The explanation itself lives in the tooltip, which Radix renders through a
+  // portal only once open. Its decision is a pure function, so it is tested
+  // directly rather than by driving hover in jsdom.
+  describe('trustDivergenceNote', () => {
+    it('explains the gap when the tab and the agent disagree', () => {
+      expect(trustDivergenceNote(1, 3)).toBe(
+        'This tab asked for 1. The agent is running at 3, set on the server.',
+      );
+    });
+
+    it('says nothing when they agree', () => {
+      expect(trustDivergenceNote(2, 2)).toBeNull();
+    });
+
+    it('says nothing when the agent does not report a level', () => {
+      expect(trustDivergenceNote(1, undefined)).toBeNull();
+    });
+
+    it('explains a gap that runs the other way, too', () => {
+      // A subscriber can raise the level, so the tab may be above the agent
+      // as well as below it. Both directions are worth explaining.
+      expect(trustDivergenceNote(3, 1)).toContain('running at 1');
+    });
+
+    it('treats 0 as a level, not as absent', () => {
+      // Observe is the most restrictive setting and it is falsy — an operator
+      // whose agent dropped to 0 most needs to be told.
+      expect(trustDivergenceNote(2, 0)).toContain('running at 0');
+    });
+  });
+
+  it('falls back to the local value against an agent that does not send the field', async () => {
+    // An older agent has no effective_trust_level. Showing nothing, or zero,
+    // would both be worse than showing the only number available.
+    capabilitiesMock.mockResolvedValue({ max_trust_level: 2 });
+    renderPulse();
+    expect(await screen.findByText(/Trust 1/)).toBeDefined();
+    expect(screen.queryByText(/This tab asked for/)).toBeNull();
+  });
+
+  it('falls back when the capabilities call fails outright', async () => {
+    capabilitiesMock.mockRejectedValue(new Error('agent unreachable'));
+    renderPulse();
+    expect(await screen.findByText(/Trust 1/)).toBeDefined();
+  });
+
+  it('reads trust 0 as trust 0, not as missing', async () => {
+    // `?? requestedTrust` rather than `|| requestedTrust`: level 0 is Observe,
+    // a real and the most restrictive setting, and it is falsy.
+    capabilitiesMock.mockResolvedValue({ max_trust_level: 0, effective_trust_level: 0 });
+    renderPulse();
+    expect(await screen.findByText(/Trust 0/)).toBeDefined();
   });
 });
