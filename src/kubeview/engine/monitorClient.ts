@@ -17,10 +17,17 @@ export interface ResourceRef {
 
 export interface InvestigationPhase {
   id: string;
-  status: 'pending' | 'running' | 'complete' | 'failed' | 'skipped';
+  /**
+   * `partial` means the phase ran but never produced the output fields its plan
+   * template declared, even after being asked again. It is not a less confident
+   * `complete` — the plan advanced without something it was supposed to have.
+   */
+  status: 'pending' | 'running' | 'complete' | 'partial' | 'failed' | 'skipped';
   skill_name: string;
   summary?: string;
   confidence?: number;
+  /** Fields the phase declared but did not produce. Present when status is `partial`. */
+  unmetContract?: string[];
   started_at?: number;
   completed_at?: number;
 }
