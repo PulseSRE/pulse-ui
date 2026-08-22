@@ -13,6 +13,10 @@
 - `formatRelativeTime` subtracted an agent timestamp from the browser's clock without a floor. Two machines, two clocks: a beat of skew rendered **"Last scan: -1s ago"** on the landing page. Anything under five seconds now reads "just now", which absorbs the skew and reads better besides
 - The first fix added a `Math.max(0, …)` as well. A mutation test passed with it removed, proving it was dead code — the "just now" branch already covered the case — so it came back out
 
+### A list says where each item is, not the whole ladder
+- Every inbox row rendered all five lifecycle stages inline — `New › Triaged › Claimed › In Progress › Resolved`. Read down a real inbox that is the same five words on every row, taking more width than the finding's own title. Measured on the reference cluster at 32 open items, the phrase dominating the screen was identical on all of them
+- The row now shows five dots filled to the current stage, and names only that stage. Position stays legible, the full ladder is on hover, and the stepper in the detail drawer — where one item's whole progression is the point — is unchanged
+
 ### The session-expired modal could be raised but never lowered
 - `session_expired` was added from seven call sites and removed from none outside the test suite, while every other degraded reason already cleared itself — `observability_unavailable` in the incident hooks, `polling_fallback` and `agent_unreachable` in agent notifications. So a single transient 401 pinned the modal for the life of the page
 - Not a theoretical window: on a cluster whose API server is restarting and dropping TLS handshakes, a one-off 401 is routine. The operator is told their session expired while every request behind the modal succeeds. Reported from real use, twice
