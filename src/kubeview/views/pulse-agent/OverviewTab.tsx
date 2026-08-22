@@ -50,6 +50,7 @@ export function OverviewTab() {
       {/* 3. Trust Controls */}
       <TrustPolicy
         maxTrustLevel={capQ.data?.max_trust_level ?? 0}
+        effectiveTrustLevel={capQ.data?.effective_trust_level}
         scannerCount={scannerCount}
         fixSummary={fixQ.data ?? null}
         supportedAutoFixCategories={capQ.data?.supported_auto_fix_categories}
