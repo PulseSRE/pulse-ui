@@ -6,6 +6,26 @@ import {
 import { cn } from '@/lib/utils';
 import { Tooltip } from '../components/primitives/Tooltip';
 
+/**
+ * What to say when this tab's requested trust level is not the one the agent
+ * is running at.
+ *
+ * The badge shows the agent's level, which is the number that decides what
+ * happens unattended. But an operator who set this tab to 1 and reads "Trust 3"
+ * deserves to know why rather than assuming the badge is broken.
+ *
+ * Returns null when there is nothing to explain — the levels agree, or the
+ * agent is too old to report its own.
+ */
+export function trustDivergenceNote(
+  requested: number,
+  effective: number | undefined,
+): string | null {
+  if (effective === undefined) return null;
+  if (effective === requested) return null;
+  return `This tab asked for ${requested}. The agent is running at ${effective}, set on the server.`;
+}
+
 const TRUST_LEVELS = [
   [0, 'Observe', 'agent watches only'],
   [1, 'Confirm', 'you approve each action'],
@@ -23,6 +43,8 @@ import { useFleetStore } from '../store/fleetStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMonitorStore } from '../store/monitorStore';
 import { useTrustStore } from '../store/trustStore';
+import { useQuery } from '@tanstack/react-query';
+import { fetchCapabilities } from '../engine/analyticsApi';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useIncidentFeed } from '../hooks/useIncidentFeed';
@@ -177,7 +199,25 @@ export default function PulseView() {
       findings: s.findings,
       lastScanTime: s.lastScanTime,
     })));
-  const trustLevel = useTrustStore((s) => s.trustLevel);
+  const requestedTrust = useTrustStore((s) => s.trustLevel);
+  // Same query key as Mission Control, so the two screens cannot disagree.
+  const capQ = useQuery({ queryKey: ['agent', 'capabilities'], queryFn: fetchCapabilities, staleTime: 60_000 });
+  /**
+   * What the agent is actually running at, not what this tab asked for.
+   *
+   * `useTrustStore` is zustand `persist` on localStorage, keyed per hostname.
+   * It is sent to the agent when the monitor socket connects and never read
+   * back — so the badge was reporting a browser preference as if it were the
+   * agent's state. Two operators on one cluster could read two different
+   * numbers off the same agent, and with the server-side floor now set by
+   * `settings.monitor.max_trust_level`, both could be wrong about what it
+   * would do unattended.
+   *
+   * Falls back to the local value only while the query is in flight, or
+   * against an agent too old to send the field.
+   */
+  const trustLevel = capQ.data?.effective_trust_level ?? requestedTrust;
+  const divergenceNote = trustDivergenceNote(requestedTrust, capQ.data?.effective_trust_level);
   const { counts: incidentCounts } = useIncidentFeed({ limit: 0 });
 
   const [scanning, setScanning] = useState(false);
@@ -256,6 +296,11 @@ export default function PulseView() {
                       </div>
                     ))}
                   </div>
+                  {divergenceNote && (
+                    <div className="mt-2 pt-2 border-t border-slate-700 text-[11px] text-amber-400/90">
+                      {divergenceNote}
+                    </div>
+                  )}
                 </div>
               }
               side="bottom"

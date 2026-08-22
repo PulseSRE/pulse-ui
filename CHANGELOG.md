@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### The trust badge on the front door reported a browser preference
+- `Agent · Trust 1` came from `useTrustStore` — zustand `persist` on localStorage, keyed per hostname. It is sent to the agent when the monitor socket connects and **never read back**. So the badge showed what this tab had asked for, not what the agent was doing
+- Two operators on one cluster could read two different trust levels off the same agent. Since the server-side floor is now `settings.monitor.max_trust_level`, both of them could be wrong about what it would do with nobody watching — on a badge whose entire job is to answer that question
+- It now reads `effective_trust_level` from `/monitor/capabilities`, on the same query key Mission Control already uses, so the two screens cannot disagree. Falls back to the local value while the query is in flight, or against an agent too old to send the field
+- `??` rather than `||`: trust 0 is Observe, the most restrictive setting there is, and it is falsy. An agent that dropped to 0 is exactly the case an operator most needs told
+- Where the tab's request and the agent's reality diverge, the tooltip names the gap instead of leaving the operator to assume the badge is broken
+
 ### "All clear" was the loading state
 - Before the first scan lands every count is zero, and the posture bar read zero criticals as health — on the landing page, as the first thing an operator sees. It rendered "All clear — 0 critical, 0 warnings | No scan yet" in one sentence, holding the evidence against its own claim
 - There is now an `unknown` posture: **"Checking the cluster…"**, in neutral slate rather than green, with the reason still shown beside it. `unknown` is not a shade of green

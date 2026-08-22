@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PulseViewModule from '../PulseView';
 
 /**
@@ -54,7 +55,14 @@ vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }))
 
 function renderBar(over: Partial<typeof monitorState>) {
   Object.assign(monitorState, { findings: [], lastScanTime: null, connected: true }, over);
-  return render(<PulseViewModule />);
+  // PulseView reads the agent's own trust level through react-query, so it
+  // needs a client even when the test is only looking at the posture bar.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PulseViewModule />
+    </QueryClientProvider>,
+  );
 }
 
 describe('the posture bar does not claim health before it has looked', () => {
