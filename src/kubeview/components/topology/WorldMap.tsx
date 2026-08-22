@@ -11,6 +11,22 @@ import { NodeGrid } from './overlays/NodeGrid';
 import { PodGrid } from './overlays/PodGrid';
 import { Search, Filter, Cpu, MemoryStick, Server, Box, AlertTriangle, Activity, Maximize2, Minimize2 } from 'lucide-react';
 
+/**
+ * How much of the first screen the map may take.
+ *
+ * It was a flat 520px. Measured on a 1440x900 desktop against the reference
+ * cluster: 520px is 57.8% of the viewport, and it pushed Heartbeat, Healthy
+ * and the utilisation metrics below the fold — so the front door led with a
+ * picture of seven nodes and hid the numbers an operator opens it for.
+ *
+ * Clamped instead of shrunk: 42vh keeps the same proportion on a large display
+ * where there is room to spare, the 280px floor keeps it legible on a laptop,
+ * and the 520px ceiling means nothing about the roomy case changes.
+ *
+ * The SVG scales to its container via viewBox, so the drawing is unaffected.
+ */
+export const MAP_HEIGHT = 'clamp(280px, 42vh, 520px)';
+
 export interface MapStats {
   totalNodes: number;
   readyNodes: number;
@@ -256,7 +272,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
   const statColor = (val: number, warn: number, crit: number) => val >= crit ? 'text-red-400' : val >= warn ? 'text-amber-400' : 'text-emerald-400';
 
   return (
-    <div ref={containerRef} className={`relative rounded-lg border border-slate-800 overflow-hidden bg-[#080e1a] transition-all duration-300 ${fullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : ''}`} style={fullscreen ? undefined : { height: 520 }}>
+    <div ref={containerRef} className={`relative rounded-lg border border-slate-800 overflow-hidden bg-[#080e1a] transition-all duration-300 ${fullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : ''}`} style={fullscreen ? undefined : { height: MAP_HEIGHT }}>
       <style>{css}</style>
 
       {/* ═══ STATS HEADER ═══ */}

@@ -54,6 +54,7 @@ import { FleetReportTab } from './pulse/FleetReportTab';
 import { formatRelativeTime } from '../engine/formatters';
 
 const ClusterResourceMap = lazy(() => import('../components/topology/TopologyMap'));
+import { MAP_HEIGHT } from '../components/topology/WorldMap';
 
 /**
  * `unknown` is not a shade of green.
@@ -332,8 +333,11 @@ export default function PulseView() {
           </div>
         </div>
 
+        {/* The skeleton reserves exactly what the map will occupy. It used to
+            say 420px against a map that renders at 520, so the whole page
+            below it jumped 100px the moment the lazy chunk landed. */}
         <Suspense fallback={
-          <div className="h-[420px] bg-slate-900 rounded-lg border border-slate-800 animate-pulse" />
+          <div style={{ height: MAP_HEIGHT }} className="bg-slate-900 rounded-lg border border-slate-800 animate-pulse" />
         }>
           <ClusterResourceMap
             nodes={nodes}
