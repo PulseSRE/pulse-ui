@@ -48,9 +48,15 @@ vi.mock('../../store/uiStore', () => ({
 vi.mock('../../store/fleetStore', () => ({
   useFleetStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ fleetMode: false }),
 }));
-vi.mock('../../store/trustStore', () => ({
-  useTrustStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ trustLevel: 1 }),
-}));
+vi.mock('../../store/trustStore', async () => {
+  // Keep the real ladder maps: PulseView renders the badge tooltip from them,
+  // and a partial mock here would let the labels drift without a test noticing.
+  const actual = await vi.importActual<typeof import('../../store/trustStore')>('../../store/trustStore');
+  return {
+    ...actual,
+    useTrustStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ trustLevel: 1 }),
+  };
+});
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));
 
 function renderBar(over: Partial<typeof monitorState>) {

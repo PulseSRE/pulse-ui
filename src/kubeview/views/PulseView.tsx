@@ -26,13 +26,12 @@ export function trustDivergenceNote(
   return `This tab asked for ${requested}. The agent is running at ${effective}, set on the server.`;
 }
 
-const TRUST_LEVELS = [
-  [0, 'Observe', 'agent watches only'],
-  [1, 'Confirm', 'you approve each action'],
-  [2, 'Batch', 'agent proposes fixes for review'],
-  [3, 'Bounded', 'auto-fixes within guardrails'],
-  [4, 'Autonomous', 'agent acts independently'],
-] as const;
+// Derived, not restated. This file used to keep its own copy of the ladder,
+// which is how the tooltip and Mission Control ended up describing different
+// agents — and how "Confirm" survived on a level that never proposes anything.
+const TRUST_LEVELS = ([0, 1, 2, 3, 4] as const).map(
+  (level) => [level, TRUST_LABELS[level], TRUST_HINTS[level]] as const,
+);
 import type { K8sResource } from '../engine/renderers';
 import type { Node, Pod, Event } from '../engine/types';
 import type { ClusterOperator } from '../engine/types/openshift';
@@ -42,7 +41,7 @@ import { useUIStore } from '../store/uiStore';
 import { useFleetStore } from '../store/fleetStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMonitorStore } from '../store/monitorStore';
-import { useTrustStore } from '../store/trustStore';
+import { useTrustStore, TRUST_LABELS, TRUST_HINTS } from '../store/trustStore';
 import { useQuery } from '@tanstack/react-query';
 import { fetchCapabilities } from '../engine/analyticsApi';
 import { useNavigateTab } from '../hooks/useNavigateTab';
