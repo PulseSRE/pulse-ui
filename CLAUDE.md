@@ -21,7 +21,6 @@ pnpm exec vitest --run src/kubeview/views/__tests__/WorkloadsView.test.tsx  # si
 pnpm exec vitest --run -t "test name pattern"  # single test by name
 
 # Helm chart validation (no cluster needed)
-./deploy/test-helm.sh    # 13 tests: lint, template, security, token leak check
 
 # Type checking
 pnpm type-check          # tsc --noEmit
@@ -244,10 +243,14 @@ oc patch openshiftpulse <cr-name> -n <namespace> --type=merge \
   -p '{"spec":{"ui":{"image":"'"$PULSE_UI_IMAGE"'"}}}'
 ```
 
-`deploy/deploy.sh` and the Helm umbrella chart in `deploy/helm/pulse/` still exist and still
-work, but they are a **legacy local-development path** — they build images with Podman and
-push to a registry you must own. They are not how anyone installs Pulse. Reach for them only
-when working on the chart itself; otherwise use the operator, or the CR patch above.
+Deployment is owned by the [Pulse Operator](https://github.com/PulseSRE/pulse-operator), installed via OLM. The UI image the cluster runs is `spec.ui.image` on the `OpenShiftPulse` CR:
+
+```bash
+oc patch openshiftpulse pulse -n openshiftpulse --type=merge \
+  -p '{"spec":{"ui":{"image":"quay.io/amobrem/openshiftpulse:vX.Y.Z"}}}'
+```
+
+`Dockerfile.helm-runner` is unrelated to deploying Pulse — it builds the image behind the Helm tab, a product feature that installs charts into the user's cluster.
 
 Container images go to `quay.io/amobrem/openshiftpulse` (UI) and `quay.io/amobrem/pulse-agent`
 (agent) — never use S2I builds on the cluster.
@@ -262,7 +265,6 @@ Container images go to `quay.io/amobrem/openshiftpulse` (UI) and `quay.io/amobre
 When deploying to OpenShift clusters, always verify NetworkPolicy egress rules, image pull access, and OAuth/TLS configuration before the first deploy attempt. Run a pre-deploy checklist rather than iterating through failures.
 
 **Pre-deploy checklist (run before every deploy):**
-1. `./deploy/test-helm.sh` — validate Helm charts locally (13 tests, no cluster needed)
 2. `oc whoami` — verify cluster auth works
 3. `oc get networkpolicy -n openshiftpulse` — check egress allows agent → Kubernetes API, Prometheus, Vertex AI
 4. `podman login --get-login quay.io` — verify image push access

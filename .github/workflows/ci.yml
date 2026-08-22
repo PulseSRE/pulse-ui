@@ -94,28 +94,6 @@ jobs:
           path: coverage/
           retention-days: 14
 
-  helm-validation:
-    name: Helm Chart Validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-
-      - name: Run Helm tests
-        run: ./deploy/test-helm.sh
-
-      - name: Check version sync
-        run: |
-          PKG_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')
-          CHART_VERSION=$(grep appVersion deploy/helm/openshiftpulse/Chart.yaml | awk '{print $2}' | tr -d '"')
-          if [ "$PKG_VERSION" != "$CHART_VERSION" ]; then
-            echo "::error::package.json version ($PKG_VERSION) != Chart.yaml appVersion ($CHART_VERSION)"
-            exit 1
-          fi
 
   build:
     name: Build
