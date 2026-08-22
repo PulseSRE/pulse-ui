@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, ThumbsUp, Zap, History, Target, FileText, Activity, Award, Download, Upload } from 'lucide-react';
+import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, ThumbsUp, Zap, History, Target, FileText, Activity, Award, Download, Upload, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { formatRelativeTime } from '../engine/formatters';
+import ClusterKnowledge from './memory/ClusterKnowledge';
 
 const AGENT_BASE = '/api/agent';
 
@@ -66,7 +67,7 @@ async function fetchIncidents(search = ''): Promise<Incident[]> {
   return (await res.json()).incidents || [];
 }
 
-type Tab = 'runbooks' | 'patterns' | 'incidents';
+type Tab = 'cluster' | 'runbooks' | 'patterns' | 'incidents';
 
 export default function MemoryView({ embedded = false }: { embedded?: boolean }) {
   const [activeTab, setActiveTab] = useState<Tab>('incidents');
@@ -158,12 +159,17 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
   };
 
   const tabs: { id: Tab; label: string; count: number; icon: typeof Brain }[] = [
+    { id: 'cluster', label: 'This Cluster', count: 0, icon: Building2 },
     { id: 'runbooks', label: 'Learned Runbooks', count: runbooks.length, icon: BookOpen },
     { id: 'patterns', label: 'Detected Patterns', count: patterns.length, icon: TrendingUp },
     { id: 'incidents', label: 'Incident History', count: incidents.length, icon: History },
   ];
 
   const TAB_DESCRIPTIONS: Record<Tab, { title: string; description: string }> = {
+    cluster: {
+      title: 'This Cluster',
+      description: 'What Pulse knows about your environment specifically — ownership, retention, conventions — and what normal looks like for each workload. Also shows which diagnoses have been confirmed by a working fix, since only those become reusable skills.',
+    },
     runbooks: {
       title: 'Learned Runbooks',
       description: 'When you give thumbs up on a helpful response, the agent extracts the tool sequence as a reusable runbook. Next time it encounters a similar issue, it will suggest these steps first.',
@@ -326,6 +332,9 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
             <p className="text-xs text-slate-400 mt-0.5">{TAB_DESCRIPTIONS[activeTab].description}</p>
           </div>
         </div>
+
+        {/* This Cluster Tab */}
+        {activeTab === 'cluster' && <ClusterKnowledge />}
 
         {/* Runbooks Tab */}
         {activeTab === 'runbooks' && (
