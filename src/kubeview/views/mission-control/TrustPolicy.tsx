@@ -37,6 +37,19 @@ const LEVEL_CATEGORIES: Record<number, string[]> = {
 
 interface TrustPolicyProps {
   maxTrustLevel: number;
+  /**
+   * The level the agent's scan loop is actually running at.
+   *
+   * Distinct from the selected level, which is this browser's stored
+   * preference: `useTrustStore` is zustand `persist` on localStorage, sent to
+   * the agent on connect and never read back. The front-door badge was fixed
+   * to read the server value; this page — the one that *configures* trust —
+   * was still describing the browser's.
+   *
+   * Optional, because an agent too old to report it leaves the page no worse
+   * off than before.
+   */
+  effectiveTrustLevel?: number;
   scannerCount: number;
   fixSummary: FixHistorySummary | null;
   supportedAutoFixCategories?: string[];
@@ -54,7 +67,7 @@ function resolveCategories(serverCategories?: string[]): AutofixCategory[] {
   );
 }
 
-export function TrustPolicy({ maxTrustLevel, scannerCount, fixSummary, supportedAutoFixCategories }: TrustPolicyProps) {
+export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, fixSummary, supportedAutoFixCategories }: TrustPolicyProps) {
   const { trustLevel, setTrustLevel, autoFixCategories, setAutoFixCategories, communicationStyle, setCommunicationStyle } =
     useTrustStore(useShallow((s) => ({
       trustLevel: s.trustLevel, setTrustLevel: s.setTrustLevel,
@@ -86,7 +99,13 @@ export function TrustPolicy({ maxTrustLevel, scannerCount, fixSummary, supported
   };
 
   const previewLevel = hoveredLevel ?? trustLevel;
-  const policySummary = buildPolicySummary(previewLevel, scannerCount, autoFixCategories, communicationStyle);
+  // Describe what the agent is actually doing, not what this browser asked
+  // for — except while hovering another level, where the point is to preview it.
+  const describedLevel =
+    hoveredLevel ?? ((effectiveTrustLevel ?? trustLevel) as TrustLevel);
+  const policySummary = buildPolicySummary(describedLevel, scannerCount, autoFixCategories, communicationStyle);
+  const runningElsewhere =
+    effectiveTrustLevel !== undefined && effectiveTrustLevel !== trustLevel ? effectiveTrustLevel : null;
   const impactPreview = hoveredLevel !== null && hoveredLevel !== trustLevel
     ? buildImpactPreview(trustLevel, hoveredLevel, fixSummary)
     : null;
@@ -145,6 +164,13 @@ export function TrustPolicy({ maxTrustLevel, scannerCount, fixSummary, supported
 
         {/* Policy Summary */}
         <p className="text-sm text-slate-300 leading-relaxed">{policySummary}</p>
+        {runningElsewhere !== null && (
+          <p className="mt-2 text-xs text-amber-400/90">
+            This browser has {TRUST_LABELS[trustLevel]} ({trustLevel}) selected, but the agent is
+            running at {TRUST_LABELS[runningElsewhere as TrustLevel]} ({runningElsewhere}), set on
+            the server. The description above is the agent's.
+          </p>
+        )}
 
         {/* Impact Preview (on hover) */}
         {impactPreview && (
@@ -247,7 +273,11 @@ function buildPolicySummary(level: TrustLevel, scanners: number, categories: str
     case 0:
       return `Your agent monitors ${scanners} scanners and reports findings. It takes no actions. Communication: ${style}.`;
     case 1:
-      return `Your agent monitors ${scanners} scanners and suggests fixes with dry-run previews. It never acts without your approval. Communication: ${style}.`;
+      // Level 1 does not suggest fixes. `auto_fix` is only entered at trust
+      // >= 2, so nothing is ever proposed and there is nothing to approve.
+      // This sentence was the same falsehood as the old "Confirm" label, in a
+      // second copy of the ladder that the relabel missed.
+      return `Your agent monitors ${scanners} scanners and reports findings. You act on them; it never remediates on its own. Communication: ${style}.`;
     case 2:
       return `Your agent monitors ${scanners} scanners and proposes fixes for your review before acting. Communication: ${style}.`;
     case 3:

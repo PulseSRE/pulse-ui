@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### The trust page showed your preference as the agent's state
+- With the agent reporting `effective_trust_level: 2`, the Pulse Agent page rendered **level 1's** summary — because `TrustPolicy` reads `useTrustStore`, this browser's localStorage preference, while taking only `maxTrustLevel` from the server. The front-door badge was fixed to read the agent's real level; the page that *configures* trust was not
+- The summary now describes the level the agent is actually running at, and says so plainly when this browser has a different one selected. Hovering another level still previews that level — that is the point of hovering
+- The level-1 sentence was also still wrong in its own right: *"suggests fixes with dry-run previews. It never acts without your approval."* Level 1 never enters `auto_fix`, so it suggests nothing and there is nothing to approve. The same falsehood as the old "Confirm" label, surviving in a second copy of the ladder that the relabel missed — now *"reports findings. You act on them; it never remediates on its own."*
+
 ### A cause that explains nothing led the queue
 - Two control-plane memory episodes opened in the same second on the reference cluster: `HighOverallControlPlaneMemory` with **8 symptoms** and `ControlPlaneNodeMemoryHigh` with **none**. Neither can explain the other — equal causal layers — so symptom ownership went entirely to whichever claimed them first, and the loser still rendered as a full-width red cause card *above* the one doing the explaining
 - Episodes are now ordered by how much they explain, and one explaining nothing drops the red alarm styling for neutral slate. An episode is a claim that one thing explains others; until it explains something it has made no claim, and dressing it identically spends the operator's attention on the wrong card
