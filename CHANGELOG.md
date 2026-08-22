@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### "Firing 0" while it could not see the alerting backend
+- The Alerts page rendered `Firing 0 · Pending 0 · Silenced 0 · Alert Rules 0` in bold numerals directly above its own message, *"Backend unavailable"*. A count is a claim, and zero at the moment we have no data tells an operator the cluster is quiet precisely when we cannot see whether it is
+- The same failure the posture bar had on the front door, and the opposite of what the Compute page already does — it renders `Unknown` and `No data` rather than inventing numbers. This follows that in-house precedent: every tile reads `—` in muted slate when the backend is unreachable
+- A real zero is still reported as zero. Turning genuine quiet into "unknown" would be the same lie pointing the other way
+- An explicit guard stopping the alarm border lighting on an unknown came back out: a mutation test passed with it removed, because the failed query leaves the alert list empty and the count is already zero. The assertion stays, guarding a different mistake — making the border react to the error state itself
+
 ### The trust page showed your preference as the agent's state
 - With the agent reporting `effective_trust_level: 2`, the Pulse Agent page rendered **level 1's** summary — because `TrustPolicy` reads `useTrustStore`, this browser's localStorage preference, while taking only `maxTrustLevel` from the server. The front-door badge was fixed to read the agent's real level; the page that *configures* trust was not
 - The summary now describes the level the agent is actually running at, and says so plainly when this browser has a different one selected. Hovering another level still previews that level — that is the point of hovering

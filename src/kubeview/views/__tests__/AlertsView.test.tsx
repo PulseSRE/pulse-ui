@@ -355,3 +355,68 @@ describe('AlertsView', () => {
     expect(screen.getByText('Silences temporarily mute alerts. Create one to suppress a noisy alert during maintenance.')).toBeDefined();
   });
 });
+
+/**
+ * "Firing 0" while it cannot see the alerting backend.
+ *
+ * The page rendered `Firing 0 · Pending 0 · Silenced 0 · Alert Rules 0` in bold
+ * numerals directly above its own message: "Unable to reach alerting backend."
+ * A count is a claim. Rendering zero at the moment we have no data tells an
+ * operator the cluster is quiet precisely when we cannot see whether it is.
+ *
+ * The same failure the posture bar had on the front door, and the opposite of
+ * what the Compute page already does — it renders "Unknown" and "No data"
+ * rather than inventing numbers.
+ */
+describe('an unreachable alerting backend is not zero alerts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch.mockImplementation(() => Promise.reject(new Error('THANOS_URL not configured')));
+  });
+
+  afterEach(cleanup);
+
+  it('does not report zero firing alerts when it cannot see any', async () => {
+    renderAlerts();
+    await waitFor(() => expect(screen.getByText(/Backend unavailable/i)).toBeDefined(), { timeout: 5000 });
+    const firingTile = screen.getByText('Firing').parentElement;
+    expect(firingTile?.textContent).not.toMatch(/\b0\b/);
+    expect(firingTile?.textContent).toContain('—');
+  });
+
+  it('shows every count as unknown, not just the first', async () => {
+    renderAlerts();
+    await waitFor(() => expect(screen.getByText(/Backend unavailable/i)).toBeDefined(), { timeout: 5000 });
+    for (const label of ['Firing', 'Pending', 'Silenced', 'Alert Rules', 'Active Silences']) {
+      expect(screen.getByText(label).parentElement?.textContent, label).toContain('—');
+    }
+  });
+
+  it('does not light the alarm border on a count it does not have', async () => {
+    // A red border says "something is firing". Unknown is not firing.
+    //
+    // This holds today because the failed query leaves the list empty, so the
+    // count is 0 and the border cannot light — an explicit guard for it was
+    // removed after a mutation test proved it unreachable. The assertion stays
+    // because it guards a different mistake: making the border react to the
+    // error state itself, which would paint "unknown" as "firing".
+    renderAlerts();
+    await waitFor(() => expect(screen.getByText(/Backend unavailable/i)).toBeDefined(), { timeout: 5000 });
+    const tile = screen.getByText('Firing').closest('button');
+    expect(tile?.className).not.toMatch(/border-red/);
+  });
+
+  it('still reports a real zero as zero when the backend answers', async () => {
+    // The fix must not turn a genuine "nothing is firing" into an unknown —
+    // that would be the same lie pointing the other way.
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/rules')) {
+        return Promise.resolve({ ok: true, headers: jsonHeaders, json: () => Promise.resolve({ data: { groups: [] } }) });
+      }
+      return Promise.resolve({ ok: true, headers: jsonHeaders, json: () => Promise.resolve([]) });
+    });
+    renderAlerts();
+    await waitFor(() => expect(screen.getByText('Firing')).toBeDefined());
+    expect(screen.getByText('Firing').parentElement?.textContent).toMatch(/0/);
+  });
+});
