@@ -104,14 +104,8 @@ vi.mock('../../components/agent/AmbientInsight', () => ({
   },
 }));
 
-// InlineAgent: can be swapped to throw
-let inlineAgentShouldThrow = false;
-vi.mock('../../components/agent/InlineAgent', () => ({
-  InlineAgent: (props: any) => {
-    if (inlineAgentShouldThrow) throw new Error('InlineAgent crash');
-    return <div data-testid="inline-agent">InlineAgent</div>;
-  },
-}));
+const askPulseMock = vi.fn();
+vi.mock('../../engine/askPulse', () => ({ askPulse: (...a: unknown[]) => askPulseMock(...a) }));
 
 // ---- Helpers ----
 
@@ -210,7 +204,6 @@ describe('Suspense + ErrorBoundary wrapping', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     nlFilterBarShouldThrow = false;
     ambientInsightShouldThrow = false;
-    inlineAgentShouldThrow = false;
     mockK8sList.mockResolvedValue([]);
   });
 
@@ -271,8 +264,9 @@ describe('Suspense + ErrorBoundary wrapping', () => {
         expect(screen.getByText('AI insight unavailable')).toBeDefined();
       });
 
-      // InlineAgent should still render fine
-      expect(screen.getByTestId('inline-agent')).toBeDefined();
+      // The way to ask about this resource should still be there — it is
+      // suggestions into the sidebar now, not an embedded chat.
+      expect(screen.getByText(/Ask Pulse AI about this/)).toBeDefined();
     });
 
     it('renders AmbientInsight successfully when no error', async () => {
@@ -286,65 +280,36 @@ describe('Suspense + ErrorBoundary wrapping', () => {
     });
   });
 
-  describe('DetailView - InlineAgent', () => {
-    it('wraps InlineAgent in its own ErrorBoundary', async () => {
-      inlineAgentShouldThrow = true;
-      mockK8sGet.mockResolvedValue(makeStatefulSet());
-
-      renderDetailView({ gvrKey: 'apps/v1/statefulsets', namespace: 'default', name: 'my-sts' });
-
-      await waitFor(() => {
-        expect(screen.getByText('Inline agent unavailable')).toBeDefined();
-      });
-
-      // AmbientInsight should still render fine
-      expect(screen.getByTestId('ambient-insight')).toBeDefined();
-    });
-
-    it('renders InlineAgent successfully when no error', async () => {
-      mockK8sGet.mockResolvedValue(makeStatefulSet());
-
-      renderDetailView({ gvrKey: 'apps/v1/statefulsets', namespace: 'default', name: 'my-sts' });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('inline-agent')).toBeDefined();
-      });
-    });
-  });
-
   describe('Isolation - one crash does not take down the other', () => {
-    it('AmbientInsight crash does not affect InlineAgent', async () => {
+    it('an AmbientInsight crash leaves the rest of the detail page usable', async () => {
+      // This used to be a pair of tests asserting AmbientInsight and
+      // InlineAgent could not take each other down. InlineAgent is gone —
+      // the detail page no longer embeds a chat, it offers suggestions that
+      // open the one Pulse AI sidebar — so the pairing is moot. The property
+      // that still matters is that the insight panel failing does not cost
+      // the operator the page or the way to ask about it.
       ambientInsightShouldThrow = true;
-      inlineAgentShouldThrow = false;
       mockK8sGet.mockResolvedValue(makeStatefulSet());
 
       renderDetailView({ gvrKey: 'apps/v1/statefulsets', namespace: 'default', name: 'my-sts' });
 
       await waitFor(() => {
-        // AmbientInsight crashed
         expect(screen.getByText('AI insight unavailable')).toBeDefined();
-        // InlineAgent still works
-        expect(screen.getByTestId('inline-agent')).toBeDefined();
       });
 
-      // The rest of the detail view is intact
+      // The suggestions that reach the sidebar are still there, and they still
+      // name the resource — a question about "a StatefulSet" that does not say
+      // which one is much less use than one that does.
+      expect(screen.getByText(/Ask Pulse AI about this/)).toBeDefined();
+      fireEvent.click(screen.getByText('What changed recently?'));
+      expect(askPulseMock).toHaveBeenCalledWith(
+        'What changed recently?',
+        expect.objectContaining({ kind: 'StatefulSet', name: 'my-sts', namespace: 'default' }),
+      );
+
+      // And so is the rest of the detail view.
       const heading = screen.getByRole('heading', { level: 1 });
       expect(heading.textContent).toBe('my-sts');
-    });
-
-    it('InlineAgent crash does not affect AmbientInsight', async () => {
-      ambientInsightShouldThrow = false;
-      inlineAgentShouldThrow = true;
-      mockK8sGet.mockResolvedValue(makeStatefulSet());
-
-      renderDetailView({ gvrKey: 'apps/v1/statefulsets', namespace: 'default', name: 'my-sts' });
-
-      await waitFor(() => {
-        // InlineAgent crashed
-        expect(screen.getByText('Inline agent unavailable')).toBeDefined();
-        // AmbientInsight still works
-        expect(screen.getByTestId('ambient-insight')).toBeDefined();
-      });
     });
 
     it('NLFilterBar crash does not take down the table', async () => {

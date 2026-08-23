@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAgentStore } from '../../store/agentStore';
-import { useUIStore } from '../../store/uiStore';
+import { askPulse } from '../../engine/askPulse';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
 import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes } from '../../engine/episodeApi';
 import type {
@@ -139,12 +138,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
    * An inline panel dies with the card that owns it.
    */
   const askAboutThisEpisode = useCallback(() => {
-    useUIStore.getState().expandAISidebar();
-    useUIStore.getState().setAISidebarMode('chat');
-    // connectAndSend rather than sendMessage: the socket may not be up yet if
-    // the sidebar was collapsed, and sendMessage drops the message with
-    // "Agent not connected" rather than waiting.
-    useAgentStore.getState().connectAndSend(askPrompt, {
+    askPulse(askPrompt, {
       kind: 'Episode',
       name: episode.id,
       namespace: episode.namespaces[0],
