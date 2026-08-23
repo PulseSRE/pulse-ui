@@ -201,7 +201,15 @@ export default defineConfig({
           ...(agentToken ? {
             headers: {
               'Authorization': `Bearer ${agentToken}`,
-              'X-Forwarded-Access-Token': 'e2e-test-user',
+              // The agent resolves the caller via TokenReview on this header.
+              // Against a real agent the placeholder literal fails that review
+              // and the caller becomes the pseudonym user-<hash> — which can
+              // never match PULSE_AGENT_ADMIN_USERS, so every admin-gated
+              // endpoint (fix approval, skill management) answers 403 in dev.
+              // Set PULSE_USER_TOKEN=$(oc whoami -t) to be yourself; the
+              // literal stays as the fallback for the e2e mock agent, which
+              // does not TokenReview.
+              'X-Forwarded-Access-Token': process.env.PULSE_USER_TOKEN || 'e2e-test-user',
             },
           } : {}),
         }];

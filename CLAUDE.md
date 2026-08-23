@@ -11,6 +11,9 @@ OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations.
 ```bash
 # Dev server (requires `oc proxy --port=8001` running separately)
 pnpm dev                 # rspack dev server on port 9000
+# Admin-gated agent endpoints (fix approval, skill management) need a real
+# identity — the proxy's placeholder token hashes to user-<hash> and 403s:
+PULSE_USER_TOKEN=$(oc whoami -t) pnpm dev
 
 # Build
 pnpm build               # production build (~1s)
