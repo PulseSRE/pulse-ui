@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### An episode card with nothing to do
+- The card said what was wrong — cause, symptom count, blast radius, recurrence — and then offered **"What else changed"** and **"Dismiss"**. Look at history, or make it go away. Neither fixes anything, while the symptoms underneath it carried Approve buttons. Actions on the symptoms and none on the cause is exactly backwards, and it is why the causal model never reached the operator's hands
+- Two gates kept the agent out of reach. It rendered *inside* the investigation block, so it existed only once an investigation had already run; and the expand chevron was gated on `symptoms.length > 0`, so an episode explaining nothing had no chevron at all and therefore no route to anything. `ControlPlaneNodeMemoryHigh` on the reference cluster was exactly that: two links, neither of which acts
+- Every episode now carries **"How do I fix this?"**, which opens the agent with what the card already knows — cause, symptom count, namespaces, recurrence, and what changed just before — so it is not paid to re-derive any of it before answering the one question the deterministic layer cannot
+- The chevron is available whenever there is something to collapse, so an agent opened on a symptomless episode can be closed again
+
 ### Removed the legacy dock adapter, two dead components, and a stale redirect
 - `uiStore` carried a "Legacy adapter — DEPRECATED" block: seven members (`dockPanel`, `dockWidth`, `dockFullscreen`, `openDock`, `closeDock`, `setDockWidth`, `toggleDockFullscreen`) with a comment listing seven files still to migrate. **All seven had zero callsites** — the migration was finished and only the adapter was left. Gone, along with the now-unused `DockPanel` type
 - Two components nothing imported: `PredictionCard.tsx` (145 lines) and `NodeTable.tsx` (132 lines)
