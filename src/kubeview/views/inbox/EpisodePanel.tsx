@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { InlineAgent } from '../../components/agent/InlineAgent';
+import { useAgentStore } from '../../store/agentStore';
+import { useUIStore } from '../../store/uiStore';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
 import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes } from '../../engine/episodeApi';
 import type {
@@ -59,7 +60,6 @@ export function timelineRangeFor(startedAtSeconds: number, nowSeconds = Date.now
 
 function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () => void }) {
   const [expanded, setExpanded] = useState(true);
-  const [askOpen, setAskOpen] = useState(false);
   const [symptoms, setSymptoms] = useState<EpisodeSymptom[]>([]);
   const [symptomsLoaded, setSymptomsLoaded] = useState(false);
   const [changes, setChanges] = useState<EpisodeChange[]>([]);
@@ -125,6 +125,33 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
     .filter(Boolean)
     .join(' ');
 
+  /**
+   * One chat surface, not two.
+   *
+   * This used to render its own InlineAgent inside the card, so an operator
+   * looking at an episode saw two places to type the same question: the
+   * embedded "Ask about this Episode" box, and the Pulse AI sidebar already
+   * open beside it with its own input. Two inputs, two conversations, two
+   * connection states — and nothing to say which one to use.
+   *
+   * The sidebar wins because it persists across navigation: an answer about
+   * this cause is still there after you follow it to the Timeline or a pod.
+   * An inline panel dies with the card that owns it.
+   */
+  const askAboutThisEpisode = useCallback(() => {
+    useUIStore.getState().expandAISidebar();
+    useUIStore.getState().setAISidebarMode('chat');
+    // connectAndSend rather than sendMessage: the socket may not be up yet if
+    // the sidebar was collapsed, and sendMessage drops the message with
+    // "Agent not connected" rather than waiting.
+    useAgentStore.getState().connectAndSend(askPrompt, {
+      kind: 'Episode',
+      name: episode.id,
+      namespace: episode.namespaces[0],
+    });
+  }, [askPrompt, episode.id, episode.namespaces]);
+
+
   // An episode is a claim that one thing explains others. Until it explains
   // something it has made no claim, and dressing it in the same red alarm as a
   // cause with eight symptoms underneath spends the operator's attention on
@@ -185,8 +212,8 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           </div>
         </div>
         <button
-          onClick={() => { setAskOpen(true); setExpanded(true); }}
-          title="Ask the agent what to do about this cause"
+          onClick={askAboutThisEpisode}
+          title="Ask Pulse AI what to do about this cause"
           className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] font-medium text-violet-300 transition-colors hover:bg-violet-500/15 hover:text-violet-200"
         >
           <Wrench className="h-3 w-3" />
@@ -208,7 +235,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           <Check className="h-3 w-3" />
           Dismiss
         </button>
-        {(symptoms.length > 0 || investigation || askOpen) && (
+        {(symptoms.length > 0 || investigation) && (
           <button
             onClick={() => setExpanded((e) => !e)}
             aria-expanded={expanded}
@@ -246,32 +273,6 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {/* The one thing the card was missing: a way to act on the cause.
-          It offered "What else changed" and "Dismiss" — look at history, or
-          make it go away — while the symptoms underneath it got Approve
-          buttons. Actions on the symptoms and none on the cause is backwards.
-
-          The agent used to render inside the investigation block, so it was
-          reachable only once an investigation had already run, and the expand
-          control was itself gated on having symptoms — so an episode that
-          explained nothing had no chevron at all and no route to anything.
-          The prompt carries what the card already knows, so the agent is not
-          paid to re-derive the cause, the blast radius and the recent changes
-          before answering the only question the deterministic layer cannot. */}
-      {expanded && (investigation || askOpen) && (
-        <div className="border-t border-red-500/15 px-3 py-2">
-          <InlineAgent
-            context={{ kind: 'Episode', name: episode.id, namespace: episode.namespaces[0] }}
-            initialPrompt={askPrompt}
-            quickPrompts={[
-              'What should I do about this?',
-              'Is this safe to ignore?',
-              'What would confirm the cause?',
-            ]}
-          />
         </div>
       )}
 

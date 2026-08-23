@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Two places to have the same conversation
+- An episode card embedded its own **"Ask about this Episode"** chat while the Pulse AI sidebar sat open beside it with its own input. Two inputs, two conversations, two connection states — and nothing on screen to say which one to use. The previous change made it worse by putting an inline chat on *every* episode rather than only investigated ones
+- **"How do I fix this?"** now opens the sidebar in chat mode and sends the question there. The card no longer renders a chat of its own, investigated or not
+- The sidebar wins because it persists across navigation: an answer about this cause is still there after you follow it to the Timeline or a pod. An inline panel dies with the card that owns it
+- It sends through `connectAndSend`, not `sendMessage` — if the sidebar was collapsed the socket may not be up, and `sendMessage` sets "Agent not connected" and discards the text rather than waiting
+
 ### An episode card with nothing to do
 - The card said what was wrong — cause, symptom count, blast radius, recurrence — and then offered **"What else changed"** and **"Dismiss"**. Look at history, or make it go away. Neither fixes anything, while the symptoms underneath it carried Approve buttons. Actions on the symptoms and none on the cause is exactly backwards, and it is why the causal model never reached the operator's hands
 - Two gates kept the agent out of reach. It rendered *inside* the investigation block, so it existed only once an investigation had already run; and the expand chevron was gated on `symptoms.length > 0`, so an episode explaining nothing had no chevron at all and therefore no route to anything. `ControlPlaneNodeMemoryHigh` on the reference cluster was exactly that: two links, neither of which acts
