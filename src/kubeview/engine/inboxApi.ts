@@ -80,6 +80,23 @@ async function _fetch<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+/**
+ * Draft a runbook skill from an investigated item.
+ *
+ * The closure path for chronic work: the item's investigation is folded into
+ * the skill lifecycle and lands as an unreviewed draft in Toolbox → Skills.
+ * A 409 means the item has no investigation yet — that's an answer, not an
+ * error, so surface the server's message.
+ */
+export async function createRunbookFromItem(id: string): Promise<{ skill: string; path: string }> {
+  const res = await agentFetch(`${AGENT_BASE}/inbox/${encodeURIComponent(id)}/runbook`, { method: 'POST' });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(body?.detail || `Runbook draft failed: ${res.status} ${res.statusText}`);
+  }
+  return body as { skill: string; path: string };
+}
+
 export async function fetchInbox(filters: InboxFilters = {}): Promise<InboxResponse> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {

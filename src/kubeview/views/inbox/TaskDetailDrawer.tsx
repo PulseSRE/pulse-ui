@@ -3,7 +3,7 @@ import {
   Clock, User, Calendar, Tag, Bot, Loader2,
   ArrowRight, RotateCcw, Archive, Search, CheckCircle2, ShieldCheck,
   ChevronDown, ChevronRight, Play, SkipForward, XCircle, AlertTriangle,
-  MessageSquare, RefreshCw,
+  MessageSquare, RefreshCw, BookOpen,
 } from 'lucide-react';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Badge } from '../../components/primitives/Badge';
@@ -12,6 +12,7 @@ import { Tooltip } from '../../components/primitives/Tooltip';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { formatRelativeTime } from '../../engine/formatters';
 import {
+  createRunbookFromItem,
   fetchInboxInvestigation,
   recordInboxStep,
   type InboxItem,
@@ -329,6 +330,7 @@ export function TaskDetailDrawer({
   const advanceStatus = useInboxStore((s) => s.advanceStatus);
 
   const [confirmDismiss, setConfirmDismiss] = useState(false);
+  const [runbookBusy, setRunbookBusy] = useState(false);
   const [investigation, setInvestigation] = useState<InvestigationReport | null>(null);
 
   useEffect(() => {
@@ -363,6 +365,28 @@ export function TaskDetailDrawer({
   };
 
   const handleAdvance = (status: string) => advanceStatus(item.id, status);
+
+  const hasInvestigation = Boolean(item.metadata?.investigation_summary || item.metadata?.suspected_cause);
+
+  const handleCreateRunbook = async () => {
+    setRunbookBusy(true);
+    try {
+      const result = await createRunbookFromItem(item.id);
+      useUIStore.getState().addToast({
+        type: 'success',
+        title: `Runbook drafted as skill '${result.skill}'`,
+        detail: 'It stays out of routing until approved — review it in Toolbox → Skills.',
+      });
+    } catch (e) {
+      useUIStore.getState().addToast({
+        type: 'error',
+        title: 'Runbook draft failed',
+        detail: e instanceof Error ? e.message : 'Unknown error',
+      });
+    } finally {
+      setRunbookBusy(false);
+    }
+  };
 
   const handleResolve = () => {
     resolve(item.id);
@@ -566,6 +590,16 @@ export function TaskDetailDrawer({
             <Button size="sm" onClick={handleInvestigate}>
               <Bot className="w-4 h-4 mr-1" />
               Investigate with AI
+            </Button>
+          )}
+
+          {/* Closure for chronic work: an investigated item can leave the
+              queue as a durable skill instead of returning as a fresh
+              incident. The draft lands unreviewed in Toolbox → Skills. */}
+          {hasInvestigation && (
+            <Button size="sm" variant="ghost" onClick={handleCreateRunbook} disabled={runbookBusy}>
+              <BookOpen className="w-4 h-4 mr-1" />
+              {runbookBusy ? 'Drafting…' : 'Create Runbook'}
             </Button>
           )}
 
