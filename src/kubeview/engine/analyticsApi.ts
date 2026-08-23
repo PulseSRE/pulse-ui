@@ -26,6 +26,8 @@ export interface FixHistorySummary {
     resolved: number;
     still_failing: number;
     improved: number;
+    /** Health check ran but could not get a clear reading — not the same as pending. */
+    unverifiable?: number;
     pending: number;
     resolution_rate: number;
   };

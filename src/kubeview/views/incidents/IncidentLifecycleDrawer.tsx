@@ -60,9 +60,15 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
     : lifecycle.action.status === 'executing' ? 'in-progress'
     : 'pending'
     : 'pending';
+  // 'unverifiable' means the health check ran and could not get a clear
+  // reading. It is neither a passed nor a failed fix, so it maps to 'skipped'
+  // rather than 'failed' — reporting it as a failure asserts something the
+  // check never established, the mirror of the absence bug on the agent side.
   const verificationStatus: StageStatus = lifecycle.verification
-    ? lifecycle.verification.status === 'verified' ? 'complete' : 'failed'
+    ? lifecycle.verification.status === 'verified' ? 'complete'
+    : lifecycle.verification.status === 'unverifiable' ? 'skipped' : 'failed'
     : lifecycle.action?.verificationStatus === 'verified' ? 'complete'
+    : lifecycle.action?.verificationStatus === 'unverifiable' ? 'skipped'
     : lifecycle.action?.verificationStatus === 'still_failing' ? 'failed'
     : 'pending';
   const postmortemStatus: StageStatus = lifecycle.postmortem ? 'complete' : 'pending';
