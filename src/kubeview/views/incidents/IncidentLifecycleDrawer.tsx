@@ -60,11 +60,18 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
     : lifecycle.action.status === 'executing' ? 'in-progress'
     : 'pending'
     : 'pending';
+  // 'unverifiable' means the health check ran and could not get a clear
+  // reading. It is neither a passed nor a failed fix, so it maps to 'skipped'
+  // rather than 'failed' — reporting it as a failure asserts something the
+  // check never established, the mirror of the absence bug on the agent side.
   const verificationStatus: StageStatus = lifecycle.verification
-    ? lifecycle.verification.status === 'verified' ? 'complete' : 'failed'
+    ? lifecycle.verification.status === 'verified' ? 'complete'
+    : lifecycle.verification.status === 'unverifiable' ? 'skipped' : 'failed'
     : lifecycle.action?.verificationStatus === 'verified' ? 'complete'
+    : lifecycle.action?.verificationStatus === 'unverifiable' ? 'skipped'
     : lifecycle.action?.verificationStatus === 'still_failing' ? 'failed'
     : 'pending';
+  const verificationBadge = lifecycle.verification?.status || lifecycle.action?.verificationStatus;
   const postmortemStatus: StageStatus = lifecycle.postmortem ? 'complete' : 'pending';
   const learningStatus: StageStatus = lifecycle.learning
     ? (lifecycle.learning.scaffolded_skill || lifecycle.learning.learned_runbook || lifecycle.learning.scaffolded_plan) ? 'complete' : 'pending'
@@ -263,11 +270,15 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     'text-xs px-1.5 py-0.5 rounded-sm font-medium',
-                    (lifecycle.verification?.status === 'verified' || lifecycle.action?.verificationStatus === 'verified')
+                    verificationBadge === 'verified'
                       ? 'bg-emerald-900/50 text-emerald-300'
-                      : 'bg-amber-900/50 text-amber-300',
+                      // Grey, not amber: the check could not read the cluster,
+                      // which is not the same as the fix having gone wrong.
+                      : verificationBadge === 'unverifiable'
+                        ? 'bg-slate-800 text-slate-400'
+                        : 'bg-amber-900/50 text-amber-300',
                   )}>
-                    {lifecycle.verification?.status || lifecycle.action?.verificationStatus}
+                    {verificationBadge}
                   </span>
                 </div>
                 {(lifecycle.verification?.evidence || lifecycle.action?.verificationEvidence) && (

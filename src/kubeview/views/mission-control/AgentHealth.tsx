@@ -178,6 +178,17 @@ function OutcomesCard({
             <span className="text-emerald-400 font-medium">{fixSummary.verification.resolved} resolved</span>
             <span className="text-slate-600">&middot;</span>
             <span className="text-amber-400">{fixSummary.verification.still_failing} still failing</span>
+            {(fixSummary.verification.unverifiable ?? 0) > 0 && (
+              <>
+                <span className="text-slate-600">&middot;</span>
+                <span
+                  className="text-slate-400 underline decoration-dotted underline-offset-2"
+                  title="The health check ran but could not get a clear reading — these are not counted as successful fixes."
+                >
+                  {fixSummary.verification.unverifiable} unverifiable
+                </span>
+              </>
+            )}
             {fixSummary.verification.pending > 0 && (
               <>
                 <span className="text-slate-600">&middot;</span>
