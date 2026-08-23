@@ -449,3 +449,86 @@ describe('an episode points at what else changed', () => {
     expect(link.closest('a')?.getAttribute('href')).toMatch(/^\/timeline\?range=/);
   });
 });
+
+/**
+ * An episode card with nothing to do.
+ *
+ * The card said what was wrong — cause, symptom count, blast radius,
+ * recurrence — and then offered "What else changed" and "Dismiss". Look at
+ * history, or make it go away. Neither fixes anything.
+ *
+ * Meanwhile the symptoms underneath got Approve buttons. Actions on the
+ * symptoms and none on the cause is exactly backwards, and it is the reason
+ * the product's causal model did not reach the operator's hands.
+ *
+ * Two gates kept the agent out of reach: it rendered inside the investigation
+ * block, so it required an investigation to already exist, and the expand
+ * control was gated on `symptoms.length > 0`, so an episode explaining nothing
+ * had no chevron at all — which is what `ControlPlaneNodeMemoryHigh` looked
+ * like on the reference cluster.
+ */
+describe('an episode card offers a way to act on the cause', () => {
+  const EMPTY_EP = { ...EPISODE, id: 'ep-none', cause_title: 'ControlPlaneNodeMemoryHigh', symptom_count: 0, namespaces: [] };
+
+  afterEach(cleanup);
+
+  it('offers a fix action even with no symptoms and no investigation', async () => {
+    fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
+    fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/How do I fix this\?/)).toBeDefined();
+  });
+
+  it('reaches the agent from an episode that explains nothing', async () => {
+    // Previously impossible: no chevron, so no expand, so no agent.
+    fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
+    fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
+    render(<EpisodePanel />);
+    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    expect(await screen.findByTestId('inline-agent')).toBeDefined();
+  });
+
+  it('hands the agent what the card already knows', async () => {
+    fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
+    fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
+    render(<EpisodePanel />);
+    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    const agent = await screen.findByTestId('inline-agent');
+    expect(agent.textContent).toContain('ControlPlaneNodeMemoryHigh');
+    expect(agent.textContent).toContain('What should I do about it?');
+  });
+
+  it('does not open the agent until asked', async () => {
+    fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
+    fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
+    render(<EpisodePanel />);
+    await screen.findByText(/How do I fix this\?/);
+    expect(screen.queryByTestId('inline-agent')).toBeNull();
+  });
+
+  it('can be closed again once opened', async () => {
+    // The expand control was gated on having symptoms, so on an episode that
+    // explains nothing the agent could be opened and then never collapsed.
+    fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
+    fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
+    render(<EpisodePanel />);
+    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    await screen.findByTestId('inline-agent');
+
+    const collapse = screen.getByRole('button', { expanded: true });
+    fireEvent.click(collapse);
+    expect(screen.queryByTestId('inline-agent')).toBeNull();
+  });
+
+  it('still shows the agent automatically when an investigation exists', async () => {
+    // The existing behaviour for investigated episodes must not regress.
+    fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, symptom_count: 2 }]);
+    fetchEpisode.mockResolvedValue({
+      episode: EPISODE,
+      symptoms: SYMPTOMS,
+      investigation: { summary: 'etcd is thrashing', failed: false, recommended_fix: 'add memory' },
+    });
+    render(<EpisodePanel />);
+    expect(await screen.findByTestId('inline-agent')).toBeDefined();
+  });
+});

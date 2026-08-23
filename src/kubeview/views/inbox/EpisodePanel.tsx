@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History } from 'lucide-react';
+import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineAgent } from '../../components/agent/InlineAgent';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
@@ -59,6 +59,7 @@ export function timelineRangeFor(startedAtSeconds: number, nowSeconds = Date.now
 
 function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () => void }) {
   const [expanded, setExpanded] = useState(true);
+  const [askOpen, setAskOpen] = useState(false);
   const [symptoms, setSymptoms] = useState<EpisodeSymptom[]>([]);
   const [symptomsLoaded, setSymptomsLoaded] = useState(false);
   const [changes, setChanges] = useState<EpisodeChange[]>([]);
@@ -183,6 +184,14 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             )}
           </div>
         </div>
+        <button
+          onClick={() => { setAskOpen(true); setExpanded(true); }}
+          title="Ask the agent what to do about this cause"
+          className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] font-medium text-violet-300 transition-colors hover:bg-violet-500/15 hover:text-violet-200"
+        >
+          <Wrench className="h-3 w-3" />
+          How do I fix this?
+        </button>
         <a
           href={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}
           title="See alerts, events, rollouts and config changes from when this cause began"
@@ -199,7 +208,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           <Check className="h-3 w-3" />
           Dismiss
         </button>
-        {symptoms.length > 0 && (
+        {(symptoms.length > 0 || investigation || askOpen) && (
           <button
             onClick={() => setExpanded((e) => !e)}
             aria-expanded={expanded}
@@ -237,12 +246,24 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
               )}
             </div>
           )}
-          {/* The prompt carries everything the card already knows, so the
-              agent is not paid to re-derive the cause, the blast radius and
-              the recent changes before answering the only question the
-              deterministic layer cannot: what to do about it. */}
+        </div>
+      )}
+
+      {/* The one thing the card was missing: a way to act on the cause.
+          It offered "What else changed" and "Dismiss" — look at history, or
+          make it go away — while the symptoms underneath it got Approve
+          buttons. Actions on the symptoms and none on the cause is backwards.
+
+          The agent used to render inside the investigation block, so it was
+          reachable only once an investigation had already run, and the expand
+          control was itself gated on having symptoms — so an episode that
+          explained nothing had no chevron at all and no route to anything.
+          The prompt carries what the card already knows, so the agent is not
+          paid to re-derive the cause, the blast radius and the recent changes
+          before answering the only question the deterministic layer cannot. */}
+      {expanded && (investigation || askOpen) && (
+        <div className="border-t border-red-500/15 px-3 py-2">
           <InlineAgent
-            className="mt-2"
             context={{ kind: 'Episode', name: episode.id, namespace: episode.namespaces[0] }}
             initialPrompt={askPrompt}
             quickPrompts={[
