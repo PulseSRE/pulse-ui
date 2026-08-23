@@ -9,6 +9,22 @@ const detachSymptom = vi.fn();
 
 const dismissEpisode = vi.fn();
 
+const connectAndSend = vi.fn();
+const expandAISidebar = vi.fn();
+const setAISidebarMode = vi.fn();
+
+vi.mock('../../../store/agentStore', () => ({
+  useAgentStore: Object.assign(() => ({}), {
+    getState: () => ({ connectAndSend }),
+  }),
+}));
+
+vi.mock('../../../store/uiStore', () => ({
+  useUIStore: Object.assign(() => ({}), {
+    getState: () => ({ expandAISidebar, setAISidebarMode }),
+  }),
+}));
+
 vi.mock('../../../engine/episodeApi', () => ({
   fetchOpenEpisodes: (...a: unknown[]) => fetchOpenEpisodes(...a),
   fetchEpisode: (...a: unknown[]) => fetchEpisode(...a),
@@ -292,7 +308,18 @@ describe('EpisodePanel investigation and dismissal', () => {
       changes: [{ category: 'audit_rbac', title: 'cluster-admin granted', namespace: 'ns', at: 1, seconds_before: 120 }],
     });
     render(<EpisodePanel />);
-    const prompt = (await screen.findByTestId('inline-agent')).textContent || '';
+    // The prompt used to be read off an embedded chat panel. There is only one
+    // chat surface now, so it is read off the message sent into the sidebar.
+    //
+    // Wait for the recurrence label before clicking: the button renders
+    // immediately but the prompt is built from `changes` and `recurrence`,
+    // which arrive from fetchEpisode. Clicking too early sent a prompt that
+    // was correct but incomplete — a genuine race, and it made this test fail
+    // roughly one full-suite run in several.
+    await screen.findByText(/6 times/);
+    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
+    const prompt = connectAndSend.mock.calls[0][0] as string;
     expect(prompt).toContain(EPISODE.cause_title);
     expect(prompt).toContain('cluster-admin granted');
     expect(prompt).toContain('6 times');
@@ -470,6 +497,14 @@ describe('an episode points at what else changed', () => {
 describe('an episode card offers a way to act on the cause', () => {
   const EMPTY_EP = { ...EPISODE, id: 'ep-none', cause_title: 'ControlPlaneNodeMemoryHigh', symptom_count: 0, namespaces: [] };
 
+  // The store spies are module-level, so calls accumulate across tests in this
+  // block — "not.toHaveBeenCalled" is meaningless without this.
+  beforeEach(() => {
+    connectAndSend.mockClear();
+    expandAISidebar.mockClear();
+    setAISidebarMode.mockClear();
+  });
+
   afterEach(cleanup);
 
   it('offers a fix action even with no symptoms and no investigation', async () => {
@@ -479,49 +514,49 @@ describe('an episode card offers a way to act on the cause', () => {
     expect(await screen.findByText(/How do I fix this\?/)).toBeDefined();
   });
 
-  it('reaches the agent from an episode that explains nothing', async () => {
-    // Previously impossible: no chevron, so no expand, so no agent.
+  it('sends the question to the one chat surface, not a second one', async () => {
+    // The card used to embed its own chat while the Pulse AI sidebar sat open
+    // beside it with its own input: two places to ask the same question, two
+    // connection states, and nothing to say which one to use.
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />);
     fireEvent.click(await screen.findByText(/How do I fix this\?/));
-    expect(await screen.findByTestId('inline-agent')).toBeDefined();
+
+    await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
+    expect(expandAISidebar).toHaveBeenCalled();
+    expect(setAISidebarMode).toHaveBeenCalledWith('chat');
+    expect(screen.queryByTestId('inline-agent')).toBeNull();
   });
 
-  it('hands the agent what the card already knows', async () => {
+  it('works on an episode that explains nothing', async () => {
+    // Previously impossible: no symptoms meant no chevron, so no way in.
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />);
     fireEvent.click(await screen.findByText(/How do I fix this\?/));
-    const agent = await screen.findByTestId('inline-agent');
-    expect(agent.textContent).toContain('ControlPlaneNodeMemoryHigh');
-    expect(agent.textContent).toContain('What should I do about it?');
+    await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
+    expect(connectAndSend.mock.calls[0][0]).toContain('ControlPlaneNodeMemoryHigh');
   });
 
-  it('does not open the agent until asked', async () => {
+  it('tells the agent which episode is being asked about', async () => {
+    fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
+    fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
+    render(<EpisodePanel />);
+    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
+    expect(connectAndSend.mock.calls[0][1]).toMatchObject({ kind: 'Episode', name: EMPTY_EP.id });
+  });
+
+  it('does not start a conversation until asked', async () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />);
     await screen.findByText(/How do I fix this\?/);
-    expect(screen.queryByTestId('inline-agent')).toBeNull();
+    expect(connectAndSend).not.toHaveBeenCalled();
   });
 
-  it('can be closed again once opened', async () => {
-    // The expand control was gated on having symptoms, so on an episode that
-    // explains nothing the agent could be opened and then never collapsed.
-    fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
-    fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
-    render(<EpisodePanel />);
-    fireEvent.click(await screen.findByText(/How do I fix this\?/));
-    await screen.findByTestId('inline-agent');
-
-    const collapse = screen.getByRole('button', { expanded: true });
-    fireEvent.click(collapse);
-    expect(screen.queryByTestId('inline-agent')).toBeNull();
-  });
-
-  it('still shows the agent automatically when an investigation exists', async () => {
-    // The existing behaviour for investigated episodes must not regress.
+  it('never embeds a chat of its own, investigated or not', async () => {
     fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, symptom_count: 2 }]);
     fetchEpisode.mockResolvedValue({
       episode: EPISODE,
@@ -529,6 +564,7 @@ describe('an episode card offers a way to act on the cause', () => {
       investigation: { summary: 'etcd is thrashing', failed: false, recommended_fix: 'add memory' },
     });
     render(<EpisodePanel />);
-    expect(await screen.findByTestId('inline-agent')).toBeDefined();
+    await screen.findByText(/How do I fix this\?/);
+    expect(screen.queryByTestId('inline-agent')).toBeNull();
   });
 });
