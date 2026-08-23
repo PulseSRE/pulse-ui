@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
-import { EpisodePanel } from '../EpisodePanel';
+import { EpisodePanel, timelineRangeFor } from '../EpisodePanel';
 
 const fetchOpenEpisodes = vi.fn();
 const fetchEpisode = vi.fn();
@@ -406,5 +406,46 @@ describe('an episode that explains nothing does not lead the queue', () => {
     await screen.findByText('HighOverallControlPlaneMemory');
     const card = container.querySelector('div[class*="rounded-lg"][class*="border"]');
     expect(card?.className).toMatch(/border-red/);
+  });
+});
+
+describe('an episode points at what else changed', () => {
+  const NOW = 1_800_000_000;
+
+  afterEach(cleanup);
+
+  it('picks a range that covers the onset, not the page default', () => {
+    // 6h is the Timeline's own default and would exclude a cause that began
+    // fourteen hours ago — the case that most needs the surrounding context.
+    expect(timelineRangeFor(NOW - 14 * 3600, NOW)).toBe('24h');
+  });
+
+  it('keeps a fresh cause tight rather than showing a week of noise', () => {
+    expect(timelineRangeFor(NOW - 300, NOW)).toBe('15m');
+    expect(timelineRangeFor(NOW - 40 * 60, NOW)).toBe('1h');
+  });
+
+  it('widens for an old cause instead of cutting it off', () => {
+    expect(timelineRangeFor(NOW - 5 * 86400, NOW)).toBe('7d');
+  });
+
+  it('is inclusive at each boundary', () => {
+    // A cause exactly 1h old belongs in the 1h window, not the 6h one.
+    expect(timelineRangeFor(NOW - 3600, NOW)).toBe('1h');
+    expect(timelineRangeFor(NOW - 24 * 3600, NOW)).toBe('24h');
+  });
+
+  it('does not go negative on a clock skewed forward', () => {
+    // Agent and browser clocks differ; a cause "starting" in the future must
+    // not produce a nonsense range.
+    expect(timelineRangeFor(NOW + 600, NOW)).toBe('15m');
+  });
+
+  it('links from the card with that range', async () => {
+    fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, symptom_count: 2 }]);
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
+    render(<EpisodePanel />);
+    const link = await screen.findByText(/What else changed/);
+    expect(link.closest('a')?.getAttribute('href')).toMatch(/^\/timeline\?range=/);
   });
 });

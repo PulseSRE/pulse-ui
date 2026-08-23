@@ -27,7 +27,6 @@ export interface ToastData {
   suggestions?: string[];
 }
 
-type DockPanel = 'logs' | 'terminal' | 'events' | 'agent' | 'monitor' | null;
 type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
 
 interface UIState {
@@ -80,23 +79,6 @@ interface UIState {
   setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
   openTerminal: (ctx: { namespace: string; podName: string; containerName: string; isNode?: boolean }) => void;
 
-  // Legacy adapter — DEPRECATED: use expandAISidebar/setAISidebarMode for agent,
-  // openBottomDock/closeBottomDock for logs/terminal/events. Remove after remaining
-  // engine/ and components/ callsites are migrated.
-  /** @deprecated Use expandAISidebar() + setAISidebarMode('chat') or openBottomDock() */
-  dockPanel: DockPanel;
-  /** @deprecated No longer used — AI sidebar width is fixed */
-  dockWidth: number;
-  /** @deprecated No longer used */
-  dockFullscreen: boolean;
-  /** @deprecated Use expandAISidebar() + setAISidebarMode('chat') for agent, openBottomDock() for others */
-  openDock: (panel: DockPanel) => void;
-  /** @deprecated Use collapseAISidebar() or closeBottomDock() */
-  closeDock: () => void;
-  /** @deprecated No longer used */
-  setDockWidth: (width: number) => void;
-  /** @deprecated No longer used */
-  toggleDockFullscreen: () => void;
 
   // View Builder (split-screen mode)
   viewBuilderMode: boolean;
@@ -310,36 +292,6 @@ export const useUIStore = create<UIState>()(
 
       openTerminal: (ctx) => {
         set({ terminalContext: ctx, bottomDockPanel: 'terminal' });
-      },
-
-      // Legacy adapter — DEPRECATED: migrate remaining callsites in engine/ and components/ to
-      // expandAISidebar() + setAISidebarMode('chat') for agent, openBottomDock() for logs/terminal/events.
-      // Remove once engine/agentNotifications.ts, components/ErrorBoundary.tsx,
-      // components/onboarding/GateCard.tsx, components/feedback/Toast.tsx, components/CommandPalette.tsx,
-      // components/agent/AIOnboarding.tsx, and components/StatusBar.tsx are migrated.
-      dockPanel: null as DockPanel,
-      dockWidth: 420,
-      dockFullscreen: false,
-
-      openDock: (panel) => {
-        if (panel === 'agent') {
-          set({ aiSidebarExpanded: true, aiSidebarMode: 'chat', dockPanel: 'agent' });
-        } else if (panel === 'logs' || panel === 'terminal' || panel === 'events') {
-          set({ bottomDockPanel: panel, dockPanel: panel });
-        }
-      },
-
-      closeDock: () => {
-        set({ bottomDockPanel: null, dockPanel: null });
-      },
-
-      setDockWidth: (width) => {
-        const clampedWidth = Math.max(300, Math.min(900, width));
-        set({ dockWidth: clampedWidth });
-      },
-
-      toggleDockFullscreen: () => {
-        set((s) => ({ dockFullscreen: !s.dockFullscreen }));
       },
 
       // View Builder

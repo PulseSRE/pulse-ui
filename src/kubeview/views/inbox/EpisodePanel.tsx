@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, History } from 'lucide-react';
+import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineAgent } from '../../components/agent/InlineAgent';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
@@ -30,6 +30,31 @@ function recurrenceLine(r: EpisodeRecurrence): string | null {
   if (r.window_seconds) parts.push(`in ${formatShortDuration(r.window_seconds)}`);
   if (r.interval_seconds) parts.push(`· every ${formatShortDuration(r.interval_seconds)}`);
   return parts.join(' ');
+}
+
+/**
+ * The Timeline range that actually covers this cause's onset.
+ *
+ * `/timeline` correlates alerts, events, rollouts and config changes — on the
+ * reference cluster, 2,472 entries and 84 correlated incidents — and it is the
+ * page that answers "what else happened when this started". It had exactly one
+ * inbound link in the whole app, so the question every finding leads to was a
+ * URL you had to know to type.
+ *
+ * Defaulting to the page's own 6h would silently exclude a cause that began
+ * fourteen hours ago, which is the case that most needs the context.
+ */
+export function timelineRangeFor(startedAtSeconds: number, nowSeconds = Date.now() / 1000): string {
+  // No floor at zero: a cause "starting" in the future from clock skew
+  // yields negative hours, which the first branch already catches. A
+  // Math.max(0, …) here passed its own mutation test — dead code.
+  const hours = (nowSeconds - startedAtSeconds) / 3600;
+  if (hours <= 0.25) return '15m';
+  if (hours <= 1) return '1h';
+  if (hours <= 6) return '6h';
+  if (hours <= 24) return '24h';
+  if (hours <= 72) return '3d';
+  return '7d';
 }
 
 function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () => void }) {
@@ -158,6 +183,14 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             )}
           </div>
         </div>
+        <a
+          href={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}
+          title="See alerts, events, rollouts and config changes from when this cause began"
+          className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+        >
+          <Clock className="h-3 w-3" />
+          What else changed
+        </a>
         <button
           onClick={handleDismiss}
           title="Close this episode — the cause reopens a new one if it returns"

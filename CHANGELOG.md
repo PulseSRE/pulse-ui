@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Removed the legacy dock adapter, two dead components, and a stale redirect
+- `uiStore` carried a "Legacy adapter — DEPRECATED" block: seven members (`dockPanel`, `dockWidth`, `dockFullscreen`, `openDock`, `closeDock`, `setDockWidth`, `toggleDockFullscreen`) with a comment listing seven files still to migrate. **All seven had zero callsites** — the migration was finished and only the adapter was left. Gone, along with the now-unused `DockPanel` type
+- Two components nothing imported: `PredictionCard.tsx` (145 lines) and `NodeTable.tsx` (132 lines)
+- The `toolbox → /agent` redirect. The other nine `Navigate` uses stay: seven are parameter-validation guards in `resourceRoutes` (`if (!gvr) …`), one is the `/` landing, one is `path="*"`. Deleting those would render broken components on malformed URLs, not tidy anything
+- Two tests covered the removed adapter. The `logs` path was already covered by `openBottomDock`, but the **agent** path was not — deleting outright would have quietly dropped the only coverage of "opening the agent sidebar puts it in chat mode", so that is now asserted against the modern API instead
+
+### An episode says what else changed
+- `/timeline` correlates alerts, events, rollouts and config changes — 2,472 entries and 84 correlated incidents on the reference cluster — and it is the page that answers "what else happened when this started". It had **one inbound link in the whole app**, so the question every finding leads to was a URL you had to know to type
+- Episode cards now link to it, scoped to a range that actually covers the cause's onset. The Timeline's own 6h default would silently exclude a cause that began fourteen hours ago, which is the case that most needs the surrounding context
+- A `Math.max(0, …)` guarding against clock skew came back out: it passed its own mutation test, because negative hours already fall through the first branch. Second time this exact dead guard has appeared in this codebase
+
 ### "ACM not detected", before ever looking
 - `detectACM` was wired only to a button. Nothing ran it on mount, so Fleet rendered **"ACM not detected — show installation instructions"** purely from the store's initial `acmAvailable: false`
 - The reference cluster is an ACM hub: `MultiClusterHub` Running for 354 days, v2.17.0, *"All hub components ready"*, one `ManagedCluster` registered, 62 ACM CRDs, and the endpoint the detector calls returning 200. Fleet told the operator ACM was absent and offered YAML to create a hub that already existed — applying it would have been a genuinely bad outcome
