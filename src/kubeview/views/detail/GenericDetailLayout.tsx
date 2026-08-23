@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import type { K8sResource } from '../../engine/renderers';
 import type { Event, Container, ContainerPort, ContainerStatus, Pod } from '../../engine/types';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
+import { askPulse } from '../../engine/askPulse';
 import { Card } from '../../components/primitives/Card';
 import { LabelsSection, AnnotationsSection, DetailSection } from './MetadataSections';
 import { IncidentContext } from './IncidentContext';
@@ -14,7 +15,6 @@ import { jsonToYaml } from '../../engine/yamlUtils';
 import type { RelatedResource } from './types';
 
 const AmbientInsight = lazy(() => import('../../components/agent/AmbientInsight').then(m => ({ default: m.AmbientInsight })));
-const InlineAgent = lazy(() => import('../../components/agent/InlineAgent').then(m => ({ default: m.InlineAgent })));
 
 interface GenericDetailLayoutProps {
   resource: K8sResource;
@@ -157,28 +157,37 @@ export function GenericDetailLayout({
                 />
               </Suspense>
             </ErrorBoundary>
-            <ErrorBoundary fallbackTitle="Inline agent unavailable">
-              <Suspense fallback={
-                <div className="animate-pulse space-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4">
-                  <div className="h-4 w-24 bg-slate-800 rounded-sm" />
-                  <div className="h-8 w-full bg-slate-800 rounded-sm" />
-                  <div className="flex gap-2">
-                    <div className="h-6 w-28 bg-slate-800 rounded-full" />
-                    <div className="h-6 w-28 bg-slate-800 rounded-full" />
-                    <div className="h-6 w-28 bg-slate-800 rounded-full" />
-                  </div>
-                </div>
-              }>
-                <InlineAgent
-                  context={{ kind: resource.kind, name: resource.metadata.name, namespace, gvr: gvrKey }}
-                  quickPrompts={[
-                    `Why is this ${resource.kind} unhealthy?`,
-                    `What changed recently?`,
-                    `How can I optimize this?`,
-                  ]}
-                />
-              </Suspense>
-            </ErrorBoundary>
+            {/* Suggested questions, not a second chat.
+                This embedded an InlineAgent, so a detail page showed its own
+                message box while the Pulse AI sidebar sat open beside it with
+                another — two conversations about the same resource, each with
+                its own connection state. The suggestions were the useful part;
+                the second input was not. */}
+            <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+              <div className="mb-2 text-xs font-medium text-slate-400">Ask Pulse AI about this {resource.kind}</div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  `Why is this ${resource.kind} unhealthy?`,
+                  'What changed recently?',
+                  'How can I optimize this?',
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() =>
+                      askPulse(prompt, {
+                        kind: resource.kind,
+                        name: resource.metadata.name,
+                        namespace,
+                        gvr: gvrKey,
+                      })
+                    }
+                    className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-200"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
           </>
         )}
 

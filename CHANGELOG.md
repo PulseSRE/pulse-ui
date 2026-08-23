@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### The detail page had its own chat too
+- `GenericDetailLayout` embedded an `InlineAgent`, so opening any resource detail page while the Pulse AI sidebar was open showed **two message boxes about the same resource**, each with its own connection state. Same fault as the episode card, one screen over
+- The three suggested questions were the useful part; the second input was not. They are now buttons that open the sidebar and ask there, carrying the resource kind, name, namespace and GVR
+- `AmbientInsight` stays. It is a generated insight panel, not a conversation — content rather than a second place to type
+- Both call sites now go through one `askPulse(prompt, context)` helper, so the "open the sidebar, connect, send" sequence cannot drift apart between them
+- `InlineAgent` itself is gone — 278 lines whose only remaining importer was its own test. Nothing embeds a chat any more, and keeping a component whose whole purpose is to embed one invites the duplication straight back
+
 ### Two places to have the same conversation
 - An episode card embedded its own **"Ask about this Episode"** chat while the Pulse AI sidebar sat open beside it with its own input. Two inputs, two conversations, two connection states — and nothing on screen to say which one to use. The previous change made it worse by putting an inline chat on *every* episode rather than only investigated ones
 - **"How do I fix this?"** now opens the sidebar in chat mode and sends the question there. The card no longer renders a chat of its own, investigated or not
