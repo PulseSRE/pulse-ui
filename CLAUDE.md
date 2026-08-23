@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.18.0, ~390 source files, 2,221 unit tests (182 files) + 56 E2E scenarios.
+OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.18.0, ~390 source files, 2,231 unit tests (183 files) + 56 E2E scenarios.
 
 ## Commands
 
@@ -154,7 +154,7 @@ Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capabi
 
 ### Toolbox (`/toolbox`) — 6 tabs
 - **Catalog**: all tools (native + MCP) with source badges, search, mode/source filter
-- **Skills**: skill packages with editor, version history, diff viewer, routing tester, investigation plan templates section, AI-generated skill badges
+- **Skills**: skill packages with editor, version history, diff viewer, routing tester, investigation plan templates section, AI-generated skill badges, routing-gate banners (approve/re-approve for unreviewed or agent-refreshed skills, quarantine/restore for misrouting ones — backed by POST /admin/skills/{name}/approve|quarantine|unquarantine), Quarantined badge on cards, "Learned From" incident type on auto-scaffolded skills
 - **Connections**: MCP server management with 11 toolset toggles
 - **Components**: 25 component kinds by category with mutation support
 - **Usage**: tool invocation audit log with source (native/mcp) column
