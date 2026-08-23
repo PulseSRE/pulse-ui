@@ -269,15 +269,15 @@ describe('uiStore', () => {
       expect(useUIStore.getState().bottomDockPanel).toBe('terminal');
     });
 
-    it('legacy openDock agent opens AI sidebar', () => {
-      useUIStore.getState().openDock('agent');
+    it('opening the agent sidebar puts it in chat mode', () => {
+      // Replaces a test of the removed `openDock('agent')` legacy adapter.
+      // The adapter had no remaining callsites, but it carried the only
+      // coverage of this pairing — deleting it outright would have quietly
+      // dropped that, so the modern API is asserted directly instead.
+      useUIStore.getState().expandAISidebar();
+      useUIStore.getState().setAISidebarMode('chat');
       expect(useUIStore.getState().aiSidebarExpanded).toBe(true);
       expect(useUIStore.getState().aiSidebarMode).toBe('chat');
-    });
-
-    it('legacy openDock logs opens bottom dock', () => {
-      useUIStore.getState().openDock('logs');
-      expect(useUIStore.getState().bottomDockPanel).toBe('logs');
     });
 
     it('toggles AI sidebar', () => {
