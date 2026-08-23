@@ -71,6 +71,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
     : lifecycle.action?.verificationStatus === 'unverifiable' ? 'skipped'
     : lifecycle.action?.verificationStatus === 'still_failing' ? 'failed'
     : 'pending';
+  const verificationBadge = lifecycle.verification?.status || lifecycle.action?.verificationStatus;
   const postmortemStatus: StageStatus = lifecycle.postmortem ? 'complete' : 'pending';
   const learningStatus: StageStatus = lifecycle.learning
     ? (lifecycle.learning.scaffolded_skill || lifecycle.learning.learned_runbook || lifecycle.learning.scaffolded_plan) ? 'complete' : 'pending'
@@ -269,11 +270,15 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     'text-xs px-1.5 py-0.5 rounded-sm font-medium',
-                    (lifecycle.verification?.status === 'verified' || lifecycle.action?.verificationStatus === 'verified')
+                    verificationBadge === 'verified'
                       ? 'bg-emerald-900/50 text-emerald-300'
-                      : 'bg-amber-900/50 text-amber-300',
+                      // Grey, not amber: the check could not read the cluster,
+                      // which is not the same as the fix having gone wrong.
+                      : verificationBadge === 'unverifiable'
+                        ? 'bg-slate-800 text-slate-400'
+                        : 'bg-amber-900/50 text-amber-300',
                   )}>
-                    {lifecycle.verification?.status || lifecycle.action?.verificationStatus}
+                    {verificationBadge}
                   </span>
                 </div>
                 {(lifecycle.verification?.evidence || lifecycle.action?.verificationEvidence) && (

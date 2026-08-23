@@ -63,7 +63,7 @@ export interface ActionReport {
   durationMs?: number;
   confidence?: number;
   rollbackAvailable?: boolean;
-  verificationStatus?: 'verified' | 'still_failing' | 'improved';
+  verificationStatus?: 'verified' | 'still_failing' | 'improved' | 'unverifiable';
   verificationEvidence?: string;
   verificationTimestamp?: number;
   fixStrategy?: string;
@@ -110,7 +110,7 @@ export interface VerificationReport {
   id: string;
   actionId: string;
   findingId: string;
-  status: 'verified' | 'still_failing';
+  status: 'verified' | 'still_failing' | 'improved' | 'unverifiable';
   evidence: string;
   timestamp: number;
 }
