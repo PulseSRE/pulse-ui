@@ -54,7 +54,9 @@ export interface ActionReport {
   findingId: string;
   tool: string;
   input: Record<string, unknown>;
-  status: 'proposed' | 'executing' | 'completed' | 'failed' | 'rolled_back';
+  // 'expired' is a proposal nobody answered inside the approval window — the
+  // agent's most common trust-2 outcome. It is not a failure: the fix never ran.
+  status: 'proposed' | 'executing' | 'completed' | 'failed' | 'rolled_back' | 'expired';
   beforeState?: string;
   afterState?: string;
   error?: string;

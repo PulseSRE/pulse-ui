@@ -54,10 +54,15 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
   const investigationStatus: StageStatus = lifecycle.investigation
     ? lifecycle.investigation.status === 'completed' ? 'complete' : 'failed'
     : lifecycle.detection?.investigationPhases?.some((p) => p.status === 'running') ? 'in-progress' : 'pending';
+  // 'expired' is a proposal nobody answered — the fix never ran, so it is
+  // neither failed nor still pending. 'skipped' is the honest stage for it,
+  // the same mapping 'unverifiable' gets below and for the same reason:
+  // reporting it any other way asserts something that never happened.
   const actionStatus: StageStatus = lifecycle.action
     ? lifecycle.action.status === 'completed' ? 'complete'
     : lifecycle.action.status === 'failed' ? 'failed'
     : lifecycle.action.status === 'executing' ? 'in-progress'
+    : lifecycle.action.status === 'expired' ? 'skipped'
     : 'pending'
     : 'pending';
   // 'unverifiable' means the health check ran and could not get a clear
