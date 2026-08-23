@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X, CheckCircle2, XCircle, AlertTriangle, Undo2, ShieldX, WifiOff, ServerCrash, Bot } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
-import { useAgentStore } from '../../store/agentStore';
 import { cn } from '@/lib/utils';
+import { askPulse } from '../../engine/askPulse';
 
 interface ToastProps {
   id: string;
@@ -66,8 +66,7 @@ function Toast({ id: _id, type, title, detail, duration, action, category, sugge
   }[type];
 
   const handleAskAI = () => {
-    useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat');
-    useAgentStore.getState().connectAndSend(
+    askPulse(
       `I got this error: "${title}". ${detail || ''}. What does this mean and how can I fix it?`
     );
     handleClose();

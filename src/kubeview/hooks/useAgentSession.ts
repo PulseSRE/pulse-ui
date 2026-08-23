@@ -108,7 +108,9 @@ const initialState: SessionState = {
  * Scoped agent session hook — each instance creates its own AgentClient
  * and WebSocket connection, independent from the global agentStore.
  *
- * Used by InlineAgent and AmbientInsight for isolated conversations.
+ * No in-tree consumers today (InlineAgent, its last importer, was removed
+ * in #104) — kept for surfaces that need a conversation isolated from the
+ * global agentStore.
  */
 export function useAgentSession(options: UseAgentSessionOptions = {}): AgentSession {
   const { mode = 'sre', autoConnect = true, context, maxMessages = 50 } = options;

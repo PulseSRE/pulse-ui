@@ -4,10 +4,9 @@ import {
   Loader2, RefreshCw, ShieldCheck, Bot, ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUIStore } from '../../store/uiStore';
-import { useAgentStore } from '../../store/agentStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import type { GateStatus, ReadinessGate, GateResult } from '../../engine/readiness/types';
+import { askPulse } from '../../engine/askPulse';
 
 interface GateCardProps {
   gate: ReadinessGate;
@@ -95,8 +94,7 @@ export function GateCard({ gate, result, waived, waiverReason, onReVerify, onWai
             {(status === 'failed' || status === 'needs_attention') && (
               <button
                 onClick={() => {
-                  useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat');
-                  useAgentStore.getState().connectAndSend(
+                  askPulse(
                     `Fix this production readiness issue:\n\n"${gate.title}": ${result?.detail || gate.whyItMatters}\n\n${result?.fixGuidance || ''}\n\nPlease fix this or generate the required YAML configuration.`
                   );
                 }}

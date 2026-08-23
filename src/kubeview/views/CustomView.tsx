@@ -4,7 +4,6 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 import { ChartEditPopover } from '../components/agent/ChartEditPopover';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
-import { useAgentStore } from '../store/agentStore';
 import { AgentComponentRenderer } from '../components/agent/AgentComponentRenderer';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -19,6 +18,7 @@ import { Responsive, verticalCompactor, useContainerWidth } from 'react-grid-lay
 import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { askPulse } from '../engine/askPulse';
 
 /* Layout is backend-authoritative. The engine computes positions
    via compute_layout() and the frontend renders them verbatim.
@@ -349,9 +349,7 @@ export default function CustomView() {
             </button>
             <button
               onClick={() => {
-                useUIStore.getState().expandAISidebar();
-                useUIStore.getState().setAISidebarMode('chat');
-                useAgentStore.getState().connectAndSend(`Update my view "${view.title}" (ID: ${view.id}). It has ${view.layout.length} widgets. Use get_view_details("${view.id}") to see the current widgets, then modify as needed.`);
+                askPulse(`Update my view "${view.title}" (ID: ${view.id}). It has ${view.layout.length} widgets. Use get_view_details("${view.id}") to see the current widgets, then modify as needed.`);
               }}
               className="p-1.5 rounded-sm bg-violet-700 hover:bg-violet-600 text-white transition-colors"
               title="Edit with AI"
@@ -383,9 +381,9 @@ export default function CustomView() {
             title="No widgets yet"
             description="Ask the agent to add widgets to this dashboard."
             aiPrompts={[
-              { label: 'Add a table of pods with high restart counts', onAsk: () => { useAgentStore.getState().connectAndSend('Add a data_table widget showing pods with the most restarts'); useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat'); } },
-              { label: 'Show CPU and memory trends', onAsk: () => { useAgentStore.getState().connectAndSend('Add chart widgets showing CPU utilization and memory usage trends'); useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat'); } },
-              { label: 'Add a deployment status grid', onAsk: () => { useAgentStore.getState().connectAndSend('Add a status_list widget showing all deployments with their health status'); useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat'); } },
+              { label: 'Add a table of pods with high restart counts', onAsk: () => { askPulse('Add a data_table widget showing pods with the most restarts'); } },
+              { label: 'Show CPU and memory trends', onAsk: () => { askPulse('Add chart widgets showing CPU utilization and memory usage trends'); } },
+              { label: 'Add a deployment status grid', onAsk: () => { askPulse('Add a status_list widget showing all deployments with their health status'); } },
             ]}
           />
         ) : (

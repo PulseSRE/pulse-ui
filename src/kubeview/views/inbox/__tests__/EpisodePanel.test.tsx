@@ -32,13 +32,6 @@ vi.mock('../../../engine/episodeApi', () => ({
   dismissEpisode: (...a: unknown[]) => dismissEpisode(...a),
 }));
 
-// The agent panel opens a WebSocket; not what these tests are about.
-vi.mock('../../../components/agent/InlineAgent', () => ({
-  InlineAgent: ({ initialPrompt }: { initialPrompt?: string }) => (
-    <div data-testid="inline-agent">{initialPrompt}</div>
-  ),
-}));
-
 const EPISODE = {
   id: 'ep-1',
   status: 'open' as const,

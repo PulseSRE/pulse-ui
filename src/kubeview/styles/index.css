@@ -317,7 +317,7 @@
   flex-shrink: 0;
 }
 
-/* Glowing orb — compact (InlineAgent) */
+/* Glowing orb — compact (ThinkingIndicator compact mode) */
 .thinking-orb {
   width: 6px;
   height: 6px;

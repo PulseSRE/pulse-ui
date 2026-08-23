@@ -139,12 +139,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </button>
               <button
                 onClick={() => {
+                  // Lazy require, not a top-level import: ErrorBoundary is
+                  // imported nearly everywhere, and askPulse pulls in the
+                  // stores — a static import would recreate the cycle this
+                  // require pattern exists to avoid.
                   // eslint-disable-next-line @typescript-eslint/no-require-imports
-                  const { useUIStore } = require('../store/uiStore');
-                  // eslint-disable-next-line @typescript-eslint/no-require-imports
-                  const { useAgentStore } = require('../store/agentStore');
-                  useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat');
-                  useAgentStore.getState().connectAndSend(
+                  const { askPulse } = require('../engine/askPulse');
+                  askPulse(
                     `The UI crashed with this error: "${this.state.error?.message}". What could cause this and how do I fix it?`
                   );
                   this.setState({ hasError: false, error: null });

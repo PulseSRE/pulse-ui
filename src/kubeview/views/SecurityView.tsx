@@ -14,10 +14,9 @@ import { Panel } from '../components/primitives/Panel';
 import type { K8sResource } from '../engine/renderers';
 import type { ClusterRoleBinding, Namespace, Subject } from '../engine/types';
 import { useClusterStore } from '../store/clusterStore';
-import { useUIStore } from '../store/uiStore';
-import { useAgentStore } from '../store/agentStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Card } from '../components/primitives/Card';
+import { askPulse } from '../engine/askPulse';
 
 interface SecurityAuditCheck {
   id: string;
@@ -301,11 +300,7 @@ export default function SecurityView() {
             ].map((prompt) => (
               <button
                 key={prompt}
-                onClick={() => {
-                  useUIStore.getState().expandAISidebar();
-                  useUIStore.getState().setAISidebarMode('chat');
-                  useAgentStore.getState().connectAndSend(prompt);
-                }}
+                onClick={() => askPulse(prompt)}
                 className="px-2.5 py-1 text-xs rounded-sm bg-slate-800 text-slate-300 hover:bg-indigo-900/40 hover:text-indigo-300 border border-slate-700 hover:border-indigo-700/50 transition-colors"
               >
                 {prompt}
