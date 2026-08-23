@@ -8,6 +8,7 @@
  */
 
 import type { ComponentSpec } from './agentComponents';
+import { closeQuietly } from './wsClose';
 
 export type AgentMode = 'sre' | 'security' | 'monitor' | 'auto';
 
@@ -229,7 +230,7 @@ export class AgentClient {
     }
     this.reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // prevent reconnect
     if (this.ws) {
-      this.ws.close();
+      closeQuietly(this.ws);
       this.ws = null;
     }
     this._connected = false;

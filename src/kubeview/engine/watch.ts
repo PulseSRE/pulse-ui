@@ -5,6 +5,7 @@
 
 import { K8S_BASE as BASE } from './gvr';
 import { getClusterBase } from './clusterConnection';
+import { closeQuietly } from './wsClose';
 const HEARTBEAT_INTERVAL = 45000; // 45 seconds
 const MAX_BACKOFF = 30000; // 30 seconds
 
@@ -287,9 +288,12 @@ export class WatchManager {
 
     this.stopHeartbeat(connection);
 
-    // Close WebSocket
+    // closeQuietly, not close(): StrictMode's dev double-mount tears down
+    // every first mount's watch while its socket is still CONNECTING, and a
+    // raw close() there logs "closed before the connection is established"
+    // for every watched resource on every page load.
     if (connection.ws) {
-      connection.ws.close();
+      closeQuietly(connection.ws);
       connection.ws = null;
     }
 
