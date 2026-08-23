@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Puzzle, RefreshCw, Save, Check, Copy, Trash2, X,
   FileText, History, GitCompareArrows, AlertTriangle,
-  ArrowRight, CheckCircle2, XCircle,
+  ArrowRight, CheckCircle2, XCircle, ShieldCheck, ShieldOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
@@ -40,6 +40,9 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   const [cloneStatus, setCloneStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmQuarantine, setConfirmQuarantine] = useState(false);
+  const [gateBusy, setGateBusy] = useState(false);
+  const [gateError, setGateError] = useState<string | null>(null);
   const cloneInputRef = useRef<HTMLInputElement>(null);
 
   const { data: detail, isLoading } = useQuery({
@@ -144,6 +147,29 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
     }
   };
 
+  // approve restores an agent-refreshed skill to routing; quarantine pulls a
+  // misrouting one; unquarantine reverses that. All three are admin endpoints
+  // that rewrite skill.md frontmatter and hot-reload the registry.
+  const gateAction = async (action: 'approve' | 'quarantine' | 'unquarantine') => {
+    setGateBusy(true);
+    setGateError(null);
+    try {
+      const res = await agentFetch(`/api/agent/admin/skills/${name}/${action}`, { method: 'POST' });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ['admin', 'skill-detail', name] });
+        queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
+      } else {
+        const err = await res.json().catch(() => ({ detail: `${action} failed` }));
+        setGateError(err.detail || `${action} failed`);
+      }
+    } catch {
+      setGateError('Network error');
+    } finally {
+      setGateBusy(false);
+      setConfirmQuarantine(false);
+    }
+  };
+
   const loadDiff = async (v1: string, v2: string) => {
     setDiffFiles({ v1, v2 });
     setDiffResult('Loading...');
@@ -209,6 +235,15 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
               >
                 <Copy className="w-3.5 h-3.5" /> Clone
               </button>
+              {detail && !detail.quarantined && (
+                <button
+                  onClick={() => { setConfirmQuarantine(true); setGateError(null); }}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded-md"
+                  title="Pull this skill from automatic routing (reversible)"
+                >
+                  <ShieldOff className="w-3.5 h-3.5" /> Quarantine
+                </button>
+              )}
               {!['sre', 'security', 'view_designer'].includes(name) && (
                 <button
                   onClick={() => { setConfirmDelete(true); setDeleteError(null); }}
@@ -311,6 +346,70 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
           </div>
         )}
 
+        {gateError && (
+          <div className="mx-5 mt-2 flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-red-950/30 border-red-800/30 text-red-400">
+            <XCircle className="w-3.5 h-3.5" />
+            {gateError}
+            <button onClick={() => setGateError(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+          </div>
+        )}
+
+        {/* Routing gate banners — visible whichever panel is open */}
+        {detail && Boolean(detail.quarantined) && (
+          <div className="mx-5 mt-3 flex items-center gap-2 px-3 py-2.5 bg-red-950/30 border border-red-800/40 rounded-md text-xs text-red-300">
+            <ShieldOff className="w-4 h-4 shrink-0 text-red-400" />
+            <div className="flex-1">
+              <span className="font-medium">Quarantined</span> — excluded from automatic routing (ORCA selection and
+              trigger patterns). Still loadable by name for debugging.
+            </div>
+            <button
+              onClick={() => gateAction('unquarantine')}
+              disabled={gateBusy}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md disabled:opacity-50 shrink-0"
+            >
+              {gateBusy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+              Restore to routing
+            </button>
+          </div>
+        )}
+        {detail && detail.generated_by === 'auto' && !detail.reviewed && (
+          <div className="mx-5 mt-3 flex items-center gap-2 px-3 py-2.5 bg-amber-950/30 border border-amber-800/40 rounded-md text-xs text-amber-300">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+            <div className="flex-1">
+              {Number(detail.version) > 1 ? (
+                <>
+                  <span className="font-medium">Awaiting re-review</span> — this skill learned a new verified case
+                  (now v{Number(detail.version)}), so the content a person last approved has changed. It stays out
+                  of automatic routing until someone re-approves it.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">Awaiting review</span> — agent-authored skill, excluded from
+                  automatic routing until a person reads and approves it.
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => gateAction('approve')}
+              disabled={gateBusy}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md disabled:opacity-50 shrink-0"
+            >
+              {gateBusy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+              Approve for routing
+            </button>
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={confirmQuarantine}
+          onClose={() => setConfirmQuarantine(false)}
+          onConfirm={() => gateAction('quarantine')}
+          title="Quarantine Skill"
+          description={`Pull '${name}' from automatic routing? It stops serving ORCA selection and trigger-pattern pre-routes, but stays loadable by name and can be restored at any time.`}
+          confirmLabel="Quarantine"
+          variant="danger"
+        />
+
         <ConfirmDialog
           open={confirmDelete}
           onClose={() => setConfirmDelete(false)}
@@ -333,6 +432,9 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                   <MetaCard label="Categories" value={detail.categories?.join(', ') || 'none'} />
                   <MetaCard label="Priority" value={detail.priority} />
                   <MetaCard label="Write Tools" value={detail.write_tools ? 'Yes' : 'No'} />
+                  {detail.incident_type && (
+                    <MetaCard label="Learned From" value={`${detail.incident_type} incidents`} />
+                  )}
                 </div>
 
                 {detail.degraded && (

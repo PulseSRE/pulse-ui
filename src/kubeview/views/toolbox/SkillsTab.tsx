@@ -128,7 +128,7 @@ export function SkillsTab() {
                 onClick={() => setSelectedSkill(String(skill.name))}
                 className={cn(
                   'bg-slate-900 border rounded-lg p-4 space-y-2 text-left transition-colors hover:border-blue-700/50 hover:bg-slate-900/80 cursor-pointer',
-                  skill.degraded ? 'border-amber-800/50' : 'border-slate-800',
+                  skill.quarantined ? 'border-red-800/50' : skill.degraded ? 'border-amber-800/50' : 'border-slate-800',
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -138,6 +138,11 @@ export function SkillsTab() {
                     <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded-sm text-slate-500 shrink-0">v{Number(skill.version)}</span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {Boolean(skill.quarantined) && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-red-900/40 text-red-300 rounded-sm border border-red-700/40">
+                        Quarantined
+                      </span>
+                    )}
                     {skill.generated_by === 'auto' && !skill.reviewed && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm border border-amber-700/40">
                         AI-generated · Needs review
