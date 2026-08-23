@@ -7,6 +7,8 @@
  * reduces polling frequency when the tab is hidden.
  */
 
+import { closeQuietly } from './wsClose';
+
 // ---- Types ----
 
 export interface ResourceRef {
@@ -208,7 +210,7 @@ export class MonitorClient {
     this.autoFixCategories = autoFixCategories;
 
     if (this.ws) {
-      this.ws.close();
+      closeQuietly(this.ws);
       this.ws = null;
     }
 
@@ -338,7 +340,7 @@ export class MonitorClient {
       this.visibilityHandler = null;
     }
     if (this.ws) {
-      this.ws.close();
+      closeQuietly(this.ws);
       this.ws = null;
     }
     this._connected = false;
