@@ -46,6 +46,60 @@ function getSourceLabel(createdBy: string): string {
   return 'Manual';
 }
 
+/**
+ * One worded chip for the agent's relationship to this item.
+ *
+ * This used to be up to six same-sized colored dots (reviewing, cleared,
+ * triaged, review-failed, pending-approval, archived) whose meanings lived
+ * only in hover tooltips — color was the sole channel, and at a glance they
+ * were indistinguishable. One state wins, it gets a word, and the detail
+ * stays in the tooltip.
+ */
+function agentStateChip(item: InboxItemType): { label: string; cls: string; tooltip: string; pulse?: boolean } | null {
+  const md = item.metadata || {};
+  if (item.status === 'agent_reviewing') {
+    return { label: 'Reviewing…', cls: 'bg-violet-900/40 text-violet-300 border-violet-700/40', tooltip: 'Agent is investigating', pulse: true };
+  }
+  if (item.status === 'agent_review_failed') {
+    return { label: 'Review failed', cls: 'bg-red-900/40 text-red-300 border-red-700/40', tooltip: String(md.agent_error || 'Agent analysis failed') };
+  }
+  if (item.status === 'agent_cleared') {
+    return { label: 'Cleared', cls: 'bg-emerald-900/30 text-emerald-400 border-emerald-800/30', tooltip: String(md.dismiss_reason || 'Cleared by agent') };
+  }
+  if (md.has_pending_approval) {
+    return { label: 'Approval waiting', cls: 'bg-orange-900/40 text-orange-300 border-orange-700/40', tooltip: 'A proposed fix is waiting on you' };
+  }
+  if (item.status === 'archived' && md.archived_reason) {
+    return { label: 'Archived', cls: 'bg-slate-800 text-slate-400 border-slate-700', tooltip: String(md.archived_reason) };
+  }
+  if (md.triaged) {
+    return { label: `Triaged · ${String(md.triage_urgency || 'can-wait')}`, cls: 'bg-violet-900/30 text-violet-300 border-violet-800/30', tooltip: `AI: ${String(md.triage_action || 'triaged')}` };
+  }
+  return null;
+}
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/** The math behind the rank, so line one can explain itself. */
+function priorityTooltip(factors: Record<string, unknown>): string {
+  const f = (k: string) => Number(factors[k] ?? 0);
+  const lines = [
+    `${String(factors.severity)} ×${f('severity_weight')} · ${String(factors.layer)} layer ×${f('layer_weight')}`,
+    `confidence ${f('confidence')} · noise ${f('noise_score')} → base ${f('base')}`,
+  ];
+  const bonuses: string[] = [];
+  if (f('age_bonus') > 0) bonuses.push(`age +${f('age_bonus')}`);
+  if (f('novelty_bonus') > 0) bonuses.push(`novelty +${f('novelty_bonus')}`);
+  if (f('due_bonus') > 0) bonuses.push(`due +${f('due_bonus')}`);
+  if (bonuses.length) lines.push(bonuses.join(' · '));
+  lines.push(`priority ${f('total')}`);
+  return lines.join('\n');
+}
+
 export function InboxItem({
   item,
   focused,
@@ -64,7 +118,10 @@ export function InboxItem({
   const severity: InboxSeverity = (item.severity as InboxSeverity) || 'info';
   const SeverityIcon = SEVERITY_ICON[severity] || Info;
   const isPinned = item.pinned_by.length > 0;
-  const hasApproval = !!item.metadata?.has_pending_approval;
+  const stateChip = agentStateChip(item);
+  const recurrence = Number(item.metadata?.recurrence_30d ?? 0);
+  const sloImpact = (item.metadata?.slo_impact as Array<{ service: string; slo_type: string }> | undefined) ?? [];
+  const priorityFactors = item.metadata?.priority_factors as Record<string, unknown> | undefined;
 
   const handleDismiss = () => {
     setConfirmDismiss(false);
@@ -100,34 +157,32 @@ export function InboxItem({
               {item.namespace && (
                 <Badge variant="outline" className="text-xs">{item.namespace}</Badge>
               )}
-              {item.status === 'agent_reviewing' && (
-                <Tooltip content="Agent is investigating">
-                  <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse shrink-0" />
+              {stateChip && (
+                <Tooltip content={stateChip.tooltip}>
+                  <span
+                    className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-full border shrink-0 whitespace-nowrap',
+                      stateChip.cls,
+                      stateChip.pulse && 'animate-pulse',
+                    )}
+                  >
+                    {stateChip.label}
+                  </span>
                 </Tooltip>
               )}
-              {item.status === 'agent_cleared' && (
-                <Tooltip content={String(item.metadata?.dismiss_reason || 'Cleared by agent')}>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+              {recurrence >= 2 && (
+                <Tooltip content={`This condition has come back — ${ordinal(recurrence)} visit in 30 days. Chronic work deserves a runbook, not another triage.`}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-amber-900/40 text-amber-300 border-amber-700/40 shrink-0 whitespace-nowrap">
+                    {ordinal(recurrence)} in 30d
+                  </span>
                 </Tooltip>
               )}
-              {item.status === 'archived' && !!item.metadata?.archived_reason && (
-                /* Work that moved on its own has to say why it moved. */
-                <Tooltip content={String(item.metadata.archived_reason)}>
-                  <span className="w-2 h-2 rounded-full bg-slate-500 shrink-0" />
+              {sloImpact.length > 0 && (
+                <Tooltip content={`Backs a registered SLO: ${sloImpact.map((s) => `${s.service} ${s.slo_type}`).join(', ')}`}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-sky-900/40 text-sky-300 border-sky-700/40 shrink-0 whitespace-nowrap">
+                    SLO · {String(sloImpact[0].service)}
+                  </span>
                 </Tooltip>
-              )}
-              {item.status === 'agent_review_failed' && (
-                <Tooltip content={String(item.metadata?.agent_error || 'Agent analysis failed')}>
-                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                </Tooltip>
-              )}
-              {item.status !== 'agent_reviewing' && item.status !== 'agent_cleared' && !!item.metadata?.triaged && (
-                <Tooltip content={`AI: ${String(item.metadata.triage_action || 'triaged')} · ${String(item.metadata.triage_urgency || '')}`}>
-                  <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
-                </Tooltip>
-              )}
-              {hasApproval && (
-                <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" title="Pending approval" />
               )}
               {isPinned && (
                 <Pin className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
@@ -151,6 +206,16 @@ export function InboxItem({
               <Tooltip content="Green = done · Purple = current · Gray = upcoming" side="bottom">
                 <span><InboxLifecycleBadge itemType={item.item_type} status={item.status} /></span>
               </Tooltip>
+              {priorityFactors && (
+                <>
+                  <span>·</span>
+                  {/* Why this rank. A queue whose line one can't explain itself
+                      doesn't get trusted — the score's inputs are one hover away. */}
+                  <Tooltip content={<span className="whitespace-pre-line">{priorityTooltip(priorityFactors)}</span>} side="bottom">
+                    <span className="tabular-nums cursor-default">P {Number(priorityFactors.total ?? item.priority_score).toFixed(1)}</span>
+                  </Tooltip>
+                </>
+              )}
             </div>
             {(item.status === 'resolved' || item.status === 'agent_cleared') && item.metadata?.dismiss_reason ? (
               <p className="text-xs text-emerald-500/70 mt-1 line-clamp-1">
