@@ -146,7 +146,8 @@ describe('GateCard', () => {
     render(<GateCard gate={makeGate()} result={makeResult({ status: 'failed', detail: 'Bad config' })} />);
     fireEvent.click(screen.getByText('Fix with AI'));
     expect(mockOpenDock).toHaveBeenCalled();
-    expect(mockConnectAndSend).toHaveBeenCalledWith(expect.stringContaining('TLS Configured'));
+    // askPulse forwards an optional resource context; none applies here.
+    expect(mockConnectAndSend).toHaveBeenCalledWith(expect.stringContaining('TLS Configured'), undefined);
   });
 
   it('toggles expanded state on click', () => {

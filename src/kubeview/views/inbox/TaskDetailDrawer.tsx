@@ -18,7 +18,7 @@ import {
   type InvestigationReport,
 } from '../../engine/inboxApi';
 import { useInboxStore } from '../../store/inboxStore';
-import { useAgentStore } from '../../store/agentStore';
+import { askPulse } from '../../engine/askPulse';
 import { useUIStore } from '../../store/uiStore';
 import { useActionPlanStore, resolveStepStatus, isStepDone, type ActionPlanStep } from '../../store/actionPlanStore';
 import { InboxLifecycleStepper } from './InboxLifecycle';
@@ -143,9 +143,7 @@ function ActionPlanSection({
     useActionPlanStore.getState().startStep(stepIdx);
     advanceToInProgress();
     recordInboxStep(item.id, 'execute', stepIdx, steps[stepIdx]?.title ?? '').catch(() => {});
-    useAgentStore.getState().connectAndSend(prompt);
-    useUIStore.getState().expandAISidebar();
-    useUIStore.getState().setAISidebarMode('chat');
+    askPulse(prompt);
     onClose();
   };
 
@@ -356,11 +354,9 @@ export function TaskDetailDrawer({
 
   const handleInvestigate = () => {
     if (item.status === 'claimed') advanceStatus(item.id, 'in_progress');
-    useAgentStore.getState().connectAndSend(buildInvestigatePrompt(item));
+    askPulse(buildInvestigatePrompt(item));
     onClose();
     const uiState = useUIStore.getState();
-    uiState.expandAISidebar();
-    uiState.setAISidebarMode('chat');
     if (window.innerWidth < 1200) {
       uiState.setActiveTab('agent');
     }

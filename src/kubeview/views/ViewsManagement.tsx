@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, X, Download, Upload } from 'lucide-react';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
-import { useAgentStore } from '../store/agentStore';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { formatRelativeTime } from '../engine/formatters';
 import type { ViewSpec } from '../engine/agentComponents';
+import { askPulse } from '../engine/askPulse';
 
 const AGENT_BASE = '/api/agent';
 
@@ -218,10 +218,10 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               title="No views yet"
               description="Ask the AI to build any dashboard you need."
               aiPrompts={[
-                { label: 'Node health dashboard', onAsk: () => { useAgentStore.getState().connectAndSend('Create a dashboard showing node health: CPU/memory utilization, pod density, and node conditions'); useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat'); } },
-                { label: 'Workload overview', onAsk: () => { useAgentStore.getState().connectAndSend('Create a dashboard showing deployment status, pod restart trends, and OOM kills'); useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat'); } },
-                { label: 'Security posture', onAsk: () => { useAgentStore.getState().connectAndSend('Create a dashboard showing security audit score, cluster-admin bindings, unprotected namespaces, and SCC usage'); useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat'); } },
-                { label: 'Cost & capacity', onAsk: () => { useAgentStore.getState().connectAndSend('Create a dashboard showing resource utilization ratios, capacity projections, and idle workloads'); useUIStore.getState().expandAISidebar(); useUIStore.getState().setAISidebarMode('chat'); } },
+                { label: 'Node health dashboard', onAsk: () => { askPulse('Create a dashboard showing node health: CPU/memory utilization, pod density, and node conditions'); } },
+                { label: 'Workload overview', onAsk: () => { askPulse('Create a dashboard showing deployment status, pod restart trends, and OOM kills'); } },
+                { label: 'Security posture', onAsk: () => { askPulse('Create a dashboard showing security audit score, cluster-admin bindings, unprotected namespaces, and SCC usage'); } },
+                { label: 'Cost & capacity', onAsk: () => { askPulse('Create a dashboard showing resource utilization ratios, capacity projections, and idle workloads'); } },
               ]}
             />
           </div>

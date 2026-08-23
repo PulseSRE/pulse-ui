@@ -2,9 +2,8 @@ import React from 'react';
 import { AlertCircle, CheckCircle2, Trash2, Bot, ShieldX, WifiOff, ServerCrash, XCircle, Filter } from 'lucide-react';
 import { useErrorStore, type TrackedError } from '../../store/errorStore';
 import type { ErrorCategory } from '../../engine/errors';
-import { useUIStore } from '../../store/uiStore';
-import { useAgentStore } from '../../store/agentStore';
 import { cn } from '@/lib/utils';
+import { askPulse } from '../../engine/askPulse';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string }> = {
   permission: { label: 'Permission', icon: ShieldX, color: 'text-red-400' },
@@ -39,9 +38,7 @@ export function ErrorsTab() {
   const resolvedCount = errors.length - unresolvedCount;
 
   const handleAskAI = (error: TrackedError) => {
-    useUIStore.getState().expandAISidebar();
-    useUIStore.getState().setAISidebarMode('chat');
-    useAgentStore.getState().connectAndSend(
+    askPulse(
       `I got this error: "${error.userMessage}". ${error.message}. What does this mean and how can I fix it?`
     );
   };

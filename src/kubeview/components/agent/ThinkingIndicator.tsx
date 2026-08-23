@@ -12,7 +12,7 @@ interface ThinkingIndicatorProps {
   completedTools?: Set<string>;
   /** Skills that completed (for checkmark display) */
   completedSkills?: Set<string>;
-  /** Compact mode for InlineAgent (no border glow, smaller) */
+  /** Compact mode (no border glow, smaller) */
   compact?: boolean;
 }
 

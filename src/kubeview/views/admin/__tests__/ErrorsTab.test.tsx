@@ -168,8 +168,10 @@ describe('ErrorsTab', () => {
 
     fireEvent.click(screen.getByText('Ask AI'));
     expect(mockExpandAISidebar).toHaveBeenCalled();
+    // askPulse forwards an optional resource context; none applies here.
     expect(mockConnectAndSend).toHaveBeenCalledWith(
       expect.stringContaining('Cannot list pods'),
+      undefined,
     );
   });
 

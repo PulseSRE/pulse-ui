@@ -11,8 +11,7 @@ import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../../engine/query';
 import { safeQuery } from '../../engine/safeQuery';
 import { AIIconStatic, AI_ACCENT, PromptPill } from '../../components/agent/AIBranding';
-import { useUIStore } from '../../store/uiStore';
-import { useAgentStore } from '../../store/agentStore';
+import { askPulse } from '../../engine/askPulse';
 import { generateSmartPrompts } from '../../engine/smartPrompts';
 import { parseResourceValue } from '../../engine/formatting';
 import { queryInstant } from '../../components/metrics/prometheus';
@@ -229,16 +228,10 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [zenDismissed, setZenDismissed] = useState(() => sessionStorage.getItem('pulse-zen-dismissed') === 'true');
-  const expandAISidebar = useUIStore((s) => s.expandAISidebar);
-  const setAISidebarMode = useUIStore((s) => s.setAISidebarMode);
-  const connectAndSend = useAgentStore((s) => s.connectAndSend);
-
   /** Open AI sidebar in chat mode with a prompt */
   const askAgent = useCallback((prompt: string) => {
-    connectAndSend(prompt);
-    expandAISidebar();
-    setAISidebarMode('chat');
-  }, [connectAndSend, expandAISidebar, setAISidebarMode]);
+    askPulse(prompt);
+  }, []);
 
   const toggleExpanded = (key: string) => {
     setExpandedItems(prev => {
