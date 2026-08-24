@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, GitBranch, Loader2, Wrench } from 'lucide-react';
+import { Check, GitBranch, Loader2, Wrench, XCircle } from 'lucide-react';
 import { Button } from '../../components/primitives/Button';
 import { approveFix, fetchFixHistory, type ActionRecord } from '../../engine/fixHistory';
 import { formatElapsed } from '../../engine/dateUtils';
@@ -20,7 +20,7 @@ export function ProposedFixes() {
   const [proposals, setProposals] = useState<ActionRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [done, setDone] = useState<Record<string, string>>({});
+  const [done, setDone] = useState<Record<string, { message: string; ok: boolean }>>({});
 
   const load = useCallback(async () => {
     try {
@@ -44,12 +44,13 @@ export function ProposedFixes() {
     setErrors((e) => ({ ...e, [action.id]: '' }));
     try {
       const result = await approveFix(action.id);
+      const ok = result.status === 'completed';
       setDone((d) => ({
         ...d,
-        [action.id]:
-          result.status === 'completed'
-            ? `Ran ${result.tool || 'the fix'}`
-            : `Failed: ${result.error ?? 'unknown error'}`,
+        [action.id]: {
+          ok,
+          message: ok ? `Ran ${result.tool || 'the fix'}` : `Failed: ${result.error ?? 'unknown error'}`,
+        },
       }));
       setProposals((p) => p.filter((a) => a.id !== action.id));
     } catch (e) {
@@ -65,14 +66,21 @@ export function ProposedFixes() {
   const finished = Object.entries(done);
   if (proposals.length === 0 && finished.length === 0) return null;
 
+  // The header must not celebrate a failure: "Fixes applied" over a red
+  // "Failed: …" row is how a 403 got reported as success on the reference
+  // cluster. Name what actually happened.
+  const anyFailed = finished.some(([, f]) => !f.ok);
+  const allFailed = finished.length > 0 && finished.every(([, f]) => !f.ok);
+  const finishedLabel = allFailed ? `Fix${finished.length === 1 ? '' : 'es'} failed` : anyFailed ? 'Fix results' : 'Fixes applied';
+
   return (
     <div className="mx-4 mt-3 rounded-md border border-amber-700/40 bg-amber-500/5">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-700/30">
         <Wrench className="w-4 h-4 text-amber-400" />
-        <span className="text-xs font-medium text-amber-200">
+        <span className={`text-xs font-medium ${proposals.length === 0 && allFailed ? 'text-red-300' : 'text-amber-200'}`}>
           {proposals.length > 0
             ? `${proposals.length} fix${proposals.length === 1 ? '' : 'es'} waiting on you`
-            : 'Fixes applied'}
+            : finishedLabel}
         </span>
       </div>
 
@@ -113,9 +121,13 @@ export function ProposedFixes() {
         ))}
       </ul>
 
-      {finished.map(([id, message]) => (
-        <div key={id} className="flex items-center gap-2 px-3 py-2 text-xs text-slate-400">
-          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+      {finished.map(([id, { message, ok }]) => (
+        <div key={id} className={`flex items-center gap-2 px-3 py-2 text-xs ${ok ? 'text-slate-400' : 'text-red-300'}`}>
+          {ok ? (
+            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          ) : (
+            <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+          )}
           {/* Backend messages are cleaned up before they get here, but a
               single-line clamp is a cheap safety net against anything long
               blowing out this row's layout. */}
