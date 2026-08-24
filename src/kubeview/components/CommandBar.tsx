@@ -329,9 +329,11 @@ export function CommandBar() {
           )}
         </div>
 
-        {/* Update-in-progress chip — visible while the operator rolls new
-            images, gone the moment the CR is back to Running. */}
-        {pulseUpgrade.upgrading && (
+        {/* Pulse health indicator — always present once the CR answers:
+            quiet green dot when healthy, animated blue chip mid-upgrade,
+            red chip naming the phase when something is wrong. 'unknown'
+            (CR unreadable) shows nothing rather than crying wolf. */}
+        {pulseUpgrade.health === 'updating' && (
           <button
             onClick={() => go('/about', 'About Pulse')}
             className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-blue-500/15 border border-blue-500/40 text-blue-300 hover:bg-blue-500/25 transition-colors"
@@ -339,6 +341,26 @@ export function CommandBar() {
           >
             <RefreshCw className="w-3 h-3 animate-spin" />
             Updating…
+          </button>
+        )}
+        {pulseUpgrade.health === 'unhealthy' && (
+          <button
+            onClick={() => go('/about', 'About Pulse')}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-red-500/15 border border-red-500/40 text-red-300 hover:bg-red-500/25 transition-colors"
+            title={pulseUpgrade.detail}
+          >
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+            Pulse {pulseUpgrade.phase}
+          </button>
+        )}
+        {pulseUpgrade.health === 'healthy' && (
+          <button
+            onClick={() => go('/about', 'About Pulse')}
+            className="flex items-center gap-1.5 px-1.5 py-1 rounded-md text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
+            title={pulseUpgrade.detail}
+            aria-label="Pulse healthy"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
           </button>
         )}
 

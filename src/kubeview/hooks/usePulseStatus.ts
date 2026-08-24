@@ -55,11 +55,17 @@ export function usePulseCR(): PulseCR | null | undefined {
   return data;
 }
 
+export type PulseHealth = 'healthy' | 'updating' | 'unhealthy' | 'unknown';
+
 export interface PulseUpgradeStatus {
   phase: string;
   upgrading: boolean;
   /** Human-readable moves, e.g. "agent v2.22.0 → v2.22.1". */
   moves: string[];
+  /** Rolled-up health for the header indicator. */
+  health: PulseHealth;
+  /** One line of per-component detail for tooltips. */
+  detail: string;
 }
 
 /**
@@ -78,6 +84,31 @@ export function upgradeMovesFor(cr: PulseCR | null | undefined): string[] {
   return moves;
 }
 
+/**
+ * Roll the operator's phase up to one of three states an operator can act
+ * on — plus 'unknown' when the CR is unreadable, which must never be
+ * painted as either healthy or unhealthy: absence of an answer is not an
+ * answer.
+ */
+export function healthFor(cr: PulseCR | null | undefined): PulseHealth {
+  const phase = cr?.status?.phase;
+  if (!phase) return 'unknown';
+  if (phase === 'Running') return 'healthy';
+  if (phase === 'Upgrading') return 'updating';
+  return 'unhealthy'; // Degraded, Installing, anything the operator invents later
+}
+
+export function healthDetailFor(cr: PulseCR | null | undefined): string {
+  const s = cr?.status;
+  if (!s?.phase) return 'Pulse status unavailable';
+  const parts = [
+    `agent ${s.agentHealthy ? 'healthy' : 'unhealthy'}`,
+    `database ${s.databaseReady ? 'ready' : 'not ready'}`,
+    `console ${s.uiAvailable ? 'available' : 'unavailable'}`,
+  ];
+  return `${s.phase} — ${parts.join(' · ')}`;
+}
+
 export function usePulseUpgrade(): PulseUpgradeStatus {
   const cr = usePulseCR();
   const phase = cr?.status?.phase ?? '';
@@ -85,5 +116,7 @@ export function usePulseUpgrade(): PulseUpgradeStatus {
     phase,
     upgrading: phase === 'Upgrading',
     moves: upgradeMovesFor(cr),
+    health: healthFor(cr),
+    detail: healthDetailFor(cr),
   };
 }
