@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/PulseSRE/pulse-ui/releases/tag/v2.16.0"><img src="https://img.shields.io/badge/release-v2.16.0-2563eb?style=for-the-badge" alt="Version"></a>
-  <img src="https://img.shields.io/badge/tests-2104-10b981?style=for-the-badge" alt="Tests">
+  <a href="https://github.com/PulseSRE/pulse-ui/releases/tag/v2.24.0"><img src="https://img.shields.io/badge/release-v2.24.0-2563eb?style=for-the-badge" alt="Version"></a>
+  <img src="https://img.shields.io/badge/tests-2266-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/health%20checks-77-f59e0b?style=for-the-badge" alt="Health Checks">
   <img src="https://img.shields.io/badge/CVEs-0-10b981?style=for-the-badge" alt="CVEs">
   <img src="https://img.shields.io/badge/license-MIT-6366f1?style=for-the-badge" alt="License">

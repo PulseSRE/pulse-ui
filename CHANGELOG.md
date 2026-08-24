@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## v2.24.0 (2026-08-24)
 
 ### A watch storm that retried the same expired resourceVersion twice a second
 - Measured live on the dev cluster: the pods, deployments and PVC watches reconnected every ~0.5s for hours — each upgrade succeeded (HTTP 101 in the nginx log) and died immediately, always resending the same expired `resourceVersion`
