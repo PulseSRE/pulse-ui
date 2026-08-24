@@ -32,6 +32,22 @@ export interface ActionRecord {
   rollbackAvailable: boolean;
   rollbackAction?: { tool: string; input: Record<string, unknown> };
   resources: ResourceRef[];
+  // 'pending' is the initial state of a contracted write whose postcondition
+  // probe has not run yet — a scheduled check, not a stuck one.
+  verificationStatus?: 'pending' | 'verified' | 'still_failing' | 'improved' | 'unverifiable';
+  verificationEvidence?: string;
+  verificationTimestamp?: number;
+}
+
+/**
+ * Human label for a fix-history action category.
+ *
+ * Most categories are scanner names shown as-is. 'chat_action' is different in
+ * kind, not just in name: the operator approved it in chat, the agent did not
+ * act on its own — so it must never read as an auto-fix.
+ */
+export function actionCategoryLabel(category: string): string {
+  return category === 'chat_action' ? 'User-initiated' : category;
 }
 
 export interface FixHistoryFilters {

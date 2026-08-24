@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Target, Layers, Cable, FileText, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { safeQuery } from '../../engine/safeQuery';
+import { actionCategoryLabel } from '../../engine/fixHistory';
 import {
   fetchTopologySummary, fetchPlanTemplates, fetchPostmortemCount,
   fetchFixHistorySummary, fetchFixStrategies, fetchLearningFeed,
@@ -141,7 +142,7 @@ export function OrcaAnalyticsSection() {
             <div className="mt-3 space-y-1">
               {fixSummary.by_category.slice(0, 5).map((c) => (
                 <div key={c.category} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-300">{c.category}</span>
+                  <span className="text-slate-300">{actionCategoryLabel(c.category)}</span>
                   <span className="text-slate-400">
                     {c.success_count}/{c.count} fixed
                   </span>

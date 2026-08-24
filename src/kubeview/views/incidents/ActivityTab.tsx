@@ -16,6 +16,7 @@ import { resourceDetailUrl } from '../../engine/gvr';
 import { formatRelativeTime } from '../../engine/formatters';
 import { getDateKey } from '../../engine/dateUtils';
 import { fetchLearningFeed } from '../../engine/analyticsApi';
+import { actionCategoryLabel } from '../../engine/fixHistory';
 import { agentFetch } from '../../engine/safeQuery';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../../engine/types/timeline';
 import { CorrelationGroupRow } from './shared/CorrelationGroupRow';
@@ -120,12 +121,15 @@ export function ActivityTab() {
 
     if (showAgent) {
       for (const action of fixHistory) {
+        // A chat_action row is a write the operator approved in chat — labeling
+        // it a plain "Fix" would make a human decision read as an autonomous one.
+        const prefix = action.category === 'chat_action' ? 'User-approved fix' : 'Fix';
         all.push({
           id: action.id,
           timestamp: new Date(action.timestamp).toISOString(),
           category: 'event' as TimelineCategory,
           severity: (action.status === 'failed' ? 'warning' : 'normal') as 'warning' | 'normal',
-          title: `Fix: ${action.tool || action.category} — ${action.status}`,
+          title: `${prefix}: ${action.tool || actionCategoryLabel(action.category)} — ${action.status}`,
           detail: action.reasoning || action.afterState || '',
           namespace: action.resources?.[0]?.namespace,
           resource: action.resources?.[0]

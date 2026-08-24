@@ -187,7 +187,9 @@ export interface ResolutionRecord {
   tool: string;
   status: string;
   reasoning: string;
-  outcome: 'verified' | 'still_failing' | 'improved';
+  // 'pending' (probe not run yet) and 'unverifiable' (probe could not read the
+  // cluster) reach this list too — any non-null verification status does.
+  outcome: 'verified' | 'still_failing' | 'improved' | 'pending' | 'unverifiable';
   evidence: string;
   timestamp: number;
   verifiedAt: number | null;
