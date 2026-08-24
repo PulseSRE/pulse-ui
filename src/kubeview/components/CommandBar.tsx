@@ -373,6 +373,12 @@ export function CommandBar() {
                 >
                   User Management
                 </button>
+                <button
+                  onClick={() => { setShowUserMenu(false); go('/about', 'About Pulse'); }}
+                  className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  About Pulse
+                </button>
                 {impersonateUser ? (
                   <button
                     onClick={() => {
