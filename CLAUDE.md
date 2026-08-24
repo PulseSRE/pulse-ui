@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.21.0, ~390 source files, 2,241 unit tests (184 files) + 56 E2E scenarios.
+OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.21.1, ~390 source files, 2,243 unit tests (184 files) + 56 E2E scenarios.
 
 ## Commands
 
