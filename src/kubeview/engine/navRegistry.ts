@@ -46,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'admin', label: 'Administration', icon: 'Settings', path: '/admin', group: 'administration', subtitle: 'Config, updates, snapshots, quotas, certificates', keywords: ['config', 'updates', 'quotas', 'certificates', 'crds'], color: 'text-slate-400' },
   { id: 'identity', label: 'Identity & Access', icon: 'Shield', path: '/identity', group: 'administration', subtitle: 'Users, groups, RBAC, impersonation', keywords: ['users', 'groups', 'service', 'accounts', 'rbac', 'impersonation'], color: 'text-teal-400' },
   { id: 'readiness', label: 'Production Readiness', icon: 'Rocket', path: '/readiness', group: 'administration', subtitle: 'Readiness wizard — security, reliability, observability gates', keywords: ['readiness', 'wizard', 'reliability', 'observability', 'gates', 'production'], color: 'text-amber-400' },
+  { id: 'about', label: 'About Pulse', icon: 'Info', path: '/about', group: 'administration', subtitle: 'Versions, images, and links for everything Pulse runs on this cluster', keywords: ['about', 'version', 'release', 'image', 'operator', 'upgrade', 'github'], color: 'text-sky-400' },
 
   // Agent
   { id: 'agent', label: 'Pulse Agent', icon: 'Bot', path: '/agent', group: 'agent', subtitle: 'Configure, monitor, and understand the AI assistant', keywords: ['agent', 'ai', 'trust', 'skills', 'tools', 'analytics', 'memory', 'mcp'], color: 'text-violet-400' },

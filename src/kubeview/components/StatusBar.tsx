@@ -144,6 +144,13 @@ export function StatusBar() {
         {openTabCount > 0 && <span>{openTabCount} tab{openTabCount !== 1 ? 's' : ''}</span>}
         <span>{selectedNamespace === '*' ? 'all namespaces' : selectedNamespace}</span>
         <span>⌘K search · ⌘B browse</span>
+        <button
+          onClick={() => navigate('/about')}
+          className="px-1.5 py-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-colors"
+          title="About OpenShift Pulse — versions, images, links"
+        >
+          v{__APP_VERSION__}
+        </button>
       </div>
     </div>
   );

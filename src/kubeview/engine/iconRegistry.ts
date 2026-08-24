@@ -62,6 +62,7 @@ import {
   Rocket,
   LayoutDashboard,
   Gauge,
+  Info,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
@@ -127,6 +128,7 @@ const iconRegistry: Record<string, LucideIcon> = {
   Rocket,
   LayoutDashboard,
   Gauge,
+  Info,
 };
 
 /**
