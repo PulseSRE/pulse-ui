@@ -175,6 +175,23 @@ describe('fixHistory', () => {
         'Failed to request rollback: 409 Conflict',
       );
     });
+
+    it('surfaces the agent error message from the response body', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          json: () =>
+            Promise.resolve({ error: 'No rollback strategy for delete_pod actions' }),
+        }),
+      );
+
+      await expect(requestRollback('a1')).rejects.toThrow(
+        'No rollback strategy for delete_pod actions',
+      );
+    });
   });
 
   describe('actionCategoryLabel', () => {

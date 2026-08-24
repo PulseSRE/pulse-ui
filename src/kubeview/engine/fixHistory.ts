@@ -138,13 +138,28 @@ export async function approveFix(actionId: string): Promise<ActionRecord> {
   return body as ActionRecord;
 }
 
-/** Request a rollback for a completed action. */
+/**
+ * Request a rollback for a completed action.
+ *
+ * Only actions with a pre-write snapshot (or restart_deployment, which rolls
+ * back by revision) can be rolled back — the agent answers 400 with a reason
+ * for anything else. That refusal is an answer, not a transport failure, so
+ * surface its message.
+ */
 export async function requestRollback(actionId: string): Promise<void> {
   const res = await agentFetch(
     `${AGENT_BASE}/fix-history/${encodeURIComponent(actionId)}/rollback`,
     { method: 'POST' },
   );
   if (!res.ok) {
-    throw new Error(`Failed to request rollback: ${res.status} ${res.statusText}`);
+    let body: { error?: string } | null = null;
+    try {
+      body = await res.json();
+    } catch {
+      // no JSON body — fall through to the status line
+    }
+    throw new Error(
+      body?.error || `Failed to request rollback: ${res.status} ${res.statusText}`,
+    );
   }
 }
