@@ -20,6 +20,7 @@ const FleetAlertsView = lazy(() => import('../views/fleet/FleetAlertsView'));
 const DriftDetectorView = lazy(() => import('../views/fleet/DriftDetectorView').then(m => ({ default: m.DriftDetectorView })));
 const InboxPage = lazy(() => import('../views/InboxPage').then(m => ({ default: m.InboxPage })));
 const OnboardingView = lazy(() => import('../views/OnboardingView'));
+const AboutView = lazy(() => import('../views/AboutView'));
 const PulseAgentView = lazy(() => import('../views/PulseAgentView'));
 const ViewsManagement = lazy(() => import('../views/ViewsManagement'));
 const AlertsView = lazy(() => import('../views/AlertsView'));
@@ -64,6 +65,7 @@ export function domainRoutes() {
       <Route path="fleet/drift" element={<Lazy fallbackTitle="Drift Detector"><DriftDetectorView /></Lazy>} />
       <Route path="inbox" element={<Lazy fallbackTitle="Inbox"><InboxPage /></Lazy>} />
       <Route path="readiness" element={<Lazy fallbackTitle="Readiness"><OnboardingView /></Lazy>} />
+      <Route path="about" element={<Lazy fallbackTitle="About"><AboutView /></Lazy>} />
       <Route path="views" element={<Lazy fallbackTitle="Views"><ViewsManagement /></Lazy>} />
       <Route path="agent" element={<Lazy fallbackTitle="Agent"><PulseAgentView /></Lazy>} />
       <Route path="slo" element={<Lazy fallbackTitle="SLO"><SloView /></Lazy>} />
