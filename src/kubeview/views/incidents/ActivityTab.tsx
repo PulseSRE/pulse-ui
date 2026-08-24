@@ -17,6 +17,8 @@ import { formatRelativeTime } from '../../engine/formatters';
 import { getDateKey } from '../../engine/dateUtils';
 import { fetchLearningFeed } from '../../engine/analyticsApi';
 import { agentFetch } from '../../engine/safeQuery';
+import { requestRollback, type ActionRecord } from '../../engine/fixHistory';
+import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../../engine/types/timeline';
 import { CorrelationGroupRow } from './shared/CorrelationGroupRow';
 import { HistoryEntryCard } from './shared/HistoryEntryCard';
@@ -56,6 +58,9 @@ export function ActivityTab() {
   );
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [lifecycleFindingId, setLifecycleFindingId] = useState<string | null>(null);
+  const [rollbackTarget, setRollbackTarget] = useState<ActionRecord | null>(null);
+  const [rollbackBusy, setRollbackBusy] = useState(false);
+  const [rollbackError, setRollbackError] = useState<string | null>(null);
 
   const toggleCategory = (cat: ActivityCategory) => {
     setActiveCategories((prev) => {
@@ -147,6 +152,40 @@ export function ActivityTab() {
 
     return all;
   }, [timeline.entries, fixHistory, searchQuery, showAgent]);
+
+  // Completed fixes the agent can undo — keyed by action id, which is also the
+  // timeline entry id the merge above assigns them.
+  const rollbackableById = useMemo(() => {
+    const map = new Map<string, ActionRecord>();
+    for (const action of fixHistory) {
+      if (action.status === 'completed' && action.rollbackAvailable) map.set(action.id, action);
+    }
+    return map;
+  }, [fixHistory]);
+
+  const handleConfirmRollback = async () => {
+    if (!rollbackTarget) return;
+    setRollbackBusy(true);
+    setRollbackError(null);
+    try {
+      await requestRollback(rollbackTarget.id);
+      const res = rollbackTarget.resources?.[0];
+      useUIStore.getState().addToast({
+        type: 'success',
+        title: 'Rollback executed',
+        detail: res ? `${res.kind} ${res.name} restored to its pre-fix state` : undefined,
+        duration: 5000,
+      });
+      setRollbackTarget(null);
+      loadFixHistory();
+    } catch (e) {
+      // The agent refuses on purpose for action types without a snapshot —
+      // show what it said instead of a generic failure.
+      setRollbackError(e instanceof Error ? e.message : 'Rollback failed');
+    } finally {
+      setRollbackBusy(false);
+    }
+  };
 
   // Group by date for "by date" mode
   const groupedEntries = useMemo(() => {
@@ -392,9 +431,17 @@ export function ActivityTab() {
                     <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wide">{dateKey}</h2>
                   </div>
                   <div className="relative pl-6 border-l-2 border-slate-800 space-y-3">
-                    {dateEntries.map((entry) => (
-                      <HistoryEntryCard key={entry.id} entry={entry} onClick={() => handleEntryClick(entry)} />
-                    ))}
+                    {dateEntries.map((entry) => {
+                      const rollbackable = rollbackableById.get(entry.id);
+                      return (
+                        <HistoryEntryCard
+                          key={entry.id}
+                          entry={entry}
+                          onClick={() => handleEntryClick(entry)}
+                          onRollback={rollbackable ? () => { setRollbackError(null); setRollbackTarget(rollbackable); } : undefined}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -406,6 +453,25 @@ export function ActivityTab() {
       {lifecycleFindingId && (
         <IncidentLifecycleDrawer findingId={lifecycleFindingId} onClose={() => setLifecycleFindingId(null)} />
       )}
+
+      <ConfirmDialog
+        open={rollbackTarget !== null}
+        onClose={() => setRollbackTarget(null)}
+        onConfirm={handleConfirmRollback}
+        title="Roll back this fix?"
+        description={rollbackTarget ? (() => {
+          const res = rollbackTarget.resources?.[0];
+          const what = res ? `${res.kind} ${res.name}${res.namespace ? ` in ${res.namespace}` : ''}` : 'the affected resource';
+          return `The agent will restore ${what} to its state before "${rollbackTarget.tool || rollbackTarget.category}" ran. This writes to the cluster immediately.`;
+        })() : ''}
+        confirmLabel="Roll back"
+        variant="warning"
+        loading={rollbackBusy}
+      >
+        {rollbackError && (
+          <p className="mt-3 text-sm text-red-400" role="alert">{rollbackError}</p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

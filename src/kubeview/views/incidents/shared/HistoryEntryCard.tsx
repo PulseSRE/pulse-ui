@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Activity, RefreshCw, Settings } from 'lucide-react';
+import { Bell, Activity, RefreshCw, Settings, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TimelineEntry, TimelineCategory } from '../../../engine/types/timeline';
 
@@ -10,7 +10,11 @@ export const CATEGORY_CONFIG: Record<TimelineCategory, { label: string; icon: Re
   config: { label: 'Config', icon: Settings, color: 'text-amber-400' },
 };
 
-export function HistoryEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: () => void }) {
+export function HistoryEntryCard({ entry, onClick, onRollback }: {
+  entry: TimelineEntry;
+  onClick: () => void;
+  onRollback?: () => void;
+}) {
   const cfg = CATEGORY_CONFIG[entry.category];
   const Icon = cfg.icon;
   const hasResource = !!entry.resource;
@@ -69,6 +73,18 @@ export function HistoryEntryCard({ entry, onClick }: { entry: TimelineEntry; onC
           <div className="text-sm font-medium text-slate-200">{entry.title}</div>
           {entry.detail && <div className="text-sm text-slate-400 mt-0.5 line-clamp-2">{entry.detail}</div>}
         </div>
+
+        {onRollback && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRollback(); }}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-sm border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+            aria-label={`Roll back: ${entry.title}`}
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            Rollback
+          </button>
+        )}
       </div>
     </div>
   );
