@@ -143,6 +143,14 @@ export function SkillsTab() {
                         Quarantined
                       </span>
                     )}
+                    {Boolean(skill.pinned) && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 bg-violet-900/30 text-violet-300 rounded-sm border border-violet-700/40"
+                        title="Exempt from curator archive/consolidation proposals"
+                      >
+                        Pinned
+                      </span>
+                    )}
                     {skill.generated_by === 'auto' && !skill.reviewed && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm border border-amber-700/40">
                         AI-generated · Needs review

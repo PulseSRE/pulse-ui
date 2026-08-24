@@ -161,3 +161,71 @@ describe('SkillsTab quarantine badge', () => {
     expect(screen.queryByText('Quarantined')).toBeNull();
   });
 });
+
+describe('SkillDetailDrawer curator actions', () => {
+  beforeEach(() => mockFetch.mockReset());
+  afterEach(cleanup);
+
+  it('pin calls the pin endpoint for an agent-created skill', async () => {
+    const calls: string[] = [];
+    routeFetch({ ...baseSkill, reviewed: true, pinned: false }, calls);
+    renderWithProviders(<SkillDetailDrawer name="crashloop-payments" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Pin')).toBeDefined());
+    fireEvent.click(screen.getByText('Pin'));
+    await waitFor(() =>
+      expect(calls).toContain('/api/agent/admin/skills/crashloop-payments/pin'),
+    );
+  });
+
+  it('a pinned skill offers Unpin and hides Archive', async () => {
+    const calls: string[] = [];
+    routeFetch({ ...baseSkill, reviewed: true, pinned: true }, calls);
+    renderWithProviders(<SkillDetailDrawer name="crashloop-payments" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Unpin')).toBeDefined());
+    // Pinned is the human "leave this alone" — the archive action disappears.
+    expect(screen.queryByText('Archive')).toBeNull();
+    fireEvent.click(screen.getByText('Unpin'));
+    await waitFor(() =>
+      expect(calls).toContain('/api/agent/admin/skills/crashloop-payments/unpin'),
+    );
+  });
+
+  it('archive goes through a confirm dialog, then closes the drawer', async () => {
+    const calls: string[] = [];
+    const onClose = vi.fn();
+    routeFetch({ ...baseSkill, reviewed: true }, calls);
+    renderWithProviders(<SkillDetailDrawer name="crashloop-payments" onClose={onClose} />);
+    await waitFor(() => expect(screen.getByText('Archive')).toBeDefined());
+    fireEvent.click(screen.getByText('Archive'));
+    // Nothing sent yet — the dialog is the gate.
+    expect(calls).toHaveLength(0);
+    await waitFor(() => expect(screen.getByText('Archive Skill')).toBeDefined());
+    expect(screen.getByText(/nothing is deleted/)).toBeDefined();
+    const buttons = screen.getAllByRole('button', { name: 'Archive' });
+    fireEvent.click(buttons[buttons.length - 1]);
+    await waitFor(() =>
+      expect(calls).toContain('/api/agent/admin/skills/crashloop-payments/archive'),
+    );
+    // The skill no longer loads once archived, so the drawer closes itself.
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('human-authored skills get no pin or archive controls', async () => {
+    routeFetch({ ...baseSkill, generated_by: '', reviewed: true });
+    renderWithProviders(<SkillDetailDrawer name="crashloop-payments" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getAllByText('crashloop-payments').length).toBeGreaterThan(0));
+    expect(screen.queryByText('Pin')).toBeNull();
+    expect(screen.queryByText('Archive')).toBeNull();
+  });
+});
+
+describe('SkillsTab pinned badge', () => {
+  beforeEach(() => mockFetch.mockReset());
+  afterEach(cleanup);
+
+  it('marks a pinned skill on its card', async () => {
+    routeFetch({ ...baseSkill, reviewed: true, pinned: true });
+    renderWithProviders(<SkillsTab />);
+    await waitFor(() => expect(screen.getByText('Pinned')).toBeDefined());
+  });
+});
