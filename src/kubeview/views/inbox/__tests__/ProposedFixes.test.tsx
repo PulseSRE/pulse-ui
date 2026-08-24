@@ -153,4 +153,26 @@ describe('ProposedFixes', () => {
     await waitFor(() => expect(fetchFixHistory).toHaveBeenCalled());
     expect(container.textContent).toBe('');
   });
+  it('a failed fix never sits under a "Fixes applied" header with a green check', async () => {
+    // The reference cluster showed exactly this: an RBAC 403 rendered under
+    // "Fixes applied" with a checkmark. The header must name what happened.
+    vi.mocked(approveFix).mockResolvedValue({
+      ...PROPOSAL,
+      status: 'failed',
+      error: 'service account cannot delete pods',
+    });
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(screen.getByText('Fix failed')).toBeDefined());
+    expect(screen.queryByText('Fixes applied')).toBeNull();
+  });
+
+  it('a fix that succeeded still reads "Fixes applied"', async () => {
+    render(<ProposedFixes />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(screen.getByText('Fixes applied')).toBeDefined());
+  });
+
 });
