@@ -5,6 +5,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { fetchResolutions, fetchFixHistorySummary } from '../../engine/analyticsApi';
+import { actionCategoryLabel } from '../../engine/fixHistory';
 import { formatRelativeTime } from '../../engine/formatters';
 import { IncidentLifecycleDrawer } from '../incidents/IncidentLifecycleDrawer';
 
@@ -62,6 +63,8 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
       case 'verified': return 'Resolved';
       case 'improved': return 'Improved';
       case 'still_failing': return 'Still Failing';
+      case 'pending': return 'Pending';
+      case 'unverifiable': return 'Unverifiable';
       default: return outcome;
     }
   };
@@ -160,11 +163,22 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                       'text-[10px] px-1.5 py-0.5 rounded-sm font-medium',
                       r.outcome === 'verified' ? 'bg-emerald-900/40 text-emerald-300' :
                       r.outcome === 'improved' ? 'bg-blue-900/40 text-blue-300' :
+                      // Grey, not amber: a probe that has not run (pending) or
+                      // could not read the cluster (unverifiable) is not a fix
+                      // having gone wrong.
+                      r.outcome === 'pending' || r.outcome === 'unverifiable' ? 'bg-slate-800 text-slate-400' :
                       'bg-amber-900/40 text-amber-300',
                     )}>
                       {outcomeLabel(r.outcome)}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{r.category}</span>
+                    {/* Violet, not slate: this fix was approved by a person in
+                        chat, and must not blend in with autonomous fixes. */}
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-sm',
+                      r.category === 'chat_action' ? 'bg-violet-900/40 text-violet-300' : 'bg-slate-800 text-slate-400',
+                    )}>
+                      {actionCategoryLabel(r.category)}
+                    </span>
                   </div>
                   {r.reasoning && (
                     <p className="text-xs text-slate-400 mb-1 line-clamp-2">{r.reasoning}</p>
@@ -190,7 +204,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
               <div className="space-y-1.5">
                 {summary.by_category.map((cat) => (
                   <div key={cat.category} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-300">{cat.category}</span>
+                    <span className="text-slate-300">{actionCategoryLabel(cat.category)}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-emerald-400">{cat.success_count}/{cat.count}</span>
                       {cat.auto_fixed > 0 && <span className="text-slate-500">{cat.auto_fixed} auto</span>}

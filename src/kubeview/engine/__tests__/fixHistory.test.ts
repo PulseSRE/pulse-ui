@@ -4,6 +4,7 @@ import {
   fetchFixHistory,
   fetchActionDetail,
   requestRollback,
+  actionCategoryLabel,
 } from '../fixHistory';
 
 const mockAction = {
@@ -173,6 +174,17 @@ describe('fixHistory', () => {
       await expect(requestRollback('a1')).rejects.toThrow(
         'Failed to request rollback: 409 Conflict',
       );
+    });
+  });
+
+  describe('actionCategoryLabel', () => {
+    it('labels chat_action as user-initiated', () => {
+      expect(actionCategoryLabel('chat_action')).toBe('User-initiated');
+    });
+
+    it('passes scanner categories through unchanged', () => {
+      expect(actionCategoryLabel('crashloop')).toBe('crashloop');
+      expect(actionCategoryLabel('image_pull')).toBe('image_pull');
     });
   });
 });

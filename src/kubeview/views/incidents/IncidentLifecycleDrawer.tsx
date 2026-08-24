@@ -277,9 +277,10 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     'text-xs px-1.5 py-0.5 rounded-sm font-medium',
                     verificationBadge === 'verified'
                       ? 'bg-emerald-900/50 text-emerald-300'
-                      // Grey, not amber: the check could not read the cluster,
-                      // which is not the same as the fix having gone wrong.
-                      : verificationBadge === 'unverifiable'
+                      // Grey, not amber: 'unverifiable' means the check could
+                      // not read the cluster, and 'pending' means the probe has
+                      // not run yet — neither is the fix having gone wrong.
+                      : verificationBadge === 'unverifiable' || verificationBadge === 'pending'
                         ? 'bg-slate-800 text-slate-400'
                         : 'bg-amber-900/50 text-amber-300',
                   )}>

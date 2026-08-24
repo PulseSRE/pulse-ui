@@ -67,7 +67,9 @@ export interface ActionReport {
   durationMs?: number;
   confidence?: number;
   rollbackAvailable?: boolean;
-  verificationStatus?: 'verified' | 'still_failing' | 'improved' | 'unverifiable';
+  // 'pending' is the initial state of a contracted write whose postcondition
+  // probe has not run yet — a scheduled check, not a stuck one.
+  verificationStatus?: 'pending' | 'verified' | 'still_failing' | 'improved' | 'unverifiable';
   verificationEvidence?: string;
   verificationTimestamp?: number;
   fixStrategy?: string;
