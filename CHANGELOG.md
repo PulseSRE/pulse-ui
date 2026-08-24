@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### A watch storm that retried the same expired resourceVersion twice a second
+- Measured live on the dev cluster: the pods, deployments and PVC watches reconnected every ~0.5s for hours — each upgrade succeeded (HTTP 101 in the nginx log) and died immediately, always resending the same expired `resourceVersion`
+- Two bugs compounded. The API server reports an expired version as an ERROR *event* — a `Status` object with `code: 410` — followed by a normal close, but `onclose` only cleared the stored version on close code 1008 or a reason containing "410", so the stale version was resent forever. And `onopen` reset the backoff counter, so the always-successful upgrade pinned the retry delay at 1s — the storm was the backoff working as written
+- `onmessage` now handles `type: 'ERROR'`: a 410 (or "too old"/"Expired" message) clears the stored version so the next connect starts fresh, and the `Status` object is not forwarded to resource callbacks, which expect resources
+- The backoff counter now resets only when a genuine event arrives — an upgrade that dies eventless proves nothing about health, so repeated failures back off to the 30s cap instead of hammering the proxy
+
 ### The detail page had its own chat too
 - `GenericDetailLayout` embedded an `InlineAgent`, so opening any resource detail page while the Pulse AI sidebar was open showed **two message boxes about the same resource**, each with its own connection state. Same fault as the episode card, one screen over
 - The three suggested questions were the useful part; the second input was not. They are now buttons that open the sidebar and ask there, carrying the resource kind, name, namespace and GVR

@@ -143,7 +143,12 @@ export class WatchManager {
       connection.ws = ws;
 
       ws.onopen = () => {
-        connection.reconnectAttempt = 0;
+        // Deliberately NOT resetting reconnectAttempt here. The upgrade
+        // succeeding proves nothing: a watch opened with an expired
+        // resourceVersion completes the handshake, receives a 410 ERROR
+        // event, and closes — all within milliseconds. Resetting on open
+        // made the backoff permanently 1s, i.e. a reconnect storm. The
+        // counter resets below, on the first genuine event.
         this.status = 'connected';
         this.startHeartbeat(key, connection);
       };
@@ -153,6 +158,25 @@ export class WatchManager {
 
         try {
           const watchEvent: WatchEvent = JSON.parse(event.data);
+
+          // The API server reports an expired resourceVersion as an ERROR
+          // *event* (a Status object with code 410), then closes the socket
+          // normally — not with close code 1008, which is all onclose was
+          // checking. Reconnecting with the same stale version repeats the
+          // cycle forever. Clear it so the next connect starts fresh, and
+          // don't forward the Status object to resource callbacks.
+          if (watchEvent.type === 'ERROR') {
+            const status = watchEvent.object as { code?: number; message?: string } | undefined;
+            if (status?.code === 410 || /too old|[Ee]xpired/.test(status?.message ?? '')) {
+              connection.resourceVersion = '';
+            }
+            closeQuietly(ws);
+            return;
+          }
+
+          // A real event arrived — the connection is genuinely healthy, so
+          // future drops may retry quickly again.
+          connection.reconnectAttempt = 0;
 
           // Update resource version from BOOKMARK events
           if (watchEvent.type === 'BOOKMARK' && watchEvent.object) {
