@@ -4,6 +4,7 @@ import {
   Puzzle, RefreshCw, Save, Check, Copy, Trash2, X,
   FileText, History, GitCompareArrows, AlertTriangle,
   ArrowRight, CheckCircle2, XCircle, ShieldCheck, ShieldOff,
+  Pin, PinOff, Archive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
@@ -41,6 +42,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [confirmQuarantine, setConfirmQuarantine] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [gateBusy, setGateBusy] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
   const cloneInputRef = useRef<HTMLInputElement>(null);
@@ -148,9 +150,10 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   };
 
   // approve restores an agent-refreshed skill to routing; quarantine pulls a
-  // misrouting one; unquarantine reverses that. All three are admin endpoints
-  // that rewrite skill.md frontmatter and hot-reload the registry.
-  const gateAction = async (action: 'approve' | 'quarantine' | 'unquarantine') => {
+  // misrouting one; unquarantine reverses that; pin/unpin toggles the curator
+  // exemption. All are admin endpoints that rewrite skill.md frontmatter and
+  // hot-reload the registry.
+  const gateAction = async (action: 'approve' | 'quarantine' | 'unquarantine' | 'pin' | 'unpin') => {
     setGateBusy(true);
     setGateError(null);
     try {
@@ -167,6 +170,30 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
     } finally {
       setGateBusy(false);
       setConfirmQuarantine(false);
+    }
+  };
+
+  // Archive retires an agent-created skill (recoverable — the directory moves
+  // to .archive/ and /restore brings it back). The skill stops loading, so a
+  // successful archive closes the drawer.
+  const handleArchive = async () => {
+    setGateBusy(true);
+    setGateError(null);
+    try {
+      const res = await agentFetch(`/api/agent/admin/skills/${name}/archive`, { method: 'POST' });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ['admin', 'skills'] });
+        setConfirmArchive(false);
+        onClose();
+        return;
+      }
+      const err = await res.json().catch(() => ({ detail: 'Archive failed' }));
+      setGateError(err.detail || 'Archive failed');
+    } catch {
+      setGateError('Network error');
+    } finally {
+      setGateBusy(false);
+      setConfirmArchive(false);
     }
   };
 
@@ -242,6 +269,31 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                   title="Pull this skill from automatic routing (reversible)"
                 >
                   <ShieldOff className="w-3.5 h-3.5" /> Quarantine
+                </button>
+              )}
+              {detail && detail.generated_by === 'auto' && (
+                <button
+                  onClick={() => gateAction(detail.pinned ? 'unpin' : 'pin')}
+                  disabled={gateBusy}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1.5 text-xs rounded-md hover:bg-slate-800 disabled:opacity-50',
+                    detail.pinned ? 'text-violet-300 hover:text-violet-200' : 'text-slate-400 hover:text-violet-400',
+                  )}
+                  title={detail.pinned
+                    ? 'Pinned — exempt from curator archive/consolidation proposals. Click to unpin.'
+                    : 'Exempt this skill from curator lifecycle proposals'}
+                >
+                  {detail.pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+                  {detail.pinned ? 'Unpin' : 'Pin'}
+                </button>
+              )}
+              {detail && detail.generated_by === 'auto' && !detail.pinned && (
+                <button
+                  onClick={() => { setConfirmArchive(true); setGateError(null); }}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-md"
+                  title="Retire this skill to the archive (recoverable — restore any time)"
+                >
+                  <Archive className="w-3.5 h-3.5" /> Archive
                 </button>
               )}
               {!['sre', 'security', 'view_designer'].includes(name) && (
@@ -408,6 +460,16 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
           description={`Pull '${name}' from automatic routing? It stops serving ORCA selection and trigger-pattern pre-routes, but stays loadable by name and can be restored at any time.`}
           confirmLabel="Quarantine"
           variant="danger"
+        />
+
+        <ConfirmDialog
+          open={confirmArchive}
+          onClose={() => setConfirmArchive(false)}
+          onConfirm={handleArchive}
+          title="Archive Skill"
+          description={`Archive '${name}'? It stops loading and routing, but nothing is deleted — the skill moves to the archive and can be restored at any time from the archived list.`}
+          confirmLabel="Archive"
+          variant="warning"
         />
 
         <ConfirmDialog
