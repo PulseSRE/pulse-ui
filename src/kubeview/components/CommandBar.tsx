@@ -9,12 +9,14 @@ import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../engine/safeQuery';
 import { performLogout } from '../engine/auth';
+import { usePulseUpgrade } from '../hooks/usePulseStatus';
 
 export function CommandBar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showNsDropdown, setShowNsDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const pulseUpgrade = usePulseUpgrade();
   const [nsFilter, setNsFilter] = useState('');
   const [showImpersonateInput, setShowImpersonateInput] = useState(false);
   const [impersonateInput, setImpersonateInput] = useState('');
@@ -327,6 +329,19 @@ export function CommandBar() {
           )}
         </div>
 
+        {/* Update-in-progress chip — visible while the operator rolls new
+            images, gone the moment the CR is back to Running. */}
+        {pulseUpgrade.upgrading && (
+          <button
+            onClick={() => go('/about', 'About Pulse')}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-blue-500/15 border border-blue-500/40 text-blue-300 hover:bg-blue-500/25 transition-colors"
+            title={pulseUpgrade.moves.join(', ') || 'Pulse is updating'}
+          >
+            <RefreshCw className="w-3 h-3 animate-spin" />
+            Updating…
+          </button>
+        )}
+
         {/* Notification bell */}
         <button
           onClick={() => go('/inbox', 'Inbox')}
@@ -379,6 +394,22 @@ export function CommandBar() {
                 >
                   About Pulse
                 </button>
+                {pulseUpgrade.upgrading && (
+                  <button
+                    onClick={() => { setShowUserMenu(false); go('/about', 'About Pulse'); }}
+                    className="w-full px-3 py-2 text-left text-sm text-blue-300 hover:bg-slate-700 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                      <span className="min-w-0">
+                        Update in progress
+                        {pulseUpgrade.moves.length > 0 && (
+                          <span className="block text-xs text-blue-300/70 truncate">{pulseUpgrade.moves.join(', ')}</span>
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                )}
                 {impersonateUser ? (
                   <button
                     onClick={() => {

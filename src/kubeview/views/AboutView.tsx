@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { k8sList } from '../engine/query';
 import { agentFetch } from '../engine/safeQuery';
+import { imageTag, upgradeMovesFor, usePulseCR } from '../hooks/usePulseStatus';
+import type { PulseCR } from '../hooks/usePulseStatus';
 import { useClusterStore } from '../store/clusterStore';
 import { Panel } from '../components/primitives/Panel';
 import { Badge } from '../components/primitives/Badge';
@@ -22,34 +24,6 @@ import { Badge } from '../components/primitives/Badge';
 const GITHUB_ORG = 'https://github.com/PulseSRE';
 const QUAY = 'https://quay.io/repository/amobrem';
 
-interface PulseCR {
-  metadata?: { namespace?: string };
-  spec?: {
-    agent?: {
-      image?: string;
-      trustLevel?: number;
-      allowWriteOperations?: boolean;
-      adminUsers?: string;
-      mcp?: { enabled?: boolean };
-    };
-    ui?: { image?: string; replicas?: number };
-    monitoring?: { enabled?: boolean };
-    vertexAI?: { projectId?: string; region?: string };
-  };
-  status?: {
-    phase?: string;
-    agentHealthy?: boolean;
-    agentVersion?: string;
-    databaseReady?: boolean;
-    uiAvailable?: boolean;
-    routeHost?: string;
-    upgradeStartedAt?: string;
-    lastHealthyAgentImage?: string;
-    lastHealthyUIImage?: string;
-    lastUpgradeDurationSeconds?: number;
-  };
-}
-
 interface DeploymentLite {
   metadata?: { name?: string };
   spec?: { replicas?: number };
@@ -60,12 +34,6 @@ interface CSV {
   metadata?: { name?: string };
   spec?: { version?: string; displayName?: string };
   status?: { phase?: string };
-}
-
-function imageTag(image?: string): string {
-  if (!image) return '';
-  const idx = image.lastIndexOf(':');
-  return idx > 0 ? image.slice(idx + 1) : '';
 }
 
 function CopyableImage({ image }: { image?: string }) {
@@ -161,16 +129,7 @@ function ComponentRow({
 export default function AboutView() {
   const clusterVersion = useClusterStore((s) => s.clusterVersion);
 
-  const { data: cr } = useQuery({
-    queryKey: ['about', 'openshiftpulse-cr'],
-    queryFn: async () => {
-      const items = await k8sList<PulseCR>('/apis/pulse.ai/v1alpha1/openshiftpulses');
-      return items[0] ?? null;
-    },
-    // Poll fast while an upgrade is in flight so the banner tracks the
-    // rollout live, lazily otherwise.
-    refetchInterval: (query) => (query.state.data?.status?.phase === 'Upgrading' ? 5_000 : 60_000),
-  });
+  const cr: PulseCR | null | undefined = usePulseCR();
 
   const crNamespace = cr?.metadata?.namespace;
   const upgrading = cr?.status?.phase === 'Upgrading';
@@ -210,17 +169,7 @@ export default function AboutView() {
   const status = cr?.status;
   const writeOps = Boolean(spec?.agent?.allowWriteOperations);
 
-  // Which components are actually changing, from→to, straight off the CR:
-  // the operator stamps lastHealthy*Image with what ran before the change.
-  const upgradeMoves: string[] = [];
-  if (upgrading) {
-    const agentFrom = imageTag(status?.lastHealthyAgentImage);
-    const agentTo = imageTag(spec?.agent?.image);
-    if (agentTo && agentFrom !== agentTo) upgradeMoves.push(`agent ${agentFrom || '?'} → ${agentTo}`);
-    const uiFrom = imageTag(status?.lastHealthyUIImage);
-    const uiTo = imageTag(spec?.ui?.image);
-    if (uiTo && uiFrom !== uiTo) upgradeMoves.push(`console ${uiFrom || '?'} → ${uiTo}`);
-  }
+  const upgradeMoves = upgradeMovesFor(cr);
   const upgradeElapsedS = status?.upgradeStartedAt
     ? Math.max(0, Math.floor((Date.now() - Date.parse(status.upgradeStartedAt)) / 1000))
     : null;
