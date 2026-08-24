@@ -70,3 +70,30 @@ describe('usePulseUpgrade', () => {
     expect(result.current.moves).toEqual([]);
   });
 });
+
+describe('healthFor', () => {
+  it('maps the operator phases onto three actionable states', async () => {
+    const { healthFor } = await import('../usePulseStatus');
+    expect(healthFor({ status: { phase: 'Running' } })).toBe('healthy');
+    expect(healthFor({ status: { phase: 'Upgrading' } })).toBe('updating');
+    expect(healthFor({ status: { phase: 'Degraded' } })).toBe('unhealthy');
+    expect(healthFor({ status: { phase: 'Installing' } })).toBe('unhealthy');
+  });
+
+  it('an unreadable CR is unknown, never healthy or unhealthy', async () => {
+    const { healthFor } = await import('../usePulseStatus');
+    expect(healthFor(null)).toBe('unknown');
+    expect(healthFor(undefined)).toBe('unknown');
+    expect(healthFor({})).toBe('unknown');
+  });
+});
+
+describe('healthDetailFor', () => {
+  it('names each component state in one tooltip line', async () => {
+    const { healthDetailFor } = await import('../usePulseStatus');
+    const detail = healthDetailFor({
+      status: { phase: 'Degraded', agentHealthy: false, databaseReady: true, uiAvailable: true },
+    });
+    expect(detail).toBe('Degraded — agent unhealthy · database ready · console available');
+  });
+});
