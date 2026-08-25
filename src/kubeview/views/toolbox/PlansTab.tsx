@@ -77,7 +77,7 @@ export function PlansTab() {
           avg_duration_ms: number;
           avg_completion_rate: number;
           avg_confidence: number;
-          phases?: Array<{ phase_id: string; status: string; count: number; avg_confidence: number }>;
+          phases?: Array<{ phase_id: string; status: string; count: number; avg_confidence: number; contract_missing?: string[] }>;
         }>;
         total_executions: number;
         days: number;
@@ -242,6 +242,21 @@ export function PlansTab() {
                           </div>
                         </div>
                       ))}
+                      {/* Why a phase went partial. The plan detail above shows what
+                          each phase promises via `produces`; this shows which of
+                          those promises were not kept at runtime. */}
+                      {ps.phases.some((ph) => (ph.contract_missing?.length ?? 0) > 0) && (
+                        <div className="pt-1 space-y-0.5">
+                          {ps.phases
+                            .filter((ph) => (ph.contract_missing?.length ?? 0) > 0)
+                            .map((ph) => (
+                              <div key={`${ph.phase_id}-missing`} className="text-[10px] text-amber-400/80">
+                                <span className="text-slate-500">{ph.phase_id}</span>{' '}
+                                did not produce: {ph.contract_missing!.join(', ')}
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
