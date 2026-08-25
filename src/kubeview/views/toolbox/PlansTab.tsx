@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, ArrowRight, Save, Trash2, BarChart3, CheckCircle2, XCircle, Activity } from 'lucide-react';
+import { Clock, ArrowRight, Save, Trash2, BarChart3, CheckCircle2, XCircle, Activity, Plus, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
+import { CreatePlanDialog } from './CreatePlanDialog';
 
 interface PlanTemplate {
   id: string;
@@ -41,6 +42,8 @@ export function PlansTab() {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
   const [editPhases, setEditPhases] = useState<PlanPhaseDetail[]>([]);
 
   const { data, isLoading } = useQuery({
@@ -49,6 +52,16 @@ export function PlansTab() {
       const res = await agentFetch('/api/agent/plan-templates');
       if (!res.ok) return { templates: [] };
       return res.json() as Promise<{ templates: PlanTemplate[] }>;
+    },
+  });
+
+  const { data: planVersions } = useQuery<{ versions: Array<{ version: number; created_by: string; created_at: string }> }>({
+    queryKey: ['plan-template-versions', selectedPlan],
+    enabled: !!selectedPlan && showVersions,
+    queryFn: async () => {
+      const res = await agentFetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan!)}/versions`);
+      if (!res.ok) throw new Error('failed');
+      return res.json();
     },
   });
 
@@ -128,10 +141,31 @@ export function PlansTab() {
         </div>
       )}
 
-      <p className="text-xs text-slate-500">
-        Investigation plans define multi-phase incident resolution. The agent matches findings to plans and executes phases in order.
-        New plans are auto-generated when the agent resolves novel incidents.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-slate-500">
+          Investigation plans define multi-phase incident resolution. The agent matches findings to plans and executes phases in order.
+          Plans are auto-generated when the agent resolves novel incidents, and can be written by hand here.
+        </p>
+        {!creating && (
+          <button
+            onClick={() => setCreating(true)}
+            className="shrink-0 px-2 py-1 text-xs bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 rounded-sm border border-cyan-800/30 flex items-center gap-1 transition-colors"
+          >
+            <Plus className="w-3 h-3" />
+            New plan
+          </button>
+        )}
+      </div>
+
+      {creating && (
+        <CreatePlanDialog
+          onClose={() => setCreating(false)}
+          onCreated={() => {
+            setCreating(false);
+            queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
+          }}
+        />
+      )}
 
       {templates.length === 0 ? (
         <div className="text-center py-12 text-sm text-slate-500">No investigation plans loaded.</div>
@@ -309,6 +343,13 @@ export function PlansTab() {
                   Edit
                 </button>
               )}
+              <button
+                onClick={() => setShowVersions((v) => !v)}
+                className="px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm border border-slate-700 flex items-center gap-1 transition-colors"
+              >
+                <History className="w-3 h-3" />
+                History
+              </button>
               {planDetail.id.startsWith('auto-') && (
                 <button
                   onClick={() => setConfirmDelete(selectedPlan)}
@@ -319,6 +360,31 @@ export function PlansTab() {
                 </button>
               )}
             </div>
+
+            {/* Prior revisions. Plan edits used to be irreversible: the PUT
+                handler overwrote YAML inside the installed package, so the
+                previous body was simply gone. */}
+            {showVersions && (
+              <div className="bg-slate-950/40 border border-slate-800 rounded-md p-3 space-y-1">
+                <div className="text-[11px] text-slate-400 mb-1">Revision history</div>
+                {!planVersions ? (
+                  <div className="text-[10px] text-slate-600">Loading…</div>
+                ) : planVersions.versions.length === 0 ? (
+                  <div className="text-[10px] text-slate-600">
+                    No prior revisions — this plan has not been edited since it was created.
+                  </div>
+                ) : (
+                  planVersions.versions.map((v) => (
+                    <div key={v.version} className="flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400">v{v.version}</span>
+                      <span className="text-slate-600">
+                        {v.created_by || 'agent'} · {v.created_at ? v.created_at.slice(0, 19).replace('T', ' ') : ''}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
 
             {/* Metadata */}
             <div className="flex flex-wrap gap-3 text-xs text-slate-500">
