@@ -5,6 +5,7 @@ import {
   fetchActionDetail,
   requestRollback,
   actionCategoryLabel,
+  verificationStatusLabel,
 } from '../fixHistory';
 
 const mockAction = {
@@ -202,6 +203,18 @@ describe('fixHistory', () => {
     it('passes scanner categories through unchanged', () => {
       expect(actionCategoryLabel('crashloop')).toBe('crashloop');
       expect(actionCategoryLabel('image_pull')).toBe('image_pull');
+    });
+  });
+
+  describe('verificationStatusLabel', () => {
+    it('spells out the recurrence arc instead of the raw token', () => {
+      expect(verificationStatusLabel('verified_then_recurred')).toBe('verified, then recurred');
+    });
+
+    it('passes every other status through unchanged', () => {
+      expect(verificationStatusLabel('verified')).toBe('verified');
+      expect(verificationStatusLabel('still_failing')).toBe('still_failing');
+      expect(verificationStatusLabel('unverifiable')).toBe('unverifiable');
     });
   });
 });

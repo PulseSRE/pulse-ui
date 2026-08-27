@@ -28,6 +28,12 @@ export interface FixHistorySummary {
     improved: number;
     /** Health check ran but could not get a clear reading — not the same as pending. */
     unverifiable?: number;
+    /**
+     * Fixes that verified and were then retroactively downgraded because the
+     * same condition returned within the recurrence window. Counts against the
+     * success rate. Absent on older agents.
+     */
+    recurred?: number;
     pending: number;
     resolution_rate: number;
   };
@@ -188,8 +194,9 @@ export interface ResolutionRecord {
   status: string;
   reasoning: string;
   // 'pending' (probe not run yet) and 'unverifiable' (probe could not read the
-  // cluster) reach this list too — any non-null verification status does.
-  outcome: 'verified' | 'still_failing' | 'improved' | 'pending' | 'unverifiable';
+  // cluster) reach this list too — any non-null verification status does,
+  // including the retroactive 'verified_then_recurred' downgrade.
+  outcome: 'verified' | 'still_failing' | 'improved' | 'pending' | 'unverifiable' | 'verified_then_recurred';
   evidence: string;
   timestamp: number;
   verifiedAt: number | null;

@@ -34,7 +34,10 @@ export interface ActionRecord {
   resources: ResourceRef[];
   // 'pending' is the initial state of a contracted write whose postcondition
   // probe has not run yet — a scheduled check, not a stuck one.
-  verificationStatus?: 'pending' | 'verified' | 'still_failing' | 'improved' | 'unverifiable';
+  // 'verified_then_recurred' is a retroactive downgrade: the fix verified, then
+  // the same condition returned within the recurrence window. Never render it
+  // as a success.
+  verificationStatus?: 'pending' | 'verified' | 'still_failing' | 'improved' | 'unverifiable' | 'verified_then_recurred';
   verificationEvidence?: string;
   verificationTimestamp?: number;
 }
@@ -48,6 +51,17 @@ export interface ActionRecord {
  */
 export function actionCategoryLabel(category: string): string {
   return category === 'chat_action' ? 'User-initiated' : category;
+}
+
+/**
+ * Human label for a verification status.
+ *
+ * 'verified_then_recurred' is the one that needs translating: the raw token
+ * reads like jargon, and truncating it to "verified" would flip its meaning —
+ * the fix looked good and then the same condition came back.
+ */
+export function verificationStatusLabel(status: string): string {
+  return status === 'verified_then_recurred' ? 'verified, then recurred' : status;
 }
 
 export interface FixHistoryFilters {

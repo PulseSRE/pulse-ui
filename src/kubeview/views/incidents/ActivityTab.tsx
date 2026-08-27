@@ -129,12 +129,16 @@ export function ActivityTab() {
         // A chat_action row is a write the operator approved in chat — labeling
         // it a plain "Fix" would make a human decision read as an autonomous one.
         const prefix = action.category === 'chat_action' ? 'User-approved fix' : 'Fix';
+        // A recurred fix completed and even verified once, but the agent
+        // withdrew that verdict — showing it as a plain completed fix would
+        // keep asserting a success the agent no longer claims.
+        const recurred = action.verificationStatus === 'verified_then_recurred';
         all.push({
           id: action.id,
           timestamp: new Date(action.timestamp).toISOString(),
           category: 'event' as TimelineCategory,
-          severity: (action.status === 'failed' ? 'warning' : 'normal') as 'warning' | 'normal',
-          title: `${prefix}: ${action.tool || actionCategoryLabel(action.category)} — ${action.status}`,
+          severity: (action.status === 'failed' || recurred ? 'warning' : 'normal') as 'warning' | 'normal',
+          title: `${prefix}: ${action.tool || actionCategoryLabel(action.category)} — ${recurred ? `${action.status} (verified, then recurred)` : action.status}`,
           detail: action.reasoning || action.afterState || '',
           namespace: action.resources?.[0]?.namespace,
           resource: action.resources?.[0]

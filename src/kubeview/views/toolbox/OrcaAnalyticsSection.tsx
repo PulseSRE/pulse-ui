@@ -120,7 +120,7 @@ export function OrcaAnalyticsSection() {
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
           <h3 className="text-xs font-medium text-slate-300 mb-1">Fix Outcomes</h3>
           <p className="text-[11px] text-slate-500 mb-3">How well automated fixes resolve issues (last 30 days).</p>
-          <div className="grid grid-cols-4 gap-4 text-center text-xs">
+          <div className={cn('grid gap-4 text-center text-xs', (fixSummary.verification.recurred ?? 0) > 0 ? 'grid-cols-5' : 'grid-cols-4')}>
             <div>
               <div className="text-slate-400">Success Rate</div>
               <div className="text-lg font-bold text-emerald-400">{(fixSummary.success_rate * 100).toFixed(0)}%</div>
@@ -133,6 +133,12 @@ export function OrcaAnalyticsSection() {
               <div className="text-slate-400">Still Failing</div>
               <div className="text-lg font-bold text-red-400">{fixSummary.verification.still_failing}</div>
             </div>
+            {(fixSummary.verification.recurred ?? 0) > 0 && (
+              <div title="Fixes that verified healthy, then the same condition returned within the recurrence window.">
+                <div className="text-slate-400">Recurred</div>
+                <div className="text-lg font-bold text-amber-400">{fixSummary.verification.recurred}</div>
+              </div>
+            )}
             <div>
               <div className="text-slate-400">Rollback Rate</div>
               <div className="text-lg font-bold text-amber-400">{(fixSummary.rollback_rate * 100).toFixed(0)}%</div>
