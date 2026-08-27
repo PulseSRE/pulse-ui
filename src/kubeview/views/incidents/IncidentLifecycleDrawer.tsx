@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { formatRelativeTime } from '../../engine/formatters';
 import { fetchConfidenceCalibration } from '../../engine/analyticsApi';
+import { verificationStatusLabel } from '../../engine/fixHistory';
 import { useIncidentLifecycle } from '../../hooks/useIncidentLifecycle';
 
 type StageStatus = 'complete' | 'in-progress' | 'pending' | 'failed' | 'skipped';
@@ -69,12 +70,17 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
   // reading. It is neither a passed nor a failed fix, so it maps to 'skipped'
   // rather than 'failed' — reporting it as a failure asserts something the
   // check never established, the mirror of the absence bug on the agent side.
+  // 'verified_then_recurred' maps to 'failed' even though the fix once
+  // verified: the verdict was retroactively downgraded because the same
+  // condition returned, and a green check here would re-assert the verdict
+  // the agent itself withdrew.
   const verificationStatus: StageStatus = lifecycle.verification
     ? lifecycle.verification.status === 'verified' ? 'complete'
     : lifecycle.verification.status === 'unverifiable' ? 'skipped' : 'failed'
     : lifecycle.action?.verificationStatus === 'verified' ? 'complete'
     : lifecycle.action?.verificationStatus === 'unverifiable' ? 'skipped'
     : lifecycle.action?.verificationStatus === 'still_failing' ? 'failed'
+    : lifecycle.action?.verificationStatus === 'verified_then_recurred' ? 'failed'
     : 'pending';
   const verificationBadge = lifecycle.verification?.status || lifecycle.action?.verificationStatus;
   const postmortemStatus: StageStatus = lifecycle.postmortem ? 'complete' : 'pending';
@@ -284,7 +290,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                         ? 'bg-slate-800 text-slate-400'
                         : 'bg-amber-900/50 text-amber-300',
                   )}>
-                    {verificationBadge}
+                    {verificationStatusLabel(verificationBadge!)}
                   </span>
                 </div>
                 {(lifecycle.verification?.evidence || lifecycle.action?.verificationEvidence) && (

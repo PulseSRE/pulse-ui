@@ -69,7 +69,10 @@ export interface ActionReport {
   rollbackAvailable?: boolean;
   // 'pending' is the initial state of a contracted write whose postcondition
   // probe has not run yet — a scheduled check, not a stuck one.
-  verificationStatus?: 'pending' | 'verified' | 'still_failing' | 'improved' | 'unverifiable';
+  // 'verified_then_recurred' is a retroactive downgrade: the fix verified, then
+  // the same condition returned within the recurrence window. Never render it
+  // as a success.
+  verificationStatus?: 'pending' | 'verified' | 'still_failing' | 'improved' | 'unverifiable' | 'verified_then_recurred';
   verificationEvidence?: string;
   verificationTimestamp?: number;
   fixStrategy?: string;
@@ -114,9 +117,12 @@ export interface InvestigationReport {
 
 export interface VerificationReport {
   id: string;
+  // On 'verified_then_recurred' this is the ORIGINAL action's id while
+  // findingId is the NEW finding that brought the condition back — the report
+  // retroactively downgrades an earlier 'verified' verdict.
   actionId: string;
   findingId: string;
-  status: 'verified' | 'still_failing' | 'improved' | 'unverifiable';
+  status: 'verified' | 'still_failing' | 'improved' | 'unverifiable' | 'verified_then_recurred';
   evidence: string;
   timestamp: number;
 }

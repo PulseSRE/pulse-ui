@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  X, CheckCircle, XCircle, ArrowUp, Clock,
+  X, CheckCircle, XCircle, ArrowUp, Clock, RotateCcw,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -9,13 +9,14 @@ import { actionCategoryLabel } from '../../engine/fixHistory';
 import { formatRelativeTime } from '../../engine/formatters';
 import { IncidentLifecycleDrawer } from '../incidents/IncidentLifecycleDrawer';
 
-type OutcomeFilter = 'all' | 'verified' | 'still_failing' | 'improved';
+type OutcomeFilter = 'all' | 'verified' | 'still_failing' | 'improved' | 'verified_then_recurred';
 
 const FILTERS: { id: OutcomeFilter; label: string; color: string }[] = [
   { id: 'all', label: 'All', color: 'text-slate-300' },
   { id: 'verified', label: 'Resolved', color: 'text-emerald-400' },
   { id: 'still_failing', label: 'Still Failing', color: 'text-amber-400' },
   { id: 'improved', label: 'Improved', color: 'text-blue-400' },
+  { id: 'verified_then_recurred', label: 'Recurred', color: 'text-amber-400' },
 ];
 
 export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
@@ -54,6 +55,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
       case 'verified': return <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />;
       case 'improved': return <ArrowUp className="w-3.5 h-3.5 text-blue-400" />;
       case 'still_failing': return <XCircle className="w-3.5 h-3.5 text-amber-400" />;
+      case 'verified_then_recurred': return <RotateCcw className="w-3.5 h-3.5 text-amber-400" />;
       default: return <Clock className="w-3.5 h-3.5 text-slate-500" />;
     }
   };
@@ -65,6 +67,9 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
       case 'still_failing': return 'Still Failing';
       case 'pending': return 'Pending';
       case 'unverifiable': return 'Unverifiable';
+      // Not "Verified": the verdict was retroactively withdrawn when the same
+      // condition returned, so the label must carry the whole arc.
+      case 'verified_then_recurred': return 'Verified, then recurred';
       default: return outcome;
     }
   };
@@ -118,6 +123,14 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                 <span className="text-emerald-400">{summary.verification.resolved} resolved</span>
                 <span className="text-amber-400">{summary.verification.still_failing} still failing</span>
                 {summary.verification.improved > 0 && <span className="text-blue-400">{summary.verification.improved} improved</span>}
+                {(summary.verification.recurred ?? 0) > 0 && (
+                  <span
+                    className="text-amber-400"
+                    title="Fixes that verified healthy, then the same condition returned within the recurrence window — counted against the success rate."
+                  >
+                    {summary.verification.recurred} recurred
+                  </span>
+                )}
                 <span className="text-slate-500">{summary.verification.pending} pending</span>
               </div>
             )}
