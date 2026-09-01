@@ -9,6 +9,14 @@ interface DraftPhase {
   produces: string;
   required: boolean;
   approval_required: boolean;
+  /** Comma-separated phase ids this one waits for. Empty = starts immediately. */
+  depends_on: string;
+  /** Finding key from a dependency whose value picks the skill. */
+  branch_on: string;
+  /** One "value: skill" pair per line, e.g. "oom: oom-investigator". */
+  branches: string;
+  /** incident_type of a whole plan to run as this phase (child workflow). */
+  subplan: string;
 }
 
 const BLANK_PHASE: DraftPhase = {
@@ -18,7 +26,24 @@ const BLANK_PHASE: DraftPhase = {
   produces: '',
   required: true,
   approval_required: false,
+  depends_on: '',
+  branch_on: '',
+  branches: '',
+  subplan: '',
 };
+
+/** "oom: oom-skill\nconfig: config-skill" -> { oom: ["oom-skill"], ... } */
+function parseBranches(raw: string): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const line of raw.split('\n')) {
+    const sep = line.indexOf(':');
+    if (sep === -1) continue;
+    const key = line.slice(0, sep).trim();
+    const skills = line.slice(sep + 1).split(',').map((s) => s.trim()).filter(Boolean);
+    if (key && skills.length) out[key] = skills;
+  }
+  return out;
+}
 
 // Mirrors the server's validation so the error arrives while you are still
 // typing rather than as a 400 after submitting.
@@ -60,6 +85,10 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
             produces: p.produces.split(',').map((s) => s.trim()).filter(Boolean),
             required: p.required,
             approval_required: p.approval_required,
+            depends_on: p.depends_on.split(',').map((s) => s.trim()).filter(Boolean),
+            ...(p.branch_on.trim() ? { branch_on: p.branch_on.trim() } : {}),
+            ...(Object.keys(parseBranches(p.branches)).length ? { branches: parseBranches(p.branches) } : {}),
+            ...(p.subplan.trim() ? { subplan: p.subplan.trim() } : {}),
           })),
         }),
       });
@@ -126,7 +155,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-slate-400">Phases (run in order)</span>
+          <span className="text-[11px] text-slate-400">Phases (dependencies decide order; independent phases run in parallel)</span>
           <button
             onClick={() => setPhases((p) => [...p, { ...BLANK_PHASE }])}
             className="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm border border-slate-700 flex items-center gap-1 transition-colors"
@@ -184,6 +213,55 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                 letting the plan advance on it.
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <input
+                  value={phase.depends_on}
+                  onChange={(e) => patchPhase(idx, { depends_on: e.target.value })}
+                  placeholder="depends on: triage, logs"
+                  className={inputCls}
+                />
+                <div className="text-[10px] text-slate-600 mt-1">
+                  Phases with no unmet dependencies run together as one wave.
+                </div>
+              </div>
+              <div>
+                <input
+                  value={phase.branch_on}
+                  onChange={(e) => patchPhase(idx, { branch_on: e.target.value })}
+                  placeholder="branch on finding: cause"
+                  className={inputCls}
+                />
+                <div className="text-[10px] text-slate-600 mt-1">
+                  A finding key from a dependency; its value picks the skill below.
+                </div>
+              </div>
+              <div>
+                <input
+                  value={phase.subplan}
+                  onChange={(e) => patchPhase(idx, { subplan: e.target.value })}
+                  placeholder="sub-plan: oom-investigation"
+                  className={inputCls}
+                />
+                <div className="text-[10px] text-slate-600 mt-1">
+                  Runs that whole plan as this phase, with its own approvals and history.
+                </div>
+              </div>
+            </div>
+            {phase.branch_on.trim() && (
+              <div>
+                <textarea
+                  value={phase.branches}
+                  onChange={(e) => patchPhase(idx, { branches: e.target.value })}
+                  placeholder={'oom: oom-investigator\nconfig: config-auditor'}
+                  rows={2}
+                  className={inputCls}
+                />
+                <div className="text-[10px] text-slate-600 mt-1">
+                  One “value: skill” per line. An unmatched value keeps the phase’s own skill.
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
                 <input
