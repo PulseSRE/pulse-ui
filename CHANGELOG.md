@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased]
+
+### A downgraded verdict that the UI hid
+- The agent retroactively downgrades a `verified` fix when the same condition returns inside the recurrence window, emitting `verification_status: verified_then_recurred` and a separate `recurred` count in the fix success rate. The UI had no rendering for either value — the lifecycle drawer's action path dropped the unknown status into "pending", so a fix that came back looked like one still waiting to be checked
+- Verification status unions extended across `monitorClient`, `fixHistory` and `analyticsApi`, with `verification.recurred` optional on `FixHistorySummary` so an older agent that never sends it still renders
+- `verificationStatusLabel()` renders the raw token as "verified, then recurred" — truncating it to "verified" would flip its meaning (#118)
+
+## v2.27.0 (2026-08-25)
+
+### Plans can be created here, not just edited
+- The Plans tab could edit and delete investigation plans but never create one, so a new incident type meant editing repo YAML and waiting for a release. `CreatePlanDialog` adds a create form with repeatable phase rows, mirroring the server's `incident_type` validation client-side so the error arrives while typing rather than as a 400 from `POST /plan-templates`
+- Plan writes are versioned server-side, so the plan drawer gains a History toggle backed by `GET /plan-templates/{type}/versions` — a plan edit is reversible for the first time
+
+### Why a phase went partial, not just that it did
+- The Plans tab could render "3 partial" and never answer *why*. The agent computes exactly which declared `produces` fields a phase failed to return; the UI now renders `contract_missing` beneath the phase breakdown, next to the `Produces:` declaration it is the counterpart to
+
+## v2.26.1 (2026-08-25)
+
+Version-parity release with pulse-agent v2.26.1 (harness deny policy). No UI
+changes — agent and UI ship one version number, and CI now fails a release
+where the two diverge.
+
+## v2.26.0 (2026-08-25)
+
+Version-parity release with pulse-agent v2.26.0. No UI changes.
+
 ## v2.24.0 (2026-08-24)
 
 ### A watch storm that retried the same expired resourceVersion twice a second
