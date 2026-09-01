@@ -2,10 +2,23 @@
 
 ## [Unreleased]
 
+## v2.30.0 (2026-09-01)
+
+### Durable runs you can see and stop
+- A new Runs tab lists every durable workflow run, from Temporal's own visibility store rather than a second Pulse table that would drift out of sync with what actually ran. Pulse had been executing fixes on Temporal with nothing in the console to show for it: a run that survives an agent restart is only worth something if someone can see that it survived, and a run wedged waiting on an approval nobody knew about had no stop button at all
+- Rows are labelled from the memo the agent attaches — "restart_controller on web-1 in payments" rather than "incident-f-3a9c". Runs predating memo still list, unlabelled, because a missing label beats a missing row
+- Cancel is confirmed with what it actually does. Cancelling an incident run is not "stop watching": the workflow rolls the fix back from its snapshot and records a `cancelled` verdict. A button that mutates a production cluster should say so before the click, so the confirmation names the rollback and a test holds that wording in place
+
+### Releases are now a consequence of tagging
+- `release.yml` creates the GitHub Release from the tag's own CHANGELOG section on tag push. Doing it by hand meant it was skipped: v2.28.0 was tagged and shipped with neither a Release nor a changelog section. pulse-agent's `version-sync.yml` compares the two repos' latest *releases* to catch agent/UI skew, so it was comparing stale numbers and reporting green about a pair it no longer measured
+
+## v2.28.0 (2026-09-01)
+
 ### A downgraded verdict that the UI hid
 - The agent retroactively downgrades a `verified` fix when the same condition returns inside the recurrence window, emitting `verification_status: verified_then_recurred` and a separate `recurred` count in the fix success rate. The UI had no rendering for either value — the lifecycle drawer's action path dropped the unknown status into "pending", so a fix that came back looked like one still waiting to be checked
 - Verification status unions extended across `monitorClient`, `fixHistory` and `analyticsApi`, with `verification.recurred` optional on `FixHistorySummary` so an older agent that never sends it still renders
 - `verificationStatusLabel()` renders the raw token as "verified, then recurred" — truncating it to "verified" would flip its meaning (#118)
+- Recorded retroactively: this shipped under tag v2.28.0 with no changelog section, which is the gap `release.yml` now closes
 
 ## v2.27.0 (2026-08-25)
 
