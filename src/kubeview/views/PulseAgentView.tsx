@@ -2,13 +2,14 @@ import { useState, useRef, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Bot, List, BarChart3, History, Brain,
-  Puzzle, Layers, Cable, Target,
+  Puzzle, Layers, Cable, Target, Workflow,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OverviewTab } from './pulse-agent/OverviewTab';
 import { CatalogTab } from './toolbox/CatalogTab';
 import { SkillsTab } from './toolbox/SkillsTab';
 import { PlansTab } from './toolbox/PlansTab';
+import { RunsTab } from './toolbox/RunsTab';
 import { ConnectionsTab } from './toolbox/ConnectionsTab';
 import { ComponentsTab } from './toolbox/ComponentsTab';
 import { UsageTab } from './toolbox/UsageTab';
@@ -16,13 +17,14 @@ import { AnalyticsTab } from './toolbox/AnalyticsTab';
 
 const MemoryView = lazy(() => import('./MemoryView'));
 
-type AgentTab = 'overview' | 'tools' | 'skills' | 'plans' | 'mcp' | 'components' | 'usage' | 'analytics' | 'memory';
+type AgentTab = 'overview' | 'tools' | 'skills' | 'plans' | 'runs' | 'mcp' | 'components' | 'usage' | 'analytics' | 'memory';
 
 const TABS: Array<{ id: AgentTab; label: string; icon: React.ReactNode; activeIcon: React.ReactNode }> = [
   { id: 'overview', label: 'Overview', icon: <Bot className="w-3.5 h-3.5 text-violet-400" />, activeIcon: <Bot className="w-3.5 h-3.5" /> },
   { id: 'tools', label: 'Tools', icon: <List className="w-3.5 h-3.5 text-fuchsia-400" />, activeIcon: <List className="w-3.5 h-3.5" /> },
   { id: 'skills', label: 'Skills', icon: <Puzzle className="w-3.5 h-3.5 text-violet-400" />, activeIcon: <Puzzle className="w-3.5 h-3.5" /> },
   { id: 'plans', label: 'SkillPlan', icon: <Target className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Target className="w-3.5 h-3.5" /> },
+  { id: 'runs', label: 'Runs', icon: <Workflow className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Workflow className="w-3.5 h-3.5" /> },
   { id: 'mcp', label: 'MCP', icon: <Cable className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Cable className="w-3.5 h-3.5" /> },
   { id: 'components', label: 'Components', icon: <Layers className="w-3.5 h-3.5 text-emerald-400" />, activeIcon: <Layers className="w-3.5 h-3.5" /> },
   { id: 'usage', label: 'Usage', icon: <History className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <History className="w-3.5 h-3.5" /> },
@@ -94,6 +96,7 @@ export default function PulseAgentView() {
         {activeTab === 'tools' && <CatalogTab />}
         {activeTab === 'skills' && <SkillsTab />}
         {activeTab === 'plans' && <PlansTab />}
+        {activeTab === 'runs' && <RunsTab />}
         {activeTab === 'mcp' && <ConnectionsTab />}
         {activeTab === 'components' && <ComponentsTab />}
         {activeTab === 'usage' && <UsageTab />}
