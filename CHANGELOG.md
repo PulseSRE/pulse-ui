@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## v2.30.2 (2026-09-01)
+
+### Paired release
+- No UI changes. Tracks pulse-agent v2.30.2 — Temporal tests that can run where CI runs
+
 ## v2.30.1 (2026-09-01)
 
 ### Paired release
