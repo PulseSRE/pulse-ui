@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## v2.30.3 (2026-09-01)
+
+### Paired release
+- No UI changes. Tracks pulse-agent v2.30.3 — an API docs gate that can fail, and the seven endpoints it had been missing
+
 ## v2.30.2 (2026-09-01)
 
 ### Paired release
