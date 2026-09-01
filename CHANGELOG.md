@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## v2.30.1 (2026-09-01)
+
+### Paired release
+- No UI changes. The agent and UI ship under one version number, so this tracks pulse-agent v2.30.1 — routing no longer makes a Prometheus call whose result it discarded, which was failing the selector latency gate
+
 ## v2.30.0 (2026-09-01)
 
 ### Durable runs you can see and stop
