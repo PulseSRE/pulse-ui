@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## v2.31.0 (2026-09-01)
+
+### The plan dialog speaks the whole graph
+- Each phase row gains `depends_on` (phases with no unmet dependencies run together as one wave on the durable path), `branch_on` with a "value: skill" branches editor that appears once a branch key is set, and `subplan`, which runs a whole other plan as the phase under its own approvals and history
+- Empty graph fields are dropped from the payload rather than stored as empty strings; malformed branch lines are skipped rather than corrupting the mapping. Paired with agent v2.31.0, where creating plans on the cluster also stops returning 500 (the create endpoint wrote into a read-only directory)
+
 ## v2.30.3 (2026-09-01)
 
 ### Paired release
