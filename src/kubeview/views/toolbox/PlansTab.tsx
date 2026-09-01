@@ -6,6 +6,7 @@ import { agentFetch } from '../../engine/safeQuery';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { CreatePlanDialog } from './CreatePlanDialog';
+import { PlanRunPanel } from './PlanRunPanel';
 
 interface PlanTemplate {
   id: string;
@@ -385,6 +386,9 @@ export function PlansTab() {
                 )}
               </div>
             )}
+
+            {/* Durable run — survives agent restarts; approvals genuinely wait */}
+            <PlanRunPanel incidentType={selectedPlan!} />
 
             {/* Metadata */}
             <div className="flex flex-wrap gap-3 text-xs text-slate-500">
