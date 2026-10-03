@@ -1,3 +1,4 @@
+import { useClusterBase } from '../hooks/useClusterBase';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -40,10 +41,11 @@ export default function LogsView({ namespace, podName }: LogsViewProps) {
 
 // --- Build logs (OpenShift Build API) ---
 function BuildLogsView({ namespace, buildName }: { namespace: string; buildName: string }) {
+  const clusterBase = useClusterBase();
   const { data: logText, isLoading, error } = useQuery({
     queryKey: ['build-log', namespace, buildName],
     queryFn: async () => {
-      const res = await fetch(`/api/kubernetes/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${buildName}/log`);
+      const res = await fetch(`${clusterBase}/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${buildName}/log`);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.text();
     },

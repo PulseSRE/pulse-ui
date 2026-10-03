@@ -36,11 +36,12 @@ describe('trustStore', () => {
     expect(result.current.shouldAutoApprove('delete_pod', 'MEDIUM')).toBe(false);
   });
 
-  it('shouldAutoApprove returns true for LOW+MEDIUM at level 3', () => {
+  it('Bounded requires confirmation when chat supplies no verified category', () => {
     const { result } = renderHook(() => useTrustStore());
     act(() => result.current.setTrustLevel(3));
-    expect(result.current.shouldAutoApprove('scale_deployment', 'LOW')).toBe(true);
-    expect(result.current.shouldAutoApprove('delete_pod', 'MEDIUM')).toBe(true);
+    expect(result.current.shouldAutoApprove('scale_deployment', 'LOW')).toBe(false);
+    expect(result.current.shouldAutoApprove('delete_pod', 'MEDIUM')).toBe(false);
+    expect(result.current.shouldAutoApprove('cordon_node', 'MEDIUM')).toBe(false);
     expect(result.current.shouldAutoApprove('drain_node', 'HIGH')).toBe(false);
   });
 
@@ -146,6 +147,7 @@ describe('trustStore', () => {
 
     expect(result.current.shouldAutoApprove('scale_deployment', 'LOW')).toBe(true);
     expect(result.current.shouldAutoApprove('delete_pod', 'MEDIUM')).toBe(true);
+    expect(result.current.shouldAutoApprove('cordon_node', 'MEDIUM')).toBe(true);
     expect(result.current.shouldAutoApprove('drain_node', 'HIGH')).toBe(true);
   });
 

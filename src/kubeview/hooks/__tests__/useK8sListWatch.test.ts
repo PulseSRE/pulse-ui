@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor, cleanup } from '@testing-library/react';
+import { renderHook, waitFor, cleanup, act } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -19,7 +19,7 @@ vi.mock('../../engine/query', () => ({
 
 // Mock uiStore
 vi.mock('../../store/uiStore', () => ({
-  useUIStore: (selector: any) => {
+  useUIStore: Object.assign((selector: any) => {
     const state = {
       setConnectionStatus: vi.fn(),
       setLastSyncTime: vi.fn(),
@@ -27,11 +27,13 @@ vi.mock('../../store/uiStore', () => ({
       removeDegradedReason: vi.fn(),
     };
     return selector(state);
-  },
+  }, { setState: vi.fn() }),
 }));
 
 import { useK8sListWatch } from '../useK8sListWatch';
 import { watchManager } from '../../engine/watch';
+import { useFleetStore } from '../../store/fleetStore';
+import { registerCluster, unregisterCluster } from '../../engine/clusterConnection';
 
 function createWrapper() {
   const qc = new QueryClient({
@@ -66,7 +68,7 @@ describe('useK8sListWatch', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(pods);
-    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', undefined, undefined);
+    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', undefined, 'local');
   });
 
   it('passes namespace to k8sList', async () => {
@@ -78,7 +80,7 @@ describe('useK8sListWatch', () => {
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', 'kube-system', undefined);
+    expect(k8sListMock).toHaveBeenCalledWith('/api/v1/pods', 'kube-system', 'local');
   });
 
   it('starts in loading state', () => {
@@ -181,4 +183,31 @@ describe('useK8sListWatch', () => {
     const watchPath = vi.mocked(watchManager.watch).mock.calls[0][0];
     expect(watchPath).toBe('/api/v1/pods');
   });
+});
+
+
+it('switches A watch to B and ignores late A events for the visible same-name object', async () => {
+  const local = { kind: 'Deployment', metadata: { name: 'web', namespace: 'prod', uid: 'a-web' }, spec: { replicas: 3 } };
+  const remote = { kind: 'Deployment', metadata: { name: 'web', namespace: 'prod', uid: 'b-web' }, spec: { replicas: 5 } };
+  const unsubscribeA = vi.fn();
+  const unsubscribeB = vi.fn();
+  vi.mocked(watchManager.watch).mockReset();
+  vi.mocked(watchManager.watch).mockReturnValueOnce({ unsubscribe: unsubscribeA }).mockReturnValueOnce({ unsubscribe: unsubscribeB });
+  k8sListMock.mockImplementation((_path, _namespace, cluster) => Promise.resolve([cluster === 'b' ? remote : local]));
+  registerCluster({ id: 'b', name: 'B', connectionType: 'acm-proxy', target: 'b' });
+  useFleetStore.getState().setActiveCluster('local');
+  const { result, unmount } = renderHook(() => useK8sListWatch({ apiPath: '/apis/apps/v1/deployments', namespace: 'prod' }), { wrapper: createWrapper() });
+  await waitFor(() => expect(result.current.data?.[0].metadata.uid).toBe('a-web'));
+  const lateA = vi.mocked(watchManager.watch).mock.calls[0][1];
+  act(() => useFleetStore.getState().setActiveCluster('b'));
+  await waitFor(() => expect(result.current.data?.[0].metadata.uid).toBe('b-web'));
+  expect(unsubscribeA).toHaveBeenCalledTimes(1);
+  expect(k8sListMock).toHaveBeenLastCalledWith('/apis/apps/v1/deployments', 'prod', 'b');
+  expect(vi.mocked(watchManager.watch).mock.calls.at(-1)?.[3]).toBe('b');
+  act(() => lateA({ type: 'MODIFIED', object: { ...local, spec: { replicas: 99 } } }));
+  expect(result.current.data?.[0]).toEqual(remote);
+  unmount();
+  expect(unsubscribeB).toHaveBeenCalledTimes(1);
+  useFleetStore.getState().setActiveCluster('local');
+  unregisterCluster('b');
 });

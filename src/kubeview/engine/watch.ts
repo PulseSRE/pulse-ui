@@ -4,7 +4,7 @@
  */
 
 import { K8S_BASE as BASE } from './gvr';
-import { getClusterBase } from './clusterConnection';
+import { getActiveClusterId, getClusterBase } from './clusterConnection';
 import { closeQuietly } from './wsClose';
 const HEARTBEAT_INTERVAL = 45000; // 45 seconds
 const MAX_BACKOFF = 30000; // 30 seconds
@@ -46,7 +46,8 @@ export class WatchManager {
     clusterId?: string
   ): WatchSubscription {
     const normalizedPath = this.normalizeAPIPath(apiPath);
-    const key = `${clusterId || 'local'}:${normalizedPath}`;
+    const resolvedClusterId = clusterId ?? getActiveClusterId();
+    const key = `${resolvedClusterId}:${normalizedPath}`;
 
     let connection = this.connections.get(key);
 
@@ -68,7 +69,7 @@ export class WatchManager {
 
     // Start watching if not already connected
     if (!connection.ws || connection.ws.readyState === WebSocket.CLOSED) {
-      this.connect(key, apiPath, connection, clusterId);
+      this.connect(key, apiPath, connection, resolvedClusterId);
     }
 
     // Return subscription

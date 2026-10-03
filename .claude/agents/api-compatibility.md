@@ -11,9 +11,9 @@ Verifies that typed K8s interfaces and API paths in the codebase match the actua
 
 2. **Verify API paths in hooks**: Search for all `apiPath:` and `k8sList`/`k8sGet` calls. Verify each path returns 200:
    ```
-   grep -rn "apiPath:\|k8sList(\|k8sGet(" src/kubeview/ --include="*.ts" --include="*.tsx" | grep -oP "'/api[^']*'" | sort -u
+   rg -n "apiPath:|k8sList\(|k8sGet\(" src/kubeview --glob "*.ts" --glob "*.tsx"
    ```
-   Test each unique path against `http://localhost:8001`.
+   Test paths only against an authorized test cluster. A 403 reflects RBAC, not a missing API; optional CRDs can legitimately be absent. Do not test write paths with mutation requests during a read-only compatibility audit.
 
 3. **Check ArgoCD availability**: Verify `/apis/argoproj.io/v1alpha1` exists if ArgoCD features are expected.
 

@@ -183,6 +183,7 @@ describe('RollbackPanel', () => {
           }) },
         ],
         'application/json-patch+json',
+        'local',
       );
     });
 
@@ -324,9 +325,11 @@ describe('RollbackPanel', () => {
     await waitFor(() => {
       expect(mockK8sList).toHaveBeenCalledWith(
         expect.stringContaining('/apis/apps/v1/namespaces/default/replicasets?labelSelector='),
+        undefined, 'local',
       );
       expect(mockK8sList).toHaveBeenCalledWith(
         expect.stringContaining('app%3Dmy-app'),
+        undefined, 'local',
       );
     });
   });

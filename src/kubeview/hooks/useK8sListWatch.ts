@@ -16,6 +16,7 @@ import { watchManager, type WatchEvent } from '../engine/watch';
 import type { K8sResource } from '../engine/renderers';
 import { useUIStore } from '../store/uiStore';
 import { useDocumentVisibility } from './useDocumentVisibility';
+import { useFleetStore } from '../store/fleetStore';
 
 const SAFETY_POLL_INTERVAL = 60_000;
 
@@ -32,6 +33,8 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
   enabled = true,
   clusterId,
 }: UseK8sListWatchOptions) {
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
+  const resolvedClusterId = clusterId ?? activeClusterId;
   const queryClient = useQueryClient();
   const setConnectionStatus = useUIStore((s) => s.setConnectionStatus);
   const addDegradedReason = useUIStore((s) => s.addDegradedReason);
@@ -39,11 +42,11 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
   const setLastSyncTime = useUIStore((s) => s.setLastSyncTime);
   const isVisible = useDocumentVisibility();
 
-  const queryKey = ['k8s', 'list', apiPath, namespace, clusterId];
+  const queryKey = ['k8s', 'list', apiPath, namespace, resolvedClusterId];
 
   const query = useQuery<T[]>({
     queryKey,
-    queryFn: () => k8sList<T>(apiPath, namespace, clusterId),
+    queryFn: () => k8sList<T>(apiPath, namespace, resolvedClusterId),
     enabled,
     // Pause polling when tab is unfocused — WebSocket still delivers instant updates
     refetchInterval: isVisible ? SAFETY_POLL_INTERVAL : false,
@@ -99,7 +102,7 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
           }
         },
         undefined, // resourceVersion
-        clusterId,
+        resolvedClusterId,
       );
     } catch {
       // WebSocket not available — polling is always on as safety net
@@ -108,7 +111,7 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
     return () => {
       subscription?.unsubscribe();
     };
-  }, [apiPath, namespace, enabled, clusterId, queryClient, setConnectionStatus, setLastSyncTime]);
+  }, [apiPath, namespace, enabled, resolvedClusterId, queryClient, setConnectionStatus, setLastSyncTime]);
 
   useEffect(() => {
     if (query.isSuccess && query.dataUpdatedAt > 0) {

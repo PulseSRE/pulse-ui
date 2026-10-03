@@ -1,3 +1,4 @@
+import { useClusterBase } from '../../hooks/useClusterBase';
 /**
  * MultiContainerLogs - Container switcher for multi-container pods
  */
@@ -42,6 +43,7 @@ export default function MultiContainerLogs({
   podName,
   containers,
 }: MultiContainerLogsProps) {
+  const clusterBase = useClusterBase();
   const [selectedContainer, setSelectedContainer] = useState<string>('all');
   const [mergedLogs, setMergedLogs] = useState<MergedLogLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,7 +61,7 @@ export default function MultiContainerLogs({
     const fetchAllLogs = async () => {
       try {
         const logPromises = containers.map(async (container, index) => {
-          const url = `/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${container.name}&tailLines=500&timestamps=true`;
+          const url = `${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${container.name}&tailLines=500&timestamps=true`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -105,7 +107,7 @@ export default function MultiContainerLogs({
     return () => {
       mounted = false;
     };
-  }, [selectedContainer, namespace, podName, containers]);
+  }, [selectedContainer, namespace, podName, containers, clusterBase]);
 
   // Get container state indicator
   const getStateIndicator = (state: Container['state']) => {

@@ -6,7 +6,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { K8S_BASE as BASE } from '../engine/gvr';
+import { getClusterBase } from '../engine/clusterConnection';
+import { getImpersonationHeaders } from '../engine/query';
+import { useFleetStore } from '../store/fleetStore';
 
 interface AccessReviewSpec {
   verb: string;       // "get", "list", "create", "update", "delete", "patch"
@@ -17,7 +19,7 @@ interface AccessReviewSpec {
 
 const WRITE_VERBS = new Set(['create', 'update', 'patch', 'delete', 'deletecollection']);
 
-async function checkAccess(spec: AccessReviewSpec): Promise<boolean> {
+async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<boolean> {
   const failOpen = !WRITE_VERBS.has(spec.verb);
   try {
     const body = {
@@ -33,9 +35,9 @@ async function checkAccess(spec: AccessReviewSpec): Promise<boolean> {
       },
     };
 
-    const res = await fetch(`${BASE}/apis/authorization.k8s.io/v1/selfsubjectaccessreviews`, {
+    const res = await fetch(`${getClusterBase(clusterId)}/apis/authorization.k8s.io/v1/selfsubjectaccessreviews`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getImpersonationHeaders() },
       body: JSON.stringify(body),
     });
 
@@ -48,10 +50,11 @@ async function checkAccess(spec: AccessReviewSpec): Promise<boolean> {
 }
 
 export function useCanI(verb: string, group: string, resource: string, namespace?: string) {
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const failOpen = !WRITE_VERBS.has(verb);
   const { data: allowed = failOpen, isLoading } = useQuery({
-    queryKey: ['rbac', 'can-i', verb, group, resource, namespace],
-    queryFn: () => checkAccess({ verb, group, resource, namespace }),
+    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, clusterId],
+    queryFn: () => checkAccess({ verb, group, resource, namespace }, clusterId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 10 * 60 * 1000,
   });

@@ -1,180 +1,47 @@
-# Security Policy
+# Security policy and boundaries
 
-## Reporting Vulnerabilities
+## Report a vulnerability
 
-If you discover a security vulnerability, please report it privately by emailing the maintainers. Do **not** open a public GitHub issue for security vulnerabilities.
+Report suspected security vulnerabilities privately to the maintainers. Use [GitHub private vulnerability reporting](https://github.com/PulseSRE/pulse-ui/security/advisories/new) if enabled for this repository; otherwise contact a maintainer through a private channel. Include affected revision, reproduction, impact, and proposed mitigation. Do not post live credentials or sensitive cluster details publicly.
 
-Include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+This document describes mechanisms visible in source, not an independent certification or a current vulnerability scan. Historical audit counts and zero-CVE claims are not evidence of present security.
 
-We aim to acknowledge reports within 48 hours and provide a fix within 7 days for critical issues.
+## Authentication and authorization
 
----
+Production deployment is owned by [pulse-operator](https://github.com/PulseSRE/pulse-operator). Its OAuth proxy authenticates users and supplies identity/access-token headers to generated nginx configuration. Direct Kubernetes UI operations use the forwarded user's token; server-side Kubernetes RBAC decides permissions. The browser's SelfSubjectAccessReview controls are convenience controls, not authorization enforcement.
 
-## Security Architecture
+Agent calls use a separate shared token injected by the server proxy. The browser does not need to know it. Some agent endpoints additionally require an administrator identity. Interactive chat writes, direct UI writes, and autonomous monitor actions have different execution paths: autonomous backend work uses backend service-account credentials. The UI service account and agent service account are distinct; do not assume that every operation in the full stack has the UI service account's permissions or is attributed to the human user.
 
-### Authentication & Authorization
+The authoritative deployment grants/security contexts/network policies are in the operator source and deployed resources. Verify them for the revision and configuration actually installed; this UI repository does not maintain production manifests.
 
-| Layer | Mechanism |
-|-------|-----------|
-| **User authentication** | OAuth proxy sidecar with OAuthClient (`user:full` scope — required for write operations) |
-| **User authorization** | User's OAuth token forwarded via `X-Forwarded-Access-Token` header to K8s API |
-| **Service account** | Minimal ClusterRole (`openshiftpulse-reader`) scoped to `tokenreviews`/`subjectaccessreviews` (`create`) + API discovery — no read access to cluster resources |
-| **Secrets** | OAuth client secret and cookie secret mounted from a K8s Secret via files (`--client-secret-file`, `--cookie-secret-file`) |
+## Trust controls
 
-The service account does **not** perform API calls on behalf of users, and holds no `get`/`list`/`watch` grants on any cluster resource (including Secrets) — that permission was removed since it went unused: all user actions, both reads and writes, use the user's own OAuth token forwarded by the proxy, which fails closed (401) if the token is missing. The SA exists only for pod identity and OAuth proxy token validation (TokenReview + SubjectAccessReview).
+Browser trust preferences are stored per hostname. They are not a server-side authorization boundary, and selecting a lower local trust does not necessarily lower backend monitor policy. Mission Control reports the backend's effective level when available. Category selection currently does not establish a restrictive backend allowlist, and Bounded chat requires approval when the backend supplies no verified category. Review these behaviors before enabling autonomous actions.
 
-### Data Flow
+Observe blocks the reviewed chat confirmation paths, including keyboard approval. Deployment revision rollback uses JSON Patch with a resourceVersion test and replacement of the template. These protections do not establish that every other mutation path has equivalent preconditions or trust checks. Live cluster switching, concurrent updates, and partial failures need explicit validation.
 
-```
-Browser --> OAuth Proxy (8443/TLS) --> nginx (8080) --> K8s API / Prometheus / Alertmanager
-                    |
-            User's OAuth token forwarded via X-Forwarded-Access-Token
-            (SA token NOT used for API calls)
-```
+## Containers and network
 
----
+`Dockerfile` uses the Red Hat UBI nginx base and packages built `dist/`. The base currently uses a moving `latest` tag; builds must be scanned and pinned by the release process to establish reproducible security. `Dockerfile.helm-runner` builds a separate product-feature image. Operator image defaults/overrides, including OAuth proxy and backend dependencies, belong to the operator repository.
 
-## Container Security
+Production nginx security headers, upstream TLS verification, Route termination, pod security contexts, resource limits, and NetworkPolicy are generated by the operator. Inspect the deployed objects rather than relying on old numerical limits or a claim that all images come from one registry. TLS trust roots for the Kubernetes API and OpenShift monitoring services can differ.
 
-### Images
+## Input handling
 
-All container images come from Red Hat registries:
+Source contains CRLF stripping in impersonation header values (`engine/query.ts`), path segment sanitization in API-path helpers (`engine/gvr.ts`), PromQL sanitization for selected query construction, and protocol/address validation for Helm repository fetching (`src/dev/helmRepoProxy.ts`). These helpers cover their callers; they are not proof that every input/path is validated. React escaping and production CSP reduce common injection paths but do not replace review of generated components, links, logs, or YAML data.
 
-| Image | Registry | Purpose |
-|-------|----------|---------|
-| `registry.access.redhat.com/ubi9/nginx-122:1-18` | Red Hat UBI | App server (via Dockerfile) |
-| `registry.redhat.io/openshift4/ose-oauth-proxy:v4.17` | Red Hat | OAuth authentication sidecar |
-| `openshift/nginx:1.26-ubi9` | OpenShift ImageStream (Red Hat) | S2I builder image |
+Impersonation is privileged Kubernetes functionality. The UI banner does not prove all backend or monitoring requests share that identity, and group header handling must be tested against the actual proxy/API server. Agent autonomy retains its own configured authority.
 
-No Docker Hub, Quay community, or third-party images are used.
+## Development safety
 
-### Pod Security
+The dev server proxies using developer credentials. Keep it and `oc proxy` private; do not treat development proxy authentication/TLS settings as production hardening. `rspack.config.ts` reads exported environment variables. Never commit tokens, print them in test output, or share screenshots containing them. E2E tests may perform writes: use a disposable test environment.
 
-| Control | Setting |
-|---------|---------|
-| `runAsNonRoot` | `true` (pod-level) |
-| `seccompProfile` | `RuntimeDefault` |
-| `allowPrivilegeEscalation` | `false` (both containers) |
-| `readOnlyRootFilesystem` | `true` (both containers) |
-| `capabilities` | Drop `ALL` (both containers) |
-| Writable paths | Only `/tmp` and `/var/log/nginx` via `emptyDir` volumes |
+## Dependency checks
 
-### Network Security
+Use the pinned pnpm version/lockfile, run `pnpm audit`, and scan the built container image for the exact digest being released. Record scan date, tool/database version, digest and unresolved findings. A historical clean scan is not a guarantee for a later build.
 
-| Control | Setting |
-|---------|---------|
-| TLS termination | `reencrypt` on Route (TLS from edge to pod) |
-| K8s API TLS | `proxy_ssl_verify on` with `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` |
-| Prometheus/Alertmanager TLS | `proxy_ssl_verify on` with `service-ca.crt` |
-| HTTP security headers | CSP (`default-src 'self'`), X-Frame-Options `DENY`, HSTS, X-Content-Type-Options `nosniff`, Referrer-Policy `strict-origin-when-cross-origin` |
+`pnpm verify` runs types, lint, tests, and build. Optional `scripts/install-hooks.sh` installs type-check/tests before commits; no pre-push or post-write security scan is installed by that script. CI jobs and release workflows are in `.github/workflows/`; verify their current run results separately.
 
-### Resource Limits
+## Deployment validation
 
-| Resource | Setting |
-|----------|---------|
-| ResourceQuota | 10 pods, 1 CPU / 1Gi memory requests, 2 CPU / 2Gi limits |
-| LimitRange | Default 200m/256Mi per container, max 1 CPU/1Gi |
-| PodDisruptionBudget | `minAvailable: 1` |
-
----
-
-## Input Validation
-
-| Attack Vector | Mitigation |
-|---------------|------------|
-| Helm command injection | Release names validated against `^[a-z0-9][a-z0-9-]{0,52}$`, args passed as arrays with `--repo` flag |
-| SSRF in dev proxy | URL protocol validated (http/https only), private/link-local IPs blocked |
-| Impersonation CRLF injection | `\r\n` stripped from all `Impersonate-User` and `Impersonate-Group` header values |
-| PromQL injection | Label values sanitized via `sanitizePromQL()` — only `[a-zA-Z0-9_\-./]` allowed |
-| Prometheus label path injection | Label names validated against `^[a-zA-Z_][a-zA-Z0-9_]*$` |
-| Path traversal (API paths) | `sanitizePathSegment()` applied to namespace and resource name |
-| Path traversal (node logs) | Filenames validated against `^[a-zA-Z0-9._-]+$` |
-| RegExp DoS (log search) | Regex special characters escaped before `new RegExp()` |
-| XSS | React's default escaping + CSP `default-src 'self'` |
-
----
-
-## Security Audit
-
-A comprehensive security audit was performed covering authentication, injection vulnerabilities, sensitive data exposure, API security, deployment security, and client-side security. All 15 findings have been resolved:
-
-| Severity | Count | Findings |
-|----------|-------|----------|
-| Critical | 1 | Helm command injection via `sh -c` |
-| High | 4 | SSRF in dev proxy, impersonation CRLF injection, missing nginx security headers, `proxy_ssl_verify off` |
-| Medium | 7 | PromQL injection, path traversal (2), RegExp DoS, missing `readOnlyRootFilesystem`, placeholder secrets, broad OAuth scope |
-| Low | 3 | Impersonation header format, YAML editor missing impersonation, token logging risk in dev |
-
-### Detailed Findings
-
-| Severity | Finding | Resolution |
-|----------|---------|------------|
-| Critical | Helm command injection via `sh -c` | Validate release names, use array args with `--repo` flag |
-| High | SSRF in dev proxy | Validate URL protocol, block private/link-local IPs |
-| High | Impersonation CRLF injection | Strip `\r\n` from all impersonation header values |
-| High | Missing nginx security headers | Added CSP, X-Frame-Options, HSTS, nosniff, Referrer-Policy |
-| High | `proxy_ssl_verify off` | Enabled with correct CA certs (`ca.crt` for API, `service-ca.crt` for monitoring) |
-| Medium | Prometheus label path injection | Validate label names against `^[a-zA-Z_][a-zA-Z0-9_]*$` |
-| Medium | Path traversal in `buildApiPathFromResource` | Apply `sanitizePathSegment` to namespace and name |
-| Medium | Node log file path traversal | Validate filenames against `^[a-zA-Z0-9._-]+$` |
-| Medium | RegExp DoS in log search | Escape regex special chars before `new RegExp()` |
-| Medium | Missing `readOnlyRootFilesystem` | Added to both containers with emptyDir for writable paths |
-| Medium | Placeholder secrets in manifest | Documented generation steps, added deployment validation |
-| Medium | Broad `user:full` OAuth scope | Documented requirement (app performs write operations) |
-| Low | Impersonation header format | Fixed to comma-separated `Impersonate-Group`, sanitized CRLF |
-| Low | YAML editor missing impersonation | Added `getImpersonationHeaders()` to GET and PUT requests |
-| Low | Token logging risk in dev | Documented in `.env.example` |
-
----
-
-## Dependency Security
-
-### Packages
-- All packages sourced from the official registry (`registry.npmjs.org`) via pnpm
-- `pnpm audit` reports **0 vulnerabilities** (as of v2.7.1)
-- No custom `.npmrc` overriding the registry
-- No deprecated packages in production dependencies
-
-### Automated Checks
-- Pre-commit hook runs `vitest` before every commit
-- Pre-push hook runs `vitest` before every push
-- Post-write hook runs `eslint` on changed `.ts`/`.tsx` files
-
----
-
-## RBAC Model
-
-The service account ClusterRole (`openshiftpulse-reader`) grants **no read or write access to any cluster resource**. It exists solely so the OAuth proxy sidecar can validate the user's bearer token and authorize requests:
-
-```yaml
-- nonResourceURLs: ["/api", "/api/*", "/apis", "/apis/*", "/version"]
-  verbs: [get]
-- apiGroups: [authentication.k8s.io]
-  resources: [tokenreviews]
-  verbs: [create]
-- apiGroups: [authorization.k8s.io]
-  resources: [subjectaccessreviews]
-  verbs: [create]
-```
-
-All operations against cluster resources — reads (list/watch/get) and writes (create, update, delete, scale, patch) alike — are performed using the **user's own OAuth token**, forwarded via `X-Forwarded-Access-Token` and required by nginx (requests without it get a 401, with no service-account fallback). This means:
-- Users can only see or modify resources they have RBAC access to
-- The app cannot escalate privileges beyond the user's own permissions
-- Audit logs correctly attribute changes to the user, not the service account
-- Compromise of the pod (SA token) does not expose Secrets or any other resource cluster-wide, since the SA itself was never granted read access to them
-
----
-
-## Deployment Hardening Checklist
-
-- [ ] Generate real OAuth secrets (`openssl rand -base64 32` for client, `openssl rand -hex 16` for cookie)
-- [ ] Verify OAuthClient `redirectURIs` matches the Route host
-- [ ] Confirm service-ca TLS secret is auto-generated (annotation on Service)
-- [ ] Review ResourceQuota limits for your environment
-- [ ] Ensure cluster has 2+ nodes for topology spread constraints
-- [ ] Verify `ose-oauth-proxy` image pull succeeds (requires Red Hat registry auth)
-- [ ] Test login flow end-to-end after deployment
+Before using a new release, verify OAuth login/token expiry, unauthorized/missing-identity failures, per-user RBAC for direct writes, admin restrictions for agent mutation endpoints, autonomous policy/cooldowns, network isolation, and backup/restore against an authorized test cluster. Rotate Secrets using the operator's coordinated procedure; deleting database credential Secrets does not rotate the password stored inside PostgreSQL.

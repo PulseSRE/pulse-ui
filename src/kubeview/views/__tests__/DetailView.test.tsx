@@ -560,6 +560,7 @@ describe('DetailView', () => {
         expect(mockK8sPatch).toHaveBeenCalledWith(
           '/api/v1/namespaces/default/pods/my-pod',
           { metadata: { labels: { env: 'production' } } },
+          undefined, 'local',
         );
       });
 

@@ -1,3 +1,4 @@
+import { useFleetStore } from '../../store/fleetStore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Send, StopCircle, Bot, Loader2, AlertTriangle, Trash2, Shield, Download, History, MessageSquare, Plus, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -291,6 +292,7 @@ function ChatHistoryPanel({
  * Shares state via useAgentStore.
  */
 export function DockAgentPanel() {
+  const activeClusterId = useFleetStore(s => s.activeClusterId);
   const {
     connected, mode, messages, streaming, streamingText, thinkingText,
     activeTools, activeSkills, completedTools, completedSkills,
@@ -454,6 +456,7 @@ export function DockAgentPanel() {
 
   return (
     <div className="flex flex-col h-full relative">
+      {activeClusterId !== 'local' && <p className="px-3 py-2 text-xs text-amber-300">This agent runs on Local Cluster. Remote resource-context actions are unavailable.</p>}
       {/* Chat history panel */}
       {showHistory && (
         <ChatHistoryPanel

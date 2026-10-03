@@ -1,5 +1,7 @@
 # KubeView Metrics - Quick Reference
 
+> Component integration reference. Source props/exports in this directory are authoritative; examples omit application-specific data/error wiring. Run `pnpm test -- src/kubeview/components/metrics` for current coverage. Tests and counts do not prove live cluster acceptance.
+
 ## Import Everything
 
 ```tsx
@@ -17,10 +19,6 @@ import {
   formatRate,
   formatDuration,
 
-  // Narrative
-  buildNarrative,
-  groupEvents,
-
   // Prometheus API
   queryRange,
   queryInstant,
@@ -33,7 +31,6 @@ import {
   ChartSeries,
   DataPoint,
   MetricQuery,
-  NarrativeEvent,
   PrometheusSeries,
 } from '@/kubeview/components/metrics';
 ```
@@ -89,17 +86,6 @@ const [hoverTime, setHoverTime] = useState(null);
   hoverTimestamp={hoverTime}
   onHover={setHoverTime}
 />
-```
-
-### Incident narrative
-
-```tsx
-const result = buildNarrative({
-  events: k8sEvents,
-  alerts: prometheusAlerts,
-});
-console.log(result.summary);
-console.log(result.rootCause);
 ```
 
 ## Resource Type Support
@@ -180,22 +166,6 @@ instance:node_cpu_utilisation:rate5m{instance="node-1"}
 kube_deployment_status_replicas{deployment="nginx",namespace="default"}
 ```
 
-## Narrative Rules
-
-1. **Image change + errors** → "Image update caused errors"
-2. **Scale + CPU spike** → "Scaling caused resource contention"
-3. **OOMKilled + memory ramp** → "Memory leak or insufficient limits"
-4. **Node NotReady + pod rescheduling** → "Node failure caused pod disruption"
-5. **Certificate alert** → "TLS certificate issue"
-6. **Rollout + temporary errors** → "Rollout caused temporary errors"
-
-## API Endpoints
-
-- Range query: `/api/prometheus/api/v1/query_range`
-- Instant query: `/api/prometheus/api/v1/query`
-- Metric names: `/api/prometheus/api/v1/label/__name__/values`
-- Label values: `/api/prometheus/api/v1/label/{name}/values`
-
 ## Testing
 
 ```bash
@@ -204,7 +174,6 @@ pnpm test -- src/kubeview/components/metrics
 
 Coverage:
 - ✅ Format functions (`AutoMetrics`, `prometheus.ts`)
-- ✅ Narrative rules
 - ✅ Query resolution
 - ❌ No component-rendering or user-interaction tests exist yet
 

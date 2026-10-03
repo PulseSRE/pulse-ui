@@ -1,5 +1,7 @@
 # Pulse Agent Page Redesign
 
+> Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+
 **Date:** 2026-04-17
 **Status:** Approved
 **Audience:** Sysadmin (primary), Platform Admin (secondary via tabs)

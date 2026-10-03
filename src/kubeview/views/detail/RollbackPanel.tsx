@@ -1,3 +1,4 @@
+import { useFleetStore } from '../../store/fleetStore';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { History, ChevronDown, ChevronRight, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
@@ -74,6 +75,7 @@ function computeDiffs(currentTemplate: PodTemplateSpec | undefined, targetTempla
 
 export function RollbackPanel({ resource, namespace }: { resource: K8sResource; namespace: string }) {
   const addToast = useUIStore((s) => s.addToast);
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(true);
   const [expandedRevision, setExpandedRevision] = useState<number | null>(null);
@@ -91,10 +93,11 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
   );
 
   const { data: revisions, isLoading, error } = useQuery({
-    queryKey: ['rollback-revisions', namespace, deploymentName, deploymentUid],
+    queryKey: ['rollback-revisions', namespace, deploymentName, deploymentUid, clusterId],
     queryFn: async () => {
       const replicaSets = await k8sList<K8sResource>(
         `/apis/apps/v1/namespaces/${namespace}/replicasets?labelSelector=${encodeURIComponent(labelSelector)}`,
+        undefined, clusterId,
       );
 
       const owned = replicaSets.filter((rs) =>
@@ -155,6 +158,7 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
           { op: 'replace', path: '/spec/template', value: template },
         ],
         'application/json-patch+json',
+        clusterId,
       );
       addToast({
         type: 'success',

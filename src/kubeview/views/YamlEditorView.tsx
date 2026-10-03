@@ -1,3 +1,4 @@
+import { useClusterBase } from '../hooks/useClusterBase';
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -23,12 +24,13 @@ interface YamlEditorViewProps {
 }
 
 export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorViewProps) {
+  const clusterBase = useClusterBase();
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
 
   const apiPath = buildApiPath(gvrKey, namespace, name);
-  const fetchUrl = `/api/kubernetes${apiPath}`;
+  const fetchUrl = `${clusterBase}${apiPath}`;
 
   const { data: resource, isLoading, error } = useQuery({
     queryKey: ['k8s', 'get', apiPath],

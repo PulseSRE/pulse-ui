@@ -1,3 +1,4 @@
+import { getActiveClusterId } from './clusterConnection';
 /**
  * Agent WebSocket client — connects to the Pulse Agent API server.
  *
@@ -101,6 +102,7 @@ export class AgentClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _connected = false;
+  private _disconnectedByUser = false;
 
   constructor(mode: AgentMode = 'auto') {
     this.mode = mode;
@@ -143,12 +145,29 @@ export class AgentClient {
   }
 
   /** Connect to the agent WebSocket. */
-  connect() {
-    if (this.ws) this.disconnect();
+  connect(isReconnect = false) {
+    this._disconnectedByUser = false;
+    if (!isReconnect) this.reconnectAttempts = 0;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    // Replacing a socket is not an explicit disconnect: retain retry progress.
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.onmessage = null;
+      this.ws.onerror = null;
+      closeQuietly(this.ws);
+    }
+    this._connected = false;
 
     // Check version first (non-blocking — connects anyway but warns)
     this.checkVersion().then(({ compatible, error }) => {
-      if (!compatible && error) {
+      if (!this._disconnectedByUser && !compatible && error) {
         this.emit({ type: 'error', message: error });
       }
     });
@@ -157,9 +176,11 @@ export class AgentClient {
     const wsPath = this.mode === 'auto' ? 'agent' : this.mode;
     const url = `${protocol}//${window.location.host}${AGENT_BASE}/ws/${wsPath}`;
 
-    this.ws = new WebSocket(url);
+    const ws = new WebSocket(url);
+    this.ws = ws;
 
     this.ws.onopen = () => {
+      if (this.ws !== ws || this._disconnectedByUser) return;
       this._connected = true;
       this.reconnectAttempts = 0;
       this.emit({ type: 'connected' });
@@ -167,6 +188,7 @@ export class AgentClient {
     };
 
     this.ws.onmessage = (event) => {
+      if (this.ws !== ws || this._disconnectedByUser) return;
       try {
         const data = JSON.parse(event.data);
         if (!data || typeof data !== 'object' || !('type' in data) || typeof data.type !== 'string') {
@@ -180,13 +202,14 @@ export class AgentClient {
     };
 
     this.ws.onclose = (event) => {
+      if (this.ws !== ws || this._disconnectedByUser) return;
       this._connected = false;
       if (event.code === 4001) {
         // Auth failure — token mismatch or missing
         this.emit({ type: 'error', message: 'Agent authentication failed (code 4001). The WebSocket token may not be configured correctly. Try redeploying.' });
       }
       this.emit({ type: 'disconnected' });
-      if (event.code !== 4001) {
+      if (!this._disconnectedByUser && event.code !== 4001) {
         this.scheduleReconnect();
       }
     };
@@ -197,13 +220,13 @@ export class AgentClient {
   }
 
   private scheduleReconnect() {
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+    if (this._disconnectedByUser || this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
     if (this.reconnectTimer) return;
 
     this.reconnectAttempts++;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.connect();
+      if (!this._disconnectedByUser) this.connect(true);
     }, RECONNECT_DELAY * this.reconnectAttempts + Math.random() * 1000);
   }
 
@@ -220,6 +243,7 @@ export class AgentClient {
 
   /** Disconnect and stop reconnecting. */
   disconnect() {
+    this._disconnectedByUser = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -228,16 +252,23 @@ export class AgentClient {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
     }
-    this.reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // prevent reconnect
     if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.onmessage = null;
+      this.ws.onerror = null;
       closeQuietly(this.ws);
       this.ws = null;
     }
     this._connected = false;
+    this.emit({ type: 'disconnected' });
   }
 
   /** Send a chat message to the agent. */
   send(content: string, context?: ResourceContext, fleetMode?: boolean, preferences?: { communicationStyle?: string }) {
+    if (context && getActiveClusterId() !== 'local') {
+      this.emit({ type: 'error', message: 'Resource-context chat targets this agent\'s deployment cluster. Switch to Local Cluster; remote resource actions are unsupported.' });
+      return;
+    }
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.emit({ type: 'error', message: 'Not connected to agent' });
       return;

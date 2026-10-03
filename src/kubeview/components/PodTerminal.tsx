@@ -1,3 +1,4 @@
+import { useClusterBase } from '../hooks/useClusterBase';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Loader2, Terminal, Copy, Check, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,13 +19,13 @@ interface TerminalLine {
   timestamp?: string;
 }
 
-import { K8S_BASE as BASE } from '../engine/gvr';
 
 function timestamp() {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 export default function PodTerminal({ namespace, podName, containerName, onClose, isNode, inline }: PodTerminalProps) {
+  const BASE = useClusterBase();
   const [command, setCommand] = useState('');
   const [lines, setLines] = useState<TerminalLine[]>([
     { type: 'system', text: isNode ? `node/${podName}` : `${namespace}/${podName}`, timestamp: timestamp() },
@@ -37,6 +38,8 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
   const [copied, setCopied] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  useEffect(() => () => { socketRef.current?.close(); }, []);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => {
@@ -94,6 +97,7 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
         let timedOut = false;
 
         const ws = new WebSocket(wsUrl, ['v4.channel.k8s.io']);
+        socketRef.current = ws;
         ws.binaryType = 'arraybuffer';
 
         const timeout = setTimeout(() => {
@@ -147,7 +151,7 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
       setCommand('');
       setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [namespace, podName, containerName, running]);
+  }, [namespace, podName, containerName, running, BASE]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

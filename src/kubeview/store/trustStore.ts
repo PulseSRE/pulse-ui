@@ -46,7 +46,7 @@ export const TRUST_HINTS: Record<TrustLevel, string> = {
   0: 'watches only, writes blocked',
   1: 'you act, the agent does not',
   2: 'proposes fixes, you approve',
-  3: 'fixes allowed categories itself',
+  3: 'monitor follows server policy; chat asks approval',
   4: 'fixes anything it can itself',
 };
 
@@ -54,7 +54,7 @@ export const TRUST_DESCRIPTIONS: Record<TrustLevel, string> = {
   0: 'Agent explains what it would do and never acts. Action buttons that write are blocked too.',
   1: 'You act, the agent does not. Action buttons work; the agent never remediates on its own.',
   2: 'The agent proposes every fix and waits for your approval before anything runs.',
-  3: 'The agent applies fixes without asking, limited to the categories you allow.',
+  3: 'Background fixes follow server policy. Chat writes need approval when their category is unverified.',
   4: 'The agent applies any fix it can, without asking. All actions are logged.',
 };
 
@@ -141,7 +141,9 @@ export const useTrustStore = create<TrustState>()(
         if (trustLevel === 0) return false; // observe mode — no actions
         if (trustLevel === 1) return false; // all confirm
         if (trustLevel === 2) return riskLevel === 'LOW';
-        if (trustLevel === 3) return riskLevel === 'LOW' || riskLevel === 'MEDIUM';
+        // Chat confirm requests carry no verified remediation category. Risk alone
+        // cannot establish the category boundary promised by Bounded mode.
+        if (trustLevel === 3) return false;
         if (trustLevel === 4) return true;
         return false;
       },

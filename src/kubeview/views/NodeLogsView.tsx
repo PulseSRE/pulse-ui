@@ -1,3 +1,4 @@
+import { useClusterBase } from '../hooks/useClusterBase';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { ArrowLeft, Search, Download, RefreshCw, FileText, Shield, Server, Box } from 'lucide-react';
@@ -5,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 
-import { K8S_BASE as BASE } from '../engine/gvr';
 
 type LogSource = 'audit' | 'journal' | 'crio' | 'containers' | 'ovn';
 
@@ -18,6 +18,7 @@ const LOG_SOURCES: Array<{ id: LogSource; label: string; icon: React.ReactNode; 
 ];
 
 export default function NodeLogsView() {
+  const BASE = useClusterBase();
   const { name } = useParams<{ name: string }>();
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);

@@ -28,7 +28,7 @@ describe('useDiscovery', () => {
   });
 
   it('does not call runDiscovery when registry exists', () => {
-    useClusterStore.setState({ resourceRegistry: new Map() });
+    useClusterStore.setState({ resourceRegistry: new Map(), discoveryClusterId: 'local' });
     renderHook(() => useDiscovery());
     expect(runDiscoveryMock).not.toHaveBeenCalled();
   });

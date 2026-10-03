@@ -1,6 +1,17 @@
 # Changelog
 
+Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
+
 ## [Unreleased]
+
+### Fixed
+- Cluster switching separates query caches/view lifetimes, binds generic resource actions and core YAML/log/terminal requests to the displayed cluster, clears retained resource/Argo contexts, and rejects unknown targets.
+- Deletion no longer scales workloads to zero before a potentially failing DELETE; generic deletion passes object identity preconditions and bulk failure rows remain visible.
+- Chat retries survive socket replacement; disconnect cancels retries and late version errors.
+- Bounded chat requires approval without a verified category. Monitor controls report server policy and pause state, including visible failures; unsupported remote resource-context chat fails closed.
+
+### Documentation
+- Refresh living setup, security, API and component documentation; label historical designs/releases and remove stale counts, nonexistent APIs, and unsupported security guarantees.
 
 ## v2.31.0 (2026-09-01)
 

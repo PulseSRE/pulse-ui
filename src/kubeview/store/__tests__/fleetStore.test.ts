@@ -25,7 +25,7 @@ vi.mock('../../engine/clusterConnection', () => {
     if (idx >= 0) conns.splice(idx, 1);
   }),
   getAllConnections: vi.fn(() => [...((globalThis as any).__mockFleetConnections as any[])]),
-  setActiveClusterId: vi.fn(),
+  setActiveClusterId: vi.fn(() => true),
   getActiveClusterId: vi.fn(() => 'local'),
   isMultiCluster: vi.fn(() => ((globalThis as any).__mockFleetConnections as any[]).length > 1),
   updateConnectionStatus: vi.fn(),

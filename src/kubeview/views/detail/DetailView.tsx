@@ -1,3 +1,4 @@
+import { useFleetStore } from '../../store/fleetStore';
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +32,7 @@ interface DetailViewProps {
 }
 
 export default function DetailView({ gvrKey, namespace, name }: DetailViewProps) {
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const navigate = useNavigate();
   const go = useNavigateTab();
   const queryClient = useQueryClient();
@@ -62,8 +64,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   // Fetch the resource
   const { data: resource, isLoading, error } = useQuery<K8sResource>({
-    queryKey: ['detail', apiPath],
-    queryFn: () => k8sGet<K8sResource>(apiPath),
+    queryKey: ['detail', apiPath, clusterId],
+    queryFn: () => k8sGet<K8sResource>(apiPath, clusterId),
     refetchInterval: 30000,
   });
 
@@ -164,7 +166,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     if (!resource) return;
     setDeleting(true);
     try {
-      await k8sDelete(apiPath);
+      await k8sDelete(apiPath, clusterId, { uid: resource?.metadata.uid, resourceVersion: resource?.metadata.resourceVersion });
       queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
         if (!old || !Array.isArray(old)) return old;
         return old.filter((r: K8sResource) => r.metadata?.uid !== resource.metadata.uid);
@@ -227,9 +229,10 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
             volumes: [{ name: 'host', hostPath: { path: '/' } }],
           },
         };
-        await k8sCreate('/api/v1/namespaces/default/pods', debugPod);
+        await k8sCreate('/api/v1/namespaces/default/pods', debugPod, clusterId);
         addToast({ type: 'success', title: `Debug pod created: ${debugName}`, detail: 'Host filesystem at /host. Run: chroot /host. Pod auto-deletes in 1 hour.' });
         useUIStore.getState().openTerminal({
+          clusterId,
           namespace: 'default',
           podName: debugName,
           containerName: 'debug',
@@ -255,7 +258,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         await k8sPatch(
           `/api/v1/namespaces/${namespace}/pods/${resource.metadata.name}/ephemeralcontainers`,
           patch,
-          'application/strategic-merge-patch+json'
+          'application/strategic-merge-patch+json',
+          clusterId,
         );
         addToast({ type: 'success', title: `Debug container "${debugContainerName}" added`, detail: 'Shares process namespace with the target container. Connect via terminal.' });
         queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
@@ -273,7 +277,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     const newReplicas = Math.max(0, currentReplicas + delta);
     setActionLoading('scale');
     try {
-      await k8sPatch(apiPath, { spec: { replicas: newReplicas } });
+      await k8sPatch(apiPath, { spec: { replicas: newReplicas } }, undefined, clusterId);
       addToast({ type: 'success', title: `Scaled to ${newReplicas} replicas` });
       queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
       queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
@@ -290,7 +294,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     try {
       await k8sPatch(apiPath, {
         spec: { template: { metadata: { annotations: { 'kubectl.kubernetes.io/restartedAt': new Date().toISOString() } } } },
-      });
+      }, undefined, clusterId);
       addToast({ type: 'success', title: `Rollout restart triggered` });
       queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
       queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
@@ -308,6 +312,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       ? (spec.containers as Container[] | undefined)?.[0]?.name || ''
       : '';
     useUIStore.getState().openTerminal({
+          clusterId,
       namespace: resource.kind === 'Node' ? 'default' : namespace || '',
       podName: name,
       containerName,
@@ -342,7 +347,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     if (!k) return;
     setActionLoading('label');
     try {
-      await k8sPatch(apiPath, { metadata: { labels: { [k]: v } } });
+      await k8sPatch(apiPath, { metadata: { labels: { [k]: v } } }, undefined, clusterId);
       addToast({ type: 'success', title: `Label ${k}=${v} added` });
       queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
       setShowLabelDialog(false);

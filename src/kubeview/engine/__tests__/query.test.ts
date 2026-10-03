@@ -195,45 +195,17 @@ describe('k8sDelete', () => {
     );
   });
 
-  it('scales to 0 before deleting deployments', async () => {
-    // First call: PATCH to scale down, second call: DELETE
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
-
-    await k8sDelete('/apis/apps/v1/namespaces/default/deployments/nginx');
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    // First call: scale to 0
-    expect(mockFetch.mock.calls[0][1].method).toBe('PATCH');
-    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({ spec: { replicas: 0 } });
-    // Second call: delete
-    expect(mockFetch.mock.calls[1][1].method).toBe('DELETE');
-  });
-
-  it('scales to 0 before deleting statefulsets', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
-
-    await k8sDelete('/apis/apps/v1/namespaces/default/statefulsets/redis');
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch.mock.calls[0][1].method).toBe('PATCH');
-  });
-
-  it('does not scale non-scalable resources', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
-
-    await k8sDelete('/api/v1/namespaces/default/configmaps/test');
+  it.each(['deployments', 'statefulsets', 'replicasets'])('never scales %s when a delete is denied', async (plural) => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({ message: 'forbidden', code: 403 }) });
+    await expect(k8sDelete(`/apis/apps/v1/namespaces/default/${plural}/web`)).rejects.toThrow('forbidden');
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch.mock.calls[0][1].method).toBe('DELETE');
   });
 
-  it('continues delete even if scale-down fails', async () => {
-    // Scale fails, delete succeeds
-    mockFetch.mockRejectedValueOnce(new Error('scale failed'));
+  it('passes object identity preconditions to avoid deleting a replacement', async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, status: 200 });
-
-    await k8sDelete('/apis/apps/v1/namespaces/default/deployments/nginx');
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    await k8sDelete('/api/v1/namespaces/default/pods/web', 'local', { uid: 'shown-uid', resourceVersion: '12' });
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body).preconditions).toEqual({ uid: 'shown-uid', resourceVersion: '12' });
   });
 
   it('does not throw on 404', async () => {

@@ -1,3 +1,4 @@
+import { useFleetStore } from '../../store/fleetStore';
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { k8sPatch, k8sDelete } from '../../engine/query';
@@ -44,6 +45,7 @@ export function useTableActions({
   selectedRows: Set<string>;
   setSelectedRows: React.Dispatch<React.SetStateAction<Set<string>>>;
 }): ActionHandlers {
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
 
@@ -66,31 +68,31 @@ export function useTableActions({
 
     try {
       if (action === 'restart') {
-        await k8sDelete(resourcePath);
+        await k8sDelete(resourcePath, clusterId, { uid: resource.metadata.uid });
         addToast({ type: 'success', title: `Pod "${resourceName}" restarted` });
       } else if (action === 'restart-rollout') {
         await k8sPatch(resourcePath, {
           spec: { template: { metadata: { annotations: { 'kubectl.kubernetes.io/restartedAt': new Date().toISOString() } } } },
-        });
+        }, undefined, clusterId);
         addToast({ type: 'success', title: `Rollout restart triggered for "${resourceName}"` });
       } else if (action === 'scale') {
         const delta = p?.delta ?? 0;
         const currentReplicas = (resource.spec as { replicas?: number })?.replicas ?? 0;
         const newReplicas = Math.max(0, currentReplicas + delta);
-        await k8sPatch(resourcePath, { spec: { replicas: newReplicas } });
+        await k8sPatch(resourcePath, { spec: { replicas: newReplicas } }, undefined, clusterId);
         addToast({ type: 'success', title: `Scaled "${resourceName}" to ${newReplicas} replicas` });
       } else if (action === 'scale-to') {
         const replicas = ((p as { replicas?: number } | undefined)?.replicas) ?? 0;
-        await k8sPatch(resourcePath, { spec: { replicas } });
+        await k8sPatch(resourcePath, { spec: { replicas } }, undefined, clusterId);
         addToast({ type: 'success', title: `Scaled "${resourceName}" to ${replicas} replicas` });
       } else if (action === 'cordon') {
-        await k8sPatch(resourcePath, { spec: { unschedulable: true } });
+        await k8sPatch(resourcePath, { spec: { unschedulable: true } }, undefined, clusterId);
         addToast({ type: 'success', title: `Node "${resourceName}" cordoned` });
       } else if (action === 'uncordon') {
-        await k8sPatch(resourcePath, { spec: { unschedulable: false } });
+        await k8sPatch(resourcePath, { spec: { unschedulable: false } }, undefined, clusterId);
         addToast({ type: 'success', title: `Node "${resourceName}" uncordoned` });
       } else if (action === 'drain') {
-        await k8sPatch(resourcePath, { spec: { unschedulable: true } });
+        await k8sPatch(resourcePath, { spec: { unschedulable: true } }, undefined, clusterId);
         addToast({ type: 'warning', title: `Drain started for "${resourceName}"`, detail: 'Node cordoned. Pod eviction requires manual intervention.' });
       } else if (action === 'delete-single') {
         setPendingDelete({ resource, path: resourcePath });
@@ -103,7 +105,7 @@ export function useTableActions({
     } finally {
       setInlineActionLoading(null);
     }
-  }, [inlineActionLoading, apiPath, queryClient, addToast]);
+  }, [inlineActionLoading, apiPath, queryClient, addToast, clusterId]);
 
   const handleExport = useCallback((format: 'csv' | 'json') => {
     const data = sortedResources.map((r) => {
@@ -146,7 +148,7 @@ export function useTableActions({
     if (!pendingDelete) return;
     setSingleDeleting(true);
     try {
-      await k8sDelete(pendingDelete.path);
+      await k8sDelete(pendingDelete.path, clusterId, { uid: pendingDelete.resource.metadata.uid, resourceVersion: pendingDelete.resource.metadata.resourceVersion });
       queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
         if (!old || !Array.isArray(old)) return old;
         return old.filter((r: K8sResource) => r.metadata?.uid !== pendingDelete.resource.metadata?.uid);
@@ -162,7 +164,7 @@ export function useTableActions({
     } finally {
       setSingleDeleting(false);
     }
-  }, [pendingDelete, queryClient, apiPath]);
+  }, [pendingDelete, queryClient, apiPath, clusterId]);
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedRows.size === 0) return;
@@ -179,7 +181,7 @@ export function useTableActions({
     setDeleteProgress(items.map(i => ({ name: i.name, ns: i.ns, kind: i.kind, status: 'deleting' as const })));
 
     const results = await Promise.allSettled(
-      items.map((item) => k8sDelete(item.path))
+      items.map((item) => k8sDelete(item.path, clusterId, { uid: item.uid }))
     );
     results.forEach((result, idx) => {
       if (result.status === 'fulfilled') {
@@ -193,11 +195,11 @@ export function useTableActions({
     setSelectedRows(new Set());
     queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
       if (!old || !Array.isArray(old)) return old;
-      const deletedUids = new Set(items.map(i => i.uid));
+      const deletedUids = new Set(items.filter((_, index) => results[index].status === 'fulfilled').map(i => i.uid));
       return old.filter((r: K8sResource) => !deletedUids.has(r.metadata?.uid ?? ''));
     });
     queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
-  }, [selectedRows, stampedResources, queryClient, apiPath, setSelectedRows]);
+  }, [selectedRows, stampedResources, queryClient, apiPath, setSelectedRows, clusterId]);
 
   return {
     handleAction,

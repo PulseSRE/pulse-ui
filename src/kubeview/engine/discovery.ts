@@ -4,7 +4,7 @@
  */
 
 import { K8S_BASE as BASE } from './gvr';
-import { getClusterBase } from './clusterConnection';
+import { getActiveClusterId, getClusterBase } from './clusterConnection';
 
 export interface ResourceType {
   group: string;      // "" for core, "apps" etc
@@ -81,7 +81,7 @@ export function gvrKey(group: string, version: string, plural: string): string {
  * Invalidate the discovery cache (e.g., after operator install)
  */
 export function invalidateDiscoveryCache(clusterId?: string): void {
-  const cacheKey = clusterId || 'local';
+  const cacheKey = clusterId ?? getActiveClusterId();
   cachedRegistries.delete(cacheKey);
   cacheTimestamps.delete(cacheKey);
   // Also clear legacy aliases
@@ -93,7 +93,7 @@ export function invalidateDiscoveryCache(clusterId?: string): void {
  * Discover all available resource types from the API server
  */
 export async function discoverResources(clusterId?: string): Promise<ResourceRegistry> {
-  const cacheKey = clusterId || 'local';
+  const cacheKey = clusterId ?? getActiveClusterId();
   const cached = cachedRegistries.get(cacheKey);
   const ts = cacheTimestamps.get(cacheKey) || 0;
 
@@ -101,7 +101,7 @@ export async function discoverResources(clusterId?: string): Promise<ResourceReg
     return cached;
   }
 
-  const base = getClusterBase(clusterId);
+  const base = getClusterBase(cacheKey);
   const registry: ResourceRegistry = new Map();
 
   try {

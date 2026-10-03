@@ -67,7 +67,7 @@ connections.set('local', {
 export function getClusterBase(clusterId?: string): string {
   const id = clusterId || activeClusterId;
   const conn = connections.get(id);
-  if (!conn) return LOCAL_BASE; // fallback to local
+  if (!conn) throw new Error(`Unknown cluster: ${id}`); // never retarget an explicit request
   return conn.apiBase;
 }
 
@@ -77,10 +77,12 @@ export function getActiveClusterId(): string {
 }
 
 /** Set the active cluster */
-export function setActiveClusterId(id: string): void {
+export function setActiveClusterId(id: string): boolean {
   if (connections.has(id)) {
     activeClusterId = id;
+    return true;
   }
+  return false;
 }
 
 /** Get all registered cluster connections */

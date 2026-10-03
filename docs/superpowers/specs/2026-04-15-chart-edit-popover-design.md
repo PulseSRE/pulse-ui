@@ -1,5 +1,7 @@
 # Chart Edit Popover
 
+> Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+
 ## Goal
 
 Let users edit chart widget properties (PromQL query, chart type, time range, title, axis labels) directly on the dashboard via a popover panel, with a live "Test Query" button that validates the PromQL against Prometheus before saving.

@@ -1,10 +1,10 @@
+import { useClusterBase } from '../../hooks/useClusterBase';
 import React, { useState, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
   ShieldCheck, ShieldAlert, Loader2, ChevronDown, ChevronRight,
   AlertTriangle, CheckCircle, XCircle, RefreshCw, Sparkles, X,
 } from 'lucide-react';
-import { K8S_BASE as BASE } from '../../engine/gvr';
 import { useUIStore } from '../../store/uiStore';
 import { resourceToYaml } from '../../engine/yamlUtils';
 import { getImpersonationHeaders } from '../../engine/query';
@@ -60,6 +60,7 @@ function computeYamlDiffs(inputYaml: string, serverYaml: string): DiffEntry[] {
 }
 
 export function DryRunPanel({ yaml, apiPath, method, onClose }: DryRunPanelProps) {
+  const BASE = useClusterBase();
   const [result, setResult] = useState<DryRunResult>({
     status: 'idle',
     serverYaml: null,
@@ -136,7 +137,7 @@ export function DryRunPanel({ yaml, apiPath, method, onClose }: DryRunPanelProps
         defaultsApplied: [],
       });
     }
-  }, [yaml, apiPath, method]);
+  }, [yaml, apiPath, method, BASE]);
 
   // Auto-run on mount
   React.useEffect(() => {
