@@ -120,3 +120,5 @@ Screenshots in [docs/screenshots](docs/screenshots) capture earlier UI revisions
 - [Agent](https://github.com/PulseSRE/pulse-agent)
 
 MIT license; see [LICENSE](LICENSE).
+
+Release safety regression checks: `pnpm run test:acceptance`. See [release acceptance](docs/RELEASE_ACCEPTANCE.md) for the isolated CI lane and separate real-cluster gate.
