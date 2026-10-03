@@ -7,6 +7,7 @@ export default mergeConfig(base, defineConfig({
     include: [
       'src/kubeview/__tests__/release-safety.acceptance.test.tsx',
       'src/kubeview/views/incidents/__tests__/IncidentWorkflow.test.tsx',
+      'src/kubeview/components/onboarding/__tests__/InstallationReadinessPanel.test.tsx',
       'src/kubeview/__tests__/cluster-scope.integration.test.tsx',
       'src/kubeview/hooks/__tests__/useK8sListWatch.test.ts',
       'src/kubeview/engine/__tests__/agentClient-reconnect.test.ts',

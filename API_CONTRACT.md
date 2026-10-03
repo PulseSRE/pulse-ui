@@ -573,3 +573,12 @@ These entries record older releases; they are not current compatibility guarante
 REST helpers also cover inbox/episode lifecycle, topology/blast radius, analytics, plans, custom view persistence/sharing, skill governance, MCP connections, memory, and SLOs. See their modules under `src/kubeview/engine/` and the backend route inventory rather than assuming the overview table above is exhaustive. Monitor events include resolution, scan reports, investigation progress, inbox lifecycle and skill activity; chat includes feedback acknowledgements, view updates, session expiry, and multi-skill events. Canonical discriminated unions are in the two client modules.
 
 Action status can include `expired`; verification can include `pending` and `verified_then_recurred`. Do not render an expired proposal as executed or a recurred fix as lasting success. REST rollback and approve helpers parse backend refusal messages, including conditions no longer applicable.
+
+
+### Installation readiness diagnostic
+
+`GET /api/agent/readiness` proxies the authenticated agent `/readiness` endpoint. The onboarding/readiness page presents its read-only installation observations separately from the existing cluster checklist. HTTP 401/403, unavailable endpoints and malformed/incomplete reports establish no readiness; the panel shows an actionable error and a re-check button.
+
+The response has `status` (`healthy`, `degraded`, `unknown`), `checked_at` (UTC ISO timestamp), `scope`, `checks`, and `limitations`. Each check has `id`, `status` (`healthy`, `unhealthy`, `unknown`), `message`, `remediation` (possibly empty), and `source`. Required IDs are `provider_configuration`, `provider_connectivity`, `database`, `kubernetes_pods`, `kubernetes_deployments`, `kubernetes_nodes`, `kubernetes_events`, `kubernetes_logs`, and `monitor`. Overall degraded means at least one unhealthy check; otherwise any unknown check makes overall status unknown.
+
+The agent caches observations for 60 seconds, retaining the original timestamp. Provider connectivity is currently unknown because this diagnostic sends no model request. Kubernetes checks use installation credentials and do not establish a browser user's authority. List/permission probes, database health and a running monitor do not establish full scanner, inference, schema or incident-recovery readiness. A failed refresh labels retained data as a previous report.

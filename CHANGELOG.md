@@ -5,6 +5,7 @@ Release entries are historical records. Counts, timings, security scans, and fea
 ## [Unreleased]
 
 ### Fixed
+- Add agent installation diagnostics to the readiness page, with explicit unknown/failed checks, service-account scope, remediation, authenticated retries and previous-report labeling after refresh failures.
 - Incident lifecycle separates action execution from recovery, joins verification to its exact action and postmortems to their incident, and presents hypotheses, reported evidence, context fetch failures and refresh explicitly.
 - Cluster switching separates query caches/view lifetimes, binds generic resource actions and core YAML/log/terminal requests to the displayed cluster, clears retained resource/Argo contexts, and rejects unknown targets.
 - Deletion no longer scales workloads to zero before a potentially failing DELETE; generic deletion passes object identity preconditions and bulk failure rows remain visible.
