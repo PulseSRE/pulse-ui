@@ -36,6 +36,7 @@ function makeDeployment(name = 'my-app', uid = 'deploy-uid-1') {
       name,
       namespace: 'default',
       uid,
+      resourceVersion: '42',
       creationTimestamp: '2026-03-18T10:00:00Z',
     },
     spec: {
@@ -173,21 +174,71 @@ describe('RollbackPanel', () => {
     await waitFor(() => {
       expect(mockK8sPatch).toHaveBeenCalledWith(
         '/apis/apps/v1/namespaces/default/deployments/my-app',
-        expect.objectContaining({
-          spec: {
-            template: expect.objectContaining({
-              spec: expect.objectContaining({
-                containers: [expect.objectContaining({ image: 'nginx:1.24' })],
-              }),
+        [
+          { op: 'test', path: '/metadata/resourceVersion', value: '42' },
+          { op: 'replace', path: '/spec/template', value: expect.objectContaining({
+            spec: expect.objectContaining({
+              containers: [expect.objectContaining({ image: 'nginx:1.24' })],
             }),
-          },
-        }),
+          }) },
+        ],
+        'application/json-patch+json',
       );
     });
 
     expect(addToastMock).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'success', title: 'Rollback to revision 1 started' }),
     );
+  });
+
+  it('replaces the entire template, removing newly introduced scheduling and container fields', async () => {
+    const deployment = makeDeployment();
+    const currentTemplate = {
+      ...deployment.spec.template,
+      spec: {
+        ...deployment.spec.template.spec,
+        nodeSelector: { unavailable: 'true' },
+        containers: [
+          { ...deployment.spec.template.spec.containers[0], env: [{ name: 'BAD', value: 'true' }] },
+          { name: 'bad-sidecar', image: 'broken:latest' },
+        ],
+      },
+    };
+    const target = makeReplicaSet(1, 'nginx:1.24', 'deploy-uid-1', 0);
+    Object.assign(target.spec.template.metadata.labels, { 'pod-template-hash': 'old-hash' });
+    mockK8sList.mockResolvedValue([makeReplicaSet(2, 'nginx:1.25', 'deploy-uid-1'), target]);
+    let restoredTemplate = currentTemplate as unknown;
+    mockK8sPatch.mockImplementation(async (_path, patch, contentType) => {
+      expect(contentType).toBe('application/json-patch+json');
+      expect(patch[0]).toEqual({ op: 'test', path: '/metadata/resourceVersion', value: '42' });
+      expect(patch[1].op).toBe('replace');
+      expect(patch[1].path).toBe('/spec/template');
+      restoredTemplate = patch[1].value;
+      return {};
+    });
+    render(<RollbackPanel resource={{ ...deployment, spec: { ...deployment.spec, template: currentTemplate } } as any} namespace="default" />, { wrapper: wrapper() });
+    fireEvent.click(await screen.findByText('Rollback'));
+    fireEvent.click(screen.getByRole('dialog').querySelector('button:last-child')!);
+    await waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' })));
+    expect(restoredTemplate).toEqual({
+      ...target.spec.template,
+      metadata: { labels: { app: 'my-app' } },
+    });
+    expect(target.spec.template.metadata.labels).toHaveProperty('pod-template-hash', 'old-hash');
+  });
+
+  it('does not overwrite a deployment changed since the displayed version', async () => {
+    mockK8sList.mockResolvedValue([makeReplicaSet(2, 'nginx:1.25', 'deploy-uid-1'), makeReplicaSet(1, 'nginx:1.24', 'deploy-uid-1')]);
+    mockK8sPatch.mockImplementation(async (_path, patch) => {
+      // Simulate Kubernetes rejecting an atomic JSON Patch test on a newer resource.
+      if (patch[0].op === 'test' && patch[0].value !== '43') throw new Error('Resource version changed');
+      return {};
+    });
+    render(<RollbackPanel resource={makeDeployment() as any} namespace="default" />, { wrapper: wrapper() });
+    fireEvent.click(await screen.findByText('Rollback'));
+    fireEvent.click(screen.getByRole('dialog').querySelector('button:last-child')!);
+    await waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', detail: 'Resource version changed' })));
+    expect(addToastMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
   });
 
   it('shows error toast when rollback fails', async () => {

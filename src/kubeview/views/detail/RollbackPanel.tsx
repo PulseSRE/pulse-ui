@@ -142,9 +142,19 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
     if (!rollbackTarget) return;
     setRolling(true);
     try {
+      if (!rollbackTarget.podTemplate || !resource.metadata.resourceVersion) {
+        throw new Error('Deployment version or revision template is missing. Refresh and try again.');
+      }
+      const template = structuredClone(rollbackTarget.podTemplate);
+      // This label belongs to the ReplicaSet controller, not the Deployment.
+      if (template.metadata?.labels) delete template.metadata.labels['pod-template-hash'];
       await k8sPatch(
         `/apis/apps/v1/namespaces/${namespace}/deployments/${deploymentName}`,
-        { spec: { template: rollbackTarget.podTemplate } },
+        [
+          { op: 'test', path: '/metadata/resourceVersion', value: resource.metadata.resourceVersion },
+          { op: 'replace', path: '/spec/template', value: template },
+        ],
+        'application/json-patch+json',
       );
       addToast({
         type: 'success',

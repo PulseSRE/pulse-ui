@@ -141,6 +141,26 @@ describe('ConfirmationCard', () => {
     expect(screen.queryByLabelText('Approve operation (Y)')).toBeFalsy();
   });
 
+  it.each(['y', 'Y'])('Observe blocks keyboard %s approval', (key) => {
+    mockTrustState.trustLevel = 0;
+    const onConfirm = vi.fn();
+    render(<ConfirmationCard confirm={scaleConfirm} onConfirm={onConfirm} />);
+    fireEvent.keyDown(window, { key });
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(mockTrustState.recordConfirmation).not.toHaveBeenCalled();
+  });
+
+  it('revokes keyboard approval when switching an open card to Observe', () => {
+    const onConfirm = vi.fn();
+    const { rerender } = render(<ConfirmationCard confirm={scaleConfirm} onConfirm={onConfirm} />);
+    mockTrustState.trustLevel = 0;
+    rerender(<ConfirmationCard confirm={scaleConfirm} onConfirm={onConfirm} />);
+    fireEvent.keyDown(window, { key: 'y' });
+    expect(onConfirm).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: 'n' });
+    expect(onConfirm).toHaveBeenCalledWith(false);
+  });
+
   it('shows trust level label', () => {
     const onConfirm = vi.fn();
     render(<ConfirmationCard confirm={scaleConfirm} onConfirm={onConfirm} />);
