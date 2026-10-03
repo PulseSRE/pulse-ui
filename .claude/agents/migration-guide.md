@@ -26,7 +26,7 @@ Run this agent when:
 
 3. **Check localStorage keys**: If store persistence shapes changed, note that users may need to clear `openshiftpulse-*` keys.
 
-4. **Check Helm values**: If deployment config changed, document new/removed values.yaml fields.
+4. **Check operator contract**: If deployment config changed, document current `OpenShiftPulse` CR fields and linked operator migration procedure. This UI repository has no Pulse installation Helm chart.
 
 5. **Write the guide** to `docs/MIGRATION.md` in this format:
 

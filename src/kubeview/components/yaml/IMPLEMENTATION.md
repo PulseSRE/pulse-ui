@@ -1,5 +1,7 @@
 # KubeView YAML Editor - Implementation Summary
 
+> Component integration reference. Source props/exports in this directory are authoritative; examples omit application-specific data/error wiring. Run `pnpm test -- src/kubeview/components/yaml` for current coverage. Tests and counts do not prove live cluster acceptance.
+
 This implementation provides a complete schema-aware YAML editing system for Kubernetes resources.
 
 ## Files Created
@@ -38,7 +40,7 @@ This implementation provides a complete schema-aware YAML editing system for Kub
    - Props: `gvk?`, `yamlContent?`, `onInsertField?`
 
 4. **`SnippetEngine.ts`** (Resource snippets)
-   - 29 built-in snippets for common resources, spanning:
+   - Built-in snippets for common resources, spanning:
      - **Core workloads:** `deploy` (Deployment), `svc` (Service), `ing` (Ingress), `cm` (ConfigMap), `secret` (Secret), `rb` (RoleBinding), `cj` (CronJob), `hpa` (HorizontalPodAutoscaler), `ns` (Namespace), `sa` (ServiceAccount), `np` (NetworkPolicy)
      - **Storage:** `pvc`, `pvc-rwx` (ReadWriteMany), `pvc-block` (Block Volume), `pvc-snapshot`, `pvc-clone`, `volumesnapshot`, `storageclass`
      - **Autoscaling:** `hpa`, `clusterautoscaler`, `machineautoscaler`
@@ -58,10 +60,10 @@ This implementation provides a complete schema-aware YAML editing system for Kub
 
 6. **`IMPLEMENTATION.md`** - This file
 7. **`QUICK_START.md`** - Quick-start usage guide
-8. **`__tests__/SnippetEngine.test.ts`** - Snippet engine tests (8 tests)
-9. **`__tests__/DiffPreview.test.tsx`** - DiffPreview component tests (4 tests)
-10. **`__tests__/MultiDocHandler.test.ts`** - Orphaned: tests multi-document YAML parsing logic in isolation; there is no `MultiDocHandler` component in the codebase (9 tests)
-11. **`__tests__/PasteDetector.test.ts`** - Orphaned: tests paste-detection logic in isolation; there is no `PasteDetector` component in the codebase (8 tests)
+8. **`__tests__/SnippetEngine.test.ts`** - Snippet engine tests (see current test output)
+9. **`__tests__/DiffPreview.test.tsx`** - DiffPreview component tests (see current test output)
+10. **`__tests__/MultiDocHandler.test.ts`** - Orphaned: tests multi-document YAML parsing logic in isolation; there is no `MultiDocHandler` component in the codebase (see current test output)
+11. **`__tests__/PasteDetector.test.ts`** - Orphaned: tests paste-detection logic in isolation; there is no `PasteDetector` component in the codebase (see current test output)
 
 > **Not implemented:** `MultiDocHandler.tsx`, `PasteDetector.tsx`, a barrel `index.ts`, and an `examples/` directory were planned/explored (their logic is partially covered by the two orphaned test files above) but were never built. There is no `README.md` in this directory today — this file and `QUICK_START.md` are the only docs. All real imports use direct file paths (e.g. `import YamlEditor from '@/kubeview/components/yaml/YamlEditor'`), not a barrel import.
 
@@ -92,7 +94,7 @@ All components follow the project's dark theme design system:
 
 ## Dependencies Used
 
-All dependencies are already installed in the project:
+Required packages are declared in package.json; install with `pnpm install --frozen-lockfile`:
 
 - `@uiw/react-codemirror` v4.25.8 - CodeMirror React wrapper
 - `@codemirror/lang-yaml` v6.1.2 - YAML syntax highlighting
@@ -145,12 +147,12 @@ function App() {
 
 ## Testing
 
-29 tests total across 4 files in `__tests__/`, though only 2 files map to components that actually exist:
+Inspect `__tests__/` and current test output for coverage. Some legacy tests exercise extracted logic rather than shipped components:
 
-- `SnippetEngine.test.ts`: 8 tests covering snippet search, resolution, structure (real — tests `SnippetEngine.ts`)
-- `DiffPreview.test.tsx`: 4 tests covering rendering, interaction, loading states (real — tests `DiffPreview.tsx`)
-- `MultiDocHandler.test.ts`: 9 tests — orphaned, tests parsing logic extracted from a `MultiDocHandler` component that was never built
-- `PasteDetector.test.ts`: 8 tests — orphaned, tests detection logic extracted from a `PasteDetector` component that was never built
+- `SnippetEngine.test.ts`: tests covering snippet search, resolution, structure (real — tests `SnippetEngine.ts`)
+- `DiffPreview.test.tsx`: tests covering rendering, interaction, loading states (real — tests `DiffPreview.tsx`)
+- `MultiDocHandler.test.ts`: tests — orphaned, tests parsing logic extracted from a `MultiDocHandler` component that was never built
+- `PasteDetector.test.ts`: tests — orphaned, tests detection logic extracted from a `PasteDetector` component that was never built
 
 Run tests:
 ```bash
@@ -264,7 +266,7 @@ This implementation provides a schema-aware YAML editing system for Kubernetes r
 - ✅ Live OpenAPI schema panel (v3 with v2/Swagger fallback, cached)
 - ✅ Server-side dry-run validation panel (`DryRunPanel`)
 - ✅ Dark theme design system compliance
-- ✅ 12 unit tests covering the components that actually ship (`SnippetEngine`, `DiffPreview`) — plus 17 more in two orphaned test files for a `MultiDocHandler`/`PasteDetector` that were never built
+- Tests cover shipped components and isolated legacy logic; inspect current output for counts.
 - ✅ Code-splitting ready
 - ✅ TypeScript types throughout
 - ✅ No dependencies added (all already installed)

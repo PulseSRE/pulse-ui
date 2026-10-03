@@ -1,5 +1,7 @@
 # User Session Analytics
 
+> Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+
 ## Goal
 
 Track user behavior across the Pulse UI — which pages drive agent interactions, how long users spend on each view, and which follow-up suggestions get clicked. Data stored in PostgreSQL alongside existing analytics, queryable via a new REST endpoint.

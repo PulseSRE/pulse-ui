@@ -1,8 +1,10 @@
 # Quick Start Guide
 
+> Component integration reference. Source props/exports in this directory are authoritative; examples omit application-specific data/error wiring. Run `pnpm test -- src/kubeview/components/yaml` for current coverage. Tests and counts do not prove live cluster acceptance.
+
 ## Installation
 
-All dependencies are already installed. There is no barrel `index.ts` in this directory — import directly from each file:
+Install repository dependencies with `pnpm install --frozen-lockfile`. There is no barrel `index.ts` in this directory — import directly from each file:
 
 ```tsx
 import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
@@ -27,16 +29,18 @@ import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 ```tsx
 import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 import { useState } from 'react';
+import { getImpersonationHeaders } from '@/kubeview/engine/query';
 
 function MyEditor() {
   const [yaml, setYaml] = useState(initialYaml);
 
   const handleSave = async (value: string) => {
-    await fetch('/api/kubernetes/...', {
+    const response = await fetch('/api/kubernetes/...' /* replace with the actual resource path */, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/yaml' },
+      headers: { 'Content-Type': 'application/yaml', ...getImpersonationHeaders() },
       body: value,
     });
+    if (!response.ok) throw new Error(`Save failed: ${response.status}`);
   };
 
   return (
@@ -312,7 +316,7 @@ function App() {
 
 ## Testing
 
-The components are tested with Vitest. There are 4 files in `__tests__/` (29 tests total), but only 2 map to components that actually exist — `SnippetEngine.test.ts` (8 tests) and `DiffPreview.test.tsx` (4 tests). `MultiDocHandler.test.ts` (9 tests) and `PasteDetector.test.ts` (8 tests) are orphaned: they test logic extracted from components that were explored but never built.
+The components are tested with Vitest. Legacy test files include isolated logic for unshipped components; the shipped components include — `SnippetEngine.test.ts` (see current test output) and `DiffPreview.test.tsx` (see current test output). `MultiDocHandler.test.ts` (see current test output) and `PasteDetector.test.ts` (see current test output) are orphaned: they test logic extracted from components that were explored but never built.
 
 ```tsx
 import { render, screen } from '@testing-library/react';

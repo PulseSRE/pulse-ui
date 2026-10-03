@@ -1,5 +1,7 @@
 # KubeView Log Viewer Architecture
 
+> Component integration reference. Source props/exports in this directory are authoritative; examples omit application-specific data/error wiring. Run `pnpm test -- src/kubeview/components/logs` for current coverage. Tests and counts do not prove live cluster acceptance.
+
 ## Component Hierarchy
 
 ```

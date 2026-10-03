@@ -1,5 +1,7 @@
 # Topology Component
 
+> Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+
 ## Goal
 
 Add a new `topology` component kind that the agent can return inline in chat and place on dashboards. Renders an interactive resource graph (drag, zoom/pan, click-to-inspect) showing K8s resource relationships — workloads, networking, policies, quotas.

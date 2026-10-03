@@ -1,5 +1,7 @@
 # KubeView Metrics Integration Guide
 
+> Component integration reference. Source props/exports in this directory are authoritative; examples omit application-specific data/error wiring. Run `pnpm test -- src/kubeview/components/metrics` for current coverage. Tests and counts do not prove live cluster acceptance.
+
 This guide shows how to integrate the metrics components into KubeView views.
 
 ## Quick Start
@@ -135,71 +137,9 @@ export function CorrelationView() {
 }
 ```
 
-### 4. Incident Narrative
+### Incident analysis
 
-```tsx
-import { buildNarrative, groupEvents } from '@/kubeview/components/metrics';
-
-export function IncidentAnalysis() {
-  const [narrative, setNarrative] = useState(null);
-
-  useEffect(() => {
-    async function analyze() {
-      // Fetch K8s events
-      const k8sEvents = await fetchEvents(namespace);
-
-      // Fetch Prometheus alerts
-      const alerts = await fetchAlerts();
-
-      // Build narrative
-      const result = buildNarrative({
-        events: k8sEvents,
-        alerts,
-      });
-
-      setNarrative(result);
-    }
-
-    analyze();
-  }, []);
-
-  if (!narrative) return <div>Loading...</div>;
-
-  const groups = groupEvents(narrative.events);
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-slate-800 rounded p-4">
-        <h3 className="font-medium mb-2">Summary</h3>
-        <p className="text-sm">{narrative.summary}</p>
-
-        {narrative.rootCause && (
-          <>
-            <h3 className="font-medium mt-4 mb-2">Root Cause</h3>
-            <p className="text-sm text-amber-400">{narrative.rootCause}</p>
-          </>
-        )}
-      </div>
-
-      {/* Timeline grouped by time windows */}
-      {groups.map((group, i) => (
-        <div key={i} className="bg-slate-800 rounded p-3">
-          <h4 className="text-sm font-medium mb-2">{group.title}</h4>
-          {group.events.map((event, j) => (
-            <div key={j} className="text-sm">
-              <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                event.type === 'action' ? 'bg-blue-500' :
-                event.type === 'symptom' ? 'bg-red-500' : 'bg-green-500'
-              }`} />
-              {event.description}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-```
+Metrics components render time series; they do not export a narrative engine. Use current incident/episode hooks instead of the removed `buildNarrative`/`groupEvents` API.
 
 ## Common Patterns
 

@@ -1,293 +1,57 @@
-# CLAUDE.md
+# Repository guidance
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project
-
-OpenShift Pulse — a React/TypeScript dashboard for OpenShift Day-2 operations. All data comes from live Kubernetes APIs (no mock data in production code). v2.28.0, ~390 source files, 2,273 unit tests (188 files) + 56 E2E scenarios.
+OpenShift Pulse UI is a React/TypeScript OpenShift dashboard. Current version/toolchain are in `package.json`; do not duplicate release, test, tool, scanner, or file counts here. Use [README](README.md), [CONTRIBUTING](CONTRIBUTING.md), and [API integration](API_CONTRACT.md) for setup and checks.
 
 ## Commands
 
 ```bash
-# Dev server (requires `oc proxy --port=8001` running separately)
-pnpm dev                 # rspack dev server on port 9000
-# Admin-gated agent endpoints (fix approval, skill management) need a real
-# identity — the proxy's placeholder token hashes to user-<hash> and 403s:
-PULSE_USER_TOKEN=$(oc whoami -t) pnpm dev
-
-# Build
-pnpm build               # production build (~1s)
-
-# Tests
-pnpm exec vitest --run   # run all unit tests (~90s, 2104 tests)
-pnpm exec vitest --run src/kubeview/views/__tests__/WorkloadsView.test.tsx  # single file
-pnpm exec vitest --run -t "test name pattern"  # single test by name
-
-# Helm chart validation (no cluster needed)
-
-# Type checking
-pnpm type-check          # tsc --noEmit
-
-# Full verify
-pnpm verify              # type-check + strict + lint + test + build
-
-# E2E tests (auto-starts mock K8s + dev server)
-pnpm e2e                 # headless Playwright
-pnpm e2e:headed          # visible browser
-pnpm e2e:ui              # Playwright UI mode
-
-# Lint & format
-pnpm lint                # eslint with --fix
-pnpm format              # prettier
-
-# Screenshots (requires Playwright + live cluster)
-PULSE_URL=https://... PULSE_USER=cluster-admin PULSE_PASS=... pnpm exec tsx scripts/capture-screenshots.ts
+pnpm install --frozen-lockfile
+pnpm dev                       # port 9000; oc proxy 8001 separately for live data
+pnpm type-check
+pnpm lint                      # read-only lint
+pnpm lint:fix                   # apply fixes
+pnpm test
+pnpm exec vitest --run path/to/file.test.ts
+pnpm test:coverage
+pnpm build
+pnpm verify                    # type-check + lint + test + build
 ```
 
-## Architecture
+`rspack.config.ts` reads process environment, not `.env` automatically. Agent proxy credentials are injected server-side; browser WebSockets contain no shared token. Real agent admin endpoints require a real forwarded user token and configured admin identity. Never print or commit tokens.
 
-### Entry & Routing
-- **Entry**: `src/index.tsx` → `src/kubeview/App.tsx` (`OpenshiftPulseApp`)
-- **Shell**: `components/Shell.tsx` wraps all routes (CommandBar + TabBar + Dock + StatusBar)
-- **Routes**: `routes/resourceRoutes.tsx` (generic CRUD), `routes/domainRoutes.tsx` (domain views), `routes/redirects.tsx` (legacy + feature-gated redirects)
-- URL pattern for resources: `/r/{group~version~plural}/{namespace}/{name}` (GVR encoding uses `~` separator)
-- **Feature flags**: Removed — all features shipped. `engine/featureFlags.ts` deleted.
+Playwright scripts/config are in `e2e/`; tests may start mock API/container services or target `PULSE_URL`. Run only within the user's authorized test environment. Do not treat mock E2E as cluster deployment validation.
 
-### Navigation Structure
-```
-Cluster:        Pulse, Workloads (+Builds tab), Networking, Compute, Storage
-Operations:     Incident Center (Now/Investigate/Actions/Postmortems/History/Alerts), Impact Analysis, Security, GitOps, Fleet
-Administration: Admin (7 tabs), Identity & Access, Production Readiness
-Agent:          Mission Control (Trust Policy/Agent Health/Agent Accuracy/Capability Discovery), Toolbox (Catalog/Skills/Connections/Components/Usage/Analytics)
-```
+## Source map
 
-**Key routes:**
-- `/welcome` — launchpad with quick stats, AI briefing, 8-card nav grid
-- `/pulse` — health overview with topology map, insights rail, overnight activity
-- `/incidents` — unified incident triage (6 tabs: Now, Investigate, Actions, Postmortems, History, Alerts)
-- `/topology` — impact analysis / dependency graph with blast radius visualization
-- `/agent` — agent config (trust level, scanners, memory, views, evals)
-- `/toolbox` — tools catalog, skills management, MCP connections, component registry, usage log, analytics
-- `/identity` — merged Users + Groups + RBAC + Impersonation
-- `/readiness` — production readiness wizard (30 gates, 6 categories)
-- `/custom/:viewId` — AI-generated custom views (auto-saved, drag-drop grid layout)
+- `src/index.tsx` → `src/kubeview/App.tsx` → Shell and `routes/*`.
+- Resource routes use `/r/{group~version~plural}/{namespace}/{name}`; domain routes and redirects are authoritative in `routes/domainRoutes.tsx`.
+- `engine/query.ts`: Kubernetes CRUD/log helpers; `clusterConnection.ts`: local/remote target registry.
+- `hooks/useK8sListWatch.ts`: REST list and WebSocket watch cache updates with safety polling.
+- `engine/watch.ts`: watch subscription/reconnection manager.
+- `engine/agentClient.ts`: chat streaming/nonce confirmation protocol; `monitorClient.ts`: background events and proposals.
+- `store/agentStore.ts`, `monitorStore.ts`, `trustStore.ts`, `inboxStore.ts`, `fleetStore.ts`, `customViewStore.ts`: client state. Inspect each persist partialization before changing storage shape.
+- `engine/componentRegistry.ts`, `agentComponents.ts`, renderers and `normalizeAgentProps.ts`: generated UI schema/rendering.
+- `engine/types/*`: canonical Kubernetes, incident, and Ask Pulse types.
+- `components/logs`, `metrics`, `yaml`: reusable controls; consult their local documentation and actual exports.
 
-**Merged/redirect routes:**
-- `/tools` → `/toolbox`
-- `/extensions` → `/toolbox?tab=skills`
-- `/alerts` → `/incidents?tab=alerts`
-- `/builds` → `/workloads?tab=builds`
-- `/crds` → `/admin?tab=crds`
-- `/monitor` → `/incidents`
-- `/reviews` → `/incidents?tab=actions`
-- `/memory` → `/agent?tab=memory`
-- `/views` → `/agent?tab=views`
-- `/onboarding` → `/readiness`
-- `/access-control` → `/identity?tab=rbac`
-- `/users` → `/identity?tab=users`
+## Behavioral requirements
 
-**Dock panels**: Logs, Terminal, Events, Agent
-**StatusBar**: Findings badge, Pending reviews badge, Degraded indicator, Agent toggle
-**CommandBar**: `Cmd+K` with NL detection (Ask Pulse) for AI-powered queries
+- Preserve active cluster/user identity in query keys, subscriptions, tabs, and pending actions; do not render one cluster's object and mutate another cluster implicitly.
+- Do not infer server authorization from localStorage/browser trust. Background monitoring uses server policy and service-account authority; interactive chat and direct Kubernetes writes have different controls.
+- Echo the backend confirmation nonce. Observe mode must not approve writes via hidden buttons, keyboard shortcuts, or auto-approval.
+- Rollback must replace the intended mutable subtree exactly and reject concurrent changes; strategic merge is insufficient for removing added fields.
+- Use real backend data or explicit empty/error states. Feature flags were removed; the old featureFlags module is not available.
+- Prefer existing UI primitives, lucide icons, `cn()` and shared types. Maintain accessible contrast, especially menus/overlays. Test changes on actual rendered screens when authorized.
+- Distinguish helper-level regression tests from cluster/OAuth acceptance. Check failure and cancellation paths, not just happy paths.
 
-### Data Layer
-- **API proxy**: All K8s calls go through `/api/kubernetes` → rspack dev proxy → `oc proxy :8001`
-- **Query**: `engine/query.ts` — CRUD functions with TanStack Query
-- **List+Watch**: `hooks/useK8sListWatch.ts` — REST list + WebSocket watch with 60s safety polling
-- **Watch manager**: `engine/watch.ts` — singleton WebSocket manager with heartbeat/reconnect
-- **Discovery**: `engine/discovery.ts` — discovers all resource types from `/apis` endpoint
-- **Impersonation**: `getImpersonationHeaders()` in `engine/query.ts`
+## Toolchain
 
-### State Management (Zustand stores)
-| Store | Purpose | Persisted |
-|-------|---------|-----------|
-| `uiStore` | tabs, toasts, dock, namespace, impersonation, degradedReasons | yes (except degradedReasons) |
-| `clusterStore` | cluster discovery, version, HyperShift detection | no |
-| `monitorStore` | findings, predictions, actions, fix history | yes (partial) |
-| `agentStore` | chat messages, streaming, confirmations | yes |
-| `trustStore` | trust level (0-4), auto-fix categories | yes |
-| `errorStore` | tracked K8s API errors by category | yes |
-| `fleetStore` | multi-cluster connections, ACM detection | no |
-| `argoCDStore` | ArgoCD availability, apps, sync status | no |
-| `onboardingStore` | readiness gate results, waivers, wizard mode | yes |
-| `reviewStore` | UI state for review queue (filters, tabs) | yes (partial) |
+React 19, TypeScript 5, Tailwind 4 (`@import 'tailwindcss'`/`@theme`), Rspack 2, ESLint 10, and react-grid-layout 2. Exact versions/configurations are in package metadata, `eslint.config.js`, CSS, and `vitest.config.ts`. Type-check currently excludes tests.
 
-### Canonical Data Models (define once, import everywhere)
-- **`engine/types/incident.ts`** — `IncidentItem`, `PrometheusAlert`, `FleetAlert` + 5 mapper functions
-- **`engine/types/askPulse.ts`** — `AskPulseResponse`, `QuickAction`
-- **`engine/readiness/types.ts`** — `ReadinessGate`, `GateResult`, `GateStatus`, `GatePriority`, `ReadinessReport`, `CategorySummary`
-- **`engine/monitorClient.ts`** — `Finding`, `ResourceRef`, `ActionReport`, `Prediction`, `MonitorEvent`
-- **`engine/fixHistory.ts`** — `ActionRecord`, `FixHistoryResponse`, `BriefingResponse`
-- **`store/reviewStore.ts`** — `ReviewItem`, `RiskLevel`, `useAllReviews()` (maps from monitorStore)
+## Deployment ownership
 
-### Agent Integration
-- **Default agent mode**: `auto` — uses `/ws/agent` endpoint which auto-routes between SRE and Security based on query intent
-- **Agent endpoint**: `/ws/agent?token=...` — auto-routing orchestrated agent (classifies intent per message)
-- **No separate mode endpoints**: `/ws/sre` and `/ws/security` do not exist as standalone routes — `/ws/agent` classifies intent per message and routes internally to one of 7 skills
-- **Monitor WebSocket**: `engine/monitorClient.ts` → `store/monitorStore.ts` — single connection via `agentNotifications.ts`
-- **Ask Pulse**: `hooks/useAskPulse.ts` — dedicated `AgentClient` WebSocket for Cmd+K NL queries (separate from dock chat)
-- **Trust level**: sent as integer (0-4) to backend, NOT as label string
-- **Agent Chat**: `engine/agentClient.ts` → `store/agentStore.ts`
-- **Confirmation flow**: `confirm_request` with nonce → UI shows dialog → `confirm_response` with nonce echoed back
-- **Degraded mode**: `engine/degradedMode.ts` — 5 failure reasons, displayed via `DegradedBanner`
-- **Auto-fix**: at trust level 3/4, monitor fixes crashloop (pod delete) and workloads (deployment restart) WITHOUT confirmation gate. Has safety guardrails: max 3/scan, 5min cooldown, no bare pods.
-- **Agent version**: v2.18.0 (Protocol v2, 104 native tools + MCP, 27 scanners)
-- **Episodes**: an open episode appears above the queue in the Inbox and above every tile on Cluster Pulse — a cause with the findings it explains folded underneath, plus what changed just before it and how often it has returned. Symptoms are collapsed out of the list and the count is shown, because work vanishing from a queue with no explanation is its own trust problem. Every symptom carries a "Not related" control wired to the detach endpoint; that correction is the only ground truth the agent gets about its own correlation
-- **Time formatting**: `formatShortDuration(seconds)` and `formatElapsed(unixSeconds)` in `dateUtils` return one coarse unit with no suffix. Distinct from the older `formatDuration(startISO, endISO)` and `formatAge(Date)` in the same file — check which you want before adding a third
-- **MCP integration**: OpenShift MCP server with 11 toolsets, 36 tools including Prometheus queries and Helm management
-- **Skills**: 7 skill packages (sre, security, view_designer, capacity_planner, plan-builder, postmortem, slo-management) with hot reload, routing, version history, and AI-generated skill badges
-- **Custom views**: auto-saved to PostgreSQL on `create_dashboard`, user-scoped via OAuth token
-- **25 component types**: metric_card, info_card_grid, stat_card, resource_counts, data_table, key_value, bar_list, progress_list, chart, node_map, timeline, status_list, badge_list, log_viewer, yaml_viewer, relationship_tree, tabs, grid, section, topology, confidence_badge, resolution_tracker, blast_radius, status_pipeline, action_button
-- **Intelligence bridge**: `normalizeAgentProps.ts` normalizes field aliases (label→name for status_list, label→text for badge_list, warning→warn for log_viewer, values→data for chart, props flattening). `getKnownKinds()` in `componentRegistry.ts` lists all 25 kinds with native renderers
+The [Pulse Operator](https://github.com/PulseSRE/pulse-operator) deploys and configures Pulse via `OpenShiftPulse`. This repository packages the UI image; `Dockerfile.helm-runner` is for the Helm product feature, not installing Pulse. Use immutable images and the operator's current CR fields/documentation.
 
-### Incident Center (`/incidents`) — 6 tabs
-- **Now**: unified feed from `useIncidentFeed` hook (findings + alerts + errors), silence management, inline investigation phase progress
-- **Investigate**: correlation groups, evidence rendering (suspectedCause, evidence[], alternativesConsidered[])
-- **Actions**: embedded ReviewQueueView — approve/reject AI-proposed changes with YAML diffs
-- **Postmortems**: auto-generated postmortem reports with timeline, root cause, blast radius, prevention recommendations
-- **History**: chronological stream + fix history
-- **Alerts**: Prometheus alert rules, silences, firing alerts (merged from standalone `/alerts` view)
+Do not delete OAuth, database, or API-key Secrets as a routine upgrade/rotation recipe. Rotation requires a coordinated operator-specific procedure and, for database credentials, synchronization with the stored database password. Do not restate deployment-specific Secret names here. Preserve data and review the operator's documented procedure before changing credentials.
 
-### Mission Control (`/agent`) — single page, 4 sections + 3 drawers
-- **Trust Policy**: trust level slider (0-4), impact preview, auto-fix categories, communication style
-- **Agent Health**: quality gate card, scanner coverage card, outcomes card (click to open detail drawers)
-- **Agent Accuracy**: quality trend, override rate, recurring issues, learning activity (collapsible)
-- **Capability Discovery**: contextual recommendations with dismiss + inline actions
-- **Drawers**: Scanner detail, Eval suite breakdown, Agent Memory (slide-over panels)
-
-### Toolbox (`/toolbox`) — 6 tabs
-- **Catalog**: all tools (native + MCP) with source badges, search, mode/source filter
-- **Skills**: skill packages with editor, version history, diff viewer, routing tester, investigation plan templates section, AI-generated skill badges, routing-gate banners (approve/re-approve for unreviewed or agent-refreshed skills, quarantine/restore for misrouting ones — backed by POST /admin/skills/{name}/approve|quarantine|unquarantine), Quarantined badge on cards, "Learned From" incident type on auto-scaffolded skills
-- **Connections**: MCP server management with 11 toolset toggles
-- **Components**: 25 component kinds by category with mutation support
-- **Usage**: tool invocation audit log with source (native/mcp) column
-- **Analytics**: merged tool stats + skill usage + by-source breakdown + handoffs
-
-### Enhanced Pulse (`/pulse`)
-- **Briefing**: `fetchBriefing(12)` via TanStack Query, shows current state ("Right now: N incidents, N findings")
-- **Insights rail**: `useIncidentFeed({ limit: 5 })` for live incident cards, quick action pills
-- **Overnight activity**: `monitorStore.recentActions` sorted by timestamp
-- **Stat pills**: clickable node count, incident count, pending reviews → navigate to relevant views
-
-### Ask Pulse (Cmd+K enhancement)
-- **Detection**: `detectNaturalLanguage(query)` — heuristic (question words, word count, K8s patterns)
-- **Agent**: dedicated `AgentClient` instance via ref-counted singleton (separate from dock chat)
-- **Fallback**: `response: null` + "Agent offline" indicator when agent unavailable
-- **UI**: `AskPulsePanel` with response text, suggestion pills, action buttons, "Open in Agent"
-
-### Readiness Engine
-- **Gates**: `engine/readiness/gates.ts` — 30 gates across 6 categories
-- **Scoring**: `engine/readiness/scoring.ts` — weighted scoring, `isProductionReady()` with 80% threshold
-- **UI bridge**: `components/onboarding/types.ts` — `CategoryView` + `buildCategoryViews()`
-- **OnboardingView**: dual mode (wizard/checklist), uses `evaluateAllGates()` for real checks
-
-### Unified Incident Feed
-- **`hooks/useIncidentFeed.ts`** — merges 4 sources via canonical mappers, deduplicates by correlationKey, sorts by severity
-- Sets `observability_unavailable` degraded reason on Prometheus failure
-- Configurable: severity filter, limit, sources, timeRange
-
-### UI Components
-- **Primitives**: Panel, Card, DataTable, Badge, EmptyState, DegradedBanner, SearchInput, SectionHeader, StatCard, MetricGrid
-- **Feedback**: Toast, ConfirmDialog, ProgressModal
-- **Agent**: DockAgentPanel, AskPulsePanel, InlineAgent, AmbientInsight, ConfirmationCard, NLFilterBar
-- **Onboarding**: ReadinessWizard, ReadinessChecklist, GateCard, ReadinessScore, WaiverDialog, CategoryStep
-
-### Views (14 top-level)
-- **Cluster**: Pulse (briefing + map + insights), Workloads (+Builds tab), Networking, Compute, Storage
-- **Operations**: Incident Center (6 tabs: Now/Investigate/Actions/Postmortems/History/Alerts), Impact Analysis, Security, GitOps (ArgoCD), Fleet
-- **Administration**: Admin (7 tabs), Identity (4 tabs), Production Readiness
-- **Agent**: Mission Control (4 sections + 3 drawers), Toolbox (6 tabs), Custom Views
-
-### Testing
-- **Framework**: vitest + jsdom + @testing-library/react
-- **Config**: `vitest.config.ts` — excludes `.claude/worktrees/**` and `e2e/`
-- **Coverage thresholds**: 40% statements, 30% branches, 35% functions, 40% lines (enforced in vitest.config.ts)
-- **Setup**: `src/kubeview/__tests__/setup.tsx` — factories, mock server, renderWithProviders
-- **2,045 unit tests** across 169 files (~14s)
-- **E2E**: Playwright (57 test cases across 7 specs) — `pnpm e2e` auto-starts mock K8s + agent (podman) + dev server, tears down containers after
-- **E2E config**: `e2e/playwright.config.ts`, mock K8s in `e2e/mock-k8s-server.mjs`, agent+pg in `e2e/docker-compose.agent.yml`
-- **E2E agent stack**: `e2e/start-agent.sh` / `e2e/stop-agent.sh` — starts real agent + PostgreSQL in podman containers
-- Do not use `sed` to edit test files — use the Edit tool instead. Sed commands have repeatedly mangled test files requiring manual cleanup.
-
-### Code Quality
-- Path alias: `@/` maps to `src/`
-- State: Zustand with `persist` middleware, `openshiftpulse-` prefix
-- Routing: react-router-dom v7
-- Types: define once in `engine/types/` or `engine/readiness/`, import everywhere. **Never duplicate interfaces.**
-- This project uses TypeScript strictly. Always ensure imports are valid, types are correct, and avoid introducing type regressions when editing files. Run `tsc --noEmit` after making changes to TypeScript files.
-
-### UI Framework & Styling
-- CSS: Tailwind CSS v4 (`@import 'tailwindcss'` + `@theme` in CSS, no JS config) with slate/violet color scheme
-- Icons: lucide-react v1
-- Grid: react-grid-layout v2 (`useContainerWidth` hook, `dragConfig`/`resizeConfig` props, `verticalCompactor`)
-- Build: Rspack v2
-- Lint: ESLint v10 + eslint-plugin-react-hooks v7 (React Compiler rules disabled, classic `rules-of-hooks`/`exhaustive-deps` only)
-- When working with PatternFly (PF6), always check the PF6 API docs for component prop placement (e.g., selectableActions goes on CardHeader not Card). Do not assume PF5 patterns.
-- For dark-mode UI work, always verify text visibility, dropdown/menu contrast, and avoid glassmorphism effects that reduce readability. Test all CSS changes against both light and dark themes.
-- Feature flags: all shipped and removed. `engine/featureFlags.ts` deleted.
-- Trust level: always send as integer (0-4), never as string label
-- Confirmation nonce: always echo `nonce` from `confirm_request` back in `confirm_response`
-- Welcome page: every element must be clickable and link to a valid route
-- No mock data fallbacks: all features use real backend data, show empty/error states when unavailable
-
-### Deploy to OpenShift
-
-Install is the [pulse-operator](https://github.com/PulseSRE/pulse-operator)'s job, not this
-repo's. It reconciles the UI, the agent, and PostgreSQL from one `OpenShiftPulse` CR. The
-operator's README is the canonical walkthrough — do not restate the steps here, because two
-copies of install instructions is how they end up disagreeing.
-
-To test a locally-built UI image against a stack the operator already runs, build and push,
-then repoint the CR:
-
-```bash
-pnpm build && podman build --platform linux/amd64 -t $PULSE_UI_IMAGE . && podman push $PULSE_UI_IMAGE
-oc patch openshiftpulse <cr-name> -n <namespace> --type=merge \
-  -p '{"spec":{"ui":{"image":"'"$PULSE_UI_IMAGE"'"}}}'
-```
-
-Deployment is owned by the [Pulse Operator](https://github.com/PulseSRE/pulse-operator), installed via OLM. The UI image the cluster runs is `spec.ui.image` on the `OpenShiftPulse` CR:
-
-```bash
-oc patch openshiftpulse pulse -n openshiftpulse --type=merge \
-  -p '{"spec":{"ui":{"image":"quay.io/amobrem/openshiftpulse:vX.Y.Z"}}}'
-```
-
-`Dockerfile.helm-runner` is unrelated to deploying Pulse — it builds the image behind the Helm tab, a product feature that installs charts into the user's cluster.
-
-Container images go to `quay.io/amobrem/openshiftpulse` (UI) and `quay.io/amobrem/pulse-agent`
-(agent) — never use S2I builds on the cluster.
-
-**Key deployment facts:**
-- WS token stored in `pulse-ws-token` Secret, persists across upgrades
-- OAuth cookie-expire: 168h (7 days), refresh: 1h
-- Agent repo auto-detected; override with `PULSE_AGENT_REPO` env var or `--agent-repo`
-
-## Deployment
-
-When deploying to OpenShift clusters, always verify NetworkPolicy egress rules, image pull access, and OAuth/TLS configuration before the first deploy attempt. Run a pre-deploy checklist rather than iterating through failures.
-
-**Pre-deploy checklist (run before every deploy):**
-2. `oc whoami` — verify cluster auth works
-3. `oc get networkpolicy -n openshiftpulse` — check egress allows agent → Kubernetes API, Prometheus, Vertex AI
-4. `podman login --get-login quay.io` — verify image push access
-5. `oc get secret openshiftpulse-oauth-secrets -n openshiftpulse` — verify OAuth secrets exist (or will be created)
-6. Verify `ANTHROPIC_VERTEX_PROJECT_ID` or `ANTHROPIC_API_KEY` is set
-
-When fixing PostgreSQL deployment issues, validate password encoding, avoid reserved SQL keywords in schema, and check SERIAL/sequence conflicts before the first deploy. Prefer testing with a local PG instance first.
-
-**Secret rotation procedures:**
-- **OAuth cookie-secret**: `oc delete secret openshiftpulse-oauth-secrets -n openshiftpulse` then redeploy. All users must re-login.
-- **OAuth client-secret**: Same as above. Also update OAuthClient: `oc patch oauthclient openshiftpulse -p '{"secret":"NEW_SECRET"}'`
-- **WS token**: `oc delete secret pulse-ws-token -n openshiftpulse` then redeploy. New token auto-generated and shared between UI and agent.
-- **GCP SA key**: `oc delete secret gcp-sa-key -n openshiftpulse` then redeploy with `--gcp-key /path/to/new-key.json`
-- **Anthropic API key**: `oc delete secret anthropic-api-key -n openshiftpulse` then redeploy with `ANTHROPIC_API_KEY=new-key`
-- **PostgreSQL password**: `oc delete secret pulse-openshift-sre-agent-pg-auth -n openshiftpulse` then redeploy. Requires PostgreSQL pod restart.
-
-### GitHub Pages
-- **UI**: https://PulseSRE.github.io/pulse-ui/ (cyberpunk theme, `docs/index.html`)
-- **Agent**: https://PulseSRE.github.io/pulse-agent/ (cyberpunk theme, custom robot logo)
-- Cross-linked between projects
-- Screenshots captured via Playwright: `scripts/capture-screenshots.ts`
-
-- `views/memory/ClusterKnowledge.tsx` — the "This Cluster" tab in Memory. Three sections backed by the agent's `/memory/environment`, `/memory/baselines` and `/memory/learning` endpoints: the verified-learning gate counters (a diagnosis becomes a reusable skill only once its fix is confirmed), operator-correctable facts about this cluster grouped by scope, and learned per-workload baselines. Baselines under 20 samples render as "not used yet" rather than as a norm, matching what the agent does with them.
+Historical designs under `docs/superpowers/` are design records, not implementation status. Release entries in CHANGELOG are historical. Consult current source and test output for present behavior.

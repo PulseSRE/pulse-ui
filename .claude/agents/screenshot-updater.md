@@ -2,8 +2,10 @@
 
 Takes headless Chrome screenshots of key pages and updates `docs/screenshots/`.
 
+Use a previously authorized running app/test cluster. Do not start a deployment just to refresh screenshots. Prefer the checked-in `scripts/capture-screenshots.ts`; inspect its current flags/dependencies before running. Never include live credentials or sensitive cluster content in published images.
+
 ## Prerequisites
-- App running at http://localhost:9000 (npm run dev + oc proxy)
+- App running at http://localhost:9000 (pnpm dev + oc proxy)
 - Chrome installed at `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
 
 ## Instructions
@@ -37,7 +39,7 @@ Takes headless Chrome screenshots of key pages and updates `docs/screenshots/`.
    - builds.png → /builds
    - crds.png → /crds
 
-3. **Verify screenshots** are not blank (>50KB suggests real content, <30KB likely loading state).
+3. **Visually verify screenshots** show the intended route and loaded state. File size alone cannot establish correct rendering.
 
 4. **Report** which screenshots were updated and which may need manual capture (data-heavy pages may show loading skeletons in headless mode).
 

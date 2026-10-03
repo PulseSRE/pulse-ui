@@ -4,7 +4,9 @@
 
 Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. Both repos must implement the same protocol version for compatibility.
 
-> Source of truth for message schemas. When adding or changing a message type, update this file first, then implement in both repos.
+> UI integration reference, not an exhaustive backend endpoint catalog. Authoritative current schemas are in `engine/agentClient.ts`, `engine/monitorClient.ts`, `engine/agentComponents.ts` (under `src/kubeview/`) and the [agent API contract](https://github.com/PulseSRE/pulse-agent/blob/main/API_CONTRACT.md). Update both code and documentation together. Examples use illustrative values, not current release/tool counts.
+
+Browser paths are `/api/agent/...`; production nginx and the development proxy strip that prefix and inject shared credentials. Browser requests do not append the shared token. Backend paths below omit that proxy prefix. A shared token authenticates the proxy connection; administrator endpoints also require a validated caller identity. Deployment configuration is owned by the operator.
 
 ---
 
@@ -18,7 +20,8 @@ Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. Bo
 | `GET` | `/tools` | token | All tools grouped by mode (sre, security) with `requires_confirmation` flags |
 | `GET` | `/fix-history` | token | Paginated fix history with filters (`status`, `category`, `since`, `search`) |
 | `GET` | `/fix-history/{id}` | token | Single action detail with before/after state |
-| `POST` | `/fix-history/{id}/rollback` | token | Attempt rollback (returns error — rollback not currently supported) |
+| `POST` | `/fix-history/{id}/rollback` | admin + caller access token | Roll back supported snapshot/revision actions under the caller's Kubernetes authority; refusal/error is surfaced |
+| `POST` | `/fix-history/{id}/approve` | admin | Re-plan and approve a proposal; 409 if no longer applicable |
 | `GET` | `/eval/status` | token | Cached quality gate snapshot (release, safety, integration, outcomes) |
 | `GET` | `/predictions` | token | Returns empty — predictions are WebSocket-only (`/ws/monitor`) |
 | `GET` | `/memory/export` | token | Export learned runbooks and patterns as JSON |
@@ -29,16 +32,16 @@ Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. Bo
 | `GET` | `/context` | token | View recent shared context bus entries across all agents |
 | `GET` | `/skills` | token | List all skills with routing rules and metadata |
 | `GET` | `/skills/{name}` | token | Get skill detail (prompt, tools, routing, versions) |
-| `PUT` | `/admin/skills/{name}` | token | Edit skill (prompt, tools, routing rules) |
-| `DELETE` | `/admin/skills/{name}` | token | Delete a skill |
-| `POST` | `/admin/skills/{name}/clone` | token | Clone a skill with a new name |
+| `PUT` | `/admin/skills/{name}` | admin | Edit skill (prompt, tools, routing rules) |
+| `DELETE` | `/admin/skills/{name}` | admin | Delete a skill |
+| `POST` | `/admin/skills/{name}/clone` | admin | Clone a skill with a new name |
 | `POST` | `/admin/skills/test` | token | Test routing — returns which skill matches a given query |
 | `GET` | `/admin/skills/{name}/versions` | token | Version history for a skill |
 | `GET` | `/admin/skills/{name}/diff` | token | Diff between two skill versions |
-| `POST` | `/admin/mcp/toolsets` | token | Toggle MCP toolsets on/off |
-| `GET` | `/components` | token | Component registry — list all 25 component kinds with schemas |
+| `POST` | `/admin/mcp/toolsets` | admin | Toggle MCP toolsets on/off |
+| `GET` | `/components` | token | Component registry — list supported component kinds with schemas |
 
-**Authentication:** Token-authenticated endpoints accept `Authorization: Bearer <token>` header or `?token=<token>` query parameter. The token is `PULSE_AGENT_WS_TOKEN`. Unauthenticated requests return 401.
+**Authentication:** Token-authenticated backend endpoints accept `Authorization: Bearer <token>` header or `?token=<token>` query parameter. The configured token is `PULSE_AGENT_WS_TOKEN`. REST query tokens are deprecated; use the Authorization header at the proxy/backend. Missing/invalid tokens return 401; an unconfigured server may return 503. Admin endpoints additionally validate user identity/allowlist.
 
 ### `/version` Response
 
@@ -51,7 +54,7 @@ Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. Bo
 }
 ```
 
-The `agent` version is read dynamically from the installed package metadata. The `tools` count is the sum of SRE + Security tools.
+The `agent` version is read dynamically from the installed package metadata. The `tools` value is reported by the backend; do not use a release-era hardcoded count.
 
 ### `/health` Response
 
@@ -104,7 +107,7 @@ routing design).
 | `/ws/agent?token=...` | token | Auto-routing orchestrated agent — classifies intent per message and routes to the matching skill (sre, security, view_designer, capacity_planner, plan_builder, postmortem, slo_management) |
 | `/ws/monitor?token=...` | token | Autonomous cluster monitoring (Protocol v2) |
 
-All WebSocket endpoints require `PULSE_AGENT_WS_TOKEN` via the `token` query parameter. Connections without a valid token are closed with code `4001`.
+At the backend, WebSocket endpoints validate the shared token in the `token` query parameter and reject failures with code 4001. Browser clients connect to `/api/agent/ws/agent` or `/api/agent/ws/monitor` without a query token; nginx/rspack inject it. Never copy shared tokens into browser code.
 
 ---
 
@@ -283,8 +286,8 @@ Sent as the first message after connecting to `/ws/monitor`. Configures the moni
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | `"subscribe_monitor"` | yes | |
-| `trustLevel` | `integer` | no | Autonomous action trust level (0-4). Clamped to server-configured max. Default: `1` |
-| `autoFixCategories` | `string[]` | no | Categories the agent may auto-fix without prompting |
+| `trustLevel` | `integer` | no | Browser preference (0-4), clamped by the server. Current monitor effective trust uses configured server trust as a floor; this field does not lower it. Default: `1` |
+| `autoFixCategories` | `string[]` | no | Browser category preference. Current backend seeds its effective set with all handlers; this field is not a restrictive server allowlist |
 
 #### `trigger_scan` — Trigger an immediate cluster scan
 
@@ -527,13 +530,14 @@ lists.
 | Confirmation timeout | 120 seconds | Agent |
 | Pending confirmation TTL | 5 minutes | Agent |
 | Context field validation | `^[a-zA-Z0-9\-._/: ]{0,253}$` | Agent |
-| Reconnect attempts | 5 max, exponential backoff + jitter | UI |
+| Chat reconnect intent | five retries with linear delay + jitter; explicit disconnect cancels retries | UI |
+| Monitor reconnect | indefinite exponential backoff; hidden-tab delay | UI |
 
 ---
 
 ## Version Compatibility
 
-The UI sends a `GET /version` request before connecting. If the agent's `protocol` field doesn't match the UI's `EXPECTED_PROTOCOL`, the UI shows a warning but still connects (graceful degradation).
+The UI sends a `GET /version` request before connecting. If the agent's `protocol` field is outside the UI's `SUPPORTED_PROTOCOLS` (`1`, `2`), the UI shows a warning but still connects (graceful degradation).
 
 ### Protocol Version History
 
@@ -542,13 +546,15 @@ The UI sends a `GET /version` request before connecting. If the agent's `protoco
 | `2` | `/ws/monitor` for autonomous scanning, `/ws/agent` for auto-routing orchestration, `subscribe_monitor` / `trigger_scan` / `action_response` / `get_fix_history` client messages, `finding` / `prediction` / `action_report` / `investigation_report` / `verification_report` / `findings_snapshot` / `monitor_status` server events, fix history / predictions / memory / context REST endpoints, monitor pause/resume, nonce-based confirmation replay prevention | v5.12.0+ | v1.4.0+ |
 | `1` | Initial protocol: text/thinking streaming, tool use, components, confirmations | v5.0.0+ | v1.0.0+ |
 
-### Release Compatibility Matrix
+### Historical Release Compatibility Matrix
+
+These entries record older releases; they are not current compatibility guarantees. Check `/version`, capabilities, and end-to-end contract tests for the revisions being deployed.
 
 > Starting with the org move to PulseSRE and the rename to `pulse-ui`, the UI's version numbering was reset from the `v6.x` line to a fresh `v2.x` line. Both repos now share the same version number for each release.
 
 | UI Version | Agent Version | Protocol | Status |
 |------------|--------------|----------|--------|
-| v2.7.1 | v2.7.1 | 2 | Current |
+| v2.7.1 | v2.7.1 | 2 | Historical |
 | v6.2.0 | v2.3.0 | 2 | Compatible (pre versioning reset) |
 | v6.1.0 | v2.2.0 | 2 | Compatible |
 | v6.0.0 | v2.0.0 | 2 | Compatible |
@@ -560,4 +566,10 @@ The UI sends a `GET /version` request before connecting. If the agent's `protoco
 | v5.8.0 | v1.2.0 | 1 | Compatible |
 | v5.0.0-v5.7.0 | v1.0.0-v1.1.0 | 1 | Compatible |
 
-> Both repos should tag releases together when protocol changes occur. Minor UI/Agent releases within the same protocol version are always compatible.
+> Both repos should tag releases together when protocol changes occur. A shared protocol number alone does not guarantee endpoint, capability, or semantic compatibility; validate the pair being deployed.
+
+## Additional current surfaces
+
+REST helpers also cover inbox/episode lifecycle, topology/blast radius, analytics, plans, custom view persistence/sharing, skill governance, MCP connections, memory, and SLOs. See their modules under `src/kubeview/engine/` and the backend route inventory rather than assuming the overview table above is exhaustive. Monitor events include resolution, scan reports, investigation progress, inbox lifecycle and skill activity; chat includes feedback acknowledgements, view updates, session expiry, and multi-skill events. Canonical discriminated unions are in the two client modules.
+
+Action status can include `expired`; verification can include `pending` and `verified_then_recurred`. Do not render an expired proposal as executed or a recurred fix as lasting success. REST rollback and approve helpers parse backend refusal messages, including conditions no longer applicable.

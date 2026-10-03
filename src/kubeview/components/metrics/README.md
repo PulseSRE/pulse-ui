@@ -1,5 +1,7 @@
 # KubeView Metrics Components
 
+> Component integration reference. Source props/exports in this directory are authoritative; examples omit application-specific data/error wiring. Run `pnpm test -- src/kubeview/components/metrics` for current coverage. Tests and counts do not prove live cluster acceptance.
+
 This directory contains all metrics and monitoring components for KubeView.
 
 ## Components
@@ -155,47 +157,14 @@ const { data, loading, error } = usePrometheusRange(
 );
 ```
 
-### Narrative.ts
-Rule-based incident story builder.
+### Incident and episode analysis
 
-**Features:**
-- Analyzes K8s events, alerts, and metric anomalies
-- Identifies root cause using pattern matching rules
-- Generates human-readable narrative
-- Groups events by time windows
-- No AI/LLM required
-
-**Usage:**
-```tsx
-import { buildNarrative, groupEvents } from '@/kubeview/components/metrics';
-
-const result = buildNarrative({
-  events: k8sEvents,
-  alerts: prometheusAlerts,
-  metricAnomalies: [
-    { timestamp: 1704067200, metric: 'cpu_usage', value: 0.95, threshold: 0.8, direction: 'above' },
-  ],
-});
-
-console.log(result.summary);
-console.log(result.rootCause);
-
-const groups = groupEvents(result.events);
-// Display grouped events in timeline
-```
-
-**Narrative Rules:**
-1. Image change + error burst → "Image update caused errors"
-2. Scale event + CPU spike → "Scaling caused resource contention"
-3. OOMKilled + memory ramp → "Memory leak or insufficient limits"
-4. Node NotReady + pod rescheduling → "Node failure caused pod disruption"
-5. Certificate alert → "TLS certificate issue"
-6. Rollout + temporary errors → "Rollout caused temporary errors"
+The old `Narrative.ts`, `buildNarrative`, and `groupEvents` exports no longer exist. Use the incident/episode APIs and hooks (`engine/episodeApi.ts`, `hooks/useIncidentFeed.ts`) for current analysis. Do not import the removed module from the metrics barrel.
 
 ## Testing
 
 Tests are located in `__tests__/`:
-- `metrics.test.tsx` — `AutoMetrics` (`getMetricsForResource`, `resolveQuery`, format functions) and `Narrative.buildNarrative` rule matching. No component-rendering or user-interaction tests exist today.
+- `Sparkline.test.tsx` — rendering, fetching, refresh and formatting behavior for Sparkline/MetricCard.
 - `prometheus.test.ts` — `prometheus.ts` API client functions (`queryRange`, `queryInstant`, `getMetricNames`, `getLabelValues`, `seriesToDataPoints`, `parseDuration`, `formatDuration`, `getTimeRange`)
 
 Run tests with:
