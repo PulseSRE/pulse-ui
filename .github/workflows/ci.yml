@@ -95,6 +95,28 @@ jobs:
           retention-days: 14
 
 
+  ui-release-acceptance:
+    name: UI Release Acceptance (isolated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:acceptance
+      - name: Upload acceptance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-release-acceptance
+          path: test-results/ui-acceptance.xml
+          if-no-files-found: error
+          retention-days: 14
+
   build:
     name: Build
     runs-on: ubuntu-latest

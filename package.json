@@ -28,7 +28,8 @@
     "e2e:ui": "npx playwright test --config e2e/playwright.config.ts --ui",
     "e2e:integration": "npx playwright test --config e2e/playwright.config.ts --grep integration",
     "e2e:stack": "docker compose -f e2e/docker-compose.yml up -d && echo 'Stack running — run: PULSE_URL=http://localhost:9000 pnpm run e2e:integration'",
-    "e2e:stack:down": "docker compose -f e2e/docker-compose.yml down"
+    "e2e:stack:down": "docker compose -f e2e/docker-compose.yml down",
+    "test:acceptance": "vitest run --config vitest.acceptance.config.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

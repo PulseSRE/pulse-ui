@@ -192,7 +192,7 @@ export function useTableActions({
       }
     });
 
-    setSelectedRows(new Set());
+    setSelectedRows(new Set(items.filter((_, index) => results[index].status === 'rejected').map(i => i.uid)));
     queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
       if (!old || !Array.isArray(old)) return old;
       const deletedUids = new Set(items.filter((_, index) => results[index].status === 'fulfilled').map(i => i.uid));
