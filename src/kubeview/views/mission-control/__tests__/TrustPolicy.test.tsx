@@ -68,3 +68,29 @@ describe('the trust page describes the agent, not the browser', () => {
     expect(screen.getByText(/takes no actions/)).toBeDefined();
   });
 });
+
+describe('server monitor pause and policy controls', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  it('can resume authoritative paused state even with low browser trust', async () => {
+    const { fireEvent, waitFor } = await import('@testing-library/react');
+    useTrustStore.setState({ trustLevel: 1 });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    render(<TrustPolicy maxTrustLevel={4} effectiveTrustLevel={3} scannerCount={1} fixSummary={null} autofixPaused={true} onPauseChanged={refresh} supportedAutoFixCategories={['crashloop', 'workloads']} />);
+    fireEvent.click(screen.getByText('Resume Auto-Fix'));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith('/api/agent/monitor/resume', { method: 'POST' });
+    expect(screen.getByText(/monitor uses all server-supported/)).toBeDefined();
+  });
+
+  it('surfaces server failures instead of pretending pause succeeded', async () => {
+    const { fireEvent, waitFor } = await import('@testing-library/react');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 403 }));
+    const refresh = vi.fn();
+    render(<TrustPolicy maxTrustLevel={4} effectiveTrustLevel={3} scannerCount={1} fixSummary={null} autofixPaused={false} onPauseChanged={refresh} />);
+    fireEvent.click(screen.getByText('Pause Auto-Fix (Emergency Kill Switch)'));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('403'));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});

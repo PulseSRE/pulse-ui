@@ -1,3 +1,4 @@
+import { getActiveClusterId } from '../engine/clusterConnection';
 /**
  * Agent Store — manages chat state for the Pulse Agent integration.
  * Messages persist to localStorage so conversation survives navigation.
@@ -334,6 +335,10 @@ export const useAgentStore = create<AgentState>()(
       },
 
       sendMessage: (content, context, fleetMode) => {
+        if (context && getActiveClusterId() !== 'local') {
+          set({ error: 'Resource-context chat is available only for the cluster where this agent is deployed. Switch to Local Cluster to use it.' });
+          return;
+        }
         if (!client) {
           set({ error: 'Agent not connected — try again in a moment' });
           return;

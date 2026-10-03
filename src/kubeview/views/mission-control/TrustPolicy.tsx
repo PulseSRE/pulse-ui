@@ -1,3 +1,4 @@
+import { agentFetch } from '../../engine/safeQuery';
 import { useState } from 'react';
 import { Shield, Eye, MessageSquare, Zap, Activity, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -27,14 +28,6 @@ const COMM_STYLES: Array<{ id: CommunicationStyle; label: string; description: s
   { id: 'technical', label: 'Technical', description: 'Deep detail, CLI examples' },
 ];
 
-const LEVEL_CATEGORIES: Record<number, string[]> = {
-  0: [],
-  1: [],
-  2: [],
-  3: ['crashloop', 'workloads'],
-  4: ['crashloop', 'workloads', 'image_pull'],
-};
-
 interface TrustPolicyProps {
   maxTrustLevel: number;
   /**
@@ -53,6 +46,8 @@ interface TrustPolicyProps {
   scannerCount: number;
   fixSummary: FixHistorySummary | null;
   supportedAutoFixCategories?: string[];
+  autofixPaused?: boolean;
+  onPauseChanged?: () => Promise<unknown>;
 }
 
 function buildCategoryLabel(id: string): string {
@@ -67,7 +62,7 @@ function resolveCategories(serverCategories?: string[]): AutofixCategory[] {
   );
 }
 
-export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, fixSummary, supportedAutoFixCategories }: TrustPolicyProps) {
+export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, fixSummary: _fixSummary, supportedAutoFixCategories, autofixPaused, onPauseChanged }: TrustPolicyProps) {
   const { trustLevel, setTrustLevel, autoFixCategories, setAutoFixCategories, communicationStyle, setCommunicationStyle } =
     useTrustStore(useShallow((s) => ({
       trustLevel: s.trustLevel, setTrustLevel: s.setTrustLevel,
@@ -79,14 +74,23 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
 
   const [confirmLevel, setConfirmLevel] = useState<TrustLevel | null>(null);
   const [hoveredLevel, setHoveredLevel] = useState<TrustLevel | null>(null);
-  const [autofixPaused, setAutofixPaused] = useState(false);
+  const [pausePending, setPausePending] = useState(false);
+  const [pauseError, setPauseError] = useState<string | null>(null);
 
   const togglePause = async () => {
+    if (autofixPaused === undefined || pausePending) return;
     const endpoint = autofixPaused ? '/api/agent/monitor/resume' : '/api/agent/monitor/pause';
+    setPausePending(true);
+    setPauseError(null);
     try {
-      const res = await fetch(endpoint, { method: 'POST' });
-      if (res.ok) setAutofixPaused(!autofixPaused);
-    } catch { /* ignore */ }
+      const res = await agentFetch(endpoint, { method: 'POST' });
+      if (!res.ok) throw new Error(`Monitor control failed: ${res.status}`);
+      await onPauseChanged?.();
+    } catch (error) {
+      setPauseError(error instanceof Error ? error.message : 'Monitor control failed');
+    } finally {
+      setPausePending(false);
+    }
   };
 
   const handleLevelClick = (level: TrustLevel) => {
@@ -98,25 +102,25 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
     }
   };
 
-  const previewLevel = hoveredLevel ?? trustLevel;
   // Describe what the agent is actually doing, not what this browser asked
   // for — except while hovering another level, where the point is to preview it.
   const describedLevel =
     hoveredLevel ?? ((effectiveTrustLevel ?? trustLevel) as TrustLevel);
-  const policySummary = buildPolicySummary(describedLevel, scannerCount, autoFixCategories, communicationStyle);
+  const policySummary = buildPolicySummary(describedLevel, scannerCount, supportedAutoFixCategories ?? [], communicationStyle);
   const runningElsewhere =
     effectiveTrustLevel !== undefined && effectiveTrustLevel !== trustLevel ? effectiveTrustLevel : null;
   const impactPreview = hoveredLevel !== null && hoveredLevel !== trustLevel
-    ? buildImpactPreview(trustLevel, hoveredLevel, fixSummary)
+    ? `Browser preference: ${TRUST_LABELS[hoveredLevel]}. This does not change background monitor policy.`
     : null;
 
   return (
     <Card>
       <div className="p-5 space-y-5">
         {/* Emergency Pause */}
-        {trustLevel >= 3 && (
+        {(effectiveTrustLevel ?? maxTrustLevel) >= 2 && (
           <button
             onClick={togglePause}
+            disabled={autofixPaused === undefined || pausePending}
             className={cn(
               'w-full py-2 px-4 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors',
               autofixPaused
@@ -125,13 +129,21 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
             )}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            {autofixPaused ? 'Resume Auto-Fix' : 'Pause Auto-Fix (Emergency Kill Switch)'}
+            {pausePending ? 'Updating monitor…' : autofixPaused === undefined ? 'Checking monitor pause state…' : autofixPaused ? 'Resume Auto-Fix' : 'Pause Auto-Fix (Emergency Kill Switch)'}
           </button>
         )}
 
+        {pauseError && <p role="alert" className="text-xs text-red-400">{pauseError}</p>}
+
+        <p className="text-xs text-slate-400">
+          Browser trust controls chat confirmations. Bounded chat requests still require approval
+          because they do not carry a verified category. Background monitoring follows the
+          server policy; changing this browser preference does not lower its configured trust.
+        </p>
+
         {/* Trust Level Selector */}
         <div>
-          <h2 className="text-sm font-semibold text-slate-200 mb-3">Trust Level</h2>
+          <h2 className="text-sm font-semibold text-slate-200 mb-3">Browser trust preference</h2>
           <div className="flex gap-1">
             {([0, 1, 2, 3, 4] as TrustLevel[]).map((level) => {
               const Icon = TRUST_ICONS[level];
@@ -180,11 +192,15 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
           </div>
         )}
 
+        <p className="text-xs text-slate-400">
+          The monitor uses all server-supported remediation categories: {supportedAutoFixCategories?.join(', ') || 'not reported'}.
+          Actual execution also depends on the server trust, pause state and safety limits.
+        </p>
         {/* Auto-fix Categories */}
         <div className={cn('space-y-2', trustLevel < 2 && 'opacity-40')}>
-          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Auto-fix categories</h3>
+          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Requested category preferences</h3>
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            When the monitor detects these issues, the agent applies a fix automatically. Each fix is recorded with a before-state snapshot for rollback. If a fix fails, the agent stops and surfaces the finding to you — it won't retry or escalate on its own.
+            These browser preferences are not a server allowlist. The running monitor uses its configured policy and supported handlers; it may act outside this selection. Categories are sent when connecting and are not applied as a live policy change.
           </p>
           <div className="space-y-1.5">
             {autofixCategories_.map((cat) => {
@@ -257,8 +273,8 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
         open={confirmLevel !== null}
         onClose={() => setConfirmLevel(null)}
         onConfirm={() => { if (confirmLevel !== null) setTrustLevel(confirmLevel); setConfirmLevel(null); }}
-        title="Enable Auto-Fix?"
-        description={`At Trust Level ${confirmLevel ?? 3}, the agent will automatically fix certain issues without asking. You can configure which categories below.`}
+        title="Allow more chat autonomy?"
+        description={confirmLevel === 4 ? "Autonomous chat may approve all requested writes without asking. Background monitor policy is configured separately on the server." : "Bounded chat still asks before writes whose category cannot be verified. Background monitor policy is configured separately on the server."}
         confirmLabel="Enable"
         variant="warning"
       />
@@ -281,34 +297,10 @@ function buildPolicySummary(level: TrustLevel, scanners: number, categories: str
     case 2:
       return `Your agent monitors ${scanners} scanners and proposes fixes for your review before acting. Communication: ${style}.`;
     case 3:
-      return `Your agent monitors ${scanners} scanners, auto-fixes ${catNames}, and asks before anything risky. Communication: ${style}.`;
+      return `Your agent monitors ${scanners} scanners, uses its server policy to auto-fix all supported handlers (${catNames}), subject to safety limits. Browser chat still requires approval. Communication: ${style}.`;
     case 4:
       return `Your agent monitors ${scanners} scanners and auto-fixes all enabled categories (${catNames}). All actions are logged. Communication: ${style}.`;
     default:
       return '';
   }
-}
-
-function buildImpactPreview(current: TrustLevel, target: TrustLevel, fixSummary: FixHistorySummary | null): string | null {
-  if (!fixSummary || fixSummary.total_actions === 0) {
-    if (target > current) {
-      const newCats = LEVEL_CATEGORIES[target]?.filter((c) => !(LEVEL_CATEGORIES[current] || []).includes(c)) || [];
-      if (newCats.length > 0) {
-        return `Moving to Level ${target} would also auto-fix: ${newCats.join(', ').replace(/_/g, ' ')}.`;
-      }
-    }
-    return `Level ${target}: ${TRUST_DESCRIPTIONS[target]}`;
-  }
-
-  if (target > current) {
-    const newCats = LEVEL_CATEGORIES[target]?.filter((c) => !(LEVEL_CATEGORIES[current] || []).includes(c)) || [];
-    const additionalFixes = (fixSummary.by_category ?? [])
-      .filter((c) => newCats.includes(c.category))
-      .reduce((sum, c) => sum + c.confirmation_required, 0);
-
-    if (additionalFixes > 0) {
-      return `Moving to Level ${target} would also auto-fix ${newCats.join(', ').replace(/_/g, ' ')}. Last week, this would have resolved ${additionalFixes} additional incidents without asking.`;
-    }
-  }
-  return `Level ${target}: ${TRUST_DESCRIPTIONS[target]}`;
 }

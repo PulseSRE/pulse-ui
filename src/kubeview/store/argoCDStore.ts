@@ -1,3 +1,4 @@
+import { getActiveClusterId, getClusterBase } from '../engine/clusterConnection';
 /**
  * ArgoCD Store — detects ArgoCD availability and maintains a resource lookup cache.
  * All ArgoCD features are gated behind `available === true`.
@@ -30,6 +31,7 @@ interface ArgoCDState {
   resourceCache: Map<string, ArgoSyncInfo>;
 
   // Actions
+  reset: () => void;
   detect: () => Promise<void>;
   loadApplications: () => Promise<void>;
   loadRollouts: () => Promise<void>;
@@ -77,13 +79,21 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
   rolloutsLoading: false,
   resourceCache: new Map(),
 
+  reset: () => set({ available: false, detecting: false, detected: false, detectionError: null,
+    namespace: null, rolloutsAvailable: false, applications: [], applicationsLoading: false,
+    rollouts: [], rolloutsLoading: false, resourceCache: new Map() }),
+
   detect: async () => {
-    set({ detecting: true, detectionError: null });
+    const clusterId = getActiveClusterId();
+    const scopedSet = (next: Partial<ArgoCDState>) => {
+      if (getActiveClusterId() === clusterId) set(next);
+    };
+    scopedSet({ detecting: true, detectionError: null });
     try {
       // Check if argoproj.io API group exists
-      const res = await fetch('/api/kubernetes/apis/argoproj.io/v1alpha1', { headers: getImpersonationHeaders() });
+      const res = await fetch(`${getClusterBase(clusterId)}/apis/argoproj.io/v1alpha1`, { headers: getImpersonationHeaders() });
       if (!res.ok) {
-        set({ available: false, detecting: false, detected: true });
+        scopedSet({ available: false, detecting: false, detected: true });
         return;
       }
 
@@ -96,24 +106,24 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
       } catch {
         // Could not parse API resources, rollouts detection failed gracefully
       }
-      set({ rolloutsAvailable: hasRollouts });
+      scopedSet({ rolloutsAvailable: hasRollouts });
 
       // API group exists — try to find Applications
       // Check openshift-gitops first (OpenShift GitOps operator default), then argocd
       for (const ns of ['openshift-gitops', 'argocd']) {
         try {
           const apps = await k8sList<K8sResource>(
-            `/apis/argoproj.io/v1alpha1/namespaces/${ns}/applications`
+            `/apis/argoproj.io/v1alpha1/namespaces/${ns}/applications`, undefined, clusterId
           );
           // Namespace is valid (even if 0 apps, the API responded)
-          set({
+          scopedSet({
             available: true,
             detecting: false,
             detected: true,
             namespace: ns,
           });
           // Load applications fully
-          get().loadApplications();
+          if (getActiveClusterId() === clusterId) get().loadApplications();
           return;
         } catch {
           // Namespace doesn't exist or no access, try next
@@ -123,17 +133,17 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
       // Try cluster-wide list as fallback
       try {
         const apps = await k8sList<K8sResource>(
-          '/apis/argoproj.io/v1alpha1/applications'
+          '/apis/argoproj.io/v1alpha1/applications', undefined, clusterId
         );
         if (apps.length > 0) {
           const firstNs = apps[0].metadata.namespace || 'openshift-gitops';
-          set({
+          scopedSet({
             available: true,
             detecting: false,
             detected: true,
             namespace: firstNs,
           });
-          get().loadApplications();
+          if (getActiveClusterId() === clusterId) get().loadApplications();
           return;
         }
       } catch {
@@ -141,9 +151,9 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
       }
 
       // API group exists but no apps found or accessible
-      set({ available: true, detecting: false, detected: true, namespace: null });
+      scopedSet({ available: true, detecting: false, detected: true, namespace: null });
     } catch {
-      set({
+      scopedSet({
         available: false,
         detecting: false,
         detected: true,
@@ -153,35 +163,43 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
   },
 
   loadApplications: async () => {
+    const clusterId = getActiveClusterId();
+    const scopedSet = (next: Partial<ArgoCDState>) => {
+      if (getActiveClusterId() === clusterId) set(next);
+    };
     const { namespace } = get();
-    set({ applicationsLoading: true });
+    scopedSet({ applicationsLoading: true });
 
     try {
       const path = namespace
         ? `/apis/argoproj.io/v1alpha1/namespaces/${namespace}/applications`
         : '/apis/argoproj.io/v1alpha1/applications';
 
-      const typed = await k8sList<ArgoApplication>(path);
+      const typed = await k8sList<ArgoApplication>(path, undefined, clusterId);
 
-      set({
+      scopedSet({
         applications: typed,
         applicationsLoading: false,
         resourceCache: buildResourceCache(typed),
       });
     } catch {
-      set({ applicationsLoading: false });
+      scopedSet({ applicationsLoading: false });
     }
   },
 
   loadRollouts: async () => {
-    set({ rolloutsLoading: true });
+    const clusterId = getActiveClusterId();
+    const scopedSet = (next: Partial<ArgoCDState>) => {
+      if (getActiveClusterId() === clusterId) set(next);
+    };
+    scopedSet({ rolloutsLoading: true });
     try {
       const items = await k8sList<K8sResource>(
-        '/apis/argoproj.io/v1alpha1/rollouts'
+        '/apis/argoproj.io/v1alpha1/rollouts', undefined, clusterId
       );
-      set({ rollouts: items, rolloutsLoading: false });
+      scopedSet({ rollouts: items, rolloutsLoading: false });
     } catch {
-      set({ rolloutsLoading: false });
+      scopedSet({ rolloutsLoading: false });
     }
   },
 

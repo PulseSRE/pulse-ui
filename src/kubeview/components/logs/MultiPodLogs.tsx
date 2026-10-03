@@ -1,3 +1,4 @@
+import { useClusterBase } from '../../hooks/useClusterBase';
 /**
  * MultiPodLogs - Aggregate logs across multiple pods (for Deployment view)
  */
@@ -37,6 +38,7 @@ export default function MultiPodLogs({
   podNames,
   containerName,
 }: MultiPodLogsProps) {
+  const clusterBase = useClusterBase();
   const [selectedPod, setSelectedPod] = useState<string>('all');
   const [mergedLogs, setMergedLogs] = useState<MergedLogLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,20 +65,20 @@ export default function MultiPodLogs({
             params.set('container', containerName);
           }
 
-          const url = `/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`;
+          const url = `${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`;
           let response = await fetch(url);
 
           // 400 = multi-container pod without container param — auto-detect first container
           if (response.status === 400 && !containerName) {
             try {
-              const podRes = await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}`);
+              const podRes = await fetch(`${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}`);
               if (podRes.ok) {
                 const podData = await podRes.json();
                 const containerNames = (podData?.spec?.containers ?? []).map((c: { name?: string }) => c.name);
                 const defaultContainer = pickDefaultContainer(containerNames);
                 if (defaultContainer) {
                   params.set('container', defaultContainer);
-                  response = await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`);
+                  response = await fetch(`${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`);
                 }
               }
             } catch { /* fall through */ }
@@ -125,7 +127,7 @@ export default function MultiPodLogs({
     return () => {
       mounted = false;
     };
-  }, [selectedPod, namespace, podNames, containerName]);
+  }, [selectedPod, namespace, podNames, containerName, clusterBase]);
 
   // Truncate pod name for display (remove hash suffix)
   const truncatePodName = (podName: string): string => {

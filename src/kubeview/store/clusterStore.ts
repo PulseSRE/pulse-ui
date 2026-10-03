@@ -1,3 +1,4 @@
+import { getActiveClusterId } from '../engine/clusterConnection';
 import { create } from 'zustand';
 import {
   discoverResources,
@@ -13,6 +14,7 @@ export type { ResourceType, APIGroup };
 interface ClusterState {
   // Discovery
   resourceRegistry: ResourceRegistry | null;
+  discoveryClusterId: string | null;
   apiGroups: APIGroup[];
   discoveryLoading: boolean;
   discoveryError: string | null;
@@ -39,6 +41,7 @@ interface ClusterState {
 export const useClusterStore = create<ClusterState>((set, get) => ({
   // Discovery
   resourceRegistry: null,
+  discoveryClusterId: null,
   apiGroups: [],
   discoveryLoading: false,
   discoveryError: null,
@@ -54,9 +57,11 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
 
   // Actions
   runDiscovery: async () => {
-    set({ discoveryLoading: true, discoveryError: null });
+    const clusterId = getActiveClusterId();
+    set({ discoveryLoading: true, discoveryError: null, resourceRegistry: null, apiGroups: [], discoveryClusterId: clusterId });
     try {
-      const registry = await discoverResources();
+      const registry = await discoverResources(clusterId);
+      if (getActiveClusterId() !== clusterId) return;
       const groups = groupDiscoveryResources(registry);
       set({
         resourceRegistry: registry,
@@ -64,6 +69,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
         discoveryLoading: false,
       });
     } catch (error) {
+      if (getActiveClusterId() !== clusterId) return;
       set({
         discoveryError: error instanceof Error ? error.message : 'Discovery failed',
         discoveryLoading: false,

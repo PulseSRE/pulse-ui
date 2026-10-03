@@ -76,7 +76,7 @@ describe('OverviewTab', () => {
 
   it('renders trust controls', async () => {
     await renderTab();
-    expect(screen.getByText('Trust Level')).toBeDefined();
+    expect(screen.getByText('Browser trust preference')).toBeDefined();
   });
 
   it('renders version footer with clickable links', async () => {

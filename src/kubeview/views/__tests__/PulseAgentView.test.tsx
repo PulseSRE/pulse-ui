@@ -85,7 +85,7 @@ describe('PulseAgentView', () => {
 
   it('renders trust controls on overview', async () => {
     await renderView();
-    expect(screen.getByText('Trust Level')).toBeDefined();
+    expect(screen.getByText('Browser trust preference')).toBeDefined();
   });
 
   it('renders version info in footer', async () => {

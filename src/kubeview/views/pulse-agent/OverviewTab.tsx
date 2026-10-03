@@ -54,6 +54,8 @@ export function OverviewTab() {
         scannerCount={scannerCount}
         fixSummary={fixQ.data ?? null}
         supportedAutoFixCategories={capQ.data?.supported_auto_fix_categories}
+        autofixPaused={healthQ.data?.autofix_paused}
+        onPauseChanged={() => healthQ.refetch()}
       />
 
       {/* 4. Agent Info Footer */}

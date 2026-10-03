@@ -58,10 +58,11 @@ describe('the trust ladder describes the agent that ships', () => {
   });
 
   it('gets more autonomous as the number rises, in the words too', () => {
-    // 0 and 1 must not describe the agent acting on its own; 3 and 4 must.
+    // Monitor policy and chat approval differ at3; level4 can approve chat itself.
     expect(TRUST_DESCRIPTIONS[0]).toMatch(/never acts|no actions/i);
     expect(TRUST_DESCRIPTIONS[1]).toMatch(/never remediates|does not/i);
-    expect(TRUST_DESCRIPTIONS[3]).toMatch(/without asking/i);
+    expect(TRUST_DESCRIPTIONS[3]).toMatch(/server policy/i);
+    expect(TRUST_DESCRIPTIONS[3]).toMatch(/approval/i);
     expect(TRUST_DESCRIPTIONS[4]).toMatch(/without asking/i);
   });
 

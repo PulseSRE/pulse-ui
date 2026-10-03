@@ -1,3 +1,6 @@
+import { useUIStore } from './uiStore';
+import { useClusterStore } from './clusterStore';
+import { useArgoCDStore } from './argoCDStore';
 /**
  * Fleet Store — manages multi-cluster state, ACM detection, and fleet health.
  * Progressive disclosure: inactive when only one cluster is connected.
@@ -160,6 +163,7 @@ export const useFleetStore = create<FleetState>((set, get) => ({
   },
 
   removeCluster: (id) => {
+    if (id !== 'local' && id === getActiveClusterId()) get().setActiveCluster('local');
     unregisterCluster(id);
     const allConns = getAllConnections();
     set({
@@ -170,7 +174,14 @@ export const useFleetStore = create<FleetState>((set, get) => ({
   },
 
   setActiveCluster: (id) => {
-    setActiveClusterId(id);
+    if (id === getActiveClusterId() || !setActiveClusterId(id)) return;
+    // Non-React resource contexts must not survive the keyed view remount.
+    useUIStore.setState({ terminalContext: null, dockContext: null, bottomDockPanel: null,
+      actionPanelOpen: false, actionPanelResource: null });
+    useClusterStore.setState({ resourceRegistry: null, apiGroups: [], discoveryClusterId: null,
+      discoveryLoading: false, discoveryError: null, clusterVersion: null, kubernetesVersion: null,
+      platform: null, controlPlaneTopology: null, isHyperShift: false });
+    useArgoCDStore.getState().reset();
     set({ activeClusterId: id });
   },
 

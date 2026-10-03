@@ -1,3 +1,4 @@
+import { useClusterBase } from '../../hooks/useClusterBase';
 /**
  * LogStream - Main streaming log viewer component
  */
@@ -31,6 +32,7 @@ export default function LogStream({
   sinceSeconds,
   onLineClick,
 }: LogStreamProps) {
+  const clusterBase = useClusterBase();
   const [lines, setLines] = useState<ParsedLogLine[]>([]);
   const [isFollowing, setIsFollowing] = useState(follow);
   const [showTimestamps, setShowTimestamps] = useState(timestamps);
@@ -64,8 +66,8 @@ export default function LogStream({
       params.set('follow', 'true');
     }
 
-    return `/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`;
-  }, [namespace, podName, containerName, tailLines, sinceSeconds]);
+    return `${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`;
+  }, [namespace, podName, containerName, tailLines, sinceSeconds, clusterBase]);
 
   // Fetch logs
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function LogStream({
 
         // 400 usually means multi-container pod without container param — auto-detect first container
         if (response.status === 400 && !containerName) {
-          const podRes = await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}`, {
+          const podRes = await fetch(`${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}`, {
             signal: abortControllerRef.current.signal,
           });
           if (podRes.ok) {
@@ -225,7 +227,7 @@ export default function LogStream({
         abortControllerRef.current.abort();
       }
     };
-  }, [namespace, podName, containerName, isFollowing, buildLogUrl]);
+  }, [namespace, podName, containerName, isFollowing, buildLogUrl, clusterBase]);
 
   // Auto-scroll when following
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { getActiveClusterId } from '../engine/clusterConnection';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DegradedReason } from '../engine/degradedMode';
@@ -72,12 +73,12 @@ interface UIState {
   bottomDockPanel: 'logs' | 'terminal' | 'events' | null;
   bottomDockHeight: number;
   dockContext: { namespace: string; podName: string; containerName?: string } | null;
-  terminalContext: { namespace: string; podName: string; containerName: string; isNode?: boolean } | null;
+  terminalContext: { namespace: string; podName: string; containerName: string; isNode?: boolean; clusterId?: string } | null;
   openBottomDock: (panel: 'logs' | 'terminal' | 'events') => void;
   closeBottomDock: () => void;
   setBottomDockHeight: (height: number) => void;
   setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
-  openTerminal: (ctx: { namespace: string; podName: string; containerName: string; isNode?: boolean }) => void;
+  openTerminal: (ctx: { namespace: string; podName: string; containerName: string; isNode?: boolean; clusterId?: string }) => void;
 
 
   // View Builder (split-screen mode)
@@ -291,6 +292,7 @@ export const useUIStore = create<UIState>()(
       setDockContext: (ctx) => set({ dockContext: ctx }),
 
       openTerminal: (ctx) => {
+        if (ctx.clusterId && ctx.clusterId !== getActiveClusterId()) return;
         set({ terminalContext: ctx, bottomDockPanel: 'terminal' });
       },
 
