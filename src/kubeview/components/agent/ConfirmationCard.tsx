@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, ShieldAlert, ShieldCheck, Shield } from 'lucide-react';
 import type { ConfirmRequest } from '../../engine/agentClient';
 import { describeToolAction, riskLevel } from './MessageBubble';
@@ -76,29 +76,29 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
     }
   }, [confirm.tool]);
 
+  const handleApprove = useCallback(() => {
+    if (trustLevel === 0) return;
+    recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
+    onConfirm(true);
+  }, [trustLevel, confirm.tool, risk.level, recordConfirmation, onConfirm]);
+
+  const handleDeny = useCallback(() => {
+    recordConfirmation({ tool: confirm.tool, approved: false, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
+    onConfirm(false);
+  }, [confirm.tool, risk.level, recordConfirmation, onConfirm]);
+
   // Keyboard shortcuts — only active when no text input is focused
-  const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       const active = document.activeElement;
       if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
       if (risk.level === 'HIGH') return; // HIGH risk: no keyboard shortcuts
-      if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); handleApprove(); }
+      if (trustLevel !== 0 && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleApprove(); }
       if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { e.preventDefault(); handleDeny(); }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onConfirm, risk.level]);
-
-  const handleApprove = () => {
-    recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
-    onConfirm(true);
-  };
-
-  const handleDeny = () => {
-    recordConfirmation({ tool: confirm.tool, approved: false, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
-    onConfirm(false);
-  };
+  }, [risk.level, trustLevel, handleApprove, handleDeny]);
 
   // Don't render if auto-approved
   if (shouldAutoApprove(confirm.tool, risk.level)) return null;
