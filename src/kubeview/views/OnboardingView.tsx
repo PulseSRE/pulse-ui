@@ -2,6 +2,7 @@ import React from 'react';
 import { ClipboardCheck, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionHeader } from '../components/primitives/SectionHeader';
+import { InstallationReadinessPanel } from '../components/onboarding/InstallationReadinessPanel';
 import { ReadinessWizard } from '../components/onboarding/ReadinessWizard';
 import { ReadinessChecklist } from '../components/onboarding/ReadinessChecklist';
 import type { OnboardingMode, ReadinessReport, CategoryView, GateStatus, ReadinessCategory, CategorySummary } from '../components/onboarding/types';
@@ -246,6 +247,8 @@ export default function OnboardingView() {
             </div>
           }
         />
+
+        <InstallationReadinessPanel />
 
         {evalError ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">

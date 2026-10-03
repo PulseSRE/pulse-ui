@@ -71,7 +71,7 @@ Test counts and timings vary with the revision and machine; use the current comm
 - **Toolbox:** backend-discovered tools, skills, connections, components, usage, and analytics.
 - **GitOps:** ArgoCD integration and Git provider workflows, when those integrations are configured.
 - **Fleet:** ACM discovery and cross-cluster views. Cluster identity must be preserved through data and action flows; verify live cluster switching before production use.
-- **Identity / Admin / Readiness:** user/RBAC views, cluster administration, and readiness checks. Readiness scores are a guide, not a certification.
+- **Identity / Admin / Readiness:** user/RBAC views, cluster administration, and readiness checks. Readiness scores are a guide, not a certification. The `/readiness` page also shows the agent installation diagnostic: provider configuration/connectivity, database, Kubernetes read permissions and monitoring. Unknown checks remain unknown; this report does not certify model execution or incident recovery.
 - **Custom views:** agent-generated dashboards persisted by the agent, with version/share controls.
 
 Available tools, scanners, component kinds, and operator catalog entries depend on the backend and cluster. Read capability endpoints and current source rather than relying on release-era counts.

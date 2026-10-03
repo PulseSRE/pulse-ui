@@ -76,6 +76,7 @@ describe('OnboardingView', () => {
   it('renders page header', () => {
     renderView();
     expect(screen.getByText('Cluster Readiness')).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Agent installation readiness' })).toBeDefined();
   });
 
   it('renders subtitle', () => {

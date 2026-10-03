@@ -6,6 +6,7 @@ This lane uses React Testing Library, real UI components/stores/request helpers,
 
 | Release invariant | Executed evidence |
 | --- | --- |
+| Installation checks cannot manufacture readiness | Readiness panel/request parser: required nine checks, unknown provider reachability, denied requests, malformed reports, retries and stale previous-report labels |
 | Incident recovery is tied to its action and evidence | Real lifecycle hook/drawer: wrong-action verdict, recurrence, missing evidence, rolled-back/proposed actions and exact incident postmortem |
 | Same-name A/B resources cannot share displayed state or pending dialogs | App query-provider transition integration test |
 | Old callbacks retain their original target | Actual table scale callback invoked after unmount and A→B switch |
