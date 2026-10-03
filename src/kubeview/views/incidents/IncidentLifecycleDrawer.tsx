@@ -8,9 +8,11 @@ import { useQuery } from '@tanstack/react-query';
 import { formatRelativeTime } from '../../engine/formatters';
 import { fetchConfidenceCalibration } from '../../engine/analyticsApi';
 import { verificationStatusLabel } from '../../engine/fixHistory';
+import { actionExecutionStatus, incidentOutcome, recoveryStageStatus, type LifecycleStageStatus } from './incidentOutcome';
+import { useFleetStore } from '../../store/fleetStore';
 import { useIncidentLifecycle } from '../../hooks/useIncidentLifecycle';
 
-type StageStatus = 'complete' | 'in-progress' | 'pending' | 'failed' | 'skipped';
+type StageStatus = LifecycleStageStatus;
 
 function StageIcon({ status }: { status: StageStatus }) {
   switch (status) {
@@ -29,6 +31,9 @@ interface IncidentLifecycleDrawerProps {
 
 export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycleDrawerProps) {
   const lifecycle = useIncidentLifecycle(findingId);
+  const activeClusterId = useFleetStore(s => s.activeClusterId);
+  const localName = useFleetStore(s => s.clusters.find(c => c.id === 'local')?.name);
+  const outcome = incidentOutcome(lifecycle.action, lifecycle.verification);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   const { data: confidenceStats } = useQuery({
@@ -45,9 +50,21 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Focus trap: focus the drawer on mount
   useEffect(() => {
-    drawerRef.current?.focus();
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const drawer = drawerRef.current;
+    drawer?.focus();
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !drawer) return;
+      const items = Array.from(drawer.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], summary, [tabindex="0"]'));
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first) { event.preventDefault(); drawer.focus(); }
+      else if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === drawer)) { event.preventDefault(); first.focus(); }
+    };
+    drawer?.addEventListener('keydown', trapFocus);
+    return () => { drawer?.removeEventListener('keydown', trapFocus); if (previousFocus?.isConnected) previousFocus.focus(); };
   }, []);
 
   const detectionStatus: StageStatus = lifecycle.detection ? 'complete' : 'pending';
@@ -55,34 +72,9 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
   const investigationStatus: StageStatus = lifecycle.investigation
     ? lifecycle.investigation.status === 'completed' ? 'complete' : 'failed'
     : lifecycle.detection?.investigationPhases?.some((p) => p.status === 'running') ? 'in-progress' : 'pending';
-  // 'expired' is a proposal nobody answered — the fix never ran, so it is
-  // neither failed nor still pending. 'skipped' is the honest stage for it,
-  // the same mapping 'unverifiable' gets below and for the same reason:
-  // reporting it any other way asserts something that never happened.
-  const actionStatus: StageStatus = lifecycle.action
-    ? lifecycle.action.status === 'completed' ? 'complete'
-    : lifecycle.action.status === 'failed' ? 'failed'
-    : lifecycle.action.status === 'executing' ? 'in-progress'
-    : lifecycle.action.status === 'expired' ? 'skipped'
-    : 'pending'
-    : 'pending';
-  // 'unverifiable' means the health check ran and could not get a clear
-  // reading. It is neither a passed nor a failed fix, so it maps to 'skipped'
-  // rather than 'failed' — reporting it as a failure asserts something the
-  // check never established, the mirror of the absence bug on the agent side.
-  // 'verified_then_recurred' maps to 'failed' even though the fix once
-  // verified: the verdict was retroactively downgraded because the same
-  // condition returned, and a green check here would re-assert the verdict
-  // the agent itself withdrew.
-  const verificationStatus: StageStatus = lifecycle.verification
-    ? lifecycle.verification.status === 'verified' ? 'complete'
-    : lifecycle.verification.status === 'unverifiable' ? 'skipped' : 'failed'
-    : lifecycle.action?.verificationStatus === 'verified' ? 'complete'
-    : lifecycle.action?.verificationStatus === 'unverifiable' ? 'skipped'
-    : lifecycle.action?.verificationStatus === 'still_failing' ? 'failed'
-    : lifecycle.action?.verificationStatus === 'verified_then_recurred' ? 'failed'
-    : 'pending';
-  const verificationBadge = lifecycle.verification?.status || lifecycle.action?.verificationStatus;
+  const actionStatus = actionExecutionStatus(lifecycle.action);
+  const verificationStatus = recoveryStageStatus(outcome);
+  const verificationBadge = outcome.status;
   const postmortemStatus: StageStatus = lifecycle.postmortem ? 'complete' : 'pending';
   const learningStatus: StageStatus = lifecycle.learning
     ? (lifecycle.learning.scaffolded_skill || lifecycle.learning.learned_runbook || lifecycle.learning.scaffolded_plan) ? 'complete' : 'pending'
@@ -94,7 +86,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
       <div
         ref={drawerRef}
         tabIndex={-1}
-        className="relative w-[480px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-hidden"
+        className="relative w-full max-w-[480px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -105,12 +97,28 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
           </button>
         </div>
 
+        <section aria-label="Incident context and outcome" className="px-6 py-4 space-y-3 border-b border-slate-800">
+          <h3 className="text-sm font-medium text-slate-100">{lifecycle.detection?.title ?? 'Incident details unavailable'}</h3>
+          <dl className="text-xs text-slate-400 space-y-1">
+            <div><dt className="inline text-slate-500">Incident: </dt><dd className="inline font-mono break-all">{findingId}</dd></div>
+            <div><dt className="inline text-slate-500">Cluster: </dt><dd className="inline">{localName ?? 'Local'} — agent deployment cluster</dd></div>
+            {(lifecycle.detection?.resources ?? []).map((resource, index) => <div key={`${resource.kind}/${resource.namespace}/${resource.name}/${index}`}><dt className="inline text-slate-500">Resource: </dt><dd className="inline font-mono">{resource.kind}/{resource.name} {resource.namespace ? `in namespace ${resource.namespace}` : '(namespace not reported)'}</dd></div>)}
+            {!lifecycle.detection?.resources?.length && <div>Resource context not reported.</div>}
+          </dl>
+          {activeClusterId !== 'local' && <p className="text-xs text-amber-300">This monitor incident belongs to the agent deployment cluster, not the selected fleet cluster.</p>}
+          <p className={cn('text-sm font-medium', outcome.verdict === 'verified' ? 'text-emerald-300' : outcome.verdict === 'failed' ? 'text-amber-300' : 'text-slate-300')}>{outcome.label}</p>
+          {lifecycle.action?.status === 'completed' && <p className="text-xs text-slate-400">The action completed. Recovery is a separate health-check verdict.</p>}
+          {lifecycle.isLoading && <p role="status" className="text-xs text-slate-400">Loading incident context…</p>}
+          {!!lifecycle.errors?.length && <div role="alert" className="text-xs text-amber-300">{lifecycle.errors.map((error, index) => <p key={index}>{error}</p>)}</div>}
+          {lifecycle.refresh && <button onClick={lifecycle.refresh} className="text-xs text-violet-300 hover:underline">Refresh incident context</button>}
+        </section>
+
         {/* Stages */}
         <div className="px-6 py-4 space-y-1">
           {/* 1. Detection */}
           <Stage
             icon={Radar}
-            title="Detection"
+            title="Reported observation"
             status={detectionStatus}
           >
             {lifecycle.detection && (
@@ -198,15 +206,17 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
           >
             {lifecycle.investigation && (
               <div className="space-y-2">
+                <div><div className="text-[10px] text-slate-500 uppercase">Agent assessment</div><p className="text-xs text-slate-400">{lifecycle.investigation.summary}</p></div>
+                {!lifecycle.investigation.evidence?.length && <p className="text-xs text-slate-500">No supporting evidence reported for this hypothesis.</p>}
                 {lifecycle.investigation.suspectedCause && (
                   <div className="px-3 py-2 rounded-sm bg-violet-950/40 border border-violet-800/40">
-                    <div className="text-[10px] font-medium text-violet-300 mb-0.5">Suspected Cause</div>
+                    <div className="text-[10px] font-medium text-violet-300 mb-0.5">Hypothesis — not a confirmed cause</div>
                     <p className="text-xs text-slate-200">{lifecycle.investigation.suspectedCause}</p>
                   </div>
                 )}
                 {lifecycle.investigation.evidence && lifecycle.investigation.evidence.length > 0 && (
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Evidence</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Agent-reported evidence</div>
                     <ul className="space-y-0.5">
                       {lifecycle.investigation.evidence.map((e, i) => (
                         <li key={i} className="text-xs text-slate-300 flex gap-1.5">
@@ -216,6 +226,9 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     </ul>
                   </div>
                 )}
+                {lifecycle.investigation.recommendedFix && <div><div className="text-[10px] text-slate-500 uppercase">Recommended next step</div><p className="text-xs text-slate-300">{lifecycle.investigation.recommendedFix}</p><p className="text-xs text-slate-500">Recommendation only; no execution is implied.</p></div>}
+                {!!lifecycle.investigation.alternativesConsidered?.length && <details className="text-xs text-slate-400"><summary>Alternative hypotheses</summary><ul>{lifecycle.investigation.alternativesConsidered.map((alternative, index) => <li key={index}>{alternative}</li>)}</ul></details>}
+                {lifecycle.investigation.error && <p role="alert" className="text-xs text-red-300">Investigation failed: {lifecycle.investigation.error}</p>}
                 {lifecycle.investigation.securityFollowup && (
                   <div className="px-3 py-2 rounded-sm bg-red-950/30 border border-red-800/30">
                     <div className="flex items-center gap-2 mb-1">
@@ -241,7 +254,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
           {/* 4. Action */}
           <Stage
             icon={Wrench}
-            title="Action"
+            title="Action execution"
             status={actionStatus}
           >
             {lifecycle.action && (
@@ -257,6 +270,12 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     {lifecycle.action.status}
                   </span>
                 </div>
+                <div className="text-xs text-slate-500">Action ID: <span className="font-mono break-all">{lifecycle.action.id}</span></div>
+                {lifecycle.action.status === 'proposed' && <p className="text-xs text-blue-300">Awaiting approval; this action has not executed.</p>}
+                {lifecycle.action.status === 'expired' && <p className="text-xs text-slate-400">Approval expired; this proposal did not execute.</p>}
+                {lifecycle.action.status === 'rolled_back' && <p className="text-xs text-amber-300">Action rolled back; recovery needs a subsequent health check.</p>}
+                {lifecycle.action.error && <p role="alert" className="text-xs text-red-300">Execution error: {lifecycle.action.error}</p>}
+                <details className="text-xs text-slate-400"><summary>Requested mutation</summary><pre className="whitespace-pre-wrap break-all mt-1">{JSON.stringify(lifecycle.action.input, null, 2)}</pre></details>
                 {lifecycle.action.fixDescription && (
                   <p className="text-xs text-slate-300">{lifecycle.action.fixDescription}</p>
                 )}
@@ -273,15 +292,15 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
           {/* 5. Verification */}
           <Stage
             icon={CheckCircle}
-            title="Verification"
+            title="Recovery verification"
             status={verificationStatus}
           >
-            {(lifecycle.verification || lifecycle.action?.verificationStatus) && (
+            {verificationBadge && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     'text-xs px-1.5 py-0.5 rounded-sm font-medium',
-                    verificationBadge === 'verified'
+                    outcome.verdict === 'verified'
                       ? 'bg-emerald-900/50 text-emerald-300'
                       // Grey, not amber: 'unverifiable' means the check could
                       // not read the cluster, and 'pending' means the probe has
@@ -293,9 +312,8 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     {verificationStatusLabel(verificationBadge!)}
                   </span>
                 </div>
-                {(lifecycle.verification?.evidence || lifecycle.action?.verificationEvidence) && (
-                  <p className="text-xs text-slate-400">{lifecycle.verification?.evidence || lifecycle.action?.verificationEvidence}</p>
-                )}
+                {outcome.evidence ? <p className="text-xs text-slate-400">{outcome.evidence}</p> : <p className="text-xs text-slate-500">No recovery evidence reported for this action.</p>}
+                {outcome.timestamp != null && <p className="text-xs text-slate-500">Checked {formatRelativeTime(outcome.timestamp)}</p>}
                 {lifecycle.learning?.confidence_delta && (
                   <div className="text-xs text-slate-400">
                     Confidence: {Math.round(lifecycle.learning.confidence_delta.before * 100)}%
@@ -334,6 +352,8 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
             )}
           </Stage>
 
+          {!verificationBadge && <p className="text-xs text-slate-500 pl-11 pb-4">No recovery check reported for this action.</p>}
+
           {/* 6. Postmortem */}
           <Stage
             icon={FileText}
@@ -347,7 +367,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 </p>
                 {lifecycle.postmortem.root_cause && (
                   <div className="px-3 py-2 rounded-sm bg-slate-800/50 border border-slate-700/50">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Root Cause</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Postmortem cause assessment</div>
                     <p className="text-xs text-slate-300">{lifecycle.postmortem.root_cause}</p>
                   </div>
                 )}
@@ -477,7 +497,7 @@ function Stage({
         {children ? (
           <div className="mt-1">{children}</div>
         ) : status === 'pending' ? (
-          <p className="text-xs text-slate-600 mt-1">Not yet triggered</p>
+          <p className="text-xs text-slate-600 mt-1">Not yet reported</p>
         ) : null}
       </div>
     </div>
