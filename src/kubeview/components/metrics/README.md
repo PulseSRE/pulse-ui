@@ -19,7 +19,7 @@ Interactive SVG chart component for time-series metrics visualization.
 
 **Usage:**
 ```tsx
-import { MetricsChart } from '@/kubeview/components/metrics';
+import { MetricsChart, formatCores } from '@/kubeview/components/metrics';
 
 <MetricsChart
   series={[
@@ -60,7 +60,7 @@ import { Sparkline } from '@/kubeview/components/metrics/Sparkline';
   query="rate(container_cpu_usage_seconds_total{pod=\"nginx-abc\"}[5m])"
   duration="1h"
   color="#3b82f6"
-  unit="%"
+  unit=" cores"
   label="CPU"
 />
 ```

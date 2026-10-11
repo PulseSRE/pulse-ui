@@ -16,7 +16,7 @@ Generates a CHANGELOG.md entry for the next release by analyzing git history.
 
 4. For each category, write concise bullet points. Group related commits into single entries. Use bold for feature names.
 
-5. Count the current test stats by running `pnpm exec vitest --run --reporter=dot 2>&1 | tail -5`.
+5. If reporting test statistics, run `pnpm exec vitest --run --reporter=dot` and preserve its exit status. Record the revision and distinguish local results from CI; do not truncate away failures.
 
 6. If useful, count files for this revision: `find src/kubeview -name "*.tsx" -o -name "*.ts" | grep -v node_modules | grep -v __tests__ | grep -v .test. | wc -l`
 

@@ -10,11 +10,11 @@ Example integration in a Pod detail page with tabs:
 
 ```tsx
 import React, { useState } from 'react';
-import { V1Pod } from '@kubernetes/client-node';
+import type { K8sResource } from '@/kubeview/engine/renderers';
 import { MultiContainerLogs } from '@/kubeview/components/logs';
 
 interface PodDetailPageProps {
-  pod: V1Pod;
+  pod: K8sResource;
 }
 
 export default function PodDetailPage({ pod }: PodDetailPageProps) {
@@ -24,8 +24,8 @@ export default function PodDetailPage({ pod }: PodDetailPageProps) {
   // Extract container info from pod spec and status
   const containers = [
     // Regular containers
-    ...(pod.spec?.containers ?? []).map((c) => {
-      const status = pod.status?.containerStatuses?.find((s) => s.name === c.name);
+    ...(pod.spec?.containers ?? []).map((c: { name: string }) => {
+      const status = pod.status?.containerStatuses?.find((s: { name: string }) => s.name === c.name);
       return {
         name: c.name,
         type: 'container' as const,
@@ -33,8 +33,8 @@ export default function PodDetailPage({ pod }: PodDetailPageProps) {
       };
     }),
     // Init containers
-    ...(pod.spec?.initContainers ?? []).map((c) => {
-      const status = pod.status?.initContainerStatuses?.find((s) => s.name === c.name);
+    ...(pod.spec?.initContainers ?? []).map((c: { name: string }) => {
+      const status = pod.status?.initContainerStatuses?.find((s: { name: string }) => s.name === c.name);
       return {
         name: c.name,
         type: 'init' as const,
@@ -42,8 +42,8 @@ export default function PodDetailPage({ pod }: PodDetailPageProps) {
       };
     }),
     // Ephemeral containers
-    ...(pod.spec?.ephemeralContainers ?? []).map((c) => {
-      const status = pod.status?.ephemeralContainerStatuses?.find((s) => s.name === c.name);
+    ...(pod.spec?.ephemeralContainers ?? []).map((c: { name: string }) => {
+      const status = pod.status?.ephemeralContainerStatuses?.find((s: { name: string }) => s.name === c.name);
       return {
         name: c.name,
         type: 'ephemeral' as const,
@@ -77,12 +77,12 @@ Example integration showing logs from all pods in a Deployment:
 
 ```tsx
 import React from 'react';
-import { V1Deployment, V1Pod } from '@kubernetes/client-node';
+import type { K8sResource } from '@/kubeview/engine/renderers';
 import { MultiPodLogs } from '@/kubeview/components/logs';
 
 interface DeploymentLogsTabProps {
-  deployment: V1Deployment;
-  pods: V1Pod[];
+  deployment: K8sResource;
+  pods: K8sResource[];
 }
 
 export default function DeploymentLogsTab({ deployment, pods }: DeploymentLogsTabProps) {
@@ -179,33 +179,22 @@ export default function LogViewerWithClickHandling() {
 }
 ```
 
-## KubeView Shell Integration
+## Embedding a Log Panel
 
-Example showing how to integrate into the KubeView shell:
+`Shell` renders its own application layout and accepts no children. There is no `Dock` component or components barrel. Embed a log panel in the host view instead:
 
 ```tsx
-import React from 'react';
-import { Shell, Dock } from '@/kubeview/components';
 import { MultiContainerLogs } from '@/kubeview/components/logs';
 
-export default function KubeViewWithLogs() {
+export function PodLogPanel() {
   return (
-    <Shell>
-      <Dock
-        title="Pod Logs"
-        defaultHeight={400}
-        minHeight={200}
-      >
-        <MultiContainerLogs
-          namespace="default"
-          podName="my-app-abc123"
-          containers={[
-            { name: 'app', type: 'container', state: 'running' },
-            { name: 'sidecar', type: 'container', state: 'running' },
-          ]}
-        />
-      </Dock>
-    </Shell>
+    <section className="h-96">
+      <MultiContainerLogs
+        namespace="default"
+        podName="my-app-abc123"
+        containers={[{ name: 'app', type: 'container', state: 'running' }]}
+      />
+    </section>
   );
 }
 ```
@@ -216,9 +205,9 @@ You might want to create custom hooks for fetching pod/container data:
 
 ```tsx
 import { useState, useEffect } from 'react';
-import type { V1Pod } from '@kubernetes/client-node';
+import type { K8sResource } from '@/kubeview/engine/renderers';
 
-export function usePodContainers(pod: V1Pod | null) {
+export function usePodContainers(pod: K8sResource | null) {
   const [containers, setContainers] = useState<Array<{
     name: string;
     type: 'container' | 'init' | 'ephemeral';
@@ -232,20 +221,20 @@ export function usePodContainers(pod: V1Pod | null) {
     }
 
     const allContainers = [
-      ...(pod.spec?.containers ?? []).map((c) => ({
+      ...(pod.spec?.containers ?? []).map((c: { name: string }) => ({
         name: c.name,
         type: 'container' as const,
-        state: getContainerState(pod.status?.containerStatuses?.find((s) => s.name === c.name)),
+        state: getContainerState(pod.status?.containerStatuses?.find((s: { name: string }) => s.name === c.name)),
       })),
-      ...(pod.spec?.initContainers ?? []).map((c) => ({
+      ...(pod.spec?.initContainers ?? []).map((c: { name: string }) => ({
         name: c.name,
         type: 'init' as const,
-        state: getContainerState(pod.status?.initContainerStatuses?.find((s) => s.name === c.name)),
+        state: getContainerState(pod.status?.initContainerStatuses?.find((s: { name: string }) => s.name === c.name)),
       })),
-      ...(pod.spec?.ephemeralContainers ?? []).map((c) => ({
+      ...(pod.spec?.ephemeralContainers ?? []).map((c: { name: string }) => ({
         name: c.name,
         type: 'ephemeral' as const,
-        state: getContainerState(pod.status?.ephemeralContainerStatuses?.find((s) => s.name === c.name)),
+        state: getContainerState(pod.status?.ephemeralContainerStatuses?.find((s: { name: string }) => s.name === c.name)),
       })),
     ];
 
@@ -268,7 +257,7 @@ Then use in your component:
 ```tsx
 import { usePodContainers } from './hooks';
 
-function PodLogs({ pod }: { pod: V1Pod }) {
+function PodLogs({ pod }: { pod: K8sResource }) {
   const containers = usePodContainers(pod);
 
   return (
@@ -283,37 +272,15 @@ function PodLogs({ pod }: { pod: V1Pod }) {
 
 ## Error Handling
 
-Example with error boundary:
+`LogStream` displays fetch errors itself. Use the repository's error boundary for render failures:
 
 ```tsx
-import React from 'react';
-import { ErrorBoundary } from 'react-error-boundary';
+import { ErrorBoundary } from '@/kubeview/components/ErrorBoundary';
 import { LogStream } from '@/kubeview/components/logs';
 
-function ErrorFallback({ error, resetErrorBoundary }: any) {
+export function SafeLogViewer(props: React.ComponentProps<typeof LogStream>) {
   return (
-    <div className="flex items-center justify-center h-full bg-slate-950 text-slate-200 p-4">
-      <div className="max-w-md text-center">
-        <h3 className="text-lg font-semibold text-red-400 mb-2">
-          Failed to load logs
-        </h3>
-        <p className="text-sm text-slate-400 mb-4">
-          {error.message}
-        </p>
-        <button
-          onClick={resetErrorBoundary}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
-        >
-          Try again
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export default function SafeLogViewer(props: any) {
-  return (
-    <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <ErrorBoundary fallbackTitle="Failed to render logs">
       <LogStream {...props} />
     </ErrorBoundary>
   );
@@ -334,13 +301,15 @@ export default function CustomStyledLogs() {
         namespace="default"
         podName="my-pod"
       />
-      <style jsx>{`
+      <style>{`
         .custom-log-theme {
-          /* Override default colors */
-          --slate-950: #000000;
-          --slate-900: #0a0a0a;
-          --slate-700: #333333;
-          --slate-200: #ffffff;
+          color: #ffffff;
+        }
+        .custom-log-theme .bg-slate-950 {
+          background-color: #000000;
+        }
+        .custom-log-theme .text-slate-200 {
+          color: #ffffff;
         }
       `}</style>
     </div>
@@ -360,6 +329,8 @@ import PodDetailPage from './PodDetailPage';
 describe('PodDetailPage logs integration', () => {
   it('renders log viewer with pod data', async () => {
     const mockPod = {
+      apiVersion: 'v1',
+      kind: 'Pod',
       metadata: {
         name: 'test-pod',
         namespace: 'default',
@@ -402,7 +373,7 @@ const MultiContainerLogs = lazy(() =>
   import('@/kubeview/components/logs').then(m => ({ default: m.MultiContainerLogs }))
 );
 
-export default function PodDetailPage() {
+export default function LazyPodLogs(props: React.ComponentProps<typeof MultiContainerLogs>) {
   return (
     <Suspense fallback={<div>Loading logs...</div>}>
       <MultiContainerLogs {...props} />

@@ -24,7 +24,7 @@ Run this agent when:
    - **How to migrate**: Step-by-step instructions
    - **Example**: Before/after code snippets
 
-3. **Check localStorage keys**: If store persistence shapes changed, note that users may need to clear `openshiftpulse-*` keys.
+3. **Check persistence migrations**: Inspect each affected store's actual key, version, migrate function and partialization. Prefer a tested migration. If manual reset is necessary, identify the exact key and lost preferences/data, with backup instructions; do not recommend deleting every Pulse key.
 
 4. **Check operator contract**: If deployment config changed, document current `OpenShiftPulse` CR fields and linked operator migration procedure. This UI repository has no Pulse installation Helm chart.
 

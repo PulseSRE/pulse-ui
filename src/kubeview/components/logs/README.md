@@ -34,7 +34,7 @@ import { LogStream } from '@/kubeview/components/logs';
 - Auto-detect log format (JSON, logfmt, plain)
 - Color-coded log levels
 - Line numbers
-- Limited to 10,000 lines for performance
+- Limited to 10,000 lines in the single-container stream
 
 ### MultiContainerLogs
 
@@ -56,7 +56,7 @@ import { MultiContainerLogs } from '@/kubeview/components/logs';
 
 **Features:**
 - Tab-style container selector
-- "All" mode to merge logs from all containers
+- "All" mode fetches a snapshot (500 lines per container), without live follow
 - Color-coded container prefixes
 - State indicators (running, waiting, terminated)
 - Init and ephemeral container support
@@ -77,7 +77,7 @@ import { MultiPodLogs } from '@/kubeview/components/logs';
 
 **Features:**
 - Pod selector with "All" option
-- Merged view with color-coded pod prefixes
+- Snapshot merged view (500 lines per pod) with color-coded pod prefixes
 - Truncated pod names for readability
 - Timestamp-based merging
 
@@ -121,36 +121,9 @@ When `timestamps=true` is used in the log API, each line is prefixed with RFC333
 ```
 The parser automatically strips and parses this.
 
-### LogCollapse
-
-Utility to collapse repeated similar log lines. **Note:** implemented and unit-tested, but not currently called from `LogStream` or any other component — there is no UI hook for it yet.
-
-```tsx
-import { collapseRepeatedLines, isCollapsedGroup } from '@/kubeview/components/logs';
-
-const collapsed = collapseRepeatedLines(lines, 3); // threshold = 3
-
-collapsed.forEach((item) => {
-  if (isCollapsedGroup(item)) {
-    console.log(`${item.count} similar lines collapsed`);
-  } else {
-    console.log(item.message);
-  }
-});
-```
-
-**Similarity detection:**
-Lines are similar if they differ only in:
-- Numbers
-- UUIDs (8-4-4-4-12 pattern)
-- Timestamps
-- IP addresses
-- Hex values
-- Quoted strings
-
 ## API Integration
 
-All components use the Kubernetes API through the `/api/kubernetes` proxy:
+The log components resolve the selected cluster via `useClusterBase()`. For the primary cluster, the path is:
 
 ```
 GET /api/kubernetes/api/v1/namespaces/{namespace}/pods/{pod}/log
@@ -188,15 +161,16 @@ All components use Tailwind CSS with dark theme:
 
 **Search highlights:**
 - Match: `bg-amber-900/50`
-- Active match: `bg-amber-500/50`
 
 ## Example Usage
 
 ### Basic pod logs
 
 ```tsx
-function PodLogsTab({ pod }: { pod: V1Pod }) {
-  const containers = pod.spec?.containers.map(c => ({
+import type { K8sResource } from '@/kubeview/engine/renderers';
+
+function PodLogsTab({ pod }: { pod: K8sResource }) {
+  const containers = pod.spec?.containers.map((c: { name: string }) => ({
     name: c.name,
     type: 'container' as const,
     state: 'running' as const, // derive from pod.status.containerStatuses
@@ -215,7 +189,9 @@ function PodLogsTab({ pod }: { pod: V1Pod }) {
 ### Deployment logs (all pods)
 
 ```tsx
-function DeploymentLogsTab({ deployment, pods }: { deployment: V1Deployment; pods: V1Pod[] }) {
+import type { K8sResource } from '@/kubeview/engine/renderers';
+
+function DeploymentLogsTab({ deployment, pods }: { deployment: K8sResource; pods: K8sResource[] }) {
   const podNames = pods.map(p => p.metadata?.name!);
 
   return (
@@ -258,7 +234,6 @@ pnpm test -- src/kubeview/components/logs/
 
 Test files:
 - `LogParser.test.ts` - Parser and format detection
-- `LogCollapse.test.ts` - Line collapsing and similarity detection
 - `__tests__/LogStream.test.tsx` - Fetch/render behavior, container auto-detection, error states
 - `__tests__/LogSearch.test.ts` - Orphaned: tests search-filtering logic extracted from the never-built `LogSearch` component
 - `__tests__/LogContext.test.ts` - Orphaned: tests context-extraction logic extracted from the never-built `LogContext` component

@@ -18,7 +18,8 @@ import {
   seriesToDataPoints,
   formatYAxisValue,
 } from '@/kubeview/components/metrics';
-import type { ChartSeries } from '@/kubeview/components/metrics';
+import type { ChartSeries, MetricQuery } from '@/kubeview/components/metrics';
+import type { K8sResource } from '@/kubeview/engine/renderers';
 
 export function PodMetricsView({ pod }: { pod: K8sResource }) {
   const [series, setSeries] = useState<ChartSeries[]>([]);
@@ -104,7 +105,7 @@ Both components refresh themselves on an interval (`refreshInterval`, default 60
 ```tsx
 import { MetricsChart } from '@/kubeview/components/metrics';
 
-export function CorrelationView() {
+export function CorrelationView({ cpuSeries, memorySeries }: { cpuSeries: ChartSeries[]; memorySeries: ChartSeries[] }) {
   const [timeRange, setTimeRange] = useState<[number, number]>([
     Math.floor(Date.now() / 1000) - 3600,
     Math.floor(Date.now() / 1000),
@@ -121,6 +122,7 @@ export function CorrelationView() {
         yAxisLabel="CPU"
         hoverTimestamp={hoverTime}
         onHover={setHoverTime}
+        onTimeRangeSelect={(start, end) => setTimeRange([start, end])}
       />
 
       {/* Memory Chart - synchronized hover */}
@@ -131,6 +133,7 @@ export function CorrelationView() {
         yAxisLabel="Memory"
         hoverTimestamp={hoverTime}
         onHover={setHoverTime}
+        onTimeRangeSelect={(start, end) => setTimeRange([start, end])}
       />
     </div>
   );
@@ -176,7 +179,7 @@ function TimeRangeSelector({ onChange }: { onChange: (range: [number, number]) =
 ### Multi-Chart Dashboard
 
 ```tsx
-function MetricsDashboard({ resource }: { resource: K8sResource }) {
+function MetricsDashboard({ resource, gvrKey }: { resource: K8sResource; gvrKey: string }) {
   const queries = getMetricsForResource(gvrKey, resource);
   const [timeRange, setTimeRange] = useState<[number, number]>([
     Math.floor(Date.now() / 1000) - 3600,
@@ -202,7 +205,7 @@ function MetricsDashboard({ resource }: { resource: K8sResource }) {
 // Note: this is a hand-rolled example component distinct from the real
 // `MetricCard` exported by `Sparkline.tsx` (see above) — it's named
 // differently here to avoid confusion with that self-fetching component.
-function ResourceMetricChart({ query, resource, timeRange }) {
+function ResourceMetricChart({ query, resource, timeRange }: { query: MetricQuery; resource: K8sResource; timeRange: [number, number] }) {
   const [series, setSeries] = useState<ChartSeries[]>([]);
 
   useEffect(() => {
@@ -215,7 +218,7 @@ function ResourceMetricChart({ query, resource, timeRange }) {
       const results = await queryRange(resolved, timeRange[0], timeRange[1]);
       setSeries(results.map((r, i) => ({
         id: `${query.id}-${i}`,
-        label: r.metric[query.series?.replace('${', '').replace('}', '')] || query.title,
+        label: (query.series ? r.metric[query.series.replace('${', '').replace('}', '')] : undefined) || query.title,
         color: ['#3b82f6', '#10b981'][i % 2],
         data: seriesToDataPoints(r),
       })));
@@ -268,29 +271,7 @@ function QuickMetrics({ query }: { query: string }) {
 
 ## Adding to Resource Detail Pages
 
-Add a "Metrics" tab to any resource detail page:
-
-```tsx
-// In ResourceDetailPage.tsx or similar
-
-import { MetricsChart, getMetricsForResource } from '@/kubeview/components/metrics';
-
-function PodDetailPage({ pod }: { pod: K8sResource }) {
-  const tabs = [
-    { id: 'overview', label: 'Overview', content: <PodOverview pod={pod} /> },
-    { id: 'metrics', label: 'Metrics', content: <PodMetrics pod={pod} /> },
-    { id: 'logs', label: 'Logs', content: <PodLogs pod={pod} /> },
-    { id: 'yaml', label: 'YAML', content: <YAMLEditor resource={pod} /> },
-  ];
-
-  return <TabbedView tabs={tabs} />;
-}
-
-function PodMetrics({ pod }: { pod: K8sResource }) {
-  const queries = getMetricsForResource('v1/pods', pod);
-  // Render charts for each query...
-}
-```
+Render `PodMetricsView` from the first example inside the host resource page's metrics panel. It accepts a resource object through its `pod` prop. Keep YAML editing separate: `YamlEditor` is a default export from `../yaml/YamlEditor` and accepts a YAML `value`, not a `resource` prop.
 
 ## Performance Tips
 
@@ -311,7 +292,7 @@ function PodMetrics({ pod }: { pod: K8sResource }) {
 - Check browser console for fetch errors
 
 ### Threshold lines not showing
-- Ensure threshold queries return scalar values
+- Pass resolved numeric values in the chart's `thresholds` prop; the chart does not execute threshold queries itself
 - Check that threshold values are within the Y-axis range
 
 ## Next Steps

@@ -1,6 +1,7 @@
 # Task-First Operations Design Spec
 
 > Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+> Current source references: [inbox lifecycle](../../../src/kubeview/views/inbox/InboxLifecycle.tsx), [task details](../../../src/kubeview/views/inbox/TaskDetailDrawer.tsx). These links are orientation, not a completion checklist for this proposal.
 
 ## Problem
 

@@ -1,46 +1,13 @@
-# Screenshot Updater
+# Screenshot review and refresh
 
-Takes headless Chrome screenshots of key pages and updates `docs/screenshots/`.
+Use an existing authorized test deployment and an explicit URL. Do not start a local stack or select a cluster implicitly to refresh images. Screenshots may expose resource names, logs or credentials; use disposable data and inspect each image before publication.
 
-Use a previously authorized running app/test cluster. Do not start a deployment just to refresh screenshots. Prefer the checked-in `scripts/capture-screenshots.ts`; inspect its current flags/dependencies before running. Never include live credentials or sensitive cluster content in published images.
+## Capture workflow
 
-## Prerequisites
-- App running at http://localhost:9000 (pnpm dev + oc proxy)
-- Chrome installed at `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+1. Verify the intended deployed URL, authenticated test identity and visible application state. A200 response alone may be a login page.
+2. Inspect `scripts/capture-screenshots.ts` before using it. It is a standalone Playwright script, not a Playwright test specification. It expects `PULSE_URL`, `PULSE_USER` and `PULSE_PASS`; set the URL explicitly because its fallback reads an unscoped hardcoded `oc` Route. Its login assumptions and historical route selectors may need adaptation to the current installation. Do not treat its catch-and-continue login path as proof of authentication.
+3. Capture the current routes from `src/kubeview/routes/domainRoutes.tsx` with a reviewed browser workflow. Preserve browser sandboxing and use a fresh temporary profile when necessary. Do not overwrite historical screenshots until replacement images are validated.
+4. Visually check each image for the correct route, loaded data, legible text and absence of sensitive content. Loading skeletons, error pages and login screens are not successful product screenshots.
+5. Report the exact UI revision, deployment URL, routes captured and any missing captures. Update references only to images actually saved.
 
-## Instructions
-
-1. **Check app is running**:
-   ```bash
-   curl -s -o /dev/null -w "%{http_code}" http://localhost:9000/
-   ```
-   If not 200, instruct user to start the dev server.
-
-2. **Capture screenshots** using headless Chrome:
-   ```bash
-   CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-   DIR="docs/screenshots"
-   PROFILE="/tmp/chrome-screenshots"
-   rm -rf "$PROFILE"
-   ARGS="--headless=new --disable-gpu --no-sandbox --window-size=1440,900 --virtual-time-budget=15000 --user-data-dir=$PROFILE --disable-extensions"
-   ```
-
-   Pages to capture:
-   - welcome.png → /welcome
-   - pulse.png → /pulse
-   - workloads.png → /workloads
-   - compute.png → /compute
-   - storage.png → /storage
-   - networking.png → /networking
-   - alerts.png → /alerts
-   - security.png → /security
-   - access-control.png → /access-control
-   - admin.png → /admin
-   - builds.png → /builds
-   - crds.png → /crds
-
-3. **Visually verify screenshots** show the intended route and loaded state. File size alone cannot establish correct rendering.
-
-4. **Report** which screenshots were updated and which may need manual capture (data-heavy pages may show loading skeletons in headless mode).
-
-Note: Pages requiring live API data (Pulse, Workloads, Compute) may only show loading states in headless mode. The Welcome page and static UI elements will capture correctly.
+Existing files under `docs/screenshots/` are historical illustrations. This guide does not claim they match the current product or that live capture has been verified.

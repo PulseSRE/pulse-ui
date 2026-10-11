@@ -1,8 +1,9 @@
 # Pulse Agent Page Redesign Implementation Plan
 
 > Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+> Current source references: [current agent tabs](../../../src/kubeview/views/PulseAgentView.tsx), [current view tests](../../../src/kubeview/views/__tests__/PulseAgentView.test.tsx). These links are orientation, not a completion checklist for this proposal.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Archived implementation instruction (not a current execution request):** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the developer-facing Pulse Agent page with a sysadmin-first narrative overview plus tabbed access to all admin tools (catalog, skills, plans, MCP, components, usage, analytics).
 
