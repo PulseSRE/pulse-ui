@@ -1,9 +1,10 @@
 # Pulse Agent Page Redesign
 
 > Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+> Current source references: [current agent tabs](../../../src/kubeview/views/PulseAgentView.tsx). These links are orientation, not a completion checklist for this proposal.
 
 **Date:** 2026-04-17
-**Status:** Approved
+**Design status at the time:** Approved (not an implementation or deployed acceptance status)
 **Audience:** Sysadmin (primary), Platform Admin (secondary via tabs)
 
 ## Problem

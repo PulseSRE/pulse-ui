@@ -5,30 +5,11 @@
 ## Component Hierarchy
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     MultiPodLogs                             │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Pod Selector: [All 3 pods] [pod-1] [pod-2] [pod-3]   │ │
-│  └────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │                MultiContainerLogs                       │ │
-│  │  ┌──────────────────────────────────────────────────┐  │ │
-│  │  │  Container: [All] [app] [sidecar] [init-setup]  │  │ │
-│  │  └──────────────────────────────────────────────────┘  │ │
-│  │  ┌──────────────────────────────────────────────────┐  │ │
-│  │  │                  LogStream                        │  │ │
-│  │  │  ┌────────────────────────────────────────────┐  │  │ │
-│  │  │  │  Toolbar: Search, Follow, TS, Wrap, etc.  │  │  │ │
-│  │  │  └────────────────────────────────────────────┘  │  │ │
-│  │  │  ┌────────────────────────────────────────────┐  │  │ │
-│  │  │  │  Log Lines (scrollable)                    │  │  │ │
-│  │  │  │  1  2024-01-15 [INFO] Starting...          │  │  │ │
-│  │  │  │  2  2024-01-15 [INFO] Ready                │  │  │ │
-│  │  │  │  ...                                        │  │  │ │
-│  │  │  └────────────────────────────────────────────┘  │  │ │
-│  │  └──────────────────────────────────────────────────┘  │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+MultiPodLogs       ─ selected pod ────────→ LogStream
+                  └ All: merged snapshot of pod logs
+MultiContainerLogs ─ selected container ─→ LogStream
+                  └ All: merged snapshot of container logs
+LogStream          ─ toolbar + parsed lines + optional live follow
 ```
 
 > A `LogContext` modal (context lines, structured fields, similar occurrences) was explored during design but was never built. `LogStream`'s `onLineClick` callback exists and is wired for this purpose, but no component currently consumes it to render a context panel.
@@ -62,7 +43,7 @@ GET /api/kubernetes/api/v1/namespaces/{ns}/pods/{pod}/log
 **Responsibilities:**
 - Render container selector tabs
 - Show container state indicators
-- In "All" mode, fetch and merge logs from all containers
+- In "All" mode, fetch and merge a 500-line snapshot per container (no live follow)
 - Color-code container prefixes
 - Render LogStream for selected container
 
@@ -74,7 +55,7 @@ GET /api/kubernetes/api/v1/namespaces/{ns}/pods/{pod}/log
 **Purpose:** Aggregate logs across multiple pods
 **Responsibilities:**
 - Render pod selector tabs
-- In "All" mode, fetch and merge logs from all pods
+- In "All" mode, fetch and merge a 500-line snapshot per pod (no live follow)
 - Color-code pod prefixes
 - Sort merged logs by timestamp
 - Truncate pod names for display
@@ -104,24 +85,6 @@ GET /api/kubernetes/api/v1/namespaces/{ns}/pods/{pod}/log
 **Level normalization:**
 - Maps various level strings to standard enum
 - Detects level from message content for plain text
-
-### LogCollapse
-**Purpose:** Collapse repeated similar log lines
-**Status:** Implemented and tested (`LogCollapse.test.ts`), but not currently wired into `LogStream` or any other component — it's exported from `index.ts` but has no real consumer yet.
-**Functions:**
-- `areSimilar(a: string, b: string): boolean`
-- `collapseRepeatedLines(lines: ParsedLogLine[], threshold: number): (ParsedLogLine | CollapsedGroup)[]`
-- `isCollapsedGroup(item): boolean`
-
-**Similarity algorithm:**
-1. Normalize both messages (replace UUIDs, numbers, IPs, timestamps)
-2. Compare normalized versions
-3. If equal, lines are similar
-
-**Collapsing:**
-- Find consecutive similar lines with same level
-- If count >= threshold, create CollapsedGroup
-- Otherwise, keep individual lines
 
 ## Data Flow
 
@@ -173,8 +136,7 @@ User clicks log line
 2. **Streaming:** Efficient chunk processing with TextDecoder
 3. **No virtualization:** Browser native scrolling is fast enough for 10k lines
 4. **Smart auto-scroll:** Only scrolls when user is at bottom
-5. **Similarity detection:** Regex-based normalization is fast enough (though `collapseRepeatedLines` isn't called from any component yet — see LogCollapse status above)
-6. **Memo/useMemo:** Not currently used for search filtering in `LogStream` — filtering re-runs on every render
+5. **Memo/useMemo:** Not currently used for search filtering in `LogStream` — filtering re-runs on every render
 
 ## Styling Strategy
 
@@ -196,7 +158,6 @@ All components use:
 
 Unit tests for:
 - **LogParser:** Format detection, line parsing, level normalization (`LogParser.test.ts`)
-- **LogCollapse:** Similarity detection, collapsing logic (`LogCollapse.test.ts`)
 - **LogStream:** Fetch/render behavior, container auto-detection, error states (`__tests__/LogStream.test.tsx`)
 
 There are also two orphaned logic-only test files, `__tests__/LogSearch.test.ts` and `__tests__/LogContext.test.ts`, that test search/context-extraction logic in isolation for the `LogSearch`/`LogContext` components described above — those components were never built, so these tests exercise standalone functions only, not any React component.

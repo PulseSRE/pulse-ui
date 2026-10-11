@@ -1,6 +1,7 @@
 # User Session Analytics
 
 > Historical design record. This proposal reflects its dated design discussion, not a statement that every feature, path, count, or acceptance criterion is implemented today. For current behavior and setup, use [README](../../../README.md), route/source modules, and current test output.
+> Current source references: [session tracker](../../../src/kubeview/components/SessionTracker.tsx), [session analytics section](../../../src/kubeview/views/toolbox/SessionAnalyticsSection.tsx). These links are orientation, not a completion checklist for this proposal.
 
 ## Goal
 

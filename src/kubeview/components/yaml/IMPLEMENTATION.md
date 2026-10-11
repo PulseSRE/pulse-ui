@@ -37,7 +37,7 @@ This implementation provides a complete schema-aware YAML editing system for Kub
    - Field details: type, required status, description, default, enum, min/max, pattern
    - Fetches **live** OpenAPI schemas via `fetchSchema()` in `engine/schema.ts` (tries OpenAPI v3 first, falls back to the v2/Swagger endpoint), with an in-memory cache — no mock data
    - Auto-detects the resource's GVK from `apiVersion`/`kind` in the YAML content if no `gvk` prop is passed
-   - Props: `gvk?`, `yamlContent?`, `onInsertField?`
+   - Props: `gvk?`, `yamlContent?`; `onInsertField?` is declared but not invoked by the current implementation
 
 4. **`SnippetEngine.ts`** (Resource snippets)
    - Built-in snippets for common resources, spanning:
@@ -96,12 +96,12 @@ All components follow the project's dark theme design system:
 
 Required packages are declared in package.json; install with `pnpm install --frozen-lockfile`:
 
-- `@uiw/react-codemirror` v4.25.8 - CodeMirror React wrapper
-- `@codemirror/lang-yaml` v6.1.2 - YAML syntax highlighting
+- `@uiw/react-codemirror` ^4.25.11 - CodeMirror React wrapper
+- `@codemirror/lang-yaml` ^6.1.3 - YAML syntax highlighting
 - `@codemirror/theme-one-dark` v6.1.3 - Dark theme
 - `@codemirror/view` - Editor view utilities
 - `@codemirror/language` - Language support
-- `lucide-react` v0.576.0 - Icons
+- `lucide-react` ^1.30.0 - Icons
 - `clsx` + `tailwind-merge` - Class name utilities (via `cn()`)
 
 ## Integration Points
@@ -122,7 +122,7 @@ const YamlEditor = lazy(() => import('@/kubeview/components/yaml/YamlEditor'));
 function App() {
   return (
     <Suspense fallback={<div>Loading editor...</div>}>
-      <YamlEditor ... />
+      <YamlEditor value={yaml} onChange={setYaml} />
     </Suspense>
   );
 }
@@ -132,10 +132,12 @@ function App() {
 
 1. **YamlEditor `onSave`**: the caller wires this to a real K8s API request — the editor itself is transport-agnostic:
    ```tsx
+   import { getImpersonationHeaders } from '@/kubeview/engine/query';
+
    const handleSave = async (value: string) => {
      const res = await fetch(apiUrl, {
        method: 'PUT',
-       headers: { 'Content-Type': 'application/yaml' },
+       headers: { 'Content-Type': 'application/yaml', ...getImpersonationHeaders() },
        body: value,
      });
      // Handle response...
@@ -194,10 +196,9 @@ import YamlEditor from '@/kubeview/components/yaml/YamlEditor';
 import SchemaPanel from '@/kubeview/components/yaml/SchemaPanel';
 
 <div className="flex">
-  <YamlEditor resourceGvk={{ group: 'apps', version: 'v1', kind: 'Deployment' }} ... />
+  <YamlEditor value={yaml} onChange={setYaml} resourceGvk={{ group: 'apps', version: 'v1', kind: 'Deployment' }} />
   <SchemaPanel
     gvk={{ group: 'apps', version: 'v1', kind: 'Deployment' }}
-    onInsertField={(path, example) => console.log('Insert', path, example)}
   />
 </div>
 ```
@@ -220,7 +221,7 @@ import { DryRunPanel } from '@/kubeview/components/yaml/DryRunPanel';
 ## Performance Considerations
 
 1. **Code Splitting**: Use `React.lazy()` to load editor on demand
-2. **Large Files**: Diff algorithm skips computation for files > 5000 lines
+2. **Large Files**: The LCS diff uses O(original lines × modified lines) time and memory; it has no 5,000-line cutoff.
 3. **Memoization**: Expensive computations use `useMemo`
 4. **Event Listeners**: Properly cleaned up in `useEffect` return functions
 

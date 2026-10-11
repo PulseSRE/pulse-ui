@@ -2,7 +2,7 @@
 
 **Protocol Version: 2**
 
-Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. Both repos must implement the same protocol version for compatibility.
+Defines the REST and WebSocket protocol between the Pulse UI and Pulse Agent. The UI accepts backend protocol versions listed in `SUPPORTED_PROTOCOLS` (currently 1 and 2). Protocol support is necessary but does not prove endpoint or feature compatibility.
 
 > UI integration reference, not an exhaustive backend endpoint catalog. Authoritative current schemas are in `engine/agentClient.ts`, `engine/monitorClient.ts`, `engine/agentComponents.ts` (under `src/kubeview/`) and the [agent API contract](https://github.com/PulseSRE/pulse-agent/blob/main/API_CONTRACT.md). Update both code and documentation together. Examples use illustrative values, not current release/tool counts.
 
@@ -380,7 +380,7 @@ Triggers an immediate cluster scan. If a scan is already in progress, returns an
 ```
 
 `action_report` may include optional verification fields once post-fix verification completes:
-- `verificationStatus`: `"verified"` | `"still_failing"`
+- `verificationStatus`: `"pending"` | `"verified"` | `"still_failing"` | `"improved"` | `"unverifiable"` | `"verified_then_recurred"`
 - `verificationEvidence`: `string`
 - `verificationTimestamp`: `number`
 
@@ -410,10 +410,12 @@ Triggers an immediate cluster scan. If a scan is already in progress, returns an
   "actionId": "a-abc123",
   "findingId": "f-abc123",
   "status": "verified",
-  "evidence": "No active crashloop findings for affected resources",
+  "evidence": "No active crashloop findings; current workload generation converged and all required containers are ready",
   "timestamp": 1711540800
 }
 ```
+
+Verification reports also support `still_failing`, `improved`, `unverifiable`, and `verified_then_recurred`. Absence of a finding alone does not establish recovery. A recurrence report retains the original `actionId` and carries the new `findingId`; the UI must downgrade the earlier verdict rather than present continued success.
 
 #### `findings_snapshot` — Active findings reconciliation
 
@@ -477,11 +479,7 @@ Sent after each scan cycle. Contains the IDs of all currently active findings. T
 
 Structured UI components returned by agent tools via the `component` event. The UI renders these inline in the chat.
 
-There are **25 component kinds** total (`GET /components` returns the full
-registry with schemas). The 9 below were the original set; the rest were
-added since and are only summarized here — see the live `/components`
-response or pulse-agent's `component_registry.py` for authoritative field
-lists.
+`GET /components` returns the current registry with schemas. The table below summarizes integration shapes; use that response and the backend component registry for authoritative fields rather than assuming a fixed component count.
 
 | `kind` | Description | Key Fields |
 |--------|-------------|------------|

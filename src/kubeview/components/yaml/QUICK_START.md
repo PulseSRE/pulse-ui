@@ -89,6 +89,7 @@ function EditorWithDryRun() {
   return (
     <>
       <YamlEditor value={yaml} onChange={setYaml} onSave={handleSave} />
+      <button type="button" onClick={() => setShowDryRun(true)}>Validate on server</button>
 
       {showDryRun && (
         <DryRunPanel
@@ -117,6 +118,7 @@ const allSnippets = snippets;
 const deploySnippet = snippets.find(s => s.prefix === 'deploy');
 
 // Resolve placeholder values
+if (!deploySnippet) throw new Error("Deployment snippet is unavailable");
 const yaml = resolveSnippet(deploySnippet);
 // Returns: "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: my-app\n..."
 
@@ -149,15 +151,14 @@ function CompleteEditor() {
       <div className="w-96">
         <SchemaPanel
           gvk={{ group: 'apps', version: 'v1', kind: 'Deployment' }}
-          onInsertField={(path, example) => {
-            console.log('Insert field:', path, example);
-          }}
         />
       </div>
     </div>
   );
 }
 ```
+
+`onInsertField` is declared but is not invoked by the current `SchemaPanel`; selecting a field shows its documentation.
 
 `SchemaPanel` fetches the live OpenAPI schema for the given `gvk` (or auto-detects it from `yamlContent` if `gvk` isn't passed) via `fetchSchema()` in `engine/schema.ts` — no mock data, and results are cached in memory.
 
@@ -225,7 +226,7 @@ function CompleteEditor() {
 |----------|--------|
 | `Cmd+S` / `Ctrl+S` | Save (triggers onSave callback) |
 | `Cmd+F` / `Ctrl+F` | Search (opens CodeMirror search) |
-| `Esc` | Cancel edit / close dialogs |
+
 
 ## Props Reference
 
@@ -270,7 +271,7 @@ interface SchemaPanelProps {
     kind: string;
   };
   yamlContent?: string;             // Used to auto-detect GVK from apiVersion/kind if gvk isn't passed
-  onInsertField?: (path: string, example: string) => void; // Insert-field callback
+  onInsertField?: (path: string, example: string) => void; // Declared compatibility prop; currently not invoked
 }
 ```
 
@@ -316,7 +317,7 @@ function App() {
 
 ## Testing
 
-The components are tested with Vitest. Legacy test files include isolated logic for unshipped components; the shipped components include — `SnippetEngine.test.ts` (see current test output) and `DiffPreview.test.tsx` (see current test output). `MultiDocHandler.test.ts` (see current test output) and `PasteDetector.test.ts` (see current test output) are orphaned: they test logic extracted from components that were explored but never built.
+Vitest directly tests `SnippetEngine.ts` and `DiffPreview.tsx`. `MultiDocHandler.test.ts` and `PasteDetector.test.ts` are orphaned: they test logic extracted from components that were explored but never built.
 
 ```tsx
 import { render, screen } from '@testing-library/react';

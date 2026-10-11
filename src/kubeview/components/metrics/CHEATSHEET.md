@@ -42,6 +42,7 @@ import {
 ```tsx
 const queries = getMetricsForResource('v1/pods', pod);
 const cpuQuery = queries.find(q => q.id === 'pod-cpu');
+if (!cpuQuery) throw new Error("No CPU metric mapping for this resource");
 const resolved = resolveQuery(cpuQuery.query, {
   name: pod.metadata.name,
   namespace: pod.metadata.namespace || 'default',
@@ -60,7 +61,7 @@ const series = results.map(r => ({
 ```tsx
 import { Sparkline, MetricCard } from '@/kubeview/components/metrics/Sparkline';
 
-<Sparkline query="rate(container_cpu_usage_seconds_total{pod=\"nginx-abc\"}[5m])" duration="1h" unit="%" />
+<Sparkline query="rate(container_cpu_usage_seconds_total{pod=\"nginx-abc\"}[5m])" duration="1h" unit=" cores" />
 
 <MetricCard
   title="API Latency (p99)"
@@ -73,7 +74,7 @@ import { Sparkline, MetricCard } from '@/kubeview/components/metrics/Sparkline';
 ### Synchronized charts
 
 ```tsx
-const [hoverTime, setHoverTime] = useState(null);
+const [hoverTime, setHoverTime] = useState<number | null>(null);
 
 <MetricsChart
   series={cpuSeries}
@@ -175,15 +176,16 @@ pnpm test -- src/kubeview/components/metrics
 Coverage:
 - ✅ Format functions (`AutoMetrics`, `prometheus.ts`)
 - ✅ Query resolution
-- ❌ No component-rendering or user-interaction tests exist yet
+- `__tests__/Sparkline.test.tsx` covers rendering/fetching/refresh/formatting for Sparkline and MetricCard.
+- `MetricsChart` has no dedicated component test file in this directory.
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
 | Charts not showing | Check `/api/prometheus` proxy in rspack.config.ts |
-| Threshold lines missing | Ensure threshold query returns scalar value |
-| High memory usage | Reduce step size or limit time range |
+| Threshold lines missing | Pass numeric values in MetricsChart.thresholds |
+| High memory usage | Increase step size or limit time range |
 
 ## Performance
 
