@@ -96,4 +96,37 @@ describe('MetricCard', () => {
 
     expect(await findByText('No data')).toBeTruthy();
   });
+
+  it('keeps its own color when a lower-is-worse value is healthy', async () => {
+    // Nodes Ready 4 against { warning: 2, critical: 1 } used to render red.
+    mockRangeResponse([[1000, '4'], [1060, '4'], [1120, '4']]);
+
+    const { findByText } = renderWithClient(
+      <MetricCard title="Nodes Ready" query="up" unit="" color="#10b981" thresholds={{ warning: 2, critical: 1 }} />,
+    );
+
+    const value = await findByText('4');
+    expect(value.closest('span')?.getAttribute('style')).toContain('rgb(16, 185, 129)');
+  });
+
+  it('turns critical when a lower-is-worse value drops to the threshold', async () => {
+    mockRangeResponse([[1000, '3'], [1060, '2'], [1120, '1']]);
+
+    const { findByText } = renderWithClient(
+      <MetricCard title="Nodes Ready" query="up" unit="" color="#10b981" thresholds={{ warning: 2, critical: 1 }} />,
+    );
+
+    const value = await findByText('1');
+    expect(value.closest('span')?.getAttribute('style')).toContain('rgb(239, 68, 68)');
+  });
+
+  it('shows counts without a trailing .0', async () => {
+    mockRangeResponse([[1000, '10'], [1060, '10']]);
+
+    const { findByText, queryByText } = renderWithClient(<MetricCard title="Pods Running" query="up" unit="" />);
+
+    expect(await findByText('10')).toBeTruthy();
+    expect(queryByText('10.0')).toBeNull();
+  });
 });
+

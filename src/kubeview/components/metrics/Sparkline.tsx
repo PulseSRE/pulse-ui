@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { queryRange, getTimeRange } from './prometheus';
 import { safeQuery } from '../../engine/safeQuery';
+import { formatMetricValue, thresholdColor, type Thresholds } from './metricFormat';
 
 interface SparklineProps {
   query: string;
@@ -90,7 +91,7 @@ export function Sparkline({
         <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r={2} fill={color} />
       </svg>
       <span className="text-xs font-mono text-slate-300 w-14 text-right shrink-0">
-        {current.toFixed(1)}{unit}
+        {formatMetricValue(current)}{unit}
       </span>
     </div>
   );
@@ -113,7 +114,7 @@ export function MetricCard({
   unit?: string;
   color?: string;
   duration?: string;
-  thresholds?: { warning: number; critical: number };
+  thresholds?: Thresholds;
   onClick?: () => void;
 }) {
   const { data: series = [] } = useQuery({
@@ -137,12 +138,7 @@ export function MetricCard({
   const h = 56;
   const padding = 2;
 
-  // Determine color based on thresholds
-  let displayColor = color;
-  if (current !== null && thresholds) {
-    if (current >= thresholds.critical) displayColor = '#ef4444';
-    else if (current >= thresholds.warning) displayColor = '#f59e0b';
-  }
+  const displayColor = thresholdColor(current, thresholds) ?? color;
 
   const points = values.map((v, i) => {
     const x = padding + (i / Math.max(values.length - 1, 1)) * (w - padding * 2);
@@ -163,7 +159,7 @@ export function MetricCard({
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-slate-400">{title}</span>
         <span className="text-sm font-mono font-bold flex items-center gap-1" style={{ color: displayColor }}>
-          {current !== null ? `${current.toFixed(1)}${unit}` : '—'}
+          {current !== null ? `${formatMetricValue(current)}${unit}` : '—'}
           {trendArrow && <span className="text-[10px]">{trendArrow}</span>}
         </span>
       </div>
