@@ -61,6 +61,18 @@ describe('normalizeAgentProps', () => {
     expect(lines[0].level).toBe('warn');
   });
 
+  it('chart: series name → label (agent saves name)', () => {
+    const spec = { kind: 'chart', series: [{ name: 'checkout-api', data: [[1, 2]] }] } as unknown as ComponentSpec;
+    const series = (normalizeAgentProps(spec) as Record<string, unknown>).series as Array<Record<string, unknown>>;
+    expect(series[0].label).toBe('checkout-api');
+  });
+
+  it('chart: existing label wins over name', () => {
+    const spec = { kind: 'chart', series: [{ label: 'a', name: 'b', data: [] }] } as unknown as ComponentSpec;
+    const series = (normalizeAgentProps(spec) as Record<string, unknown>).series as Array<Record<string, unknown>>;
+    expect(series[0].label).toBe('a');
+  });
+
   it('chart: values → data', () => {
     const spec = { kind: 'chart', series: [{ label: 'cpu', values: [[1, 2]] }] } as unknown as ComponentSpec;
     const result = normalizeAgentProps(spec) as Record<string, unknown>;

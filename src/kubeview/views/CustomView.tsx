@@ -115,6 +115,20 @@ export default function CustomView() {
     return () => clearTimeout(timer);
   }, [sidebarExpanded, measureWidth]);
 
+  // useContainerWidth attaches its ResizeObserver once, on mount. This view
+  // returns early while loading, so the grid container doesn't exist yet and
+  // the grid kept a stale width (it filled ~70% of the page once the dock
+  // collapsed). Observe the container ourselves once it exists.
+  const hasGrid = Boolean(view && view.layout.length > 0);
+  useEffect(() => {
+    const node = gridContainerRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    measureWidth();
+    const observer = new ResizeObserver(() => measureWidth());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasGrid, view?.id, gridContainerRef, measureWidth]);
+
   // Derive layout from already-subscribed view to avoid redundant selector
   const viewLayout = view?.layout;
 
