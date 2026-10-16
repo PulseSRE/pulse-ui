@@ -15,36 +15,42 @@ interface Props {
 export function AgentNodeMap({ spec }: Props) {
   const go = useNavigateTab();
 
-  // Map NodeMapSpec nodes → NodeDetail compatible shape
-  const nodeDetails: NodeDetail[] = spec.nodes.map((n) => ({
-    node: { metadata: { name: n.name, labels: {}, creationTimestamp: '' }, status: { conditions: [] } } as any,
-    status: {
-      ready: n.status === 'ready',
-      conditions: (n.conditions || []).map(c => ({ type: c, status: n.status === 'ready' ? 'True' : 'False' })),
-      roles: n.roles,
-      pressure: {
-        disk: n.conditions?.includes('DiskPressure') || false,
-        memory: n.conditions?.includes('MemoryPressure') || false,
-        pid: n.conditions?.includes('PIDPressure') || false,
+  // Map NodeMapSpec nodes → NodeDetail compatible shape. Agent specs built
+  // with emit_component often omit roles/podCount/podCap (the registry example
+  // the model copies did), and NodeHexMap calls roles.join() unguarded, so a
+  // missing field crashed the whole widget. Default them here.
+  const nodeDetails: NodeDetail[] = (spec.nodes || []).map((n) => {
+    const roles = Array.isArray(n.roles) ? n.roles : [];
+    return {
+      node: { metadata: { name: n.name, labels: {}, creationTimestamp: '' }, status: { conditions: [] } } as any,
+      status: {
+        ready: n.status === 'ready',
+        conditions: (n.conditions || []).map(c => ({ type: c, status: n.status === 'ready' ? 'True' : 'False' })),
+        roles,
+        pressure: {
+          disk: n.conditions?.includes('DiskPressure') || false,
+          memory: n.conditions?.includes('MemoryPressure') || false,
+          pid: n.conditions?.includes('PIDPressure') || false,
+        },
       },
-    },
-    nodeInfo: {},
-    capacity: {},
-    allocatable: {},
-    roles: n.roles,
-    taints: [],
-    unschedulable: n.status === 'cordoned',
-    podCount: n.podCount,
-    podCap: n.podCap,
-    cpuCap: 0,
-    memCap: 0,
-    memUsagePct: n.memPct ?? null,
-    cpuUsagePct: n.cpuPct ?? null,
-    age: n.age || '',
-    pressures: (n.conditions || []).filter(c => c.includes('Pressure')),
-    instanceType: n.instanceType || '',
-    name: n.name,
-  }));
+      nodeInfo: {},
+      capacity: {},
+      allocatable: {},
+      roles,
+      taints: [],
+      unschedulable: n.status === 'cordoned',
+      podCount: typeof n.podCount === 'number' ? n.podCount : 0,
+      podCap: typeof n.podCap === 'number' ? n.podCap : 0,
+      cpuCap: 0,
+      memCap: 0,
+      memUsagePct: n.memPct ?? null,
+      cpuUsagePct: n.cpuPct ?? null,
+      age: n.age || '',
+      pressures: (n.conditions || []).filter(c => c.includes('Pressure')),
+      instanceType: n.instanceType || '',
+      name: n.name,
+    };
+  });
 
   // Map pod data
   const podsByNode: Record<string, PodInfo[]> = spec.pods || {};

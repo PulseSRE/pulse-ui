@@ -20,21 +20,27 @@ function withToken(url: string): string {
   return `${url}${sep}token=${AGENT_TOKEN}`;
 }
 
-const API_HEADERS = { 'X-Forwarded-User': 'e2e-test-user' };
-
+// Views are created through the dev-server proxy with no identity override.
+// These calls used to add X-Forwarded-User: e2e-test-user, which made that
+// user the owner, while the app reads views as the identity the proxy derives
+// from X-Forwarded-Access-Token. The owners never matched, so every view test
+// loaded "View not found" and the baselines captured that error page.
 async function createView(page: Page, title: string, layout: any[]) {
   const resp = await page.request.post(withToken(`${AGENT_BASE}/views`), {
     data: { title, layout, description: 'Visual regression test view' },
-    headers: API_HEADERS,
   });
   const body = await resp.json();
   return (body.view_id || body.id) as string;
 }
 
 async function deleteView(page: Page, viewId: string) {
-  await page.request.delete(withToken(`${AGENT_BASE}/views/${viewId}`), {
-    headers: API_HEADERS,
-  });
+  await page.request.delete(withToken(`${AGENT_BASE}/views/${viewId}`));
+}
+
+/** Fail before the screenshot if the view did not load, so an error page can never become a baseline. */
+async function expectViewLoaded(page: Page, title: string) {
+  await expect(page.getByText(title).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('View not found')).toHaveCount(0);
 }
 
 test.describe('Visual Regression', () => {
@@ -88,11 +94,11 @@ test.describe('Visual Regression', () => {
     ]);
 
     await page.goto(`${BASE_URL}/custom/${viewId}`, { waitUntil: 'domcontentloaded' });
+    await expectViewLoaded(page, 'Visual Test — Mixed Widgets');
     await page.waitForTimeout(3000);
 
     await expect(page).toHaveScreenshot('dashboard-mixed-widgets.png', {
       maxDiffPixelRatio: 0.02,
-      fullPage: true,
     });
   });
 
@@ -125,11 +131,11 @@ test.describe('Visual Regression', () => {
     ]);
 
     await page.goto(`${BASE_URL}/custom/${viewId}`, { waitUntil: 'domcontentloaded' });
+    await expectViewLoaded(page, 'Visual Test — Sorted Table');
     await page.waitForTimeout(3000);
 
     await expect(page).toHaveScreenshot('table-sorted-by-restarts.png', {
       maxDiffPixelRatio: 0.02,
-      fullPage: true,
     });
   });
 
@@ -147,11 +153,11 @@ test.describe('Visual Regression', () => {
     ]);
 
     await page.goto(`${BASE_URL}/custom/${viewId}`, { waitUntil: 'domcontentloaded' });
+    await expectViewLoaded(page, 'Visual Test — Severity Cards');
     await page.waitForTimeout(3000);
 
     await expect(page).toHaveScreenshot('info-cards-severity.png', {
       maxDiffPixelRatio: 0.02,
-      fullPage: true,
     });
   });
 });
