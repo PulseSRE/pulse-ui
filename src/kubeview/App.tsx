@@ -7,6 +7,7 @@ import PulseView from './views/PulseView';
 
 import CustomView from './views/CustomView';
 import ClaimView from './views/ClaimView';
+import PreviewView from './views/PreviewView';
 import { resourceRoutes, domainRoutes } from './routes';
 
 function createQueryClient(clusterId: string) {
@@ -37,6 +38,8 @@ export default function OpenshiftPulseApp() {
     <QueryClientProvider key={activeClusterId} client={queryClient}>
       <BrowserRouter>
         <Routes>
+          {/* A draft dashboard for the render service: no shell, nothing saved */}
+          <Route path="/preview" element={<PreviewView />} />
           <Route path="/" element={<Shell />}>
             {/* Home */}
             <Route index element={<DefaultRedirect />} />

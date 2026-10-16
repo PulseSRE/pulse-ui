@@ -61,8 +61,14 @@ export function positionsToLayout(positions: Record<string | number, { x: number
   });
 }
 
-export default function CustomView() {
-  const { viewId } = useParams<{ viewId: string }>();
+/**
+ * `viewId` overrides the route param; `preview` renders a draft that is not
+ * saved anywhere (see PreviewView): no editing controls, no loading from the
+ * API, no tab or builder bookkeeping.
+ */
+export default function CustomView({ viewId: viewIdProp, preview = false }: { viewId?: string; preview?: boolean } = {}) {
+  const params = useParams<{ viewId: string }>();
+  const viewId = viewIdProp ?? params.viewId;
   const view = useCustomViewStore((s) => s.getView(viewId || ''));
   const deleteView = useCustomViewStore((s) => s.deleteView);
   const updateView = useCustomViewStore((s) => s.updateView);
@@ -74,29 +80,29 @@ export default function CustomView() {
   const loadViews = useCustomViewStore((s) => s.loadViews);
   const attemptedLoad = useRef<string | null>(null);
   useEffect(() => {
-    if (viewId && !view && attemptedLoad.current !== viewId) {
+    if (!preview && viewId && !view && attemptedLoad.current !== viewId) {
       attemptedLoad.current = viewId;
       loadViews();
     }
-  }, [viewId, view, loadViews]);
+  }, [preview, viewId, view, loadViews]);
 
   // Update tab title to match view title
   const updateTab = useUIStore((s) => s.updateTab);
   const go = useNavigateTab();
   useEffect(() => {
-    if (view?.title) {
+    if (!preview && view?.title) {
       const tabs = useUIStore.getState().tabs;
       const tab = tabs.find((t) => t.path === `/custom/${viewId}`);
       if (tab && tab.title !== view.title) {
         updateTab(tab.id, { title: view.title });
       }
     }
-  }, [view?.title, viewId, updateTab]);
+  }, [preview, view?.title, viewId, updateTab]);
 
   // Auto-set active builder when viewing a custom view — so new widgets
   // from the agent dock get added here instead of creating a new view
   useEffect(() => {
-    if (viewId) {
+    if (viewId && !preview) {
       useCustomViewStore.getState().setActiveBuilderId(viewId);
     }
     return () => {
@@ -104,7 +110,7 @@ export default function CustomView() {
         useCustomViewStore.getState().setActiveBuilderId(null);
       }
     };
-  }, [viewId]);
+  }, [viewId, preview]);
 
   const { width: gridWidth, containerRef: gridContainerRef, measureWidth } = useContainerWidth();
 
@@ -314,6 +320,7 @@ export default function CustomView() {
               Created {formatRelativeTime(view.generatedAt)} · {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
             </p>
           </div>
+          {!preview && (
           <div className="flex items-center gap-1 shrink-0">
             {/* Refresh interval selector */}
             <div className="flex items-center gap-0.5 bg-slate-800 rounded-sm px-1 py-0.5">
@@ -378,6 +385,7 @@ export default function CustomView() {
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
+          )}
         </div>
 
         {/* Edit mode hint */}

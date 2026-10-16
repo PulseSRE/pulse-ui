@@ -62,3 +62,16 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           platforms: linux/amd64
+
+      # The render service the agent uses to see a draft dashboard before saving it.
+      # Deployed by pulse-operator only when spec.render.enabled is set.
+      - name: Build and push render service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.render
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-render:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-render:latest
+          platforms: linux/amd64

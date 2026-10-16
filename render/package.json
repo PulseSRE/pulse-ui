@@ -1,0 +1,16 @@
+{
+  "name": "pulse-render",
+  "private": true,
+  "description": "Renders draft dashboards in the Pulse UI so the agent can see them before saving",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.62.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
