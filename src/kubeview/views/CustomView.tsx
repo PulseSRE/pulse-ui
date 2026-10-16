@@ -19,6 +19,7 @@ import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { askPulse } from '../engine/askPulse';
+import { GRID_MARGIN_Y, GRID_ROW_HEIGHT, SELF_FRAMED_KINDS, useFitToContent } from './fitToContent';
 
 /* Layout is backend-authoritative. The engine computes positions
    via compute_layout() and the frontend renders them verbatim.
@@ -178,11 +179,20 @@ export default function CustomView() {
     return () => { document.head.removeChild(style); };
   }, [editMode]);
 
+  // In view mode each cell is fitted to its rendered content; edit mode shows
+  // (and saves) the stored sizes, so manual resizing keeps working.
+  const widgetKinds = useMemo(() => (view ? view.layout.map((s) => s.kind) : []), [view]);
+  const { rows: fittedRows, contentRef } = useFitToContent(widgetKinds, !editMode);
+
   const currentLayout = useMemo(() => {
     if (!view) return [];
     // Backend-authoritative: positions come from compute_layout()
-    return positionsToLayout(view.positions || {}, view.layout);
-  }, [view]);
+    const layout = positionsToLayout(view.positions || {}, view.layout);
+    return layout.map((item) => {
+      const fitted = fittedRows[Number(item.i)];
+      return fitted ? { ...item, h: fitted } : item;
+    });
+  }, [view, fittedRows]);
 
   const handleLayoutChange = useCallback(
     (layout: Layout, _layouts: Partial<Record<string, Layout>>) => {
@@ -407,15 +417,20 @@ export default function CustomView() {
             layouts={{ lg: currentLayout }}
             breakpoints={{ lg: 1024, md: 768, sm: 480 }}
             cols={{ lg: 4, md: 2, sm: 1 }}
-            rowHeight={32}
+            rowHeight={GRID_ROW_HEIGHT}
             dragConfig={{ enabled: editMode, handle: '.widget-drag-handle', bounded: false, threshold: 3 }}
             resizeConfig={{ enabled: editMode, handles: ['se'] as const }}
             onLayoutChange={handleLayoutChange}
-            margin={[12, 8] as const}
+            margin={[12, GRID_MARGIN_Y] as const}
             compactor={verticalCompactor}
           >
-            {view.layout.map((spec, i) => (
-              <div key={String(i)} className={`rounded-lg border bg-slate-900/80 p-3 relative group overflow-hidden transition-all duration-200 ${editMode ? 'border-slate-700 border-dashed' : 'border-slate-800 hover:border-slate-600 hover:shadow-[0_0_15px_rgba(37,99,235,0.06)]'}`} style={{ animationDelay: `${i * 50}ms` }}>
+            {view.layout.map((spec, i) => {
+              // Widgets that draw their own card get no second card from the cell.
+              const frameless = !editMode && SELF_FRAMED_KINDS.has(spec.kind);
+              return (
+              <div key={String(i)} className={frameless
+                ? 'relative group overflow-hidden rounded-lg transition-all duration-200'
+                : `rounded-lg border bg-slate-900/80 p-3 relative group overflow-hidden transition-all duration-200 ${editMode ? 'border-slate-700 border-dashed' : 'border-slate-800 hover:border-slate-600 hover:shadow-[0_0_15px_rgba(37,99,235,0.06)]'}`} style={{ animationDelay: `${i * 50}ms` }}>
                 {editMode && (
                   <>
                     <div className="widget-drag-handle absolute inset-x-0 top-0 h-6 cursor-grab active:cursor-grabbing flex items-center px-2 bg-slate-800/30 rounded-t-lg z-10">
@@ -442,7 +457,8 @@ export default function CustomView() {
                   </>
                 )}
                 {/* Widget removal only in edit mode — prevents accidental deletes during incidents */}
-                <div className={editMode ? 'pt-6' : ''}>
+                {/* Measured for fit-to-content; a self-framed widget's own vertical margin is dropped so it sits flush in its cell. */}
+                <div ref={contentRef(i)} className={editMode ? 'pt-6' : frameless ? '*:my-0' : ''}>
                   {/* Editable widget title and description in edit mode (skip for self-titled components) */}
                   {editMode && spec.kind !== 'stat_card' && spec.kind !== 'metric_card' && (
                     <>
@@ -500,7 +516,8 @@ export default function CustomView() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </Responsive>
           </div>
         )}
