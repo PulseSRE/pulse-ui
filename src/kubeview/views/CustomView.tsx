@@ -19,6 +19,7 @@ import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { askPulse } from '../engine/askPulse';
+import { AttentionProvider, AttentionStrip } from '../components/agent/attention';
 
 /* Layout is backend-authoritative. The engine computes positions
    via compute_layout() and the frontend renders them verbatim.
@@ -257,6 +258,7 @@ export default function CustomView() {
   };
 
   return (
+    <AttentionProvider>
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="w-full max-w-[1800px] mx-auto space-y-2">
         {/* Header */}
@@ -379,6 +381,9 @@ export default function CustomView() {
             </button>
           </div>
         </div>
+
+        {/* What the dashboard's live widgets say needs attention right now */}
+        <AttentionStrip />
 
         {/* Edit mode hint */}
         {editMode && (
@@ -535,5 +540,6 @@ export default function CustomView() {
         variant="warning"
       />
     </div>
+    </AttentionProvider>
   );
 }

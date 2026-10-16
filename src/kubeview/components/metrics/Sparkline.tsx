@@ -8,7 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { queryRange, getTimeRange } from './prometheus';
 import { safeQuery } from '../../engine/safeQuery';
-import { formatMetricValue, thresholdColor, type Thresholds } from './metricFormat';
+import { formatMetricValue, thresholdColor, thresholdLevel, type Thresholds } from './metricFormat';
+import { useReportAttention } from '../agent/attention';
 
 interface SparklineProps {
   query: string;
@@ -139,6 +140,13 @@ export function MetricCard({
   const padding = 2;
 
   const displayColor = thresholdColor(current, thresholds) ?? color;
+  // On a dashboard, a card past its threshold is listed in the view's attention strip.
+  useReportAttention(
+    `metric-card:${title}:${query}`,
+    title,
+    thresholdLevel(current, thresholds),
+    current !== null ? `${formatMetricValue(current)}${unit}` : undefined,
+  );
 
   const points = values.map((v, i) => {
     const x = padding + (i / Math.max(values.length - 1, 1)) * (w - padding * 2);
