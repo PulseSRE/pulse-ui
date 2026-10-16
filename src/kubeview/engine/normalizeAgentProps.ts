@@ -87,8 +87,13 @@ function normalizeKindSpecific(spec: ComponentSpec): ComponentSpec {
 
     case 'chart': {
       if (Array.isArray(raw.series)) {
+        // The agent's quality engine canonicalizes series `label` -> `name`
+        // before saving, but renderers read `label`. Without this mapping every
+        // saved chart with inline data rendered axes and unlabeled legend
+        // markers but no lines or bars.
         const series = (raw.series as Array<RawSpec>).map((s) => ({
           ...s,
+          label: (s.label ?? s.name ?? '') as string,
           data: (s.data || s.values || []) as unknown[],
         }));
         return { ...spec, series } as unknown as ComponentSpec;
