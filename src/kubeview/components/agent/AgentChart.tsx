@@ -15,6 +15,7 @@ import {
   ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from 'recharts';
 import type { ChartSpec, ComponentSpec } from '../../engine/agentComponents';
+import { isSnapshotData } from './chartShape';
 
 const CHART_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#38bdf8', '#fb923c', '#e879f9', '#f472b6', '#2dd4bf'];
 
@@ -146,6 +147,32 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
   }, [liveSeries]);
 
   const renderChart = () => {
+    // Instant data (one sample per series, same timestamp) is a comparison
+    // between series, not a trend: one bar per series on a category axis.
+    if (isSnapshotData(chartType, liveSeries)) {
+      return (
+        <BarChart data={pieData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+          <XAxis dataKey="name" type="category" interval={0} stroke="#64748b" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} />
+          <YAxis stroke="#64748b" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickFormatter={formatYValue}
+            label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fill: '#94a3b8', fontSize: 10 } } : undefined} />
+          <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
+            labelStyle={{ color: '#94a3b8' }} cursor={{ fill: '#33415540' }} />
+          <Bar dataKey="value" fillOpacity={0.85} radius={[3, 3, 0, 0]} maxBarSize={56}>
+            {pieData.map((entry, i) => (
+              <Cell key={entry.name} fill={seriesColors[entry.name] || entry.color || CHART_COLORS[i % CHART_COLORS.length]} />
+            ))}
+          </Bar>
+          {thresholds.warning != null && (
+            <ReferenceLine y={thresholds.warning} stroke="#f59e0b" strokeDasharray="6 3" />
+          )}
+          {thresholds.critical != null && (
+            <ReferenceLine y={thresholds.critical} stroke="#ef4444" strokeDasharray="6 3" />
+          )}
+        </BarChart>
+      );
+    }
+
     switch (chartType) {
       case 'pie':
       case 'donut':
