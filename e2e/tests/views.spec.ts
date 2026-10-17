@@ -152,7 +152,7 @@ test.describe('View API: CRUD', () => {
     testViewId = await createView(page, 'E2E Positions Test');
     if (!testViewId) { bailUnlessStackAvailable('Agent unavailable'); return; }
 
-    const positions = { 0: { x: 0, y: 0, w: 4, h: 3 }, 1: { x: 0, y: 3, w: 2, h: 2 } };
+    const positions = { 0: { x: 0, y: 0, w: 12, h: 3 }, 1: { x: 0, y: 3, w: 6, h: 2 } };
     const response = await page.request.put(withToken(`${AGENT_BASE}/views/${testViewId}`), {
       data: { positions },
     });
