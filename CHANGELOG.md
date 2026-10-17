@@ -2,9 +2,22 @@
 
 Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
 
-## [Unreleased]
+## v2.32.0 (2026-10-17)
+
+Paired with pulse-agent v2.32.0 (migration 037 moves saved dashboards to the 12-column grid) and pulse-operator v0.9.0. Upgrade agent and UI together.
+
+### Dashboards
+- Dashboards render on a 12-column grid: thirds, halves, quarters and sixths. Exported views carry `gridColumns`; files exported before this release are rescaled when imported (#133)
+- Metric cards with a query say "2× usual" when today is well off that query's median over the last day. The comparison is colored by threshold direction, and the usual value shows on hover. Charts that are zero for their whole range collapse to one line ("0 throughout the last 1h") and expand when a value appears (#134)
+- A live "Needs attention" strip at the top of each dashboard lists widgets past their thresholds (#130)
+- After the agent edits a dashboard, a banner says what changed, with undo (#131)
+- Cells fit their content, each widget is framed once, and instant data charts as categories (#128). Lower-is-worse thresholds are colored correctly, and counts show as counts (#129). Agent node maps and chart series render, and the grid sizes to its container (#126, #127)
+
+### Render service
+- `render/` and `Dockerfile.render` add a service that screenshots a draft dashboard through the new `/preview` route, with the requesting user's token, so the agent's view designer can see a page before saving it. It holds no cluster credentials. pulse-operator deploys it with `spec.render` (#132)
 
 ### Fixed
+- A chart with a query but no seeded series showed "Fetch error" and never drew (#134)
 - Add agent installation diagnostics to the readiness page, with explicit unknown/failed checks, service-account scope, remediation, authenticated retries and previous-report labeling after refresh failures.
 - Incident lifecycle separates action execution from recovery, joins verification to its exact action and postmortems to their incident, and presents hypotheses, reported evidence, context fetch failures and refresh explicitly.
 - Cluster switching separates query caches/view lifetimes, binds generic resource actions and core YAML/log/terminal requests to the displayed cluster, clears retained resource/Argo contexts, and rejects unknown targets.
