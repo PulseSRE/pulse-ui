@@ -19,6 +19,7 @@ import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { askPulse } from '../engine/askPulse';
+import { AgentEditBanner } from '../components/agent/AgentEditBanner';
 import { GRID_MARGIN_Y, GRID_ROW_HEIGHT, SELF_FRAMED_KINDS, useFitToContent } from './fitToContent';
 
 /* Layout is backend-authoritative. The engine computes positions
@@ -397,6 +398,9 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
           </div>
           )}
         </div>
+
+        {/* What the agent last changed here, with undo (a preview is unsaved: no history) */}
+        {!preview && <AgentEditBanner viewId={view.id} layout={view.layout} />}
 
         {/* Edit mode hint */}
         {editMode && (
