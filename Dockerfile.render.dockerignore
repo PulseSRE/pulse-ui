@@ -1,0 +1,7 @@
+# Build context for Dockerfile.render (BuildKit reads <Dockerfile>.dockerignore
+# instead of .dockerignore, which whitelists only the static UI build).
+*
+!render/package.json
+!render/app.mjs
+!render/render.mjs
+!render/server.mjs
