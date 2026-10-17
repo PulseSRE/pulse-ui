@@ -47,12 +47,26 @@ interface CustomViewState {
   setActiveBuilderId: (id: string | null) => void;
   /** Force-reload views from backend, bypassing debounce */
   forceLoadViews: () => Promise<void>;
+  /** The most recent saved version of a view (its state before the latest change), or null */
+  getLatestVersion: (viewId: string) => Promise<ViewVersion | null>;
+  /** Restore a view to a saved version, then reload views */
+  restoreVersion: (viewId: string, version: number) => Promise<void>;
   /** Clone a view to the current user (from share link) */
   claimSharedView: (shareToken: string) => Promise<string | null>;
   /** Generate a share link for a view */
   shareView: (id: string) => Promise<string | null>;
   /** Execute an action_button tool from a view */
   executeAction: (viewId: string, action: string, actionInput: Record<string, unknown>) => Promise<{ result: string; status: string; error_message?: string }>;
+}
+
+/** A saved version of a view: its state just before the change named by `action`. */
+export interface ViewVersion {
+  version: number;
+  action: string;
+  title?: string;
+  description?: string;
+  layout: ComponentSpec[];
+  created_at: string;
 }
 
 async function apiFetch(path: string, options?: RequestInit) {
@@ -119,6 +133,24 @@ export const useCustomViewStore = create<CustomViewState>()(
     forceLoadViews: async () => {
       _lastLoadAttempt = 0;
       await get().loadViews();
+    },
+
+    getLatestVersion: async (viewId) => {
+      try {
+        const data = await apiFetch(`/views/${encodeURIComponent(viewId)}/versions`);
+        const versions = (data?.versions || []) as ViewVersion[];
+        return versions.length > 0 ? versions[0] : null;
+      } catch {
+        return null;
+      }
+    },
+
+    restoreVersion: async (viewId, version) => {
+      await apiFetch(`/views/${encodeURIComponent(viewId)}/undo`, {
+        method: 'POST',
+        body: JSON.stringify({ version }),
+      });
+      await get().forceLoadViews();
     },
 
     saveView: async (view) => {
