@@ -30,7 +30,7 @@ export interface Thresholds {
 }
 
 /**
- * Color for a value against warning/critical thresholds, or null when neither is crossed.
+ * Which threshold a value has crossed, if any.
  *
  * Direction comes from the thresholds themselves: `critical` above `warning`
  * means higher is worse (CPU %, error rate); `critical` below `warning` means
@@ -38,15 +38,20 @@ export interface Thresholds {
  * as higher-is-worse painted a healthy "Nodes Ready 4" red against
  * `{ warning: 2, critical: 1 }`.
  */
-export function thresholdColor(value: number | null, thresholds?: Thresholds): string | null {
+export function thresholdLevel(value: number | null, thresholds?: Thresholds): 'warning' | 'critical' | null {
   if (value === null || !thresholds || !Number.isFinite(value)) return null;
   const { warning, critical } = thresholds;
   if (critical < warning) {
-    if (value <= critical) return THRESHOLD_COLORS.critical;
-    if (value <= warning) return THRESHOLD_COLORS.warning;
+    if (value <= critical) return 'critical';
+    if (value <= warning) return 'warning';
     return null;
   }
-  if (value >= critical) return THRESHOLD_COLORS.critical;
-  if (value >= warning) return THRESHOLD_COLORS.warning;
+  if (value >= critical) return 'critical';
+  if (value >= warning) return 'warning';
   return null;
+}
+
+export function thresholdColor(value: number | null, thresholds?: Thresholds): string | null {
+  const level = thresholdLevel(value, thresholds);
+  return level ? THRESHOLD_COLORS[level] : null;
 }

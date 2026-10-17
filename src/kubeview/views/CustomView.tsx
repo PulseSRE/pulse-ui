@@ -19,6 +19,7 @@ import type { Layout, LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { askPulse } from '../engine/askPulse';
+import { AttentionProvider, AttentionStrip } from '../components/agent/attention';
 import { AgentEditBanner } from '../components/agent/AgentEditBanner';
 import { GRID_MARGIN_Y, GRID_ROW_HEIGHT, SELF_FRAMED_KINDS, useFitToContent } from './fitToContent';
 
@@ -274,6 +275,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
   };
 
   return (
+    <AttentionProvider>
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="w-full max-w-[1800px] mx-auto space-y-2">
         {/* Header */}
@@ -401,6 +403,8 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
 
         {/* What the agent last changed here, with undo (a preview is unsaved: no history) */}
         {!preview && <AgentEditBanner viewId={view.id} layout={view.layout} />}
+        {/* What the dashboard's live widgets say needs attention right now */}
+        <AttentionStrip />
 
         {/* Edit mode hint */}
         {editMode && (
@@ -564,5 +568,6 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
         variant="warning"
       />
     </div>
+    </AttentionProvider>
   );
 }
