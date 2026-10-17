@@ -20,6 +20,7 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { askPulse } from '../engine/askPulse';
 import { AgentEditBanner } from '../components/agent/AgentEditBanner';
+import { GRID_MARGIN_Y, GRID_ROW_HEIGHT, SELF_FRAMED_KINDS, useFitToContent } from './fitToContent';
 
 /* Layout is backend-authoritative. The engine computes positions
    via compute_layout() and the frontend renders them verbatim.
@@ -62,8 +63,14 @@ export function positionsToLayout(positions: Record<string | number, { x: number
   });
 }
 
-export default function CustomView() {
-  const { viewId } = useParams<{ viewId: string }>();
+/**
+ * `viewId` overrides the route param; `preview` renders a draft that is not
+ * saved anywhere (see PreviewView): no editing controls, no loading from the
+ * API, no tab or builder bookkeeping.
+ */
+export default function CustomView({ viewId: viewIdProp, preview = false }: { viewId?: string; preview?: boolean } = {}) {
+  const params = useParams<{ viewId: string }>();
+  const viewId = viewIdProp ?? params.viewId;
   const view = useCustomViewStore((s) => s.getView(viewId || ''));
   const deleteView = useCustomViewStore((s) => s.deleteView);
   const updateView = useCustomViewStore((s) => s.updateView);
@@ -75,29 +82,29 @@ export default function CustomView() {
   const loadViews = useCustomViewStore((s) => s.loadViews);
   const attemptedLoad = useRef<string | null>(null);
   useEffect(() => {
-    if (viewId && !view && attemptedLoad.current !== viewId) {
+    if (!preview && viewId && !view && attemptedLoad.current !== viewId) {
       attemptedLoad.current = viewId;
       loadViews();
     }
-  }, [viewId, view, loadViews]);
+  }, [preview, viewId, view, loadViews]);
 
   // Update tab title to match view title
   const updateTab = useUIStore((s) => s.updateTab);
   const go = useNavigateTab();
   useEffect(() => {
-    if (view?.title) {
+    if (!preview && view?.title) {
       const tabs = useUIStore.getState().tabs;
       const tab = tabs.find((t) => t.path === `/custom/${viewId}`);
       if (tab && tab.title !== view.title) {
         updateTab(tab.id, { title: view.title });
       }
     }
-  }, [view?.title, viewId, updateTab]);
+  }, [preview, view?.title, viewId, updateTab]);
 
   // Auto-set active builder when viewing a custom view — so new widgets
   // from the agent dock get added here instead of creating a new view
   useEffect(() => {
-    if (viewId) {
+    if (viewId && !preview) {
       useCustomViewStore.getState().setActiveBuilderId(viewId);
     }
     return () => {
@@ -105,7 +112,7 @@ export default function CustomView() {
         useCustomViewStore.getState().setActiveBuilderId(null);
       }
     };
-  }, [viewId]);
+  }, [viewId, preview]);
 
   const { width: gridWidth, containerRef: gridContainerRef, measureWidth } = useContainerWidth();
 
@@ -179,11 +186,20 @@ export default function CustomView() {
     return () => { document.head.removeChild(style); };
   }, [editMode]);
 
+  // In view mode each cell is fitted to its rendered content; edit mode shows
+  // (and saves) the stored sizes, so manual resizing keeps working.
+  const widgetKinds = useMemo(() => (view ? view.layout.map((s) => s.kind) : []), [view]);
+  const { rows: fittedRows, contentRef } = useFitToContent(widgetKinds, !editMode);
+
   const currentLayout = useMemo(() => {
     if (!view) return [];
     // Backend-authoritative: positions come from compute_layout()
-    return positionsToLayout(view.positions || {}, view.layout);
-  }, [view]);
+    const layout = positionsToLayout(view.positions || {}, view.layout);
+    return layout.map((item) => {
+      const fitted = fittedRows[Number(item.i)];
+      return fitted ? { ...item, h: fitted } : item;
+    });
+  }, [view, fittedRows]);
 
   const handleLayoutChange = useCallback(
     (layout: Layout, _layouts: Partial<Record<string, Layout>>) => {
@@ -315,6 +331,7 @@ export default function CustomView() {
               Created {formatRelativeTime(view.generatedAt)} · {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
             </p>
           </div>
+          {!preview && (
           <div className="flex items-center gap-1 shrink-0">
             {/* Refresh interval selector */}
             <div className="flex items-center gap-0.5 bg-slate-800 rounded-sm px-1 py-0.5">
@@ -379,10 +396,11 @@ export default function CustomView() {
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
+          )}
         </div>
 
-        {/* What the agent last changed here, with undo */}
-        <AgentEditBanner viewId={view.id} layout={view.layout} />
+        {/* What the agent last changed here, with undo (a preview is unsaved: no history) */}
+        {!preview && <AgentEditBanner viewId={view.id} layout={view.layout} />}
 
         {/* Edit mode hint */}
         {editMode && (
@@ -411,15 +429,20 @@ export default function CustomView() {
             layouts={{ lg: currentLayout }}
             breakpoints={{ lg: 1024, md: 768, sm: 480 }}
             cols={{ lg: 4, md: 2, sm: 1 }}
-            rowHeight={32}
+            rowHeight={GRID_ROW_HEIGHT}
             dragConfig={{ enabled: editMode, handle: '.widget-drag-handle', bounded: false, threshold: 3 }}
             resizeConfig={{ enabled: editMode, handles: ['se'] as const }}
             onLayoutChange={handleLayoutChange}
-            margin={[12, 8] as const}
+            margin={[12, GRID_MARGIN_Y] as const}
             compactor={verticalCompactor}
           >
-            {view.layout.map((spec, i) => (
-              <div key={String(i)} className={`rounded-lg border bg-slate-900/80 p-3 relative group overflow-hidden transition-all duration-200 ${editMode ? 'border-slate-700 border-dashed' : 'border-slate-800 hover:border-slate-600 hover:shadow-[0_0_15px_rgba(37,99,235,0.06)]'}`} style={{ animationDelay: `${i * 50}ms` }}>
+            {view.layout.map((spec, i) => {
+              // Widgets that draw their own card get no second card from the cell.
+              const frameless = !editMode && SELF_FRAMED_KINDS.has(spec.kind);
+              return (
+              <div key={String(i)} className={frameless
+                ? 'relative group overflow-hidden rounded-lg transition-all duration-200'
+                : `rounded-lg border bg-slate-900/80 p-3 relative group overflow-hidden transition-all duration-200 ${editMode ? 'border-slate-700 border-dashed' : 'border-slate-800 hover:border-slate-600 hover:shadow-[0_0_15px_rgba(37,99,235,0.06)]'}`} style={{ animationDelay: `${i * 50}ms` }}>
                 {editMode && (
                   <>
                     <div className="widget-drag-handle absolute inset-x-0 top-0 h-6 cursor-grab active:cursor-grabbing flex items-center px-2 bg-slate-800/30 rounded-t-lg z-10">
@@ -446,7 +469,8 @@ export default function CustomView() {
                   </>
                 )}
                 {/* Widget removal only in edit mode — prevents accidental deletes during incidents */}
-                <div className={editMode ? 'pt-6' : ''}>
+                {/* Measured for fit-to-content; a self-framed widget's own vertical margin is dropped so it sits flush in its cell. */}
+                <div ref={contentRef(i)} className={editMode ? 'pt-6' : frameless ? '*:my-0' : ''}>
                   {/* Editable widget title and description in edit mode (skip for self-titled components) */}
                   {editMode && spec.kind !== 'stat_card' && spec.kind !== 'metric_card' && (
                     <>
@@ -504,7 +528,8 @@ export default function CustomView() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </Responsive>
           </div>
         )}
