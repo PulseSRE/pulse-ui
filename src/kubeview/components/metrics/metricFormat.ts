@@ -55,3 +55,64 @@ export function thresholdColor(value: number | null, thresholds?: Thresholds): s
   const level = thresholdLevel(value, thresholds);
   return level ? THRESHOLD_COLORS[level] : null;
 }
+
+/** "higher" when a bigger value is worse (CPU %), "lower" when smaller is worse (ready nodes). */
+export function worseDirection(thresholds?: Thresholds): 'higher' | 'lower' | null {
+  if (!thresholds) return null;
+  return thresholds.critical < thresholds.warning ? 'lower' : 'higher';
+}
+
+/**
+ * PromQL for what a query usually reads: its median over the last day.
+ *
+ * Computed live from the query itself, so it needs no stored baseline and
+ * follows the query when the card is edited.
+ */
+export function usualQuery(query: string): string {
+  return `quantile_over_time(0.5, (${query})[24h:10m])`;
+}
+
+export interface UsualComparison {
+  /** "2.1× usual", or "usual" when within the normal band. */
+  label: string;
+  /** worse / better when thresholds give a direction, otherwise neutral. */
+  tone: 'worse' | 'better' | 'neutral';
+  usual: number;
+}
+
+/**
+ * Today's value against the usual one, in words.
+ *
+ * Within half again either way it reads "usual". A usual value of zero (or
+ * no history) cannot be compared as a ratio, so nothing is said rather than
+ * "∞× usual".
+ */
+export function compareToUsual(
+  current: number | null,
+  usual: number | null | undefined,
+  thresholds?: Thresholds,
+): UsualComparison | null {
+  if (current === null || usual === null || usual === undefined) return null;
+  if (!Number.isFinite(current) || !Number.isFinite(usual) || Math.abs(usual) < 1e-12) return null;
+  const ratio = current / usual;
+  if (!Number.isFinite(ratio) || ratio < 0) return null;
+  if (ratio < 1.5 && ratio > 1 / 1.5) return { label: 'usual', tone: 'neutral', usual };
+  const label = `${ratio >= 10 ? Math.round(ratio) : Number(ratio.toFixed(1))}× usual`;
+  const direction = worseDirection(thresholds);
+  if (!direction) return { label, tone: 'neutral', usual };
+  const worse = direction === 'higher' ? ratio > 1 : ratio < 1;
+  return { label, tone: worse ? 'worse' : 'better', usual };
+}
+
+/** True when there is data and every sample of every series is exactly zero. */
+export function isFlatZero(series: ReadonlyArray<{ data?: ReadonlyArray<readonly [number, number]> }>): boolean {
+  let points = 0;
+  for (const s of series) {
+    for (const [, v] of s.data || []) {
+      if (!Number.isFinite(v)) continue;
+      if (v !== 0) return false;
+      points += 1;
+    }
+  }
+  return points > 0;
+}

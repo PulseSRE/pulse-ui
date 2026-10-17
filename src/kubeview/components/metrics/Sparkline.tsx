@@ -6,9 +6,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { queryRange, getTimeRange } from './prometheus';
+import { queryRange, queryInstant, getTimeRange } from './prometheus';
 import { safeQuery } from '../../engine/safeQuery';
-import { formatMetricValue, thresholdColor, thresholdLevel, type Thresholds } from './metricFormat';
+import { compareToUsual, formatMetricValue, thresholdColor, thresholdLevel, usualQuery, type Thresholds } from './metricFormat';
 import { useReportAttention } from '../agent/attention';
 
 interface SparklineProps {
@@ -139,6 +139,22 @@ export function MetricCard({
   const h = 56;
   const padding = 2;
 
+  // What this query usually reads (its median over the last day), so the card
+  // can say "2.1× usual" instead of leaving the reader to remember normal.
+  // Single-series cards only: for several series "usual" has no one meaning.
+  const singleSeries = series.length === 1;
+  const { data: usual } = useQuery({
+    queryKey: ['metric-card-usual', query],
+    queryFn: async () => {
+      const rows = (await safeQuery(() => queryInstant(usualQuery(query)))) ?? [];
+      return rows.length === 1 ? rows[0].value : null;
+    },
+    enabled: Boolean(query) && singleSeries,
+    refetchInterval: 300000,
+    staleTime: 300000,
+  });
+  const vsUsual = singleSeries ? compareToUsual(current, usual, thresholds) : null;
+
   const displayColor = thresholdColor(current, thresholds) ?? color;
   // On a dashboard, a card past its threshold is listed in the view's attention strip.
   useReportAttention(
@@ -171,6 +187,17 @@ export function MetricCard({
           {trendArrow && <span className="text-[10px]">{trendArrow}</span>}
         </span>
       </div>
+      {vsUsual && vsUsual.label !== 'usual' && (
+        <div
+          className={cn(
+            '-mt-1.5 mb-1 text-right text-[10px]',
+            vsUsual.tone === 'worse' ? 'text-amber-400' : vsUsual.tone === 'better' ? 'text-emerald-400' : 'text-slate-400',
+          )}
+          title={`Usual: ${formatMetricValue(vsUsual.usual)}${unit} (median over the last 24 hours)`}
+        >
+          {vsUsual.label}
+        </div>
+      )}
       {linePath ? (
         <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
           <path d={`${linePath} L${points[points.length - 1].x},${h} L${points[0].x},${h} Z`} fill={`${displayColor}15`} />

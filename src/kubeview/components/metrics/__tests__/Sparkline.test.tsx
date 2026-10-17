@@ -130,3 +130,39 @@ describe('MetricCard', () => {
   });
 });
 
+
+describe('MetricCard against its usual value', () => {
+  function mockByUrl(rangeValues: [number, string][], usual: string | null) {
+    mockFetch.mockImplementation((url: string) => {
+      const isRange = String(url).includes('query_range');
+      const result = isRange
+        ? [{ metric: {}, values: rangeValues }]
+        : usual === null ? [] : [{ metric: {}, value: [1300, usual] }];
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ status: 'success', data: { resultType: isRange ? 'matrix' : 'vector', result } }),
+      });
+    });
+  }
+
+  it('says how many times usual the current value is', async () => {
+    mockByUrl([[1000, '70'], [1060, '80']], '40');
+    const { findByText } = renderWithClient(<MetricCard title="CPU" query="cpu" unit="%" thresholds={{ warning: 70, critical: 90 }} />);
+    const label = await findByText('2× usual');
+    expect(label.className).toContain('text-amber-400'); // higher is worse
+    expect(label.getAttribute('title')).toContain('Usual: 40%');
+  });
+
+  it('stays quiet when the value is within its usual band or has no history', async () => {
+    mockByUrl([[1000, '41'], [1060, '42']], '40');
+    const first = renderWithClient(<MetricCard title="CPU" query="cpu" />);
+    await waitFor(() => expect(mockFetch.mock.calls.some(([u]) => !String(u).includes('query_range'))).toBe(true));
+    expect(first.queryByText(/usual/)).toBeNull();
+    first.unmount();
+
+    mockByUrl([[1000, '41'], [1060, '42']], null);
+    const second = renderWithClient(<MetricCard title="CPU" query="cpu" />);
+    await second.findByText('42%');
+    expect(second.queryByText(/usual/)).toBeNull();
+  });
+});
