@@ -6,7 +6,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
-import { Plus, ChevronDown, Radio, Pause, Loader2, Settings, X } from 'lucide-react';
+import { Plus, ChevronDown, Radio, Pause, Loader2, Settings, X, CheckCircle2, Minus } from 'lucide-react';
 import { useChartLiveData } from '../../hooks/useChartLiveData';
 import {
   LineChart, BarChart, AreaChart, PieChart, ScatterChart, RadarChart, Treemap,
@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import type { ChartSpec, ComponentSpec } from '../../engine/agentComponents';
 import { isSnapshotData } from './chartShape';
+import { isFlatZero, worseDirection } from '../metrics/metricFormat';
 
 const CHART_COLORS = ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#38bdf8', '#fb923c', '#e879f9', '#f472b6', '#2dd4bf'];
 
@@ -145,6 +146,18 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
       s.data.map(([x, y]) => ({ x, y, series: s.label, color: s.color || CHART_COLORS[i % CHART_COLORS.length] }))
     );
   }, [liveSeries]);
+
+  // A chart flat at zero for its whole range says one thing; a full plot of a
+  // flat line spends a whole cell saying it. Show a compact line instead, and
+  // the chart again the moment a non-zero value arrives (or on request).
+  const [showFlatChart, setShowFlatChart] = useState(false);
+  const flatZero = !showFlatChart && !editorOpen && isFlatZero(liveSeries);
+  const flatZeroTone = (() => {
+    const t = thresholds as { warning?: number; critical?: number };
+    if (typeof t?.warning !== 'number' || typeof t?.critical !== 'number') return 'neutral';
+    // Zero is good when higher is worse (errors, restarts), bad when lower is worse.
+    return worseDirection({ warning: t.warning, critical: t.critical }) === 'higher' ? 'good' : 'bad';
+  })();
 
   const renderChart = () => {
     // Instant data (one sample per series, same timestamp) is a comparison
@@ -401,13 +414,32 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
         </div>
       </div>
 
-      <div className="p-2" style={{ height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {renderChart()}
-        </ResponsiveContainer>
-      </div>
+      {flatZero ? (
+        <div
+          className={cn(
+            'px-3 py-2.5 flex items-center gap-2 text-xs',
+            flatZeroTone === 'good' ? 'text-emerald-400' : flatZeroTone === 'bad' ? 'text-amber-400' : 'text-slate-400',
+          )}
+          data-flat-zero
+        >
+          {flatZeroTone === 'good' ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <Minus className="w-3.5 h-3.5 shrink-0" />}
+          <span>0 throughout the last {effectiveTimeRange || '1h'}</span>
+          <button
+            onClick={() => setShowFlatChart(true)}
+            className="ml-auto text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Show chart
+          </button>
+        </div>
+      ) : (
+        <div className="p-2" style={{ height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart()}
+          </ResponsiveContainer>
+        </div>
+      )}
 
-      {activeQuery && (
+      {activeQuery && !flatZero && (
         <div className="px-3 py-1 border-t border-slate-700 text-[10px] text-slate-500 flex items-center justify-between">
           <span>Range: {timeRange}</span>
           {isEdited && <span className="text-violet-400">edited</span>}

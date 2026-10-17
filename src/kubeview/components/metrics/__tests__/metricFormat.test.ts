@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatMetricValue, thresholdColor, THRESHOLD_COLORS } from '../metricFormat';
+import { compareToUsual, formatMetricValue, isFlatZero, thresholdColor, THRESHOLD_COLORS, usualQuery } from '../metricFormat';
 
 describe('formatMetricValue', () => {
   it.each([
@@ -44,5 +44,43 @@ describe('thresholdColor', () => {
   it('returns null without a value or thresholds', () => {
     expect(thresholdColor(null, { warning: 1, critical: 2 })).toBeNull();
     expect(thresholdColor(5)).toBeNull();
+  });
+});
+
+describe('compareToUsual', () => {
+  it('says how far today is from usual, with the direction thresholds give', () => {
+    const higherIsWorse = { warning: 70, critical: 90 };
+    expect(compareToUsual(80, 40, higherIsWorse)).toEqual({ label: '2× usual', tone: 'worse', usual: 40 });
+    expect(compareToUsual(10, 40, higherIsWorse)).toEqual({ label: '0.3× usual', tone: 'better', usual: 40 });
+    const lowerIsWorse = { warning: 2, critical: 1 };
+    expect(compareToUsual(2, 6, lowerIsWorse)?.tone).toBe('worse');
+  });
+
+  it('is neutral without thresholds, and "usual" inside the normal band', () => {
+    expect(compareToUsual(90, 30)?.tone).toBe('neutral');
+    expect(compareToUsual(42, 40)?.label).toBe('usual');
+    expect(compareToUsual(500, 40)?.label).toBe('13× usual');
+  });
+
+  it('says nothing it cannot back up', () => {
+    expect(compareToUsual(5, 0)).toBeNull(); // no "∞× usual"
+    expect(compareToUsual(null, 4)).toBeNull();
+    expect(compareToUsual(5, null)).toBeNull();
+    expect(compareToUsual(5, Number.NaN)).toBeNull();
+    expect(compareToUsual(-5, 4)).toBeNull();
+  });
+
+  it('builds the usual query from the card query', () => {
+    expect(usualQuery('sum(up)')).toBe('quantile_over_time(0.5, (sum(up))[24h:10m])');
+  });
+});
+
+describe('isFlatZero', () => {
+  it('is true only when there is data and all of it is zero', () => {
+    expect(isFlatZero([{ data: [[1, 0], [2, 0]] }, { data: [[1, 0]] }])).toBe(true);
+    expect(isFlatZero([{ data: [[1, 0], [2, 1]] }])).toBe(false);
+    expect(isFlatZero([{ data: [] }])).toBe(false);
+    expect(isFlatZero([])).toBe(false);
+    expect(isFlatZero([{ data: [[1, Number.NaN], [2, 0]] }])).toBe(true);
   });
 });

@@ -154,4 +154,16 @@ describe('useChartLiveData', () => {
 
     expect(result.current.series[0].color).toBe('#ff0000');
   });
+
+  it('draws a chart that has a query but no seeded series', async () => {
+    // Agent widgets can carry only a query; indexing the missing series used
+    // to throw, and the chart showed "Fetch error" forever.
+    queryRangeMock.mockResolvedValue([{ metric: { pod: 'api' }, values: [[1, '0.4'], [2, '0.5']] }]);
+    const { wrapper } = createWrapper();
+    const spec = { kind: 'chart', title: 'CPU', query: 'cpu', timeRange: '1h' } as ChartSpec;
+    const { result } = renderHook(() => useChartLiveData(spec), { wrapper });
+    await waitFor(() => expect(result.current.isLive).toBe(true));
+    expect(result.current.error).toBeNull();
+    expect(result.current.series[0]).toMatchObject({ label: 'api', data: [[1000, 0.4], [2000, 0.5]] });
+  });
 });

@@ -53,11 +53,11 @@ function promResultToSeries(
     const label =
       Object.values(metricLabels).filter(Boolean).join(' / ') ||
       promSeries.metric.__name__ ||
-      specSeries[i]?.label ||
+      specSeries?.[i]?.label ||
       `series-${i + 1}`;
 
     // Preserve color from original spec if available
-    const color = specSeries[i]?.color || CHART_COLORS[i % CHART_COLORS.length];
+    const color = specSeries?.[i]?.color || CHART_COLORS[i % CHART_COLORS.length];
 
     const data: [number, number][] = promSeries.values.map(([ts, val]) => [
       ts * 1000, // Prometheus returns epoch seconds, charts expect ms
