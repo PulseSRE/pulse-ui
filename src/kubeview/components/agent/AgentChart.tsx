@@ -28,10 +28,11 @@ function formatTimestamp(ts: number) {
 function formatYValue(value: number): string {
   if (!isFinite(value)) return '';
   const abs = Math.abs(value);
-  if (abs >= 1e12) return `${(value / 1e12).toFixed(1)}T`;
-  if (abs >= 1e9) return `${(value / 1e9).toFixed(1)}G`;
-  if (abs >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-  if (abs >= 1e4) return `${(value / 1e3).toFixed(1)}K`;
+  // Number() drops a trailing ".0", so ticks read 2G, 4G, 6G rather than 2.0G…
+  if (abs >= 1e12) return `${Number((value / 1e12).toFixed(1))}T`;
+  if (abs >= 1e9) return `${Number((value / 1e9).toFixed(1))}G`;
+  if (abs >= 1e6) return `${Number((value / 1e6).toFixed(1))}M`;
+  if (abs >= 1e4) return `${Number((value / 1e3).toFixed(1))}K`;
   if (Number.isInteger(value)) return String(value);
   return value.toFixed(2);
 }
