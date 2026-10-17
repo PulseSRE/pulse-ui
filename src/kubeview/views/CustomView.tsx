@@ -22,6 +22,7 @@ import { askPulse } from '../engine/askPulse';
 import { AttentionProvider, AttentionStrip } from '../components/agent/attention';
 import { AgentEditBanner } from '../components/agent/AgentEditBanner';
 import { GRID_MARGIN_Y, GRID_ROW_HEIGHT, SELF_FRAMED_KINDS, useFitToContent } from './fitToContent';
+import { GRID_COLS } from './grid';
 
 /* Layout is backend-authoritative. The engine computes positions
    via compute_layout() and the frontend renders them verbatim.
@@ -60,7 +61,7 @@ export function positionsToLayout(positions: Record<string | number, { x: number
     const h = kindHeights[kind] || 8;
     const fallbackY = maxY > 0 ? maxY : i * h;
     maxY = fallbackY + h;
-    return { i: String(i), x: 0, y: fallbackY, w: 4, h, minW: 1, minH: 2 };
+    return { i: String(i), x: 0, y: fallbackY, w: GRID_COLS, h, minW: 1, minH: 2 };
   });
 }
 
@@ -432,7 +433,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
             width={gridWidth}
             layouts={{ lg: currentLayout }}
             breakpoints={{ lg: 1024, md: 768, sm: 480 }}
-            cols={{ lg: 4, md: 2, sm: 1 }}
+            cols={{ lg: GRID_COLS, md: GRID_COLS / 2, sm: 1 }}
             rowHeight={GRID_ROW_HEIGHT}
             dragConfig={{ enabled: editMode, handle: '.widget-drag-handle', bounded: false, threshold: 3 }}
             resizeConfig={{ enabled: editMode, handles: ['se'] as const }}

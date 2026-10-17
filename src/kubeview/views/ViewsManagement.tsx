@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { formatRelativeTime } from '../engine/formatters';
 import type { ViewSpec } from '../engine/agentComponents';
 import { askPulse } from '../engine/askPulse';
+import { GRID_COLS, LEGACY_GRID_COLS, toCurrentGrid } from './grid';
 
 const AGENT_BASE = '/api/agent';
 
@@ -106,7 +107,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
   }, [loadViews]);
 
   const handleExport = (view: ViewSpec) => {
-    const exportData = { title: view.title, description: view.description, layout: view.layout, positions: view.positions, templateId: view.templateId };
+    const exportData = { title: view.title, description: view.description, layout: view.layout, positions: view.positions, gridColumns: GRID_COLS, templateId: view.templateId };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -133,7 +134,8 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
           title: data.title,
           description: data.description || '',
           layout: data.layout,
-          positions: data.positions || {},
+          // Files exported before the 12-column grid have no gridColumns.
+          positions: toCurrentGrid(data.positions, typeof data.gridColumns === 'number' ? data.gridColumns : LEGACY_GRID_COLS),
           templateId: data.templateId,
           generatedAt: Date.now(),
         };

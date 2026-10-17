@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { positionsToLayout } from '../CustomView';
+import { GRID_COLS } from '../grid';
 import type { ComponentSpec } from '../../engine/agentComponents';
 
 describe('positionsToLayout', () => {
@@ -27,7 +28,7 @@ describe('positionsToLayout', () => {
     ];
     const layout = positionsToLayout({}, specs);
     expect(layout[0].x).toBe(0);
-    expect(layout[0].w).toBe(4);
+    expect(layout[0].w).toBe(GRID_COLS);
     expect(layout[0].h).toBe(12);
     expect(layout[1].y).toBe(12);
     expect(layout[1].h).toBe(12);
@@ -45,7 +46,7 @@ describe('positionsToLayout', () => {
     expect(layout[0].y).toBe(0);
     expect(layout[0].h).toBe(12);
     expect(layout[1].y).toBe(12);
-    expect(layout[1].w).toBe(4);
+    expect(layout[1].w).toBe(GRID_COLS);
   });
 
   it('handles string keys in positions', () => {
@@ -62,7 +63,7 @@ describe('positionsToLayout', () => {
       { kind: 'topology', title: 'Topology', nodes: [], edges: [] } as ComponentSpec,
     ];
     const layout = positionsToLayout({}, specs);
-    expect(layout[0].w).toBe(4);
+    expect(layout[0].w).toBe(GRID_COLS);
     expect(layout[0].h).toBeGreaterThanOrEqual(8);
   });
 
@@ -81,11 +82,10 @@ describe('positionsToLayout', () => {
 });
 
 describe('grid configuration', () => {
-  it('uses 4 columns at large breakpoint for full-width layouts', () => {
-    const cols = { lg: 4, md: 2, sm: 1 };
-    expect(cols.lg).toBe(4);
-    expect(cols.md).toBe(2);
-    expect(cols.sm).toBe(1);
+  it('matches the agent layout engine: 12 columns, splitting into halves and thirds', () => {
+    expect(GRID_COLS).toBe(12);
+    expect(GRID_COLS % 2).toBe(0);
+    expect(GRID_COLS % 3).toBe(0);
   });
 
   it('max container width allows wide monitors', () => {
