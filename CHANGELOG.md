@@ -2,6 +2,11 @@
 
 Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
 
+## Unreleased
+
+### Added
+- Episode cards lead with what changed. The change nearest to what broke (the same workload's rollout, or a ConfigMap it mounts) shows on the card without expanding it, with how long before the cause began. Expanded, the change list comes first, most relevant first, tagged with how each change relates. A rollout offers "Roll back", which asks Pulse to do it through the usual confirmation (pulse-agent #164)
+
 ## v2.32.0 (2026-10-17)
 
 Paired with pulse-agent v2.32.0 (migration 037 moves saved dashboards to the 12-column grid) and pulse-operator v0.9.0. Upgrade agent and UI together.

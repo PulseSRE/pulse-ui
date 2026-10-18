@@ -53,6 +53,18 @@ export interface EpisodeChange {
   namespace: string;
   at: number;
   seconds_before: number;
+  /** How the change relates to what broke, most specific first. */
+  relevance?: 'same workload' | 'used by an affected workload' | 'same namespace' | 'cluster-wide' | 'recorded by audit';
+  score?: number;
+  kind?: string;
+  name?: string;
+  /** Present on rollouts: the revision to go back to. */
+  rollback?: { tool: string; namespace: string; name: string; revision: number };
+}
+
+/** A change close enough to what broke to lead with. */
+export function isLikelyRelated(c: EpisodeChange): boolean {
+  return c.relevance === 'same workload' || c.relevance === 'used by an affected workload';
 }
 
 /** How often this cause has come back, and on what cadence if it has one. */
