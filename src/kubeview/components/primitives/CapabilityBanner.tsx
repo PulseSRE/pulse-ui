@@ -62,6 +62,14 @@ export function CapabilityBanner({ className }: { className?: string }) {
           {degraded.map((f) => (
             <li key={f.id} className={critical ? 'text-red-300/80' : 'text-amber-300/80'}>
               {f.title}
+              {f.remedy && (
+                // The fix, not the raw 403. "Set allowSecretAccess" is
+                // something an operator can do; the API server's message
+                // about a ServiceAccount is not.
+                <div className={cn('mt-0.5 pl-3', critical ? 'text-red-200/90' : 'text-amber-200/90')}>
+                  <span className="font-medium">To fix:</span> {f.remedy}
+                </div>
+              )}
             </li>
           ))}
         </ul>

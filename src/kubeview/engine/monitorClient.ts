@@ -49,6 +49,10 @@ export interface Finding {
   investigationPhases?: InvestigationPhase[];
   planId?: string;
   planName?: string;
+  /** degraded scanner findings: the one change that lets the scanner see again. */
+  remedy?: string;
+  /** degraded scanner findings: the checks that are off until then. */
+  unwatched?: string[];
 }
 
 export interface ActionReport {
