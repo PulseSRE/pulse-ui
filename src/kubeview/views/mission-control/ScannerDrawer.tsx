@@ -32,6 +32,11 @@ const SCANNER_INFO: Record<string, { description: string; autoFixable?: boolean;
   control_plane: { description: 'etcd and API server degradation — leader changes, refused writes, peer and disk latency, request latency, cluster-wide LIST rate', severity: 'critical' },
   degraded: { description: "Pulse's own failing scanners and backends, so an empty result is never mistaken for a clean cluster", severity: 'warning' },
   stuck: { description: 'Deletions that never completed — namespaces, pods, PVCs, or CRDs held open by a finalizer', severity: 'critical' },
+  anomaly: { description: "Pods well outside their own workload's normal memory, CPU or restart rate over the last 7 days", severity: 'warning' },
+  storage: { description: 'PVCs that never bind, pods that cannot mount their volumes, and volumes nearly full', severity: 'critical' },
+  ingress: { description: 'Routes answering errors at the router, and cluster DNS failing lookups', severity: 'critical' },
+  webhooks: { description: 'Admission webhooks the API server cannot reach or that answer slowly — creates and updates stall', severity: 'critical' },
+  maintenance: { description: 'What will make the next drain or upgrade hang — PDBs that allow no disruption, stuck MachineConfigPools', severity: 'warning' },
   hot_loop: { description: 'Controllers burning API server capacity without making progress — sustained work-queue retries or write amplification', severity: 'warning' },
 };
 
