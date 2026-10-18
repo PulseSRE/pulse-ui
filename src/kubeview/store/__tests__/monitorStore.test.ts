@@ -275,3 +275,28 @@ describe('monitorStore', () => {
     expect(useMonitorStore.getState().connectionError).toContain('connection lost');
   });
 });
+
+describe('monitorStore — a finding replayed on connect is the same finding', () => {
+  const base = {
+    type: 'finding',
+    id: 'f-standing',
+    severity: 'warning',
+    category: 'pending',
+    title: 'Pod api-0 pending for 6m',
+    summary: '',
+    resources: [],
+    autoFixable: false,
+    timestamp: 1,
+  };
+
+  it('updates it in place instead of adding a second copy', () => {
+    useMonitorStore.setState({ findings: [], unreadCount: 0, dismissedFindingIds: [] });
+    useMonitorStore.getState().connect();
+    simulateMonitorEvent(base);
+    simulateMonitorEvent({ ...base, title: 'Pod api-0 pending for 9m' });
+    const { findings, unreadCount } = useMonitorStore.getState();
+    expect(findings).toHaveLength(1);
+    expect(findings[0].title).toBe('Pod api-0 pending for 9m');
+    expect(unreadCount).toBe(1);
+  });
+});

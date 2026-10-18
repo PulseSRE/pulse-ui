@@ -2,6 +2,14 @@
 
 Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
 
+## Unreleased
+
+### Added
+- The "Pulse is not seeing everything" banner says how to fix each blind scanner ("To fix: set spec.agent.allowSecretAccess: true …"), from the agent's new `remedy` field (pulse-agent #162)
+
+### Fixed
+- A finding that arrives with an id already on screen updates it in place instead of adding a duplicate and an unread count. The agent now replays standing findings on connect, so a reload no longer drops them
+
 ## v2.32.0 (2026-10-17)
 
 Paired with pulse-agent v2.32.0 (migration 037 moves saved dashboards to the 12-column grid) and pulse-operator v0.9.0. Upgrade agent and UI together.

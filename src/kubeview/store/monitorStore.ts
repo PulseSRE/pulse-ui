@@ -166,10 +166,22 @@ export const useMonitorStore = create<MonitorState>()(
               const { type: _, ...finding } = event;
               const dismissed = get().dismissedFindingIds;
               if (dismissed.includes(finding.id)) break;
-              set((s) => ({
-                findings: capArray([...s.findings, finding], MAX_FINDINGS),
-                unreadCount: s.unreadCount + 1,
-              }));
+              // The agent replays every standing finding when a client
+              // connects, and a finding keeps its id across scans. A known id
+              // is an update to that finding, not a new one to append and
+              // count as unread.
+              set((s) => {
+                const at = s.findings.findIndex((f) => f.id === finding.id);
+                if (at >= 0) {
+                  const findings = s.findings.slice();
+                  findings[at] = { ...findings[at], ...finding };
+                  return { findings };
+                }
+                return {
+                  findings: capArray([...s.findings, finding], MAX_FINDINGS),
+                  unreadCount: s.unreadCount + 1,
+                };
+              });
               break;
             }
 
