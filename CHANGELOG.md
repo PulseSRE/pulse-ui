@@ -6,6 +6,10 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ### Added
 - The scanner list describes the agent's new scanners: unusual-for-this-workload, storage, routes & DNS, admission webhooks and maintenance blockers (pulse-agent #163, #165)
+- The "Pulse is not seeing everything" banner says how to fix each blind scanner ("To fix: set spec.agent.allowSecretAccess: true …"), from the agent's new `remedy` field (pulse-agent #162)
+
+### Fixed
+- A finding that arrives with an id already on screen updates it in place instead of adding a duplicate and an unread count. The agent now replays standing findings on connect, so a reload no longer drops them
 
 ## v2.32.0 (2026-10-17)
 
