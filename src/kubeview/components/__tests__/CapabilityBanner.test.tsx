@@ -47,6 +47,25 @@ describe('CapabilityBanner', () => {
     expect(screen.getByText(/Scanner alerts has failed 7 runs/)).toBeTruthy();
   });
 
+  it('says how to fix a blind scanner when the agent knows', () => {
+    state.findings = [
+      finding({
+        title: 'Certificate Expiry checks are off: Pulse is not allowed to list secrets',
+        remedy: 'Set spec.agent.allowSecretAccess: true on the OpenShiftPulse resource',
+      }),
+    ];
+    render(<CapabilityBanner />);
+    expect(screen.getByText(/Certificate Expiry checks are off/)).toBeTruthy();
+    expect(screen.getByText(/allowSecretAccess/)).toBeTruthy();
+    expect(screen.getByText('To fix:')).toBeTruthy();
+  });
+
+  it('shows no fix line when there is none', () => {
+    state.findings = [finding()];
+    render(<CapabilityBanner />);
+    expect(screen.queryByText('To fix:')).toBeNull();
+  });
+
   it('says that missing findings mean unknown, not clear', () => {
     state.findings = [finding()];
     render(<CapabilityBanner />);
