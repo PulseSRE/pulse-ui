@@ -30,6 +30,8 @@ vi.mock('../../../engine/episodeApi', () => ({
   fetchEpisode: (...a: unknown[]) => fetchEpisode(...a),
   detachSymptom: (...a: unknown[]) => detachSymptom(...a),
   dismissEpisode: (...a: unknown[]) => dismissEpisode(...a),
+  isLikelyRelated: (c: { relevance?: string }) =>
+    c.relevance === 'same workload' || c.relevance === 'used by an affected workload',
 }));
 
 const EPISODE = {
@@ -559,5 +561,64 @@ describe('an episode card offers a way to act on the cause', () => {
     render(<EpisodePanel />);
     await screen.findByText(/How do I fix this\?/);
     expect(screen.queryByTestId('inline-agent')).toBeNull();
+  });
+});
+
+describe('an episode leads with what changed', () => {
+  const ROLLOUT = {
+    category: 'rollout',
+    kind: 'Deployment',
+    name: 'ocm-controller',
+    namespace: 'multicluster-engine',
+    title: 'Deployment ocm-controller rolled out revision 7 (ocm:v6 → ocm:v7)',
+    at: 1,
+    seconds_before: 540,
+    relevance: 'same workload',
+    score: 3.85,
+    rollback: { tool: 'rollback_deployment', namespace: 'multicluster-engine', name: 'ocm-controller', revision: 6 },
+  };
+  const NEIGHBOUR = {
+    category: 'config',
+    kind: 'ConfigMap',
+    name: 'other',
+    namespace: 'multicluster-engine',
+    title: 'ConfigMap other edited by kubectl-edit',
+    at: 2,
+    seconds_before: 60,
+    relevance: 'same namespace',
+    score: 2.9,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchOpenEpisodes.mockResolvedValue([EPISODE]);
+  });
+
+  afterEach(cleanup);
+
+  it('names the related change on the card without expanding it', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: [ROLLOUT, NEIGHBOUR] });
+    render(<EpisodePanel />);
+    expect(await screen.findByText(/Changed 9m before:/)).toBeTruthy();
+    expect(screen.getAllByText(ROLLOUT.title).length).toBeGreaterThan(0);
+  });
+
+  it('does not lead with a change that is merely nearby', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: [NEIGHBOUR] });
+    render(<EpisodePanel />);
+    await screen.findByText(EPISODE.cause_title);
+    await waitFor(() => expect(fetchEpisode).toHaveBeenCalled());
+    expect(screen.queryByText(/Changed 1m before:/)).toBeNull();
+  });
+
+  it('rolling back goes through the agent, which asks before changing anything', async () => {
+    fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: [ROLLOUT] });
+    render(<EpisodePanel />);
+    const [button] = await screen.findAllByRole('button', { name: /Roll back/ });
+    fireEvent.click(button);
+    await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
+    const prompt = String(connectAndSend.mock.calls[0][0]);
+    expect(prompt).toContain('Roll back deployment ocm-controller in namespace multicluster-engine to revision 6');
+    expect(prompt).toContain('before doing it');
   });
 });

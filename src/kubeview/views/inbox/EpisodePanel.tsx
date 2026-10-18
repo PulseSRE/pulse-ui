@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Wrench } from 'lucide-react';
+import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Undo2, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
-import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes } from '../../engine/episodeApi';
+import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes, isLikelyRelated } from '../../engine/episodeApi';
 import type {
   Episode,
   EpisodeChange,
@@ -55,6 +55,35 @@ export function timelineRangeFor(startedAtSeconds: number, nowSeconds = Date.now
   if (hours <= 24) return '24h';
   if (hours <= 72) return '3d';
   return '7d';
+}
+
+/**
+ * Ask the agent to roll a change back. Routed through chat, not a direct
+ * write: the agent states what it will do and the confirmation gate asks
+ * before anything changes, with the user's own permissions.
+ */
+function askToRollBack(c: EpisodeChange, causeTitle: string): void {
+  if (!c.rollback) return;
+  const { name, namespace, revision } = c.rollback;
+  askPulse(
+    `Roll back deployment ${name} in namespace ${namespace} to revision ${revision}. ` +
+      `"${c.title}" happened ${formatShortDuration(c.seconds_before)} before "${causeTitle}" began. ` +
+      'Show me what will change before doing it.',
+  );
+}
+
+function RollBackButton({ change, causeTitle }: { change: EpisodeChange; causeTitle: string }) {
+  if (!change.rollback) return null;
+  return (
+    <button
+      onClick={() => askToRollBack(change, causeTitle)}
+      title={`Ask Pulse to roll ${change.rollback.name} back to revision ${change.rollback.revision} (asks before changing anything)`}
+      className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium text-amber-300 transition-colors hover:bg-amber-500/15 hover:text-amber-200"
+    >
+      <Undo2 className="h-3 w-3" />
+      Roll back
+    </button>
+  );
 }
 
 function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () => void }) {
@@ -112,6 +141,8 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
     await dismissEpisode(episode.id);
     onChanged();
   }, [episode.id, onChanged]);
+
+  const leadChange = changes.find(isLikelyRelated) ?? null;
 
   /** Everything the card knows, so the agent is not asked to re-derive it. */
   const askPrompt = [
@@ -204,6 +235,17 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
               </span>
             )}
           </div>
+          {leadChange && (
+            // The first question in any incident, answered before it is asked:
+            // the change nearest to what broke, without expanding the card.
+            <div className="mt-1.5 flex items-center gap-2 text-xs">
+              <span className="shrink-0 text-amber-400/90">
+                Changed {formatShortDuration(leadChange.seconds_before)} before:
+              </span>
+              <span className="min-w-0 truncate text-slate-200">{leadChange.title}</span>
+              <RollBackButton change={leadChange} causeTitle={episode.cause_title} />
+            </div>
+          )}
         </div>
         <button
           onClick={askAboutThisEpisode}
@@ -229,7 +271,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           <Check className="h-3 w-3" />
           Dismiss
         </button>
-        {(symptoms.length > 0 || investigation) && (
+        {(symptoms.length > 0 || investigation || changes.length > 0) && (
           <button
             onClick={() => setExpanded((e) => !e)}
             aria-expanded={expanded}
@@ -240,6 +282,38 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           </button>
         )}
       </div>
+
+      {expanded && changes.length > 0 && (
+        <div className="border-t border-red-500/15 px-3 py-2">
+          <p className="mb-1.5 text-[11px] text-slate-500">
+            Changed shortly before it started, closest to what broke first — not necessarily the cause.
+          </p>
+          <ul className="space-y-0.5">
+            {changes.map((c) => (
+              <li key={`${c.category}-${c.title}-${c.at}`} className="flex items-center gap-2 py-0.5 text-xs">
+                <span className="w-20 shrink-0 text-right tabular-nums text-amber-400/80">
+                  −{formatShortDuration(c.seconds_before)}
+                </span>
+                <span className={cn('min-w-0 flex-1 truncate', isLikelyRelated(c) ? 'text-slate-100' : 'text-slate-300')}>
+                  {c.title}
+                </span>
+                {c.relevance && c.relevance !== 'recorded by audit' && (
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-sm px-1 text-[10px]',
+                      isLikelyRelated(c) ? 'bg-amber-500/15 text-amber-300' : 'text-slate-500',
+                    )}
+                  >
+                    {c.relevance}
+                  </span>
+                )}
+                <span className="shrink-0 truncate text-slate-500">{c.namespace}</span>
+                <RollBackButton change={c} causeTitle={episode.cause_title} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {expanded && investigation && (
         <div className="border-t border-red-500/15 px-3 py-2">
@@ -267,25 +341,6 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {expanded && changes.length > 0 && (
-        <div className="border-t border-red-500/15 px-3 py-2">
-          <p className="mb-1.5 text-[11px] text-slate-500">
-            Changed shortly before it started — not necessarily the cause.
-          </p>
-          <ul className="space-y-0.5">
-            {changes.map((c) => (
-              <li key={`${c.category}-${c.at}`} className="flex items-center gap-2 py-0.5 text-xs">
-                <span className="w-20 shrink-0 text-right tabular-nums text-amber-400/80">
-                  −{formatShortDuration(c.seconds_before)}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-slate-300">{c.title}</span>
-                <span className="shrink-0 truncate text-slate-500">{c.namespace}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 
