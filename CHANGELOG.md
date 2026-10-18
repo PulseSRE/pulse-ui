@@ -5,6 +5,7 @@ Release entries are historical records. Counts, timings, security scans, and fea
 ## Unreleased
 
 ### Added
+- The scanner list describes the agent's new scanners: unusual-for-this-workload, storage, routes & DNS, admission webhooks and maintenance blockers (pulse-agent #163, #165)
 - The "Pulse is not seeing everything" banner says how to fix each blind scanner ("To fix: set spec.agent.allowSecretAccess: true …"), from the agent's new `remedy` field (pulse-agent #162)
 
 ### Fixed
