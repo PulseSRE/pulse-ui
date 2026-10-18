@@ -2,6 +2,11 @@
 
 Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
 
+## Unreleased
+
+### Added
+- The scanner list describes the agent's new scanners: unusual-for-this-workload, storage, routes & DNS, admission webhooks and maintenance blockers (pulse-agent #163, #165)
+
 ## v2.32.0 (2026-10-17)
 
 Paired with pulse-agent v2.32.0 (migration 037 moves saved dashboards to the 12-column grid) and pulse-operator v0.9.0. Upgrade agent and UI together.
