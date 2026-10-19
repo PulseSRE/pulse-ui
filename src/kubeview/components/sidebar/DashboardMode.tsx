@@ -70,9 +70,12 @@ export function DashboardMode() {
                 <button
                   key={i}
                   onClick={() => handlePromptClick(p.prompt)}
+                  title={p.context}
                   className="px-2.5 py-1.5 text-xs bg-violet-600/10 text-violet-300 border border-violet-700/30 rounded-lg hover:bg-violet-600/20 transition-colors text-left"
                 >
-                  {p.context}
+                  {/* The prompt is what clicking sends. The context is an internal
+                      note ("general suggestion for /inbox") and read as a bug. */}
+                  {p.prompt}
                 </button>
               ))}
             </div>
