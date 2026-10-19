@@ -7,7 +7,7 @@
   <meta name="description" content="OpenShift Pulse UI: incident evidence, action approval, verified recovery and installation diagnostics.">
   <meta property="og:title" content="OpenShift Pulse">
   <meta property="og:description" content="OpenShift Pulse UI: incident evidence, action approval, verified recovery and installation diagnostics.">
-  <meta property="og:image" content="https://PulseSRE.github.io/pulse-ui/screenshots/hero.png">
+  <meta property="og:image" content="https://pulsesre.github.io/pulse-ui/screenshots/inbox.png">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
   <style>
@@ -340,7 +340,7 @@
 <main>
 <section class="hero" aria-labelledby="title">
 <h1 id="title">OpenShift Pulse</h1>
-<div class="version">CURRENT IMPLEMENTATION // MATCHED AGENT/UI RELEASES</div>
+<div class="version">v2.33.0 // MATCHED AGENT/UI RELEASES</div>
 <p class="tagline">An operations console for inspecting incidents, reviewing actions and following recovery evidence.</p>
 <div class="hero-buttons"><a class="btn btn-primary" href="https://github.com/PulseSRE/pulse-ui">Source and setup</a><a class="btn btn-secondary" href="https://github.com/PulseSRE/pulse-ui/releases/latest">Published releases</a></div>
 </section>
@@ -348,6 +348,12 @@
 <article class="feature-card"><h3>Review proposed repairs</h3><p>The inbox and agent confirmation surfaces let users review actions. Approval does not override backend permissions or namespace/node policy.</p></article>
 <article class="feature-card"><h3>Follow actual outcomes</h3><p>Lifecycle views separate proposed, executed and verified actions, show verification evidence and handle recurrence. A model-written resolution checklist is not proof of recovery.</p></article>
 <article class="feature-card"><h3>Keep cluster targets explicit</h3><p>Resource reads and supported operations retain their selected cluster target across switches. Local agent context is distinguished from remote fleet resource context.</p></article></div></section>
+<section class="section" aria-labelledby="new"><h2 id="new">New in v2.33.0</h2><p class="subtitle">Pairs with Pulse Agent v2.33.0 and pulse-operator v0.10.0. Screenshots use sample data. <a href="https://github.com/PulseSRE/pulse-ui/releases/tag/v2.33.0">Release notes</a></p>
+<div class="screenshot"><img src="screenshots/inbox.png" alt="Inbox with a capability banner, an open episode and the queue" loading="lazy"><div class="screenshot-label">Inbox <span>— what Pulse cannot see, then the cause, then the queue</span></div></div>
+<div class="screenshots" style="margin-top:16px;align-items:start"><div style="display:flex;flex-direction:column;gap:16px"><article class="feature-card"><h3>"To fix:" on blind scanners</h3><p>When a scanner cannot see, the banner says which checks are off and the one change that turns them back on, instead of an empty list that reads as healthy.</p></article>
+<article class="feature-card"><h3>Episodes lead with the change</h3><p>The rollout, ConfigMap edit or sync closest to what broke is shown first, labelled by how it relates. Roll back asks Pulse, which goes through the normal confirmation.</p></article>
+<article class="feature-card"><h3>One row per condition</h3><p>Findings are updated in place by id, so a moving restart count no longer adds a new row each scan.</p></article></div>
+<div class="screenshot"><img src="screenshots/scanners.png" alt="Scanner coverage drawer listing the new scanners" loading="lazy"><div class="screenshot-label">Scanner coverage <span>— 32 scanners, including anomaly, storage and routes</span></div></div></div></section>
 <section class="section" aria-labelledby="evidence"><h2 id="evidence">Readiness and recovery evidence</h2><p class="subtitle">Use a matched agent/UI release. Installation diagnostics come from the agent and can remain unknown; cluster permissions, actual provider behavior and sustained repair need separate tests. Isolated UI acceptance uses controlled responses and certifies no live cluster.</p><p>Crashloop, failed rollout and pending-pod acceptance must preserve diagnostic observations, the exact approved target/change, execution results and fresh recovery measurements. Rejected or unverifiable operations stay unresolved.</p></section>
 <section class="section" aria-labelledby="guides"><h2 id="guides">Operational guides</h2><p class="subtitle">These links open current repository documentation. Historical plans and designs describe proposals, not current operational guarantees.</p><p><a href="https://github.com/PulseSRE/pulse-ui/blob/main/README.md">Setup and development</a></p>
 <p><a href="https://github.com/PulseSRE/pulse-ui/blob/main/API_CONTRACT.md">API contract</a></p>

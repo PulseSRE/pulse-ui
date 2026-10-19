@@ -2,6 +2,10 @@
 
 A React and TypeScript dashboard for OpenShift operations: resource browsing and editing, cluster health, logs and terminals, monitoring, and integration with the [Pulse Agent](https://github.com/PulseSRE/pulse-agent).
 
+![Inbox: a capability banner with its fix, an episode led by the rollout before it, and the queue](docs/screenshots/inbox.png)
+
+<sub>Sample data. New in v2.33.0: the banner says which checks are off and how to turn them back on; episodes lead with the change closest to what broke and offer a rollback through Pulse's normal confirmation.</sub>
+
 ## Install
 
 Use the [Pulse Operator installation guide](https://github.com/PulseSRE/pulse-operator#install-via-olm) to deploy the UI, agent, PostgreSQL, OAuth proxy, and supporting resources from an `OpenShiftPulse` custom resource. This repository builds the UI container consumed by `spec.ui.image`; it does not contain a Helm chart for installing Pulse.
@@ -110,7 +114,7 @@ podman push "$PULSE_UI_IMAGE"
 
 ## Screenshots and project links
 
-Screenshots in [docs/screenshots](docs/screenshots) capture earlier UI revisions and may differ from the current routes and data. [docs/index.html](docs/index.html) is the project landing page.
+`inbox.png` and `scanners.png` in [docs/screenshots](docs/screenshots) show v2.33.0 with sample data; regenerate them with `node e2e/screenshots/capture.mjs` (see the header of that file). The other screenshots there capture earlier UI revisions from a live cluster and may differ from the current routes and data. [docs/index.html](docs/index.html) is the project landing page.
 
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
