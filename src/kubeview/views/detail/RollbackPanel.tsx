@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { History, ChevronDown, ChevronRight, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sPatch } from '../../engine/query';
-import { K8S_BASE as BASE } from '../../engine/gvr';
 import { timeAgo } from '../../engine/dateUtils';
 import { useUIStore } from '../../store/uiStore';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';

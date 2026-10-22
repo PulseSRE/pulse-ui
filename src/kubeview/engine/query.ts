@@ -35,6 +35,19 @@ export function getImpersonationHeaders(): Record<string, string> {
   return headers;
 }
 
+/**
+ * fetch() against one cluster's Kubernetes API, with impersonation headers.
+ *
+ * Pass the cluster the screen is showing (captured when it rendered), not
+ * nothing: views that built URLs from the local K8S_BASE wrote to the local
+ * cluster while a remote one was active, and skipped impersonation.
+ * Callers keep their own response handling (YAML bodies, apply patches).
+ */
+export function k8sFetch(clusterId: string | undefined, apiPath: string, init: RequestInit = {}): Promise<Response> {
+  const headers = { ...getImpersonationHeaders(), ...((init.headers as Record<string, string> | undefined) ?? {}) };
+  return fetch(`${getClusterBase(clusterId)}${apiPath}`, { ...init, headers });
+}
+
 interface K8sListResponse<T> {
   apiVersion: string;
   kind: string;

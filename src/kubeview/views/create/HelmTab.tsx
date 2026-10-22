@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Search, Ship, Loader2, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
-import { K8S_BASE as BASE } from '../../engine/gvr';
+import { k8sFetch } from '../../engine/query';
+import { useFleetStore } from '../../store/fleetStore';
 import DeployProgress from '../../components/DeployProgress';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { FormField } from './FormField';
@@ -47,8 +48,8 @@ interface HelmRepo {
   chartCount: number;
 }
 
-async function applyResource(path: string, resource: unknown): Promise<void> {
-  const res = await fetch(`${BASE}${path}`, {
+async function applyResource(clusterId: string, path: string, resource: unknown): Promise<void> {
+  const res = await k8sFetch(clusterId, path, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/apply-patch+yaml' },
     body: JSON.stringify(resource),
@@ -137,11 +138,13 @@ export function HelmTab() {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  // Releases, repos and installs all belong to the cluster on screen.
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const [search, setSearch] = useState('');
   const [installing, setInstalling] = useState<string | null>(null);
   const [releaseName, setReleaseName] = useState('');
   const [selectedChart, setSelectedChart] = useState<HelmChart | null>(null);
-  const [installedJob, setInstalledJob] = useState<{ name: string; ns: string } | null>(null);
+  const [installedJob, setInstalledJob] = useState<{ name: string; ns: string; clusterId: string } | null>(null);
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [newRepoName, setNewRepoName] = useState('');
   const [newRepoUrl, setNewRepoUrl] = useState('');
@@ -152,9 +155,9 @@ export function HelmTab() {
 
   // Fetch Helm releases (secrets with owner=helm)
   const { data: helmReleases = [] } = useQuery({
-    queryKey: ['helm', 'releases', ns],
+    queryKey: ['helm', 'releases', clusterId, ns],
     queryFn: async () => {
-      const res = await fetch(`${BASE}/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
+      const res = await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
       if (!res.ok) return [];
       const data = await res.json();
       return (data.items || []).map((s: Secret) => {
@@ -168,9 +171,9 @@ export function HelmTab() {
 
   // Fetch chart repos from OpenShift HelmChartRepository CRDs
   const { data: chartRepoCRDs = [] } = useQuery({
-    queryKey: ['helm', 'repos'],
+    queryKey: ['helm', 'repos', clusterId],
     queryFn: async () => {
-      const res = await fetch(`${BASE}/apis/helm.openshift.io/v1beta1/helmchartrepositories`);
+      const res = await k8sFetch(clusterId, '/apis/helm.openshift.io/v1beta1/helmchartrepositories');
       if (!res.ok) return [];
       const data = await res.json();
       return (data.items || []) as HelmChartRepository[];
@@ -272,19 +275,22 @@ export function HelmTab() {
       });
 
       await applyResource(
+        clusterId,
         `/api/v1/namespaces/${ns}/serviceaccounts/${resources.serviceAccount.metadata.name}?fieldManager=openshiftpulse&force=true`,
         resources.serviceAccount,
       );
       await applyResource(
+        clusterId,
         `/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/roles/${resources.role.metadata.name}?fieldManager=openshiftpulse&force=true`,
         resources.role,
       );
       await applyResource(
+        clusterId,
         `/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/rolebindings/${resources.roleBinding.metadata.name}?fieldManager=openshiftpulse&force=true`,
         resources.roleBinding,
       );
 
-      const res = await fetch(`${BASE}/apis/batch/v1/namespaces/${ns}/jobs`, {
+      const res = await k8sFetch(clusterId, `/apis/batch/v1/namespaces/${ns}/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(resources.job),
@@ -296,7 +302,7 @@ export function HelmTab() {
       }
 
       addToast({ type: 'success', title: `Helm install started`, detail: `${selectedChart.name} as "${sanitizedName}" in ${ns}` });
-      setInstalledJob({ name: `helm-install-${sanitizedName}`, ns });
+      setInstalledJob({ name: `helm-install-${sanitizedName}`, ns, clusterId });
       setSelectedChart(null);
       setReleaseName('');
     } catch (err) {
@@ -317,7 +323,7 @@ export function HelmTab() {
           connectionConfig: { url: newRepoUrl.trim() },
         },
       };
-      const res = await fetch(`${BASE}/apis/helm.openshift.io/v1beta1/helmchartrepositories`, {
+      const res = await k8sFetch(clusterId, '/apis/helm.openshift.io/v1beta1/helmchartrepositories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(repo),
@@ -340,7 +346,7 @@ export function HelmTab() {
 
   const handleDeleteRepo = async (repoName: string) => {
     try {
-      const res = await fetch(`${BASE}/apis/helm.openshift.io/v1beta1/helmchartrepositories/${repoName}`, { method: 'DELETE' });
+      const res = await k8sFetch(clusterId, `/apis/helm.openshift.io/v1beta1/helmchartrepositories/${encodeURIComponent(repoName)}`, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: res.statusText }));
         throw new Error(err.message);
@@ -361,6 +367,7 @@ export function HelmTab() {
           type="job"
           name={installedJob.name}
           namespace={installedJob.ns}
+          clusterId={installedJob.clusterId}
           onClose={() => setInstalledJob(null)}
         />
       )}

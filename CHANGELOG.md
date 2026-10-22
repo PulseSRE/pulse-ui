@@ -9,6 +9,12 @@ Release entries are historical records. Counts, timings, security scans, and fea
 - Start a durable run from an inbox item: a finding whose kind has a plan offers "Run … durably", which runs that plan against that finding and says which phases will stop for approval (pulse-agent #172)
 - "Run durably" in the plan panel takes a target (what to investigate, namespace, kind, name). It used to start the plan with an empty incident
 
+### Fixed
+- **Create, Quick Deploy and Helm wrote to the local cluster while another was shown.** They built URLs from the local API base, so with a remote cluster active the screen showed one cluster and the Deployment, Service, Route, Helm install job or chart repository went to another; these calls also skipped impersonation. They now go to the cluster on screen, with impersonation, and deploy/install progress stays on the cluster the resource was created in. Helm queries are keyed by cluster
+- **"Restart" on a pod deleted it in one click**, and for a pod no controller owns, nothing recreates it. It now asks first: for a managed pod it names the controller that will replace it; for an unmanaged one it says the pod will be gone for good and the button reads "Delete pod". The delete is pinned to that pod's uid and resourceVersion
+- **Scaling wrote a count computed from cached replicas.** Two quick clicks, or an HPA, could produce a count nobody chose. The patch now carries the resourceVersion it was computed from, so a stale scale gets a conflict instead of applying
+- **A failed delete in agent tables looked like success**: errors were caught and the dialog closed. Failures are now shown and the dialog stays open. Rows listed from the active cluster are deleted only if still the same object; rows the agent sent (from its own cluster) are refused while another cluster is active
+
 ## v2.33.0 (2026-10-18)
 
 Paired with pulse-agent v2.33.0 and pulse-operator v0.10.0.

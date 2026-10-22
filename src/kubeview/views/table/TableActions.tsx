@@ -8,6 +8,7 @@ import { useUIStore } from '../../store/uiStore';
 import type { K8sResource } from '../../engine/renderers';
 import type { ColumnDef } from '../../engine/renderers';
 import type { DeleteProgressItem } from './DeleteProgress';
+import { scalePatch } from '../../engine/writeGuards';
 
 export interface ActionHandlers {
   handleAction: (action: string, payload?: unknown) => Promise<void>;
@@ -17,6 +18,11 @@ export interface ActionHandlers {
   inlineActionLoading: string | null;
   pendingDelete: { resource: K8sResource; path: string } | null;
   setPendingDelete: React.Dispatch<React.SetStateAction<{ resource: K8sResource; path: string } | null>>;
+  /** A pod restart waiting for confirmation (restart deletes the pod). */
+  pendingRestart: { resource: K8sResource; path: string } | null;
+  setPendingRestart: React.Dispatch<React.SetStateAction<{ resource: K8sResource; path: string } | null>>;
+  executeRestart: () => Promise<void>;
+  restarting: boolean;
   singleDeleting: boolean;
   deleteProgress: DeleteProgressItem[];
   setDeleteProgress: React.Dispatch<React.SetStateAction<DeleteProgressItem[]>>;
@@ -51,6 +57,8 @@ export function useTableActions({
 
   const [inlineActionLoading, setInlineActionLoading] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ resource: K8sResource; path: string } | null>(null);
+  const [pendingRestart, setPendingRestart] = useState<{ resource: K8sResource; path: string } | null>(null);
+  const [restarting, setRestarting] = useState(false);
   const [singleDeleting, setSingleDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState<DeleteProgressItem[]>([]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
@@ -68,8 +76,11 @@ export function useTableActions({
 
     try {
       if (action === 'restart') {
-        await k8sDelete(resourcePath, clusterId, { uid: resource.metadata.uid });
-        addToast({ type: 'success', title: `Pod "${resourceName}" restarted` });
+        // Restarting a pod means deleting it, and an unmanaged pod does not
+        // come back. Ask first, saying which of the two this is.
+        setPendingRestart({ resource, path: resourcePath });
+        setInlineActionLoading(null);
+        return;
       } else if (action === 'restart-rollout') {
         await k8sPatch(resourcePath, {
           spec: { template: { metadata: { annotations: { 'kubectl.kubernetes.io/restartedAt': new Date().toISOString() } } } },
@@ -79,11 +90,11 @@ export function useTableActions({
         const delta = p?.delta ?? 0;
         const currentReplicas = (resource.spec as { replicas?: number })?.replicas ?? 0;
         const newReplicas = Math.max(0, currentReplicas + delta);
-        await k8sPatch(resourcePath, { spec: { replicas: newReplicas } }, undefined, clusterId);
+        await k8sPatch(resourcePath, scalePatch(resource, newReplicas), undefined, clusterId);
         addToast({ type: 'success', title: `Scaled "${resourceName}" to ${newReplicas} replicas` });
       } else if (action === 'scale-to') {
         const replicas = ((p as { replicas?: number } | undefined)?.replicas) ?? 0;
-        await k8sPatch(resourcePath, { spec: { replicas } }, undefined, clusterId);
+        await k8sPatch(resourcePath, scalePatch(resource, replicas), undefined, clusterId);
         addToast({ type: 'success', title: `Scaled "${resourceName}" to ${replicas} replicas` });
       } else if (action === 'cordon') {
         await k8sPatch(resourcePath, { spec: { unschedulable: true } }, undefined, clusterId);
@@ -166,6 +177,26 @@ export function useTableActions({
     }
   }, [pendingDelete, queryClient, apiPath, clusterId]);
 
+  const executeRestart = useCallback(async () => {
+    if (!pendingRestart) return;
+    setRestarting(true);
+    const name = pendingRestart.resource.metadata?.name || '';
+    try {
+      // Preconditions: never delete a newer pod that reused the name.
+      await k8sDelete(pendingRestart.path, clusterId, {
+        uid: pendingRestart.resource.metadata.uid,
+        resourceVersion: pendingRestart.resource.metadata.resourceVersion,
+      });
+      addToast({ type: 'success', title: `Pod "${name}" deleted`, detail: 'Its controller will create a replacement if it has one.' });
+      setPendingRestart(null);
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
+    } catch (err) {
+      showErrorToast(err, 'Restart failed');
+    } finally {
+      setRestarting(false);
+    }
+  }, [pendingRestart, clusterId, addToast, queryClient, apiPath]);
+
   const handleBulkDelete = useCallback(async () => {
     if (selectedRows.size === 0) return;
 
@@ -209,6 +240,10 @@ export function useTableActions({
     inlineActionLoading,
     pendingDelete,
     setPendingDelete,
+    pendingRestart,
+    setPendingRestart,
+    executeRestart,
+    restarting,
     singleDeleting,
     deleteProgress,
     setDeleteProgress,

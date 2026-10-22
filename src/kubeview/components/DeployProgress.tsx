@@ -5,9 +5,9 @@ import {
   FileText, ArrowRight, ChevronDown, ChevronRight, Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { k8sList, k8sGet } from '../engine/query';
+import { k8sList, k8sGet, k8sFetch } from '../engine/query';
+import { getActiveClusterId } from '../engine/clusterConnection';
 import { safeQuery } from '../engine/safeQuery';
-import { K8S_BASE as BASE } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { Card } from './primitives/Card';
 import type { K8sResource } from '../engine/renderers';
@@ -19,13 +19,17 @@ interface DeployProgressProps {
   namespace: string;
   /** 'deploy' (default) or 'delete' */
   mode?: 'deploy' | 'delete';
+  /** Cluster the resource was created in. Defaults to the one active when this opened. */
+  clusterId?: string;
   onClose: () => void;
 }
 
 type DeployPhase = 'creating' | 'pulling' | 'starting' | 'running' | 'failed' | 'succeeded';
 type DeletePhase = 'deleting' | 'terminating' | 'cleaning-pods' | 'cleaning' | 'gone';
 
-export default function DeployProgress({ type, name, namespace, mode = 'deploy', onClose }: DeployProgressProps) {
+export default function DeployProgress({ type, name, namespace, mode = 'deploy', clusterId: clusterIdProp, onClose }: DeployProgressProps) {
+  // Pinned: switching clusters must not start reporting a same-named resource elsewhere.
+  const [clusterId] = useState(() => clusterIdProp ?? getActiveClusterId());
   const go = useNavigateTab();
   const [showLogs, setShowLogs] = useState(false);
   const [showEvents, setShowEvents] = useState(true);
@@ -34,21 +38,21 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
 
   // Poll the resource (null = gone)
   const { data: resource, dataUpdatedAt: _dataUpdatedAt } = useQuery({
-    queryKey: ['deploy-progress', type, namespace, name],
+    queryKey: ['deploy-progress', clusterId, type, namespace, name],
     queryFn: () => {
       const path = type === 'deployment'
         ? `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`
         : `/apis/batch/v1/namespaces/${namespace}/jobs/${name}`;
-      return safeQuery(() => k8sGet<K8sResource>(path));
+      return safeQuery(() => k8sGet<K8sResource>(path, clusterId));
     },
     refetchInterval: 2000,
   });
 
   // Poll pods
   const { data: pods = [] } = useQuery({
-    queryKey: ['deploy-progress-pods', namespace, name],
+    queryKey: ['deploy-progress-pods', clusterId, namespace, name],
     queryFn: async () => {
-      const allPods = await k8sList<Pod>(`/api/v1/namespaces/${namespace}/pods`);
+      const allPods = await k8sList<Pod>(`/api/v1/namespaces/${namespace}/pods`, undefined, clusterId);
       return allPods.filter((p) => {
         const labels = p.metadata.labels || {};
         return labels.app === name || p.metadata.name?.startsWith(name);
@@ -59,9 +63,9 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
 
   // Poll events
   const { data: events = [] } = useQuery({
-    queryKey: ['deploy-progress-events', namespace, name],
+    queryKey: ['deploy-progress-events', clusterId, namespace, name],
     queryFn: async () => {
-      const allEvents = await k8sList<Event>(`/api/v1/namespaces/${namespace}/events`);
+      const allEvents = await k8sList<Event>(`/api/v1/namespaces/${namespace}/events`, undefined, clusterId);
       return allEvents
         .filter((e) => {
           const ref = e.involvedObject;
@@ -305,7 +309,7 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
             {showLogs ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
           </button>
           {showLogs && pods.length > 0 && (
-            <PodLogs namespace={namespace} podName={pods[0].metadata.name} />
+            <PodLogs clusterId={clusterId} namespace={namespace} podName={pods[0].metadata.name} />
           )}
           {showLogs && pods.length === 0 && (
             <div className="px-4 pb-3 text-xs text-slate-500">Waiting for pods...</div>
@@ -316,7 +320,7 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
   );
 }
 
-function PodLogs({ namespace, podName }: { namespace: string; podName: string }) {
+function PodLogs({ clusterId, namespace, podName }: { clusterId: string; namespace: string; podName: string }) {
   const [logs, setLogs] = useState<string[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -324,7 +328,7 @@ function PodLogs({ namespace, podName }: { namespace: string; podName: string })
     let cancelled = false;
     const fetchLogs = async () => {
       try {
-        const res = await fetch(`${BASE}/api/v1/namespaces/${namespace}/pods/${podName}/log?tailLines=100&timestamps=true`);
+        const res = await k8sFetch(clusterId, `/api/v1/namespaces/${namespace}/pods/${podName}/log?tailLines=100&timestamps=true`);
         if (res.ok) {
           const text = await res.text();
           if (!cancelled) setLogs(text.split('\n').filter(Boolean));
@@ -334,7 +338,7 @@ function PodLogs({ namespace, podName }: { namespace: string; podName: string })
     fetchLogs();
     const interval = setInterval(fetchLogs, 3000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [namespace, podName]);
+  }, [clusterId, namespace, podName]);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;

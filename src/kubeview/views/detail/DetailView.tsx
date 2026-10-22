@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { XCircle } from 'lucide-react';
 import { k8sGet, k8sDelete, k8sPatch, k8sCreate } from '../../engine/query';
+import { scalePatch } from '../../engine/writeGuards';
 import type { K8sResource } from '../../engine/renderers';
 import type { Deployment, Pod, Event, Container, Condition } from '../../engine/types';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
@@ -277,7 +278,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     const newReplicas = Math.max(0, currentReplicas + delta);
     setActionLoading('scale');
     try {
-      await k8sPatch(apiPath, { spec: { replicas: newReplicas } }, undefined, clusterId);
+      await k8sPatch(apiPath, scalePatch(resource, newReplicas), undefined, clusterId);
       addToast({ type: 'success', title: `Scaled to ${newReplicas} replicas` });
       queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
       queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
