@@ -14,7 +14,7 @@
 <body>
 <header class="wrap"><nav class="sites" aria-label="Pulse projects">
 <a class="mark" href="https://github.com/PulseSRE"><svg viewBox="0 0 68 36" aria-hidden="true"><path d="M0 20 H18 L22 24 L28 3 L34 32 L38 20 H50 L54 15 L58 20 H68" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/></svg><span>Pulse</span></a>
-<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><span class="ver">UI v2.34.0</span>
+<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.34.0</span>
 </nav></header>
 <main>
 <section class="hero wrap" aria-labelledby="title">
@@ -42,6 +42,15 @@
 </video>
 <figcaption id="film-cap"><b>See it in 30 seconds.</b> A rollout breaks checkout; Pulse opens one incident, asks before rolling back, and marks the fix held after 30 minutes. No sound.</figcaption>
 </figure>
+</section>
+
+<section class="block" aria-labelledby="why">
+<div class="wrap">
+<h2 id="why">Why it matters</h2>
+<p class="intro">Running OpenShift usually means a console, a metrics tool, a log viewer, a terminal and a chat window, and stitching them together in your head. The Pulse console puts them, and the agent, in one place.</p>
+<div class="why"><div class="p"><b>Too many tabs during an incident</b></div><div class="a"><p>Resources, metrics, logs, a terminal, alerts and the agent side by side, on the cluster you're looking at.</p></div><div class="p"><b>Alerts without context</b></div><div class="a"><p>The inbox ranks what needs you and leads each incident with the change that probably caused it, and the fix to approve.</p></div><div class="p"><b>One-click writes that surprise you</b></div><div class="a"><p>Every write names its cluster and target. A restart that is really a permanent delete says so, and stale scale counts are rejected.</p></div><div class="p"><b>A long learning curve</b></div><div class="a"><p>Ask in plain English. The agent answers with live data and builds the dashboard you asked for, so new people are useful on day one.</p></div></div>
+
+</div>
 </section>
 
 <section class="block" aria-labelledby="console">
