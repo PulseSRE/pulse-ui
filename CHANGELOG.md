@@ -2,7 +2,9 @@
 
 Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
 
-## Unreleased
+## v2.34.0 (2026-10-22)
+
+Paired with pulse-agent v2.34.0 and pulse-operator v0.11.0. Pull requests #140–#142.
 
 ### Added
 - Durable approvals can be answered where they show up. Runs waiting on an approval gate are listed at the top of Pulse Agent → Runs with Approve and Deny, and the agent's new inbox item for a waiting run carries the same buttons. Before, the only place to answer was the plan panel that started the run, while it stayed open; otherwise the run timed out to needs_escalation with nobody asked. Approving asks first, naming the phase and target, because an approved phase may change the cluster (pulse-agent #172)
