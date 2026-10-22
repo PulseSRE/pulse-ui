@@ -9,6 +9,7 @@ import { useUIStore } from '../../store/uiStore';
 import { useCanI } from '../../hooks/useCanI';
 import { getColumnsForResource, getEnhancer } from '../../engine/enhancers';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { describePodRestart } from '../../engine/writeGuards';
 import { PreviewPanel } from './PreviewPanel';
 import { DeleteProgressOverlay } from './DeleteProgress';
 import { TableToolbar } from './TableToolbar';
@@ -518,6 +519,23 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
           onClose={() => actions.setPendingDelete(null)}
         />
       )}
+
+      {/* Pod restart confirmation: says whether anything will recreate it */}
+      {actions.pendingRestart && (() => {
+        const plan = describePodRestart(actions.pendingRestart.resource);
+        return (
+          <ConfirmDialog
+            open
+            title={plan.title}
+            description={plan.description}
+            confirmLabel={plan.confirmLabel}
+            variant={plan.variant}
+            loading={actions.restarting}
+            onConfirm={actions.executeRestart}
+            onClose={() => actions.setPendingRestart(null)}
+          />
+        );
+      })()}
 
       {/* Bulk Delete Confirmation */}
       {actions.showBulkDeleteConfirm && (

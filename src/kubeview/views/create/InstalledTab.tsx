@@ -8,7 +8,8 @@ import {
 import { useUIStore } from '../../store/uiStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
-import { K8S_BASE as BASE } from '../../engine/gvr';
+import { k8sFetch } from '../../engine/query';
+import { useFleetStore } from '../../store/fleetStore';
 import type { Deployment, StatefulSet, Secret } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 
@@ -37,10 +38,13 @@ export function InstalledTab() {
 
   // Fetch Helm Releases (secrets with owner=helm label)
   const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
+  const clusterId = useFleetStore((s) => s.activeClusterId);
+  // Not ['helm', 'releases', ...]: HelmTab caches a different shape there,
+  // and the two used to overwrite each other's data.
   const { data: helmReleases = [] } = useQuery({
-    queryKey: ['helm', 'releases', ns],
+    queryKey: ['helm', 'installed-releases', clusterId, ns],
     queryFn: async () => {
-      const res = await fetch(`${BASE}/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
+      const res = await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
       if (!res.ok) return [];
       const data = await res.json();
       return (data.items || []).map((s: Secret) => {

@@ -3,7 +3,8 @@ import { cn } from '@/lib/utils';
 import { Plus, Package, Image, Box, AlertCircle, Loader2 } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
-import { K8S_BASE as BASE } from '../../engine/gvr';
+import { k8sFetch } from '../../engine/query';
+import { useFleetStore } from '../../store/fleetStore';
 import DeployProgress from '../../components/DeployProgress';
 import { FormField } from './FormField';
 import { Card } from '../../components/primitives/Card';
@@ -16,13 +17,14 @@ export function QuickDeployTab() {
   const addToast = useUIStore((s) => s.addToast);
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const [name, setName] = useState('');
   const [image, setImage] = useState('');
   const [port, setPort] = useState('');
   const [replicas, setReplicas] = useState('1');
   const [createRoute, setCreateRoute] = useState(true);
   const [deploying, setDeploying] = useState(false);
-  const [deployedApp, setDeployedApp] = useState<{ name: string; ns: string } | null>(null);
+  const [deployedApp, setDeployedApp] = useState<{ name: string; ns: string; clusterId: string } | null>(null);
 
   // Environment variables
   const [envVars, setEnvVars] = useState<EnvVar[]>([]);
@@ -87,7 +89,7 @@ export function QuickDeployTab() {
         },
       };
 
-      const depRes = await fetch(`${BASE}/apis/apps/v1/namespaces/${ns}/deployments`, {
+      const depRes = await k8sFetch(clusterId, `/apis/apps/v1/namespaces/${ns}/deployments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(deployment),
@@ -107,7 +109,7 @@ export function QuickDeployTab() {
             ports: [{ port: parseInt(port), targetPort: parseInt(port), protocol: 'TCP' }],
           },
         };
-        await fetch(`${BASE}/api/v1/namespaces/${ns}/services`, {
+        await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/services`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(service),
@@ -124,7 +126,7 @@ export function QuickDeployTab() {
               tls: { termination: 'edge' },
             },
           };
-          await fetch(`${BASE}/apis/route.openshift.io/v1/namespaces/${ns}/routes`, {
+          await k8sFetch(clusterId, `/apis/route.openshift.io/v1/namespaces/${ns}/routes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(route),
@@ -133,7 +135,7 @@ export function QuickDeployTab() {
       }
 
       addToast({ type: 'success', title: `Application "${name}" created`, detail: `Watching rollout in ${ns}` });
-      setDeployedApp({ name: name.trim(), ns });
+      setDeployedApp({ name: name.trim(), ns, clusterId });
     } catch (err) {
       showErrorToast(err, 'Deploy failed');
     }
@@ -147,6 +149,7 @@ export function QuickDeployTab() {
           type="deployment"
           name={deployedApp.name}
           namespace={deployedApp.ns}
+          clusterId={deployedApp.clusterId}
           onClose={() => setDeployedApp(null)}
         />
       )}

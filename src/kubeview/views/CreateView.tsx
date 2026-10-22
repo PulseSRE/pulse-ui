@@ -11,7 +11,8 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
 import { resolveSnippet, getSnippetSuggestions, type Snippet } from '../components/yaml/SnippetEngine';
-import { K8S_BASE as BASE } from '../engine/gvr';
+import { k8sFetch } from '../engine/query';
+import { useFleetStore } from '../store/fleetStore';
 import { showErrorToast } from '../engine/errorToast';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
@@ -76,6 +77,8 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   const addToast = useUIStore((s) => s.addToast);
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const registry = useClusterStore((s) => s.resourceRegistry);
+  // The cluster this screen shows; creates go there, not to whichever is local.
+  const clusterId = useFleetStore((s) => s.activeClusterId);
 
   const urlTab = new URLSearchParams(window.location.search).get('tab') as CreateTab;
   const [activeTab, setActiveTabState] = useState<CreateTab>(urlTab || 'installed');
@@ -145,7 +148,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
     let schemaYaml = '';
     if (group) {
       try {
-        const crd = await fetch(`${BASE}/apis/apiextensions.k8s.io/v1/customresourcedefinitions/${plural}.${group}`).then(r => r.ok ? r.json() : null);
+        const crd = await k8sFetch(clusterId, `/apis/apiextensions.k8s.io/v1/customresourcedefinitions/${plural}.${group}`).then(r => r.ok ? r.json() : null);
         if (crd) {
           const versionSpec = crd.spec?.versions?.find((v: any) => v.name === version) || crd.spec?.versions?.[0];
           const schema = versionSpec?.schema?.openAPIV3Schema?.properties?.spec?.properties;
@@ -180,7 +183,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
       const ns = nsMatch?.[1] || (resourceType?.namespaced ? (selectedNamespace !== '*' ? selectedNamespace : 'default') : undefined);
       const apiPath = buildApiPath(activeGvr, ns);
 
-      const res = await fetch(`${BASE}${apiPath}`, {
+      const res = await k8sFetch(clusterId, apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/yaml' },
         body: yaml,
@@ -207,7 +210,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
     } finally {
       setCreating(false);
     }
-  }, [yaml, activeGvr, kind, creating, selectedNamespace, resourceType, addToast, go]);
+  }, [yaml, activeGvr, kind, creating, selectedNamespace, resourceType, addToast, go, clusterId]);
 
   // YAML edit mode — full screen editor
   if (editMode) {

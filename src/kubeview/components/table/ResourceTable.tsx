@@ -20,6 +20,10 @@ import {
 } from 'lucide-react';
 import { buildApiPath } from '../../hooks/useResourceUrl';
 import { k8sDelete } from '../../engine/query';
+import { getActiveClusterId } from '../../engine/clusterConnection';
+import { showErrorToast } from '../../engine/errorToast';
+import { useUIStore } from '../../store/uiStore';
+import type { K8sResource } from '../../engine/renderers';
 import { ConfirmDialog } from '../feedback/ConfirmDialog';
 import type { ComponentSpec } from '../../engine/agentComponents';
 
@@ -373,19 +377,59 @@ export function ResourceTable({
             const name = String(deleteTarget.name || deleteTarget._name || '');
             const ns = String(deleteTarget.namespace || deleteTarget._namespace || '');
             if (!gvr || !name) return;
+            const target = deleteTargetCluster(deleteTarget);
+            if ('refusal' in target) {
+              useUIStore.getState().addToast({ type: 'error', title: 'Not deleted', detail: target.refusal });
+              setDeleteTarget(null);
+              return;
+            }
             setDeleteLoading(true);
             try {
               const apiPath = buildApiPath(gvr, ns || undefined, name);
-              await k8sDelete(apiPath);
-            } catch { /* toast handled by k8sDelete */ }
-            setDeleteLoading(false);
-            setDeleteTarget(null);
+              await k8sDelete(apiPath, target.clusterId, target.preconditions);
+              useUIStore.getState().addToast({ type: 'success', title: `Deleted "${name}"` });
+              setDeleteTarget(null);
+            } catch (err) {
+              // k8sDelete throws and shows nothing; this used to close the
+              // dialog as if a 403 or a conflict had succeeded.
+              showErrorToast(err, 'Delete failed');
+            } finally {
+              setDeleteLoading(false);
+            }
           }}
           onClose={() => setDeleteTarget(null)}
         />
       )}
     </div>
   );
+}
+
+/**
+ * Which cluster a row's delete goes to, and how to be sure it is the same object.
+ *
+ * Live rows carry the object they were listed from (from the active cluster);
+ * its uid and resourceVersion make the delete fail rather than hit a different
+ * object if the active cluster or the object changed since. Rows the agent sent
+ * directly say nothing about their cluster: they describe the agent's own
+ * (local) cluster, so they are only deleted while that cluster is active.
+ */
+export function deleteTargetCluster(
+  row: Record<string, unknown>,
+  activeClusterId: string = getActiveClusterId(),
+): { clusterId: string; preconditions?: { uid?: string; resourceVersion?: string } } | { refusal: string } {
+  const resource = row._resource as K8sResource | undefined;
+  if (resource?.metadata?.uid) {
+    return {
+      clusterId: activeClusterId,
+      preconditions: { uid: resource.metadata.uid, resourceVersion: resource.metadata.resourceVersion },
+    };
+  }
+  if (activeClusterId !== 'local') {
+    return {
+      refusal: 'This row does not say which cluster it is on, and another cluster is active. Open the resource and delete it from its page.',
+    };
+  }
+  return { clusterId: 'local' };
 }
 
 /** Simple default cell renderer for string/number/boolean values */
