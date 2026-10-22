@@ -33,6 +33,28 @@
 </figure>
 </div>
 
+<section class="block" aria-labelledby="console">
+<div class="wrap">
+<h2 id="console">Everything in the console</h2>
+<p class="intro">OpenShift Pulse is a complete console for running a cluster, built around the agent. Here is what it covers.</p>
+<div class="areas"><div class="area"><h3>Work incidents</h3><p>The inbox is where problems arrive and get resolved.</p><ul><li>Findings grouped into incidents, led by the change that came just before</li><li>Claim, snooze, escalate, pin or resolve; every item has an owner and a state</li><li>Proposed fixes wait in review with their confidence and evidence</li><li>An activity timeline of everything the monitor and the agent did</li></ul></div><div class="area"><h3>Ask Pulse from any screen</h3><p>The agent is a panel away, wherever you are.</p><ul><li>Chat with context: the page and resource you are on go with the question</li><li>Approve or deny a change inline, with the exact target shown</li><li>Run phased plans and follow durable runs in Pulse Agent, Runs</li><li>Thumbs up or down teaches the agent what helped</li></ul></div><div class="area"><h3>Browse and change anything</h3><p>A full resource console, with guard rails.</p><ul><li>Every resource type as a sortable table, including custom resources</li><li>YAML editing with server-side dry-run before you save</li><li>Deployment revision history with one-step rollback</li><li>Create from YAML, deploy an image in a form, or install a Helm chart</li></ul></div><div class="area"><h3>Workloads and infrastructure</h3><p>Purpose-built views for each layer.</p><ul><li>Workloads, nodes, storage, networking and builds, each with a health audit</li><li>Pod and node logs, and a terminal into a container</li><li>Alerts with silences, and metrics charts from Prometheus</li><li>Install operators from the catalog</li></ul></div><div class="area"><h3>Dashboards</h3><p>Views the agent builds for you, kept and shared.</p><ul><li>Ask for a dashboard; it is saved with version history and sharing</li><li>A 12-column grid of metrics, tables, charts and topology</li><li>A strip of widgets past their thresholds, and “2x usual” comparisons</li><li>A dependency graph that shows the blast radius of a change</li></ul></div><div class="area"><h3>See inside the agent</h3><p>Nothing about its behaviour is hidden.</p><ul><li>Trust level, and the policy the server actually enforces</li><li>Which scanners are running, and which cannot see and why</li><li>Every tool, skill and MCP connection, with usage and analytics</li><li>SLOs with error budgets, and what the agent has learned</li></ul></div><div class="area"><h3>Many clusters</h3><p>One console across a fleet.</p><ul><li>Discover clusters through Advanced Cluster Management</li><li>Switch clusters; every read and write follows the one on screen</li><li>Cross-cluster views of health</li><li>Argo CD applications and their sync state</li></ul></div><div class="area"><h3>Security and administration</h3><p>The cluster-wide view, for the people who own it.</p><ul><li>A security audit with checks you can open and act on</li><li>Users, groups and role bindings, and who can do what</li><li>Cluster administration and readiness checks</li><li>An installation check for the agent itself: AI backend, database, permissions</li></ul></div></div>
+</div>
+</section>
+
+<section class="block" aria-labelledby="screens">
+<div class="wrap">
+<h2 id="screens">A look around</h2>
+<div class="two">
+<figure><div class="shot"><img src="screenshots/scanners.png" width="672" height="720" loading="lazy" alt="Scanner coverage: a list of the 32 monitor scanners with their severity, what each looks for, and how many findings each has."></div>
+<figcaption><b>Scanner coverage.</b> All 32 checks the agent runs, what each looks for, and what it found.</figcaption></figure>
+<figure><div class="shot"><img src="screenshots/workloads.png" width="1440" height="900" loading="lazy" alt="The workloads view: warnings for a crashlooping pod, unavailable deployments and failed jobs, then counts per workload kind and charts of CPU, memory and container restarts."></div>
+<figcaption><b>Workloads.</b> What is unhealthy comes first, then counts and trends for every kind of workload.</figcaption></figure>
+</div>
+<div class="gallery"><figure><div class="shot"><img src="screenshots/security.png" width="1440" height="900" loading="lazy" alt="The Security view in OpenShift Pulse. A security audit: identity, RBAC, TLS and network policy checks, scored."></div><figcaption><b>Security.</b> A security audit: identity, RBAC, TLS and network policy checks, scored.</figcaption></figure><figure><div class="shot"><img src="screenshots/alerts.png" width="1440" height="900" loading="lazy" alt="The Alerts view in OpenShift Pulse. Firing and pending alerts with one-click silences and the rules behind them."></div><figcaption><b>Alerts.</b> Firing and pending alerts with one-click silences and the rules behind them.</figcaption></figure><figure><div class="shot"><img src="screenshots/networking.png" width="1440" height="900" loading="lazy" alt="The Networking view in OpenShift Pulse. Services, routes and policies, with a networking health audit."></div><figcaption><b>Networking.</b> Services, routes and policies, with a networking health audit.</figcaption></figure><figure><div class="shot"><img src="screenshots/compute.png" width="1440" height="900" loading="lazy" alt="The Compute view in OpenShift Pulse. Control plane and nodes, utilization trends, and a compute health audit."></div><figcaption><b>Compute.</b> Control plane and nodes, utilization trends, and a compute health audit.</figcaption></figure><figure><div class="shot"><img src="screenshots/storage.png" width="1440" height="900" loading="lazy" alt="The Storage view in OpenShift Pulse. Volumes, claims and storage classes, with IOPS and a storage audit."></div><figcaption><b>Storage.</b> Volumes, claims and storage classes, with IOPS and a storage audit.</figcaption></figure><figure><div class="shot"><img src="screenshots/table-view.png" width="1440" height="900" loading="lazy" alt="The Any resource view in OpenShift Pulse. Every resource type as a table: filter, sort, act on many at once."></div><figcaption><b>Any resource.</b> Every resource type as a table: filter, sort, act on many at once.</figcaption></figure></div>
+<p class="caption">Scanner coverage is from this release with sample data. The other screens come from an earlier release on a live cluster, so details may differ.</p>
+</div>
+</section>
+
 <section class="block" aria-labelledby="trust">
 <div class="wrap">
 <h2 id="trust">Nothing changes without a person saying yes</h2>
@@ -47,6 +69,7 @@
 </div>
 </section>
 
+
 <section class="block" aria-labelledby="new">
 <div class="wrap">
 <h2 id="new">What's new</h2>
@@ -60,20 +83,6 @@
 </ul>
 </div>
 <p class="intro"><a href="https://github.com/PulseSRE/pulse-ui/blob/main/CHANGELOG.md">Full changelog</a></p>
-</div>
-</section>
-
-<section class="block" aria-labelledby="console">
-<div class="wrap">
-<h2 id="console">A whole console around the inbox</h2>
-<p class="intro">Pulse also covers the day-to-day: browse and edit any resource, read logs, and check alerts, without switching tools.</p>
-<div class="two">
-<figure><div class="shot"><img src="screenshots/scanners.png" width="672" height="720" loading="lazy" alt="Scanner coverage: a list of the 32 monitor scanners with their severity, what each looks for, and how many findings each has."></div>
-<figcaption><b>Scanner coverage.</b> All 32 checks the agent runs, what each looks for, and what it found.</figcaption></figure>
-<figure><div class="shot"><img src="screenshots/workloads.png" width="1440" height="900" loading="lazy" alt="The workloads view: warnings for a crashlooping pod, unavailable deployments and failed jobs, then counts per workload kind and charts of CPU, memory and container restarts."></div>
-<figcaption><b>Workloads.</b> What is unhealthy comes first, then counts and trends for every kind of workload.</figcaption></figure>
-</div>
-<p class="caption">The workloads screenshot comes from an earlier release on a live cluster, so details may differ from today's screens.</p>
 </div>
 </section>
 
