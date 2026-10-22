@@ -8,6 +8,8 @@ A React and TypeScript dashboard for OpenShift operations: resource browsing and
 
 **New in v2.34.0:** durable approvals can be answered from the inbox and Pulse Agent → Runs; Create, Quick Deploy and Helm write to the cluster on screen; pod restart asks first and says when nothing will recreate the pod; scaling rejects stale counts; failed deletes in agent tables are reported. See the [changelog](CHANGELOG.md).
 
+**See it in 30 seconds:** [![Watch the 30-second overview of Pulse](https://pulsesre.github.io/pulse-agent/media/video-thumb.jpg)](https://pulsesre.github.io/pulse-agent/#film)
+
 ## Install
 
 Use the [Pulse Operator installation guide](https://github.com/PulseSRE/pulse-operator#install-via-olm) to deploy the UI, agent, PostgreSQL, OAuth proxy, and supporting resources from an `OpenShiftPulse` custom resource. This repository builds the UI container consumed by `spec.ui.image`; it does not contain a Helm chart for installing Pulse.
