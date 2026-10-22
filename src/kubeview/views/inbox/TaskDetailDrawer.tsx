@@ -23,6 +23,7 @@ import { askPulse } from '../../engine/askPulse';
 import { useUIStore } from '../../store/uiStore';
 import { useActionPlanStore, resolveStepStatus, isStepDone, type ActionPlanStep } from '../../store/actionPlanStore';
 import { InboxLifecycleStepper } from './InboxLifecycle';
+import { DurableApprovalPanel, DurableRunStarter } from './DurableRunControls';
 
 function formatDueDate(ts: number): string {
   const date = new Date(ts * 1000);
@@ -456,6 +457,17 @@ export function TaskDetailDrawer({
               <p className="text-sm text-slate-400">{agentError}</p>
             )}
           </div>
+        )}
+
+        {item.metadata?.generator === 'durable_approvals'
+          && typeof item.metadata?.workflow_id === 'string'
+          && typeof item.metadata?.phase_id === 'string'
+          && item.status !== 'resolved' && item.status !== 'archived' && (
+          <DurableApprovalPanel workflowId={item.metadata.workflow_id} phaseId={item.metadata.phase_id} />
+        )}
+
+        {item.finding_id && item.status !== 'resolved' && item.status !== 'archived' && (
+          <DurableRunStarter itemId={item.id} />
         )}
 
         <div className="flex items-center gap-2 flex-wrap">

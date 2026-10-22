@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
+import { describeAwaiting, fetchAwaitingApprovals, type AwaitingRun } from '../../engine/durableRunsApi';
+import { ApprovalButtons } from '../inbox/DurableRunControls';
 
 interface RunMemo {
   kind?: string;
@@ -57,6 +59,14 @@ export function RunsTab() {
       }
       return res.json();
     },
+  });
+
+  // Runs parked on an approval gate. Answerable here, not only from the plan
+  // panel that started them while it stayed open.
+  const { data: awaiting } = useQuery<AwaitingRun[]>({
+    queryKey: ['workflow-runs-awaiting'],
+    refetchInterval: 5000,
+    queryFn: fetchAwaitingApprovals,
   });
 
   const cancel = async (run: WorkflowRun) => {
@@ -116,6 +126,36 @@ export function RunsTab() {
       {error && (
         <div className="px-3 py-2 text-xs rounded-md border bg-amber-950/40 border-amber-900/40 text-amber-300">
           {error}
+        </div>
+      )}
+
+      {(awaiting?.length ?? 0) > 0 && (
+        <div className="bg-amber-950/20 border border-amber-900/40 rounded-md">
+          <div className="px-3 py-2 text-xs font-medium text-amber-300 border-b border-amber-900/40">
+            Waiting for your approval
+          </div>
+          <div className="divide-y divide-amber-900/30">
+            {awaiting!.map((run) => (
+              <div key={`${run.workflow_id}:${run.phase_id}`} className="flex items-center gap-3 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-slate-200 truncate">{describeAwaiting(run)}</div>
+                  <div className="text-[10px] text-slate-500 truncate">
+                    {run.workflow_id}
+                    {run.phases && Object.keys(run.phases).length > 0 && (
+                      <> · done: {Object.entries(run.phases).map(([id, p]) => `${id} ${p.status ?? ''}`.trim()).join(', ')}</>
+                    )}
+                  </div>
+                </div>
+                <ApprovalButtons
+                  run={run}
+                  onAnswered={() => {
+                    queryClient.invalidateQueries({ queryKey: ['workflow-runs-awaiting'] });
+                    queryClient.invalidateQueries({ queryKey: ['workflow-runs'] });
+                  }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

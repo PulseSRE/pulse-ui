@@ -29,6 +29,9 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
+  // What the run investigates. Without a target the plan was started with an
+  // empty incident and investigated nothing in particular.
+  const [target, setTarget] = useState({ title: '', namespace: '', kind: 'Deployment', name: '' });
 
   const { data: run } = useQuery<RunState>({
     queryKey: ['workflow-run', workflowId],
@@ -49,7 +52,7 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
       const res = await agentFetch(`/api/agent/plan-templates/${encodeURIComponent(incidentType)}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ incident: {} }),
+        body: JSON.stringify({ incident: buildIncident(target) }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -80,8 +83,33 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
   const awaiting = run?.status === 'RUNNING' ? run.progress?.awaiting_approval : '';
   const phases = run?.progress?.phases ?? run?.result?.phase_outputs ?? {};
 
+  const inputClass =
+    'px-2 py-1 text-xs bg-slate-950 border border-slate-800 rounded-sm text-slate-200 placeholder-slate-600 focus:outline-hidden focus:ring-1 focus:ring-cyan-700';
+
   return (
     <div className="space-y-2">
+      <div className="space-y-1">
+        <input
+          aria-label="What should this run investigate?"
+          placeholder="What should this run investigate? (e.g. checkout pods crash-looping)"
+          value={target.title}
+          onChange={(e) => setTarget({ ...target, title: e.target.value })}
+          className={cn(inputClass, 'w-full')}
+        />
+        <div className="flex gap-1">
+          <input aria-label="Namespace" placeholder="namespace" value={target.namespace}
+            onChange={(e) => setTarget({ ...target, namespace: e.target.value })} className={cn(inputClass, 'w-1/3')} />
+          <select aria-label="Kind" value={target.kind} onChange={(e) => setTarget({ ...target, kind: e.target.value })}
+            className={cn(inputClass, 'w-1/3')}>
+            {['Deployment', 'StatefulSet', 'DaemonSet', 'Pod', 'Node'].map((k) => <option key={k}>{k}</option>)}
+          </select>
+          <input aria-label="Name" placeholder="name" value={target.name}
+            onChange={(e) => setTarget({ ...target, name: e.target.value })} className={cn(inputClass, 'w-1/3')} />
+        </div>
+        <p className="text-[10px] text-slate-500">
+          To investigate a specific finding, open it in the inbox and start the run from there.
+        </p>
+      </div>
       <div className="flex items-center gap-2">
         <button
           onClick={start}
@@ -140,3 +168,16 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
     </div>
   );
 }
+
+/** The incident a plan-panel run investigates; empty fields are left out. */
+export function buildIncident(t: { title: string; namespace: string; kind: string; name: string }) {
+  const incident: Record<string, unknown> = {};
+  if (t.title.trim()) incident.title = t.title.trim();
+  if (t.name.trim()) {
+    incident.resources = [
+      { kind: t.kind, name: t.name.trim(), ...(t.namespace.trim() ? { namespace: t.namespace.trim() } : {}) },
+    ];
+  }
+  return incident;
+}
+

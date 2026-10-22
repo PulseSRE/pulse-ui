@@ -2,6 +2,13 @@
 
 Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
 
+## Unreleased
+
+### Added
+- Durable approvals can be answered where they show up. Runs waiting on an approval gate are listed at the top of Pulse Agent → Runs with Approve and Deny, and the agent's new inbox item for a waiting run carries the same buttons. Before, the only place to answer was the plan panel that started the run, while it stayed open; otherwise the run timed out to needs_escalation with nobody asked. Approving asks first, naming the phase and target, because an approved phase may change the cluster (pulse-agent #172)
+- Start a durable run from an inbox item: a finding whose kind has a plan offers "Run … durably", which runs that plan against that finding and says which phases will stop for approval (pulse-agent #172)
+- "Run durably" in the plan panel takes a target (what to investigate, namespace, kind, name). It used to start the plan with an empty incident
+
 ## v2.33.0 (2026-10-18)
 
 Paired with pulse-agent v2.33.0 and pulse-operator v0.10.0.
