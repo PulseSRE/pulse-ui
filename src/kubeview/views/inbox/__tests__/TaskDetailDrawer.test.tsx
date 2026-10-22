@@ -3,8 +3,8 @@
  * Tests that every inbox item status renders at least one action button
  * in the detail drawer. Catches dead-end states.
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
 import { TaskDetailDrawer } from '../TaskDetailDrawer';
 import type { InboxItem } from '../../../engine/inboxApi';
 
@@ -180,3 +180,28 @@ describe('TaskDetailDrawer — no dead-end states', () => {
     expect(screen.getAllByText(/1\/2 steps complete/i).length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('TaskDetailDrawer — durable approvals', () => {
+  afterEach(cleanup);
+
+  it('lets the person answer a waiting durable run from its inbox item', () => {
+    const item = makeItem({
+      item_type: 'task',
+      metadata: { generator: 'durable_approvals', workflow_id: 'plan-crashloop-abc', phase_id: 'remediate' },
+    });
+    render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
+    expect(screen.getAllByText(/A durable run is waiting for your approval/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Approve').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows nothing to answer once the item is resolved', () => {
+    const item = makeItem({
+      item_type: 'task',
+      status: 'resolved',
+      metadata: { generator: 'durable_approvals', workflow_id: 'plan-crashloop-abc', phase_id: 'remediate' },
+    });
+    render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
+    expect(screen.queryByText(/A durable run is waiting for your approval/)).toBeNull();
+  });
+});
+
