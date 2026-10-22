@@ -4,7 +4,9 @@ A React and TypeScript dashboard for OpenShift operations: resource browsing and
 
 ![Inbox: a capability banner with its fix, an episode led by the rollout before it, and the queue](docs/screenshots/inbox.png)
 
-<sub>Sample data. New in v2.33.0: the banner says which checks are off and how to turn them back on; episodes lead with the change closest to what broke and offer a rollback through Pulse's normal confirmation.</sub>
+<sub>Sample data. The banner says which checks are off and how to turn them back on; episodes lead with the change closest to what broke and offer a rollback through Pulse's normal confirmation.</sub>
+
+**New in v2.34.0:** durable approvals can be answered from the inbox and Pulse Agent → Runs; Create, Quick Deploy and Helm write to the cluster on screen; pod restart asks first and says when nothing will recreate the pod; scaling rejects stale counts; failed deletes in agent tables are reported. See the [changelog](CHANGELOG.md).
 
 ## Install
 
