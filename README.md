@@ -6,6 +6,16 @@ A React and TypeScript dashboard for OpenShift operations: resource browsing and
 
 <sub>Sample data. The banner says which checks are off and how to turn them back on; episodes lead with the change closest to what broke and offer a rollback through Pulse's normal confirmation.</sub>
 
+**Every diagnosis comes with proof.** When you pick up an incident, Pulse builds a view of the evidence behind its diagnosis from live cluster data: the steps it took, the metric that moved, the crash line, what it ruled out, and how confident it is.
+
+![The evidence view for a failing checkout rollout](docs/screenshots/evidence.png)
+
+**Ask for a view, get one.** Describe what you want to see in plain English. Pulse runs the queries, shows each tool as it goes, and builds a dashboard for that question that you can keep, edit or share.
+
+![The chat building a view of checkout since the rollout](docs/screenshots/chat.png)
+
+<sub>Sample data in both.</sub>
+
 **New in v2.34.0:** durable approvals can be answered from the inbox and Pulse Agent → Runs; Create, Quick Deploy and Helm write to the cluster on screen; pod restart asks first and says when nothing will recreate the pod; scaling rejects stale counts; failed deletes in agent tables are reported. See the [changelog](CHANGELOG.md).
 
 **See it in 30 seconds:** [![Watch the 30-second overview of Pulse](https://pulsesre.github.io/pulse-agent/media/video-thumb.jpg)](https://pulsesre.github.io/pulse-agent/#film)
