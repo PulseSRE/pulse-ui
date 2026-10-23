@@ -8,6 +8,7 @@ import { Search, Play, Pause, WrapText, Download, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseLogLine, detectLogFormat, type ParsedLogLine, type LogFormat } from './LogParser';
 import { pickDefaultContainer } from './pickDefaultContainer';
+import { readLogStream, appendCapped, withParam } from './logStreamReader';
 
 interface LogStreamProps {
   namespace: string;
@@ -42,6 +43,11 @@ export default function LogStream({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logFormat, setLogFormat] = useState<LogFormat>('plain');
+  // The logs on screen are from the previous (crashed) container instance, not the running one.
+  const [showingPrevious, setShowingPrevious] = useState(false);
+  // A follow stream the server closed: the container exited or restarted.
+  const [streamEnded, setStreamEnded] = useState(false);
+  const [reconnectKey, setReconnectKey] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -72,6 +78,7 @@ export default function LogStream({
   // Fetch logs
   useEffect(() => {
     let mounted = true;
+    const isActive = () => mounted;
 
     const fetchLogs = async () => {
       // Cancel any existing fetch
@@ -79,28 +86,30 @@ export default function LogStream({
         abortControllerRef.current.abort();
       }
 
-      abortControllerRef.current = new AbortController();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
       setLoading(true);
       setError(null);
+      setStreamEnded(false);
+      setShowingPrevious(false);
 
       try {
         let url = buildLogUrl(isFollowing);
-        let response = await fetch(url, {
-          signal: abortControllerRef.current.signal,
-        });
+        let response = await fetch(url, { signal: controller.signal });
 
         // 400 usually means multi-container pod without container param — auto-detect first container
         if (response.status === 400 && !containerName) {
           const podRes = await fetch(`${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}`, {
-            signal: abortControllerRef.current.signal,
+            signal: controller.signal,
           });
           if (podRes.ok) {
             const podData = await podRes.json();
             const containerNames = (podData?.spec?.containers ?? []).map((c: { name?: string }) => c.name);
             const defaultContainer = pickDefaultContainer(containerNames);
             if (defaultContainer) {
-              const retryUrl = url + (url.includes('?') ? '&' : '?') + `container=${encodeURIComponent(defaultContainer)}`;
-              response = await fetch(retryUrl, { signal: abortControllerRef.current.signal });
+              // Every later request (including the previous-container fallback) uses this URL.
+              url = withParam(url, 'container', defaultContainer);
+              response = await fetch(url, { signal: controller.signal });
             }
           }
         }
@@ -109,107 +118,64 @@ export default function LogStream({
           throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
         }
 
-        // If current container has no logs (crashed/terminated), try previous container
-        if (!isFollowing && !url.includes('previous=true')) {
-          const currentText = await response.text();
-          if (!currentText.trim()) {
-            const prevUrl = url + (url.includes('?') ? '&' : '?') + 'previous=true';
-            try {
-              const prevResponse = await fetch(prevUrl, { signal: abortControllerRef.current.signal });
-              if (prevResponse.ok) {
-                response = prevResponse;
+        if (isFollowing && response.body) {
+          // Streaming mode. The stream starts with the same tail a one-off fetch
+          // returns, so it replaces what is on screen rather than appending to it;
+          // appending duplicated the whole tail every time follow was switched on.
+          let format: LogFormat | null = null;
+          let first = true;
+          const result = await readLogStream(
+            response.body.getReader(),
+            (raw) => {
+              if (!mounted) return;
+              if (format === null) {
+                format = detectLogFormat(raw);
+                setLogFormat(format);
               }
-            } catch (err) { console.warn('Failed to fetch previous container logs:', err); }
-          } else {
-            // Current has content — parse it directly and skip re-reading
-            if (mounted) {
-              const rawLines = currentText.split('\n').filter((l) => l.trim());
-              const detected = detectLogFormat(rawLines);
-              setLogFormat(detected);
-              const parsedLines = rawLines.map((line) => parseLogLine(line, detected));
-              setLines(parsedLines.length > MAX_LINES ? parsedLines.slice(-MAX_LINES) : parsedLines);
+              const fmt = format;
+              const batch = raw.map((line) => parseLogLine(line, fmt));
+              const replace = first;
+              first = false;
+              setLines((prev) => appendCapped(replace ? [] : prev, batch, MAX_LINES));
               setLoading(false);
+            },
+            isActive,
+          );
+          if (mounted) {
+            if (first) setLines([]);
+            setLoading(false);
+            if (result.ended) setStreamEnded(true);
+          }
+          return;
+        }
+
+        // One-off fetch. If the running container has written nothing (it just
+        // crashed or restarted), show the previous instance's logs, and say so.
+        let text = await response.text();
+        let previous = false;
+        if (!text.trim()) {
+          try {
+            const prevResponse = await fetch(withParam(url, 'previous', 'true'), { signal: controller.signal });
+            if (prevResponse.ok) {
+              const prevText = await prevResponse.text();
+              if (prevText.trim()) {
+                text = prevText;
+                previous = true;
+              }
             }
-            return;
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') throw err;
+            console.warn('Failed to fetch previous container logs:', err);
           }
         }
 
-        if (isFollowing && response.body) {
-          // Streaming mode
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-          const parsedLines: ParsedLogLine[] = [];
-
-          while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const newLines = buffer.split('\n');
-
-            // Keep last incomplete line in buffer
-            buffer = newLines.pop() || '';
-
-            for (const line of newLines) {
-              if (line.trim()) {
-                const parsed = parseLogLine(line, logFormat);
-                parsedLines.push(parsed);
-              }
-            }
-
-            if (mounted) {
-              // Detect format from first batch
-              if (parsedLines.length > 0 && logFormat === 'plain') {
-                const detected = detectLogFormat(parsedLines.map((l) => l.raw));
-                setLogFormat(detected);
-              }
-
-              // Update lines, limiting to MAX_LINES
-              setLines((prev) => {
-                const combined = [...prev, ...parsedLines];
-                if (combined.length > MAX_LINES) {
-                  return combined.slice(-MAX_LINES);
-                }
-                return combined;
-              });
-
-              parsedLines.length = 0; // Clear for next batch
-              setLoading(false);
-            }
-          }
-
-          // Process any remaining buffer
-          if (buffer.trim() && mounted) {
-            const parsed = parseLogLine(buffer, logFormat);
-            setLines((prev) => {
-              const combined = [...prev, parsed];
-              if (combined.length > MAX_LINES) {
-                return combined.slice(-MAX_LINES);
-              }
-              return combined;
-            });
-          }
-        } else {
-          // Non-streaming mode
-          const text = await response.text();
+        if (mounted) {
           const rawLines = text.split('\n').filter((l) => l.trim());
-
-          if (mounted) {
-            const detected = detectLogFormat(rawLines);
-            setLogFormat(detected);
-
-            const parsedLines = rawLines.map((line) => parseLogLine(line, detected));
-
-            // Limit to MAX_LINES
-            if (parsedLines.length > MAX_LINES) {
-              setLines(parsedLines.slice(-MAX_LINES));
-            } else {
-              setLines(parsedLines);
-            }
-            setLoading(false);
-          }
+          const detected = detectLogFormat(rawLines);
+          setLogFormat(detected);
+          setLines(appendCapped([], rawLines.map((line) => parseLogLine(line, detected)), MAX_LINES));
+          setShowingPrevious(previous);
+          setLoading(false);
         }
       } catch (err) {
         if (mounted && err instanceof Error && err.name !== 'AbortError') {
@@ -227,7 +193,7 @@ export default function LogStream({
         abortControllerRef.current.abort();
       }
     };
-  }, [namespace, podName, containerName, isFollowing, buildLogUrl, clusterBase]);
+  }, [namespace, podName, containerName, isFollowing, buildLogUrl, clusterBase, reconnectKey]);
 
   // Auto-scroll when following
   useEffect(() => {
@@ -353,7 +319,7 @@ export default function LogStream({
           <div className="text-xs text-slate-400 whitespace-nowrap">
             {searchQuery && `${matchCount} / `}
             {totalLines} {totalLines === MAX_LINES && '(max) '}lines
-            {isFollowing && (
+            {isFollowing && !streamEnded && (
               <span className="ml-2 inline-flex items-center gap-1 text-green-400">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 Live
@@ -413,6 +379,23 @@ export default function LogStream({
           </button>
         </div>
       </div>
+
+      {showingPrevious && (
+        <div role="status" className="px-3 py-1.5 text-xs bg-amber-950/60 border-b border-amber-800 text-amber-200">
+          The running container has no output yet, so these are logs from the previous instance, before it restarted.
+        </div>
+      )}
+      {streamEnded && (
+        <div role="status" className="flex items-center gap-3 px-3 py-1.5 text-xs bg-slate-800 border-b border-slate-600 text-slate-200">
+          <span>The log stream ended: the container stopped or restarted. New lines are not arriving.</span>
+          <button
+            onClick={() => setReconnectKey((k) => k + 1)}
+            className="px-2 py-0.5 rounded-sm bg-slate-700 hover:bg-slate-600 text-slate-100"
+          >
+            Reconnect
+          </button>
+        </div>
+      )}
 
       {/* Log content */}
       <div

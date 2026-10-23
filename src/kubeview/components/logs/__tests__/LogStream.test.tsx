@@ -91,4 +91,57 @@ describe('LogStream', () => {
 
     expect(screen.getByText(/Failed to fetch logs: 500/)).toBeTruthy();
   });
+
+  it('falls back to the previous container when the running one has no output, and says so', async () => {
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, ''));
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, 'panic: payments.url is not set'));
+
+    await act(async () => {
+      render(<LogStream namespace="shop" podName="checkout-1" />);
+    });
+
+    expect(vi.mocked(fetch).mock.calls[1][0]).toContain('previous=true');
+    expect(screen.getByText('panic: payments.url is not set')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('previous instance');
+  });
+
+  it('asks for the previous logs of the container it auto-detected', async () => {
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(400, 'must specify container'));
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, { spec: { containers: [{ name: 'app' }] } }));
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, ''));
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, 'old line'));
+
+    await act(async () => {
+      render(<LogStream namespace="shop" podName="checkout-1" />);
+    });
+
+    const prevUrl = String(vi.mocked(fetch).mock.calls[3][0]);
+    expect(prevUrl).toContain('container=app');
+    expect(prevUrl).toContain('previous=true');
+  });
+
+  it('does not mark current logs as previous', async () => {
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, 'fresh line'));
+    await act(async () => {
+      render(<LogStream namespace="shop" podName="checkout-1" />);
+    });
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('streams every line in follow mode and says when the stream ends', async () => {
+    const enc = new TextEncoder();
+    const chunks = ['a1\na2\n', 'a3\n'];
+    let i = 0;
+    const body = { getReader: () => ({ read: async () => (i < chunks.length ? { done: false, value: enc.encode(chunks[i++]) } : { done: true, value: undefined }) }) };
+    vi.mocked(fetch).mockReturnValueOnce(Promise.resolve({ ok: true, status: 200, statusText: 'OK', body } as any));
+
+    await act(async () => {
+      render(<LogStream namespace="shop" podName="checkout-1" follow />);
+    });
+
+    expect(vi.mocked(fetch).mock.calls[0][0]).toContain('follow=true');
+    for (const t of ['a1', 'a2', 'a3']) expect(screen.getByText(t)).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain('stream ended');
+    expect(screen.queryByText('Live')).toBeNull();
+  });
 });

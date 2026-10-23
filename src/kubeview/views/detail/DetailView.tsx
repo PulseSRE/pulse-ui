@@ -3,7 +3,9 @@ import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { XCircle } from 'lucide-react';
-import { k8sGet, k8sDelete, k8sPatch, k8sCreate } from '../../engine/query';
+import { k8sGet, k8sDelete, k8sPatch, k8sCreate, k8sList } from '../../engine/query';
+import { terminalTargets, defaultTerminalTarget } from '../../engine/terminalTargets';
+import { pickDefaultContainer } from '../../components/logs/pickDefaultContainer';
 import { scalePatch } from '../../engine/writeGuards';
 import type { K8sResource } from '../../engine/renderers';
 import type { Deployment, Pod, Event, Container, Condition } from '../../engine/types';
@@ -237,7 +239,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           namespace: 'default',
           podName: debugName,
           containerName: 'debug',
-          isNode: false,
+          isNode: true,
         });
       } else if (resource.kind === 'Pod' && namespace) {
         const debugContainerName = `debug-${Date.now().toString(36).slice(-6)}`;
@@ -251,7 +253,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                 command: ['sh'],
                 stdin: true,
                 tty: true,
-                targetContainerName: (resource.spec as Pod['spec'])?.containers?.[0]?.name,
+                // Share the app container's process namespace, not a sidecar's.
+                targetContainerName: pickDefaultContainer(((resource.spec as Pod['spec'])?.containers ?? []).map((c) => c.name)),
               },
             ],
           },
@@ -306,18 +309,46 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     }
   };
 
-  const handleOpenTerminal = () => {
+  const handleOpenTerminal = async () => {
     if (!resource) return;
-    const spec = (resource.spec as Record<string, unknown>) || {};
-    const containerName = resource.kind === 'Pod'
-      ? (spec.containers as Container[] | undefined)?.[0]?.name || ''
-      : '';
-    useUIStore.getState().openTerminal({
+    if (resource.kind === 'Node') {
+      // A node has no shell of its own. The terminal used to exec into a pod
+      // named after the node in "default", which does not exist. Attach to the
+      // node's running debug pod instead, if Debug has created one.
+      try {
+        const pods = await k8sList<Pod>(
+          `/api/v1/namespaces/default/pods?labelSelector=${encodeURIComponent(`openshiftpulse/debug-node=${resource.metadata.name}`)}`,
+          undefined,
           clusterId,
-      namespace: resource.kind === 'Node' ? 'default' : namespace || '',
+        );
+        const live = pods.find((p) => p.status?.phase === 'Running');
+        if (!live) {
+          addToast({
+            type: 'warning',
+            title: 'No debug pod on this node',
+            detail: 'Use Debug to start a privileged debug pod on the node, then open the terminal.',
+          });
+          return;
+        }
+        useUIStore.getState().openTerminal({
+          clusterId,
+          namespace: 'default',
+          podName: live.metadata.name,
+          containerName: 'debug',
+          isNode: true,
+        });
+      } catch (err) {
+        showErrorToast(err, 'Could not look for a debug pod');
+      }
+      return;
+    }
+    const targets = terminalTargets(resource as Pod);
+    useUIStore.getState().openTerminal({
+      clusterId,
+      namespace: namespace || '',
       podName: name,
-      containerName,
-      isNode: resource.kind === 'Node',
+      containerName: defaultTerminalTarget(targets),
+      containers: targets,
     });
   };
 

@@ -28,7 +28,7 @@ vi.mock('../../../components/agent/AmbientInsight', () => ({
   AmbientInsight: () => <div data-testid="ambient-insight" />,
 }));
 
-import { FleetReportTab } from '../FleetReportTab';
+import { FleetReportTab, computeRiskScore } from '../FleetReportTab';
 
 describe('FleetReportTab', () => {
   afterEach(() => cleanup());
@@ -64,5 +64,19 @@ describe('FleetReportTab', () => {
   it('shows Unreachable status for down clusters', () => {
     render(<FleetReportTab />);
     expect(screen.getByText('Unreachable')).toBeTruthy();
+  });
+});
+
+// Regression: with no clusters, or none checked yet, the fleet scored 100
+// "Healthy" — absence of data shown as absence of problems.
+describe('computeRiskScore', () => {
+  it('does not call an empty fleet healthy', () => {
+    expect(computeRiskScore([])).toMatchObject({ score: null, label: 'No clusters' });
+  });
+  it('does not call unchecked clusters healthy', () => {
+    expect(computeRiskScore([{ status: 'unknown' }, { status: 'unknown' }])).toMatchObject({ score: null, label: 'Checking' });
+  });
+  it('scores only the clusters whose health is known', () => {
+    expect(computeRiskScore([{ status: 'connected' }, { status: 'unreachable' }, { status: 'unknown' }])).toMatchObject({ score: 50, label: 'Critical' });
   });
 });

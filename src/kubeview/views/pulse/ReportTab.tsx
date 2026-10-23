@@ -220,10 +220,12 @@ export interface ReportTabProps {
   deployments: Deployment[];
   pvcs: PersistentVolumeClaim[];
   operators: ClusterOperator[];
+  /** Lists that failed to load; those areas are unknown, not clear. */
+  unavailable?: string[];
   go: (path: string, title: string) => void;
 }
 
-export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: ReportTabProps) {
+export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavailable = [], go }: ReportTabProps) {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -511,6 +513,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
   // Zen state: cluster is healthy, no issues
   const isZenState = riskScore <= 5
     && !alertsError // don't show Zen if alerting is broken
+    && unavailable.length === 0 // nor when a list failed to load
     && (nodes.length > 0 || allPods.length > 0) // must have actual data loaded
     && attentionItems.length === 0
     && criticalAlerts.length === 0
@@ -881,7 +884,13 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, go }: 
         )}
 
         {/* All clear in Zone 3 */}
-        {attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
+        {unavailable.length > 0 && (
+          <div role="status" className="w-full bg-slate-900 rounded-lg border border-amber-900/50 p-4 text-center">
+            <div className="text-sm font-medium text-amber-300">Couldn't check {unavailable.join(', ')}</div>
+            <div className="text-xs text-slate-400 mt-0.5">Those lists failed to load, so problems there would not show up here. Check your permissions or the cluster connection.</div>
+          </div>
+        )}
+        {unavailable.length === 0 && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
           <button onClick={() => go('/readiness', 'Readiness')} className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center hover:border-green-800/50 transition-colors">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
             <div className="text-sm font-medium text-slate-200">All clear</div>

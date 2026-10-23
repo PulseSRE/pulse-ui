@@ -211,3 +211,46 @@ it('switches A watch to B and ignores late A events for the visible same-name ob
   useFleetStore.getState().setActiveCluster('local');
   unregisterCluster('b');
 });
+
+describe('useK8sListWatch cache consistency', () => {
+  beforeEach(() => {
+    k8sListMock.mockReset();
+    vi.mocked(watchManager.watch).mockReset();
+    vi.mocked(watchManager.watch).mockReturnValue({ unsubscribe: vi.fn() });
+  });
+  afterEach(() => cleanup());
+
+  function watchCallback() {
+    return vi.mocked(watchManager.watch).mock.calls[0][1] as (e: any) => void;
+  }
+
+  // Regression: after a 410 the watch restarted from "now" and the cache was
+  // only patched, so pods deleted during the gap stayed listed until the next
+  // safety poll, and forever while the tab was hidden (polling pauses).
+  it('relists when the watch reports a resync', async () => {
+    k8sListMock.mockResolvedValueOnce([
+      { metadata: { name: 'gone', uid: 'u1', resourceVersion: '1' } },
+      { metadata: { name: 'kept', uid: 'u2', resourceVersion: '1' } },
+    ]);
+    const { result } = renderHook(() => useK8sListWatch({ apiPath: '/api/v1/pods' }), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.data?.length).toBe(2));
+
+    k8sListMock.mockResolvedValueOnce([{ metadata: { name: 'kept', uid: 'u2', resourceVersion: '9' } }]);
+    act(() => watchCallback()({ type: 'RESYNC', object: null }));
+
+    await waitFor(() => expect(result.current.data?.map((p) => p.metadata.name)).toEqual(['kept']));
+    expect(k8sListMock).toHaveBeenCalledTimes(2);
+  });
+
+  // A watch opened without a resourceVersion replays every object as ADDED
+  // with its current state; ignoring those for known uids kept stale copies.
+  it('treats ADDED for a known object as an update', async () => {
+    k8sListMock.mockResolvedValueOnce([{ metadata: { name: 'web', uid: 'u1', resourceVersion: '1' }, status: { phase: 'Pending' } }]);
+    const { result } = renderHook(() => useK8sListWatch({ apiPath: '/api/v1/pods' }), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.data?.length).toBe(1));
+
+    act(() => watchCallback()({ type: 'ADDED', object: { metadata: { name: 'web', uid: 'u1', resourceVersion: '2' }, status: { phase: 'Running' } } }));
+    await waitFor(() => expect((result.current.data?.[0] as any).status.phase).toBe('Running'));
+    expect(result.current.data?.length).toBe(1);
+  });
+});

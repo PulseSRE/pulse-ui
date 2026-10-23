@@ -115,9 +115,18 @@ describe('AlertsView', () => {
     expect(screen.getByRole('tab', { name: /^Silences \(/ })).toBeDefined();
   });
 
-  it('shows "No alerts firing" badge when no alerts', () => {
+  it('shows "No alerts firing" badge when no alerts', async () => {
     renderAlerts();
-    expect(screen.getAllByText('No alerts firing').length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText('No alerts firing')).length).toBeGreaterThanOrEqual(1);
+  });
+
+  // Regression: before Prometheus answered, the page already said "No alerts
+  // firing — your cluster is healthy".
+  it('says it is checking, not that the cluster is healthy, before alerts load', () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}));
+    renderAlerts();
+    expect(screen.queryByText('No alerts firing')).toBeNull();
+    expect(screen.getAllByText('Checking alerts…').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows search input with placeholder', () => {
@@ -145,11 +154,11 @@ describe('AlertsView', () => {
     expect(screen.getByText('Prometheus alerts, rules, and silences')).toBeDefined();
   });
 
-  it('shows "No alerts firing" in the firing tab content when empty', () => {
+  it('shows "No alerts firing" in the firing tab content when empty', async () => {
     renderAlerts();
     // The firing tab is active by default and shows "No alerts firing" in two places:
     // the badge at top and the empty-state in the tab content
-    const noAlerts = screen.getAllByText('No alerts firing');
+    const noAlerts = await screen.findAllByText('No alerts firing');
     expect(noAlerts.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -331,11 +340,11 @@ describe('AlertsView', () => {
     expect(screen.queryByText('New Silence')).toBeNull();
   });
 
-  it('shows EmptyState with guidance when firing alerts tab is empty', () => {
+  it('shows EmptyState with guidance when firing alerts tab is empty', async () => {
     renderAlerts();
     const firingTab = screen.getByRole('tab', { name: /^Firing \(/ });
     fireEvent.click(firingTab);
-    expect(screen.getAllByText('No alerts firing').length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText('No alerts firing')).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Your cluster is healthy.*no alerts are currently firing/)).toBeDefined();
   });
 
