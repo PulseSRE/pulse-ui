@@ -181,14 +181,20 @@ export default function PulseView() {
   const fleetMode = useFleetStore((s) => s.fleetMode);
 
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
-  const { data: nodes = [], isLoading: nodesLoading } = useK8sListWatch<Node>({ apiPath: '/api/v1/nodes' });
-  const { data: pods = [], isLoading: podsLoading } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: nsFilter });
-  const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
-  const { data: pvcs = [], isLoading: pvcsLoading } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
-  const { data: operators = [], isLoading: opsLoading } = useK8sListWatch<ClusterOperator>({ apiPath: '/apis/config.openshift.io/v1/clusteroperators' });
+  const { data: nodes = [], isLoading: nodesLoading, isError: nodesError } = useK8sListWatch<Node>({ apiPath: '/api/v1/nodes' });
+  const { data: pods = [], isLoading: podsLoading, isError: podsError } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: nsFilter });
+  const { data: deployments = [], isLoading: deploysLoading, isError: deploysError } = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
+  const { data: pvcs = [], isLoading: pvcsLoading, isError: pvcsError } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
+  const { data: operators = [], isLoading: opsLoading, isError: opsError } = useK8sListWatch<ClusterOperator>({ apiPath: '/apis/config.openshift.io/v1/clusteroperators' });
   const { data: events = [] } = useK8sListWatch<Event>({ apiPath: '/api/v1/events', namespace: nsFilter });
 
   const isLoading = nodesLoading || podsLoading || deploysLoading || pvcsLoading || opsLoading;
+  // Lists that failed to load. An empty list from a failed request is not an
+  // empty cluster, so the report must not call those areas clear.
+  const unavailable = [
+    nodesError && 'nodes', podsError && 'pods', deploysError && 'deployments',
+    pvcsError && 'volume claims', opsError && 'cluster operators',
+  ].filter((x): x is string => Boolean(x));
   const { monitorConnected, activeSkill, monitorEnabled, setMonitorEnabled, triggerScan, findings, lastScanTime } =
     useMonitorStore(useShallow((s) => ({
       monitorConnected: s.connected,
@@ -365,6 +371,7 @@ export default function PulseView() {
             deployments={deployments}
             pvcs={pvcs}
             operators={operators}
+            unavailable={unavailable}
             go={go}
           />
         )}

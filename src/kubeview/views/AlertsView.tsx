@@ -103,7 +103,7 @@ export default function AlertsView() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch alerts from Prometheus
-  const { data: alertGroups = [], error: alertsError, refetch: refetchAlerts } = useQuery<AlertGroup[]>({
+  const { data: alertGroups = [], error: alertsError, refetch: refetchAlerts, isPending: alertsPending } = useQuery<AlertGroup[]>({
     queryKey: ['alerts', 'rules'],
     queryFn: async () => {
       const res = await fetch('/api/prometheus/api/v1/rules');
@@ -389,6 +389,10 @@ export default function AlertsView() {
               <XCircle className="w-5 h-5 text-red-400" />
               <span className="text-sm font-medium text-red-300">Backend unavailable</span>
             </div>
+          ) : alertsPending ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/60 border border-slate-700 rounded-lg">
+              <span className="text-sm text-slate-300">Checking alerts…</span>
+            </div>
           ) : allAlerts.length === 0 ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-green-900/30 border border-green-800 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-400" />
@@ -522,6 +526,12 @@ export default function AlertsView() {
                     : 'Check that Prometheus and Alertmanager are configured and accessible.'
                 }
                 action={{ label: 'Retry', onClick: () => { refetchAlerts(); refetchSilences(); } }}
+              />
+            ) : alertsPending ? (
+              <EmptyState
+                icon={<Bell className="w-8 h-8" />}
+                title="Checking alerts…"
+                description="Asking Prometheus which alerts are firing."
               />
             ) : filteredAlerts.length === 0 ? (
               <EmptyState

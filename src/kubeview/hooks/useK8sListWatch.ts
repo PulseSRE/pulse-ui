@@ -71,6 +71,14 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
       subscription = watchManager.watch<T>(
         watchPath,
         (event: WatchEvent<T>) => {
+          if (event.type === 'RESYNC') {
+            // The watch lost its place (410 Gone). Objects deleted meanwhile
+            // will never arrive as DELETED, so patching the cache would keep
+            // them on screen until the next safety poll, or indefinitely
+            // while the tab is hidden and polling is paused. Relist now.
+            queryClient.invalidateQueries({ queryKey, exact: true });
+            return;
+          }
           if (event.type === 'ADDED' || event.type === 'MODIFIED' || event.type === 'DELETED') {
             queryClient.setQueryData<T[]>(queryKey, (old) => {
               if (!old) return old;
@@ -82,19 +90,21 @@ export function useK8sListWatch<T extends K8sResource = K8sResource>({
                 return old.filter((item) => item.metadata.uid !== uid);
               }
 
+              // ADDED and MODIFIED are both upserts. A watch opened without a
+              // resourceVersion (the first one, and every one after a 410)
+              // starts with a synthetic ADDED for every existing object; those
+              // carry the current state, so they must replace a cached copy
+              // rather than be ignored because the uid is already present.
               const idx = old.findIndex((item) => item.metadata.uid === uid);
-              if (event.type === 'ADDED' && idx === -1) {
+              if (idx === -1) {
                 return [...old, event.object];
               }
-              if (event.type === 'MODIFIED' && idx !== -1) {
-                const updated = [...old];
-                updated[idx] = event.object;
-                return updated;
+              if (old[idx].metadata.resourceVersion === event.object.metadata?.resourceVersion) {
+                return old;
               }
-              if (event.type === 'MODIFIED' && idx === -1) {
-                return [...old, event.object];
-              }
-              return old;
+              const updated = [...old];
+              updated[idx] = event.object;
+              return updated;
             });
 
             setConnectionStatus('connected');

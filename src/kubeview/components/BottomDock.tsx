@@ -126,10 +126,12 @@ export function BottomDock() {
             <Suspense fallback={<div className="text-xs text-slate-500 p-3">Loading terminal...</div>}>
               <div className="h-full">
                 <PodTerminal
-                  key={`${terminalContext.namespace}/${terminalContext.podName}/${terminalContext.containerName}`}
+                  key={`${terminalContext.clusterId ?? ''}/${terminalContext.namespace}/${terminalContext.podName}/${terminalContext.containerName}`}
                   namespace={terminalContext.namespace}
                   podName={terminalContext.podName}
                   containerName={terminalContext.containerName}
+                  containers={terminalContext.containers}
+                  clusterId={terminalContext.clusterId}
                   isNode={terminalContext.isNode}
                   onClose={closeBottomDock}
                   inline

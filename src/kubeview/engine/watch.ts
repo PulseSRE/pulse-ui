@@ -9,7 +9,15 @@ import { closeQuietly } from './wsClose';
 const HEARTBEAT_INTERVAL = 45000; // 45 seconds
 const MAX_BACKOFF = 30000; // 30 seconds
 
-export type WatchEventType = 'ADDED' | 'MODIFIED' | 'DELETED' | 'BOOKMARK' | 'ERROR';
+export type WatchEventType = 'ADDED' | 'MODIFIED' | 'DELETED' | 'BOOKMARK' | 'ERROR' | 'RESYNC';
+
+/**
+ * A RESYNC event is synthesized by the manager, never sent by the API server.
+ * It means the watch's resourceVersion expired (410 Gone) and events were
+ * lost: anything deleted in the gap will never arrive as DELETED. Consumers
+ * holding a cache must relist rather than keep patching it.
+ */
+export const RESYNC: WatchEvent<null> = { type: 'RESYNC', object: null };
 
 export interface WatchEvent<T = unknown> {
   type: WatchEventType;
@@ -170,6 +178,7 @@ export class WatchManager {
             const status = watchEvent.object as { code?: number; message?: string } | undefined;
             if (status?.code === 410 || /too old|[Ee]xpired/.test(status?.message ?? '')) {
               connection.resourceVersion = '';
+              this.notify(connection, RESYNC);
             }
             closeQuietly(ws);
             return;
@@ -195,14 +204,7 @@ export class WatchManager {
             }
           }
 
-          // Notify all callbacks
-          for (const callback of connection.callbacks) {
-            try {
-              callback(watchEvent);
-            } catch (error) {
-              console.error('Watch callback error:', error);
-            }
-          }
+          this.notify(connection, watchEvent);
         } catch (error) {
           console.error('Failed to parse watch event:', error);
         }
@@ -219,8 +221,11 @@ export class WatchManager {
 
         // Handle 410 Gone (resourceVersion too old)
         if (event.code === 1008 || (event.reason && event.reason.includes('410'))) {
-          // Resource version too old — reset and reconnect
-          connection.resourceVersion = '';
+          // Resource version too old — reset, tell consumers to relist, reconnect
+          if (connection.resourceVersion) {
+            connection.resourceVersion = '';
+            this.notify(connection, RESYNC);
+          }
         }
 
         // Reconnect if there are still callbacks
@@ -231,6 +236,16 @@ export class WatchManager {
     } catch (error) {
       console.error(`Failed to create WebSocket: ${normalizedPath}`, error);
       this.scheduleReconnect(key, apiPath, connection, clusterId);
+    }
+  }
+
+  private notify(connection: WatchConnection, event: WatchEvent): void {
+    for (const callback of connection.callbacks) {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('Watch callback error:', error);
+      }
     }
   }
 

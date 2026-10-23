@@ -1,4 +1,6 @@
 import { useClusterBase } from '../hooks/useClusterBase';
+import { getClusterBase } from '../engine/clusterConnection';
+import type { TerminalTarget } from '../engine/terminalTargets';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Loader2, Terminal, Copy, Check, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -7,6 +9,10 @@ interface PodTerminalProps {
   namespace: string;
   podName: string;
   containerName: string;
+  /** Containers to choose between. Without it, only containerName is offered. */
+  containers?: TerminalTarget[];
+  /** The cluster the pod is on. Commands always go there, even if the active cluster changes. */
+  clusterId?: string;
   onClose: () => void;
   isNode?: boolean;
   /** Render inline (no overlay) for dock panel */
@@ -24,12 +30,20 @@ function timestamp() {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-export default function PodTerminal({ namespace, podName, containerName, onClose, isNode, inline }: PodTerminalProps) {
-  const BASE = useClusterBase();
+export default function PodTerminal({ namespace, podName, containerName, containers, clusterId, onClose, isNode, inline }: PodTerminalProps) {
+  const activeBase = useClusterBase();
+  // Never fall back to another cluster: if the pod's cluster is gone, commands fail visibly.
+  let BASE: string | null = activeBase;
+  if (clusterId) {
+    try { BASE = getClusterBase(clusterId); } catch { BASE = null; }
+  }
+  const [container, setContainer] = useState(containerName);
+  const choices: TerminalTarget[] = containers?.length ? containers : [{ name: containerName, kind: 'container', running: true }];
   const [command, setCommand] = useState('');
   const [lines, setLines] = useState<TerminalLine[]>([
-    { type: 'system', text: isNode ? `node/${podName}` : `${namespace}/${podName}`, timestamp: timestamp() },
+    { type: 'system', text: isNode ? `${namespace}/${podName} (debug pod on the node)` : `${namespace}/${podName}`, timestamp: timestamp() },
     { type: 'system', text: `container: ${containerName}`, timestamp: timestamp() },
+    ...(isNode ? [{ type: 'system' as const, text: 'Host filesystem is mounted at /host. Run commands there with: chroot /host <command>', timestamp: timestamp() }] : []),
     { type: 'system', text: isNode ? 'Suggestions: cat /etc/os-release, df -h, free -m, uptime, ps aux' : 'Suggestions: whoami, ls, env, cat /etc/hostname, ps aux', timestamp: timestamp() },
   ]);
   const [running, setRunning] = useState(false);
@@ -79,9 +93,10 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
     }
 
     try {
+      if (BASE === null) throw new Error('This terminal\'s cluster is no longer connected.');
       const args = cmd.split(/\s+/);
       const params = new URLSearchParams();
-      params.set('container', containerName);
+      params.set('container', container);
       params.set('stdout', 'true');
       params.set('stderr', 'true');
       for (const arg of args) {
@@ -144,14 +159,14 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
       setLines((prev) => [
         ...prev,
         { type: 'error', text: msg },
-        { type: 'system', text: `Run locally: oc exec -it ${podName} -n ${namespace} -c ${containerName} -- ${cmd}` },
+        { type: 'system', text: `Run locally: oc exec -it ${podName} -n ${namespace} -c ${container} -- ${cmd}` },
       ]);
     } finally {
       setRunning(false);
       setCommand('');
       setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [namespace, podName, containerName, running, BASE]);
+  }, [namespace, podName, container, running, BASE]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -184,6 +199,36 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
     }
   };
 
+  const switchContainer = (next: string) => {
+    if (next === container) return;
+    setContainer(next);
+    const target = choices.find((c) => c.name === next);
+    setLines((prev) => [...prev, {
+      type: 'system',
+      text: `container: ${next}${target?.kind === 'ephemeral' ? ' (debug)' : ''}${target && !target.running ? ' — not running, commands will fail until it starts' : ''}`,
+      timestamp: timestamp(),
+    }]);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const containerPicker = choices.length > 1 ? (
+    <select
+      aria-label="Container"
+      value={container}
+      onChange={(e) => switchContainer(e.target.value)}
+      disabled={running}
+      className="bg-slate-800 border border-slate-700 rounded-sm text-slate-200 font-mono text-xs px-1 py-0.5"
+    >
+      {choices.map((c) => (
+        <option key={c.name} value={c.name}>
+          {c.name}{c.kind === 'ephemeral' ? ' (debug)' : ''}{c.running ? '' : ' (not running)'}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <span className="text-slate-300 font-mono">{container}</span>
+  );
+
   const commandCount = lines.filter(l => l.type === 'input').length;
 
   if (inline) {
@@ -193,7 +238,7 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-800 bg-(--kv-term-surface) text-xs">
           <div className="flex items-center gap-2">
             <Terminal className="w-3 h-3 text-slate-500" />
-            <span className="text-slate-300 font-mono">{containerName}</span>
+            {containerPicker}
             <span className="text-slate-600">in</span>
             <span className="text-slate-400 font-mono">{podName}</span>
             <span className="px-1 py-0.5 rounded-sm bg-slate-800 text-slate-500 font-mono text-xs">{namespace}</span>
@@ -260,7 +305,7 @@ export default function PodTerminal({ namespace, podName, containerName, onClose
             </div>
             <div className="flex items-center gap-2 ml-2">
               <Terminal className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-xs text-slate-300 font-mono font-medium">{containerName}</span>
+              {containerPicker}
               <span className="text-xs text-slate-600">in</span>
               <span className="text-xs text-slate-400 font-mono">{podName}</span>
               <span className="text-xs px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-500 font-mono">{namespace}</span>

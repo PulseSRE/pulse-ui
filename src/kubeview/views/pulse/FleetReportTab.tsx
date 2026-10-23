@@ -64,16 +64,18 @@ function statusDot(status: ClusterStatus) {
  * Risk score
  * --------------------------------------------------------------------------- */
 
-function computeRiskScore(
+export function computeRiskScore(
   clusters: { status: string }[]
-): { score: number; color: string; label: string } {
-  if (clusters.length === 0) return { score: 100, color: '#22c55e', label: 'Healthy' };
+): { score: number | null; color: string; label: string } {
+  // Only a health check that came back counts. No clusters, or clusters that
+  // have not been checked yet, used to score 100 "Healthy": absence of data
+  // presented as absence of problems.
+  if (clusters.length === 0) return { score: null, color: '#94a3b8', label: 'No clusters' };
+  const checked = clusters.filter((c) => c.status !== 'unknown');
+  if (checked.length === 0) return { score: null, color: '#94a3b8', label: 'Checking' };
 
-  const unhealthy = clusters.filter(
-    (c) => c.status === 'unreachable' || c.status === 'auth-expired'
-  ).length;
-
-  const score = Math.round(100 - (unhealthy / clusters.length) * 100);
+  const healthy = checked.filter((c) => c.status === 'connected').length;
+  const score = Math.round((healthy / checked.length) * 100);
 
   if (score > 80) return { score, color: '#22c55e', label: 'Healthy' };
   if (score >= 60) return { score, color: '#eab308', label: 'Degraded' };
@@ -183,7 +185,7 @@ export function FleetReportTab() {
                   color: risk.color,
                 }}
               >
-                {risk.score}
+                {risk.score ?? '—'}
               </span>
               <span
                 data-testid="risk-badge"
@@ -191,7 +193,9 @@ export function FleetReportTab() {
                   fontSize: 12,
                   color: risk.color,
                   backgroundColor:
-                    risk.score > 80
+                    risk.score === null
+                      ? 'rgba(148, 163, 184, 0.15)'
+                      : risk.score > 80
                       ? 'rgba(34, 197, 94, 0.15)'
                       : risk.score >= 60
                         ? 'rgba(234, 179, 8, 0.15)'

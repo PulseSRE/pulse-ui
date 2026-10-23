@@ -30,12 +30,12 @@ vi.mock('../../store/customViewStore', () => ({
   useCustomViewStore: (selector: any) => selector({ views: [] }),
 }));
 
-const _mockListWatchData: Record<string, { data: any[]; isLoading: boolean }> = {};
+const _mockListWatchData: Record<string, { data: any[]; isLoading: boolean; isError?: boolean }> = {};
 
 vi.mock('../../hooks/useK8sListWatch', () => ({
   useK8sListWatch: ({ apiPath }: { apiPath: string }) => {
     const entry = _mockListWatchData[apiPath] ?? { data: [], isLoading: false };
-    return { data: entry.data, isLoading: entry.isLoading };
+    return { data: entry.data, isLoading: entry.isLoading, isError: entry.isError ?? false };
   },
 }));
 
@@ -82,7 +82,7 @@ vi.mock('../../engine/analyticsApi', async () => {
 import PulseView, { trustDivergenceNote } from '../PulseView';
 import { useTrustStore } from '../../store/trustStore';
 
-function setMockData(data: Record<string, { data: any[]; isLoading: boolean }>) {
+function setMockData(data: Record<string, { data: any[]; isLoading: boolean; isError?: boolean }>) {
   for (const key of Object.keys(_mockListWatchData)) {
     delete _mockListWatchData[key];
   }
@@ -195,6 +195,21 @@ describe('PulseView', () => {
 
     renderPulse();
     expect(screen.getByText('All Systems Nominal')).toBeDefined();
+  });
+
+  // Regression: a pods list that failed to load (e.g. RBAC) arrived as [] and
+  // the report said "All clear — no issues detected".
+  it('does not call the cluster clear when a list failed to load', () => {
+    setMockData({
+      '/api/v1/nodes': { data: [makeNode('node-1', true)], isLoading: false },
+      '/api/v1/pods': { data: [], isLoading: false, isError: true },
+      '/apis/apps/v1/deployments': { data: [], isLoading: false },
+      '/api/v1/persistentvolumeclaims': { data: [], isLoading: false },
+      '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('auth', false)], isLoading: false },
+    });
+    renderPulse();
+    expect(screen.getByText(/Couldn't check pods/)).toBeDefined();
+    expect(screen.queryByText('All clear')).toBeNull();
   });
 
   it('shows control plane section', () => {

@@ -78,8 +78,9 @@ describe('WatchManager 410 handling', () => {
       object: { kind: 'Status', code: 410, message: 'too old resource version: 421076897' },
     });
 
-    // The Status object is not a resource — callbacks must not see it.
-    expect(events).toEqual([]);
+    // The Status object is not a resource — callbacks must not see it. They
+    // get one RESYNC instead: events were lost, so caches must relist.
+    expect(events).toEqual([{ type: 'RESYNC', object: null }]);
     expect(connectionOf(manager).resourceVersion).toBe('');
 
     // The reconnect must not resend the expired version.
@@ -121,5 +122,17 @@ describe('WatchManager 410 handling', () => {
     });
     expect(connectionOf(manager).reconnectAttempt).toBe(0);
     expect(connectionOf(manager).resourceVersion).toBe('5');
+  });
+
+  it('does not ask for a relist on an ordinary reconnect', () => {
+    const manager = new WatchManager();
+    const events: WatchEvent[] = [];
+    manager.watch('/api/v1/pods', (e) => events.push(e), '7');
+    const ws = lastSocket();
+    ws.open();
+    ws.close();
+    vi.advanceTimersByTime(1100);
+    expect(events.filter((e) => e.type === 'RESYNC')).toEqual([]);
+    expect(lastSocket().url).toContain('resourceVersion=7');
   });
 });

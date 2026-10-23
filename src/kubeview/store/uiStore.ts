@@ -1,3 +1,4 @@
+import type { TerminalTarget } from '../engine/terminalTargets';
 import { getActiveClusterId } from '../engine/clusterConnection';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -29,6 +30,17 @@ export interface ToastData {
 }
 
 type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected';
+
+/** What the bottom-dock terminal is attached to. */
+export interface TerminalContext {
+  namespace: string;
+  podName: string;
+  containerName: string;
+  isNode?: boolean;
+  clusterId?: string;
+  /** Containers the terminal may switch between (regular and ephemeral). */
+  containers?: TerminalTarget[];
+}
 
 interface UIState {
   // Tabs
@@ -73,12 +85,12 @@ interface UIState {
   bottomDockPanel: 'logs' | 'terminal' | 'events' | null;
   bottomDockHeight: number;
   dockContext: { namespace: string; podName: string; containerName?: string } | null;
-  terminalContext: { namespace: string; podName: string; containerName: string; isNode?: boolean; clusterId?: string } | null;
+  terminalContext: TerminalContext | null;
   openBottomDock: (panel: 'logs' | 'terminal' | 'events') => void;
   closeBottomDock: () => void;
   setBottomDockHeight: (height: number) => void;
   setDockContext: (ctx: { namespace: string; podName: string; containerName?: string } | null) => void;
-  openTerminal: (ctx: { namespace: string; podName: string; containerName: string; isNode?: boolean; clusterId?: string }) => void;
+  openTerminal: (ctx: TerminalContext) => void;
 
 
   // View Builder (split-screen mode)
