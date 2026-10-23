@@ -34,9 +34,13 @@ const agentRoutes = {
   '/monitor/capabilities': { max_trust_level: 2, categories: ['crashloop', 'workloads'] },
 };
 
-async function mockAgent(page) {
+async function mockAgent(page, { views = [] } = {}) {
+  // Saved views the agent knows about; the chat adds its view once it sends view_spec.
+  const saved = [...views];
   await page.route('**/api/agent/**', (route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api\/agent/, '');
+    if (path === '/views') return route.fulfill({ json: { views: saved.map(demo.viewRow), owner: 'sre-oncall' } });
+    if (/^\/views\/[^/]+\/versions$/.test(path)) return route.fulfill({ json: { versions: [] } });
     const body = agentRoutes[path];
     if (body === undefined) return route.fulfill({ status: 404, json: { detail: 'not in demo data' } });
     return route.fulfill({ json: body });
@@ -54,7 +58,23 @@ async function mockAgent(page) {
       }));
     });
   });
+  // Chat: answer demo.chatQuestion with demo.chatTurn, paced like a stream.
+  await page.routeWebSocket(/\/api\/agent\/ws\/agent/, (ws) => {
+    ws.onMessage(async (raw) => {
+      let msg;
+      try { msg = JSON.parse(String(raw)); } catch { return; }
+      if (msg.type !== 'message') return;
+      for (const event of demo.chatTurn) {
+        await new Promise((r) => setTimeout(r, event.type === 'text_delta' ? 25 : 150));
+        if (event.type === 'view_spec' && !saved.some((v) => v.id === event.spec.id)) saved.push(event.spec);
+        ws.send(JSON.stringify(event));
+      }
+    });
+  });
 }
+
+// Sidebar state lives in the persisted UI store (see uiStore partialize).
+const sidebar = (expanded, width = 360) => ({ key: 'openshiftpulse-ui-storage', value: { state: { aiSidebarExpanded: expanded, aiSidebarWidth: width }, version: 0 } });
 
 const shots = [
   { name: 'inbox', path: '/inbox', wait: 'text=To fix:' },
@@ -69,6 +89,40 @@ const shots = [
     // The drawer only: the page behind it is dimmed and says nothing useful.
     element: (page) => page.getByRole('dialog', { name: 'Scanner Coverage' }).locator('div.max-w-2xl'),
   },
+  // Story shots: the browser clock is pinned to demo.storyNow (UTC) so 14:02 reads as 14:02.
+  {
+    name: 'chat',
+    path: '/inbox',
+    clock: demo.storyNow,
+    settle: 2500, // chart draw animations
+    storage: sidebar(true, 600),
+    wait: 'h1:has-text("Checkout since the rollout")',
+    before: async (page) => {
+      const input = page.getByPlaceholder('Ask Pulse anything...');
+      await input.fill(demo.chatQuestion);
+      await input.press('Enter');
+      // done: the reply is a finished message with its skill footer.
+      await page.getByText('view_designer').waitFor({ timeout: 15_000 });
+    },
+  },
+  {
+    name: 'view',
+    path: `/custom/${demo.generatedView.id}`,
+    clock: demo.storyNow,
+    settle: 2500, // chart draw animations
+    storage: sidebar(false),
+    views: [demo.generatedView],
+    wait: 'h1:has-text("Checkout since the rollout")',
+  },
+  {
+    name: 'evidence',
+    path: `/custom/${demo.investigationView.id}`,
+    clock: demo.storyNow,
+    settle: 2500, // chart draw animations
+    storage: sidebar(false),
+    views: [demo.investigationView],
+    wait: 'h1:has-text("Investigation:")',
+  },
 ];
 
 // CHROMIUM_PATH lets a sandbox with a preinstalled browser skip the download.
@@ -76,12 +130,21 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 mkdirSync(OUT, { recursive: true });
 for (const shot of shots) {
   if (process.env.ONLY && process.env.ONLY !== shot.name) continue;
-  const context = await browser.newContext({ viewport: shot.viewport ?? { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: 'dark' });
-  await context.addInitScript(() => {
-    try { localStorage.setItem('openshiftpulse-tour-completed', 'true'); } catch { /* storage blocked */ }
+  const context = await browser.newContext({
+    viewport: shot.viewport ?? { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    colorScheme: 'dark',
+    ...(shot.clock ? { timezoneId: 'UTC' } : {}),
   });
+  await context.addInitScript((storage) => {
+    try {
+      localStorage.setItem('openshiftpulse-tour-completed', 'true');
+      if (storage) localStorage.setItem(storage.key, JSON.stringify(storage.value));
+    } catch { /* storage blocked */ }
+  }, shot.storage ?? null);
   const page = await context.newPage();
-  await mockAgent(page);
+  if (shot.clock) await page.clock.install({ time: shot.clock });
+  await mockAgent(page, { views: shot.views });
   await page.goto(BASE + shot.path, { waitUntil: 'networkidle' });
   if (shot.before) await shot.before(page);
   try {
@@ -91,7 +154,7 @@ for (const shot of shots) {
   }
   // Toasts announce the sample findings and would cover the content.
   await page.addStyleTag({ content: '[aria-label="Notifications"] { display: none !important; }' });
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(shot.settle ?? 800);
   const file = join(OUT, `${shot.name}.png`);
   if (shot.element) await shot.element(page).screenshot({ path: file });
   else await page.screenshot({ path: file });

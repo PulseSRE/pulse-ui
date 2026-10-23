@@ -40,7 +40,7 @@
 <source src="https://pulsesre.github.io/pulse-agent/media/pulse-30s.mp4" type="video/mp4">
 <a href="https://pulsesre.github.io/pulse-agent/media/pulse-30s.mp4">Watch the 30-second overview (MP4)</a>
 </video>
-<figcaption id="film-cap"><b>See it in 30 seconds.</b> One bad rollout sets off 38 alerts. Pulse turns them into one incident, finds the change behind it, asks before rolling back, and checks that the fix held. Sample data, no sound.</figcaption>
+<figcaption id="film-cap"><b>See it in 30 seconds.</b> One bad rollout sets off 38 alerts. Pulse turns them into one incident, shows you the proof, works out the fix with you, and checks that it held. Sample data.</figcaption>
 </figure>
 </section>
 
@@ -50,6 +50,39 @@
 <p class="intro">Running OpenShift usually means a console, a metrics tool, a log viewer, a terminal and a chat window, and stitching them together in your head. The Pulse console puts them, and the agent, in one place.</p>
 <div class="why"><div class="p"><b>Too many tabs during an incident</b></div><div class="a"><p>Resources, metrics, logs, a terminal, alerts and the agent side by side, on the cluster you're looking at.</p></div><div class="p"><b>Alerts without context</b></div><div class="a"><p>The inbox ranks what needs you and leads each incident with the change that probably caused it, and the fix to approve.</p></div><div class="p"><b>One-click writes that surprise you</b></div><div class="a"><p>Every write names its cluster and target. A restart that is really a permanent delete says so, and stale scale counts are rejected.</p></div><div class="p"><b>A long learning curve</b></div><div class="a"><p>Ask in plain English. The agent answers with live data and builds the dashboard you asked for, so new people are useful on day one.</p></div></div>
 
+</div>
+</section>
+
+<section class="block" aria-labelledby="proof">
+<div class="wrap">
+<h2 id="proof">See the proof</h2>
+<p class="intro">An AI that says &ldquo;it's the rollout&rdquo; is only useful if you can check. Pulse's agents record the evidence behind every diagnosis, and when you pick an incident up, Pulse builds a view of that evidence from live cluster data.</p>
+<ol class="steps">
+<li><h3>The agents investigate</h3><p>With read-only tools. Every claim cites its signal: a metric, a log line, an event, a change. Evidence that argues against the diagnosis is recorded too, and lowers the confidence.</p></li>
+<li><h3>Pulse builds the proof</h3><p>Three to five widgets chosen for this incident: the metric trend with its PromQL query, the changes before it, the steps the agents took. Built from live data when you pick the incident up.</p></li>
+<li><h3>You verify it</h3><p>Agree, push back in the chat, or reject it. A diagnosis with no evidence is capped at low confidence, whatever the model claims.</p></li>
+</ol>
+<figure><div class="shot"><img src="screenshots/evidence.png" width="1440" height="900" loading="lazy" alt="An investigation view for a failing checkout rollout: the steps the agents took, a chart of ready pods falling from 3 to 1 after revision 15, the crash log line saying payments.url is not set, and the confidence score."></div>
+<figcaption><b>The evidence view, with sample data.</b> Generated for the incident, so you can check the diagnosis before anything changes.</figcaption></figure>
+</div>
+</section>
+
+<section class="block" aria-labelledby="chat">
+<div class="wrap">
+<h2 id="chat">Ask for a view, get one</h2>
+<p class="intro">Say what you want to see, in your own words. Pulse works out what you mean, queries your cluster, and builds a dashboard for exactly that question, with the tools it used shown as it goes.</p>
+<div class="two">
+<figure><div class="shot"><img src="screenshots/chat.png" width="1440" height="900" loading="lazy" alt="The Pulse chat: asked how checkout has been doing since the 14:02 rollout, Pulse shows the tools it ran and builds a view with ready pods over time, restarts, error rate and recent events."></div>
+<figcaption><b>The question.</b> &ldquo;Show me how checkout has been doing since the 14:02 rollout.&rdquo;</figcaption></figure>
+<figure><div class="shot"><img src="screenshots/view.png" width="1440" height="900" loading="lazy" alt="The generated view, full screen: charts of ready pods with the rollout marked, container restarts and error rate, a table of checkout pods and the recent events."></div>
+<figcaption><b>The view it built.</b> Live data, saved for you to keep, edit or share.</figcaption></figure>
+</div>
+<dl class="ledger">
+<dt>It understands intent</dt><dd><p>&ldquo;Since the rollout&rdquo;, &ldquo;compared with last week&rdquo;, &ldquo;just the failing pods&rdquo;: you describe the question, not the queries.</p></dd>
+<dt>It shows its work</dt><dd><p>Each tool and PromQL query appears as Pulse runs it, so you can see where every number came from.</p></dd>
+<dt>It's a real dashboard</dt><dd><p>Live, saved and versioned. Ask for a change in plain English, like &ldquo;make that p99&rdquo;, or share it with your team.</p></dd>
+<dt>It runs as you</dt><dd><p>Chat requests use your own OpenShift token, so a view only shows what you are allowed to see.</p></dd>
+</dl>
 </div>
 </section>
 
