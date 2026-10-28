@@ -3,6 +3,9 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InvestigationReport } from '../../../engine/monitorClient';
 
+const STANCE_MARK = { supports: '+', contradicts: '−', context: '·' } as const;
+const STANCE_STYLE = { supports: 'text-emerald-500', contradicts: 'text-red-400', context: 'text-slate-500' } as const;
+
 export function InvestigationCard({
   report,
   onClickFinding,
@@ -11,6 +14,9 @@ export function InvestigationCard({
   onClickFinding?: (findingId: string) => void;
 }) {
   const [altExpanded, setAltExpanded] = useState(false);
+  // Prefer the structured form: prose evidence carries no stance, so a
+  // contradicting observation would be listed as if it supported the cause.
+  const evidenceDetail = (report.evidenceDetail ?? []).filter((e) => e && e.observation);
   const hasAlternatives = report.alternativesConsidered && report.alternativesConsidered.length > 0;
   const clickable = !!onClickFinding && !!report.findingId;
 
@@ -27,7 +33,8 @@ export function InvestigationCard({
           {report.status}
         </span>
         <span>{report.category}</span>
-        {report.confidence != null && report.confidence > 0 && (
+        {/* 0 is an answer — "nothing supports this" — so it is shown, not hidden. */}
+        {report.confidence != null && (
           <span
             className={cn(
               'font-mono',
@@ -38,6 +45,9 @@ export function InvestigationCard({
           >
             {Math.round(report.confidence * 100)}% confidence
           </span>
+        )}
+        {report.confidence === 0 && report.status === 'completed' && (
+          <span className="text-red-400">no supporting evidence</span>
         )}
         <span>-</span>
         <span>{new Date(report.timestamp).toLocaleTimeString()}</span>
@@ -51,7 +61,27 @@ export function InvestigationCard({
         </div>
       )}
 
-      {report.evidence && report.evidence.length > 0 && (
+      {evidenceDetail.length > 0 ? (
+        <div className="mt-2">
+          <div className="text-xs font-medium text-slate-400 mb-1">Evidence</div>
+          <ul className="space-y-0.5 pl-1">
+            {evidenceDetail.map((e, i) => {
+              const stance = e.stance ?? 'supports';
+              return (
+                <li key={i} className="text-xs text-slate-300 flex gap-1.5">
+                  <span aria-label={stance} title={stance} className={cn('shrink-0 mt-px', STANCE_STYLE[stance])}>
+                    {STANCE_MARK[stance]}
+                  </span>
+                  <span>
+                    {e.observation}
+                    {e.source ? <span className="text-slate-500"> · <span className="font-mono">{e.source}</span></span> : <span className="text-slate-600"> · source not recorded</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : report.evidence && report.evidence.length > 0 && (
         <div className="mt-2">
           <div className="text-xs font-medium text-slate-400 mb-1">Evidence</div>
           <ul className="space-y-0.5 pl-1">
