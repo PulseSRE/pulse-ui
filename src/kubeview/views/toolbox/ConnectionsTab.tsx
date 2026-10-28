@@ -7,7 +7,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useToolUsageStore } from '../../store/toolUsageStore';
-import { agentFetch } from '../../engine/safeQuery';
+import { agentFetch, agentJson } from '../../engine/safeQuery';
+import { LoadError } from '../../components/primitives/LoadError';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { AddMcpServerDialog } from './AddMcpServerDialog';
 
@@ -19,17 +20,13 @@ export function ConnectionsTab() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
-  const { data: mcpData, isLoading } = useQuery({
+  // A 403 (not an admin) or 5xx read as "no MCP servers connected".
+  const mcpQuery = useQuery({
     queryKey: ['admin', 'mcp'],
-    queryFn: async () => {
-      const res = await agentFetch('/api/agent/admin/mcp');
-      if (!res.ok) return { connections: [], available_toolsets: [] };
-      return res.json() as Promise<{
-        connections: Array<Record<string, unknown>>;
-        available_toolsets: string[];
-      }>;
-    },
+    queryFn: () =>
+      agentJson<{ connections: Array<Record<string, unknown>>; available_toolsets: string[] }>('/api/agent/admin/mcp'),
   });
+  const { data: mcpData, isLoading } = mcpQuery;
 
   const connections = mcpData?.connections || [];
   const availableToolsets = mcpData?.available_toolsets || [];
@@ -201,6 +198,8 @@ export function ConnectionsTab() {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>
+      ) : mcpQuery.isError ? (
+        <LoadError title="MCP connections could not be loaded" error={mcpQuery.error} onRetry={() => mcpQuery.refetch()} />
       ) : connections.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 text-center">
           <Server className="w-8 h-8 text-slate-600 mx-auto mb-3" />

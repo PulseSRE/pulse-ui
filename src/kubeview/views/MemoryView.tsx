@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, ThumbsUp, Zap, History, Target, FileText, Activity, Award, Download, Upload, Building2 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, Zap, History, Target, Activity, Award, Download, Upload, Building2, Trash2, PowerOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { LoadError } from '../components/primitives/LoadError';
+import { agentJson } from '../engine/safeQuery';
 import { formatRelativeTime } from '../engine/formatters';
 import ClusterKnowledge from './memory/ClusterKnowledge';
 
 const AGENT_BASE = '/api/agent';
 
 interface Runbook {
+  id: number;
   name: string;
   description: string;
   tool_sequence?: string[] | string;
@@ -19,6 +22,7 @@ interface Runbook {
 }
 
 interface Pattern {
+  id: number;
   pattern_type: string;
   description: string;
   keywords: string[];
@@ -26,6 +30,7 @@ interface Pattern {
 }
 
 interface Incident {
+  id: number;
   query: string;
   resolution: string;
   outcome: string;
@@ -41,30 +46,30 @@ interface MemorySummary {
   avg_score: number;
 }
 
+/** A memory list plus whether memory is switched on at all. */
+interface MemoryList<T> {
+  items: T[];
+  enabled: boolean;
+}
+
 async function fetchSummary(): Promise<MemorySummary> {
-  const res = await fetch(`${AGENT_BASE}/memory/summary`);
-  if (!res.ok) throw new Error('Failed to fetch summary');
-  return await res.json();
+  return agentJson<MemorySummary>(`${AGENT_BASE}/memory/summary`);
 }
 
-async function fetchRunbooks(): Promise<Runbook[]> {
-  const res = await fetch(`${AGENT_BASE}/memory/runbooks`);
-  if (!res.ok) throw new Error('Failed to fetch runbooks');
-  return (await res.json()).runbooks || [];
+async function fetchList<T>(kind: 'runbooks' | 'patterns' | 'incidents', params?: URLSearchParams): Promise<MemoryList<T>> {
+  const data = await agentJson<Record<string, unknown>>(`${AGENT_BASE}/memory/${kind}${params ? `?${params}` : ''}`);
+  return { items: (data[kind] as T[]) || [], enabled: data.enabled !== false };
 }
 
-async function fetchPatterns(): Promise<Pattern[]> {
-  const res = await fetch(`${AGENT_BASE}/memory/patterns`);
-  if (!res.ok) throw new Error('Failed to fetch patterns');
-  return (await res.json()).patterns || [];
-}
-
-async function fetchIncidents(search = ''): Promise<Incident[]> {
+function fetchIncidents(search = ''): Promise<MemoryList<Incident>> {
   const params = new URLSearchParams({ limit: '20' });
   if (search) params.set('search', search);
-  const res = await fetch(`${AGENT_BASE}/memory/incidents?${params}`);
-  if (!res.ok) throw new Error('Failed to fetch incidents');
-  return (await res.json()).incidents || [];
+  return fetchList<Incident>('incidents', params);
+}
+
+/** Forget one learned row. Admin-only on the agent; a refusal is shown, not swallowed. */
+async function forgetRow(kind: 'runbooks' | 'patterns' | 'incidents', id: number): Promise<void> {
+  await agentJson(`${AGENT_BASE}/memory/${kind}/${id}`, { method: 'DELETE' });
 }
 
 type Tab = 'cluster' | 'runbooks' | 'patterns' | 'incidents';
@@ -91,32 +96,57 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
     staleTime: 30_000,
   });
 
-  const { data: runbooks = [], isLoading: rbLoading } = useQuery({
+  const queryClient = useQueryClient();
+  const runbooksQuery = useQuery({
     queryKey: ['memory', 'runbooks'],
-    queryFn: fetchRunbooks,
+    queryFn: () => fetchList<Runbook>('runbooks'),
     staleTime: 30_000,
   });
-
-  const { data: patterns = [], isLoading: patLoading } = useQuery({
+  const patternsQuery = useQuery({
     queryKey: ['memory', 'patterns'],
-    queryFn: fetchPatterns,
+    queryFn: () => fetchList<Pattern>('patterns'),
     staleTime: 30_000,
   });
-
-  const { data: incidents = [], isLoading: incLoading } = useQuery({
+  const incidentsQuery = useQuery({
     queryKey: ['memory', 'incidents', search],
     queryFn: () => fetchIncidents(search),
     staleTime: 15_000,
   });
+  const runbooks = runbooksQuery.data?.items ?? [];
+  const patterns = patternsQuery.data?.items ?? [];
+  const incidents = incidentsQuery.data?.items ?? [];
+  const rbLoading = runbooksQuery.isLoading;
+  const patLoading = patternsQuery.isLoading;
+  const incLoading = incidentsQuery.isLoading;
+  // Memory switched off on the agent: say so, rather than "nothing learned yet".
+  const memoryOff = [runbooksQuery, patternsQuery, incidentsQuery].some((q) => q.data && !q.data.enabled);
+
+  const forget = useMutation({
+    mutationFn: ({ kind, id }: { kind: 'runbooks' | 'patterns' | 'incidents'; id: number }) => forgetRow(kind, id),
+    onSuccess: (_data, { kind }) => {
+      queryClient.invalidateQueries({ queryKey: ['memory', kind] });
+      queryClient.invalidateQueries({ queryKey: ['memory', 'summary'] });
+    },
+  });
+  const forgetButton = (kind: 'runbooks' | 'patterns' | 'incidents', id: number | undefined, label: string) =>
+    typeof id === 'number' ? (
+      <button
+        type="button"
+        aria-label={`Forget ${label}`}
+        title="Forget this — it taught the wrong lesson"
+        disabled={forget.isPending}
+        onClick={() => {
+          if (window.confirm(`Forget ${label}? The agent will stop using it.`)) forget.mutate({ kind, id });
+        }}
+        className="shrink-0 rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-rose-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:opacity-40"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    ) : null;
 
   const handleExport = async () => {
     try {
-      const res = await fetch(`${AGENT_BASE}/memory/export`);
-      if (!res.ok) {
-        setImportStatus({ type: 'error', message: 'Export failed' });
-        return;
-      }
-      const data = await res.json();
+      const data = await agentJson(`${AGENT_BASE}/memory/export`);
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -126,7 +156,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error('memory export failed:', e);
-      setImportStatus({ type: 'error', message: 'Export failed' });
+      setImportStatus({ type: 'error', message: e instanceof Error ? `Export failed: ${e.message}` : 'Export failed' });
     }
   };
 
@@ -134,28 +164,31 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const res = await fetch(`${AGENT_BASE}/memory/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        setImportStatus({ type: 'error', message: 'Import failed' });
+      let data: unknown;
+      try {
+        data = JSON.parse(await file.text());
+      } catch {
+        setImportStatus({ type: 'error', message: 'Invalid JSON file' });
         return;
       }
-      const result = await res.json();
+      // The agent answers imported_runbooks / imported_patterns; the UI read
+      // runbooks_imported and always reported 0.
+      const result = await agentJson<{ imported_runbooks?: number; imported_patterns?: number }>(
+        `${AGENT_BASE}/memory/import`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) },
+      );
       setImportStatus({
         type: 'success',
-        message: `Imported ${result.runbooks_imported ?? 0} runbooks, ${result.patterns_imported ?? 0} patterns`,
+        message: `Imported ${result.imported_runbooks ?? 0} runbooks, ${result.imported_patterns ?? 0} patterns`,
       });
+      queryClient.invalidateQueries({ queryKey: ['memory'] });
     } catch (e) {
       console.error('memory import failed:', e);
-      setImportStatus({ type: 'error', message: 'Invalid JSON file' });
+      setImportStatus({ type: 'error', message: e instanceof Error ? e.message : 'Import failed' });
+    } finally {
+      // Reset file input so the same file can be re-imported
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
-    // Reset file input so the same file can be re-imported
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const tabs: { id: Tab; label: string; count: number; icon: typeof Brain }[] = [
@@ -252,6 +285,19 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
           )}
         </div>
 
+        {memoryOff && (
+          <div role="status" className="flex items-start gap-3 rounded border border-amber-900/60 bg-amber-950/30 px-4 py-3 text-sm">
+            <PowerOff className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+            <div>
+              <div className="font-medium text-amber-200">Agent memory is switched off</div>
+              <div className="mt-0.5 text-xs text-amber-300/80">
+                Nothing is being recorded or learned. It is enabled with PULSE_AGENT_MEMORY on the agent.
+              </div>
+            </div>
+          </div>
+        )}
+        {forget.isError && <LoadError title="Could not forget that item" error={forget.error} onRetry={() => forget.reset()} />}
+
         {/* Summary Cards */}
         {!embedded && summary && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -340,7 +386,10 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         {activeTab === 'runbooks' && (
           <div className="space-y-3">
             {rbLoading && <div className="text-sm text-slate-500 animate-pulse">Loading runbooks...</div>}
-            {!rbLoading && runbooks.length === 0 && (
+            {runbooksQuery.isError && (
+              <LoadError title="Learned runbooks could not be loaded" error={runbooksQuery.error} onRetry={() => runbooksQuery.refetch()} />
+            )}
+            {!rbLoading && !runbooksQuery.isError && !memoryOff && runbooks.length === 0 && (
               <EmptyState
                 icon={<BookOpen className="w-10 h-10 text-slate-600" />}
                 title="No runbooks learned yet"
@@ -350,7 +399,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
             {runbooks.map((rb) => {
               const successRate = getSuccessRate(rb.success_count, rb.total_count);
               return (
-                <Card key={rb.name} className="p-4">
+                <Card key={rb.id ?? rb.name} className="p-4">
                   <div className="flex items-start gap-3">
                     <BookOpen className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -359,9 +408,12 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                           <h3 className="text-sm font-semibold text-slate-200">{rb.name}</h3>
                           <p className="text-xs text-slate-400 mt-1">{rb.description}</p>
                         </div>
-                        <span className={cn('text-xs px-2 py-0.5 rounded-sm shrink-0', getSuccessRateColor(successRate))}>
-                          {successRate.toFixed(0)}% success
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={cn('text-xs px-2 py-0.5 rounded-sm', getSuccessRateColor(successRate))}>
+                            {successRate.toFixed(0)}% success
+                          </span>
+                          {forgetButton('runbooks', rb.id, `runbook ${rb.name}`)}
+                        </div>
                       </div>
                       {Array.isArray(rb.trigger_keywords) && rb.trigger_keywords.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-2">
@@ -420,7 +472,10 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         {activeTab === 'patterns' && (
           <div className="space-y-3">
             {patLoading && <div className="text-sm text-slate-500 animate-pulse">Loading patterns...</div>}
-            {!patLoading && patterns.length === 0 && (
+            {patternsQuery.isError && (
+              <LoadError title="Detected patterns could not be loaded" error={patternsQuery.error} onRetry={() => patternsQuery.refetch()} />
+            )}
+            {!patLoading && !patternsQuery.isError && !memoryOff && patterns.length === 0 && (
               <EmptyState
                 icon={<TrendingUp className="w-10 h-10 text-slate-600" />}
                 title="No patterns detected yet"
@@ -441,9 +496,12 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <p className="text-sm text-slate-200">{cleanDescription}</p>
-                        <span className={cn('text-xs px-2 py-0.5 rounded-sm font-medium shrink-0', getPatternTypeColor(pat.pattern_type))}>
-                          {pat.pattern_type}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={cn('text-xs px-2 py-0.5 rounded-sm font-medium', getPatternTypeColor(pat.pattern_type))}>
+                            {pat.pattern_type}
+                          </span>
+                          {forgetButton('patterns', pat.id, 'this pattern')}
+                        </div>
                       </div>
                       {pat.keywords && (Array.isArray(pat.keywords) ? pat.keywords : [pat.keywords]).length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-2">
@@ -483,7 +541,10 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
               />
             </div>
             {incLoading && <div className="text-sm text-slate-500 animate-pulse">Loading incidents...</div>}
-            {!incLoading && incidents.length === 0 && (
+            {incidentsQuery.isError && (
+              <LoadError title="Incident history could not be loaded" error={incidentsQuery.error} onRetry={() => incidentsQuery.refetch()} />
+            )}
+            {!incLoading && !incidentsQuery.isError && !memoryOff && incidents.length === 0 && (
               <EmptyState
                 icon={<History className="w-10 h-10 text-slate-600" />}
                 title={search ? 'No matching incidents' : 'No incidents recorded yet'}
@@ -516,6 +577,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                               {inc.outcome}
                             </span>
                           )}
+                          {forgetButton('incidents', inc.id, 'this incident')}
                         </div>
                       </div>
 

@@ -98,10 +98,10 @@ function StatusSentence({
         <Link to="/inbox" className="text-blue-400 hover:underline">{totalFindings} issue{totalFindings !== 1 ? 's' : ''}</Link>
         {' '}this week.{' '}
         {fixedCount > 0 && (
-          <><Link to="/inbox?preset=needs_approval" className="text-emerald-400 hover:underline">{fixedCount} auto-fixed</Link>{needsAttention > 0 ? ', ' : '.'}</>
+          <><Link to="/inbox?preset=needs_attention" className="text-emerald-400 hover:underline">{fixedCount} auto-fixed</Link>{needsAttention > 0 ? ', ' : '.'}</>
         )}
         {needsAttention > 0 && (
-          <Link to="/inbox?preset=needs_approval" className="text-amber-400 hover:underline">{needsAttention} need{needsAttention === 1 ? 's' : ''} attention</Link>
+          <Link to="/inbox?preset=needs_attention" className="text-amber-400 hover:underline">{needsAttention} need{needsAttention === 1 ? 's' : ''} attention</Link>
         )}
       </p>
     );

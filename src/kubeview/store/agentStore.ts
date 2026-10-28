@@ -307,6 +307,23 @@ export const useAgentStore = create<AgentState>()(
             case 'view_spec':
               set({ pendingViewSpec: event.spec });
               break;
+            case 'view_validation_warning': {
+              // The agent saves a view that failed validation (so it can be
+              // critiqued and fixed) and says so; the UI dropped the message
+              // and showed the view as if it were fine.
+              const problems = event.errors ?? [];
+              if (problems.length > 0) {
+                import('../store/uiStore').then(({ useUIStore }) => {
+                  useUIStore.getState().addToast({
+                    type: 'warning',
+                    title: 'The dashboard was saved with problems',
+                    detail: problems.slice(0, 3).join(' · ') + (problems.length > 3 ? ` (+${problems.length - 3} more)` : ''),
+                    duration: 8000,
+                  });
+                });
+              }
+              break;
+            }
             case 'view_updated':
               // Agent modified a view — reload views to pick up changes
               import('../store/customViewStore').then(({ useCustomViewStore }) => {

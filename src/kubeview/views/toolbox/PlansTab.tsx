@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, ArrowRight, Save, Trash2, BarChart3, CheckCircle2, XCircle, Activity, Plus, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { agentFetch } from '../../engine/safeQuery';
+import { agentFetch, agentJson } from '../../engine/safeQuery';
+import { LoadError } from '../../components/primitives/LoadError';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { CreatePlanDialog } from './CreatePlanDialog';
@@ -47,14 +48,15 @@ export function PlansTab() {
   const [showVersions, setShowVersions] = useState(false);
   const [editPhases, setEditPhases] = useState<PlanPhaseDetail[]>([]);
 
-  const { data, isLoading } = useQuery({
+  // Errors from saving or deleting a template. Both are admin-gated on the
+  // agent, and a refusal used to close the editor as if it had saved.
+  const [planError, setPlanError] = useState<{ title: string; error: unknown } | null>(null);
+
+  const templatesQuery = useQuery({
     queryKey: ['plan-templates'],
-    queryFn: async () => {
-      const res = await agentFetch('/api/agent/plan-templates');
-      if (!res.ok) return { templates: [] };
-      return res.json() as Promise<{ templates: PlanTemplate[] }>;
-    },
+    queryFn: () => agentJson<{ templates: PlanTemplate[] }>('/api/agent/plan-templates'),
   });
+  const { data, isLoading } = templatesQuery;
 
   const { data: planVersions } = useQuery<{ versions: Array<{ version: number; created_by: string; created_at: string }> }>({
     queryKey: ['plan-template-versions', selectedPlan],
@@ -120,6 +122,10 @@ export function PlansTab() {
 
   return (
     <div className="space-y-4">
+      {templatesQuery.isError && (
+        <LoadError title="Plan templates could not be loaded" error={templatesQuery.error} onRetry={() => templatesQuery.refetch()} />
+      )}
+      {!selectedPlan && planError && <LoadError title={planError.title} error={planError.error} onRetry={() => setPlanError(null)} />}
       {/* Overview Stats */}
       {totalExecutions > 0 && (
         <div className="grid grid-cols-4 gap-2">
@@ -315,21 +321,26 @@ export function PlansTab() {
       {selectedPlan && planDetail && (
         <DrawerShell title={planDetail.name} onClose={() => { setSelectedPlan(null); setEditing(false); }}>
           <div className="space-y-4">
+            {planError && <LoadError title={planError.title} error={planError.error} onRetry={() => setPlanError(null)} />}
             {/* Actions */}
             <div className="flex items-center gap-2">
               {editing ? (
                 <button
                   onClick={async () => {
+                    setPlanError(null);
                     try {
-                      await agentFetch(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan!)}`, {
+                      await agentJson(`/api/agent/plan-templates/${encodeURIComponent(selectedPlan!)}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phases: editPhases }),
                       });
                       queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
                       queryClient.invalidateQueries({ queryKey: ['plan-template-detail', selectedPlan] });
-                    } catch { /* ignore */ }
-                    setEditing(false);
+                      setEditing(false);
+                    } catch (e) {
+                      // Stay in the editor so the changes are not lost.
+                      setPlanError({ title: 'The plan was not saved', error: e });
+                    }
                   }}
                   className="px-2 py-1 text-xs bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded-sm border border-emerald-800/30 flex items-center gap-1 transition-colors"
                 >
@@ -513,13 +524,14 @@ export function PlansTab() {
         variant="danger"
         onConfirm={async () => {
           if (!confirmDelete) return;
+          setPlanError(null);
           try {
-            const res = await agentFetch(`/api/agent/plan-templates/${encodeURIComponent(confirmDelete)}`, { method: 'DELETE' });
-            if (res.ok) {
-              queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
-              setSelectedPlan(null);
-            }
-          } catch { /* ignore */ }
+            await agentJson(`/api/agent/plan-templates/${encodeURIComponent(confirmDelete)}`, { method: 'DELETE' });
+            queryClient.invalidateQueries({ queryKey: ['plan-templates'] });
+            setSelectedPlan(null);
+          } catch (e) {
+            setPlanError({ title: 'The plan was not deleted', error: e });
+          }
           setConfirmDelete(null);
         }}
       />

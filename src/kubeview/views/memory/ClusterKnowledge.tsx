@@ -4,6 +4,8 @@ import { Building2, Gauge, GraduationCap, Plus, Trash2, AlertTriangle, Check } f
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
+import { LoadError } from '../../components/primitives/LoadError';
+import { agentJson } from '../../engine/safeQuery';
 import { formatRelativeTime } from '../../engine/formatters';
 
 const AGENT_BASE = '/api/agent';
@@ -37,23 +39,17 @@ export interface LearningStats {
 }
 
 async function fetchFacts(): Promise<EnvironmentFact[]> {
-  const res = await fetch(`${AGENT_BASE}/memory/environment`);
-  if (!res.ok) throw new Error('Failed to load environment facts');
-  return (await res.json()).facts || [];
+  return (await agentJson<{ facts?: EnvironmentFact[] }>(`${AGENT_BASE}/memory/environment`)).facts || [];
 }
 
 async function fetchBaselines(namespace: string): Promise<WorkloadBaseline[]> {
   if (!namespace) return [];
   const params = new URLSearchParams({ namespace });
-  const res = await fetch(`${AGENT_BASE}/memory/baselines?${params}`);
-  if (!res.ok) throw new Error('Failed to load baselines');
-  return (await res.json()).baselines || [];
+  return (await agentJson<{ baselines?: WorkloadBaseline[] }>(`${AGENT_BASE}/memory/baselines?${params}`)).baselines || [];
 }
 
 async function fetchLearning(): Promise<LearningStats> {
-  const res = await fetch(`${AGENT_BASE}/memory/learning`);
-  if (!res.ok) throw new Error('Failed to load learning stats');
-  return await res.json();
+  return agentJson<LearningStats>(`${AGENT_BASE}/memory/learning`);
 }
 
 /** Compact a byte/count value the way an operator writes it. */
@@ -80,15 +76,14 @@ export default function ClusterKnowledge() {
   const learning = useQuery({ queryKey: ['learning-stats'], queryFn: fetchLearning });
 
   const addFact = useMutation({
-    mutationFn: async (fact: { scope: string; key: string; value: string }) => {
-      const res = await fetch(`${AGENT_BASE}/memory/environment`, {
+    // Adding a fact is admin-only. A refusal used to vanish: the form closed
+    // as if it had saved.
+    mutationFn: (fact: { scope: string; key: string; value: string }) =>
+      agentJson(`${AGENT_BASE}/memory/environment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...fact, source: 'operator' }),
-      });
-      if (!res.ok) throw new Error('Failed to save');
-      return await res.json();
-    },
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['env-facts'] });
       setDraft({ scope: 'cluster', key: '', value: '' });
@@ -97,14 +92,10 @@ export default function ClusterKnowledge() {
   });
 
   const removeFact = useMutation({
-    mutationFn: async (fact: EnvironmentFact) => {
-      const res = await fetch(
-        `${AGENT_BASE}/memory/environment/${encodeURIComponent(fact.scope)}/${encodeURIComponent(fact.key)}`,
-        { method: 'DELETE' },
-      );
-      if (!res.ok) throw new Error('Failed to delete');
-      return await res.json();
-    },
+    mutationFn: (fact: EnvironmentFact) =>
+      agentJson(`${AGENT_BASE}/memory/environment/${encodeURIComponent(fact.scope)}/${encodeURIComponent(fact.key)}`, {
+        method: 'DELETE',
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['env-facts'] }),
   });
 
@@ -133,6 +124,10 @@ export default function ClusterKnowledge() {
           </div>
         </div>
 
+        {learning.isError && (
+          <LoadError className="mb-3" title="Learning stats could not be loaded" error={learning.error} onRetry={() => learning.refetch()} />
+        )}
+        {!learning.isError && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Awaiting outcome', value: stats?.pending ?? 0, tone: 'text-sky-300' },
@@ -146,6 +141,7 @@ export default function ClusterKnowledge() {
             </div>
           ))}
         </div>
+        )}
 
         {promotionRate !== null && (
           <div className="text-xs text-slate-400 mt-3">
@@ -214,7 +210,18 @@ export default function ClusterKnowledge() {
           </div>
         )}
 
-        {factList.length === 0 ? (
+        {addFact.isError && (
+          <LoadError className="mb-3" title="The fact was not saved" error={addFact.error} onRetry={() => addFact.reset()} />
+        )}
+        {removeFact.isError && (
+          <LoadError className="mb-3" title="The fact was not removed" error={removeFact.error} onRetry={() => removeFact.reset()} />
+        )}
+
+        {facts.isError ? (
+          <LoadError title="Cluster facts could not be loaded" error={facts.error} onRetry={() => facts.refetch()} />
+        ) : facts.isLoading ? (
+          <p className="text-xs text-slate-500">Loading…</p>
+        ) : factList.length === 0 ? (
           <EmptyState
             icon={<Building2 className="w-10 h-10 text-slate-600" />}
             title="Nothing recorded yet"
@@ -282,6 +289,8 @@ export default function ClusterKnowledge() {
           <p className="text-xs text-slate-500">Enter a namespace to see its learned baselines.</p>
         ) : baselines.isLoading ? (
           <p className="text-xs text-slate-500">Loading…</p>
+        ) : baselines.isError ? (
+          <LoadError title={`Baselines for ${namespace} could not be loaded`} error={baselines.error} onRetry={() => baselines.refetch()} />
         ) : (baselines.data || []).length === 0 ? (
           <EmptyState
             icon={<Gauge className="w-10 h-10 text-slate-600" />}

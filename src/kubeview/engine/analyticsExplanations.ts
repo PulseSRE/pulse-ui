@@ -51,7 +51,7 @@ export const METRIC_EXPLANATIONS: Record<string, MetricExplanation> = {
     good: 'High success rate with zero rollbacks.',
     bad: 'Failures or rollbacks mean the agent is making mistakes.',
     action: 'Review fix history in Incidents.',
-    actionLink: '/inbox?preset=needs_approval',
+    actionLink: '/inbox?preset=needs_attention',
   },
   quality_score: {
     what: 'Overall response quality score from user feedback and heuristics.',

@@ -745,6 +745,17 @@ export function TaskDetailDrawer({
             </>
           )}
 
+          {item.status === 'archived' && (
+            // The confirm dialog promises "you can restore it later"; there
+            // was no control to do it, though the store and endpoint existed.
+            <Tooltip content="Restore — put it back in the active inbox">
+              <Button size="sm" onClick={() => restore(item.id)}>
+                <RotateCcw className="w-4 h-4 mr-1" />
+                Restore
+              </Button>
+            </Tooltip>
+          )}
+
           {item.status === 'resolved' && (
             <>
               <Tooltip content="Reopen — send back to new for re-triage">

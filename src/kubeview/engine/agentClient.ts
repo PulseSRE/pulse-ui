@@ -76,6 +76,7 @@ export type AgentEvent =
   | { type: 'skill_progress'; skill: string; status: string; tool?: string; duration_ms?: number }
   | { type: 'feedback_ack'; resolved: boolean; score: number; runbookExtracted: boolean }
   | { type: 'view_spec'; spec: import('./agentComponents').ViewSpec }
+  | { type: 'view_validation_warning'; errors: string[]; warnings?: string[]; deduped_count?: number }
   | { type: 'view_updated'; viewId: string }
   | { type: 'cleared' }
   | { type: 'connected' }

@@ -59,3 +59,43 @@ export async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {
     throw e; // Let React Query handle the error
   }
 }
+
+/** An agent API call that answered with an error status. */
+export class AgentHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'AgentHttpError';
+  }
+}
+
+/**
+ * Fetch an agent endpoint and parse its JSON, throwing on a non-2xx answer.
+ *
+ * `agentFetch` never throws on an error status, and many callers went on to
+ * read the error body as data — a 403 rendered as "nothing here", a failed
+ * save as "saved". The thrown error carries the server's `detail` when there
+ * is one, so the UI can say what went wrong rather than just that it did.
+ */
+export async function agentJson<T = unknown>(url: string, init?: RequestInit): Promise<T> {
+  const res = await agentFetch(url, init);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = await res.json();
+      detail = typeof body?.detail === 'string' ? body.detail : typeof body?.error === 'string' ? body.error : '';
+    } catch {
+      // Not JSON: the status line is all there is.
+    }
+    const reason =
+      res.status === 403
+        ? 'You do not have permission to do this'
+        : res.status === 401
+          ? 'Your session has expired'
+          : `Request failed (${res.status})`;
+    throw new AgentHttpError(res.status, detail ? `${reason}: ${detail}` : reason);
+  }
+  return (await res.json()) as T;
+}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play, Loader2, CheckCircle2, XCircle, UserCheck, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { agentFetch } from '../../engine/safeQuery';
+import { agentFetch, agentJson } from '../../engine/safeQuery';
 
 interface RunProgress {
   current_phase: string;
@@ -70,14 +70,19 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
   };
 
   const approve = async (phaseId: string, approved: boolean) => {
+    setError('');
     try {
-      await agentFetch(`/api/agent/workflow-runs/${encodeURIComponent(workflowId!)}/approve`, {
+      await agentJson(`/api/agent/workflow-runs/${encodeURIComponent(workflowId!)}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phase_id: phaseId, approved }),
       });
       queryClient.invalidateQueries({ queryKey: ['workflow-run', workflowId] });
-    } catch { /* surfaced by the next poll */ }
+    } catch (e) {
+      // A refused verdict (403, 409) is not "surfaced by the next poll": the
+      // poll shows the gate still waiting, which reads as the click not taking.
+      setError(`${approved ? 'Approval' : 'Denial'} was not recorded: ${e instanceof Error ? e.message : 'request failed'}`);
+    }
   };
 
   const awaiting = run?.status === 'RUNNING' ? run.progress?.awaiting_approval : '';

@@ -5,7 +5,8 @@ import {
   RefreshCw, Play, ArrowRight, BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { agentFetch } from '../../engine/safeQuery';
+import { agentFetch, agentJson } from '../../engine/safeQuery';
+import { LoadError } from '../../components/primitives/LoadError';
 import { SkillDetailDrawer } from './SkillDetailDrawer';
 
 const SKILL_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -27,14 +28,12 @@ export function SkillsTab() {
   const [testResult, setTestResult] = useState<{ skill: string; description: string; degraded: boolean } | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
-  const { data: skills = [], isLoading } = useQuery({
+  // A failed read returned [], which rendered as a toolbox with no skills.
+  const skillsQuery = useQuery({
     queryKey: ['admin', 'skills'],
-    queryFn: async () => {
-      const res = await agentFetch('/api/agent/skills');
-      if (!res.ok) return [];
-      return res.json();
-    },
+    queryFn: () => agentJson<Record<string, unknown>[]>('/api/agent/skills'),
   });
+  const { data: skills = [], isLoading } = skillsQuery;
 
   const { data: skillStats } = useQuery({
     queryKey: ['admin', 'skill-usage-skills-tab'],
@@ -118,6 +117,8 @@ export function SkillsTab() {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>
+      ) : skillsQuery.isError ? (
+        <LoadError title="Skills could not be loaded" error={skillsQuery.error} onRetry={() => skillsQuery.refetch()} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {sortSkills(skills).map((skill: Record<string, unknown>) => {
