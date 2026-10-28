@@ -2,6 +2,27 @@
 
 Release entries are historical records. Counts, timings, security scans, and feature claims describe their release context; consult current source/check output for present behavior.
 
+## v2.35.0 (2026-10-27)
+
+Paired with pulse-agent v2.35.0; runs with pulse-operator v0.11.0. Pull requests #151–#153. Needs pulse-agent v2.35.0 for live inbox updates, memory `enabled` flags, `no_data` SLOs and the structured investigation evidence.
+
+### Fixed
+- Failures and "switched off" are shown as such, never as an empty or successful state (functionality review, Batch F):
+  - Memory import reported the counts the agent actually returns (it always said 0), and memory switched off shows a banner instead of a successful empty import
+  - Memory lists, Cluster Knowledge, SLOs, plan templates, durable-run approvals, Toolbox Skills/MCP and view history show load and save errors with a reason, and forms stay open on a refused save
+  - Learned runbooks, patterns and incidents can be forgotten (admin-gated on the agent)
+  - SLOs without data show as NO DATA instead of disappearing; status comes from the agent's alert level, with hours of budget left at the current rate
+  - Archived inbox items can be restored; `?preset=needs_approval` links map to `needs_attention`
+  - `view_validation_warning` is shown as a warning toast
+- Investigation cards show each piece of evidence with its stance and source; contradicting evidence was listed with a "+" as if it supported the cause. A 0% confidence ("nothing supports this") is shown instead of hidden
+- Logs: no dropped or duplicated lines while following, previous-container logs are marked, and a stream the server closed offers Reconnect
+- Watches relist after a 410 instead of keeping deleted objects, and replayed `ADDED` events update stale copies
+- The terminal opens the app container with a picker for regular and debug containers, attaches node terminals to the node's debug pod, and stays pinned to the pod's cluster
+- States that read as healthy before anything was checked now say so: alerts say "Checking alerts…", the Pulse report names lists it couldn't read, and an unchecked fleet no longer scores 100 "Healthy"
+
+### Tests
+- `agentEvidenceContract.test.tsx` renders the investigation payloads pulse-agent generates from its own code (`src/kubeview/__fixtures__/agent-contract/investigation.json`)
+
 ## v2.34.0 (2026-10-22)
 
 Paired with pulse-agent v2.34.0 and pulse-operator v0.11.0. Pull requests #140–#142.
