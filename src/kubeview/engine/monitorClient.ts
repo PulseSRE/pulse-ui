@@ -103,6 +103,14 @@ export interface MonitorStatus {
   nextScan: number;
 }
 
+export interface EvidenceItem {
+  observation: string;
+  kind?: string;
+  source?: string;
+  stance?: 'supports' | 'contradicts' | 'context';
+  confidence?: number;
+}
+
 export interface InvestigationReport {
   id: string;
   findingId: string;
@@ -113,6 +121,8 @@ export interface InvestigationReport {
   recommendedFix?: string;
   confidence?: number;
   evidence?: string[];
+  /** Structured evidence the confidence was derived from: stance says whether it supports the cause. */
+  evidenceDetail?: EvidenceItem[];
   alternativesConsidered?: string[];
   error?: string;
   timestamp: number;
