@@ -5,6 +5,8 @@ import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, His
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { LoadError } from '../components/primitives/LoadError';
+import { agentJson } from '../engine/safeQuery';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { formatRelativeTime } from '../engine/formatters';
 import type { ViewSpec } from '../engine/agentComponents';
@@ -72,33 +74,38 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
 
+  const [historyError, setHistoryError] = useState<{ title: string; error: unknown } | null>(null);
+
   const openHistory = async (viewId: string) => {
     setHistoryViewId(viewId);
+    setHistoryError(null);
+    setVersions([]);
     setLoadingVersions(true);
     try {
-      const res = await fetch(`${AGENT_BASE}/views/${viewId}/versions`);
-      if (res.ok) {
-        const data = await res.json();
-        setVersions(data.versions || []);
-      }
-    } catch { /* ignore */ }
+      const data = await agentJson<{ versions?: ViewVersion[] }>(`${AGENT_BASE}/views/${viewId}/versions`);
+      setVersions(data.versions || []);
+    } catch (e) {
+      // Showed "No version history yet" — a different and reassuring answer.
+      setHistoryError({ title: 'Version history could not be loaded', error: e });
+    }
     setLoadingVersions(false);
   };
 
   const restoreVersion = async (viewId: string, version: number) => {
     setRestoringVersion(version);
+    setHistoryError(null);
     try {
-      const res = await fetch(`${AGENT_BASE}/views/${viewId}/undo`, {
+      await agentJson(`${AGENT_BASE}/views/${viewId}/undo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version }),
       });
-      if (res.ok) {
-        useUIStore.getState().addToast({ type: 'success', title: 'View restored', detail: `Restored to version ${version}`, duration: 3000 });
-        loadViews();
-        setHistoryViewId(null);
-      }
-    } catch { /* ignore */ }
+      useUIStore.getState().addToast({ type: 'success', title: 'View restored', detail: `Restored to version ${version}`, duration: 3000 });
+      loadViews();
+      setHistoryViewId(null);
+    } catch (e) {
+      setHistoryError({ title: `Version ${version} was not restored`, error: e });
+    }
     setRestoringVersion(null);
   };
 
@@ -346,7 +353,14 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                   <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
                 </div>
               )}
-              {!loadingVersions && versions.length === 0 && (
+              {historyError && (
+                <LoadError
+                  title={historyError.title}
+                  error={historyError.error}
+                  onRetry={() => historyViewId && openHistory(historyViewId)}
+                />
+              )}
+              {!loadingVersions && !historyError && versions.length === 0 && (
                 <p className="text-xs text-slate-500 text-center py-8">No version history yet. Changes are snapshotted automatically when you edit a view.</p>
               )}
               {versions.map((v, i) => {

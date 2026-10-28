@@ -113,7 +113,7 @@ export function StatusBar() {
         )}
         {pendingReviewCount > 0 && (
           <button
-            onClick={() => navigate('/inbox?preset=needs_approval')}
+            onClick={() => navigate('/inbox?preset=needs_attention')}
             className="flex items-center gap-1 text-amber-400 px-1.5 py-0.5 rounded-sm hover:bg-amber-500/10 transition-colors"
             title={`${pendingReviewCount} pending review${pendingReviewCount !== 1 ? 's' : ''}`}
           >

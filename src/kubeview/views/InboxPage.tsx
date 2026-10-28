@@ -47,9 +47,13 @@ export function InboxPage() {
     if (taskId) {
       setSelectedItem(taskId);
     }
+    // Only presets the inbox knows. Links used `needs_approval`, which matched
+    // no filter and silently showed an unfiltered list.
     const preset = searchParams.get('preset');
-    if (preset) {
-      useInboxStore.getState().setPreset(preset as 'needs_attention' | 'agent_cleared' | 'my_items' | 'archived' | 'all');
+    const known = ['needs_attention', 'agent_cleared', 'my_items', 'archived', 'all'] as const;
+    const normalized = preset === 'needs_approval' ? 'needs_attention' : preset;
+    if (normalized && (known as readonly string[]).includes(normalized)) {
+      useInboxStore.getState().setPreset(normalized as (typeof known)[number]);
     }
     const tab = searchParams.get('tab');
     if (tab === 'activity' || tab === 'inbox') {
