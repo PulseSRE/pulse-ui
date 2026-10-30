@@ -16,7 +16,7 @@ A React and TypeScript dashboard for OpenShift operations: resource browsing and
 
 <sub>Sample data in both.</sub>
 
-**New in v2.35.0:** failures and "switched off" are shown as such, never as empty or saved; investigation evidence shows whether it supports or contradicts the cause, and where it came from, and a 0% confidence is shown; the inbox updates live; learned memory can be forgotten and says when it is off; SLOs without data show NO DATA; logs, watches and the terminal are more reliable. See the [changelog](CHANGELOG.md).
+**New in v2.36.0:** investigation evidence names the exact tool call it came from, with its arguments, and the inbox drawer shows whether each piece supports or contradicts the cause. **v2.35.0:** failures and "switched off" are shown as such, never as empty or saved; investigation evidence shows whether it supports or contradicts the cause, and where it came from, and a 0% confidence is shown; the inbox updates live; learned memory can be forgotten and says when it is off; SLOs without data show NO DATA; logs, watches and the terminal are more reliable. See the [changelog](CHANGELOG.md).
 
 **See it in 36 seconds:** [![Watch the 36-second overview of Pulse](https://pulsesre.github.io/pulse-agent/media/video-thumb.jpg)](https://pulsesre.github.io/pulse-agent/#film)
 

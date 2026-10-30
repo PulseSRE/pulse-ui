@@ -14,7 +14,7 @@
 <body>
 <header class="wrap"><nav class="sites" aria-label="Pulse projects">
 <a class="mark" href="https://github.com/PulseSRE"><svg viewBox="0 0 68 36" aria-hidden="true"><path d="M0 20 H18 L22 24 L28 3 L34 32 L38 20 H50 L54 15 L58 20 H68" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/></svg><span>Pulse</span></a>
-<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.35.0</span>
+<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.36.0</span>
 </nav></header>
 <main>
 <section class="hero wrap" aria-labelledby="title">
@@ -127,6 +127,13 @@
 <div class="wrap">
 <h2 id="new">What's new</h2>
 <div class="release">
+<p class="when"><strong>v2.36.0</strong>30 October 2026<br>Pairs with agent v2.36.0 and operator v0.11.0</p>
+<ul>
+<li style="--c:var(--ok)"><b>Evidence names its tool call.</b> <span>Each piece of evidence shows the call it came from with its arguments, like <code>get_pod_logs(namespace=shop, pod_name=api-7f)</code>, and says plainly when a cited source was never read.</span></li>
+<li style="--c:var(--trace)"><b>The inbox drawer shows stance too.</b> <span>Evidence on an inbox item says whether it supports or contradicts the cause, the same as in the activity feed.</span></li>
+</ul>
+</div>
+<div class="release">
 <p class="when"><strong>v2.35.0</strong>27 October 2026<br>Pairs with agent v2.35.0 and operator v0.11.0</p>
 <ul>
 <li style="--c:var(--trace)"><b>Failures look like failures.</b> <span>Memory, SLOs, plans, approvals and the Toolbox show why something did not load or save, instead of an empty list or a form that closes as if it worked. Memory that is switched off says so.</span></li>
@@ -158,7 +165,7 @@ pnpm verify     <span class="c"># type-check, lint, tests and build</span></code
 </section>
 </main>
 <footer><div class="wrap">
-<span>Pulse UI v2.35.0. MIT licensed.</span>
+<span>Pulse UI v2.36.0. MIT licensed.</span>
 <span><a href="https://github.com/PulseSRE/pulse-ui">Source</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/releases">Releases</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/blob/main/CHANGELOG.md">Changelog</a></span>
 </div></footer>
 </body>
