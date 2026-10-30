@@ -14,7 +14,7 @@
 <body>
 <header class="wrap"><nav class="sites" aria-label="Pulse projects">
 <a class="mark" href="https://github.com/PulseSRE"><svg viewBox="0 0 68 36" aria-hidden="true"><path d="M0 20 H18 L22 24 L28 3 L34 32 L38 20 H50 L54 15 L58 20 H68" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/></svg><span>Pulse</span></a>
-<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.34.0</span>
+<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.35.0</span>
 </nav></header>
 <main>
 <section class="hero wrap" aria-labelledby="title">
@@ -38,7 +38,7 @@
 <figure>
 <video controls preload="none" playsinline poster="https://pulsesre.github.io/pulse-agent/media/poster.jpg" aria-describedby="film-cap">
 <source src="https://pulsesre.github.io/pulse-agent/media/pulse-30s.mp4" type="video/mp4">
-<a href="https://pulsesre.github.io/pulse-agent/media/pulse-30s.mp4">Watch the 30-second overview (MP4)</a>
+<a href="https://pulsesre.github.io/pulse-agent/media/pulse-30s.mp4">Watch the 36-second overview (MP4)</a>
 </video>
 <figcaption id="film-cap"><b>See it in 36 seconds.</b> One bad rollout sets off 38 alerts. Pulse turns them into one incident, shows you the proof, works out the fix with you, and checks that it held. Sample data, with sound and a voice-over.</figcaption>
 </figure>
@@ -104,7 +104,7 @@
 <figcaption><b>Workloads.</b> What is unhealthy comes first, then counts and trends for every kind of workload.</figcaption></figure>
 </div>
 <div class="gallery"><figure><div class="shot"><img src="screenshots/security.png" width="1440" height="900" loading="lazy" alt="The Security view in OpenShift Pulse. A security audit: identity, RBAC, TLS and network policy checks, scored."></div><figcaption><b>Security.</b> A security audit: identity, RBAC, TLS and network policy checks, scored.</figcaption></figure><figure><div class="shot"><img src="screenshots/alerts.png" width="1440" height="900" loading="lazy" alt="The Alerts view in OpenShift Pulse. Firing and pending alerts with one-click silences and the rules behind them."></div><figcaption><b>Alerts.</b> Firing and pending alerts with one-click silences and the rules behind them.</figcaption></figure><figure><div class="shot"><img src="screenshots/networking.png" width="1440" height="900" loading="lazy" alt="The Networking view in OpenShift Pulse. Services, routes and policies, with a networking health audit."></div><figcaption><b>Networking.</b> Services, routes and policies, with a networking health audit.</figcaption></figure><figure><div class="shot"><img src="screenshots/compute.png" width="1440" height="900" loading="lazy" alt="The Compute view in OpenShift Pulse. Control plane and nodes, utilization trends, and a compute health audit."></div><figcaption><b>Compute.</b> Control plane and nodes, utilization trends, and a compute health audit.</figcaption></figure><figure><div class="shot"><img src="screenshots/storage.png" width="1440" height="900" loading="lazy" alt="The Storage view in OpenShift Pulse. Volumes, claims and storage classes, with IOPS and a storage audit."></div><figcaption><b>Storage.</b> Volumes, claims and storage classes, with IOPS and a storage audit.</figcaption></figure><figure><div class="shot"><img src="screenshots/table-view.png" width="1440" height="900" loading="lazy" alt="The Any resource view in OpenShift Pulse. Every resource type as a table: filter, sort, act on many at once."></div><figcaption><b>Any resource.</b> Every resource type as a table: filter, sort, act on many at once.</figcaption></figure></div>
-<p class="caption">Scanner coverage is from this release with sample data. The other screens come from an earlier release on a live cluster, so details may differ.</p>
+<p class="caption">Scanner coverage is from v2.33.0 with sample data. The other screens come from an earlier release on a live cluster, so details may differ.</p>
 </div>
 </section>
 
@@ -127,12 +127,12 @@
 <div class="wrap">
 <h2 id="new">What's new</h2>
 <div class="release">
-<p class="when"><strong>v2.34.0</strong>22 October 2026<br>Pairs with agent v2.34.0 and operator v0.11.0</p>
+<p class="when"><strong>v2.35.0</strong>27 October 2026<br>Pairs with agent v2.35.0 and operator v0.11.0</p>
 <ul>
-<li style="--c:var(--ask)"><b>Answer approvals where they show up.</b> <span>Plans waiting on approval are listed at the top of Pulse Agent, Runs, and in the inbox, with Approve and Deny. Approving names the phase and target first.</span></li>
-<li style="--c:var(--ok)"><b>Run a plan from a finding.</b> <span>A finding with a matching plan offers to run it durably against that finding, and says which steps will stop for approval.</span></li>
-<li style="--c:var(--trace)"><b>Writes go to the cluster on screen.</b> <span>Create, Quick Deploy and Helm wrote to the local cluster while another was shown. They now follow the cluster you are looking at.</span></li>
-<li style="--c:var(--ink)"><b>Safer one-click actions.</b> <span>Pod restart asks first, scaling rejects stale counts, and a failed delete says it failed instead of closing as if it worked.</span></li>
+<li style="--c:var(--trace)"><b>Failures look like failures.</b> <span>Memory, SLOs, plans, approvals and the Toolbox show why something did not load or save, instead of an empty list or a form that closes as if it worked. Memory that is switched off says so.</span></li>
+<li style="--c:var(--ok)"><b>Evidence with its stance.</b> <span>Each piece of evidence says whether it supports or contradicts the cause and where it came from, and a 0% confidence is shown rather than hidden.</span></li>
+<li style="--c:var(--ask)"><b>A live inbox.</b> <span>Inbox changes arrive as they happen, approvals made elsewhere clear here, and archived items can be restored.</span></li>
+<li style="--c:var(--ink)"><b>Logs, watches and terminal you can trust.</b> <span>No dropped or doubled log lines, deleted objects disappear after a reconnect, and the terminal opens the app container on the right cluster.</span></li>
 </ul>
 </div>
 <p class="intro"><a href="https://github.com/PulseSRE/pulse-ui/blob/main/CHANGELOG.md">Full changelog</a></p>
@@ -158,7 +158,7 @@ pnpm verify     <span class="c"># type-check, lint, tests and build</span></code
 </section>
 </main>
 <footer><div class="wrap">
-<span>Pulse UI v2.34.0. MIT licensed.</span>
+<span>Pulse UI v2.35.0. MIT licensed.</span>
 <span><a href="https://github.com/PulseSRE/pulse-ui">Source</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/releases">Releases</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/blob/main/CHANGELOG.md">Changelog</a></span>
 </div></footer>
 </body>

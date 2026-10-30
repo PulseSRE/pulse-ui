@@ -165,6 +165,7 @@ The old `Narrative.ts`, `buildNarrative`, and `groupEvents` exports no longer ex
 
 Tests are located in `__tests__/`:
 - `Sparkline.test.tsx` — rendering, fetching, refresh and formatting behavior for Sparkline/MetricCard.
+- `metricFormat.test.ts` — value and count formatting
 - `prometheus.test.ts` — `prometheus.ts` API client functions (`queryRange`, `queryInstant`, `getMetricNames`, `getLabelValues`, `seriesToDataPoints`, `parseDuration`, `formatDuration`, `getTimeRange`)
 
 Run tests with:

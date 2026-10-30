@@ -25,10 +25,11 @@ Browser paths are `/api/agent/...`; production nginx and the development proxy s
 | `GET` | `/eval/status` | token | Cached quality gate snapshot (release, safety, integration, outcomes) |
 | `GET` | `/predictions` | token | Returns empty — predictions are WebSocket-only (`/ws/monitor`) |
 | `GET` | `/memory/export` | token | Export learned runbooks and patterns as JSON |
-| `POST` | `/memory/import` | token | Import runbooks and patterns from another pod's export |
+| `POST` | `/memory/import` | admin | Import runbooks and patterns from another pod's export. Returns `imported_runbooks`/`imported_patterns`; 503 when agent memory is off |
+| `DELETE` | `/memory/{kind}/{id}` | admin | Forget a learned runbook, pattern or incident (`kind`: `runbooks`, `patterns`, `incidents`). Memory list responses carry `enabled` |
 | `GET` | `/monitor/capabilities` | token | Max trust level and supported auto-fix categories |
 | `POST` | `/monitor/pause` | token | Emergency kill switch — pause all auto-fix actions |
-| `POST` | `/monitor/resume` | token | Resume auto-fix actions after a pause |
+| `POST` | `/monitor/resume` | admin | Resume auto-fix actions after a pause |
 | `GET` | `/context` | token | View recent shared context bus entries across all agents |
 | `GET` | `/skills` | token | List all skills with routing rules and metadata |
 | `GET` | `/skills/{name}` | token | Get skill detail (prompt, tools, routing, versions) |
@@ -340,13 +341,18 @@ Triggers an immediate cluster scan. If a scan is already in progress, returns an
   "type": "finding",
   "id": "f-abc123",
   "severity": "warning",
-  "category": "crash_loop",
-  "resource": {"kind": "Pod", "name": "api-server-xyz", "namespace": "production"},
-  "summary": "Pod crash-looping: CrashLoopBackOff (5 restarts in 10m)",
-  "details": "...",
+  "category": "crashloop",
+  "title": "Pod api-server-xyz restarting (5x)",
+  "resources": [{"kind": "Pod", "name": "api-server-xyz", "namespace": "production"}],
+  "summary": "Container 'api' has restarted 5 times. Reason: CrashLoopBackOff",
+  "confidence": 0.95,
+  "autoFixable": true,
+  "runbookId": "crashloop-restart",
   "timestamp": 1711540800
 }
 ```
+
+Optional: `noiseScore` (likely transient), `planId`/`planName`, and on `degraded` findings `remedy` and `unwatched`. A `finding` whose `id` is already known is an update. Shape: `Finding` in `monitorClient.ts`.
 
 #### `prediction` — Predicted future issue
 
@@ -355,10 +361,12 @@ Triggers an immediate cluster scan. If a scan is already in progress, returns an
   "type": "prediction",
   "id": "p-abc123",
   "category": "resource_pressure",
-  "resource": {"kind": "Node", "name": "worker-03"},
-  "summary": "Node memory predicted to exceed 90% within 2 hours",
+  "title": "Node memory pressure predicted",
+  "resources": [{"kind": "Node", "name": "worker-03"}],
+  "detail": "Node memory predicted to exceed 90% within 2 hours",
   "confidence": 0.87,
-  "horizon": "2h",
+  "eta": "2h",
+  "recommendedAction": "Add a worker node or reduce requests",
   "timestamp": 1711540800
 }
 ```
@@ -368,16 +376,22 @@ Triggers an immediate cluster scan. If a scan is already in progress, returns an
 ```json
 {
   "type": "action_report",
-  "actionId": "a-abc123",
+  "id": "a-abc123",
   "findingId": "f-abc123",
-  "action": "restart_pod",
-  "status": "applied",
-  "summary": "Restarted pod api-server-xyz",
-  "before": {},
-  "after": {},
+  "tool": "restart_deployment",
+  "input": {"namespace": "production", "name": "api-server"},
+  "status": "completed",
+  "beforeState": "replicas=3, ready=1",
+  "afterState": "replicas=3, ready=3",
+  "reasoning": "Pod was crash-looping; restart cleared the bad in-memory state",
+  "durationMs": 842,
+  "confidence": 0.8,
+  "rollbackAvailable": true,
   "timestamp": 1711540800
 }
 ```
+
+`status`: `proposed` | `executing` | `completed` | `failed` | `rolled_back` | `expired` (nobody answered in time; the fix never ran). An approval made over REST (`POST /fix-history/{id}/approve`) is also announced as an `action_report`, so every open UI clears it from its pending list.
 
 `action_report` may include optional verification fields once post-fix verification completes:
 - `verificationStatus`: `"pending"` | `"verified"` | `"still_failing"` | `"improved"` | `"unverifiable"` | `"verified_then_recurred"`
@@ -397,9 +411,18 @@ Triggers an immediate cluster scan. If a scan is already in progress, returns an
   "suspectedCause": "ConfigMap key removed in recent rollout",
   "recommendedFix": "Restore key and restart deployment",
   "confidence": 0.82,
+  "evidence": ["Pod logs show KeyError on startup"],
+  "evidenceDetail": [
+    {"observation": "Pod logs show KeyError on startup", "kind": "log", "source": "get_pod_logs", "stance": "supports", "confidence": 0.9},
+    {"observation": "Restarts began before the rollout", "kind": "event", "source": "get_events", "stance": "contradicts", "confidence": 0.6}
+  ],
+  "alternativesConsidered": ["Image pull failure ruled out"],
+  "planId": "crashloop-resolution-v1",
   "timestamp": 1711540800
 }
 ```
+
+`InvestigationCard` renders `evidenceDetail` with each item's stance (supports / contradicts / context) and source, falling back to the prose `evidence` list. A `confidence` of 0 means nothing supported the cause and is shown, not hidden. The UI ignores `planId`. `src/kubeview/__fixtures__/agent-contract/investigation.json` holds the exact payload pulse-agent generates.
 
 #### `verification_report` — Next-scan validation after a fix action
 
@@ -445,6 +468,25 @@ Sent after each scan cycle. Contains the IDs of all currently active findings. T
   "nextScan": 1711540860
 }
 ```
+
+#### `inbox_item_created` / `inbox_item_updated` / `inbox_item_claimed` / `inbox_item_resolved` — Ops Inbox changes
+
+Relayed by the agent so the inbox updates live; the store refreshes the inbox on each.
+
+```json
+{"type": "inbox_item_created", "id": "inb-1a2b3c", "title": "Pod api crashlooping", "severity": "critical", "item_type": "finding", "timestamp": 1711540800000}
+{"type": "inbox_item_claimed", "id": "inb-1a2b3c", "claimed_by": "alice", "claimed_at": 1711540802, "timestamp": 1711540802000}
+```
+
+#### `skill_activity` — The skill a monitor investigation is running
+
+Sent as each plan phase starts (`status: "running"`), and with an empty `skill_name` and `status: "idle"` when the plan finishes.
+
+```json
+{"type": "skill_activity", "skill_name": "sre", "status": "running", "timestamp": 1711540800000}
+```
+
+`resolution`, `scan_report` and `investigation_progress` are also sent; see the agent API contract and the `MonitorEvent` union in `monitorClient.ts`.
 
 #### `fix_history` — Response to `get_fix_history`
 
@@ -568,7 +610,7 @@ These entries record older releases; they are not current compatibility guarante
 
 ## Additional current surfaces
 
-REST helpers also cover inbox/episode lifecycle, topology/blast radius, analytics, plans, custom view persistence/sharing, skill governance, MCP connections, memory, and SLOs. See their modules under `src/kubeview/engine/` and the backend route inventory rather than assuming the overview table above is exhaustive. Monitor events include resolution, scan reports, investigation progress, inbox lifecycle and skill activity; chat includes feedback acknowledgements, view updates, session expiry, and multi-skill events. Canonical discriminated unions are in the two client modules.
+REST helpers also cover inbox/episode lifecycle, topology/blast radius, analytics, plans, custom view persistence/sharing, skill governance, MCP connections, memory, and SLOs. See their modules under `src/kubeview/engine/` and the backend route inventory rather than assuming the overview table above is exhaustive. Monitor events include resolution, scan reports, investigation progress, inbox lifecycle and skill activity; chat includes feedback acknowledgements, view updates, session expiry, multi-skill events, and `view_validation_warning` (`{errors[], warnings?, deduped_count?}`, shown as a warning toast). The monitor client also sends `set_disabled_scanners`. Canonical discriminated unions are in the two client modules.
 
 Action status can include `expired`; verification can include `pending` and `verified_then_recurred`. Do not render an expired proposal as executed or a recurred fix as lasting success. REST rollback and approve helpers parse backend refusal messages, including conditions no longer applicable.
 

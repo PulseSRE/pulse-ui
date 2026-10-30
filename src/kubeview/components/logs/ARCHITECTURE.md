@@ -98,6 +98,9 @@ User opens pod logs
         → Extract timestamp, level, message, fields
           → Store in lines[] state
             → Render log lines
+  → If the running container has no output yet
+    → Fetch previous=true for the auto-detected container
+      → Show a banner: these are the previous instance's logs
 ```
 
 ### Live Streaming
@@ -105,12 +108,14 @@ User opens pod logs
 User enables Follow
   → LogStream fetches with follow=true
     → ReadableStream starts
-      → Read chunks in loop
-        → Decode chunk with TextDecoder
-          → Split by newlines
-            → Parse new lines
-              → Append to lines[] state
+      → readLogStream() (logStreamReader.ts) reads chunks
+        → Decodes with a streaming TextDecoder (multi-byte characters survive chunk edges)
+          → Emits whole lines in fresh batches; flushes the last partial line at the end
+            → First batch replaces the tail already on screen (no duplicates)
+              → Later batches are parsed and appended to lines[] state
                 → Auto-scroll if at bottom
+  → Server closes the stream (container exited or restarted)
+    → streamEnded: "Live" goes away and a banner offers Reconnect
 ```
 
 ### Search
@@ -159,6 +164,8 @@ All components use:
 Unit tests for:
 - **LogParser:** Format detection, line parsing, level normalization (`LogParser.test.ts`)
 - **LogStream:** Fetch/render behavior, container auto-detection, error states (`__tests__/LogStream.test.tsx`)
+- **logStreamReader:** line batching, partial-line flush, multi-byte boundaries (`__tests__/logStreamReader.test.ts`)
+- **pickDefaultContainer:** app container over sidecars (`__tests__/pickDefaultContainer.test.ts`)
 
 There are also two orphaned logic-only test files, `__tests__/LogSearch.test.ts` and `__tests__/LogContext.test.ts`, that test search/context-extraction logic in isolation for the `LogSearch`/`LogContext` components described above — those components were never built, so these tests exercise standalone functions only, not any React component.
 

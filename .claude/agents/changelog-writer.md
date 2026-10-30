@@ -25,7 +25,9 @@ Generates a CHANGELOG.md entry for the next release by analyzing git history.
 8. Generate the new entry in this format:
 
 ```markdown
-## [X.Y.Z] - YYYY-MM-DD
+## vX.Y.Z (YYYY-MM-DD)
+
+Paired with pulse-agent vX.Y.Z; runs with pulse-operator vA.B.C. Pull requests #N–#M.
 
 ### Added
 - **Feature name** — brief description
@@ -39,7 +41,7 @@ Generates a CHANGELOG.md entry for the next release by analyzing git history.
 ### Security
 - Security change description
 
-### Stats
+### Stats (optional; recent entries omit it)
 - **N tests** across M test files
 - Health-check changes (report only verified current counts)
 - **N views**, N routes

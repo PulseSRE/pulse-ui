@@ -16,9 +16,9 @@ A React and TypeScript dashboard for OpenShift operations: resource browsing and
 
 <sub>Sample data in both.</sub>
 
-**New in v2.34.0:** durable approvals can be answered from the inbox and Pulse Agent → Runs; Create, Quick Deploy and Helm write to the cluster on screen; pod restart asks first and says when nothing will recreate the pod; scaling rejects stale counts; failed deletes in agent tables are reported. See the [changelog](CHANGELOG.md).
+**New in v2.35.0:** failures and "switched off" are shown as such, never as empty or saved; investigation evidence shows whether it supports or contradicts the cause, and where it came from, and a 0% confidence is shown; the inbox updates live; learned memory can be forgotten and says when it is off; SLOs without data show NO DATA; logs, watches and the terminal are more reliable. See the [changelog](CHANGELOG.md).
 
-**See it in 30 seconds:** [![Watch the 30-second overview of Pulse](https://pulsesre.github.io/pulse-agent/media/video-thumb.jpg)](https://pulsesre.github.io/pulse-agent/#film)
+**See it in 36 seconds:** [![Watch the 36-second overview of Pulse](https://pulsesre.github.io/pulse-agent/media/video-thumb.jpg)](https://pulsesre.github.io/pulse-agent/#film)
 
 ## Install
 
@@ -128,7 +128,7 @@ podman push "$PULSE_UI_IMAGE"
 
 ## Screenshots and project links
 
-`inbox.png` and `scanners.png` in [docs/screenshots](docs/screenshots) show v2.33.0 with sample data; regenerate them with `node e2e/screenshots/capture.mjs` (see the header of that file). The other screenshots there capture earlier UI revisions from a live cluster and may differ from the current routes and data. [docs/index.html](docs/index.html) is the project landing page.
+`inbox.png` and `scanners.png` (v2.33.0) and `chat.png`, `view.png` and `evidence.png` (v2.34.0) in [docs/screenshots](docs/screenshots) are sample data from `node e2e/screenshots/capture.mjs` (see the header of that file); `evidence.png` predates the v2.35.0 stance and source labels. The other screenshots there capture earlier UI revisions from a live cluster and may differ from the current routes and data. [docs/index.html](docs/index.html) is the project landing page.
 
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
