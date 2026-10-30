@@ -109,6 +109,8 @@ export interface EvidenceItem {
   source?: string;
   stance?: 'supports' | 'contradicts' | 'context';
   confidence?: number;
+  /** A source the model cited that names no tool the investigation called. */
+  unverified_source?: string;
 }
 
 export interface InvestigationReport {

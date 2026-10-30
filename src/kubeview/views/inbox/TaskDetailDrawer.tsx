@@ -24,6 +24,7 @@ import { useUIStore } from '../../store/uiStore';
 import { useActionPlanStore, resolveStepStatus, isStepDone, type ActionPlanStep } from '../../store/actionPlanStore';
 import { InboxLifecycleStepper } from './InboxLifecycle';
 import { DurableApprovalPanel, DurableRunStarter } from './DurableRunControls';
+import { EvidenceList } from '../incidents/shared/EvidenceList';
 
 function formatDueDate(ts: number): string {
   const date = new Date(ts * 1000);
@@ -292,23 +293,18 @@ function InvestigationCard({ report }: { report: InvestigationReport }) {
           <span className="text-emerald-300">{report.recommended_fix || report.recommendedFix}</span>
         </div>
       )}
-      {report.evidence?.length > 0 && (
+      {((report.evidence_detail?.length ?? 0) > 0 || (report.evidence?.length ?? 0) > 0) && (
         <div>
           <button
             onClick={() => setEvidenceOpen(!evidenceOpen)}
             className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
           >
-            {evidenceOpen ? 'Hide' : 'Show'} evidence ({report.evidence.length})
+            {evidenceOpen ? 'Hide' : 'Show'} evidence ({report.evidence_detail?.length || report.evidence?.length || 0})
           </button>
           {evidenceOpen && (
-            <ul className="mt-1 space-y-1 text-xs text-slate-400">
-              {report.evidence.map((e, i) => (
-                <li key={i} className="flex items-start gap-1.5">
-                  <span className="text-slate-600 mt-0.5">&#8226;</span>
-                  <span>{e}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-1">
+              <EvidenceList detail={report.evidence_detail} prose={report.evidence} />
+            </div>
           )}
         </div>
       )}

@@ -53,15 +53,32 @@ jobs:
           fi
           echo "No hardcoded secrets detected"
 
+      # CLAUDE.md deliberately does not repeat the version, so checking it there
+      # warned on every run and was ignored. What readers see is the README's
+      # "New in" line and the Pages site, and both went stale at v2.35.0 with
+      # nothing to say so. A release bumps package.json, so it must bump these.
       - name: Docs consistency
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          # CLAUDE.md should mention current version
-          if ! grep -q "$PKG_VERSION" CLAUDE.md 2>/dev/null; then
-            echo "::warning::CLAUDE.md does not mention version $PKG_VERSION"
+          STATUS=0
+          if ! grep -q "Pulse UI v${PKG_VERSION}\." docs/index.html; then
+            echo "::error file=docs/index.html::Pages footer does not say Pulse UI v${PKG_VERSION}"
+            STATUS=1
           fi
-          # Check test count in CLAUDE.md is roughly accurate
-          echo "Docs consistency check passed (v${PKG_VERSION})"
+          if ! grep -q "<strong>v${PKG_VERSION}</strong>" docs/index.html; then
+            echo "::error file=docs/index.html::Pages \"What's new\" is not the v${PKG_VERSION} entry"
+            STATUS=1
+          fi
+          if ! grep -q "New in v${PKG_VERSION}" README.md; then
+            echo "::error file=README.md::README \"New in\" line is not for v${PKG_VERSION}"
+            STATUS=1
+          fi
+          if ! grep -q "^## v${PKG_VERSION} " CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::No CHANGELOG section for v${PKG_VERSION}"
+            STATUS=1
+          fi
+          [ "$STATUS" = 0 ] && echo "Docs consistency check passed (v${PKG_VERSION})"
+          exit "$STATUS"
 
   unit-tests:
     name: Unit Tests
