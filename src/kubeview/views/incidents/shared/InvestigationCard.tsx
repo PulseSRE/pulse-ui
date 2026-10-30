@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InvestigationReport } from '../../../engine/monitorClient';
-
-const STANCE_MARK = { supports: '+', contradicts: '−', context: '·' } as const;
-const STANCE_STYLE = { supports: 'text-emerald-500', contradicts: 'text-red-400', context: 'text-slate-500' } as const;
+import { EvidenceList } from './EvidenceList';
 
 export function InvestigationCard({
   report,
@@ -61,37 +59,10 @@ export function InvestigationCard({
         </div>
       )}
 
-      {evidenceDetail.length > 0 ? (
+      {(evidenceDetail.length > 0 || (report.evidence?.length ?? 0) > 0) && (
         <div className="mt-2">
           <div className="text-xs font-medium text-slate-400 mb-1">Evidence</div>
-          <ul className="space-y-0.5 pl-1">
-            {evidenceDetail.map((e, i) => {
-              const stance = e.stance ?? 'supports';
-              return (
-                <li key={i} className="text-xs text-slate-300 flex gap-1.5">
-                  <span aria-label={stance} title={stance} className={cn('shrink-0 mt-px', STANCE_STYLE[stance])}>
-                    {STANCE_MARK[stance]}
-                  </span>
-                  <span>
-                    {e.observation}
-                    {e.source ? <span className="text-slate-500"> · <span className="font-mono">{e.source}</span></span> : <span className="text-slate-600"> · source not recorded</span>}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : report.evidence && report.evidence.length > 0 && (
-        <div className="mt-2">
-          <div className="text-xs font-medium text-slate-400 mb-1">Evidence</div>
-          <ul className="space-y-0.5 pl-1">
-            {report.evidence.map((e, i) => (
-              <li key={i} className="text-xs text-slate-300 flex gap-1.5">
-                <span className="text-emerald-500 shrink-0 mt-px">+</span>
-                {e}
-              </li>
-            ))}
-          </ul>
+          <EvidenceList detail={evidenceDetail} prose={report.evidence} />
         </div>
       )}
 

@@ -69,6 +69,7 @@ export interface InboxFilters {
 // ---- REST helpers ----
 
 import { agentFetch } from './safeQuery';
+import type { EvidenceItem } from './monitorClient';
 
 const AGENT_BASE = '/api/agent';
 
@@ -213,6 +214,8 @@ export interface InvestigationReport {
   recommendedFix?: string;
   confidence: number;
   evidence: string[];
+  /** Structured evidence with stance and source (agent migration 041); absent or empty for older rows. */
+  evidence_detail?: EvidenceItem[];
   alternatives_considered: string[];
   alternativesConsidered?: string[];
 }
