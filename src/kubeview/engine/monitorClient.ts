@@ -111,6 +111,10 @@ export interface EvidenceItem {
   confidence?: number;
   /** A source the model cited that names no tool the investigation called. */
   unverified_source?: string;
+  /** The tool call this came from, as the investigation labelled it (`c3`, or `diagnose.c3` on plans). */
+  call_ref?: string;
+  /** That call's arguments, from the agent's record of the call (`namespace=shop, pod_name=api-7f`). */
+  call_input?: string;
 }
 
 export interface InvestigationReport {

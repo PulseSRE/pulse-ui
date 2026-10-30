@@ -413,8 +413,8 @@ Optional: `noiseScore` (likely transient), `planId`/`planName`, and on `degraded
   "confidence": 0.82,
   "evidence": ["Pod logs show KeyError on startup"],
   "evidenceDetail": [
-    {"observation": "Pod logs show KeyError on startup", "kind": "log", "source": "get_pod_logs", "stance": "supports", "confidence": 0.9},
-    {"observation": "Restarts began before the rollout", "kind": "event", "source": "get_events", "stance": "contradicts", "confidence": 0.6}
+    {"observation": "Pod logs show KeyError on startup", "kind": "log", "source": "get_pod_logs", "stance": "supports", "confidence": 0.9, "call_ref": "c2", "call_input": "namespace=shop, pod_name=api-7f"},
+    {"observation": "Restarts began before the rollout", "kind": "event", "source": "get_events", "stance": "contradicts", "confidence": 0.6, "call_ref": "c1", "call_input": "namespace=shop"}
   ],
   "alternativesConsidered": ["Image pull failure ruled out"],
   "planId": "crashloop-resolution-v1",
@@ -422,7 +422,7 @@ Optional: `noiseScore` (likely transient), `planId`/`planName`, and on `degraded
 }
 ```
 
-`InvestigationCard` renders `evidenceDetail` with each item's stance (supports / contradicts / context) and source, falling back to the prose `evidence` list. A `confidence` of 0 means nothing supported the cause and is shown, not hidden. The UI ignores `planId`. `src/kubeview/__fixtures__/agent-contract/investigation.json` holds the exact payload pulse-agent generates.
+`InvestigationCard` renders `evidenceDetail` with each item's stance (supports / contradicts / context) and source, falling back to the prose `evidence` list. The source is the tool call the item cites, shown with its arguments (`get_pod_logs(namespace=shop, pod_name=api-7f)`, `call_ref` as the tooltip); an item whose cited call failed or never ran has no `source` and shows its `unverified_source` as not read. A `confidence` of 0 means nothing supported the cause and is shown, not hidden. The UI ignores `planId`. `src/kubeview/__fixtures__/agent-contract/investigation.json` holds the exact payload pulse-agent generates.
 
 #### `verification_report` — Next-scan validation after a fix action
 
