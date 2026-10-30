@@ -1,6 +1,8 @@
 # Documentation audit — 2026-10-11
 
-Reviewed all28 Markdown files and Pages source at main `19d54a81db058af761911023e4a8e8fe83764655`. Component examples were compared with actual exports/props; operational guidance with package scripts, client contracts and deployment ownership. Historical proposals remain historical.
+> Historical record of the 2026-10-11 audit; it does not reflect later releases.
+
+Reviewed all 28 Markdown files and Pages source at main `19d54a81db058af761911023e4a8e8fe83764655`. Component examples were compared with actual exports/props; operational guidance with package scripts, client contracts and deployment ownership. Historical proposals remain historical.
 
 | File | Disposition |
 | --- | --- |
@@ -34,4 +36,4 @@ Reviewed all28 Markdown files and Pages source at main `19d54a81db058af761911023
 | `src/kubeview/components/yaml/QUICK_START.md` | Corrected component APIs, examples and unsupported behavior claims against current source. |
 | `docs/index.html` | Retained: capability and acceptance limits agree with current source; links/assets inspected. |
 
-Validation: all27 API JSON examples parse; local Markdown file targets resolve; Pages HTML parses; diff checks pass. Component code examples were checked against source, not compiled as standalone applications. No live deployment, screenshots, cluster calls or local Pulse runtime were used. Historical images were not recaptured.
+Validation: all 27 API JSON examples parse; local Markdown file targets resolve; Pages HTML parses; diff checks pass. Component code examples were checked against source, not compiled as standalone applications. No live deployment, screenshots, cluster calls or local Pulse runtime were used. Historical images were not recaptured.

@@ -25,7 +25,8 @@ import { LogStream } from '@/kubeview/components/logs';
 ```
 
 **Features:**
-- Live streaming with ReadableStream API
+- Live streaming with ReadableStream API; when the server ends the stream, a banner offers Reconnect
+- Falls back to the previous container instance's logs when the running one has no output, and says so
 - Auto-scroll with smart pause on user scroll
 - Search with negative filter support (prefix with `-`)
 - Word wrap toggle
