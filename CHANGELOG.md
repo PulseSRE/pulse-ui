@@ -4,6 +4,10 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+## v2.36.0 (2026-10-30)
+
+Paired with pulse-agent v2.36.0; runs with pulse-operator v0.11.0. Pull requests #156–#157. Needs pulse-agent v2.36.0 for the call citations (`call_ref`, `call_input`); earlier agents' reports render as before.
+
 - Investigation evidence names the tool call it came from, with that call's arguments (`get_pod_logs(namespace=shop, pod_name=api-7f)`), in the activity feed, the inbox drawer and the evidence view. Needs pulse-agent with call citations (`call_ref`, `call_input`); older reports render as before.
 - The inbox drawer shows each evidence item's stance and marks a cited source the investigation did not read (#156). The e2e compose stack includes the agent stack, and the docs check fails on a version mismatch.
 
