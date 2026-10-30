@@ -59,7 +59,7 @@ describe('evidence view (claim-time header widgets)', () => {
       dot('Logs: required environment variable DB_HOST is not set'),
     );
     // And in words, not only colour.
-    expect(screen.getByText('contradicts · event · source: get_events')).toBeDefined();
+    expect(screen.getByText('contradicts · event · source: get_events(namespace=shop)')).toBeDefined();
   });
 
   it('lists the alternatives that were ruled out', () => {
@@ -93,7 +93,13 @@ describe('investigation report card (monitor activity feed)', () => {
     const supporting = screen.getByText('Logs: required environment variable DB_HOST is not set').closest('li') as HTMLElement;
     expect(within(contradicting).getByLabelText('contradicts')).toBeDefined();
     expect(within(supporting).getByLabelText('supports')).toBeDefined();
-    expect(within(supporting).getByText('get_pod_logs')).toBeDefined();
+    expect(within(supporting).getByText('get_pod_logs(namespace=shop, pod_name=api-server-7f9c)')).toBeDefined();
+  });
+
+  it('names the tool call each item came from', () => {
+    render(<InvestigationCard report={supported} />);
+    const logs = screen.getByText('get_pod_logs(namespace=shop, pod_name=api-server-7f9c)');
+    expect(logs.getAttribute('title')).toBe('tool call c2');
   });
 
   it('shows an unsupported diagnosis as 0% rather than leaving the confidence out', () => {

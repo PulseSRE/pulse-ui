@@ -7,6 +7,9 @@ const STANCE_STYLE = { supports: 'text-emerald-500', contradicts: 'text-red-400'
 /**
  * Evidence behind a diagnosis, each item with its stance and source.
  *
+ * The source is the tool call the item cites, with that call's arguments as
+ * the agent recorded them when it ran.
+ *
  * Prose-only evidence carries no stance, so listing it with a "+" presented a
  * contradicting observation as support. Structured items are shown with their
  * stance; prose items (from older reports) are shown without a claim either way.
@@ -26,7 +29,13 @@ export function EvidenceList({ detail, prose }: { detail?: EvidenceItem[] | null
               <span>
                 {e.observation}
                 {e.source ? (
-                  <span className="text-slate-500"> · <span className="font-mono">{e.source}</span></span>
+                  <span className="text-slate-500">
+                    {' '}·{' '}
+                    <span className="font-mono" title={e.call_ref ? `tool call ${e.call_ref}` : undefined}>
+                      {e.source}
+                      {e.call_input ? `(${e.call_input})` : ''}
+                    </span>
+                  </span>
                 ) : (
                   <span className="text-slate-600">
                     {' '}· {e.unverified_source ? `cites ${e.unverified_source}, which the investigation did not read` : 'source not recorded'}
