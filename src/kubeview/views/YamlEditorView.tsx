@@ -6,7 +6,8 @@ import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { buildApiPath } from '../hooks/useResourceUrl';
 import { k8sFetch, k8sGet } from '../engine/query';
-import { getActiveClusterId, getAllConnections } from '../engine/clusterConnection';
+import { getActiveClusterId } from '../engine/clusterConnection';
+import { clusterChangedMessage, clusterDisplayName as clusterName } from '../engine/pendingCluster';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
 import { resourceToYaml } from '../engine/yamlUtils';
@@ -22,15 +23,6 @@ interface YamlEditorViewProps {
   gvrKey: string;
   namespace?: string;
   name: string;
-}
-
-function clusterName(id: string): string {
-  return getAllConnections().find(c => c.id === id)?.name ?? id;
-}
-
-/** Why a save was refused: the editor holds another cluster's object. */
-export function clusterChangedMessage(loadedFrom: string, active: string): string {
-  return `Not saved: this YAML was loaded from ${clusterName(loadedFrom)}, but the active cluster is now ${clusterName(active)}. Saving would write ${clusterName(loadedFrom)}'s object to ${clusterName(active)}. Switch back to ${clusterName(loadedFrom)} to save, or reopen the editor to edit this resource on ${clusterName(active)}.`;
 }
 
 export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorViewProps) {
@@ -80,7 +72,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
     // after this callback was created.
     const active = getActiveClusterId();
     if (active !== clusterId) {
-      setSaveError(clusterChangedMessage(clusterId, active));
+      setSaveError(clusterChangedMessage(clusterId, active, 'Saving this YAML'));
       return;
     }
     setSaving(true);

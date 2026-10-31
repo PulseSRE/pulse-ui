@@ -2,9 +2,13 @@ import React from 'react';
 import { MetricCard } from './Sparkline';
 import { CHART_COLORS } from '../../engine/colors';
 import { useClusterStore } from '../../store/clusterStore';
+import { useMetricsAvailable } from '../../hooks/useClusterBase';
+import { RemoteMetricsNotice } from './RemoteMetricsNotice';
 
 export function ControlPlaneMetrics() {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
+  const metricsAvailable = useMetricsAvailable();
+  if (!metricsAvailable) return <RemoteMetricsNotice compact what="Control plane metrics" />;
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

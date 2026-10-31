@@ -69,13 +69,13 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   const logPodName = isPod ? resource.metadata.name : worstPodName;
   const logPodNs = isPod ? namespace : worstPodNs;
 
-  const { data: logText, isLoading: logsLoading } = useQuery({
+  const { data: logText, isLoading: logsLoading, error: logsError } = useQuery({
     queryKey: ['incident-logs', logPodNs, logPodName, activeContainer, showPrevious, clusterId],
     queryFn: () => logPodNs && logPodName
       ? k8sLogs(logPodNs, logPodName, activeContainer || undefined, {
           tailLines: 80,
           ...(showPrevious ? {} : {}),
-        }, clusterId).catch(() => '')
+        }, clusterId)
       : Promise.resolve(''),
     enabled: !!logPodName && !!logPodNs,
     staleTime: 15000,
@@ -180,6 +180,10 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
             </div>
             {logsLoading ? (
               <div className="flex items-center gap-2 py-4 text-xs text-slate-500"><Loader2 className="w-3 h-3 animate-spin" /> Loading logs...</div>
+            ) : logsError ? (
+              <div role="alert" className="text-xs text-red-300 py-2">
+                Could not load logs: {logsError instanceof Error ? logsError.message : String(logsError)}
+              </div>
             ) : logText ? (
               <pre className="text-xs text-slate-400 font-mono bg-slate-950 rounded-sm p-3 max-h-48 overflow-auto whitespace-pre-wrap">
                 {logText.split('\n').slice(-50).join('\n') || 'No log output'}

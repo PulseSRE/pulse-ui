@@ -173,6 +173,15 @@ describe('agentStore', () => {
       expect(confirmCalls).toEqual([[true, 'n1']]);
     });
 
+    it('targets the agent\'s own cluster even when a remote cluster is being viewed', () => {
+      setActiveClusterId('prod-east');
+      simulateAgentEvent({ type: 'confirm_request', tool: 'delete_pod', input: {}, nonce: 'n3' });
+      expect(useAgentStore.getState().pendingConfirm).toMatchObject({ clusterId: 'local', requestedOnClusterId: 'prod-east' });
+      useAgentStore.getState().confirmAction(true);
+      expect(confirmCalls).toEqual([[true, 'n3']]);
+      resetConnections();
+    });
+
     it('declines, and says why, when the approval comes after a cluster switch', () => {
       simulateAgentEvent({ type: 'confirm_request', tool: 'scale_deployment', input: { replicas: 0 }, nonce: 'n2' });
       setActiveClusterId('prod-east');

@@ -1,4 +1,4 @@
-import { getActiveClusterId } from '../engine/clusterConnection';
+import { getActiveClusterId, LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 import { clusterChangedMessage } from '../engine/pendingCluster';
 /**
  * Agent Store — manages chat state for the Pulse Agent integration.
@@ -39,8 +39,12 @@ interface AgentState {
   completedTools: Set<string>;
   /** Skills that finished (for checkmark display) */
   completedSkills: Set<string>;
-  /** The write awaiting approval, and the cluster that was active when it was requested. */
-  pendingConfirm: (ConfirmRequest & { clusterId?: string }) | null;
+  /**
+   * The write awaiting approval. `clusterId` is where it will be applied: the
+   * agent's own (local) cluster, always. `requestedOnClusterId` is the cluster
+   * the user was looking at when it was requested.
+   */
+  pendingConfirm: (ConfirmRequest & { clusterId?: string; requestedOnClusterId?: string }) | null;
   error: string | null;
   /** Brief toast shown when agent acknowledges feedback */
   feedbackToast: string | null;
@@ -250,7 +254,8 @@ export const useAgentStore = create<AgentState>()(
               }
               break;
             case 'confirm_request':
-              set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce, clusterId: getActiveClusterId() } });
+              // The agent writes to the cluster it runs on, whatever the UI shows.
+              set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce, clusterId: LOCAL_CLUSTER_ID, requestedOnClusterId: getActiveClusterId() } });
               break;
             case 'done': {
               // Flush any remaining deltas then reset accumulators
@@ -403,11 +408,11 @@ export const useAgentStore = create<AgentState>()(
       confirmAction: (approved) => {
         const pending = get().pendingConfirm;
         const nonce = pending?.nonce;
-        // An approval given after switching clusters would be about a
+        // An approval given after switching clusters was made looking at a
         // different cluster than the one the request was shown on: decline.
         const active = getActiveClusterId();
-        if (approved && pending?.clusterId && pending.clusterId !== active) {
-          set({ pendingConfirm: null, error: clusterChangedMessage(pending.clusterId, active, `${pending.tool}`) });
+        if (approved && pending?.requestedOnClusterId && pending.requestedOnClusterId !== active) {
+          set({ pendingConfirm: null, error: clusterChangedMessage(pending.requestedOnClusterId, active, `${pending.tool}`) });
           if (client) client.confirm(false, nonce);
           return;
         }

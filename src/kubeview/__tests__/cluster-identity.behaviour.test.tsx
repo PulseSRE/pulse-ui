@@ -35,6 +35,14 @@ import MetricsView from '../views/MetricsView';
 import AlertsView from '../views/AlertsView';
 import { ArgoSyncBadge } from '../components/ArgoSyncBadge';
 import { assertActiveCluster, ClusterChangedError } from '../engine/pendingCluster';
+import { IncidentContext } from '../views/detail/IncidentContext';
+import { buildDependencyGraph } from '../../lib/dependencyGraph';
+import NodeLogsView from '../views/NodeLogsView';
+import { CapacityTab } from '../views/compute/CapacityTab';
+import { ControlPlaneMetrics } from '../components/metrics/ControlPlaneMetrics';
+import { ConfirmationCard } from '../components/agent/ConfirmationCard';
+import { useTrustStore } from '../store/trustStore';
+import { Routes, Route } from 'react-router-dom';
 
 const REMOTE = 'prod-east';
 let REMOTE_BASE = '';
@@ -128,7 +136,7 @@ describe('YamlEditorView pins the cluster it loaded from', () => {
 
     // The keyboard shortcut path is refused too, with a clear message.
     fireEvent.click(screen.getByText('Ctrl+S'));
-    expect(await screen.findByText(/Not saved: this YAML was loaded from Prod East, but the active cluster is now Local Cluster/)).toBeTruthy();
+    expect(await screen.findByText(/Saving this YAML was not run: it was prepared on Prod East, but the active cluster is now Local Cluster/)).toBeTruthy();
     expect(calls().filter(c => c.method === 'PUT')).toEqual([]);
     // The object was never re-read from the new cluster behind the user's edits.
     expect(calls().filter(c => c.url.endsWith(DEPLOY_PATH)).map(c => c.url)).toEqual([`${REMOTE_BASE}${DEPLOY_PATH}`]);
@@ -262,5 +270,62 @@ describe('pending actions carry the cluster they were created on', () => {
     setActive('local');
     expect(() => assertActiveCluster(REMOTE, 'Removing kubeadmin')).toThrow(ClusterChangedError);
     expect(() => assertActiveCluster(REMOTE, 'Removing kubeadmin')).toThrow(/Removing kubeadmin was not run: it was prepared on Prod East, but the active cluster is now Local Cluster/);
+  });
+});
+
+describe('review follow-ups', () => {
+  const pod = { apiVersion: 'v1', kind: 'Pod', metadata: { name: 'web-1', namespace: 'shop', uid: 'u1' }, spec: { containers: [{ name: 'app' }] }, status: { phase: 'Running' } };
+
+  it('incident context shows why logs failed instead of "No logs available"', async () => {
+    setActive(REMOTE);
+    handler = (url) => (url.includes('/log') ? json({ message: 'pods "web-1" is forbidden: cannot get pods/log' }, 403, 'Forbidden') : json({ items: [] }));
+    renderWithClient(<IncidentContext resource={pod as never} managedPods={[]} events={[]} namespace="shop" go={vi.fn()} />);
+    const alert = await screen.findByText(/Could not load logs:/);
+    expect(alert.textContent).toMatch(/forbidden|permission/i);
+    expect(screen.queryByText('No logs available')).toBeNull();
+    expect(calls().find(c => c.url.includes('/log'))!.url.startsWith(`${REMOTE_BASE}/api/v1/namespaces/shop/pods/web-1/log`)).toBe(true);
+  });
+
+  it('dependency graph reads the cluster it is given, with impersonation', async () => {
+    useUIStore.setState({ impersonateUser: 'alice' });
+    handler = () => json({ items: [] });
+    await buildDependencyGraph('Deployment', 'web', 'shop', REMOTE);
+    expect(calls().length).toBeGreaterThan(0);
+    expect(calls().every(c => c.url.startsWith(`${REMOTE_BASE}/`))).toBe(true);
+    expect(calls().every(c => c.headers['Impersonate-User'] === 'alice')).toBe(true);
+  });
+
+  it('node logs read the active cluster with impersonation', async () => {
+    setActive(REMOTE);
+    useUIStore.setState({ impersonateUser: 'alice' });
+    handler = () => text('<a href="kubelet.log">kubelet.log</a>');
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/node-logs/worker-1']}>
+          <Routes><Route path="/node-logs/:name" element={<NodeLogsView />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(calls().length).toBeGreaterThan(0));
+    expect(calls()[0].url.startsWith(`${REMOTE_BASE}/api/v1/nodes/worker-1/proxy/logs/`)).toBe(true);
+    expect(calls()[0].headers['Impersonate-User']).toBe('alice');
+  });
+
+  it('capacity planning and control plane metrics explain themselves on a remote cluster, without requests', () => {
+    setActive(REMOTE);
+    renderWithClient(<><CapacityTab /><ControlPlaneMetrics /></>);
+    expect(screen.getByText('Capacity projections are available for the local cluster only')).toBeTruthy();
+    expect(screen.getByText('Control plane metrics are available for the local cluster only.')).toBeTruthy();
+    expect(calls().filter(c => c.url.includes('/api/prometheus'))).toEqual([]);
+  });
+
+  it('the agent approval card names the cluster the write lands on', () => {
+    useTrustStore.setState({ trustLevel: 1 });
+    setActive(REMOTE);
+    renderWithClient(
+      <ConfirmationCard confirm={{ tool: 'delete_pod', input: { namespace: 'shop', pod_name: 'web-1' }, nonce: 'n', clusterId: 'local' }} onConfirm={vi.fn()} />,
+    );
+    expect(screen.getByText('Local Cluster')).toBeTruthy();
+    expect(screen.getByText(/You are viewing Prod East; this change applies to Local Cluster, where the agent runs/)).toBeTruthy();
   });
 });

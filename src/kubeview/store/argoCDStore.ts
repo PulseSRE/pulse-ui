@@ -84,6 +84,8 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
     rollouts: [], rolloutsLoading: false, resourceCache: new Map() }),
 
   detect: async () => {
+    // Badges, cards and history panels on one page all ask at once: one run.
+    if (get().detecting) return;
     const clusterId = getActiveClusterId();
     const scopedSet = (next: Partial<ArgoCDState>) => {
       if (getActiveClusterId() === clusterId) set(next);

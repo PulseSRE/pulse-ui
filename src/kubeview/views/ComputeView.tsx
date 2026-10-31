@@ -6,7 +6,8 @@ import type { AuditCheck } from '../components/audit/types';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
-import { queryInstant } from '../components/metrics/prometheus';
+import { queryInstant, metricsAvailableFor } from '../components/metrics/prometheus';
+import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { CHART_COLORS } from '../engine/colors';
 import { NodeHexMap } from './compute/NodeHexMap';
@@ -292,6 +293,9 @@ export default function ComputeView() {
         />
 
         {/* Key metrics — sparklines for trends, static for capacity */}
+        {!metricsAvailableFor(clusterId) && (
+          <RemoteMetricsNotice compact what="Utilization metrics and per-node CPU/memory" />
+        )}
         <MetricGrid>
           <MetricCard
             title="CPU Utilization"

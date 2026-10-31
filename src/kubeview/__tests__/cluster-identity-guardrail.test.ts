@@ -2,48 +2,65 @@
  * Guardrail: never read from one cluster and write to another.
  *
  * CLAUDE.md: "Preserve active cluster/user identity in query keys,
- * subscriptions, tabs, and pending actions." This scan fails when
+ * subscriptions, tabs, and pending actions." Every non-test source file under
+ * src/ outside src/kubeview/engine/ is parsed with the TypeScript compiler,
+ * and the scan fails when
  *
- *  (a) a `useQuery({ queryKey, queryFn })` in views/, components/ or hooks/
- *      reads Kubernetes or Prometheus data (k8sGet/k8sList/k8sLogs/k8sFetch,
- *      queryInstant/queryRange/promFetch, or fetch of /api/kubernetes or
- *      /api/prometheus) and its key carries no cluster identifier; or
- *  (b) code outside engine/ calls `fetch('/api/kubernetes…')` or
- *      `fetch('/api/prometheus…')` directly, which pins the request to the
- *      local cluster and skips impersonation.
+ *  (a) a React Query hook (useQuery, useSuspenseQuery, useInfiniteQuery, or
+ *      an entry of useQueries) has a queryFn that reads Kubernetes or
+ *      Prometheus data — the k8s helpers, the Prometheus helpers, a cluster
+ *      base URL, or a Kubernetes/Prometheus proxy path — and its key names no
+ *      cluster id (see CLUSTER_ID_NAMES); or
+ *  (b) any string or template literal contains the Kubernetes or Prometheus
+ *      proxy path. A literal base pins the request to the local cluster and
+ *      skips impersonation, however it reaches fetch (directly, split across
+ *      lines, or through a constant). Use k8sFetch/k8sGet/… with a cluster id,
+ *      or the Prometheus helpers.
  *
- * Fix the call site (pass the cluster id to the k8s helper and put it in the
- * key) rather than adding to the allowlists. An allowlisted entry must say
- * why the request is correct for every active cluster.
+ * Fix the call site rather than adding to the allowlists. An allowlisted
+ * entry must say why the request is correct for every active cluster.
  */
 import { describe, expect, it } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 
-const ROOT = path.resolve(__dirname, '..');
-const SCANNED_DIRS = ['views', 'components', 'hooks'];
+const SRC = path.resolve(__dirname, '../..');
+/** Owns cluster routing; its helpers take the cluster id explicitly. */
+const EXEMPT_DIR = 'kubeview/engine/';
+
+/**
+ * The names that mean "the cluster this read is for". Exact names only: an
+ * identifier that merely contains "cluster" (isClusterScoped, clusterName)
+ * says nothing about which cluster a cached entry came from.
+ */
+const CLUSTER_ID_NAMES = new Set([
+  'clusterId',
+  'activeClusterId',
+  'resolvedClusterId',
+  'pollClusterId',
+  'LOCAL_CLUSTER_ID',
+  'CONFIG_CLUSTER_ID',
+  'METRICS_CLUSTER_ID',
+]);
 
 /**
  * (a) Queries allowed to omit the cluster from their key, as
- * `relativePath#queryKeySource` (the key's exact source text) -> reason.
+ * `path#queryKeySource` (path relative to src/, the key's exact source) -> reason.
  */
 const QUERY_KEY_ALLOWLIST: Record<string, string> = {
   // (empty — every cluster read keys on the cluster it reads)
 };
 
-/**
- * (b) Files allowed to fetch /api/kubernetes or /api/prometheus directly.
- */
-const RAW_FETCH_ALLOWLIST: Record<string, string> = {
-  // Prometheus helpers own the /api/prometheus base and refuse non-local clusters.
-  'components/metrics/prometheus.ts': 'owns the local-only Prometheus base',
+/** (b) Files allowed to contain a proxy-path literal (path relative to src/) -> reason. */
+const PROXY_LITERAL_ALLOWLIST: Record<string, string> = {
+  'kubeview/components/metrics/prometheus.ts':
+    'owns the local-only Prometheus base; its helpers refuse any cluster but the local one without sending a request',
 };
 
-const CLUSTER_READ = /\bk8s(?:Get|List|Logs|Fetch)\s*[<(]|\bquery(?:Instant|Range)\s*\(|\bpromFetch\s*\(|\bgetMetricNames\s*\(|\bgetLabelValues\s*\(|fetch\(\s*[`'"]\/api\/(?:kubernetes|prometheus)|\bclusterBase\b|\bgetClusterBase\s*\(/;
-/** An identifier (not a string literal like 'clusterversion') naming a cluster. */
-const CLUSTER_IDENTIFIER = /cluster/i;
-const RAW_FETCH = /\bfetch\(\s*[`'"]\/api\/(?:kubernetes|prometheus)\b/;
+const PROXY_PATH = /\/api\/(?:kubernetes|prometheus)\b/;
+const CLUSTER_READ = /\bk8s(?:Get|List|Logs|Fetch)\s*[<(]|\bquery(?:Instant|Range)\s*\(|\bpromFetch\s*\(|\bgetMetricNames\s*\(|\bgetLabelValues\s*\(|\bclusterBase\b|\bgetClusterBase\s*\(|\/api\/(?:kubernetes|prometheus)\b/;
+const QUERY_HOOKS = /^use(?:Suspense)?(?:Infinite)?Query$/;
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -56,6 +73,10 @@ function walk(dir: string, out: string[] = []): string[] {
     }
   }
   return out;
+}
+
+function parse(file: string, source: string): ts.SourceFile {
+  return ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
 }
 
 /**
@@ -81,58 +102,83 @@ function declarations(sf: ts.SourceFile): Map<string, ts.Node> {
   return map;
 }
 
-/** The declaration (function, or variable initializer) a name refers to in the same file. */
-function resolveLocalNode(sf: ts.SourceFile, name: string): ts.Node | undefined {
-  return declarations(sf).get(name);
-}
-
-function resolveLocalFunction(sf: ts.SourceFile, name: string): string {
-  return resolveLocalNode(sf, name)?.getText(sf) ?? '';
-}
-
-function mentionsClusterIdentifier(node: ts.Node): boolean {
-  if (ts.isIdentifier(node)) return CLUSTER_IDENTIFIER.test(node.text);
+function mentionsClusterId(node: ts.Node): boolean {
+  if (ts.isIdentifier(node)) return CLUSTER_ID_NAMES.has(node.text);
   if (ts.isStringLiteralLike(node)) return false;
-  return ts.forEachChild(node, mentionsClusterIdentifier) ?? false;
+  return ts.forEachChild(node, mentionsClusterId) ?? false;
+}
+
+/** The queryFn's text plus the same-file helpers and variables it names (one level). */
+function readText(sf: ts.SourceFile, fn: ts.Node): string {
+  const decls = declarations(sf);
+  let text = fn.getText(sf);
+  // Names the queryFn declares itself (locals, parameters) are not outer helpers.
+  const seen = new Set<string>();
+  const local = (node: ts.Node) => {
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isFunctionDeclaration(node)) && node.name && ts.isIdentifier(node.name)) {
+      seen.add(node.name.text);
+    }
+    ts.forEachChild(node, local);
+  };
+  local(fn);
+  const follow = (node: ts.Node) => {
+    if (ts.isIdentifier(node) && !seen.has(node.text)) {
+      seen.add(node.text);
+      const decl = decls.get(node.text);
+      if (decl && decl !== fn && !(decl.pos <= fn.pos && fn.end <= decl.end)) text += '\n' + decl.getText(sf);
+    }
+    ts.forEachChild(node, follow);
+  };
+  follow(fn);
+  return text;
+}
+
+function queryOptionObjects(node: ts.CallExpression): ts.ObjectLiteralExpression[] {
+  if (!ts.isIdentifier(node.expression)) return [];
+  const name = node.expression.text;
+  const arg = node.arguments[0];
+  if (!arg || !ts.isObjectLiteralExpression(arg)) return [];
+  if (QUERY_HOOKS.test(name)) return [arg];
+  if (name === 'useQueries' || name === 'useSuspenseQueries') {
+    // useQueries({ queries: [ {...}, ... ] }) or queries: list.map(x => ({...}))
+    const out: ts.ObjectLiteralExpression[] = [];
+    const queries = arg.properties.find(p => ts.isPropertyAssignment(p) && p.name.getText() === 'queries');
+    if (queries && ts.isPropertyAssignment(queries)) {
+      const collect = (n: ts.Node) => {
+        if (ts.isObjectLiteralExpression(n) && n.properties.some(p => (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) && p.name.getText() === 'queryKey')) {
+          out.push(n);
+          return;
+        }
+        ts.forEachChild(n, collect);
+      };
+      collect(queries.initializer);
+    }
+    return out;
+  }
+  return [];
 }
 
 export function findUnscopedQueries(file: string, source: string): string[] {
-  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const sf = parse(file, source);
+  const decls = declarations(sf);
   const problems: string[] = [];
   const visit = (node: ts.Node) => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && /^use(?:Suspense)?Query$/.test(node.expression.text)) {
-      const arg = node.arguments[0];
-      if (arg && ts.isObjectLiteralExpression(arg)) {
-        let keyText = '';
-        let fnText = '';
-        let keyHasClusterId = false;
-        for (const prop of arg.properties) {
+    if (ts.isCallExpression(node)) {
+      for (const obj of queryOptionObjects(node)) {
+        let keyNode: ts.Node | undefined;
+        let fnNode: ts.Node | undefined;
+        for (const prop of obj.properties) {
           if (!ts.isPropertyAssignment(prop) && !ts.isShorthandPropertyAssignment(prop)) continue;
-          const name = prop.name.getText(sf);
           const init = ts.isPropertyAssignment(prop) ? prop.initializer : prop.name;
-          if (name === 'queryKey') {
-            keyText = init.getText(sf);
-            // queryKey: someKey — judge the array that name is bound to.
-            const keyNode = ts.isIdentifier(init) ? resolveLocalNode(sf, init.text) ?? init : init;
-            keyHasClusterId = mentionsClusterIdentifier(keyNode);
-          }
-          if (name === 'queryFn') {
-            fnText = init.getText(sf);
-            if (ts.isIdentifier(init)) fnText += resolveLocalFunction(sf, init.text);
-            // queryFn: () => loadThing(a) — follow one level into same-file helpers.
-            for (const m of fnText.matchAll(/\b([a-zA-Z_]\w*)\s*\(/g)) {
-              const helper = resolveLocalFunction(sf, m[1]);
-              if (helper && helper !== fnText) fnText += helper;
-            }
-            // fetch(url) — follow the URL variable (e.g. built from clusterBase).
-            for (const m of fnText.matchAll(/\bfetch\(\s*([a-zA-Z_]\w*)\s*[,)]/g)) {
-              fnText += resolveLocalFunction(sf, m[1]);
-            }
-          }
+          if (prop.name.getText(sf) === 'queryKey') keyNode = init;
+          if (prop.name.getText(sf) === 'queryFn') fnNode = init;
         }
-        if (fnText && CLUSTER_READ.test(fnText) && !keyHasClusterId) {
-          const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-          problems.push(`${file}:${line + 1} queryKey ${keyText}`);
+        if (!keyNode || !fnNode) continue;
+        // queryKey: someKey — judge the array that name is bound to.
+        const resolvedKey = ts.isIdentifier(keyNode) ? decls.get(keyNode.text) ?? keyNode : keyNode;
+        if (CLUSTER_READ.test(readText(sf, fnNode)) && !mentionsClusterId(resolvedKey)) {
+          const { line } = sf.getLineAndCharacterOfPosition(obj.getStart(sf));
+          problems.push(`${file}:${line + 1} queryKey ${keyNode.getText(sf)}`);
         }
       }
     }
@@ -142,8 +188,26 @@ export function findUnscopedQueries(file: string, source: string): string[] {
   return problems;
 }
 
+/** String and template literals holding a Kubernetes/Prometheus proxy path. */
+export function findProxyLiterals(file: string, source: string): string[] {
+  const sf = parse(file, source);
+  const problems: string[] = [];
+  const visit = (node: ts.Node) => {
+    let text: string | undefined;
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) text = node.text;
+    else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) text = node.text;
+    if (text !== undefined && PROXY_PATH.test(text)) {
+      const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+      problems.push(`${file}:${line + 1} ${JSON.stringify(text)}`);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return problems;
+}
+
 function rel(file: string) {
-  return path.relative(ROOT, file).split(path.sep).join('/');
+  return path.relative(SRC, file).split(path.sep).join('/');
 }
 
 // Parsing every source file takes a few seconds on a loaded CI runner with
@@ -151,7 +215,14 @@ function rel(file: string) {
 const SCAN_TIMEOUT_MS = 30_000;
 
 describe('cluster identity guardrail', () => {
-  const files = SCANNED_DIRS.flatMap(d => walk(path.join(ROOT, d)));
+  const files = walk(SRC).filter(f => !rel(f).startsWith(EXEMPT_DIR));
+
+  it('scans all of src/ outside the engine, including src/lib', () => {
+    const scanned = files.map(rel);
+    expect(scanned).toContain('lib/dependencyGraph.ts');
+    expect(scanned).toContain('kubeview/views/YamlEditorView.tsx');
+    expect(scanned.some(f => f.startsWith(EXEMPT_DIR))).toBe(false);
+  });
 
   it('every query that reads cluster data keys on the cluster it reads', () => {
     const problems = files.flatMap(f => {
@@ -165,36 +236,59 @@ describe('cluster identity guardrail', () => {
     expect(problems).toEqual([]);
   }, SCAN_TIMEOUT_MS);
 
-  it('nothing outside engine/ fetches /api/kubernetes or /api/prometheus directly', () => {
-    const all = walk(ROOT).filter(f => !rel(f).startsWith('engine/'));
-    const problems: string[] = [];
-    for (const f of all) {
-      const r = rel(f);
-      if (r in RAW_FETCH_ALLOWLIST) continue;
-      fs.readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
-        if (RAW_FETCH.test(line)) problems.push(`${r}:${i + 1} ${line.trim()}`);
-      });
-    }
+  it('no Kubernetes/Prometheus proxy path literal outside the engine', () => {
+    const problems = files
+      .filter(f => !(rel(f) in PROXY_LITERAL_ALLOWLIST))
+      .flatMap(f => findProxyLiterals(rel(f), fs.readFileSync(f, 'utf8')));
     expect(problems).toEqual([]);
-  });
+  }, SCAN_TIMEOUT_MS);
 
-  it('the scan catches an unscoped key and accepts a scoped one', () => {
-    const bad = `const q = useQuery({ queryKey: ['k8s', 'get', apiPath], queryFn: () => k8sGet(apiPath) });`;
-    const viaHelper = `async function load() { return fetch('/api/prometheus/api/v1/rules'); }
-      const q = useQuery({ queryKey: ['rules'], queryFn: load });`;
-    const good = `const q = useQuery({ queryKey: ['k8s', 'get', clusterId, apiPath], queryFn: () => k8sGet(apiPath, clusterId) });`;
-    const viaUrlVar = `const url = \`\${clusterBase}\${apiPath}\`;
-      const q = useQuery({ queryKey: ['k8s', 'get', apiPath], queryFn: async () => (await fetch(url)).json() });`;
-    const namedKey = `const queryKey = ['k8s', 'list', apiPath, clusterId];
-      const q = useQuery({ queryKey, queryFn: () => k8sList(apiPath, undefined, clusterId) });`;
-    const literalOnly = `const q = useQuery({ queryKey: ['admin', 'clusterversion'], queryFn: () => k8sGet(p) });`;
-    const unrelated = `const q = useQuery({ queryKey: ['agent', 'views'], queryFn: () => fetch('/api/agent/views') });`;
-    expect(findUnscopedQueries('x.ts', bad)).toHaveLength(1);
-    expect(findUnscopedQueries('x.ts', viaHelper)).toHaveLength(1);
-    expect(findUnscopedQueries('x.ts', good)).toEqual([]);
-    expect(findUnscopedQueries('x.ts', literalOnly)).toHaveLength(1);
-    expect(findUnscopedQueries('x.ts', viaUrlVar)).toHaveLength(1);
-    expect(findUnscopedQueries('x.ts', namedKey)).toEqual([]);
-    expect(findUnscopedQueries('x.ts', unrelated)).toEqual([]);
+  describe('catches each shape that slipped past the first version', () => {
+    const unscoped = (src: string) => findUnscopedQueries('fixture.tsx', src);
+    const literals = (src: string) => findProxyLiterals('fixture.tsx', src);
+
+    it('a plain unscoped key, and accepts a scoped one', () => {
+      expect(unscoped(`useQuery({ queryKey: ['k8s', 'get', apiPath], queryFn: () => k8sGet(apiPath) });`)).toHaveLength(1);
+      expect(unscoped(`useQuery({ queryKey: ['k8s', 'get', apiPath, clusterId], queryFn: () => k8sGet(apiPath, clusterId) });`)).toEqual([]);
+      expect(unscoped(`useQuery({ queryKey: ['agent', 'views'], queryFn: () => agentFetch('/api/agent/views') });`)).toEqual([]);
+    });
+
+    it('a string literal or an unrelated "cluster" identifier is not a cluster id', () => {
+      expect(unscoped(`useQuery({ queryKey: ['admin', 'clusterversion'], queryFn: () => k8sGet(p) });`)).toHaveLength(1);
+      expect(unscoped(`useQuery({ queryKey: ['rbac', isClusterScoped], queryFn: () => k8sList(p) });`)).toHaveLength(1);
+      expect(unscoped(`useQuery({ queryKey: ['n', clusterName], queryFn: () => k8sList(p) });`)).toHaveLength(1);
+    });
+
+    it('a fetch split across lines', () => {
+      const src = `useQuery({ queryKey: ['pods'], queryFn: async () => (await fetch(
+        '/api/kubernetes/api/v1/pods',
+      )).json() });`;
+      expect(unscoped(src)).toHaveLength(1);
+      expect(literals(src)).toHaveLength(1);
+    });
+
+    it('a URL held in a constant or built from a cluster base', () => {
+      const viaConst = `const K = '/api/kubernetes';
+        export function f() { return fetch(\`\${K}/api/v1/pods\`); }`;
+      expect(literals(viaConst)).toHaveLength(1);
+      const viaConstInQuery = `const K = '/api/kubernetes';
+        useQuery({ queryKey: ['pods'], queryFn: () => fetch(\`\${K}/api/v1/pods\`) });`;
+      expect(unscoped(viaConstInQuery)).toHaveLength(1);
+      const viaBase = `const url = \`\${clusterBase}\${apiPath}\`;
+        useQuery({ queryKey: ['k8s', 'get', apiPath], queryFn: async () => (await fetch(url)).json() });`;
+      expect(unscoped(viaBase)).toHaveLength(1);
+      expect(literals(`const P = \`/api/prometheus/api/v1/query?q=\${q}\`;`)).toHaveLength(1);
+    });
+
+    it('useInfiniteQuery and useQueries', () => {
+      expect(unscoped(`useInfiniteQuery({ queryKey: ['events'], queryFn: ({ pageParam }) => k8sList(p + pageParam), initialPageParam: '', getNextPageParam: () => undefined });`)).toHaveLength(1);
+      expect(unscoped(`useQueries({ queries: paths.map((p) => ({ queryKey: ['k8s', p], queryFn: () => k8sGet(p) })) });`)).toHaveLength(1);
+      expect(unscoped(`useQueries({ queries: paths.map((p) => ({ queryKey: ['k8s', p, clusterId], queryFn: () => k8sGet(p, clusterId) })) });`)).toEqual([]);
+    });
+
+    it('a named key bound to an array with the cluster id', () => {
+      expect(unscoped(`const queryKey = ['k8s', 'list', apiPath, resolvedClusterId];
+        useQuery({ queryKey, queryFn: () => k8sList(apiPath, undefined, resolvedClusterId) });`)).toEqual([]);
+    });
   });
 });

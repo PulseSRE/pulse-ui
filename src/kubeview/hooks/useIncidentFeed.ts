@@ -44,6 +44,12 @@ export interface UseIncidentFeedResult {
    * state needs to suppress it when alerting is simply unreachable.
    */
   isError: boolean;
+  /**
+   * Prometheus alerts cannot be read for the active cluster at all (Pulse
+   * reaches only the local cluster's Prometheus). Like `isError`, an empty
+   * alert list then means "unknown", never "none firing".
+   */
+  alertsUnavailable: boolean;
   counts: { critical: number; warning: number; info: number; total: number };
 }
 
@@ -190,6 +196,7 @@ export function useIncidentFeed(
     incidents: result.incidents,
     isLoading,
     isError: alertsError,
+    alertsUnavailable: sources.includes('prometheus-alert') && !metricsAvailableFor(clusterId),
     counts: result.counts,
   };
 }

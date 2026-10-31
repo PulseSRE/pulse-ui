@@ -29,6 +29,8 @@ import { useClusterStore } from '../../store/clusterStore';
 import { useArgoCDStore } from '../../store/argoCDStore';
 import { Card } from '../../components/primitives/Card';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
+import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotice';
+import { metricsAvailableFor } from '../../components/metrics/prometheus';
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -242,8 +244,11 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   // it is now simply the only one.
   const {
     incidents: alertIncidents,
-    isError: alertsError,
+    isError: alertsFetchError,
+    alertsUnavailable,
   } = useIncidentFeed({ sources: ['prometheus-alert'], limit: 0 });
+  // A remote cluster's alerts cannot be read: as unknown as a failed fetch.
+  const alertsError = alertsFetchError || alertsUnavailable;
 
   const { data: apiLatency } = useQuery<number | null>({
     queryKey: ['prom', 'api-latency', clusterId],
@@ -536,7 +541,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
       <div className="space-y-3">
         <ZoneHeader number={1} title="Heartbeat" subtitle="If red, your day just changed" icon={<Activity className="w-4 h-4 text-red-400" />} />
 
-        {alertsError && (
+        {alertsUnavailable && <RemoteMetricsNotice compact what="Alerts and metrics" className="px-1" />}
+        {alertsFetchError && (
           <div className="flex items-center gap-2 text-xs text-yellow-400 bg-yellow-950/30 border border-yellow-800/50 rounded-lg px-3 py-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             <span>Metrics unavailable — risk score may be incomplete</span>
@@ -622,6 +628,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 </div>
               </button>
             </div>
+            {!metricsAvailableFor(clusterId) && <RemoteMetricsNotice compact what="API latency and etcd metrics" className="mt-2" />}
 
             {/* Urgent certs in Zone 1 */}
             {urgentCerts.length > 0 && (
@@ -889,7 +896,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
             <div className="text-xs text-slate-400 mt-0.5">Those lists failed to load, so problems there would not show up here. Check your permissions or the cluster connection.</div>
           </div>
         )}
-        {unavailable.length === 0 && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
+        {/* No all-clear while alerts could not be read: zero is then unknown. */}
+        {unavailable.length === 0 && !alertsError && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
           <button onClick={() => go('/readiness', 'Readiness')} className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center hover:border-green-800/50 transition-colors">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
             <div className="text-sm font-medium text-slate-200">All clear</div>
