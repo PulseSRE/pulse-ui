@@ -18,10 +18,12 @@ import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
 import { Card } from '../components/primitives/Card';
+import { useActiveClusterId } from '../hooks/useClusterBase';
 
 const INGRESS_OPERATOR_NS = 'openshift-ingress-operator';
 
 export default function NetworkingView() {
+  const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
@@ -34,13 +36,13 @@ export default function NetworkingView() {
 
   // Cluster-scoped: endpoints, ingress controller
   const { data: endpoints = [] } = useQuery<K8sResource[]>({
-    queryKey: ['networking', 'endpoints', nsFilter],
-    queryFn: async () => (await safeQuery(() => k8sList('/api/v1/endpoints', nsFilter))) ?? [],
+    queryKey: ['networking', 'endpoints', nsFilter, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/api/v1/endpoints', nsFilter, clusterId))) ?? [],
     staleTime: 30000,
   });
   const { data: ingressControllers = [] } = useQuery<K8sResource[]>({
-    queryKey: ['networking', 'ingresscontrollers'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers'))) ?? [],
+    queryKey: ['networking', 'ingresscontrollers', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
 

@@ -12,7 +12,7 @@
  * - Pod envFrom → ConfigMap, Secret
  */
 
-const BASE = '/api/kubernetes';
+import { k8sFetch } from '../kubeview/engine/query';
 
 export interface GraphNode {
   id: string;
@@ -38,9 +38,10 @@ function nodeId(kind: string, namespace: string, name: string): string {
   return `${kind}:${namespace}/${name}`;
 }
 
-async function fetchJson<T>(path: string): Promise<T | null> {
+/** Read from the cluster the graph is for, as the (possibly impersonated) user. */
+async function fetchJson<T>(clusterId: string, path: string): Promise<T | null> {
   try {
-    const res = await fetch(`${BASE}${path}`);
+    const res = await k8sFetch(clusterId, path);
     if (!res.ok) return null;
     return await res.json() as T;
   } catch {
@@ -64,6 +65,7 @@ export async function buildDependencyGraph(
   kind: string,
   name: string,
   namespace: string,
+  clusterId: string,
 ): Promise<DependencyGraph> {
   const nodes = new Map<string, GraphNode>();
   const edges: GraphEdge[] = [];
@@ -85,46 +87,46 @@ export async function buildDependencyGraph(
   addNode(kind, namespace, name);
 
   // Fetch pods in namespace
-  const podsData = await fetchJson<K8sListOf<K8sObj>>(`/api/v1/namespaces/${encodeURIComponent(namespace)}/pods`);
+  const podsData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/api/v1/namespaces/${encodeURIComponent(namespace)}/pods`);
   const pods = podsData?.items ?? [];
 
   // Fetch services
-  const svcsData = await fetchJson<K8sListOf<K8sObj>>(`/api/v1/namespaces/${encodeURIComponent(namespace)}/services`);
+  const svcsData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/api/v1/namespaces/${encodeURIComponent(namespace)}/services`);
   const svcs = svcsData?.items ?? [];
 
   // Fetch ingresses
-  const ingData = await fetchJson<K8sListOf<K8sObj>>(`/apis/networking.k8s.io/v1/namespaces/${encodeURIComponent(namespace)}/ingresses`);
+  const ingData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/apis/networking.k8s.io/v1/namespaces/${encodeURIComponent(namespace)}/ingresses`);
   const ingresses = ingData?.items ?? [];
 
   // Fetch routes
-  const routeData = await fetchJson<K8sListOf<K8sObj>>(`/apis/route.openshift.io/v1/namespaces/${encodeURIComponent(namespace)}/routes`);
+  const routeData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/apis/route.openshift.io/v1/namespaces/${encodeURIComponent(namespace)}/routes`);
   const routes = routeData?.items ?? [];
 
   // Fetch HPAs
-  const hpaData = await fetchJson<K8sListOf<K8sObj>>(`/apis/autoscaling/v2/namespaces/${encodeURIComponent(namespace)}/horizontalpodautoscalers`);
+  const hpaData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/apis/autoscaling/v2/namespaces/${encodeURIComponent(namespace)}/horizontalpodautoscalers`);
   const hpas = hpaData?.items ?? [];
 
   // Fetch ReplicaSets
-  const rsData = await fetchJson<K8sListOf<K8sObj>>(`/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/replicasets`);
+  const rsData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/replicasets`);
   const replicaSets = rsData?.items ?? [];
 
   // Fetch Deployments
-  const deployData = await fetchJson<K8sListOf<K8sObj>>(`/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/deployments`);
+  const deployData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/apis/apps/v1/namespaces/${encodeURIComponent(namespace)}/deployments`);
   const deploys = deployData?.items ?? [];
 
   // Fetch ConfigMaps and Secrets names (for linking)
-  const cmData = await fetchJson<K8sListOf<K8sObj>>(`/api/v1/namespaces/${encodeURIComponent(namespace)}/configmaps`);
+  const cmData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/api/v1/namespaces/${encodeURIComponent(namespace)}/configmaps`);
   const configMaps = new Set((cmData?.items ?? []).map((cm) => cm.metadata.name));
 
-  const secData = await fetchJson<K8sListOf<K8sObj>>(`/api/v1/namespaces/${encodeURIComponent(namespace)}/secrets`);
+  const secData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/api/v1/namespaces/${encodeURIComponent(namespace)}/secrets`);
   const secrets = new Set((secData?.items ?? []).map((s) => s.metadata.name));
 
   // Fetch PDBs
-  const pdbData = await fetchJson<K8sListOf<K8sObj>>(`/apis/policy/v1/namespaces/${encodeURIComponent(namespace)}/poddisruptionbudgets`);
+  const pdbData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/apis/policy/v1/namespaces/${encodeURIComponent(namespace)}/poddisruptionbudgets`);
   const pdbs = pdbData?.items ?? [];
 
   // Fetch NetworkPolicies
-  const npData = await fetchJson<K8sListOf<K8sObj>>(`/apis/networking.k8s.io/v1/namespaces/${encodeURIComponent(namespace)}/networkpolicies`);
+  const npData = await fetchJson<K8sListOf<K8sObj>>(clusterId, `/apis/networking.k8s.io/v1/namespaces/${encodeURIComponent(namespace)}/networkpolicies`);
   const netpols = npData?.items ?? [];
 
   // --- Walk ownerReferences for all pods ---

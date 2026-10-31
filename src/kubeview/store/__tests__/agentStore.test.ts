@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock AgentClient as a class
 let lastMockHandlers: Set<(e: any) => void> | null = null;
+const confirmCalls: Array<[boolean, string | undefined]> = [];
 vi.mock('../../engine/agentClient', () => {
   return {
     AgentClient: class MockAgentClient {
@@ -30,7 +31,7 @@ vi.mock('../../engine/agentClient', () => {
       }
 
       send() {}
-      confirm() {}
+      confirm(approved: boolean, nonce?: string) { confirmCalls.push([approved, nonce]); }
       clear() {}
 
       switchMode(mode: string) {
@@ -46,6 +47,7 @@ function simulateAgentEvent(event: any) {
 
 import { useAgentStore } from '../agentStore';
 import { useUIStore } from '../uiStore';
+import { registerCluster, resetConnections, setActiveClusterId } from '../../engine/clusterConnection';
 
 describe('agentStore', () => {
   beforeEach(() => {
@@ -154,5 +156,40 @@ describe('agentStore', () => {
 
     expect(useUIStore.getState().degradedReasons.has('session_expired')).toBe(false);
     expect(useAgentStore.getState().error).toContain('timeout');
+  });
+
+  describe('write confirmations carry the cluster they were requested on', () => {
+    beforeEach(() => {
+      resetConnections();
+      registerCluster({ id: 'prod-east', name: 'Prod East', connectionType: 'acm-proxy', target: 'prod-east' });
+      confirmCalls.length = 0;
+      useAgentStore.getState().connect();
+    });
+
+    it('approves when the active cluster is unchanged', () => {
+      simulateAgentEvent({ type: 'confirm_request', tool: 'scale_deployment', input: { replicas: 0 }, nonce: 'n1' });
+      expect(useAgentStore.getState().pendingConfirm?.clusterId).toBe('local');
+      useAgentStore.getState().confirmAction(true);
+      expect(confirmCalls).toEqual([[true, 'n1']]);
+    });
+
+    it('targets the agent\'s own cluster even when a remote cluster is being viewed', () => {
+      setActiveClusterId('prod-east');
+      simulateAgentEvent({ type: 'confirm_request', tool: 'delete_pod', input: {}, nonce: 'n3' });
+      expect(useAgentStore.getState().pendingConfirm).toMatchObject({ clusterId: 'local', requestedOnClusterId: 'prod-east' });
+      useAgentStore.getState().confirmAction(true);
+      expect(confirmCalls).toEqual([[true, 'n3']]);
+      resetConnections();
+    });
+
+    it('declines, and says why, when the approval comes after a cluster switch', () => {
+      simulateAgentEvent({ type: 'confirm_request', tool: 'scale_deployment', input: { replicas: 0 }, nonce: 'n2' });
+      setActiveClusterId('prod-east');
+      useAgentStore.getState().confirmAction(true);
+      expect(confirmCalls).toEqual([[false, 'n2']]);
+      expect(useAgentStore.getState().pendingConfirm).toBeNull();
+      expect(useAgentStore.getState().error).toMatch(/scale_deployment was not run: it was prepared on Local Cluster, but the active cluster is now Prod East/);
+      resetConnections();
+    });
   });
 });

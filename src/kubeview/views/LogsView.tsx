@@ -1,4 +1,5 @@
-import { useClusterBase } from '../hooks/useClusterBase';
+import { useActiveClusterId } from '../hooks/useClusterBase';
+import { k8sFetch, k8sGet } from '../engine/query';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -10,7 +11,6 @@ import MultiPodLogs from '../components/logs/MultiPodLogs';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useFleetStore } from '../store/fleetStore';
-import { k8sGet } from '../engine/query';
 import { LoadError } from '../components/primitives/LoadError';
 
 interface LogsViewProps {
@@ -44,11 +44,11 @@ export default function LogsView({ namespace, podName }: LogsViewProps) {
 
 // --- Build logs (OpenShift Build API) ---
 function BuildLogsView({ namespace, buildName }: { namespace: string; buildName: string }) {
-  const clusterBase = useClusterBase();
+  const clusterId = useActiveClusterId();
   const { data: logText, isLoading, error } = useQuery({
-    queryKey: ['build-log', namespace, buildName],
+    queryKey: ['build-log', namespace, buildName, clusterId],
     queryFn: async () => {
-      const res = await fetch(`${clusterBase}/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${buildName}/log`);
+      const res = await k8sFetch(clusterId, `/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${buildName}/log`);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.text();
     },
@@ -78,11 +78,13 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
   namespace: string; name: string; selector: string; kind: string;
 }) {
   const navigate = useNavigate();
+  const clusterId = useActiveClusterId();
   const [selectedPod, setSelectedPod] = useState<string | null>(null);
 
   // Watch pods by label selector
   const { data: pods = [], isLoading } = useK8sListWatch({
     apiPath: `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(selector)}`,
+    clusterId,
   });
 
   if (isLoading) {
@@ -135,9 +137,9 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
       {/* Log content */}
       <div className="flex-1 overflow-hidden">
         {selectedPod ? (
-          <LogStream key={selectedPod} namespace={namespace} podName={selectedPod} />
+          <LogStream key={selectedPod} namespace={namespace} podName={selectedPod} clusterId={clusterId} />
         ) : podNames.length > 0 ? (
-          <MultiPodLogs namespace={namespace} podNames={podNames} />
+          <MultiPodLogs namespace={namespace} podNames={podNames} clusterId={clusterId} />
         ) : (
           <EmptyState
             icon={<FileX className="w-8 h-8" />}
@@ -213,7 +215,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
           {previousToggle}
         </div>
         <div className="flex-1 overflow-hidden">
-          <LogStream key={String(previous)} namespace={namespace} podName={podName} containerName={containers[0]?.name} previous={previous} />
+          <LogStream key={String(previous)} namespace={namespace} podName={podName} containerName={containers[0]?.name} previous={previous} clusterId={clusterId} />
         </div>
       </div>
     );
@@ -223,7 +225,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
     <div className="h-full flex flex-col">
       <div className="px-4 py-1.5 border-b border-slate-700 flex items-center">{previousToggle}</div>
       <div className="flex-1 overflow-hidden">
-        <MultiContainerLogs namespace={namespace} podName={podName} containers={containers} previous={previous} />
+        <MultiContainerLogs namespace={namespace} podName={podName} containers={containers} previous={previous} clusterId={clusterId} />
       </div>
     </div>
   );

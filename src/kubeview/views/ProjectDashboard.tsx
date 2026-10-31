@@ -16,6 +16,9 @@ import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { formatRelativeTime } from '../engine/formatters';
 import { sanitizePromQL } from '../engine/query';
+import { queryRange } from '../components/metrics/prometheus';
+import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
+import { useActiveClusterId, useMetricsAvailable } from '../hooks/useClusterBase';
 import type { Pod, Deployment, StatefulSet, DaemonSet, Service } from '../engine/types';
 import type { K8sResource } from '../engine/renderers';
 import { getPodStatus } from '../engine/renderers/statusUtils';
@@ -214,6 +217,7 @@ export default function ProjectDashboard() {
 
 function NamespaceCharts({ namespace }: { namespace: string }) {
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('6h');
+  const metricsAvailable = useMetricsAvailable();
   // Each chart manages its own hover state independently
 
   const rangeSeconds = { '1h': 3600, '6h': 21600, '24h': 86400 }[timeRange];
@@ -232,6 +236,14 @@ function NamespaceCharts({ namespace }: { namespace: string }) {
   const charts = metricQueries.slice(0, 4);
 
   if (charts.length === 0) return null;
+
+  if (!metricsAvailable) {
+    return (
+      <Card>
+        <RemoteMetricsNotice what="Resource metrics" />
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -278,16 +290,10 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
   query: string; title: string; yAxisLabel: string; yAxisFormat: string; colorIndex: number;
   start: number; end: number; step: number;
 }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ['prometheus', query, start, end, step],
-    queryFn: async () => {
-      const params = new URLSearchParams({ query, start: String(start), end: String(end), step: String(step) });
-      const res = await fetch(`/api/prometheus/api/v1/query_range?${params}`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      if (json.status !== 'success') return null;
-      return json.data?.result || [];
-    },
+  const clusterId = useActiveClusterId();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['prometheus', query, start, end, step, clusterId],
+    queryFn: () => queryRange(query, start, end, step, clusterId),
     refetchInterval: 60000,
   });
 
@@ -306,6 +312,15 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
 
   if (isLoading) {
     return <div className="h-48 flex items-center justify-center"><div className="kv-skeleton w-6 h-6 rounded-full" /></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="h-48 flex flex-col items-center justify-center text-center text-sm text-red-300" role="alert">
+        <span>{title}: failed to fetch metrics</span>
+        <span className="mt-1 text-xs text-slate-500">{error instanceof Error ? error.message : String(error)}</span>
+      </div>
+    );
   }
 
   return (

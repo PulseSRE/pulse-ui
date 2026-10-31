@@ -1,4 +1,4 @@
-import { useClusterBase } from '../../hooks/useClusterBase';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 /**
  * MultiContainerLogs - Container switcher for multi-container pods
  */
@@ -7,6 +7,9 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import LogStream from './LogStream';
 import { parseLogLine, type ParsedLogLine } from './LogParser';
+import { fetchSourceLogs } from './mergedLogs';
+import { MergedLogErrors } from './MergedLogErrors';
+import { RefreshCw } from 'lucide-react';
 
 interface Container {
   name: string;
@@ -18,6 +21,8 @@ interface MultiContainerLogsProps {
   namespace: string;
   podName: string;
   containers: Container[];
+  /** Cluster the pod lives on; defaults to the active cluster. */
+  clusterId?: string;
   /** Logs of each container's previous instance. */
   previous?: boolean;
 }
@@ -44,9 +49,13 @@ export default function MultiContainerLogs({
   namespace,
   podName,
   containers,
+  clusterId: clusterIdProp,
   previous = false,
 }: MultiContainerLogsProps) {
-  const clusterBase = useClusterBase();
+  const activeClusterId = useActiveClusterId();
+  const clusterId = clusterIdProp ?? activeClusterId;
+  const [sourceErrors, setSourceErrors] = useState<Array<{ source: string; error: string }>>([]);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectedContainer, setSelectedContainer] = useState<string>('all');
   const [mergedLogs, setMergedLogs] = useState<MergedLogLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,48 +69,31 @@ export default function MultiContainerLogs({
 
     let mounted = true;
     setLoading(true);
+    setSourceErrors([]);
 
     const fetchAllLogs = async () => {
-      try {
-        const logPromises = containers.map(async (container, index) => {
-          const url = `${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${encodeURIComponent(container.name)}&tailLines=500&timestamps=true${previous ? '&previous=true' : ''}`;
-          const response = await fetch(url);
-
-          if (!response.ok) {
-            return [];
-          }
-
-          const text = await response.text();
-          const lines = text.split('\n').filter((l) => l.trim());
-
-          return lines.map((line) => {
-            const parsed = parseLogLine(line);
-            return {
-              ...parsed,
-              containerName: container.name,
-              containerColor: CONTAINER_COLORS[index % CONTAINER_COLORS.length],
-            };
-          });
-        });
-
-        const allLogs = await Promise.all(logPromises);
-        const merged = allLogs.flat();
-
-        // Sort by timestamp
-        merged.sort((a, b) => {
-          if (!a.timestamp || !b.timestamp) return 0;
-          return a.timestamp.getTime() - b.timestamp.getTime();
-        });
-
-        if (mounted) {
-          setMergedLogs(merged);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Failed to fetch logs:', error);
-        if (mounted) {
-          setLoading(false);
-        }
+      const results = await Promise.all(containers.map(async (container, index) => {
+        const params = new URLSearchParams({ container: container.name, tailLines: '500', timestamps: 'true' });
+        if (previous) params.set('previous', 'true');
+        const result = await fetchSourceLogs(clusterId, namespace, podName, params);
+        return {
+          error: result.error ? { source: container.name, error: result.error } : null,
+          lines: result.lines.map((line) => ({
+            ...parseLogLine(line),
+            containerName: container.name,
+            containerColor: CONTAINER_COLORS[index % CONTAINER_COLORS.length],
+          })),
+        };
+      }));
+      const merged = results.flatMap((r) => r.lines);
+      merged.sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0;
+        return a.timestamp.getTime() - b.timestamp.getTime();
+      });
+      if (mounted) {
+        setMergedLogs(merged);
+        setSourceErrors(results.flatMap((r) => (r.error ? [r.error] : [])));
+        setLoading(false);
       }
     };
 
@@ -110,7 +102,7 @@ export default function MultiContainerLogs({
     return () => {
       mounted = false;
     };
-  }, [selectedContainer, namespace, podName, containers, clusterBase, previous]);
+  }, [selectedContainer, namespace, podName, containers, clusterId, reloadKey, previous]);
 
   // Get container state indicator
   const getStateIndicator = (state: Container['state']) => {
@@ -175,13 +167,24 @@ export default function MultiContainerLogs({
       <div className="flex-1 overflow-hidden">
         {selectedContainer === 'all' ? (
           <div className="h-full overflow-auto bg-slate-950 font-mono text-xs leading-relaxed">
+            <div className="flex items-center justify-end border-b border-slate-800 px-3 py-1 font-sans">
+              <button
+                type="button"
+                onClick={() => setReloadKey((k) => k + 1)}
+                disabled={loading}
+                className="flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-50"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden="true" /> Refresh
+              </button>
+            </div>
+            {!loading && <MergedLogErrors label="container" errors={sourceErrors} />}
             {loading && (
               <div className="flex items-center justify-center h-full text-slate-400">
                 Loading logs from all containers...
               </div>
             )}
 
-            {!loading && mergedLogs.length === 0 && (
+            {!loading && mergedLogs.length === 0 && sourceErrors.length === 0 && (
               <div className="flex items-center justify-center h-full text-slate-400">
                 No logs found
               </div>
@@ -223,6 +226,7 @@ export default function MultiContainerLogs({
           </div>
         ) : (
           <LogStream
+            clusterId={clusterId}
             key={`${selectedContainer}-${previous}`}
             namespace={namespace}
             podName={podName}

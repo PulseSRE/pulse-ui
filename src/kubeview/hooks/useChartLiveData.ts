@@ -10,6 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryRange, getTimeRange, parseDuration } from '../components/metrics/prometheus';
 import type { ChartSpec } from '../engine/agentComponents';
+import { useActiveClusterId } from './useClusterBase';
 
 /** Default refresh interval in milliseconds */
 export const DEFAULT_REFRESH_INTERVAL_MS = 60_000;
@@ -74,6 +75,7 @@ export function useChartLiveData(
   spec: ChartSpec,
   refreshIntervalMs = DEFAULT_REFRESH_INTERVAL_MS,
 ): LiveChartResult {
+  const clusterId = useActiveClusterId();
   const [isPaused, setIsPaused] = useState(false);
   const togglePause = useCallback(() => setIsPaused((p) => !p), []);
 
@@ -85,7 +87,7 @@ export function useChartLiveData(
     isFetching,
     dataUpdatedAt,
   } = useQuery({
-    queryKey: ['chart-live', spec.query, spec.timeRange],
+    queryKey: ['chart-live', spec.query, spec.timeRange, clusterId],
     queryFn: async () => {
       if (!spec.query) throw new Error('No query');
 
@@ -100,7 +102,7 @@ export function useChartLiveData(
         [startSec, endSec] = getTimeRange(DEFAULT_TIME_RANGE);
       }
 
-      const result = await queryRange(spec.query!, startSec, endSec);
+      const result = await queryRange(spec.query!, startSec, endSec, undefined, clusterId);
       return promResultToSeries(result, spec.series);
     },
     enabled: hasQuery && !isPaused,

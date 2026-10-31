@@ -1,3 +1,4 @@
+import { useActiveClusterId } from '../hooks/useClusterBase';
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -5,7 +6,8 @@ import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { buildApiPath } from '../hooks/useResourceUrl';
 import { k8sFetch, k8sGet } from '../engine/query';
-import { useFleetStore } from '../store/fleetStore';
+import { getActiveClusterId } from '../engine/clusterConnection';
+import { clusterChangedMessage, clusterDisplayName as clusterName } from '../engine/pendingCluster';
 import type { K8sResource } from '../engine/renderers';
 import { useCanI } from '../hooks/useCanI';
 import { LoadError } from '../components/primitives/LoadError';
@@ -27,7 +29,11 @@ interface YamlEditorViewProps {
 }
 
 export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorViewProps) {
-  const clusterId = useFleetStore((s) => s.activeClusterId);
+  // Pin the cluster when the editor opens. The YAML on screen belongs to this
+  // cluster; saving it anywhere else would overwrite a different object.
+  const [clusterId] = useState(() => getActiveClusterId());
+  const activeClusterId = useActiveClusterId();
+  const clusterChanged = activeClusterId !== clusterId;
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
@@ -70,6 +76,13 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
 
   const handleSave = useCallback(async () => {
     if (!hasChanges || saving || readOnly) return;
+    // Read the live registry, not render state: the switch may have happened
+    // after this callback was created.
+    const active = getActiveClusterId();
+    if (active !== clusterId) {
+      setSaveError(clusterChangedMessage(clusterId, active, 'Saving this YAML'));
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -173,9 +186,9 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
           )}
           <button
             onClick={requestSave}
-            disabled={!hasChanges || saving}
+            disabled={!hasChanges || saving || clusterChanged}
             className={cn('flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-md font-medium transition-colors',
-              hasChanges
+              hasChanges && !clusterChanged
                 ? isArgoManaged ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             )}
@@ -185,6 +198,15 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
           </button>
         </div>}
       </div>
+
+      {clusterChanged && (
+        <div role="alert" className="flex items-start gap-2 px-4 py-2 bg-amber-950/40 border-b border-amber-900 text-xs text-amber-200">
+          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>
+            This YAML was loaded from <strong>{clusterName(clusterId)}</strong>; the active cluster is now <strong>{clusterName(activeClusterId)}</strong>. Saving is disabled until you switch back.
+          </span>
+        </div>
+      )}
 
       {/* Save error banner */}
       {saveError && (
@@ -210,7 +232,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
         />
       </div>
       {showDryRun && hasChanges && (
-        <DryRunPanel yaml={currentYaml} apiPath={apiPath} method="PUT" onClose={() => setShowDryRun(false)} />
+        <DryRunPanel yaml={currentYaml} apiPath={apiPath} method="PUT" clusterId={clusterId} onClose={() => setShowDryRun(false)} />
       )}
       {showGitOpsDialog && syncInfo && (
         <GitOpsActionDialog

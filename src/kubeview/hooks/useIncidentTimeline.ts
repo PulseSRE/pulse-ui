@@ -19,6 +19,8 @@ import {
   filterByTimeRange,
 } from '../engine/timeline';
 import { useUIStore } from '../store/uiStore';
+import { useActiveClusterId } from './useClusterBase';
+import { promFetch, metricsAvailableFor } from '../components/metrics/prometheus';
 
 export type TimeRange = '15m' | '1h' | '6h' | '24h' | '3d' | '7d';
 
@@ -39,6 +41,7 @@ interface UseIncidentTimelineOptions {
 
 export function useIncidentTimeline({ timeRange, namespace, categories }: UseIncidentTimelineOptions) {
   // Events
+  const clusterId = useActiveClusterId();
   const { data: rawEvents = [], isLoading: eventsLoading } = useK8sListWatch<Event>({
     apiPath: '/api/v1/events?limit=500',
     enabled: categories?.has('event') ?? false,
@@ -46,9 +49,9 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
 
   // Alerts from Prometheus
   const { data: alertGroups = [], isLoading: alertsLoading } = useQuery({
-    queryKey: ['timeline', 'alerts'],
+    queryKey: ['timeline', 'alerts', clusterId],
     queryFn: async () => {
-      const res = await fetch('/api/prometheus/api/v1/rules');
+      const res = await promFetch('/api/v1/rules', clusterId);
       if (!res.ok) {
         useUIStore.getState().addDegradedReason('observability_unavailable');
         return [];
@@ -58,7 +61,8 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
       return json.data?.groups || [];
     },
     refetchInterval: 30000,
-    enabled: categories?.has('alert'),
+    // Local cluster only: see components/metrics/prometheus.ts.
+    enabled: (categories?.has('alert') ?? false) && metricsAvailableFor(clusterId),
   });
 
   // ReplicaSets + Deployments for rollouts
@@ -75,8 +79,8 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
 
   // ClusterVersion + ClusterOperators for config changes
   const { data: clusterVersion = null, isLoading: cvLoading } = useQuery({
-    queryKey: ['timeline', 'clusterversion'],
-    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version')),
+    queryKey: ['timeline', 'clusterversion', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
     staleTime: 60000,
     enabled: categories?.has('config'),
   });

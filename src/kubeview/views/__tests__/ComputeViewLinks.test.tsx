@@ -25,7 +25,9 @@ vi.mock('../../engine/query', () => ({
   k8sGet: vi.fn().mockResolvedValue(null),
 }));
 vi.mock('../../components/metrics/Sparkline', () => ({ MetricCard: () => null }));
-vi.mock('../../components/metrics/prometheus', () => ({ queryInstant: vi.fn().mockResolvedValue([]) }));
+vi.mock('../../components/metrics/prometheus', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  queryInstant: vi.fn().mockResolvedValue([]) }));
 
 import ComputeView from '../ComputeView';
 

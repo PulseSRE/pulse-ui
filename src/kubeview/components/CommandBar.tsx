@@ -1,4 +1,3 @@
-import { useClusterBase } from '../hooks/useClusterBase';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check, Loader2, RefreshCw } from 'lucide-react';
@@ -8,12 +7,12 @@ import { useClusterStore } from '../store/clusterStore';
 import { useFleetStore } from '../store/fleetStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
+import { k8sFetch } from '../engine/query';
 import { agentFetch } from '../engine/safeQuery';
 import { performLogout } from '../engine/auth';
 import { usePulseUpgrade } from '../hooks/usePulseStatus';
 
 export function CommandBar() {
-  const clusterBase = useClusterBase();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showNsDropdown, setShowNsDropdown] = useState(false);
@@ -64,11 +63,11 @@ export function CommandBar() {
 
   // Fetch cluster name and user identity
   const { data: clusterInfo } = useQuery({
-    queryKey: ['toolbar', 'cluster'],
+    queryKey: ['toolbar', 'cluster', activeClusterId],
     queryFn: async () => {
       const [infraRes, userRes] = await Promise.allSettled([
-        fetch(`${clusterBase}/apis/config.openshift.io/v1/infrastructures/cluster`),
-        fetch(`${clusterBase}/apis/user.openshift.io/v1/users/~`),
+        k8sFetch(activeClusterId, '/apis/config.openshift.io/v1/infrastructures/cluster'),
+        k8sFetch(activeClusterId, '/apis/user.openshift.io/v1/users/~'),
       ]);
       let name = 'cluster', platform = '', controlPlaneTopology = '';
       if (infraRes.status === 'fulfilled' && infraRes.value.ok) {
@@ -108,9 +107,9 @@ export function CommandBar() {
 
   // Fetch namespaces
   const { data: namespaces = [], isLoading: namespacesLoading, error: namespacesError } = useQuery({
-    queryKey: ['toolbar', 'namespaces'],
+    queryKey: ['toolbar', 'namespaces', activeClusterId],
     queryFn: async () => {
-      const res = await fetch(`${clusterBase}/api/v1/namespaces`);
+      const res = await k8sFetch(activeClusterId, '/api/v1/namespaces');
       if (!res.ok) throw new Error(`Failed to fetch namespaces: ${res.status}`);
       const data = await res.json();
       return (data.items || []).map((i: any) => i.metadata.name).sort() as string[];
@@ -483,7 +482,7 @@ export function CommandBar() {
                     // Use the API server URL from cluster info, fallback to current origin
                     let server = window.location.origin;
                     try {
-                      const infraRes = await fetch(`${clusterBase}/apis/config.openshift.io/v1/infrastructures/cluster`);
+                      const infraRes = await k8sFetch(activeClusterId, '/apis/config.openshift.io/v1/infrastructures/cluster');
                       if (infraRes.ok) {
                         const infraData = await infraRes.json();
                         server = infraData.status?.apiServerURL || server;

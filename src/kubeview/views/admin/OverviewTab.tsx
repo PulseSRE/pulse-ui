@@ -36,6 +36,8 @@ export interface OverviewTabProps {
   firingAlerts: Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>;
   /** True when the alert query failed — "none firing" is then unknown, not zero. */
   alertsUnavailable?: boolean;
+  /** Why alerts are unavailable, when it is known (e.g. a remote cluster is active). */
+  alertsUnavailableReason?: string;
   alertCounts: { critical: number; warning: number; info: number };
   operators: ClusterOperator[];
   opDegraded: number;
@@ -84,7 +86,7 @@ function getOperatorStatus(op: K8sResource | OperatorResource | null): string {
 
 export function OverviewTab({
   overviewLoading, overviewError,
-  firingAlerts, alertsUnavailable, alertCounts,
+  firingAlerts, alertsUnavailable, alertsUnavailableReason, alertCounts,
   operators, opDegraded, opProgressing, degradedOperators,
   nodes, nodeRoles,
   cvVersion, cvChannel, platform, apiUrl,
@@ -173,7 +175,7 @@ export function OverviewTab({
         <div className="bg-slate-800/40 border border-slate-700/60 rounded-lg px-4 py-2.5 flex items-center gap-3">
           <HelpCircle className="w-4 h-4 text-slate-400" />
           <span className="text-sm text-slate-300">
-            Alert status unavailable — could not reach Prometheus
+            {alertsUnavailableReason ?? 'Alert status unavailable — could not reach Prometheus'}
           </span>
         </div>
       )}

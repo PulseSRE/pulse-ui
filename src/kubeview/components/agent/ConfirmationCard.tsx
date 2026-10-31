@@ -5,6 +5,9 @@ import { describeToolAction, riskLevel } from './MessageBubble';
 import { useTrustStore, TRUST_LABELS } from '../../store/trustStore';
 import { useUIStore } from '../../store/uiStore';
 import { cn } from '@/lib/utils';
+import { useFleetStore } from '../../store/fleetStore';
+import { clusterDisplayName } from '../../engine/pendingCluster';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 
 /** Tools that can be easily rolled back */
 const ROLLBACK_INFO: Record<string, string> = {
@@ -40,7 +43,8 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
 }
 
 interface ConfirmationCardProps {
-  confirm: ConfirmRequest;
+  /** `clusterId`: where the write lands (the agent's cluster). */
+  confirm: ConfirmRequest & { clusterId?: string };
   onConfirm: (approved: boolean) => void;
 }
 
@@ -54,6 +58,8 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const shouldAutoApprove = useTrustStore((s) => s.shouldAutoApprove);
   const recordConfirmation = useTrustStore((s) => s.recordConfirmation);
   const addToast = useUIStore((s) => s.addToast);
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
+  const targetClusterId = confirm.clusterId ?? LOCAL_CLUSTER_ID;
 
   const RiskIcon = risk.level === 'HIGH' ? ShieldAlert : risk.level === 'MEDIUM' ? Shield : ShieldCheck;
   const riskBg = risk.level === 'HIGH' ? 'bg-red-950/40' : risk.level === 'MEDIUM' ? 'bg-amber-950/30' : 'bg-slate-800';
@@ -132,6 +138,16 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
               Trust: {TRUST_LABELS[trustLevel]} (L{trustLevel})
             </span>
           </div>
+
+          {/* Where it lands */}
+          <p className="text-xs text-slate-300">
+            Target cluster: <strong>{clusterDisplayName(targetClusterId)}</strong>
+            {activeClusterId !== targetClusterId && (
+              <span className="block text-amber-300">
+                You are viewing {clusterDisplayName(activeClusterId)}; this change applies to {clusterDisplayName(targetClusterId)}, where the agent runs.
+              </span>
+            )}
+          </p>
 
           {/* What will happen */}
           {impact && (

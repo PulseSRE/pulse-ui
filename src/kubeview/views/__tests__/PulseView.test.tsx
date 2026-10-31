@@ -48,8 +48,9 @@ vi.mock('../../engine/query', () => ({
   k8sList: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('../../components/metrics/prometheus', () => ({
-  queryInstant: vi.fn().mockResolvedValue([]),
+vi.mock('../../components/metrics/prometheus', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+queryInstant: vi.fn().mockResolvedValue([]),
   queryRange: vi.fn().mockResolvedValue([]),
   getTimeRange: vi.fn().mockReturnValue([0, 1]),
 }));
@@ -84,6 +85,9 @@ vi.mock('../../engine/askPulse', () => ({ askPulse: (...a: unknown[]) => askPuls
 
 import PulseView, { trustDivergenceNote } from '../PulseView';
 import { useTrustStore } from '../../store/trustStore';
+import { useFleetStore } from '../../store/fleetStore';
+import { useMonitorStore } from '../../store/monitorStore';
+import { getAllConnections, registerCluster, resetConnections, setActiveClusterId } from '../../engine/clusterConnection';
 
 function setMockData(data: Record<string, { data: any[]; isLoading: boolean; isError?: boolean }>) {
   for (const key of Object.keys(_mockListWatchData)) {
@@ -213,6 +217,38 @@ describe('PulseView', () => {
     renderPulse();
     expect(screen.getByText(/Couldn't check pods/)).toBeDefined();
     expect(screen.queryByText('All clear')).toBeNull();
+  });
+
+  // A remote cluster's alerts cannot be read (Prometheus is local-only), so
+  // zero alerts there is unknown — never "all clear" or "nominal".
+  describe('remote cluster active', () => {
+    beforeEach(() => {
+      resetConnections();
+      registerCluster({ id: 'prod-east', name: 'Prod East', connectionType: 'acm-proxy', target: 'prod-east' });
+      setActiveClusterId('prod-east');
+      useFleetStore.setState({ activeClusterId: 'prod-east', clusters: getAllConnections() });
+      useMonitorStore.setState({ lastScanTime: Date.now() });
+    });
+    afterEach(() => {
+      resetConnections();
+      useFleetStore.setState({ activeClusterId: 'local', clusters: getAllConnections() });
+      useMonitorStore.setState({ lastScanTime: null });
+    });
+
+    it('gives no all-clear and says why', () => {
+      setMockData({
+        '/api/v1/nodes': { data: [makeNode('node-1', true)], isLoading: false },
+        '/api/v1/pods': { data: [], isLoading: false },
+        '/apis/apps/v1/deployments': { data: [], isLoading: false },
+        '/api/v1/persistentvolumeclaims': { data: [], isLoading: false },
+        '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('auth', false)], isLoading: false },
+      });
+      renderPulse();
+      expect(screen.queryByText(/All clear/)).toBeNull();
+      expect(screen.queryByText('All Systems Nominal')).toBeNull();
+      expect(screen.getByText(/No all-clear — alerts for this cluster could not be read/)).toBeDefined();
+      expect(screen.getAllByText(/Alerts and metrics are available for the local cluster only/).length).toBeGreaterThan(0);
+    });
   });
 
   it('shows control plane section', () => {

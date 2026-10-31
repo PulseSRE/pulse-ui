@@ -15,6 +15,10 @@ import { showErrorToast } from '../engine/errorToast';
 import { copyToClipboard } from '../engine/clipboard';
 import { EmptyState } from '../components/primitives/EmptyState';
 import type { PrometheusAlert } from '../engine/types/incident';
+import { k8sGet } from '../engine/query';
+import { promFetch, METRICS_CLUSTER_ID } from '../components/metrics/prometheus';
+import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
+import { useMetricsAvailable } from '../hooks/useClusterBase';
 
 interface AlertGroup {
   name: string;
@@ -57,18 +61,39 @@ interface SilenceFormData {
   comment: string;
 }
 
+/**
+ * Alerts, rules and silences come from the local cluster's Prometheus and
+ * Alertmanager — the only ones Pulse can reach. While a remote cluster is
+ * active the page says so instead of listing (or silencing) the local
+ * cluster's alerts under the remote cluster's name.
+ */
 export default function AlertsView() {
+  const metricsAvailable = useMetricsAvailable();
+  if (!metricsAvailable) {
+    return (
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <RemoteMetricsNotice what="Alerts and silences" />
+      </div>
+    );
+  }
+  return <LocalAlertsView />;
+}
+
+function LocalAlertsView() {
   const go = useNavigateTab();
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const { data: currentUser = 'admin' } = useQuery({
-    queryKey: ['currentUser'],
+    // The silence author on the local Alertmanager is the user of the local cluster.
+    queryKey: ['currentUser', METRICS_CLUSTER_ID],
     queryFn: async () => {
-      const res = await fetch('/api/kubernetes/apis/user.openshift.io/v1/users/~');
-      if (!res.ok) return 'admin';
-      const data = await res.json();
-      return data.metadata?.name || 'admin';
+      try {
+        const data = await k8sGet<{ metadata?: { name?: string } }>('/apis/user.openshift.io/v1/users/~', METRICS_CLUSTER_ID);
+        return data.metadata?.name || 'admin';
+      } catch {
+        return 'admin';
+      }
     },
     staleTime: 300000,
   });
@@ -104,9 +129,9 @@ export default function AlertsView() {
 
   // Fetch alerts from Prometheus
   const { data: alertGroups = [], error: alertsError, refetch: refetchAlerts, isPending: alertsPending } = useQuery<AlertGroup[]>({
-    queryKey: ['alerts', 'rules'],
+    queryKey: ['alerts', 'rules', METRICS_CLUSTER_ID],
     queryFn: async () => {
-      const res = await fetch('/api/prometheus/api/v1/rules');
+      const res = await promFetch('/api/v1/rules', METRICS_CLUSTER_ID);
       if (!res.ok) throw new Error(`Prometheus returned ${res.status} ${res.statusText}`);
       const ct = res.headers.get('content-type') || '';
       if (!ct.includes('application/json')) throw new Error('Prometheus endpoint returned non-JSON response — is THANOS_URL configured?');

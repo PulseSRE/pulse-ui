@@ -13,12 +13,14 @@ const goMock = vi.fn();
 vi.mock('../../store/uiStore', () => ({
   useUIStore: Object.assign(
     (selector: any) => selector({ addTab: vi.fn(), addToast: vi.fn(), setSelectedNamespace: vi.fn(), selectedNamespace: '*' }),
-    { getState: () => ({ setSelectedNamespace: vi.fn() }) },
+    { getState: () => ({ setSelectedNamespace: vi.fn(), addDegradedReason: vi.fn(), removeDegradedReason: vi.fn(), impersonateUser: '', impersonateGroups: [] }) },
   ),
 }));
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => goMock }));
 vi.mock('../../components/metrics/Sparkline', () => ({ MetricCard: () => null, Sparkline: () => null }));
-vi.mock('../../components/metrics/prometheus', () => ({ queryRange: vi.fn().mockResolvedValue([]), getTimeRange: vi.fn().mockReturnValue([0, 1]) }));
+vi.mock('../../components/metrics/prometheus', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+queryRange: vi.fn().mockResolvedValue([]), getTimeRange: vi.fn().mockReturnValue([0, 1]) }));
 
 const jsonHeaders = { get: (h: string) => (h.toLowerCase() === 'content-type' ? 'application/json' : null) };
 function rulesWith(alerts: Array<{ name: string; labels: Record<string, string> }>) {
