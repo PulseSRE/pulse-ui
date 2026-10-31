@@ -7,6 +7,7 @@ import { k8sFetch } from '../../engine/query';
 import { useFleetStore } from '../../store/fleetStore';
 import DeployProgress from '../../components/DeployProgress';
 import { FormField } from './FormField';
+import { NamespacePicker, isNamespaceName } from './NamespacePicker';
 import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { showErrorToast } from '../../engine/errorToast';
@@ -40,11 +41,17 @@ export function QuickDeployTab() {
   const [memLimit, setMemLimit] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
+  // The global selector pre-fills the target; in all-namespaces mode the
+  // user picks one — deploys used to land silently in `default`.
+  const [ns, setNs] = useState(selectedNamespace !== '*' ? selectedNamespace : '');
 
   const handleDeploy = async () => {
     if (!name.trim() || !image.trim()) {
       addToast({ type: 'error', title: 'Name and image are required' });
+      return;
+    }
+    if (!isNamespaceName(ns)) {
+      addToast({ type: 'error', title: 'Choose a namespace', detail: 'Pick the namespace to deploy into.' });
       return;
     }
     setDeploying(true);
@@ -187,6 +194,7 @@ export function QuickDeployTab() {
           <FormField label="Container Image" required value={image} onChange={setImage} placeholder="nginx:latest or quay.io/org/image:tag" />
           <FormField label="Container Port" value={port} onChange={setPort} placeholder="8080 (optional — creates Service)" type="number" />
           <FormField label="Replicas" value={replicas} onChange={setReplicas} placeholder="1" type="number" />
+          <NamespacePicker value={ns} onChange={setNs} />
         </div>
 
         {port && (
@@ -238,11 +246,11 @@ export function QuickDeployTab() {
         </div>
 
         <div className="flex items-center gap-3 pt-2">
-          <button onClick={handleDeploy} disabled={deploying || !name.trim() || !image.trim()} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
+          <button onClick={handleDeploy} disabled={deploying || !name.trim() || !image.trim() || !ns} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
             {deploying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Box className="w-4 h-4" />}
             {deploying ? 'Deploying...' : 'Deploy'}
           </button>
-          <span className="text-xs text-slate-500">Namespace: <span className="text-slate-300">{ns}</span></span>
+          {ns && <span className="text-xs text-slate-500">Namespace: <span className="text-slate-300">{ns}</span></span>}
         </div>
       </Card>
 

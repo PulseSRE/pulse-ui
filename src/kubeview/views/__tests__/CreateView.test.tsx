@@ -307,7 +307,8 @@ describe('CreateView', () => {
     renderCreateView();
     fireEvent.click(screen.getByText('Quick Deploy'));
 
-    expect(screen.getByText('default')).toBeDefined();
+    // The global selector names the target namespace; nothing falls back to `default` silently.
+    expect(screen.getByLabelText('Namespace')).toBeDefined();
   });
 
   // ===== Quick Deploy: Env Vars =====

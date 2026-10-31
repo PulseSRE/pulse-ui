@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Settings, Puzzle, Shield, Database, GitBranch,
-  ArrowUpCircle, GitCompare, Gauge, Lock, Blocks,
+  ArrowUpCircle, GitCompare, Gauge, Lock, Blocks, FileKey,
 } from 'lucide-react';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 
@@ -22,6 +22,7 @@ import ClusterConfig from '../components/ClusterConfig';
 import { parseCpu, parseMem, parseResourceValue } from '../engine/formatting';
 import { QuotasTab } from './admin/QuotasTab';
 import { CertificatesTab } from './admin/CertificatesTab';
+import { CsrTab } from './admin/CsrTab';
 import { OverviewTab } from './admin/OverviewTab';
 import { OperatorsTab } from './admin/OperatorsTab';
 import { UpdatesTab } from './admin/UpdatesTab';
@@ -111,11 +112,11 @@ interface AvailableUpdate {
   risks?: Array<{ name?: string; message?: string }>;
 }
 
-type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'crds';
+type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'csrs' | 'crds';
 
 // --- Main component ---
 
-const ADMIN_TABS: readonly Tab[] = ['overview', 'operators', 'config', 'updates', 'snapshots', 'quotas', 'certificates', 'crds'];
+const ADMIN_TABS: readonly Tab[] = ['overview', 'operators', 'config', 'updates', 'snapshots', 'quotas', 'certificates', 'csrs', 'crds'];
 
 export default function AdminView() {
   // The tab follows `?tab=` through the router, so in-page links such as
@@ -431,6 +432,7 @@ export default function AdminView() {
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <GitCompare className="w-3.5 h-3.5" /> },
     { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Gauge className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Gauge className="w-3.5 h-3.5" /> },
     { id: 'certificates', label: 'Certificates', icon: <Lock className="w-3.5 h-3.5 text-red-400" />, activeIcon: <Lock className="w-3.5 h-3.5" /> },
+    { id: 'csrs', label: 'Certificate requests', icon: <FileKey className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <FileKey className="w-3.5 h-3.5" /> },
     { id: 'crds', label: `CRDs (${crds.length})`, icon: <Blocks className="w-3.5 h-3.5 text-indigo-400" />, activeIcon: <Blocks className="w-3.5 h-3.5" /> },
   ];
 
@@ -561,6 +563,9 @@ export default function AdminView() {
 
         {/* ===== CERTIFICATES ===== */}
         {activeTab === 'certificates' && <CertificatesTab go={go} />}
+
+        {/* ===== CERTIFICATE SIGNING REQUESTS ===== */}
+        {activeTab === 'csrs' && <CsrTab go={go} />}
 
         {/* ===== CRDs ===== */}
         {activeTab === 'crds' && <Suspense fallback={<div className="text-center py-8 text-slate-500 text-sm">Loading...</div>}><CRDsView /></Suspense>}

@@ -29,6 +29,16 @@ import { useActiveClusterId } from '../hooks/useClusterBase';
 import { k8sFetch } from '../engine/query';
 import { getActiveClusterId } from '../engine/clusterConnection';
 import { assertActiveCluster } from '../engine/pendingCluster';
+import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from '../engine/clusterAdmins';
+import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
+import { CreateGroupButton, GroupMemberControls, type GroupLike } from './identity/GroupActions';
+import { AccessPanel } from './identity/AccessPanel';
+
+function subjectUrl(s: { kind: string; name: string; namespace?: string }): string {
+  if (s.kind === 'ServiceAccount') return `/r/v1~serviceaccounts/${s.namespace}/${s.name}`;
+  if (s.kind === 'Group') return `/r/user.openshift.io~v1~groups/_/${s.name}`;
+  return `/r/user.openshift.io~v1~users/_/${s.name}`;
+}
 
 // ---------------------------------------------------------------------------
 // K8s resource with extra OpenShift-specific fields
@@ -150,15 +160,10 @@ export default function IdentityView() {
     return (clusterRoleBindings as ClusterRoleBinding[]).filter((b) => b.roleRef?.name === 'cluster-admin');
   }, [clusterRoleBindings]);
 
-  const broadPermissions = React.useMemo(() => {
-    const subjects: Array<{ name: string; kind: string; binding: string; namespace?: string }> = [];
-    for (const b of clusterAdminBindings) {
-      for (const s of b.subjects || []) {
-        subjects.push({ name: s.name, kind: s.kind, binding: b.metadata.name, namespace: s.namespace });
-      }
-    }
-    return subjects;
-  }, [clusterAdminBindings]);
+  // The same definition Security uses: non-system subjects of non-system cluster-admin bindings.
+  const broadPermissions = React.useMemo(() => clusterAdminSubjects(clusterAdminBindings), [clusterAdminBindings]);
+
+  const crbByName = React.useMemo(() => new Map((clusterRoleBindings as ClusterRoleBinding[]).map((b) => [b.metadata.name, b])), [clusterRoleBindings]);
 
   // SA by namespace
   const saByNamespace = React.useMemo(() => {
@@ -234,11 +239,11 @@ export default function IdentityView() {
         </MetricGrid>
 
         {/* Issues banner */}
-        {broadPermissions.length > 5 && (
+        {tooManyClusterAdmins(broadPermissions) && (
           <div className="flex items-center px-4 py-2.5 rounded-lg border bg-yellow-950/30 border-yellow-900">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span className="text-sm text-slate-200">{broadPermissions.length} subjects have cluster-admin — review below</span>
+              <span className="text-sm text-slate-200">{broadPermissions.length} subjects have cluster-admin (more than {CLUSTER_ADMIN_LIMIT}) — review below</span>
             </div>
           </div>
         )}
@@ -320,7 +325,7 @@ export default function IdentityView() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-slate-200">{user.metadata.name}</span>
+                            <button onClick={() => go(`/r/user.openshift.io~v1~users/_/${user.metadata.name}`, user.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{user.metadata.name}</button>
                             {isAdmin && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded-sm">cluster-admin</span>}
                             {user.metadata.name === 'kube:admin' && <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded-sm">built-in</span>}
                           </div>
@@ -378,6 +383,7 @@ export default function IdentityView() {
               <Card>
                 <div className="px-4 py-3 border-b border-slate-800">
                   <h2 className="text-sm font-semibold text-slate-100">Groups ({filteredGroups.length})</h2>
+                  <CreateGroupButton />
                 </div>
                 <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
                   {filteredGroups.length === 0 ? (
@@ -390,7 +396,7 @@ export default function IdentityView() {
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <Shield className="w-4 h-4 text-violet-400" />
-                            <span className="text-sm font-medium text-slate-200">{group.metadata.name}</span>
+                            <button onClick={() => go(`/r/user.openshift.io~v1~groups/_/${group.metadata.name}`, group.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{group.metadata.name}</button>
                             <span className="text-xs text-slate-500">{members.length} member{members.length !== 1 ? 's' : ''}</span>
                           </div>
                           {gRoles.length > 0 && (
@@ -401,14 +407,7 @@ export default function IdentityView() {
                             </div>
                           )}
                         </div>
-                        {members.length > 0 && (
-                          <div className="flex flex-wrap gap-1 ml-6">
-                            {members.slice(0, 10).map((m: string) => (
-                              <span key={m} className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{m}</span>
-                            ))}
-                            {members.length > 10 && <span className="text-xs text-slate-600">+{members.length - 10} more</span>}
-                          </div>
-                        )}
+                        <GroupMemberControls group={group as GroupLike} />
                       </div>
                     );
                   })}
@@ -432,7 +431,7 @@ export default function IdentityView() {
                         <div className="flex items-center gap-3">
                           <Key className="w-4 h-4 text-slate-500" />
                           <div>
-                            <span className="text-sm text-slate-200">{sa.metadata.name}</span>
+                            <button onClick={() => go(`/r/v1~serviceaccounts/${sa.metadata.namespace}/${sa.metadata.name}`, sa.metadata.name)} className="text-sm text-blue-400 hover:text-blue-300">{sa.metadata.name}</button>
                             <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm ml-2">{sa.metadata.namespace}</span>
                           </div>
                         </div>
@@ -506,6 +505,15 @@ export default function IdentityView() {
               go={go}
             />
 
+            {/* Grant / revoke / who-can */}
+            <AccessPanel
+              clusterRoles={clusterRoles as ClusterRole[]}
+              roles={roles as Role[]}
+              namespaces={namespaces as Namespace[]}
+              clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
+              roleBindings={roleBindings as RoleBinding[]}
+            />
+
             {/* Recent RBAC Changes */}
             <RecentRBACChanges
               clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
@@ -526,10 +534,17 @@ export default function IdentityView() {
                           {s.kind === 'ServiceAccount' ? <Key className="w-3.5 h-3.5 text-teal-400" /> :
                            s.kind === 'User' ? <Users className="w-3.5 h-3.5 text-violet-400" /> :
                            <Lock className="w-3.5 h-3.5 text-purple-400" />}
-                          <span className="text-sm text-slate-200">{s.name}</span>
+                          <button onClick={() => go(subjectUrl(s), s.name)} className="text-sm text-blue-400 hover:text-blue-300">{s.name}</button>
                           <span className="text-xs text-slate-500">{s.kind}</span>
                         </div>
-                        <span className="text-xs text-slate-500">via {s.binding}</span>
+                        <span className="flex items-center gap-1 text-xs text-slate-500">via {s.binding}
+                          {crbByName.get(s.binding) && (
+                            <RevokeBindingButton binding={{
+                              kind: 'ClusterRoleBinding', name: s.binding, uid: crbByName.get(s.binding)!.metadata.uid,
+                              roleRef: { kind: 'ClusterRole', name: 'cluster-admin' }, subjects: crbByName.get(s.binding)!.subjects || [],
+                            }} />
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -857,19 +872,20 @@ spec:
       const name = crb.metadata?.name || '';
       return !name.startsWith('system:') && !name.startsWith('openshift-');
     });
-    const clusterAdminUsers = clusterAdminBindings.flatMap((crb) =>
-      (crb.subjects || []).filter((s) => s.kind === 'User' && !s.name?.startsWith('system:')).map((s) => ({
-        metadata: { name: s.name, uid: `${crb.metadata.name}-${s.name}` },
-        binding: crb.metadata.name,
-      }))
-    );
+    // Shared definition (engine/clusterAdmins): every non-system subject, not only Users.
+    const adminSubjects = clusterAdminSubjects(clusterRoleBindings);
+    const tooMany = tooManyClusterAdmins(adminSubjects);
+    const clusterAdminUsers = adminSubjects.map((s) => ({
+      metadata: { name: `${s.kind}/${s.name}`, uid: `${s.binding}-${s.kind}-${s.name}` },
+      binding: s.binding,
+    }));
     allChecks.push({
       id: 'cluster-admin-audit',
       title: 'Cluster Admin Audit',
       description: 'Review all users and service accounts with cluster-admin privileges',
       why: 'cluster-admin has unrestricted access to all resources. Every cluster-admin binding should be intentional and documented. Excessive cluster-admin grants increase blast radius of compromised accounts.',
-      passing: clusterAdminUsers.length <= 2 ? clusterAdminUsers : [],
-      failing: clusterAdminUsers.length > 2 ? clusterAdminUsers : [],
+      passing: !tooMany ? clusterAdminUsers : [],
+      failing: tooMany ? clusterAdminUsers : [],
       yamlExample: `# List all cluster-admin bindings:
 oc get clusterrolebindings -o json | jq '.items[] | select(.roleRef.name=="cluster-admin") | .subjects[]'
 
@@ -878,7 +894,7 @@ oc delete clusterrolebinding <binding-name>
 
 # Use scoped roles instead:
 oc adm policy add-cluster-role-to-user edit <user>`,
-      action: clusterAdminUsers.length > 2 ? { label: 'View ClusterRoleBindings', id: 'view-crb', path: '/r/rbac.authorization.k8s.io~v1~clusterrolebindings' } : undefined,
+      action: tooMany ? { label: 'View ClusterRoleBindings', id: 'view-crb', path: '/r/rbac.authorization.k8s.io~v1~clusterrolebindings' } : undefined,
     });
 
     // 4. Service accounts with cluster-admin

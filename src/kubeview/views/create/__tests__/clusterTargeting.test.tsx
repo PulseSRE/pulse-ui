@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../../../components/DeployProgress', () => ({ default: () => null }));
 vi.mock('../../../engine/errorToast', () => ({ showErrorToast: vi.fn() }));
@@ -34,13 +35,15 @@ describe('Quick Deploy', () => {
     setActiveClusterId('prod');
     useFleetStore.setState({ activeClusterId: 'prod' });
 
-    render(<MemoryRouter><QuickDeployTab /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><QuickDeployTab /></MemoryRouter></QueryClientProvider>);
     fireEvent.change(screen.getByPlaceholderText('my-app'), { target: { value: 'web' } });
     fireEvent.change(screen.getByPlaceholderText('nginx:latest or quay.io/org/image:tag'), { target: { value: 'nginx:1' } });
+    // All-namespaces mode: the target is chosen, never defaulted.
+    fireEvent.change(await screen.findByLabelText('Namespace'), { target: { value: 'shop' } });
     fireEvent.click(screen.getByText('Deploy'));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    await waitFor(() => expect(fetchMock.mock.calls.some((c) => (c as unknown as [string, RequestInit])[1]?.method === 'POST')).toBe(true));
+    const [url, init] = fetchMock.mock.calls.find((c) => (c as unknown as [string, RequestInit])[1]?.method === 'POST') as unknown as [string, RequestInit];
     expect(url).toContain('/managedclusters/prod/proxy/apis/apps/v1/namespaces/');
     expect(url).toMatch(/\/deployments$/);
     expect(init.method).toBe('POST');

@@ -1,8 +1,8 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Shield, Database, AlertTriangle } from 'lucide-react';
-import { k8sList } from '../../engine/query';
+import { k8sList, k8sPatch } from '../../engine/query';
 import { parseResourceValue, formatResourceValue } from '../../engine/formatting';
 import { Panel } from '../../components/primitives/Panel';
 import type { K8sResource } from '../../engine/renderers';
@@ -10,6 +10,13 @@ import type { Namespace } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
+import { createTemplateUrl } from '../../engine/createTemplates';
+import { useCanI } from '../../hooks/useCanI';
+import { usePinnedAction } from '../../hooks/usePinnedAction';
+import { useUIStore } from '../../store/uiStore';
+import { Button } from '../../components/primitives/Button';
+import { LoadError } from '../../components/primitives/LoadError';
+import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -137,44 +144,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
           </div>
         ) : (
           <div className="space-y-4">
-            {quotas.map((q) => {
-              const hard = q.spec?.hard || {};
-              const used = q.status?.used || {};
-              const resources = Object.keys(hard);
-              return (
-                <div key={q.metadata?.uid} className="border border-slate-800 rounded-lg overflow-hidden">
-                  <button onClick={() => go(`/r/v1~resourcequotas/${q.metadata.namespace}/${q.metadata.name}`, q.metadata.name)}
-                    className="w-full px-4 py-2.5 flex items-center justify-between bg-slate-800/30 hover:bg-slate-800/60 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-200">{q.metadata.name}</span>
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{q.metadata.namespace}</span>
-                    </div>
-                    <span className="text-xs text-slate-500">{resources.length} resource{resources.length !== 1 ? 's' : ''}</span>
-                  </button>
-                  <div className="px-4 py-2 space-y-2">
-                    {resources.map((key) => {
-                      const hardVal = parseResourceValue(hard[key]);
-                      const usedVal = parseResourceValue(used[key] || '0');
-                      const pct = hardVal > 0 ? Math.min(100, (usedVal / hardVal) * 100) : 0;
-                      const barColor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-green-500';
-                      return (
-                        <div key={key}>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-xs text-slate-400">{key}</span>
-                            <span className="text-xs font-mono text-slate-300">
-                              {formatResourceValue(used[key] || '0', key)} / {formatResourceValue(hard[key], key)}
-                            </span>
-                          </div>
-                          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div className={cn('h-full rounded-full transition-all', barColor)} style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+            {quotas.map((q) => <QuotaCard key={q.metadata?.uid || `${q.metadata.namespace}/${q.metadata.name}`} quota={q} go={go} />)}
           </div>
         )}
       </Panel>
@@ -247,15 +217,131 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
         <Panel title={`Unprotected Namespaces (${unprotectedNs.length})`} icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
           <p className="text-xs text-slate-500 mb-3">These user namespaces have no ResourceQuota or LimitRange. Workloads can consume unlimited resources.</p>
           <div className="flex flex-wrap gap-2">
-            {unprotectedNs.map((ns) => (
-              <button key={ns.metadata?.name} onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
-                className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded-sm hover:bg-yellow-900/40 transition-colors">
-                {ns.metadata?.name}
-              </button>
-            ))}
+            {unprotectedNs.map((ns) => {
+              const name = ns.metadata?.name || '';
+              return (
+                <span key={name} className="inline-flex items-center rounded-sm border border-yellow-900/50 bg-yellow-950/30 text-xs">
+                  <button onClick={() => go(`/r/v1~namespaces/_/${name}`, name)} className="px-2.5 py-1.5 text-yellow-300 hover:bg-yellow-900/40">{name}</button>
+                  <button onClick={() => go(createTemplateUrl('resource-quota', name), `ResourceQuota for ${name}`)} aria-label={`Create ResourceQuota in ${name}`}
+                    className="px-2 py-1.5 border-l border-yellow-900/50 text-blue-300 hover:bg-yellow-900/40">+ quota</button>
+                  <button onClick={() => go(createTemplateUrl('limit-range', name), `LimitRange for ${name}`)} aria-label={`Create LimitRange in ${name}`}
+                    className="px-2 py-1.5 border-l border-yellow-900/50 text-blue-300 hover:bg-yellow-900/40">+ limit range</button>
+                </span>
+              );
+            })}
           </div>
         </Panel>
       )}
+    </div>
+  );
+}
+
+/** The merge patch that turns `before` into `after`: changed keys set, removed keys null. */
+export function quotaHardPatch(before: Record<string, string>, after: Record<string, string>, resourceVersion?: string) {
+  const hard: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(after)) if (before[k] !== v) hard[k] = v;
+  for (const k of Object.keys(before)) if (!(k in after)) hard[k] = null;
+  return { metadata: { resourceVersion }, spec: { hard } };
+}
+
+function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, title: string) => void }) {
+  const queryClient = useQueryClient();
+  const addToast = useUIStore((s) => s.addToast);
+  const hard = q.spec?.hard || {};
+  const used = q.status?.used || {};
+  const resources = Object.keys(hard);
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState<Array<{ key: string; value: string }>>([]);
+  const { allowed: canEdit } = useCanI('patch', '', 'resourcequotas', q.metadata.namespace);
+  const save = usePinnedAction<Record<string, string>>();
+
+  const startEdit = () => { setDraft(Object.entries(hard).map(([key, value]) => ({ key, value }))); setEditing(true); };
+  const after = Object.fromEntries(draft.filter((d) => d.key.trim()).map((d) => [d.key.trim(), d.value.trim()]));
+  const patch = quotaHardPatch(hard, after, q.metadata.resourceVersion);
+  const changes = Object.entries(patch.spec.hard);
+  const invalid = draft.some((d) => d.key.trim() && !d.value.trim());
+
+  const confirm = () => save.run(`Updating ResourceQuota ${q.metadata.name}`, async (next, clusterId) => {
+    await k8sPatch(`/api/v1/namespaces/${q.metadata.namespace}/resourcequotas/${q.metadata.name}`,
+      quotaHardPatch(hard, next, q.metadata.resourceVersion), 'application/merge-patch+json', clusterId);
+    addToast({ type: 'success', title: `ResourceQuota ${q.metadata.name} updated` });
+    setEditing(false);
+    queryClient.invalidateQueries({ queryKey: ['admin'] });
+    queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+  });
+
+  return (
+    <div className="border border-slate-800 rounded-lg overflow-hidden" data-testid={`quota-${q.metadata.namespace}-${q.metadata.name}`}>
+      <div className="w-full px-4 py-2.5 flex items-center justify-between bg-slate-800/30">
+        <button onClick={() => go(`/r/v1~resourcequotas/${q.metadata.namespace}/${q.metadata.name}`, q.metadata.name)} className="flex items-center gap-2 hover:text-blue-300">
+          <span className="text-sm font-medium text-slate-200">{q.metadata.name}</span>
+          <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{q.metadata.namespace}</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">{resources.length} resource{resources.length !== 1 ? 's' : ''}</span>
+          {!editing && (
+            <Button size="sm" variant="secondary" onClick={startEdit} disabled={!canEdit} aria-label={`Edit quota ${q.metadata.name}`}
+              title={canEdit ? undefined : `You do not have permission to edit ResourceQuotas in ${q.metadata.namespace}`}>Edit</Button>
+          )}
+        </div>
+      </div>
+      {editing ? (
+        <div className="px-4 py-3 space-y-2">
+          {draft.map((d, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input aria-label={`Quota resource ${i + 1}`} value={d.key} onChange={(e) => setDraft(draft.map((x, j) => j === i ? { ...x, key: e.target.value } : x))}
+                className="flex-1 px-2 py-1 text-xs font-mono bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
+              <input aria-label={`Limit for ${d.key || `resource ${i + 1}`}`} value={d.value} onChange={(e) => setDraft(draft.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
+                className="w-28 px-2 py-1 text-xs font-mono bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
+              <span className="w-24 text-xs text-slate-500 font-mono">used {used[d.key] ?? '0'}</span>
+              <button aria-label={`Remove ${d.key}`} onClick={() => setDraft(draft.filter((_, j) => j !== i))} className="text-xs text-slate-500 hover:text-red-400">remove</button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2 pt-1">
+            <Button size="sm" variant="ghost" onClick={() => setDraft([...draft, { key: '', value: '' }])}>+ Add resource</Button>
+            <span className="flex-1" />
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+            <Button size="sm" disabled={changes.length === 0 || invalid} onClick={() => save.open(after)}>Save</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="px-4 py-2 space-y-2">
+          {resources.map((key) => {
+            const hardVal = parseResourceValue(hard[key]);
+            const usedVal = parseResourceValue(used[key] || '0');
+            const pct = hardVal > 0 ? Math.min(100, (usedVal / hardVal) * 100) : 0;
+            const barColor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-green-500';
+            return (
+              <div key={key}>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs text-slate-400">{key}</span>
+                  <span className="text-xs font-mono text-slate-300">
+                    {formatResourceValue(used[key] || '0', key)} / {formatResourceValue(hard[key], key)}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div className={cn('h-full rounded-full transition-all', barColor)} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <ConfirmDialog
+        open={!!save.pending}
+        onClose={save.close}
+        onConfirm={confirm}
+        title={`Update ResourceQuota ${q.metadata.namespace}/${q.metadata.name}?`}
+        description="Changes these hard limits. New requests that would exceed a lowered limit are rejected; running pods are not evicted."
+        confirmLabel="Update quota"
+        variant="warning"
+        loading={save.running}
+      >
+        <ul className="mt-3 space-y-1 text-xs font-mono text-slate-300" aria-label="Quota changes">
+          {changes.map(([k, v]) => <li key={k}>{k}: {hard[k] ?? '(none)'} → {v === null ? '(removed)' : v}</li>)}
+        </ul>
+        {save.error && <LoadError className="mt-3" title="The quota was not changed" error={save.error} />}
+      </ConfirmDialog>
     </div>
   );
 }

@@ -5,7 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { k8sCreate, k8sGet } from '../engine/query';
+import { k8sGet } from '../engine/query';
+import { installOperator, type InstallOperatorOptions } from '../engine/olm';
 import { safeQuery } from '../engine/safeQuery';
 import { useActiveClusterId } from './useClusterBase';
 import { assertActiveCluster } from '../engine/pendingCluster';
@@ -13,14 +14,7 @@ import { assertActiveCluster } from '../engine/pendingCluster';
 export type InstallPhase = 'idle' | 'creating' | 'pending' | 'installing' | 'succeeded' | 'failed';
 
 interface UseOperatorInstallResult {
-  install: (opts: {
-    packageName: string;
-    channel: string;
-    source: string;
-    sourceNamespace: string;
-    targetNamespace: string;
-    displayName?: string;
-  }) => Promise<void>;
+  install: (opts: InstallOperatorOptions & { displayName?: string }) => Promise<void>;
   phase: InstallPhase;
   error: string | null;
   csvName: string | null;
@@ -90,70 +84,16 @@ export function useOperatorInstall(): UseOperatorInstallResult {
   }, [installing, sub, csv, phase]);
 
   const install = useCallback(
-    async (opts: {
-      packageName: string;
-      channel: string;
-      source: string;
-      sourceNamespace: string;
-      targetNamespace: string;
-    }) => {
+    async (opts: InstallOperatorOptions) => {
       setPhase('creating');
       setError(null);
 
       try {
         assertActiveCluster(clusterId, 'Installing this operator');
-        const ns = opts.targetNamespace;
-
-        // Create namespace (best effort)
-        if (ns !== 'openshift-operators') {
-          try {
-            await k8sCreate('/api/v1/namespaces', {
-              apiVersion: 'v1',
-              kind: 'Namespace',
-              metadata: { name: ns },
-            }, clusterId);
-          } catch {
-            // May already exist
-          }
-        }
-
-        // Create OperatorGroup if needed
-        if (ns !== 'openshift-operators' && ns !== 'openshift-operators-redhat') {
-          try {
-            await k8sCreate(
-              `/apis/operators.coreos.com/v1/namespaces/${ns}/operatorgroups`,
-              {
-                apiVersion: 'operators.coreos.com/v1',
-                kind: 'OperatorGroup',
-                metadata: { name: `${opts.packageName}-group`, namespace: ns },
-                spec: { targetNamespaces: [ns] },
-              },
-              clusterId,
-            );
-          } catch {
-            // May already exist
-          }
-        }
-
-        // Create Subscription
-        await k8sCreate(
-          `/apis/operators.coreos.com/v1alpha1/namespaces/${ns}/subscriptions`,
-          {
-            apiVersion: 'operators.coreos.com/v1alpha1',
-            kind: 'Subscription',
-            metadata: { name: opts.packageName, namespace: ns },
-            spec: {
-              channel: opts.channel,
-              name: opts.packageName,
-              source: opts.source,
-              sourceNamespace: opts.sourceNamespace,
-              installPlanApproval: 'Automatic',
-            },
-          },
-          clusterId,
-        );
-
-        setInstalling({ name: opts.packageName, ns, clusterId });
+        // Shared with the catalog: reuses the namespace's OperatorGroup
+        // instead of adding a second one (TooManyOperatorGroups).
+        await installOperator(clusterId, opts);
+        setInstalling({ name: opts.packageName, ns: opts.targetNamespace, clusterId });
         setPhase('pending');
       } catch (e) {
         setPhase('failed');

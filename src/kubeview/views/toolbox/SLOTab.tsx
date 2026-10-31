@@ -5,12 +5,46 @@ import { cn } from '@/lib/utils';
 import { agentJson } from '../../engine/safeQuery';
 import { LoadError } from '../../components/primitives/LoadError';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { k8sList } from '../../engine/query';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
+import { Button } from '../../components/primitives/Button';
+
+interface DeploymentRef { metadata: { name: string; namespace?: string } }
+
+/**
+ * Deployments on the cluster the agent watches (the local one), grouped by
+ * name: the agent's availability SLI matches `deployment="<service>"` with no
+ * namespace, so every namespace holding a Deployment of that name is measured
+ * together. The picker says so instead of letting a typo read as "no data".
+ */
+export function deploymentNamespacesByName(deployments: DeploymentRef[]): Map<string, string[]> {
+  const m = new Map<string, string[]>();
+  for (const d of deployments) {
+    const list = m.get(d.metadata.name) ?? [];
+    list.push(d.metadata.namespace || '');
+    m.set(d.metadata.name, list);
+  }
+  return m;
+}
 
 export function SLOTab() {
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [newSLO, setNewSLO] = useState({ service: '', type: 'availability', target: '99.9', window_days: '30', description: '' });
   const [confirmDelete, setConfirmDelete] = useState<{ service: string; type: string } | null>(null);
+  // Editing an SLO re-registers it under the same service and type; the agent replaces the definition.
+  const [editing, setEditing] = useState<{ service: string; type: string } | null>(null);
+  const [confirmEdit, setConfirmEdit] = useState(false);
+  const { data: deployments, error: deploymentsError } = useQuery<DeploymentRef[]>({
+    queryKey: ['slo', 'deployments', LOCAL_CLUSTER_ID],
+    queryFn: () => k8sList<DeploymentRef>('/apis/apps/v1/deployments', undefined, LOCAL_CLUSTER_ID),
+    enabled: showAdd,
+    staleTime: 60000,
+    retry: false,
+  });
+  const byName = deploymentNamespacesByName(deployments ?? []);
+  const deploymentNames = [...byName.keys()].sort();
+  const selectedNamespaces = byName.get(newSLO.service) ?? [];
 
   const [actionError, setActionError] = useState<{ title: string; error: unknown } | null>(null);
 
@@ -34,18 +68,34 @@ export function SLOTab() {
         body: JSON.stringify({
           service: newSLO.service,
           type: newSLO.type,
-          target: parseFloat(newSLO.target) / 100,
+          // Rounded: 99.9 / 100 is 0.9990000000000001 in floating point.
+          target: Number((parseFloat(newSLO.target) / 100).toFixed(8)),
           window_days: parseInt(newSLO.window_days),
           description: newSLO.description,
         }),
       });
       queryClient.invalidateQueries({ queryKey: ['slo-status'] });
       setShowAdd(false);
+      setEditing(null);
       setNewSLO({ service: '', type: 'availability', target: '99.9', window_days: '30', description: '' });
     } catch (e) {
       // The form used to close as if the SLO had been created.
-      setActionError({ title: 'The SLO was not created', error: e });
+      setActionError({ title: editing ? 'The SLO was not updated' : 'The SLO was not created', error: e });
     }
+    setConfirmEdit(false);
+  };
+
+  const startEdit = (slo: Record<string, unknown>) => {
+    setActionError(null);
+    setEditing({ service: String(slo.service), type: String(slo.type) });
+    setNewSLO({
+      service: String(slo.service),
+      type: String(slo.type),
+      target: (((slo.target as number) ?? 0) * 100).toFixed(3).replace(/\.?0+$/, ''),
+      window_days: String(slo.window_days ?? 30),
+      description: String(slo.description ?? ''),
+    });
+    setShowAdd(true);
   };
 
   const deleteSLO = async (service: string, type: string) => {
@@ -86,21 +136,45 @@ export function SLOTab() {
       {/* Add SLO form */}
       {showAdd && (
         <div className="bg-slate-900 border border-teal-800/50 rounded-lg p-4 space-y-3">
-          <h3 className="text-xs font-medium text-slate-200">New Service Level Objective</h3>
+          <h3 className="text-xs font-medium text-slate-200">{editing ? `Edit SLO — ${editing.service} (${editing.type})` : 'New Service Level Objective'}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-slate-500 block mb-1">Service Name</label>
-              <input
-                value={newSLO.service}
-                onChange={(e) => setNewSLO({ ...newSLO, service: e.target.value })}
-                placeholder="e.g., checkout-api"
-                className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
-              />
+              <label className="text-[10px] text-slate-500 block mb-1" htmlFor="slo-service">Deployment</label>
+              {editing || deploymentsError || deploymentNames.length === 0 ? (
+                <input
+                  id="slo-service"
+                  value={newSLO.service}
+                  disabled={!!editing}
+                  onChange={(e) => setNewSLO({ ...newSLO, service: e.target.value.trim() })}
+                  placeholder="e.g., checkout-api"
+                  className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 disabled:opacity-60 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
+                />
+              ) : (
+                <select
+                  id="slo-service"
+                  value={newSLO.service}
+                  onChange={(e) => setNewSLO({ ...newSLO, service: e.target.value })}
+                  className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
+                >
+                  <option value="">Choose a deployment…</option>
+                  {deploymentNames.map((n) => (
+                    <option key={n} value={n}>{n} ({(byName.get(n) ?? []).join(', ')})</option>
+                  ))}
+                </select>
+              )}
+              {deploymentsError && !editing && <p className="text-[10px] text-amber-400 mt-1">Deployments could not be listed; type the deployment name.</p>}
+              {selectedNamespaces.length > 1 && (
+                <p className="text-[10px] text-amber-400 mt-1" role="note">
+                  {selectedNamespaces.length} namespaces have a Deployment named {newSLO.service} ({selectedNamespaces.join(', ')}). The agent matches by name only, so they are measured together.
+                </p>
+              )}
+              {selectedNamespaces.length === 1 && <p className="text-[10px] text-slate-500 mt-1">In namespace {selectedNamespaces[0]}. The agent matches by deployment name only (no namespace).</p>}
             </div>
             <div>
               <label className="text-[10px] text-slate-500 block mb-1">Type</label>
               <select
                 value={newSLO.type}
+                disabled={!!editing}
                 onChange={(e) => setNewSLO({ ...newSLO, type: e.target.value })}
                 className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
               >
@@ -143,8 +217,8 @@ export function SLOTab() {
             />
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Cancel</button>
-            <button onClick={addSLO} className="px-3 py-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-md">Create SLO</button>
+            <button onClick={() => { setShowAdd(false); setEditing(null); }} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Cancel</button>
+            <button onClick={() => (editing ? setConfirmEdit(true) : addSLO())} disabled={!newSLO.service.trim()} className="px-3 py-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-md disabled:opacity-50">{editing ? 'Save changes' : 'Create SLO'}</button>
           </div>
         </div>
       )}
@@ -191,6 +265,9 @@ export function SLOTab() {
                   'border border-slate-800 hover:ring-slate-700/50',
                 )}
               >
+                <Button size="sm" variant="ghost" className="absolute top-2 right-9" aria-label={`Edit SLO ${String(slo.service)} ${String(slo.type)}`} onClick={() => startEdit(slo)}>
+                  Edit
+                </Button>
                 <button
                   onClick={() => setConfirmDelete({ service: String(slo.service), type: String(slo.type) })}
                   aria-label={`Delete SLO ${String(slo.service)} ${String(slo.type)}`}
@@ -282,6 +359,16 @@ export function SLOTab() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmEdit && !!editing}
+        onClose={() => setConfirmEdit(false)}
+        title={`Update SLO for ${editing?.service}?`}
+        description={`Replaces the ${editing?.type} SLO for ${editing?.service} with target ${newSLO.target}% over ${newSLO.window_days} days${newSLO.description ? ` ("${newSLO.description}")` : ''}. Burn rate and budget are recomputed from the new target.`}
+        confirmLabel="Update"
+        variant="warning"
+        onConfirm={addSLO}
+      />
 
       <ConfirmDialog
         open={!!confirmDelete}

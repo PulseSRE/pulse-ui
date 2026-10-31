@@ -1,78 +1,68 @@
 // @vitest-environment jsdom
 /**
- * Installed → Helm listed only `default` in all-namespaces mode and kept
- * whichever revision secret came first. It now lists cluster-wide and shows
- * each release (namespace + name) at its highest revision.
+ * Helm releases are listed once — on the Helm Charts tab, with their actions —
+ * each at its highest revision ("rev N", chart and version from the release
+ * record). Installed only counts them and links there. Listing is
+ * cluster-wide in all-namespaces mode, per-namespace otherwise.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, within } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
-
-let selectedNamespace = '*';
-vi.mock('../../../store/uiStore', () => ({
-  useUIStore: Object.assign((sel: any) => sel({ selectedNamespace, addTab: vi.fn(), addToast: vi.fn() }), {
-    getState: () => ({ impersonateUser: '', impersonateGroups: [] }),
-  }),
-}));
-vi.mock('../../../hooks/useK8sListWatch', () => ({ useK8sListWatch: () => ({ data: [], isLoading: false }) }));
-
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { useUIStore } from '../../../store/uiStore';
+import { createHarness, json } from '../../../__tests__/actionHarness';
 import { InstalledTab } from '../InstalledTab';
+import { HelmReleases } from '../HelmReleases';
+import { releaseSecret } from './helmTestUtils';
 
-const secret = (name: string, ns: string, version: string, status: string) => ({
-  metadata: { name: `sh.helm.release.v1.${name}.v${version}`, namespace: ns, labels: { owner: 'helm', name, version, status } },
-});
+const h = createHarness();
 
-const urls: string[] = [];
-let respond: () => Response;
+const ITEMS = [
+  releaseSecret('shop', 'team-a', 1, 'superseded', '15.0.0'),
+  releaseSecret('shop', 'team-a', 3, 'deployed', '15.2.0', { replicaCount: 2 }),
+  releaseSecret('shop', 'team-a', 2, 'superseded', '15.1.0'),
+  releaseSecret('shop', 'team-b', 1, 'failed', '15.0.0'),
+];
 
 beforeEach(() => {
-  urls.length = 0;
-  selectedNamespace = '*';
-  respond = () => new Response(JSON.stringify({ items: [
-    secret('shop', 'team-a', '1', 'superseded'),
-    secret('shop', 'team-a', '3', 'deployed'),
-    secret('shop', 'team-a', '2', 'superseded'),
-    secret('shop', 'team-b', '1', 'failed'),
-  ] }), { status: 200 });
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => { urls.push(url); return respond(); }));
+  h.setup();
+  h.state.handler = (r) => (r.path.includes('labelSelector=owner%3Dhelm') ? json({ items: ITEMS }) : json({ items: [] }));
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); h.teardown(); });
 
-function renderTab() {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter><InstalledTab /></MemoryRouter>
-    </QueryClientProvider>,
-  );
-}
-
-describe('InstalledTab Helm releases', () => {
-  it('lists every namespace and keeps the highest revision of each release', async () => {
-    renderTab();
-    expect(await screen.findByText('v3')).toBeTruthy();
-    expect(urls).toContain('/api/kubernetes/api/v1/secrets?labelSelector=owner%3Dhelm');
-    const rows = screen.getAllByText('shop').map((el) => el.closest('div.flex.items-center.justify-between') as HTMLElement);
+describe('Helm releases list', () => {
+  it('lists every namespace, one row per release at its highest revision, with chart version', async () => {
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
+    const rows = await screen.findAllByTestId('helm-release-shop');
+    expect(h.state.requests.map((r) => r.path)).toContain('/api/v1/secrets?labelSelector=owner%3Dhelm');
     expect(rows).toHaveLength(2);
-    expect(within(rows[0]).getByText('team-a')).toBeTruthy();
+    expect(within(rows[0]).getByText('rev 3')).toBeTruthy();
+    expect(within(rows[0]).getByText('chart nginx 15.2.0')).toBeTruthy();
     expect(within(rows[0]).getByText('deployed')).toBeTruthy();
     expect(within(rows[1]).getByText('team-b')).toBeTruthy();
     expect(within(rows[1]).getByText('failed')).toBeTruthy();
-    expect(screen.queryByText('v1')).toBeTruthy();
-    expect(screen.queryByText('v2')).toBeNull();
   });
 
-  it('lists only the selected namespace when one is selected', async () => {
-    selectedNamespace = 'team-a';
-    renderTab();
-    await screen.findByText('v3');
-    expect(urls).toContain('/api/kubernetes/api/v1/namespaces/team-a/secrets?labelSelector=owner%3Dhelm');
+  it('shows the values of the current revision', async () => {
+    h.renderUi(<HelmReleases nsFilter="team-a" charts={[]} />);
+    const [row] = await screen.findAllByTestId('helm-release-shop');
+    expect(h.state.requests.map((r) => r.path)).toContain('/api/v1/namespaces/team-a/secrets?labelSelector=owner%3Dhelm');
+    fireEvent.click(within(row).getByRole('button', { name: 'Values of shop' }));
+    expect((await screen.findByLabelText('Release values')).textContent).toContain('replicaCount: 2');
   });
 
   it('says the list failed instead of "No Helm releases installed"', async () => {
-    respond = () => new Response('{}', { status: 403 });
-    renderTab();
+    h.state.handler = () => new Response('{}', { status: 403, statusText: 'Forbidden' });
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
     expect(await screen.findByText('Helm releases could not be listed')).toBeTruthy();
-    expect(screen.queryByText('No Helm releases installed')).toBeNull();
+    expect(screen.queryByText(/No Helm releases installed/)).toBeNull();
+  });
+});
+
+describe('Installed tab', () => {
+  it('counts releases and links to the one managed list instead of repeating it', async () => {
+    useUIStore.setState({ selectedNamespace: '*' } as never);
+    h.renderUi(<InstalledTab />);
+    await waitFor(() => expect(screen.getByText('team-a/shop, team-b/shop')).toBeTruthy());
+    expect(screen.queryByText('rev 3')).toBeNull();
+    expect(screen.getByRole('button', { name: /Manage releases/ })).toBeTruthy();
   });
 });
