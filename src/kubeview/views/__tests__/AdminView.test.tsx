@@ -100,14 +100,17 @@ describe('AdminView', () => {
     expect(screen.getByText('Platform')).toBeDefined();
   });
 
-  it('shows nodes info card on overview', () => {
+  it('shows nodes once, in the Nodes panel (no separate Nodes info card)', () => {
     renderAdmin();
-    expect(screen.getByText('Nodes')).toBeDefined();
+    expect(screen.getAllByText(/^Nodes \(\d+\)$/)).toHaveLength(1);
+    expect(screen.queryByText('Nodes')).toBeNull();
   });
 
   it('shows CRDs info card on overview', () => {
     renderAdmin();
-    expect(screen.getByText('CRDs')).toBeDefined();
+    expect(screen.getAllByText('CRDs').length).toBeGreaterThanOrEqual(1);
+    // The tab label carries no count; the card does.
+    expect(screen.queryByRole('tab', { name: /CRDs \(/ })).toBeNull();
   });
 
   it('shows control plane panel on overview', () => {

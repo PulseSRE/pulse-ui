@@ -73,25 +73,7 @@ export function CatalogTab() {
 
         return (
           <div className="space-y-2">
-            <div className="grid grid-cols-4 gap-2">
-              <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
-                <div className="text-lg font-bold text-slate-100">{stats.total_calls.toLocaleString()}</div>
-                <div className="text-[10px] text-slate-500">Total Calls</div>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
-                <div className="text-lg font-bold text-slate-100">{stats.unique_tools_used}</div>
-                <div className="text-[10px] text-slate-500">Tools Used</div>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
-                <div className={`text-lg font-bold ${stats.error_rate > 0.05 ? 'text-red-400' : 'text-emerald-400'}`}>{(stats.error_rate * 100).toFixed(1)}%</div>
-                <div className="text-[10px] text-slate-500">Error Rate</div>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
-                <div className="text-lg font-bold text-slate-100">{stats.avg_duration_ms}ms</div>
-                <div className="text-[10px] text-slate-500">Avg Duration</div>
-              </div>
-            </div>
-
+            {/* Total calls, tools used, error rate and avg duration: Usage Analytics, below. */}
             {/* Native vs MCP split */}
             {bySource.length > 1 && (
               <div className="grid grid-cols-2 gap-2">

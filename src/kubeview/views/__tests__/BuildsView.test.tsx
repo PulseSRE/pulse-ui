@@ -124,4 +124,18 @@ describe('BuildsView', () => {
     expect(screen.queryByRole('button', { name: 'Start build of api' })).toBeNull();
     canStart = true;
   });
+
+  it('counts failed builds from every build, so the banner matches the breakdown; running builds are not an issue', () => {
+    const t0 = Date.parse('2026-01-01T00:00:00Z');
+    mockData['/apis/build.openshift.io/v1/builds'] = Array.from({ length: 60 }, (_, i) => ({
+      metadata: { name: `b-${i}`, namespace: 'shop', uid: `u${i}`, creationTimestamp: new Date(t0 + i * 60_000).toISOString() },
+      // The oldest 5 failed: outside the 50 newest the banner used to count.
+      status: { phase: i < 5 ? 'Failed' : i === 59 ? 'Running' : 'Complete' },
+    }));
+    renderView();
+    expect(screen.getByText('5 failed builds')).toBeDefined();
+    expect(screen.queryByText(/in progress$/)).toBeNull();
+    const failedRow = screen.getAllByText('Failed').find((el) => el.closest('div')?.parentElement?.textContent?.includes('5'));
+    expect(failedRow).toBeDefined();
+  });
 });

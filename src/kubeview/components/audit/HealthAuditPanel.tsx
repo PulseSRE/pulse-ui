@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Activity, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../primitives/Card';
 import type { AuditItem, HealthAuditPanelProps } from './types';
@@ -20,8 +20,10 @@ export function HealthAuditPanel({
 }: HealthAuditPanelProps) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
 
-  const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
-  const score = checks.length > 0 ? Math.round((totalPassing / checks.length) * 100) : 100;
+  // Informational checks are advice; they do not count toward the score.
+  const scored = checks.filter((c) => !c.informational);
+  const totalPassing = scored.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
+  const score = scored.length > 0 ? Math.round((totalPassing / scored.length) * 100) : 100;
 
   return (
     <Card>
@@ -33,7 +35,7 @@ export function HealthAuditPanel({
           <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>
             {score}%
           </span>
-          <span className="text-xs text-slate-500">{totalPassing}/{checks.length} passing</span>
+          <span className="text-xs text-slate-500">{totalPassing}/{scored.length} passing</span>
         </div>
       </div>
       <div className="divide-y divide-slate-800">
@@ -47,13 +49,17 @@ export function HealthAuditPanel({
                 className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  {pass
+                  {check.informational
+                    ? <Info className="w-4 h-4 text-blue-400 shrink-0" aria-label="informational" />
+                    : pass
                     ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
                     : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
                   <div>
                     <span className="text-sm text-slate-200">{check.title}</span>
                     <span className="text-xs text-slate-500 ml-2">
-                      {pass
+                      {check.informational
+                        ? 'Informational'
+                        : pass
                         ? `${check.passing.length} pass`
                         : `${check.failing.length} of ${check.failing.length + check.passing.length} need attention`}
                     </span>

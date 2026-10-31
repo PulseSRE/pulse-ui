@@ -80,7 +80,6 @@ function MachineConfigQuickAccess({ go }: { go: (path: string, title: string) =>
         <div className="space-y-1.5 pt-2">
           {[
             { label: 'MachineConfigs', path: '/r/machineconfiguration.openshift.io~v1~machineconfigs', desc: 'OS-level node configuration (files, systemd, kernel args)' },
-            { label: 'MachineConfigPools', path: '/r/machineconfiguration.openshift.io~v1~machineconfigpools', desc: 'Groups of nodes that share the same MachineConfig' },
             { label: 'KubeletConfigs', path: '/r/machineconfiguration.openshift.io~v1~kubeletconfigs', desc: 'Kubelet parameters (maxPods, eviction thresholds)' },
             { label: 'ContainerRuntimeConfigs', path: '/r/machineconfiguration.openshift.io~v1~containerruntimeconfigs', desc: 'CRI-O runtime settings (pids limit, log size)' },
           ].map((item) => (

@@ -36,7 +36,6 @@ import AlertsView from '../views/AlertsView';
 import { ArgoSyncBadge } from '../components/ArgoSyncBadge';
 import { assertActiveCluster, ClusterChangedError } from '../engine/pendingCluster';
 import { IncidentContext } from '../views/detail/IncidentContext';
-import { buildDependencyGraph } from '../../lib/dependencyGraph';
 import NodeLogsView from '../views/NodeLogsView';
 import { CapacityTab } from '../views/compute/CapacityTab';
 import { ControlPlaneMetrics } from '../components/metrics/ControlPlaneMetrics';
@@ -288,15 +287,6 @@ describe('review follow-ups', () => {
     expect(alert.textContent).toMatch(/forbidden|permission/i);
     expect(screen.queryByText('No logs available')).toBeNull();
     expect(calls().find(c => c.url.includes('/log'))!.url.startsWith(`${REMOTE_BASE}/api/v1/namespaces/shop/pods/web-1/log`)).toBe(true);
-  });
-
-  it('dependency graph reads the cluster it is given, with impersonation', async () => {
-    useUIStore.setState({ impersonateUser: 'alice' });
-    handler = () => json({ items: [] });
-    await buildDependencyGraph('Deployment', 'web', 'shop', REMOTE);
-    expect(calls().length).toBeGreaterThan(0);
-    expect(calls().every(c => c.url.startsWith(`${REMOTE_BASE}/`))).toBe(true);
-    expect(calls().every(c => c.headers['Impersonate-User'] === 'alice')).toBe(true);
   });
 
   it('node logs read the active cluster with impersonation', async () => {

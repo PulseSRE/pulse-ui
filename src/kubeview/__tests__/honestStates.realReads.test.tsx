@@ -23,26 +23,20 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 function auditRow(label: string) {
   return screen.getByText(label).closest('div.px-4') as HTMLElement;
 }
-function summary(label: string) {
-  return screen.getByText(label).closest('div')!.parentElement as HTMLElement;
-}
 
 describe('SecurityView with every read forbidden', () => {
   it('shows unknown checks and "—" counts, never removed/Intermediate/0', async () => {
     renderWithFailedRequests(<SecurityView />, { status: 403 });
     await waitFor(() => expect(auditRow('kubeadmin user removed').textContent).toMatch(/Could not read kube-system\/kubeadmin: Permission denied \(403\)/));
     await waitFor(() => expect(auditRow('TLS security profile').textContent).toMatch(/Unknown — Permission denied \(403\)/));
-    await waitFor(() => expect(screen.getByText('ClusterRoleBindings could not be read')).toBeTruthy());
+    await waitFor(() => expect(auditRow('Cluster-admin access limited (≤3)').textContent).toMatch(/Could not read ClusterRoleBindings/));
     expect(auditRow('Network policies in user namespaces').textContent).toMatch(/Could not read namespaces or network policies/);
-    expect(summary('Cluster Admins').textContent).toContain('—');
-    expect(summary('Cluster Admins').textContent).not.toMatch(/none/);
-    expect(screen.getByText('Network policies could not be read')).toBeTruthy();
-    expect(summary('Network Policies').textContent).not.toMatch(/\b0\b/);
-    expect(screen.getByText('Secrets could not be read')).toBeTruthy();
+    // Cluster admins and network policies are counted in their audit rows
+    // only; there are no separate summary cards to show "0" or "none".
+    expect(screen.queryByText('Cluster Admins')).toBeNull();
     // SCCs: a LoadError, not "Security Context Constraints (0) · 0 privileged"
     await waitFor(() => expect(screen.getByText('Security Context Constraints could not be loaded')).toBeTruthy());
     expect(screen.queryByText(/Security Context Constraints \(0\)/)).toBeNull();
-    expect(screen.getByText('ClusterRoleBindings could not be loaded')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/kubeadmin has been removed|TLS profile: Intermediate|No non-system cluster-admin bindings/);
     expect(screen.queryAllByLabelText('Checking')).toHaveLength(0);
     expectNoAllClear();
@@ -56,7 +50,7 @@ describe('SecurityView with every read forbidden', () => {
       expect(auditRow(label).querySelector('[aria-label="Checking"]'), label).toBeTruthy();
     }
     expect(document.body.textContent).not.toMatch(/No identity provider configured|No non-system cluster-admin|All 0 user namespaces/);
-    expect(summary('Cluster Admins').textContent).toContain('—');
+    expect(screen.queryByText('Cluster Admins')).toBeNull();
   });
 
   it('checks the kube-system/kubeadmin secret, not User objects, and drops always-passing checks', async () => {
@@ -70,7 +64,8 @@ describe('SecurityView with every read forbidden', () => {
     await waitFor(() => expect(auditRow('kubeadmin user removed').textContent).toMatch(/kubeadmin still exists/));
     await waitFor(() => expect(auditRow('TLS security profile').textContent).toMatch(/TLS profile: Intermediate/));
     await waitFor(() => expect(screen.getByText('Security Context Constraints (1)')).toBeTruthy());
-    await waitFor(() => expect(summary('Cluster Admins').textContent).toMatch(/0\s*none/));
+    await waitFor(() => expect(auditRow('Cluster-admin access limited (≤3)').textContent).toMatch(/No non-system cluster-admin bindings/));
+    expect(screen.getAllByText(/No non-system cluster-admin bindings/)).toHaveLength(1);
     expect(screen.queryByText('Privileged SCCs tracked')).toBeNull();
     expect(screen.queryByText('TLS certificates managed')).toBeNull();
   });
@@ -90,7 +85,8 @@ describe('ProjectDashboard with its lists forbidden', () => {
       expect(card.textContent, label).toContain('—');
       expect(card.textContent, label).not.toMatch(/\b0\b/);
     }
-    expect(screen.getByText('Pods (—)')).toBeTruthy();
+    // The pod count is the summary card above ("—"); the Pods panel title does not repeat it.
+    expect(screen.queryByText(/Pods \(/)).toBeNull();
   });
 });
 

@@ -1,4 +1,5 @@
 import { useFleetStore } from '../../store/fleetStore';
+import { topologyFocusPath } from '../../engine/topologyLinks';
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -491,7 +492,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           onRestart={handleRestart}
           onViewYaml={handleViewYaml}
           onViewMetrics={handleViewMetrics}
-          onViewDeps={() => go(`/deps/${gvrUrl}/${namespace}/${name}`, `${name} (Deps)`)}
+          onViewDeps={() => go(topologyFocusPath(resource.kind, namespace, name), 'Topology')}
           onViewNodeLogs={resource.kind === 'Node' ? () => go(`/node-logs/${name}`, `${name} (Logs)`) : undefined}
           onDeleteRequest={() => setShowDeleteConfirm(true)}
         />

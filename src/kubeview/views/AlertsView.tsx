@@ -282,8 +282,9 @@ function LocalAlertsView() {
     return allRules.filter((r) => r.name.toLowerCase().includes(q) || r.group.toLowerCase().includes(q));
   }, [allRules, searchQuery]);
 
-  const criticalCount = allAlerts.filter((a) => a.severity === 'critical').length;
-  const warningCount = allAlerts.filter((a) => a.severity === 'warning').length;
+  // Severity split of what is firing now (pending is its own tile).
+  const criticalCount = firingAlerts.filter((a) => a.severity === 'critical').length;
+  const warningCount = firingAlerts.filter((a) => a.severity === 'warning').length;
 
   // Silence helpers
   const resetSilenceForm = () => {
@@ -432,20 +433,7 @@ function LocalAlertsView() {
               <CheckCircle className="w-5 h-5 text-green-400" />
               <span className="text-sm font-medium text-green-300">No alerts firing</span>
             </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              {criticalCount > 0 && (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-900/30 border border-red-800 rounded-lg text-sm font-medium text-red-300">
-                  <XCircle className="w-4 h-4" /> {criticalCount} critical
-                </span>
-              )}
-              {warningCount > 0 && (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-900/30 border border-yellow-800 rounded-lg text-sm font-medium text-yellow-300">
-                  <AlertTriangle className="w-4 h-4" /> {warningCount} warning
-                </span>
-              )}
-            </div>
-          )}
+          ) : null /* Counts live in the stat row below, once. */}
         </div>
 
         {/* A count is a claim. When the backend is unreachable we have no
@@ -462,6 +450,13 @@ function LocalAlertsView() {
           <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', firingAlerts.length > 0 ? 'border-red-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Firing</div>
             <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : firingAlerts.length}</div>
+            {!backendUnavailable && (criticalCount > 0 || warningCount > 0) && (
+              <div className="text-xs mt-0.5">
+                {criticalCount > 0 && <span className="text-red-400">{criticalCount} critical</span>}
+                {criticalCount > 0 && warningCount > 0 && <span className="text-slate-600"> · </span>}
+                {warningCount > 0 && <span className="text-yellow-400">{warningCount} warning</span>}
+              </div>
+            )}
           </button>
           <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Pending</div>
@@ -485,9 +480,9 @@ function LocalAlertsView() {
         {/* Alert metrics */}
         {allAlerts.length > 0 && (
           <MetricGrid>
-            <MetricCard title="Alert Rate" query="sum(ALERTS)" unit="" color={CHART_COLORS.red} />
-            <MetricCard title="Critical Alerts" query="sum(ALERTS{severity='critical'})" unit="" color={CHART_COLORS.darkRed} />
-            <MetricCard title="Warning Alerts" query="sum(ALERTS{severity='warning'})" unit="" color={CHART_COLORS.amber} />
+            {/* Firing / critical / warning counts are the stat row above; the
+                sparklines that restated them (from a second source, ALERTS,
+                which also counts pending) are gone. */}
             <MetricCard title="Alertmanager Notifications" query="sum(rate(alertmanager_notifications_total[5m])) * 300" unit="/5m" color={CHART_COLORS.violet} />
           </MetricGrid>
         )}
@@ -511,9 +506,11 @@ function LocalAlertsView() {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex gap-1 bg-slate-900 rounded-lg p-1" role="tablist" aria-label="Alert tabs">
             {([
-              { id: 'firing' as Tab, label: `Firing (${allAlerts.length})` },
-              { id: 'rules' as Tab, label: `Rules (${allRules.length})` },
-              { id: 'silences' as Tab, label: `Silences (${activeSilences.length})` },
+              // No counts here: the stat row above is the one place they live
+              // (the old "Firing (n)" counted firing plus pending).
+              { id: 'firing' as Tab, label: 'Firing & pending' },
+              { id: 'rules' as Tab, label: 'Rules' },
+              { id: 'silences' as Tab, label: 'Silences' },
             ]).map((tab) => (
               <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className={cn('px-3 py-1.5 text-xs rounded-md transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
                 {tab.label}

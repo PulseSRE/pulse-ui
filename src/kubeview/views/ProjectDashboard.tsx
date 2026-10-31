@@ -141,7 +141,7 @@ export default function ProjectDashboard() {
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
               <Server className="w-4 h-4 text-blue-400" />
-              Pods ({podsError ? '—' : pods.length})
+              Pods
             </h2>
             <div className="flex gap-2 text-xs">
               <span className="text-emerald-400">{podStats.running} running</span>

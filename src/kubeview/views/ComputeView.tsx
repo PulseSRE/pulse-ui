@@ -140,23 +140,8 @@ export default function ComputeView() {
     staleTime: 60000,
   });
 
-  // Cluster totals
-  const { data: clusterCpu } = useQuery({
-    queryKey: ['compute', 'cluster-cpu', clusterId],
-    queryFn: async () => (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / sum(machine_cpu_cores) * 100', undefined, clusterId))) ?? [],
-    refetchInterval: 30000,
-  });
-  const { data: clusterMem } = useQuery({
-    queryKey: ['compute', 'cluster-mem', clusterId],
-    queryFn: async () => (await safeQuery(() => queryInstant('(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100', undefined, clusterId))) ?? [],
-    refetchInterval: 30000,
-  });
-
-  const cpuPercent = clusterCpu?.[0]?.value ?? null;
-  const memPercent = clusterMem?.[0]?.value ?? null;
   const readyCount = nodes.filter((n) => getNodeStatus(n).ready).length;
   const unreadyNodes = nodes.filter((n) => !getNodeStatus(n).ready);
-  const pressureNodes = nodes.filter((n) => { const s = getNodeStatus(n); return s.ready && (s.pressure.disk || s.pressure.memory || s.pressure.pid); });
 
   // Pods per node (count)
   const podsByNode = React.useMemo(() => {
@@ -323,9 +308,11 @@ export default function ComputeView() {
             color={CHART_COLORS.cyan}
             thresholds={{ warning: 80, critical: 95 }}
           />
+          {/* One pod-density formula across Compute: running pods over the
+              nodes' allocatable pod slots (Capacity used to show a second). */}
           <MetricCard
             title="Pod Density"
-            query={`sum(kubelet_running_pods) / ${nodes.length * (clusterCapacity.podCapacity / nodes.length || 250)} * 100 or vector(0)`}
+            query="sum(kubelet_running_pods) / sum(kube_node_status_allocatable{resource='pods'}) * 100"
             unit="%"
             color={CHART_COLORS.amber}
             thresholds={{ warning: 80, critical: 95 }}
@@ -341,7 +328,8 @@ export default function ComputeView() {
         </div>
 
         {/* Alerts */}
-        <NodeAlerts unreadyNodes={unreadyNodes} pressureNodes={pressureNodes} go={go} />
+        {/* Banners for NotReady only; pressure is in the map and the Node Pressure audit. */}
+        <NodeAlerts unreadyNodes={unreadyNodes} go={go} />
 
         {isHyperShift ? (
           <>
@@ -452,7 +440,6 @@ function ComputeHealthAudit({
   go: (path: string, title: string) => void;
 }) {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
-  const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
 
   const checks: AuditCheck[] = React.useMemo(() => {
     const allChecks: AuditCheck[] = [];

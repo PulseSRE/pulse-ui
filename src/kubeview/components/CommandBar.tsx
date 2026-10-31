@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check, Loader2, RefreshCw } from 'lucide-react';
+import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check, Loader2, RefreshCw, FolderOpen } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
 import { useFleetStore } from '../store/fleetStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
-import { agentFetch } from '../engine/safeQuery';
 import { k8sFetch } from '../engine/query';
+import { useInboxStore } from '../store/inboxStore';
+import { useVisibilityAwareInterval } from '../hooks/useVisibilityAwareInterval';
 import { performLogout } from '../engine/auth';
 import { usePulseUpgrade } from '../hooks/usePulseStatus';
+import { projectPath } from '../engine/navRegistry';
 
 export function CommandBar() {
   const navigate = useNavigate();
@@ -109,17 +111,14 @@ export function CommandBar() {
     staleTime: 300000,
   });
 
-  // Fetch inbox needs-attention count for notification bell
-  const { data: issueCount = 0 } = useQuery({
-    queryKey: ['toolbar', 'inbox-attention'],
-    queryFn: async () => {
-      const res = await agentFetch('/api/agent/inbox/stats');
-      if (!res.ok) return 0;
-      const data = await res.json();
-      return data.needs_attention ?? 0;
-    },
-    refetchInterval: 60000,
-  });
+  // The inbox needs-attention count: one source (inboxStore.stats), shared
+  // with the sidebar and agent dock, kept fresh from here because the
+  // CommandBar is always mounted. It used to be a separate 60 s poll, so this
+  // bell and the status-bar bell could disagree.
+  const issueCount = useInboxStore((s) => s.stats?.needs_attention ?? 0);
+  const refreshInboxStats = useInboxStore((s) => s.refreshStats);
+  useEffect(() => { void refreshInboxStats(); }, [refreshInboxStats]);
+  useVisibilityAwareInterval(() => { void refreshInboxStats(); }, 60000);
 
   // Fetch namespaces
   const { data: namespaces = [], isLoading: namespacesLoading, error: namespacesError } = useQuery({
@@ -177,7 +176,7 @@ export function CommandBar() {
 
         {/* Quick create */}
         <button
-          onClick={() => go('/create/v1~pods', 'Software')}
+          onClick={() => go('/create/v1~pods', 'Create')}
           className="flex h-7 items-center gap-1.5 rounded-md bg-blue-600/80 hover:bg-blue-600 px-2.5 text-xs font-medium text-white transition-colors"
         >
           <Plus className="w-3 h-3" />
@@ -307,6 +306,16 @@ export function CommandBar() {
                     <span className="text-xs text-slate-500">{namespaces.length} total</span>
                     {selectedNamespace === '*' && <span className="text-blue-400 text-xs">✓</span>}
                   </button>
+                  {selectedNamespace !== '*' && (
+                    <button
+                      onClick={() => { setShowNsDropdown(false); setNsFilter(''); go(projectPath(selectedNamespace), selectedNamespace); }}
+                      className="w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-slate-700 flex items-center gap-2 text-slate-300"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5 text-slate-500" />
+                      <span className="flex-1 truncate">Open project dashboard</span>
+                      <span className="text-xs text-slate-500 truncate max-w-[100px]">{selectedNamespace}</span>
+                    </button>
+                  )}
                   <div className="border-t border-slate-700/50 my-1" />
                   {namespacesLoading && (
                     <div className="px-3 py-4 flex items-center justify-center gap-2 text-xs text-slate-500">
@@ -387,7 +396,8 @@ export function CommandBar() {
         <button
           onClick={() => go('/inbox', 'Inbox')}
           className="relative p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
-          title={issueCount > 0 ? `${issueCount} items need attention` : 'Inbox clear'}
+          title={issueCount > 0 ? `${issueCount} need attention` : 'Inbox clear'}
+          aria-label={issueCount > 0 ? `Inbox: ${issueCount} need attention` : 'Inbox: nothing needs attention'}
         >
           <Bell className="w-4 h-4" />
           {issueCount > 0 && (

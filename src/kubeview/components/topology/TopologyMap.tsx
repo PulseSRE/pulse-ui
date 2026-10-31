@@ -60,6 +60,10 @@ export default function TopologyMap({ nodes, pods, events = [], go }: TopologyMa
         zoneUtilization={zoneUtilization}
         podMovements={podMovements}
         stats={stats}
+        // On a single cluster the report below owns node, pod, CPU and memory
+        // numbers (cluster PromQL); the map's zone averages would be a second,
+        // different figure. In fleet mode the map is the only summary.
+        showSummaryStats={isFleet}
         onClusterClick={isFleet ? (cluster) => setActiveCluster(cluster.id) : undefined}
         onNavigateToNode={navigateToNode}
         onNavigate={go}

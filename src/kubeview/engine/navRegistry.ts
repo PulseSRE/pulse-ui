@@ -32,11 +32,10 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'storage', label: 'Storage', icon: 'HardDrive', path: '/storage', group: 'cluster', subtitle: 'PVCs, storage classes, CSI drivers', keywords: ['pvs', 'pvcs', 'storageclasses', 'csi', 'persistent', 'volumes'], color: 'text-orange-400' },
 
   // Operations
-  { id: 'alerts', label: 'Alerts', icon: 'Bell', path: '/alerts', group: 'cluster', subtitle: 'Firing alerts, alert rules, silences', keywords: ['alerts', 'alertmanager', 'silences', 'rules', 'firing', 'prometheus'], color: 'text-red-400' },
   { id: 'inbox', label: 'Inbox', icon: 'Inbox', path: '/inbox', group: 'operations', subtitle: 'Unified SRE worklist — findings, tasks, alerts, assessments', keywords: ['inbox', 'incidents', 'tasks', 'alerts', 'findings', 'queue', 'triage'], color: 'text-violet-400' },
+  { id: 'alerts', label: 'Alerts', icon: 'Bell', path: '/alerts', group: 'operations', subtitle: 'Firing alerts, alert rules, silences', keywords: ['alerts', 'alertmanager', 'silences', 'rules', 'firing', 'prometheus'], color: 'text-red-400' },
   { id: 'timeline', label: 'Timeline', icon: 'Clock', path: '/timeline', group: 'operations', subtitle: 'Cluster event timeline — correlate changes, alerts, incidents', keywords: ['timeline', 'events', 'history', 'changes', 'audit', 'correlation'], color: 'text-amber-400' },
-  { id: 'topology', label: 'Impact Analysis', icon: 'Network', path: '/topology', group: 'operations', subtitle: 'Dependency graph and blast radius', keywords: ['topology', 'graph', 'dependencies', 'blast', 'radius', 'impact'], color: 'text-cyan-400' },
-  { id: 'security', label: 'Security', icon: 'ShieldCheck', path: '/security', group: 'operations', subtitle: 'Pod security, RBAC analysis, image scanning', keywords: ['security', 'audit', 'sccs', 'rbac', 'network', 'policies', 'access', 'scanning'], color: 'text-red-400' },
+  { id: 'topology', label: 'Topology', icon: 'Network', path: '/topology', group: 'operations', subtitle: 'Dependency graph and impact (blast radius)', keywords: ['topology', 'graph', 'dependencies', 'blast', 'radius', 'impact'], color: 'text-cyan-400' },
   { id: 'gitops', label: 'GitOps', icon: 'GitBranch', path: '/gitops', group: 'operations', subtitle: 'ArgoCD applications, sync status, rollouts', keywords: ['argocd', 'sync', 'drift', 'detection', 'rollouts', 'git'], color: 'text-green-400' },
   { id: 'fleet', label: 'Fleet', icon: 'Layers', path: '/fleet', group: 'operations', subtitle: 'Multi-cluster management, compare, drift detection', keywords: ['multi-cluster', 'fleet', 'comparison', 'health', 'scores'], color: 'text-indigo-400' },
   { id: 'slo', label: 'Service Levels', icon: 'Activity', path: '/slo', group: 'operations', subtitle: 'SLO burn rates and service health targets', keywords: ['slo', 'service level', 'burn rate', 'error budget', 'availability'], color: 'text-teal-400' },
@@ -45,6 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'operators', label: 'Operators', icon: 'Puzzle', path: '/operators', group: 'administration', subtitle: 'OperatorHub — browse, install, manage cluster operators', keywords: ['operators', 'operatorhub', 'install', 'olm', 'catalog', 'subscriptions'], color: 'text-purple-400' },
   { id: 'admin', label: 'Administration', icon: 'Settings', path: '/admin', group: 'administration', subtitle: 'Config, updates, snapshots, quotas, certificates', keywords: ['config', 'updates', 'quotas', 'certificates', 'crds'], color: 'text-slate-400' },
   { id: 'identity', label: 'Identity & Access', icon: 'Shield', path: '/identity', group: 'administration', subtitle: 'Users, groups, RBAC, impersonation', keywords: ['users', 'groups', 'service', 'accounts', 'rbac', 'impersonation'], color: 'text-teal-400' },
+  { id: 'security', label: 'Security', icon: 'ShieldCheck', path: '/security', group: 'administration', subtitle: 'Pod security, RBAC analysis, image scanning', keywords: ['security', 'audit', 'sccs', 'rbac', 'network', 'policies', 'access', 'scanning'], color: 'text-red-400' },
   { id: 'readiness', label: 'Production Readiness', icon: 'Rocket', path: '/readiness', group: 'administration', subtitle: 'Readiness wizard — security, reliability, observability gates', keywords: ['readiness', 'wizard', 'reliability', 'observability', 'gates', 'production'], color: 'text-amber-400' },
   { id: 'about', label: 'About Pulse', icon: 'Info', path: '/about', group: 'administration', subtitle: 'Versions, images, and links for everything Pulse runs on this cluster', keywords: ['about', 'version', 'release', 'image', 'operator', 'upgrade', 'github'], color: 'text-sky-400' },
 
@@ -52,6 +52,24 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'agent', label: 'Pulse Agent', icon: 'Bot', path: '/agent', group: 'agent', subtitle: 'Configure, monitor, and understand the AI assistant', keywords: ['agent', 'ai', 'trust', 'skills', 'tools', 'analytics', 'memory', 'mcp'], color: 'text-violet-400' },
   { id: 'views', label: 'Custom Views', icon: 'LayoutDashboard', path: '/views', group: 'agent', subtitle: 'AI-generated dashboards — manage, share, version history', keywords: ['views', 'dashboards', 'custom', 'ai', 'generated', 'share'], color: 'text-emerald-400' },
 ];
+
+/**
+ * Pages that live inside another page (a tab or a resource list) and so have
+ * no sidebar entry, but which people search for by name. The command palette
+ * lists them alongside NAV_ITEMS; the sidebar does not.
+ */
+export const PALETTE_SHORTCUTS: NavItem[] = [
+  { id: 'builds', label: 'Builds', icon: 'Hammer', path: '/workloads?tab=builds', group: 'cluster', subtitle: 'BuildConfigs and recent builds', keywords: ['builds', 'buildconfigs', 'ci', 's2i', 'pipeline'] },
+  { id: 'events', label: 'Events', icon: 'Zap', path: '/r/v1~events', group: 'cluster', subtitle: 'Kubernetes events in the selected namespace', keywords: ['events', 'warnings', 'kubernetes events'] },
+  { id: 'helm', label: 'Helm', icon: 'Ship', path: '/create/v1~pods?tab=helm', group: 'administration', subtitle: 'Helm charts and releases', keywords: ['helm', 'charts', 'releases'] },
+  { id: 'crds', label: 'Custom Resource Definitions', icon: 'Blocks', path: '/admin?tab=crds', group: 'administration', subtitle: 'CRDs installed on the cluster', keywords: ['crds', 'crd', 'custom resources', 'apiextensions'] },
+  { id: 'certificates', label: 'Certificates', icon: 'Lock', path: '/admin?tab=certificates', group: 'administration', subtitle: 'TLS certificates and expiry', keywords: ['certificates', 'certs', 'tls', 'expiry', 'ssl'] },
+];
+
+/** The project dashboard for one namespace. */
+export function projectPath(namespace: string): string {
+  return `/project/${encodeURIComponent(namespace)}`;
+}
 
 /** @deprecated Use NAV_ITEMS directly */
 export const ALL_NAV_ITEMS: NavItem[] = NAV_ITEMS;

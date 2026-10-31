@@ -77,4 +77,14 @@ describe('the My Items pill does not print an identity hash at you', () => {
     render(<InboxHeader onNewTask={vi.fn()} />);
     expect(screen.getByText('My Items')).toBeDefined();
   });
+
+  it('shows the needs-attention count once, on the Needs Attention filter', () => {
+    stateOverride = { stats: { needs_attention: 7, unique_issues: 4 } };
+    render(<InboxHeader onNewTask={vi.fn()} />);
+    expect(screen.queryByText(/7 open/)).toBeNull();
+    expect(screen.getAllByText('7')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /Needs Attention/ }).textContent).toContain('7');
+    expect(screen.getByText('4 unique issues')).toBeDefined();
+    stateOverride = {};
+  });
 });

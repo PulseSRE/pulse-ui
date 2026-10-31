@@ -482,8 +482,8 @@ export function DockAgentPanel() {
         <Shield className="h-3 w-3 shrink-0" />
         {monitorConnected
           ? inboxNeedsAttention > 0
-            ? `Monitoring: ${inboxNeedsAttention} finding${inboxNeedsAttention !== 1 ? 's' : ''}`
-            : 'Monitoring: All clear'
+            ? `Inbox: ${inboxNeedsAttention} need attention`
+            : 'Monitoring · inbox clear'
           : 'Monitoring: Disconnected'}
       </button>
 

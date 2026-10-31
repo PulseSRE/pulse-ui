@@ -1,3 +1,4 @@
+import { isPlatformNamespace } from '../engine/platformNamespaces';
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -65,15 +66,6 @@ export default function SecurityView() {
   });
   const { data: networkPolicies = [], isError: netpolError, isLoading: netpolLoading } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
   const { data: namespaces = [], isError: nsError, isLoading: nsLoading } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
-  // A 403 on secrets is "unknown", not 0 certificates.
-  const { data: secrets = [], isError: secretsError, isLoading: secretsLoading } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'secrets-summary', clusterId],
-    queryFn: async () => {
-      const s = await k8sList<K8sResource>('/api/v1/secrets', undefined, clusterId);
-      return s;
-    },
-    staleTime: 120000,
-  });
   const { data: externalSecrets = [], isError: externalSecretsError, isLoading: externalSecretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'externalsecrets', clusterId],
     queryFn: async () => {
@@ -129,8 +121,8 @@ export default function SecurityView() {
 
   const userNamespaces = useMemo(() =>
     namespaces.filter((ns) => {
-      const name = ns.metadata?.name || '';
-      return !name.startsWith('openshift-') && !name.startsWith('kube-') && name !== 'default' && name !== 'openshift';
+      // One platform rule for every audit (engine/platformNamespaces).
+      return !isPlatformNamespace(ns.metadata?.name);
     }),
   [namespaces]);
 
@@ -143,8 +135,6 @@ export default function SecurityView() {
     userNamespaces.filter((ns) => !nsWithNetPol.has(ns.metadata?.name)),
   [userNamespaces, nsWithNetPol]);
 
-  const tlsSecretCount = secrets.filter((s: any) => s.type === 'kubernetes.io/tls').length;
-  const opaqueSecretCount = secrets.filter((s: any) => s.type === 'Opaque').length;
 
   // Audit checks
   const checks: SecurityAuditCheck[] = useMemo(() => {
@@ -338,7 +328,7 @@ export default function SecurityView() {
         )}
 
         {/* Score + Summary */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div className={cn('bg-slate-900 rounded-lg border p-4 flex flex-col items-center justify-center',
             auditScore === 100 ? 'border-green-800/50' : auditScore >= 75 ? 'border-yellow-800/50' : 'border-red-800/50')}>
             <div className={cn('text-4xl font-bold', auditScore === 100 ? 'text-green-400' : auditScore >= 75 ? 'text-yellow-400' : 'text-red-400')}>
@@ -350,12 +340,8 @@ export default function SecurityView() {
             {criticalFails.length > 0 && <div className="text-xs text-red-400 mt-2">{criticalFails.length} critical</div>}
             {warningFails.length > 0 && <div className="text-xs text-yellow-400">{warningFails.length} warning</div>}
           </div>
-          <SummaryCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={crbError || crbLoading ? '—' : String(clusterAdmins.length)}
-            sub={crbError ? 'ClusterRoleBindings could not be read' : crbLoading ? 'Loading…' : clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
-          <SummaryCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={netpolError || netpolLoading ? '—' : String(networkPolicies.length)}
-            sub={netpolError ? 'Network policies could not be read' : netpolLoading ? 'Loading…' : `${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
-          <SummaryCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={secretsError || secretsLoading ? '—' : String(tlsSecretCount)}
-            sub={secretsError ? 'Secrets could not be read' : secretsLoading ? 'Loading…' : `${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
+          {/* Cluster admins, network-policy coverage and certificates are
+              audit rows below (each with a link); no second summary card. */}
         </div>
 
         {/* Security Audit */}
@@ -365,9 +351,7 @@ export default function SecurityView() {
               <ShieldCheck className="w-4 h-4 text-indigo-400" />
               Security Audit
             </h2>
-            <span className={cn('text-xs font-medium', passCount === checks.length ? 'text-green-400' : 'text-yellow-400')}>
-              {passCount}/{checks.length} passed{unknownCount > 0 ? ` · ${unknownCount} unknown` : ''}{pendingCount > 0 ? ` · ${pendingCount} checking` : ''}
-            </span>
+            {/* The pass count is the score card above. */}
           </div>
           <div className="divide-y divide-slate-800">
             {checks.map((check) => (
@@ -396,38 +380,7 @@ export default function SecurityView() {
           </div>
         </Card>
 
-        {/* Cluster-Admin Subjects */}
-        <Card>
-          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              <Key className="w-4 h-4 text-red-400" />
-              Cluster-Admin Access ({crbError || crbLoading ? '—' : clusterAdmins.length})
-            </h2>
-            <button onClick={() => go('/identity?tab=rbac', 'Identity & Access')}
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-              Manage <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
-          {crbError ? (
-            <LoadError className="m-3" title="ClusterRoleBindings could not be loaded" />
-          ) : crbLoading ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
-          ) : clusterAdmins.length === 0 ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-500">No non-system cluster-admin bindings found</div>
-          ) : (
-            <div className="divide-y divide-slate-800">
-              {clusterAdmins.map((admin, i) => (
-                <div key={i} className="px-4 py-2.5 flex items-center gap-3">
-                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', admin.kind === 'User' ? 'bg-blue-900/50 text-blue-300' : admin.kind === 'Group' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-800 text-slate-400')}>
-                    {admin.kind}
-                  </span>
-                  <span className="text-sm text-slate-200 font-mono">{admin.name}</span>
-                  <span className="text-xs text-slate-500 ml-auto">via {admin.binding}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        {/* Cluster-admin subjects are named in the audit row above (with Manage → Identity). */}
 
         {/* SCCs */}
         {sccsError ? (
@@ -442,7 +395,7 @@ export default function SecurityView() {
             <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
                 <ShieldOff className="w-4 h-4 text-yellow-400" />
-                Namespaces Without Network Policies ({unprotectedNamespaces.length})
+                Namespaces Without Network Policies
               </h2>
               <button onClick={() => go('/networking', 'Networking')}
                 className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
@@ -474,15 +427,6 @@ export default function SecurityView() {
   );
 }
 
-function SummaryCard({ icon, label, value, sub, onClick }: { icon: React.ReactNode; label: string; value: string; sub: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="bg-slate-900 rounded-lg border border-slate-800 p-4 text-left hover:border-slate-600 transition-colors">
-      <div className="flex items-center gap-2 text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">{icon}{label}</div>
-      <div className="text-2xl font-bold text-slate-100">{value}</div>
-      <div className="text-xs text-slate-500 mt-0.5 truncate">{sub}</div>
-    </button>
-  );
-}
 
 function SCCPanel({ sccs, go }: { sccs: K8sResource[]; go: (path: string, title: string) => void }) {
   const [expanded, setExpanded] = useState(false);

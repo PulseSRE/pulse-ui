@@ -52,6 +52,8 @@ interface WorldMapProps {
   onClusterClick?: (cluster: MapCluster) => void;
   onNavigateToNode?: (nodeName: string) => void;
   onNavigate?: (path: string, title: string) => void;
+  /** Show node/pod/CPU/memory totals in the header (default true). */
+  showSummaryStats?: boolean;
 }
 
 interface ViewState {
@@ -76,7 +78,7 @@ function utilizationColor(pct: number): string {
   return '#10b981';
 }
 
-export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtilization = [], podMovements = [], stats, onClusterClick, onNavigateToNode, onNavigate }: WorldMapProps) {
+export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtilization = [], podMovements = [], stats, onClusterClick, onNavigateToNode, onNavigate, showSummaryStats = true }: WorldMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [viewState, setViewState] = useState<ViewState | null>(null);
   const [hoveredCluster, setHoveredCluster] = useState<MapCluster | null>(null);
@@ -305,6 +307,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
 
         {/* Stats — clickable */}
         <div className="flex items-center gap-5 text-xs">
+          {showSummaryStats && (<>
           <button onClick={() => onNavigate?.('/compute', 'Compute')} className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors">
             <Server className="w-3 h-3" />
             <span className={statColor(stats.totalNodes - stats.readyNodes, 1, 2)}>{stats.readyNodes}</span>
@@ -325,6 +328,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
             <MemoryStick className="w-3 h-3 text-slate-400" />
             <span className={statColor(stats.avgMem, 70, 90)}>{stats.avgMem}%</span>
           </button>
+          </>)}
           {stats.alerts > 0 && (
             <button onClick={() => onNavigate?.('/r/v1~events', 'Events')} title={`${stats.alerts} Warning event${stats.alerts !== 1 ? 's' : ''} in the last hour`} aria-label={`${stats.alerts} Warning events in the last hour`} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
               <AlertTriangle className="w-3 h-3 text-red-400" />

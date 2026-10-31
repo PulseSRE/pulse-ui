@@ -1,7 +1,8 @@
 /**
  * FleetReportTab — fleet health dashboard for multi-cluster mode.
  *
- * Displays cluster health table, fleet risk score, and ambient AI insight.
+ * Displays cluster reachability, a cluster table (each row opens that
+ * cluster's Pulse), and ambient AI insight. Fleet-wide pages live on /fleet.
  * Reads directly from fleetStore — no props required.
  */
 
@@ -9,6 +10,7 @@ import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { Globe, RefreshCw, Loader2 } from 'lucide-react';
 
 import { useFleetStore } from '../../store/fleetStore';
+import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { Card } from '../../components/primitives/Card';
 import { cn } from '@/lib/utils';
 
@@ -61,10 +63,11 @@ function statusDot(status: ClusterStatus) {
 }
 
 /* ---------------------------------------------------------------------------
- * Risk score
+ * Reachability — the share of checked clusters Pulse can reach. High is good;
+ * it used to be called a "risk score", where high reads as bad.
  * --------------------------------------------------------------------------- */
 
-export function computeRiskScore(
+export function computeReachability(
   clusters: { status: string }[]
 ): { score: number | null; color: string; label: string } {
   // Only a health check that came back counts. No clusters, or clusters that
@@ -77,9 +80,9 @@ export function computeRiskScore(
   const healthy = checked.filter((c) => c.status === 'connected').length;
   const score = Math.round((healthy / checked.length) * 100);
 
-  if (score > 80) return { score, color: '#22c55e', label: 'Healthy' };
-  if (score >= 60) return { score, color: '#eab308', label: 'Degraded' };
-  return { score, color: '#ef4444', label: 'Critical' };
+  if (score > 80) return { score, color: '#22c55e', label: 'Reachable' };
+  if (score >= 60) return { score, color: '#eab308', label: 'Partly reachable' };
+  return { score, color: '#ef4444', label: 'Mostly unreachable' };
 }
 
 /* ---------------------------------------------------------------------------
@@ -117,9 +120,10 @@ const tableStyles = {
  * --------------------------------------------------------------------------- */
 
 export function FleetReportTab() {
-  const { clusters, fleetMode, refreshAllHealth } = useFleetStore();
+  const { clusters, fleetMode, refreshAllHealth, setActiveCluster } = useFleetStore();
+  const go = useNavigateTab();
 
-  const risk = useMemo(() => computeRiskScore(clusters), [clusters]);
+  const risk = useMemo(() => computeReachability(clusters), [clusters]);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -174,7 +178,7 @@ export function FleetReportTab() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
-              Fleet Risk Score
+              Fleet reachability
             </div>
             <div className="flex items-center gap-3">
               <span
@@ -185,7 +189,7 @@ export function FleetReportTab() {
                   color: risk.color,
                 }}
               >
-                {risk.score ?? '—'}
+                {risk.score === null ? '—' : `${risk.score}%`}
               </span>
               <span
                 data-testid="risk-badge"
@@ -209,10 +213,12 @@ export function FleetReportTab() {
               </span>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-500">
-            {clusters.filter((c) => c.status === 'connected').length} / {clusters.length}{' '}
-            clusters healthy
-          </div>
+          <button
+            onClick={() => go('/fleet', 'Fleet')}
+            className="text-right text-xs text-blue-400 hover:text-blue-300"
+          >
+            Open Fleet →
+          </button>
         </div>
       </Card>
 
@@ -233,10 +239,17 @@ export function FleetReportTab() {
               <tr
                 key={cluster.id}
                 style={tableStyles.tr}
-                className="hover:bg-slate-800/50"
+                className="hover:bg-slate-800/50 cursor-pointer"
+                onClick={() => setActiveCluster(cluster.id)}
               >
                 <td style={tableStyles.td}>
-                  <span className="font-medium">{cluster.name}</span>
+                  <button
+                    className="font-medium text-left hover:text-blue-300"
+                    onClick={(e) => { e.stopPropagation(); setActiveCluster(cluster.id); }}
+                    title={`Show ${cluster.name} on Pulse`}
+                  >
+                    {cluster.name}
+                  </button>
                   <span className="ml-2 text-xs text-slate-500">
                     {cluster.connectionType}
                   </span>

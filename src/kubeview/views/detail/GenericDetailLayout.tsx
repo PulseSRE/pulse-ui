@@ -62,9 +62,9 @@ export function GenericDetailLayout({
           <div className="px-4 py-3 border-b border-slate-800">
             <h2 className="text-sm font-semibold text-slate-100">Metadata</h2>
           </div>
-          <pre className="px-4 py-3 text-xs text-slate-300 font-mono overflow-auto max-h-64">
-            {JSON.stringify(resource.metadata ?? {}, null, 2)}
-          </pre>
+          {/* A key/value summary. Labels and annotations have their own
+              sections below; the raw JSON dump repeated them. */}
+          <MetadataSummary metadata={resource.metadata} />
         </Card>
 
         {/* Containers (Pods only) */}
@@ -309,5 +309,34 @@ function ManagedPodsCard({ pods, go }: { pods: K8sResource[]; go: (path: string,
         })}
       </div>
     </Card>
+  );
+}
+
+/** Name, namespace, uid, created, owners, finalizers, generation — once each. */
+export function MetadataSummary({ metadata }: { metadata?: K8sResource['metadata'] }) {
+  const m = (metadata ?? {}) as K8sResource['metadata'] & {
+    uid?: string; creationTimestamp?: string; generation?: number; resourceVersion?: string;
+    ownerReferences?: Array<{ kind: string; name: string }>; finalizers?: string[]; deletionTimestamp?: string;
+  };
+  const rows: Array<[string, React.ReactNode]> = [
+    ['Name', m.name],
+    ['Namespace', m.namespace],
+    ['UID', m.uid],
+    ['Created', m.creationTimestamp ? new Date(m.creationTimestamp).toLocaleString() : undefined],
+    ['Deleting since', m.deletionTimestamp ? new Date(m.deletionTimestamp).toLocaleString() : undefined],
+    ['Owners', m.ownerReferences?.length ? m.ownerReferences.map((o) => `${o.kind}/${o.name}`).join(', ') : undefined],
+    ['Finalizers', m.finalizers?.length ? m.finalizers.join(', ') : undefined],
+    ['Generation', m.generation],
+    ['Resource version', m.resourceVersion],
+  ];
+  return (
+    <dl className="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-xs" data-testid="metadata-summary">
+      {rows.filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => (
+        <React.Fragment key={k}>
+          <dt className="text-slate-500">{k}</dt>
+          <dd className="text-slate-300 font-mono break-all">{v}</dd>
+        </React.Fragment>
+      ))}
+    </dl>
   );
 }

@@ -197,7 +197,7 @@ export function OverviewTab({
                   alertsUnavailable ? 'alerts unknown' : firingAlerts.length > 0 ? `${firingAlerts.length} alerts` : '',
                 ].filter(Boolean).join(' · ') || 'none degraded or updating'
           }
-          onClick={() => go('/readiness', 'Production Readiness')}
+          onClick={() => setActiveTab('operators')}
           className={cn(
             opDegraded > 0 ? 'border-red-800' :
             firingAlerts.length > 0 ? 'border-amber-800' :
@@ -208,8 +208,7 @@ export function OverviewTab({
         <InfoCard label="Platform" value={platform || '\u2014'} sub={(() => { try { return apiUrl ? new URL(apiUrl).hostname : ''; } catch { return ''; } })()} />
         <InfoCard label="Control Plane" value={isHyperShift ? 'Hosted (External)' : controlPlaneTopology ? `Self-managed (${controlPlaneTopology})` : '\u2014'} sub={isHyperShift ? 'Managed externally' : ''} />
         <InfoCard label="Cluster Age" value={clusterAge?.label || '\u2014'} sub={clusterAge?.date ? new Date(clusterAge.date).toLocaleDateString() : ''} />
-        <InfoCard label="Nodes" value={String(nodes.length)} sub={`${nodeRoles.map(([r, c]) => `${c} ${r}`).join(', ')} \u2192`} onClick={() => go('/compute', 'Compute')} />
-        <InfoCard label="Namespaces" value={String(nsStats.total)} sub={`${nsStats.user} user, ${nsStats.system} system \u2192`} onClick={() => setActiveTab('quotas')} />
+                <InfoCard label="Namespaces" value={String(nsStats.total)} sub={`${nsStats.user} user, ${nsStats.system} system \u2192`} onClick={() => go('/r/v1~namespaces', 'Namespaces')} />
         <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups \u2192`} onClick={() => setActiveTab('crds')} />
       </MetricGrid>
 
@@ -349,15 +348,9 @@ export function OverviewTab({
                 </div>
               );
             })}
+            {/* Operator counts are the Cluster Operators card above; this
+                panel names the degraded ones. */}
             <div className="border-t border-slate-800 pt-2 mt-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400">ClusterOperators ({operators.length})</span>
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 text-xs text-green-400"><CheckCircle className="w-3 h-3" /> {opSteady}</span>
-                  {opDegraded > 0 && <span className="flex items-center gap-1 text-xs text-red-400"><XCircle className="w-3 h-3" /> {opDegraded}</span>}
-                  {opProgressing > 0 && <span className="flex items-center gap-1 text-xs text-yellow-400"><RefreshCw className="w-3 h-3" /> {opProgressing}</span>}
-                </div>
-              </div>
               {/* Named degraded operators */}
               {degradedOperators.length > 0 && (
                 <div className="mt-2 space-y-1.5">
@@ -417,7 +410,7 @@ export function OverviewTab({
               ))}
             </div>
           )}
-          <button onClick={() => setActiveTab('config')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
+          <button onClick={() => go('/admin?tab=config&section=oauth', 'Administration')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
             Manage providers <ArrowRight className="w-3 h-3" />
           </button>
         </Panel>

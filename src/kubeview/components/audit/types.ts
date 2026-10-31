@@ -25,6 +25,11 @@ export interface AuditCheck {
   passingLabel?: string;
   /** Custom label shown above the YAML block (default: "How to fix:"). */
   fixLabel?: string;
+  /**
+   * Advice, not a failure: shown with an info icon, never counted against the
+   * score (e.g. a Delete reclaim policy, which every OpenShift default uses).
+   */
+  informational?: boolean;
 }
 
 /** Props accepted by HealthAuditPanel. */
