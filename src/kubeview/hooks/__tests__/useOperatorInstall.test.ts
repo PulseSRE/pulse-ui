@@ -7,10 +7,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // Mock k8sCreate and k8sGet
 const k8sCreateMock = vi.fn();
 const k8sGetMock = vi.fn();
+const k8sListMock = vi.fn();
 vi.mock('../../engine/query', () => ({
   k8sCreate: (...args: any[]) => k8sCreateMock(...args),
   k8sGet: (...args: any[]) => k8sGetMock(...args),
+  k8sList: (...args: any[]) => k8sListMock(...args),
+  k8sPatch: vi.fn(),
 }));
+
+import { PulseError } from '../../engine/errors';
+
+function conflict(): PulseError {
+  return new PulseError({ message: 'already exists', category: 'conflict', statusCode: 409, context: { operation: 'create' }, userMessage: 'exists', suggestions: [] });
+}
 
 import { useOperatorInstall } from '../useOperatorInstall';
 
@@ -34,7 +43,9 @@ describe('useOperatorInstall', () => {
   beforeEach(() => {
     k8sCreateMock.mockReset();
     k8sGetMock.mockReset();
+    k8sListMock.mockReset();
     k8sCreateMock.mockResolvedValue({});
+    k8sListMock.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -84,7 +95,8 @@ describe('useOperatorInstall', () => {
     );
   });
 
-  it('skips namespace and operator group for openshift-operators', async () => {
+  it('reuses the global OperatorGroup in openshift-operators instead of adding one', async () => {
+    k8sListMock.mockResolvedValue([{ metadata: { name: 'global-operators', namespace: 'openshift-operators' }, spec: {} }]);
     const { result } = renderHook(() => useOperatorInstall(), { wrapper: createWrapper() });
 
     await act(async () => {
@@ -92,6 +104,7 @@ describe('useOperatorInstall', () => {
     });
 
     // Should only call k8sCreate for the subscription (not namespace or operator group)
+    expect(k8sListMock).toHaveBeenCalledWith('/apis/operators.coreos.com/v1/namespaces/openshift-operators/operatorgroups', undefined, 'local');
     expect(k8sCreateMock).toHaveBeenCalledTimes(1);
     expect(k8sCreateMock).toHaveBeenCalledWith(
       expect.stringContaining('subscriptions'),
@@ -99,17 +112,30 @@ describe('useOperatorInstall', () => {
     );
   });
 
-  it('skips operator group for openshift-operators-redhat', async () => {
+  it('reuses an existing OperatorGroup rather than creating a second (TooManyOperatorGroups)', async () => {
+    k8sListMock.mockResolvedValue([{ metadata: { name: 'existing', namespace: 'my-ns' }, spec: { targetNamespaces: ['my-ns'] } }]);
     const { result } = renderHook(() => useOperatorInstall(), { wrapper: createWrapper() });
 
     await act(async () => {
-      await result.current.install({ ...defaultOpts, targetNamespace: 'openshift-operators-redhat' });
+      await result.current.install({ ...defaultOpts, installModes: [{ type: 'OwnNamespace', supported: true }] });
     });
 
-    // Namespace create + subscription (no operator group)
-    const calls = k8sCreateMock.mock.calls;
-    const ogCalls = calls.filter((c: any[]) => c[0].includes('operatorgroups'));
+    const ogCalls = k8sCreateMock.mock.calls.filter((c: any[]) => c[0].includes('operatorgroups'));
     expect(ogCalls).toHaveLength(0);
+    expect(result.current.phase).not.toBe('failed');
+  });
+
+  it('refuses, without creating a Subscription, when the existing OperatorGroup mode is unsupported', async () => {
+    k8sListMock.mockResolvedValue([{ metadata: { name: 'own', namespace: 'my-ns' }, spec: { targetNamespaces: ['my-ns'] } }]);
+    const { result } = renderHook(() => useOperatorInstall(), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await result.current.install({ ...defaultOpts, installModes: [{ type: 'AllNamespaces', supported: true }, { type: 'OwnNamespace', supported: false }] });
+    });
+
+    expect(result.current.phase).toBe('failed');
+    expect(result.current.error).toMatch(/OperatorGroup own.*OwnNamespace/);
+    expect(k8sCreateMock.mock.calls.some((c: any[]) => c[0].includes('subscriptions'))).toBe(false);
   });
 
   it('sets phase to failed when subscription creation fails', async () => {
@@ -168,7 +194,7 @@ describe('useOperatorInstall', () => {
 
   it('handles namespace already exists gracefully', async () => {
     k8sCreateMock.mockImplementation((path: string) => {
-      if (path === '/api/v1/namespaces') return Promise.reject(new Error('already exists'));
+      if (path === '/api/v1/namespaces') return Promise.reject(conflict());
       return Promise.resolve({});
     });
 

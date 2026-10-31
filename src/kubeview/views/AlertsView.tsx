@@ -11,8 +11,10 @@ import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
-import { showErrorToast } from '../engine/errorToast';
-import { copyToClipboard } from '../engine/clipboard';
+import { usePinnedAction } from '../hooks/usePinnedAction';
+import { Button } from '../components/primitives/Button';
+import { RuleDetailDrawer, type RuleDetail } from './alerts/RuleDetailDrawer';
+import { createTemplateUrl } from '../engine/createTemplates';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
 import type { PrometheusAlert } from '../engine/types/incident';
@@ -54,7 +56,13 @@ interface SilenceMatcher {
   isRegex: boolean;
 }
 
+function describeMatchers(matchers: SilenceMatcher[]): string {
+  return matchers.map((m) => `${m.name}${m.isRegex ? '=~' : '='}"${m.value}"`).join(', ') || 'no matchers';
+}
+
 interface SilenceFormData {
+  /** Set when editing an existing silence: Alertmanager replaces it. */
+  id?: string;
   matchers: SilenceMatcher[];
   startsAt: string;
   endsAt: string;
@@ -126,8 +134,12 @@ function LocalAlertsView() {
     createdBy: '',
     comment: '',
   });
-  const [confirmExpire, setConfirmExpire] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Pending / Silenced stats filter the alert list to exactly what they count.
+  const [stateFilter, setStateFilter] = useState<'all' | 'pending' | 'silenced'>('all');
+  const [silenceStateFilter, setSilenceStateFilter] = useState<'active' | 'pending' | 'expired'>('active');
+  const [selectedRule, setSelectedRule] = useState<RuleDetail | null>(null);
+  const saveSilence = usePinnedAction<SilenceFormData>();
+  const expire = usePinnedAction<Silence>();
 
   // Fetch alerts from Prometheus
   const { data: alertGroups = [], error: alertsError, refetch: refetchAlerts, isPending: alertsPending } = useQuery<AlertGroup[]>({
@@ -167,6 +179,8 @@ function LocalAlertsView() {
   const activeSilences = useMemo(() => {
     return silences.filter((s) => s.status.state === 'active');
   }, [silences]);
+
+  const shownSilences = useMemo(() => silences.filter((x) => x.status.state === silenceStateFilter), [silences, silenceStateFilter]);
 
   // Extract all firing/pending alerts
   const allAlerts = useMemo(() => {
@@ -225,7 +239,7 @@ function LocalAlertsView() {
 
   // All alerting rules
   const allRules = useMemo(() => {
-    const rules: Array<{ name: string; group: string; state: string; severity: string; query: string; alertCount: number }> = [];
+    const rules: RuleDetail[] = [];
     for (const group of alertGroups) {
       for (const rule of group.rules) {
         if (rule.type !== 'alerting') continue;
@@ -236,6 +250,9 @@ function LocalAlertsView() {
           severity: rule.labels?.severity || 'warning',
           query: rule.query,
           alertCount: (rule.alerts || []).filter((a) => a.state === 'firing').length,
+          duration: rule.duration,
+          labels: rule.labels || {},
+          annotations: rule.annotations || {},
         });
       }
     }
@@ -249,13 +266,15 @@ function LocalAlertsView() {
   // Filter
   const filteredAlerts = useMemo(() => {
     let result = allAlerts;
+    if (stateFilter === 'pending') result = result.filter(a => a.alert.state === 'pending');
+    if (stateFilter === 'silenced') result = result.filter(a => a.isSilenced);
     if (severityFilter !== 'all') result = result.filter(a => a.severity === severityFilter);
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((a) => a.rule.toLowerCase().includes(q) || a.description.toLowerCase().includes(q) || a.namespace.toLowerCase().includes(q));
     }
     return result;
-  }, [allAlerts, searchQuery, severityFilter]);
+  }, [allAlerts, searchQuery, severityFilter, stateFilter]);
 
   // Group alerts
   const groupedAlerts = useMemo(() => {
@@ -364,46 +383,47 @@ function LocalAlertsView() {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const res = await fetch('/api/alertmanager/api/v2/silences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(silenceForm),
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || `HTTP ${res.status}`);
-      }
-
-      addToast({ type: 'success', title: 'Silence created', detail: silenceForm.comment });
-      queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] });
-      resetSilenceForm();
-    } catch (err: any) {
-      showErrorToast(err, 'Failed to create silence');
-    } finally {
-      setIsSubmitting(false);
-    }
+    saveSilence.open({ ...silenceForm });
   };
 
-  const expireSilence = async (id: string) => {
-    try {
-      const res = await fetch(`/api/alertmanager/api/v2/silence/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || `HTTP ${res.status}`);
-      }
-
-      addToast({ type: 'success', title: 'Silence expired', detail: `Silence ${id} has been removed` });
-      queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] });
-    } catch (err: any) {
-      showErrorToast(err, 'Failed to expire silence');
+  const confirmSaveSilence = () => saveSilence.run('Saving this silence', async (form) => {
+    // Alertmanager v2: POST with an id replaces that silence; without one it creates a new silence.
+    const res = await fetch('/api/alertmanager/api/v2/silences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || `Alertmanager returned ${res.status}`);
     }
-    setConfirmExpire(null);
+    addToast({ type: 'success', title: form.id ? 'Silence updated' : 'Silence created', detail: form.comment });
+    queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] });
+    resetSilenceForm();
+  });
+
+  const confirmExpireSilence = () => expire.run('Expiring this silence', async (silence) => {
+    const res = await fetch(`/api/alertmanager/api/v2/silence/${encodeURIComponent(silence.id)}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || `Alertmanager returned ${res.status}`);
+    }
+    addToast({ type: 'success', title: 'Silence expired', detail: silence.comment });
+    queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] });
+  });
+
+  /** Edit an active/pending silence in place, or recreate an expired one as a new silence. */
+  const openSilenceForEdit = (silence: Silence) => {
+    const expired = silence.status.state === 'expired';
+    setSilenceForm({
+      id: expired ? undefined : silence.id,
+      matchers: silence.matchers.map((m) => ({ name: m.name, value: m.value, isRegex: m.isRegex })),
+      startsAt: expired ? '' : silence.startsAt,
+      endsAt: expired ? '' : silence.endsAt,
+      createdBy: currentUser || silence.createdBy,
+      comment: silence.comment,
+    });
+    setShowSilenceForm(true);
   };
 
   return (
@@ -459,16 +479,16 @@ function LocalAlertsView() {
             presented as absence of problems. */}
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', firingAlerts.length > 0 ? 'border-red-800' : 'border-slate-800')}>
+          <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', firingAlerts.length > 0 ? 'border-red-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Firing</div>
             <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : firingAlerts.length}</div>
           </button>
-          <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button aria-pressed={stateFilter === 'pending'} onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('pending'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Pending</div>
             <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : pendingAlerts.length}</div>
             <div className="text-xs text-slate-600 mt-0.5">About to fire</div>
           </button>
-          <button onClick={() => setActiveTab('silences')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
+          <button aria-pressed={stateFilter === 'silenced'} onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('silenced'); }} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Silenced</div>
             <div className={cn('text-xl font-bold', backendUnavailable || silencesUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable || silencesUnavailable ? '—' : allAlerts.filter(a => a.isSilenced).length}</div>
           </button>
@@ -550,6 +570,12 @@ function LocalAlertsView() {
         {/* Firing alerts */}
         {activeTab === 'firing' && (
           <div className="space-y-2">
+            {stateFilter !== 'all' && (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                Showing {stateFilter === 'pending' ? 'pending alerts only' : 'silenced alerts only'}
+                <button onClick={() => setStateFilter('all')} className="text-blue-400 hover:text-blue-300">Show all</button>
+              </div>
+            )}
             {silencesUnavailable && !backendUnavailable && (
               <LoadError
                 title="Silences could not be read from Alertmanager — some alerts below may already be silenced"
@@ -577,9 +603,9 @@ function LocalAlertsView() {
             ) : filteredAlerts.length === 0 ? (
               <EmptyState
                 icon={<Bell className="w-8 h-8" />}
-                title={severityFilter !== 'all' ? `No ${severityFilter} alerts` : searchQuery ? 'No alerts match your search' : 'No alerts firing'}
+                title={stateFilter !== 'all' ? `No ${stateFilter} alerts` : severityFilter !== 'all' ? `No ${severityFilter} alerts` : searchQuery ? 'No alerts match your search' : 'No alerts firing'}
                 description={
-                  severityFilter !== 'all' || searchQuery
+                  severityFilter !== 'all' || searchQuery || stateFilter !== 'all'
                     ? `${allAlerts.length} alert${allAlerts.length !== 1 ? 's are' : ' is'} firing or pending outside this filter.`
                     : 'Prometheus reports no firing or pending alerts.'
                 }
@@ -610,6 +636,13 @@ function LocalAlertsView() {
 
         {/* Rules */}
         {activeTab === 'rules' && (
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => go(createTemplateUrl('prometheus-rule', selectedNamespace !== '*' ? selectedNamespace : 'default'), 'Create PrometheusRule')}>
+              <Plus className="w-3.5 h-3.5" /> Create alert rule
+            </Button>
+          </div>
+        )}
+        {activeTab === 'rules' && (
           backendUnavailable ? (
             <LoadError title="Alert rules could not be read from Prometheus" error={alertsError} onRetry={() => { refetchAlerts(); }} />
           ) : filteredRules.length === 0 ? (
@@ -622,10 +655,12 @@ function LocalAlertsView() {
           <Card>
             <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
               {filteredRules.map((rule, idx) => (
-                <div
+                <button
+                  type="button"
                   key={idx}
-                  className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/30 cursor-pointer"
-                  onClick={() => copyToClipboard(rule.query, 'PromQL copied')}
+                  aria-label={`Rule ${rule.name}`}
+                  className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/30"
+                  onClick={() => setSelectedRule(rule)}
                 >
                   {rule.alertCount > 0 ? <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" /> : <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />}
                   <div className="flex-1 min-w-0">
@@ -636,7 +671,7 @@ function LocalAlertsView() {
                     <div className="text-xs text-slate-500 font-mono mt-0.5 truncate">{rule.query}</div>
                   </div>
                   {rule.alertCount > 0 && <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{rule.alertCount} firing</span>}
-                </div>
+                </button>
               ))}
             </div>
           </Card>
@@ -665,7 +700,7 @@ function LocalAlertsView() {
               <Card>
                 <div className="px-4 py-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-200">New Silence</h3>
+                    <h3 className="text-sm font-semibold text-slate-200">{silenceForm.id ? 'Edit Silence' : 'New Silence'}</h3>
                     <button onClick={resetSilenceForm} className="text-slate-400 hover:text-slate-200" aria-label="Close">
                       <X className="w-4 h-4" />
                     </button>
@@ -789,10 +824,10 @@ function LocalAlertsView() {
                     </button>
                     <button
                       onClick={createSilence}
-                      disabled={isSubmitting}
+                      disabled={saveSilence.running}
                       className="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isSubmitting ? 'Creating...' : 'Create Silence'}
+                      {silenceForm.id ? 'Update Silence' : 'Create Silence'}
                     </button>
                   </div>
                 </div>
@@ -802,14 +837,24 @@ function LocalAlertsView() {
             {/* Active Silences */}
             {silencesUnavailable ? (
               <LoadError title="Silences could not be read from Alertmanager" error={silencesError} onRetry={() => { refetchSilences(); }} />
-            ) : activeSilences.length === 0 && !showSilenceForm ? (
+            ) : (
+              <div className="flex gap-1 bg-slate-900 rounded-lg p-1 w-fit" role="tablist" aria-label="Silence state">
+                {(['active', 'pending', 'expired'] as const).map((st) => (
+                  <button key={st} role="tab" aria-selected={silenceStateFilter === st} onClick={() => setSilenceStateFilter(st)}
+                    className={cn('px-3 py-1.5 text-xs rounded-md capitalize', silenceStateFilter === st ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+                    {st} ({silences.filter((x) => x.status.state === st).length})
+                  </button>
+                ))}
+              </div>
+            )}
+            {silencesUnavailable ? null : shownSilences.length === 0 && !showSilenceForm ? (
               <EmptyState
                 icon={<BellOff className="w-8 h-8" />}
-                title="No active silences"
+                title={`No ${silenceStateFilter} silences`}
                 description="Silences temporarily mute alerts. Create one to suppress a noisy alert during maintenance."
               />
             ) : (
-              activeSilences.map((silence) => (
+              shownSilences.map((silence) => (
                 <Card key={silence.id}>
                   <div className="px-4 py-3 flex items-start gap-3">
                     <VolumeX className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
@@ -827,16 +872,20 @@ function LocalAlertsView() {
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500">
                         <span>By: {silence.createdBy}</span>
-                        <span>Ends: {new Date(silence.endsAt).toLocaleString()}</span>
+                        {silence.status.state === 'pending' && <span>Starts: {new Date(silence.startsAt).toLocaleString()}</span>}
+                        <span>{silence.status.state === 'expired' ? 'Ended' : 'Ends'}: {new Date(silence.endsAt).toLocaleString()}</span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setConfirmExpire(silence.id)}
-                      className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm flex items-center gap-1.5 shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Expire
-                    </button>
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button size="sm" variant="secondary" onClick={() => openSilenceForEdit(silence)} aria-label={`${silence.status.state === 'expired' ? 'Recreate' : 'Edit'} silence ${silence.comment}`}>
+                        {silence.status.state === 'expired' ? 'Recreate' : 'Edit'}
+                      </Button>
+                      {silence.status.state !== 'expired' && (
+                        <Button size="sm" variant="danger" onClick={() => expire.open(silence)} aria-label={`Expire silence ${silence.comment}`}>
+                          <Trash2 className="w-3.5 h-3.5" /> Expire
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))
@@ -846,14 +895,34 @@ function LocalAlertsView() {
 
         {/* Expire Confirmation Dialog */}
         <ConfirmDialog
-          open={!!confirmExpire}
-          onClose={() => setConfirmExpire(null)}
-          title="Expire Silence"
-          description="Are you sure you want to expire this silence? Alerts matching this silence will start firing again."
+          open={!!expire.pending}
+          onClose={expire.close}
+          title="Expire silence?"
+          description={expire.pending ? `Ends the silence "${expire.pending.target.comment}" now (${describeMatchers(expire.pending.target.matchers)}). Alerts it mutes start notifying again.` : ''}
           confirmLabel="Expire"
           variant="danger"
-          onConfirm={() => confirmExpire && expireSilence(confirmExpire)}
-        />
+          loading={expire.running}
+          onConfirm={confirmExpireSilence}
+        >
+          {expire.error && <LoadError className="mt-3" title="The silence was not expired" error={expire.error} />}
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={!!saveSilence.pending}
+          onClose={saveSilence.close}
+          title={saveSilence.pending?.target.id ? 'Update silence?' : 'Create silence?'}
+          description={saveSilence.pending ? `${saveSilence.pending.target.id ? 'Replaces the existing silence on' : 'Adds a silence to'} Alertmanager that mutes every alert matching ${describeMatchers(saveSilence.pending.target.matchers)} from ${new Date(saveSilence.pending.target.startsAt).toLocaleString()} until ${new Date(saveSilence.pending.target.endsAt).toLocaleString()}.` : ''}
+          confirmLabel={saveSilence.pending?.target.id ? 'Update' : 'Create'}
+          variant="warning"
+          loading={saveSilence.running}
+          onConfirm={confirmSaveSilence}
+        >
+          {saveSilence.error && <LoadError className="mt-3" title="The silence was not saved" error={saveSilence.error} />}
+        </ConfirmDialog>
+
+        {selectedRule && (
+          <RuleDetailDrawer rule={selectedRule} onClose={() => setSelectedRule(null)} go={go} onSilence={openSilenceFormForAlert} />
+        )}
       </div>
     </div>
   );

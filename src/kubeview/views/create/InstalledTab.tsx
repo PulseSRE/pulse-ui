@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import {
   Package, Search, Folder, GitBranch, Image, Box, Database,
@@ -8,10 +7,9 @@ import {
 import { useUIStore } from '../../store/uiStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
-import { k8sFetch } from '../../engine/query';
 import { LoadError } from '../../components/primitives/LoadError';
-import { useFleetStore } from '../../store/fleetStore';
-import type { Deployment, StatefulSet, Secret } from '../../engine/types';
+import type { Deployment, StatefulSet } from '../../engine/types';
+import { useHelmReleases } from './HelmReleases';
 import { Card } from '../../components/primitives/Card';
 
 /** OLM Subscription — not yet in engine/types, so defined locally. */
@@ -22,30 +20,6 @@ interface Subscription {
   spec?: { name?: string; channel?: string; [key: string]: unknown };
   status?: { installedCSV?: string; state?: string; [key: string]: unknown };
   [key: string]: unknown;
-}
-
-interface HelmReleaseRow {
-  name: string;
-  namespace: string;
-  version: string;
-  status: string;
-}
-
-/** One row per release (namespace + name), from its highest revision. */
-export function latestHelmRevisions(secrets: Secret[]): HelmReleaseRow[] {
-  const byRelease = new Map<string, HelmReleaseRow>();
-  for (const s of secrets) {
-    const labels = s.metadata.labels || {};
-    const name = labels['name'] || s.metadata.name;
-    const namespace = s.metadata.namespace || '';
-    const version = labels['version'] || '1';
-    const key = `${namespace}/${name}`;
-    const current = byRelease.get(key);
-    if (!current || Number(version) > Number(current.version)) {
-      byRelease.set(key, { name, namespace, version, status: labels['status'] || 'unknown' });
-    }
-  }
-  return [...byRelease.values()].sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name));
 }
 
 export function InstalledTab() {
@@ -61,27 +35,9 @@ export function InstalledTab() {
     namespace: nsFilter,
   });
 
-  // Fetch Helm Releases (secrets with owner=helm label). Helm keeps one
-  // secret per revision; the release is its highest revision. In
-  // all-namespaces mode this lists every namespace — it used to read only
-  // `default`, and to keep whichever revision happened to come first.
-  const clusterId = useFleetStore((s) => s.activeClusterId);
-  // Not ['helm', 'releases', ...]: HelmTab caches a different shape there,
-  // and the two used to overwrite each other's data.
-  const { data: helmReleases = [], error: helmError } = useQuery({
-    queryKey: ['helm', 'installed-releases', clusterId, nsFilter ?? '*'],
-    queryFn: async () => {
-      const path = nsFilter
-        ? `/api/v1/namespaces/${nsFilter}/secrets?labelSelector=owner%3Dhelm`
-        : '/api/v1/secrets?labelSelector=owner%3Dhelm';
-      const res = await k8sFetch(clusterId, path);
-      if (!res.ok) throw new Error(`Helm releases could not be listed (${res.status})`);
-      const data = await res.json();
-      return latestHelmRevisions(data.items || []);
-    },
-    refetchInterval: 30000,
-    retry: false,
-  });
+  // Helm releases are listed once, with their actions, on the Helm Charts
+  // tab; this section only counts them (same query, same cache entry).
+  const { data: helmReleases = [], error: helmError } = useHelmReleases(nsFilter);
 
   // Fetch Deployments
   const { data: deployments = [] } = useK8sListWatch({
@@ -114,9 +70,7 @@ export function InstalledTab() {
     : userSubscriptions;
 
   const filteredHelmReleases = q
-    ? helmReleases.filter((r: HelmReleaseRow) =>
-        r.name?.toLowerCase().includes(q)
-      )
+    ? helmReleases.filter((r) => r.name.toLowerCase().includes(q))
     : helmReleases;
 
   const filteredDeployments = q
@@ -230,44 +184,22 @@ export function InstalledTab() {
             Helm Releases
             <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredHelmReleases.length}</span>
           </h3>
+          <button
+            onClick={() => go('/create/v1~pods?tab=helm', 'Helm Charts')}
+            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+          >
+            Manage releases <ArrowRight className="w-3 h-3" />
+          </button>
         </div>
         {helmError ? (
           <LoadError title="Helm releases could not be listed" error={helmError} />
         ) : filteredHelmReleases.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-4">No Helm releases installed</p>
         ) : (
-          <div className="space-y-2">
-            {filteredHelmReleases.slice(0, 5).map((release: HelmReleaseRow) => (
-              <div
-                key={`${release.namespace}/${release.name}`}
-                className="flex items-center justify-between p-3 bg-slate-800/50 rounded-sm border border-slate-700"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-100">{release.name}</div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Folder className="w-3 h-3" />
-                      {release.namespace}
-                    </span>
-                    <span className="text-slate-500">v{release.version}</span>
-                  </div>
-                </div>
-                <span className={cn(
-                  'text-xs px-2 py-1 rounded-sm',
-                  release.status === 'deployed'
-                    ? 'bg-green-900/50 text-green-300 border border-green-800'
-                    : 'bg-yellow-900/50 text-yellow-300 border border-yellow-800'
-                )}>
-                  {release.status}
-                </span>
-              </div>
-            ))}
-            {filteredHelmReleases.length > 5 && (
-              <p className="text-xs text-slate-500 text-center pt-2">
-                +{filteredHelmReleases.length - 5} more
-              </p>
-            )}
-          </div>
+          <p className="text-xs text-slate-400">
+            {filteredHelmReleases.map((r) => `${r.namespace}/${r.name}`).slice(0, 5).join(', ')}
+            {filteredHelmReleases.length > 5 ? ` and ${filteredHelmReleases.length - 5} more` : ''}
+          </p>
         )}
       </Card>
 

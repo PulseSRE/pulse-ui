@@ -7,6 +7,20 @@ Release entries are historical records. Counts, timings, security scans, and fea
 ### CI
 - `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
 
+### Added
+- Admin and operations actions (functionality review, Wave 7b). Every one confirms with exactly what will happen, is disabled without the RBAC permission (SelfSubjectAccessReview), is pinned to the cluster it was opened on (refused with a reason if the active cluster changed), and shows failures in its dialog:
+  - Certificate signing requests: Admin › Certificate requests lists CSRs (requester, signer, usages, age, status) with Approve / Deny on the approval subresource and bulk approval of kubelet-serving CSRs from an explicit list; Compute shows a banner when any are pending
+  - Certificates: links to the owning cert-manager Certificate, service-ca Service and Routes; Rotate for service-ca serving certificates (deletes the secret so service-ca re-issues it); the load error has Retry
+  - Operators: install reuses the namespace's OperatorGroup (no more TooManyOperatorGroups), takes the install mode from the CSV's installModes and refuses incompatible groups with a reason; Automatic/Manual approval at install; installed operators show "upgrade available", can change channel, switch approval and approve a pending InstallPlan; the operator detail is in the URL (`?pkg=`) so Back works; Admin ClusterOperators and the OLM catalog link to each other
+  - Helm: one releases list (Helm Charts tab; Installed links to it) with "rev N", chart version, values view, upgrade (chart version + values), rollback to a revision and uninstall — all run by the existing digest-pinned helm runner Job, values passed in a mounted Secret. Helm install takes a chart version and values; Helm install and Quick Deploy require a namespace in all-namespaces mode instead of using `default`
+  - Alerts: silences are listed by state (active, pending, expired) with edit (replace) / recreate and expire; Pending and Silenced stats filter the list to what they count; rules open a detail drawer (expression, `for`, labels, annotations, defining PrometheusRule with Edit YAML, Silence, Investigate with Pulse); "Create alert rule" opens a PrometheusRule template
+  - Identity: users, groups, service accounts and cluster-admin subjects open their detail pages; create/delete groups and add/remove members (with resourceVersion, so concurrent edits are refused); grant a RoleBinding or ClusterRoleBinding (role, subject, namespace) and revoke (delete) bindings, listing every subject that loses access; a "Who can…?" SubjectAccessReview check
+  - One definition of "too many cluster-admins" (more than 3 non-system subjects on non-system bindings) shared by Security and Identity; a failing check is a warning
+  - Security: "+ default-deny" on namespaces without a NetworkPolicy opens a prefilled policy; cluster-admin bindings can be removed
+  - Quotas: inline edit of ResourceQuota hard limits (merge patch with resourceVersion); unprotected namespaces open prefilled ResourceQuota / LimitRange creates
+  - SLO: the service is picked from the cluster's Deployments, with a note when the name exists in several namespaces (the agent matches `deployment=` without a namespace); SLOs can be edited
+  - `/create/<gvr>?template=<id>&namespace=<ns>` opens reviewed templates (default-deny NetworkPolicy, ResourceQuota, LimitRange, PrometheusRule)
+
 ### Fixed
 - Links and routes (functionality review, Wave 1):
   - An unknown address shows a "Page not found" page naming the path, with Back and Go to Pulse, instead of silently redirecting to /pulse. Restored tabs for pages that no longer exist (`/welcome`, `/incidents`) are dropped

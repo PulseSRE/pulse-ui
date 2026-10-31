@@ -8,11 +8,14 @@ import { useFleetStore } from '../../store/fleetStore';
 import DeployProgress from '../../components/DeployProgress';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { FormField } from './FormField';
-import type { Secret } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { showErrorToast } from '../../engine/errorToast';
-import { getHelmInstallRuntimeConfig } from '../../config/runtime';
-import { buildHelmInstallResources } from './helmInstall';
+import { load } from 'js-yaml';
+import { runHelmAction } from './helmRunner';
+import { HelmReleases } from './HelmReleases';
+import { NamespacePicker, useInitialNamespace, isNamespaceName } from './NamespacePicker';
+import { usePinnedAction } from '../../hooks/usePinnedAction';
+import { LoadError } from '../../components/primitives/LoadError';
 
 /** HelmChartRepository CRD — not yet in engine/types, defined locally. */
 interface HelmChartRepository {
@@ -33,6 +36,8 @@ const DEFAULT_REPO_URL = 'https://charts.openshift.io';
 interface HelmChart {
   name: string;
   version: string;
+  /** Every version in the repo index, newest first (as the index lists them). */
+  versions: string[];
   appVersion: string;
   description: string;
   icon?: string;
@@ -48,90 +53,55 @@ interface HelmRepo {
   chartCount: number;
 }
 
-async function applyResource(clusterId: string, path: string, resource: unknown): Promise<void> {
-  const res = await k8sFetch(clusterId, path, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/apply-patch+yaml' },
-    body: JSON.stringify(resource),
-  });
-  if (res.ok) return;
-  const err = await res.json().catch(() => ({ message: res.statusText }));
-  throw new Error(err.message || res.statusText);
+export function parseHelmIndex(text: string, repoName: string, repoUrl: string): HelmChart[] {
+  // Helm index.yaml: `entries:` maps chart name -> list of versions (newest
+  // first). The first entry describes the chart; every entry adds a version.
+  const charts: HelmChart[] = [];
+  let current: HelmChart | null = null;
+  let entryIndex = -1;
+  let entryIndent = -1; // indent of this chart's `- ` list items
+  let inEntries = false;
+  const finish = () => { if (current?.name) charts.push(current); };
+  for (const line of text.split('\n')) {
+    if (/^entries:/.test(line)) { inEntries = true; continue; }
+    if (!inEntries) continue;
+    if (/^\S/.test(line)) { inEntries = false; continue; }
+    const top = line.match(/^  ([a-zA-Z0-9_.-]+):\s*$/);
+    if (top) {
+      finish();
+      current = { name: '', version: '', versions: [], appVersion: '', description: '', repoName, repoUrl };
+      entryIndex = -1;
+      entryIndent = -1;
+      continue;
+    }
+    if (!current) continue;
+    const item = line.match(/^( *)- (?:(\w+):\s*(.*))?$/);
+    if (item && (entryIndent === -1 || item[1].length === entryIndent)) {
+      entryIndent = item[1].length;
+      entryIndex++;
+      if (item[2]) applyField(current, entryIndex, item[2], item[3]);
+      continue;
+    }
+    // Only the entry's own fields (two deeper than its `- `), not nested ones such as maintainers.
+    const field = line.match(/^( *)(\w+):\s*(.+)$/);
+    if (field && entryIndent >= 0 && field[1].length === entryIndent + 2) applyField(current, entryIndex, field[2], field[3]);
+  }
+  finish();
+  return charts;
 }
 
-function parseHelmIndex(text: string, repoName: string, repoUrl: string): HelmChart[] {
-  const charts: HelmChart[] = [];
-  const seen = new Set<string>();
-
-  // Helm index.yaml has entries: map of chart name -> array of versions
-  // Each version block has: name, version, appVersion, description, icon, etc.
-  // We split by top-level chart entries and parse each
-  const lines = text.split('\n');
-  let currentChart: Partial<HelmChart> = {};
-  let inEntries = false;
-  for (const line of lines) {
-    if (line.match(/^entries:/)) {
-      inEntries = true;
-      continue;
-    }
-    if (!inEntries) continue;
-
-    // Top-level chart name (2-space indent under entries)
-    const topMatch = line.match(/^  ([a-zA-Z0-9_.-]+):/);
-    if (topMatch) {
-      // Save previous if exists
-      if (currentChart.name && !seen.has(currentChart.name)) {
-        seen.add(currentChart.name);
-        charts.push({
-          name: currentChart.name,
-          version: currentChart.version || '',
-          appVersion: currentChart.appVersion || '',
-          description: currentChart.description || '',
-          icon: currentChart.icon,
-          repoName,
-          repoUrl,
-        });
-      }
-      currentChart = {};
-      continue;
-    }
-
-    // Version entry start (4-space indent, starts with -)
-    if (line.match(/^    - /)) {
-      // If we already have a chart from this entry, skip subsequent versions
-      if (currentChart.name && seen.has(currentChart.name)) continue;
-      // Reset for new version entry
-      if (!currentChart.name) currentChart = {};
-      continue;
-    }
-
-    // Fields within a version entry (6+ space indent)
-    const fieldMatch = line.match(/^\s{6,}(\w+):\s*(.+)/);
-    if (fieldMatch && !seen.has(currentChart.name || '')) {
-      const [, key, rawVal] = fieldMatch;
-      const val = rawVal.replace(/^['"]|['"]$/g, '').trim();
-      if (key === 'name' && !currentChart.name) currentChart.name = val;
-      else if (key === 'version' && !currentChart.version) currentChart.version = val;
-      else if (key === 'appVersion' && !currentChart.appVersion) currentChart.appVersion = val;
-      else if (key === 'description' && !currentChart.description) currentChart.description = val;
-      else if (key === 'icon' && !currentChart.icon) currentChart.icon = val;
-    }
+function applyField(chart: HelmChart, entryIndex: number, key: string, rawVal: string) {
+  const val = rawVal.replace(/^['"]|['"]$/g, '').trim();
+  if (key === 'version') {
+    if (!chart.versions.includes(val)) chart.versions.push(val);
+    if (entryIndex === 0 && !chart.version) chart.version = val;
+    return;
   }
-
-  // Don't forget last chart
-  if (currentChart.name && !seen.has(currentChart.name)) {
-    charts.push({
-      name: currentChart.name,
-      version: currentChart.version || '',
-      appVersion: currentChart.appVersion || '',
-      description: currentChart.description || '',
-      icon: currentChart.icon,
-      repoName,
-      repoUrl,
-    });
-  }
-
-  return charts;
+  if (entryIndex !== 0) return;
+  if (key === 'name' && !chart.name) chart.name = val;
+  else if (key === 'appVersion' && !chart.appVersion) chart.appVersion = val;
+  else if (key === 'description' && !chart.description) chart.description = val;
+  else if (key === 'icon' && !chart.icon) chart.icon = val;
 }
 
 export function HelmTab() {
@@ -141,8 +111,13 @@ export function HelmTab() {
   // Releases, repos and installs all belong to the cluster on screen.
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const [search, setSearch] = useState('');
-  const [installing, setInstalling] = useState<string | null>(null);
   const [releaseName, setReleaseName] = useState('');
+  const initialNs = useInitialNamespace();
+  const [installNs, setInstallNs] = useState(initialNs);
+  const [installVersion, setInstallVersion] = useState('');
+  const [installValues, setInstallValues] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const install = usePinnedAction<{ chart: HelmChart; releaseName: string; ns: string; version: string; values: string }>();
   const [selectedChart, setSelectedChart] = useState<HelmChart | null>(null);
   const [installedJob, setInstalledJob] = useState<{ name: string; ns: string; clusterId: string } | null>(null);
   const [showAddRepo, setShowAddRepo] = useState(false);
@@ -151,23 +126,7 @@ export function HelmTab() {
   const [addingRepo, setAddingRepo] = useState(false);
   const [deleteRepo, setDeleteRepo] = useState<string | null>(null);
 
-  const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
-
-  // Fetch Helm releases (secrets with owner=helm)
-  const { data: helmReleases = [] } = useQuery({
-    queryKey: ['helm', 'releases', clusterId, ns],
-    queryFn: async () => {
-      const res = await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.items || []).map((s: Secret) => {
-        const name = s.metadata.labels?.['name'] || s.metadata.name;
-        const version = s.metadata.labels?.['version'] || '1';
-        return { name, version, status: s.metadata.labels?.['status'] || 'unknown' };
-      }).filter((r: { name: string }, i: number, arr: { name: string }[]) => arr.findIndex((x) => x.name === r.name) === i);
-    },
-    refetchInterval: 30000,
-  });
+  const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Fetch chart repos from OpenShift HelmChartRepository CRDs
   const { data: chartRepoCRDs = [] } = useQuery({
@@ -212,6 +171,7 @@ export function HelmTab() {
               allCharts.push({
                 name: chart.name,
                 version: chart.version || '',
+                versions: chart.version ? [chart.version] : [],
                 appVersion: chart.appVersion || '',
                 description: chart.description || '',
                 icon: chart.icon,
@@ -250,66 +210,51 @@ export function HelmTab() {
     ? chartCatalog.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase()))
     : chartCatalog;
 
-  const handleInstall = async () => {
-    if (!selectedChart || !releaseName.trim()) return;
+  // Validate the form, then confirm with exactly what will run.
+  const requestInstall = () => {
+    if (!selectedChart) return;
     const sanitizedName = releaseName.trim();
     if (!/^[a-z0-9][a-z0-9-]{0,52}$/.test(sanitizedName)) {
-      addToast({ type: 'error', title: 'Invalid release name', detail: 'Must start with a lowercase letter or number, contain only lowercase letters, numbers, and hyphens, and be at most 53 characters.' });
+      setFormError('Release name must start with a lowercase letter or number, contain only lowercase letters, numbers, and hyphens, and be at most 53 characters.');
+      return;
+    }
+    if (!isNamespaceName(installNs)) {
+      setFormError('Choose the namespace to install into.');
       return;
     }
     const repoUrl = selectedChart.repoUrl || DEFAULT_REPO_URL;
     if (!/^https?:\/\/.+/.test(repoUrl)) {
-      addToast({ type: 'error', title: 'Invalid chart repo URL', detail: 'Repository URL must start with http:// or https://' });
+      setFormError('Repository URL must start with http:// or https://');
       return;
     }
-    setInstalling(selectedChart.name);
-    try {
-      const runtimeConfig = getHelmInstallRuntimeConfig();
-      const resources = buildHelmInstallResources({
-        namespace: ns,
-        releaseName: sanitizedName,
-        chartName: selectedChart.name,
-        repoUrl,
-        runnerImage: runtimeConfig.runnerImage,
-        serviceAccountName: runtimeConfig.serviceAccountName,
-      });
-
-      await applyResource(
-        clusterId,
-        `/api/v1/namespaces/${ns}/serviceaccounts/${resources.serviceAccount.metadata.name}?fieldManager=openshiftpulse&force=true`,
-        resources.serviceAccount,
-      );
-      await applyResource(
-        clusterId,
-        `/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/roles/${resources.role.metadata.name}?fieldManager=openshiftpulse&force=true`,
-        resources.role,
-      );
-      await applyResource(
-        clusterId,
-        `/apis/rbac.authorization.k8s.io/v1/namespaces/${ns}/rolebindings/${resources.roleBinding.metadata.name}?fieldManager=openshiftpulse&force=true`,
-        resources.roleBinding,
-      );
-
-      const res = await k8sFetch(clusterId, `/apis/batch/v1/namespaces/${ns}/jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(resources.job),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: res.statusText }));
-        throw new Error(err.message);
+    if (installValues.trim()) {
+      try {
+        const parsed = load(installValues);
+        if (parsed !== null && typeof parsed !== 'object') throw new Error('Values must be a YAML mapping');
+      } catch (e) {
+        setFormError(`Values are not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
+        return;
       }
-
-      addToast({ type: 'success', title: `Helm install started`, detail: `${selectedChart.name} as "${sanitizedName}" in ${ns}` });
-      setInstalledJob({ name: `helm-install-${sanitizedName}`, ns, clusterId });
-      setSelectedChart(null);
-      setReleaseName('');
-    } catch (err) {
-      showErrorToast(err, 'Helm install failed');
     }
-    setInstalling(null);
+    setFormError(null);
+    install.open({ chart: selectedChart, releaseName: sanitizedName, ns: installNs, version: installVersion || selectedChart.version, values: installValues });
   };
+
+  const confirmInstall = () => install.run('Installing this chart', async (t, pinnedCluster) => {
+    const jobName = await runHelmAction(pinnedCluster, t.ns, {
+      action: 'install',
+      releaseName: t.releaseName,
+      chartName: t.chart.name,
+      repoUrl: t.chart.repoUrl || DEFAULT_REPO_URL,
+      version: t.version || undefined,
+    }, t.values);
+    addToast({ type: 'success', title: 'Helm install started', detail: `${t.chart.name} as "${t.releaseName}" in ${t.ns}` });
+    setInstalledJob({ name: jobName, ns: t.ns, clusterId: pinnedCluster });
+    setSelectedChart(null);
+    setReleaseName('');
+    setInstallValues('');
+    queryClient.invalidateQueries({ queryKey: ['helm'] });
+  });
 
   const handleAddRepo = async () => {
     if (!newRepoName.trim() || !newRepoUrl.trim()) return;
@@ -435,24 +380,10 @@ export function HelmTab() {
         </div>
       </Card>
 
-      {helmReleases.length > 0 && (
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold text-slate-100 mb-3 flex items-center gap-2">
-            <Ship className="w-4 h-4 text-blue-400" />
-            Installed Releases ({helmReleases.length})
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {helmReleases.map((r: { name?: string; version?: string; status?: string }, i: number) => (
-              <span key={i} className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 rounded-sm border border-slate-700 flex items-center gap-2">
-                <Ship className="w-3 h-3 text-blue-400" />
-                {r.name}
-                <span className="text-slate-500">v{r.version}</span>
-                <span className={cn('text-xs px-1 py-0.5 rounded-sm', r.status === 'deployed' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{r.status}</span>
-              </span>
-            ))}
-          </div>
-        </Card>
-      )}
+      <HelmReleases
+        nsFilter={nsFilter}
+        charts={chartCatalog.map((c) => ({ name: c.name, repoName: c.repoName, repoUrl: c.repoUrl, versions: c.versions }))}
+      />
 
       {/* Search */}
       <div className="relative">
@@ -460,26 +391,50 @@ export function HelmTab() {
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search charts..." className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
       </div>
 
-      {/* Install dialog */}
+      {/* Install form */}
       {selectedChart && (
         <div className="bg-blue-950/30 rounded-lg border border-blue-800 p-4 space-y-3">
           <h3 className="text-sm font-semibold text-blue-200">Install {selectedChart.name}</h3>
           <p className="text-xs text-slate-400">{selectedChart.description}</p>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>From: <span className="text-slate-300">{selectedChart.repoName}</span></span>
-            <span>Version: <span className="text-slate-300 font-mono">{selectedChart.version}</span></span>
+          <div className="text-xs text-slate-500">From: <span className="text-slate-300">{selectedChart.repoName}</span></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <FormField label="Release Name" required value={releaseName} onChange={setReleaseName} placeholder={`my-${selectedChart.name}`} />
+            <NamespacePicker value={installNs} onChange={setInstallNs} />
+            <label className="block text-xs text-slate-400">
+              Chart version
+              <select aria-label="Chart version" value={installVersion || selectedChart.version} onChange={(e) => setInstallVersion(e.target.value)}
+                className="mt-1 w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200">
+                {(selectedChart.versions.length ? selectedChart.versions : [selectedChart.version]).map((v) => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </label>
           </div>
-          <FormField label="Release Name" required value={releaseName} onChange={setReleaseName} placeholder={`my-${selectedChart.name}`} />
+          <label className="block text-xs text-slate-400">
+            Values (YAML, optional — the chart's defaults apply to anything not set here)
+            <textarea aria-label="Values" value={installValues} onChange={(e) => setInstallValues(e.target.value)} rows={5}
+              className="mt-1 w-full px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
+          </label>
+          {formError && <LoadError title="Cannot install yet" error={formError} />}
           <div className="flex items-center gap-2">
-            <button onClick={handleInstall} disabled={!!installing || !releaseName.trim()} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
-              {installing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ship className="w-4 h-4" />}
-              {installing ? 'Installing...' : 'Install'}
+            <button onClick={requestInstall} disabled={!releaseName.trim() || !installNs} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
+              <Ship className="w-4 h-4" /> Install
             </button>
-            <button onClick={() => setSelectedChart(null)} className="px-3 py-2 text-sm text-slate-400 hover:text-slate-200">Cancel</button>
-            <span className="text-xs text-slate-500">Namespace: <span className="text-slate-300">{ns}</span></span>
+            <button onClick={() => { setSelectedChart(null); setFormError(null); }} className="px-3 py-2 text-sm text-slate-400 hover:text-slate-200">Cancel</button>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!install.pending}
+        onClose={install.close}
+        onConfirm={confirmInstall}
+        title={install.pending ? `Install ${install.pending.target.chart.name} in ${install.pending.target.ns}?` : ''}
+        description={install.pending ? `Runs "helm install ${install.pending.target.releaseName} ${install.pending.target.chart.name} --version ${install.pending.target.version}" from ${install.pending.target.chart.repoName ?? install.pending.target.chart.repoUrl} as a Job in ${install.pending.target.ns}${install.pending.target.values.trim() ? ', with your values (stored in a Secret the Job mounts)' : ' with the chart\'s default values'}. The Job's ServiceAccount gets a Role in ${install.pending.target.ns} to create the chart's resources.` : ''}
+        confirmLabel="Install"
+        variant="warning"
+        loading={install.running}
+      >
+        {install.error && <LoadError className="mt-3" title="The install was not started" error={install.error} />}
+      </ConfirmDialog>
 
       {/* Chart catalog */}
       <div className="flex items-center justify-between mb-2">
@@ -511,7 +466,7 @@ export function HelmTab() {
           </div>
         )}
         {filteredCharts.map((chart) => (
-          <button key={`${chart.repoName || 'default'}-${chart.name}`} onClick={() => { setSelectedChart(chart); setReleaseName(`my-${chart.name}`); }}
+          <button key={`${chart.repoName || 'default'}-${chart.name}`} onClick={() => { setSelectedChart(chart); setReleaseName(`my-${chart.name}`); setInstallVersion(chart.version); setFormError(null); }}
             className="flex items-start gap-3 p-4 bg-slate-900 rounded-lg border border-slate-800 hover:border-blue-600 transition-colors text-left">
             {chart.icon ? (
               <img src={chart.icon} alt="" className="w-8 h-8 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
