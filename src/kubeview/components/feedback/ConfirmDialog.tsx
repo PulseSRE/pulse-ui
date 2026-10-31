@@ -11,6 +11,8 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   variant?: 'danger' | 'warning';
   loading?: boolean;
+  /** Keeps the confirm button disabled, e.g. until a required acknowledgement is ticked. */
+  confirmDisabled?: boolean;
   children?: React.ReactNode;
 }
 
@@ -23,6 +25,7 @@ export function ConfirmDialog({
   confirmLabel = 'Delete',
   variant = 'danger',
   loading = false,
+  confirmDisabled = false,
   children,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -143,7 +146,7 @@ export function ConfirmDialog({
           <button
             ref={confirmButtonRef}
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
             className={cn(
               'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50',
               variant === 'danger'

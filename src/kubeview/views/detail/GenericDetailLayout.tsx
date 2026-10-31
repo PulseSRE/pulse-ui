@@ -8,7 +8,7 @@ import { askPulse } from '../../engine/askPulse';
 import { Card } from '../../components/primitives/Card';
 import { LabelsSection, AnnotationsSection, DetailSection } from './MetadataSections';
 import { IncidentContext } from './IncidentContext';
-import { RollbackPanel } from './RollbackPanel';
+import { RolloutHistory, isRolloutWorkload } from './RolloutHistory';
 import { WorkloadAudit } from './WorkloadAudit';
 import DataEditor from '../../components/DataEditor';
 import { useFleetStore } from '../../store/fleetStore';
@@ -139,9 +139,9 @@ export function GenericDetailLayout({
           <IncidentContext resource={resource} managedPods={managedPods} events={events} namespace={namespace} go={go} />
         )}
 
-        {/* Deployment Rollback History */}
-        {resource.kind === 'Deployment' && namespace && (
-          <RollbackPanel resource={resource} namespace={namespace} />
+        {/* Revision timeline and rollback (Deployment, StatefulSet, DaemonSet) */}
+        {isRolloutWorkload(resource.kind) && namespace && (
+          <RolloutHistory resource={resource} namespace={namespace} />
         )}
 
         {/* Workload Health Audit */}

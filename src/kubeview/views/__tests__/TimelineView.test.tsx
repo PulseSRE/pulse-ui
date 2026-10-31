@@ -28,10 +28,13 @@ const _mockTimelineData = {
   counts: { alert: 0, event: 0, rollout: 0, config: 0 } as Record<string, number>,
   isLoading: false,
   failedSources: [] as string[],
+  requestedSources: 4,
+  refetch: vi.fn(),
 };
 
 vi.mock('../../hooks/useIncidentTimeline', () => ({
   useIncidentTimeline: () => _mockTimelineData,
+  TIME_RANGE_MS: { '15m': 900000, '1h': 3600000, '6h': 21600000, '24h': 86400000, '3d': 259200000, '7d': 604800000 },
 }));
 
 import TimelineView from '../TimelineView';
@@ -48,6 +51,43 @@ describe('TimelineView', () => {
     _mockTimelineData.counts = { alert: 0, event: 0, rollout: 0, config: 0 };
     _mockTimelineData.isLoading = false;
     _mockTimelineData.failedSources = [];
+    _mockTimelineData.requestedSources = 4;
+    _mockTimelineData.refetch = vi.fn();
+  });
+
+  it('when every requested source failed it shows an error with retry, not an empty timeline', () => {
+    _mockTimelineData.failedSources = ['alerts (Prometheus)', 'events', 'rollouts', 'config changes'];
+    renderView();
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('The timeline could not be loaded');
+    expect(screen.queryByText('No timeline entries found')).toBeNull();
+    expect(screen.queryByText('Nothing found in the sources that could be read')).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Timeline density' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(_mockTimelineData.refetch).toHaveBeenCalled();
+  });
+
+  it('a partial failure can be retried too', () => {
+    _mockTimelineData.failedSources = ['events'];
+    renderView();
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(_mockTimelineData.refetch).toHaveBeenCalled();
+  });
+
+  it('shows per-category density over the selected range', () => {
+    const now = Date.now();
+    _mockTimelineData.entries = [
+      { id: 'a', timestamp: new Date(now - 60_000).toISOString(), category: 'alert', severity: 'critical', title: 'X', detail: '', source: { type: 'prometheus' } },
+      { id: 'b', timestamp: new Date(now - 120_000).toISOString(), category: 'event', severity: 'warning', title: 'Y', detail: '', source: { type: 'k8s-event' } },
+      { id: 'c', timestamp: new Date(now - 180_000).toISOString(), category: 'event', severity: 'warning', title: 'Z', detail: '', source: { type: 'k8s-event' } },
+      // Outside the 6h range: not counted.
+      { id: 'd', timestamp: new Date(now - 7 * 3600_000).toISOString(), category: 'rollout', severity: 'info', title: 'W', detail: '', source: { type: 'replicaset' } },
+    ];
+    renderView();
+    const density = screen.getByRole('list', { name: 'Timeline density' });
+    expect(density.textContent).toContain('Alerts 1');
+    expect(density.textContent).toContain('Events 2');
+    expect(density.textContent).toContain('Rollouts 0');
   });
 
   it('says the timeline is incomplete when Prometheus could not be read', () => {

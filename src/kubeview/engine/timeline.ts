@@ -235,3 +235,70 @@ function mapAlertSeverity(severity: string | undefined): TimelineSeverity {
     default: return 'warning';
   }
 }
+
+/** One Prometheus range series: epoch-second samples. */
+export interface RangeSeries {
+  metric: Record<string, string>;
+  values: Array<[number, string]>;
+}
+
+/**
+ * Alerts that fired and resolved inside the range, from `ALERTS{alertstate="firing"}`
+ * sampled with query_range. Each run of consecutive samples is one firing; a run
+ * that stops before the last sample resolved (the rules API only knows alerts
+ * that are active now, so resolved ones were missing from the timeline).
+ */
+export function resolvedAlertsToTimeline(series: RangeSeries[], endSec: number, stepSec: number): TimelineEntry[] {
+  const entries: TimelineEntry[] = [];
+  for (const s of series || []) {
+    const name = s.metric.alertname || 'Alert';
+    const ns = s.metric.namespace;
+    const times = (s.values || []).map(([t]) => t).sort((a, b) => a - b);
+    let runStart: number | null = null;
+    let prev: number | null = null;
+    const flush = (start: number, last: number) => {
+      // Still firing at the end of the range: the rules API reports it as active.
+      if (last >= endSec - stepSec * 1.5) return;
+      const severity = mapAlertSeverity(s.metric.severity);
+      const minutes = Math.max(1, Math.round((last - start + stepSec) / 60));
+      entries.push({
+        id: `alert-resolved-${name}-${start}-${ns || ''}-${s.metric.pod || s.metric.instance || ''}`,
+        timestamp: new Date(start * 1000).toISOString(),
+        endTimestamp: new Date((last + stepSec) * 1000).toISOString(),
+        category: 'alert',
+        severity,
+        title: `${name} (resolved)`,
+        detail: `Fired for about ${minutes} min, then resolved${ns ? ` · ${ns}` : ''}`,
+        namespace: ns,
+        resource: alertResource(s.metric),
+        correlationKey: ns ? `Alert/${name}/${ns}` : `Alert/${name}`,
+        source: { type: 'prometheus', raw: s.metric },
+      });
+    };
+    for (const t of times) {
+      if (runStart === null) runStart = t;
+      else if (prev !== null && t - prev > stepSec * 1.5) {
+        flush(runStart, prev);
+        runStart = t;
+      }
+      prev = t;
+    }
+    if (runStart !== null && prev !== null) flush(runStart, prev);
+  }
+  return entries;
+}
+
+export const DENSITY_BUCKETS = 48;
+
+/** Counts per category in equal buckets across [start, end] (ms), for the density chart. */
+export function bucketEntries(entries: TimelineEntry[], startMs: number, endMs: number, buckets = DENSITY_BUCKETS) {
+  const width = Math.max(1, (endMs - startMs) / buckets);
+  const rows = Array.from({ length: buckets }, (_, i) => ({ time: Math.round(startMs + i * width), alert: 0, event: 0, rollout: 0, config: 0 }));
+  for (const e of entries) {
+    const t = Date.parse(e.timestamp);
+    if (Number.isNaN(t) || t < startMs || t > endMs) continue;
+    const i = Math.min(buckets - 1, Math.floor((t - startMs) / width));
+    rows[i][e.category]++;
+  }
+  return rows;
+}

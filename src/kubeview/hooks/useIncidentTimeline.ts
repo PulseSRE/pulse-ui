@@ -17,14 +17,15 @@ import {
   configChangesToTimeline,
   correlateEntries,
   filterByTimeRange,
+  resolvedAlertsToTimeline,
 } from '../engine/timeline';
 import { useUIStore } from '../store/uiStore';
 import { useActiveClusterId } from './useClusterBase';
-import { promFetch, metricsAvailableFor } from '../components/metrics/prometheus';
+import { promFetch, metricsAvailableFor, queryRange } from '../components/metrics/prometheus';
 
 export type TimeRange = '15m' | '1h' | '6h' | '24h' | '3d' | '7d';
 
-const TIME_RANGE_MS: Record<TimeRange, number> = {
+export const TIME_RANGE_MS: Record<TimeRange, number> = {
   '15m': 15 * 60 * 1000,
   '1h': 3600 * 1000,
   '6h': 6 * 3600 * 1000,
@@ -40,15 +41,34 @@ interface UseIncidentTimelineOptions {
 }
 
 export function useIncidentTimeline({ timeRange, namespace, categories }: UseIncidentTimelineOptions) {
-  // Events
+  // Events: scoped to the selected namespace and filtered to the range below.
+  // (The API has no time filter; a cluster-wide limit=500 dropped arbitrary
+  // events, often exactly the recent ones.)
   const clusterId = useActiveClusterId();
-  const { data: rawEvents = [], isLoading: eventsLoading, isError: eventsError } = useK8sListWatch<Event>({
-    apiPath: '/api/v1/events?limit=500',
+  const eventsQuery = useK8sListWatch<Event>({
+    apiPath: '/api/v1/events',
+    namespace,
     enabled: categories?.has('event') ?? false,
+  });
+  const { data: rawEvents = [], isLoading: eventsLoading, isError: eventsError } = eventsQuery;
+
+  // Alerts that fired and resolved within the range: ALERTS sampled over it.
+  const rangeSec = Math.round(TIME_RANGE_MS[timeRange] / 1000);
+  const stepSec = Math.max(30, Math.round(rangeSec / 240));
+  const resolvedQuery = useQuery({
+    queryKey: ['timeline', 'alerts-range', timeRange, namespace ?? '', clusterId],
+    queryFn: async () => {
+      const end = Math.floor(Date.now() / 1000);
+      const selector = namespace ? `ALERTS{alertstate="firing",namespace="${namespace.replace(/"/g, '')}"}` : 'ALERTS{alertstate="firing"}';
+      const series = await queryRange(selector, end - rangeSec, end, stepSec, clusterId);
+      return resolvedAlertsToTimeline(series, end, stepSec);
+    },
+    refetchInterval: 60000,
+    enabled: (categories?.has('alert') ?? false) && metricsAvailableFor(clusterId),
   });
 
   // Alerts from Prometheus
-  const { data: alertGroups = [], isLoading: alertsLoading, isError: alertsError } = useQuery({
+  const alertsQuery = useQuery({
     queryKey: ['timeline', 'alerts', clusterId],
     queryFn: async () => {
       const res = await promFetch('/api/v1/rules', clusterId);
@@ -65,13 +85,15 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     // Local cluster only: see components/metrics/prometheus.ts.
     enabled: (categories?.has('alert') ?? false) && metricsAvailableFor(clusterId),
   });
+  const { data: alertGroups = [], isLoading: alertsLoading, isError: alertsError } = alertsQuery;
 
   // ReplicaSets + Deployments for rollouts
-  const { data: replicaSets = [], isLoading: rsLoading, isError: rsError } = useK8sListWatch<ReplicaSet>({
+  const rsQuery = useK8sListWatch<ReplicaSet>({
     apiPath: '/apis/apps/v1/replicasets',
     namespace,
     enabled: categories?.has('rollout'),
   });
+  const { data: replicaSets = [], isLoading: rsLoading, isError: rsError } = rsQuery;
   const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch<Deployment>({
     apiPath: '/apis/apps/v1/deployments',
     namespace,
@@ -79,22 +101,24 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   });
 
   // ClusterVersion + ClusterOperators for config changes
-  const { data: clusterVersion = null, isLoading: cvLoading, isError: cvError } = useQuery({
+  const cvQuery = useQuery({
     queryKey: ['timeline', 'clusterversion', clusterId],
     queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
     staleTime: 60000,
     enabled: categories?.has('config'),
   });
-  const { data: operators = [], isLoading: opsLoading, isError: opsError } = useK8sListWatch<ClusterOperator>({
+  const { data: clusterVersion = null, isLoading: cvLoading, isError: cvError } = cvQuery;
+  const opsQuery = useK8sListWatch<ClusterOperator>({
     apiPath: '/apis/config.openshift.io/v1/clusteroperators',
     enabled: categories?.has('config'),
   });
+  const { data: operators = [], isLoading: opsLoading, isError: opsError } = opsQuery;
 
   const isLoading = eventsLoading || alertsLoading || rsLoading || deploysLoading || cvLoading || opsLoading;
 
   /** Sources that were asked for and could not be read. */
   const failedSources: string[] = [
-    categories?.has('alert') && alertsError ? 'alerts (Prometheus)' : '',
+    categories?.has('alert') && (alertsError || resolvedQuery.isError) ? 'alerts (Prometheus)' : '',
     categories?.has('event') && eventsError ? 'events' : '',
     categories?.has('rollout') && rsError ? 'rollouts' : '',
     categories?.has('config') && (cvError || opsError) ? 'config changes' : '',
@@ -112,6 +136,9 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     }
     if (categories?.has('alert') && alertGroups) {
       all = all.concat(alertsToTimeline(alertGroups || []));
+    }
+    if (categories?.has('alert') && resolvedQuery.data) {
+      all = all.concat(resolvedQuery.data);
     }
     if (categories?.has('rollout')) {
       all = all.concat(rolloutsToTimeline(replicaSets || [], deployments || []));
@@ -139,11 +166,19 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     const groups = correlateEntries(all);
 
     return { entries: all, correlationGroups: groups, counts };
-  }, [rawEvents, alertGroups, replicaSets, deployments, clusterVersion, operators, namespace, timeRange, categoriesKey]);
+  }, [rawEvents, alertGroups, resolvedQuery.data, replicaSets, deployments, clusterVersion, operators, namespace, timeRange, categoriesKey]);
 
   const entries = result?.entries || [];
   const correlationGroups = result?.correlationGroups || [];
   const counts = result?.counts || { alert: 0, event: 0, rollout: 0, config: 0 };
 
-  return { entries, correlationGroups, counts, isLoading, failedSources };
+  /** Number of categories asked for; with failedSources tells "incomplete" from "nothing could be read". */
+  const requestedSources = categories instanceof Set ? categories.size : 0;
+  const refetch = () => {
+    for (const q of [eventsQuery, alertsQuery, resolvedQuery, rsQuery, cvQuery, opsQuery]) {
+      if (q.isError) void q.refetch();
+    }
+  };
+
+  return { entries, correlationGroups, counts, isLoading, failedSources, requestedSources, refetch };
 }
