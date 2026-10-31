@@ -24,7 +24,7 @@ import { useClusterStore } from '../store/clusterStore';
 import { Card } from '../components/primitives/Card';
 import { Badge } from '../components/primitives/Badge';
 import { CapacityTab } from './compute/CapacityTab';
-import { StatCard } from './compute/StatCard';
+import { StatCard } from '../components/primitives/StatCard';
 import { ClusterTypeSummary } from './compute/ClusterTypeSummary';
 import { NodeAlerts } from './compute/NodeAlerts';
 import { MachineManagement } from './compute/MachineManagement';

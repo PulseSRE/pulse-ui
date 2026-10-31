@@ -7,7 +7,7 @@ import {
   fetchTopologySummary, fetchPlanTemplates, fetchPostmortemCount,
   fetchFixHistorySummary, fetchFixStrategies, fetchLearningFeed,
 } from '../../engine/analyticsApi';
-import { StatCard } from './StatCard';
+import { StatCard } from '../../components/primitives/StatCard';
 
 export function OrcaAnalyticsSection() {
   const { data: topology } = useQuery({
@@ -62,27 +62,27 @@ export function OrcaAnalyticsSection() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {topology && (
-          <StatCard
+          <StatCard size="sm"
             label="Resources Tracked"
             value={String(topology.nodes)}
             icon={<Layers className="w-4 h-4 text-cyan-400" />}
           />
         )}
         {topology && (
-          <StatCard
+          <StatCard size="sm"
             label="Dependencies"
             value={String(topology.edges)}
             icon={<Cable className="w-4 h-4 text-cyan-400" />}
           />
         )}
         {templates && (
-          <StatCard
+          <StatCard size="sm"
             label="Investigation Plans"
             value={String(templates.length)}
             icon={<Target className="w-4 h-4 text-violet-400" />}
           />
         )}
-        <StatCard
+        <StatCard size="sm"
           label="Postmortems"
           value={String(postmortemCount || 0)}
           icon={<FileText className="w-4 h-4 text-teal-400" />}

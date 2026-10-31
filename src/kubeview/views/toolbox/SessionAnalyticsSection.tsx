@@ -8,7 +8,7 @@ import {
 import { cn } from '@/lib/utils';
 import { safeQuery } from '../../engine/safeQuery';
 import { fetchSessionAnalytics } from '../../engine/analyticsApi';
-import { StatCard } from './StatCard';
+import { StatCard } from '../../components/primitives/StatCard';
 
 export function SessionAnalyticsSection() {
   const [days, setDays] = useState(7);
@@ -88,11 +88,11 @@ export function SessionAnalyticsSection() {
 
       {/* Summary stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <StatCard label="Sessions" value={summary.total_sessions.toLocaleString()} icon={<Users className="w-4 h-4 text-sky-400" />} />
-        <StatCard label="Page Views" value={summary.total_page_views.toLocaleString()} icon={<Eye className="w-4 h-4 text-indigo-400" />} />
-        <StatCard label="Pages Visited" value={String(summary.unique_pages)} icon={<LayoutDashboard className="w-4 h-4 text-violet-400" />} />
-        <StatCard label="Agent Queries" value={summary.total_queries.toLocaleString()} icon={<Bot className="w-4 h-4 text-emerald-400" />} />
-        <StatCard label="Avg Time on Page" value={formatDuration(summary.avg_duration_seconds)} icon={<Timer className="w-4 h-4 text-amber-400" />} />
+        <StatCard size="sm" label="Sessions" value={summary.total_sessions.toLocaleString()} icon={<Users className="w-4 h-4 text-sky-400" />} />
+        <StatCard size="sm" label="Page Views" value={summary.total_page_views.toLocaleString()} icon={<Eye className="w-4 h-4 text-indigo-400" />} />
+        <StatCard size="sm" label="Pages Visited" value={String(summary.unique_pages)} icon={<LayoutDashboard className="w-4 h-4 text-violet-400" />} />
+        <StatCard size="sm" label="Agent Queries" value={summary.total_queries.toLocaleString()} icon={<Bot className="w-4 h-4 text-emerald-400" />} />
+        <StatCard size="sm" label="Avg Time on Page" value={formatDuration(summary.avg_duration_seconds)} icon={<Timer className="w-4 h-4 text-amber-400" />} />
       </div>
 
       {/* Top pages + time on page — side by side */}
