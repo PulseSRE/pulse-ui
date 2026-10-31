@@ -134,7 +134,48 @@ export interface StatusListSpec {
 export interface KeyValueSpec {
   kind: 'key_value';
   title?: string;
-  pairs: Array<{ key: string; value: string }>;
+  /**
+   * Either an ordered list of pairs, or a plain `{ key: value }` map.
+   *
+   * The map form is accepted because agent-authored specs have been
+   * observed producing it in practice — it is the obvious JSON shape for
+   * "key/value pairs". A saved view containing one used to take the whole widget down
+   * with `spec.pairs.map is not a function`, surfacing only as
+   * "<title> failed to render". Normalise with {@link normalizeKeyValuePairs}
+   * instead of indexing either form directly.
+   */
+  pairs: Array<{ key: string; value: string }> | Record<string, unknown>;
+}
+
+/**
+ * Coerce either accepted `pairs` shape into the ordered list renderers use.
+ *
+ * Object key order is insertion order for string keys, so a map round-trips
+ * through JSON in the order its author wrote it — which is the order a reader
+ * expects for something like "Leader / Leader changes / DB size".
+ */
+export function normalizeKeyValuePairs(
+  pairs: KeyValueSpec['pairs'] | undefined,
+): Array<{ key: string; value: string }> {
+  if (!pairs) return [];
+  if (Array.isArray(pairs)) {
+    return pairs
+      .filter((p): p is { key: string; value: string } => !!p && typeof p === 'object')
+      .map((p) => ({
+        key: String(p.key ?? ''),
+        value: displayValue(p.value),
+      }));
+  }
+  if (typeof pairs !== 'object') return [];
+  return Object.entries(pairs).map(([key, value]) => ({
+    key,
+    value: displayValue(value),
+  }));
+}
+
+/** A missing value renders as empty, not as the literal `""` or `null`. */
+function displayValue(v: unknown): string {
+  return v == null ? '' : typeof v === 'string' ? v : JSON.stringify(v);
 }
 
 export interface ChartSpec {
