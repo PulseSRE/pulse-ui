@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### CI
+- `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
+
 ### Fixed
 - Links and routes (functionality review, Wave 1):
   - An unknown address shows a "Page not found" page naming the path, with Back and Go to Pulse, instead of silently redirecting to /pulse. Restored tabs for pages that no longer exist (`/welcome`, `/incidents`) are dropped
