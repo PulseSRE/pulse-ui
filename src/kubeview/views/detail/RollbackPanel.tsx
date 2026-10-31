@@ -1,3 +1,4 @@
+import { useCanI } from '../../hooks/useCanI';
 import { useFleetStore } from '../../store/fleetStore';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -80,6 +81,7 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
   const [expandedRevision, setExpandedRevision] = useState<number | null>(null);
   const [rollbackTarget, setRollbackTarget] = useState<Revision | null>(null);
   const [rolling, setRolling] = useState(false);
+  const { allowed: canUpdate } = useCanI('update', 'apps', 'deployments', namespace);
 
   const spec = resource.spec as Deployment['spec'];
   const matchLabels: Record<string, string> = spec?.selector?.matchLabels || {};
@@ -250,13 +252,16 @@ export function RollbackPanel({ resource, namespace }: { resource: K8sResource; 
                           {rev.replicas.current}/{rev.replicas.desired} replicas
                         </span>
 
-                        {!rev.isCurrent && (
+                        {/* Always visible (it was opacity-0 until hover, so keyboard and
+                            touch users never saw it); offered only with update rights. */}
+                        {!rev.isCurrent && canUpdate && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setRollbackTarget(rev);
                             }}
-                            className="ml-3 flex items-center gap-1 rounded-sm bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-400 opacity-0 group-hover:opacity-100 hover:bg-amber-500/25 transition-all"
+                            aria-label={`Roll back to revision ${rev.number}`}
+                            className="ml-3 flex items-center gap-1 rounded-sm bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-400 hover:bg-amber-500/25 transition-all"
                           >
                             <RotateCcw className="h-3 w-3" /> Rollback
                           </button>

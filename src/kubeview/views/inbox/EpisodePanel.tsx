@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Undo2, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
+import { showErrorToast } from '../../engine/errorToast';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
 import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes, isLikelyRelated } from '../../engine/episodeApi';
 import type {
@@ -125,6 +126,9 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
         await detachSymptom(episode.id, key);
         setSymptoms((prev) => prev.filter((s) => s.correlation_key !== key));
         onChanged();
+      } catch (err) {
+        // Used to be an unhandled rejection: the click did nothing visible.
+        showErrorToast(err, 'Could not detach the symptom');
       } finally {
         setBusyKey(null);
       }
@@ -360,8 +364,8 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
                   title="This was not caused by the episode above"
                   className={cn(
                     'shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-slate-500',
-                    'opacity-0 transition-opacity hover:bg-slate-700/50 hover:text-slate-300',
-                    'focus:opacity-100 group-hover:opacity-100 disabled:opacity-40',
+                    'transition-opacity hover:bg-slate-700/50 hover:text-slate-300',
+                    'disabled:opacity-40',
                   )}
                 >
                   <Ban className="h-3 w-3" />

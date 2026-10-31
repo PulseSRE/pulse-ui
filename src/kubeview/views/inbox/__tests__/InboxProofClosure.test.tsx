@@ -227,3 +227,20 @@ describe('closure: create runbook from the drawer', () => {
     expect(screen.queryByText('Create Runbook')).toBeNull();
   });
 });
+
+describe('the dismiss confirmation names the item\'s real severity', () => {
+  afterEach(cleanup);
+
+  it('a warning item is not called critical', () => {
+    render(<InboxItem item={makeItem({ severity: 'warning' })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.getByText('Dismiss warning item?')).toBeTruthy();
+    expect(screen.queryByText('Dismiss critical item?')).toBeNull();
+  });
+
+  it('a critical item still says critical', () => {
+    render(<InboxItem item={makeItem({ severity: 'critical' })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.getByText('Dismiss critical item?')).toBeTruthy();
+  });
+});

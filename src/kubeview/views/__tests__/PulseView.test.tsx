@@ -79,6 +79,9 @@ vi.mock('../../engine/analyticsApi', async () => {
   return { ...actual, fetchCapabilities: (...a: any[]) => capabilitiesMock(...a) };
 });
 
+const askPulseMock = vi.fn();
+vi.mock('../../engine/askPulse', () => ({ askPulse: (...a: unknown[]) => askPulseMock(...a) }));
+
 import PulseView, { trustDivergenceNote } from '../PulseView';
 import { useTrustStore } from '../../store/trustStore';
 
@@ -321,5 +324,24 @@ describe('the live-updates toggle', () => {
     expect(screen.queryByText(/Monitoring On/)).toBeNull();
     fireEvent.click(btn);
     expect(setMonitorEnabled).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('Needs Attention "Ask AI"', () => {
+  afterEach(cleanup);
+
+  it('is visible without hovering and asks Pulse AI about the item', () => {
+    setMockData({
+      '/api/v1/nodes': { data: [makeNode('node-1', true)], isLoading: false },
+      '/api/v1/pods': { data: [], isLoading: false },
+      '/apis/apps/v1/deployments': { data: [], isLoading: false },
+      '/api/v1/persistentvolumeclaims': { data: [], isLoading: false },
+      '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('kube-apiserver', true)], isLoading: false },
+    });
+    renderPulse();
+    const ask = screen.getAllByRole('button', { name: /^Ask AI to diagnose/ })[0];
+    expect(ask.className).not.toContain('opacity-0');
+    fireEvent.click(ask);
+    expect(askPulseMock).toHaveBeenCalledWith(expect.stringMatching(/^Diagnose: /));
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -17,7 +17,10 @@ vi.mock('../../hooks/useK8sListWatch', () => ({
   useK8sListWatch: ({ apiPath }: { apiPath: string }) => ({ data: mockData[apiPath] || [], isLoading: false }),
 }));
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));
-vi.mock('../../engine/query', () => ({ k8sList: vi.fn().mockResolvedValue([]), k8sGet: vi.fn().mockResolvedValue(null), k8sCreate: vi.fn().mockResolvedValue({}) }));
+const k8sCreate = vi.fn().mockResolvedValue({});
+vi.mock('../../engine/query', () => ({ k8sList: vi.fn().mockResolvedValue([]), k8sGet: vi.fn().mockResolvedValue(null), k8sCreate: (...a: unknown[]) => k8sCreate(...a), k8sPatch: vi.fn() }));
+let canStart = true;
+vi.mock('../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: canStart, isLoading: false }) }));
 vi.mock('@/lib/utils', () => ({ cn: (...args: any[]) => args.filter(Boolean).join(' ') }));
 
 import BuildsView from '../BuildsView';
@@ -76,5 +79,31 @@ describe('BuildsView', () => {
     expect(screen.getAllByText('my-is').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('latest').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('v1.0').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Start build is always visible and instantiates the BuildConfig on the active cluster', async () => {
+    canStart = true;
+    mockData['/apis/build.openshift.io/v1/buildconfigs'] = [{
+      metadata: { name: 'api', namespace: 'shop', uid: 'bc1' },
+      spec: { strategy: { type: 'Docker' } },
+    }];
+    renderView();
+    const btn = screen.getByRole('button', { name: 'Start build of api' });
+    expect(btn.className).not.toContain('opacity-0');
+    fireEvent.click(btn);
+    await waitFor(() => expect(k8sCreate).toHaveBeenCalled());
+    expect(k8sCreate).toHaveBeenCalledWith(
+      '/apis/build.openshift.io/v1/namespaces/shop/buildconfigs/api/instantiate',
+      { apiVersion: 'build.openshift.io/v1', kind: 'BuildRequest', metadata: { name: 'api' } },
+      'local',
+    );
+  });
+
+  it('Start build is not offered without permission', () => {
+    canStart = false;
+    mockData['/apis/build.openshift.io/v1/buildconfigs'] = [{ metadata: { name: 'api', namespace: 'shop', uid: 'bc1' }, spec: {} }];
+    renderView();
+    expect(screen.queryByRole('button', { name: 'Start build of api' })).toBeNull();
+    canStart = true;
   });
 });

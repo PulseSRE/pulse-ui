@@ -26,6 +26,9 @@ vi.mock('../../../engine/dateUtils', () => ({
   timeAgo: (ts: string) => '2 hours ago',
 }));
 
+let canUpdate = true;
+vi.mock('../../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: canUpdate, isLoading: false }) }));
+
 import { RollbackPanel } from '../RollbackPanel';
 
 function makeDeployment(name = 'my-app', uid = 'deploy-uid-1') {
@@ -149,6 +152,20 @@ describe('RollbackPanel', () => {
     const rollbackButtons = screen.getAllByText('Rollback');
     // Only one rollback button (for revision 1, not for current revision 2)
     expect(rollbackButtons).toHaveLength(1);
+    // Visible without hovering (keyboard and touch users could not find it).
+    expect(screen.getByRole('button', { name: 'Roll back to revision 1' }).className).not.toContain('opacity-0');
+  });
+
+  it('does not offer rollback without permission to update the Deployment', async () => {
+    canUpdate = false;
+    mockK8sList.mockResolvedValue([
+      makeReplicaSet(2, 'nginx:1.25', 'deploy-uid-1', 2),
+      makeReplicaSet(1, 'nginx:1.24', 'deploy-uid-1', 0),
+    ]);
+    render(<RollbackPanel resource={makeDeployment() as any} namespace="default" />, { wrapper: wrapper() });
+    await waitFor(() => expect(screen.getByText('#1')).toBeTruthy());
+    expect(screen.queryByText('Rollback')).toBeNull();
+    canUpdate = true;
   });
 
   it('opens confirm dialog on rollback click and patches on confirm', async () => {
