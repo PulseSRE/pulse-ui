@@ -11,12 +11,15 @@ import type { K8sResource } from '../engine/renderers';
 import type { Service, Route, Ingress, NetworkPolicy, Condition } from '../engine/types';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { resourceDetailUrl } from '../engine/gvr';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
 import { Card } from '../components/primitives/Card';
+
+const INGRESS_OPERATOR_NS = 'openshift-ingress-operator';
 
 export default function NetworkingView() {
   const go = useNavigateTab();
@@ -295,7 +298,12 @@ export default function NetworkingView() {
                 const domain = icStatus?.domain || icSpec?.domain || '';
                 const replicas = icStatus?.availableReplicas ?? '?';
                 return (
-                  <div key={ic.metadata.uid} className="flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-slate-800/50">
+                  <button
+                    key={ic.metadata.uid}
+                    type="button"
+                    onClick={() => go(resourceDetailUrl({ apiVersion: 'operator.openshift.io/v1', kind: 'IngressController', metadata: { name: ic.metadata.name, namespace: ic.metadata.namespace || INGRESS_OPERATOR_NS } }), ic.metadata.name)}
+                    className="w-full text-left flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-slate-800/50"
+                  >
                     <div>
                       <div className="flex items-center gap-2">
                         {isAvailable ? <Activity className="w-3.5 h-3.5 text-green-400" /> : <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
@@ -305,7 +313,7 @@ export default function NetworkingView() {
                       {domain && <div className="text-xs text-slate-500 mt-0.5 font-mono">*.{domain}</div>}
                     </div>
                     <span className="text-xs text-slate-500">{replicas} replicas</span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -622,7 +630,8 @@ spec:
     } else if (id === 'network-policies' || id === 'egress-policies') {
       editPath = `/create/networking.k8s.io~v1~networkpolicies`;
     } else if (id === 'ingress-health') {
-      editPath = `/r/operator.openshift.io~v1~ingresscontrollers/_/${name}`;
+      // IngressControllers are namespaced, in openshift-ingress-operator.
+      editPath = resourceDetailUrl({ apiVersion: 'operator.openshift.io/v1', kind: 'IngressController', metadata: { name, namespace: ns || INGRESS_OPERATOR_NS } });
     }
     go(editPath, isNamespace ? `Create NetworkPolicy (${name})` : `${name} (YAML)`);
   }, [go]);

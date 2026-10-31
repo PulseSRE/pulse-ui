@@ -277,3 +277,51 @@ describe('the alert query surfaces its failure instead of swallowing it', () => 
     expect(src).toMatch(/alertsUnavailable=\{!!firingAlertsError\}/);
   });
 });
+
+describe('Overview links go where they say', () => {
+  afterEach(cleanup);
+
+  const ev = (kind: string, name: string, namespace: string | undefined, apiVersion?: string) => ({
+    metadata: { name: `ev-${name}`, uid: `ev-${name}`, creationTimestamp: '2026-01-01T00:00:00Z', namespace: namespace ?? 'default' },
+    reason: `R-${name}`,
+    message: 'm',
+    involvedObject: { kind, name, namespace, apiVersion },
+    lastTimestamp: new Date().toISOString(),
+  }) as any;
+
+  it.each([
+    ['Deployment in apps/v1', ev('Deployment', 'web', 'shop', 'apps/v1'), '/r/apps~v1~deployments/shop/web'],
+    ['Ingress plural', ev('Ingress', 'edge', 'shop', 'networking.k8s.io/v1'), '/r/networking.k8s.io~v1~ingresses/shop/edge'],
+    ['NetworkPolicy plural', ev('NetworkPolicy', 'deny', 'shop', 'networking.k8s.io/v1'), '/r/networking.k8s.io~v1~networkpolicies/shop/deny'],
+    ['cluster-scoped Node', ev('Node', 'worker-1', undefined, 'v1'), '/r/v1~nodes/_/worker-1'],
+  ])('warning event for %s links to its detail page', (_label, event, url) => {
+    const go = vi.fn();
+    render(<OverviewTab {...makeProps({ latestEvents: [event], recentEvents: [event], go })} />);
+    fireEvent.click(screen.getByText(event.reason));
+    expect(go).toHaveBeenCalledWith(url, event.involvedObject.name);
+  });
+
+  it('"View full timeline" opens the Inbox activity tab', () => {
+    const go = vi.fn();
+    const event = ev('Pod', 'p', 'shop', 'v1');
+    render(<OverviewTab {...makeProps({ latestEvents: [event], recentEvents: [event], go })} />);
+    fireEvent.click(screen.getByText(/View full timeline/));
+    expect(go).toHaveBeenCalledWith('/inbox?tab=activity', expect.any(String));
+  });
+
+  it('"View certificates" opens the certificates tab', () => {
+    const setActiveTab = vi.fn();
+    render(<OverviewTab {...makeProps({ expiringCerts: [{ name: 'c', namespace: 'n', daysLeft: 3 }], setActiveTab })} />);
+    fireEvent.click(screen.getByText(/View certificates/));
+    expect(setActiveTab).toHaveBeenCalledWith('certificates');
+  });
+
+  it('the CRDs card switches to the CRDs tab in place', () => {
+    const setActiveTab = vi.fn();
+    const go = vi.fn();
+    render(<OverviewTab {...makeProps({ setActiveTab, go })} />);
+    fireEvent.click(screen.getByTestId('info-card-CRDs'));
+    expect(setActiveTab).toHaveBeenCalledWith('crds');
+    expect(go).not.toHaveBeenCalled();
+  });
+});

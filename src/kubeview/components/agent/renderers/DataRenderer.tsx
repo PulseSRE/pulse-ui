@@ -5,6 +5,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { AgentLink } from '../AgentLink';
 import { CheckCircle, AlertTriangle, XCircle, Clock, HelpCircle, ChevronRight, Radio, Pause, Loader2 } from 'lucide-react';
 import { useMultiSourceTable } from '../../../hooks/useMultiSourceTable';
 import type { K8sResource } from '../../../engine/renderers';
@@ -57,22 +58,33 @@ function _inferKindFromTitle(titleLower: string): string | null {
   return null;
 }
 
+function LinkCell({ value }: { value: unknown }) {
+  const str = String(value ?? '');
+  if (!str.startsWith('/') && !/^https?:\/\//i.test(str)) return <>{str}</>;
+  const label = str.includes('/logs/') ? 'View Logs' : str.split('/').pop() || 'Open';
+  return (
+    <AgentLink link={str} className="text-violet-400 hover:text-violet-300 underline underline-offset-2" title={str}>
+      {label}
+    </AgentLink>
+  );
+}
+
 type CellRenderer = (value: unknown, row: Record<string, unknown>) => React.ReactNode;
 
 const COLUMN_RENDERERS: Record<string, CellRenderer> = {
   resource_name: (v, row) => {
     const str = String(v ?? '');
     const link = row._link ? String(row._link) : null;
-    if (link) return <a href={link} className={LINK_STYLE}>{str}</a>;
+    if (link) return <AgentLink link={link} className={LINK_STYLE}>{str}</AgentLink>;
     const gvr = row._gvr ? String(row._gvr) : '';
     const ns = String(row.namespace || '');
-    if (gvr) return <a href={`/r/${gvr}/${ns || '_'}/${str}`} className={LINK_STYLE}>{str}</a>;
+    if (gvr) return <AgentLink link={`/r/${gvr}/${ns || '_'}/${str}`} className={LINK_STYLE}>{str}</AgentLink>;
     return <>{str}</>;
   },
 
-  namespace: (v) => <a href={`/project/${String(v)}`} className={LINK_STYLE}>{String(v)}</a>,
+  namespace: (v) => <AgentLink link={`/project/${String(v)}`} className={LINK_STYLE}>{String(v)}</AgentLink>,
 
-  node: (v) => <a href={`/r/v1~nodes/_/${String(v)}`} className={LINK_STYLE}>{String(v)}</a>,
+  node: (v) => <AgentLink link={`/r/v1~nodes/_/${String(v)}`} className={LINK_STYLE}>{String(v)}</AgentLink>,
 
   status: (v) => {
     const str = String(v ?? '');
@@ -87,12 +99,8 @@ const COLUMN_RENDERERS: Record<string, CellRenderer> = {
     return <span className={color}>{str}</span>;
   },
 
-  link: (v) => {
-    const str = String(v ?? '');
-    if (!str.startsWith('/') && !str.startsWith('http')) return <>{str}</>;
-    const label = str.includes('/logs/') ? 'View Logs' : str.split('/').pop() || 'Open';
-    return <a href={str} className="text-violet-400 hover:text-violet-300 underline underline-offset-2" title={str}>{label}</a>;
-  },
+  link: (v) => <LinkCell value={v} />,
+  logs: (v) => <LinkCell value={v} />,
 
   replicas: (v) => {
     const str = String(v ?? '');
@@ -178,8 +186,9 @@ function _inferType(columnId: string, value: unknown): string {
   if (['cpu', 'cpu_pct'].includes(columnId)) return 'cpu';
   if (['memory', 'mem_pct'].includes(columnId)) return 'memory';
   if (['suspended'].includes(columnId)) return 'boolean';
+  // Only columns typed or named link/logs are links: a value such as
+  // `/var/log` in a path column is data, not a page.
   const str = String(value ?? '');
-  if (str.startsWith('/') || str.startsWith('http')) return 'link';
   if (str.length > 18 && str.includes('T') && !isNaN(Date.parse(str))) return 'timestamp';
   return 'text';
 }

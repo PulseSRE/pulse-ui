@@ -37,18 +37,15 @@ function getColor(kind: string): string {
   return kindColors[kind] ?? '#64748b';
 }
 
-// Kind-to-GVR mapping for dependency graph node navigation
-const kindGvrMap: Record<string, string> = {
-  Pod: 'v1', Service: 'v1', ConfigMap: 'v1', Secret: 'v1',
-  Deployment: 'apps/v1', ReplicaSet: 'apps/v1', StatefulSet: 'apps/v1', DaemonSet: 'apps/v1',
-  Job: 'batch/v1', CronJob: 'batch/v1',
-  Ingress: 'networking.k8s.io/v1', NetworkPolicy: 'networking.k8s.io/v1',
-  HPA: 'autoscaling/v2', PDB: 'policy/v1', Route: 'route.openshift.io/v1',
+// The graph labels some nodes with short kinds; expand them so the URL builder
+// resolves the real resource (horizontalpodautoscalers, not `hpas`).
+const SHORT_KINDS: Record<string, string> = {
+  HPA: 'HorizontalPodAutoscaler',
+  PDB: 'PodDisruptionBudget',
 };
 
-function getGvrUrl(kind: string, namespace: string, name: string): string {
-  const apiVersion = kindGvrMap[kind] || 'v1';
-  return resourceDetailUrl({ apiVersion, kind, metadata: { name, namespace } });
+export function getGvrUrl(kind: string, namespace: string, name: string): string {
+  return resourceDetailUrl({ kind: SHORT_KINDS[kind] ?? kind, metadata: { name, namespace } });
 }
 
 interface LayoutNode extends GraphNode {

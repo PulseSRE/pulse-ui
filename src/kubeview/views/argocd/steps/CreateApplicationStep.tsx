@@ -9,6 +9,10 @@ import { createGitProvider, type FileCommit } from '../../../engine/gitProvider'
 import { showErrorToast } from '../../../engine/errorToast';
 import { cn } from '@/lib/utils';
 
+// The repository is configured in this wizard's Git step (there is no
+// Admin → GitOps page).
+const GIT_NOT_CONFIGURED = 'Git provider not configured. Set up your repository in the Configure Git step.';
+
 /** Ensure the target path exists in the git repo (creates .gitkeep if missing). */
 async function ensureGitPath(provider: ReturnType<typeof createGitProvider>, branch: string, path: string) {
   try {
@@ -163,6 +167,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
   const { config, isConfigured } = useGitOpsConfig();
   const argoNamespace = useArgoCDStore((s) => s.namespace) || 'openshift-gitops';
   const markComplete = useGitOpsSetupStore((s) => s.markStepComplete);
+  const setWizardStep = useGitOpsSetupStore((s) => s.setStep);
   const selectedCategories = useGitOpsSetupStore((s) => s.selectedCategories);
   const selectedNamespaces = useGitOpsSetupStore((s) => s.selectedNamespaces);
   const setExportSummary = useGitOpsSetupStore((s) => s.setExportSummary);
@@ -271,7 +276,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
     try {
       if (isAppOfApps && rootAppObj) {
         if (!isConfigured || !config) {
-          throw new Error('Git provider not configured. Go to Admin → GitOps to set up your repository.');
+          throw new Error(GIT_NOT_CONFIGURED);
         }
 
         const provider = createGitProvider(config);
@@ -536,6 +541,14 @@ export function CreateApplicationStep({ onComplete }: Props) {
           <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <div>
             <p>{error}</p>
+            {error === GIT_NOT_CONFIGURED && (
+              <button
+                onClick={() => { setError(null); setWizardStep('git-config'); }}
+                className="text-blue-400 hover:text-blue-300 mt-2 mr-3 text-xs"
+              >
+                Configure Git
+              </button>
+            )}
             <button
               onClick={() => setError(null)}
               className="text-blue-400 hover:text-blue-300 mt-2 text-xs"

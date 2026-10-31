@@ -2,6 +2,7 @@ import { Route, useParams } from 'react-router-dom';
 import React, { Suspense, lazy } from 'react';
 import { LoadingFallback } from '../components/LoadingFallback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { DOMAIN_ROUTES } from '../engine/routeTable';
 
 const StorageView = lazy(() => import('../views/StorageView'));
 const AdminView = lazy(() => import('../views/AdminView'));
@@ -47,32 +48,32 @@ function FleetResourceRoute() {
 export function domainRoutes() {
   return (
     <>
-      <Route path="workloads" element={<Lazy fallbackTitle="Workloads"><WorkloadsView /></Lazy>} />
-      <Route path="networking" element={<Lazy fallbackTitle="Networking"><NetworkingView /></Lazy>} />
-      <Route path="compute" element={<Lazy fallbackTitle="Compute"><ComputeView /></Lazy>} />
-      <Route path="storage" element={<Lazy fallbackTitle="Storage"><StorageView /></Lazy>} />
-      <Route path="security" element={<Lazy fallbackTitle="Security"><SecurityView /></Lazy>} />
-      <Route path="identity" element={<Lazy fallbackTitle="Identity"><IdentityView /></Lazy>} />
-      <Route path="admin" element={<Lazy fallbackTitle="Admin"><AdminView /></Lazy>} />
-      <Route path="alerts" element={<Lazy fallbackTitle="Alerts"><AlertsView /></Lazy>} />
-      <Route path="gitops" element={<Lazy fallbackTitle="GitOps"><ArgoCDView /></Lazy>} />
-      <Route path="fleet" element={<Lazy fallbackTitle="Fleet"><FleetView /></Lazy>} />
-      <Route path="fleet/compare" element={<Lazy fallbackTitle="Fleet Compare"><CompareView /></Lazy>} />
-      <Route path="fleet/compliance" element={<Lazy fallbackTitle="Fleet Compliance"><ComplianceView /></Lazy>} />
-      <Route path="fleet/workloads" element={<Lazy fallbackTitle="Fleet Workloads"><FleetWorkloadsView /></Lazy>} />
-      <Route path="fleet/alerts" element={<Lazy fallbackTitle="Fleet Alerts"><FleetAlertsView /></Lazy>} />
-      <Route path="fleet/r/:gvr" element={<Lazy fallbackTitle="Fleet Resource"><FleetResourceRoute /></Lazy>} />
-      <Route path="fleet/drift" element={<Lazy fallbackTitle="Drift Detector"><DriftDetectorView /></Lazy>} />
-      <Route path="inbox" element={<Lazy fallbackTitle="Inbox"><InboxPage /></Lazy>} />
-      <Route path="readiness" element={<Lazy fallbackTitle="Readiness"><OnboardingView /></Lazy>} />
-      <Route path="about" element={<Lazy fallbackTitle="About"><AboutView /></Lazy>} />
-      <Route path="views" element={<Lazy fallbackTitle="Views"><ViewsManagement /></Lazy>} />
-      <Route path="agent" element={<Lazy fallbackTitle="Agent"><PulseAgentView /></Lazy>} />
-      <Route path="slo" element={<Lazy fallbackTitle="SLO"><SloView /></Lazy>} />
-      <Route path="topology" element={<Lazy fallbackTitle="Topology"><TopologyView /></Lazy>} />
-      <Route path="operators" element={<Lazy fallbackTitle="Operators"><OperatorCatalogView /></Lazy>} />
-      <Route path="project/:namespace" element={<Lazy fallbackTitle="Project"><ProjectDashboard /></Lazy>} />
-      <Route path="timeline" element={<Lazy fallbackTitle="Timeline"><TimelineView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.workloads} element={<Lazy fallbackTitle="Workloads"><WorkloadsView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.networking} element={<Lazy fallbackTitle="Networking"><NetworkingView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.compute} element={<Lazy fallbackTitle="Compute"><ComputeView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.storage} element={<Lazy fallbackTitle="Storage"><StorageView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.security} element={<Lazy fallbackTitle="Security"><SecurityView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.identity} element={<Lazy fallbackTitle="Identity"><IdentityView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.admin} element={<Lazy fallbackTitle="Admin"><AdminView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.alerts} element={<Lazy fallbackTitle="Alerts"><AlertsView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.gitops} element={<Lazy fallbackTitle="GitOps"><ArgoCDView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleet} element={<Lazy fallbackTitle="Fleet"><FleetView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleetCompare} element={<Lazy fallbackTitle="Fleet Compare"><CompareView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleetCompliance} element={<Lazy fallbackTitle="Fleet Compliance"><ComplianceView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleetWorkloads} element={<Lazy fallbackTitle="Fleet Workloads"><FleetWorkloadsView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleetAlerts} element={<Lazy fallbackTitle="Fleet Alerts"><FleetAlertsView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleetResource} element={<Lazy fallbackTitle="Fleet Resource"><FleetResourceRoute /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleetDrift} element={<Lazy fallbackTitle="Drift Detector"><DriftDetectorView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.inbox} element={<Lazy fallbackTitle="Inbox"><InboxPage /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.readiness} element={<Lazy fallbackTitle="Readiness"><OnboardingView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.about} element={<Lazy fallbackTitle="About"><AboutView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.views} element={<Lazy fallbackTitle="Views"><ViewsManagement /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.agent} element={<Lazy fallbackTitle="Agent"><PulseAgentView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.slo} element={<Lazy fallbackTitle="SLO"><SloView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.topology} element={<Lazy fallbackTitle="Topology"><TopologyView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.operators} element={<Lazy fallbackTitle="Operators"><OperatorCatalogView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.project} element={<Lazy fallbackTitle="Project"><ProjectDashboard /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.timeline} element={<Lazy fallbackTitle="Timeline"><TimelineView /></Lazy>} />
     </>
   );
 }

@@ -77,7 +77,7 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                 <Plus className="w-3.5 h-3.5" /> Create Application
               </button>
               <button
-                onClick={() => go('/create/v1~pods?tab=yaml', 'Import YAML')}
+                onClick={() => go('/create/argoproj.io~v1alpha1~applications', 'Import YAML')}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-600 text-slate-300 hover:bg-slate-800 transition-colors"
               >
                 Import YAML

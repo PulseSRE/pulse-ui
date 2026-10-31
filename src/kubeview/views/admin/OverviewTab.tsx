@@ -11,6 +11,7 @@ import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { InfoCard } from '../../components/primitives/InfoCard';
 import { formatMem } from '../../engine/formatting';
+import { resourceDetailUrl } from '../../engine/gvr';
 import { ControlPlaneMetrics } from '../../components/metrics/ControlPlaneMetrics';
 
 /** OpenShift operator resource (operator.openshift.io/v1) */
@@ -203,7 +204,7 @@ export function OverviewTab({
         <InfoCard label="Cluster Age" value={clusterAge?.label || '\u2014'} sub={clusterAge?.date ? new Date(clusterAge.date).toLocaleDateString() : ''} />
         <InfoCard label="Nodes" value={String(nodes.length)} sub={`${nodeRoles.map(([r, c]) => `${c} ${r}`).join(', ')} \u2192`} onClick={() => go('/compute', 'Compute')} />
         <InfoCard label="Namespaces" value={String(nsStats.total)} sub={`${nsStats.user} user, ${nsStats.system} system \u2192`} onClick={() => setActiveTab('quotas')} />
-        <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups \u2192`} onClick={() => go('/admin?tab=crds', 'Custom Resources')} />
+        <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups \u2192`} onClick={() => setActiveTab('crds')} />
       </MetricGrid>
 
       {/* Update banner */}
@@ -243,7 +244,7 @@ export function OverviewTab({
                 ))}
                 {expiringCerts.length > 3 && <div className="text-xs text-slate-500">+{expiringCerts.length - 3} more</div>}
               </div>
-              <button onClick={() => setActiveTab('config')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
+              <button onClick={() => setActiveTab('certificates')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
                 View certificates <ArrowRight className="w-3 h-3" />
               </button>
             </Card>
@@ -470,7 +471,7 @@ export function OverviewTab({
               })() : '';
 
               return (
-                <button key={i} onClick={() => { if (objectName && objectKind) go(`/r/v1~${objectKind.toLowerCase()}s/${ns}/${objectName}`, objectName); }}
+                <button key={i} onClick={() => { if (objectName && objectKind) go(resourceDetailUrl({ apiVersion: ev.involvedObject?.apiVersion, kind: objectKind, metadata: { name: objectName, namespace: ns || undefined } }), objectName); }}
                   className="w-full flex items-start gap-2.5 p-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
@@ -487,7 +488,7 @@ export function OverviewTab({
               );
             })}
           </div>
-          <button onClick={() => go('/inbox?preset=activity', 'Incident History')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
+          <button onClick={() => go('/inbox?tab=activity', 'Incident History')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
             View full timeline <ArrowRight className="w-3 h-3" />
           </button>
         </Panel>

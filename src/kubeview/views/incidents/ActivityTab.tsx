@@ -13,6 +13,7 @@ import { useMonitorStore } from '../../store/monitorStore';
 import { useAgentStore } from '../../store/agentStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { resourceDetailUrl } from '../../engine/gvr';
+import { apiVersionOf, resolveKind } from '../../engine/kindRegistry';
 import { formatRelativeTime } from '../../engine/formatters';
 import { getDateKey } from '../../engine/dateUtils';
 import { fetchLearningFeed } from '../../engine/analyticsApi';
@@ -142,7 +143,9 @@ export function ActivityTab() {
           detail: action.reasoning || action.afterState || '',
           namespace: action.resources?.[0]?.namespace,
           resource: action.resources?.[0]
-            ? { kind: action.resources[0].kind, name: action.resources[0].name, namespace: action.resources[0].namespace, apiVersion: 'v1' }
+            // The agent sends kind/name/namespace only; the group comes from
+            // discovery (a hardcoded 'v1' sent Deployments to v1~deployments).
+            ? { kind: action.resources[0].kind, name: action.resources[0].name, namespace: action.resources[0].namespace, apiVersion: apiVersionOf(resolveKind(action.resources[0].kind)) }
             : undefined,
           source: { type: 'k8s-event' as const },
         });

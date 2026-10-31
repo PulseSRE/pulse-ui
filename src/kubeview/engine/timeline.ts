@@ -6,6 +6,7 @@
 import type { Event, ReplicaSet, Deployment, ClusterVersion, ClusterOperator, Condition } from './types';
 import type { TimelineEntry, TimelineSeverity, CorrelationGroup } from './types/timeline';
 import type { PrometheusAlert } from './types/incident';
+import { alertResource } from './alertResource';
 
 // ── Alert types (from Prometheus API, not K8s resources) ──
 
@@ -35,11 +36,9 @@ export function alertsToTimeline(alertGroups: AlertGroup[]): TimelineEntry[] {
         if (alert.state === 'inactive') continue;
         const severity = mapAlertSeverity(alert.labels.severity || rule.labels?.severity);
         const ns = alert.labels.namespace;
-        const resourceName = alert.labels.deployment || alert.labels.pod || alert.labels.statefulset || alert.labels.node || '';
-        const resourceKind = alert.labels.deployment ? 'Deployment' :
-          alert.labels.pod ? 'Pod' :
-          alert.labels.statefulset ? 'StatefulSet' :
-          alert.labels.node ? 'Node' : '';
+        const resource = alertResource(alert.labels);
+        const resourceName = resource?.name || '';
+        const resourceKind = resource?.kind || '';
 
         entries.push({
           id: `alert-${rule.name}-${alert.activeAt || ''}-${ns || ''}`,
@@ -49,12 +48,7 @@ export function alertsToTimeline(alertGroups: AlertGroup[]): TimelineEntry[] {
           title: rule.name,
           detail: alert.annotations?.description || alert.annotations?.message || rule.annotations?.description || rule.query,
           namespace: ns,
-          resource: resourceName && resourceKind ? {
-            apiVersion: resourceKind === 'Node' ? 'v1' : resourceKind === 'Pod' ? 'v1' : 'apps/v1',
-            kind: resourceKind,
-            name: resourceName,
-            namespace: ns,
-          } : undefined,
+          resource,
           correlationKey: ns ? `${resourceKind || 'Alert'}/${resourceName || rule.name}/${ns}` : `Alert/${rule.name}`,
           source: { type: 'prometheus', raw: { rule, alert } },
         });

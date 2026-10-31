@@ -385,3 +385,35 @@ describe('uiStore', () => {
     });
   });
 });
+
+describe('persisted tab restore', () => {
+  const merge = useUIStore.persist.getOptions().merge!;
+  const tab = (id: string, path: string, title = path) => ({ id, title, path, pinned: false, closable: true });
+
+  it('drops tabs whose route no longer exists', () => {
+    resetStore();
+    const current = useUIStore.getState();
+    const merged = merge({
+      tabs: [
+        { id: 'pulse', title: 'Pulse', path: '/pulse', pinned: true, closable: false },
+        tab('t1', '/welcome', 'Welcome'),
+        tab('t2', '/incidents?tab=actions', 'Incidents'),
+        tab('t3', '/dashboard'),
+        tab('t4', '/r/v1~nodes//worker-1'),
+        tab('t5', '/r/apps~v1~deployments/default/web', 'web'),
+        tab('t6', '/inbox?tab=activity', 'Activity'),
+      ],
+      activeTabId: 't1',
+    }, current) as ReturnType<typeof useUIStore.getState>;
+    expect(merged.tabs.map((t) => t.path)).toEqual(['/pulse', '/r/apps~v1~deployments/default/web', '/inbox?tab=activity']);
+    // The active tab was dropped, so Pulse is active rather than a dead id.
+    expect(merged.activeTabId).toBe('pulse');
+  });
+
+  it('keeps the Pulse tab even if every persisted tab is dropped', () => {
+    resetStore();
+    const current = useUIStore.getState();
+    const merged = merge({ tabs: [tab('t1', '/welcome')], activeTabId: 't1' }, current) as ReturnType<typeof useUIStore.getState>;
+    expect(merged.tabs.map((t) => t.id)).toEqual(['pulse']);
+  });
+});

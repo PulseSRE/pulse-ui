@@ -4,6 +4,7 @@ import TableView from '../views/TableView';
 import DetailView from '../views/DetailView';
 import { LoadingFallback } from '../components/LoadingFallback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { RESOURCE_ROUTES } from '../engine/routeTable';
 
 const YamlEditorView = lazy(() => import('../views/YamlEditorView'));
 const LogsView = lazy(() => import('../views/LogsView'));
@@ -92,23 +93,23 @@ export function resourceRoutes() {
   return (
     <>
       {/* Resource list: /r/apps~v1~deployments */}
-      <Route path="r/:gvr" element={<ResourceListRoute />} />
+      <Route path={RESOURCE_ROUTES.list} element={<ResourceListRoute />} />
 
       {/* Resource detail: /r/apps~v1~deployments/:namespace/:name */}
-      <Route path="r/:gvr/:namespace/:name" element={<ResourceDetailRoute />} />
+      <Route path={RESOURCE_ROUTES.detail} element={<ResourceDetailRoute />} />
 
       {/* Cluster-scoped detail: /r/v1~nodes/_/:name */}
-      <Route path="r/:gvr/_/:name" element={<ResourceDetailRoute />} />
+      <Route path={RESOURCE_ROUTES.detailClusterScoped} element={<ResourceDetailRoute />} />
 
       {/* YAML editor: /yaml/apps~v1~deployments/:namespace/:name */}
-      <Route path="yaml/:gvr/:namespace/:name" element={<YamlRoute />} />
-      <Route path="yaml/:gvr/_/:name" element={<YamlRoute />} />
+      <Route path={RESOURCE_ROUTES.yaml} element={<YamlRoute />} />
+      <Route path={RESOURCE_ROUTES.yamlClusterScoped} element={<YamlRoute />} />
 
       {/* Logs: /logs/:namespace/:podName */}
-      <Route path="logs/:namespace/:name" element={<LogsRoute />} />
+      <Route path={RESOURCE_ROUTES.logs} element={<LogsRoute />} />
 
       {/* Node logs: /node-logs/:name */}
-      <Route path="node-logs/:name" element={
+      <Route path={RESOURCE_ROUTES.nodeLogs} element={
         <ErrorBoundary fallbackTitle="Node Logs">
           <Suspense fallback={<LoadingFallback />}>
             <NodeLogsView />
@@ -117,14 +118,14 @@ export function resourceRoutes() {
       } />
 
       {/* Metrics: /metrics/apps~v1~deployments/:namespace/:name */}
-      <Route path="metrics/:gvr/:namespace/:name" element={<MetricsRoute />} />
-      <Route path="metrics/:gvr/_/:name" element={<MetricsRoute />} />
+      <Route path={RESOURCE_ROUTES.metrics} element={<MetricsRoute />} />
+      <Route path={RESOURCE_ROUTES.metricsClusterScoped} element={<MetricsRoute />} />
 
       {/* Create: /create/apps~v1~deployments */}
-      <Route path="create/:gvr" element={<CreateRoute />} />
+      <Route path={RESOURCE_ROUTES.create} element={<CreateRoute />} />
 
       {/* Dependencies: /deps/apps~v1~deployments/:namespace/:name */}
-      <Route path="deps/:gvr/:namespace/:name" element={<DependencyRoute />} />
+      <Route path={RESOURCE_ROUTES.deps} element={<DependencyRoute />} />
     </>
   );
 }

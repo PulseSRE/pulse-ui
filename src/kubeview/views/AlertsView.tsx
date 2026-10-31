@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { resourceDetailUrl } from '../engine/gvr';
-import { kindToPlural } from '../engine/renderers/index';
+import { alertResource } from '../engine/alertResource';
 import { Card, CardHeader, CardBody } from '../components/primitives/Card';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { MetricCard } from '../components/metrics/Sparkline';
@@ -816,10 +816,7 @@ function AlertRow({ item, go, onSilence }: {
   onSilence: (labels: Record<string, string>) => void;
 }) {
   const labels = item.alert.labels;
-  const resourceName = labels.pod || labels.deployment || labels.node || labels.statefulset || labels.daemonset || labels.job || '';
-  const resourceKind = labels.pod ? 'Pod' : labels.deployment ? 'Deployment' : labels.node ? 'Node' : labels.statefulset ? 'StatefulSet' : labels.daemonset ? 'DaemonSet' : labels.job ? 'Job' : '';
-  const resourceNs = labels.namespace;
-  const hasResource = resourceName && resourceKind;
+  const resource = alertResource(labels);
 
   return (
     <div className="px-4 py-3 flex items-start gap-3">
@@ -833,17 +830,16 @@ function AlertRow({ item, go, onSilence }: {
           {item.firingDuration && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {item.firingDuration}</span>}
         </div>
 
-        {hasResource && (
+        {resource && (
           <button onClick={() => {
-            const apiVersion = resourceKind === 'Deployment' || resourceKind === 'StatefulSet' || resourceKind === 'DaemonSet' ? 'apps/v1' : resourceKind === 'Job' ? 'batch/v1' : 'v1';
-            go(resourceDetailUrl({ apiVersion, kind: resourceKind, metadata: { name: resourceName, namespace: resourceNs } }), resourceName);
+            go(resourceDetailUrl({ apiVersion: resource.apiVersion, kind: resource.kind, metadata: { name: resource.name, namespace: resource.namespace } }), resource.name);
           }} className="flex items-center gap-2 mb-1 text-xs text-blue-400 hover:text-blue-300">
-            {resourceKind}/{resourceName}
-            {resourceNs && <span className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{resourceNs}</span>}
+            {resource.kind}/{resource.name}
+            {resource.namespace && <span className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{resource.namespace}</span>}
             <ArrowRight className="w-3 h-3" />
           </button>
         )}
-        {!hasResource && item.namespace && (
+        {!resource && item.namespace && (
           <button onClick={() => { useUIStore.getState().setSelectedNamespace(item.namespace); go('/r/v1~pods', 'Pods'); }} className="text-xs text-blue-400 hover:text-blue-300 mb-1 block">
             {item.namespace} →
           </button>

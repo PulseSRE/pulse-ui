@@ -4,7 +4,11 @@
  * in the detail drawer. Catches dead-end states.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render as rtlRender, screen, cleanup } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+// The drawer links and navigates through the router.
+const render = (ui: Parameters<typeof rtlRender>[0]) => rtlRender(ui, { wrapper: MemoryRouter });
 import { TaskDetailDrawer } from '../TaskDetailDrawer';
 import type { InboxItem } from '../../../engine/inboxApi';
 

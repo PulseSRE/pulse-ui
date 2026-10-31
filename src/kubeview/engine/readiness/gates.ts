@@ -141,7 +141,7 @@ const identityProviders: ReadinessGate = {
       status: idps.length > 0 ? 'passed' : 'failed',
       detail: idps.length > 0 ? idps.map((p: any) => p.name).join(', ') : 'No providers — using kubeadmin only',
       fixGuidance: 'Configure at least one external identity provider (LDAP, OIDC, GitHub) via OAuth cluster config.',
-      action: { label: 'Configure', path: '/admin' },
+      action: { label: 'Configure', path: '/admin?tab=config' },
     };
   }),
 };
@@ -173,7 +173,7 @@ const tlsProfile: ReadinessGate = {
   evaluate: (ctx) => safeEval(tlsProfile, async () => {
     const apiServer = await ctx.fetchJson<any>('/apis/config.openshift.io/v1/apiservers/cluster');
     const profile = apiServer?.spec?.tlsSecurityProfile?.type || 'Intermediate';
-    return { status: profile === 'Old' ? 'failed' : 'passed', detail: `${profile} profile`, fixGuidance: 'Set TLS security profile to Intermediate or Modern.', action: { label: 'Configure', path: '/admin' } };
+    return { status: profile === 'Old' ? 'failed' : 'passed', detail: `${profile} profile`, fixGuidance: 'Set TLS security profile to Intermediate or Modern.', action: { label: 'Configure', path: '/admin?tab=config' } };
   }),
 };
 
@@ -191,7 +191,7 @@ const encryptionAtRest: ReadinessGate = {
       status: enc && enc !== 'identity' ? 'passed' : 'needs_attention',
       detail: enc ? `Type: ${enc}` : 'Not configured (data stored unencrypted)',
       fixGuidance: 'Enable etcd encryption via the API server configuration.',
-      action: { label: 'Configure', path: '/admin' },
+      action: { label: 'Configure', path: '/admin?tab=config' },
     };
   }),
 };
@@ -319,7 +319,7 @@ const loggingOperator: ReadinessGate = {
       status: has ? 'passed' : 'needs_attention',
       detail: has ? 'Installed' : 'Not installed — install from OperatorHub',
       fixGuidance: 'Install Cluster Logging Operator from OperatorHub.',
-      action: has ? undefined : { label: 'Install CLO', path: '/create/v1~pods?tab=operators&q=cluster-logging' },
+      action: has ? undefined : { label: 'Install CLO', path: '/operators?q=cluster-logging' },
     };
   }),
 };
@@ -339,7 +339,7 @@ const clusterObservabilityOperator: ReadinessGate = {
       status: has ? 'passed' : 'needs_attention',
       detail: has ? 'Installed' : 'Not installed — enables UIPlugin, dashboards, and tracing',
       fixGuidance: 'Install Cluster Observability Operator from OperatorHub.',
-      action: has ? undefined : { label: 'Install COO', path: '/create/v1~pods?tab=operators&q=observability' },
+      action: has ? undefined : { label: 'Install COO', path: '/operators?q=observability' },
     };
   }),
 };
@@ -356,7 +356,7 @@ const resourceQuotas: ReadinessGate = {
   evaluate: (ctx) => safeEval(resourceQuotas, async () => {
     const quotas = await listItems(ctx, '/api/v1/resourcequotas');
     const user = quotas.filter((q: any) => !isSystemNs(q.metadata?.namespace));
-    return { status: user.length > 0 ? 'passed' : 'needs_attention', detail: `${user.length} quota${user.length !== 1 ? 's' : ''} in user namespaces`, fixGuidance: 'Create ResourceQuotas in user namespaces to limit resource consumption.', action: { label: 'View Quotas', path: '/admin' } };
+    return { status: user.length > 0 ? 'passed' : 'needs_attention', detail: `${user.length} quota${user.length !== 1 ? 's' : ''} in user namespaces`, fixGuidance: 'Create ResourceQuotas in user namespaces to limit resource consumption.', action: { label: 'View Quotas', path: '/admin?tab=quotas' } };
   }),
 };
 
@@ -371,7 +371,7 @@ const stableUpdateChannel: ReadinessGate = {
     const cv = await ctx.fetchJson<any>('/apis/config.openshift.io/v1/clusterversions/version');
     const ch = cv?.spec?.channel || '';
     const status: GateStatus = ch.startsWith('stable') ? 'passed' : ch.startsWith('fast') ? 'needs_attention' : ch ? 'failed' : 'not_started';
-    return { status, detail: ch || 'No channel set', fixGuidance: 'Switch to the stable update channel for production reliability.', action: { label: 'Change Channel', path: '/admin' } };
+    return { status, detail: ch || 'No channel set', fixGuidance: 'Switch to the stable update channel for production reliability.', action: { label: 'Change Channel', path: '/admin?tab=updates' } };
   }),
 };
 
@@ -385,7 +385,7 @@ const clusterUpToDate: ReadinessGate = {
   evaluate: (ctx) => safeEval(clusterUpToDate, async () => {
     const cv = await ctx.fetchJson<any>('/apis/config.openshift.io/v1/clusterversions/version');
     const avail = cv?.status?.availableUpdates || [];
-    return { status: avail.length === 0 ? 'passed' : 'needs_attention', detail: avail.length === 0 ? 'Up to date' : `${avail.length} update${avail.length !== 1 ? 's' : ''} available`, fixGuidance: 'Apply available cluster updates.', action: { label: 'View Updates', path: '/admin' } };
+    return { status: avail.length === 0 ? 'passed' : 'needs_attention', detail: avail.length === 0 ? 'Up to date' : `${avail.length} update${avail.length !== 1 ? 's' : ''} available`, fixGuidance: 'Apply available cluster updates.', action: { label: 'View Updates', path: '/admin?tab=updates' } };
   }),
 };
 
@@ -399,7 +399,7 @@ const limitRanges: ReadinessGate = {
   evaluate: (ctx) => safeEval(limitRanges, async () => {
     const lrs = await listItems(ctx, '/api/v1/limitranges');
     const user = lrs.filter((lr: any) => !isSystemNs(lr.metadata?.namespace));
-    return { status: user.length > 0 ? 'passed' : 'needs_attention', detail: `${user.length} LimitRange${user.length !== 1 ? 's' : ''} in user namespaces`, fixGuidance: 'Create LimitRanges in user namespaces to set default resource limits.', action: { label: 'View Quotas', path: '/admin' } };
+    return { status: user.length > 0 ? 'passed' : 'needs_attention', detail: `${user.length} LimitRange${user.length !== 1 ? 's' : ''} in user namespaces`, fixGuidance: 'Create LimitRanges in user namespaces to set default resource limits.', action: { label: 'View Quotas', path: '/admin?tab=quotas' } };
   }),
 };
 
@@ -435,7 +435,7 @@ const etcdBackup: ReadinessGate = {
       status: items.length > 0 ? 'passed' : 'needs_attention',
       detail: items.length > 0 ? 'Backup configured' : 'No automated backup configured',
       fixGuidance: 'Configure automated etcd backups using OADP or a CronJob.',
-      action: items.length > 0 ? undefined : { label: 'Setup OADP', path: '/create/v1~pods?tab=operators&q=oadp' },
+      action: items.length > 0 ? undefined : { label: 'Setup OADP', path: '/operators?q=oadp' },
     };
   }),
 };
@@ -452,7 +452,7 @@ const ingressCertificate: ReadinessGate = {
   evaluate: (ctx) => safeEval(ingressCertificate, async () => {
     const ingress = await ctx.fetchJson<any>('/apis/config.openshift.io/v1/ingresses/cluster');
     const hasCert = !!(ingress?.spec?.componentRoutes?.some((r: any) => r.servingCertKeyPairSecret) || ingress?.spec?.defaultCertificate);
-    return { status: hasCert ? 'passed' : 'needs_attention', detail: hasCert ? 'Custom certificate configured' : 'Using default self-signed certificate', fixGuidance: 'Configure a trusted CA certificate for the default ingress controller.', action: { label: 'Configure Ingress', path: '/admin' } };
+    return { status: hasCert ? 'passed' : 'needs_attention', detail: hasCert ? 'Custom certificate configured' : 'Using default self-signed certificate', fixGuidance: 'Configure a trusted CA certificate for the default ingress controller.', action: { label: 'Configure Ingress', path: '/admin?tab=config' } };
   }),
 };
 
@@ -468,7 +468,7 @@ const customDomain: ReadinessGate = {
     const domain = ingress?.spec?.domain || '';
     const isDefault = domain.includes('.devcluster.') || domain.includes('.example.com') || !domain;
     const status: GateStatus = domain && !isDefault ? 'passed' : domain ? 'needs_attention' : 'failed';
-    return { status, detail: domain || 'No domain configured', fixGuidance: 'Configure a custom apps domain in the ingress controller.', action: { label: 'Configure', path: '/admin' } };
+    return { status, detail: domain || 'No domain configured', fixGuidance: 'Configure a custom apps domain in the ingress controller.', action: { label: 'Configure', path: '/admin?tab=config' } };
   }),
 };
 

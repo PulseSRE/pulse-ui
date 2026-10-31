@@ -7,6 +7,8 @@ import React, { useState } from 'react';
 import { GitBranch, Zap, AlertTriangle, Loader2, CheckCircle, ExternalLink } from 'lucide-react';
 import { createGitProvider } from '../engine/gitProvider';
 import { useGitOpsConfig } from '../hooks/useGitOpsConfig';
+import { useNavigate } from 'react-router-dom';
+import { useGitOpsSetupStore } from '../store/gitopsSetupStore';
 import type { ArgoSyncInfo } from '../engine/types';
 
 interface GitOpsActionDialogProps {
@@ -28,6 +30,7 @@ export function GitOpsActionDialog({
   yamlContent, syncInfo, onApply, onClose,
 }: GitOpsActionDialogProps) {
   const { config, isConfigured } = useGitOpsConfig();
+  const navigate = useNavigate();
   const [status, setStatus] = useState<Status>('idle');
   const [prUrl, setPrUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +176,20 @@ export function GitOpsActionDialog({
 
             {!isConfigured && (
               <p className="text-xs text-amber-400 mt-2">
-                Git provider not configured. Go to Admin → GitOps to set up your repository.
+                Git provider not configured.{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // The Git step of the GitOps setup wizard is where the
+                    // repository is configured; the wizard lives on /gitops.
+                    useGitOpsSetupStore.getState().openWizard('git-config');
+                    onClose();
+                    navigate('/gitops');
+                  }}
+                  className="underline hover:text-amber-300"
+                >
+                  Configure a Git repository
+                </button>
               </p>
             )}
           </div>

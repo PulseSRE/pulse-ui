@@ -107,6 +107,23 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Go Home')).toBeDefined();
   });
 
+  it('"Go Home" goes to /pulse (there is no /welcome page)', () => {
+    const original = window.location;
+    const fake = { href: 'http://localhost/r/v1~pods' } as Location;
+    Object.defineProperty(window, 'location', { value: fake, configurable: true, writable: true });
+    try {
+      render(
+        <ErrorBoundary>
+          <ThrowingChild error={new Error('crash')} />
+        </ErrorBoundary>,
+      );
+      fireEvent.click(screen.getByText('Go Home'));
+      expect(fake.href).toBe('/pulse');
+    } finally {
+      Object.defineProperty(window, 'location', { value: original, configurable: true, writable: true });
+    }
+  });
+
   it('shows chunk load error UI for ChunkLoadError', () => {
     const chunkError = new Error('Loading chunk 42 failed');
     chunkError.name = 'ChunkLoadError';

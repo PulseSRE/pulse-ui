@@ -2,7 +2,7 @@
  * GVR URL utilities — single source of truth for GVR encoding/decoding
  */
 
-import { kindToPlural } from './renderers/index';
+import { resolveKind, gvrSegment } from './kindRegistry';
 import { getClusterBase } from './clusterConnection';
 
 /**
@@ -22,19 +22,25 @@ export function urlToGvr(gvrUrl: string): string {
   return gvrUrl.replace(/~/g, '/');
 }
 
-/** Build a detail page URL from a K8sResource */
+/** URL segment (`group~version~plural`) for a kind, resolved against discovery. */
+export function gvrUrlForKind(kind: string, apiVersion?: string): string {
+  return gvrSegment(resolveKind(kind, apiVersion));
+}
+
+/**
+ * Build a detail page URL from a K8sResource — the one builder for `/r/` detail
+ * links. Group/version/plural/scope come from the discovered API resources
+ * (then well-known kinds, then a guess). Cluster-scoped kinds never get a
+ * namespace segment, even when the caller passes one (alert labels carry the
+ * scraping namespace on Node alerts, for instance).
+ */
 export function resourceDetailUrl(resource: {
-  apiVersion: string;
+  apiVersion?: string;
   kind: string;
   metadata: { name: string; namespace?: string };
 }): string {
-  const apiVersion = resource.apiVersion || 'v1';
-  const kind = resource.kind || '';
-  const [group, version] = apiVersion.includes('/')
-    ? apiVersion.split('/')
-    : ['', apiVersion];
-  const plural = kindToPlural(kind);
-  const gvr = group ? `${group}~${version}~${plural}` : `${version}~${plural}`;
-  const ns = resource.metadata.namespace;
-  return ns ? `/r/${gvr}/${ns}/${resource.metadata.name}` : `/r/${gvr}/_/${resource.metadata.name}`;
+  const resolved = resolveKind(resource.kind || '', resource.apiVersion || undefined);
+  const ns = resolved.namespaced === false ? undefined : resource.metadata.namespace || undefined;
+  const name = resource.metadata.name;
+  return `/r/${gvrSegment(resolved)}/${ns ?? '_'}/${name}`;
 }

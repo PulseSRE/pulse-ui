@@ -138,3 +138,14 @@ describe('ApplicationsTab', () => {
     expect(newerIdx).toBeLessThan(olderIdx);
   });
 });
+
+describe('ApplicationsTab empty state links', () => {
+  afterEach(cleanup);
+
+  it('"Import YAML" opens the Application create page, not a Pod snippet', () => {
+    const go = vi.fn();
+    render(<ApplicationsTab applications={[]} syncing={null} onSync={vi.fn()} go={go} />);
+    fireEvent.click(screen.getByText('Import YAML'));
+    expect(go).toHaveBeenCalledWith('/create/argoproj.io~v1alpha1~applications', 'Import YAML');
+  });
+});

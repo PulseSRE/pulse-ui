@@ -86,3 +86,31 @@ describe('OverviewTab', () => {
     expect(await screen.findByText(/7 skills/)).toBeDefined();
   });
 });
+
+describe('OverviewTab links', () => {
+  afterEach(() => { cleanup(); });
+
+  it('"N auto-fixed" opens the agent-cleared inbox, not needs-attention', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchFixHistorySummary).mockResolvedValueOnce({ total_actions: 4, completed: 4, failed: 0, rolled_back: 0 } as never);
+    await renderTab();
+    const link = (await screen.findByText(/4 auto-fixed/)).closest('a')!;
+    expect(link.getAttribute('href')).toBe('/inbox?preset=agent_cleared');
+  });
+
+  it('maps legacy /incidents activity links to the Inbox activity tab and refuses unknown ones', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchAgentActivity).mockResolvedValueOnce({
+      period_days: 7,
+      events: [
+        { type: 'auto_fix', description: 'Restarted web', link: '/incidents?tab=actions' },
+        { type: 'investigation', description: 'Looked at db', link: '/incidents' },
+        { type: 'scan', description: 'Weird link', link: '/nowhere' },
+      ],
+    } as never);
+    await renderTab();
+    expect((await screen.findByText('Restarted web')).closest('a')!.getAttribute('href')).toBe('/inbox?tab=activity');
+    expect(screen.getByText('Looked at db').closest('a')!.getAttribute('href')).toBe('/inbox?tab=activity');
+    expect(screen.getByText('Weird link').closest('a')).toBeNull();
+  });
+});

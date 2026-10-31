@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { GitOpsActionDialog } from '../components/GitOpsActionDialog';
 import type { ArgoSyncInfo } from '../engine/types';
 
@@ -50,7 +51,9 @@ function renderDialog(props: Partial<React.ComponentProps<typeof GitOpsActionDia
   };
   return render(
     <QueryClientProvider client={qc}>
-      <GitOpsActionDialog {...defaultProps} />
+      <MemoryRouter>
+        <GitOpsActionDialog {...defaultProps} />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }

@@ -8,6 +8,8 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { AgentLink, useAgentLink } from '../AgentLink';
+import { isKnownRoute } from '../../../engine/routeTable';
 import { formatRelativeTime } from '../../../engine/formatters';
 import { MetricCard as SparklineMetricCard } from '../../metrics/Sparkline';
 import { pickDefaultContainer } from '../../logs/pickDefaultContainer';
@@ -83,13 +85,10 @@ const METRIC_STATUS_BORDER: Record<string, string> = {
 };
 
 export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
-  const navigate = useNavigate();
   const color = spec.color || METRIC_STATUS_COLORS[spec.status || ''] || '#3b82f6';
-  const clickable = !!spec.link;
-
-  const handleClick = () => {
-    if (spec.link) navigate(spec.link);
-  };
+  const link = useAgentLink(spec.link);
+  const clickable = !!link.onClick;
+  const handleClick = () => link.onClick?.();
 
   // If a PromQL query is provided, render the sparkline MetricCard
   if (spec.query) {
@@ -109,7 +108,7 @@ export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
         </button>
       );
     }
-    return card;
+    return link.title ? <div title={link.title}>{card}</div> : card;
   }
 
   // Static metric card (no query — just value + optional sparkline data)
@@ -117,6 +116,7 @@ export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
   return (
     <Tag
       onClick={clickable ? handleClick : undefined}
+      title={link.title}
       className={cn(
         'bg-linear-to-br from-slate-900 to-slate-900/70 rounded-lg border p-3 transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)] h-full',
         METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800',
@@ -156,13 +156,13 @@ export function AgentBarList({ spec }: { spec: BarListSpec }) {
         {items.map((item, i) => (
           <div key={i} className="flex items-center gap-2 text-xs">
             {item.href || item.gvr ? (
-              <a
-                href={item.href || `#/resource/${item.gvr}`}
+              <AgentLink
+                link={item.href || `/r/${item.gvr}`}
                 className="w-40 min-w-[100px] truncate font-mono text-slate-300 hover:text-blue-400 hover:underline cursor-pointer"
                 title={item.label}
               >
                 {item.label}
-              </a>
+              </AgentLink>
             ) : (
               <span className="w-40 min-w-[100px] truncate font-mono text-slate-300" title={item.label}>{item.label}</span>
             )}
@@ -618,13 +618,16 @@ export function AgentResourceCounts({ spec }: { spec: ResourceCountsSpec }) {
           const icon = RESOURCE_ICONS[item.resource] || '□';
           const color = RESOURCE_COLORS[item.resource] || 'text-slate-400';
           const statusColor = item.status === 'error' ? 'border-red-800/50' : item.status === 'warning' ? 'border-amber-800/50' : 'border-slate-800';
-          const path = item.gvr ? (ns ? `/r/${item.gvr}?ns=${ns}` : `/r/${item.gvr}`) : undefined;
+          const candidate = item.gvr ? (ns ? `/r/${item.gvr}?ns=${encodeURIComponent(ns)}` : `/r/${item.gvr}`) : undefined;
+          // TableView applies `?ns=`; a malformed gvr from the agent is not followed.
+          const path = candidate && isKnownRoute(candidate) ? candidate : undefined;
 
           return (
             <button
               key={item.resource}
               onClick={() => path && navigate(path)}
               disabled={!path}
+              title={candidate && !path ? `Pulse has no page at ${candidate}` : undefined}
               className={cn(
                 'bg-slate-900 rounded-lg border p-3 text-center transition-colors',
                 statusColor,

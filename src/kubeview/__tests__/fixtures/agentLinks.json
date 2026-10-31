@@ -1,0 +1,136 @@
+{
+  "_comment": "Links pulse-agent emits (grep sre_agent for \"link\", _gvr and /r/). Entries marked legacy are mapped by engine/agentLinks.ts normalizeAgentLink before use. Keep in sync with the backend.",
+  "links": [
+    {
+      "link": "/incidents?tab=actions",
+      "source": "sre_agent/api/monitor_rest.py /activity (fix events)",
+      "legacy": true
+    },
+    {
+      "link": "/incidents",
+      "source": "sre_agent/api/monitor_rest.py /activity (investigations, scans)",
+      "legacy": true
+    },
+    {
+      "link": "/incidents?tab=postmortems",
+      "source": "sre_agent/api/monitor_rest.py /activity (postmortems)",
+      "legacy": true
+    },
+    {
+      "link": "/inbox?tab=activity",
+      "source": "target the UI maps /incidents* to; what monitor_rest.py should emit"
+    },
+    {
+      "link": "/compute",
+      "source": "sre_agent/component_registry.py stat_card example; view_tools.py cluster cards"
+    },
+    {
+      "link": "/workloads",
+      "source": "sre_agent/view_tools.py cluster cards"
+    },
+    {
+      "link": "/r/v1~pods?ns=team-a",
+      "source": "sre_agent/view_tools.py namespace dashboard (pods card)"
+    },
+    {
+      "link": "/r/v1~events?ns=team-a",
+      "source": "sre_agent/view_tools.py namespace dashboard (warning events card)"
+    },
+    {
+      "link": "/custom/view-1a2b3c",
+      "source": "sre_agent/view_tools.py list_saved_views link column"
+    },
+    {
+      "link": "/logs/team-a/web-7c9d-abcde",
+      "source": "sre_agent/k8s_tools/pods.py logs column"
+    },
+    {
+      "link": "/r/v1~pods?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr v1~pods (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/apps~v1~deployments?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr apps~v1~deployments (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/apps~v1~statefulsets?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr apps~v1~statefulsets (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/apps~v1~daemonsets?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr apps~v1~daemonsets (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/v1~services?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr v1~services (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/route.openshift.io~v1~routes?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr route.openshift.io~v1~routes (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/networking.k8s.io~v1~ingresses?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr networking.k8s.io~v1~ingresses (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/v1~secrets?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr v1~secrets (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/v1~persistentvolumeclaims?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr v1~persistentvolumeclaims (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/v1~configmaps?ns=team-a",
+      "source": "sre_agent/view_tools.py resource_counts gvr v1~configmaps (VisualizationRenderer adds ?ns=)"
+    },
+    {
+      "link": "/r/v1~pods/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree v1~pods (DataRenderer row link)"
+    },
+    {
+      "link": "/r/apps~v1~deployments/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree apps~v1~deployments (DataRenderer row link)"
+    },
+    {
+      "link": "/r/apps~v1~statefulsets/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree apps~v1~statefulsets (DataRenderer row link)"
+    },
+    {
+      "link": "/r/apps~v1~daemonsets/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree apps~v1~daemonsets (DataRenderer row link)"
+    },
+    {
+      "link": "/r/autoscaling~v2~horizontalpodautoscalers/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree autoscaling~v2~horizontalpodautoscalers (DataRenderer row link)"
+    },
+    {
+      "link": "/r/apps~v1~replicasets/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree apps~v1~replicasets (DataRenderer row link)"
+    },
+    {
+      "link": "/r/batch~v1~jobs/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree batch~v1~jobs (DataRenderer row link)"
+    },
+    {
+      "link": "/r/batch~v1~cronjobs/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree batch~v1~cronjobs (DataRenderer row link)"
+    },
+    {
+      "link": "/r/v1~services/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree v1~services (DataRenderer row link)"
+    },
+    {
+      "link": "/r/v1~configmaps/team-a/example",
+      "source": "sre_agent k8s_tools _gvr / relationship tree v1~configmaps (DataRenderer row link)"
+    },
+    {
+      "link": "/r/v1~nodes/_/worker-1",
+      "source": "sre_agent/k8s_tools/nodes.py _gvr v1~nodes; DataRenderer node cell"
+    },
+    {
+      "link": "/project/team-a",
+      "source": "DataRenderer namespace cell for agent tables"
+    }
+  ]
+}

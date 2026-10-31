@@ -156,7 +156,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 Ask AI
               </button>
               <button
-                onClick={() => { window.location.href = '/welcome'; }}
+                onClick={() => { window.location.href = '/pulse'; }}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md transition-colors"
               >
                 <Home className="w-4 h-4" />

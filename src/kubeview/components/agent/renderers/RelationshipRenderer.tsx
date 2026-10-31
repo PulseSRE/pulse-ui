@@ -4,6 +4,7 @@
 
 import React, { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { AgentLink } from '../AgentLink';
 import { Plus } from 'lucide-react';
 import { DynamicComponent } from '../DynamicComponent';
 import type {
@@ -61,7 +62,7 @@ export function TreeNode({ node, nodes, depth = 0, visited = new Set<string>() }
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {link ? (
-              <a href={link} className="text-xs font-medium text-blue-400 hover:text-blue-300">{node.kind}/{node.name}</a>
+              <AgentLink link={link} className="text-xs font-medium text-blue-400 hover:text-blue-300">{node.kind}/{node.name}</AgentLink>
             ) : (
               <span className="text-xs font-medium text-slate-200">{node.kind}/{node.name}</span>
             )}
