@@ -73,12 +73,16 @@ type PostureLevel = 'unknown' | 'green' | 'yellow' | 'red';
 function ClusterPostureBar({
   findings,
   incidentCounts,
+  topIncident,
   lastScanTime,
   monitorConnected,
   onInvestigate,
 }: {
+  /** Monitor findings, used only for the auto-fixed tally. Counts come from the incident feed. */
   findings: Array<{ severity: string; title: string }>;
   incidentCounts: { critical: number; warning: number; info: number; total: number };
+  /** Highest-severity, most-recent incident from the same feed the counts come from. */
+  topIncident: { severity: string; title: string } | null;
   lastScanTime: number | null;
   monitorConnected: boolean;
   onInvestigate: () => void;
@@ -87,14 +91,25 @@ function ClusterPostureBar({
   const warningCount = incidentCounts.warning;
   const autoFixedCount = findings.filter((f) => (f as any).autoFixable).length;
 
-  // A real finding outranks not having scanned: if something already came back
-  // critical, say so rather than "checking". Only genuine silence is unknown.
+  // Counts and the headline both come from the incident feed, which is the
+  // only list that has counted everything exactly once. The feed reads monitor
+  // findings from the same store in the same render, so a finding is never
+  // missing from it and nothing needs adding on top.
+  //
+  // This used to read `warningCount + findings.length`, which double-counted:
+  // the feed's DEFAULT_SOURCES already includes 'finding', so every monitor
+  // finding was tallied inside warningCount and then added again raw.
+  //
+  // The headline used to be findings[0] while the number came from the feed —
+  // two different lists — so "1 critical — <title>" could name something that
+  // was neither critical nor part of the count. The feed is sorted by severity,
+  // so its first item is from the bucket the number counts.
+  const headline = topIncident;
+
   let level: PostureLevel = 'green';
   if (criticalCount > 0) level = 'red';
-  else if (warningCount > 0 || findings.length > 0) level = 'yellow';
+  else if (warningCount > 0) level = 'yellow';
   else if (!lastScanTime) level = 'unknown';
-
-  const topFinding = findings.length > 0 ? findings[0] : null;
 
   const scanLabel = lastScanTime
     ? `Last scan: ${formatRelativeTime(lastScanTime)}`
@@ -148,9 +163,9 @@ function ClusterPostureBar({
         )}
         {level === 'yellow' && (
           <>
-            <span className="text-amber-400">{warningCount + findings.length} warning{warningCount + findings.length !== 1 ? 's' : ''}</span>
-            {topFinding && (
-              <span className="text-slate-400"> — {topFinding.title}</span>
+            <span className="text-amber-400">{warningCount} warning{warningCount !== 1 ? 's' : ''}</span>
+            {headline && (
+              <span className="text-slate-400"> — {headline.title}</span>
             )}
             <span className="text-slate-500"> | {scanLabel}</span>
           </>
@@ -158,8 +173,8 @@ function ClusterPostureBar({
         {level === 'red' && (
           <>
             <span className="text-red-400">{criticalCount} critical</span>
-            {topFinding && (
-              <span className="text-slate-400"> — {topFinding.title}</span>
+            {headline && (
+              <span className="text-slate-400"> — {headline.title}</span>
             )}
             <span className="text-slate-500"> →{' '}</span>
             <button onClick={onInvestigate} className="text-red-400 underline underline-offset-2 hover:text-red-300">
@@ -224,7 +239,11 @@ export default function PulseView() {
    */
   const trustLevel = capQ.data?.effective_trust_level ?? requestedTrust;
   const divergenceNote = trustDivergenceNote(requestedTrust, capQ.data?.effective_trust_level);
-  const { counts: incidentCounts } = useIncidentFeed({ limit: 0 });
+  // limit: 0 returns every incident (the slice only applies when limit > 0)
+  // and counts are computed before any slice, so the headline and the number
+  // below come from one list that counted each item exactly once.
+  const { counts: incidentCounts, incidents } = useIncidentFeed({ limit: 0 });
+  const topIncident = incidents.length > 0 ? incidents[0] : null;
 
   const [scanning, setScanning] = useState(false);
   const scanTimeRef = useRef(lastScanTime);
@@ -267,6 +286,7 @@ export default function PulseView() {
         <ClusterPostureBar
           findings={findings}
           incidentCounts={incidentCounts}
+          topIncident={topIncident}
           lastScanTime={lastScanTime}
           monitorConnected={monitorConnected}
           onInvestigate={() => go('/inbox', 'Inbox')}
