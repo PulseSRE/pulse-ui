@@ -46,7 +46,17 @@ vi.mock('../../hooks/useIncidentFeed', () => ({ useIncidentFeed: () => feedFromS
 vi.mock('../../components/topology/TopologyMap', () => ({ default: () => null }));
 vi.mock('../pulse/ReportTab', () => ({ ReportTab: () => null }));
 vi.mock('../pulse/FleetReportTab', () => ({ FleetReportTab: () => null }));
-vi.mock('../pulse/OpenEpisodeBanner', () => ({ OpenEpisodeBanner: () => null }));
+// The episode banner reports whether it is showing; tests choose the answer.
+const episodeBanner = { open: false };
+vi.mock('../pulse/OpenEpisodeBanner', async () => {
+  const { useEffect } = await import('react');
+  return {
+    OpenEpisodeBanner: ({ onVisibleChange }: { onVisibleChange?: (v: boolean) => void }) => {
+      useEffect(() => onVisibleChange?.(episodeBanner.open), [onVisibleChange]);
+      return episodeBanner.open ? <button type="button">Open incident Investigate</button> : null;
+    },
+  };
+});
 
 const monitorState = {
   connected: true,
@@ -82,6 +92,7 @@ vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }))
 function renderBar(over: Partial<typeof monitorState>, extras: FeedItem[] = []) {
   Object.assign(monitorState, { findings: [], lastScanTime: null, connected: true }, over);
   feedExtras.splice(0, feedExtras.length, ...extras);
+  episodeBanner.open = false;
   // PulseView reads the agent's own trust level through react-query, so it
   // needs a client even when the test is only looking at the posture bar.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -158,5 +169,32 @@ describe('the posture bar counts each problem once and names one it counted', ()
     expect(screen.getByText('1 warning')).toBeDefined();
     expect(screen.getByText(/CPUThrottlingHigh/)).toBeDefined();
     expect(screen.queryByText(/just so you know/)).toBeNull();
+  });
+});
+
+describe('the posture bar does not repeat the open-episode banner\'s action', () => {
+  afterEach(cleanup);
+
+  const critical = { severity: 'critical', title: 'KubeAPIDown' };
+
+  it('offers Investigate when no episode banner is showing', () => {
+    renderBar({ lastScanTime: Date.now(), findings: [critical] });
+    expect(screen.getByText('1 critical')).toBeDefined();
+    expect(screen.getAllByText('Investigate')).toHaveLength(1);
+  });
+
+  it('keeps the count but drops its own Investigate under an open episode', () => {
+    Object.assign(monitorState, { lastScanTime: Date.now(), findings: [critical] });
+    feedExtras.splice(0);
+    episodeBanner.open = true;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PulseViewModule />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('1 critical')).toBeDefined();
+    expect(screen.getByText('Open incident Investigate')).toBeDefined();
+    expect(screen.queryByText('Investigate')).toBeNull();
   });
 });

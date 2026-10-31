@@ -77,6 +77,7 @@ function ClusterPostureBar({
   lastScanTime,
   monitorConnected,
   onInvestigate,
+  investigateShownAbove = false,
 }: {
   /** Monitor findings, used only for the auto-fixed tally. Counts come from the incident feed. */
   findings: Array<{ severity: string; title: string }>;
@@ -86,6 +87,12 @@ function ClusterPostureBar({
   lastScanTime: number | null;
   monitorConnected: boolean;
   onInvestigate: () => void;
+  /**
+   * The open-episode banner directly above already offers Investigate (to the
+   * same place). Two identical red buttons stacked on each other read as two
+   * different problems, so the bar keeps its count and drops the action.
+   */
+  investigateShownAbove?: boolean;
 }) {
   const criticalCount = incidentCounts.critical;
   const warningCount = incidentCounts.warning;
@@ -121,7 +128,11 @@ function ClusterPostureBar({
   return (
     <SeverityBanner
       level={level}
-      action={level === 'red' ? { label: 'Investigate', onClick: onInvestigate } : undefined}
+      action={
+        level === 'red' && !investigateShownAbove
+          ? { label: 'Investigate', onClick: onInvestigate }
+          : undefined
+      }
       meta={
         <>
           {(level === 'unknown' || level === 'green') && (
@@ -212,6 +223,7 @@ export default function PulseView() {
   const topIncident = incidents.length > 0 ? incidents[0] : null;
 
   const [scanning, setScanning] = useState(false);
+  const [episodeBannerShown, setEpisodeBannerShown] = useState(false);
   const scanTimeRef = useRef(lastScanTime);
   const handleScanNow = () => {
     scanTimeRef.current = lastScanTime;
@@ -246,7 +258,7 @@ export default function PulseView() {
 
         {/* An open episode outranks everything below it — those tiles are
             showing its symptoms. */}
-        <OpenEpisodeBanner onOpen={() => go('/inbox', 'Inbox')} />
+        <OpenEpisodeBanner onOpen={() => go('/inbox', 'Inbox')} onVisibleChange={setEpisodeBannerShown} />
 
         {/* ── Cluster Posture Bar ── */}
         <ClusterPostureBar
@@ -256,6 +268,7 @@ export default function PulseView() {
           lastScanTime={lastScanTime}
           monitorConnected={monitorConnected}
           onInvestigate={() => go('/inbox', 'Inbox')}
+          investigateShownAbove={episodeBannerShown}
         />
 
         {/* ── Header with inline stats ── */}

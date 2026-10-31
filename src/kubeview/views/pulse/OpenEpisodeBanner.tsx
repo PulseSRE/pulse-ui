@@ -18,8 +18,26 @@ import { formatElapsed } from '../../engine/dateUtils';
  * showing its symptoms.
  */
 
-export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
+export function OpenEpisodeBanner({
+  onOpen,
+  onVisibleChange,
+}: {
+  onOpen: () => void;
+  /**
+   * Told whether the banner is showing, so the posture bar below can drop its
+   * own Investigate action instead of rendering a second identical red button
+   * that goes to the same place.
+   */
+  onVisibleChange?: (visible: boolean) => void;
+}) {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const visible = episodes.length > 0;
+
+  useEffect(() => {
+    onVisibleChange?.(visible);
+  }, [visible, onVisibleChange]);
+
+  useEffect(() => () => onVisibleChange?.(false), [onVisibleChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +57,7 @@ export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
     };
   }, []);
 
-  if (episodes.length === 0) return null;
+  if (!visible) return null;
 
   const [first, ...rest] = episodes;
 

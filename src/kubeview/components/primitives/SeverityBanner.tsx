@@ -138,7 +138,11 @@ export function SeverityBanner({
   }
 
   return (
-    <button onClick={action.onClick} className={cn('group transition-colors', shared, hover[level])}>
+    <button
+      type="button"
+      onClick={action.onClick}
+      className={cn('group transition-colors', shared, hover[level])}
+    >
       {body}
     </button>
   );

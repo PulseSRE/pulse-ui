@@ -65,6 +65,8 @@ describe('SeverityBanner', () => {
 
     const root = container.firstElementChild as HTMLElement;
     expect(root.tagName).toBe('BUTTON');
+    // Never a form submit if the banner ends up inside a form.
+    expect(root.getAttribute('type')).toBe('button');
 
     fireEvent.click(root);
     expect(onClick).toHaveBeenCalledOnce();
