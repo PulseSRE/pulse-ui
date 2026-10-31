@@ -39,6 +39,14 @@ export interface ClusterConnectionConfig {
   target: string;
 }
 
+/**
+ * The cluster Pulse is deployed on. Pulse's own objects (its OpenShiftPulse
+ * CR, its deployments, its GitOps config Secret) and its Prometheus live
+ * here whatever cluster is active, so code that reads them names this id
+ * instead of following the active cluster.
+ */
+export const LOCAL_CLUSTER_ID = 'local';
+
 /** The local cluster's base URL — always available */
 const LOCAL_BASE = '/api/kubernetes';
 

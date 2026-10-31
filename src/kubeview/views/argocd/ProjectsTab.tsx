@@ -5,11 +5,13 @@ import { cn } from '@/lib/utils';
 import { k8sList } from '../../engine/query';
 import type { ArgoAppProject } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 export function ProjectsTab() {
+  const clusterId = useActiveClusterId();
   const { data: projects = [], isLoading, error } = useQuery({
-    queryKey: ['argocd-appprojects'],
-    queryFn: () => k8sList<ArgoAppProject>('/apis/argoproj.io/v1alpha1/appprojects'),
+    queryKey: ['argocd-appprojects', clusterId],
+    queryFn: () => k8sList<ArgoAppProject>('/apis/argoproj.io/v1alpha1/appprojects', undefined, clusterId),
     refetchInterval: 30_000,
   });
 

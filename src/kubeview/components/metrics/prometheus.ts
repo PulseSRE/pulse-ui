@@ -1,13 +1,50 @@
 /**
  * Prometheus API client utilities
  *
- * Helper functions for querying Prometheus/Thanos via the /api/prometheus proxy
+ * Helper functions for querying Prometheus/Thanos via the /api/prometheus proxy.
+ *
+ * That proxy reaches the monitoring stack of the cluster Pulse is deployed on
+ * ("local") and nothing else: clusterConnection has no per-cluster Prometheus
+ * route. Every helper therefore takes the cluster the screen is showing and
+ * refuses — without sending a request — when it is not the local cluster, so
+ * a remote cluster's page can never be drawn with the local cluster's numbers.
  */
 
 import { getImpersonationHeaders } from '../../engine/query';
 import { checkAuth } from '../../engine/safeQuery';
+import { getActiveClusterId, getAllConnections, LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 
 const PROM_BASE = '/api/prometheus';
+
+/** The only cluster whose Prometheus the UI can reach. */
+export const METRICS_CLUSTER_ID = LOCAL_CLUSTER_ID;
+
+/** Metrics were requested for a cluster whose Prometheus Pulse cannot reach. */
+export class MetricsUnavailableError extends Error {
+  constructor(public readonly clusterId: string) {
+    const name = getAllConnections().find(c => c.id === clusterId)?.name ?? clusterId;
+    super(`Metrics are only available for the local cluster. Prometheus for ${name} is not reachable from Pulse.`);
+    this.name = 'MetricsUnavailableError';
+  }
+}
+
+/** Whether Prometheus data can be shown for this cluster (default: the active one). */
+export function metricsAvailableFor(clusterId?: string): boolean {
+  return (clusterId ?? getActiveClusterId()) === METRICS_CLUSTER_ID;
+}
+
+/**
+ * fetch() a Prometheus API path for one cluster, with impersonation headers.
+ * Throws MetricsUnavailableError (no request sent) for a non-local cluster.
+ */
+export async function promFetch(apiPath: string, clusterId?: string, init: RequestInit = {}): Promise<Response> {
+  const id = clusterId ?? getActiveClusterId();
+  if (!metricsAvailableFor(id)) throw new MetricsUnavailableError(id);
+  const headers = { ...getImpersonationHeaders(), ...((init.headers as Record<string, string> | undefined) ?? {}) };
+  const res = await fetch(`${PROM_BASE}${apiPath}`, { ...init, headers });
+  checkAuth(res);
+  return res;
+}
 
 export interface PrometheusDataPoint {
   timestamp: number;
@@ -46,7 +83,8 @@ export async function queryRange(
   query: string,
   start: number,
   end: number,
-  step?: number
+  step?: number,
+  clusterId?: string,
 ): Promise<PrometheusSeries[]> {
   const calculatedStep = step ?? Math.max(15, Math.floor((end - start) / 200));
 
@@ -57,9 +95,7 @@ export async function queryRange(
     step: calculatedStep.toString(),
   });
 
-  const url = `${PROM_BASE}/api/v1/query_range?${params}`;
-  const res = await fetch(url, { headers: getImpersonationHeaders() });
-  checkAuth(res);
+  const res = await promFetch(`/api/v1/query_range?${params}`, clusterId);
 
   if (!res.ok) {
     throw new Error(`Prometheus query failed: ${res.status} ${res.statusText}`);
@@ -79,16 +115,15 @@ export async function queryRange(
  */
 export async function queryInstant(
   query: string,
-  time?: number
+  time?: number,
+  clusterId?: string,
 ): Promise<Array<{ metric: Record<string, string>; value: number }>> {
   const params = new URLSearchParams({ query });
   if (time) {
     params.set('time', time.toString());
   }
 
-  const url = `${PROM_BASE}/api/v1/query?${params}`;
-  const res = await fetch(url, { headers: getImpersonationHeaders() });
-  checkAuth(res);
+  const res = await promFetch(`/api/v1/query?${params}`, clusterId);
 
   if (!res.ok) {
     throw new Error(`Prometheus query failed: ${res.status} ${res.statusText}`);
@@ -109,10 +144,8 @@ export async function queryInstant(
 /**
  * Get all metric names
  */
-export async function getMetricNames(): Promise<string[]> {
-  const url = `${PROM_BASE}/api/v1/label/__name__/values`;
-  const res = await fetch(url, { headers: getImpersonationHeaders() });
-  checkAuth(res);
+export async function getMetricNames(clusterId?: string): Promise<string[]> {
+  const res = await promFetch('/api/v1/label/__name__/values', clusterId);
 
   if (!res.ok) {
     throw new Error(`Failed to fetch metric names: ${res.status} ${res.statusText}`);
@@ -130,13 +163,11 @@ export async function getMetricNames(): Promise<string[]> {
 /**
  * Get label values for a given label name
  */
-export async function getLabelValues(labelName: string): Promise<string[]> {
+export async function getLabelValues(labelName: string, clusterId?: string): Promise<string[]> {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(labelName)) {
     throw new Error(`Invalid Prometheus label name: ${labelName}`);
   }
-  const url = `${PROM_BASE}/api/v1/label/${labelName}/values`;
-  const res = await fetch(url, { headers: getImpersonationHeaders() });
-  checkAuth(res);
+  const res = await promFetch(`/api/v1/label/${labelName}/values`, clusterId);
 
   if (!res.ok) {
     throw new Error(`Failed to fetch label values: ${res.status} ${res.statusText}`);

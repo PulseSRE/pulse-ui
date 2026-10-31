@@ -17,6 +17,7 @@ import { useClusterStore } from '../store/clusterStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Card } from '../components/primitives/Card';
 import { askPulse } from '../engine/askPulse';
+import { useActiveClusterId } from '../hooks/useClusterBase';
 
 interface SecurityAuditCheck {
   id: string;
@@ -31,6 +32,7 @@ interface SecurityAuditCheck {
 const CLUSTER_ADMIN_THRESHOLD = 3;
 
 export default function SecurityView() {
+  const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const apiGroups = useClusterStore((s) => s.apiGroups);
@@ -39,44 +41,44 @@ export default function SecurityView() {
 
   // Data
   const { data: oauthConfig } = useQuery({
-    queryKey: ['security', 'oauth'],
-    queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster')),
+    queryKey: ['security', 'oauth', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster', clusterId)),
     staleTime: 120000,
   });
   const { data: apiServer } = useQuery({
-    queryKey: ['security', 'apiserver'],
-    queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/apiservers/cluster')),
+    queryKey: ['security', 'apiserver', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/apiservers/cluster', clusterId)),
     staleTime: 120000,
   });
   const { data: users = [] } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'users'],
-    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/user.openshift.io/v1/users'))) ?? [],
+    queryKey: ['security', 'users', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/user.openshift.io/v1/users', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
   const { data: clusterRoleBindings = [], isLoading: crbLoading } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings' });
   const { data: sccs = [] } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'sccs'],
-    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/security.openshift.io/v1/securitycontextconstraints'))) ?? [],
+    queryKey: ['security', 'sccs', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/security.openshift.io/v1/securitycontextconstraints', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
   const { data: networkPolicies = [] } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
   const { data: namespaces = [] } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
   const { data: secrets = [] } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'secrets-summary'],
+    queryKey: ['security', 'secrets-summary', clusterId],
     queryFn: async () => {
-      const s = await k8sList<K8sResource>('/api/v1/secrets');
+      const s = await k8sList<K8sResource>('/api/v1/secrets', undefined, clusterId);
       return s;
     },
     staleTime: 120000,
   });
   const { data: externalSecrets = [] } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'externalsecrets'],
+    queryKey: ['security', 'externalsecrets', clusterId],
     queryFn: async () => {
       // ESO 0.17+ serves ExternalSecret at v1 (v1beta1 is no longer served);
       // ESO installs still on <0.17 only serve v1beta1 — check both.
       const [v1, v1beta1] = await Promise.all([
-        safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1/externalsecrets')),
-        safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1beta1/externalsecrets')),
+        safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1/externalsecrets', undefined, clusterId)),
+        safeQuery(() => k8sList<K8sResource>('/apis/external-secrets.io/v1beta1/externalsecrets', undefined, clusterId)),
       ]);
       return [...(v1 ?? []), ...(v1beta1 ?? [])];
     },
@@ -84,17 +86,17 @@ export default function SecurityView() {
     enabled: hasExternalSecrets,
   });
   const { data: sealedSecrets = [] } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'sealedsecrets'],
-    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/bitnami.com/v1alpha1/sealedsecrets'))) ?? [],
+    queryKey: ['security', 'sealedsecrets', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/bitnami.com/v1alpha1/sealedsecrets', undefined, clusterId))) ?? [],
     staleTime: 120000,
     enabled: hasSealedSecrets,
   });
 
   // StackRox / ACS detection
   const { data: acsInstalled = false } = useQuery({
-    queryKey: ['security', 'acs'],
+    queryKey: ['security', 'acs', clusterId],
     queryFn: async () => {
-      const csvs = (await safeQuery(() => k8sList<K8sResource>('/apis/operators.coreos.com/v1alpha1/clusterserviceversions'))) ?? [];
+      const csvs = (await safeQuery(() => k8sList<K8sResource>('/apis/operators.coreos.com/v1alpha1/clusterserviceversions', undefined, clusterId))) ?? [];
       return csvs.some((csv) => csv.metadata?.name?.includes('rhacs') || csv.metadata?.name?.includes('stackrox'));
     },
     staleTime: 300000,

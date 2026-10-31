@@ -12,6 +12,7 @@ import { queryInstant } from '../../components/metrics/prometheus';
 import { safeQuery } from '../../engine/safeQuery';
 import type { NodePool, Condition } from '../../engine/types';
 import type { NodeDetail } from './types';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 interface Props {
   isHyperShift: boolean;
@@ -73,13 +74,14 @@ function HyperShiftSummary({ nodePools, clusterVersion, platform, nodeDetails }:
 function RegularSummary({ nodeDetails, clusterVersion, platform }: {
   nodeDetails: NodeDetail[]; clusterVersion: string | null; platform: string | null;
 }) {
+  const clusterId = useActiveClusterId();
   const masters = nodeDetails.filter(nd => nd.roles.includes('master') || nd.roles.includes('control-plane'));
   const mastersReady = masters.filter(nd => nd.status.ready).length;
   const allReady = mastersReady === masters.length && masters.length > 0;
 
   const { data: etcdData } = useQuery({
-    queryKey: ['compute', 'etcd-leader'],
-    queryFn: async () => (await safeQuery(() => queryInstant('max(etcd_server_has_leader)'))) ?? [],
+    queryKey: ['compute', 'etcd-leader', clusterId],
+    queryFn: async () => (await safeQuery(() => queryInstant('max(etcd_server_has_leader)', undefined, clusterId))) ?? [],
     refetchInterval: 30000,
   });
   const etcdHasLeader = Array.isArray(etcdData) && etcdData.length > 0 && Number(etcdData[0]?.value) === 1;

@@ -11,6 +11,8 @@ import { useUIStore } from '../store/uiStore';
 import { ConfirmDialog } from './feedback/ConfirmDialog';
 import { Card } from './primitives/Card';
 import { showErrorToast } from '../engine/errorToast';
+import { useActiveClusterId } from '../hooks/useClusterBase';
+import { assertActiveCluster } from '../engine/pendingCluster';
 
 const CONFIG_BASE = '/apis/config.openshift.io/v1';
 // CRDs use merge-patch, not strategic-merge-patch
@@ -59,9 +61,10 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const clusterId = useActiveClusterId();
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'config', section.id],
-    queryFn: () => safeQuery(() => k8sGet<Record<string, unknown>>(section.apiPath)),
+    queryKey: ['admin', 'config', section.id, clusterId],
+    queryFn: () => safeQuery(() => k8sGet<Record<string, unknown>>(section.apiPath, clusterId)),
     staleTime: 60000,
     enabled: expanded,
   });
@@ -81,7 +84,7 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
           {isLoading && <div className="text-sm text-slate-500 text-center py-4">Loading...</div>}
           {error && <div className="text-sm text-red-400 text-center py-4">Failed to load configuration</div>}
           {data && !isLoading && (
-            <ConfigEditor section={section} data={data} />
+            <ConfigEditor section={section} data={data} clusterId={clusterId} />
           )}
         </div>
       )}
@@ -89,24 +92,25 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
   );
 }
 
-function ConfigEditor({ section, data }: { section: ConfigSection; data: any }) {
+/** Editors write back to the cluster their data was read from, and refuse if it is no longer active. */
+function ConfigEditor({ section, data, clusterId }: { section: ConfigSection; data: any; clusterId: string }) {
   switch (section.id) {
-    case 'oauth': return <OAuthEditor data={data} apiPath={section.apiPath} />;
-    case 'proxy': return <ProxyEditor data={data} apiPath={section.apiPath} />;
-    case 'image': return <ImageEditor data={data} apiPath={section.apiPath} />;
-    case 'ingress': return <IngressEditor data={data} apiPath={section.apiPath} />;
-    case 'scheduler': return <SchedulerEditor data={data} apiPath={section.apiPath} />;
-    case 'apiserver': return <APIServerEditor data={data} apiPath={section.apiPath} />;
-    case 'dns': return <DNSEditor data={data} apiPath={section.apiPath} />;
-    case 'network': return <NetworkEditor data={data} apiPath={section.apiPath} />;
-    case 'featuregate': return <FeatureGateEditor data={data} apiPath={section.apiPath} />;
-    case 'console': return <ConsoleEditor data={data} apiPath={section.apiPath} />;
+    case 'oauth': return <OAuthEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'proxy': return <ProxyEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'image': return <ImageEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'ingress': return <IngressEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'scheduler': return <SchedulerEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'apiserver': return <APIServerEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'dns': return <DNSEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'network': return <NetworkEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'featuregate': return <FeatureGateEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'console': return <ConsoleEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
     default: return null;
   }
 }
 
 // ===== OAuth =====
-function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function OAuthEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const providers = data.spec?.identityProviders || [];
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
@@ -133,7 +137,8 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
     setSaving(true);
     try {
       const updated = providers.filter((p: any) => p.name !== name);
-      await k8sPatch(apiPath, { spec: { identityProviders: updated } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { identityProviders: updated } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Identity provider removed', detail: name });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'oauth'] });
     } catch (err) {
@@ -166,7 +171,8 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
 
     setSaving(true);
     try {
-      await k8sPatch(apiPath, { spec: { identityProviders: [...providers, provider] } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { identityProviders: [...providers, provider] } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Identity provider added', detail: `${newName} (${newType})` });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'oauth'] });
       resetForm();
@@ -264,7 +270,7 @@ function OAuthEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== Proxy =====
-function ProxyEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function ProxyEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const [httpProxy, setHttpProxy] = useState(spec.httpProxy || '');
   const [httpsProxy, setHttpsProxy] = useState(spec.httpsProxy || '');
@@ -277,7 +283,8 @@ function ProxyEditor({ data, apiPath }: { data: any; apiPath: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await k8sPatch(apiPath, { spec: { httpProxy, httpsProxy, noProxy } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { httpProxy, httpsProxy, noProxy } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Proxy settings updated' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'proxy'] });
       setDirty(false);
@@ -303,7 +310,7 @@ function ProxyEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== Image =====
-function ImageEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function ImageEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const registrySources = spec.registrySources || {};
   const allowedRegistries: string[] = registrySources.allowedRegistries || [];
@@ -322,7 +329,8 @@ function ImageEditor({ data, apiPath }: { data: any; apiPath: string }) {
       const key = regType === 'allowed' ? 'allowedRegistries' : regType === 'blocked' ? 'blockedRegistries' : 'insecureRegistries';
       const current = regType === 'allowed' ? allowedRegistries : regType === 'blocked' ? blockedRegistries : insecureRegistries;
       const updated = [...current, newReg.trim()];
-      await k8sPatch(apiPath, { spec: { registrySources: { [key]: updated } } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { registrySources: { [key]: updated } } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: `Registry added to ${regType} list`, detail: newReg });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'image'] });
       setNewReg('');
@@ -338,7 +346,8 @@ function ImageEditor({ data, apiPath }: { data: any; apiPath: string }) {
       const key = type === 'allowed' ? 'allowedRegistries' : type === 'blocked' ? 'blockedRegistries' : 'insecureRegistries';
       const current = type === 'allowed' ? allowedRegistries : type === 'blocked' ? blockedRegistries : insecureRegistries;
       const updated = current.filter(r => r !== registry);
-      await k8sPatch(apiPath, { spec: { registrySources: { [key]: updated.length > 0 ? updated : null } } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { registrySources: { [key]: updated.length > 0 ? updated : null } } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: `Registry removed from ${type} list` });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'image'] });
     } catch (err) {
@@ -403,7 +412,7 @@ function RegistryList({ label, items, color, description, onRemove, disabled }: 
 }
 
 // ===== Ingress =====
-function IngressEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function IngressEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const [domain, setDomain] = useState(spec.domain || '');
   const [saving, setSaving] = useState(false);
@@ -415,7 +424,8 @@ function IngressEditor({ data, apiPath }: { data: any; apiPath: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await k8sPatch(apiPath, { spec: { domain } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { domain } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Ingress domain updated', detail: domain });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'ingress'] });
       setDirty(false);
@@ -447,7 +457,7 @@ function IngressEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== Scheduler =====
-function SchedulerEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function SchedulerEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const profile = spec.profile || 'LowNodeUtilization';
   const [selectedProfile, setSelectedProfile] = useState(profile);
@@ -464,7 +474,8 @@ function SchedulerEditor({ data, apiPath }: { data: any; apiPath: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await k8sPatch(apiPath, { spec: { profile: selectedProfile } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { profile: selectedProfile } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Scheduler profile updated', detail: selectedProfile });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'scheduler'] });
     } catch (err) {
@@ -497,7 +508,7 @@ function SchedulerEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== API Server =====
-function APIServerEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function APIServerEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const tlsProfile = spec.tlsSecurityProfile?.type || 'Intermediate';
   const [selectedTls, setSelectedTls] = useState(tlsProfile);
@@ -514,7 +525,8 @@ function APIServerEditor({ data, apiPath }: { data: any; apiPath: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await k8sPatch(apiPath, { spec: { tlsSecurityProfile: { type: selectedTls } } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { tlsSecurityProfile: { type: selectedTls } } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'TLS profile updated', detail: selectedTls });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'apiserver'] });
     } catch (err) {
@@ -560,7 +572,7 @@ function APIServerEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== DNS =====
-function DNSEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function DNSEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const status = data.status || {};
   const addToast = useUIStore((s) => s.addToast);
@@ -579,7 +591,8 @@ function DNSEditor({ data, apiPath }: { data: any; apiPath: string }) {
       const patch: any = { spec: { baseDomain } };
       if (publicZoneId) patch.spec.publicZone = { id: publicZoneId };
       if (privateZoneId) patch.spec.privateZone = { id: privateZoneId };
-      await k8sPatch(apiPath, patch, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, patch, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'DNS configuration updated' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'dns'] });
       setDirty(false);
@@ -605,7 +618,7 @@ function DNSEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== Network =====
-function NetworkEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function NetworkEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const status = data.status || {};
   const addToast = useUIStore((s) => s.addToast);
@@ -619,7 +632,8 @@ function NetworkEditor({ data, apiPath }: { data: any; apiPath: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await k8sPatch(apiPath, { spec: { networkType } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { networkType } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Network configuration updated' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'network'] });
       setDirty(false);
@@ -671,7 +685,7 @@ function NetworkEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== FeatureGate =====
-function FeatureGateEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function FeatureGateEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const spec = data.spec || {};
   const status = data.status || {};
   const addToast = useUIStore((s) => s.addToast);
@@ -686,7 +700,8 @@ function FeatureGateEditor({ data, apiPath }: { data: any; apiPath: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await k8sPatch(apiPath, { spec: { featureSet: featureSet || null } }, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, { spec: { featureSet: featureSet || null } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Feature gate updated', detail: `Set to: ${featureSet || 'Default'}` });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'featuregate'] });
       setDirty(false);
@@ -748,7 +763,7 @@ function FeatureGateEditor({ data, apiPath }: { data: any; apiPath: string }) {
 }
 
 // ===== Console =====
-function ConsoleEditor({ data, apiPath }: { data: any; apiPath: string }) {
+function ConsoleEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
   const status = data.status || {};
   const spec = data.spec || {};
   const addToast = useUIStore((s) => s.addToast);
@@ -782,7 +797,8 @@ function ConsoleEditor({ data, apiPath }: { data: any; apiPath: string }) {
       // Statuspage
       if (statuspageId) patch.spec.providers = { statuspage: { pageID: statuspageId } };
 
-      await k8sPatch(apiPath, patch, MERGE_PATCH);
+      assertActiveCluster(clusterId, 'This configuration change');
+      await k8sPatch(apiPath, patch, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Console configuration updated' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'console'] });
       setDirty(false);

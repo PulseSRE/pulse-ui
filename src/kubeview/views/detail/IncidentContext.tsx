@@ -10,6 +10,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { Pod, Event, Container, ContainerStatus } from '../../engine/types';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { Card } from '../../components/primitives/Card';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 export function IncidentContext({ resource, managedPods, events, namespace, go }: {
   resource: K8sResource;
@@ -18,6 +19,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   namespace?: string;
   go: (path: string, title: string) => void;
 }) {
+  const clusterId = useActiveClusterId();
   const isPod = resource.kind === 'Pod';
   const isWorkload = resource.kind === 'Deployment' || resource.kind === 'StatefulSet' || resource.kind === 'DaemonSet';
 
@@ -68,12 +70,12 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   const logPodNs = isPod ? namespace : worstPodNs;
 
   const { data: logText, isLoading: logsLoading } = useQuery({
-    queryKey: ['incident-logs', logPodNs, logPodName, activeContainer, showPrevious],
+    queryKey: ['incident-logs', logPodNs, logPodName, activeContainer, showPrevious, clusterId],
     queryFn: () => logPodNs && logPodName
       ? k8sLogs(logPodNs, logPodName, activeContainer || undefined, {
           tailLines: 80,
           ...(showPrevious ? {} : {}),
-        }).catch(() => '')
+        }, clusterId).catch(() => '')
       : Promise.resolve(''),
     enabled: !!logPodName && !!logPodNs,
     staleTime: 15000,

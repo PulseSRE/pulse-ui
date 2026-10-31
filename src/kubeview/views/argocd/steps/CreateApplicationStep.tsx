@@ -8,6 +8,8 @@ import type { GitOpsConfig } from '../../../engine/gitProvider';
 import { createGitProvider, type FileCommit } from '../../../engine/gitProvider';
 import { showErrorToast } from '../../../engine/errorToast';
 import { cn } from '@/lib/utils';
+import { useActiveClusterId } from '../../../hooks/useClusterBase';
+import { assertActiveCluster } from '../../../engine/pendingCluster';
 
 // The repository is configured in this wizard's Git step (there is no
 // Admin → GitOps page).
@@ -27,10 +29,10 @@ async function ensureGitPath(provider: ReturnType<typeof createGitProvider>, bra
 }
 
 /** Ensure ArgoCD has a repository secret for the configured git repo (idempotent). */
-async function ensureArgoRepoSecret(argoNamespace: string, config: GitOpsConfig) {
+async function ensureArgoRepoSecret(argoNamespace: string, config: GitOpsConfig, clusterId: string) {
   const secretName = `repo-${config.repoUrl.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 50)}`;
   try {
-    await k8sGet(`/api/v1/namespaces/${argoNamespace}/secrets/${secretName}`);
+    await k8sGet(`/api/v1/namespaces/${argoNamespace}/secrets/${secretName}`, clusterId);
     // Already exists
   } catch {
     await k8sCreate(`/api/v1/namespaces/${argoNamespace}/secrets`, {
@@ -48,7 +50,7 @@ async function ensureArgoRepoSecret(argoNamespace: string, config: GitOpsConfig)
         username: 'git',
         password: config.token,
       },
-    });
+    }, clusterId);
   }
 }
 
@@ -164,6 +166,8 @@ function buildChildAppYAML(opts: {
 }
 
 export function CreateApplicationStep({ onComplete }: Props) {
+  // Argo CD objects are created on the cluster this step was shown for.
+  const clusterId = useActiveClusterId();
   const { config, isConfigured } = useGitOpsConfig();
   const argoNamespace = useArgoCDStore((s) => s.namespace) || 'openshift-gitops';
   const markComplete = useGitOpsSetupStore((s) => s.markStepComplete);
@@ -274,6 +278,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
     setCreating(true);
     setError(null);
     try {
+      assertActiveCluster(clusterId, 'Creating the Argo CD application');
       if (isAppOfApps && rootAppObj) {
         if (!isConfigured || !config) {
           throw new Error(GIT_NOT_CONFIGURED);
@@ -314,12 +319,13 @@ export function CreateApplicationStep({ onComplete }: Props) {
         );
 
         // Ensure ArgoCD has repo credentials and target path exists
-        await ensureArgoRepoSecret(argoNamespace, config);
+        await ensureArgoRepoSecret(argoNamespace, config, clusterId);
         await ensureGitPath(provider, config.baseBranch, (rootAppObj as { spec?: { source?: { path?: string } } }).spec?.source?.path || '');
 
         await k8sCreate(
           `/apis/argoproj.io/v1alpha1/namespaces/${argoNamespace}/applications`,
           rootAppObj,
+          clusterId,
         );
 
         setExportSummary({
@@ -332,7 +338,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
       } else if (applicationObj) {
         // Ensure ArgoCD has repo credentials and target path exists
         if (isConfigured && config) {
-          await ensureArgoRepoSecret(argoNamespace, config);
+          await ensureArgoRepoSecret(argoNamespace, config, clusterId);
           const appPath = (applicationObj as { spec?: { source?: { path?: string } } }).spec?.source?.path;
           if (appPath) {
             const provider = createGitProvider(config);
@@ -342,6 +348,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
         await k8sCreate(
           `/apis/argoproj.io/v1alpha1/namespaces/${argoNamespace}/applications`,
           applicationObj,
+          clusterId,
         );
       }
 

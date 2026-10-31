@@ -28,6 +28,7 @@ import type { Deployment } from '../../engine/types/apps';
 import { useClusterStore } from '../../store/clusterStore';
 import { useArgoCDStore } from '../../store/argoCDStore';
 import { Card } from '../../components/primitives/Card';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -199,6 +200,7 @@ export interface ReportTabProps {
 }
 
 export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavailable = [], go }: ReportTabProps) {
+  const clusterId = useActiveClusterId();
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -244,45 +246,45 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   } = useIncidentFeed({ sources: ['prometheus-alert'], limit: 0 });
 
   const { data: apiLatency } = useQuery<number | null>({
-    queryKey: ['prom', 'api-latency'],
+    queryKey: ['prom', 'api-latency', clusterId],
     queryFn: async () => {
-      const result = (await safeQuery(() => queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))'))) ?? [];
+      const result = (await safeQuery(() => queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))', undefined, clusterId))) ?? [];
       return result.length > 0 ? result[0].value * 1000 : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
   });
 
   const { data: etcdLeaderChanges } = useQuery<number | null>({
-    queryKey: ['prom', 'etcd-leader-changes'],
+    queryKey: ['prom', 'etcd-leader-changes', clusterId],
     queryFn: async () => {
-      const result = (await safeQuery(() => queryInstant('max(changes(etcd_server_is_leader[1h]))'))) ?? [];
+      const result = (await safeQuery(() => queryInstant('max(changes(etcd_server_is_leader[1h]))', undefined, clusterId))) ?? [];
       return result.length > 0 ? result[0].value : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
   });
 
   const { data: pvUsage = [] } = useQuery<PromResult[]>({
-    queryKey: ['prom', 'pv-usage'],
-    queryFn: async () => ((await safeQuery(() => queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100'))) ?? []) as PromResult[],
+    queryKey: ['prom', 'pv-usage', clusterId],
+    queryFn: async () => ((await safeQuery(() => queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100', undefined, clusterId))) ?? []) as PromResult[],
     staleTime: 60_000, refetchInterval: 120_000,
   });
 
   const { data: resourceQuotas = [] } = useQuery<ResourceQuota[]>({
-    queryKey: ['k8s', 'list', 'resourcequotas'],
-    queryFn: () => k8sList<ResourceQuota>('/api/v1/resourcequotas'),
+    queryKey: ['k8s', 'list', 'resourcequotas', undefined, clusterId],
+    queryFn: () => k8sList<ResourceQuota>('/api/v1/resourcequotas', undefined, clusterId),
     staleTime: 120_000, refetchInterval: 300_000,
   });
 
   const { data: clusterVersion } = useQuery<ClusterVersion | null>({
-    queryKey: ['k8s', 'get', 'clusterversion'],
-    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version')),
+    queryKey: ['k8s', 'get', 'clusterversion', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
     staleTime: 300_000, refetchInterval: 600_000,
   });
 
   const { data: recentEvents = [] } = useQuery<Event[]>({
-    queryKey: ['k8s', 'list', 'events-1h'],
+    queryKey: ['k8s', 'list', 'events-1h', undefined, clusterId],
     queryFn: async () => {
-      const events = await k8sList<Event>('/api/v1/events');
+      const events = await k8sList<Event>('/api/v1/events', undefined, clusterId);
       const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
       return events.filter((e) => {
         return (e.lastTimestamp || e.metadata?.creationTimestamp || '') >= oneHourAgo;

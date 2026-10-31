@@ -61,13 +61,13 @@ describe('useOperatorInstall', () => {
     // Namespace creation
     expect(k8sCreateMock).toHaveBeenCalledWith(
       '/api/v1/namespaces',
-      expect.objectContaining({ kind: 'Namespace', metadata: { name: 'my-ns' } }),
+      expect.objectContaining({ kind: 'Namespace', metadata: { name: 'my-ns' } }), 'local'
     );
 
     // OperatorGroup creation
     expect(k8sCreateMock).toHaveBeenCalledWith(
       expect.stringContaining('operatorgroups'),
-      expect.objectContaining({ kind: 'OperatorGroup' }),
+      expect.objectContaining({ kind: 'OperatorGroup' }), 'local'
     );
 
     // Subscription creation
@@ -80,7 +80,7 @@ describe('useOperatorInstall', () => {
           name: 'my-operator',
           source: 'redhat-operators',
         }),
-      }),
+      }), 'local'
     );
   });
 
@@ -95,7 +95,7 @@ describe('useOperatorInstall', () => {
     expect(k8sCreateMock).toHaveBeenCalledTimes(1);
     expect(k8sCreateMock).toHaveBeenCalledWith(
       expect.stringContaining('subscriptions'),
-      expect.objectContaining({ kind: 'Subscription' }),
+      expect.objectContaining({ kind: 'Subscription' }), 'local'
     );
   });
 

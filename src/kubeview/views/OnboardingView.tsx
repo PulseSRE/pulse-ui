@@ -11,6 +11,8 @@ import { ALL_GATES, evaluateAllGates } from '../engine/readiness/gates';
 import type { GateContext } from '../engine/readiness/types';
 import { useClusterStore } from '../store/clusterStore';
 import { agentFetch } from '../engine/safeQuery';
+import { k8sFetch } from '../engine/query';
+import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 
 const STORAGE_KEY = 'openshiftpulse:onboarding-completed';
 
@@ -40,8 +42,10 @@ export default function OnboardingView() {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
 
   const makeGateContext = React.useCallback((): GateContext => ({
+    // Readiness describes the cluster Pulse is deployed on (its agent, its
+    // Alertmanager), so the Kubernetes reads name that cluster explicitly.
     fetchJson: async <T = unknown,>(path: string): Promise<T> => {
-      const res = await fetch(`/api/kubernetes${path}`);
+      const res = await k8sFetch(LOCAL_CLUSTER_ID, path);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.json() as Promise<T>;
     },

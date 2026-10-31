@@ -6,10 +6,11 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { queryRange, queryInstant, getTimeRange } from './prometheus';
+import { queryRange, queryInstant, getTimeRange, metricsAvailableFor } from './prometheus';
 import { safeQuery } from '../../engine/safeQuery';
 import { compareToUsual, formatMetricValue, thresholdColor, thresholdLevel, usualQuery, type Thresholds } from './metricFormat';
 import { useReportAttention } from '../agent/attention';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 interface SparklineProps {
   query: string;
@@ -36,12 +37,14 @@ export function Sparkline({
   className = '',
   refreshInterval = 60000,
 }: SparklineProps) {
+  const clusterId = useActiveClusterId();
   const { data: series = [] } = useQuery({
-    queryKey: ['sparkline', query, duration],
+    queryKey: ['sparkline', query, duration, clusterId],
     queryFn: async () => {
       const [start, end] = getTimeRange(duration);
-      return (await safeQuery(() => queryRange(query, start, end))) ?? [];
+      return (await safeQuery(() => queryRange(query, start, end, undefined, clusterId))) ?? [];
     },
+    enabled: metricsAvailableFor(clusterId),
     refetchInterval: refreshInterval,
     staleTime: 30000,
   });
@@ -59,7 +62,7 @@ export function Sparkline({
       <div className={`flex items-center gap-2 ${className}`}>
         {label && <span className="text-xs text-slate-500">{label}</span>}
         <div className="text-xs text-slate-600" style={{ width, height }}>
-          <span className="flex items-center justify-center h-full">No data</span>
+          <span className="flex items-center justify-center h-full">{metricsAvailableFor(clusterId) ? 'No data' : 'Local cluster only'}</span>
         </div>
       </div>
     );
@@ -118,12 +121,14 @@ export function MetricCard({
   thresholds?: Thresholds;
   onClick?: () => void;
 }) {
+  const clusterId = useActiveClusterId();
   const { data: series = [] } = useQuery({
-    queryKey: ['metric-card', query, duration],
+    queryKey: ['metric-card', query, duration, clusterId],
     queryFn: async () => {
       const [start, end] = getTimeRange(duration);
-      return (await safeQuery(() => queryRange(query, start, end))) ?? [];
+      return (await safeQuery(() => queryRange(query, start, end, undefined, clusterId))) ?? [];
     },
+    enabled: metricsAvailableFor(clusterId),
     refetchInterval: 60000,
     staleTime: 30000,
   });
@@ -144,12 +149,12 @@ export function MetricCard({
   // Single-series cards only: for several series "usual" has no one meaning.
   const singleSeries = series.length === 1;
   const { data: usual } = useQuery({
-    queryKey: ['metric-card-usual', query],
+    queryKey: ['metric-card-usual', query, clusterId],
     queryFn: async () => {
-      const rows = (await safeQuery(() => queryInstant(usualQuery(query)))) ?? [];
+      const rows = (await safeQuery(() => queryInstant(usualQuery(query), undefined, clusterId))) ?? [];
       return rows.length === 1 ? rows[0].value : null;
     },
-    enabled: Boolean(query) && singleSeries,
+    enabled: Boolean(query) && singleSeries && metricsAvailableFor(clusterId),
     refetchInterval: 300000,
     staleTime: 300000,
   });
@@ -204,7 +209,9 @@ export function MetricCard({
           <path d={linePath} fill="none" stroke={displayColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ) : (
-        <div className="flex items-center justify-center text-xs text-slate-600" style={{ height: h }}>No data</div>
+        <div className="flex items-center justify-center text-xs text-slate-600" style={{ height: h }}>
+          {metricsAvailableFor(clusterId) ? 'No data' : 'Metrics are available for the local cluster only'}
+        </div>
       )}
     </div>
   );

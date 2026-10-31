@@ -1,4 +1,5 @@
-import { useClusterBase } from '../hooks/useClusterBase';
+import { useActiveClusterId } from '../hooks/useClusterBase';
+import { k8sFetch, k8sGet } from '../engine/query';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -41,11 +42,11 @@ export default function LogsView({ namespace, podName }: LogsViewProps) {
 
 // --- Build logs (OpenShift Build API) ---
 function BuildLogsView({ namespace, buildName }: { namespace: string; buildName: string }) {
-  const clusterBase = useClusterBase();
+  const clusterId = useActiveClusterId();
   const { data: logText, isLoading, error } = useQuery({
-    queryKey: ['build-log', namespace, buildName],
+    queryKey: ['build-log', namespace, buildName, clusterId],
     queryFn: async () => {
-      const res = await fetch(`${clusterBase}/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${buildName}/log`);
+      const res = await k8sFetch(clusterId, `/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${buildName}/log`);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       return res.text();
     },
@@ -75,11 +76,13 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
   namespace: string; name: string; selector: string; kind: string;
 }) {
   const navigate = useNavigate();
+  const clusterId = useActiveClusterId();
   const [selectedPod, setSelectedPod] = useState<string | null>(null);
 
   // Watch pods by label selector
   const { data: pods = [], isLoading } = useK8sListWatch({
     apiPath: `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(selector)}`,
+    clusterId,
   });
 
   if (isLoading) {
@@ -132,9 +135,9 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
       {/* Log content */}
       <div className="flex-1 overflow-hidden">
         {selectedPod ? (
-          <LogStream key={selectedPod} namespace={namespace} podName={selectedPod} />
+          <LogStream key={selectedPod} namespace={namespace} podName={selectedPod} clusterId={clusterId} />
         ) : podNames.length > 0 ? (
-          <MultiPodLogs namespace={namespace} podNames={podNames} />
+          <MultiPodLogs namespace={namespace} podNames={podNames} clusterId={clusterId} />
         ) : (
           <EmptyState
             icon={<FileX className="w-8 h-8" />}
@@ -151,13 +154,10 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
 
 // --- Single pod logs ---
 function PodLogsView({ namespace, podName }: { namespace: string; podName: string }) {
+  const clusterId = useActiveClusterId();
   const { data: pod, isLoading, error } = useQuery({
-    queryKey: ['pod', namespace, podName],
-    queryFn: async () => {
-      const res = await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}`);
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      return res.json();
-    },
+    queryKey: ['pod', namespace, podName, clusterId],
+    queryFn: () => k8sGet<any>(`/api/v1/namespaces/${namespace}/pods/${podName}`, clusterId),
   });
 
   const containers: ContainerInfo[] = [];
@@ -209,7 +209,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
           <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
         </div>
         <div className="flex-1 overflow-hidden">
-          <LogStream namespace={namespace} podName={podName} containerName={containers[0]?.name} />
+          <LogStream namespace={namespace} podName={podName} containerName={containers[0]?.name} clusterId={clusterId} />
         </div>
       </div>
     );
@@ -217,7 +217,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
 
   return (
     <div className="h-full">
-      <MultiContainerLogs namespace={namespace} podName={podName} containers={containers} />
+      <MultiContainerLogs namespace={namespace} podName={podName} containers={containers} clusterId={clusterId} />
     </div>
   );
 }

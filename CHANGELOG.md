@@ -11,8 +11,17 @@ Release entries are historical records. Counts, timings, security scans, and fea
   - `/r/<gvr>?ns=` opens the list for that namespace, and `/create/<gvr>?namespace=` drafts in that namespace
   - The logo, "Getting Started" and "Go Home" open real pages; "Session expired — click to log in again" signs out through oauth-proxy; Admin tabs follow `?tab=`; IngressController, ServiceAccount and NodePool audit items open their own pages; operator links open `/operators?q=`; GitOps "configure Git" points at the setup wizard's Git step
   - Links from the agent open in-app without a full reload, external links open in a new tab, and links to pages Pulse doesn't have are shown as text with a tooltip. Activity links to the old `/incidents` page open the Inbox activity tab
+- Cluster identity (functionality review, Wave 4): nothing is read from one cluster and written to another
+  - The YAML editor pins the cluster it loaded from; if the active cluster changes, Save is disabled and a save (including Ctrl+S and the GitOps dialog) is refused with a message naming both clusters. Load, save and dry-run go to the pinned cluster with impersonation
+  - Pod, build and merged ("All pods"/"All containers") logs read the active cluster with impersonation. Merged logs show each pod or container that failed and why (403, 500) instead of "No logs found", and have Refresh
+  - Every query that reads Kubernetes or Prometheus data keys on the cluster it reads (Admin, Compute, Security, Storage, Networking, Operators, Argo CD projects and diffs, incident logs, capacity and report metrics)
+  - Prometheus and Alertmanager are reachable for the local cluster only. While a remote cluster is active, Metrics, namespace charts, metric cards and the Alerts page say so instead of showing the local cluster's numbers; failed metric queries say they failed instead of "No data"
+  - Pending actions carry the cluster they were created on and refuse to run against another: cluster update and channel change, cluster configuration edits, kubeadmin removal, operator install/uninstall, Argo CD sync and application creation, build cancel/trigger, and agent write approvals (declined after a switch)
+  - Pulse's own objects (OpenShiftPulse CR, its deployments, GitOps config Secret, production readiness, agent-generated widgets) are read from the cluster Pulse runs on, explicitly
+  - Argo CD sync badges, GitOps cards and resource history detect Argo CD themselves, and again after a cluster switch
 
 ### Tests
+- `cluster-identity-guardrail.test.ts` fails on a query that reads cluster data without a cluster id in its key, and on a raw `fetch('/api/kubernetes…')`/`fetch('/api/prometheus…')` outside `engine/`. `cluster-identity.behaviour.test.tsx` switches clusters between load and save, and checks the requests logs, metrics, alerts and Argo detection send
 - `routeLinks.test.ts` checks every literal link in the source, and the links pulse-agent emits (`__tests__/fixtures/agentLinks.json`), against the route table that the router mounts
 
 ## v2.36.0 (2026-10-30)

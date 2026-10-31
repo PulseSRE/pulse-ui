@@ -7,6 +7,9 @@ import { MetricsChart } from '../components/metrics/MetricsChart';
 import { getMetricsForResource, resolveQuery, formatYAxisValue } from '../components/metrics/AutoMetrics';
 import { buildApiPath } from '../hooks/useResourceUrl';
 import { CHART_COLOR_SEQUENCE } from '../engine/colors';
+import { queryRange } from '../components/metrics/prometheus';
+import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
+import { useActiveClusterId, useMetricsAvailable } from '../hooks/useClusterBase';
 
 interface MetricsViewProps {
   gvrKey: string;
@@ -27,6 +30,7 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState<TimeRange>('6h');
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const metricsAvailable = useMetricsAvailable();
 
   const rangeSeconds = TIME_RANGES[timeRange];
   const end = Math.floor(Date.now() / 1000);
@@ -90,7 +94,9 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
 
       {/* Charts */}
       <div className="flex-1 p-4 space-y-4 overflow-auto">
-        {metricQueries.length === 0 ? (
+        {!metricsAvailable ? (
+          <RemoteMetricsNotice />
+        ) : metricQueries.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-slate-400">
             No metrics available for {kind}
           </div>
@@ -125,22 +131,12 @@ interface MetricPanelProps {
 
 function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: MetricPanelProps) {
   const resolvedQuery = resolveQuery(mq.query, vars);
+  const clusterId = useActiveClusterId();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['prometheus', resolvedQuery, start, end, step],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        query: resolvedQuery,
-        start: String(start),
-        end: String(end),
-        step: String(step),
-      });
-      const res = await fetch(`/api/prometheus/api/v1/query_range?${params}`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      if (json.status !== 'success') return null;
-      return json.data?.result || [];
-    },
+    queryKey: ['prometheus', resolvedQuery, start, end, step, clusterId],
+    // Throws on a failed request, so the panel says so instead of "No data".
+    queryFn: () => queryRange(resolvedQuery, start, end, step, clusterId),
     refetchInterval: 60000,
   });
 

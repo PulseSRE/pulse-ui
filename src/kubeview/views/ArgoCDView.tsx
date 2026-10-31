@@ -9,6 +9,8 @@ import { useUIStore } from '../store/uiStore';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { Card } from '../components/primitives/Card';
 import { showErrorToast } from '../engine/errorToast';
+import { getActiveClusterId } from '../engine/clusterConnection';
+import { assertActiveCluster } from '../engine/pendingCluster';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { StatCard } from '../components/primitives/StatCard';
@@ -48,28 +50,30 @@ export default function ArgoCDView() {
     window.history.replaceState(null, '', url.toString());
   };
   const [syncing, setSyncing] = React.useState<string | null>(null);
-  const [confirmSync, setConfirmSync] = React.useState<{name: string, ns: string} | null>(null);
+  // A sync confirmation remembers the cluster whose application it names.
+  const [confirmSync, setConfirmSync] = React.useState<{ name: string; ns: string; clusterId: string } | null>(null);
 
   const outOfSyncCount = (applications || []).filter(a => a.status?.sync?.status === 'OutOfSync').length;
   const degradedCount = (applications || []).filter(a => a.status?.health?.status === 'Degraded').length;
 
   const handleSync = (appName: string, appNs: string) => {
-    setConfirmSync({ name: appName, ns: appNs });
+    setConfirmSync({ name: appName, ns: appNs, clusterId: getActiveClusterId() });
   };
 
   const executeSync = async () => {
     if (!confirmSync) return;
-    const { name: appName, ns: appNs } = confirmSync;
+    const { name: appName, ns: appNs, clusterId } = confirmSync;
     setConfirmSync(null);
     setSyncing(appName);
     try {
+      assertActiveCluster(clusterId, `Syncing ${appName}`);
       await k8sPatch(`/apis/argoproj.io/v1alpha1/namespaces/${appNs}/applications/${appName}`, {
         metadata: {
           annotations: {
             'argocd.argoproj.io/refresh': 'hard',
           },
         },
-      });
+      }, undefined, clusterId);
       addToast({ type: 'success', title: 'Sync triggered', detail: `Application ${appName} is syncing` });
       setTimeout(() => refresh(), 3000);
     } catch (err) {

@@ -1,4 +1,5 @@
 import { getActiveClusterId } from '../engine/clusterConnection';
+import { clusterChangedMessage } from '../engine/pendingCluster';
 /**
  * Agent Store — manages chat state for the Pulse Agent integration.
  * Messages persist to localStorage so conversation survives navigation.
@@ -38,7 +39,8 @@ interface AgentState {
   completedTools: Set<string>;
   /** Skills that finished (for checkmark display) */
   completedSkills: Set<string>;
-  pendingConfirm: ConfirmRequest | null;
+  /** The write awaiting approval, and the cluster that was active when it was requested. */
+  pendingConfirm: (ConfirmRequest & { clusterId?: string }) | null;
   error: string | null;
   /** Brief toast shown when agent acknowledges feedback */
   feedbackToast: string | null;
@@ -248,7 +250,7 @@ export const useAgentStore = create<AgentState>()(
               }
               break;
             case 'confirm_request':
-              set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce } });
+              set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce, clusterId: getActiveClusterId() } });
               break;
             case 'done': {
               // Flush any remaining deltas then reset accumulators
@@ -399,7 +401,16 @@ export const useAgentStore = create<AgentState>()(
       },
 
       confirmAction: (approved) => {
-        const nonce = get().pendingConfirm?.nonce;
+        const pending = get().pendingConfirm;
+        const nonce = pending?.nonce;
+        // An approval given after switching clusters would be about a
+        // different cluster than the one the request was shown on: decline.
+        const active = getActiveClusterId();
+        if (approved && pending?.clusterId && pending.clusterId !== active) {
+          set({ pendingConfirm: null, error: clusterChangedMessage(pending.clusterId, active, `${pending.tool}`) });
+          if (client) client.confirm(false, nonce);
+          return;
+        }
         set({ pendingConfirm: null });
         if (client) client.confirm(approved, nonce);
       },

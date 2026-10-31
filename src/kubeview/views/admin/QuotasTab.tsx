@@ -9,6 +9,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { Namespace } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -31,9 +32,10 @@ interface LimitRange extends K8sResource {
 }
 
 export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]; limitRanges: LimitRange[]; go: (path: string, title: string) => void }) {
+  const clusterId = useActiveClusterId();
   const { data: namespaces = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/namespaces'],
-    queryFn: () => k8sList('/api/v1/namespaces'),
+    queryKey: ['k8s', 'list', '/api/v1/namespaces', undefined, clusterId],
+    queryFn: () => k8sList('/api/v1/namespaces', undefined, clusterId),
     staleTime: 60000,
   });
 

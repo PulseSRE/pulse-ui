@@ -18,8 +18,10 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
 import { Card } from '../components/primitives/Card';
 import { SectionHeader } from '../components/primitives/SectionHeader';
+import { useActiveClusterId } from '../hooks/useClusterBase';
 
 export default function StorageView() {
+  const clusterId = useActiveClusterId();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const go = useNavigateTab();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
@@ -28,23 +30,23 @@ export default function StorageView() {
   const { data: pvcs = [], isLoading: pvcsLoading } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
   const { data: pvs = [], isLoading: pvsLoading } = useK8sListWatch<PersistentVolume>({ apiPath: '/api/v1/persistentvolumes' });
   const { data: storageClasses = [] } = useQuery<StorageClass[]>({
-    queryKey: ['storage', 'storageclasses'],
-    queryFn: () => k8sList('/apis/storage.k8s.io/v1/storageclasses') as Promise<StorageClass[]>,
+    queryKey: ['storage', 'storageclasses', clusterId],
+    queryFn: () => k8sList('/apis/storage.k8s.io/v1/storageclasses', undefined, clusterId) as Promise<StorageClass[]>,
     staleTime: 60000,
   });
   const { data: csiDrivers = [] } = useQuery<CSIDriver[]>({
-    queryKey: ['storage', 'csidrivers'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/storage.k8s.io/v1/csidrivers'))) ?? [] as CSIDriver[],
+    queryKey: ['storage', 'csidrivers', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/storage.k8s.io/v1/csidrivers', undefined, clusterId))) ?? [] as CSIDriver[],
     staleTime: 120000,
   });
   const { data: volumeSnapshots = [] } = useQuery<VolumeSnapshot[]>({
-    queryKey: ['storage', 'volumesnapshots', nsFilter],
-    queryFn: async () => ((await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshots', nsFilter))) ?? []) as VolumeSnapshot[],
+    queryKey: ['storage', 'volumesnapshots', nsFilter, clusterId],
+    queryFn: async () => ((await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshots', nsFilter, clusterId))) ?? []) as VolumeSnapshot[],
     staleTime: 60000,
   });
   const { data: volumeSnapshotClasses = [] } = useQuery<K8sResource[]>({
-    queryKey: ['storage', 'volumesnapshotclasses'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshotclasses'))) ?? [],
+    queryKey: ['storage', 'volumesnapshotclasses', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshotclasses', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
   const { data: resourceQuotas = [] } = useK8sListWatch({ apiPath: '/api/v1/resourcequotas', namespace: nsFilter });

@@ -5,6 +5,7 @@ import {
   Settings, Puzzle, Shield, Database, GitBranch,
   ArrowUpCircle, GitCompare, Gauge, Lock, Blocks,
 } from 'lucide-react';
+import { useActiveClusterId } from '../hooks/useClusterBase';
 
 const CRDsView = lazy(() => import('./CRDsView'));
 
@@ -27,6 +28,7 @@ import { SnapshotsTab } from './admin/SnapshotsTab';
 import { loadSnapshots } from '../engine/snapshot';
 import { GitOpsConfig } from '../components/GitOpsConfig';
 import { SectionHeader } from '../components/primitives/SectionHeader';
+import { promFetch, MetricsUnavailableError } from '../components/metrics/prometheus';
 
 /** OpenShift Infrastructure resource (config.openshift.io/v1) */
 interface Infrastructure extends K8sResource {
@@ -117,6 +119,7 @@ const ADMIN_TABS: readonly Tab[] = ['overview', 'operators', 'config', 'updates'
 export default function AdminView() {
   // The tab follows `?tab=` through the router, so in-page links such as
   // go('/admin?tab=crds') switch tabs instead of only changing the URL.
+  const clusterId = useActiveClusterId();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const activeTab: Tab = tabParam && (ADMIN_TABS as readonly string[]).includes(tabParam) ? (tabParam as Tab) : 'overview';
@@ -131,14 +134,14 @@ export default function AdminView() {
   // --- Data fetching ---
 
   const { data: clusterVersion, isLoading: cvLoading, isError: cvError } = useQuery({
-    queryKey: ['admin', 'clusterversion'],
-    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version')),
+    queryKey: ['admin', 'clusterversion', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
     staleTime: 60000,
   });
 
   const { data: infra } = useQuery({
-    queryKey: ['admin', 'infra'],
-    queryFn: () => safeQuery(() => k8sGet<Infrastructure>('/apis/config.openshift.io/v1/infrastructures/cluster')),
+    queryKey: ['admin', 'infra', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<Infrastructure>('/apis/config.openshift.io/v1/infrastructures/cluster', clusterId)),
     staleTime: 60000,
   });
 
@@ -151,9 +154,9 @@ export default function AdminView() {
   });
 
   const { data: firingAlerts = [], error: firingAlertsError } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
-    queryKey: ['admin', 'firing-alerts'],
+    queryKey: ['admin', 'firing-alerts', clusterId],
     queryFn: async () => {
-      const res = await fetch('/api/prometheus/api/v1/alerts');
+      const res = await promFetch('/api/v1/alerts', clusterId);
       // Throw, don't swallow. Returning [] here turned "Prometheus is not
       // reachable" into "no alerts are firing", and the Overview rendered a
       // green all-clear on the strength of a failed request.
@@ -165,15 +168,15 @@ export default function AdminView() {
   });
 
   const { data: recentEvents = [] } = useQuery<K8sResource[]>({
-    queryKey: ['admin', 'recent-events'],
-    queryFn: async () => (await safeQuery(() => k8sList('/api/v1/events?fieldSelector=type=Warning&limit=100'))) ?? [],
+    queryKey: ['admin', 'recent-events', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/api/v1/events?fieldSelector=type=Warning&limit=100', undefined, clusterId))) ?? [],
     refetchInterval: 30000,
   });
 
   const { data: expiringCerts = [] } = useQuery<Array<{ name: string; namespace: string; daysLeft: number }>>({
-    queryKey: ['admin', 'expiring-certs'],
+    queryKey: ['admin', 'expiring-certs', clusterId],
     queryFn: async () => {
-      const secrets = (await safeQuery(() => k8sList('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls'))) ?? [];
+      const secrets = (await safeQuery(() => k8sList('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId))) ?? [];
       const expiring: Array<{ name: string; namespace: string; daysLeft: number }> = [];
       for (const s of secrets as K8sResource[]) {
         const annotations = s.metadata.annotations || {};
@@ -196,68 +199,68 @@ export default function AdminView() {
   });
 
   const { data: crds = [] } = useQuery<CustomResourceDefinition[]>({
-    queryKey: ['k8s', 'list', '/apis/apiextensions.k8s.io/v1/customresourcedefinitions'],
-    queryFn: () => k8sList<CustomResourceDefinition>('/apis/apiextensions.k8s.io/v1/customresourcedefinitions'),
+    queryKey: ['k8s', 'list', '/apis/apiextensions.k8s.io/v1/customresourcedefinitions', undefined, clusterId],
+    queryFn: () => k8sList<CustomResourceDefinition>('/apis/apiextensions.k8s.io/v1/customresourcedefinitions', undefined, clusterId),
     staleTime: 60000,
   });
 
   const { data: quotas = [] } = useQuery<ResourceQuota[]>({
-    queryKey: ['k8s', 'list', '/api/v1/resourcequotas'],
-    queryFn: () => k8sList<ResourceQuota>('/api/v1/resourcequotas'),
+    queryKey: ['k8s', 'list', '/api/v1/resourcequotas', undefined, clusterId],
+    queryFn: () => k8sList<ResourceQuota>('/api/v1/resourcequotas', undefined, clusterId),
     staleTime: 60000,
   });
 
   const { data: limitRanges = [] } = useQuery<LimitRange[]>({
-    queryKey: ['k8s', 'list', '/api/v1/limitranges'],
-    queryFn: () => k8sList<LimitRange>('/api/v1/limitranges'),
+    queryKey: ['k8s', 'list', '/api/v1/limitranges', undefined, clusterId],
+    queryFn: () => k8sList<LimitRange>('/api/v1/limitranges', undefined, clusterId),
     staleTime: 60000,
   });
 
   const { data: oauthConfig } = useQuery({
-    queryKey: ['admin', 'oauth'],
-    queryFn: () => safeQuery(() => k8sGet<OAuthConfig>('/apis/config.openshift.io/v1/oauths/cluster')),
+    queryKey: ['admin', 'oauth', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<OAuthConfig>('/apis/config.openshift.io/v1/oauths/cluster', clusterId)),
     staleTime: 120000,
   });
 
   const { data: namespaces = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/api/v1/namespaces'],
-    queryFn: () => k8sList('/api/v1/namespaces'),
+    queryKey: ['k8s', 'list', '/api/v1/namespaces', undefined, clusterId],
+    queryFn: () => k8sList('/api/v1/namespaces', undefined, clusterId),
     staleTime: 60000,
   });
 
   const { data: etcdOperator } = useQuery({
-    queryKey: ['admin', 'etcd-operator'],
-    queryFn: () => safeQuery(() => k8sGet<OperatorResource>('/apis/operator.openshift.io/v1/etcds/cluster')),
+    queryKey: ['admin', 'etcd-operator', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<OperatorResource>('/apis/operator.openshift.io/v1/etcds/cluster', clusterId)),
     staleTime: 60000,
   });
 
   const { data: apiServerOperator } = useQuery({
-    queryKey: ['admin', 'apiserver-operator'],
-    queryFn: () => safeQuery(() => k8sGet<OperatorResource>('/apis/operator.openshift.io/v1/kubeapiservers/cluster')),
+    queryKey: ['admin', 'apiserver-operator', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<OperatorResource>('/apis/operator.openshift.io/v1/kubeapiservers/cluster', clusterId)),
     staleTime: 60000,
   });
 
   const { data: ingressConfig } = useQuery({
-    queryKey: ['admin', 'config', 'ingress'],
-    queryFn: () => safeQuery(() => k8sGet<IngressConfig>('/apis/config.openshift.io/v1/ingresses/cluster')),
+    queryKey: ['admin', 'config', 'ingress', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<IngressConfig>('/apis/config.openshift.io/v1/ingresses/cluster', clusterId)),
     staleTime: 120000,
   });
 
   const { data: routerCert } = useQuery({
-    queryKey: ['admin', 'router-cert'],
-    queryFn: () => safeQuery(() => k8sGet<K8sResource>('/api/v1/namespaces/openshift-ingress/secrets/router-certs-default')),
+    queryKey: ['admin', 'router-cert', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<K8sResource>('/api/v1/namespaces/openshift-ingress/secrets/router-certs-default', clusterId)),
     staleTime: 300000,
   });
 
   const { data: pdbs = [] } = useQuery<PodDisruptionBudget[]>({
-    queryKey: ['k8s', 'list', '/apis/policy/v1/poddisruptionbudgets'],
-    queryFn: async () => (await safeQuery(() => k8sList<PodDisruptionBudget>('/apis/policy/v1/poddisruptionbudgets'))) ?? [],
+    queryKey: ['k8s', 'list', '/apis/policy/v1/poddisruptionbudgets', undefined, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<PodDisruptionBudget>('/apis/policy/v1/poddisruptionbudgets', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
 
   const { data: deployments = [] } = useQuery<Deployment[]>({
-    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments'],
-    queryFn: async () => (await safeQuery(() => k8sList<Deployment>('/apis/apps/v1/deployments'))) ?? [],
+    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments', undefined, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<Deployment>('/apis/apps/v1/deployments', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
 
@@ -265,8 +268,8 @@ export default function AdminView() {
   // rollout progress (updatedMachineCount/machineCount, Degraded/Updating
   // conditions), shared cache when both views have fetched it.
   const { data: machineConfigPools = [] } = useQuery<MachineConfigPool[]>({
-    queryKey: ['compute', 'machineconfigpools'],
-    queryFn: async () => (await safeQuery(() => k8sList<MachineConfigPool>('/apis/machineconfiguration.openshift.io/v1/machineconfigpools'))) ?? [],
+    queryKey: ['compute', 'machineconfigpools', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<MachineConfigPool>('/apis/machineconfiguration.openshift.io/v1/machineconfigpools', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
 
@@ -279,10 +282,10 @@ export default function AdminView() {
   });
 
   const { data: etcdBackupExists } = useQuery({
-    queryKey: ['admin', 'etcd-backup'],
+    queryKey: ['admin', 'etcd-backup', clusterId],
     // Backup is served at config.openshift.io/v1alpha1 (feature-gated by
     // AutomatedEtcdBackup), not v1 — v1 has never existed for this resource.
-    queryFn: async () => { const items = await safeQuery(() => k8sList('/apis/config.openshift.io/v1alpha1/backups')); return items ? items.length > 0 : false; },
+    queryFn: async () => { const items = await safeQuery(() => k8sList('/apis/config.openshift.io/v1alpha1/backups', undefined, clusterId)); return items ? items.length > 0 : false; },
     staleTime: 60000,
   });
 
@@ -494,6 +497,7 @@ export default function AdminView() {
             overviewError={overviewError}
             firingAlerts={firingAlerts}
             alertsUnavailable={!!firingAlertsError}
+            alertsUnavailableReason={firingAlertsError instanceof MetricsUnavailableError ? 'Alert status is available for the local cluster only — Pulse cannot reach this cluster\'s Prometheus' : undefined}
             alertCounts={alertCounts}
             operators={operators}
             opDegraded={opDegraded}

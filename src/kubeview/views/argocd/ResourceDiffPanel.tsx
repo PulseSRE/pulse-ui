@@ -13,6 +13,7 @@ import { Card } from '../../components/primitives/Card';
 import { kindToPlural } from '../../engine/renderers/index';
 import type { ArgoManagedResource } from '../../engine/types';
 import type { K8sResource } from '../../engine/renderers';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 interface ResourceDiffPanelProps {
   resource: ArgoManagedResource;
@@ -21,6 +22,7 @@ interface ResourceDiffPanelProps {
 }
 
 export function ResourceDiffPanel({ resource, appName, appNamespace }: ResourceDiffPanelProps) {
+  const clusterId = useActiveClusterId();
   const plural = kindToPlural(resource.kind);
   const apiPath = React.useMemo(() => {
     if (resource.group) {
@@ -34,8 +36,8 @@ export function ResourceDiffPanel({ resource, appName, appNamespace }: ResourceD
   }, [resource, plural]);
 
   const { data, isLoading, error } = useQuery<K8sResource>({
-    queryKey: ['argocd-diff', apiPath],
-    queryFn: () => k8sGet<K8sResource>(apiPath),
+    queryKey: ['argocd-diff', apiPath, clusterId],
+    queryFn: () => k8sGet<K8sResource>(apiPath, clusterId),
   });
 
   if (isLoading) {

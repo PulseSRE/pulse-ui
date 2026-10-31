@@ -1,4 +1,5 @@
-import { useClusterBase } from '../../hooks/useClusterBase';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
+import { k8sFetch } from '../../engine/query';
 /**
  * LogStream - Main streaming log viewer component
  */
@@ -19,6 +20,8 @@ interface LogStreamProps {
   tailLines?: number;
   sinceSeconds?: number;
   onLineClick?: (line: ParsedLogLine) => void;
+  /** Cluster the pod lives on; defaults to the active cluster. */
+  clusterId?: string;
 }
 
 const MAX_LINES = 10000;
@@ -32,8 +35,10 @@ export default function LogStream({
   tailLines = 1000,
   sinceSeconds,
   onLineClick,
+  clusterId: clusterIdProp,
 }: LogStreamProps) {
-  const clusterBase = useClusterBase();
+  const activeClusterId = useActiveClusterId();
+  const clusterId = clusterIdProp ?? activeClusterId;
   const [lines, setLines] = useState<ParsedLogLine[]>([]);
   const [isFollowing, setIsFollowing] = useState(follow);
   const [showTimestamps, setShowTimestamps] = useState(timestamps);
@@ -72,8 +77,8 @@ export default function LogStream({
       params.set('follow', 'true');
     }
 
-    return `${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`;
-  }, [namespace, podName, containerName, tailLines, sinceSeconds, clusterBase]);
+    return `/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`;
+  }, [namespace, podName, containerName, tailLines, sinceSeconds]);
 
   // Fetch logs
   useEffect(() => {
@@ -95,11 +100,11 @@ export default function LogStream({
 
       try {
         let url = buildLogUrl(isFollowing);
-        let response = await fetch(url, { signal: controller.signal });
+        let response = await k8sFetch(clusterId, url, { signal: controller.signal });
 
         // 400 usually means multi-container pod without container param — auto-detect first container
         if (response.status === 400 && !containerName) {
-          const podRes = await fetch(`${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}`, {
+          const podRes = await k8sFetch(clusterId, `/api/v1/namespaces/${namespace}/pods/${podName}`, {
             signal: controller.signal,
           });
           if (podRes.ok) {
@@ -109,7 +114,7 @@ export default function LogStream({
             if (defaultContainer) {
               // Every later request (including the previous-container fallback) uses this URL.
               url = withParam(url, 'container', defaultContainer);
-              response = await fetch(url, { signal: controller.signal });
+              response = await k8sFetch(clusterId, url, { signal: controller.signal });
             }
           }
         }
@@ -155,7 +160,7 @@ export default function LogStream({
         let previous = false;
         if (!text.trim()) {
           try {
-            const prevResponse = await fetch(withParam(url, 'previous', 'true'), { signal: controller.signal });
+            const prevResponse = await k8sFetch(clusterId, withParam(url, 'previous', 'true'), { signal: controller.signal });
             if (prevResponse.ok) {
               const prevText = await prevResponse.text();
               if (prevText.trim()) {
@@ -193,7 +198,7 @@ export default function LogStream({
         abortControllerRef.current.abort();
       }
     };
-  }, [namespace, podName, containerName, isFollowing, buildLogUrl, clusterBase, reconnectKey]);
+  }, [namespace, podName, containerName, isFollowing, buildLogUrl, clusterId, reconnectKey]);
 
   // Auto-scroll when following
   useEffect(() => {

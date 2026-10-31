@@ -18,6 +18,7 @@ import { useK8sListWatch } from './useK8sListWatch';
 import { buildApiPath } from './useResourceUrl';
 import { queryInstant, queryRange } from '../components/metrics/prometheus';
 import { getColumnsForResource } from '../engine/enhancers';
+import { useActiveClusterId } from './useClusterBase';
 
 function formatMetricValue(value: number, unit?: string): string {
   if (unit === 'MiB' || unit === 'Mi') {
@@ -146,6 +147,7 @@ export function useMultiSourceTable(
   datasources: TableDatasource[],
   enrichmentIntervalMs = DEFAULT_ENRICHMENT_INTERVAL_MS,
 ): UseMultiSourceTableResult {
+  const clusterId = useActiveClusterId();
   const [isPaused, setIsPaused] = useState(false);
   const togglePause = useCallback(() => setIsPaused((p) => !p), []);
 
@@ -184,13 +186,13 @@ export function useMultiSourceTable(
     data: promqlData,
     dataUpdatedAt: promqlUpdatedAt,
   } = useQuery({
-    queryKey: ['multi-table-promql', promqlDatasources.map((ds) => ds.query)],
+    queryKey: ['multi-table-promql', promqlDatasources.map((ds) => ds.query), clusterId],
     queryFn: async () => {
       const results: Record<string, Array<{ metric: Record<string, string>; value: number }>> = {};
       await Promise.all(
         promqlDatasources.map(async (ds) => {
           try {
-            results[ds.id] = await queryInstant(ds.query);
+            results[ds.id] = await queryInstant(ds.query, undefined, clusterId);
           } catch {
             results[ds.id] = [];
           }
@@ -207,7 +209,7 @@ export function useMultiSourceTable(
 
   // Sparkline data — range query for last 15 minutes (15 points at 60s step)
   const { data: sparklineData } = useQuery({
-    queryKey: ['multi-table-sparkline', promqlDatasources.map((ds) => ds.query)],
+    queryKey: ['multi-table-sparkline', promqlDatasources.map((ds) => ds.query), clusterId],
     queryFn: async () => {
       const now = Math.floor(Date.now() / 1000);
       const start = now - 900; // 15 minutes
@@ -216,7 +218,7 @@ export function useMultiSourceTable(
       await Promise.all(
         promqlDatasources.map(async (ds) => {
           try {
-            const series = await queryRange(ds.query, start, now, step);
+            const series = await queryRange(ds.query, start, now, step, clusterId);
             results[ds.id] = series.map((s) => ({
               metric: s.metric,
               // Prometheus can return "NaN"/"+Inf"/"-Inf" samples (e.g. a

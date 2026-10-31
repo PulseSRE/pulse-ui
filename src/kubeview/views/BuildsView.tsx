@@ -15,6 +15,7 @@ import { Card } from '../components/primitives/Card';
 import { showErrorToast } from '../engine/errorToast';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { ScrollText } from 'lucide-react';
+import { useActiveClusterId } from '../hooks/useClusterBase';
 
 function getBuildStatus(build: Build): { phase: string; color: string; icon: React.ReactNode } {
   const phase = build.status?.phase || 'Unknown';
@@ -38,6 +39,7 @@ function getBuildStatus(build: Build): { phase: string; color: string; icon: Rea
 
 export default function BuildsView() {
   const go = useNavigateTab();
+  const clusterId = useActiveClusterId();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const addToast = useUIStore((s) => s.addToast);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
@@ -51,6 +53,8 @@ export default function BuildsView() {
       await k8sPatch(
         `/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${name}`,
         { status: { cancelled: true } },
+        undefined,
+        clusterId,
       );
       addToast({ type: 'success', title: `Build ${name} cancelled` });
     } catch (e) {
@@ -173,7 +177,7 @@ export default function BuildsView() {
         apiVersion: 'build.openshift.io/v1',
         kind: 'BuildRequest',
         metadata: { name },
-      });
+      }, clusterId);
       addToast({ type: 'success', title: `Build triggered for ${name}` });
     } catch (err) {
       showErrorToast(err, 'Build trigger failed');

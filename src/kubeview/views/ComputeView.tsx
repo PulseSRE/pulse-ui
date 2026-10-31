@@ -27,8 +27,10 @@ import { NodeAlerts } from './compute/NodeAlerts';
 import { MachineManagement } from './compute/MachineManagement';
 import { MachineConfigSection } from './compute/MachineConfigSection';
 import type { NodeDetail, PrometheusResult } from './compute/types';
+import { useActiveClusterId } from '../hooks/useClusterBase';
 
 export default function ComputeView() {
+  const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const urlTab = new URLSearchParams(window.location.search).get('tab');
   const [computeTab, setComputeTabState] = React.useState<'overview' | 'capacity'>(urlTab === 'capacity' ? 'capacity' : 'overview');
@@ -46,44 +48,44 @@ export default function ComputeView() {
   const { data: pods = [] } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods' });
 
   const { data: machines = [] } = useQuery<Machine[]>({
-    queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machines'],
-    queryFn: async () => (await safeQuery(() => k8sList<Machine>('/apis/machine.openshift.io/v1beta1/machines'))) ?? [],
+    queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machines', undefined, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<Machine>('/apis/machine.openshift.io/v1beta1/machines', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: machineSets = [] } = useQuery<MachineSet[]>({
-    queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinesets'],
-    queryFn: async () => (await safeQuery(() => k8sList<MachineSet>('/apis/machine.openshift.io/v1beta1/machinesets'))) ?? [],
+    queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinesets', undefined, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<MachineSet>('/apis/machine.openshift.io/v1beta1/machinesets', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: healthChecks = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinehealthchecks'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/machine.openshift.io/v1beta1/machinehealthchecks'))) ?? [],
+    queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinehealthchecks', undefined, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/machine.openshift.io/v1beta1/machinehealthchecks', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: machineAutoscalers = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1beta1/machineautoscalers'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1beta1/machineautoscalers'))) ?? [],
+    queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1beta1/machineautoscalers', undefined, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1beta1/machineautoscalers', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   const { data: clusterAutoscaler = [] } = useQuery<K8sResource[]>({
-    queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1/clusterautoscalers'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1/clusterautoscalers'))) ?? [],
+    queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1/clusterautoscalers', undefined, clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1/clusterautoscalers', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
 
   // NodePools (HyperShift only)
   const { data: nodePools = [] } = useQuery<NodePool[]>({
-    queryKey: ['compute', 'nodepools'],
-    queryFn: async () => (await safeQuery(() => k8sList<NodePool>('/apis/hypershift.openshift.io/v1beta1/nodepools'))) ?? [],
+    queryKey: ['compute', 'nodepools', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList<NodePool>('/apis/hypershift.openshift.io/v1beta1/nodepools', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: isHyperShift,
   });
@@ -104,12 +106,12 @@ export default function ComputeView() {
   // ever doesn't hold; safeQuery only swallows 404s, so a non-404 failure
   // (like the 422 above) must still be caught here or the fallback never runs.
   const { data: nodeCpuMetrics = [] } = useQuery({
-    queryKey: ['compute', 'node-cpu'],
+    queryKey: ['compute', 'node-cpu', clusterId],
     queryFn: async () => {
       try {
-        return await queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")');
+        return await queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")', undefined, clusterId);
       } catch {
-        return (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)'))) ?? [];
+        return (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)', undefined, clusterId))) ?? [];
       }
     },
     refetchInterval: 30000,
@@ -117,12 +119,12 @@ export default function ComputeView() {
 
   // Per-node memory usage from Prometheus — same join-then-fallback strategy as node-cpu above.
   const { data: nodeMemMetrics = [] } = useQuery({
-    queryKey: ['compute', 'node-mem'],
+    queryKey: ['compute', 'node-mem', clusterId],
     queryFn: async () => {
       try {
-        return await queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")');
+        return await queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")', undefined, clusterId);
       } catch {
-        return (await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100'))) ?? [];
+        return (await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100', undefined, clusterId))) ?? [];
       }
     },
     refetchInterval: 30000,
@@ -130,20 +132,20 @@ export default function ComputeView() {
 
   // MachineConfig resources
   const { data: machineConfigPools = [] } = useQuery<K8sResource[]>({
-    queryKey: ['compute', 'machineconfigpools'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/machineconfiguration.openshift.io/v1/machineconfigpools'))) ?? [],
+    queryKey: ['compute', 'machineconfigpools', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/machineconfiguration.openshift.io/v1/machineconfigpools', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
 
   // Cluster totals
   const { data: clusterCpu } = useQuery({
-    queryKey: ['compute', 'cluster-cpu'],
-    queryFn: async () => (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / sum(machine_cpu_cores) * 100'))) ?? [],
+    queryKey: ['compute', 'cluster-cpu', clusterId],
+    queryFn: async () => (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / sum(machine_cpu_cores) * 100', undefined, clusterId))) ?? [],
     refetchInterval: 30000,
   });
   const { data: clusterMem } = useQuery({
-    queryKey: ['compute', 'cluster-mem'],
-    queryFn: async () => (await safeQuery(() => queryInstant('(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100'))) ?? [],
+    queryKey: ['compute', 'cluster-mem', clusterId],
+    queryFn: async () => (await safeQuery(() => queryInstant('(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100', undefined, clusterId))) ?? [],
     refetchInterval: 30000,
   });
 
