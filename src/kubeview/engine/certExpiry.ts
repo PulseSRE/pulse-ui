@@ -1,3 +1,5 @@
+import { k8sList } from './query';
+
 /**
  * Read a certificate's real notAfter out of a Kubernetes TLS secret.
  *
@@ -134,9 +136,10 @@ function base64ToBytes(b64: string): Uint8Array | null {
  * notAfter of the first certificate in a Kubernetes secret's base64 tls.crt.
  *
  * The value is base64-encoded PEM (that is how Kubernetes stores it), so it is
- * decoded once to text, then the first PEM block is decoded again to DER. A
- * bundle's first entry is the leaf, which is the one that expires first and
- * the one an operator cares about.
+ * decoded once to text, then the first PEM block is decoded again to DER. By
+ * convention a bundle's first entry is the leaf — the certificate the secret
+ * serves. It is not necessarily the one that expires first: an intermediate
+ * later in the bundle can expire earlier, and this does not read those.
  */
 export function certNotAfterFromSecretData(base64TlsCrt: string | undefined): Date | null {
   if (!base64TlsCrt) return null;
@@ -154,4 +157,86 @@ export function certNotAfterFromSecretData(base64TlsCrt: string | undefined): Da
   if (!der) return null;
 
   return derNotAfter(der);
+}
+
+export interface CertInfo {
+  name: string;
+  namespace: string;
+  daysUntilExpiry: number | null;
+  expirySource: 'certificate' | 'cert-manager' | 'service-ca' | 'unknown';
+}
+
+/** The fields of a Secret that expiry is read from. */
+export interface TlsSecretLike {
+  type?: string;
+  metadata: { name: string; namespace?: string; annotations?: Record<string, string> };
+  data?: Record<string, string>;
+}
+
+/**
+ * Only TLS secrets, filtered by the API server. Listing every Secret in the
+ * cluster to keep a few would transfer (and hold in the browser) every
+ * secret value the user can read, for no benefit.
+ */
+export const TLS_SECRETS_PATH = '/api/v1/secrets?fieldSelector=type=kubernetes.io/tls';
+
+export async function fetchTlsSecrets<T extends TlsSecretLike>(): Promise<T[]> {
+  const secrets = await k8sList<T>(TLS_SECRETS_PATH);
+  // The server already filtered; this only guards against a proxy or mock
+  // that ignores the field selector.
+  return secrets.filter((s) => s.type === 'kubernetes.io/tls');
+}
+
+const daysFromNow = (expiry: Date) => Math.floor((expiry.getTime() - Date.now()) / 86_400_000);
+
+/**
+ * The certificate itself is authoritative, so it is read first.
+ *
+ * There used to be a final fallback estimating expiry as `creationTimestamp +
+ * 365 days`, reached by most secrets because few carry either annotation. It
+ * was not a measurement — it was the Secret's age plus a guess — and cluster
+ * certificates are rotated **in place**, keeping the Secret's original
+ * creationTimestamp while tls.crt is replaced. On a 424-day-old cluster it
+ * reported ~-60 days (424 - 365) for 61 certificates that openssl put months
+ * or years in the future, which then drove the risk score to 100/100
+ * "Critical" with zero critical alerts and zero unhealthy nodes.
+ *
+ * When expiry genuinely cannot be determined the answer is "unknown"; callers
+ * count those and say so rather than guessing.
+ */
+export function parseCertExpiry(secret: TlsSecretLike): CertInfo {
+  const name = secret.metadata.name;
+  const namespace = secret.metadata.namespace || '';
+
+  const fromCert = certNotAfterFromSecretData(secret.data?.['tls.crt']);
+  if (fromCert) return { name, namespace, daysUntilExpiry: daysFromNow(fromCert), expirySource: 'certificate' };
+
+  const annotations = secret.metadata.annotations || {};
+  const certManagerExpiry = annotations['cert-manager.io/certificate-expiry'];
+  if (certManagerExpiry) {
+    const expiry = new Date(certManagerExpiry);
+    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expirySource: 'cert-manager' };
+  }
+  const serviceCaExpiry = annotations['service.beta.openshift.io/expiry'];
+  if (serviceCaExpiry) {
+    const expiry = new Date(serviceCaExpiry);
+    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expirySource: 'service-ca' };
+  }
+  return { name, namespace, daysUntilExpiry: null, expirySource: 'unknown' };
+}
+
+/**
+ * Certificates whose expiry is known, plus how many TLS secrets could not be
+ * read. The count is reported, not dropped: a secret we cannot read is a
+ * certificate nobody is watching, not one that is fine.
+ */
+export function summarizeTlsSecrets(secrets: TlsSecretLike[]): { certs: CertInfo[]; unreadable: number } {
+  const certs: CertInfo[] = [];
+  let unreadable = 0;
+  for (const secret of secrets) {
+    const info = parseCertExpiry(secret);
+    if (info.daysUntilExpiry === null) unreadable++;
+    else certs.push(info);
+  }
+  return { certs, unreadable };
 }

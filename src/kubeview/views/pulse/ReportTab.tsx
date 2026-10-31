@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../../engine/query';
-import { certNotAfterFromSecretData } from '../../engine/certExpiry';
+import { fetchTlsSecrets, summarizeTlsSecrets } from '../../engine/certExpiry';
 import { safeQuery } from '../../engine/safeQuery';
 import { AIIconStatic, AI_ACCENT, PromptPill } from '../../components/agent/AIBranding';
 import { askPulse } from '../../engine/askPulse';
@@ -42,52 +42,6 @@ function formatTimeAgo(timestamp: string): string {
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   return `${hrs}h ago`;
-}
-
-interface CertInfo {
-  name: string;
-  namespace: string;
-  daysUntilExpiry: number | null;
-  expirySource: 'certificate' | 'cert-manager' | 'service-ca' | 'unknown';
-}
-
-const daysFromNow = (expiry: Date) => Math.floor((expiry.getTime() - Date.now()) / 86_400_000);
-
-/**
- * The certificate itself is authoritative, so it is read first.
- *
- * There used to be a final fallback estimating expiry as `creationTimestamp +
- * 365 days`, reached by most secrets because few carry either annotation. It
- * was not a measurement — it was the Secret's age plus a guess — and cluster
- * certificates are rotated **in place**, keeping the Secret's original
- * creationTimestamp while tls.crt is replaced. On a 424-day-old cluster it
- * reported ~-60 days (424 - 365) for 61 certificates that openssl put months
- * or years in the future, which then drove the risk score to 100/100
- * "Critical" with zero critical alerts and zero unhealthy nodes.
- *
- * When expiry genuinely cannot be determined the answer is "unknown", which
- * the caller filters out. Reporting nothing beats reporting a number that is
- * wrong in a direction people act on.
- */
-function parseCertExpiry(secret: K8sResource & { data?: Record<string, string> }): CertInfo {
-  const name = secret.metadata.name;
-  const namespace = secret.metadata.namespace || '';
-
-  const fromCert = certNotAfterFromSecretData(secret.data?.['tls.crt']);
-  if (fromCert) return { name, namespace, daysUntilExpiry: daysFromNow(fromCert), expirySource: 'certificate' };
-
-  const annotations = secret.metadata.annotations || {};
-  const certManagerExpiry = annotations['cert-manager.io/certificate-expiry'];
-  if (certManagerExpiry) {
-    const expiry = new Date(certManagerExpiry);
-    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expirySource: 'cert-manager' };
-  }
-  const serviceCaExpiry = annotations['service.beta.openshift.io/expiry'];
-  if (serviceCaExpiry) {
-    const expiry = new Date(serviceCaExpiry);
-    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expirySource: 'service-ca' };
-  }
-  return { name, namespace, daysUntilExpiry: null, expirySource: 'unknown' };
 }
 
 interface AttentionItem {
@@ -262,12 +216,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   };
 
   // === Queries ===
-  const { data: tlsSecrets = [] } = useQuery<Secret[]>({
+  const { data: tlsSecrets = [], isError: tlsSecretsError } = useQuery<Secret[]>({
     queryKey: ['k8s', 'list', 'tls-secrets'],
-    queryFn: async () => {
-      const secrets = await k8sList<Secret>('/api/v1/secrets');
-      return secrets.filter((s) => s.type === 'kubernetes.io/tls');
-    },
+    queryFn: () => fetchTlsSecrets<Secret>(),
     staleTime: 120_000, refetchInterval: 300_000,
   });
 
@@ -350,7 +301,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const criticalAlerts = useMemo(() => firingAlerts.filter(a => a.metric.severity === 'critical'), [firingAlerts]);
   const warningAlerts = useMemo(() => firingAlerts.filter(a => a.metric.severity === 'warning'), [firingAlerts]);
 
-  const certInfos = useMemo(() => tlsSecrets.map(parseCertExpiry).filter(c => c.daysUntilExpiry !== null), [tlsSecrets]);
+  const { certs: certInfos, unreadable: unreadableCerts } = useMemo(() => summarizeTlsSecrets(tlsSecrets), [tlsSecrets]);
   const certsExpiringSoon7 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry < 7), [certInfos]);
   const certsExpiringSoon30 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry >= 7 && c.daysUntilExpiry < 30), [certInfos]);
   const urgentCerts = useMemo(() => [...certInfos].filter(c => (c.daysUntilExpiry ?? 999) < 30).sort((a, b) => (a.daysUntilExpiry ?? 9999) - (b.daysUntilExpiry ?? 9999)).slice(0, 5), [certInfos]);
@@ -481,14 +432,13 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const factors = useMemo(() => [
     { label: 'Critical alerts', count: criticalAlerts.length, points: 20, max: 40 as number | null, score: Math.min(40, criticalAlerts.length * 20) },
     { label: 'Warning alerts', count: warningAlerts.length, points: 5, max: 20 as number | null, score: Math.min(20, warningAlerts.length * 5) },
-    // Every factor is capped. Four of these were uncapped, which let one
-    // category saturate a 0-100 score on its own and made the breakdown
-    // incoherent: 61 certificates at 15 points each rendered as "+915" against
-    // "max 100", and the total pinned at 100 no matter what the rest of the
-    // cluster was doing. A breakdown that cannot be added up does not explain
-    // the score it sits under.
-    { label: 'Unhealthy nodes', count: unhealthyNodes.length, points: 15, max: 30 as number | null, score: Math.min(30, unhealthyNodes.length * 15) },
-    { label: 'Degraded operators', count: degradedOperators.length, points: 10, max: 30 as number | null, score: Math.min(30, degradedOperators.length * 10) },
+    // Node and operator factors stay uncapped: an all-NotReady cluster must be
+    // able to reach "Critical" on that alone.
+    { label: 'Unhealthy nodes', count: unhealthyNodes.length, points: 15, max: null, score: unhealthyNodes.length * 15 },
+    { label: 'Degraded operators', count: degradedOperators.length, points: 10, max: null, score: degradedOperators.length * 10 },
+    // Certificate factors are capped: a bulk rotation can put dozens of
+    // secrets in one bucket at once, and uncapped that one category rendered
+    // as "+915" against "max 100" in the breakdown.
     { label: 'Certs expiring <7d', count: certsExpiringSoon7.length, points: 15, max: 30 as number | null, score: Math.min(30, certsExpiringSoon7.length * 15) },
     { label: 'Certs expiring <30d', count: certsExpiringSoon30.length, points: 5, max: 15 as number | null, score: Math.min(15, certsExpiringSoon30.length * 5) },
     { label: 'Failed pods', count: failedPods.length, points: 3, max: 15 as number | null, score: Math.min(15, failedPods.length * 3) },
@@ -684,6 +634,15 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {(unreadableCerts > 0 || tlsSecretsError) && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400" data-testid="unreadable-certs">
+                <Lock className="w-3 h-3 text-slate-500" />
+                {tlsSecretsError
+                  ? 'TLS secrets could not be listed — certificate expiry is unknown'
+                  : `${unreadableCerts} TLS secret${unreadableCerts !== 1 ? 's' : ''} could not be read — expiry unknown`}
               </div>
             )}
 

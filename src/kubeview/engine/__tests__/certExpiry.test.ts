@@ -1,6 +1,15 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { certNotAfterFromSecretData } from '../certExpiry';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const k8sListMock = vi.fn();
+vi.mock('../query', () => ({ k8sList: (...args: unknown[]) => k8sListMock(...args) }));
+
+import {
+  certNotAfterFromSecretData,
+  fetchTlsSecrets,
+  summarizeTlsSecrets,
+  type TlsSecretLike,
+} from '../certExpiry';
 
 /**
  * Fixtures are self-signed EC certificates generated with openssl, stored the
@@ -64,5 +73,58 @@ describe('certNotAfterFromSecretData', () => {
   it('is unaffected by how old the Secret object is', () => {
     const d = certNotAfterFromSecretData(FUTURE_UTCTIME);
     expect(d!.getTime()).toBeGreaterThan(Date.now());
+  });
+});
+
+const tlsSecret = (name: string, crt?: string, annotations?: Record<string, string>): TlsSecretLike => ({
+  type: 'kubernetes.io/tls',
+  metadata: { name, namespace: 'ns', annotations },
+  data: crt === undefined ? {} : { 'tls.crt': crt },
+});
+
+describe('summarizeTlsSecrets', () => {
+  // Unreadable certificates used to be filtered out silently, so a cluster
+  // whose certs could not be parsed looked identical to one with nothing due.
+  it('counts TLS secrets whose expiry cannot be read instead of dropping them', () => {
+    const { certs, unreadable } = summarizeTlsSecrets([
+      tlsSecret('good', FUTURE_UTCTIME),
+      tlsSecret('expired', EXPIRED),
+      tlsSecret('missing-crt'),
+      tlsSecret('garbage', '!!!!'),
+      tlsSecret('annotated', '!!!!', { 'cert-manager.io/certificate-expiry': '2030-01-01T00:00:00Z' }),
+    ]);
+    expect(certs.map((c) => c.name)).toEqual(['good', 'expired', 'annotated']);
+    expect(certs.find((c) => c.name === 'annotated')?.expirySource).toBe('cert-manager');
+    expect(unreadable).toBe(2);
+  });
+
+  it('reports zero unreadable when every certificate parses', () => {
+    expect(summarizeTlsSecrets([tlsSecret('a', FUTURE_UTCTIME)]).unreadable).toBe(0);
+  });
+});
+
+describe('fetchTlsSecrets', () => {
+  beforeEach(() => k8sListMock.mockReset());
+
+  // Listing every Secret to keep the TLS ones pulled every readable secret
+  // value into the browser. The server filters by type instead.
+  it('asks the API server for TLS secrets only, via a type field selector', async () => {
+    k8sListMock.mockResolvedValue([]);
+    await fetchTlsSecrets();
+    expect(k8sListMock).toHaveBeenCalledTimes(1);
+    const path = k8sListMock.mock.calls[0][0] as string;
+    expect(path).toBe('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls');
+    const url = new URL(path, 'https://cluster.example');
+    expect(url.pathname).toBe('/api/v1/secrets');
+    expect(url.searchParams.get('fieldSelector')).toBe('type=kubernetes.io/tls');
+  });
+
+  it('still drops non-TLS secrets if the selector is ignored', async () => {
+    k8sListMock.mockResolvedValue([
+      tlsSecret('tls'),
+      { type: 'Opaque', metadata: { name: 'opaque' } },
+    ]);
+    const result = await fetchTlsSecrets();
+    expect(result.map((s) => s.metadata.name)).toEqual(['tls']);
   });
 });
