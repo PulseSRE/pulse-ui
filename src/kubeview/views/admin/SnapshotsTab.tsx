@@ -2,7 +2,9 @@ import React from 'react';
 import {
   Download, Upload, XCircle, GitCompare, Loader2, Database,
   CheckCircle, Minus,
+  HelpCircle,
 } from 'lucide-react';
+import { LoadError } from '../../components/primitives/LoadError';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../../store/uiStore';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
@@ -122,7 +124,16 @@ export function SnapshotsTab() {
   }, [compareLeft, compareRight, savedSnapshots]);
 
   const changedCount = diff?.filter(r => r.changed).length ?? 0;
-  const displayRows = diff && showOnlyChanges ? diff.filter(r => r.changed) : diff;
+  // Rows with an unreadable side are neither changes nor "unchanged": count
+  // them, keep them visible under "Show only changes", and say which sources.
+  const unavailableCount = diff?.filter(r => r.unavailable).length ?? 0;
+  const displayRows = diff && showOnlyChanges ? diff.filter(r => r.changed || r.unavailable) : diff;
+  const leftSnap = savedSnapshots.find(s => s.id === compareLeft);
+  const rightSnap = savedSnapshots.find(s => s.id === compareRight);
+  const unread = [
+    leftSnap?.unavailable?.length ? `${leftSnap.label}: ${leftSnap.unavailable.join(', ')}` : '',
+    rightSnap?.unavailable?.length ? `${rightSnap.label}: ${rightSnap.unavailable.join(', ')}` : '',
+  ].filter(Boolean);
 
   return (
     <div className="space-y-6">
@@ -153,7 +164,7 @@ export function SnapshotsTab() {
               <div key={snap.id} className="flex items-center gap-3 p-2 rounded-sm hover:bg-slate-800/50">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-200 font-medium">{snap.label}</div>
-                  <div className="text-xs text-slate-500">{new Date(snap.timestamp).toLocaleString()} \u00b7 v{snap.clusterVersion} \u00b7 {snap.nodes.count} nodes \u00b7 {snap.crds.length} CRDs</div>
+                  <div className="text-xs text-slate-500">{new Date(snap.timestamp).toLocaleString()} \u00b7 v{snap.clusterVersion} \u00b7 {snap.unavailable?.includes('nodes') ? '? nodes' : `${snap.nodes.count} nodes`} \u00b7 {snap.unavailable?.includes('crds') ? '? CRDs' : `${snap.crds.length} CRDs`}{snap.unavailable?.length ? ` \u00b7 ${snap.unavailable.length} source${snap.unavailable.length !== 1 ? 's' : ''} unreadable` : ''}</div>
                 </div>
                 <select value={compareLeft === snap.id ? 'left' : compareRight === snap.id ? 'right' : ''} onChange={(e) => {
                   if (e.target.value === 'left') { setCompareLeft(snap.id); if (compareRight === snap.id) setCompareRight(''); }
@@ -176,12 +187,18 @@ export function SnapshotsTab() {
       {diff && (
         <Card>
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-100">Comparison \u2014 {changedCount} change{changedCount !== 1 ? 's' : ''}</h2>
+            <h2 className="text-sm font-semibold text-slate-100">
+              Comparison \u2014 {changedCount} change{changedCount !== 1 ? 's' : ''}
+              {unavailableCount > 0 && <span className="ml-2 text-xs font-normal text-slate-400">{unavailableCount} field{unavailableCount !== 1 ? 's' : ''} could not be compared</span>}
+            </h2>
             <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
               <input type="checkbox" checked={showOnlyChanges} onChange={(e) => setShowOnlyChanges(e.target.checked)} className="rounded-sm" />
               Show only changes
             </label>
           </div>
+          {unread.length > 0 && (
+            <LoadError className="m-3" title="Some settings were unreadable when a snapshot was captured, so they are not compared" error={unread.join(' · ')} />
+          )}
           <div className="overflow-auto">
             <table className="w-full text-sm">
               <thead>
@@ -194,9 +211,11 @@ export function SnapshotsTab() {
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {(displayRows || []).map((row, idx) => (
-                  <tr key={idx} className={row.changed ? 'bg-yellow-950/20' : ''}>
+                  <tr key={idx} className={row.unavailable ? 'bg-slate-900/60' : row.changed ? 'bg-yellow-950/20' : ''}>
                     <td className="px-4 py-2">
-                      {row.changed ? (
+                      {row.unavailable ? (
+                        <HelpCircle className="w-3.5 h-3.5 text-slate-500" aria-label="Not compared" />
+                      ) : row.changed ? (
                         row.left && !row.right ? <Minus className="w-3.5 h-3.5 text-red-400" /> :
                         !row.left && row.right ? <CheckCircle className="w-3.5 h-3.5 text-green-400" /> :
                         <GitCompare className="w-3.5 h-3.5 text-yellow-400" />

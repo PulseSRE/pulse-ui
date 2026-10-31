@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
+import { LoadError } from '../../components/primitives/LoadError';
 import { useIncidentTimeline, type TimeRange } from '../../hooks/useIncidentTimeline';
 import { useUIStore } from '../../store/uiStore';
 import { useMonitorStore } from '../../store/monitorStore';
@@ -424,6 +425,9 @@ export function ActivityTab() {
             <span>{mergedEntries.length} entries</span>
           </div>
 
+          {timeline.failedSources.length > 0 && !timeline.isLoading && (
+            <LoadError title={`Could not read ${timeline.failedSources.join(', ')} — this history is incomplete`} />
+          )}
           {timeline.isLoading ? (
             <div className="flex items-center justify-center h-48">
               <span className="text-slate-500 text-sm">Loading history...</span>

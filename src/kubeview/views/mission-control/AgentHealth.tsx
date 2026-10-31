@@ -155,7 +155,7 @@ function OutcomesCard({
 
         {fixSummary && (
           <div className="text-sm text-slate-200">
-            <span className="font-semibold">{fixSummary.total_actions}</span> findings &middot;{' '}
+            <span className="font-semibold">{fixSummary.total_actions}</span> fixes &middot;{' '}
             <span className="text-emerald-400">{fixSummary.completed} fixed</span> &middot;{' '}
             <span className="text-amber-400">{fixSummary.rolled_back} rolled back</span>
           </div>

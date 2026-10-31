@@ -27,6 +27,6 @@ Add focused regressions for behavior changes, particularly failure paths and mut
 
 `bash scripts/install-hooks.sh` installs an optional pre-commit hook that runs type-check and tests. It does not install Python checks, pre-push hooks, or post-write hooks. Use `pnpm verify` even when hooks are not installed.
 
-GitHub Actions in `.github/workflows/ci.yml` run lint/type checks, coverage/unit tests, build, and Playwright for pushes/PRs to main. Image publishing is a separate tag/manual workflow. Passing local checks does not prove remote CI passed; report the actual run status.
+GitHub Actions in `.github/workflows/ci.yml` run lint/type checks, coverage/unit tests, the isolated UI release acceptance suite, build, and Playwright for PRs to main, the merge queue (`merge_group`), and pushes to main. `main` merges only through the merge queue, which reruns these checks on the merge commit before it lands. Image publishing is a separate tag/manual workflow. Passing local checks does not prove remote CI passed; report the actual run status.
 
 Backend development belongs in [pulse-agent](https://github.com/PulseSRE/pulse-agent); consult its own contributing/configuration docs. The UI does not implement a SQLite storage backend or install Pulse via Helm.

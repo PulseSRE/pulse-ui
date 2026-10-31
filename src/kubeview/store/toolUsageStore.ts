@@ -114,6 +114,8 @@ interface ToolUsageState {
   toolsLoading: boolean;
   agentsLoading: boolean;
   usageLoading: boolean;
+  /** Set when the last usage read failed; `usage` keeps the last good page. */
+  usageError: string | null;
   statsLoading: boolean;
   chainsLoading: boolean;
   filters: UsageFilters;
@@ -145,6 +147,7 @@ export const useToolUsageStore = create<ToolUsageState>()((set, get) => ({
   toolsLoading: false,
   agentsLoading: false,
   usageLoading: false,
+  usageError: null,
   statsLoading: false,
   chainsLoading: false,
   filters: { page: 1, per_page: 50 },
@@ -178,6 +181,12 @@ export const useToolUsageStore = create<ToolUsageState>()((set, get) => ({
     const data = await apiFetch<{ entries: ToolUsageEntry[]; total: number; page: number; per_page: number }>(
       `/tools/usage?${params}`,
     );
+    if (!data) {
+      // A failed read is not "no usage recorded".
+      set({ usageLoading: false, usageError: 'Tool usage could not be loaded from the agent' });
+      return;
+    }
+    if (get().usageError) set({ usageError: null });
     // Skip re-render if data hasn't changed (prevents flickering on background polls)
     const prev = get().usage;
     if (prev && data && prev.total === data.total && prev.entries.length === data.entries.length && prev.entries[0]?.id === data.entries[0]?.id) {

@@ -11,6 +11,7 @@ const CRDsView = lazy(() => import('./CRDsView'));
 
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../engine/query';
+import { fetchTlsSecrets, parseCertExpiry, certNotAfterFromSecretData, type TlsSecretLike } from '../engine/certExpiry';
 import { safeQuery } from '../engine/safeQuery';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import type { K8sResource } from '../engine/renderers';
@@ -176,21 +177,14 @@ export default function AdminView() {
   const { data: expiringCerts = [] } = useQuery<Array<{ name: string; namespace: string; daysLeft: number }>>({
     queryKey: ['admin', 'expiring-certs', clusterId],
     queryFn: async () => {
-      const secrets = (await safeQuery(() => k8sList('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId))) ?? [];
+      // Same parsing as the Certificates tab: the certificate's own notAfter,
+      // then cert-manager/service-ca annotations. No guessed lifetimes.
+      const secrets = (await safeQuery(() => fetchTlsSecrets<TlsSecretLike>(clusterId))) ?? [];
       const expiring: Array<{ name: string; namespace: string; daysLeft: number }> = [];
-      for (const s of secrets as K8sResource[]) {
-        const annotations = s.metadata.annotations || {};
-        const expiryStr = annotations['cert-manager.io/certificate-expiry'] || '';
-        const serviceCA = annotations['service.beta.openshift.io/originating-service-name'];
-        const created = s.metadata.creationTimestamp;
-        let daysLeft = Infinity;
-        if (expiryStr) {
-          daysLeft = Math.floor((new Date(expiryStr).getTime() - Date.now()) / 86400000);
-        } else if (serviceCA && created) {
-          daysLeft = Math.floor((new Date(created).getTime() + 26 * 30 * 86400000 - Date.now()) / 86400000);
-        }
-        if (daysLeft <= 30 && daysLeft > -999) {
-          expiring.push({ name: s.metadata.name, namespace: s.metadata.namespace || '', daysLeft });
+      for (const s of secrets) {
+        const info = parseCertExpiry(s);
+        if (info.daysUntilExpiry !== null && info.daysUntilExpiry <= 30) {
+          expiring.push({ name: info.name, namespace: info.namespace, daysLeft: info.daysUntilExpiry });
         }
       }
       return expiring.sort((a, b) => a.daysLeft - b.daysLeft);
@@ -313,6 +307,9 @@ export default function AdminView() {
   [operators]);
   const opDegraded = degradedOperators.length;
   const opProgressing = operators.filter((o) => o.status?.conditions?.find((c: Condition) => c.type === 'Progressing' && c.status === 'True')).length;
+  // Counted per operator, so one that is both degraded and progressing is not subtracted twice.
+  const opSteady = operators.filter((o) => !o.status?.conditions?.some((c: Condition) =>
+    (c.type === 'Degraded' || c.type === 'Progressing') && c.status === 'True')).length;
 
   const alertCounts = React.useMemo(() => {
     const counts = { critical: 0, warning: 0, info: 0 };
@@ -385,17 +382,11 @@ export default function AdminView() {
   }, [clusterVersion]);
 
   const certExpiry = React.useMemo(() => {
-    if (!routerCert?.data?.['tls.crt']) return null;
-    try {
-      const pem = atob(routerCert.data['tls.crt']);
-      const match = pem.match(/Not After\s*:\s*(.+)/);
-      if (match) {
-        const expDate = new Date(match[1]);
-        const daysLeft = Math.floor((expDate.getTime() - Date.now()) / 86400000);
-        return { date: expDate, daysLeft };
-      }
-    } catch (err) { console.warn('Failed to parse certificate expiry:', err); }
-    return null;
+    // tls.crt is a base64 PEM; it has no "Not After" text to match. Parse it.
+    const expDate = certNotAfterFromSecretData(routerCert?.data?.['tls.crt']);
+    if (!expDate) return null;
+    const daysLeft = Math.floor((expDate.getTime() - Date.now()) / 86400000);
+    return { date: expDate, daysLeft };
   }, [routerCert]);
 
   const crdGroupCount = React.useMemo(() => {
@@ -502,6 +493,7 @@ export default function AdminView() {
             operators={operators}
             opDegraded={opDegraded}
             opProgressing={opProgressing}
+            opSteady={opSteady}
             degradedOperators={degradedOperators}
             nodes={nodes}
             nodeRoles={nodeRoles}

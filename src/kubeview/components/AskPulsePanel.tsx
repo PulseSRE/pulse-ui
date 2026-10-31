@@ -49,7 +49,7 @@ export function AskPulsePanel({ query, response, isLoading, onSuggestionClick, a
           Ask Pulse
         </span>
         {!agentAvailable && (
-          <span className="flex items-center gap-1 text-xs text-amber-400/80 ml-auto" title="Agent unavailable — showing sample responses">
+          <span className="flex items-center gap-1 text-xs text-amber-400/80 ml-auto" title="Agent unavailable — your question will not be answered until it reconnects">
             <AlertTriangle className="h-3 w-3" />
             Agent offline
           </span>
@@ -79,7 +79,7 @@ export function AskPulsePanel({ query, response, isLoading, onSuggestionClick, a
               'text-[10px] uppercase tracking-wider font-medium',
               response.fromAgent ? 'text-violet-400/70' : 'text-slate-500',
             )}>
-              {response.fromAgent ? 'Powered by Pulse Agent' : 'Sample response'}
+              {response.fromAgent ? 'Powered by Pulse Agent' : 'Not asked yet'}
             </span>
             {onOpenInAgent && (
               <button

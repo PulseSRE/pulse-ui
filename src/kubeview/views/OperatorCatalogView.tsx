@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sCreate, k8sDelete, k8sGet } from '../engine/query';
+import { LoadError } from '../components/primitives/LoadError';
+import { EmptyState } from '../components/primitives/EmptyState';
 import { safeQuery } from '../engine/safeQuery';
 import { useUIStore } from '../store/uiStore';
 import { showErrorToast } from '../engine/errorToast';
@@ -77,7 +79,7 @@ export default function OperatorCatalogView() {
   const [cleaningCrds, setCleaningCrds] = useState(false);
 
   // Fetch all package manifests
-  const { data: packages = [], isLoading } = useQuery<PackageManifest[]>({
+  const { data: packages = [], isLoading, isError: catalogError, error: catalogErr, refetch: refetchCatalog } = useQuery<PackageManifest[]>({
     queryKey: ['operator-catalog', clusterId],
     queryFn: () => k8sList<PackageManifest>('/apis/packages.operators.coreos.com/v1/packagemanifests', undefined, clusterId),
     staleTime: 300000, // 5 min cache
@@ -779,7 +781,7 @@ export default function OperatorCatalogView() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2"><Puzzle className="w-6 h-6 text-violet-500" /> Operator Catalog</h1>
-          <p className="text-sm text-slate-400 mt-1">{dedupedPackages.length} operators available from {catalogs.length} sources</p>
+          <p className="text-sm text-slate-400 mt-1">{catalogError ? 'Catalog could not be read' : isLoading ? 'Loading catalog…' : `${dedupedPackages.length} operators available from ${catalogs.length} sources`}</p>
         </div>
 
         {installProgressBanner}
@@ -856,6 +858,13 @@ export default function OperatorCatalogView() {
         <TabsContent value={catalogFilter} className="space-y-6">
         {isLoading ? (
           <div className="text-center py-12"><Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto" /><p className="text-sm text-slate-500 mt-3">Loading operator catalog...</p></div>
+        ) : catalogError ? (
+          <LoadError title="The operator catalog could not be loaded" error={catalogErr} onRetry={() => { void refetchCatalog(); }} />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            title={packages.length === 0 ? 'No operators in the catalog' : 'No operators match your search'}
+            description={packages.length === 0 ? 'No PackageManifests are served; check that CatalogSources are healthy.' : 'Try a different search or catalog filter.'}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.slice(0, visibleCount).map((pkg) => {

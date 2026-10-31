@@ -351,7 +351,7 @@ describe('AlertsView', () => {
     const firingTab = screen.getByRole('tab', { name: /^Firing \(/ });
     fireEvent.click(firingTab);
     expect((await screen.findAllByText('No alerts firing')).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Your cluster is healthy.*no alerts are currently firing/)).toBeDefined();
+    expect(screen.getByText('Prometheus reports no firing or pending alerts.')).toBeDefined();
   });
 
   it('shows EmptyState with guidance when rules tab is empty', () => {
@@ -359,7 +359,7 @@ describe('AlertsView', () => {
     const rulesTab = screen.getByRole('tab', { name: /^Rules \(/ });
     fireEvent.click(rulesTab);
     expect(screen.getByText('No alert rules found')).toBeDefined();
-    expect(screen.getByText('Alert rules are configured in Prometheus. Make sure Alertmanager is connected and accessible.')).toBeDefined();
+    expect(screen.getByText('Prometheus reports no alerting rules.')).toBeDefined();
   });
 
   it('shows EmptyState with guidance when silences tab is empty', () => {
@@ -433,5 +433,61 @@ describe('an unreachable alerting backend is not zero alerts', () => {
     renderAlerts();
     await waitFor(() => expect(screen.getByText('Firing')).toBeDefined());
     expect(screen.getByText('Firing').parentElement?.textContent).toMatch(/0/);
+  });
+});
+
+/** Prometheus and Alertmanager fail independently. */
+describe('alert sources are handled separately', () => {
+  const firingRules = {
+    data: {
+      groups: [{
+        name: 'g',
+        rules: [{
+          name: 'DiskFilling', query: 'x', state: 'firing', health: 'ok', type: 'alerting',
+          labels: { severity: 'warning' }, annotations: {},
+          alerts: [{ labels: { alertname: 'DiskFilling', severity: 'warning' }, annotations: {}, state: 'firing', activeAt: '2024-01-01T00:00:00Z' }],
+        }],
+      }],
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Tab and filters live in the URL; earlier tests leave them set.
+    window.history.replaceState(null, '', '/');
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/rules')) return Promise.resolve({ ok: true, headers: jsonHeaders, json: () => Promise.resolve(firingRules) });
+      if (url.includes('/silences')) return Promise.resolve({ ok: false, status: 503, statusText: 'Service Unavailable', headers: jsonHeaders, json: () => Promise.resolve({}) });
+      // users/~ lookup fails
+      return Promise.resolve({ ok: false, status: 403, headers: jsonHeaders, json: () => Promise.resolve({}) });
+    });
+  });
+  afterEach(cleanup);
+
+  it('keeps showing firing alerts when Alertmanager is down', async () => {
+    renderAlerts();
+    await waitFor(() => expect(screen.getAllByText('DiskFilling').length).toBeGreaterThan(0), { timeout: 3000 });
+    // The silences query retries once before it errors.
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Silences could not be read from Alertmanager/), { timeout: 4000 });
+    expect(screen.queryByText(/Backend unavailable/i)).toBeNull();
+    expect(screen.getByText('Active Silences').parentElement?.textContent).toContain('—');
+    expect(screen.getByText('Firing').parentElement?.textContent).toContain('1');
+  });
+
+  it('does not invent "admin" as the silence author when the user lookup fails', async () => {
+    renderAlerts();
+    fireEvent.click(screen.getByRole('tab', { name: /^Silences \(/ }));
+    fireEvent.click(screen.getByText('Create Silence'));
+    const creator = screen.getByLabelText('Created by') as HTMLInputElement;
+    expect(creator.value).toBe('');
+  });
+
+  it('a filtered-empty list does not say the cluster is healthy', async () => {
+    renderAlerts();
+    await waitFor(() => expect(screen.getAllByText('DiskFilling').length).toBeGreaterThan(0), { timeout: 3000 });
+    fireEvent.click(screen.getByRole('button', { name: 'critical' }));
+    expect(screen.getByText('No critical alerts')).toBeDefined();
+    expect(screen.getByText(/1 alert is firing or pending outside this filter/)).toBeDefined();
+    expect(document.body.textContent).not.toMatch(/healthy/i);
   });
 });

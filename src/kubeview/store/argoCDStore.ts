@@ -7,6 +7,7 @@ import { getActiveClusterId, getClusterBase } from '../engine/clusterConnection'
 import { create } from 'zustand';
 import { k8sList, getImpersonationHeaders } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
+import { errorReason } from '../engine/readResult';
 import type { ArgoApplication, ArgoSyncInfo, ArgoSyncStatus, ArgoHealthStatus } from '../engine/types';
 
 interface ArgoCDState {
@@ -22,10 +23,13 @@ interface ArgoCDState {
   // Applications
   applications: ArgoApplication[];
   applicationsLoading: boolean;
+  /** Why the last application read failed; an empty list is not "no apps". */
+  applicationsError: string | null;
 
   // Rollouts
   rollouts: K8sResource[];
   rolloutsLoading: boolean;
+  rolloutsError: string | null;
 
   // Resource lookup cache: "Kind/namespace/name" -> ArgoSyncInfo
   resourceCache: Map<string, ArgoSyncInfo>;
@@ -75,13 +79,15 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
   rolloutsAvailable: false,
   applications: [],
   applicationsLoading: false,
+  applicationsError: null,
   rollouts: [],
   rolloutsLoading: false,
+  rolloutsError: null,
   resourceCache: new Map(),
 
   reset: () => set({ available: false, detecting: false, detected: false, detectionError: null,
-    namespace: null, rolloutsAvailable: false, applications: [], applicationsLoading: false,
-    rollouts: [], rolloutsLoading: false, resourceCache: new Map() }),
+    namespace: null, rolloutsAvailable: false, applications: [], applicationsLoading: false, applicationsError: null,
+    rollouts: [], rolloutsLoading: false, rolloutsError: null, resourceCache: new Map() }),
 
   detect: async () => {
     // Badges, cards and history panels on one page all ask at once: one run.
@@ -109,6 +115,8 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
         // Could not parse API resources, rollouts detection failed gracefully
       }
       scopedSet({ rolloutsAvailable: hasRollouts });
+      // Nothing else loads rollouts: without this the tab always said "none".
+      if (hasRollouts && getActiveClusterId() === clusterId) void get().loadRollouts();
 
       // API group exists — try to find Applications
       // Check openshift-gitops first (OpenShift GitOps operator default), then argocd
@@ -170,7 +178,7 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
       if (getActiveClusterId() === clusterId) set(next);
     };
     const { namespace } = get();
-    scopedSet({ applicationsLoading: true });
+    scopedSet({ applicationsLoading: true, applicationsError: null });
 
     try {
       const path = namespace
@@ -182,10 +190,11 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
       scopedSet({
         applications: typed,
         applicationsLoading: false,
+        applicationsError: null,
         resourceCache: buildResourceCache(typed),
       });
-    } catch {
-      scopedSet({ applicationsLoading: false });
+    } catch (e) {
+      scopedSet({ applicationsLoading: false, applicationsError: errorReason(e) });
     }
   },
 
@@ -194,14 +203,14 @@ export const useArgoCDStore = create<ArgoCDState>((set, get) => ({
     const scopedSet = (next: Partial<ArgoCDState>) => {
       if (getActiveClusterId() === clusterId) set(next);
     };
-    scopedSet({ rolloutsLoading: true });
+    scopedSet({ rolloutsLoading: true, rolloutsError: null });
     try {
       const items = await k8sList<K8sResource>(
         '/apis/argoproj.io/v1alpha1/rollouts', undefined, clusterId
       );
-      scopedSet({ rollouts: items, rolloutsLoading: false });
-    } catch {
-      scopedSet({ rolloutsLoading: false });
+      scopedSet({ rollouts: items, rolloutsLoading: false, rolloutsError: null });
+    } catch (e) {
+      scopedSet({ rolloutsLoading: false, rolloutsError: errorReason(e) });
     }
   },
 

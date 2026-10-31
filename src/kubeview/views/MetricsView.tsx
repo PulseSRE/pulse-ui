@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { LoadError } from '../components/primitives/LoadError';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
@@ -133,7 +134,7 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
   const resolvedQuery = resolveQuery(mq.query, vars);
   const clusterId = useActiveClusterId();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['prometheus', resolvedQuery, start, end, step, clusterId],
     // Throws on a failed request, so the panel says so instead of "No data".
     queryFn: () => queryRange(resolvedQuery, start, end, step, clusterId),
@@ -167,9 +168,13 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
         <div className="h-48 flex items-center justify-center">
           <div className="kv-skeleton w-full h-full rounded-sm" />
         </div>
-      ) : error || series.length === 0 ? (
+      ) : error ? (
+        <div className="h-48 flex flex-col justify-center">
+          <LoadError title="Failed to fetch metrics" error={error} onRetry={() => { void refetch(); }} />
+        </div>
+      ) : series.length === 0 ? (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
-          {error ? 'Failed to fetch metrics' : 'No data available'}
+          No data available
         </div>
       ) : (
         <MetricsChart
