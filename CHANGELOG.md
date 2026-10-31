@@ -4,6 +4,36 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Added
+- Update graph, rollout history and live charts (Wave 8; pairs with pulse-agent's `get_cluster_updates`/`get_rollout_history`):
+  - **Admin › Updates is an update graph.**
+    - It draws the installed path, the current version and every target, one column per minor version. Edges are coloured by what ClusterVersion says: recommended (`availableUpdates`), conditional (`conditionalUpdates`, with the risk count) or blocked (a minor target while Upgradeable=False). During an update the release being installed sits between current and the targets, because CVO computes targets from it.
+    - Selecting a target shows its risks with names and links, the Recommended message and an estimated duration taken from the last completed update's duration (labelled as such). The update action patches `spec.desiredUpdate` {version, image} on the cluster the page showed.
+    - A conditional target needs an explicit "accept risks" confirmation that lists each risk. The patch then adds the risk names to `spec.desiredUpdate.acceptRisks` and keeps any already accepted.
+    - While an update runs:
+      - an overall bar parsed from CVO's "x of y done (z%)";
+      - ClusterOperators at the target version, N of M, with degraded ones linked;
+      - a rollout bar per MachineConfigPool, linked;
+      - blockers;
+      - the time remaining, estimated from the last update.
+    - History is a timeline with real durations: no "0" artefact, and no spinner on historical Partial entries.
+    - ClusterVersion and MachineConfigPools are watched (`useK8sListWatch`), so progress moves without a reload.
+    - The channel picker offers the next minor (needed for a minor update) and eus only for even minors, and uses `status.desired.channels` when the release lists them.
+    - Nodes in rollout and drain-blocking PDBs link to their objects. The duplicate in-progress banner, the separate conditional-risks panel and the unused SnapshotsTab import are gone.
+  - **Rollout history for Deployments, StatefulSets and DaemonSets** replaces RollbackPanel.
+    - A horizontal revision timeline built from ReplicaSets or ControllerRevisions, watched live. It shows the image changes between revisions, the change-cause, the current revision, and a rollout-in-progress bar.
+    - Rollback to any revision is RBAC-gated (`patch`), confirmed with a diff and pinned to the cluster. It replaces `spec.template` exactly: JSON Patch `test` on the shown resourceVersion plus `replace`. For a StatefulSet or DaemonSet it restores the ControllerRevision template.
+  - Agent components:
+    - `upgrade_graph` renders the same graph, read-only, linking to Admin › Updates to act.
+    - `rollout_history` renders the live history (with rollback) on the agent's cluster, or the agent's snapshot, labelled, when the workload cannot be read.
+    - `chart` honours `refreshInterval` (seconds), `live` (a 15m sliding window refreshed every 10s), `step` and `annotations` (rollout/alert/config markers on the time axis, listed under the chart). The old `time_range` field is read as `timeRange`.
+    - `stat_card` re-queries its PromQL `query` every `refreshInterval` seconds.
+  - **Timeline:**
+    - a density chart per category over the selected range;
+    - events listed for the selected namespace without the cluster-wide `limit=500`;
+    - alerts that fired and resolved within the range, from `ALERTS` sampled over it;
+    - an error with retry, not an empty timeline, when no source could be read; a partial failure also offers retry.
+
 ### CI
 - `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
 

@@ -67,5 +67,6 @@ export function getKnownKinds(): string[] {
     'yaml_viewer', 'metric_card', 'node_map', 'bar_list', 'progress_list',
     'stat_card', 'timeline', 'resource_counts', 'topology', 'action_button',
     'confidence_badge', 'resolution_tracker', 'blast_radius', 'status_pipeline',
+    'upgrade_graph', 'rollout_history',
   ];
 }

@@ -14,7 +14,7 @@ import {
   XAxis, YAxis, Tooltip, Legend, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, CartesianGrid, ReferenceLine,
 } from 'recharts';
-import type { ChartSpec, ComponentSpec } from '../../engine/agentComponents';
+import type { ChartSpec, ChartAnnotation, ComponentSpec } from '../../engine/agentComponents';
 import { isSnapshotData } from './chartShape';
 import { isFlatZero, worseDirection } from '../metrics/metricFormat';
 
@@ -48,6 +48,39 @@ function formatUpdatedAgo(ts: number): string {
 
 type ChartType = NonNullable<ChartSpec['chartType']>;
 
+const ANNOTATION_COLORS: Record<NonNullable<ChartAnnotation['kind']>, string> = {
+  rollout: '#a78bfa',
+  alert: '#f87171',
+  config: '#fbbf24',
+};
+
+/** Epoch ms from an annotation timestamp given as ms, seconds or ISO text; null if unreadable. */
+export function annotationTime(ts: ChartAnnotation['timestamp']): number | null {
+  if (typeof ts === 'number') return ts < 1e12 ? ts * 1000 : ts;
+  const n = Number(ts);
+  if (ts.trim() !== '' && !Number.isNaN(n)) return n < 1e12 ? n * 1000 : n;
+  const parsed = Date.parse(ts);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * Place annotations on the chart's category time axis: each snaps to the
+ * nearest sample, and one outside the plotted range (beyond one sample
+ * interval) is listed but not drawn.
+ */
+export function placeAnnotations(annotations: ChartAnnotation[] | undefined, times: number[]) {
+  const sorted = [...times].sort((a, b) => a - b);
+  const interval = sorted.length > 1 ? (sorted[sorted.length - 1] - sorted[0]) / (sorted.length - 1) : 0;
+  return (annotations || []).map((a) => {
+    const t = annotationTime(a.timestamp);
+    let x: number | null = null;
+    if (t != null && sorted.length > 0 && t >= sorted[0] - interval && t <= sorted[sorted.length - 1] + interval) {
+      x = sorted.reduce((best, cur) => (Math.abs(cur - t) < Math.abs(best - t) ? cur : best), sorted[0]);
+    }
+    return { ...a, kind: a.kind && a.kind in ANNOTATION_COLORS ? a.kind : 'config' as const, time: t, x };
+  });
+}
+
 const CHART_TYPE_LABELS: Record<ChartType, string> = {
   line: 'Line', bar: 'Bar', area: 'Area', pie: 'Pie', donut: 'Donut',
   stacked_bar: 'Stacked', stacked_area: 'Stack Area', scatter: 'Scatter',
@@ -71,7 +104,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
   const [chartHeight, setChartHeight] = useState(spec.height || 300);
   const [yAxisLabel, setYAxisLabel] = useState(spec.yAxisLabel || '');
   const [xAxisLabel, setXAxisLabel] = useState(spec.xAxisLabel || '');
-  const [timeRange, setTimeRange] = useState(spec.timeRange || '1h');
+  const [timeRange, setTimeRange] = useState(spec.timeRange || (spec.live ? '15m' : '1h'));
   const [showLegend, setShowLegend] = useState(true);
   const [seriesColors, setSeriesColors] = useState<Record<string, string>>(() => {
     const colors: Record<string, string> = {};
@@ -119,6 +152,15 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
     }
     return Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
   }, [liveSeries]);
+
+  const placedAnnotations = useMemo(
+    () => placeAnnotations(spec.annotations, rechartsData.map((d) => d.time)),
+    [spec.annotations, rechartsData],
+  );
+  const annotationLines = placedAnnotations.filter((a) => a.x != null).map((a, i) => (
+    <ReferenceLine key={`ann-${i}`} x={a.x!} stroke={ANNOTATION_COLORS[a.kind]} strokeDasharray="2 3" strokeWidth={1.5}
+      label={{ value: a.label, position: 'insideTopLeft', fill: ANNOTATION_COLORS[a.kind], fontSize: 9 }} />
+  ));
 
   // For pie/donut/treemap — aggregate latest values per series
   const pieData = useMemo(() => {
@@ -270,6 +312,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
             {liveSeries.map((s, i) => (
               <Bar key={s.label} dataKey={s.label} stackId="stack" fill={s.color || CHART_COLORS[i % CHART_COLORS.length]} />
             ))}
+            {annotationLines}
           </BarChart>
         );
 
@@ -286,6 +329,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
               const color = s.color || CHART_COLORS[i % CHART_COLORS.length];
               return <Area key={s.label} dataKey={s.label} stackId="stack" stroke={color} fill={color} fillOpacity={0.3} />;
             })}
+            {annotationLines}
           </AreaChart>
         );
 
@@ -307,6 +351,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
               cursor={{ stroke: '#475569' }}
             />
             {hoverTimestamp != null && <ReferenceLine x={hoverTimestamp} stroke="#6366f1" strokeDasharray="3 3" />}
+            {annotationLines}
             {showLegend && liveSeries.length > 1 && liveSeries.length <= 6 && <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />}
             {liveSeries.map((s, i) => {
               const color = seriesColors[s.label] || s.color || CHART_COLORS[i % CHART_COLORS.length];
@@ -437,6 +482,20 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
             {renderChart()}
           </ResponsiveContainer>
         </div>
+      )}
+
+      {placedAnnotations.length > 0 && (
+        <ul aria-label="Chart annotations" className="px-3 py-1.5 border-t border-slate-700 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
+          {placedAnnotations.map((a, i) => (
+            <li key={i} className={cn('flex items-center gap-1', a.x == null ? 'text-slate-600' : 'text-slate-400')}
+              title={a.x == null ? 'Outside the plotted range' : undefined}>
+              <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: ANNOTATION_COLORS[a.kind] }} />
+              <span className="uppercase tracking-wide" style={{ color: ANNOTATION_COLORS[a.kind] }}>{a.kind}</span>
+              <span>{a.label}</span>
+              {a.time != null && <span className="text-slate-600">{formatTimestamp(a.time)}</span>}
+            </li>
+          ))}
+        </ul>
       )}
 
       {activeQuery && !flatZero && (

@@ -3,7 +3,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { Event } from '../../engine/types';
 import { DeploymentSummary } from './DeploymentSummary';
 import { IncidentContext } from './IncidentContext';
-import { RollbackPanel } from './RollbackPanel';
+import { RolloutHistory } from './RolloutHistory';
 import { WorkloadAudit } from './WorkloadAudit';
 import { LabelsSection, AnnotationsSection } from './MetadataSections';
 
@@ -34,7 +34,7 @@ export function DeploymentDetailLayout({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
           <IncidentContext resource={resource} managedPods={managedPods} events={events} namespace={namespace} go={go} />
-          <RollbackPanel resource={resource} namespace={namespace} />
+          <RolloutHistory resource={resource} namespace={namespace} />
         </div>
         <div className="space-y-6">
           <WorkloadAudit resource={resource} go={go} />

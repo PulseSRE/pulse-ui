@@ -7,7 +7,9 @@ import { cn } from '@/lib/utils';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
-import { useIncidentTimeline, type TimeRange } from '../hooks/useIncidentTimeline';
+import { useIncidentTimeline, TIME_RANGE_MS, type TimeRange } from '../hooks/useIncidentTimeline';
+import { bucketEntries } from '../engine/timeline';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../engine/types/timeline';
 import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
@@ -63,6 +65,9 @@ export default function TimelineView() {
   const correlationGroups = timeline.correlationGroups || [];
   const counts = timeline.counts || { alert: 0, event: 0, rollout: 0, config: 0 };
   const isLoading = timeline.isLoading;
+  const failedSources = timeline.failedSources || [];
+  // Every requested source failed: an error, not an empty timeline.
+  const allFailed = !isLoading && failedSources.length > 0 && failedSources.length >= (timeline.requestedSources ?? categories.size);
 
   // Group entries by date
   const groupedEntries = React.useMemo(() => {
@@ -158,6 +163,11 @@ export default function TimelineView() {
           )}
         </div>
 
+        {/* Density per category over the range */}
+        {!isLoading && !allFailed && (
+          <TimelineDensity entries={entries} timeRange={timeRange} categories={categories} />
+        )}
+
         {/* Correlated Incidents */}
         {correlationGroups.length > 0 && (
           <Card>
@@ -181,14 +191,20 @@ export default function TimelineView() {
           </Card>
         )}
 
-        {timeline.failedSources.length > 0 && !isLoading && (
+        {allFailed ? (
           <LoadError
-            title={`Could not read ${timeline.failedSources.join(', ')} — the timeline below is incomplete`}
+            title={`The timeline could not be loaded: ${failedSources.join(', ')} could not be read`}
+            onRetry={timeline.refetch}
+          />
+        ) : failedSources.length > 0 && !isLoading && (
+          <LoadError
+            title={`Could not read ${failedSources.join(', ')} — the timeline below is incomplete`}
+            onRetry={timeline.refetch}
           />
         )}
 
         {/* Timeline stream */}
-        {isLoading ? (
+        {allFailed ? null : isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-slate-500 text-sm">Loading timeline...</div>
           </div>
@@ -196,7 +212,7 @@ export default function TimelineView() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <Info className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">{timeline.failedSources.length > 0 ? 'Nothing found in the sources that could be read' : 'No timeline entries found'}</p>
+              <p className="text-slate-400 text-sm">{failedSources.length > 0 ? 'Nothing found in the sources that could be read' : 'No timeline entries found'}</p>
               <p className="text-slate-500 text-xs mt-1">Try adjusting the time range or enabling more categories</p>
             </div>
           </div>
@@ -217,17 +233,63 @@ export default function TimelineView() {
           </div>
         )}
 
-        {entries.length >= 500 && (
-          <div className="text-center py-4">
-            <p className="text-xs text-slate-500">Showing first 500 events. Adjust time range to narrow results.</p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 // ── Sub-components ──
+
+const DENSITY_COLORS: Record<TimelineCategory, string> = {
+  alert: '#f87171',
+  event: '#60a5fa',
+  rollout: '#34d399',
+  config: '#fbbf24',
+};
+
+const _densityTime = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+/** Stacked density of entries per category across the selected range. */
+function TimelineDensity({ entries, timeRange, categories }: { entries: TimelineEntry[]; timeRange: TimeRange; categories: Set<TimelineCategory> }) {
+  const data = React.useMemo(() => {
+    const end = Date.now();
+    return bucketEntries(entries, end - TIME_RANGE_MS[timeRange], end);
+  }, [entries, timeRange]);
+  const active = (Object.keys(CATEGORY_CONFIG) as TimelineCategory[]).filter((c) => categories.has(c));
+  const peak = data.reduce((m, d) => Math.max(m, active.reduce((s, c) => s + d[c], 0)), 0);
+  return (
+    <Card className="px-3 pt-3 pb-1">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-xs font-semibold text-slate-300">Activity over the last {timeRange}</h2>
+        <ul aria-label="Timeline density" className="flex gap-3 text-[11px] text-slate-400">
+          {active.map((c) => (
+            <li key={c} className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: DENSITY_COLORS[c] }} />
+              {CATEGORY_CONFIG[c].label} {data.reduce((s, d) => s + d[c], 0)}
+            </li>
+          ))}
+          <li className="text-slate-600">peak {peak}/bucket</li>
+        </ul>
+      </div>
+      <div style={{ height: 96 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barCategoryGap={1}>
+            <XAxis dataKey="time" tickFormatter={(t: number) => _densityTime.format(t)} stroke="#475569" tick={{ fontSize: 9, fill: '#64748b' }} minTickGap={40} />
+            <YAxis allowDecimals={false} stroke="#475569" tick={{ fontSize: 9, fill: '#64748b' }} width={40} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
+              labelFormatter={(t) => (typeof t === 'number' ? _densityTime.format(t) : String(t))}
+              cursor={{ fill: '#33415540' }}
+            />
+            {active.map((c) => (
+              <Bar key={c} dataKey={c} name={CATEGORY_CONFIG[c].label} stackId="d" fill={DENSITY_COLORS[c]} fillOpacity={0.85} isAnimationActive={false} />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
 
 function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: () => void }) {
   const cfg = CATEGORY_CONFIG[entry.category];

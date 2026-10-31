@@ -1099,3 +1099,32 @@ describe('timeline engine', () => {
     });
   });
 });
+
+describe('resolvedAlertsToTimeline (Wave 8)', () => {
+  it('turns each firing run that ended before the range end into a resolved alert; still-firing runs are left to the rules API', async () => {
+    const { resolvedAlertsToTimeline } = await import('../timeline');
+    const step = 60;
+    const end = 10_000;
+    const entries = resolvedAlertsToTimeline([
+      // Fired 1000..1240, gap, fired again 5000..5060 → two resolved firings.
+      { metric: { alertname: 'KubePodCrashLooping', namespace: 'prod', pod: 'api-1', severity: 'warning' }, values: [[1000, '1'], [1060, '1'], [1120, '1'], [1180, '1'], [1240, '1'], [5000, '1'], [5060, '1']] },
+      // Still firing at the end of the range.
+      { metric: { alertname: 'Watchdog', severity: 'none' }, values: [[9880, '1'], [9940, '1'], [10_000, '1']] },
+    ], end, step);
+    expect(entries.map((e) => [e.title, e.timestamp, e.endTimestamp, e.namespace])).toEqual([
+      ['KubePodCrashLooping (resolved)', new Date(1000_000).toISOString(), new Date(1300_000).toISOString(), 'prod'],
+      ['KubePodCrashLooping (resolved)', new Date(5000_000).toISOString(), new Date(5120_000).toISOString(), 'prod'],
+    ]);
+    expect(entries[0].detail).toContain('Fired for about 5 min');
+    expect(entries[0].category).toBe('alert');
+  });
+});
+
+describe('bucketEntries (Wave 8)', () => {
+  it('counts entries per category into equal buckets and ignores those outside the range', async () => {
+    const { bucketEntries } = await import('../timeline');
+    const mk = (t: number, category: 'alert' | 'event') => ({ id: String(t), timestamp: new Date(t).toISOString(), category, severity: 'info' as const, title: '', detail: '', source: { type: 'k8s-event' as const } });
+    const rows = bucketEntries([mk(0, 'alert'), mk(10, 'event'), mk(99, 'event'), mk(150, 'alert')], 0, 100, 4);
+    expect(rows.map((r) => [r.time, r.alert, r.event])).toEqual([[0, 1, 1], [25, 0, 0], [50, 0, 0], [75, 0, 1]]);
+  });
+});

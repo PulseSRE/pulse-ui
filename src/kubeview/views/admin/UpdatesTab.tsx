@@ -1,24 +1,25 @@
 import React from 'react';
 import {
   Settings, Shield, Puzzle,
-  CheckCircle, XCircle, RefreshCw, Loader2,
-  ArrowUpCircle, AlertTriangle,
+  CheckCircle, XCircle, RefreshCw,
+  AlertTriangle, GitBranch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sPatch } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
 import { resourceDetailUrl } from '../../engine/gvr';
 import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition, MachineConfigPool, Pod } from '../../engine/types';
-import { compareVersions } from '../../engine/version';
 import { useUIStore } from '../../store/uiStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { Panel } from '../../components/primitives/Panel';
-import { SnapshotsTab } from './SnapshotsTab';
 import { UpgradeProgressPanel } from './UpgradeProgressPanel';
+import { UpgradeGraph } from '../../components/updates/UpgradeGraph';
+import { buildUpgradeModel, channelOptions, desiredUpdatePatch, type UpgradeTarget } from '../../engine/upgradeGraph';
 import { showErrorToast } from '../../engine/errorToast';
 import { getActiveClusterId } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
+import { useCanI } from '../../hooks/useCanI';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -36,8 +37,10 @@ interface PodDisruptionBudget extends K8sResource {
 interface AvailableUpdate {
   version: string;
   image?: string;
-  risks?: Array<{ name?: string; message?: string }>;
+  channels?: string[];
 }
+
+const CV_PATH = '/apis/config.openshift.io/v1/clusterversions/version';
 
 export interface UpdatesTabProps {
   clusterVersion: ClusterVersion | null | undefined;
@@ -66,20 +69,7 @@ export function UpdatesTab({
 }: UpdatesTabProps) {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
-
-  // CVO does not rank availableUpdates, so nothing here is "recommended".
-  // Sort by version so the first one really is the latest.
-  const sortedUpdates = React.useMemo(
-    () => [...availableUpdates].sort((a, b) => compareVersions(b.version || '', a.version || '')),
-    [availableUpdates],
-  );
-  // "Up to date" is only true when CVO actually retrieved the update graph.
-  const retrievedUpdates = (clusterVersion?.status?.conditions as Condition[] | undefined)?.find((c) => c.type === 'RetrievedUpdates');
-  const updatesUnknownReason = !clusterVersion
-    ? 'ClusterVersion could not be read'
-    : retrievedUpdates?.status === 'False'
-      ? `The cluster could not retrieve available updates${retrievedUpdates.message ? `: ${retrievedUpdates.message}` : ''}`
-      : null;
+  const { allowed: canPatchCv } = useCanI('patch', 'config.openshift.io', 'clusterversions');
 
   const [updating, setUpdating] = React.useState(false);
   const [channelEdit, setChannelEdit] = React.useState('');
@@ -91,97 +81,95 @@ export function UpdatesTab({
     title: string; description: string; confirmLabel: string;
     variant: 'danger' | 'warning'; onConfirm: () => void;
   } | null>(null);
+  // A conditional target is confirmed only after its risks are explicitly accepted.
+  const [riskDialog, setRiskDialog] = React.useState<{ target: UpgradeTarget; clusterId: string } | null>(null);
+  const [risksAccepted, setRisksAccepted] = React.useState(false);
 
+  const model = React.useMemo(() => buildUpgradeModel({
+    clusterVersion,
+    availableUpdates,
+    fallbackVersion: cvVersion,
+    operators,
+    pools: machineConfigPools,
+  }), [clusterVersion, availableUpdates, cvVersion, operators, machineConfigPools]);
+
+  // "Up to date" is only true when CVO actually retrieved the update graph.
+  const retrievedUpdates = (clusterVersion?.status?.conditions as Condition[] | undefined)?.find((c) => c.type === 'RetrievedUpdates');
+  const updatesUnknownReason = !clusterVersion
+    ? 'ClusterVersion could not be read'
+    : retrievedUpdates?.status === 'False'
+      ? `The cluster could not retrieve available updates${retrievedUpdates.message ? `: ${retrievedUpdates.message}` : ''}`
+      : undefined;
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['k8s', 'list', '/apis/config.openshift.io/v1/clusterversions'] });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
+  };
+
+  // Every update goes through here: pinned to the cluster it was requested on,
+  // version and image always together, acceptRisks only for a conditional target.
+  const applyUpdate = async (target: Pick<UpgradeTarget, 'version' | 'image' | 'state' | 'risks'>, clusterId: string) => {
+    setUpdating(true);
+    try {
+      assertActiveCluster(clusterId, 'The cluster update');
+      const patch = desiredUpdatePatch(target, clusterVersion?.spec?.desiredUpdate?.acceptRisks);
+      await k8sPatch(CV_PATH, patch, 'application/merge-patch+json', clusterId);
+      addToast({ type: 'success', title: 'Cluster update started', detail: `Updating to ${target.version}` });
+      invalidate();
+    } catch (err) {
+      showErrorToast(err, 'Update failed');
+    }
+    setUpdating(false);
+  };
+
+  // Used by the stuck-update banner to re-send a recommended target.
   const handleStartUpdate = (version: string, image: string | undefined) => {
-    // The update targets the cluster this page showed when it was requested.
     const clusterId = getActiveClusterId();
     setConfirmDialog({
       title: `Start cluster update to ${version}?`,
       description: `This will rolling-restart all nodes in the cluster. The update process cannot be easily reversed. Make sure you have a recent etcd backup before proceeding.`,
       confirmLabel: 'Start Update',
       variant: 'warning',
-      onConfirm: async () => {
+      onConfirm: () => {
         setConfirmDialog(null);
-        setUpdating(true);
-        try {
-          assertActiveCluster(clusterId, 'The cluster update');
-          // JSON merge-patch merges nested objects field-by-field rather than
-          // replacing them, so a patch of just { version } here would leave
-          // any existing spec.desiredUpdate.image untouched. ClusterVersion's
-          // spec.desiredUpdate.image is authoritative over .version when both
-          // are set — CVO targets the image, using version only for display.
-          // A stale image (e.g. left over from a prior desiredUpdate) paired
-          // with a new version silently makes this a no-op: CVO logs "Update
-          // work is equal to current target; no change required" and never
-          // starts the upgrade, while the UI shows a success toast because
-          // the PATCH request itself succeeds. Always send the full pair so
-          // a merge can never reintroduce a mismatched image.
-          if (!image) {
-            throw new Error(`No image digest available for ${version} — refusing to patch desiredUpdate with version only, which can silently no-op against a stale image.`);
-          }
-          await k8sPatch('/apis/config.openshift.io/v1/clusterversions/version', {
-            spec: { desiredUpdate: { version, image } },
-          }, 'application/merge-patch+json', clusterId);
-          addToast({ type: 'success', title: 'Cluster update started', detail: `Updating to ${version}` });
-          queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
-        } catch (err) {
-          showErrorToast(err, 'Update failed');
-        }
-        setUpdating(false);
+        void applyUpdate({ version, image, state: 'recommended', risks: [] }, clusterId);
       },
     });
+  };
+
+  const handleSelectUpdate = (target: UpgradeTarget) => {
+    const clusterId = getActiveClusterId();
+    if (target.state === 'conditional') {
+      setRisksAccepted(false);
+      setRiskDialog({ target, clusterId });
+      return;
+    }
+    handleStartUpdate(target.version, target.image);
   };
 
   const handleChangeChannel = async () => {
     if (!channelEdit) return;
     try {
       assertActiveCluster(channelClusterId, 'The channel change');
-      await k8sPatch('/apis/config.openshift.io/v1/clusterversions/version', {
+      await k8sPatch(CV_PATH, {
         spec: { channel: channelEdit },
       }, 'application/merge-patch+json', channelClusterId);
       addToast({ type: 'success', title: 'Channel updated', detail: channelEdit });
       setShowChannelEdit(false);
-      queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
+      invalidate();
     } catch (err) {
       showErrorToast(err, 'Channel update failed');
     }
   };
 
+  const updateDisabledReason = updating ? 'An update request is being sent.'
+    : isUpdating ? 'An update is already in progress.'
+    : !canPatchCv ? 'You do not have permission to patch the ClusterVersion.'
+    : undefined;
+
   return (
     <div className="space-y-6">
-      {/* ClusterVersion conditions */}
-      {(() => {
-        const conditions: Condition[] = clusterVersion?.status?.conditions || [];
-        const progressing = conditions.find((c) => c.type === 'Progressing');
-        const available = conditions.find((c) => c.type === 'Available');
-        const failing = conditions.find((c) => c.type === 'Failing');
-        const isProgressing = progressing?.status === 'True';
-        const isFailing = failing?.status === 'True';
-        return (
-          <>
-            {isFailing && (
-              <div className="flex items-start gap-3 px-4 py-3 bg-red-950/30 border border-red-900 rounded-lg">
-                <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-sm font-medium text-red-300">Update Failing</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{failing?.message}</div>
-                </div>
-              </div>
-            )}
-            {isProgressing && !isFailing && (
-              <div className="flex items-start gap-3 px-4 py-3 bg-blue-950/30 border border-blue-800 rounded-lg">
-                <RefreshCw className="w-5 h-5 text-blue-400 animate-spin shrink-0 mt-0.5" />
-                <div>
-                  <div className="text-sm font-medium text-blue-300">Update in Progress</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{progressing?.message}</div>
-                </div>
-              </div>
-            )}
-          </>
-        );
-      })()}
-
-      {/* Real-time rollout progress, blocker detection, and stuck-update diagnosis */}
+      {/* Stuck-update detection, Upgradeable=False acknowledgement, node rollout and drain blockers */}
       <UpgradeProgressPanel
         clusterVersion={clusterVersion}
         isUpdating={isUpdating}
@@ -191,7 +179,20 @@ export function UpdatesTab({
         pods={pods}
         availableUpdates={availableUpdates}
         onReapplyUpdate={handleStartUpdate}
+        go={go}
       />
+
+      {/* Update graph: installed path, targets, progress and history */}
+      <Panel title={`Update Graph (${model.nodes.length} target${model.nodes.length === 1 ? '' : 's'})`} icon={<GitBranch className="w-4 h-4 text-blue-500" />}>
+        <UpgradeGraph
+          model={model}
+          onUpdate={handleSelectUpdate}
+          updateDisabledReason={updateDisabledReason}
+          onNavigate={go}
+          hiddenBlockerTypes={['upgradeable']}
+          updatesUnknownReason={updatesUnknownReason}
+        />
+      </Panel>
 
       {/* Current version + channel */}
       <Panel title="Current Version" icon={<Settings className="w-4 h-4 text-slate-400" />}>
@@ -204,17 +205,8 @@ export function UpdatesTab({
             <span className="text-sm text-slate-400">Channel</span>
             {showChannelEdit ? (
               <div className="flex items-center gap-2">
-                <select value={channelEdit} onChange={(e) => setChannelEdit(e.target.value)} className="px-2 py-1 text-sm bg-slate-800 border border-slate-600 rounded-sm text-slate-200 w-48" autoFocus>
-                  {(() => {
-                    const ver = cvVersion.match(/^(\d+\.\d+)/)?.[1] || '';
-                    const majMin = ver ? [ver] : [];
-                    const prev = ver ? [`${ver.split('.')[0]}.${parseInt(ver.split('.')[1]) - 1}`] : [];
-                    const versions = [...majMin, ...prev];
-                    const prefixes = ['stable', 'fast', 'candidate', 'eus'];
-                    const options = versions.flatMap(v => prefixes.map(p => `${p}-${v}`));
-                    if (cvChannel && !options.includes(cvChannel)) options.unshift(cvChannel);
-                    return options.map(ch => <option key={ch} value={ch}>{ch}</option>);
-                  })()}
+                <select aria-label="Update channel" value={channelEdit} onChange={(e) => setChannelEdit(e.target.value)} className="px-2 py-1 text-sm bg-slate-800 border border-slate-600 rounded-sm text-slate-200 w-48" autoFocus>
+                  {channelOptions(model.current.version || cvVersion, cvChannel, model.channels).map((ch) => <option key={ch} value={ch}>{ch}</option>)}
                 </select>
                 <button onClick={handleChangeChannel} className="px-2 py-1 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500">Save</button>
                 <button onClick={() => setShowChannelEdit(false)} className="px-2 py-1 text-xs text-slate-400 hover:text-slate-200">Cancel</button>
@@ -222,7 +214,9 @@ export function UpdatesTab({
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-mono text-slate-200">{cvChannel || '\u2014'}</span>
-                <button onClick={() => { setChannelEdit(cvChannel); setChannelClusterId(getActiveClusterId()); setShowChannelEdit(true); }} className="text-xs text-blue-400 hover:text-blue-300">Change</button>
+                {canPatchCv && (
+                  <button onClick={() => { setChannelEdit(cvChannel); setChannelClusterId(getActiveClusterId()); setShowChannelEdit(true); }} className="text-xs text-blue-400 hover:text-blue-300">Change</button>
+                )}
               </div>
             )}
           </div>
@@ -285,52 +279,6 @@ export function UpdatesTab({
         </Panel>
       )}
 
-      {/* Available updates */}
-      <Panel title={`Available Updates (${availableUpdates.length})`} icon={<ArrowUpCircle className="w-4 h-4 text-blue-500" />}>
-        {availableUpdates.length === 0 && updatesUnknownReason ? (
-          <div className="text-center py-6" role="status">
-            <AlertTriangle className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">Update status unknown</p>
-            <p className="text-xs text-slate-500 mt-1">{updatesUnknownReason}</p>
-          </div>
-        ) : availableUpdates.length === 0 ? (
-          <div className="text-center py-6">
-            <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">Cluster is up to date</p>
-            <p className="text-xs text-slate-500 mt-1">Channel: {cvChannel}</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {sortedUpdates.map((u, i: number) => {
-              const versionParts = u.version?.split('.') || [];
-              const currentParts = cvVersion?.split('.') || [];
-              const minorSkip = versionParts[1] && currentParts[1] ? parseInt(versionParts[1]) - parseInt(currentParts[1]) : 0;
-              return (
-                <div key={i} className="flex items-center justify-between p-3 rounded-sm bg-slate-800/50 border border-slate-700">
-                  <div>
-                    <span className="text-sm font-medium text-slate-200">{u.version}</span>
-                    {i === 0 && sortedUpdates.length > 1 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-slate-700 text-slate-300 rounded-sm">Latest</span>}
-                    {minorSkip > 1 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-amber-900 text-amber-300 rounded-sm">Skips {minorSkip - 1} minor</span>}
-                    {u.risks && u.risks.length > 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{u.risks.length} known risk{u.risks.length > 1 ? 's' : ''}</span>}
-                  </div>
-                  <button
-                    onClick={() => handleStartUpdate(u.version, u.image)}
-                    disabled={updating || isUpdating}
-                    className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50 flex items-center gap-1.5"
-                  >
-                    {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowUpCircle className="w-3 h-3" />}
-                    Update
-                  </button>
-                </div>
-              );
-            })}
-            <div className="text-xs text-slate-500 pt-2">
-              <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-yellow-500" /> Rough estimate: ~{Math.max(30, nodes.length * 10)} minutes ({nodes.length} nodes \u00d7 ~10min each)</span>
-            </div>
-          </div>
-        )}
-      </Panel>
-
       {/* Operator update status (during upgrade) */}
       {isUpdating && (
         <Panel title="Operator Update Progress" icon={<Puzzle className="w-4 h-4 text-violet-500" />}>
@@ -378,32 +326,6 @@ export function UpdatesTab({
         </Panel>
       )}
 
-      {/* Update history */}
-      <Panel title="Update History" icon={<RefreshCw className="w-4 h-4 text-blue-500" />}>
-        <div className="space-y-1 max-h-64 overflow-auto">
-          {(clusterVersion?.status?.history || []).slice(0, 10).map((h, i: number) => {
-            const startTime = h.startedTime ? new Date(h.startedTime) : null;
-            const endTime = h.completionTime ? new Date(h.completionTime) : null;
-            const duration = startTime && endTime ? Math.round((endTime.getTime() - startTime.getTime()) / 60000) : null;
-            return (
-              <div key={i} className="flex items-center justify-between py-2 px-2 hover:bg-slate-800/30 rounded-sm">
-                <div className="flex items-center gap-2">
-                  {h.state === 'Completed' ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> :
-                   h.state === 'Partial' ? <RefreshCw className="w-3.5 h-3.5 text-yellow-500 animate-spin" /> :
-                   <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                  <span className="text-sm text-slate-200 font-mono">{h.version}</span>
-                </div>
-                <div className="flex items-center gap-3 text-xs text-slate-500">
-                  {duration && <span>{duration}min</span>}
-                  <span className={cn(h.state === 'Completed' ? 'text-green-400' : h.state === 'Partial' ? 'text-yellow-400' : 'text-red-400')}>{h.state}</span>
-                  {endTime && <span>{endTime.toLocaleDateString()}</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Panel>
-
       {confirmDialog && (
         <ConfirmDialog
           open={true}
@@ -414,6 +336,37 @@ export function UpdatesTab({
           confirmLabel={confirmDialog.confirmLabel}
           variant={confirmDialog.variant}
         />
+      )}
+
+      {riskDialog && (
+        <ConfirmDialog
+          open={true}
+          onClose={() => setRiskDialog(null)}
+          onConfirm={() => {
+            const { target, clusterId } = riskDialog;
+            setRiskDialog(null);
+            void applyUpdate(target, clusterId);
+          }}
+          title={`Accept ${riskDialog.target.risks.length} risk${riskDialog.target.risks.length === 1 ? '' : 's'} and update to ${riskDialog.target.version}?`}
+          description={`${riskDialog.target.version} is not recommended for this cluster. The update rolling-restarts every node and cannot easily be reversed. The accepted risks are recorded in spec.desiredUpdate.acceptRisks.`}
+          confirmLabel="Accept risks and update"
+          variant="danger"
+          confirmDisabled={!risksAccepted}
+        >
+          <ul className="mt-3 space-y-1.5 max-h-48 overflow-auto" aria-label="Risks to accept">
+            {riskDialog.target.risks.map((r) => (
+              <li key={r.name} className="text-xs rounded-sm bg-slate-900/60 border border-slate-700 p-2">
+                <span className="font-medium text-amber-300">{r.name}</span>
+                {r.message && <span className="block text-slate-400 mt-0.5 whitespace-pre-wrap">{r.message}</span>}
+                {r.url && <a href={r.url} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300">{r.url}</a>}
+              </li>
+            ))}
+          </ul>
+          <label className="mt-3 flex items-start gap-2 text-xs text-slate-200">
+            <input type="checkbox" checked={risksAccepted} onChange={(e) => setRisksAccepted(e.target.checked)} className="mt-0.5" />
+            I have read these risks and accept them for this cluster.
+          </label>
+        </ConfirmDialog>
       )}
     </div>
   );

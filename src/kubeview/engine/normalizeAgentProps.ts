@@ -86,6 +86,11 @@ function normalizeKindSpecific(spec: ComponentSpec): ComponentSpec {
     }
 
     case 'chart': {
+      // The range field was time_range in older specs and saved views.
+      if (raw.time_range !== undefined && raw.timeRange === undefined) {
+        const { time_range, ...rest } = raw;
+        return normalizeAgentProps({ ...rest, timeRange: time_range } as unknown as ComponentSpec);
+      }
       if (Array.isArray(raw.series)) {
         // The agent's quality engine canonicalizes series `label` -> `name`
         // before saving, but renderers read `label`. Without this mapping every
