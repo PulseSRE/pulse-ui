@@ -45,6 +45,7 @@ interface DetailViewHeaderProps {
   onViewMetrics: () => void;
   onViewDeps: () => void;
   onViewNodeLogs?: () => void;
+  onOpenProject?: () => void;
   onDeleteRequest: () => void;
 }
 
@@ -70,6 +71,7 @@ export function DetailViewHeader({
   onViewMetrics,
   onViewDeps,
   onViewNodeLogs,
+  onOpenProject,
   onDeleteRequest,
 }: DetailViewHeaderProps) {
   // Kind-specific actions (scale, restart, pause, trigger, re-run, restart pod…)
@@ -165,6 +167,11 @@ export function DetailViewHeader({
           </button>
         )}
         {resource.kind === 'Node' && <NodeHeaderActions node={resource} />}
+        {(resource.kind === 'Namespace' || resource.kind === 'Project') && onOpenProject && (
+          <button onClick={onOpenProject} className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-blue-400 flex items-center gap-1.5 transition-colors">
+            <Activity className="w-3.5 h-3.5" /> Open project dashboard
+          </button>
+        )}
         {url && (
           <a
             href={url}

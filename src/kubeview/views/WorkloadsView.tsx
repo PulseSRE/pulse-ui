@@ -19,8 +19,6 @@ import { Panel } from '../components/primitives/Panel';
 import { sanitizePromQL } from '../engine/query';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { Card } from '../components/primitives/Card';
-import { EmptyState } from '../components/primitives/EmptyState';
-import { FilterButtonGroup } from '../components/primitives/FilterButtonGroup';
 import type { AuditCheck } from '../components/audit/types';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 import { WorkloadListPanel, type RowSummary } from './workloads/WorkloadListPanel';

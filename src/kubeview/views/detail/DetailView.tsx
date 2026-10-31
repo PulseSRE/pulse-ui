@@ -64,11 +64,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     [apiPath, resourceGroup, resourcePlural],
   );
 
-  // Build list API path for cache invalidation
-  const listApiPath = React.useMemo(() => {
-    if (gvrParts.length === 2) return `/api/${gvrParts[0]}/${gvrParts[1]}`;
-    return `/apis/${gvrParts[0]}/${gvrParts[1]}/${gvrParts[2]}`;
-  }, [gvrKey]);
 
   // Fetch the resource
   const { data: resource, isLoading, error } = useQuery<K8sResource>({
@@ -434,6 +429,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           onViewMetrics={handleViewMetrics}
           onViewDeps={() => go(`/deps/${gvrUrl}/${namespace}/${name}`, `${name} (Deps)`)}
           onViewNodeLogs={resource.kind === 'Node' ? () => go(`/node-logs/${name}`, `${name} (Logs)`) : undefined}
+          onOpenProject={() => go(`/project/${encodeURIComponent(name)}`, `Project ${name}`)}
           onDeleteRequest={() => setShowDeleteConfirm(true)}
         />
 

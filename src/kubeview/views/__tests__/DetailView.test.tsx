@@ -256,17 +256,18 @@ describe('DetailView', () => {
     expect(screen.getByText('Logs')).toBeDefined();
   });
 
-  it('shows scale controls for Deployments', async () => {
+  it('offers scale, restart, pause and roll back for Deployments in the actions menu', async () => {
     mockK8sGet.mockResolvedValue(makeDeployment());
 
     renderDetailView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'my-deployment' });
 
     await waitFor(() => {
-      // The replicas count appears in scale controls and deployment summary
-      expect(screen.getAllByText('3').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('my-deployment').length).toBeGreaterThanOrEqual(1);
     });
-    // Restart button for deployments
-    expect(screen.getByText('Restart')).toBeDefined();
+    fireEvent.click(screen.getByTitle('More actions'));
+    for (const label of ['Set replicas…', 'Restart rollout', 'Pause rollout', 'Roll back…']) {
+      expect(screen.getByRole('menuitem', { name: label })).toBeDefined();
+    }
   });
 
   it('shows delete confirmation dialog when delete action is clicked', async () => {
@@ -557,16 +558,17 @@ describe('DetailView', () => {
       fireEvent.click(screen.getByText('Add'));
 
       await waitFor(() => {
+        // One JSON patch adding the key (escaped path), against the local cluster.
         expect(mockK8sPatch).toHaveBeenCalledWith(
           '/api/v1/namespaces/default/pods/my-pod',
-          { metadata: { labels: { env: 'production' } } },
-          undefined, 'local',
+          expect.arrayContaining([{ op: 'add', path: '/metadata/labels/env', value: 'production' }]),
+          'application/json-patch+json', 'local',
         );
       });
 
       await waitFor(() => {
         expect(addToastMock).toHaveBeenCalledWith(
-          expect.objectContaining({ type: 'success', title: 'Label env=production added' }),
+          expect.objectContaining({ type: 'success', title: 'Label env added' }),
         );
       });
     });

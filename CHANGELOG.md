@@ -4,6 +4,18 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Added
+- Workload, node and storage actions (functionality review, Wave 7a). Every state-changing action asks first, saying what will happen; is disabled with the reason when RBAC does not allow it; is pinned to the cluster that was active when its dialog opened; and shows a failed write in the dialog
+  - One actions menu for Deployments (set replicas, rollout restart, pause/resume, roll back, delete), StatefulSets (set replicas, restart, delete), DaemonSets (restart, delete), CronJobs (trigger now, as `oc create job --from=cronjob/…`; suspend/resume), Jobs (re-run, without the old selector and controller labels; delete) and Pods (restart/delete saying whether a controller replaces it, logs, exec), on the Workloads lists, resource tables and detail pages. The header's ±1 scale and unconfirmed Restart are replaced by it
+  - The Workloads page lists StatefulSets, DaemonSets, CronJobs and Jobs, and each issue banner opens the list it counts, filtered
+  - Node pages: Cordon/Uncordon (confirmed) and Drain, and a visible Node logs button
+  - Storage: Create PVC; expand a PVC (only when its StorageClass allows expansion, otherwise disabled with the reason) and see which pods mount it; delete a Released PV; set the default StorageClass (the old default is cleared first); CSI driver and VolumeSnapshot rows open their pages
+  - Labels and annotations sections are always shown and can be added, edited and removed with a JSON patch that applies only to the version on screen
+  - HPA min/max editing, a Route "Open URL" (https when TLS), and a Service endpoints section
+  - Networking: create Service/Route/Ingress in the selected namespace, and "Services with no ready endpoints" (skipped when Endpoints cannot be read)
+  - Compute: scale a MachineSet, delete a Machine (says the node goes and whether its MachineSet replaces it), pause/unpause a MachineConfigPool
+  - Project dashboard: summary cards open the filtered lists; Routes, PVCs and quota usage sections; "Create in <ns>". It opens from the namespace picker and from a Namespace's page
+
 ### CI
 - `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
 

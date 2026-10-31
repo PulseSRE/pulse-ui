@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Package, Server, Globe, Shield, Clock, AlertTriangle, CheckCircle, XCircle,
-  Layers, FileText, BarChart3,
+  Layers, FileText, BarChart3, HardDrive, Gauge, ExternalLink, Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
@@ -23,6 +23,8 @@ import { useActiveClusterId, useMetricsAvailable } from '../hooks/useClusterBase
 import type { Pod, Deployment, StatefulSet, DaemonSet, Service } from '../engine/types';
 import type { K8sResource } from '../engine/renderers';
 import { getPodStatus } from '../engine/renderers/statusUtils';
+import { quantityToBytes, routeUrl } from '../engine/workloadActions';
+import { Button } from '../components/primitives/Button';
 
 /**
  * What the pod list shows: the raw phase, unless a container is failing.
@@ -54,6 +56,11 @@ export default function ProjectDashboard() {
   const { data: services = [], isError: servicesError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/services', namespace: ns });
   const { data: configmaps = [], isError: configmapsError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/configmaps', namespace: ns });
   const { data: events = [], isError: eventsError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/events', namespace: ns });
+  const { data: routes = [], isError: routesError } = useK8sListWatch<K8sResource>({ apiPath: '/apis/route.openshift.io/v1/routes', namespace: ns });
+  const { data: pvcs = [], isError: pvcsError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: ns });
+  const { data: quotas = [], isError: quotasError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/resourcequotas', namespace: ns });
+  /** The resource list for one kind, filtered to this project. */
+  const list = (gvr: string, label: string) => () => go(`/r/${gvr}?ns=${encodeURIComponent(ns)}`, `${label} (${ns})`);
 
   const podStats = useMemo(() => {
     const s = { running: 0, pending: 0, failed: 0, total: pods.length };
@@ -80,25 +87,30 @@ export default function ProjectDashboard() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Layers className="w-6 h-6 text-blue-500" />
-            {ns}
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Project overview — all resources at a glance</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+              <Layers className="w-6 h-6 text-blue-500" />
+              {ns}
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">Project overview — all resources at a glance</p>
+          </div>
+          <Button size="sm" onClick={() => go(`/create/apps~v1~deployments?namespace=${encodeURIComponent(ns)}`, `Create in ${ns}`)}>
+            <Plus className="w-3.5 h-3.5" /> Create in {ns}
+          </Button>
         </div>
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {/* A list that could not be read shows "—", not 0. */}
-          <SummaryCard label="Pods" count={podsError ? null : pods.length} icon={<Server className="w-4 h-4" />}
+          <SummaryCard label="Pods" count={podsError ? null : pods.length} icon={<Server className="w-4 h-4" />} onClick={list('v1~pods', 'Pods')}
             color={podsError ? 'text-slate-500' : podStats.failed > 0 ? 'text-red-400' : 'text-emerald-400'} />
-          <SummaryCard label="Deployments" count={deploymentsError ? null : deployments.length} icon={<Package className="w-4 h-4" />} color="text-blue-400" />
-          <SummaryCard label="StatefulSets" count={statefulsetsError ? null : statefulsets.length} icon={<Layers className="w-4 h-4" />} color="text-violet-400" />
-          <SummaryCard label="DaemonSets" count={daemonsetsError ? null : daemonsets.length} icon={<Shield className="w-4 h-4" />} color="text-amber-400" />
-          <SummaryCard label="Services" count={servicesError ? null : services.length} icon={<Globe className="w-4 h-4" />} color="text-cyan-400" />
-          <SummaryCard label="ConfigMaps" count={configmapsError ? null : configmaps.length} icon={<FileText className="w-4 h-4" />} color="text-slate-400" />
-          <SummaryCard label="Events" count={eventsError ? null : allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />}
+          <SummaryCard label="Deployments" count={deploymentsError ? null : deployments.length} icon={<Package className="w-4 h-4" />} color="text-blue-400" onClick={list('apps~v1~deployments', 'Deployments')} />
+          <SummaryCard label="StatefulSets" count={statefulsetsError ? null : statefulsets.length} icon={<Layers className="w-4 h-4" />} color="text-violet-400" onClick={list('apps~v1~statefulsets', 'StatefulSets')} />
+          <SummaryCard label="DaemonSets" count={daemonsetsError ? null : daemonsets.length} icon={<Shield className="w-4 h-4" />} color="text-amber-400" onClick={list('apps~v1~daemonsets', 'DaemonSets')} />
+          <SummaryCard label="Services" count={servicesError ? null : services.length} icon={<Globe className="w-4 h-4" />} color="text-cyan-400" onClick={list('v1~services', 'Services')} />
+          <SummaryCard label="ConfigMaps" count={configmapsError ? null : configmaps.length} icon={<FileText className="w-4 h-4" />} color="text-slate-400" onClick={list('v1~configmaps', 'ConfigMaps')} />
+          <SummaryCard label="Warning events" count={eventsError ? null : allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />} onClick={list('v1~events', 'Events')}
             color={!eventsError && allWarningEvents.length > 0 ? 'text-amber-400' : 'text-slate-400'} />
         </div>
 
@@ -211,6 +223,69 @@ export default function ProjectDashboard() {
             </div>
           </Card>
         )}
+
+        {/* Quota usage */}
+        <QuotaUsage quotas={quotas} error={quotasError} onOpen={list('v1~resourcequotas', 'ResourceQuotas')} />
+
+        {/* Routes */}
+        <Card>
+          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-cyan-400" /> Routes ({routesError ? '—' : routes.length})
+            </h2>
+            <button onClick={list('route.openshift.io~v1~routes', 'Routes')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
+          </div>
+          {routesError ? <LoadError className="m-3" title="Routes could not be loaded" /> : routes.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-slate-500">No routes in {ns}.</p>
+          ) : (
+            <div className="divide-y divide-slate-800 max-h-48 overflow-auto">
+              {routes.map((r) => {
+                const url = routeUrl(r);
+                return (
+                  <div key={r.metadata.uid ?? r.metadata.name} className="flex items-center hover:bg-slate-800/50">
+                    <button onClick={() => go(`/r/route.openshift.io~v1~routes/${ns}/${r.metadata.name}`, r.metadata.name)} className="flex-1 min-w-0 px-4 py-2 flex items-center gap-3 text-left">
+                      <span className="text-xs font-mono text-slate-300 truncate">{r.metadata.name}</span>
+                      <span className="text-xs text-slate-500 truncate">{url ?? 'no host yet'}</span>
+                    </button>
+                    {url && (
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="p-2 mr-2 text-slate-500 hover:text-blue-400" aria-label={`Open ${url}`} title={`Open ${url}`}>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* PVCs */}
+        <Card>
+          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-orange-400" /> PersistentVolumeClaims ({pvcsError ? '—' : pvcs.length})
+            </h2>
+            <button onClick={list('v1~persistentvolumeclaims', 'PVCs')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
+          </div>
+          {pvcsError ? <LoadError className="m-3" title="PersistentVolumeClaims could not be loaded" /> : pvcs.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-slate-500">No PersistentVolumeClaims in {ns}.</p>
+          ) : (
+            <div className="divide-y divide-slate-800 max-h-48 overflow-auto">
+              {pvcs.map((p) => {
+                const phase = (p.status as { phase?: string } | undefined)?.phase ?? 'Unknown';
+                const spec = p.spec as { storageClassName?: string; resources?: { requests?: { storage?: string } } } | undefined;
+                return (
+                  <button key={p.metadata.uid ?? p.metadata.name} onClick={() => go(`/r/v1~persistentvolumeclaims/${ns}/${p.metadata.name}`, p.metadata.name)}
+                    className="w-full px-4 py-2 flex items-center gap-3 text-left hover:bg-slate-800/50">
+                    <span className="text-xs font-mono text-slate-300 truncate flex-1">{p.metadata.name}</span>
+                    <span className="text-xs text-slate-500">{spec?.resources?.requests?.storage ?? '?'} · {spec?.storageClassName ?? 'default class'}</span>
+                    <span className={cn('text-xs', phase === 'Bound' ? 'text-slate-500' : 'text-amber-400')}>{phase}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </Card>
 
         {eventsError && <LoadError title="Events could not be loaded" />}
 
@@ -367,14 +442,73 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
   );
 }
 
-function SummaryCard({ label, count, icon, color }: { label: string; count: number | null; icon: React.ReactNode; color: string }) {
+function SummaryCard({ label, count, icon, color, onClick }: { label: string; count: number | null; icon: React.ReactNode; color: string; onClick: () => void }) {
   return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-center">
+    <button onClick={onClick} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-center hover:border-slate-600 transition-colors" aria-label={`${label}: ${count ?? 'unknown'} — open list`}>
       <div className={cn('flex items-center justify-center gap-1.5 mb-1', color)}>
         {icon}
         <span className="text-xl font-bold">{count ?? '—'}</span>
       </div>
       <div className="text-xs text-slate-500">{label}</div>
-    </div>
+    </button>
+  );
+}
+
+/** Used/hard as a fraction; quantities compared in a common unit (cpu "500m" vs "2"). */
+function quotaFraction(used: string | undefined, hard: string): number | null {
+  const toNum = (q: string) => (/^\d+(\.\d+)?m$/.test(q) ? parseFloat(q) / 1000 : quantityToBytes(q));
+  const h = toNum(hard);
+  const u = toNum(used ?? '0');
+  if (!Number.isFinite(h) || !Number.isFinite(u) || h <= 0) return null;
+  return u / h;
+}
+
+function QuotaUsage({ quotas, error, onOpen }: { quotas: K8sResource[]; error: boolean; onOpen: () => void }) {
+  return (
+    <Card>
+      <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+          <Gauge className="w-4 h-4 text-emerald-400" /> Quota usage
+        </h2>
+        <button onClick={onOpen} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
+      </div>
+      {error ? <LoadError className="m-3" title="ResourceQuotas could not be loaded" /> : quotas.length === 0 ? (
+        <p className="px-4 py-3 text-xs text-slate-500">No ResourceQuota in this project: its usage is not limited.</p>
+      ) : (
+        <div className="p-4 space-y-4">
+          {quotas.map((q) => {
+            const status = q.status as { hard?: Record<string, string>; used?: Record<string, string> } | undefined;
+            const hard = status?.hard ?? {};
+            return (
+              <div key={q.metadata.uid ?? q.metadata.name}>
+                <div className="text-xs text-slate-400 mb-2">{q.metadata.name}</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                  {Object.entries(hard).map(([res, h]) => {
+                    const used = status?.used?.[res];
+                    const f = quotaFraction(used, h);
+                    const pct = f === null ? null : Math.round(f * 100);
+                    return (
+                      <div key={res}>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-300 font-mono">{res}</span>
+                          <span className={cn(pct !== null && pct >= 90 ? 'text-red-400' : pct !== null && pct >= 75 ? 'text-amber-400' : 'text-slate-400')}>
+                            {used ?? '0'} / {h}{pct !== null ? ` (${pct}%)` : ''}
+                          </span>
+                        </div>
+                        {pct !== null && (
+                          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                            <div className={cn('h-full rounded-full', pct >= 90 ? 'bg-red-500' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500')} style={{ width: `${Math.min(100, pct)}%` }} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
