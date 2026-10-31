@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Lightbulb, X, Radar, MessageSquare } from 'lucide-react';
 import { Card } from '../../components/primitives/Card';
 import type { Recommendation } from '../../engine/analyticsApi';
+import { askPulse } from '../../engine/askPulse';
 
 const DISMISSED_KEY = 'openshiftpulse-dismissed-recommendations';
 
@@ -23,7 +24,7 @@ export function CapabilityDiscovery({ recommendations }: CapabilityDiscoveryProp
     setDismissed((prev) => {
       const next = new Set(prev);
       next.add(key);
-      localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next]));
+      try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])); } catch { /* storage unavailable */ }
       return next;
     });
   }, []);
@@ -61,13 +62,14 @@ export function CapabilityDiscovery({ recommendations }: CapabilityDiscoveryProp
                 </button>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">{rec.description}</p>
-              {rec.action.kind === 'enable_scanner' && (
-                <button disabled className="text-xs text-blue-400/50 font-medium cursor-not-allowed" aria-label="Enable scanner (coming soon)">
-                  Enable scanner &rarr;
-                </button>
-              )}
-              {rec.action.kind === 'chat_prompt' && (
-                <button disabled className="text-xs text-violet-400/50 font-medium cursor-not-allowed" aria-label="Try in chat (coming soon)">
+              {/* "Enable scanner" is not offered: the agent has no endpoint to
+                  enable a scanner from the UI yet, and a button that does
+                  nothing is worse than none. */}
+              {rec.action.kind === 'chat_prompt' && rec.action.prompt && (
+                <button
+                  onClick={() => askPulse(rec.action.prompt!)}
+                  className="text-xs text-violet-400 hover:text-violet-300 font-medium"
+                >
                   Try in chat &rarr;
                 </button>
               )}

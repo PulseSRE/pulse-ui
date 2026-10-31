@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -78,6 +78,9 @@ vi.mock('../../engine/analyticsApi', async () => {
   const actual = await vi.importActual<any>('../../engine/analyticsApi');
   return { ...actual, fetchCapabilities: (...a: any[]) => capabilitiesMock(...a) };
 });
+
+const askPulseMock = vi.fn();
+vi.mock('../../engine/askPulse', () => ({ askPulse: (...a: unknown[]) => askPulseMock(...a) }));
 
 import PulseView, { trustDivergenceNote } from '../PulseView';
 import { useTrustStore } from '../../store/trustStore';
@@ -306,5 +309,39 @@ describe('the trust badge reports the agent, not the tab', () => {
     capabilitiesMock.mockResolvedValue({ max_trust_level: 0, effective_trust_level: 0 });
     renderPulse();
     expect(await screen.findByText(/Trust 0/)).toBeDefined();
+  });
+});
+
+describe('the live-updates toggle', () => {
+  afterEach(cleanup);
+
+  it('says it pauses this browser\'s stream, and only that', async () => {
+    const { useMonitorStore } = await import('../../store/monitorStore');
+    const setMonitorEnabled = vi.fn();
+    useMonitorStore.setState({ monitorEnabled: true, setMonitorEnabled } as never);
+    renderPulse();
+    const btn = screen.getByRole('button', { name: 'Live updates: on' });
+    expect(screen.queryByText(/Monitoring On/)).toBeNull();
+    fireEvent.click(btn);
+    expect(setMonitorEnabled).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('Needs Attention "Ask AI"', () => {
+  afterEach(cleanup);
+
+  it('is visible without hovering and asks Pulse AI about the item', () => {
+    setMockData({
+      '/api/v1/nodes': { data: [makeNode('node-1', true)], isLoading: false },
+      '/api/v1/pods': { data: [], isLoading: false },
+      '/apis/apps/v1/deployments': { data: [], isLoading: false },
+      '/api/v1/persistentvolumeclaims': { data: [], isLoading: false },
+      '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('kube-apiserver', true)], isLoading: false },
+    });
+    renderPulse();
+    const ask = screen.getAllByRole('button', { name: /^Ask AI to diagnose/ })[0];
+    expect(ask.className).not.toContain('opacity-0');
+    fireEvent.click(ask);
+    expect(askPulseMock).toHaveBeenCalledWith(expect.stringMatching(/^Diagnose: /));
   });
 });

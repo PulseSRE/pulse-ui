@@ -10,6 +10,7 @@ import { queryInstant } from '../components/metrics/prometheus';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { CHART_COLORS } from '../engine/colors';
 import { NodeHexMap } from './compute/NodeHexMap';
+import { useNodeMapActions } from './compute/useNodeMapActions';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import type { K8sResource } from '../engine/renderers';
 import type { Node, Pod, Machine, MachineSet, NodePool, Condition } from '../engine/types';
@@ -30,6 +31,7 @@ import type { NodeDetail, PrometheusResult } from './compute/types';
 
 export default function ComputeView() {
   const go = useNavigateTab();
+  const { actions: nodeMapActions, dialogs: nodeMapDialogs } = useNodeMapActions();
   const urlTab = new URLSearchParams(window.location.search).get('tab');
   const [computeTab, setComputeTabState] = React.useState<'overview' | 'capacity'>(urlTab === 'capacity' ? 'capacity' : 'overview');
   const setComputeTab = (tab: 'overview' | 'capacity') => {
@@ -165,7 +167,7 @@ export default function ComputeView() {
 
   // Pod details per node (for hex map clickable dots)
   const podDetailsByNode = React.useMemo(() => {
-    const map: Record<string, Array<{ name: string; namespace: string; status: string; restarts: number }>> = {};
+    const map: Record<string, Array<{ name: string; namespace: string; status: string; restarts: number; uid?: string }>> = {};
     for (const pod of pods) {
       const nodeName = pod.spec?.nodeName;
       if (!nodeName) continue;
@@ -177,6 +179,7 @@ export default function ComputeView() {
         namespace: pod.metadata.namespace || '',
         status: waitReason || pod.status?.phase || 'Unknown',
         restarts: cs?.restartCount || 0,
+        uid: pod.metadata.uid,
       });
     }
     return map;
@@ -355,6 +358,7 @@ export default function ComputeView() {
               onPodClick={(ns, name) => go(`/r/v1~pods/${ns}/${name}`, name)}
               onViewAll={() => go('/r/v1~nodes', 'Nodes')}
               isHyperShift
+              actions={nodeMapActions}
             />
 
             <ComputeHealthAudit
@@ -390,6 +394,7 @@ export default function ComputeView() {
               onNodeClick={(name) => go(`/r/v1~nodes/_/${name}`, name)}
               onPodClick={(ns, name) => go(`/r/v1~pods/${ns}/${name}`, name)}
               onViewAll={() => go('/r/v1~nodes', 'Nodes')}
+              actions={nodeMapActions}
             />
 
             <MachineManagement
@@ -408,6 +413,7 @@ export default function ComputeView() {
         )}
         </>}
       </div>
+      {nodeMapDialogs}
     </div>
   );
 }

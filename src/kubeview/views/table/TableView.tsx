@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { describePodRestart } from '../../engine/writeGuards';
 import { PreviewPanel } from './PreviewPanel';
 import { DeleteProgressOverlay } from './DeleteProgress';
+import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 import { TableToolbar } from './TableToolbar';
 import { TableBody } from './TableBody';
 import { useTableActions } from './TableActions';
@@ -556,6 +557,30 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
           />
         );
       })()}
+
+      {/* Disruptive inline actions (scale to 0, rollout restart) */}
+      {actions.pendingConfirm && (
+        <ConfirmDialog
+          open
+          title={actions.pendingConfirm.title}
+          description={actions.pendingConfirm.description}
+          confirmLabel={actions.pendingConfirm.confirmLabel}
+          variant="warning"
+          loading={actions.confirming}
+          onConfirm={actions.executeConfirm}
+          onClose={() => actions.setPendingConfirm(null)}
+        />
+      )}
+
+      {/* Node drain: confirm, cordon, evict with progress, summary */}
+      {actions.pendingDrain && (
+        <DrainNodeDialog
+          node={actions.pendingDrain.node}
+          clusterId={actions.pendingDrain.clusterId}
+          onClose={() => actions.setPendingDrain(null)}
+          onDone={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] })}
+        />
+      )}
 
       {/* Bulk Delete Confirmation */}
       {actions.showBulkDeleteConfirm && (

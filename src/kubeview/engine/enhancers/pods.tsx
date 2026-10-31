@@ -175,6 +175,7 @@ export const podEnhancer: ResourceEnhancer = {
       id: 'restart',
       label: 'Restart',
       icon: 'rotate-cw',
+      requires: 'delete',
       render: (resource, onAction) => {
         return (
           <button

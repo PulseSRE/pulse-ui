@@ -290,9 +290,10 @@ export function InboxItem({
         open={confirmDismiss}
         onClose={() => setConfirmDismiss(false)}
         onConfirm={handleDismiss}
-        title="Dismiss critical item?"
+        title={`Dismiss ${severity} item?`}
         description={`"${item.title}" will be archived and automatically deleted after 30 days.`}
-        variant="danger"
+        confirmLabel="Dismiss"
+        variant={severity === "critical" ? "danger" : "warning"}
       />
     </>
   );

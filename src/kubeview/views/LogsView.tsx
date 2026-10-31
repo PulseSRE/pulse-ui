@@ -9,6 +9,9 @@ import MultiContainerLogs from '../components/logs/MultiContainerLogs';
 import MultiPodLogs from '../components/logs/MultiPodLogs';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
+import { useFleetStore } from '../store/fleetStore';
+import { k8sGet } from '../engine/query';
+import { LoadError } from '../components/primitives/LoadError';
 
 interface LogsViewProps {
   namespace: string;
@@ -150,55 +153,55 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
 }
 
 // --- Single pod logs ---
+type ContainerStateLike = { name: string; state?: { running?: unknown; waiting?: unknown; terminated?: unknown } };
+
+function stateOf(statuses: ContainerStateLike[], name: string): ContainerInfo['state'] {
+  const status = statuses.find((s) => s.name === name);
+  if (status?.state?.running) return 'running';
+  if (status?.state?.terminated) return 'terminated';
+  return 'waiting';
+}
+
+/** Every container a pod can have logs for: app, init and ephemeral (debug) containers. */
+export function podLogContainers(pod: Record<string, any> | undefined): ContainerInfo[] {
+  if (!pod) return [];
+  const out: ContainerInfo[] = [];
+  const groups: Array<[ContainerInfo['type'], Array<{ name: string }> | undefined, ContainerStateLike[] | undefined]> = [
+    ['container', pod.spec?.containers, pod.status?.containerStatuses],
+    ['init', pod.spec?.initContainers, pod.status?.initContainerStatuses],
+    ['ephemeral', pod.spec?.ephemeralContainers, pod.status?.ephemeralContainerStatuses],
+  ];
+  for (const [type, specs, statuses] of groups) {
+    for (const spec of specs || []) out.push({ name: spec.name, type, state: stateOf(statuses || [], spec.name) });
+  }
+  return out;
+}
+
 function PodLogsView({ namespace, podName }: { namespace: string; podName: string }) {
-  const { data: pod, isLoading, error } = useQuery({
-    queryKey: ['pod', namespace, podName],
-    queryFn: async () => {
-      const res = await fetch(`/api/kubernetes/api/v1/namespaces/${namespace}/pods/${podName}`);
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      return res.json();
-    },
+  const clusterId = useFleetStore((s) => s.activeClusterId);
+  const [previous, setPrevious] = useState(false);
+  const { data: pod, isLoading, error, refetch } = useQuery({
+    queryKey: ['pod', clusterId, namespace, podName],
+    queryFn: () => k8sGet<Record<string, any>>(`/api/v1/namespaces/${namespace}/pods/${podName}`, clusterId),
   });
 
-  const containers: ContainerInfo[] = [];
-
-  if (pod) {
-    const specs = (pod.spec?.containers || []) as Array<{ name: string }>;
-    const statuses = (pod.status?.containerStatuses || []) as Array<{
-      name: string;
-      state?: { running?: unknown; waiting?: unknown; terminated?: unknown };
-    }>;
-
-    for (const spec of specs) {
-      const status = statuses.find((s) => s.name === spec.name);
-      let state: 'running' | 'waiting' | 'terminated' = 'waiting';
-      if (status?.state?.running) state = 'running';
-      else if (status?.state?.terminated) state = 'terminated';
-      containers.push({ name: spec.name, type: 'container', state });
-    }
-
-    const initSpecs = (pod.spec?.initContainers || []) as Array<{ name: string }>;
-    const initStatuses = (pod.status?.initContainerStatuses || []) as Array<{
-      name: string;
-      state?: { running?: unknown; waiting?: unknown; terminated?: unknown };
-    }>;
-
-    for (const spec of initSpecs) {
-      const status = initStatuses.find((s) => s.name === spec.name);
-      let state: 'running' | 'waiting' | 'terminated' = 'waiting';
-      if (status?.state?.running) state = 'running';
-      else if (status?.state?.terminated) state = 'terminated';
-      containers.push({ name: spec.name, type: 'init', state });
-    }
-  }
+  const containers = podLogContainers(pod);
+  const restarts = ((pod?.status?.containerStatuses || []) as Array<{ restartCount?: number }>).reduce((n, c) => n + (c.restartCount || 0), 0);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full"><div className="kv-skeleton w-12 h-12 rounded-full" /></div>;
   }
 
   if (error) {
-    return <div className="flex items-center justify-center h-full text-red-400">Failed to load pod: {error instanceof Error ? error.message : String(error)}</div>;
+    return <div className="p-6"><LoadError title={`Could not load pod ${podName}`} error={error} onRetry={() => refetch()} /></div>;
   }
+
+  const previousToggle = (
+    <label className="ml-auto flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer" title="Logs from the container instance before its last restart">
+      <input type="checkbox" checked={previous} onChange={(e) => setPrevious(e.target.checked)} className="rounded-sm border-slate-600" />
+      Previous instance{restarts > 0 ? ` (${restarts} restart${restarts === 1 ? '' : 's'})` : ''}
+    </label>
+  );
 
   if (containers.length <= 1) {
     return (
@@ -207,17 +210,21 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
           <span className="text-sm text-slate-400">Logs</span>
           <span className="text-sm font-medium">{podName}</span>
           <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
+          {previousToggle}
         </div>
         <div className="flex-1 overflow-hidden">
-          <LogStream namespace={namespace} podName={podName} containerName={containers[0]?.name} />
+          <LogStream key={String(previous)} namespace={namespace} podName={podName} containerName={containers[0]?.name} previous={previous} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full">
-      <MultiContainerLogs namespace={namespace} podName={podName} containers={containers} />
+    <div className="h-full flex flex-col">
+      <div className="px-4 py-1.5 border-b border-slate-700 flex items-center">{previousToggle}</div>
+      <div className="flex-1 overflow-hidden">
+        <MultiContainerLogs namespace={namespace} podName={podName} containers={containers} previous={previous} />
+      </div>
     </div>
   );
 }

@@ -34,6 +34,9 @@ vi.mock('../../../engine/episodeApi', () => ({
     c.relevance === 'same workload' || c.relevance === 'used by an affected workload',
 }));
 
+const showErrorToast = vi.fn();
+vi.mock('../../../engine/errorToast', () => ({ showErrorToast: (...a: unknown[]) => showErrorToast(...a) }));
+
 const EPISODE = {
   id: 'ep-1',
   status: 'open' as const,
@@ -620,5 +623,15 @@ describe('an episode leads with what changed', () => {
     const prompt = String(connectAndSend.mock.calls[0][0]);
     expect(prompt).toContain('Roll back deployment ocm-controller in namespace multicluster-engine to revision 6');
     expect(prompt).toContain('before doing it');
+  });
+
+  it('a failed detach is reported and the symptom stays', async () => {
+    detachSymptom.mockRejectedValueOnce(new Error('agent unavailable'));
+    render(<EpisodePanel />);
+    await screen.findByText(EPISODE.cause_title);
+    const rows = await screen.findAllByRole('button', { name: /Not related/ });
+    fireEvent.click(rows[0]);
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith(expect.any(Error), 'Could not detach the symptom'));
+    expect(screen.getByText(SYMPTOMS[0].title)).toBeTruthy();
   });
 });

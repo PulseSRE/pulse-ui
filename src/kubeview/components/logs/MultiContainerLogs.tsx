@@ -18,6 +18,8 @@ interface MultiContainerLogsProps {
   namespace: string;
   podName: string;
   containers: Container[];
+  /** Logs of each container's previous instance. */
+  previous?: boolean;
 }
 
 interface MergedLogLine extends ParsedLogLine {
@@ -42,6 +44,7 @@ export default function MultiContainerLogs({
   namespace,
   podName,
   containers,
+  previous = false,
 }: MultiContainerLogsProps) {
   const clusterBase = useClusterBase();
   const [selectedContainer, setSelectedContainer] = useState<string>('all');
@@ -61,7 +64,7 @@ export default function MultiContainerLogs({
     const fetchAllLogs = async () => {
       try {
         const logPromises = containers.map(async (container, index) => {
-          const url = `${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${container.name}&tailLines=500&timestamps=true`;
+          const url = `${clusterBase}/api/v1/namespaces/${namespace}/pods/${podName}/log?container=${encodeURIComponent(container.name)}&tailLines=500&timestamps=true${previous ? '&previous=true' : ''}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -107,7 +110,7 @@ export default function MultiContainerLogs({
     return () => {
       mounted = false;
     };
-  }, [selectedContainer, namespace, podName, containers, clusterBase]);
+  }, [selectedContainer, namespace, podName, containers, clusterBase, previous]);
 
   // Get container state indicator
   const getStateIndicator = (state: Container['state']) => {
@@ -220,11 +223,12 @@ export default function MultiContainerLogs({
           </div>
         ) : (
           <LogStream
-            key={selectedContainer}
+            key={`${selectedContainer}-${previous}`}
             namespace={namespace}
             podName={podName}
             containerName={selectedContainer}
             timestamps={true}
+            previous={previous}
           />
         )}
       </div>

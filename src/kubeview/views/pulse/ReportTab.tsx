@@ -794,7 +794,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 return (
                   <div key={i} className="relative group">
                     <button onClick={() => item.steps ? toggleExpanded(key) : go(item.path, item.pathTitle)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/50 transition-colors text-left">
+                      className="w-full flex items-center gap-3 pl-4 pr-32 py-2.5 hover:bg-slate-800/50 transition-colors text-left">
                       {item.severity === 'critical'
                         ? <AlertOctagon className="w-4 h-4 text-red-400 shrink-0" />
                         : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
@@ -806,14 +806,16 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                         ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-600 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />)
                         : <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 shrink-0" />}
                     </button>
-                    {/* Ask AI button */}
+                    {/* Ask AI button: always visible (opacity-0 until hover hid it
+                        from keyboard and touch users). */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         askAgent(`Diagnose: ${item.title}. ${item.detail}`);
                       }}
+                      aria-label={`Ask AI to diagnose ${item.title}`}
                       className={cn(
-                        'absolute right-12 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity',
+                        'absolute right-12 top-2.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity',
                         AI_ACCENT.bg, AI_ACCENT.text, AI_ACCENT.border, 'border',
                       )}
                       title="Ask Pulse Agent to diagnose"

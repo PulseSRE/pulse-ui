@@ -81,7 +81,22 @@ describe('server monitor pause and policy controls', () => {
     fireEvent.click(screen.getByText('Resume Auto-Fix'));
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith('/api/agent/monitor/resume', { method: 'POST' });
-    expect(screen.getByText(/monitor uses all server-supported/)).toBeDefined();
+    expect(screen.getByText(/The monitor can remediate these categories/)).toBeDefined();
+  });
+
+  it('shows the server\'s auto-fix categories read-only, with no toggles that do nothing', () => {
+    render(<TrustPolicy maxTrustLevel={4} effectiveTrustLevel={3} scannerCount={1} fixSummary={null} autofixPaused={false} supportedAutoFixCategories={['crashloop', 'image_pull']} />);
+    const section = screen.getByTestId('autofix-categories');
+    expect(section.textContent).toContain('Crashlooping pods');
+    expect(section.textContent).toContain('Image pull errors');
+    expect(section.textContent).not.toContain('Failed deployments');
+    expect(section.querySelectorAll('button')).toHaveLength(0);
+    expect(screen.queryByText(/Requested category preferences/)).toBeNull();
+  });
+
+  it('says when the agent does not report its categories', () => {
+    render(<TrustPolicy maxTrustLevel={4} effectiveTrustLevel={3} scannerCount={1} fixSummary={null} />);
+    expect(screen.getByTestId('autofix-categories').textContent).toContain('Not reported by the agent.');
   });
 
   it('surfaces server failures instead of pretending pause succeeded', async () => {

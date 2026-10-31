@@ -440,21 +440,31 @@ export default function WorkloadsView() {
                 return deployFilter === 'unhealthy' ? !s.available : s.available;
               }).map((d) => {
                 const s = getDeploymentStatus(d);
+                // Pods are found by the Deployment's own selector, not `app=<name>`.
+                const logSelector = Object.entries(d.spec?.selector?.matchLabels || {}).map(([k, v]) => `${k}=${v}`).join(',');
+                // The logs button is a sibling of the row button; it used to be
+                // nested inside it, which is invalid HTML.
                 return (
-                  <button key={d.metadata.uid} onClick={() => go(`/r/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, d.metadata.name)}
-                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-800/50 text-left transition-colors">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={cn('w-2 h-2 rounded-full shrink-0', s.available ? 'bg-green-500' : 'bg-red-500')} />
-                      <span className="text-sm text-slate-200 truncate">{d.metadata.name}</span>
-                      <span className="text-xs text-slate-600">{d.metadata.namespace}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className={cn('text-xs font-mono', s.available ? 'text-green-400' : 'text-red-400')}>{s.ready}/{s.desired}</span>
-                      <span className="text-xs text-slate-600">{d.spec?.strategy?.type || 'RollingUpdate'}</span>
-                      <button onClick={(e) => { e.stopPropagation(); go(`/logs/${d.metadata.namespace}/${d.metadata.name}?selector=${encodeURIComponent(`app=${d.metadata.name}`)}&kind=Deployment`, `${d.metadata.name} (Logs)`); }}
-                        className="text-slate-500 hover:text-blue-400 transition-colors" title="View Logs"><FileText className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </button>
+                  <div key={d.metadata.uid} className="flex items-center hover:bg-slate-800/50 transition-colors">
+                    <button onClick={() => go(`/r/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, d.metadata.name)}
+                      className="flex-1 min-w-0 flex items-center justify-between px-3 py-2 text-left">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={cn('w-2 h-2 rounded-full shrink-0', s.available ? 'bg-green-500' : 'bg-red-500')} />
+                        <span className="text-sm text-slate-200 truncate">{d.metadata.name}</span>
+                        <span className="text-xs text-slate-600">{d.metadata.namespace}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={cn('text-xs font-mono', s.available ? 'text-green-400' : 'text-red-400')}>{s.ready}/{s.desired}</span>
+                        <span className="text-xs text-slate-600">{d.spec?.strategy?.type || 'RollingUpdate'}</span>
+                      </div>
+                    </button>
+                    {logSelector && (
+                      <button onClick={() => go(`/logs/${d.metadata.namespace}/${d.metadata.name}?selector=${encodeURIComponent(logSelector)}&kind=Deployment`, `${d.metadata.name} (Logs)`)}
+                        className="px-3 py-2 text-slate-500 hover:text-blue-400 transition-colors" title="View Logs" aria-label={`View logs for ${d.metadata.name}`}>
+                        <FileText className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
