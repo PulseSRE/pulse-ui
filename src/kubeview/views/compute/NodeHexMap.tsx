@@ -8,15 +8,17 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Server, Cpu, MemoryStick, ChevronRight, Search,
-  ShieldOff, Shield, Terminal, Trash2, FileText, Copy, X,
+  ShieldOff, Shield, Terminal, Trash2, FileText, Copy, X, MoreVertical, ScrollText, ArrowDownToLine,
 } from 'lucide-react';
 import type { NodeDetail } from './types';
+import type { NodeMapActions } from './useNodeMapActions';
 
 export interface PodInfo {
   name: string;
   namespace: string;
   status: string;
   restarts: number;
+  uid?: string;
 }
 
 interface Props {
@@ -26,6 +28,12 @@ interface Props {
   onPodClick?: (namespace: string, name: string) => void;
   onViewAll?: () => void;
   isHyperShift?: boolean;
+  /**
+   * Cluster actions (cordon, drain, terminal, logs, exec, delete). Without
+   * them the menus only offer navigation and copy — never an item that does
+   * nothing.
+   */
+  actions?: NodeMapActions;
 }
 
 const STATUS = {
@@ -71,6 +79,40 @@ interface ContextMenuItem {
   danger?: boolean;
 }
 
+function buildNodeMenu(nd: NodeDetail, onOpenDetails: (() => void) | undefined, actions: NodeMapActions | undefined): ContextMenuItem[] {
+  const items: ContextMenuItem[] = [];
+  if (onOpenDetails) items.push({ label: 'View Node Details', icon: FileText, action: onOpenDetails });
+  items.push({ label: 'Copy Node Name', icon: Copy, action: () => { void navigator.clipboard?.writeText(nd.name); } });
+  if (actions?.canUpdateNodes) {
+    items.push({
+      label: nd.unschedulable ? 'Uncordon Node' : 'Cordon Node',
+      icon: nd.unschedulable ? Shield : ShieldOff,
+      action: () => actions.setCordoned(nd.name, !nd.unschedulable),
+    });
+  }
+  if (actions) items.push({ label: 'Open Terminal', icon: Terminal, action: () => actions.openTerminal(nd.name) });
+  if (actions?.canUpdateNodes) {
+    items.push({ label: 'Drain Node', icon: ArrowDownToLine, action: () => actions.drain(nd.name), danger: true });
+  }
+  return items;
+}
+
+function buildPodMenu(pod: PodInfo, onPodClick: ((ns: string, name: string) => void) | undefined, actions: NodeMapActions | undefined): ContextMenuItem[] {
+  const ref = { namespace: pod.namespace, name: pod.name, uid: pod.uid };
+  const items: ContextMenuItem[] = [];
+  if (onPodClick) items.push({ label: 'View Pod Details', icon: FileText, action: () => onPodClick(pod.namespace, pod.name) });
+  if (actions) items.push({ label: 'View Logs', icon: ScrollText, action: () => actions.viewLogs(ref) });
+  items.push({ label: 'Copy Pod Name', icon: Copy, action: () => { void navigator.clipboard?.writeText(pod.name); } });
+  if (actions) items.push({ label: 'Exec Into Container', icon: Terminal, action: () => actions.exec(ref) });
+  if (actions?.canDeletePods) items.push({ label: 'Delete Pod', icon: Trash2, action: () => actions.deletePod(ref), danger: true });
+  return items;
+}
+
+function menuAt(e: React.MouseEvent): { x: number; y: number } {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect?.();
+  return rect && (rect.width || rect.height) ? { x: rect.left, y: rect.bottom + 4 } : { x: e.clientX, y: e.clientY };
+}
+
 function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: ContextMenuItem[]; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -85,13 +127,16 @@ function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: Co
   return (
     <div
       ref={ref}
+      role="menu"
       className="fixed z-100 min-w-[180px] rounded-lg border border-slate-700 bg-slate-900 shadow-2xl py-1 animate-in fade-in zoom-in-95 duration-100"
       style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
     >
-      {items.map((item, i) => (
+      {items.map((item) => (
         <button
-          key={i}
-          onClick={() => { item.action(); onClose(); }}
+          key={item.label}
+          role="menuitem"
+          onClick={(e) => { e.stopPropagation(); onClose(); item.action(); }}
           className={cn(
             'flex items-center gap-2 w-full px-3 py-1.5 text-xs transition-colors text-left',
             item.danger ? 'text-red-400 hover:bg-red-900/20' : 'text-slate-300 hover:bg-slate-800',
@@ -131,10 +176,12 @@ function GaugeBar({ icon: Icon, value, color }: { icon: any; value: number | nul
 
 // ─── Hex Node ────────────────────────────────────────────────────────────────
 
-function HexNode({ nd, pods, onClick, onPodClick }: {
+function HexNode({ nd, pods, onClick, onOpenDetails, onPodClick, actions }: {
   nd: NodeDetail; pods?: PodInfo[];
   onClick?: () => void;
+  onOpenDetails?: () => void;
   onPodClick?: (ns: string, name: string) => void;
+  actions?: NodeMapActions;
 }) {
   const status = getStatus(nd);
   const [hovered, setHovered] = useState(false);
@@ -162,21 +209,8 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
     setCtxMenu({ x: e.clientX, y: e.clientY, type: 'pod', pod });
   }, []);
 
-  const nodeMenuItems: ContextMenuItem[] = [
-    { label: 'View Node Details', icon: FileText, action: () => onClick?.() },
-    { label: 'Copy Node Name', icon: Copy, action: () => navigator.clipboard.writeText(nd.name) },
-    { label: nd.unschedulable ? 'Uncordon Node' : 'Cordon Node', icon: nd.unschedulable ? Shield : ShieldOff, action: () => {} },
-    { label: 'Open Terminal', icon: Terminal, action: () => {} },
-    { label: 'Drain Node', icon: Trash2, action: () => {}, danger: true },
-  ];
-
-  const podMenuItems: ContextMenuItem[] = ctxMenu?.pod ? [
-    { label: 'View Pod Details', icon: FileText, action: () => onPodClick?.(ctxMenu.pod!.namespace, ctxMenu.pod!.name) },
-    { label: 'View Logs', icon: FileText, action: () => {} },
-    { label: 'Copy Pod Name', icon: Copy, action: () => navigator.clipboard.writeText(ctxMenu.pod!.name) },
-    { label: 'Exec Into Container', icon: Terminal, action: () => {} },
-    { label: 'Delete Pod', icon: Trash2, action: () => {}, danger: true },
-  ] : [];
+  const nodeMenuItems = buildNodeMenu(nd, onOpenDetails, actions);
+  const podMenuItems = ctxMenu?.pod ? buildPodMenu(ctxMenu.pod, onPodClick, actions) : [];
 
   return (
     <div
@@ -293,6 +327,18 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
         </div>
       )}
 
+      {/* Visible actions button: the same menu as right-click, reachable by keyboard and touch */}
+      <button
+        type="button"
+        aria-label={`Actions for node ${nd.name}`}
+        aria-haspopup="menu"
+        title="Node actions"
+        className="absolute -top-1 left-2 z-10 p-0.5 rounded-sm bg-slate-900/80 border border-slate-700 text-slate-400 hover:text-slate-100 hover:border-slate-500"
+        onClick={(e) => { e.stopPropagation(); setCtxMenu({ ...menuAt(e), type: 'node' }); }}
+      >
+        <MoreVertical className="w-3 h-3" />
+      </button>
+
       {/* Status badge — outside clip-path so it's never clipped */}
       <div
         className={cn('absolute -top-1 right-2 px-1.5 py-0.5 rounded-sm text-[7px] font-semibold z-10', !nd.status.ready && 'animate-pulse')}
@@ -316,7 +362,8 @@ function HexNode({ nd, pods, onClick, onPodClick }: {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewAll, isHyperShift }: Props) {
+export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewAll, isHyperShift, actions }: Props) {
+  const [podMenu, setPodMenu] = useState<{ x: number; y: number; pod: PodInfo } | null>(null);
   const MAX_VISIBLE = isHyperShift ? 12 : 8;
   const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -448,7 +495,9 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                   nd={nd}
                   pods={podsByNode?.[nd.name]}
                   onClick={() => setExpandedNode(expandedNode === nd.name ? null : nd.name)}
+                  onOpenDetails={onNodeClick ? () => onNodeClick(nd.name) : undefined}
                   onPodClick={onPodClick}
+                  actions={actions}
                 />
               ))}
             </div>
@@ -502,6 +551,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                       <th className="px-3 py-1.5 font-medium">Namespace</th>
                       <th className="px-3 py-1.5 font-medium">Status</th>
                       <th className="px-3 py-1.5 font-medium">Restarts</th>
+                      <th className="px-3 py-1.5 font-medium sr-only">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -526,6 +576,17 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                             <span className="text-slate-600">0</span>
                           )}
                         </td>
+                        <td className="px-3 py-1.5 text-right">
+                          <button
+                            type="button"
+                            aria-label={`Actions for pod ${pod.name}`}
+                            aria-haspopup="menu"
+                            className="p-0.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-700"
+                            onClick={(e) => { e.stopPropagation(); setPodMenu({ ...menuAt(e), pod }); }}
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -535,6 +596,15 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
           </div>
         );
       })()}
+
+      {podMenu && (
+        <ContextMenu
+          x={podMenu.x}
+          y={podMenu.y}
+          items={buildPodMenu(podMenu.pod, onPodClick, actions)}
+          onClose={() => setPodMenu(null)}
+        />
+      )}
 
       {/* View all link */}
       {remaining > 0 && (

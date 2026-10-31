@@ -5,8 +5,13 @@ import { Card } from '../../components/primitives/Card';
 
 export interface DeleteProgressItem {
   name: string;
+  /** Empty for a cluster-scoped resource. */
   ns: string;
   kind: string;
+  /** API path of the deleted resource, polled by the single-delete progress view. */
+  path?: string;
+  /** The owner's pod selector, so its teardown shows its own pods. */
+  podSelector?: Record<string, string>;
   status: 'deleting' | 'done' | 'error';
   error?: string;
 }
@@ -27,7 +32,10 @@ export function DeleteProgressOverlay({ items, onClose }: DeleteProgressOverlayP
           <DeployProgress
             type={items[0].kind === 'Job' ? 'job' : 'deployment'}
             name={items[0].name}
-            namespace={items[0].ns}
+            namespace={items[0].ns || undefined}
+            resourcePath={items[0].path}
+            kind={items[0].kind}
+            podSelector={items[0].podSelector}
             mode="delete"
             onClose={onClose}
           />
@@ -56,7 +64,7 @@ export function DeleteProgressOverlay({ items, onClose }: DeleteProgressOverlayP
                   {item.status === 'error' && <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-slate-200 truncate">{item.name}</div>
-                    <div className="text-xs text-slate-500">{item.kind} · {item.ns}</div>
+                    <div className="text-xs text-slate-500">{item.kind} · {item.ns || 'cluster-scoped'}</div>
                     {item.error && <div className="text-xs text-red-400 mt-0.5">{item.error}</div>}
                   </div>
                   <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',

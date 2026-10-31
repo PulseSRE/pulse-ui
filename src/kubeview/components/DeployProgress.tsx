@@ -13,10 +13,20 @@ import { Card } from './primitives/Card';
 import type { K8sResource } from '../engine/renderers';
 import type { Pod, Event, ContainerStatus } from '../engine/types';
 
+/** Kinds whose deletion tears down pods the UI can show. */
+const POD_OWNER_KINDS = new Set(['Deployment', 'StatefulSet', 'DaemonSet', 'ReplicaSet', 'Job', 'ReplicationController', 'DeploymentConfig']);
+
 interface DeployProgressProps {
   type: 'deployment' | 'job';
   name: string;
-  namespace: string;
+  /** Omitted for a cluster-scoped resource. */
+  namespace?: string;
+  /** API path of the resource to poll. Required in delete mode for anything but a Deployment/Job. */
+  resourcePath?: string;
+  /** Kind of the resource (delete mode): pods are only shown for kinds that own pods. */
+  kind?: string;
+  /** The owner's pod selector (spec.selector.matchLabels), used to find its pods. */
+  podSelector?: Record<string, string>;
   /** 'deploy' (default) or 'delete' */
   mode?: 'deploy' | 'delete';
   /** Cluster the resource was created in. Defaults to the one active when this opened. */
@@ -27,7 +37,7 @@ interface DeployProgressProps {
 type DeployPhase = 'creating' | 'pulling' | 'starting' | 'running' | 'failed' | 'succeeded';
 type DeletePhase = 'deleting' | 'terminating' | 'cleaning-pods' | 'cleaning' | 'gone';
 
-export default function DeployProgress({ type, name, namespace, mode = 'deploy', clusterId: clusterIdProp, onClose }: DeployProgressProps) {
+export default function DeployProgress({ type, name, namespace, resourcePath, kind, podSelector, mode = 'deploy', clusterId: clusterIdProp, onClose }: DeployProgressProps) {
   // Pinned: switching clusters must not start reporting a same-named resource elsewhere.
   const [clusterId] = useState(() => clusterIdProp ?? getActiveClusterId());
   const go = useNavigateTab();
@@ -35,37 +45,46 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
   const [showEvents, setShowEvents] = useState(true);
 
   const isDelete = mode === 'delete';
+  // The path of the resource itself. Delete mode used to poll a Deployment
+  // (or Job) path whatever had been deleted, so a deleted ConfigMap or Node
+  // "terminated pods" forever and never reported gone.
+  const path = resourcePath ?? (type === 'deployment'
+    ? `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`
+    : `/apis/batch/v1/namespaces/${namespace}/jobs/${name}`);
+  // Only workloads have pods to tear down; a pod, a ConfigMap or a cluster-scoped object does not.
+  const showsPods = !!namespace && (!isDelete || (kind ? POD_OWNER_KINDS.has(kind) : !resourcePath));
 
   // Poll the resource (null = gone)
   const { data: resource, dataUpdatedAt: _dataUpdatedAt } = useQuery({
-    queryKey: ['deploy-progress', clusterId, type, namespace, name],
-    queryFn: () => {
-      const path = type === 'deployment'
-        ? `/apis/apps/v1/namespaces/${namespace}/deployments/${name}`
-        : `/apis/batch/v1/namespaces/${namespace}/jobs/${name}`;
-      return safeQuery(() => k8sGet<K8sResource>(path, clusterId));
-    },
+    queryKey: ['deploy-progress', clusterId, path],
+    queryFn: () => safeQuery(() => k8sGet<K8sResource>(path, clusterId)),
     refetchInterval: 2000,
   });
 
   // Poll pods
   const { data: pods = [] } = useQuery({
-    queryKey: ['deploy-progress-pods', clusterId, namespace, name],
+    queryKey: ['deploy-progress-pods', clusterId, namespace, name, podSelector],
     queryFn: async () => {
       const allPods = await k8sList<Pod>(`/api/v1/namespaces/${namespace}/pods`, undefined, clusterId);
       return allPods.filter((p) => {
         const labels = p.metadata.labels || {};
-        return labels.app === name || p.metadata.name?.startsWith(name);
+        if (podSelector && Object.keys(podSelector).length > 0) {
+          return Object.entries(podSelector).every(([k, v]) => labels[k] === v);
+        }
+        return labels.app === name || p.metadata.name?.startsWith(`${name}-`);
       });
     },
     refetchInterval: 2000,
+    enabled: showsPods,
   });
 
   // Poll events
   const { data: events = [] } = useQuery({
     queryKey: ['deploy-progress-events', clusterId, namespace, name],
     queryFn: async () => {
-      const allEvents = await k8sList<Event>(`/api/v1/namespaces/${namespace}/events`, undefined, clusterId);
+      const allEvents = namespace
+        ? await k8sList<Event>(`/api/v1/namespaces/${namespace}/events`, undefined, clusterId)
+        : await k8sList<Event>(`/api/v1/events?fieldSelector=${encodeURIComponent(`involvedObject.name=${name}`)}`, undefined, clusterId);
       return allEvents
         .filter((e) => {
           const ref = e.involvedObject;
@@ -143,11 +162,16 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
 
   // Steps
   const steps = isDelete
-    ? [
-        { id: 'deleting', label: 'Delete Sent', done: true },
-        { id: 'terminating', label: 'Terminating Pods', done: phase === 'cleaning' || phase === 'gone' || (phase === 'cleaning-pods') },
-        { id: 'cleaning', label: 'Cleanup', done: phase === 'gone' },
-      ]
+    ? (showsPods
+      ? [
+          { id: 'deleting', label: 'Delete Sent', done: true },
+          { id: 'terminating', label: 'Terminating Pods', done: phase === 'cleaning' || phase === 'gone' || (phase === 'cleaning-pods') },
+          { id: 'cleaning', label: 'Cleanup', done: phase === 'gone' },
+        ]
+      : [
+          { id: 'deleting', label: 'Delete Sent', done: true },
+          { id: 'cleaning', label: 'Removed', done: phase === 'gone' },
+        ])
     : type === 'deployment'
     ? [
         { id: 'creating', label: 'Create Deployment', done: phase !== 'creating' },
@@ -166,7 +190,7 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
       deleting: 'Deleting...',
       terminating: 'Terminating pods...',
       'cleaning-pods': 'Cleaning up pods...',
-      cleaning: 'Waiting for cleanup...',
+      cleaning: showsPods ? 'Waiting for cleanup...' : 'Waiting for finalizers...',
       gone: 'Deleted',
     } as Record<DeletePhase, string>)[phase as DeletePhase] || phase
     : ({
@@ -192,7 +216,7 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />}
           <div>
             <div className="text-sm font-medium text-slate-200">{name}</div>
-            <div className="text-xs text-slate-500">{phaseLabel} · {namespace}</div>
+            <div className="text-xs text-slate-500">{phaseLabel} · {namespace ?? 'cluster-scoped'}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -308,7 +332,7 @@ export default function DeployProgress({ type, name, namespace, mode = 'deploy',
             <span className="text-xs text-slate-400 flex items-center gap-1.5"><FileText className="w-3 h-3" /> Logs</span>
             {showLogs ? <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
           </button>
-          {showLogs && pods.length > 0 && (
+          {showLogs && pods.length > 0 && namespace && (
             <PodLogs clusterId={clusterId} namespace={namespace} podName={pods[0].metadata.name} />
           )}
           {showLogs && pods.length === 0 && (

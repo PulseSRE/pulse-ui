@@ -1,15 +1,18 @@
-import { useClusterBase } from '../hooks/useClusterBase';
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { buildApiPath } from '../hooks/useResourceUrl';
-import { getImpersonationHeaders } from '../engine/query';
+import { k8sFetch, k8sGet } from '../engine/query';
+import { useFleetStore } from '../store/fleetStore';
+import type { K8sResource } from '../engine/renderers';
+import { useCanI } from '../hooks/useCanI';
+import { LoadError } from '../components/primitives/LoadError';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
 import { resourceToYaml } from '../engine/yamlUtils';
-import { ArrowLeft, Save, RotateCcw, AlertCircle, ShieldCheck, GitBranch } from 'lucide-react';
+import { ArrowLeft, Save, RotateCcw, AlertCircle, ShieldCheck, GitBranch, Lock } from 'lucide-react';
 import { showErrorToast } from '../engine/errorToast';
 import { useArgoSyncInfo } from '../hooks/useArgoCD';
 import { useArgoCDStore } from '../store/argoCDStore';
@@ -24,21 +27,21 @@ interface YamlEditorViewProps {
 }
 
 export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorViewProps) {
-  const clusterBase = useClusterBase();
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
 
   const apiPath = buildApiPath(gvrKey, namespace, name);
-  const fetchUrl = `${clusterBase}${apiPath}`;
+  const gvrSegments = gvrKey.split('/');
+  // Read-only users can still open the YAML; they just cannot save it.
+  const { allowed: canUpdate } = useCanI('update', gvrSegments.length === 3 ? gvrSegments[0] : '', gvrSegments[gvrSegments.length - 1], namespace);
+  const readOnly = !canUpdate;
 
-  const { data: resource, isLoading, error } = useQuery({
-    queryKey: ['k8s', 'get', apiPath],
-    queryFn: async () => {
-      const res = await fetch(fetchUrl, { headers: getImpersonationHeaders() });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      return res.json();
-    },
+  const { data: resource, isLoading, error, refetch } = useQuery({
+    // The cluster is part of the key: another cluster's cached copy must never be shown, or saved over.
+    queryKey: ['k8s', 'get', apiPath, clusterId],
+    queryFn: () => k8sGet<K8sResource>(apiPath, clusterId),
   });
 
   const [originalYaml, setOriginalYaml] = useState('');
@@ -66,13 +69,13 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   }, [resource]);
 
   const handleSave = useCallback(async () => {
-    if (!hasChanges || saving) return;
+    if (!hasChanges || saving || readOnly) return;
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch(fetchUrl, {
+      const res = await k8sFetch(clusterId, apiPath, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/yaml', ...getImpersonationHeaders() },
+        headers: { 'Content-Type': 'application/yaml' },
         body: currentYaml,
       });
       if (!res.ok) {
@@ -84,7 +87,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
       setOriginalYaml(newYaml);
       setCurrentYaml(newYaml);
       addToast({ type: 'success', title: `${name} saved` });
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'get', apiPath] });
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'get', apiPath, clusterId] });
       queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -93,7 +96,16 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
     } finally {
       setSaving(false);
     }
-  }, [fetchUrl, currentYaml, hasChanges, saving, name, apiPath, addToast, queryClient]);
+  }, [clusterId, currentYaml, hasChanges, saving, readOnly, name, apiPath, addToast, queryClient]);
+
+  // Every save path — the header button, ⌘S and the diff preview's Apply —
+  // goes through here, so an Argo-managed resource always gets the GitOps
+  // dialog instead of a direct write that Argo would revert.
+  const requestSave = useCallback(() => {
+    if (readOnly || !hasChanges) return;
+    if (isArgoManaged) setShowGitOpsDialog(true);
+    else void handleSave();
+  }, [readOnly, hasChanges, isArgoManaged, handleSave]);
 
   const handleDiscard = useCallback(() => {
     setCurrentYaml(originalYaml);
@@ -121,9 +133,9 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full bg-slate-950 text-red-400">
-        <AlertCircle className="w-5 h-5 mr-2" />
-        Failed to load: {error instanceof Error ? error.message : String(error)}
+      <div className="h-full bg-slate-950 p-6 space-y-3">
+        <LoadError title={`Could not load ${name}`} error={error} onRetry={() => refetch()} />
+        <button onClick={() => go(backPath, name)} className="text-xs text-blue-400 hover:text-blue-300">Back to {name}</button>
       </div>
     );
   }
@@ -136,11 +148,16 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
           <button onClick={() => go(backPath, name)} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Go back">
             <ArrowLeft size={16} />
           </button>
-          <span className="text-sm font-medium text-slate-200">Edit {name}</span>
+          <span className="text-sm font-medium text-slate-200">{readOnly ? 'View' : 'Edit'} {name}</span>
+          {readOnly && (
+            <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded-sm" title="You do not have permission to update this resource">
+              <Lock size={10} /> Read-only
+            </span>
+          )}
           <span className="text-xs text-slate-500">{kind} · {gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]}</span>
           {namespace && <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{namespace}</span>}
         </div>
-        <div className="flex items-center gap-2">
+        {!readOnly && <div className="flex items-center gap-2">
           {hasChanges && (
             <button onClick={handleDiscard} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-sm bg-slate-700 hover:bg-slate-600 text-slate-300">
               <RotateCcw size={12} /> Discard
@@ -155,7 +172,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
             </button>
           )}
           <button
-            onClick={isArgoManaged ? () => setShowGitOpsDialog(true) : handleSave}
+            onClick={requestSave}
             disabled={!hasChanges || saving}
             className={cn('flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-md font-medium transition-colors',
               hasChanges
@@ -166,7 +183,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
             {isArgoManaged ? <GitBranch size={12} /> : <Save size={12} />}
             {saving ? 'Saving...' : isArgoManaged ? 'Save (GitOps)' : 'Save'}
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Save error banner */}
@@ -183,7 +200,9 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
         <YamlEditor
           value={currentYaml}
           onChange={setCurrentYaml}
-          onSave={handleSave}
+          onSave={requestSave}
+          readOnly={readOnly}
+          hideStatusBarSave
           originalValue={originalYaml}
           showDiff={true}
           height="100%"

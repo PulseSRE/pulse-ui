@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Trash2, Loader2, FileEdit, Inbox } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2, Loader2, FileEdit, FileText, Inbox } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../../store/uiStore';
 import { EmptyState } from '../../components/primitives/EmptyState';
@@ -271,9 +271,11 @@ export function TableBody({
                     </div>
                   );
                 })}
-                <div className="px-4 py-3 shrink-0">
+                <div className="px-4 py-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-1">
-                    {enhancer?.inlineActions?.map((action) => (
+                    {enhancer?.inlineActions
+                      ?.filter((action) => !action.requires || (action.requires === 'update' ? canUpdate : canDelete))
+                      .map((action) => (
                       <div key={action.id}>
                         {action.render(resource, handleAction)}
                       </div>
@@ -287,11 +289,11 @@ export function TableBody({
                         addTab({ title: `${resource.metadata.name} (YAML)`, path: yamlPath, pinned: false, closable: true });
                         navigate(yamlPath);
                       }}
-                      className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded-sm transition-colors disabled:opacity-50', canUpdate ? 'text-slate-500 hover:bg-blue-900/50 hover:text-blue-400' : 'text-slate-700 cursor-not-allowed')}
-                      title={canUpdate ? 'Edit YAML' : 'No update permission'}
-                      disabled={!canUpdate}
+                      className="inline-flex items-center px-1.5 py-1 text-xs rounded-sm transition-colors text-slate-500 hover:bg-blue-900/50 hover:text-blue-400"
+                      title={canUpdate ? 'Edit YAML' : 'View YAML (read-only)'}
+                      aria-label={canUpdate ? 'Edit YAML' : 'View YAML'}
                     >
-                      <FileEdit className="w-3.5 h-3.5" />
+                      {canUpdate ? <FileEdit className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleAction('delete-single', { resource }); }}

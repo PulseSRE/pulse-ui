@@ -22,6 +22,8 @@ export interface YamlEditorProps {
   showDiff?: boolean;
   originalValue?: string;
   resourceGvk?: { group: string; version: string; kind: string };
+  /** The host renders its own Save button; don't add a second one in the status bar. */
+  hideStatusBarSave?: boolean;
 }
 
 // K8s YAML keywords for autocomplete
@@ -120,7 +122,7 @@ function k8sCompletion(context: CompletionContext) {
 }
 
 export default function YamlEditor({
-  value, onChange, readOnly = false, height = '100%', onSave, showDiff = false, originalValue, resourceGvk,
+  value, onChange, readOnly = false, height = '100%', onSave, showDiff = false, originalValue, resourceGvk, hideStatusBarSave = false,
 }: YamlEditorProps) {
   const editorRef = useRef<ReactCodeMirrorRef>(null);
   const [internalValue, setInternalValue] = useState(value);
@@ -493,7 +495,7 @@ export default function YamlEditor({
               <HelpCircle className="w-3 h-3" />
               Help
             </button>
-            {!readOnly && onSave && (
+            {!readOnly && onSave && !hideStatusBarSave && (
               <button
                 onClick={handleSave}
                 disabled={!hasChanges || isSaving}

@@ -6,12 +6,14 @@ import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { useClusterStore } from '../../store/clusterStore';
 import { useUIStore } from '../../store/uiStore';
+import { useFleetStore } from '../../store/fleetStore';
 import { useCanI } from '../../hooks/useCanI';
 import { getColumnsForResource, getEnhancer } from '../../engine/enhancers';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { describePodRestart } from '../../engine/writeGuards';
 import { PreviewPanel } from './PreviewPanel';
 import { DeleteProgressOverlay } from './DeleteProgress';
+import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 import { TableToolbar } from './TableToolbar';
 import { TableBody } from './TableBody';
 import { useTableActions } from './TableActions';
@@ -62,6 +64,7 @@ const NAMESPACE_PARAM_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 export default function TableView({ gvrKey, namespace: namespaceProp }: TableViewProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const clusterId = useFleetStore((s) => s.activeClusterId);
   const resourceRegistry = useClusterStore((s) => s.resourceRegistry);
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const setSelectedNamespace = useUIStore((s) => s.setSelectedNamespace);
@@ -556,6 +559,30 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
           />
         );
       })()}
+
+      {/* Disruptive inline actions (scale to 0, rollout restart) */}
+      {actions.pendingConfirm && (
+        <ConfirmDialog
+          open
+          title={actions.pendingConfirm.title}
+          description={actions.pendingConfirm.description}
+          confirmLabel={actions.pendingConfirm.confirmLabel}
+          variant="warning"
+          loading={actions.confirming}
+          onConfirm={actions.executeConfirm}
+          onClose={() => actions.setPendingConfirm(null)}
+        />
+      )}
+
+      {/* Node drain: confirm, cordon, evict with progress, summary */}
+      {actions.pendingDrain && (
+        <DrainNodeDialog
+          node={actions.pendingDrain}
+          clusterId={clusterId}
+          onClose={() => actions.setPendingDrain(null)}
+          onDone={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] })}
+        />
+      )}
 
       {/* Bulk Delete Confirmation */}
       {actions.showBulkDeleteConfirm && (

@@ -560,6 +560,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       <DeleteProgressModal
         resource={resource}
         namespace={namespace}
+        apiPath={apiPath}
         onClose={() => {
           setShowDeleteProgress(false);
           go(`/r/${gvrUrl}`, resourcePlural);

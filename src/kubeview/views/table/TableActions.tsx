@@ -9,6 +9,14 @@ import type { K8sResource } from '../../engine/renderers';
 import type { ColumnDef } from '../../engine/renderers';
 import type { DeleteProgressItem } from './DeleteProgress';
 import { scalePatch } from '../../engine/writeGuards';
+import { setNodeSchedulable } from '../../engine/nodeActions';
+
+export interface PendingConfirm {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  run: () => Promise<void>;
+}
 
 export interface ActionHandlers {
   handleAction: (action: string, payload?: unknown) => Promise<void>;
@@ -23,6 +31,14 @@ export interface ActionHandlers {
   setPendingRestart: React.Dispatch<React.SetStateAction<{ resource: K8sResource; path: string } | null>>;
   executeRestart: () => Promise<void>;
   restarting: boolean;
+  /** A node waiting for the drain dialog (cordon + evict, with its own confirmation). */
+  pendingDrain: string | null;
+  setPendingDrain: React.Dispatch<React.SetStateAction<string | null>>;
+  /** A disruptive inline action (scale to 0, rollout restart) waiting for confirmation. */
+  pendingConfirm: PendingConfirm | null;
+  setPendingConfirm: React.Dispatch<React.SetStateAction<PendingConfirm | null>>;
+  executeConfirm: () => Promise<void>;
+  confirming: boolean;
   singleDeleting: boolean;
   deleteProgress: DeleteProgressItem[];
   setDeleteProgress: React.Dispatch<React.SetStateAction<DeleteProgressItem[]>>;
@@ -59,6 +75,9 @@ export function useTableActions({
   const [pendingDelete, setPendingDelete] = useState<{ resource: K8sResource; path: string } | null>(null);
   const [pendingRestart, setPendingRestart] = useState<{ resource: K8sResource; path: string } | null>(null);
   const [restarting, setRestarting] = useState(false);
+  const [pendingDrain, setPendingDrain] = useState<string | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [singleDeleting, setSingleDeleting] = useState(false);
   const [deleteProgress, setDeleteProgress] = useState<DeleteProgressItem[]>([]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
@@ -82,29 +101,51 @@ export function useTableActions({
         setInlineActionLoading(null);
         return;
       } else if (action === 'restart-rollout') {
-        await k8sPatch(resourcePath, {
-          spec: { template: { metadata: { annotations: { 'kubectl.kubernetes.io/restartedAt': new Date().toISOString() } } } },
-        }, undefined, clusterId);
-        addToast({ type: 'success', title: `Rollout restart triggered for "${resourceName}"` });
+        // A rollout restart replaces every pod; ask first.
+        setPendingConfirm({
+          title: `Restart ${resource.kind} "${resourceName}"?`,
+          description: 'Every pod is replaced by a rolling restart. Pods without a readiness probe may drop traffic while they start.',
+          confirmLabel: 'Restart',
+          run: async () => {
+            await k8sPatch(resourcePath, {
+              spec: { template: { metadata: { annotations: { 'kubectl.kubernetes.io/restartedAt': new Date().toISOString() } } } },
+            }, undefined, clusterId);
+            addToast({ type: 'success', title: `Rollout restart triggered for "${resourceName}"` });
+          },
+        });
+        setInlineActionLoading(null);
+        return;
       } else if (action === 'scale') {
         const delta = p?.delta ?? 0;
         const currentReplicas = (resource.spec as { replicas?: number })?.replicas ?? 0;
         const newReplicas = Math.max(0, currentReplicas + delta);
-        await k8sPatch(resourcePath, scalePatch(resource, newReplicas), undefined, clusterId);
-        addToast({ type: 'success', title: `Scaled "${resourceName}" to ${newReplicas} replicas` });
-      } else if (action === 'scale-to') {
-        const replicas = ((p as { replicas?: number } | undefined)?.replicas) ?? 0;
-        await k8sPatch(resourcePath, scalePatch(resource, replicas), undefined, clusterId);
-        addToast({ type: 'success', title: `Scaled "${resourceName}" to ${replicas} replicas` });
+        const apply = async () => {
+          await k8sPatch(resourcePath, scalePatch(resource, newReplicas), undefined, clusterId);
+          addToast({ type: 'success', title: `Scaled "${resourceName}" to ${newReplicas} replicas` });
+        };
+        if (newReplicas === 0 && currentReplicas > 0) {
+          // Scaling to zero stops the workload entirely; ask first.
+          setPendingConfirm({
+            title: `Scale "${resourceName}" to 0?`,
+            description: `All ${currentReplicas} replica${currentReplicas === 1 ? '' : 's'} will be stopped and the workload will serve nothing until it is scaled up again.`,
+            confirmLabel: 'Scale to 0',
+            run: apply,
+          });
+          setInlineActionLoading(null);
+          return;
+        }
+        await apply();
       } else if (action === 'cordon') {
-        await k8sPatch(resourcePath, { spec: { unschedulable: true } }, undefined, clusterId);
+        await setNodeSchedulable(resourceName, false, clusterId);
         addToast({ type: 'success', title: `Node "${resourceName}" cordoned` });
       } else if (action === 'uncordon') {
-        await k8sPatch(resourcePath, { spec: { unschedulable: false } }, undefined, clusterId);
+        await setNodeSchedulable(resourceName, true, clusterId);
         addToast({ type: 'success', title: `Node "${resourceName}" uncordoned` });
       } else if (action === 'drain') {
-        await k8sPatch(resourcePath, { spec: { unschedulable: true } }, undefined, clusterId);
-        addToast({ type: 'warning', title: `Drain started for "${resourceName}"`, detail: 'Node cordoned. Pod eviction requires manual intervention.' });
+        // The drain dialog confirms, cordons, evicts and reports.
+        setPendingDrain(resourceName);
+        setInlineActionLoading(null);
+        return;
       } else if (action === 'delete-single') {
         setPendingDelete({ resource, path: resourcePath });
         setInlineActionLoading(null);
@@ -117,6 +158,20 @@ export function useTableActions({
       setInlineActionLoading(null);
     }
   }, [inlineActionLoading, apiPath, queryClient, addToast, clusterId]);
+
+  const executeConfirm = useCallback(async () => {
+    if (!pendingConfirm) return;
+    setConfirming(true);
+    try {
+      await pendingConfirm.run();
+      setPendingConfirm(null);
+      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
+    } catch (err) {
+      showErrorToast(err, `${pendingConfirm.confirmLabel} failed`);
+    } finally {
+      setConfirming(false);
+    }
+  }, [pendingConfirm, queryClient, apiPath]);
 
   const handleExport = useCallback((format: 'csv' | 'json') => {
     const data = sortedResources.map((r) => {
@@ -166,9 +221,10 @@ export function useTableActions({
       });
       const kind = pendingDelete.resource.kind || '';
       const name = pendingDelete.resource.metadata?.name || '';
-      const ns = pendingDelete.resource.metadata?.namespace || 'default';
+      const ns = pendingDelete.resource.metadata?.namespace || '';
+      const podSelector = (pendingDelete.resource.spec as { selector?: { matchLabels?: Record<string, string> } } | undefined)?.selector?.matchLabels;
       setPendingDelete(null);
-      setDeleteProgress([{ name, ns, kind, status: 'done' }]);
+      setDeleteProgress([{ name, ns, kind, path: pendingDelete.path, podSelector, status: 'done' }]);
       queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
     } catch (err) {
       showErrorToast(err, 'Delete failed');
@@ -206,10 +262,10 @@ export function useTableActions({
       if (!resource) continue;
       const kind = resource.kind || '';
       const path = buildApiPathFromResource(resource);
-      items.push({ name: resource.metadata.name, ns: resource.metadata.namespace || 'default', kind, uid, path });
+      items.push({ name: resource.metadata.name, ns: resource.metadata.namespace || '', kind, uid, path });
     }
 
-    setDeleteProgress(items.map(i => ({ name: i.name, ns: i.ns, kind: i.kind, status: 'deleting' as const })));
+    setDeleteProgress(items.map(i => ({ name: i.name, ns: i.ns, kind: i.kind, path: i.path, status: 'deleting' as const })));
 
     const results = await Promise.allSettled(
       items.map((item) => k8sDelete(item.path, clusterId, { uid: item.uid }))
@@ -244,6 +300,12 @@ export function useTableActions({
     setPendingRestart,
     executeRestart,
     restarting,
+    pendingDrain,
+    setPendingDrain,
+    pendingConfirm,
+    setPendingConfirm,
+    executeConfirm,
+    confirming,
     singleDeleting,
     deleteProgress,
     setDeleteProgress,
