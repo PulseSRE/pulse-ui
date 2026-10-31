@@ -34,6 +34,14 @@ export interface UseIncidentFeedOptions {
 export interface UseIncidentFeedResult {
   incidents: IncidentItem[];
   isLoading: boolean;
+  /**
+   * The Prometheus alert fetch failed.
+   *
+   * Exposed because "no alerts" and "could not ask about alerts" look
+   * identical in `counts` and must not: a caller that renders an all-clear
+   * state needs to suppress it when alerting is simply unreachable.
+   */
+  isError: boolean;
   counts: { critical: number; warning: number; info: number; total: number };
 }
 
@@ -73,7 +81,7 @@ export function useIncidentFeed(
   const findings = useMonitorStore((s) => s.findings);
   const errors = useErrorStore((s) => s.errors);
 
-  const { data: alertGroups = [], isLoading: alertsLoading } = useQuery<
+  const { data: alertGroups = [], isLoading: alertsLoading, isError: alertsError } = useQuery<
     PrometheusAlertGroup[]
   >({
     queryKey: ['incidentFeed', 'alerts'],
@@ -176,6 +184,7 @@ export function useIncidentFeed(
   return {
     incidents: result.incidents,
     isLoading,
+    isError: alertsError,
     counts: result.counts,
   };
 }
