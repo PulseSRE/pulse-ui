@@ -11,6 +11,8 @@ import { ResourceDiffPanel } from './ResourceDiffPanel';
 interface DriftTabProps {
   applications: ArgoApplication[];
   onSync: (name: string, namespace: string) => void;
+  /** Hard refresh: re-read Git and recompute status, apply nothing. */
+  onRefresh: (name: string, namespace: string) => void;
   syncing: string | null;
   go: (path: string, title: string) => void;
 }
@@ -21,7 +23,7 @@ const SYNC_COLORS: Record<ArgoSyncStatus, string> = {
   Unknown: 'text-slate-400',
 };
 
-export function DriftTab({ applications, onSync, syncing, go }: DriftTabProps) {
+export function DriftTab({ applications, onSync, onRefresh, syncing, go }: DriftTabProps) {
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [expandedDiffs, setExpandedDiffs] = React.useState<Set<string>>(new Set());
 
@@ -79,6 +81,17 @@ export function DriftTab({ applications, onSync, syncing, go }: DriftTabProps) {
                 <span className="text-xs text-slate-500">{outOfSyncResources.length} out of sync</span>
               </div>
               <div className="flex items-center gap-2">
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => { e.stopPropagation(); onRefresh(app.metadata.name, app.metadata.namespace || ''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onRefresh(app.metadata.name, app.metadata.namespace || ''); } }}
+                  className="px-2.5 py-1 text-xs text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-sm transition-colors"
+                  title="Refresh: re-read Git and recompute status (applies nothing)"
+                  aria-label={`Refresh ${app.metadata.name}`}
+                >
+                  Refresh
+                </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

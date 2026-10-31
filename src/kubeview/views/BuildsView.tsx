@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
+import { useCanI } from '../hooks/useCanI';
+import { useFleetStore } from '../store/fleetStore';
 import { k8sCreate, k8sPatch } from '../engine/query';
 import { Panel } from '../components/primitives/Panel';
 import { formatDuration, timeAgo } from '../engine/dateUtils';
@@ -41,6 +43,8 @@ export default function BuildsView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const addToast = useUIStore((s) => s.addToast);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
+  const clusterId = useFleetStore((s) => s.activeClusterId);
+  const { allowed: canStartBuild } = useCanI('create', 'build.openshift.io', 'buildconfigs/instantiate', nsFilter);
 
   const { data: builds = [] } = useK8sListWatch({ apiPath: '/apis/build.openshift.io/v1/builds', namespace: nsFilter });
   const { data: buildConfigs = [] } = useK8sListWatch({ apiPath: '/apis/build.openshift.io/v1/buildconfigs', namespace: nsFilter });
@@ -51,6 +55,8 @@ export default function BuildsView() {
       await k8sPatch(
         `/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${name}`,
         { status: { cancelled: true } },
+        undefined,
+        clusterId,
       );
       addToast({ type: 'success', title: `Build ${name} cancelled` });
     } catch (e) {
@@ -169,7 +175,7 @@ export default function BuildsView() {
         apiVersion: 'build.openshift.io/v1',
         kind: 'BuildRequest',
         metadata: { name },
-      });
+      }, clusterId);
       addToast({ type: 'success', title: `Build triggered for ${name}` });
     } catch (err) {
       showErrorToast(err, 'Build trigger failed');
@@ -336,11 +342,15 @@ export default function BuildsView() {
                         </span>
                         <span className="text-slate-500">{lastBuildTime}</span>
                       </div>
-                      <button onClick={() => handleTriggerBuild(bc)}
-                        className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100"
-                        title="Start build">
-                        <Play className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Always visible: it was opacity-0 until hover, unreachable by keyboard or touch. */}
+                      {canStartBuild && (
+                        <button onClick={() => handleTriggerBuild(bc)}
+                          className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                          title="Start build"
+                          aria-label={`Start build of ${bc.metadata?.name}`}>
+                          <Play className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

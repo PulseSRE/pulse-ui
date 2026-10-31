@@ -238,6 +238,8 @@ export async function k8sLogs(
     tailLines?: number;
     timestamps?: boolean;
     sinceSeconds?: number;
+    /** Logs of the previous (terminated) instance of the container. */
+    previous?: boolean;
   },
   clusterId?: string
 ): Promise<string> {
@@ -255,6 +257,9 @@ export async function k8sLogs(
   }
   if (options?.sinceSeconds) {
     params.set('sinceSeconds', options.sinceSeconds.toString());
+  }
+  if (options?.previous) {
+    params.set('previous', 'true');
   }
 
   const queryString = params.toString();

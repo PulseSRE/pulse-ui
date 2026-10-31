@@ -5,6 +5,8 @@ import { useArgoCD, useArgoCDRefresh } from '../hooks/useArgoCD';
 import { useArgoCDStore } from '../store/argoCDStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { k8sPatch } from '../engine/query';
+import { useFleetStore } from '../store/fleetStore';
+import type { ArgoApplication } from '../engine/types';
 import { useUIStore } from '../store/uiStore';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { Card } from '../components/primitives/Card';
@@ -57,33 +59,60 @@ export default function ArgoCDView() {
   };
   const [syncing, setSyncing] = React.useState<string | null>(null);
   const [confirmSync, setConfirmSync] = React.useState<{name: string, ns: string} | null>(null);
+  const [prune, setPrune] = React.useState(false);
+  const clusterId = useFleetStore((s) => s.activeClusterId);
 
   const outOfSyncCount = (applications || []).filter(a => a.status?.sync?.status === 'OutOfSync').length;
   const degradedCount = (applications || []).filter(a => a.status?.health?.status === 'Degraded').length;
 
+  const appPath = (name: string, ns: string) => `/apis/argoproj.io/v1alpha1/namespaces/${ns}/applications/${name}`;
+
   const handleSync = (appName: string, appNs: string) => {
+    setPrune(false);
     setConfirmSync({ name: appName, ns: appNs });
   };
 
+  // "Sync" used to set the hard-refresh annotation, which only re-reads Git
+  // and recomputes status; nothing was applied. A sync is an `operation` on
+  // the Application, which the Argo CD controller picks up and runs.
   const executeSync = async () => {
     if (!confirmSync) return;
     const { name: appName, ns: appNs } = confirmSync;
+    const app = (applications || []).find((a) => a.metadata.name === appName && (a.metadata.namespace || '') === appNs);
     setConfirmSync(null);
+    if (app?.status?.operationState?.phase === 'Running' || app?.operation) {
+      addToast({ type: 'warning', title: `${appName} is already syncing`, detail: 'Wait for the running operation to finish before starting another.' });
+      return;
+    }
+    const sources = app?.spec?.sources;
+    const sync: NonNullable<ArgoApplication['operation']>['sync'] = sources && sources.length > 0
+      ? { revisions: sources.map((src) => src.targetRevision || 'HEAD') }
+      : { revision: app?.spec?.source?.targetRevision || 'HEAD' };
+    if (prune) sync.prune = true;
     setSyncing(appName);
     try {
-      await k8sPatch(`/apis/argoproj.io/v1alpha1/namespaces/${appNs}/applications/${appName}`, {
-        metadata: {
-          annotations: {
-            'argocd.argoproj.io/refresh': 'hard',
-          },
-        },
-      });
-      addToast({ type: 'success', title: 'Sync triggered', detail: `Application ${appName} is syncing` });
+      await k8sPatch(appPath(appName, appNs), {
+        operation: { initiatedBy: { username: 'pulse-ui' }, sync },
+      }, 'application/merge-patch+json', clusterId);
+      addToast({ type: 'success', title: `Sync started for ${appName}`, detail: `Argo CD is applying ${sync.revision ?? sync.revisions?.join(', ')}${prune ? ' with prune' : ''}.` });
       setTimeout(() => refresh(), 3000);
     } catch (err) {
       showErrorToast(err, 'Sync failed');
     } finally {
       setSyncing(null);
+    }
+  };
+
+  // Refresh re-reads Git and recomputes sync status; it applies nothing.
+  const handleRefreshApp = async (appName: string, appNs: string) => {
+    try {
+      await k8sPatch(appPath(appName, appNs), {
+        metadata: { annotations: { 'argocd.argoproj.io/refresh': 'hard' } },
+      }, 'application/merge-patch+json', clusterId);
+      addToast({ type: 'success', title: `Refresh requested for ${appName}`, detail: 'Argo CD will re-read Git and recompute sync status. Nothing is applied.' });
+      setTimeout(() => refresh(), 3000);
+    } catch (err) {
+      showErrorToast(err, 'Refresh failed');
     }
   };
 
@@ -212,6 +241,7 @@ export default function ArgoCDView() {
                   applications={applications || []}
                   syncing={syncing}
                   onSync={handleSync}
+                  onRefresh={handleRefreshApp}
                   go={go}
                 />
               </TabsContent>
@@ -219,7 +249,7 @@ export default function ArgoCDView() {
                 <SyncHistoryTab applications={applications || []} go={go} />
               </TabsContent>
               <TabsContent value="drift">
-                <DriftTab applications={applications || []} onSync={handleSync} syncing={syncing} go={go} />
+                <DriftTab applications={applications || []} onSync={handleSync} onRefresh={handleRefreshApp} syncing={syncing} go={go} />
               </TabsContent>
               <TabsContent value="projects">
                 <ProjectsTab />
@@ -244,13 +274,18 @@ export default function ArgoCDView() {
 
       <ConfirmDialog
         open={!!confirmSync}
-        title="Confirm Sync"
-        description={`Trigger sync for ${confirmSync?.name}?`}
+        title={`Sync ${confirmSync?.name ?? ''}?`}
+        description="Argo CD will apply the application's target revision from Git to the cluster."
         confirmLabel="Sync"
         variant="warning"
         onConfirm={executeSync}
         onClose={() => setConfirmSync(null)}
-      />
+      >
+        <label className="mt-3 flex items-center gap-2 text-xs text-slate-300">
+          <input type="checkbox" checked={prune} onChange={(e) => setPrune(e.target.checked)} />
+          Prune resources that are no longer in Git
+        </label>
+      </ConfirmDialog>
       <GitOpsSetupWizard />
     </div>
   );

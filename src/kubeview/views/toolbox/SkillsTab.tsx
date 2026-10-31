@@ -26,6 +26,7 @@ export function SkillsTab() {
   const queryClient = useQueryClient();
   const [testQuery, setTestQuery] = useState('');
   const [testResult, setTestResult] = useState<{ skill: string; description: string; degraded: boolean } | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
   // A failed read returned [], which rendered as a toolbox with no skills.
@@ -55,6 +56,7 @@ export function SkillsTab() {
 
   const testRouting = async () => {
     if (!testQuery.trim()) return;
+    setTestError(null);
     try {
       const res = await agentFetch('/api/agent/admin/skills/test', {
         method: 'POST',
@@ -66,10 +68,13 @@ export function SkillsTab() {
         setTestResult({ skill: data.skill, description: data.description, degraded: data.degraded });
       } else {
         setTestResult(null);
+        const body = await res.json().catch(() => null) as { detail?: string; message?: string } | null;
+        setTestError(`Routing test failed (${res.status}${body?.detail || body?.message ? `: ${body.detail || body.message}` : ''})`);
       }
     } catch (e) {
-      console.error('skill routing test failed:', e);
+      // Used to go only to the console; the user saw nothing happen.
       setTestResult(null);
+      setTestError(`Routing test failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -201,6 +206,9 @@ export function SkillsTab() {
           />
           <button onClick={testRouting} className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">Test</button>
         </div>
+        {testError && (
+          <p role="alert" className="mt-2 text-xs text-red-400">{testError}</p>
+        )}
         {testResult && (
           <div className="flex items-center gap-2 mt-2 text-xs">
             <ArrowRight className="w-3 h-3 text-blue-400" />

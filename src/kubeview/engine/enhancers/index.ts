@@ -12,6 +12,8 @@ export interface InlineAction {
   id: string;
   label: string;
   icon: string;
+  /** The RBAC verb on this resource the action needs; the row hides it without it. */
+  requires?: 'update' | 'delete';
   render: (resource: K8sResource, onAction: (action: string, payload?: unknown) => void) => ReactNode;
 }
 

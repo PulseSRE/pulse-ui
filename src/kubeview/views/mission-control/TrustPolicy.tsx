@@ -70,10 +70,9 @@ function resolveCategories(serverCategories?: string[]): AutofixCategory[] {
 }
 
 export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, fixSummary: _fixSummary, supportedAutoFixCategories, autofixPaused, onPauseChanged }: TrustPolicyProps) {
-  const { trustLevel, setTrustLevel, autoFixCategories, setAutoFixCategories, communicationStyle, setCommunicationStyle } =
+  const { trustLevel, setTrustLevel, communicationStyle, setCommunicationStyle } =
     useTrustStore(useShallow((s) => ({
       trustLevel: s.trustLevel, setTrustLevel: s.setTrustLevel,
-      autoFixCategories: s.autoFixCategories, setAutoFixCategories: s.setAutoFixCategories,
       communicationStyle: s.communicationStyle, setCommunicationStyle: s.setCommunicationStyle,
     })));
 
@@ -113,7 +112,7 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
   // for — except while hovering another level, where the point is to preview it.
   const describedLevel =
     hoveredLevel ?? ((effectiveTrustLevel ?? trustLevel) as TrustLevel);
-  const policySummary = buildPolicySummary(describedLevel, scannerCount, supportedAutoFixCategories ?? [], communicationStyle);
+  const policySummary = buildPolicySummary(describedLevel, scannerCount, supportedAutoFixCategories, communicationStyle);
   const runningElsewhere =
     effectiveTrustLevel !== undefined && effectiveTrustLevel !== trustLevel ? effectiveTrustLevel : null;
   const impactPreview = hoveredLevel !== null && hoveredLevel !== trustLevel
@@ -199,54 +198,29 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
           </div>
         )}
 
-        <p className="text-xs text-slate-400">
-          The monitor uses all server-supported remediation categories: {supportedAutoFixCategories?.join(', ') || 'not reported'}.
-          Actual execution also depends on the server trust, pause state and safety limits.
-        </p>
-        {/* Auto-fix Categories */}
-        <div className={cn('space-y-2', trustLevel < 2 && 'opacity-40')}>
-          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Requested category preferences</h3>
+        {/* Auto-fix categories: what the server reports, read-only. The
+            per-category toggles that used to be here were browser preferences
+            the monitor did not apply, so they promised a control that did
+            not exist. */}
+        <div className="space-y-2" data-testid="autofix-categories">
+          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Auto-fix categories (server policy)</h3>
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            These browser preferences are not a server allowlist. The running monitor uses its configured policy and supported handlers; it may act outside this selection. Categories are sent when connecting and are not applied as a live policy change.
+            The monitor can remediate these categories. Whether it does also depends on the server trust level, the pause state above and its safety limits. They are configured on the server, not here.
           </p>
-          {autofixCategories_.length === 0 && (
-            <p className="text-xs text-slate-500" role="status">
-              Supported auto-fix categories: not reported by the agent.
-            </p>
+          {supportedAutoFixCategories === undefined ? (
+            <p className="text-xs text-slate-500">Not reported by the agent.</p>
+          ) : autofixCategories_.length === 0 || supportedAutoFixCategories.length === 0 ? (
+            <p className="text-xs text-slate-500">The agent reports no auto-fix categories.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {autofixCategories_.map((cat) => (
+                <li key={cat.id} className="rounded-md px-3 py-2 text-xs border border-slate-700/50 text-slate-300">
+                  <div className="font-medium">{cat.label}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">{cat.description}</div>
+                </li>
+              ))}
+            </ul>
           )}
-          <div className="space-y-1.5">
-            {autofixCategories_.map((cat) => {
-              const enabled = autoFixCategories.includes(cat.id);
-              const disabled = trustLevel < 2;
-              return (
-                <button
-                  key={cat.id}
-                  disabled={disabled}
-                  onClick={() => {
-                    if (disabled) return;
-                    setAutoFixCategories(
-                      enabled
-                        ? autoFixCategories.filter((c) => c !== cat.id)
-                        : [...autoFixCategories, cat.id],
-                    );
-                  }}
-                  className={cn(
-                    'flex items-start gap-3 w-full rounded-md px-3 py-2 text-left text-xs border transition-colors',
-                    enabled && !disabled
-                      ? 'bg-violet-500/10 border-violet-500/40 text-violet-300'
-                      : 'border-slate-700/50 text-slate-500',
-                    !disabled && 'hover:border-slate-500 cursor-pointer',
-                  )}
-                >
-                  <div className={cn('mt-0.5 w-3 h-3 rounded-sm border shrink-0', enabled && !disabled ? 'bg-violet-500 border-violet-400' : 'border-slate-600')} />
-                  <div>
-                    <div className="font-medium">{cat.label}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">{cat.description}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Communication Style */}
@@ -294,8 +268,9 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
   );
 }
 
-function buildPolicySummary(level: TrustLevel, scannerCount: number | null, categories: string[], style: CommunicationStyle): string {
-  const catNames = categories.length > 0 ? categories.join(', ').replace(/_/g, ' ') : 'not reported';
+function buildPolicySummary(level: TrustLevel, scannerCount: number | null, categories: string[] | undefined, style: CommunicationStyle): string {
+  // undefined: the agent did not say; []: it said there are none.
+  const catNames = categories === undefined ? 'not reported' : categories.length > 0 ? categories.join(', ').replace(/_/g, ' ') : 'none';
   const scanners = scannerCount ?? 'its';
 
   switch (level) {

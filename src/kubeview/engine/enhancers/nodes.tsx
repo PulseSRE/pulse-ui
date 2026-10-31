@@ -221,6 +221,7 @@ export const nodeEnhancer: ResourceEnhancer = {
       id: 'cordon-toggle',
       label: 'Cordon/Uncordon',
       icon: 'shield',
+      requires: 'update',
       render: (resource, onAction) => {
         const spec = resource.spec as Record<string, unknown> | undefined;
         const unschedulable = Boolean(spec?.unschedulable);
@@ -234,6 +235,7 @@ export const nodeEnhancer: ResourceEnhancer = {
                 : 'text-slate-500 hover:bg-slate-700 hover:text-slate-300'
             }`}
             title={unschedulable ? 'Uncordon (allow scheduling)' : 'Cordon (prevent scheduling)'}
+            aria-label={unschedulable ? 'Uncordon node' : 'Cordon node'}
           >
             {unschedulable ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
           </button>
@@ -244,16 +246,15 @@ export const nodeEnhancer: ResourceEnhancer = {
       id: 'drain',
       label: 'Drain',
       icon: 'download',
+      requires: 'update',
       render: (resource, onAction) => {
-        const spec = resource.spec as Record<string, unknown> | undefined;
-        const unschedulable = Boolean(spec?.unschedulable);
-
+        // Drain cordons the node itself, then evicts its pods.
         return (
           <button
             onClick={() => onAction('drain', { resource })}
-            disabled={!unschedulable}
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={unschedulable ? 'Drain node' : 'Cordon first to drain'}
+            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
+            title="Drain node (cordon, then evict pods)"
+            aria-label="Drain node"
           >
             <ArrowDownToLine className="w-3.5 h-3.5" />
           </button>

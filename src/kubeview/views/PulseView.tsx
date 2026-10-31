@@ -322,12 +322,27 @@ export default function PulseView() {
             >
               {scanning ? <><Activity className="w-3 h-3 animate-spin" />Scanning...</> : 'Scan Now'}
             </button>
-            <button
-              onClick={() => setMonitorEnabled(!monitorEnabled)}
-              className={cn('px-2.5 py-1 rounded-sm text-xs', monitorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500')}
+            {/* This only connects or disconnects this browser's monitor stream.
+                It used to say "Monitoring On/Off", but the server keeps scanning
+                (and auto-fixing) either way; the server-side pause lives in
+                Mission Control → Trust policy. */}
+            <Tooltip
+              content={
+                <div className="w-60 text-xs">
+                  {monitorEnabled
+                    ? "Pause live updates in this browser. The server keeps scanning and auto-fixing; to pause the monitor itself use Mission Control \u2192 Trust policy."
+                    : "Resume live updates in this browser. The server kept scanning while they were paused."}
+                </div>
+              }
             >
-              {monitorEnabled ? 'Monitoring On' : 'Monitoring Off'}
-            </button>
+              <button
+                onClick={() => setMonitorEnabled(!monitorEnabled)}
+                aria-pressed={monitorEnabled}
+                className={cn('px-2.5 py-1 rounded-sm text-xs', monitorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500')}
+              >
+                {monitorEnabled ? 'Live updates: on' : 'Live updates: paused'}
+              </button>
+            </Tooltip>
           </div>
         </div>
 

@@ -216,8 +216,8 @@ describe('ComponentsTab', () => {
 
 describe('TrustPolicy', () => {
   it('says supported categories are "not reported" instead of showing a hard-coded list', () => {
-    withClient(<TrustPolicy maxTrustLevel={3} effectiveTrustLevel={3} scannerCount={5} fixSummary={null} supportedAutoFixCategories={[]} />);
-    expect(screen.getByText(/Supported auto-fix categories: not reported/)).toBeTruthy();
+    withClient(<TrustPolicy maxTrustLevel={3} effectiveTrustLevel={3} scannerCount={5} fixSummary={null} />);
+    expect(screen.getByText('Not reported by the agent.')).toBeTruthy();
     expect(document.body.textContent).toMatch(/supported handlers \(not reported\)/);
     expect(document.body.textContent).not.toMatch(/\(none\)/);
     expect(screen.queryByText('Crashlooping pods')).toBeNull();

@@ -62,4 +62,12 @@ describe('pod restart', () => {
     await act(() => result.current.handleAction('scale', { resource: dep, delta: 1 }));
     expect(k8sPatch.mock.calls[0][1]).toEqual({ metadata: { resourceVersion: '42' }, spec: { replicas: 3 } });
   });
+
+  it('drain records the node and the cluster it was opened on, and writes nothing yet', async () => {
+    const node = { apiVersion: 'v1', kind: 'Node', metadata: { name: 'worker-1', uid: 'n1' } } as K8sResource;
+    const { result } = setup();
+    await act(() => result.current.handleAction('drain', { resource: node }));
+    expect(result.current.pendingDrain).toEqual({ node: 'worker-1', clusterId: 'local' });
+    expect(k8sPatch).not.toHaveBeenCalled();
+  });
 });

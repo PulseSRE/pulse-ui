@@ -1,18 +1,18 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Package, FileText,
-  AlertCircle, Box, Loader2, Upload, Puzzle, Ship, ShieldCheck,
+  AlertCircle, Box, Loader2, Upload, Puzzle, Ship, ShieldCheck, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
-import { buildApiPath } from '../hooks/useResourceUrl';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
 import { resolveSnippet, getSnippetSuggestions, type Snippet } from '../components/yaml/SnippetEngine';
 import { k8sFetch } from '../engine/query';
+import { parseManifest, describeManifest, type ManifestDocument } from '../engine/manifest';
 import { useFleetStore } from '../store/fleetStore';
 import { showErrorToast } from '../engine/errorToast';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
@@ -68,6 +68,13 @@ interface CreateViewProps {
 }
 
 type CreateTab = 'installed' | 'operators' | 'deploy' | 'helm' | 'templates' | 'yaml';
+const CREATE_TABS: CreateTab[] = ['installed', 'operators', 'deploy', 'helm', 'templates', 'yaml'];
+
+interface CreateResult {
+  label: string;
+  ok: boolean;
+  message?: string;
+}
 
 import { lazy, Suspense } from 'react';
 const OperatorCatalogView = lazy(() => import('./OperatorCatalogView'));
@@ -86,13 +93,19 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   // The cluster this screen shows; creates go there, not to whichever is local.
   const clusterId = useFleetStore((s) => s.activeClusterId);
 
-  const urlTab = new URLSearchParams(window.location.search).get('tab') as CreateTab;
-  const [activeTab, setActiveTabState] = useState<CreateTab>(urlTab || 'installed');
+  // The tab is read from the URL on every render: links within the page
+  // (e.g. Installed → "Browse operators", `?tab=operators&q=…`) used to change
+  // the URL without switching tabs, because the tab was only read at mount.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab') as CreateTab | null;
+  const activeTab: CreateTab = urlTab && CREATE_TABS.includes(urlTab) ? urlTab : 'installed';
   const setActiveTab = (tab: CreateTab) => {
-    setActiveTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'installed') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tab === 'installed') next.delete('tab'); else next.set('tab', tab);
+      next.delete('q');
+      return next;
+    }, { replace: true });
   };
   const [editMode, setEditMode] = useState(false);
   const [activeGvr, setActiveGvr] = useState(gvrKey);
@@ -100,6 +113,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDryRun, setShowDryRun] = useState(false);
+  const [results, setResults] = useState<CreateResult[] | null>(null);
 
   const initialYamlRef = useRef('');
   const hasYamlChanges = editMode && yaml !== '' && yaml !== initialYamlRef.current;
@@ -108,7 +122,15 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   const gvrParts = activeGvr.split('/');
   const resourcePlural = gvrParts[gvrParts.length - 1];
   const resourceType = registry?.get(activeGvr) ?? (activeGvr.split('/').length === 2 ? registry?.get(`core/${activeGvr}`) : undefined);
-  const kind = resourceType?.kind || resourcePlural.replace(/s$/, '').replace(/^./, (c) => c.toUpperCase());
+  const fallbackKind = resourceType?.kind || resourcePlural.replace(/s$/, '').replace(/^./, (c) => c.toUpperCase());
+  const defaultNs = selectedNamespace !== '*' ? selectedNamespace : 'default';
+  // What the editor actually holds, parsed structurally: the header, create and
+  // validate all follow the documents, not the route the editor was opened from.
+  const manifest = useMemo(() => parseManifest(yaml, defaultNs), [yaml, defaultNs]);
+  const kind = manifest.documents.length > 0 ? describeManifest(manifest.documents) : fallbackKind;
+  const headerGroupVersion = manifest.documents.length === 1
+    ? manifest.documents[0].apiVersion
+    : manifest.documents.length > 1 ? '' : (gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]);
 
   // If we came with a specific GVR (not the default catalog) or ?tab=yaml, go straight to YAML editor
   useMemo(() => {
@@ -125,7 +147,6 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
         selectBlankYaml(gvrKey);
       }
       setEditMode(true);
-      setActiveTab('yaml');
     }
   }, []);
 
@@ -182,41 +203,56 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
 
   const handleCreate = useCallback(async () => {
     if (creating) return;
-    setCreating(true);
     setError(null);
-    try {
-      const nsMatch = yaml.match(/namespace:\s*(\S+)/);
-      const ns = nsMatch?.[1] || (resourceType?.namespaced ? (selectedNamespace !== '*' ? selectedNamespace : 'default') : undefined);
-      const apiPath = buildApiPath(activeGvr, ns);
-
-      const res = await k8sFetch(clusterId, apiPath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/yaml' },
-        body: yaml,
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ message: res.statusText }));
-        throw new Error(body.message || `${res.status}: ${res.statusText}`);
-      }
-
-      const created = await res.json();
-      const createdName = created.metadata?.name || 'resource';
-      const createdNs = created.metadata?.namespace;
-
-      addToast({ type: 'success', title: `${kind} "${createdName}" created` });
-
-      const gvrUrl = activeGvr.replace(/\//g, '~');
-      const detailPath = createdNs ? `/r/${gvrUrl}/${createdNs}/${createdName}` : `/r/${gvrUrl}/_/${createdName}`;
-      go(detailPath, createdName);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
-      showErrorToast(err, 'Failed to create resource');
-    } finally {
-      setCreating(false);
+    setResults(null);
+    const { documents, errors } = parseManifest(yaml, defaultNs);
+    if (errors.length > 0 || documents.length === 0) {
+      setError(errors.join('; ') || 'Nothing to create');
+      return;
     }
-  }, [yaml, activeGvr, kind, creating, selectedNamespace, resourceType, addToast, go, clusterId]);
+    setCreating(true);
+    const outcome: CreateResult[] = [];
+    const created: Array<{ doc: ManifestDocument; name: string; namespace?: string }> = [];
+    // Each document goes to its own collection, one at a time, and each result
+    // is reported; a failure does not hide what was already created.
+    for (const doc of documents) {
+      const label = `${doc.kind} ${doc.namespace ? `${doc.namespace}/` : ''}${doc.name}`;
+      try {
+        const res = await k8sFetch(clusterId, doc.createPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(doc.object),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({ message: res.statusText }));
+          throw new Error(body.message || `${res.status}: ${res.statusText}`);
+        }
+        const obj = await res.json().catch(() => ({}));
+        created.push({ doc, name: obj.metadata?.name || doc.name, namespace: obj.metadata?.namespace || doc.namespace });
+        outcome.push({ label, ok: true });
+      } catch (err) {
+        outcome.push({ label, ok: false, message: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    setCreating(false);
+
+    const failed = outcome.filter((r) => !r.ok);
+    if (documents.length === 1 && failed.length === 0) {
+      const { doc, name, namespace } = created[0];
+      addToast({ type: 'success', title: `${doc.kind} "${name}" created` });
+      go(namespace ? `/r/${doc.gvrUrl}/${namespace}/${name}` : `/r/${doc.gvrUrl}/_/${name}`, name);
+      return;
+    }
+    setResults(outcome);
+    if (failed.length === 0) {
+      addToast({ type: 'success', title: `Created ${outcome.length} resources` });
+      initialYamlRef.current = yaml;
+    } else {
+      const msg = `${failed.length} of ${outcome.length} failed`;
+      setError(documents.length === 1 ? failed[0].message ?? msg : msg);
+      addToast({ type: 'error', title: documents.length === 1 ? 'Failed to create resource' : `Created ${outcome.length - failed.length} of ${outcome.length} resources`, detail: failed[0].message });
+    }
+  }, [yaml, defaultNs, creating, addToast, go, clusterId]);
 
   // YAML edit mode — full screen editor
   if (editMode) {
@@ -226,7 +262,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
           <div className="flex items-center gap-3">
             <button onClick={() => { if (window.history.length > 1) window.history.back(); else setEditMode(false); }} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Back"><ArrowLeft size={16} /></button>
             <span className="text-sm font-medium text-slate-200">Create {kind}</span>
-            <span className="text-xs text-slate-500">{gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]}</span>
+            {headerGroupVersion && <span className="text-xs text-slate-500">{headerGroupVersion}</span>}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -248,15 +284,39 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
             <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 text-xs">Dismiss</button>
           </div>
         )}
+        {results && (
+          <div className="px-4 py-2 border-b border-slate-800 bg-slate-900 text-xs space-y-1" data-testid="create-results">
+            {results.map((r) => (
+              <div key={r.label} className="flex items-start gap-2">
+                {r.ok ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" /> : <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />}
+                <span className={r.ok ? 'text-slate-300' : 'text-red-300'}>{r.label}{r.ok ? ' created' : `: ${r.message}`}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex-1 overflow-hidden">
           <YamlEditor value={yaml} onChange={setYaml} onSave={handleCreate} height="100%" />
         </div>
-        {showDryRun && yaml.trim() && (() => {
-          const nsMatch = yaml.match(/namespace:\s*(\S+)/);
-          const ns = nsMatch?.[1] || (resourceType?.namespaced ? (selectedNamespace !== '*' ? selectedNamespace : 'default') : undefined);
-          const dryRunPath = buildApiPath(activeGvr, ns);
-          return <DryRunPanel yaml={yaml} apiPath={dryRunPath} method="POST" onClose={() => setShowDryRun(false)} />;
-        })()}
+        {showDryRun && yaml.trim() && (
+          manifest.errors.length > 0 ? (
+            <div className="border-t border-slate-700 bg-slate-900 px-4 py-3 text-xs text-red-300" role="alert">
+              {manifest.errors.join('; ')}
+            </div>
+          ) : (
+            <div className="max-h-[50vh] overflow-auto">
+              {manifest.documents.map((doc) => (
+                <DryRunPanel
+                  key={`${doc.index}-${doc.createPath}-${doc.name}`}
+                  title={manifest.documents.length > 1 ? `${doc.kind} ${doc.name}` : undefined}
+                  yaml={doc.yaml}
+                  apiPath={doc.createPath}
+                  method="POST"
+                  onClose={() => setShowDryRun(false)}
+                />
+              ))}
+            </div>
+          )
+        )}
         <ConfirmDialog
           open={showConfirm}
           onClose={cancelNavigation}
@@ -316,7 +376,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
         )}
         {activeTab === 'yaml' && (
           <ImportYamlTab
-            onImport={(text) => { setYaml(text); initialYamlRef.current = text; setActiveGvr('v1/pods'); setEditMode(true); }}
+            onImport={(text) => { setYaml(text); initialYamlRef.current = text; setResults(null); setError(null); setEditMode(true); }}
           />
         )}
       </div>
