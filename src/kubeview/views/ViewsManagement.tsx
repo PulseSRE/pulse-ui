@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, X, Download, Upload } from 'lucide-react';
+import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, Download, Upload } from 'lucide-react';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { EmptyState } from '../components/primitives/EmptyState';
@@ -12,6 +12,7 @@ import { formatRelativeTime } from '../engine/formatters';
 import type { ViewSpec } from '../engine/agentComponents';
 import { askPulse } from '../engine/askPulse';
 import { GRID_COLS, LEGACY_GRID_COLS, toCurrentGrid } from './grid';
+import { DrawerShell } from '../components/primitives/DrawerShell';
 
 const AGENT_BASE = '/api/agent';
 
@@ -335,19 +336,13 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
 
       {/* Version history panel */}
       {historyViewId && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setHistoryViewId(null)} />
-          <div className="fixed right-0 top-0 z-50 h-full w-80 border-l border-slate-700 bg-slate-900 shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-700 p-4">
-              <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                <History className="w-4 h-4 text-violet-400" />
-                Version History
-              </h3>
-              <button onClick={() => setHistoryViewId(null)} className="p-1 rounded-sm hover:bg-slate-800 text-slate-400">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto p-4 space-y-2">
+          <DrawerShell
+            title="Version History"
+            icon={<History className="w-4 h-4 text-violet-400" />}
+            onClose={() => setHistoryViewId(null)}
+            width="max-w-xs"
+            bodyClassName="p-4 space-y-2"
+          >
               {loadingVersions && (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
@@ -384,9 +379,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                 </div>
                 );
               })}
-            </div>
-          </div>
-        </>
+          </DrawerShell>
       )}
 
       {/* Delete confirmation */}

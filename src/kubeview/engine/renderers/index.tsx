@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+import { formatAge } from '../format';
 import { Link } from 'react-router-dom';
 import { resolveKind } from '../kindRegistry';
 import { resourceDetailUrl } from '../gvr';
@@ -91,14 +92,7 @@ export function pluralToKind(plural: string): string {
 
 // Helper to compute age from timestamp
 function ageFromTimestamp(ts: string | undefined): string {
-  if (!ts) return '-';
-  const diff = Date.now() - new Date(ts).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days > 0) return `${days}d`;
-  const hours = Math.floor(diff / 3600000);
-  if (hours > 0) return `${hours}h`;
-  const mins = Math.floor(diff / 60000);
-  return `${mins}m`;
+  return formatAge(ts, '-');
 }
 
 // Built-in renderers

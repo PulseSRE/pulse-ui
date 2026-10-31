@@ -6,8 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getClusterBase } from '../engine/clusterConnection';
-import { getImpersonationHeaders } from '../engine/query';
+import { k8sFetch } from '../engine/query';
 import { useFleetStore } from '../store/fleetStore';
 
 interface AccessReviewSpec {
@@ -35,9 +34,12 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
       },
     };
 
-    const res = await fetch(`${getClusterBase(clusterId)}/apis/authorization.k8s.io/v1/selfsubjectaccessreviews`, {
+    // Through k8sFetch, like every other request: the review must ask the
+    // cluster being acted on, as the user being impersonated, or the answer
+    // describes someone else's permissions.
+    const res = await k8sFetch(clusterId, '/apis/authorization.k8s.io/v1/selfsubjectaccessreviews', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getImpersonationHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 

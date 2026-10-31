@@ -17,6 +17,7 @@ import { useFleetStore } from '../store/fleetStore';
 import { showErrorToast } from '../engine/errorToast';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { InstalledTab } from './create/InstalledTab';
 import { QuickDeployTab } from './create/QuickDeployTab';
 import { HelmTab } from './create/HelmTab';
@@ -93,20 +94,8 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   // The cluster this screen shows; creates go there, not to whichever is local.
   const clusterId = useFleetStore((s) => s.activeClusterId);
 
-  // The tab is read from the URL on every render: links within the page
-  // (e.g. Installed → "Browse operators", `?tab=operators&q=…`) used to change
-  // the URL without switching tabs, because the tab was only read at mount.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const urlTab = searchParams.get('tab') as CreateTab | null;
-  const activeTab: CreateTab = urlTab && CREATE_TABS.includes(urlTab) ? urlTab : 'installed';
-  const setActiveTab = (tab: CreateTab) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (tab === 'installed') next.delete('tab'); else next.set('tab', tab);
-      next.delete('q');
-      return next;
-    }, { replace: true });
-  };
+  const [searchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab');
   const [editMode, setEditMode] = useState(false);
   const [activeGvr, setActiveGvr] = useState(gvrKey);
   const [yaml, setYaml] = useState('');
@@ -351,34 +340,36 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
           <p className="text-sm text-slate-400 mt-1">Manage installed software, deploy applications, install operators, and create resources</p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-slate-900 rounded-lg p-1" role="tablist" aria-label="Software tabs">
-          {tabs.map((t) => (
-            <button key={t.id} role="tab" aria-selected={activeTab === t.id} onClick={() => setActiveTab(t.id)} className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
-              {t.icon}{t.label}
-            </button>
-          ))}
-        </div>
+        {/* Tabs — the tab lives in ?tab= and is read on every render, so links
+            within the page (Installed → "Browse operators", `?tab=operators&q=…`)
+            switch tabs. Changing tab drops the catalog's `q`. */}
+        <Tabs defaultValue="installed" urlSync={{ values: CREATE_TABS, clear: ['q'] }} className="space-y-6">
+          <TabsList aria-label="Software tabs" className="flex">
+            {tabs.map((t) => (
+              <TabsTrigger key={t.id} value={t.id} className="font-normal">{t.icon}{t.label}</TabsTrigger>
+            ))}
+          </TabsList>
 
-        {activeTab === 'installed' && <InstalledTab />}
-        {activeTab === 'operators' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-blue-400 animate-spin" /></div>}>
-            <OperatorCatalogView />
-          </Suspense>
-        )}
-        {activeTab === 'deploy' && <QuickDeployTab />}
-        {activeTab === 'helm' && <HelmTab />}
-        {activeTab === 'templates' && (
-          <TemplatesTab
-            onSelectTemplate={selectTemplate}
-            onSelectBlank={selectBlankYaml}
-          />
-        )}
-        {activeTab === 'yaml' && (
-          <ImportYamlTab
-            onImport={(text) => { setYaml(text); initialYamlRef.current = text; setResults(null); setError(null); setEditMode(true); }}
-          />
-        )}
+          <TabsContent value="installed"><InstalledTab /></TabsContent>
+          <TabsContent value="operators">
+            <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-blue-400 animate-spin" /></div>}>
+              <OperatorCatalogView />
+            </Suspense>
+          </TabsContent>
+          <TabsContent value="deploy"><QuickDeployTab /></TabsContent>
+          <TabsContent value="helm"><HelmTab /></TabsContent>
+          <TabsContent value="templates">
+            <TemplatesTab
+              onSelectTemplate={selectTemplate}
+              onSelectBlank={selectBlankYaml}
+            />
+          </TabsContent>
+          <TabsContent value="yaml">
+            <ImportYamlTab
+              onImport={(text) => { setYaml(text); initialYamlRef.current = text; setResults(null); setError(null); setEditMode(true); }}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

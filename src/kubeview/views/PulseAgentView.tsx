@@ -1,10 +1,9 @@
-import { useState, useRef, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { lazy, Suspense } from 'react';
 import {
   Bot, List, BarChart3, History, Brain,
   Puzzle, Layers, Cable, Target, Workflow,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { OverviewTab } from './pulse-agent/OverviewTab';
 import { CatalogTab } from './toolbox/CatalogTab';
 import { SkillsTab } from './toolbox/SkillsTab';
@@ -19,51 +18,44 @@ const MemoryView = lazy(() => import('./MemoryView'));
 
 type AgentTab = 'overview' | 'tools' | 'skills' | 'plans' | 'runs' | 'mcp' | 'components' | 'usage' | 'analytics' | 'memory';
 
-const TABS: Array<{ id: AgentTab; label: string; icon: React.ReactNode; activeIcon: React.ReactNode }> = [
-  { id: 'overview', label: 'Overview', icon: <Bot className="w-3.5 h-3.5 text-violet-400" />, activeIcon: <Bot className="w-3.5 h-3.5" /> },
-  { id: 'tools', label: 'Tools', icon: <List className="w-3.5 h-3.5 text-fuchsia-400" />, activeIcon: <List className="w-3.5 h-3.5" /> },
-  { id: 'skills', label: 'Skills', icon: <Puzzle className="w-3.5 h-3.5 text-violet-400" />, activeIcon: <Puzzle className="w-3.5 h-3.5" /> },
-  { id: 'plans', label: 'SkillPlan', icon: <Target className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Target className="w-3.5 h-3.5" /> },
-  { id: 'runs', label: 'Runs', icon: <Workflow className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Workflow className="w-3.5 h-3.5" /> },
-  { id: 'mcp', label: 'MCP', icon: <Cable className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Cable className="w-3.5 h-3.5" /> },
-  { id: 'components', label: 'Components', icon: <Layers className="w-3.5 h-3.5 text-emerald-400" />, activeIcon: <Layers className="w-3.5 h-3.5" /> },
-  { id: 'usage', label: 'Usage', icon: <History className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <History className="w-3.5 h-3.5" /> },
-  { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <BarChart3 className="w-3.5 h-3.5" /> },
-  { id: 'memory', label: 'Memory', icon: <Brain className="w-3.5 h-3.5 text-pink-400" />, activeIcon: <Brain className="w-3.5 h-3.5" /> },
+interface TabDef { id: AgentTab; label: string; icon: React.ReactNode }
+
+/**
+ * Ten flat tabs read as one undifferentiated strip. Grouped by what a person
+ * is doing: running the agent, shaping what it can do, and learning from what
+ * it did.
+ */
+const TAB_GROUPS: Array<{ label: string; tabs: TabDef[] }> = [
+  {
+    label: 'Operate',
+    tabs: [
+      { id: 'overview', label: 'Overview', icon: <Bot className="w-3.5 h-3.5 text-violet-400" /> },
+      { id: 'runs', label: 'Runs', icon: <Workflow className="w-3.5 h-3.5 text-cyan-400" /> },
+    ],
+  },
+  {
+    label: 'Configure',
+    tabs: [
+      { id: 'skills', label: 'Skills', icon: <Puzzle className="w-3.5 h-3.5 text-violet-400" /> },
+      { id: 'plans', label: 'Plans', icon: <Target className="w-3.5 h-3.5 text-cyan-400" /> },
+      { id: 'tools', label: 'Tools', icon: <List className="w-3.5 h-3.5 text-fuchsia-400" /> },
+      { id: 'mcp', label: 'MCP', icon: <Cable className="w-3.5 h-3.5 text-cyan-400" /> },
+      { id: 'components', label: 'Components', icon: <Layers className="w-3.5 h-3.5 text-emerald-400" /> },
+    ],
+  },
+  {
+    label: 'Insights',
+    tabs: [
+      { id: 'usage', label: 'Usage', icon: <History className="w-3.5 h-3.5 text-amber-400" /> },
+      { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-3.5 h-3.5 text-cyan-400" /> },
+      { id: 'memory', label: 'Memory', icon: <Brain className="w-3.5 h-3.5 text-pink-400" /> },
+    ],
+  },
 ];
 
-const TAB_IDS = TABS.map((t) => t.id);
+const TAB_IDS: AgentTab[] = TAB_GROUPS.flatMap((g) => g.tabs.map((t) => t.id));
 
 export default function PulseAgentView() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as AgentTab)
-    || (sessionStorage.getItem('agent-tab') as AgentTab)
-    || 'overview';
-  const [activeTab, setActiveTabState] = useState<AgentTab>(
-    TAB_IDS.includes(initialTab) ? initialTab : 'overview',
-  );
-
-  const setActiveTab = (tab: AgentTab) => {
-    setActiveTabState(tab);
-    sessionStorage.setItem('agent-tab', tab);
-    const next = new URLSearchParams(searchParams);
-    if (tab === 'overview') next.delete('tab'); else next.set('tab', tab);
-    setSearchParams(next, { replace: true });
-  };
-
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const handleTabKeyDown = useCallback((e: React.KeyboardEvent, index: number) => {
-    let nextIndex: number | null = null;
-    if (e.key === 'ArrowRight') nextIndex = (index + 1) % TAB_IDS.length;
-    else if (e.key === 'ArrowLeft') nextIndex = (index - 1 + TAB_IDS.length) % TAB_IDS.length;
-    if (nextIndex !== null) {
-      e.preventDefault();
-      setActiveTab(TAB_IDS[nextIndex]);
-      tabRefs.current[nextIndex]?.focus();
-    }
-  }, []);
-
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -72,36 +64,36 @@ export default function PulseAgentView() {
           <h1 className="text-lg font-semibold text-slate-100">Pulse Agent</h1>
         </div>
 
-        <div className="flex gap-1 bg-slate-900 rounded-lg border border-slate-800 p-1" role="tablist" aria-label="Pulse Agent tabs">
-          {TABS.map((t, i) => (
-            <button
-              key={t.id}
-              ref={(el) => { tabRefs.current[i] = el; }}
-              role="tab"
-              aria-selected={activeTab === t.id}
-              tabIndex={activeTab === t.id ? 0 : -1}
-              onClick={() => setActiveTab(t.id)}
-              onKeyDown={(e) => handleTabKeyDown(e, i)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
-                activeTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
-              )}
-            >
-              {activeTab === t.id ? t.activeIcon : t.icon}{t.label}
-            </button>
-          ))}
-        </div>
+        <Tabs defaultValue="overview" urlSync={{ values: TAB_IDS }} className="space-y-6">
+          <TabsList aria-label="Pulse Agent tabs" className="flex flex-wrap">
+            {TAB_GROUPS.map((group, gi) => (
+              <React.Fragment key={group.label}>
+                {gi > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-800" />}
+                <span aria-hidden="true" className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                  {group.label}
+                </span>
+                {group.tabs.map((t) => (
+                  <TabsTrigger key={t.id} value={t.id} className="font-normal data-[state=active]:[&_svg]:text-white">
+                    {t.icon}{t.label}
+                  </TabsTrigger>
+                ))}
+              </React.Fragment>
+            ))}
+          </TabsList>
 
-        {activeTab === 'overview' && <OverviewTab />}
-        {activeTab === 'tools' && <CatalogTab />}
-        {activeTab === 'skills' && <SkillsTab />}
-        {activeTab === 'plans' && <PlansTab />}
-        {activeTab === 'runs' && <RunsTab />}
-        {activeTab === 'mcp' && <ConnectionsTab />}
-        {activeTab === 'components' && <ComponentsTab />}
-        {activeTab === 'usage' && <UsageTab />}
-        {activeTab === 'analytics' && <AnalyticsTab />}
-        {activeTab === 'memory' && <Suspense fallback={<div className="text-slate-500 text-sm p-4">Loading...</div>}><MemoryView embedded /></Suspense>}
+          <TabsContent value="overview"><OverviewTab /></TabsContent>
+          <TabsContent value="tools"><CatalogTab /></TabsContent>
+          <TabsContent value="skills"><SkillsTab /></TabsContent>
+          <TabsContent value="plans"><PlansTab /></TabsContent>
+          <TabsContent value="runs"><RunsTab /></TabsContent>
+          <TabsContent value="mcp"><ConnectionsTab /></TabsContent>
+          <TabsContent value="components"><ComponentsTab /></TabsContent>
+          <TabsContent value="usage"><UsageTab /></TabsContent>
+          <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
+          <TabsContent value="memory">
+            <Suspense fallback={<div className="text-slate-500 text-sm p-4">Loading...</div>}><MemoryView embedded /></Suspense>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

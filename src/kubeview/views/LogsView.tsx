@@ -12,6 +12,11 @@ import { EmptyState } from '../components/primitives/EmptyState';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useFleetStore } from '../store/fleetStore';
 import { LoadError } from '../components/primitives/LoadError';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
+import { TONE_CLASSES } from '../engine/statusColors';
+
+/** Tab value for the merged view of every pod (DNS-1123 pod names cannot contain `_`). */
+const ALL_PODS = '__all__';
 
 interface LogsViewProps {
   namespace: string;
@@ -104,52 +109,43 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
       </div>
 
       {/* Pod selector tabs */}
-      <div className="flex gap-1 px-4 py-2 border-b border-slate-800 overflow-x-auto bg-slate-900/50" role="tablist" aria-label="Pod selector">
-        <button
-          role="tab"
-          aria-selected={!selectedPod}
-          onClick={() => setSelectedPod(null)}
-          className={cn('px-3 py-1 text-xs rounded-sm whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', !selectedPod ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}
-        >
-          All Pods
-        </button>
-        {podNames.map((pn: string) => {
-          const pod = pods.find((p: any) => p.metadata.name === pn);
-          const phase = (pod?.status as { phase?: string } | undefined)?.phase || 'Unknown';
-          const isRunning = phase === 'Running';
-          return (
-            <button
-              key={pn}
-              role="tab"
-              aria-selected={selectedPod === pn}
-              onClick={() => setSelectedPod(pn)}
-              className={cn('px-3 py-1 text-xs rounded-sm whitespace-nowrap flex items-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
-                selectedPod === pn ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-              )}
-            >
-              <div className={cn('w-1.5 h-1.5 rounded-full', isRunning ? 'bg-green-500' : 'bg-yellow-500')} />
-              {pn.replace(`${name}-`, '').slice(0, 12)}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs
+        value={selectedPod ?? ALL_PODS}
+        onValueChange={(v) => setSelectedPod(v === ALL_PODS ? null : v)}
+        className="flex-1 flex flex-col overflow-hidden"
+      >
+        <TabsList aria-label="Pod selector" className="flex rounded-none border-0 border-b border-slate-800 bg-slate-900/50 px-4 py-2 overflow-x-auto">
+          <TabsTrigger value={ALL_PODS} className="py-1 rounded-sm font-normal">All Pods</TabsTrigger>
+          {podNames.map((pn: string) => {
+            const pod = pods.find((p: any) => p.metadata.name === pn);
+            const phase = (pod?.status as { phase?: string } | undefined)?.phase || 'Unknown';
+            const isRunning = phase === 'Running';
+            return (
+              <TabsTrigger key={pn} value={pn} className="py-1 rounded-sm font-normal" title={`${pn} (${phase})`}>
+                <div className={cn('w-1.5 h-1.5 rounded-full', TONE_CLASSES[isRunning ? 'success' : 'warning'].solid)} />
+                {pn.replace(`${name}-`, '').slice(0, 12)}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
 
-      {/* Log content */}
-      <div className="flex-1 overflow-hidden">
-        {selectedPod ? (
-          <LogStream key={selectedPod} namespace={namespace} podName={selectedPod} clusterId={clusterId} />
-        ) : podNames.length > 0 ? (
-          <MultiPodLogs namespace={namespace} podNames={podNames} clusterId={clusterId} />
-        ) : (
-          <EmptyState
-            icon={<FileX className="w-8 h-8" />}
-            title="No pods found"
-            description="No pods match the label selector for this workload. The workload may be scaled to zero, or the label selector may not match any running pods. Check the replica count and selector labels."
-            action={{ label: 'Back to workload', onClick: () => navigate(-1) }}
-            className="h-full"
-          />
-        )}
-      </div>
+        {/* Log content */}
+        <TabsContent value={selectedPod ?? ALL_PODS} className="flex-1 overflow-hidden">
+          {selectedPod ? (
+            <LogStream key={selectedPod} namespace={namespace} podName={selectedPod} clusterId={clusterId} />
+          ) : podNames.length > 0 ? (
+            <MultiPodLogs namespace={namespace} podNames={podNames} clusterId={clusterId} />
+          ) : (
+            <EmptyState
+              icon={<FileX className="w-8 h-8" />}
+              title="No pods found"
+              description="No pods match the label selector for this workload. The workload may be scaled to zero, or the label selector may not match any running pods. Check the replica count and selector labels."
+              action={{ label: 'Back to workload', onClick: () => navigate(-1) }}
+              className="h-full"
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

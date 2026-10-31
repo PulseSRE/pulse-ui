@@ -9,6 +9,7 @@ import { LoadError } from '../components/primitives/LoadError';
 import { useKubeadminSecret } from '../hooks/useKubeadminSecret';
 import { errorReason } from '../engine/readResult';
 import { cn } from '@/lib/utils';
+import { StatCard } from '../components/primitives/StatCard';
 import { k8sGet, k8sList } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -350,12 +351,12 @@ export default function SecurityView() {
             {criticalFails.length > 0 && <div className="text-xs text-red-400 mt-2">{criticalFails.length} critical</div>}
             {warningFails.length > 0 && <div className="text-xs text-yellow-400">{warningFails.length} warning</div>}
           </div>
-          <SummaryCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={crbError || crbLoading ? '—' : String(clusterAdmins.length)}
-            sub={crbError ? 'ClusterRoleBindings could not be read' : crbLoading ? 'Loading…' : clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
-          <SummaryCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={netpolError || netpolLoading ? '—' : String(networkPolicies.length)}
-            sub={netpolError ? 'Network policies could not be read' : netpolLoading ? 'Loading…' : `${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
-          <SummaryCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={secretsError || secretsLoading ? '—' : String(tlsSecretCount)}
-            sub={secretsError ? 'Secrets could not be read' : secretsLoading ? 'Loading…' : `${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
+          <StatCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={crbError || crbLoading ? '—' : String(clusterAdmins.length)}
+            subtitle={crbError ? 'ClusterRoleBindings could not be read' : crbLoading ? 'Loading…' : clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
+          <StatCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={netpolError || netpolLoading ? '—' : String(networkPolicies.length)}
+            subtitle={netpolError ? 'Network policies could not be read' : netpolLoading ? 'Loading…' : `${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
+          <StatCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={secretsError || secretsLoading ? '—' : String(tlsSecretCount)}
+            subtitle={secretsError ? 'Secrets could not be read' : secretsLoading ? 'Loading…' : `${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
         </div>
 
         {/* Security Audit */}
@@ -471,16 +472,6 @@ export default function SecurityView() {
         </MetricGrid>
       </div>
     </div>
-  );
-}
-
-function SummaryCard({ icon, label, value, sub, onClick }: { icon: React.ReactNode; label: string; value: string; sub: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="bg-slate-900 rounded-lg border border-slate-800 p-4 text-left hover:border-slate-600 transition-colors">
-      <div className="flex items-center gap-2 text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">{icon}{label}</div>
-      <div className="text-2xl font-bold text-slate-100">{value}</div>
-      <div className="text-xs text-slate-500 mt-0.5 truncate">{sub}</div>
-    </button>
   );
 }
 

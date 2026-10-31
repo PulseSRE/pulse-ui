@@ -86,7 +86,8 @@ describe('ProjectDashboard with its lists forbidden', () => {
     expect(screen.getByText('Deployments could not be loaded')).toBeTruthy();
     expect(screen.getByText('Events could not be loaded')).toBeTruthy();
     for (const label of ['Pods', 'Deployments', 'Events']) {
-      const card = screen.getAllByText(label).find((el) => el.className.includes('text-xs'))!.parentElement!;
+      // The summary tile is the rounded card that holds the label.
+      const card = screen.getAllByText(label).find((el) => el.className.includes('text-xs'))!.closest('.rounded-lg')!;
       expect(card.textContent, label).toContain('—');
       expect(card.textContent, label).not.toMatch(/\b0\b/);
     }

@@ -5,6 +5,8 @@
  * All queries use real Prometheus/Thanos metrics available via the /api/prometheus proxy.
  */
 
+import { formatBytesIEC, formatMetricSeconds } from '../../engine/format';
+
 interface MinimalResource {
   metadata: { name: string; namespace?: string };
 }
@@ -423,19 +425,8 @@ export function formatYAxisValue(value: number, format: string): string {
 }
 
 // Format helpers
-export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  if (bytes < 1024) return `${bytes.toFixed(0)} B`;
-
-  const k = 1024;
-  const sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const value = bytes / Math.pow(k, i);
-
-  if (value >= 100) return `${value.toFixed(0)} ${sizes[i]}`;
-  if (value >= 10) return `${value.toFixed(1)} ${sizes[i]}`;
-  return `${value.toFixed(2)} ${sizes[i]}`;
-}
+/** Bytes with IEC units ("1.50 GiB"). Lives in engine/format. */
+export const formatBytes = formatBytesIEC;
 
 export function formatCores(cores: number): string {
   if (cores === 0) return '0';
@@ -460,11 +451,5 @@ export function formatRate(rate: number): string {
   return `${(rate / (1024 * 1024 * 1024)).toFixed(1)} GiB/s`;
 }
 
-export function formatDuration(seconds: number): string {
-  if (seconds === 0) return '0s';
-  if (seconds < 0.001) return `${(seconds * 1000000).toFixed(0)}µs`;
-  if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
-  if (seconds < 60) return `${seconds.toFixed(1)}s`;
-  if (seconds < 3600) return `${(seconds / 60).toFixed(1)}m`;
-  return `${(seconds / 3600).toFixed(1)}h`;
-}
+/** Seconds, possibly sub-second ("12ms", "1.5s"). Lives in engine/format. */
+export const formatDuration = formatMetricSeconds;

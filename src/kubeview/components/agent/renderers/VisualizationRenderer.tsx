@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect, lazy, Suspense } from 'react';
+import { isKnownStatus, statusClasses, statusTone, TONE_CLASSES } from '../../../engine/statusColors';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { AgentLink, useAgentLink } from '../AgentLink';
@@ -76,19 +77,19 @@ export function TopologySuspense({ spec, onAddToView }: { spec: TopologySpec; on
 // Metric Card
 // ---------------------------------------------------------------------------
 
-const METRIC_STATUS_COLORS: Record<string, string> = {
-  healthy: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
-};
-const METRIC_STATUS_BORDER: Record<string, string> = {
-  healthy: 'border-emerald-800',
-  warning: 'border-amber-800',
-  error: 'border-red-800',
-};
+/** Metric cards only tint for a known status; anything else keeps the default look. */
+function metricTone(status?: string) {
+  return status && isKnownStatus(status) && statusTone(status) !== 'neutral' ? statusClasses(status) : null;
+}
+function metricStatusHex(status?: string): string | undefined {
+  return metricTone(status)?.hex;
+}
+function metricStatusBorder(status?: string): string {
+  return metricTone(status)?.cardBorder ?? 'border-slate-800';
+}
 
 export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
-  const color = spec.color || METRIC_STATUS_COLORS[spec.status || ''] || '#3b82f6';
+  const color = spec.color || metricStatusHex(spec.status) || '#3b82f6';
   const link = useAgentLink(spec.link);
   const clickable = !!link.onClick;
   const handleClick = () => link.onClick?.();
@@ -122,7 +123,7 @@ export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
       title={link.title}
       className={cn(
         'bg-linear-to-br from-slate-900 to-slate-900/70 rounded-lg border p-3 transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)] h-full',
-        METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800',
+        metricStatusBorder(spec.status),
         clickable && 'cursor-pointer hover:ring-1 hover:ring-blue-500/50 w-full text-left',
       )}
     >
@@ -298,7 +299,7 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
   return (
     <div className={cn(
       'bg-linear-to-br from-slate-900 to-slate-900/70 rounded-lg border p-4 flex flex-col items-center justify-center text-center transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)]',
-      METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800'
+      metricStatusBorder(spec.status)
     )}>
       <span className="text-xs text-slate-400 mb-1">{title}</span>
       <div className="text-2xl font-bold text-slate-100 font-mono">
@@ -319,11 +320,11 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
 // Timeline
 // ---------------------------------------------------------------------------
 
-const SEVERITY_COLORS: Record<string, string> = {
-  critical: '#ef4444',
-  warning: '#f59e0b',
-  info: '#3b82f6',
-  normal: '#64748b',
+const SEVERITY_HEX: Record<string, string> = {
+  critical: TONE_CLASSES.danger.hex,
+  warning: TONE_CLASSES.warning.hex,
+  info: TONE_CLASSES.info.hex,
+  normal: TONE_CLASSES.neutral.hex,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -478,7 +479,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
                 <line x1={LABEL_WIDTH + 10} y1={laneY} x2={svgWidth - 10} y2={laneY} stroke="#1e293b" strokeWidth="1" />
 
                 {/* Lane label with colored dot and event count */}
-                <circle cx={8} cy={laneY} r={3} fill={grouping === 'severity' ? (SEVERITY_COLORS[lane.label.toLowerCase()] || CATEGORY_COLORS[lane.category]) : CATEGORY_COLORS[lane.category]} />
+                <circle cx={8} cy={laneY} r={3} fill={grouping === 'severity' ? (SEVERITY_HEX[lane.label.toLowerCase()] || CATEGORY_COLORS[lane.category]) : CATEGORY_COLORS[lane.category]} />
                 <text x={16} y={laneY - 1} fontSize="10" fill="#cbd5e1" dominantBaseline="middle" className="select-none" fontWeight="500">
                   {lane.label.length > 18 ? lane.label.slice(0, 18) + '...' : lane.label}
                 </text>
@@ -492,7 +493,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
                   const isDuration = evt.endTimestamp !== undefined;
                   const endX = isDuration ? timeToX(evt.endTimestamp!) : x;
                   const width = isDuration ? endX - x : 0;
-                  const color = SEVERITY_COLORS[evt.severity];
+                  const color = SEVERITY_HEX[evt.severity];
                   const isCritical = evt.severity === 'critical';
                   // Jitter overlapping events slightly
                   const jitter = (evtIdx % 3 - 1) * 3;
@@ -556,8 +557,8 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
             style={{ left: hoveredEvent.x, top: hoveredEvent.y - 12, transform: 'translate(-50%, -100%)' }}
           >
             <div className="flex items-center gap-1.5 mb-1">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_COLORS[hoveredEvent.event.severity] }} />
-              <span className="text-[10px] font-medium uppercase" style={{ color: SEVERITY_COLORS[hoveredEvent.event.severity] }}>{hoveredEvent.event.severity}</span>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_HEX[hoveredEvent.event.severity] }} />
+              <span className="text-[10px] font-medium uppercase" style={{ color: SEVERITY_HEX[hoveredEvent.event.severity] }}>{hoveredEvent.event.severity}</span>
               <span className="text-[10px] text-slate-600">|</span>
               <span className="text-[10px] text-slate-400">{hoveredEvent.lane}</span>
             </div>
@@ -577,7 +578,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
       <div className="px-3 pb-2 flex items-center gap-4 text-[10px]">
         <div className="flex items-center gap-3">
           <span className="text-slate-500 uppercase tracking-wider">Severity:</span>
-          {Object.entries(SEVERITY_COLORS).map(([severity, color]) => (
+          {Object.entries(SEVERITY_HEX).map(([severity, color]) => (
             <div key={severity} className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
               <span className="text-slate-400 capitalize">{severity}</span>

@@ -6,6 +6,7 @@ import {
   Layers, FileText, BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StatCard } from '../components/primitives/StatCard';
 import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
 import { MetricGrid } from '../components/primitives/MetricGrid';
@@ -91,15 +92,15 @@ export default function ProjectDashboard() {
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {/* A list that could not be read shows "—", not 0. */}
-          <SummaryCard label="Pods" count={podsError ? null : pods.length} icon={<Server className="w-4 h-4" />}
-            color={podsError ? 'text-slate-500' : podStats.failed > 0 ? 'text-red-400' : 'text-emerald-400'} />
-          <SummaryCard label="Deployments" count={deploymentsError ? null : deployments.length} icon={<Package className="w-4 h-4" />} color="text-blue-400" />
-          <SummaryCard label="StatefulSets" count={statefulsetsError ? null : statefulsets.length} icon={<Layers className="w-4 h-4" />} color="text-violet-400" />
-          <SummaryCard label="DaemonSets" count={daemonsetsError ? null : daemonsets.length} icon={<Shield className="w-4 h-4" />} color="text-amber-400" />
-          <SummaryCard label="Services" count={servicesError ? null : services.length} icon={<Globe className="w-4 h-4" />} color="text-cyan-400" />
-          <SummaryCard label="ConfigMaps" count={configmapsError ? null : configmaps.length} icon={<FileText className="w-4 h-4" />} color="text-slate-400" />
-          <SummaryCard label="Events" count={eventsError ? null : allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />}
-            color={!eventsError && allWarningEvents.length > 0 ? 'text-amber-400' : 'text-slate-400'} />
+          <StatCard label="Pods" value={podsError ? '—' : pods.length} icon={<Server className="w-4 h-4 text-slate-400" />}
+            tone={podsError ? 'neutral' : podStats.failed > 0 ? 'danger' : 'success'} />
+          <StatCard label="Deployments" value={deploymentsError ? '—' : deployments.length} icon={<Package className="w-4 h-4 text-blue-400" />} />
+          <StatCard label="StatefulSets" value={statefulsetsError ? '—' : statefulsets.length} icon={<Layers className="w-4 h-4 text-violet-400" />} />
+          <StatCard label="DaemonSets" value={daemonsetsError ? '—' : daemonsets.length} icon={<Shield className="w-4 h-4 text-amber-400" />} />
+          <StatCard label="Services" value={servicesError ? '—' : services.length} icon={<Globe className="w-4 h-4 text-cyan-400" />} />
+          <StatCard label="ConfigMaps" value={configmapsError ? '—' : configmaps.length} icon={<FileText className="w-4 h-4 text-slate-400" />} />
+          <StatCard label="Events" value={eventsError ? '—' : allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4 text-amber-400" />}
+            tone={!eventsError && allWarningEvents.length > 0 ? 'warning' : undefined} />
         </div>
 
         {/* Metrics */}
@@ -367,14 +368,3 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
   );
 }
 
-function SummaryCard({ label, count, icon, color }: { label: string; count: number | null; icon: React.ReactNode; color: string }) {
-  return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-center">
-      <div className={cn('flex items-center justify-center gap-1.5 mb-1', color)}>
-        {icon}
-        <span className="text-xl font-bold">{count ?? '—'}</span>
-      </div>
-      <div className="text-xs text-slate-500">{label}</div>
-    </div>
-  );
-}

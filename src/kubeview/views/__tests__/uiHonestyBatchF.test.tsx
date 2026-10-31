@@ -121,6 +121,52 @@ describe('MemoryView', () => {
     wrap(<MemoryView />);
     expect(await screen.findByLabelText('Forget this incident')).toBeDefined();
   });
+
+  const learned = { enabled: true, incidents: [{ id: 7, query: 'why is api down', resolution: '', outcome: 'resolved', score: 0.8 }] };
+
+  it('asks in a dialog before forgetting, and sends nothing when kept', async () => {
+    const deletes: string[] = [];
+    mockFetch({
+      ...ok,
+      '/memory/incidents': (init) => {
+        if (init?.method === 'DELETE') deletes.push('incident');
+        return { body: learned };
+      },
+    });
+    wrap(<MemoryView />);
+    fireEvent.click(await screen.findByLabelText('Forget this incident'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('Forget this incident?');
+    expect(dialog.textContent).toContain('The agent will stop using it.');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(deletes).toHaveLength(0);
+  });
+
+  it('sends DELETE for that row once confirmed', async () => {
+    const calls: Array<{ method?: string }> = [];
+    mockFetch({
+      ...ok,
+      '/memory/incidents/7': (init) => { calls.push({ method: init?.method }); return { body: {} }; },
+      '/memory/incidents': { body: learned },
+    });
+    wrap(<MemoryView />);
+    fireEvent.click(await screen.findByLabelText('Forget this incident'));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    await waitFor(() => expect(calls).toEqual([{ method: 'DELETE' }]));
+  });
+
+  it('shows why forgetting was refused', async () => {
+    mockFetch({
+      ...ok,
+      '/memory/incidents/7': { status: 403, body: { detail: 'admin required' } },
+      '/memory/incidents': { body: learned },
+    });
+    wrap(<MemoryView />);
+    fireEvent.click(await screen.findByLabelText('Forget this incident'));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget' }));
+    expect(await screen.findByText('Could not forget that item')).toBeDefined();
+  });
 });
 
 describe('ClusterKnowledge', () => {

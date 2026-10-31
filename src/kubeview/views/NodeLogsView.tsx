@@ -6,6 +6,7 @@ import { ArrowLeft, Search, Download, RefreshCw, FileText, Shield, Server, Box }
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { LoadError } from '../components/primitives/LoadError';
 import { errorReason } from '../engine/readResult';
 
@@ -150,26 +151,18 @@ export default function NodeLogsView() {
       </div>
 
       {/* Source tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-slate-800 overflow-x-auto shrink-0" role="tablist" aria-label="Log source tabs">
+      <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as LogSource)} className="flex-1 flex flex-col overflow-hidden">
+      <TabsList aria-label="Log source tabs" className="flex shrink-0 overflow-x-auto rounded-none border-0 border-b border-slate-800 bg-transparent px-4 py-2">
         {LOG_SOURCES.map((src) => (
-          <button
-            key={src.id}
-            role="tab"
-            aria-selected={activeSource === src.id}
-            onClick={() => setActiveSource(src.id)}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
-              activeSource === src.id ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-            )}
-          >
+          <TabsTrigger key={src.id} value={src.id} className="font-normal bg-slate-900">
             {src.icon}
             {src.label}
-          </button>
+          </TabsTrigger>
         ))}
-      </div>
+      </TabsList>
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
+      <TabsContent value={activeSource} className="flex-1 flex overflow-hidden">
         {/* File list sidebar */}
         <div className="w-56 border-r border-slate-800 overflow-auto shrink-0 bg-slate-900">
           <div className="px-3 py-2 text-xs text-slate-500 uppercase tracking-wider font-semibold">
@@ -248,7 +241,8 @@ export default function NodeLogsView() {
             )}
           </div>
         </div>
-      </div>
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

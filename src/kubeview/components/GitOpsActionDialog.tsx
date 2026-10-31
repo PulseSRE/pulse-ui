@@ -10,6 +10,7 @@ import { useGitOpsConfig } from '../hooks/useGitOpsConfig';
 import { useNavigate } from 'react-router-dom';
 import { useGitOpsSetupStore } from '../store/gitopsSetupStore';
 import type { ArgoSyncInfo } from '../engine/types';
+import { Dialog } from './primitives/Dialog';
 
 interface GitOpsActionDialogProps {
   open: boolean;
@@ -102,26 +103,17 @@ export function GitOpsActionDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={status === 'idle' || status === 'done' || status === 'error' ? onClose : undefined} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="gitops-dialog-heading"
-        className="relative bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-lg p-6 z-50"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape' && (status === 'idle' || status === 'done' || status === 'error')) {
-            onClose();
-          }
-        }}
-        tabIndex={-1}
-      >
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-4">
-          <GitBranch className="w-5 h-5 text-violet-400" />
-          <h2 id="gitops-dialog-heading" className="text-lg font-semibold text-slate-100">GitOps Save</h2>
-        </div>
-
+    <Dialog
+      open
+      onClose={onClose}
+      title="GitOps Save"
+      icon={<GitBranch className="w-5 h-5 mt-1 text-violet-400" />}
+      dismissible={status === 'idle' || status === 'done' || status === 'error'}
+      showClose={false}
+      size="lg"
+      className="bg-slate-900 rounded-xl shadow-2xl"
+      bodyClassName="pb-6"
+    >
         <p className="text-sm text-slate-400 mb-1">
           <span className="text-slate-200 font-medium">{resourceKind}/{resourceName}</span> is managed by ArgoCD application <span className="text-violet-300">{syncInfo.appName}</span>.
         </p>
@@ -237,7 +229,6 @@ export function GitOpsActionDialog({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }

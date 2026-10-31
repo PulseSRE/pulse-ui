@@ -17,13 +17,14 @@ import type { K8sResource } from '../engine/renderers';
 import type { Node, Pod, Machine, MachineSet, NodePool, Condition } from '../engine/types';
 import { getNodeStatus } from '../engine/renderers/statusUtils';
 import { parseResourceValue, formatBytes, formatCpu } from '../engine/formatting';
+import { formatAge } from '../engine/format';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useClusterStore } from '../store/clusterStore';
 import { Card } from '../components/primitives/Card';
 import { Badge } from '../components/primitives/Badge';
 import { CapacityTab } from './compute/CapacityTab';
-import { StatCard } from './compute/StatCard';
+import { StatCard } from '../components/primitives/StatCard';
 import { ClusterTypeSummary } from './compute/ClusterTypeSummary';
 import { NodeAlerts } from './compute/NodeAlerts';
 import { MachineManagement } from './compute/MachineManagement';
@@ -230,9 +231,7 @@ export default function ComputeView() {
 
       // Age
       const created = node.metadata.creationTimestamp ? new Date(node.metadata.creationTimestamp) : null;
-      const ageMs = created ? Date.now() - created.getTime() : 0;
-      const ageDays = Math.floor(ageMs / 86400000);
-      const age = ageDays > 0 ? `${ageDays}d` : `${Math.floor(ageMs / 3600000)}h`;
+      const age = formatAge(created, '0h');
 
       // Pressure indicators
       const pressures: string[] = [];
