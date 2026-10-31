@@ -100,4 +100,19 @@ describe('OpenEpisodeBanner', () => {
     await waitFor(() => expect(fetchOpenEpisodes).toHaveBeenCalled());
     expect(container.innerHTML).toBe('');
   });
+
+  it('tells the page whether it is showing', async () => {
+    const onVisibleChange = vi.fn();
+    render(<OpenEpisodeBanner onOpen={vi.fn()} onVisibleChange={onVisibleChange} />);
+    await waitFor(() => expect(onVisibleChange).toHaveBeenLastCalledWith(true));
+  });
+
+  it('reports hidden when there is no open episode', async () => {
+    fetchOpenEpisodes.mockResolvedValue([]);
+    const onVisibleChange = vi.fn();
+    render(<OpenEpisodeBanner onOpen={vi.fn()} onVisibleChange={onVisibleChange} />);
+    await waitFor(() => expect(fetchOpenEpisodes).toHaveBeenCalled());
+    expect(onVisibleChange).not.toHaveBeenCalledWith(true);
+    expect(onVisibleChange).toHaveBeenLastCalledWith(false);
+  });
 });
