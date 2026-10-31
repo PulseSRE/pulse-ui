@@ -65,7 +65,7 @@ export interface ArgoApplication {
   };
   operation?: {
     initiatedBy?: { username?: string; automated?: boolean };
-    sync?: { revision?: string; prune?: boolean; syncOptions?: string[] };
+    sync?: { revision?: string; revisions?: string[]; prune?: boolean; syncOptions?: string[] };
   };
 }
 

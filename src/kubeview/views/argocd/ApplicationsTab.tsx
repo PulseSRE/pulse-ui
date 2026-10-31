@@ -2,7 +2,7 @@ import React from 'react';
 import {
   CheckCircle, XCircle, AlertTriangle, RefreshCw, Loader2,
   ExternalLink, ArrowRight, HelpCircle, Pause, Clock, Box,
-  AlertOctagon, Globe, Plus, Copy,
+  AlertOctagon, Globe, Plus, Copy, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ArgoApplication, ArgoSyncStatus, ArgoHealthStatus } from '../../engine/types';
@@ -34,6 +34,8 @@ interface ApplicationsTabProps {
   applications: ArgoApplication[];
   syncing: string | null;
   onSync: (name: string, namespace: string) => void;
+  /** Hard refresh: re-read Git and recompute status, apply nothing. */
+  onRefresh: (name: string, namespace: string) => void;
   go: (path: string, title: string) => void;
 }
 
@@ -52,7 +54,7 @@ const SYNC_COLORS: Record<ArgoSyncStatus, string> = {
   Unknown: 'bg-slate-800 text-slate-400',
 };
 
-export function ApplicationsTab({ applications, syncing, onSync, go }: ApplicationsTabProps) {
+export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }: ApplicationsTabProps) {
   const [expandedApp, setExpandedApp] = React.useState<string | null>(null);
 
   const [showYaml, setShowYaml] = React.useState(false);
@@ -222,17 +224,30 @@ export function ApplicationsTab({ applications, syncing, onSync, go }: Applicati
                   )}
                   <span className="text-xs text-slate-500">{resourceCount} resources</span>
                   <span className="text-xs text-slate-600">{app.spec?.destination?.namespace || '—'}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSync(app.metadata.name, app.metadata.namespace || '');
-                    }}
-                    disabled={isSyncing}
-                    className="px-2 py-1 text-xs text-slate-400 rounded-sm hover:bg-blue-900/50 hover:text-blue-300 transition-colors disabled:opacity-50"
-                    title="Trigger sync"
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); onRefresh(app.metadata.name, app.metadata.namespace || ''); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onRefresh(app.metadata.name, app.metadata.namespace || ''); } }}
+                    className="px-2 py-1 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                    title="Refresh: re-read Git and recompute status (applies nothing)"
+                    aria-label={`Refresh ${app.metadata.name}`}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={isSyncing ? -1 : 0}
+                    aria-disabled={isSyncing}
+                    onClick={(e) => { e.stopPropagation(); if (!isSyncing) onSync(app.metadata.name, app.metadata.namespace || ''); }}
+                    onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !isSyncing) { e.preventDefault(); e.stopPropagation(); onSync(app.metadata.name, app.metadata.namespace || ''); } }}
+                    className={cn('flex items-center gap-1 px-2 py-1 text-xs text-slate-400 rounded-sm hover:bg-blue-900/50 hover:text-blue-300 transition-colors', isSyncing && 'opacity-50')}
+                    title="Sync: apply the target revision from Git"
+                    aria-label={`Sync ${app.metadata.name}`}
                   >
                     {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  </button>
+                    Sync
+                  </span>
                   <ArrowRight className={cn('w-3 h-3 text-slate-600 transition-transform', isExpanded && 'rotate-90')} />
                 </div>
               </button>

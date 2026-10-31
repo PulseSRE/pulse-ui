@@ -12,9 +12,19 @@ interface DataEditorProps {
   data: Record<string, string>;
   kind: 'ConfigMap' | 'Secret';
   readOnly?: boolean;
+  /** Cluster the resource lives in (the one on screen). */
+  clusterId?: string;
 }
 
-export default function DataEditor({ resourcePath, data, kind, readOnly }: DataEditorProps) {
+/** Base64 of a UTF-8 string (btoa alone throws on anything outside Latin-1). */
+function encodeBase64(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+export default function DataEditor({ resourcePath, data, kind, readOnly, clusterId }: DataEditorProps) {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
   const [entries, setEntries] = useState<Array<{ key: string; value: string; isNew?: boolean }>>(
@@ -55,14 +65,19 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      const newData: Record<string, string> = {};
+      // A merge patch only adds and changes keys; a key left out is kept. Keys
+      // the user removed (or renamed away from) are sent as null so the API
+      // server deletes them — removing a key used to save and change nothing.
+      const newData: Record<string, string | null> = {};
       for (const entry of entries) {
         if (!entry.key.trim()) continue;
-        newData[entry.key] = kind === 'Secret' ? btoa(entry.value) : entry.value;
+        newData[entry.key] = kind === 'Secret' ? encodeBase64(entry.value) : entry.value;
+      }
+      for (const key of Object.keys(data || {})) {
+        if (!(key in newData)) newData[key] = null;
       }
 
-      const patchField = kind === 'Secret' ? 'data' : 'data';
-      await k8sPatch(resourcePath, { [patchField]: newData });
+      await k8sPatch(resourcePath, { data: newData }, 'application/merge-patch+json', clusterId);
       addToast({ type: 'success', title: `${kind} updated` });
       queryClient.invalidateQueries({ queryKey: ['detail'] });
     } catch (err) {
@@ -70,7 +85,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly }: DataE
     } finally {
       setSaving(false);
     }
-  }, [entries, kind, resourcePath, addToast]);
+  }, [entries, data, kind, resourcePath, clusterId, addToast, queryClient]);
 
   const hasChanges = JSON.stringify(
     entries.reduce((acc, e) => { if (e.key) acc[e.key] = e.value; return acc; }, {} as Record<string, string>)

@@ -7,7 +7,6 @@ import {
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet, k8sFetch } from '../engine/query';
 import { getActiveClusterId } from '../engine/clusterConnection';
-import { safeQuery } from '../engine/safeQuery';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { Card } from './primitives/Card';
 import type { K8sResource } from '../engine/renderers';
@@ -57,7 +56,16 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
   // Poll the resource (null = gone)
   const { data: resource, dataUpdatedAt: _dataUpdatedAt } = useQuery({
     queryKey: ['deploy-progress', clusterId, path],
-    queryFn: () => safeQuery(() => k8sGet<K8sResource>(path, clusterId)),
+    // null only for a real 404: a 403 or a network error is not "deleted".
+    queryFn: async () => {
+      try {
+        return await k8sGet<K8sResource>(path, clusterId);
+      } catch (e) {
+        const status = (e as { statusCode?: number; status?: number } | null)?.statusCode ?? (e as { status?: number } | null)?.status;
+        if (status === 404) return null;
+        throw e;
+      }
+    },
     refetchInterval: 2000,
   });
 
@@ -134,8 +142,8 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
   // We already sent the delete — so if the resource still exists, it's
   // being torn down (even if deletionTimestamp hasn't propagated yet).
   const deletePhase = React.useMemo<DeletePhase>(() => {
-    if (!resource && pods.length === 0) return 'gone';
-    if (!resource && pods.length > 0) return 'cleaning-pods';
+    if (resource === null && pods.length === 0) return 'gone';
+    if (resource === null && pods.length > 0) return 'cleaning-pods';
     // Resource still exists — it's being deleted (GC working)
     if (pods.length > 0) return 'terminating';
     return 'cleaning';

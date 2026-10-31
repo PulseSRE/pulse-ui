@@ -61,11 +61,11 @@ function makeQueryClient() {
 
 import CreateView from '../CreateView';
 
-function renderCreateView(props: { gvrKey: string } = { gvrKey: 'v1/pods' }) {
+function renderCreateView(props: { gvrKey: string } = { gvrKey: 'v1/pods' }, initialEntry = '/create/v1~pods') {
   const qc = makeQueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <CreateView {...props} />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -112,8 +112,7 @@ describe('CreateView', () => {
   });
 
   it('goes to YAML editor for pods when tab=yaml is in URL', () => {
-    window.history.replaceState(null, '', '?tab=yaml');
-    renderCreateView({ gvrKey: 'v1/pods' });
+    renderCreateView({ gvrKey: 'v1/pods' }, '/create/v1~pods?tab=yaml');
     expect(screen.getByTestId('yaml-editor')).toBeDefined();
   });
 
@@ -443,7 +442,7 @@ describe('CreateView', () => {
     fireEvent.click(screen.getByText('Import YAML'));
     const textarea = screen.getByPlaceholderText(/apiVersion: v1/);
     fireEvent.change(textarea, { target: { value: 'this is just plain text' } });
-    expect(screen.getByText(/Does not look like YAML/)).toBeDefined();
+    expect(screen.getByText(/Does not look like a Kubernetes object/)).toBeDefined();
   });
 
   it('shows tab indentation warning', () => {

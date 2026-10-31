@@ -11,6 +11,8 @@ import { IncidentContext } from './IncidentContext';
 import { RollbackPanel } from './RollbackPanel';
 import { WorkloadAudit } from './WorkloadAudit';
 import DataEditor from '../../components/DataEditor';
+import { useFleetStore } from '../../store/fleetStore';
+import { useCanI } from '../../hooks/useCanI';
 import { jsonToYaml } from '../../engine/yamlUtils';
 import type { RelatedResource } from './types';
 
@@ -45,6 +47,9 @@ export function GenericDetailLayout({
   onSwitchToEvents,
   go,
 }: GenericDetailLayoutProps) {
+  const clusterId = useFleetStore((s) => s.activeClusterId);
+  const isDataObject = resource.kind === 'ConfigMap' || resource.kind === 'Secret';
+  const { allowed: canEditData } = useCanI('update', '', resource.kind === 'Secret' ? 'secrets' : 'configmaps', namespace);
   const status = (resource.status as Record<string, unknown>) || {};
   const spec = (resource.spec as Record<string, unknown>) || {};
 
@@ -73,6 +78,8 @@ export function GenericDetailLayout({
             resourcePath={apiPath}
             data={(resource.data || {}) as Record<string, string>}
             kind={resource.kind as 'ConfigMap' | 'Secret'}
+            clusterId={clusterId}
+            readOnly={!isDataObject || !canEditData}
           />
         )}
 
