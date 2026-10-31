@@ -92,7 +92,9 @@ function ClusterPostureBar({
   const autoFixedCount = findings.filter((f) => (f as any).autoFixable).length;
 
   // Counts and the headline both come from the incident feed, which is the
-  // only list that has counted everything exactly once.
+  // only list that has counted everything exactly once. The feed reads monitor
+  // findings from the same store in the same render, so a finding is never
+  // missing from it and nothing needs adding on top.
   //
   // This used to read `warningCount + findings.length`, which double-counted:
   // the feed's DEFAULT_SOURCES already includes 'finding', so every monitor
@@ -100,19 +102,13 @@ function ClusterPostureBar({
   //
   // The headline used to be findings[0] while the number came from the feed —
   // two different lists — so "1 critical — <title>" could name something that
-  // was neither critical nor part of the count. On this cluster it named
-  // SearchPVCNotPresent, a Prometheus alert whose severity is `info`.
-  //
-  // Findings still raise the level on their own, because they can arrive
-  // before the feed has picked them up and before lastScanTime is set, and
-  // reporting "checking" over a known problem is the same lie in the other
-  // direction. They are a fallback for the count, never an addition to it.
-  const warningDisplay = warningCount > 0 ? warningCount : findings.length;
-  const headline = topIncident ?? (findings.length > 0 ? findings[0] : null);
+  // was neither critical nor part of the count. The feed is sorted by severity,
+  // so its first item is from the bucket the number counts.
+  const headline = topIncident;
 
   let level: PostureLevel = 'green';
   if (criticalCount > 0) level = 'red';
-  else if (warningDisplay > 0) level = 'yellow';
+  else if (warningCount > 0) level = 'yellow';
   else if (!lastScanTime) level = 'unknown';
 
   const scanLabel = lastScanTime
@@ -167,7 +163,7 @@ function ClusterPostureBar({
         )}
         {level === 'yellow' && (
           <>
-            <span className="text-amber-400">{warningDisplay} warning{warningDisplay !== 1 ? 's' : ''}</span>
+            <span className="text-amber-400">{warningCount} warning{warningCount !== 1 ? 's' : ''}</span>
             {headline && (
               <span className="text-slate-400"> — {headline.title}</span>
             )}
