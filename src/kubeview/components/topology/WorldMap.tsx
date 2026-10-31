@@ -95,7 +95,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
 
   // Auto-center
   const autoCenter = useMemo<Pick<ViewState, 'center' | 'scale'>>(() => {
-    const pts = [...clusters.map(c => ({ lng: c.longitude, lat: c.latitude })), ...zones.map(z => ({ lng: z.longitude, lat: z.latitude }))];
+    const pts = [...clusters.filter(c => !c.locationUnknown).map(c => ({ lng: c.longitude, lat: c.latitude })), ...zones.filter(z => !z.locationUnknown).map(z => ({ lng: z.longitude, lat: z.latitude }))];
     if (pts.length === 0) return { center: [0, 20] as [number, number], scale: 1 };
     if (pts.length === 1) return { center: [pts[0].lng, pts[0].lat] as [number, number], scale: 2.5 };
     const lngs = pts.map(p => p.lng), lats = pts.map(p => p.lat);
@@ -121,8 +121,11 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
   const fClusters = useMemo(() => { let r = clusters; if (healthFilter !== 'all') r = r.filter(c => c.healthGrade === healthFilter); if (searchQuery) { const q = searchQuery.toLowerCase(); r = r.filter(c => c.name.toLowerCase().includes(q) || c.displayName.toLowerCase().includes(q)); } return r; }, [clusters, healthFilter, searchQuery]);
   const fZones = useMemo(() => { let r = zones; if (healthFilter !== 'all') r = r.filter(z => z.healthGrade === healthFilter); if (searchQuery) { const q = searchQuery.toLowerCase(); r = r.filter(z => z.zone.toLowerCase().includes(q) || z.displayName.toLowerCase().includes(q) || z.provider.toLowerCase().includes(q)); } return r; }, [zones, healthFilter, searchQuery]);
 
-  const cPos = useMemo(() => fClusters.map(c => { const p = projection([c.longitude, c.latitude]); return { c, x: p?.[0] ?? 0, y: p?.[1] ?? 0 }; }), [fClusters, projection]);
-  const rawZPos = useMemo(() => fZones.map(z => { const p = projection([z.longitude, z.latitude]); return { z, x: p?.[0] ?? 0, y: p?.[1] ?? 0 }; }), [fZones, projection]);
+  // Places without a known region are listed in the tray, not pinned anywhere.
+  const unknownClusters = useMemo(() => fClusters.filter(c => c.locationUnknown), [fClusters]);
+  const unknownZones = useMemo(() => fZones.filter(z => z.locationUnknown), [fZones]);
+  const cPos = useMemo(() => fClusters.filter(c => !c.locationUnknown).map(c => { const p = projection([c.longitude, c.latitude]); return { c, x: p?.[0] ?? 0, y: p?.[1] ?? 0 }; }), [fClusters, projection]);
+  const rawZPos = useMemo(() => fZones.filter(z => !z.locationUnknown).map(z => { const p = projection([z.longitude, z.latitude]); return { z, x: p?.[0] ?? 0, y: p?.[1] ?? 0 }; }), [fZones, projection]);
 
   // Pin clustering: merge nearby zone pins when zoomed out with many pins
   const zPos = useMemo(() => {
@@ -260,8 +263,8 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
   const drillPods = useMemo(() => cv.selectedNode ? pods.filter(p => p.nodeName === cv.selectedNode!.name) : [], [pods, cv.selectedNode]);
 
   // Event + movement positions
-  const evtPos = useMemo(() => events.slice(0, 10).map((evt, i) => { const z = zones.find(zn => (evt.zone && zn.zone === evt.zone) || (evt.nodeName && zn.nodeNames.includes(evt.nodeName))); if (!z) return null; const p = projection([z.longitude, z.latitude]); if (!p) return null; const a = (i / 10) * Math.PI * 2, o = 30 + i * 3; return { evt, x: p[0] + Math.cos(a) * o, y: p[1] + Math.sin(a) * o, zx: p[0], zy: p[1] }; }).filter(Boolean) as Array<{ evt: MapEvent; x: number; y: number; zx: number; zy: number }>, [events, zones, projection]);
-  const mvPos = useMemo(() => podMovements.slice(0, 5).map((mv, i) => { const z = zones.find(zn => mv.nodeName && zn.nodeNames.includes(mv.nodeName)); if (!z) return null; const p = projection([z.longitude, z.latitude]); if (!p) return null; const a = (i / 5) * Math.PI * 2 + Math.PI / 4; return { mv, x: p[0] + Math.cos(a) * 28, y: p[1] + Math.sin(a) * 28 }; }).filter(Boolean) as Array<{ mv: PodMovement; x: number; y: number }>, [podMovements, zones, projection]);
+  const evtPos = useMemo(() => events.slice(0, 10).map((evt, i) => { const z = zones.find(zn => (evt.zone && zn.zone === evt.zone) || (evt.nodeName && zn.nodeNames.includes(evt.nodeName))); if (!z || z.locationUnknown) return null; const p = projection([z.longitude, z.latitude]); if (!p) return null; const a = (i / 10) * Math.PI * 2, o = 30 + i * 3; return { evt, x: p[0] + Math.cos(a) * o, y: p[1] + Math.sin(a) * o, zx: p[0], zy: p[1] }; }).filter(Boolean) as Array<{ evt: MapEvent; x: number; y: number; zx: number; zy: number }>, [events, zones, projection]);
+  const mvPos = useMemo(() => podMovements.slice(0, 5).map((mv, i) => { const z = zones.find(zn => mv.nodeName && zn.nodeNames.includes(mv.nodeName)); if (!z || z.locationUnknown) return null; const p = projection([z.longitude, z.latitude]); if (!p) return null; const a = (i / 5) * Math.PI * 2 + Math.PI / 4; return { mv, x: p[0] + Math.cos(a) * 28, y: p[1] + Math.sin(a) * 28 }; }).filter(Boolean) as Array<{ mv: PodMovement; x: number; y: number }>, [podMovements, zones, projection]);
 
   // Connection lines
   const connLines = useMemo(() => { if (clusters.length < 2 || cPos.length < 2) return []; const hub = cPos[0]; return cPos.slice(1).map(cp => ({ id: `${hub.c.id}-${cp.c.id}`, path: `M${hub.x},${hub.y} Q${(hub.x + cp.x) / 2},${Math.min(hub.y, cp.y) - 20} ${cp.x},${cp.y}`, ok: cp.c.healthGrade === 'healthy' })); }, [cPos, clusters.length]);
@@ -274,6 +277,17 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
   return (
     <div ref={containerRef} className={`relative rounded-lg border border-slate-800 overflow-hidden bg-[#080e1a] transition-all duration-300 ${fullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : ''}`} style={fullscreen ? undefined : { height: MAP_HEIGHT }}>
       <style>{css}</style>
+
+      {(unknownClusters.length > 0 || unknownZones.length > 0) && (
+        <div className="absolute bottom-2 left-2 z-10 max-w-[240px] rounded-sm border border-slate-700 bg-slate-900/90 px-2.5 py-2 text-xs" data-testid="unknown-location-tray">
+          <div className="font-medium text-slate-300 mb-1">Unknown location ({unknownClusters.length + unknownZones.length})</div>
+          <div className="text-[11px] text-slate-500 mb-1">No region label, so not placed on the map</div>
+          <ul className="space-y-0.5 text-slate-400">
+            {unknownClusters.map(c => <li key={`c-${c.id}`} className="truncate">{c.name}</li>)}
+            {unknownZones.map(z => <li key={`z-${z.id}`} className="truncate">{z.displayName} · {z.nodeCount} node{z.nodeCount !== 1 ? 's' : ''}</li>)}
+          </ul>
+        </div>
+      )}
 
       {/* ═══ STATS HEADER ═══ */}
       <div className="h-10 bg-slate-900/80 border-b border-slate-800/50 flex items-center px-4 gap-6">
@@ -312,7 +326,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
             <span className={statColor(stats.avgMem, 70, 90)}>{stats.avgMem}%</span>
           </button>
           {stats.alerts > 0 && (
-            <button onClick={() => onNavigate?.('/inbox', 'Inbox')} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
+            <button onClick={() => onNavigate?.('/r/v1~events', 'Events')} title={`${stats.alerts} Warning event${stats.alerts !== 1 ? 's' : ''} in the last hour`} aria-label={`${stats.alerts} Warning events in the last hour`} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
               <AlertTriangle className="w-3 h-3 text-red-400" />
               <span className="text-red-400">{stats.alerts}</span>
             </button>
@@ -466,7 +480,8 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
                 onMouseEnter={() => setHoveredCluster(c)} onMouseLeave={() => setHoveredCluster(null)} onClick={() => onCluster(c)}
                 role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onCluster(c); }}>
                 <circle r={r * 3} fill="url(#pinGlow)" opacity={hov || sel ? 0.4 : 0.15} style={pulse ? { animation: 'mp 2s ease-in-out infinite' } : undefined} />
-                <circle r={r + 4} fill="none" stroke={color} strokeWidth={2.5} strokeDasharray={`${(c.healthScore / 100) * Math.PI * 2 * (r + 4)} 999`} transform="rotate(-90)" opacity={0.8} strokeLinecap="round" />
+                {/* Full ring: colour is connectivity, there is no score to draw as an arc. */}
+                <circle r={r + 4} fill="none" stroke={color} strokeWidth={2.5} opacity={0.8} />
                 <circle r={r} fill={color} opacity={hov || sel ? 1 : 0.85} />
                 <circle r={r} fill="url(#pinGlow)" />
                 <text textAnchor="middle" dominantBaseline="central" fill="white" fontSize={r > 14 ? 12 : 9} fontWeight={800} fontFamily="system-ui">{c.nodeCount || '?'}</text>

@@ -23,7 +23,7 @@ interface CertInfo {
   isSystem: boolean;
 }
 
-type StatusFilter = 'all' | 'critical' | 'warning' | 'healthy';
+type StatusFilter = 'all' | 'critical' | 'warning' | 'healthy' | 'unknown';
 type SortField = 'expires' | 'name' | 'namespace' | 'issuer' | 'age';
 
 // --- Certificate parsing helpers ---
@@ -216,7 +216,9 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
       total: base.length,
       critical: base.filter(c => c.status === 'critical').length,
       warning: base.filter(c => c.status === 'warning').length,
-      healthy: base.filter(c => c.status === 'healthy' || c.status === 'unknown').length,
+      // Unknown expiry is not healthy: it is a certificate nobody can vouch for.
+      healthy: base.filter(c => c.status === 'healthy').length,
+      unknown: base.filter(c => c.status === 'unknown').length,
     };
   }, [certs, showSystem]);
 
@@ -301,7 +303,17 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
             <CheckCircle className="w-3.5 h-3.5 text-green-500" />
           </div>
           <div className="text-xl font-bold text-green-400">{counts.healthy}</div>
-          <div className="text-xs text-slate-500 mt-0.5">valid or unknown expiry</div>
+          <div className="text-xs text-slate-500 mt-0.5">valid for more than 30 days</div>
+        </button>
+        <button onClick={() => setStatusFilter(statusFilter === 'unknown' ? 'all' : 'unknown')}
+          className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors',
+            'border-slate-800 hover:border-slate-600',
+            statusFilter === 'unknown' && 'ring-1 ring-slate-400')}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-slate-400">Unknown expiry</span>
+          </div>
+          <div className="text-xl font-bold text-slate-300">{counts.unknown}</div>
+          <div className="text-xs text-slate-500 mt-0.5">certificate could not be read</div>
         </button>
       </MetricGrid>
 

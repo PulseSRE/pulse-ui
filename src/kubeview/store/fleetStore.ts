@@ -118,9 +118,10 @@ export const useFleetStore = create<FleetState>((set, get) => ({
           target: name,
         });
 
+        // capacity.cpu is CPU cores, not nodes: leave nodeCount unset until a
+        // health check actually counts the nodes.
         updateConnectionStatus(name, readyCond?.status === 'True' ? 'connected' : 'unreachable', {
           version: mc.status?.version?.kubernetes,
-          nodeCount: Math.round(parseFloat(mc.status?.capacity?.cpu || '0')) || undefined,
         });
       }
 

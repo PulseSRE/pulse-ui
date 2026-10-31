@@ -41,8 +41,9 @@ const PROVIDER_GUIDANCE = {
       'Click "Create app password"',
       'Select permission: Repositories: Write',
       'Click "Create" and copy the password',
+      'Enter it as your-username:app-password (App Passwords use Basic auth)',
     ],
-    placeholder: 'App password',
+    placeholder: 'username:app-password',
     scopes: 'Repositories: Write',
   },
 };

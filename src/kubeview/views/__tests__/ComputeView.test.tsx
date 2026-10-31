@@ -138,4 +138,22 @@ describe('ComputeView', () => {
     expect(await screen.findByText('40%')).toBeTruthy();
     expect(screen.getByText('55%')).toBeTruthy();
   });
+
+  it('fails "Dedicated Worker Nodes" on a compact cluster with no dedicated workers, and HA with no masters', () => {
+    // An empty failing list used to score as a pass.
+    const node = (name: string, roles: string[]) => ({
+      metadata: { name, uid: name, labels: Object.fromEntries(roles.map((r) => [`node-role.kubernetes.io/${r}`, ''])), creationTimestamp: '2025-01-01T00:00:00Z' },
+      status: { conditions: [{ type: 'Ready', status: 'True' }], allocatable: { cpu: '4', memory: '16Gi', pods: '250' }, capacity: { cpu: '4', memory: '16Gi' }, nodeInfo: { kubeletVersion: 'v1.28.0' } },
+    });
+    mockData['/api/v1/nodes'] = [node('a', ['master', 'worker']), node('b', ['master', 'worker']), node('c', ['master', 'worker'])];
+    renderView();
+    const workers = screen.getByText('Dedicated Worker Nodes').closest('button')!;
+    expect(workers.textContent).toContain('1 of 1 need attention');
+    cleanup();
+
+    mockData['/api/v1/nodes'] = [node('w1', ['worker']), node('w2', ['worker'])];
+    renderView();
+    const ha = screen.getByText('HA Control Plane').closest('button')!;
+    expect(ha.textContent).toContain('1 of 1 need attention');
+  });
 });

@@ -22,6 +22,8 @@ vi.mock('../../store/uiStore', () => ({
       addTab: addTabMock,
       addToast: addToastMock,
       setSelectedNamespace: vi.fn(),
+      setLastSyncTime: vi.fn(),
+      removeDegradedReason: vi.fn(),
     };
     return selector(state);
   },
@@ -163,5 +165,51 @@ describe('AdminView', () => {
     // Verifies the component mounts and renders the Overview tab header
     const { container } = renderAdmin();
     expect(container.querySelector('.bg-slate-950')).toBeDefined();
+  });
+
+  it('reads expiry from the certificate itself — no "creation + 780 days" guesses — and parses the router cert', async () => {
+    const { waitFor } = await import('@testing-library/react');
+    // A service-ca secret created ~760 days ago with no readable tls.crt used to
+    // be reported as expiring in ~20 days. Now its expiry is unknown, and a
+    // secret whose certificate really has expired is reported.
+    const created = new Date(Date.now() - 760 * 86400000).toISOString();
+    vi.mocked(k8sList).mockImplementation(async (path: string) => {
+      if (path.includes('kubernetes.io/tls')) {
+        return [
+          { type: 'kubernetes.io/tls', metadata: { name: 'guessed', namespace: 'ns', creationTimestamp: created, annotations: { 'service.beta.openshift.io/originating-service-name': 'svc' } }, data: {} },
+          { type: 'kubernetes.io/tls', metadata: { name: 'really-expired', namespace: 'ns', creationTimestamp: created }, data: { 'tls.crt': 'LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJXRENCL3FBREFnRUNBaFF1ZEVuQ3RKSkFIUXc1KzNpb0oyeXkvd1pvdVRBS0JnZ3Foa2pPUFFRREFqQVMKTVJBd0RnWURWUVFEREFkbGVIQnBjbVZrTUI0WERUSTBNREV3TVRBd01EQXdNRm9YRFRJME1ESXdNVEF3TURBdwpNRm93RWpFUU1BNEdBMVVFQXd3SFpYaHdhWEpsWkRCWk1CTUdCeXFHU000OUFnRUdDQ3FHU000OUF3RUhBMElBCkJNK2gveFZoZXNxaWxJa3JoYit1OC9JVmJTdkhuWEsyelE1UStJOHl0QndxS2Y1OFE2SGZySTRyVjJaSTF0TFQKQkN0OE5LbEJtbHBsbmVSaWxicCt2aXFqTWpBd01CMEdBMVVkRGdRV0JCUTRpUGM3aDE1M3ZXcGlYTUR1cWI5eQorNjBLanpBUEJnTlZIUk1CQWY4RUJUQURBUUgvTUFvR0NDcUdTTTQ5QkFNQ0Ewa0FNRVlDSVFEeFpqOC9paGFNCjVCdG5OOEFlWkc4eDNnUXlzdkQxbEhySFFJSHY3bnpvRHdJaEFLTlJpaGJWYldTeVZGZnpldTVOV0FRTmpaRC8KNnNoUFZ2bWRIWWF1RmxOZQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==' } },
+        ] as never;
+      }
+      return [] as never;
+    });
+    vi.mocked(k8sGet).mockImplementation(async (path: string) => {
+      if (path.includes('router-certs-default')) return { metadata: { name: 'router-certs-default' }, data: { 'tls.crt': 'LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJWRENCL0tBREFnRUNBaFJVL090N2dPT2dNQXJyQ0ZWWUJTakh0WjlBMlRBS0JnZ3Foa2pPUFFRREFqQVIKTVE4d0RRWURWUVFEREFabWRYUjFjbVV3SGhjTk1qWXhNRE14TURJME5URTNXaGNOTXpZeE1ESTRNREkwTlRFMwpXakFSTVE4d0RRWURWUVFEREFabWRYUjFjbVV3V1RBVEJnY3Foa2pPUFFJQkJnZ3Foa2pPUFFNQkJ3TkNBQVNiClZYYmU5Z1RxRmdNbUhwNmRicnZuRlNMUDdNQ1hLemJKYTErSFBNR2x4OHA1MzAvWWo2VkN1d1JSdyszaXBPMzAKOE1RaTdnaER2RmFabUxiOFFpMEJvekl3TURBZEJnTlZIUTRFRmdRVThvSjhyWVBLM3M4M3J6VDBGU0kxRmpQYQoybVl3RHdZRFZSMFRBUUgvQkFVd0F3RUIvekFLQmdncWhrak9QUVFEQWdOSEFEQkVBaUJkTkF2UlFFUlRiY09pCmJyV2h2UGdjWlBBRGVYdnVTdHI5WGsxUW43UlZLQUlnRkhZa2xWeDBhL3pkdXk4cVJnb2dNMGUvaDQ3N1kxN2wKYko1eExoK1g2UFk9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K' } } as never;
+      return null as never;
+    });
+    renderAdmin();
+    await waitFor(() => expect(screen.getByText(/1 cert expiring within 30 days/)).toBeDefined());
+    expect(screen.getByText('really-expired', { exact: false })).toBeDefined();
+    expect(screen.queryByText('guessed', { exact: false })).toBeNull();
+    await waitFor(() => expect(screen.getByText('Router Cert Expires')).toBeDefined());
+  });
+
+  it('counts an operator that is both degraded and progressing once', async () => {
+    const { waitFor } = await import('@testing-library/react');
+    const cond = (type: string, status: string) => ({ type, status });
+    vi.mocked(k8sList).mockImplementation(async (path: string) => {
+      if (path.includes('clusteroperators')) {
+        return [
+          { metadata: { name: 'both', uid: 'a' }, status: { conditions: [cond('Degraded', 'True'), cond('Progressing', 'True')] } },
+          { metadata: { name: 'fine', uid: 'b' }, status: { conditions: [cond('Available', 'True'), cond('Degraded', 'False'), cond('Progressing', 'False')] } },
+        ] as never;
+      }
+      return [] as never;
+    });
+    vi.mocked(k8sGet).mockResolvedValue(null as never);
+    renderAdmin();
+    await waitFor(() => {
+      const card = screen.getByText('Cluster Operators').parentElement!;
+      expect(card.textContent).toContain('1/2');
+    });
   });
 });

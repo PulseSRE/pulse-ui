@@ -67,6 +67,7 @@ vi.mock('../../../hooks/useIncidentTimeline', () => ({
     correlationGroups: [],
     counts: { alert: 0, event: 0, rollout: 0, config: 0 },
     isLoading: false,
+    failedSources: [],
   }),
 }));
 

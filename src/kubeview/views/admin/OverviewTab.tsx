@@ -42,6 +42,8 @@ export interface OverviewTabProps {
   operators: ClusterOperator[];
   opDegraded: number;
   opProgressing: number;
+  /** Operators that are neither degraded nor progressing (each counted once). */
+  opSteady: number;
   degradedOperators: Array<{ name: string; message: string }>;
   nodes: Node[];
   nodeRoles: Array<[string, number]>;
@@ -87,7 +89,7 @@ function getOperatorStatus(op: K8sResource | OperatorResource | null): string {
 export function OverviewTab({
   overviewLoading, overviewError,
   firingAlerts, alertsUnavailable, alertsUnavailableReason, alertCounts,
-  operators, opDegraded, opProgressing, degradedOperators,
+  operators, opDegraded, opProgressing, opSteady, degradedOperators,
   nodes, nodeRoles,
   cvVersion, cvChannel, platform, apiUrl,
   controlPlaneTopology, isHyperShift,
@@ -182,22 +184,24 @@ export function OverviewTab({
 
       {/* Info cards — 4 per row */}
       <MetricGrid>
-        {/* Health score */}
+        {/* Explicit operator counts, not an invented health percentage */}
         <InfoCard
-          label="Cluster Health"
-          value={(() => {
-            const total = operators.length;
-            if (total === 0) return '\u2014';
-            const healthy = total - opDegraded - opProgressing;
-            const score = Math.round((healthy / total) * 100);
-            return `${score}%`;
-          })()}
-          sub={opDegraded > 0 ? `${opDegraded} degraded` : firingAlerts.length > 0 ? `${firingAlerts.length} alerts` : 'All systems go'}
+          label="Cluster Operators"
+          value={operators.length === 0 ? '\u2014' : `${opSteady}/${operators.length}`}
+          sub={
+            operators.length === 0
+              ? 'Not read'
+              : [
+                  opDegraded > 0 ? `${opDegraded} degraded` : '',
+                  opProgressing > 0 ? `${opProgressing} updating` : '',
+                  alertsUnavailable ? 'alerts unknown' : firingAlerts.length > 0 ? `${firingAlerts.length} alerts` : '',
+                ].filter(Boolean).join(' · ') || 'none degraded or updating'
+          }
           onClick={() => go('/readiness', 'Production Readiness')}
           className={cn(
             opDegraded > 0 ? 'border-red-800' :
             firingAlerts.length > 0 ? 'border-amber-800' :
-            'border-emerald-800/50'
+            operators.length > 0 && !alertsUnavailable ? 'border-emerald-800/50' : ''
           )}
         />
         <InfoCard label="Cluster Version" value={cvVersion || '\u2014'} sub={cvChannel} />
@@ -349,7 +353,7 @@ export function OverviewTab({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400">ClusterOperators ({operators.length})</span>
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 text-xs text-green-400"><CheckCircle className="w-3 h-3" /> {operators.length - opDegraded - opProgressing}</span>
+                  <span className="flex items-center gap-1 text-xs text-green-400"><CheckCircle className="w-3 h-3" /> {opSteady}</span>
                   {opDegraded > 0 && <span className="flex items-center gap-1 text-xs text-red-400"><XCircle className="w-3 h-3" /> {opDegraded}</span>}
                   {opProgressing > 0 && <span className="flex items-center gap-1 text-xs text-yellow-400"><RefreshCw className="w-3 h-3" /> {opProgressing}</span>}
                 </div>

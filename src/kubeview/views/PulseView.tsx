@@ -72,7 +72,6 @@ import { MAP_HEIGHT } from '../components/topology/WorldMap';
 type PostureLevel = 'unknown' | 'green' | 'yellow' | 'red';
 
 function ClusterPostureBar({
-  findings,
   incidentCounts,
   topIncident,
   lastScanTime,
@@ -81,8 +80,6 @@ function ClusterPostureBar({
   investigateShownAbove = false,
   alertsUnknown = false,
 }: {
-  /** Monitor findings, used only for the auto-fixed tally. Counts come from the incident feed. */
-  findings: Array<{ severity: string; title: string }>;
   incidentCounts: { critical: number; warning: number; info: number; total: number };
   /** Highest-severity, most-recent incident from the same feed the counts come from. */
   topIncident: { severity: string; title: string } | null;
@@ -103,7 +100,8 @@ function ClusterPostureBar({
 }) {
   const criticalCount = incidentCounts.critical;
   const warningCount = incidentCounts.warning;
-  const autoFixedCount = findings.filter((f) => (f as any).autoFixable).length;
+  // There is no "N auto-fixed overnight" here: it counted findings that were
+  // merely fixable, and nothing in this bar knows what was actually fixed.
 
   // Counts and the headline both come from the incident feed, which is the
   // only list that has counted everything exactly once. The feed reads monitor
@@ -148,9 +146,7 @@ function ClusterPostureBar({
             </span>
           )}
           {level === 'yellow' && <span>{scanLabel}</span>}
-          {level === 'red' && autoFixedCount > 0 && (
-            <span>{autoFixedCount} auto-fixed overnight</span>
-          )}
+          {level === 'red' && <span>{scanLabel}</span>}
         </>
       }
     >
@@ -196,14 +192,13 @@ export default function PulseView() {
     nodesError && 'nodes', podsError && 'pods', deploysError && 'deployments',
     pvcsError && 'volume claims', opsError && 'cluster operators',
   ].filter((x): x is string => Boolean(x));
-  const { monitorConnected, activeSkill, monitorEnabled, setMonitorEnabled, triggerScan, findings, lastScanTime } =
+  const { monitorConnected, activeSkill, monitorEnabled, setMonitorEnabled, triggerScan, lastScanTime } =
     useMonitorStore(useShallow((s) => ({
       monitorConnected: s.connected,
       activeSkill: s.activeSkill,
       monitorEnabled: s.monitorEnabled,
       setMonitorEnabled: s.setMonitorEnabled,
       triggerScan: s.triggerScan,
-      findings: s.findings,
       lastScanTime: s.lastScanTime,
     })));
   const requestedTrust = useTrustStore((s) => s.trustLevel);
@@ -271,7 +266,6 @@ export default function PulseView() {
 
         {/* ── Cluster Posture Bar ── */}
         <ClusterPostureBar
-          findings={findings}
           incidentCounts={incidentCounts}
           topIncident={topIncident}
           lastScanTime={lastScanTime}
