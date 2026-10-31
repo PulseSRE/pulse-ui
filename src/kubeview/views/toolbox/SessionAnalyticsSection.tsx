@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatDurationSeconds } from '../../engine/format';
 import { useQuery } from '@tanstack/react-query';
 import {
   Users, Eye, LayoutDashboard, Bot, Timer,
@@ -48,12 +49,7 @@ export function SessionAnalyticsSection() {
   const maxViews = Math.max(...pages.slice(0, 12).map((p) => p.views), 1);
   const maxQueries = Math.max(...agent_queries_by_page.slice(0, 10).map((q) => q.queries), 1);
 
-  const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${Math.round(seconds)}s`;
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.round(seconds % 60);
-    return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
-  };
+  const formatDuration = formatDurationSeconds;
 
   const formatPage = (path: string) => {
     if (path === '/' || path === '') return 'Home';

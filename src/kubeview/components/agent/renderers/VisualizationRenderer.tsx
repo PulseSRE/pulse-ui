@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect, lazy, Suspense } from 'react';
+import { isKnownStatus, statusClasses, statusTone, TONE_CLASSES } from '../../../engine/statusColors';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { AgentLink, useAgentLink } from '../AgentLink';
@@ -76,19 +77,19 @@ export function TopologySuspense({ spec, onAddToView }: { spec: TopologySpec; on
 // Metric Card
 // ---------------------------------------------------------------------------
 
-const METRIC_STATUS_COLORS: Record<string, string> = {
-  healthy: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
-};
-const METRIC_STATUS_BORDER: Record<string, string> = {
-  healthy: 'border-emerald-800',
-  warning: 'border-amber-800',
-  error: 'border-red-800',
-};
+/** Metric cards only tint for a known status; anything else keeps the default look. */
+function metricTone(status?: string) {
+  return status && isKnownStatus(status) && statusTone(status) !== 'neutral' ? statusClasses(status) : null;
+}
+function metricStatusHex(status?: string): string | undefined {
+  return metricTone(status)?.hex;
+}
+function metricStatusBorder(status?: string): string {
+  return metricTone(status)?.cardBorder ?? 'border-slate-800';
+}
 
 export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
-  const color = spec.color || METRIC_STATUS_COLORS[spec.status || ''] || '#3b82f6';
+  const color = spec.color || metricStatusHex(spec.status) || '#3b82f6';
   const link = useAgentLink(spec.link);
   const clickable = !!link.onClick;
   const handleClick = () => link.onClick?.();
@@ -122,7 +123,7 @@ export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
       title={link.title}
       className={cn(
         'bg-linear-to-br from-slate-900 to-slate-900/70 rounded-lg border p-3 transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)] h-full',
-        METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800',
+        metricStatusBorder(spec.status),
         clickable && 'cursor-pointer hover:ring-1 hover:ring-blue-500/50 w-full text-left',
       )}
     >
@@ -288,7 +289,7 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
   return (
     <div className={cn(
       'bg-linear-to-br from-slate-900 to-slate-900/70 rounded-lg border p-4 flex flex-col items-center justify-center text-center transition-all duration-200 hover:shadow-[0_0_12px_rgba(37,99,235,0.08)]',
-      METRIC_STATUS_BORDER[spec.status || ''] || 'border-slate-800'
+      metricStatusBorder(spec.status)
     )}>
       <span className="text-xs text-slate-400 mb-1">{title}</span>
       <div className="text-2xl font-bold text-slate-100 font-mono">
@@ -309,10 +310,10 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
 // ---------------------------------------------------------------------------
 
 const SEVERITY_COLORS: Record<string, string> = {
-  critical: '#ef4444',
-  warning: '#f59e0b',
-  info: '#3b82f6',
-  normal: '#64748b',
+  critical: TONE_CLASSES.danger.hex,
+  warning: TONE_CLASSES.warning.hex,
+  info: TONE_CLASSES.info.hex,
+  normal: TONE_CLASSES.neutral.hex,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {

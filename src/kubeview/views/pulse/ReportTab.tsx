@@ -38,15 +38,7 @@ interface ResourceQuota extends K8sResource {
 }
 
 import { isSystemNamespace } from '../../engine/namespace';
-
-function formatTimeAgo(timestamp: string): string {
-  const diff = Date.now() - new Date(timestamp).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  return `${hrs}h ago`;
-}
+import { formatRelative } from '../../engine/format';
 
 interface AttentionItem {
   severity: 'critical' | 'warning';
@@ -403,7 +395,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
         const reason = e.reason || '';
         const message = e.message || '';
         const timestamp = e.lastTimestamp || e.metadata.creationTimestamp || '';
-        const ago = timestamp ? formatTimeAgo(timestamp) : '';
+        const ago = timestamp ? formatRelative(timestamp) : '';
         return { kind, name, namespace, reason, message, source, path, ago };
       });
   }, [recentEvents]);

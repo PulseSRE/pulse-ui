@@ -11,6 +11,7 @@ import type {
   ComponentSpec,
   RelationshipTreeSpec,
 } from '../../../engine/agentComponents';
+import { statusClasses } from '../../../engine/statusColors';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,15 +24,6 @@ const KIND_ICONS: Record<string, string> = {
   PersistentVolumeClaim: '💾', HorizontalPodAutoscaler: '📈',
 };
 
-const TREE_STATUS_COLORS: Record<string, string> = {
-  healthy: 'border-emerald-500', warning: 'border-amber-500',
-  error: 'border-red-500', pending: 'border-blue-500', unknown: 'border-slate-600',
-};
-
-const TREE_STATUS_BG: Record<string, string> = {
-  healthy: 'bg-emerald-500/10', warning: 'bg-amber-500/10',
-  error: 'bg-red-500/10', pending: 'bg-blue-500/10', unknown: 'bg-slate-800',
-};
 
 // ---------------------------------------------------------------------------
 // TreeNode
@@ -43,8 +35,7 @@ export function TreeNode({ node, nodes, depth = 0, visited = new Set<string>() }
   visited.add(node.id);
   const children = (node.children || []).map((id) => nodes.get(id)).filter(Boolean);
   const icon = KIND_ICONS[node.kind] || '📄';
-  const statusBorder = TREE_STATUS_COLORS[node.status || 'unknown'] || TREE_STATUS_COLORS.unknown;
-  const statusBg = TREE_STATUS_BG[node.status || 'unknown'] || TREE_STATUS_BG.unknown;
+  const { accentBorder: statusBorder, bg: statusBg } = statusClasses(node.status || 'unknown');
   const link = node.gvr && node.namespace
     ? `/r/${node.gvr}/${node.namespace}/${node.name}`
     : node.gvr ? `/r/${node.gvr}/_/${node.name}` : null;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatAge } from '../../engine/format';
 import { cn } from '@/lib/utils';
 import {
   Box, CheckCircle, XCircle, AlertCircle, Clock,
@@ -48,16 +49,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
   const allHealthy = readyReplicas === replicas && replicas > 0 && unavailableReplicas === 0;
 
   // Age
-  const age = React.useMemo(() => {
-    const created = new Date(resource.metadata.creationTimestamp || '');
-    const diff = Date.now() - created.getTime();
-    const days = Math.floor(diff / 86400000);
-    if (days > 30) return `${Math.floor(days / 30)}mo`;
-    if (days > 0) return `${days}d`;
-    const hours = Math.floor(diff / 3600000);
-    if (hours > 0) return `${hours}h`;
-    return `${Math.floor(diff / 60000)}m`;
-  }, [resource.metadata.creationTimestamp]);
+  const age = formatAge(resource.metadata.creationTimestamp);
 
   return (
     <div className="space-y-4">
@@ -185,15 +177,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
               const total = podContainerStatuses.length || 1;
               const waiting = podContainerStatuses.find((c) => c.state?.waiting)?.state?.waiting;
               const restarts = podContainerStatuses.reduce((sum, c) => sum + (c.restartCount || 0), 0);
-              const podAge = (() => {
-                const created = new Date(pod.metadata.creationTimestamp || '');
-                const diff = Date.now() - created.getTime();
-                const mins = Math.floor(diff / 60000);
-                if (mins < 60) return `${mins}m`;
-                const hours = Math.floor(mins / 60);
-                if (hours < 24) return `${hours}h`;
-                return `${Math.floor(hours / 24)}d`;
-              })();
+              const podAge = formatAge(pod.metadata.creationTimestamp);
               const nodeName = (pod.spec as Pod['spec'] | undefined)?.nodeName || '';
 
               return (

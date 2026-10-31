@@ -73,7 +73,7 @@ describe('PulseAgentView', () => {
     expect(screen.getByText('Overview')).toBeDefined();
     expect(screen.getByText('Tools')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
-    expect(screen.getByText('SkillPlan')).toBeDefined();
+    expect(screen.getByText('Plans')).toBeDefined();
     expect(screen.getByText('MCP')).toBeDefined();
     expect(screen.getByText('Analytics')).toBeDefined();
   });

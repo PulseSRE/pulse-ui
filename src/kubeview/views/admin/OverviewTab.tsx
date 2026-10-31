@@ -11,6 +11,7 @@ import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { InfoCard } from '../../components/primitives/InfoCard';
 import { formatMem } from '../../engine/formatting';
+import { formatRelative } from '../../engine/format';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { ControlPlaneMetrics } from '../../components/metrics/ControlPlaneMetrics';
 
@@ -464,13 +465,7 @@ export function OverviewTab({
               const objectName = ev.involvedObject?.name || '';
               const ns = ev.involvedObject?.namespace || event.metadata.namespace || '';
               const timestamp = ev.lastTimestamp || ev.firstTimestamp || event.metadata.creationTimestamp || '';
-              const timeAgo = timestamp ? (() => {
-                const ms = Date.now() - new Date(timestamp).getTime();
-                if (ms < 60000) return `${Math.floor(ms / 1000)}s`;
-                if (ms < 3600000) return `${Math.floor(ms / 60000)}m`;
-                if (ms < 86400000) return `${Math.floor(ms / 3600000)}h`;
-                return `${Math.floor(ms / 86400000)}d`;
-              })() : '';
+              const timeAgo = timestamp ? formatRelative(timestamp) : '';
 
               return (
                 <button key={i} onClick={() => { if (objectName && objectKind) go(resourceDetailUrl({ apiVersion: ev.involvedObject?.apiVersion, kind: objectKind, metadata: { name: objectName, namespace: ns || undefined } }), objectName); }}
@@ -482,7 +477,7 @@ export function OverviewTab({
                       {objectKind && objectName && (
                         <span className="text-xs text-slate-500">{objectKind}/{objectName}</span>
                       )}
-                      {timeAgo && <span className="text-xs text-slate-600 ml-auto shrink-0">{timeAgo} ago</span>}
+                      {timeAgo && <span className="text-xs text-slate-600 ml-auto shrink-0">{timeAgo}</span>}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{message}</p>
                   </div>

@@ -32,13 +32,8 @@ export function parseResourceValue(val: string | undefined): number {
   return num;
 }
 
-export function formatBytes(bytes: number): string {
-  if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(1)} Ti`;
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} Gi`;
-  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(0)} Mi`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} Ki`;
-  return `${bytes}`;
-}
+/** @deprecated Import `formatBytes` from `engine/format`. */
+export { formatBytes } from './format';
 
 export function formatCpu(cores: number): string {
   if (cores >= 1) return `${cores.toFixed(1)} cores`;

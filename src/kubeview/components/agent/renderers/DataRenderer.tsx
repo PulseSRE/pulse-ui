@@ -23,6 +23,8 @@ import type {
 import { normalizeKeyValuePairs } from '../../../engine/agentComponents';
 import { k8sFetch } from '../../../engine/query';
 import { LOCAL_CLUSTER_ID } from '../../../engine/clusterConnection';
+import { formatRelative } from '../../../engine/format';
+import { isKnownStatus, statusClasses, statusTone, TONE_CLASSES } from '../../../engine/statusColors';
 
 // ---------------------------------------------------------------------------
 // Column Renderer Registry — smart rendering based on column type
@@ -30,15 +32,10 @@ import { LOCAL_CLUSTER_ID } from '../../../engine/clusterConnection';
 
 const LINK_STYLE = 'text-blue-400 hover:text-blue-300';
 
-const STATUS_COLORS: Record<string, string> = {
-  running: 'text-emerald-400', active: 'text-emerald-400', available: 'text-emerald-400',
-  true: 'text-emerald-400', healthy: 'text-emerald-400', ready: 'text-emerald-400',
-  complete: 'text-emerald-400', bound: 'text-emerald-400',
-  warning: 'text-amber-400', pending: 'text-amber-400', progressing: 'text-amber-400', unknown: 'text-amber-400',
-  failed: 'text-red-400', error: 'text-red-400', crashloopbackoff: 'text-red-400',
-  false: 'text-red-400', degraded: 'text-red-400', unavailable: 'text-red-400',
-  'not ready': 'text-red-400', imagepullbackoff: 'text-red-400',
-};
+/** Status words take their colour from engine/statusColors; free text stays plain. */
+function statusTextClass(str: string): string {
+  return isKnownStatus(str) ? statusClasses(str).text : 'text-slate-300';
+}
 
 const STATUS_LIST_KIND_GVR: Record<string, string> = {
   Deployment: 'apps~v1~deployments', StatefulSet: 'apps~v1~statefulsets',
@@ -90,14 +87,14 @@ const COLUMN_RENDERERS: Record<string, CellRenderer> = {
 
   status: (v) => {
     const str = String(v ?? '');
-    return <span className={STATUS_COLORS[str.toLowerCase()] || 'text-slate-300'}>{str}</span>;
+    return <span className={statusTextClass(str)}>{str}</span>;
   },
 
   severity: (v) => {
     const str = String(v ?? '');
-    const lower = str.toLowerCase();
-    const color = lower === 'critical' || lower === 'error' ? 'text-red-400 font-medium' :
-      lower === 'warning' ? 'text-amber-400' : 'text-blue-400';
+    const tone = statusTone(str);
+    const color = tone === 'danger' ? cn(TONE_CLASSES.danger.text, 'font-medium')
+      : tone === 'warning' ? TONE_CLASSES.warning.text : TONE_CLASSES.info.text;
     return <span className={color}>{str}</span>;
   },
 
@@ -108,14 +105,14 @@ const COLUMN_RENDERERS: Record<string, CellRenderer> = {
     const str = String(v ?? '');
     if (!str.includes('/')) return <>{str}</>;
     const [ready, total] = str.split('/').map(Number);
-    const color = ready === total && total > 0 ? 'text-emerald-400' : ready > 0 ? 'text-amber-400' : 'text-red-400';
+    const color = TONE_CLASSES[ready === total && total > 0 ? 'success' : ready > 0 ? 'warning' : 'danger'].text;
     return <span className={color}>{str}</span>;
   },
 
   progress: (v) => {
     const pct = typeof v === 'number' ? v : parseFloat(String(v ?? '0').replace('%', ''));
     if (isNaN(pct)) return <>{String(v)}</>;
-    const color = pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+    const color = TONE_CLASSES[pct > 80 ? 'danger' : pct > 60 ? 'warning' : 'success'].solid;
     return (
       <div className="flex items-center gap-1.5">
         <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
@@ -140,9 +137,7 @@ const COLUMN_RENDERERS: Record<string, CellRenderer> = {
     try {
       const date = new Date(str);
       if (isNaN(date.getTime())) return <>{str}</>;
-      const ms = Date.now() - date.getTime();
-      const sec = Math.floor(ms / 1000);
-      const ago = sec < 60 ? `${sec}s ago` : sec < 3600 ? `${Math.floor(sec / 60)}m ago` : sec < 86400 ? `${Math.floor(sec / 3600)}h ago` : `${Math.floor(sec / 86400)}d ago`;
+      const ago = formatRelative(date);
       return <span className="text-slate-400" title={str}>{ago}</span>;
     } catch { return <>{str}</>; }
   },
@@ -403,13 +398,6 @@ const STATUS_ICONS = {
   unknown: HelpCircle,
 };
 
-const STATUS_LIST_COLORS: Record<string, string> = {
-  healthy: 'text-emerald-400',
-  warning: 'text-amber-400',
-  error: 'text-red-400',
-  pending: 'text-blue-400',
-  unknown: 'text-slate-400',
-};
 
 const STATUS_LIST_BG: Record<string, string> = {
   healthy: 'bg-emerald-500/15',
@@ -505,7 +493,7 @@ export function AgentStatusList({ spec }: { spec: StatusListSpec }) {
               onClick={() => clickTarget && navigate(clickTarget)}
             >
               <div className={cn('flex items-center justify-center w-5 h-5 rounded-full shrink-0', STATUS_LIST_BG[item.status] || 'bg-slate-800')}>
-                <Icon className={cn('h-3 w-3', STATUS_LIST_COLORS[item.status])} />
+                <Icon className={cn('h-3 w-3', statusClasses(item.status).text)} />
               </div>
               <span className={cn('text-sm font-medium', clickTarget ? 'text-blue-400 group-hover:text-blue-300' : 'text-slate-200')}>{item.name || item.detail}</span>
               {item.name && item.detail && <span className="text-xs text-slate-500 truncate ml-auto">{item.detail}</span>}

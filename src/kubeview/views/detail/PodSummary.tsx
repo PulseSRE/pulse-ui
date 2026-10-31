@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative } from '../../engine/format';
 import {
   CheckCircle, XCircle, AlertCircle, Clock, Globe,
   Server, Shield, Cpu, MemoryStick, Image,
@@ -16,11 +16,6 @@ import { Card } from '../../components/primitives/Card';
 interface PodSummaryProps {
   resource: K8sResource;
   go: (path: string, title: string) => void;
-}
-
-function formatAge(timestamp: string | undefined): string {
-  if (!timestamp) return '—';
-  return formatRelativeTime(new Date(timestamp).getTime());
 }
 
 function ProbeTag({ label, probe }: { label: string; probe: Probe | undefined }) {
@@ -72,7 +67,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
   const initContainerStatuses: ContainerStatus[] = status?.initContainerStatuses || [];
   const totalRestarts = containerStatuses.reduce((sum, cs) => sum + (cs.restartCount || 0), 0);
   const readyCount = containerStatuses.filter((cs) => cs.ready).length;
-  const age = formatAge(resource.metadata.creationTimestamp);
+  const age = formatRelative(resource.metadata.creationTimestamp);
 
   const phaseColor = phase === 'Running' ? 'text-green-400' :
     phase === 'Succeeded' ? 'text-blue-400' :
