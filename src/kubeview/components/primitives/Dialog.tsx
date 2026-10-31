@@ -2,8 +2,36 @@ import React, { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const FOCUSABLE =
-  'button:not([disabled]), [href], summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+/**
+ * Everything a keyboard user can reach, not only buttons: a dialog whose
+ * confirm is disabled until a checkbox is ticked must let Tab reach the box.
+ */
+const FOCUSABLE = [
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'a[href]',
+  'area[href]',
+  'summary',
+  '[contenteditable="true"]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+/** Hidden elements (hidden attribute, display:none, visibility:hidden, inert) cannot take focus. */
+function isReachable(el: HTMLElement, root: HTMLElement): boolean {
+  for (let node: HTMLElement | null = el; node && node !== root.parentElement; node = node.parentElement) {
+    if (node.hidden || node.hasAttribute('inert')) return false;
+    const style = window.getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+  }
+  return true;
+}
+
+/** The elements inside `root` that Tab can land on, in document order. */
+export function focusableWithin(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => isReachable(el, root));
+}
 
 /**
  * Modal focus behaviour shared by Dialog and DrawerShell: focus moves inside
@@ -50,7 +78,7 @@ export function useModalFocus(
     modalStack.push({ id, container: () => containerRef.current });
     const previous = document.activeElement as HTMLElement | null;
     const container = containerRef.current;
-    const initial = initialFocusRef?.current ?? container?.querySelector<HTMLElement>(FOCUSABLE) ?? container;
+    const initial = initialFocusRef?.current ?? (container ? focusableWithin(container)[0] : undefined) ?? container;
     // A modal opened inside this one in the same commit has already taken focus.
     if (!container?.contains(document.activeElement)) initial?.focus();
 
@@ -64,7 +92,7 @@ export function useModalFocus(
         return;
       }
       if (e.key !== 'Tab' || !containerRef.current) return;
-      const focusable = Array.from(containerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
+      const focusable = focusableWithin(containerRef.current);
       if (focusable.length === 0) {
         e.preventDefault();
         return;

@@ -97,6 +97,65 @@ describe('ConfirmDialog', () => {
   });
 });
 
+describe('focus trap reaches more than buttons', () => {
+  afterEach(cleanup);
+
+  function RiskConfirm({ onConfirm }: { onConfirm: () => void }) {
+    const [accepted, setAccepted] = useState(false);
+    return (
+      <ConfirmDialog
+        open
+        onClose={vi.fn()}
+        onConfirm={onConfirm}
+        title="Update cluster?"
+        description="This update has known risks."
+        confirmLabel="Update"
+        variant="warning"
+        confirmDisabled={!accepted}
+      >
+        <label>
+          <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+          I accept these risks
+        </label>
+        <a href="/docs/risks">Read the risks</a>
+        <button hidden>Hidden action</button>
+        <div style={{ display: 'none' }}><button>Collapsed action</button></div>
+      </ConfirmDialog>
+    );
+  }
+
+  it('Tabs to the checkbox when confirm is disabled, and ticking it enables confirm', () => {
+    const onConfirm = vi.fn();
+    render(<RiskConfirm onConfirm={onConfirm} />);
+    const update = screen.getByRole('button', { name: 'Update' }) as HTMLButtonElement;
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    const box = screen.getByRole('checkbox', { name: 'I accept these risks' });
+    const link = screen.getByRole('link', { name: 'Read the risks' });
+    expect(update.disabled).toBe(true);
+
+    // Disabled confirm: the first focusable is the checkbox; Cancel is last.
+    cancel.focus();
+    fireEvent.keyDown(cancel, { key: 'Tab' });
+    expect(document.activeElement).toBe(box);
+    fireEvent.keyDown(box, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(cancel);
+
+    // Hidden and display:none buttons are skipped; the link is reachable.
+    link.focus();
+    expect(document.activeElement).toBe(link);
+
+    fireEvent.click(box);
+    expect(update.disabled).toBe(false);
+    fireEvent.click(update);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+
+    // Now enabled, confirm is the last stop and wraps to the checkbox.
+    update.focus();
+    fireEvent.keyDown(update, { key: 'Tab' });
+    expect(document.activeElement).toBe(box);
+  });
+});
+
 describe('DrawerShell', () => {
   afterEach(cleanup);
 
