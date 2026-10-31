@@ -90,15 +90,3 @@ export function QueryState<T>({ query, errorTitle, empty, isEmpty, loading, clas
   }
   return <>{children(query.data as T)}</>;
 }
-
-/** The message for a failed fetch, for places that show it inline. */
-export function describeLoadError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null && 'status' in error) {
-    const status = (error as { status: number }).status;
-    if (status === 403) return 'Permission denied (403)';
-    if (status === 401) return 'Session expired (401)';
-    return `Request failed (${status})`;
-  }
-  return typeof error === 'string' ? error : 'Request failed';
-}

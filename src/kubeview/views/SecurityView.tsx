@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Shield, ShieldAlert, ShieldCheck, ShieldOff, Lock, Key, Users,
   CheckCircle, XCircle, AlertTriangle, ArrowRight, ChevronDown, ChevronRight,
-  Globe, Server, Eye, FileText, Network, Bot, HelpCircle,
+  Globe, Server, Eye, FileText, Network, Bot, HelpCircle, Loader2,
 } from 'lucide-react';
+import { LoadError } from '../components/primitives/LoadError';
 import { useKubeadminSecret } from '../hooks/useKubeadminSecret';
 import { errorReason } from '../engine/readResult';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,8 @@ interface SecurityAuditCheck {
   label: string;
   /** null = could not be checked (the read failed); never counted as a pass. */
   pass: boolean | null;
+  /** The read has not answered yet: neither a result nor unknown. */
+  pending?: boolean;
   detail: string;
   severity: 'critical' | 'warning' | 'info';
   link?: string;
@@ -41,27 +44,27 @@ export default function SecurityView() {
   const hasSealedSecrets = apiGroups.some((g) => g.name === 'bitnami.com');
 
   // Data
-  const { data: oauthConfig, isError: oauthError, error: oauthErr } = useQuery({
+  const { data: oauthConfig, isError: oauthError, error: oauthErr, isLoading: oauthLoading } = useQuery({
     queryKey: ['security', 'oauth'],
     queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster')),
     staleTime: 120000,
   });
-  const { data: apiServer, isError: apiServerError, error: apiServerErr } = useQuery({
+  const { data: apiServer, isError: apiServerError, error: apiServerErr, isLoading: apiServerLoading } = useQuery({
     queryKey: ['security', 'apiserver'],
     queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/apiservers/cluster')),
     staleTime: 120000,
   });
   const { data: kubeadmin } = useKubeadminSecret();
   const { data: clusterRoleBindings = [], isLoading: crbLoading, isError: crbError } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings' });
-  const { data: sccs = [] } = useQuery<K8sResource[]>({
+  const { data: sccs = [], isError: sccsError, error: sccsErr, isLoading: sccsLoading, refetch: refetchSccs } = useQuery<K8sResource[]>({
     queryKey: ['security', 'sccs'],
     queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/security.openshift.io/v1/securitycontextconstraints'))) ?? [],
     staleTime: 120000,
   });
-  const { data: networkPolicies = [], isError: netpolError } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
-  const { data: namespaces = [], isError: nsError } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
+  const { data: networkPolicies = [], isError: netpolError, isLoading: netpolLoading } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
+  const { data: namespaces = [], isError: nsError, isLoading: nsLoading } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
   // A 403 on secrets is "unknown", not 0 certificates.
-  const { data: secrets = [], isError: secretsError } = useQuery<K8sResource[]>({
+  const { data: secrets = [], isError: secretsError, isLoading: secretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'secrets-summary'],
     queryFn: async () => {
       const s = await k8sList<K8sResource>('/api/v1/secrets');
@@ -69,7 +72,7 @@ export default function SecurityView() {
     },
     staleTime: 120000,
   });
-  const { data: externalSecrets = [], isError: externalSecretsError } = useQuery<K8sResource[]>({
+  const { data: externalSecrets = [], isError: externalSecretsError, isLoading: externalSecretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'externalsecrets'],
     queryFn: async () => {
       // ESO 0.17+ serves ExternalSecret at v1 (v1beta1 is no longer served);
@@ -83,7 +86,7 @@ export default function SecurityView() {
     staleTime: 120000,
     enabled: hasExternalSecrets,
   });
-  const { data: sealedSecrets = [], isError: sealedSecretsError } = useQuery<K8sResource[]>({
+  const { data: sealedSecrets = [], isError: sealedSecretsError, isLoading: sealedSecretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'sealedsecrets'],
     queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/bitnami.com/v1alpha1/sealedsecrets'))) ?? [],
     staleTime: 120000,
@@ -91,7 +94,7 @@ export default function SecurityView() {
   });
 
   // StackRox / ACS detection
-  const { data: acsInstalled = false, isError: acsError } = useQuery({
+  const { data: acsInstalled = false, isError: acsError, isLoading: acsLoading } = useQuery({
     queryKey: ['security', 'acs'],
     queryFn: async () => {
       const csvs = (await safeQuery(() => k8sList<K8sResource>('/apis/operators.coreos.com/v1alpha1/clusterserviceversions'))) ?? [];
@@ -259,12 +262,27 @@ export default function SecurityView() {
       severity: acsInstalled ? 'info' : 'warning',
     });
 
-    return c;
-  }, [identityProviders, oauthError, oauthErr, kubeadmin, tlsProfile, encryptionType, apiServerReason, crbError, clusterAdmins, netpolError, nsError, unprotectedNamespaces, userNamespaces, externalSecrets, sealedSecrets, externalSecretsError, sealedSecretsError, acsInstalled, acsError, isHyperShift]);
+    // While a read has not answered, its check is "Checking…", not a result:
+    // an empty default list would otherwise pass or fail it.
+    const pending: Record<string, boolean> = {
+      idp: oauthLoading,
+      kubeadmin: !kubeadmin,
+      tls: apiServerLoading,
+      encryption: apiServerLoading,
+      clusteradmin: crbLoading,
+      netpol: netpolLoading || nsLoading,
+      'secrets-mgmt': externalSecretsLoading || sealedSecretsLoading,
+      acs: acsLoading,
+    };
+    return c.map((check) => pending[check.id]
+      ? { ...check, pass: null, pending: true, detail: 'Checking…', severity: 'info' as const }
+      : check);
+  }, [oauthLoading, apiServerLoading, crbLoading, netpolLoading, nsLoading, externalSecretsLoading, sealedSecretsLoading, acsLoading, identityProviders, oauthError, oauthErr, kubeadmin, tlsProfile, encryptionType, apiServerReason, crbError, clusterAdmins, netpolError, nsError, unprotectedNamespaces, userNamespaces, externalSecrets, sealedSecrets, externalSecretsError, sealedSecretsError, acsInstalled, acsError, isHyperShift]);
 
   // Unknown checks are neither passing nor failing; the score says so.
   const passCount = checks.filter(c => c.pass === true).length;
-  const unknownCount = checks.filter(c => c.pass === null).length;
+  const unknownCount = checks.filter(c => c.pass === null && !c.pending).length;
+  const pendingCount = checks.filter(c => c.pending).length;
   const auditScore = Math.round((passCount / checks.length) * 100);
   const criticalFails = checks.filter(c => c.pass === false && c.severity === 'critical');
   const warningFails = checks.filter(c => c.pass === false && c.severity === 'warning');
@@ -326,15 +344,16 @@ export default function SecurityView() {
             </div>
             <div className="text-xs text-slate-400 mt-1">checks passing</div>
             {unknownCount > 0 && <div className="text-xs text-slate-400 mt-2">{unknownCount} could not be checked</div>}
+            {pendingCount > 0 && <div className="text-xs text-slate-500 mt-1">{pendingCount} still checking</div>}
             {criticalFails.length > 0 && <div className="text-xs text-red-400 mt-2">{criticalFails.length} critical</div>}
             {warningFails.length > 0 && <div className="text-xs text-yellow-400">{warningFails.length} warning</div>}
           </div>
-          <SummaryCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={String(clusterAdmins.length)}
-            sub={clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
-          <SummaryCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={String(networkPolicies.length)}
-            sub={`${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
-          <SummaryCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={secretsError ? '—' : String(tlsSecretCount)}
-            sub={secretsError ? 'Secrets could not be read' : `${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
+          <SummaryCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={crbError || crbLoading ? '—' : String(clusterAdmins.length)}
+            sub={crbError ? 'ClusterRoleBindings could not be read' : crbLoading ? 'Loading…' : clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
+          <SummaryCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={netpolError || netpolLoading ? '—' : String(networkPolicies.length)}
+            sub={netpolError ? 'Network policies could not be read' : netpolLoading ? 'Loading…' : `${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
+          <SummaryCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={secretsError || secretsLoading ? '—' : String(tlsSecretCount)}
+            sub={secretsError ? 'Secrets could not be read' : secretsLoading ? 'Loading…' : `${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
         </div>
 
         {/* Security Audit */}
@@ -345,13 +364,15 @@ export default function SecurityView() {
               Security Audit
             </h2>
             <span className={cn('text-xs font-medium', passCount === checks.length ? 'text-green-400' : 'text-yellow-400')}>
-              {passCount}/{checks.length} passed{unknownCount > 0 ? ` · ${unknownCount} unknown` : ''}
+              {passCount}/{checks.length} passed{unknownCount > 0 ? ` · ${unknownCount} unknown` : ''}{pendingCount > 0 ? ` · ${pendingCount} checking` : ''}
             </span>
           </div>
           <div className="divide-y divide-slate-800">
             {checks.map((check) => (
               <div key={check.id} className="px-4 py-3 flex items-start gap-3">
-                {check.pass === null
+                {check.pending
+                  ? <Loader2 className="w-4 h-4 text-slate-500 shrink-0 mt-0.5 animate-spin" aria-label="Checking" />
+                  : check.pass === null
                   ? <HelpCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" aria-label="Unknown" />
                   : check.pass
                   ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
@@ -378,14 +399,18 @@ export default function SecurityView() {
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
               <Key className="w-4 h-4 text-red-400" />
-              Cluster-Admin Access ({clusterAdmins.length})
+              Cluster-Admin Access ({crbError || crbLoading ? '—' : clusterAdmins.length})
             </h2>
             <button onClick={() => go('/identity?tab=rbac', 'Identity & Access')}
               className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
               Manage <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-          {clusterAdmins.length === 0 ? (
+          {crbError ? (
+            <LoadError className="m-3" title="ClusterRoleBindings could not be loaded" />
+          ) : crbLoading ? (
+            <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
+          ) : clusterAdmins.length === 0 ? (
             <div className="px-4 py-6 text-center text-xs text-slate-500">No non-system cluster-admin bindings found</div>
           ) : (
             <div className="divide-y divide-slate-800">
@@ -403,7 +428,11 @@ export default function SecurityView() {
         </Card>
 
         {/* SCCs */}
-        <SCCPanel sccs={sccs} go={go} />
+        {sccsError ? (
+          <LoadError title="Security Context Constraints could not be loaded" error={sccsErr} onRetry={() => { void refetchSccs(); }} />
+        ) : sccsLoading ? null : (
+          <SCCPanel sccs={sccs} go={go} />
+        )}
 
         {/* Unprotected Namespaces */}
         {unprotectedNamespaces.length > 0 && (

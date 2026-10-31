@@ -32,6 +32,7 @@ import { QueryState, loadStatus, combineStatus } from '../components/primitives/
 import { useIncidentTimeline } from '../hooks/useIncidentTimeline';
 import { useMapZones, useMapEvents, useMapClusters } from '../components/topology/hooks/useMapData';
 import { WorldMap } from '../components/topology/WorldMap';
+import { ClusterTooltip } from '../components/topology/overlays/ClusterTooltip';
 import { ExhaustionCard } from '../views/compute/ExhaustionCard';
 import { AgentStatCard } from '../components/agent/renderers/VisualizationRenderer';
 import { BottomDock } from '../components/BottomDock';
@@ -124,6 +125,24 @@ describe('useMapData', () => {
     expect(result.current.filter((e) => e.isWarning)).toHaveLength(1);
   });
 
+  it('labels a cluster pin by connectivity, with no health percentage', () => {
+    render(<ClusterTooltip cluster={{ id: 'c', name: 'prod', latitude: 0, longitude: 0, region: 'unknown', displayName: 'prod', status: 'connected', healthScore: 95, healthGrade: 'healthy', nodeCount: 3, locationUnknown: true }} />);
+    expect(screen.getByText('Connectivity')).toBeTruthy();
+    expect(screen.getByText('Reachable')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/95%|Health/);
+    expect(screen.getByText('Unknown location')).toBeTruthy();
+  });
+
+  it('links the Warning-event count to Events, not the Inbox', () => {
+    const onNavigate = vi.fn();
+    render(
+      <WorldMap clusters={[]} zones={[]} nodes={[]} pods={[]} onNavigate={onNavigate}
+        stats={{ totalNodes: 0, readyNodes: 0, totalPods: 0, runningPods: 0, failedPods: 0, pendingPods: 0, avgCpu: 0, avgMem: 0, zones: 0, alerts: 2 }} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '2 Warning events in the last hour' }));
+    expect(onNavigate).toHaveBeenCalledWith('/r/v1~events', 'Events');
+  });
+
   it('lists unknown locations in a tray instead of on the map', () => {
     render(
       <WorldMap
@@ -197,8 +216,10 @@ describe('ComponentsTab', () => {
 
 describe('TrustPolicy', () => {
   it('says supported categories are "not reported" instead of showing a hard-coded list', () => {
-    withClient(<TrustPolicy maxTrustLevel={3} scannerCount={5} fixSummary={null} supportedAutoFixCategories={[]} />);
+    withClient(<TrustPolicy maxTrustLevel={3} effectiveTrustLevel={3} scannerCount={5} fixSummary={null} supportedAutoFixCategories={[]} />);
     expect(screen.getByText(/Supported auto-fix categories: not reported/)).toBeTruthy();
+    expect(document.body.textContent).toMatch(/supported handlers \(not reported\)/);
+    expect(document.body.textContent).not.toMatch(/\(none\)/);
     expect(screen.queryByText('Crashlooping pods')).toBeNull();
   });
 
@@ -256,5 +277,12 @@ describe('expectNoAllClear helper', () => {
     cleanup();
     render(<div>All clusters are quiet</div>);
     expect(() => expectNoAllClear()).toThrow();
+    cleanup();
+    // Error-ish text alone is not an error state: it needs role="alert" or an unknown marker.
+    render(<div>Request failed earlier, now fine</div>);
+    expect(() => expectNoAllClear()).toThrow(/role="alert" or unknown marker/);
+    cleanup();
+    render(<span data-unknown>—</span>);
+    expectNoAllClear();
   });
 });

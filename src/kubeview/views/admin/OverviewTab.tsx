@@ -40,6 +40,8 @@ export interface OverviewTabProps {
   operators: ClusterOperator[];
   opDegraded: number;
   opProgressing: number;
+  /** Operators that are neither degraded nor progressing (each counted once). */
+  opSteady: number;
   degradedOperators: Array<{ name: string; message: string }>;
   nodes: Node[];
   nodeRoles: Array<[string, number]>;
@@ -85,7 +87,7 @@ function getOperatorStatus(op: K8sResource | OperatorResource | null): string {
 export function OverviewTab({
   overviewLoading, overviewError,
   firingAlerts, alertsUnavailable, alertCounts,
-  operators, opDegraded, opProgressing, degradedOperators,
+  operators, opDegraded, opProgressing, opSteady, degradedOperators,
   nodes, nodeRoles,
   cvVersion, cvChannel, platform, apiUrl,
   controlPlaneTopology, isHyperShift,
@@ -183,7 +185,7 @@ export function OverviewTab({
         {/* Explicit operator counts, not an invented health percentage */}
         <InfoCard
           label="Cluster Operators"
-          value={operators.length === 0 ? '\u2014' : `${operators.length - opDegraded - opProgressing}/${operators.length}`}
+          value={operators.length === 0 ? '\u2014' : `${opSteady}/${operators.length}`}
           sub={
             operators.length === 0
               ? 'Not read'
@@ -349,7 +351,7 @@ export function OverviewTab({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400">ClusterOperators ({operators.length})</span>
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 text-xs text-green-400"><CheckCircle className="w-3 h-3" /> {operators.length - opDegraded - opProgressing}</span>
+                  <span className="flex items-center gap-1 text-xs text-green-400"><CheckCircle className="w-3 h-3" /> {opSteady}</span>
                   {opDegraded > 0 && <span className="flex items-center gap-1 text-xs text-red-400"><XCircle className="w-3 h-3" /> {opDegraded}</span>}
                   {opProgressing > 0 && <span className="flex items-center gap-1 text-xs text-yellow-400"><RefreshCw className="w-3 h-3" /> {opProgressing}</span>}
                 </div>

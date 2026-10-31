@@ -85,7 +85,10 @@ export function expectNoAllClear(container: HTMLElement = document.body, extra: 
   for (const re of [...ALL_CLEAR_COPY, ...extra]) {
     expect(text, `all-clear copy ${re} shown on failure`).not.toMatch(re);
   }
+  // Only a dedicated marker counts: an announced error (role="alert", which
+  // LoadError renders) or an element marked unknown. Any text containing
+  // "error" or "failed" is not enough — an all-clear page can contain those.
   const alerts = screen.queryAllByRole('alert');
-  const unknown = /unknown|could not|couldn't|failed|unavailable|not reported|no data|permission denied|error/i.test(text);
-  expect(alerts.length > 0 || unknown, 'no error or unknown state shown').toBe(true);
+  const unknownMarkers = container.querySelectorAll('[data-unknown], [aria-label="Unknown"]');
+  expect(alerts.length + unknownMarkers.length, 'no role="alert" or unknown marker shown').toBeGreaterThan(0);
 }

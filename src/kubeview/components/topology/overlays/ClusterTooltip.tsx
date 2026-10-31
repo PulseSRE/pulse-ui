@@ -19,15 +19,14 @@ export function ClusterTooltip({ cluster }: ClusterTooltipProps) {
       <div className="space-y-1.5 text-xs text-slate-400">
         <div className="flex justify-between">
           <span>Region</span>
-          <span className="text-slate-300">{cluster.displayName}</span>
+          <span className="text-slate-300">{cluster.locationUnknown ? 'Unknown location' : cluster.displayName}</span>
         </div>
+        {/* Connectivity only: there is no health score for a cluster here. */}
         <div className="flex justify-between">
-          <span>Health</span>
-          <span className="font-medium" style={{ color }}>{cluster.healthScore}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Status</span>
-          <span className="text-slate-300 capitalize">{cluster.status}</span>
+          <span>Connectivity</span>
+          <span className="font-medium" style={{ color }}>
+            {cluster.status === 'connected' ? 'Reachable' : cluster.status === 'auth-expired' ? 'Auth expired' : cluster.status === 'unreachable' ? 'Unreachable' : 'Not checked yet'}
+          </span>
         </div>
         <div className="flex justify-between">
           <span>Nodes</span>

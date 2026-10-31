@@ -26,8 +26,10 @@ export default function StorageView() {
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Real-time data
-  const { data: pvcs = [], isLoading: pvcsLoading } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
-  const { data: pvs = [], isLoading: pvsLoading } = useK8sListWatch<PersistentVolume>({ apiPath: '/api/v1/persistentvolumes' });
+  const { data: pvcs = [], isLoading: pvcsLoading, isError: pvcsError, error: pvcsErr } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
+  const { data: pvs = [], isLoading: pvsLoading, isError: pvsError, error: pvsErr } = useK8sListWatch<PersistentVolume>({ apiPath: '/api/v1/persistentvolumes' });
+  // An unread list is not an empty one: counts show "—" and its audit checks are skipped.
+  const pvcsLoaded = !pvcsLoading && !pvcsError;
   const { data: storageClasses = [], isSuccess: scLoaded, isError: scError, error: scErr, refetch: refetchSCs } = useQuery<StorageClass[]>({
     queryKey: ['storage', 'storageclasses'],
     queryFn: () => k8sList('/apis/storage.k8s.io/v1/storageclasses') as Promise<StorageClass[]>,
@@ -132,6 +134,13 @@ export default function StorageView() {
           </div>
         )}
 
+        {(pvcsError || pvsError) && (
+          <LoadError
+            title={`${[pvcsError && 'PersistentVolumeClaims', pvsError && 'PersistentVolumes'].filter(Boolean).join(' and ')} could not be loaded`}
+            error={pvcsErr ?? pvsErr}
+          />
+        )}
+
         {/* Issues banner */}
         {issues.length > 0 && (
           <div className="space-y-2">
@@ -156,13 +165,13 @@ export default function StorageView() {
         <MetricGrid>
           <button onClick={() => go('/r/v1~persistentvolumeclaims', 'PVCs')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pvcStatus.Pending > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">PVCs</div>
-            <div className="text-xl font-bold text-slate-100">{pvcs.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{pvcStatus.Bound} bound · {pvcStatus.Pending} pending</div>
+            <div className="text-xl font-bold text-slate-100">{pvcsError ? '—' : pvcs.length}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{pvcsError ? 'Could not be read' : `${pvcStatus.Bound} bound · ${pvcStatus.Pending} pending`}</div>
           </button>
           <button onClick={() => go('/r/v1~persistentvolumes', 'PVs')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Persistent Volumes</div>
-            <div className="text-xl font-bold text-slate-100">{pvs.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{pvStatus.Available} available · {pvStatus.Released} released</div>
+            <div className="text-xl font-bold text-slate-100">{pvsError ? '—' : pvs.length}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{pvsError ? 'Could not be read' : `${pvStatus.Available} available · ${pvStatus.Released} released`}</div>
           </button>
           <button onClick={() => go('/r/storage.k8s.io~v1~storageclasses', 'StorageClasses')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Storage Classes</div>
@@ -171,8 +180,8 @@ export default function StorageView() {
           </button>
           <Card className="p-3">
             <div className="text-xs text-slate-400 mb-1">Total Capacity</div>
-            <div className="text-xl font-bold text-slate-100">{formatGi(capacityStats.totalCapacityGi)}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{formatGi(capacityStats.totalRequestedGi)} requested</div>
+            <div className="text-xl font-bold text-slate-100">{pvsError ? '—' : formatGi(capacityStats.totalCapacityGi)}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{pvcsError ? 'requested unknown' : `${formatGi(capacityStats.totalRequestedGi)} requested`}</div>
           </Card>
         </MetricGrid>
 
@@ -208,6 +217,7 @@ export default function StorageView() {
         {/* Storage Health Audit */}
         <StorageHealthAudit
           pvcs={pvcs}
+          pvcsLoaded={pvcsLoaded}
           storageClasses={storageClasses}
           storageClassesLoaded={scLoaded}
           volumeSnapshots={volumeSnapshots}
@@ -426,6 +436,7 @@ import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 
 function StorageHealthAudit({
   pvcs,
+  pvcsLoaded,
   storageClasses,
   storageClassesLoaded,
   volumeSnapshots,
@@ -434,6 +445,7 @@ function StorageHealthAudit({
   go,
 }: {
   pvcs: PersistentVolumeClaim[];
+  pvcsLoaded: boolean;
   storageClasses: StorageClass[];
   storageClassesLoaded: boolean;
   volumeSnapshots: VolumeSnapshot[];
@@ -473,7 +485,7 @@ parameters:
     // 2. PVC Resource Requests — Bound vs Pending
     const pendingPVCs = pvcs.filter((pvc) => pvc.status?.phase === 'Pending');
     const boundPVCs = pvcs.filter((pvc) => pvc.status?.phase === 'Bound');
-    allChecks.push({
+    if (pvcsLoaded) allChecks.push({
       id: 'pvc-binding',
       title: 'PVC Binding Status',
       description: 'All PVCs should be bound to a PersistentVolume',
@@ -576,7 +588,7 @@ spec:
     const quotaNamespaces = new Set(quotasWithStorage.map((q) => q.metadata.namespace));
     const namespacesWithoutQuota = [...namespacesWithPVCs].filter(ns => !quotaNamespaces.has(ns));
 
-    allChecks.push({
+    if (pvcsLoaded) allChecks.push({
       id: 'storage-quotas',
       title: 'Storage Resource Quotas',
       description: 'Namespaces with PVCs should have storage quotas to prevent uncontrolled growth',
@@ -596,7 +608,7 @@ spec:
     });
 
     return allChecks;
-  }, [pvcs, storageClasses, storageClassesLoaded, volumeSnapshots, volumeSnapshotClasses, resourceQuotas]);
+  }, [pvcs, pvcsLoaded, storageClasses, storageClassesLoaded, volumeSnapshots, volumeSnapshotClasses, resourceQuotas]);
 
   const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
     const id = check.id;

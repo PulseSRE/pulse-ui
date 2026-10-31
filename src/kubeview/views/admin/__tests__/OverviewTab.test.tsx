@@ -47,6 +47,7 @@ function makeProps(overrides: Partial<OverviewTabProps> = {}): OverviewTabProps 
     operators: [{ metadata: { name: 'op1', uid: 'u1', creationTimestamp: '' }, status: { conditions: [{ type: 'Available', status: 'True' }] } }] as any[],
     opDegraded: 0,
     opProgressing: 0,
+    opSteady: 1,
     degradedOperators: [],
     nodes: [{ metadata: { name: 'node1', uid: 'n1', creationTimestamp: '' }, status: { conditions: [{ type: 'Ready', status: 'True' }], nodeInfo: {} } }] as any[],
     nodeRoles: [['worker', 1]],
@@ -84,10 +85,11 @@ describe('OverviewTab', () => {
 
   it('shows explicit operator counts instead of an invented health percentage', () => {
     // (total - degraded - progressing) / total counted an operator that was both twice.
-    render(<OverviewTab {...makeProps({ operators: Array.from({ length: 30 }, (_, i) => ({ metadata: { name: `op${i}` } })) as any[], opDegraded: 2, opProgressing: 1 })} />);
+    render(<OverviewTab {...makeProps({ operators: Array.from({ length: 30 }, (_, i) => ({ metadata: { name: `op${i}` } })) as any[], opDegraded: 2, opProgressing: 1, opSteady: 28 })} />);
     expect(screen.queryByTestId('info-card-Cluster Health')).toBeNull();
     const card = screen.getByTestId('info-card-Cluster Operators');
-    expect(card.textContent).toContain('27/30');
+    // 2 degraded, 1 progressing, one of them both: 28 steady, not 27.
+    expect(card.textContent).toContain('28/30');
     expect(card.textContent).toContain('2 degraded · 1 updating');
     expect(document.body.textContent).not.toMatch(/All systems go/);
   });

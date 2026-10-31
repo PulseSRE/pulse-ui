@@ -192,4 +192,24 @@ describe('AdminView', () => {
     expect(screen.queryByText('guessed', { exact: false })).toBeNull();
     await waitFor(() => expect(screen.getByText('Router Cert Expires')).toBeDefined());
   });
+
+  it('counts an operator that is both degraded and progressing once', async () => {
+    const { waitFor } = await import('@testing-library/react');
+    const cond = (type: string, status: string) => ({ type, status });
+    vi.mocked(k8sList).mockImplementation(async (path: string) => {
+      if (path.includes('clusteroperators')) {
+        return [
+          { metadata: { name: 'both', uid: 'a' }, status: { conditions: [cond('Degraded', 'True'), cond('Progressing', 'True')] } },
+          { metadata: { name: 'fine', uid: 'b' }, status: { conditions: [cond('Available', 'True'), cond('Degraded', 'False'), cond('Progressing', 'False')] } },
+        ] as never;
+      }
+      return [] as never;
+    });
+    vi.mocked(k8sGet).mockResolvedValue(null as never);
+    renderAdmin();
+    await waitFor(() => {
+      const card = screen.getByText('Cluster Operators').parentElement!;
+      expect(card.textContent).toContain('1/2');
+    });
+  });
 });

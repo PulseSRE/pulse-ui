@@ -26,10 +26,15 @@ import { getPodStatus } from '../engine/renderers/statusUtils';
  * A CrashLoopBackOff pod's phase is "Running", so the phase alone counted it
  * as healthy and drew a green check next to it.
  */
+/** Reasons that mean "still starting", not "failing". */
+const STARTING_REASONS = new Set(['PodInitializing', 'ContainerCreating']);
+
 function podDisplayStatus(pod: K8sResource): string {
   const s = getPodStatus(pod);
   if (s.phase === 'Failed') return 'Failed';
-  if (s.reason && s.phase !== 'Succeeded') return s.reason;
+  if (s.phase === 'Succeeded') return 'Succeeded';
+  if (s.reason && STARTING_REASONS.has(s.reason)) return 'Pending';
+  if (s.reason) return s.reason;
   return s.phase || 'Unknown';
 }
 
@@ -39,13 +44,13 @@ export default function ProjectDashboard() {
   const ns = namespace || 'default';
   const safeNs = sanitizePromQL(ns);
 
-  const { data: pods = [] } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: ns });
-  const { data: deployments = [] } = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: ns });
-  const { data: statefulsets = [] } = useK8sListWatch<StatefulSet>({ apiPath: '/apis/apps/v1/statefulsets', namespace: ns });
-  const { data: daemonsets = [] } = useK8sListWatch<DaemonSet>({ apiPath: '/apis/apps/v1/daemonsets', namespace: ns });
-  const { data: services = [] } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/services', namespace: ns });
-  const { data: configmaps = [] } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/configmaps', namespace: ns });
-  const { data: events = [] } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/events', namespace: ns });
+  const { data: pods = [], isError: podsError } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: ns });
+  const { data: deployments = [], isError: deploymentsError } = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: ns });
+  const { data: statefulsets = [], isError: statefulsetsError } = useK8sListWatch<StatefulSet>({ apiPath: '/apis/apps/v1/statefulsets', namespace: ns });
+  const { data: daemonsets = [], isError: daemonsetsError } = useK8sListWatch<DaemonSet>({ apiPath: '/apis/apps/v1/daemonsets', namespace: ns });
+  const { data: services = [], isError: servicesError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/services', namespace: ns });
+  const { data: configmaps = [], isError: configmapsError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/configmaps', namespace: ns });
+  const { data: events = [], isError: eventsError } = useK8sListWatch<K8sResource>({ apiPath: '/api/v1/events', namespace: ns });
 
   const podStats = useMemo(() => {
     const s = { running: 0, pending: 0, failed: 0, total: pods.length };
@@ -82,15 +87,16 @@ export default function ProjectDashboard() {
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          <SummaryCard label="Pods" count={pods.length} icon={<Server className="w-4 h-4" />}
-            color={podStats.failed > 0 ? 'text-red-400' : 'text-emerald-400'} />
-          <SummaryCard label="Deployments" count={deployments.length} icon={<Package className="w-4 h-4" />} color="text-blue-400" />
-          <SummaryCard label="StatefulSets" count={statefulsets.length} icon={<Layers className="w-4 h-4" />} color="text-violet-400" />
-          <SummaryCard label="DaemonSets" count={daemonsets.length} icon={<Shield className="w-4 h-4" />} color="text-amber-400" />
-          <SummaryCard label="Services" count={services.length} icon={<Globe className="w-4 h-4" />} color="text-cyan-400" />
-          <SummaryCard label="ConfigMaps" count={configmaps.length} icon={<FileText className="w-4 h-4" />} color="text-slate-400" />
-          <SummaryCard label="Events" count={allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />}
-            color={allWarningEvents.length > 0 ? 'text-amber-400' : 'text-slate-400'} />
+          {/* A list that could not be read shows "—", not 0. */}
+          <SummaryCard label="Pods" count={podsError ? null : pods.length} icon={<Server className="w-4 h-4" />}
+            color={podsError ? 'text-slate-500' : podStats.failed > 0 ? 'text-red-400' : 'text-emerald-400'} />
+          <SummaryCard label="Deployments" count={deploymentsError ? null : deployments.length} icon={<Package className="w-4 h-4" />} color="text-blue-400" />
+          <SummaryCard label="StatefulSets" count={statefulsetsError ? null : statefulsets.length} icon={<Layers className="w-4 h-4" />} color="text-violet-400" />
+          <SummaryCard label="DaemonSets" count={daemonsetsError ? null : daemonsets.length} icon={<Shield className="w-4 h-4" />} color="text-amber-400" />
+          <SummaryCard label="Services" count={servicesError ? null : services.length} icon={<Globe className="w-4 h-4" />} color="text-cyan-400" />
+          <SummaryCard label="ConfigMaps" count={configmapsError ? null : configmaps.length} icon={<FileText className="w-4 h-4" />} color="text-slate-400" />
+          <SummaryCard label="Events" count={eventsError ? null : allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />}
+            color={!eventsError && allWarningEvents.length > 0 ? 'text-amber-400' : 'text-slate-400'} />
         </div>
 
         {/* Metrics */}
@@ -132,7 +138,7 @@ export default function ProjectDashboard() {
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
               <Server className="w-4 h-4 text-blue-400" />
-              Pods ({pods.length})
+              Pods ({podsError ? '—' : pods.length})
             </h2>
             <div className="flex gap-2 text-xs">
               <span className="text-emerald-400">{podStats.running} running</span>
@@ -140,6 +146,7 @@ export default function ProjectDashboard() {
               {podStats.failed > 0 && <span className="text-red-400">{podStats.failed} failing</span>}
             </div>
           </div>
+          {podsError && <LoadError className="m-3" title="Pods could not be loaded" />}
           <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
             {pods.map((pod) => {
               const status = podDisplayStatus(pod);
@@ -163,6 +170,8 @@ export default function ProjectDashboard() {
             })}
           </div>
         </Card>
+
+        {deploymentsError && <LoadError title="Deployments could not be loaded" />}
 
         {/* Deployments */}
         {deployments.length > 0 && (
@@ -199,6 +208,8 @@ export default function ProjectDashboard() {
             </div>
           </Card>
         )}
+
+        {eventsError && <LoadError title="Events could not be loaded" />}
 
         {/* Warning Events */}
         {warningEvents.length > 0 && (
@@ -349,12 +360,12 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
   );
 }
 
-function SummaryCard({ label, count, icon, color }: { label: string; count: number; icon: React.ReactNode; color: string }) {
+function SummaryCard({ label, count, icon, color }: { label: string; count: number | null; icon: React.ReactNode; color: string }) {
   return (
     <div className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-center">
       <div className={cn('flex items-center justify-center gap-1.5 mb-1', color)}>
         {icon}
-        <span className="text-xl font-bold">{count}</span>
+        <span className="text-xl font-bold">{count ?? '—'}</span>
       </div>
       <div className="text-xs text-slate-500">{label}</div>
     </div>

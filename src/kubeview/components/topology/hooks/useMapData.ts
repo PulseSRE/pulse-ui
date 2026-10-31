@@ -12,6 +12,11 @@ function gradeFromScore(score: number): HealthScoreResult['grade'] {
   return 'critical';
 }
 
+/**
+ * Cluster pins are coloured by connectivity only: Pulse has no health inputs
+ * for remote clusters here, so this is not a health score and is never shown
+ * as one (see ClusterTooltip).
+ */
 function statusToScore(status: ClusterConnection['status']): number {
   switch (status) {
     case 'connected': return 95;

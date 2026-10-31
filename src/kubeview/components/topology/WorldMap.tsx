@@ -326,7 +326,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
             <span className={statColor(stats.avgMem, 70, 90)}>{stats.avgMem}%</span>
           </button>
           {stats.alerts > 0 && (
-            <button onClick={() => onNavigate?.('/inbox', 'Inbox')} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
+            <button onClick={() => onNavigate?.('/r/v1~events', 'Events')} title={`${stats.alerts} Warning event${stats.alerts !== 1 ? 's' : ''} in the last hour`} aria-label={`${stats.alerts} Warning events in the last hour`} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
               <AlertTriangle className="w-3 h-3 text-red-400" />
               <span className="text-red-400">{stats.alerts}</span>
             </button>
@@ -480,7 +480,8 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
                 onMouseEnter={() => setHoveredCluster(c)} onMouseLeave={() => setHoveredCluster(null)} onClick={() => onCluster(c)}
                 role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onCluster(c); }}>
                 <circle r={r * 3} fill="url(#pinGlow)" opacity={hov || sel ? 0.4 : 0.15} style={pulse ? { animation: 'mp 2s ease-in-out infinite' } : undefined} />
-                <circle r={r + 4} fill="none" stroke={color} strokeWidth={2.5} strokeDasharray={`${(c.healthScore / 100) * Math.PI * 2 * (r + 4)} 999`} transform="rotate(-90)" opacity={0.8} strokeLinecap="round" />
+                {/* Full ring: colour is connectivity, there is no score to draw as an arc. */}
+                <circle r={r + 4} fill="none" stroke={color} strokeWidth={2.5} opacity={0.8} />
                 <circle r={r} fill={color} opacity={hov || sel ? 1 : 0.85} />
                 <circle r={r} fill="url(#pinGlow)" />
                 <text textAnchor="middle" dominantBaseline="central" fill="white" fontSize={r > 14 ? 12 : 9} fontWeight={800} fontFamily="system-ui">{c.nodeCount || '?'}</text>

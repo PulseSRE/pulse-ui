@@ -295,7 +295,7 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
 }
 
 function buildPolicySummary(level: TrustLevel, scannerCount: number | null, categories: string[], style: CommunicationStyle): string {
-  const catNames = categories.length > 0 ? categories.join(', ').replace(/_/g, ' ') : 'none';
+  const catNames = categories.length > 0 ? categories.join(', ').replace(/_/g, ' ') : 'not reported';
   const scanners = scannerCount ?? 'its';
 
   switch (level) {

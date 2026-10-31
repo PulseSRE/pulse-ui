@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { LoadError } from '../components/primitives/LoadError';
+import { errorReason } from '../engine/readResult';
 
 
 type LogSource = 'audit' | 'journal' | 'crio' | 'containers' | 'ovn';
@@ -52,7 +53,7 @@ export default function NodeLogsView() {
         // A 403/500 is an error, not "no log files".
         if (!res.ok) {
           setFiles([]);
-          setFilesError(res.status === 403 ? 'Permission denied (403)' : `Request failed (${res.status})`);
+          setFilesError(errorReason(res));
           return;
         }
         const html = await res.text();
@@ -67,7 +68,7 @@ export default function NodeLogsView() {
       } catch (e) {
         console.error('node log file list fetch failed:', e);
         setFiles([]);
-        setFilesError(e instanceof Error ? e.message : 'Request failed');
+        setFilesError(errorReason(e));
       } finally {
         setFilesLoading(false);
       }

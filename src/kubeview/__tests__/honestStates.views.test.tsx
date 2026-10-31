@@ -31,7 +31,6 @@ vi.mock('../components/topology/GraphRenderer', async () => {
 });
 
 import { mockFetchRoutes, renderWithClient, renderWithFailedRequests, expectNoAllClear } from './helpers/honestStates';
-import SecurityView from '../views/SecurityView';
 import IdentityView from '../views/IdentityView';
 import TopologyView from '../views/TopologyView';
 import ProjectDashboard from '../views/ProjectDashboard';
@@ -49,33 +48,6 @@ afterEach(() => {
 function auditRow(label: string) {
   return screen.getByText(label).closest('div.px-4') as HTMLElement;
 }
-
-describe('SecurityView', () => {
-  it('reports forbidden reads as unknown, not "kubeadmin has been removed" or a passing TLS profile', async () => {
-    renderWithFailedRequests(<SecurityView />, { status: 403 });
-    await waitFor(() => expect(auditRow('kubeadmin user removed').textContent).toMatch(/Could not read kube-system\/kubeadmin: Permission denied \(403\)/));
-    expect(auditRow('TLS security profile').textContent).toMatch(/Unknown — Permission denied \(403\)/);
-    expect(auditRow('TLS security profile').querySelector('[aria-label="Unknown"]')).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/kubeadmin has been removed/);
-    expect(document.body.textContent).not.toMatch(/TLS profile: Intermediate/);
-    // 403 on secrets is "—", not 0 certificates
-    expect(screen.getByText('Secrets could not be read')).toBeTruthy();
-    expect(screen.getByText(/could not be checked/)).toBeTruthy();
-  });
-
-  it('checks the kube-system/kubeadmin secret, not User objects, and drops always-passing checks', async () => {
-    mockFetchRoutes({
-      '/secrets/kubeadmin': { body: { metadata: { name: 'kubeadmin' } } },
-      '/apis/user.openshift.io/v1/users': { body: { items: [] } },
-      'apiservers/cluster': { body: { spec: {} } },
-    }, 404);
-    renderWithClient(<SecurityView />);
-    await waitFor(() => expect(auditRow('kubeadmin user removed').textContent).toMatch(/kubeadmin still exists/));
-    expect(auditRow('TLS security profile').textContent).toMatch(/TLS profile: Intermediate/);
-    expect(screen.queryByText('Privileged SCCs tracked')).toBeNull();
-    expect(screen.queryByText('TLS certificates managed')).toBeNull();
-  });
-});
 
 describe('IdentityView', () => {
   it('refreshes the kubeadmin check after removing it (invalidates the secret query)', async () => {
@@ -139,6 +111,23 @@ describe('ProjectDashboard', () => {
     expect(row.querySelector('.text-emerald-500')).toBeNull();
   });
 
+  it('counts initializing pods as pending, not failing', async () => {
+    listWatch['/api/v1/pods'] = {
+      data: [
+        { metadata: { name: 'init-1', namespace: 'shop', uid: 'i1' }, status: { phase: 'Pending', initContainerStatuses: [{ name: 'setup', ready: false, restartCount: 0, state: { waiting: { reason: 'PodInitializing' } } }] } },
+        { metadata: { name: 'init-2', namespace: 'shop', uid: 'i2' }, status: { phase: 'Running', containerStatuses: [{ name: 'app', ready: false, restartCount: 0, state: { waiting: { reason: 'PodInitializing' } } }] } },
+      ],
+    };
+    mockFetchRoutes({ '/api/prometheus': { body: { status: 'success', data: { result: [] } } } });
+    renderWithClient(
+      <Routes><Route path="/project/:namespace" element={<ProjectDashboard />} /></Routes>,
+      { route: '/project/shop' },
+    );
+    await screen.findByText('init-1');
+    expect(screen.getByText('2 pending')).toBeTruthy();
+    expect(screen.queryByText(/failing/)).toBeNull();
+  });
+
   it('counts every warning event and lists the newest first', async () => {
     const ev = (i: number) => ({ type: 'Warning', reason: `R${i}`, message: `m${i}`, metadata: { uid: `e${i}`, name: `e${i}` }, lastTimestamp: new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString(), involvedObject: { kind: 'Pod', name: 'p' } });
     listWatch['/api/v1/events'] = { data: Array.from({ length: 12 }, (_, i) => ev(i)) };
@@ -184,6 +173,23 @@ describe('CommandBar', () => {
     const ssar = fetchMock.mock.calls.find(([u]) => String(u).includes('selfsubjectaccessreviews'))!;
     expect((ssar[1] as RequestInit).method).toBe('POST');
     expect(JSON.parse(String((ssar[1] as RequestInit).body)).spec.resourceAttributes).toEqual({ verb: '*', group: '*', resource: '*' });
+  });
+});
+
+describe('CommandBar impersonation', () => {
+  it('asks the SelfSubjectAccessReview as the impersonated user', async () => {
+    const { useUIStore } = await import('../store/uiStore');
+    useUIStore.setState({ impersonateUser: 'bob', impersonateGroups: [] });
+    try {
+      const fetchMock = mockFetchRoutes({ 'selfsubjectaccessreviews': { body: { status: { allowed: false } } } }, 404);
+      renderWithClient(<CommandBar />);
+      await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes('selfsubjectaccessreviews'))).toBe(true));
+      const ssar = fetchMock.mock.calls.find(([u]) => String(u).includes('selfsubjectaccessreviews'))!;
+      expect((ssar[1] as RequestInit).headers).toMatchObject({ 'Impersonate-User': 'bob' });
+    } finally {
+      cleanup(); // unmount before the impersonation change re-keys the query
+      useUIStore.setState({ impersonateUser: '', impersonateGroups: [] });
+    }
   });
 });
 

@@ -9,6 +9,7 @@ import { useFleetStore } from '../store/fleetStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../engine/safeQuery';
+import { k8sFetch } from '../engine/query';
 import { performLogout } from '../engine/auth';
 import { usePulseUpgrade } from '../hooks/usePulseStatus';
 
@@ -64,14 +65,17 @@ export function CommandBar() {
 
   // Fetch cluster name and user identity
   const { data: clusterInfo } = useQuery({
-    queryKey: ['toolbar', 'cluster'],
+    queryKey: ['toolbar', 'cluster', activeClusterId, impersonateUser],
     queryFn: async () => {
       // Role from what the API server says this user may do ('*' on '*'),
       // not from group names: kube:admin has no groups and is cluster-admin.
       const [infraRes, userRes, ssarRes] = await Promise.allSettled([
         fetch(`${clusterBase}/apis/config.openshift.io/v1/infrastructures/cluster`),
         fetch(`${clusterBase}/apis/user.openshift.io/v1/users/~`),
-        fetch(`${clusterBase}/apis/authorization.k8s.io/v1/selfsubjectaccessreviews`, {
+        // k8sFetch adds impersonation headers, so the role is the impersonated user's.
+        // Deferred so a synchronous throw lands in allSettled instead of
+        // leaving the two requests above as unhandled rejections.
+        Promise.resolve().then(() => k8sFetch(activeClusterId, '/apis/authorization.k8s.io/v1/selfsubjectaccessreviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -79,7 +83,7 @@ export function CommandBar() {
             kind: 'SelfSubjectAccessReview',
             spec: { resourceAttributes: { verb: '*', group: '*', resource: '*' } },
           }),
-        }),
+        })),
       ]);
       let name = 'cluster', platform = '', controlPlaneTopology = '';
       if (infraRes.status === 'fulfilled' && infraRes.value.ok) {

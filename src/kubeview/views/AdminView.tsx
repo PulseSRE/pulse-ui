@@ -304,6 +304,9 @@ export default function AdminView() {
   [operators]);
   const opDegraded = degradedOperators.length;
   const opProgressing = operators.filter((o) => o.status?.conditions?.find((c: Condition) => c.type === 'Progressing' && c.status === 'True')).length;
+  // Counted per operator, so one that is both degraded and progressing is not subtracted twice.
+  const opSteady = operators.filter((o) => !o.status?.conditions?.some((c: Condition) =>
+    (c.type === 'Degraded' || c.type === 'Progressing') && c.status === 'True')).length;
 
   const alertCounts = React.useMemo(() => {
     const counts = { critical: 0, warning: 0, info: 0 };
@@ -486,6 +489,7 @@ export default function AdminView() {
             operators={operators}
             opDegraded={opDegraded}
             opProgressing={opProgressing}
+            opSteady={opSteady}
             degradedOperators={degradedOperators}
             nodes={nodes}
             nodeRoles={nodeRoles}

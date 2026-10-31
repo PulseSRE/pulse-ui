@@ -16,6 +16,7 @@ import { formatDuration } from '../../engine/dateUtils';
 import { CardHeader, CardBody } from '../../components/primitives/Card';
 import type { FleetAlert } from '../../engine/types/incident';
 import { LoadError } from '../../components/primitives/LoadError';
+import { errorReason } from '../../engine/readResult';
 
 export default function FleetAlertsView() {
   const go = useNavigateTab();
@@ -52,7 +53,7 @@ export default function FleetAlertsView() {
           const base = getClusterBase(cluster.id);
           const res = await fetch(`${base}/api/v1/namespaces/openshift-monitoring/services/prometheus-k8s:web/proxy/api/v1/rules`);
           // A 403/404/503 is "could not read", not "no alerts".
-          if (!res.ok) throw new Error(res.status === 403 ? 'Permission denied (403)' : `Prometheus answered ${res.status}`);
+          if (!res.ok) throw new Error(errorReason(res));
           const json = await res.json();
           const groups = json.data?.groups || [];
 
@@ -86,7 +87,7 @@ export default function FleetAlertsView() {
         if (r.status === 'fulfilled') {
           allAlerts.push(...r.value);
         } else {
-          const reason = r.reason instanceof Error ? r.reason.message : 'Request failed';
+          const reason = errorReason(r.reason);
           failed.push({ id: clusters[i].id, name: clusters[i].name, reason });
         }
       });
