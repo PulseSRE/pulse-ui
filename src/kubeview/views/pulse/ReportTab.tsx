@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../../engine/query';
+import { useIncidentFeed } from '../../hooks/useIncidentFeed';
 import { safeQuery } from '../../engine/safeQuery';
 import { AIIconStatic, AI_ACCENT, PromptPill } from '../../components/agent/AIBranding';
 import { askPulse } from '../../engine/askPulse';
@@ -254,11 +255,24 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   });
 
   type PromResult = { metric: Record<string, string>; value: number };
-  const { data: firingAlerts = [], isError: alertsError } = useQuery<PromResult[]>({
-    queryKey: ['prom', 'firing-alerts'],
-    queryFn: async () => ((await safeQuery(() => queryInstant('ALERTS{alertstate="firing"}'))) ?? []) as PromResult[],
-    staleTime: 30_000, refetchInterval: 60_000,
-  });
+
+  // Firing alerts come from the incident feed, not a second query of our own.
+  //
+  // This tab used to run its own firing-alert query against the query API
+  // while useIncidentFeed independently fetched /api/v1/rules, so the same
+  // alerts were pulled twice, cached twice, and classified twice. The two
+  // disagreed in front of users: the posture bar reported "1 critical —
+  // SearchPVCNotPresent" while this tab, reading severity straight off the
+  // alert, correctly reported 0 critical for the same moment. Two numbers for
+  // one question is worse than either number alone.
+  //
+  // normalizeSeverity maps Prometheus severity through unchanged for
+  // critical and warning, so the classification here is the same as before —
+  // it is now simply the only one.
+  const {
+    incidents: alertIncidents,
+    isError: alertsError,
+  } = useIncidentFeed({ sources: ['prometheus-alert'], limit: 0 });
 
   const { data: apiLatency } = useQuery<number | null>({
     queryKey: ['prom', 'api-latency'],
@@ -329,8 +343,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     return false;
   }), [allPods]);
 
-  const criticalAlerts = useMemo(() => firingAlerts.filter(a => a.metric.severity === 'critical'), [firingAlerts]);
-  const warningAlerts = useMemo(() => firingAlerts.filter(a => a.metric.severity === 'warning'), [firingAlerts]);
+  const criticalAlerts = useMemo(() => alertIncidents.filter(a => a.severity === 'critical'), [alertIncidents]);
+  const warningAlerts = useMemo(() => alertIncidents.filter(a => a.severity === 'warning'), [alertIncidents]);
 
   const certInfos = useMemo(() => tlsSecrets.map(parseCertExpiry).filter(c => c.daysUntilExpiry !== null), [tlsSecrets]);
   const certsExpiringSoon7 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry < 7), [certInfos]);
@@ -483,7 +497,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     for (const co of degradedOperators) items.push({ severity: 'critical', title: `Operator ${co.metadata.name} degraded`, detail: 'Cluster operator not functioning', path: '/admin?tab=operators', pathTitle: 'Operators' });
     for (const n of unhealthyNodes) items.push({ severity: 'critical', title: `Node ${n.metadata.name} NotReady`, detail: 'Not accepting workloads', path: `/r/v1~nodes/_/${n.metadata.name}`, pathTitle: n.metadata.name,
       steps: ['Check kubelet status on the node', 'Review node conditions (DiskPressure, MemoryPressure)', 'Check network connectivity to control plane', 'Review system logs (journalctl -u kubelet)'] });
-    for (const a of criticalAlerts) items.push({ severity: 'critical', title: a.metric.alertname || 'Critical alert', detail: a.metric.namespace ? `in ${a.metric.namespace}` : 'cluster-scoped', path: '/alerts', pathTitle: 'Alerts' });
+    for (const a of criticalAlerts) items.push({ severity: 'critical', title: a.title || 'Critical alert', detail: a.namespace ? `in ${a.namespace}` : 'cluster-scoped', path: '/alerts', pathTitle: 'Alerts' });
     for (const p of failedPods.slice(0, 5)) {
       const reason = p.status?.containerStatuses?.find((cs) => cs.state?.waiting)?.state?.waiting?.reason || 'Error';
       const steps = reason === 'CrashLoopBackOff'
