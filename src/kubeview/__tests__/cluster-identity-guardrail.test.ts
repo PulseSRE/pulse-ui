@@ -58,18 +58,32 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** The declaration (function, or variable initializer) a name refers to in the same file. */
-function resolveLocalNode(sf: ts.SourceFile, name: string): ts.Node | undefined {
-  let found: ts.Node | undefined;
+/**
+ * Same-file declarations (functions, variable initializers) by name, built
+ * once per file: resolving names by walking the tree per lookup made the
+ * scan quadratic and too slow under coverage instrumentation.
+ */
+const declCache = new WeakMap<ts.SourceFile, Map<string, ts.Node>>();
+function declarations(sf: ts.SourceFile): Map<string, ts.Node> {
+  let map = declCache.get(sf);
+  if (map) return map;
+  const m = new Map<string, ts.Node>();
   const visit = (node: ts.Node) => {
-    if (ts.isFunctionDeclaration(node) && node.name?.text === name) found = node;
-    else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name && node.initializer) {
-      found = node.initializer;
+    if (ts.isFunctionDeclaration(node) && node.name && !m.has(node.name.text)) m.set(node.name.text, node);
+    else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && !m.has(node.name.text)) {
+      m.set(node.name.text, node.initializer);
     }
-    if (!found) ts.forEachChild(node, visit);
+    ts.forEachChild(node, visit);
   };
   visit(sf);
-  return found;
+  map = m;
+  declCache.set(sf, map);
+  return map;
+}
+
+/** The declaration (function, or variable initializer) a name refers to in the same file. */
+function resolveLocalNode(sf: ts.SourceFile, name: string): ts.Node | undefined {
+  return declarations(sf).get(name);
 }
 
 function resolveLocalFunction(sf: ts.SourceFile, name: string): string {
@@ -132,6 +146,10 @@ function rel(file: string) {
   return path.relative(ROOT, file).split(path.sep).join('/');
 }
 
+// Parsing every source file takes a few seconds on a loaded CI runner with
+// coverage on; the default 5s per-test timeout is for single behaviours.
+const SCAN_TIMEOUT_MS = 30_000;
+
 describe('cluster identity guardrail', () => {
   const files = SCANNED_DIRS.flatMap(d => walk(path.join(ROOT, d)));
 
@@ -145,7 +163,7 @@ describe('cluster identity guardrail', () => {
         }));
     });
     expect(problems).toEqual([]);
-  });
+  }, SCAN_TIMEOUT_MS);
 
   it('nothing outside engine/ fetches /api/kubernetes or /api/prometheus directly', () => {
     const all = walk(ROOT).filter(f => !rel(f).startsWith('engine/'));
