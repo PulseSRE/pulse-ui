@@ -144,4 +144,39 @@ describe('AgentComponentRenderer — layout types', () => {
     expect(btn.textContent).toBe('Restart Pod');
     expect(btn.getAttribute('data-view-id')).toBe('view-123');
   });
+
+  // A saved dashboard carrying `pairs` as a `{ key: value }` map used to take
+  // the whole widget down with "spec.pairs.map is not a function", surfacing
+  // only as "<title> failed to render" — the agent's view_designer produces the
+  // map form far more often than the array form, because it is the obvious
+  // JSON shape for key/value pairs. Both shapes must render identically.
+  it('renders key_value pairs given as an object map, not just an array', () => {
+    const spec: any = {
+      kind: 'key_value',
+      title: 'etcd Health',
+      pairs: {
+        Leader: 'elected, 3 members reporting',
+        'DB size': '233 MiB of 8192 MiB quota (3%)',
+      },
+    };
+
+    render(<AgentComponentRenderer spec={spec} />);
+
+    expect(screen.getByText('Leader')).toBeTruthy();
+    expect(screen.getByText('elected, 3 members reporting')).toBeTruthy();
+    expect(screen.getByText('DB size')).toBeTruthy();
+    expect(screen.getByText('233 MiB of 8192 MiB quota (3%)')).toBeTruthy();
+  });
+
+  it('still renders key_value pairs given as an array', () => {
+    const spec: any = {
+      kind: 'key_value',
+      pairs: [{ key: 'Cluster', value: 'prod' }],
+    };
+
+    render(<AgentComponentRenderer spec={spec} />);
+
+    expect(screen.getByText('Cluster')).toBeTruthy();
+    expect(screen.getByText('prod')).toBeTruthy();
+  });
 });

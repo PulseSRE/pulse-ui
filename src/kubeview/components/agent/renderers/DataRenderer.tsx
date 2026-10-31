@@ -19,6 +19,7 @@ import type {
   StatusListSpec,
   KeyValueSpec,
 } from '../../../engine/agentComponents';
+import { normalizeKeyValuePairs } from '../../../engine/agentComponents';
 
 // ---------------------------------------------------------------------------
 // Column Renderer Registry — smart rendering based on column type
@@ -517,7 +518,7 @@ export function AgentKeyValue({ spec }: { spec: KeyValueSpec }) {
         </div>
       )}
       <div className="divide-y divide-slate-800">
-        {(spec.pairs || []).map((pair, i) => (
+        {normalizeKeyValuePairs(spec.pairs).map((pair, i) => (
           <div key={i} className="flex items-center px-3 py-1.5 gap-4">
             <span className="text-xs text-slate-400 w-32 shrink-0">{pair.key}</span>
             <span className="text-xs text-slate-200 font-mono truncate">{pair.value}</span>
