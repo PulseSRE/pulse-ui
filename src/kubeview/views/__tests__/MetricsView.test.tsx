@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -48,6 +48,7 @@ describe('MetricsView', () => {
   afterEach(() => {
     cleanup();
     mockMetricQueries = [];
+    vi.unstubAllGlobals();
   });
 
   it('renders heading with resource name', () => {
@@ -83,5 +84,22 @@ describe('MetricsView', () => {
     renderView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'nginx' });
     expect(screen.getByText('CPU Usage')).toBeDefined();
     expect(screen.getByText('Memory Usage')).toBeDefined();
+  });
+
+  it('shows a load error with retry, not "No data available", when Prometheus fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
+    mockMetricQueries = [{ id: 'cpu', title: 'CPU Usage', query: 'cpu', yAxisLabel: 'cores', yAxisFormat: 'number' }];
+    renderView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'nginx' });
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Metrics could not be loaded'));
+    expect(screen.getByRole('alert').textContent).toContain('Prometheus returned 503');
+    expect(screen.queryByText('No data available')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
+  });
+
+  it('still says "No data available" for a successful empty result', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ status: 'success', data: { result: [] } }), { status: 200 })));
+    mockMetricQueries = [{ id: 'cpu', title: 'CPU Usage', query: 'cpu', yAxisLabel: 'cores', yAxisFormat: 'number' }];
+    renderView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'nginx' });
+    await waitFor(() => expect(screen.getByText('No data available')).toBeDefined());
   });
 });

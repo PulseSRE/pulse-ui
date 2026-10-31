@@ -9,6 +9,7 @@ import { k8sPatch } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
 import { resourceDetailUrl } from '../../engine/gvr';
 import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition, MachineConfigPool, Pod } from '../../engine/types';
+import { compareVersions } from '../../engine/version';
 import { useUIStore } from '../../store/uiStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
@@ -63,6 +64,20 @@ export function UpdatesTab({
 }: UpdatesTabProps) {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
+
+  // CVO does not rank availableUpdates, so nothing here is "recommended".
+  // Sort by version so the first one really is the latest.
+  const sortedUpdates = React.useMemo(
+    () => [...availableUpdates].sort((a, b) => compareVersions(b.version || '', a.version || '')),
+    [availableUpdates],
+  );
+  // "Up to date" is only true when CVO actually retrieved the update graph.
+  const retrievedUpdates = (clusterVersion?.status?.conditions as Condition[] | undefined)?.find((c) => c.type === 'RetrievedUpdates');
+  const updatesUnknownReason = !clusterVersion
+    ? 'ClusterVersion could not be read'
+    : retrievedUpdates?.status === 'False'
+      ? `The cluster could not retrieve available updates${retrievedUpdates.message ? `: ${retrievedUpdates.message}` : ''}`
+      : null;
 
   const [updating, setUpdating] = React.useState(false);
   const [channelEdit, setChannelEdit] = React.useState('');
@@ -264,7 +279,13 @@ export function UpdatesTab({
 
       {/* Available updates */}
       <Panel title={`Available Updates (${availableUpdates.length})`} icon={<ArrowUpCircle className="w-4 h-4 text-blue-500" />}>
-        {availableUpdates.length === 0 ? (
+        {availableUpdates.length === 0 && updatesUnknownReason ? (
+          <div className="text-center py-6" role="status">
+            <AlertTriangle className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">Update status unknown</p>
+            <p className="text-xs text-slate-500 mt-1">{updatesUnknownReason}</p>
+          </div>
+        ) : availableUpdates.length === 0 ? (
           <div className="text-center py-6">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
             <p className="text-sm text-slate-400">Cluster is up to date</p>
@@ -272,7 +293,7 @@ export function UpdatesTab({
           </div>
         ) : (
           <div className="space-y-2">
-            {availableUpdates.map((u, i: number) => {
+            {sortedUpdates.map((u, i: number) => {
               const versionParts = u.version?.split('.') || [];
               const currentParts = cvVersion?.split('.') || [];
               const minorSkip = versionParts[1] && currentParts[1] ? parseInt(versionParts[1]) - parseInt(currentParts[1]) : 0;
@@ -280,7 +301,7 @@ export function UpdatesTab({
                 <div key={i} className="flex items-center justify-between p-3 rounded-sm bg-slate-800/50 border border-slate-700">
                   <div>
                     <span className="text-sm font-medium text-slate-200">{u.version}</span>
-                    {i === 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-blue-900 text-blue-300 rounded-sm">Recommended</span>}
+                    {i === 0 && sortedUpdates.length > 1 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-slate-700 text-slate-300 rounded-sm">Latest</span>}
                     {minorSkip > 1 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-amber-900 text-amber-300 rounded-sm">Skips {minorSkip - 1} minor</span>}
                     {u.risks && u.risks.length > 0 && <span className="ml-2 text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{u.risks.length} known risk{u.risks.length > 1 ? 's' : ''}</span>}
                   </div>
@@ -296,7 +317,7 @@ export function UpdatesTab({
               );
             })}
             <div className="text-xs text-slate-500 pt-2">
-              <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-yellow-500" /> Estimated duration: ~{Math.max(30, nodes.length * 10)} minutes ({nodes.length} nodes \u00d7 ~10min each)</span>
+              <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-yellow-500" /> Rough estimate: ~{Math.max(30, nodes.length * 10)} minutes ({nodes.length} nodes \u00d7 ~10min each)</span>
             </div>
           </div>
         )}

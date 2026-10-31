@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { fleetCompareResource, type DriftResult } from '../../engine/fleetDrift';
 import { useClusterStore } from '../../store/clusterStore';
 import { useFleetStore } from '../../store/fleetStore';
+import { LoadError } from '../../components/primitives/LoadError';
 
 export function DriftDetectorView() {
   const resourceRegistry = useClusterStore(s => s.resourceRegistry);
@@ -159,26 +160,53 @@ export function DriftDetectorView() {
       {/* Results */}
       {result && (
         <div className="space-y-3">
-          {/* Summary bar */}
-          <div className="flex items-center gap-4 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3">
-            {result.driftedFields === 0 ? (
-              <CheckCircle className="h-5 w-5 text-emerald-400" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 text-amber-400" />
-            )}
-            <span className="text-sm text-slate-200">
-              <span className={result.driftedFields === 0 ? 'text-emerald-400' : 'text-amber-400'}>
-                {result.identicalFields} of {result.identicalFields + result.driftedFields} fields match
-              </span>
-              {' '}across {result.clusters.length} clusters
-            </span>
-          </div>
+          {/* Summary bar: say how many clusters were actually compared */}
+          {(() => {
+            const hasDrift = result.driftedFields > 0 || result.absentClusters.length > 0;
+            const fullyCompared = result.failedClusters.length === 0;
+            return (
+              <div className="flex items-center gap-4 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3">
+                {hasDrift ? (
+                  <AlertTriangle className="h-5 w-5 text-amber-400" />
+                ) : fullyCompared ? (
+                  <CheckCircle className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-slate-400" />
+                )}
+                <span className="text-sm text-slate-200">
+                  {result.clusters.length} of {result.totalClusters} clusters compared
+                  {result.clusters.length > 0 && (
+                    <>
+                      {' · '}
+                      <span className={result.driftedFields === 0 ? 'text-emerald-400' : 'text-amber-400'}>
+                        {result.identicalFields} of {result.identicalFields + result.driftedFields} fields match
+                      </span>
+                    </>
+                  )}
+                </span>
+              </div>
+            );
+          })()}
 
-          {/* Identical message */}
-          {result.driftedFields === 0 && (
+          {result.absentClusters.length > 0 && (
+            <div role="status" className="rounded-lg border border-amber-900 bg-amber-950/30 p-3 text-sm text-amber-300">
+              Drift: the resource is absent on {result.absentClusters.map((cid) => clusterNames[cid] || cid).join(', ')}
+            </div>
+          )}
+
+          {result.failedClusters.length > 0 && (
+            <LoadError
+              title={`${result.failedClusters.length} cluster${result.failedClusters.length !== 1 ? 's' : ''} could not be read and were not compared`}
+              error={result.failedClusters.map((f) => `${clusterNames[f.id] || f.id}: ${f.reason}`).join(' · ')}
+              onRetry={handleCompare}
+            />
+          )}
+
+          {/* Identical message: only when every cluster was read and has the resource */}
+          {result.driftedFields === 0 && result.absentClusters.length === 0 && result.failedClusters.length === 0 && result.clusters.length > 1 && (
             <div className="flex items-center justify-center gap-2 rounded-lg border border-emerald-900 bg-emerald-950/20 p-6">
               <CheckCircle className="h-5 w-5 text-emerald-400" />
-              <p className="text-sm text-emerald-300">Resources are identical across all clusters</p>
+              <p className="text-sm text-emerald-300">Resources are identical across all {result.clusters.length} clusters</p>
             </div>
           )}
 

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
+import { LoadError } from '../components/primitives/LoadError';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { MetricsChart } from '../components/metrics/MetricsChart';
@@ -19,6 +20,18 @@ import { sanitizePromQL } from '../engine/query';
 import type { Pod, Deployment, StatefulSet, DaemonSet, Service } from '../engine/types';
 import type { K8sResource } from '../engine/renderers';
 import { getPodStatus } from '../engine/renderers/statusUtils';
+
+/**
+ * What the pod list shows: the raw phase, unless a container is failing.
+ * A CrashLoopBackOff pod's phase is "Running", so the phase alone counted it
+ * as healthy and drew a green check next to it.
+ */
+function podDisplayStatus(pod: K8sResource): string {
+  const s = getPodStatus(pod);
+  if (s.phase === 'Failed') return 'Failed';
+  if (s.reason && s.phase !== 'Succeeded') return s.reason;
+  return s.phase || 'Unknown';
+}
 
 export default function ProjectDashboard() {
   const { namespace } = useParams<{ namespace: string }>();
@@ -37,19 +50,23 @@ export default function ProjectDashboard() {
   const podStats = useMemo(() => {
     const s = { running: 0, pending: 0, failed: 0, total: pods.length };
     for (const p of pods) {
-      const status = getPodStatus(p);
-      const phase = typeof status === 'string' ? status : status?.phase || '';
-      if (phase === 'Running') s.running++;
-      else if (phase === 'Pending') s.pending++;
-      else if (phase === 'Failed' || phase === 'CrashLoop' || phase === 'Error') s.failed++;
+      const status = podDisplayStatus(p);
+      if (status === 'Running') s.running++;
+      else if (status === 'Pending') s.pending++;
+      else if (status !== 'Succeeded') s.failed++;
     }
     return s;
   }, [pods]);
 
-  const warningEvents = useMemo(
-    () => events.filter((e: any) => e.type === 'Warning').slice(0, 10),
+  // Count every warning; show the newest ten. (The count used to be capped at
+  // 10 by the same slice that trimmed the list, which was not sorted.)
+  const allWarningEvents = useMemo(
+    () => events
+      .filter((e: any) => e.type === 'Warning')
+      .sort((a: any, b: any) => new Date(b.lastTimestamp || b.metadata?.creationTimestamp || 0).getTime() - new Date(a.lastTimestamp || a.metadata?.creationTimestamp || 0).getTime()),
     [events],
   );
+  const warningEvents = useMemo(() => allWarningEvents.slice(0, 10), [allWarningEvents]);
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
@@ -72,8 +89,8 @@ export default function ProjectDashboard() {
           <SummaryCard label="DaemonSets" count={daemonsets.length} icon={<Shield className="w-4 h-4" />} color="text-amber-400" />
           <SummaryCard label="Services" count={services.length} icon={<Globe className="w-4 h-4" />} color="text-cyan-400" />
           <SummaryCard label="ConfigMaps" count={configmaps.length} icon={<FileText className="w-4 h-4" />} color="text-slate-400" />
-          <SummaryCard label="Events" count={warningEvents.length} icon={<AlertTriangle className="w-4 h-4" />}
-            color={warningEvents.length > 0 ? 'text-amber-400' : 'text-slate-400'} />
+          <SummaryCard label="Events" count={allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />}
+            color={allWarningEvents.length > 0 ? 'text-amber-400' : 'text-slate-400'} />
         </div>
 
         {/* Metrics */}
@@ -125,8 +142,7 @@ export default function ProjectDashboard() {
           </div>
           <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
             {pods.map((pod) => {
-              const rawStatus = getPodStatus(pod);
-              const status = typeof rawStatus === 'string' ? rawStatus : rawStatus?.phase || 'Unknown';
+              const status = podDisplayStatus(pod);
               return (
                 <button
                   key={pod.metadata.uid}
@@ -190,7 +206,7 @@ export default function ProjectDashboard() {
             <div className="px-4 py-3 border-b border-slate-800">
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
-                Recent Warning Events ({warningEvents.length})
+                Recent Warning Events ({allWarningEvents.length}{allWarningEvents.length > warningEvents.length ? `, newest ${warningEvents.length} shown` : ''})
               </h2>
             </div>
             <div className="divide-y divide-slate-800 max-h-48 overflow-auto">
@@ -278,14 +294,15 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
   query: string; title: string; yAxisLabel: string; yAxisFormat: string; colorIndex: number;
   start: number; end: number; step: number;
 }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['prometheus', query, start, end, step],
     queryFn: async () => {
       const params = new URLSearchParams({ query, start: String(start), end: String(end), step: String(step) });
       const res = await fetch(`/api/prometheus/api/v1/query_range?${params}`);
-      if (!res.ok) return null;
+      // Throw, so a failed query is an error and not "No data available".
+      if (!res.ok) throw new Error(`Prometheus returned ${res.status}`);
       const json = await res.json();
-      if (json.status !== 'success') return null;
+      if (json.status !== 'success') throw new Error(json.error || 'Prometheus query failed');
       return json.data?.result || [];
     },
     refetchInterval: 60000,
@@ -306,6 +323,13 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
 
   if (isLoading) {
     return <div className="h-48 flex items-center justify-center"><div className="kv-skeleton w-6 h-6 rounded-full" /></div>;
+  }
+  if (isError) {
+    return (
+      <div className="h-48 flex flex-col justify-center">
+        <LoadError title={`${title}: metrics could not be loaded`} error={error} onRetry={() => { void refetch(); }} />
+      </div>
+    );
   }
 
   return (

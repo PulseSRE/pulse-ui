@@ -66,9 +66,20 @@ export function CommandBar() {
   const { data: clusterInfo } = useQuery({
     queryKey: ['toolbar', 'cluster'],
     queryFn: async () => {
-      const [infraRes, userRes] = await Promise.allSettled([
+      // Role from what the API server says this user may do ('*' on '*'),
+      // not from group names: kube:admin has no groups and is cluster-admin.
+      const [infraRes, userRes, ssarRes] = await Promise.allSettled([
         fetch(`${clusterBase}/apis/config.openshift.io/v1/infrastructures/cluster`),
         fetch(`${clusterBase}/apis/user.openshift.io/v1/users/~`),
+        fetch(`${clusterBase}/apis/authorization.k8s.io/v1/selfsubjectaccessreviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiVersion: 'authorization.k8s.io/v1',
+            kind: 'SelfSubjectAccessReview',
+            spec: { resourceAttributes: { verb: '*', group: '*', resource: '*' } },
+          }),
+        }),
       ]);
       let name = 'cluster', platform = '', controlPlaneTopology = '';
       if (infraRes.status === 'fulfilled' && infraRes.value.ok) {
@@ -77,13 +88,15 @@ export function CommandBar() {
         platform = data.status?.platform || data.status?.platformStatus?.type || '';
         controlPlaneTopology = data.status?.controlPlaneTopology || '';
       }
-      let username = 'admin', role = 'Cluster Administrator';
+      // No made-up identity: a failed lookup is "Unknown user" with no role.
+      let username = '', role = '';
       if (userRes.status === 'fulfilled' && userRes.value.ok) {
         const userData = await userRes.value.json();
-        username = userData.metadata?.name || 'admin';
-        const groups = userData.groups || [];
-        role = groups.includes('cluster-admins') || groups.includes('system:cluster-admins')
-          ? 'Cluster Administrator' : 'User';
+        username = userData.metadata?.name || '';
+      }
+      if (ssarRes.status === 'fulfilled' && ssarRes.value.ok) {
+        const review = await ssarRes.value.json();
+        role = review.status?.allowed === true ? 'Cluster Administrator' : 'User';
       }
       // Populate cluster store with topology info
       if (useFleetStore.getState().activeClusterId === activeClusterId) {
@@ -399,8 +412,8 @@ export function CommandBar() {
               <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
               <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl py-1">
                 <div className="px-3 py-2 border-b border-slate-700">
-                  <div className="text-sm font-medium text-slate-200">{clusterInfo?.username || 'admin'}</div>
-                  <div className="text-xs text-slate-500">{clusterInfo?.role || 'Cluster Administrator'}</div>
+                  <div className="text-sm font-medium text-slate-200">{clusterInfo?.username || 'Unknown user'}</div>
+                  {clusterInfo?.role && <div className="text-xs text-slate-500">{clusterInfo.role}</div>}
                 </div>
                 <button
                   onClick={() => { setShowUserMenu(false); go('/readiness', 'Readiness'); }}

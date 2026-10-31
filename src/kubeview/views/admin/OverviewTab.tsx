@@ -180,22 +180,24 @@ export function OverviewTab({
 
       {/* Info cards — 4 per row */}
       <MetricGrid>
-        {/* Health score */}
+        {/* Explicit operator counts, not an invented health percentage */}
         <InfoCard
-          label="Cluster Health"
-          value={(() => {
-            const total = operators.length;
-            if (total === 0) return '\u2014';
-            const healthy = total - opDegraded - opProgressing;
-            const score = Math.round((healthy / total) * 100);
-            return `${score}%`;
-          })()}
-          sub={opDegraded > 0 ? `${opDegraded} degraded` : firingAlerts.length > 0 ? `${firingAlerts.length} alerts` : 'All systems go'}
+          label="Cluster Operators"
+          value={operators.length === 0 ? '\u2014' : `${operators.length - opDegraded - opProgressing}/${operators.length}`}
+          sub={
+            operators.length === 0
+              ? 'Not read'
+              : [
+                  opDegraded > 0 ? `${opDegraded} degraded` : '',
+                  opProgressing > 0 ? `${opProgressing} updating` : '',
+                  alertsUnavailable ? 'alerts unknown' : firingAlerts.length > 0 ? `${firingAlerts.length} alerts` : '',
+                ].filter(Boolean).join(' · ') || 'none degraded or updating'
+          }
           onClick={() => go('/readiness', 'Production Readiness')}
           className={cn(
             opDegraded > 0 ? 'border-red-800' :
             firingAlerts.length > 0 ? 'border-amber-800' :
-            'border-emerald-800/50'
+            operators.length > 0 && !alertsUnavailable ? 'border-emerald-800/50' : ''
           )}
         />
         <InfoCard label="Cluster Version" value={cvVersion || '\u2014'} sub={cvChannel} />

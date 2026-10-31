@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { agentFetch } from '../../engine/safeQuery';
+import { agentJson } from '../../engine/safeQuery';
+import { QueryState, loadStatus } from '../../components/primitives/QueryState';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 
 interface ComponentInfo {
@@ -17,17 +18,26 @@ interface ComponentInfo {
 export function ComponentsTab() {
   const [selected, setSelected] = useState<string | null>(null);
 
-  const { data: components, isLoading } = useQuery({
+  // A failed read threw nothing and left a spinner up forever; now it errors.
+  const componentsQuery = useQuery({
     queryKey: ['admin', 'components'],
-    queryFn: async () => {
-      const res = await agentFetch('/api/agent/components');
-      if (!res.ok) return null;
-      return res.json() as Promise<Record<string, ComponentInfo>>;
-    },
+    queryFn: () => agentJson<Record<string, ComponentInfo>>('/api/agent/components'),
   });
+  const status = loadStatus(componentsQuery, (d) => Object.keys(d).length === 0);
+  const components = componentsQuery.data;
 
-  if (isLoading || !components) {
-    return <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>;
+  if (status !== 'ok' || !components) {
+    return (
+      <QueryState
+        query={componentsQuery}
+        errorTitle="Component kinds could not be loaded from the agent"
+        empty={{ title: 'No component kinds registered', description: 'The agent reported an empty component registry.' }}
+        isEmpty={(d) => Object.keys(d).length === 0}
+        loading={<div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>}
+      >
+        {() => null}
+      </QueryState>
+    );
   }
 
   const categories = [...new Set(Object.values(components).map((c) => c.category))].sort();

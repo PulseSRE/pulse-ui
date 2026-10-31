@@ -15,6 +15,7 @@ import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { formatDuration } from '../../engine/dateUtils';
 import { CardHeader, CardBody } from '../../components/primitives/Card';
 import type { FleetAlert } from '../../engine/types/incident';
+import { LoadError } from '../../components/primitives/LoadError';
 
 export default function FleetAlertsView() {
   const go = useNavigateTab();
@@ -22,7 +23,9 @@ export default function FleetAlertsView() {
 
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState<FleetAlert[]>([]);
-  const [fetchError, setFetchError] = useState(false);
+  const [failedClusters, setFailedClusters] = useState<Array<{ id: string; name: string; reason: string }>>([]);
+  const [readCount, setReadCount] = useState(0);
+  const [noClusters, setNoClusters] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [clusterFilter, setClusterFilter] = useState<string>('all');
   const [searchInput, setSearchInput] = useState('');
@@ -36,6 +39,7 @@ export default function FleetAlertsView() {
 
   const fetchAlerts = useCallback(async () => {
     const clusters = getAllConnections().filter(c => c.status === 'connected');
+    setNoClusters(clusters.length === 0);
     if (clusters.length === 0) {
       setLoading(false);
       return;
@@ -47,7 +51,8 @@ export default function FleetAlertsView() {
         clusters.map(async (cluster) => {
           const base = getClusterBase(cluster.id);
           const res = await fetch(`${base}/api/v1/namespaces/openshift-monitoring/services/prometheus-k8s:web/proxy/api/v1/rules`);
-          if (!res.ok) return [];
+          // A 403/404/503 is "could not read", not "no alerts".
+          if (!res.ok) throw new Error(res.status === 403 ? 'Permission denied (403)' : `Prometheus answered ${res.status}`);
           const json = await res.json();
           const groups = json.data?.groups || [];
 
@@ -76,15 +81,18 @@ export default function FleetAlertsView() {
       );
 
       const allAlerts: FleetAlert[] = [];
-      let anySucceeded = false;
-      for (const r of results) {
+      const failed: Array<{ id: string; name: string; reason: string }> = [];
+      results.forEach((r, i) => {
         if (r.status === 'fulfilled') {
-          anySucceeded = true;
           allAlerts.push(...r.value);
+        } else {
+          const reason = r.reason instanceof Error ? r.reason.message : 'Request failed';
+          failed.push({ id: clusters[i].id, name: clusters[i].name, reason });
         }
-      }
+      });
       setAlerts(allAlerts);
-      setFetchError(!anySucceeded && results.length > 0);
+      setFailedClusters(failed);
+      setReadCount(results.length - failed.length);
     } finally {
       setLoading(false);
     }
@@ -171,27 +179,32 @@ export default function FleetAlertsView() {
     );
   }
 
+  const failedBanner = failedClusters.length > 0 && (
+    <LoadError
+      title={`Alerts could not be read from ${failedClusters.length} of ${failedClusters.length + readCount} cluster${failedClusters.length + readCount !== 1 ? 's' : ''}`}
+      error={failedClusters.map((c) => `${c.name}: ${c.reason}`).join(' · ')}
+      onRetry={fetchAlerts}
+    />
+  );
+
   if (alerts.length === 0 && !loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-950">
-        <div className="text-center space-y-2">
-          {fetchError ? (
+      <div className="h-full flex items-center justify-center bg-slate-950 p-6">
+        <div className="text-center space-y-3 max-w-xl">
+          {failedBanner}
+          {noClusters ? (
             <>
-              <XCircle className="w-10 h-10 text-red-400 mx-auto" />
-              <p className="text-red-300 text-sm">Unable to reach alerting backend</p>
-              <p className="text-slate-500 text-xs">Check that Prometheus/Alertmanager is configured and accessible on your clusters.</p>
-              <button
-                onClick={fetchAlerts}
-                className="mt-2 px-4 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Retry
-              </button>
+              <XCircle className="w-10 h-10 text-slate-600 mx-auto" />
+              <p className="text-slate-400 text-sm">No reachable clusters</p>
+              <p className="text-slate-600 text-xs">No connected cluster could be asked for alerts. Check cluster connectivity on the Fleet page.</p>
             </>
-          ) : (
+          ) : readCount > 0 && (
             <>
               <Bell className="w-10 h-10 text-slate-700 mx-auto" />
-              <p className="text-slate-400 text-sm">No firing alerts across the fleet</p>
-              <p className="text-slate-600 text-xs">All clusters are quiet. Check back later or verify cluster connectivity.</p>
+              <p className="text-slate-400 text-sm">
+                No firing alerts on {failedClusters.length > 0 ? `the ${readCount} cluster${readCount !== 1 ? 's' : ''} that could be read` : 'any cluster in the fleet'}
+              </p>
+              {failedClusters.length === 0 && <p className="text-slate-600 text-xs">All clusters are quiet.</p>}
             </>
           )}
         </div>
@@ -204,6 +217,7 @@ export default function FleetAlertsView() {
 
   return (
     <div className="h-full flex flex-col bg-slate-950">
+      {failedBanner && <div className="px-6 pt-4">{failedBanner}</div>}
       {/* Header */}
       <div className="border-b border-slate-800 px-6 py-4">
         <div className="flex items-center justify-between mb-3">

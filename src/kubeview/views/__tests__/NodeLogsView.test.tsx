@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import React from 'react';
 
@@ -71,5 +71,17 @@ describe('NodeLogsView', () => {
     await vi.waitFor(() => {
       expect(screen.getByText('No log files found')).toBeDefined();
     });
+  });
+
+  it('shows the HTTP error with a retry, not "No log files found", on a 403', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve({ ok: false, status: 403, text: () => Promise.resolve('') }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderView();
+    await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Permission denied (403)'));
+    expect(screen.queryByText('No log files found')).toBeNull();
+    const calls = fetchMock.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(calls));
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(mockFetchResponse)));
   });
 });

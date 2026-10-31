@@ -12,6 +12,7 @@ import { showErrorToast } from '../engine/errorToast';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { StatCard } from '../components/primitives/StatCard';
+import { LoadError } from '../components/primitives/LoadError';
 import { Button } from '../components/primitives/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { useGitOpsConfig } from '../hooks/useGitOpsConfig';
@@ -30,6 +31,13 @@ export default function ArgoCDView() {
   const addToast = useUIStore((s) => s.addToast);
   const { available, detecting, applications, applicationsLoading, namespace } = useArgoCD();
   const refresh = useArgoCDRefresh();
+  // Subscribe (getState() does not re-render when detection finishes).
+  const rolloutsAvailable = useArgoCDStore((s) => s.rolloutsAvailable);
+  const rollouts = useArgoCDStore((s) => s.rollouts);
+  const rolloutsLoading = useArgoCDStore((s) => s.rolloutsLoading);
+  const rolloutsError = useArgoCDStore((s) => s.rolloutsError);
+  const loadRollouts = useArgoCDStore((s) => s.loadRollouts);
+  const applicationsError = useArgoCDStore((s) => s.applicationsError);
   const { isConfigured } = useGitOpsConfig();
   const { openWizard, wizardOpen, completedSteps, detectCompletedSteps } = useGitOpsSetupStore();
 
@@ -134,7 +142,7 @@ export default function ArgoCDView() {
     { id: 'history', label: 'Sync History' },
     { id: 'drift', label: `Drift${outOfSyncCount > 0 ? ` (${outOfSyncCount})` : ''}` },
     { id: 'projects', label: 'Projects' },
-    ...(useArgoCDStore.getState().rolloutsAvailable ? [{ id: 'rollouts' as Tab, label: 'Rollouts' }] : []),
+    ...(rolloutsAvailable ? [{ id: 'rollouts' as Tab, label: 'Rollouts' }] : []),
   ];
 
   return (
@@ -176,10 +184,10 @@ export default function ArgoCDView() {
 
         {/* Summary */}
         <MetricGrid>
-          <StatCard label="Applications" value={applications.length} />
-          <StatCard label="Synced" value={applications.filter(a => a.status?.sync?.status === 'Synced').length} variant="success" />
-          <StatCard label="Out of Sync" value={outOfSyncCount} variant={outOfSyncCount > 0 ? 'warning' : 'default'} highlight={outOfSyncCount > 0} />
-          <StatCard label="Degraded" value={degradedCount} variant={degradedCount > 0 ? 'error' : 'default'} highlight={degradedCount > 0} />
+          <StatCard label="Applications" value={applicationsError ? '—' : applications.length} />
+          <StatCard label="Synced" value={applicationsError ? '—' : applications.filter(a => a.status?.sync?.status === 'Synced').length} variant={applicationsError ? 'default' : 'success'} />
+          <StatCard label="Out of Sync" value={applicationsError ? '—' : outOfSyncCount} variant={outOfSyncCount > 0 ? 'warning' : 'default'} highlight={outOfSyncCount > 0} />
+          <StatCard label="Degraded" value={applicationsError ? '—' : degradedCount} variant={degradedCount > 0 ? 'error' : 'default'} highlight={degradedCount > 0} />
         </MetricGrid>
 
         {/* Tabs */}
@@ -195,6 +203,8 @@ export default function ArgoCDView() {
             <div className="flex items-center justify-center h-48">
               <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
             </div>
+          ) : applicationsError && activeTab !== 'projects' && activeTab !== 'rollouts' ? (
+            <LoadError className="mt-4" title="ArgoCD Applications could not be loaded" error={applicationsError} onRetry={() => refresh()} />
           ) : (
             <>
               <TabsContent value="applications">
@@ -214,9 +224,17 @@ export default function ArgoCDView() {
               <TabsContent value="projects">
                 <ProjectsTab />
               </TabsContent>
-              {useArgoCDStore.getState().rolloutsAvailable && (
+              {rolloutsAvailable && (
                 <TabsContent value="rollouts">
-                  <RolloutsTab rollouts={useArgoCDStore.getState().rollouts || []} go={go} />
+                  {rolloutsError ? (
+                    <LoadError className="mt-4" title="Argo Rollouts could not be loaded" error={rolloutsError} onRetry={() => void loadRollouts()} />
+                  ) : rolloutsLoading && rollouts.length === 0 ? (
+                    <div className="flex items-center justify-center h-48">
+                      <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <RolloutsTab rollouts={rollouts || []} go={go} />
+                  )}
                 </TabsContent>
               )}
             </>

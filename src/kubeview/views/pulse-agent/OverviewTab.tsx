@@ -15,6 +15,7 @@ import {
 import { TrustPolicy } from '../mission-control/TrustPolicy';
 import { classifyAgentLink } from '../../engine/agentLinks';
 import { ScannerDrawer } from '../mission-control/ScannerDrawer';
+import { LoadError } from '../../components/primitives/LoadError';
 
 export function OverviewTab() {
   const [scannerDrawerOpen, setScannerDrawerOpen] = useState(false);
@@ -27,7 +28,8 @@ export function OverviewTab() {
   const activityQ = useQuery({ queryKey: ['agent', 'activity'], queryFn: () => fetchAgentActivity(7), staleTime: 60_000 });
 
   const scannerCount = coverageQ.data?.active_scanners ?? 0;
-  const totalFindings = (fixQ.data?.completed ?? 0) + (fixQ.data?.failed ?? 0) + (fixQ.data?.rolled_back ?? 0);
+  // These are fix actions, not issues: an issue Pulse only reported is not here.
+  const totalFixes = (fixQ.data?.completed ?? 0) + (fixQ.data?.failed ?? 0) + (fixQ.data?.rolled_back ?? 0);
   const cbState = healthQ.data?.circuit_breaker?.state?.toLowerCase();
   const isDegraded = cbState === 'open';
 
@@ -37,8 +39,11 @@ export function OverviewTab() {
       <div className="bg-slate-900 border border-slate-800 rounded-lg px-5 py-4">
         <StatusSentence
           isDegraded={isDegraded}
+          loading={fixQ.isLoading || coverageQ.isLoading}
+          unreadable={[fixQ.isError && 'fix history', coverageQ.isError && 'scanner coverage'].filter((x): x is string => Boolean(x))}
+          onRetry={() => { void fixQ.refetch(); void coverageQ.refetch(); }}
           scannerCount={scannerCount}
-          totalFindings={totalFindings}
+          totalFixes={totalFixes}
           fixedCount={fixQ.data?.completed ?? 0}
           needsAttention={(fixQ.data?.failed ?? 0) + (fixQ.data?.rolled_back ?? 0)}
           onScannerClick={() => setScannerDrawerOpen(true)}
@@ -52,7 +57,7 @@ export function OverviewTab() {
       <TrustPolicy
         maxTrustLevel={capQ.data?.max_trust_level ?? 0}
         effectiveTrustLevel={capQ.data?.effective_trust_level}
-        scannerCount={scannerCount}
+        scannerCount={coverageQ.data?.active_scanners ?? null}
         fixSummary={fixQ.data ?? null}
         supportedAutoFixCategories={capQ.data?.supported_auto_fix_categories}
         autofixPaused={healthQ.data?.autofix_paused}
@@ -73,15 +78,16 @@ export function OverviewTab() {
         </div>
       )}
 
-      {scannerDrawerOpen && <ScannerDrawer coverage={coverageQ.data ?? null} onClose={() => setScannerDrawerOpen(false)} />}
+      {scannerDrawerOpen && <ScannerDrawer coverage={coverageQ.data ?? null} supportedAutoFixCategories={capQ.data?.supported_auto_fix_categories} onClose={() => setScannerDrawerOpen(false)} />}
     </div>
   );
 }
 
 function StatusSentence({
-  isDegraded, scannerCount, totalFindings, fixedCount, needsAttention, onScannerClick,
+  isDegraded, loading, unreadable, onRetry, scannerCount, totalFixes, fixedCount, needsAttention, onScannerClick,
 }: {
-  isDegraded: boolean; scannerCount: number; totalFindings: number;
+  isDegraded: boolean; loading: boolean; unreadable: string[]; onRetry: () => void;
+  scannerCount: number; totalFixes: number;
   fixedCount: number; needsAttention: number; onScannerClick: () => void;
 }) {
   if (isDegraded) {
@@ -92,11 +98,21 @@ function StatusSentence({
     );
   }
 
-  if (totalFindings > 0) {
+  if (unreadable.length > 0) {
+    return (
+      <LoadError title={`Pulse status is unknown — ${unreadable.join(' and ')} could not be loaded`} onRetry={onRetry} />
+    );
+  }
+
+  if (loading) {
+    return <p className="text-sm text-slate-400">Checking Pulse status…</p>;
+  }
+
+  if (totalFixes > 0) {
     return (
       <p className="text-sm text-slate-300">
-        Pulse detected{' '}
-        <Link to="/inbox" className="text-blue-400 hover:underline">{totalFindings} issue{totalFindings !== 1 ? 's' : ''}</Link>
+        Pulse took{' '}
+        <Link to="/inbox" className="text-blue-400 hover:underline">{totalFixes} fix action{totalFixes !== 1 ? 's' : ''}</Link>
         {' '}this week.{' '}
         {fixedCount > 0 && (
           <><Link to="/inbox?preset=agent_cleared" className="text-emerald-400 hover:underline">{fixedCount} auto-fixed</Link>{needsAttention > 0 ? ', ' : '.'}</>
@@ -111,8 +127,8 @@ function StatusSentence({
   return (
     <p className="text-sm text-slate-300">
       Pulse is monitoring your cluster.{' '}
-      <button onClick={onScannerClick} className="text-blue-400 hover:underline">{scannerCount} scanners</button>
-      {' '}active, no issues detected.
+      <button onClick={onScannerClick} className="text-blue-400 hover:underline">{scannerCount} scanner{scannerCount !== 1 ? 's' : ''}</button>
+      {' '}active; no fixes this week. <Link to="/inbox" className="text-blue-400 hover:underline">Open findings are in the Inbox.</Link>
     </p>
   );
 }

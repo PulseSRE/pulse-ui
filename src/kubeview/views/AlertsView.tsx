@@ -14,6 +14,7 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { showErrorToast } from '../engine/errorToast';
 import { copyToClipboard } from '../engine/clipboard';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { LoadError } from '../components/primitives/LoadError';
 import type { PrometheusAlert } from '../engine/types/incident';
 
 interface AlertGroup {
@@ -62,13 +63,14 @@ export default function AlertsView() {
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
-  const { data: currentUser = 'admin' } = useQuery({
+  // No made-up author: if the lookup fails, the form asks for one.
+  const { data: currentUser = '' } = useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
       const res = await fetch('/api/kubernetes/apis/user.openshift.io/v1/users/~');
-      if (!res.ok) return 'admin';
+      if (!res.ok) return '';
       const data = await res.json();
-      return data.metadata?.name || 'admin';
+      return data.metadata?.name || '';
     },
     staleTime: 300000,
   });
@@ -131,7 +133,10 @@ export default function AlertsView() {
     retry: 1,
   });
 
-  const backendUnavailable = !!(alertsError || silencesError);
+  // Prometheus (alerts, rules) and Alertmanager (silences) fail separately:
+  // a broken Alertmanager must not hide the firing list.
+  const backendUnavailable = !!alertsError;
+  const silencesUnavailable = !!silencesError;
 
   // Active silences (needed before allAlerts for silenced check)
   const activeSilences = useMemo(() => {
@@ -325,6 +330,10 @@ export default function AlertsView() {
       addToast({ type: 'error', title: 'Duration required', detail: 'Please select a duration' });
       return;
     }
+    if (!silenceForm.createdBy.trim()) {
+      addToast({ type: 'error', title: 'Creator required', detail: 'Enter who is creating this silence' });
+      return;
+    }
     if (silenceForm.matchers.length === 0 || silenceForm.matchers.some((m) => !m.name || !m.value)) {
       addToast({ type: 'error', title: 'Matchers required', detail: 'All matchers must have name and value' });
       return;
@@ -436,7 +445,7 @@ export default function AlertsView() {
           </button>
           <button onClick={() => setActiveTab('silences')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Silenced</div>
-            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : allAlerts.filter(a => a.isSilenced).length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable || silencesUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable || silencesUnavailable ? '—' : allAlerts.filter(a => a.isSilenced).length}</div>
           </button>
           <button onClick={() => setActiveTab('rules')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Alert Rules</div>
@@ -444,7 +453,7 @@ export default function AlertsView() {
           </button>
           <button onClick={() => setActiveTab('silences')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Active Silences</div>
-            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : activeSilences.length}</div>
+            <div className={cn('text-xl font-bold', silencesUnavailable ? 'text-slate-500' : 'text-slate-100')}>{silencesUnavailable ? '—' : activeSilences.length}</div>
           </button>
         </div>
 
@@ -516,16 +525,23 @@ export default function AlertsView() {
         {/* Firing alerts */}
         {activeTab === 'firing' && (
           <div className="space-y-2">
+            {silencesUnavailable && !backendUnavailable && (
+              <LoadError
+                title="Silences could not be read from Alertmanager — some alerts below may already be silenced"
+                error={silencesError}
+                onRetry={() => { refetchSilences(); }}
+              />
+            )}
             {backendUnavailable ? (
               <EmptyState
                 icon={<XCircle className="w-8 h-8 text-red-400" />}
-                title="Unable to reach alerting backend"
+                title="Unable to reach Prometheus"
                 description={
-                  (alertsError?.message || silencesError?.message || '').includes('configured')
-                    ? 'The Prometheus or Alertmanager proxy is not configured. Set THANOS_URL and ALERTMANAGER_URL environment variables and restart the dev server.'
-                    : 'Check that Prometheus and Alertmanager are configured and accessible.'
+                  (alertsError?.message || '').includes('configured')
+                    ? 'The Prometheus proxy is not configured. Set THANOS_URL and restart the dev server.'
+                    : `Firing alerts could not be read. ${alertsError?.message || ''}`.trim()
                 }
-                action={{ label: 'Retry', onClick: () => { refetchAlerts(); refetchSilences(); } }}
+                action={{ label: 'Retry', onClick: () => { refetchAlerts(); } }}
               />
             ) : alertsPending ? (
               <EmptyState
@@ -536,8 +552,12 @@ export default function AlertsView() {
             ) : filteredAlerts.length === 0 ? (
               <EmptyState
                 icon={<Bell className="w-8 h-8" />}
-                title={severityFilter !== 'all' ? `No ${severityFilter} alerts` : 'No alerts firing'}
-                description="Your cluster is healthy — no alerts are currently firing."
+                title={severityFilter !== 'all' ? `No ${severityFilter} alerts` : searchQuery ? 'No alerts match your search' : 'No alerts firing'}
+                description={
+                  severityFilter !== 'all' || searchQuery
+                    ? `${allAlerts.length} alert${allAlerts.length !== 1 ? 's are' : ' is'} firing or pending outside this filter.`
+                    : 'Prometheus reports no firing or pending alerts.'
+                }
               />
             ) : groupedAlerts ? (
               // Grouped view
@@ -565,11 +585,13 @@ export default function AlertsView() {
 
         {/* Rules */}
         {activeTab === 'rules' && (
-          filteredRules.length === 0 ? (
+          backendUnavailable ? (
+            <LoadError title="Alert rules could not be read from Prometheus" error={alertsError} onRetry={() => { refetchAlerts(); }} />
+          ) : filteredRules.length === 0 ? (
             <EmptyState
               icon={<BookOpen className="w-8 h-8" />}
               title="No alert rules found"
-              description="Alert rules are configured in Prometheus. Make sure Alertmanager is connected and accessible."
+              description={searchQuery ? 'No alerting rule matches your search.' : 'Prometheus reports no alerting rules.'}
             />
           ) : (
           <Card>
@@ -725,6 +747,8 @@ export default function AlertsView() {
                     <input
                       type="text"
                       value={silenceForm.createdBy}
+                      placeholder="Your username"
+                      aria-label="Created by"
                       onChange={(e) => setSilenceForm((prev) => ({ ...prev, createdBy: e.target.value }))}
                       className="w-full px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                     />
@@ -751,7 +775,9 @@ export default function AlertsView() {
             )}
 
             {/* Active Silences */}
-            {activeSilences.length === 0 && !showSilenceForm ? (
+            {silencesUnavailable ? (
+              <LoadError title="Silences could not be read from Alertmanager" error={silencesError} onRetry={() => { refetchSilences(); }} />
+            ) : activeSilences.length === 0 && !showSilenceForm ? (
               <EmptyState
                 icon={<BellOff className="w-8 h-8" />}
                 title="No active silences"

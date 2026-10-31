@@ -5,6 +5,7 @@ import { ArrowLeft, Search, Download, RefreshCw, FileText, Shield, Server, Box }
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { LoadError } from '../components/primitives/LoadError';
 
 
 type LogSource = 'audit' | 'journal' | 'crio' | 'containers' | 'ovn';
@@ -25,6 +26,9 @@ export default function NodeLogsView() {
 
   const [activeSource, setActiveSource] = useState<LogSource>('audit');
   const [files, setFiles] = useState<string[]>([]);
+  const [filesError, setFilesError] = useState<string | null>(null);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesReload, setFilesReload] = useState(0);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [logContent, setLogContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,13 +41,20 @@ export default function NodeLogsView() {
   useEffect(() => {
     if (!name) return;
     setFiles([]);
+    setFilesError(null);
+    setFilesLoading(true);
     setSelectedFile(null);
     setLogContent('');
 
     const fetchFiles = async () => {
       try {
         const res = await fetch(`${BASE}/api/v1/nodes/${name}/proxy/logs/${source.path}`);
-        if (!res.ok) { setFiles([]); return; }
+        // A 403/500 is an error, not "no log files".
+        if (!res.ok) {
+          setFiles([]);
+          setFilesError(res.status === 403 ? 'Permission denied (403)' : `Request failed (${res.status})`);
+          return;
+        }
         const html = await res.text();
         // Parse file links from HTML directory listing
         const links = [...html.matchAll(/href="([^"]+)"/g)]
@@ -56,10 +67,13 @@ export default function NodeLogsView() {
       } catch (e) {
         console.error('node log file list fetch failed:', e);
         setFiles([]);
+        setFilesError(e instanceof Error ? e.message : 'Request failed');
+      } finally {
+        setFilesLoading(false);
       }
     };
     fetchFiles();
-  }, [name, source.path]);
+  }, [name, source.path, filesReload]);
 
   // Fetch log content for selected file
   useEffect(() => {
@@ -159,7 +173,11 @@ export default function NodeLogsView() {
           <div className="px-3 py-2 text-xs text-slate-500 uppercase tracking-wider font-semibold">
             Files ({files.length})
           </div>
-          {files.length === 0 ? (
+          {filesError ? (
+            <LoadError className="m-2" title="Log files could not be listed" error={filesError} onRetry={() => setFilesReload((n) => n + 1)} />
+          ) : filesLoading ? (
+            <div className="px-3 py-4 text-xs text-slate-500 text-center">Loading…</div>
+          ) : files.length === 0 ? (
             <div className="px-3 py-4 text-xs text-slate-500 text-center">No log files found</div>
           ) : (
             files.map((file) => (

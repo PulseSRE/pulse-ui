@@ -122,4 +122,24 @@ describe('OperatorCatalogView', () => {
     expect(screen.getByText('Quay')).toBeDefined();
     expect(screen.queryByText('Cluster Logging')).toBeNull();
   });
+
+  it('shows a load error, not "0 operators from 0 sources", when packagemanifests cannot be read', async () => {
+    const { k8sList } = await import('../../engine/query');
+    vi.mocked(k8sList).mockImplementation((path: string) =>
+      path.includes('packagemanifests')
+        ? Promise.reject(Object.assign(new Error('forbidden'), { statusCode: 403 }))
+        : Promise.resolve(_mockListWatchData[path] || []),
+    );
+    renderView();
+    expect(await screen.findByText('The operator catalog could not be loaded')).toBeDefined();
+    expect(screen.getByText('Catalog could not be read')).toBeDefined();
+    expect(document.body.textContent).not.toMatch(/0 operators available/);
+    vi.mocked(k8sList).mockImplementation((path: string) => Promise.resolve(_mockListWatchData[path] || []));
+  });
+
+  it('says when a search matches nothing instead of showing a blank grid', async () => {
+    renderView();
+    fireEvent.change(screen.getByPlaceholderText('Search operators...'), { target: { value: 'zzz-nothing' } });
+    expect(await screen.findByText(/No operators (match your search|in the catalog)/)).toBeDefined();
+  });
 });

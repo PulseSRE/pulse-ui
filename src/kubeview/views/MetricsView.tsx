@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { LoadError } from '../components/primitives/LoadError';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
@@ -126,7 +127,7 @@ interface MetricPanelProps {
 function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: MetricPanelProps) {
   const resolvedQuery = resolveQuery(mq.query, vars);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['prometheus', resolvedQuery, start, end, step],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -136,9 +137,11 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
         step: String(step),
       });
       const res = await fetch(`/api/prometheus/api/v1/query_range?${params}`);
-      if (!res.ok) return null;
+      // Throw: returning null made the error branch unreachable and a failed
+      // query read "No data available".
+      if (!res.ok) throw new Error(`Prometheus returned ${res.status}`);
       const json = await res.json();
-      if (json.status !== 'success') return null;
+      if (json.status !== 'success') throw new Error(json.error || 'Prometheus query failed');
       return json.data?.result || [];
     },
     refetchInterval: 60000,
@@ -171,9 +174,13 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
         <div className="h-48 flex items-center justify-center">
           <div className="kv-skeleton w-full h-full rounded-sm" />
         </div>
-      ) : error || series.length === 0 ? (
+      ) : error ? (
+        <div className="h-48 flex flex-col justify-center">
+          <LoadError title="Metrics could not be loaded" error={error} onRetry={() => { void refetch(); }} />
+        </div>
+      ) : series.length === 0 ? (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
-          {error ? 'Failed to fetch metrics' : 'No data available'}
+          No data available
         </div>
       ) : (
         <MetricsChart

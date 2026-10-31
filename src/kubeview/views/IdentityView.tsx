@@ -15,6 +15,7 @@ import type {
 } from '../engine/types';
 import { formatAge } from '../engine/dateUtils';
 import { useUIStore } from '../store/uiStore';
+import { useKubeadminSecret, KUBEADMIN_SECRET_QUERY_KEY, type KubeadminStatus } from '../hooks/useKubeadminSecret';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { Card } from '../components/primitives/Card';
@@ -87,14 +88,8 @@ export default function IdentityView() {
   const { data: namespaces = [] } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
 
   // kubeadmin secret check
-  const { data: kubeadminSecret } = useQuery({
-    queryKey: ['users', 'kubeadmin-secret'],
-    queryFn: async () => {
-      const res = await fetch('/api/kubernetes/api/v1/namespaces/kube-system/secrets/kubeadmin');
-      return res.ok;
-    },
-    staleTime: 60000,
-  });
+  // A 403 used to read as "removed"; only a 404 proves it is gone.
+  const { data: kubeadminStatus } = useKubeadminSecret();
 
   // OAuth config
   const { data: oauthConfig } = useQuery({
@@ -362,7 +357,7 @@ export default function IdentityView() {
               clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
               oauthConfig={oauthConfig}
               accessTokens={accessTokens as K8sResource[]}
-              kubeadminExists={kubeadminSecret === true}
+              kubeadminStatus={kubeadminStatus}
               go={go}
               addToast={addToast}
               queryClient={queryClient}
@@ -751,9 +746,9 @@ function RecentSessions({ accessTokens, go }: { accessTokens: K8sResource[]; go:
 // ---------------------------------------------------------------------------
 // Identity & Access Audit (from UserManagementView)
 // ---------------------------------------------------------------------------
-function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminExists, go, addToast, queryClient }: {
+function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminStatus, go, addToast, queryClient }: {
   users: K8sResource[]; groups: K8sResource[]; clusterRoleBindings: ClusterRoleBinding[]; oauthConfig: any;
-  accessTokens: K8sResource[]; kubeadminExists: boolean; go: (path: string, title: string) => void;
+  accessTokens: K8sResource[]; kubeadminStatus: KubeadminStatus | undefined; go: (path: string, title: string) => void;
   addToast: (t: any) => void; queryClient: any;
 }) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
@@ -778,6 +773,8 @@ function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, access
         await k8sDelete('/api/v1/namespaces/kube-system/secrets/kubeadmin');
         addToast({ type: 'success', title: 'kubeadmin removed', detail: 'The kubeadmin secret has been deleted' });
         queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
+        // The check reads the secret, so that is the query to refresh.
+        queryClient.invalidateQueries({ queryKey: KUBEADMIN_SECRET_QUERY_KEY });
       }
     } catch (err: any) {
       showErrorToast(err, 'Action failed');
@@ -821,14 +818,19 @@ spec:
     });
 
     // 2. kubeadmin removed
-    const hasKubeAdmin = kubeadminExists;
+    const hasKubeAdmin = kubeadminStatus?.state === 'present';
+    const kubeadminUnknown = !kubeadminStatus || kubeadminStatus.state === 'unknown';
     allChecks.push({
       id: 'kubeadmin-removed',
       title: 'kubeadmin Removed',
       description: 'The default kubeadmin account should be removed after configuring an identity provider',
       why: 'kubeadmin has full cluster-admin access with a static password. Remove it after setting up real identity providers: oc delete secret kubeadmin -n kube-system',
-      passing: hasKubeAdmin ? [] : [{ metadata: { name: 'kubeadmin removed' } }],
-      failing: hasKubeAdmin ? [{ metadata: { name: 'kube:admin still exists' } }] : [],
+      passing: hasKubeAdmin || kubeadminUnknown ? [] : [{ metadata: { name: 'kubeadmin removed' } }],
+      failing: hasKubeAdmin
+        ? [{ metadata: { name: 'kube:admin still exists' } }]
+        : kubeadminUnknown
+          ? [{ metadata: { name: kubeadminStatus?.state === 'unknown' ? `Unknown — could not read kube-system/kubeadmin (${kubeadminStatus.reason})` : 'Unknown — checking kube-system/kubeadmin' } }]
+          : [],
       yamlExample: currentUserIsKubeAdmin
         ? `# You are currently logged in as kubeadmin.
 # Log in as another admin user first, then remove kubeadmin.
@@ -950,7 +952,7 @@ users:
     });
 
     return allChecks;
-  }, [users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminExists, currentUserIsKubeAdmin]);
+  }, [users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminStatus, currentUserIsKubeAdmin]);
 
   const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
   const score = Math.round((totalPassing / checks.length) * 100);

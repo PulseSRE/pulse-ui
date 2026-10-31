@@ -8,6 +8,7 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useUIStore } from '../store/uiStore';
 import { Panel } from '../components/primitives/Panel';
+import { LoadError } from '../components/primitives/LoadError';
 import { timeAgo } from '../engine/dateUtils';
 import { Card } from '../components/primitives/Card';
 import { MetricGrid } from '../components/primitives/MetricGrid';
@@ -33,7 +34,7 @@ export default function CRDsView() {
   const [scopeFilter, setScopeFilter] = useState<'all' | 'Namespaced' | 'Cluster'>('all');
   const [groupFilter, setGroupFilter] = useState<string>('all');
 
-  const { data: typedCRDs = [], isLoading } = useK8sListWatch<CRDResource>({
+  const { data: typedCRDs = [], isLoading, isError, error, refetch } = useK8sListWatch<CRDResource>({
     apiPath: '/apis/apiextensions.k8s.io/v1/customresourcedefinitions',
   });
 
@@ -222,11 +223,16 @@ export default function CRDsView() {
           </Panel>
         ))}
 
+        {/* A failed list is an error, not "no CRDs match" */}
+        {isError && (
+          <LoadError title="CustomResourceDefinitions could not be loaded" error={error} onRetry={() => { void refetch(); }} />
+        )}
+
         {/* Empty state */}
-        {!isLoading && filtered.length === 0 && (
+        {!isLoading && !isError && filtered.length === 0 && (
           <div className="text-center py-12">
             <Puzzle className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-            <div className="text-sm text-slate-500">No CRDs match your filters</div>
+            <div className="text-sm text-slate-500">{typedCRDs.length === 0 ? 'No CRDs are installed' : 'No CRDs match your filters'}</div>
           </div>
         )}
       </div>

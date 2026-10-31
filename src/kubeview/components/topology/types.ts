@@ -15,6 +15,8 @@ export interface MapCluster {
   nodeCount: number;
   environment?: string;
   version?: string;
+  /** No region label resolved: not drawn on the map, listed under "Unknown location". */
+  locationUnknown?: boolean;
 }
 
 /** A datacenter / availability zone with nodes in it */
@@ -31,6 +33,8 @@ export interface MapZone {
   healthScore: number;
   healthGrade: HealthScoreResult['grade'];
   podCount: number;
+  /** No region label resolved: not drawn on the map, listed under "Unknown location". */
+  locationUnknown?: boolean;
 }
 
 export interface MapNode {
@@ -63,6 +67,8 @@ export interface MapEvent {
   nodeName?: string;
   zone?: string;
   timestamp: number;
+  /** The Kubernetes event type was Warning (only these count as alerts). */
+  isWarning?: boolean;
 }
 
 /** Resource utilization for a zone */

@@ -17,6 +17,7 @@ import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
 import { Card } from '../components/primitives/Card';
+import { LoadError } from '../components/primitives/LoadError';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 
 export default function StorageView() {
@@ -27,7 +28,7 @@ export default function StorageView() {
   // Real-time data
   const { data: pvcs = [], isLoading: pvcsLoading } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
   const { data: pvs = [], isLoading: pvsLoading } = useK8sListWatch<PersistentVolume>({ apiPath: '/api/v1/persistentvolumes' });
-  const { data: storageClasses = [] } = useQuery<StorageClass[]>({
+  const { data: storageClasses = [], isSuccess: scLoaded, isError: scError, error: scErr, refetch: refetchSCs } = useQuery<StorageClass[]>({
     queryKey: ['storage', 'storageclasses'],
     queryFn: () => k8sList('/apis/storage.k8s.io/v1/storageclasses') as Promise<StorageClass[]>,
     staleTime: 60000,
@@ -105,8 +106,10 @@ export default function StorageView() {
   if (pvcStatus.Lost > 0) issues.push({ msg: `${pvcStatus.Lost} PVC${pvcStatus.Lost > 1 ? 's' : ''} in Lost state`, severity: 'critical' });
   if (pvStatus.Released > 0) issues.push({ msg: `${pvStatus.Released} PV${pvStatus.Released > 1 ? 's' : ''} in Released state (can be reclaimed)`, severity: 'warning' });
   if (pvStatus.Failed > 0) issues.push({ msg: `${pvStatus.Failed} PV${pvStatus.Failed > 1 ? 's' : ''} in Failed state`, severity: 'critical' });
-  if (!defaultSC) issues.push({ msg: 'No default StorageClass set — PVCs without explicit class will fail', severity: 'warning', action: { label: 'View StorageClasses', path: '/r/storage.k8s.io~v1~storageclasses' } });
-  if (storageClasses.length === 0) issues.push({ msg: 'No StorageClasses configured — dynamic provisioning unavailable', severity: 'critical', action: { label: 'Create StorageClass', path: '/create/storage.k8s.io~v1~storageclasses' } });
+  // Only a successful read can say there are no StorageClasses: while loading
+  // or after a failure the list is empty because we have not seen it.
+  if (scLoaded && !defaultSC && storageClasses.length > 0) issues.push({ msg: 'No default StorageClass set — PVCs without explicit class will fail', severity: 'warning', action: { label: 'View StorageClasses', path: '/r/storage.k8s.io~v1~storageclasses' } });
+  if (scLoaded && storageClasses.length === 0) issues.push({ msg: 'No StorageClasses configured — dynamic provisioning unavailable', severity: 'critical', action: { label: 'Create StorageClass', path: '/create/storage.k8s.io~v1~storageclasses' } });
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
@@ -163,8 +166,8 @@ export default function StorageView() {
           </button>
           <button onClick={() => go('/r/storage.k8s.io~v1~storageclasses', 'StorageClasses')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Storage Classes</div>
-            <div className="text-xl font-bold text-slate-100">{storageClasses.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{defaultSC ? `Default: ${defaultSC.metadata.name}` : 'No default set'}</div>
+            <div className="text-xl font-bold text-slate-100">{scLoaded ? storageClasses.length : '—'}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{scError ? 'Could not be read' : !scLoaded ? 'Loading…' : defaultSC ? `Default: ${defaultSC.metadata.name}` : 'No default set'}</div>
           </button>
           <Card className="p-3">
             <div className="text-xs text-slate-400 mb-1">Total Capacity</div>
@@ -206,6 +209,7 @@ export default function StorageView() {
         <StorageHealthAudit
           pvcs={pvcs}
           storageClasses={storageClasses}
+          storageClassesLoaded={scLoaded}
           volumeSnapshots={volumeSnapshots}
           volumeSnapshotClasses={volumeSnapshotClasses}
           resourceQuotas={resourceQuotas}
@@ -215,7 +219,11 @@ export default function StorageView() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Storage Classes detail */}
           <Panel title="Storage Classes" icon={<Database className="w-4 h-4 text-purple-500" />}>
-            {storageClasses.length === 0 ? (
+            {scError ? (
+              <LoadError title="StorageClasses could not be loaded" error={scErr} onRetry={() => { void refetchSCs(); }} />
+            ) : !scLoaded ? (
+              <div className="text-sm text-slate-500 py-4 text-center">Loading storage classes…</div>
+            ) : storageClasses.length === 0 ? (
               <div className="text-sm text-slate-500 py-4 text-center">No storage classes configured</div>
             ) : (
               <div className="space-y-2">
@@ -419,6 +427,7 @@ import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 function StorageHealthAudit({
   pvcs,
   storageClasses,
+  storageClassesLoaded,
   volumeSnapshots,
   volumeSnapshotClasses,
   resourceQuotas,
@@ -426,6 +435,7 @@ function StorageHealthAudit({
 }: {
   pvcs: PersistentVolumeClaim[];
   storageClasses: StorageClass[];
+  storageClassesLoaded: boolean;
   volumeSnapshots: VolumeSnapshot[];
   volumeSnapshotClasses: K8sResource[];
   resourceQuotas: K8sResource[];
@@ -438,14 +448,17 @@ function StorageHealthAudit({
     const defaultSC = storageClasses.find((sc) =>
       sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true'
     );
-    allChecks.push({
+    // Unread StorageClasses are not checked at all (rather than passing).
+    if (storageClassesLoaded) allChecks.push({
       id: 'default-sc',
       title: 'Default StorageClass',
       description: 'One StorageClass should be marked as default for PVCs that don\'t specify a class',
       why: 'Without a default StorageClass, PVCs that omit storageClassName will fail to provision. Users expect dynamic provisioning to "just work" for common cases.',
       passing: defaultSC ? [defaultSC as AuditItem] : [],
-      failing: defaultSC ? [] : (storageClasses.slice(0, 1) as AuditItem[]),
-      failingLabel: `Needs attention (${defaultSC ? 0 : storageClasses.slice(0, 1).length})`,
+      // With no default the check fails — even with zero classes, which used
+      // to leave the failing list empty and so "pass".
+      failing: defaultSC ? [] : [{ name: storageClasses.length === 0 ? 'No StorageClasses exist' : 'No StorageClass is marked default' }],
+      failingLabel: `Needs attention (${defaultSC ? 0 : 1})`,
       yamlExample: `apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -583,14 +596,16 @@ spec:
     });
 
     return allChecks;
-  }, [pvcs, storageClasses, volumeSnapshots, volumeSnapshotClasses, resourceQuotas]);
+  }, [pvcs, storageClasses, storageClassesLoaded, volumeSnapshots, volumeSnapshotClasses, resourceQuotas]);
 
   const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
     const id = check.id;
     const name = item.metadata?.name || '';
     const ns = item.metadata?.namespace || '';
 
-    if (id === 'default-sc' || id === 'reclaim-policy' || id === 'binding-mode') {
+    if (id === 'default-sc' && !name) {
+      go('/r/storage.k8s.io~v1~storageclasses', 'StorageClasses');
+    } else if (id === 'default-sc' || id === 'reclaim-policy' || id === 'binding-mode') {
       go(`/yaml/storage.k8s.io~v1~storageclasses/_/${name}`, `${name} (YAML)`);
     } else if (id === 'pvc-binding') {
       go(`/r/v1~persistentvolumeclaims/${ns}/${name}`, name);

@@ -140,23 +140,19 @@ export default function BuildsView() {
     }
     const avgDurationMin = durationCount > 0 ? totalDurationMs / durationCount / 60_000 : null;
 
-    // Failure rate: (Failed + Error + Cancelled) / total finished builds
-    const finished = allBuilds.filter(
-      (b) =>
-        b.status?.phase === 'Complete' ||
-        b.status?.phase === 'Failed' ||
-        b.status?.phase === 'Error' ||
-        b.status?.phase === 'Cancelled',
-    );
-    const failures = finished.filter(
-      (b) =>
-        b.status?.phase === 'Failed' ||
-        b.status?.phase === 'Error' ||
-        b.status?.phase === 'Cancelled',
-    );
-    const failureRate = finished.length > 0 ? (failures.length / finished.length) * 100 : null;
+    // One rate over one population: builds that ran to an outcome (Complete,
+    // Failed, Error). Cancelled builds did not succeed or fail; they are
+    // reported beside the rate, not folded into it. (There used to be a
+    // "Failure Rate" over all builds counting Cancelled as failed and a
+    // "Success Rate" over the latest 50 without it: 10 complete + 10 cancelled
+    // read 50% failure and 100% success at once.)
+    const complete = allBuilds.filter((b) => b.status?.phase === 'Complete').length;
+    const failed = allBuilds.filter((b) => b.status?.phase === 'Failed' || b.status?.phase === 'Error').length;
+    const cancelled = allBuilds.filter((b) => b.status?.phase === 'Cancelled').length;
+    const finished = complete + failed;
+    const successRate = finished > 0 ? (complete / finished) * 100 : null;
 
-    return { buildsLastHour, avgDurationMin, failureRate };
+    return { buildsLastHour, avgDurationMin, successRate, complete, finished, cancelled };
   }, [builds]);
 
   // Issues
@@ -252,34 +248,21 @@ export default function BuildsView() {
               <div className="text-xs text-slate-500 mt-0.5">completed builds</div>
             </Card>
             <Card className="p-3">
-              <div className="text-xs text-slate-400 mb-1">Failure Rate</div>
+              <div className="text-xs text-slate-400 mb-1">Success Rate</div>
               <div className={cn('text-xl font-bold',
-                computedMetrics.failureRate === null ? 'text-slate-400'
-                  : computedMetrics.failureRate >= 30 ? 'text-red-400'
-                  : computedMetrics.failureRate >= 10 ? 'text-amber-400'
-                  : 'text-emerald-400',
+                computedMetrics.successRate === null ? 'text-slate-400'
+                  : computedMetrics.successRate >= 90 ? 'text-emerald-400'
+                  : computedMetrics.successRate >= 70 ? 'text-amber-400'
+                  : 'text-red-400',
               )}>
-                {computedMetrics.failureRate !== null
-                  ? `${computedMetrics.failureRate.toFixed(1)}%`
+                {computedMetrics.successRate !== null
+                  ? `${computedMetrics.successRate.toFixed(1)}%`
                   : '—'}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">failed + error + cancelled</div>
-            </Card>
-            <Card className="p-3">
-              <div className="text-xs text-slate-400 mb-1">Success Rate</div>
-              <div className={cn('text-xl font-bold', (() => {
-                const complete = recentBuilds.filter(b => b.status?.phase === 'Complete').length;
-                const total = recentBuilds.filter(b => b.status?.phase === 'Complete' || b.status?.phase === 'Failed' || b.status?.phase === 'Error').length;
-                const rate = total > 0 ? Math.round((complete / total) * 100) : 100;
-                return rate >= 90 ? 'text-emerald-400' : rate >= 70 ? 'text-amber-400' : 'text-red-400';
-              })())}>
-                {(() => {
-                  const complete = recentBuilds.filter(b => b.status?.phase === 'Complete').length;
-                  const total = recentBuilds.filter(b => b.status?.phase === 'Complete' || b.status?.phase === 'Failed' || b.status?.phase === 'Error').length;
-                  return total > 0 ? `${Math.round((complete / total) * 100)}%` : '—';
-                })()}
+              <div className="text-xs text-slate-500 mt-0.5">
+                {computedMetrics.complete} of {computedMetrics.finished} finished builds
+                {computedMetrics.cancelled > 0 && ` · ${computedMetrics.cancelled} cancelled, not counted`}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">last {recentBuilds.length} builds</div>
             </Card>
           </MetricGrid>
         )}
