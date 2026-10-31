@@ -79,6 +79,7 @@ export function GenericDetailLayout({
             data={(resource.data || {}) as Record<string, string>}
             kind={resource.kind as 'ConfigMap' | 'Secret'}
             clusterId={clusterId}
+            resourceVersion={resource.metadata.resourceVersion}
             readOnly={!isDataObject || !canEditData}
           />
         )}

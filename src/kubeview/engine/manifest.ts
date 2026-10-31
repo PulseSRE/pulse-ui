@@ -8,7 +8,7 @@
  * document is now parsed, its kind resolved to a GVR, and its own
  * `metadata.namespace` used — never one for a cluster-scoped kind.
  */
-import { loadAll, dump } from 'js-yaml';
+import { loadAll, dump, CORE_SCHEMA } from 'js-yaml';
 import { resolveKind, gvrSegment } from './kindRegistry';
 
 export interface ManifestDocument {
@@ -48,7 +48,10 @@ export function parseManifest(text: string, defaultNamespace = 'default'): Manif
   const documents: ManifestDocument[] = [];
   let raw: unknown[];
   try {
-    raw = loadAll(text);
+    // CORE_SCHEMA (YAML 1.2 core): the default schema turns an unquoted
+    // `2024-01-15` into a Date ("2024-01-15T00:00:00.000Z" once serialised).
+    // Strings such as yes/no/on/off stay strings.
+    raw = loadAll(text, undefined, { schema: CORE_SCHEMA });
   } catch (err) {
     const msg = err instanceof Error ? err.message.split('\n')[0] : String(err);
     return { documents, errors: [/tab/i.test(msg) ? `YAML uses tabs for indentation (use spaces instead): ${msg}` : `Invalid YAML: ${msg}`] };
@@ -102,6 +105,8 @@ export function parseManifest(text: string, defaultNamespace = 'default'): Manif
       createPath: collectionPath(r.group, r.version, r.plural, namespace),
       gvrUrl: gvrSegment(r),
       object: obj,
+      // The default dump schema quotes anything a YAML 1.1 reader (the API
+      // server's) could take for a date or boolean, so values survive.
       yaml: dump(obj, { lineWidth: -1, noRefs: true }),
     });
   });

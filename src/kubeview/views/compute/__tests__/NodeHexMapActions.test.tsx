@@ -6,17 +6,21 @@
  * for — and that items the user's RBAC does not allow are not offered.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { NodeHexMap, type PodInfo } from '../NodeHexMap';
 import { useNodeMapActions } from '../useNodeMapActions';
 import { useUIStore } from '../../../store/uiStore';
+import { useFleetStore } from '../../../store/fleetStore';
+import { registerCluster, resetConnections, setActiveClusterId } from '../../../engine/clusterConnection';
 import type { NodeDetail } from '../types';
 
 const calls: Array<{ method: string; url: string; body?: any }> = [];
 let allow: Record<string, boolean> = {};
 let extra: Array<(url: string, method: string) => Response | undefined> = [];
+let evicted = false;
+let nodePods: unknown[] = [];
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -24,6 +28,8 @@ beforeEach(() => {
   calls.length = 0;
   allow = { 'update/nodes': true, 'delete/pods': true };
   extra = [];
+  evicted = false;
+  nodePods = [{ metadata: { name: 'web-1', namespace: 'shop', uid: 'uid-web-1', ownerReferences: [{ kind: 'ReplicaSet', name: 'web-abc', controller: true }] }, status: { phase: 'Running' } }];
   useUIStore.setState({ toasts: [], terminalContext: null } as never);
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
     const method = (init.method || 'GET').toUpperCase();
@@ -36,11 +42,11 @@ beforeEach(() => {
     for (const r of extra) { const res = r(url, method); if (res) return res; }
     if (method === 'PATCH' && url.endsWith('/api/v1/nodes/worker-1')) return json({});
     if (method === 'GET' && url.includes('/api/v1/pods?fieldSelector=')) {
-      return json({ kind: 'PodList', apiVersion: 'v1', items: [{ metadata: { name: 'web-1', namespace: 'shop' }, status: { phase: 'Running' } }] });
+      return json({ kind: 'PodList', apiVersion: 'v1', items: nodePods });
     }
-    if (method === 'POST' && url.endsWith('/eviction')) return json({ kind: 'Status', status: 'Success' }, 201);
+    if (method === 'POST' && url.endsWith('/eviction')) { evicted = true; return json({ kind: 'Status', status: 'Success' }, 201); }
     if (method === 'DELETE') return json({ kind: 'Status', status: 'Success' });
-    if (method === 'GET' && url.endsWith('/api/v1/namespaces/shop/pods/web-1')) {
+    if (method === 'GET' && url.endsWith('/api/v1/namespaces/shop/pods/web-1') && !evicted) {
       return json({ metadata: { name: 'web-1', namespace: 'shop' }, spec: { containers: [{ name: 'app' }] }, status: { containerStatuses: [{ name: 'app', state: { running: {} } }] } });
     }
     if (method === 'GET' && url.includes('/api/v1/namespaces/default/pods?labelSelector=')) return json({ kind: 'PodList', apiVersion: 'v1', items: [] });
@@ -48,7 +54,12 @@ beforeEach(() => {
   }));
 });
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  resetConnections();
+  useFleetStore.setState({ activeClusterId: 'local' });
+});
 
 const node: NodeDetail = {
   name: 'worker-1',
@@ -133,6 +144,34 @@ describe('NodeHexMap node actions', () => {
     expect(useUIStore.getState().toasts.some((t) => /started/i.test(t.title))).toBe(false);
   });
 
+  it('lists an unmanaged pod by name and evicts it only when opted in', async () => {
+    nodePods = [{ metadata: { name: 'scratch', namespace: 'shop', uid: 'u-s' }, status: { phase: 'Running' } }];
+    renderMap();
+    const menu = await openNodeMenu();
+    fireEvent.click(await within(menu).findByRole('menuitem', { name: 'Drain Node' }));
+    expect(await screen.findByText('shop/scratch')).toBeTruthy();
+    expect(screen.getByText(/0 pods to evict/)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/Evict unmanaged pods too/));
+    expect(screen.getByText(/1 pod to evict/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Drain' }));
+    await screen.findByText('Node "worker-1" drained');
+    expect(calls.find((c) => c.url.endsWith('/eviction'))!.url).toBe('/api/kubernetes/api/v1/namespaces/shop/pods/scratch/eviction');
+  });
+
+  it('a cluster switch while the drain dialog is open does not retarget the drain', async () => {
+    registerCluster({ id: 'prod', name: 'Prod', connectionType: 'acm-proxy', target: 'prod' });
+    renderMap();
+    const menu = await openNodeMenu();
+    fireEvent.click(await within(menu).findByRole('menuitem', { name: 'Drain Node' }));
+    await screen.findByText(/1 pod to evict/);
+    act(() => { useFleetStore.setState({ activeClusterId: 'prod' }); setActiveClusterId('prod'); });
+    fireEvent.click(screen.getByRole('button', { name: 'Drain' }));
+    await screen.findByText('Node "worker-1" drained');
+    const writes = calls.filter((c) => c.method === 'PATCH' || c.method === 'POST' && c.url.endsWith('/eviction'));
+    expect(writes.length).toBe(2);
+    for (const w of writes) expect(w.url.startsWith('/api/kubernetes/api/v1/')).toBe(true);
+  });
+
   it('Open Terminal looks for the node debug pod and says when there is none', async () => {
     renderMap();
     const menu = await openNodeMenu();
@@ -186,6 +225,17 @@ describe('NodeHexMap pod actions', () => {
     const del = calls.find((c) => c.method === 'DELETE')!;
     expect(del.url).toBe('/api/kubernetes/api/v1/namespaces/shop/pods/web-1');
     expect(del.body.preconditions).toEqual({ uid: 'uid-web-1' });
+  });
+
+  it('a cluster switch while the delete confirmation is open does not retarget the delete', async () => {
+    registerCluster({ id: 'prod', name: 'Prod', connectionType: 'acm-proxy', target: 'prod' });
+    renderMap();
+    const menu = await openPodMenu();
+    fireEvent.click(await within(menu).findByRole('menuitem', { name: 'Delete Pod' }));
+    act(() => { useFleetStore.setState({ activeClusterId: 'prod' }); setActiveClusterId('prod'); });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true));
+    expect(calls.find((c) => c.method === 'DELETE')!.url).toBe('/api/kubernetes/api/v1/namespaces/shop/pods/web-1');
   });
 
   it('does not offer Delete Pod without pod delete permission', async () => {

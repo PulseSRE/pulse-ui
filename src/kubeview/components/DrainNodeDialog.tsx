@@ -1,10 +1,11 @@
 /**
- * Drain a node: confirm (showing which pods move and which stay), then cordon
- * and evict with live per-pod progress, then a summary. Pods a
+ * Drain a node: confirm (showing which pods move and which stay, with opt-ins
+ * for unmanaged and emptyDir pods), then cordon and evict with live per-pod
+ * progress, wait for the evicted pods to be gone, then a summary. Pods a
  * PodDisruptionBudget blocked can be retried, or the drain left there.
  */
-import { useEffect, useRef, useState } from 'react';
-import { Loader2, CheckCircle, XCircle, ShieldAlert, MinusCircle, Clock } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, CheckCircle, XCircle, ShieldAlert, MinusCircle, Clock, Hourglass } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConfirmDialog } from './feedback/ConfirmDialog';
 import { Button } from './primitives/Button';
@@ -13,9 +14,11 @@ import {
   classifyPodsForDrain, drainNode, describeDrain, listNodePods, summarize,
   type DrainPodState, type DrainResult,
 } from '../engine/nodeActions';
+import type { Pod } from '../engine/types';
 
 interface DrainNodeDialogProps {
   node: string;
+  /** Cluster the node is in. Read once: switching clusters while this is open must not retarget the drain. */
   clusterId: string | undefined;
   onClose: () => void;
   /** Called after each drain attempt finishes (e.g. to refresh a list). */
@@ -25,6 +28,7 @@ interface DrainNodeDialogProps {
 const STATUS_ICON: Record<DrainPodState['status'], React.ReactNode> = {
   pending: <Clock className="w-3.5 h-3.5 text-slate-500" />,
   evicting: <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />,
+  terminating: <Hourglass className="w-3.5 h-3.5 text-blue-400 animate-pulse" />,
   evicted: <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />,
   blocked: <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />,
   failed: <XCircle className="w-3.5 h-3.5 text-red-400" />,
@@ -32,14 +36,17 @@ const STATUS_ICON: Record<DrainPodState['status'], React.ReactNode> = {
 };
 
 const STATUS_LABEL: Record<DrainPodState['status'], string> = {
-  pending: 'Waiting', evicting: 'Evicting', evicted: 'Evicted', blocked: 'Blocked', failed: 'Failed', skipped: 'Skipped',
+  pending: 'Waiting', evicting: 'Evicting', terminating: 'Terminating', evicted: 'Gone', blocked: 'Blocked', failed: 'Failed', skipped: 'Left on node',
 };
 
-export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeDialogProps) {
+export function DrainNodeDialog({ node, clusterId: clusterIdProp, onClose, onDone }: DrainNodeDialogProps) {
+  const [clusterId] = useState(clusterIdProp);
   const addToast = useUIStore((s) => s.addToast);
   const [phase, setPhase] = useState<'confirm' | 'running' | 'done'>('confirm');
-  const [preview, setPreview] = useState<DrainPodState[] | null>(null);
+  const [nodePods, setNodePods] = useState<Pod[] | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [force, setForce] = useState(false);
+  const [deleteEmptyDirData, setDeleteEmptyDirData] = useState(false);
   const [pods, setPods] = useState<DrainPodState[]>([]);
   const [result, setResult] = useState<DrainResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,10 +55,17 @@ export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeD
   useEffect(() => {
     let live = true;
     listNodePods(node, clusterId)
-      .then((list) => { if (live) setPreview(classifyPodsForDrain(list)); })
+      .then((list) => { if (live) setNodePods(list); })
       .catch((err) => { if (live) setPreviewError(err instanceof Error ? err.message : String(err)); });
     return () => { live = false; cancel.current.cancelled = true; };
   }, [node, clusterId]);
+
+  const preview = useMemo(
+    () => (nodePods ? classifyPodsForDrain(nodePods, { force, deleteEmptyDirData }) : null),
+    [nodePods, force, deleteEmptyDirData],
+  );
+  const unmanaged = preview?.filter((p) => p.unmanaged) ?? [];
+  const emptyDir = preview?.filter((p) => p.emptyDir) ?? [];
 
   const run = async (only?: DrainPodState[]) => {
     setPhase('running');
@@ -61,6 +75,8 @@ export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeD
     try {
       const r = await drainNode(node, clusterId, {
         only,
+        force,
+        deleteEmptyDirData,
         signal: cancel.current,
         onProgress: (next) => setPods(only ? [...kept, ...next] : next),
       });
@@ -82,7 +98,7 @@ export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeD
 
   if (phase === 'confirm') {
     const toEvict = preview?.filter((p) => p.status === 'pending') ?? [];
-    const skipped = preview?.filter((p) => p.status === 'skipped') ?? [];
+    const staying = preview?.filter((p) => p.status === 'skipped') ?? [];
     return (
       <ConfirmDialog
         open
@@ -93,13 +109,35 @@ export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeD
         onConfirm={() => run()}
         onClose={onClose}
       >
-        <div className="mt-3 text-xs text-slate-400" data-testid="drain-preview">
+        <div className="mt-3 space-y-2 text-xs text-slate-400" data-testid="drain-preview">
           {previewError ? (
             <span className="text-red-400">Could not list the node's pods: {previewError}</span>
           ) : !preview ? (
             <span className="flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Listing pods on the node…</span>
           ) : (
-            <span>{toEvict.length} pod{toEvict.length === 1 ? '' : 's'} to evict; {skipped.length} DaemonSet/mirror pod{skipped.length === 1 ? '' : 's'} stay.</span>
+            <>
+              <div>{toEvict.length} pod{toEvict.length === 1 ? '' : 's'} to evict; {staying.length} stay on the node.</div>
+              {unmanaged.length > 0 && (
+                <div className="rounded-sm border border-amber-800/60 bg-amber-950/30 p-2">
+                  <div className="text-amber-300">Not managed by a controller (evicting deletes them for good):</div>
+                  <ul className="mt-1 font-mono text-slate-300">{unmanaged.map((p) => <li key={`${p.namespace}/${p.name}`}>{p.namespace}/{p.name}</li>)}</ul>
+                  <label className="mt-1.5 flex items-center gap-1.5 text-slate-300">
+                    <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
+                    Evict unmanaged pods too (--force)
+                  </label>
+                </div>
+              )}
+              {emptyDir.length > 0 && (
+                <div className="rounded-sm border border-amber-800/60 bg-amber-950/30 p-2">
+                  <div className="text-amber-300">Using emptyDir volumes (their data is lost on eviction):</div>
+                  <ul className="mt-1 font-mono text-slate-300">{emptyDir.map((p) => <li key={`${p.namespace}/${p.name}`}>{p.namespace}/{p.name}</li>)}</ul>
+                  <label className="mt-1.5 flex items-center gap-1.5 text-slate-300">
+                    <input type="checkbox" checked={deleteEmptyDirData} onChange={(e) => setDeleteEmptyDirData(e.target.checked)} />
+                    Evict pods with emptyDir data too (--delete-emptydir-data)
+                  </label>
+                </div>
+              )}
+            </>
           )}
         </div>
       </ConfirmDialog>
@@ -108,6 +146,7 @@ export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeD
 
   const blocked = pods.filter((p) => p.status === 'blocked');
   const summary = result ? describeDrain(result) : null;
+  const terminating = pods.filter((p) => p.status === 'terminating').length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
@@ -118,7 +157,7 @@ export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeD
           </h2>
           <p className="text-xs text-slate-400 mt-1" data-testid="drain-summary">
             {phase === 'running'
-              ? `${pods.filter((p) => p.status === 'evicted').length} of ${pods.filter((p) => p.status !== 'skipped').length} evicted`
+              ? `${pods.filter((p) => p.status === 'evicted').length} of ${pods.filter((p) => p.status !== 'skipped').length} gone${terminating ? `, ${terminating} terminating` : ''}`
               : error ? `${error}. No pods were evicted.` : summary?.detail}
           </p>
         </div>
@@ -136,7 +175,7 @@ export function DrainNodeDialog({ node, clusterId, onClose, onDone }: DrainNodeD
         </ul>
         <div className="px-5 py-3 border-t border-slate-700 flex justify-end gap-2">
           {phase === 'running' ? (
-            <Button variant="secondary" size="sm" onClick={() => { cancel.current.cancelled = true; }}>Stop after current pod</Button>
+            <Button variant="secondary" size="sm" onClick={() => { cancel.current.cancelled = true; }}>Stop</Button>
           ) : (
             <>
               {blocked.length > 0 && (

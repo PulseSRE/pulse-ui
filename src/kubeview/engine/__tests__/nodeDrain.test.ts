@@ -26,9 +26,10 @@ function installFetch() {
   }));
 }
 
-const pod = (name: string, extra: Record<string, unknown> = {}) => ({
-  metadata: { name, namespace: 'shop', labels: { app: name }, ...extra },
-  spec: { nodeName: 'n1' },
+const RS = [{ kind: 'ReplicaSet', name: 'rs', controller: true }];
+const pod = (name: string, extra: Record<string, unknown> = {}, spec: Record<string, unknown> = {}) => ({
+  metadata: { name, namespace: 'shop', uid: `uid-${name}`, labels: { app: name }, ownerReferences: RS, ...extra },
+  spec: { nodeName: 'n1', ...spec },
   status: { phase: 'Running' },
 });
 
@@ -36,8 +37,9 @@ const NODE_PODS = [
   pod('web-1'),
   pod('db-0'),
   pod('fluentd-x', { ownerReferences: [{ kind: 'DaemonSet', name: 'fluentd', controller: true }] }),
-  pod('etcd-n1', { annotations: { 'kubernetes.io/config.mirror': 'abc' } }),
+  pod('etcd-n1', { annotations: { 'kubernetes.io/config.mirror': 'abc' }, ownerReferences: [] }),
 ];
+const FAST = { pollMs: 1, timeoutMs: 200 };
 
 beforeEach(() => {
   calls.length = 0;
@@ -63,7 +65,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('drainNode', () => {
   it('cordons, then evicts only movable pods through the Eviction API', async () => {
-    const result = await drainNode('n1', 'local');
+    const result = await drainNode('n1', 'local', FAST);
 
     expect(calls[0]).toEqual({ method: 'PATCH', url: '/api/kubernetes/api/v1/nodes/n1', body: { spec: { unschedulable: true } } });
     expect(calls[1].url).toBe('/api/kubernetes/api/v1/pods?fieldSelector=spec.nodeName%3Dn1');
@@ -85,7 +87,7 @@ describe('drainNode', () => {
   });
 
   it('reports an incomplete drain honestly', async () => {
-    const result = await drainNode('n1', 'local');
+    const result = await drainNode('n1', 'local', FAST);
     const toast = describeDrain(result);
     expect(toast.type).toBe('warning');
     expect(toast.title).toBe('Node "n1" cordoned; drain incomplete');
@@ -95,7 +97,7 @@ describe('drainNode', () => {
   });
 
   it('retrying only the blocked pods evicts just those', async () => {
-    await drainNode('n1', 'local', { only: [{ namespace: 'shop', name: 'db-0' }] });
+    await drainNode('n1', 'local', { ...FAST, only: [{ namespace: 'shop', name: 'db-0' }] });
     const evictions = calls.filter((c) => c.method === 'POST').map((c) => c.url);
     expect(evictions).toEqual(['/api/kubernetes/api/v1/namespaces/shop/pods/db-0/eviction']);
     // The pod list is not re-read for a retry.
@@ -110,15 +112,68 @@ describe('drainNode', () => {
 
   it('marks a pod whose eviction fails for another reason as failed', async () => {
     routes.unshift((url, init) => (init.method === 'POST' && url.endsWith('/pods/web-1/eviction') ? json({ message: 'boom' }, 500) : undefined));
-    const result = await drainNode('n1', 'local');
+    const result = await drainNode('n1', 'local', FAST);
     expect(result.pods.find((p) => p.name === 'web-1')?.status).toBe('failed');
     expect(describeDrain(result).type).toBe('warning');
   });
 
   it('says there was nothing to evict when only DaemonSet/mirror pods run', async () => {
     routes.unshift((url, init) => (init.method === 'GET' && url.includes('fieldSelector') ? json({ kind: 'PodList', apiVersion: 'v1', items: NODE_PODS.slice(2) }) : undefined));
-    const result = await drainNode('n1', 'local');
+    const result = await drainNode('n1', 'local', FAST);
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
     expect(describeDrain(result).title).toBe('Node "n1" cordoned; nothing to evict');
+  });
+
+  it('leaves unmanaged and emptyDir pods unless opted in, naming why', async () => {
+    const lone = pod('debug-shell', { ownerReferences: [] });
+    const cache = pod('cache-0', {}, { volumes: [{ name: 'tmp', emptyDir: {} }] });
+    routes.unshift((url, init) => (init.method === 'GET' && url.includes('fieldSelector') ? json({ kind: 'PodList', apiVersion: 'v1', items: [lone, cache] }) : undefined));
+    const result = await drainNode('n1', 'local', FAST);
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+    expect(result.pods.find((p) => p.name === 'debug-shell')).toMatchObject({ status: 'skipped', unmanaged: true, reason: expect.stringMatching(/Not managed by a controller/) });
+    expect(result.pods.find((p) => p.name === 'cache-0')).toMatchObject({ status: 'skipped', emptyDir: true, reason: expect.stringMatching(/emptyDir/) });
+  });
+
+  it('evicts unmanaged and emptyDir pods with --force / --delete-emptydir-data', async () => {
+    const lone = pod('debug-shell', { ownerReferences: [] });
+    const cache = pod('cache-0', {}, { volumes: [{ name: 'tmp', emptyDir: {} }] });
+    routes.unshift((url, init) => (init.method === 'GET' && url.includes('fieldSelector') ? json({ kind: 'PodList', apiVersion: 'v1', items: [lone, cache] }) : undefined));
+    routes.unshift((url, init) => (init.method === 'POST' && url.endsWith('/eviction') ? json({ kind: 'Status', status: 'Success' }, 201) : undefined));
+    const result = await drainNode('n1', 'local', { ...FAST, force: true, deleteEmptyDirData: true });
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.url)).toEqual([
+      '/api/kubernetes/api/v1/namespaces/shop/pods/debug-shell/eviction',
+      '/api/kubernetes/api/v1/namespaces/shop/pods/cache-0/eviction',
+    ]);
+    expect(result.evicted).toBe(2);
+  });
+
+  it('does not report "drained" while evicted pods still exist', async () => {
+    routes.unshift((url, init) => (init.method === 'GET' && url.endsWith('/api/v1/namespaces/shop/pods/web-1') ? json(pod('web-1', { deletionTimestamp: 'now' })) : undefined));
+    routes.unshift((url, init) => (init.method === 'GET' && url.includes('fieldSelector') ? json({ kind: 'PodList', apiVersion: 'v1', items: [pod('web-1')] }) : undefined));
+    const result = await drainNode('n1', 'local', { pollMs: 5, timeoutMs: 40 });
+    expect(result.terminating).toBe(1);
+    expect(result.evicted).toBe(0);
+    const toast = describeDrain(result);
+    expect(toast.title).toBe('Node "n1" cordoned; evictions accepted, 1 pod still terminating');
+    expect(toast.title).not.toMatch(/drained/);
+  });
+
+  it('counts a pod as gone once its name belongs to a new pod', async () => {
+    routes.unshift((url, init) => (init.method === 'GET' && url.endsWith('/api/v1/namespaces/shop/pods/web-1') ? json(pod('web-1', { uid: 'uid-new' })) : undefined));
+    routes.unshift((url, init) => (init.method === 'GET' && url.includes('fieldSelector') ? json({ kind: 'PodList', apiVersion: 'v1', items: [pod('web-1')] }) : undefined));
+    const result = await drainNode('n1', 'local', FAST);
+    expect(result.evicted).toBe(1);
+    expect(describeDrain(result).title).toBe('Node "n1" drained');
+  });
+
+  it('stops waiting when cancelled', async () => {
+    routes.unshift((url, init) => (init.method === 'GET' && url.endsWith('/api/v1/namespaces/shop/pods/web-1') ? json(pod('web-1')) : undefined));
+    routes.unshift((url, init) => (init.method === 'GET' && url.includes('fieldSelector') ? json({ kind: 'PodList', apiVersion: 'v1', items: [pod('web-1')] }) : undefined));
+    const signal = { cancelled: false };
+    setTimeout(() => { signal.cancelled = true; }, 20);
+    const started = Date.now();
+    const result = await drainNode('n1', 'local', { pollMs: 5, timeoutMs: 60_000, signal });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(result.terminating).toBe(1);
   });
 });

@@ -39,8 +39,10 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
   const queryClient = useQueryClient();
   const { allowed: canUpdateNodes } = useCanI('update', '', 'nodes');
   const { allowed: canDeletePods } = useCanI('delete', '', 'pods');
-  const [drainNodeName, setDrainNodeName] = useState<string | null>(null);
-  const [podToDelete, setPodToDelete] = useState<PodRef | null>(null);
+  // The cluster is captured when the dialog opens: switching clusters while a
+  // confirmation is on screen must not retarget the action.
+  const [drainTarget, setDrainTarget] = useState<{ node: string; clusterId: string } | null>(null);
+  const [podToDelete, setPodToDelete] = useState<(PodRef & { clusterId: string }) | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(() => {
@@ -60,7 +62,7 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
     canUpdateNodes,
     canDeletePods,
     setCordoned,
-    drain: setDrainNodeName,
+    drain: (node) => setDrainTarget({ node, clusterId }),
     openTerminal: (node) => {
       openNodeTerminal(node, clusterId).catch((err) => showErrorToast(err, 'Could not look for a debug pod'));
     },
@@ -68,7 +70,7 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
     exec: (pod) => {
       openPodTerminal(pod.namespace, pod.name, clusterId).catch((err) => showErrorToast(err, 'Could not open a terminal'));
     },
-    deletePod: setPodToDelete,
+    deletePod: (pod) => setPodToDelete({ ...pod, clusterId }),
   };
 
   const executeDelete = async () => {
@@ -77,7 +79,7 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
     try {
       await k8sDelete(
         `/api/v1/namespaces/${podToDelete.namespace}/pods/${podToDelete.name}`,
-        clusterId,
+        podToDelete.clusterId,
         podToDelete.uid ? { uid: podToDelete.uid } : undefined,
       );
       addToast({ type: 'success', title: `Pod "${podToDelete.name}" deleted`, detail: 'Its controller will create a replacement if it has one.' });
@@ -92,11 +94,11 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
 
   const dialogs = (
     <>
-      {drainNodeName && (
+      {drainTarget && (
         <DrainNodeDialog
-          node={drainNodeName}
-          clusterId={clusterId}
-          onClose={() => setDrainNodeName(null)}
+          node={drainTarget.node}
+          clusterId={drainTarget.clusterId}
+          onClose={() => setDrainTarget(null)}
           onDone={refresh}
         />
       )}

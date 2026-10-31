@@ -32,8 +32,8 @@ export interface ActionHandlers {
   executeRestart: () => Promise<void>;
   restarting: boolean;
   /** A node waiting for the drain dialog (cordon + evict, with its own confirmation). */
-  pendingDrain: string | null;
-  setPendingDrain: React.Dispatch<React.SetStateAction<string | null>>;
+  pendingDrain: { node: string; clusterId: string } | null;
+  setPendingDrain: React.Dispatch<React.SetStateAction<{ node: string; clusterId: string } | null>>;
   /** A disruptive inline action (scale to 0, rollout restart) waiting for confirmation. */
   pendingConfirm: PendingConfirm | null;
   setPendingConfirm: React.Dispatch<React.SetStateAction<PendingConfirm | null>>;
@@ -75,7 +75,7 @@ export function useTableActions({
   const [pendingDelete, setPendingDelete] = useState<{ resource: K8sResource; path: string } | null>(null);
   const [pendingRestart, setPendingRestart] = useState<{ resource: K8sResource; path: string } | null>(null);
   const [restarting, setRestarting] = useState(false);
-  const [pendingDrain, setPendingDrain] = useState<string | null>(null);
+  const [pendingDrain, setPendingDrain] = useState<{ node: string; clusterId: string } | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [singleDeleting, setSingleDeleting] = useState(false);
@@ -143,7 +143,8 @@ export function useTableActions({
         addToast({ type: 'success', title: `Node "${resourceName}" uncordoned` });
       } else if (action === 'drain') {
         // The drain dialog confirms, cordons, evicts and reports.
-        setPendingDrain(resourceName);
+        // The cluster is pinned now, so a cluster switch can't retarget the drain.
+        setPendingDrain({ node: resourceName, clusterId });
         setInlineActionLoading(null);
         return;
       } else if (action === 'delete-single') {
