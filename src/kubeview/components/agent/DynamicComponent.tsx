@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { fetchComponentRegistry, type ComponentKindDef, type ComponentLayout } from '../../engine/componentRegistry';
+import { normalizeKeyValuePairs, type KeyValueSpec } from '../../engine/agentComponents';
 
 interface DynamicComponentProps {
   spec: Record<string, unknown>;
@@ -191,8 +192,8 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
     }
 
     case 'key_value': {
-      const pairs = spec.pairs as Array<{ key: string; value: string }> | undefined;
-      if (!pairs) return <div className="text-xs text-slate-500">No data</div>;
+      const pairs = normalizeKeyValuePairs(spec.pairs as KeyValueSpec['pairs'] | undefined);
+      if (pairs.length === 0) return <div className="text-xs text-slate-500">No data</div>;
 
       return (
         <div className="space-y-1">

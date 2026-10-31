@@ -1,10 +1,10 @@
 import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import {
   HeartPulse, Shield, Activity,
-  AlertTriangle, HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '../components/primitives/Tooltip';
+import { SeverityBanner } from '../components/primitives/SeverityBanner';
 
 /**
  * What to say when this tab's requested trust level is not the one the agent
@@ -73,105 +73,97 @@ type PostureLevel = 'unknown' | 'green' | 'yellow' | 'red';
 function ClusterPostureBar({
   findings,
   incidentCounts,
+  topIncident,
   lastScanTime,
   monitorConnected,
   onInvestigate,
+  investigateShownAbove = false,
 }: {
+  /** Monitor findings, used only for the auto-fixed tally. Counts come from the incident feed. */
   findings: Array<{ severity: string; title: string }>;
   incidentCounts: { critical: number; warning: number; info: number; total: number };
+  /** Highest-severity, most-recent incident from the same feed the counts come from. */
+  topIncident: { severity: string; title: string } | null;
   lastScanTime: number | null;
   monitorConnected: boolean;
   onInvestigate: () => void;
+  /**
+   * The open-episode banner directly above already offers Investigate (to the
+   * same place). Two identical red buttons stacked on each other read as two
+   * different problems, so the bar keeps its count and drops the action.
+   */
+  investigateShownAbove?: boolean;
 }) {
   const criticalCount = incidentCounts.critical;
   const warningCount = incidentCounts.warning;
   const autoFixedCount = findings.filter((f) => (f as any).autoFixable).length;
 
-  // A real finding outranks not having scanned: if something already came back
-  // critical, say so rather than "checking". Only genuine silence is unknown.
+  // Counts and the headline both come from the incident feed, which is the
+  // only list that has counted everything exactly once. The feed reads monitor
+  // findings from the same store in the same render, so a finding is never
+  // missing from it and nothing needs adding on top.
+  //
+  // This used to read `warningCount + findings.length`, which double-counted:
+  // the feed's DEFAULT_SOURCES already includes 'finding', so every monitor
+  // finding was tallied inside warningCount and then added again raw.
+  //
+  // The headline used to be findings[0] while the number came from the feed —
+  // two different lists — so "1 critical — <title>" could name something that
+  // was neither critical nor part of the count. The feed is sorted by severity,
+  // so its first item is from the bucket the number counts.
+  const headline = topIncident;
+
   let level: PostureLevel = 'green';
   if (criticalCount > 0) level = 'red';
-  else if (warningCount > 0 || findings.length > 0) level = 'yellow';
+  else if (warningCount > 0) level = 'yellow';
   else if (!lastScanTime) level = 'unknown';
-
-  const topFinding = findings.length > 0 ? findings[0] : null;
 
   const scanLabel = lastScanTime
     ? `Last scan: ${formatRelativeTime(lastScanTime)}`
     : 'No scan yet';
 
-  const borderColor: Record<PostureLevel, string> = {
-    unknown: 'border-l-slate-500',
-    green: 'border-l-emerald-500',
-    yellow: 'border-l-amber-500',
-    red: 'border-l-red-500',
-  };
-
-  const bgColor: Record<PostureLevel, string> = {
-    unknown: 'bg-slate-500/5',
-    green: 'bg-emerald-500/5',
-    yellow: 'bg-amber-500/5',
-    red: 'bg-red-500/5',
-  };
-
-  const iconColor: Record<PostureLevel, string> = {
-    unknown: 'text-slate-400',
-    green: 'text-emerald-400',
-    yellow: 'text-amber-400',
-    red: 'text-red-400',
-  };
-
-  const Icon = level === 'unknown' ? HelpCircle : level === 'green' ? Shield : AlertTriangle;
-
+  // Geometry, icon sizing and the Investigate affordance come from
+  // SeverityBanner so this strip and OpenEpisodeBanner — which sit directly
+  // above and below each other — read as one system rather than two.
   return (
-    <div
-      className={cn(
-        'flex items-center gap-2 rounded-lg border-l-4 px-4 py-2 text-sm',
-        borderColor[level],
-        bgColor[level],
-        'border border-slate-800',
-      )}
+    <SeverityBanner
+      level={level}
+      action={
+        level === 'red' && !investigateShownAbove
+          ? { label: 'Investigate', onClick: onInvestigate }
+          : undefined
+      }
+      meta={
+        <>
+          {(level === 'unknown' || level === 'green') && (
+            <span>
+              {scanLabel} | Agent: {monitorConnected ? 'healthy' : 'disconnected'}
+            </span>
+          )}
+          {level === 'yellow' && <span>{scanLabel}</span>}
+          {level === 'red' && autoFixedCount > 0 && (
+            <span>{autoFixedCount} auto-fixed overnight</span>
+          )}
+        </>
+      }
     >
-      <Icon className={cn('w-4 h-4 shrink-0', iconColor[level])} />
-      <span className="text-slate-200 truncate">
-        {level === 'unknown' && (
-          <>
-            Checking the cluster…
-            <span className="text-slate-500"> | {scanLabel} | Agent: {monitorConnected ? 'healthy' : 'disconnected'}</span>
-          </>
-        )}
-        {level === 'green' && (
-          <>
-            All clear — 0 critical, 0 warnings
-            <span className="text-slate-500"> | {scanLabel} | Agent: {monitorConnected ? 'healthy' : 'disconnected'}</span>
-          </>
-        )}
-        {level === 'yellow' && (
-          <>
-            <span className="text-amber-400">{warningCount + findings.length} warning{warningCount + findings.length !== 1 ? 's' : ''}</span>
-            {topFinding && (
-              <span className="text-slate-400"> — {topFinding.title}</span>
-            )}
-            <span className="text-slate-500"> | {scanLabel}</span>
-          </>
-        )}
-        {level === 'red' && (
-          <>
-            <span className="text-red-400">{criticalCount} critical</span>
-            {topFinding && (
-              <span className="text-slate-400"> — {topFinding.title}</span>
-            )}
-            <span className="text-slate-500"> →{' '}</span>
-            <button onClick={onInvestigate} className="text-red-400 underline underline-offset-2 hover:text-red-300">
-              Investigate
-            </button>
-            {autoFixedCount > 0 && (
-              <span className="text-slate-500"> | {autoFixedCount} auto-fixed overnight</span>
-            )}
-          </>
-        )}
-      </span>
-    </div>
+      {level === 'unknown' && <>Checking the cluster…</>}
+      {level === 'green' && <>All clear — 0 critical, 0 warnings</>}
+      {level === 'yellow' && (
+        <>
+          <span className="text-amber-400">
+            {warningCount} warning{warningCount !== 1 ? 's' : ''}
+          </span>
+          {headline && <span className="text-slate-400"> — {headline.title}</span>}
+        </>
+      )}
+      {level === 'red' && (
+        <>
+          <span className="text-red-400">{criticalCount} critical</span>
+          {headline && <span className="text-slate-400"> — {headline.title}</span>}
+        </>
+      )}
+    </SeverityBanner>
   );
 }
 
@@ -224,9 +216,14 @@ export default function PulseView() {
    */
   const trustLevel = capQ.data?.effective_trust_level ?? requestedTrust;
   const divergenceNote = trustDivergenceNote(requestedTrust, capQ.data?.effective_trust_level);
-  const { counts: incidentCounts } = useIncidentFeed({ limit: 0 });
+  // limit: 0 returns every incident (the slice only applies when limit > 0)
+  // and counts are computed before any slice, so the headline and the number
+  // below come from one list that counted each item exactly once.
+  const { counts: incidentCounts, incidents } = useIncidentFeed({ limit: 0 });
+  const topIncident = incidents.length > 0 ? incidents[0] : null;
 
   const [scanning, setScanning] = useState(false);
+  const [episodeBannerShown, setEpisodeBannerShown] = useState(false);
   const scanTimeRef = useRef(lastScanTime);
   const handleScanNow = () => {
     scanTimeRef.current = lastScanTime;
@@ -261,15 +258,17 @@ export default function PulseView() {
 
         {/* An open episode outranks everything below it — those tiles are
             showing its symptoms. */}
-        <OpenEpisodeBanner onOpen={() => go('/inbox', 'Inbox')} />
+        <OpenEpisodeBanner onOpen={() => go('/inbox', 'Inbox')} onVisibleChange={setEpisodeBannerShown} />
 
         {/* ── Cluster Posture Bar ── */}
         <ClusterPostureBar
           findings={findings}
           incidentCounts={incidentCounts}
+          topIncident={topIncident}
           lastScanTime={lastScanTime}
           monitorConnected={monitorConnected}
           onInvestigate={() => go('/inbox', 'Inbox')}
+          investigateShownAbove={episodeBannerShown}
         />
 
         {/* ── Header with inline stats ── */}

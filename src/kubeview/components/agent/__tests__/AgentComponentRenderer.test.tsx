@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { AgentComponentRenderer } from '../AgentComponentRenderer';
 import type { TabsSpec, GridSpec, SectionSpec, ActionButtonSpec } from '../../../engine/agentComponents';
+import { normalizeKeyValuePairs } from '../../../engine/agentComponents';
 
 // Mock child primitives to avoid deep dependency chains
 vi.mock('../../primitives/Badge', () => ({
@@ -143,5 +144,88 @@ describe('AgentComponentRenderer — layout types', () => {
     expect(btn).toBeTruthy();
     expect(btn.textContent).toBe('Restart Pod');
     expect(btn.getAttribute('data-view-id')).toBe('view-123');
+  });
+
+  // A saved dashboard carrying `pairs` as a `{ key: value }` map used to take
+  // the whole widget down with "spec.pairs.map is not a function", surfacing
+  // only as "<title> failed to render". The agent's view_designer has been
+  // observed producing the map form in practice, because it is the obvious
+  // JSON shape for key/value pairs. Both shapes must render identically.
+  it('renders key_value pairs given as an object map, not just an array', () => {
+    const spec: any = {
+      kind: 'key_value',
+      title: 'etcd Health',
+      pairs: {
+        Leader: 'elected, 3 members reporting',
+        'DB size': '233 MiB of 8192 MiB quota (3%)',
+      },
+    };
+
+    render(<AgentComponentRenderer spec={spec} />);
+
+    expect(screen.getByText('Leader')).toBeTruthy();
+    expect(screen.getByText('elected, 3 members reporting')).toBeTruthy();
+    expect(screen.getByText('DB size')).toBeTruthy();
+    expect(screen.getByText('233 MiB of 8192 MiB quota (3%)')).toBeTruthy();
+  });
+
+  it('still renders key_value pairs given as an array', () => {
+    const spec: any = {
+      kind: 'key_value',
+      pairs: [{ key: 'Cluster', value: 'prod' }],
+    };
+
+    render(<AgentComponentRenderer spec={spec} />);
+
+    expect(screen.getByText('Cluster')).toBeTruthy();
+    expect(screen.getByText('prod')).toBeTruthy();
+  });
+
+  it('renders null and missing key_value values as empty, not "null" or \'""\'', () => {
+    const spec: any = {
+      kind: 'key_value',
+      pairs: { Leader: null, Members: undefined, Quota: 3 },
+    };
+    const { container } = render(<AgentComponentRenderer spec={spec} />);
+    const view = within(container);
+    expect(view.getByText('Leader')).toBeTruthy();
+    expect(view.queryByText('null')).toBeNull();
+    expect(view.queryByText('""')).toBeNull();
+    expect(view.getByText('3')).toBeTruthy();
+  });
+
+  it('renders null and missing values in the array form as empty', () => {
+    const spec: any = {
+      kind: 'key_value',
+      pairs: [{ key: 'Leader', value: null }, { key: 'Members' }],
+    };
+    const { container } = render(<AgentComponentRenderer spec={spec} />);
+    const view = within(container);
+    expect(view.getByText('Leader')).toBeTruthy();
+    expect(view.getByText('Members')).toBeTruthy();
+    expect(view.queryByText('null')).toBeNull();
+    expect(view.queryByText('""')).toBeNull();
+  });
+});
+
+describe('normalizeKeyValuePairs — missing values', () => {
+  it('maps null and undefined to an empty string in both shapes', () => {
+    expect(normalizeKeyValuePairs({ a: null, b: undefined, c: 0, d: { x: 1 } })).toEqual([
+      { key: 'a', value: '' },
+      { key: 'b', value: '' },
+      { key: 'c', value: '0' },
+      { key: 'd', value: '{"x":1}' },
+    ]);
+    expect(
+      normalizeKeyValuePairs([
+        { key: 'a', value: null as unknown as string },
+        { key: 'b' } as unknown as { key: string; value: string },
+        { key: 'c', value: 'ok' },
+      ]),
+    ).toEqual([
+      { key: 'a', value: '' },
+      { key: 'b', value: '' },
+      { key: 'c', value: 'ok' },
+    ]);
   });
 });

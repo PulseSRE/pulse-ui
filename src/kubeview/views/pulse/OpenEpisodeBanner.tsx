@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, History } from 'lucide-react';
+import { History } from 'lucide-react';
+import { SeverityBanner } from '../../components/primitives/SeverityBanner';
 import { fetchOpenEpisodes } from '../../engine/episodeApi';
 import type { Episode } from '../../engine/episodeApi';
 import { formatElapsed } from '../../engine/dateUtils';
@@ -17,8 +18,26 @@ import { formatElapsed } from '../../engine/dateUtils';
  * showing its symptoms.
  */
 
-export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
+export function OpenEpisodeBanner({
+  onOpen,
+  onVisibleChange,
+}: {
+  onOpen: () => void;
+  /**
+   * Told whether the banner is showing, so the posture bar below can drop its
+   * own Investigate action instead of rendering a second identical red button
+   * that goes to the same place.
+   */
+  onVisibleChange?: (visible: boolean) => void;
+}) {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const visible = episodes.length > 0;
+
+  useEffect(() => {
+    onVisibleChange?.(visible);
+  }, [visible, onVisibleChange]);
+
+  useEffect(() => () => onVisibleChange?.(false), [onVisibleChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,24 +57,17 @@ export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
     };
   }, []);
 
-  if (episodes.length === 0) return null;
+  if (!visible) return null;
 
   const [first, ...rest] = episodes;
 
   return (
-    <button
-      onClick={onOpen}
-      className="group flex w-full items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-left transition-colors hover:bg-red-500/15"
-    >
-      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-red-400">
-            Open incident
-          </span>
-          <span className="truncate text-sm font-medium text-slate-100">{first.cause_title}</span>
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+    <SeverityBanner
+      level="red"
+      eyebrow="Open incident"
+      action={{ label: 'Investigate', onClick: onOpen }}
+      meta={
+        <>
           <span>running {formatElapsed(first.cause_started_at ?? first.started_at)}</span>
           <span>
             {first.symptom_count} {first.symptom_count === 1 ? 'symptom' : 'symptoms'}
@@ -68,12 +80,10 @@ export function OpenEpisodeBanner({ onOpen }: { onOpen: () => void }) {
             </span>
           )}
           {rest.length > 0 && <span>+{rest.length} more open</span>}
-        </div>
-      </div>
-      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-xs text-red-300 group-hover:text-red-200">
-        Investigate
-        <ArrowRight className="h-3.5 w-3.5" />
-      </span>
-    </button>
+        </>
+      }
+    >
+      <span className="font-medium">{first.cause_title}</span>
+    </SeverityBanner>
   );
 }
