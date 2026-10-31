@@ -29,6 +29,9 @@ import { useClusterStore } from '../../store/clusterStore';
 import { compareVersions } from '../../engine/version';
 import { useArgoCDStore } from '../../store/argoCDStore';
 import { Card } from '../../components/primitives/Card';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
+import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotice';
+import { metricsAvailableFor } from '../../components/metrics/prometheus';
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -200,6 +203,7 @@ export interface ReportTabProps {
 }
 
 export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavailable = [], go }: ReportTabProps) {
+  const clusterId = useActiveClusterId();
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -219,8 +223,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
 
   // === Queries ===
   const { data: tlsSecrets = [], isError: tlsSecretsError } = useQuery<Secret[]>({
-    queryKey: ['k8s', 'list', 'tls-secrets'],
-    queryFn: () => fetchTlsSecrets<Secret>(),
+    queryKey: ['k8s', 'list', 'tls-secrets', clusterId],
+    queryFn: () => fetchTlsSecrets<Secret>(clusterId),
     staleTime: 120_000, refetchInterval: 300_000,
   });
 
@@ -241,51 +245,54 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   // it is now simply the only one.
   const {
     incidents: alertIncidents,
-    isError: alertsError,
+    isError: alertsFetchError,
+    alertsUnavailable,
   } = useIncidentFeed({ sources: ['prometheus-alert'], limit: 0 });
+  // A remote cluster's alerts cannot be read: as unknown as a failed fetch.
+  const alertsError = alertsFetchError || alertsUnavailable;
 
   const { data: apiLatency } = useQuery<number | null>({
-    queryKey: ['prom', 'api-latency'],
+    queryKey: ['prom', 'api-latency', clusterId],
     queryFn: async () => {
-      const result = (await safeQuery(() => queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))'))) ?? [];
+      const result = (await safeQuery(() => queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))', undefined, clusterId))) ?? [];
       return result.length > 0 ? result[0].value * 1000 : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
   });
 
   const { data: etcdLeaderChanges } = useQuery<number | null>({
-    queryKey: ['prom', 'etcd-leader-changes'],
+    queryKey: ['prom', 'etcd-leader-changes', clusterId],
     queryFn: async () => {
-      const result = (await safeQuery(() => queryInstant('max(changes(etcd_server_is_leader[1h]))'))) ?? [];
+      const result = (await safeQuery(() => queryInstant('max(changes(etcd_server_is_leader[1h]))', undefined, clusterId))) ?? [];
       return result.length > 0 ? result[0].value : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
   });
 
   const { data: pvUsage = [] } = useQuery<PromResult[]>({
-    queryKey: ['prom', 'pv-usage'],
-    queryFn: async () => ((await safeQuery(() => queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100'))) ?? []) as PromResult[],
+    queryKey: ['prom', 'pv-usage', clusterId],
+    queryFn: async () => ((await safeQuery(() => queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100', undefined, clusterId))) ?? []) as PromResult[],
     staleTime: 60_000, refetchInterval: 120_000,
   });
 
   const { data: resourceQuotas = [] } = useQuery<ResourceQuota[]>({
-    queryKey: ['k8s', 'list', 'resourcequotas'],
-    queryFn: () => k8sList<ResourceQuota>('/api/v1/resourcequotas'),
+    queryKey: ['k8s', 'list', 'resourcequotas', undefined, clusterId],
+    queryFn: () => k8sList<ResourceQuota>('/api/v1/resourcequotas', undefined, clusterId),
     staleTime: 120_000, refetchInterval: 300_000,
   });
 
   // Subscribe, so drift appears when the Argo store finishes loading.
   const argoApplications = useArgoCDStore((s) => s.applications);
   const { data: clusterVersion, isError: clusterVersionError, isPending: clusterVersionPending } = useQuery<ClusterVersion | null>({
-    queryKey: ['k8s', 'get', 'clusterversion'],
-    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version')),
+    queryKey: ['k8s', 'get', 'clusterversion', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
     staleTime: 300_000, refetchInterval: 600_000,
   });
 
   const { data: recentEvents = [] } = useQuery<Event[]>({
-    queryKey: ['k8s', 'list', 'events-1h'],
+    queryKey: ['k8s', 'list', 'events-1h', undefined, clusterId],
     queryFn: async () => {
-      const events = await k8sList<Event>('/api/v1/events');
+      const events = await k8sList<Event>('/api/v1/events', undefined, clusterId);
       const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
       return events.filter((e) => {
         return (e.lastTimestamp || e.metadata?.creationTimestamp || '') >= oneHourAgo;
@@ -539,7 +546,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
       <div className="space-y-3">
         <ZoneHeader number={1} title="Heartbeat" subtitle="If red, your day just changed" icon={<Activity className="w-4 h-4 text-red-400" />} />
 
-        {alertsError && (
+        {alertsUnavailable && <RemoteMetricsNotice compact what="Alerts and metrics" className="px-1" />}
+        {alertsFetchError && (
           <div className="flex items-center gap-2 text-xs text-yellow-400 bg-yellow-950/30 border border-yellow-800/50 rounded-lg px-3 py-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             <span>Metrics unavailable — risk score may be incomplete</span>
@@ -625,6 +633,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 </div>
               </button>
             </div>
+            {!metricsAvailableFor(clusterId) && <RemoteMetricsNotice compact what="API latency and etcd metrics" className="mt-2" />}
 
             {/* Urgent certs in Zone 1 */}
             {urgentCerts.length > 0 && (
@@ -894,7 +903,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
             <div className="text-xs text-slate-400 mt-0.5">Those lists failed to load, so problems there would not show up here. Check your permissions or the cluster connection.</div>
           </div>
         )}
-        {unavailable.length === 0 && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
+        {/* No all-clear while alerts could not be read: zero is then unknown. */}
+        {unavailable.length === 0 && !alertsError && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
           <button onClick={() => go('/readiness', 'Readiness')} className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center hover:border-green-800/50 transition-colors">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
             <div className="text-sm font-medium text-slate-200">All clear</div>

@@ -90,8 +90,8 @@ describe('MetricsView', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
     mockMetricQueries = [{ id: 'cpu', title: 'CPU Usage', query: 'cpu', yAxisLabel: 'cores', yAxisFormat: 'number' }];
     renderView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'nginx' });
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Metrics could not be loaded'));
-    expect(screen.getByRole('alert').textContent).toContain('Prometheus returned 503');
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Failed to fetch metrics'));
+    expect(screen.getByRole('alert').textContent).toMatch(/503/);
     expect(screen.queryByText('No data available')).toBeNull();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
   });

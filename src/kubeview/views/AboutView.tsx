@@ -11,6 +11,7 @@ import type { PulseCR } from '../hooks/usePulseStatus';
 import { useClusterStore } from '../store/clusterStore';
 import { Panel } from '../components/primitives/Panel';
 import { Badge } from '../components/primitives/Badge';
+import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 
 /**
  * What exactly is running on this cluster, and where it all comes from.
@@ -127,6 +128,8 @@ function ComponentRow({
 }
 
 export default function AboutView() {
+  // Pulse's deployments and operator are on the cluster Pulse runs on.
+  const clusterId = LOCAL_CLUSTER_ID;
   const clusterVersion = useClusterStore((s) => s.clusterVersion);
 
   const cr: PulseCR | null | undefined = usePulseCR();
@@ -135,19 +138,19 @@ export default function AboutView() {
   const upgrading = cr?.status?.phase === 'Upgrading';
 
   const { data: rollouts } = useQuery({
-    queryKey: ['about', 'deployments', crNamespace],
+    queryKey: ['about', 'deployments', crNamespace, clusterId],
     queryFn: async () => {
-      const items = await k8sList<DeploymentLite>(`/apis/apps/v1/namespaces/${crNamespace}/deployments`);
+      const items = await k8sList<DeploymentLite>(`/apis/apps/v1/namespaces/${crNamespace}/deployments`, undefined, clusterId);
       return items.filter((d) => (d.metadata?.name || '').startsWith('pulse'));
     },
     enabled: Boolean(crNamespace),
     refetchInterval: upgrading ? 5_000 : 60_000,
   });
   const { data: csv } = useQuery({
-    queryKey: ['about', 'operator-csv', crNamespace],
+    queryKey: ['about', 'operator-csv', crNamespace, clusterId],
     queryFn: async () => {
       const items = await k8sList<CSV>(
-        `/apis/operators.coreos.com/v1alpha1/namespaces/${crNamespace}/clusterserviceversions`
+        `/apis/operators.coreos.com/v1alpha1/namespaces/${crNamespace}/clusterserviceversions`, undefined, clusterId
       );
       return items.find((c) => (c.metadata?.name || '').startsWith('pulse-operator')) ?? null;
     },

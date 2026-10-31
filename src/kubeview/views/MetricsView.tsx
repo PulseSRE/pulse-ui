@@ -8,6 +8,9 @@ import { MetricsChart } from '../components/metrics/MetricsChart';
 import { getMetricsForResource, resolveQuery, formatYAxisValue } from '../components/metrics/AutoMetrics';
 import { buildApiPath } from '../hooks/useResourceUrl';
 import { CHART_COLOR_SEQUENCE } from '../engine/colors';
+import { queryRange } from '../components/metrics/prometheus';
+import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
+import { useActiveClusterId, useMetricsAvailable } from '../hooks/useClusterBase';
 
 interface MetricsViewProps {
   gvrKey: string;
@@ -28,6 +31,7 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState<TimeRange>('6h');
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const metricsAvailable = useMetricsAvailable();
 
   const rangeSeconds = TIME_RANGES[timeRange];
   const end = Math.floor(Date.now() / 1000);
@@ -91,7 +95,9 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
 
       {/* Charts */}
       <div className="flex-1 p-4 space-y-4 overflow-auto">
-        {metricQueries.length === 0 ? (
+        {!metricsAvailable ? (
+          <RemoteMetricsNotice />
+        ) : metricQueries.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-slate-400">
             No metrics available for {kind}
           </div>
@@ -126,24 +132,12 @@ interface MetricPanelProps {
 
 function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: MetricPanelProps) {
   const resolvedQuery = resolveQuery(mq.query, vars);
+  const clusterId = useActiveClusterId();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['prometheus', resolvedQuery, start, end, step],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        query: resolvedQuery,
-        start: String(start),
-        end: String(end),
-        step: String(step),
-      });
-      const res = await fetch(`/api/prometheus/api/v1/query_range?${params}`);
-      // Throw: returning null made the error branch unreachable and a failed
-      // query read "No data available".
-      if (!res.ok) throw new Error(`Prometheus returned ${res.status}`);
-      const json = await res.json();
-      if (json.status !== 'success') throw new Error(json.error || 'Prometheus query failed');
-      return json.data?.result || [];
-    },
+    queryKey: ['prometheus', resolvedQuery, start, end, step, clusterId],
+    // Throws on a failed request, so the panel says so instead of "No data".
+    queryFn: () => queryRange(resolvedQuery, start, end, step, clusterId),
     refetchInterval: 60000,
   });
 
@@ -176,7 +170,7 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
         </div>
       ) : error ? (
         <div className="h-48 flex flex-col justify-center">
-          <LoadError title="Metrics could not be loaded" error={error} onRetry={() => { void refetch(); }} />
+          <LoadError title="Failed to fetch metrics" error={error} onRetry={() => { void refetch(); }} />
         </div>
       ) : series.length === 0 ? (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">

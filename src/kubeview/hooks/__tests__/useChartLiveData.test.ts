@@ -79,7 +79,7 @@ describe('useChartLiveData', () => {
       expect(result.current.isLive).toBe(true);
     });
 
-    expect(queryRangeMock).toHaveBeenCalledWith(specWithQuery.query, 1000, 2000);
+    expect(queryRangeMock).toHaveBeenCalledWith(specWithQuery.query, 1000, 2000, undefined, 'local');
     expect(result.current.series).toHaveLength(1);
     expect(result.current.series[0].label).toBe('nginx-1');
     // Timestamps should be converted from seconds to milliseconds

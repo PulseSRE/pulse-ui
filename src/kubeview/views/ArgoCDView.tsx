@@ -11,6 +11,8 @@ import { useUIStore } from '../store/uiStore';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { Card } from '../components/primitives/Card';
 import { showErrorToast } from '../engine/errorToast';
+import { getActiveClusterId } from '../engine/clusterConnection';
+import { assertActiveCluster } from '../engine/pendingCluster';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { StatCard } from '../components/primitives/StatCard';
@@ -58,9 +60,10 @@ export default function ArgoCDView() {
     window.history.replaceState(null, '', url.toString());
   };
   const [syncing, setSyncing] = React.useState<string | null>(null);
-  const [confirmSync, setConfirmSync] = React.useState<{name: string, ns: string} | null>(null);
+  // A sync confirmation remembers the cluster whose application it names.
+  const [confirmSync, setConfirmSync] = React.useState<{ name: string; ns: string; clusterId: string } | null>(null);
   const [prune, setPrune] = React.useState(false);
-  const clusterId = useFleetStore((s) => s.activeClusterId);
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
 
   const outOfSyncCount = (applications || []).filter(a => a.status?.sync?.status === 'OutOfSync').length;
   const degradedCount = (applications || []).filter(a => a.status?.health?.status === 'Degraded').length;
@@ -69,7 +72,7 @@ export default function ArgoCDView() {
 
   const handleSync = (appName: string, appNs: string) => {
     setPrune(false);
-    setConfirmSync({ name: appName, ns: appNs });
+    setConfirmSync({ name: appName, ns: appNs, clusterId: getActiveClusterId() });
   };
 
   // "Sync" used to set the hard-refresh annotation, which only re-reads Git
@@ -77,7 +80,7 @@ export default function ArgoCDView() {
   // the Application, which the Argo CD controller picks up and runs.
   const executeSync = async () => {
     if (!confirmSync) return;
-    const { name: appName, ns: appNs } = confirmSync;
+    const { name: appName, ns: appNs, clusterId } = confirmSync;
     const app = (applications || []).find((a) => a.metadata.name === appName && (a.metadata.namespace || '') === appNs);
     setConfirmSync(null);
     if (app?.status?.operationState?.phase === 'Running' || app?.operation) {
@@ -91,6 +94,7 @@ export default function ArgoCDView() {
     if (prune) sync.prune = true;
     setSyncing(appName);
     try {
+      assertActiveCluster(clusterId, `Syncing ${appName}`);
       await k8sPatch(appPath(appName, appNs), {
         operation: { initiatedBy: { username: 'pulse-ui' }, sync },
       }, 'application/merge-patch+json', clusterId);
@@ -108,7 +112,7 @@ export default function ArgoCDView() {
     try {
       await k8sPatch(appPath(appName, appNs), {
         metadata: { annotations: { 'argocd.argoproj.io/refresh': 'hard' } },
-      }, 'application/merge-patch+json', clusterId);
+      }, 'application/merge-patch+json', activeClusterId);
       addToast({ type: 'success', title: `Refresh requested for ${appName}`, detail: 'Argo CD will re-read Git and recompute sync status. Nothing is applied.' });
       setTimeout(() => refresh(), 3000);
     } catch (err) {

@@ -280,7 +280,7 @@ describe('the alert query surfaces its failure instead of swallowing it', () => 
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
     const src = readFileSync(resolve(__dirname, '../../AdminView.tsx'), 'utf8');
-    const start = src.indexOf("queryKey: ['admin', 'firing-alerts']");
+    const start = src.indexOf("queryKey: ['admin', 'firing-alerts', clusterId]");
     expect(start, "the firing-alerts query should still exist").toBeGreaterThan(-1);
     const block = src.slice(start, start + 700);
     expect(block).toMatch(/if \(!res\.ok\) throw new Error/);

@@ -4,7 +4,8 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 
-vi.mock('../../components/metrics/prometheus', () => ({
+vi.mock('../../components/metrics/prometheus', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   queryInstant: vi.fn().mockResolvedValue([{ value: 0.65 }]),
 }));
 vi.mock('../../components/metrics/Sparkline', () => ({

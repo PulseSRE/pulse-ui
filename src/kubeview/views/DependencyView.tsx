@@ -7,6 +7,7 @@ import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { pluralToKind } from '../engine/renderers/index';
 import { Card } from '../components/primitives/Card';
+import { useActiveClusterId } from '../hooks/useClusterBase';
 
 interface DependencyViewProps {
   gvrKey: string;
@@ -114,6 +115,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
     return pluralToKind(plural);
   }, [gvrKey]);
 
+  const clusterId = useActiveClusterId();
   const [graph, setGraph] = useState<DependencyGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
     let cancelled = false;
     setLoading(true);
     setFetchError(null);
-    buildDependencyGraph(kind, name, namespace).then((g) => {
+    buildDependencyGraph(kind, name, namespace, clusterId).then((g) => {
       if (!cancelled) { setGraph(g); setLoading(false); }
     }).catch((err) => {
       if (!cancelled) {
@@ -137,7 +139,7 @@ export default function DependencyView({ gvrKey, namespace, name }: DependencyVi
       }
     });
     return () => { cancelled = true; };
-  }, [kind, name, namespace]);
+  }, [kind, name, namespace, clusterId]);
 
   const layoutNodes = useMemo(() => graph ? layoutGraph(graph) : [], [graph]);
 

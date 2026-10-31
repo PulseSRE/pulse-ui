@@ -217,6 +217,7 @@ describe('UpdatesTab', () => {
         '/apis/config.openshift.io/v1/clusterversions/version',
         { spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:newdigest' } } },
         'application/merge-patch+json',
+        'local', // the cluster the update was requested on
       );
     });
   });
@@ -430,6 +431,7 @@ describe('UpdatesTab', () => {
         '/apis/config.openshift.io/v1/clusterversions/version',
         { spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:correct-new-image' } } },
         'application/merge-patch+json',
+        'local',
       );
     });
   });

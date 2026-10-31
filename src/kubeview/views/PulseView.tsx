@@ -47,6 +47,7 @@ import { fetchCapabilities } from '../engine/analyticsApi';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useIncidentFeed } from '../hooks/useIncidentFeed';
+import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { OpenEpisodeBanner } from './pulse/OpenEpisodeBanner';
 import { ReportTab } from './pulse/ReportTab';
 import { FleetReportTab } from './pulse/FleetReportTab';
@@ -77,6 +78,7 @@ function ClusterPostureBar({
   monitorConnected,
   onInvestigate,
   investigateShownAbove = false,
+  alertsUnknown = false,
 }: {
   incidentCounts: { critical: number; warning: number; info: number; total: number };
   /** Highest-severity, most-recent incident from the same feed the counts come from. */
@@ -90,6 +92,11 @@ function ClusterPostureBar({
    * different problems, so the bar keeps its count and drops the action.
    */
   investigateShownAbove?: boolean;
+  /**
+   * Alerts could not be read (fetch failed, or a remote cluster whose
+   * Prometheus Pulse cannot reach). Zero alerts is then unknown, not clear.
+   */
+  alertsUnknown?: boolean;
 }) {
   const criticalCount = incidentCounts.critical;
   const warningCount = incidentCounts.warning;
@@ -114,7 +121,7 @@ function ClusterPostureBar({
   let level: PostureLevel = 'green';
   if (criticalCount > 0) level = 'red';
   else if (warningCount > 0) level = 'yellow';
-  else if (!lastScanTime) level = 'unknown';
+  else if (!lastScanTime || alertsUnknown) level = 'unknown';
 
   const scanLabel = lastScanTime
     ? `Last scan: ${formatRelativeTime(lastScanTime)}`
@@ -143,7 +150,9 @@ function ClusterPostureBar({
         </>
       }
     >
-      {level === 'unknown' && <>Checking the cluster…</>}
+      {level === 'unknown' && (alertsUnknown && lastScanTime
+        ? <>No all-clear — alerts for this cluster could not be read</>
+        : <>Checking the cluster…</>)}
       {level === 'green' && <>All clear — 0 critical, 0 warnings</>}
       {level === 'yellow' && (
         <>
@@ -214,7 +223,7 @@ export default function PulseView() {
   // limit: 0 returns every incident (the slice only applies when limit > 0)
   // and counts are computed before any slice, so the headline and the number
   // below come from one list that counted each item exactly once.
-  const { counts: incidentCounts, incidents } = useIncidentFeed({ limit: 0 });
+  const { counts: incidentCounts, incidents, isError: alertsError, alertsUnavailable } = useIncidentFeed({ limit: 0 });
   const topIncident = incidents.length > 0 ? incidents[0] : null;
 
   const [scanning, setScanning] = useState(false);
@@ -263,7 +272,9 @@ export default function PulseView() {
           monitorConnected={monitorConnected}
           onInvestigate={() => go('/inbox', 'Inbox')}
           investigateShownAbove={episodeBannerShown}
+          alertsUnknown={alertsError || alertsUnavailable}
         />
+        {alertsUnavailable && <RemoteMetricsNotice compact what="Alerts and metrics" />}
 
         {/* ── Header with inline stats ── */}
         <div className="flex items-center justify-between">

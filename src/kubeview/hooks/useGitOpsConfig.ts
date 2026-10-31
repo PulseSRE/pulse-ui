@@ -7,9 +7,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { k8sGet, k8sCreate, k8sPatch } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
 import { bitbucketAuthHeader, type GitOpsConfig } from '../engine/gitProvider';
+import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 
 const SECRET_PATH = '/api/v1/namespaces/openshiftpulse/secrets/openshiftpulse-gitops-config';
 const QUERY_KEY = ['gitops', 'config'];
+/** Pulse's GitOps config Secret is in Pulse's namespace on the cluster Pulse runs on. */
+const CONFIG_CLUSTER_ID = LOCAL_CLUSTER_ID;
 
 interface UseGitOpsConfigResult {
   config: GitOpsConfig | null;
@@ -48,10 +51,10 @@ export function useGitOpsConfig(): UseGitOpsConfigResult {
   const queryClient = useQueryClient();
 
   const { data: config = null, isLoading } = useQuery<GitOpsConfig | null>({
-    queryKey: QUERY_KEY,
+    queryKey: [...QUERY_KEY, CONFIG_CLUSTER_ID],
     queryFn: async () => {
       try {
-        const secret = await k8sGet<K8sResource & { data?: Record<string, string> }>(SECRET_PATH);
+        const secret = await k8sGet<K8sResource & { data?: Record<string, string> }>(SECRET_PATH, CONFIG_CLUSTER_ID);
         if (!secret?.data) return null;
         return decodeSecretData(secret.data);
       } catch {
@@ -68,10 +71,10 @@ export function useGitOpsConfig(): UseGitOpsConfigResult {
 
     try {
       // Try to get existing secret first
-      await k8sGet<K8sResource>(SECRET_PATH);
+      await k8sGet<K8sResource>(SECRET_PATH, CONFIG_CLUSTER_ID);
 
       // Exists — patch it
-      await k8sPatch(SECRET_PATH, { data: secretData });
+      await k8sPatch(SECRET_PATH, { data: secretData }, undefined, CONFIG_CLUSTER_ID);
     } catch {
       // Doesn't exist — create it
       await k8sCreate('/api/v1/namespaces/openshiftpulse/secrets', {
@@ -83,7 +86,7 @@ export function useGitOpsConfig(): UseGitOpsConfigResult {
         },
         type: 'Opaque',
         data: secretData,
-      });
+      }, CONFIG_CLUSTER_ID);
     }
 
     queryClient.invalidateQueries({ queryKey: QUERY_KEY });

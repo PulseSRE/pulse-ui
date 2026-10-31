@@ -25,6 +25,10 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { showErrorToast } from '../engine/errorToast';
 import type { AuditCheck, AuditItem } from '../components/audit/types';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
+import { useActiveClusterId } from '../hooks/useClusterBase';
+import { k8sFetch } from '../engine/query';
+import { getActiveClusterId } from '../engine/clusterConnection';
+import { assertActiveCluster } from '../engine/pendingCluster';
 
 // ---------------------------------------------------------------------------
 // K8s resource with extra OpenShift-specific fields
@@ -56,6 +60,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; iconActive: React
 // Main component
 // ---------------------------------------------------------------------------
 export default function IdentityView() {
+  const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
@@ -93,15 +98,15 @@ export default function IdentityView() {
 
   // OAuth config
   const { data: oauthConfig } = useQuery({
-    queryKey: ['users', 'oauth'],
-    queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster')),
+    queryKey: ['users', 'oauth', clusterId],
+    queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster', clusterId)),
     staleTime: 120000,
   });
 
   // OAuth access tokens (recent sessions)
   const { data: accessTokens = [] } = useQuery<K8sResource[]>({
-    queryKey: ['users', 'oauthaccesstokens'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/oauth.openshift.io/v1/oauthaccesstokens'))) ?? [],
+    queryKey: ['users', 'oauthaccesstokens', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/oauth.openshift.io/v1/oauthaccesstokens', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
 
@@ -752,13 +757,15 @@ function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, access
   addToast: (t: any) => void; queryClient: any;
 }) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = React.useState<string | null>(null);
+  // The cluster the confirmation was opened on travels with it.
+  const [confirmAction, setConfirmAction] = React.useState<{ id: string; clusterId: string } | null>(null);
+  const clusterId = useActiveClusterId();
   const [actionLoading, setActionLoading] = React.useState(false);
 
   const { data: currentUser } = useQuery({
-    queryKey: ['users', 'current'],
+    queryKey: ['users', 'current', clusterId],
     queryFn: async () => {
-      const res = await fetch('/api/kubernetes/apis/user.openshift.io/v1/users/~');
+      const res = await k8sFetch(clusterId, '/apis/user.openshift.io/v1/users/~');
       if (!res.ok) return null;
       return res.json();
     },
@@ -766,11 +773,12 @@ function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, access
   });
   const currentUserIsKubeAdmin = currentUser?.metadata?.name === 'kube:admin';
 
-  const handleAction = async (actionId: string) => {
+  const handleAction = async (action: { id: string; clusterId: string }) => {
     setActionLoading(true);
     try {
-      if (actionId === 'remove-kubeadmin') {
-        await k8sDelete('/api/v1/namespaces/kube-system/secrets/kubeadmin');
+      assertActiveCluster(action.clusterId, 'Removing kubeadmin');
+      if (action.id === 'remove-kubeadmin') {
+        await k8sDelete('/api/v1/namespaces/kube-system/secrets/kubeadmin', action.clusterId);
         addToast({ type: 'success', title: 'kubeadmin removed', detail: 'The kubeadmin secret has been deleted' });
         queryClient.invalidateQueries({ queryKey: ['users', 'list'] });
         // The check reads the secret, so that is the query to refresh.
@@ -1029,7 +1037,7 @@ users:
                       <button
                         onClick={() => {
                           if (check.action!.danger) {
-                            setConfirmAction(check.action!.id);
+                            setConfirmAction({ id: check.action!.id, clusterId: getActiveClusterId() });
                           } else if (check.action!.path) {
                             const pageName = check.action!.path.startsWith('/admin') ? 'Admin'
                               : check.action!.path.startsWith('/identity') ? 'Identity & Access'
@@ -1051,9 +1059,9 @@ users:
         })}
       </div>
       <ConfirmDialog
-        open={confirmAction === 'remove-kubeadmin'}
+        open={confirmAction?.id === 'remove-kubeadmin'}
         onClose={() => setConfirmAction(null)}
-        onConfirm={() => handleAction('remove-kubeadmin')}
+        onConfirm={() => confirmAction && handleAction(confirmAction)}
         title="Remove kubeadmin?"
         description="This permanently deletes the kubeadmin secret from kube-system. You will no longer be able to log in as kubeadmin. Make sure you can log in with another admin user first. This action cannot be undone."
         confirmLabel="Remove kubeadmin"

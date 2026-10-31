@@ -354,7 +354,7 @@ describe('CertificatesTab', () => {
   it('calls k8sList with fieldSelector for TLS secrets', async () => {
     k8sListMock.mockResolvedValue([]);
     renderTab();
-    await waitFor(() => expect(k8sListMock).toHaveBeenCalledWith('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls'));
+    await waitFor(() => expect(k8sListMock).toHaveBeenCalledWith('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, 'local'));
   });
 
   it('uses cert-manager expiry annotation when available', async () => {

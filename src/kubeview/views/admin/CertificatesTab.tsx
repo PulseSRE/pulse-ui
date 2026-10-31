@@ -6,6 +6,7 @@ import { k8sList } from '../../engine/query';
 import { Panel } from '../../components/primitives/Panel';
 import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 // --- Types ---
 
@@ -153,6 +154,7 @@ function formatDate(d: Date | null): string {
 // --- Component ---
 
 export function CertificatesTab({ go }: { go: (path: string, title: string) => void }) {
+  const clusterId = useActiveClusterId();
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
   const [sortField, setSortField] = React.useState<SortField>('expires');
@@ -160,8 +162,8 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
   const [showSystem, setShowSystem] = React.useState(false);
 
   const { data: secrets = [], isLoading, error } = useQuery<any[]>({
-    queryKey: ['k8s', 'list', '/api/v1/secrets?fieldSelector=type=kubernetes.io/tls'],
-    queryFn: () => k8sList('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls'),
+    queryKey: ['k8s', 'list', '/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId],
+    queryFn: () => k8sList('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId),
     staleTime: 60000,
   });
 

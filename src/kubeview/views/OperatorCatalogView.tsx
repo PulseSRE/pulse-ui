@@ -16,6 +16,8 @@ import { PulseError } from '../engine/errors';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { Card } from '../components/primitives/Card';
+import { useActiveClusterId } from '../hooks/useClusterBase';
+import { assertActiveCluster } from '../engine/pendingCluster';
 
 interface PackageManifest {
   metadata: { name: string; namespace?: string };
@@ -56,6 +58,7 @@ const POPULAR_OPERATORS = [
 ];
 
 export default function OperatorCatalogView() {
+  const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
@@ -76,15 +79,15 @@ export default function OperatorCatalogView() {
 
   // Fetch all package manifests
   const { data: packages = [], isLoading, isError: catalogError, error: catalogErr, refetch: refetchCatalog } = useQuery<PackageManifest[]>({
-    queryKey: ['operator-catalog'],
-    queryFn: () => k8sList<PackageManifest>('/apis/packages.operators.coreos.com/v1/packagemanifests'),
+    queryKey: ['operator-catalog', clusterId],
+    queryFn: () => k8sList<PackageManifest>('/apis/packages.operators.coreos.com/v1/packagemanifests', undefined, clusterId),
     staleTime: 300000, // 5 min cache
   });
 
   // Fetch installed subscriptions
   const { data: subscriptions = [] } = useQuery<any[]>({
-    queryKey: ['readiness', 'subscriptions'],
-    queryFn: async () => (await safeQuery(() => k8sList('/apis/operators.coreos.com/v1alpha1/subscriptions'))) ?? [],
+    queryKey: ['readiness', 'subscriptions', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/operators.coreos.com/v1alpha1/subscriptions', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
 
@@ -142,10 +145,11 @@ export default function OperatorCatalogView() {
   const handleInstall = async (pkg: PackageManifest, channel: string, ns: string) => {
     setInstalling(true);
     try {
+      assertActiveCluster(clusterId, 'Installing this operator');
       // Create namespace if it doesn't exist (best effort)
       if (ns !== 'openshift-operators') {
         try {
-          await k8sCreate('/api/v1/namespaces', { apiVersion: 'v1', kind: 'Namespace', metadata: { name: ns } });
+          await k8sCreate('/api/v1/namespaces', { apiVersion: 'v1', kind: 'Namespace', metadata: { name: ns } }, clusterId);
         } catch (err: unknown) {
           if (!(err instanceof PulseError && err.statusCode === 409)) showErrorToast(err, 'Failed to create namespace');
         }
@@ -159,7 +163,7 @@ export default function OperatorCatalogView() {
             kind: 'OperatorGroup',
             metadata: { name: `${pkg.metadata.name}-group`, namespace: ns },
             spec: { targetNamespaces: [ns] },
-          });
+          }, clusterId);
         } catch (err: unknown) {
           if (!(err instanceof PulseError && err.statusCode === 409)) showErrorToast(err, 'Failed to create OperatorGroup');
         }
@@ -177,7 +181,7 @@ export default function OperatorCatalogView() {
           sourceNamespace: pkg.status.catalogSourceNamespace || 'openshift-marketplace',
           installPlanApproval: 'Automatic',
         },
-      });
+      }, clusterId);
 
       const displayName = pkg.status.channels?.[0]?.currentCSVDesc?.displayName || pkg.metadata.name;
       addToast({ type: 'success', title: 'Subscription created', detail: `${displayName} installing in ${ns}` });
@@ -204,14 +208,15 @@ export default function OperatorCatalogView() {
       const subNs = selectedSub.metadata.namespace;
       const subName = selectedSub.metadata.name;
       const csvName = selectedSub.status?.installedCSV;
+      assertActiveCluster(clusterId, 'Uninstalling this operator');
 
       // Delete the Subscription first
-      await k8sDelete(`/apis/operators.coreos.com/v1alpha1/namespaces/${subNs}/subscriptions/${subName}`);
+      await k8sDelete(`/apis/operators.coreos.com/v1alpha1/namespaces/${subNs}/subscriptions/${subName}`, clusterId);
 
       // Delete the CSV if it exists
       if (csvName) {
         try {
-          await k8sDelete(`/apis/operators.coreos.com/v1alpha1/namespaces/${subNs}/clusterserviceversions/${csvName}`);
+          await k8sDelete(`/apis/operators.coreos.com/v1alpha1/namespaces/${subNs}/clusterserviceversions/${csvName}`, clusterId);
         } catch {
           // CSV might already be gone or handled by OLM
         }
@@ -225,7 +230,7 @@ export default function OperatorCatalogView() {
         const stillPresent: Array<{ name: string; kind: string }> = [];
         for (const crd of ownedCrds) {
           try {
-            await k8sGet(`/apis/apiextensions.k8s.io/v1/customresourcedefinitions/${crd.name}`);
+            await k8sGet(`/apis/apiextensions.k8s.io/v1/customresourcedefinitions/${crd.name}`, clusterId);
             stillPresent.push({ name: crd.name, kind: crd.kind });
           } catch {
             // CRD already gone
@@ -248,11 +253,17 @@ export default function OperatorCatalogView() {
   };
 
   const handleCleanupCrds = async () => {
+    try {
+      assertActiveCluster(clusterId, 'Cleaning up CRDs');
+    } catch (err) {
+      showErrorToast(err, 'CRD cleanup refused');
+      return;
+    }
     setCleaningCrds(true);
     let cleaned = 0;
     for (const crd of orphanedCrds) {
       try {
-        await k8sDelete(`/apis/apiextensions.k8s.io/v1/customresourcedefinitions/${crd.name}`);
+        await k8sDelete(`/apis/apiextensions.k8s.io/v1/customresourcedefinitions/${crd.name}`, clusterId);
         cleaned++;
       } catch {
         // best effort
@@ -291,15 +302,15 @@ export default function OperatorCatalogView() {
 
   // Track install progress
   const { data: installSub } = useQuery({
-    queryKey: ['install-progress', installingOp?.name, installingOp?.ns],
-    queryFn: () => installingOp ? safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installingOp.ns}/subscriptions/${installingOp.name}`)) : null,
+    queryKey: ['install-progress', installingOp?.name, installingOp?.ns, clusterId],
+    queryFn: () => installingOp ? safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installingOp.ns}/subscriptions/${installingOp.name}`, clusterId)) : null,
     enabled: !!installingOp,
     refetchInterval: 3000,
   });
 
   const { data: installCsv } = useQuery({
-    queryKey: ['install-csv', installSub?.status?.installedCSV, installingOp?.ns],
-    queryFn: () => installSub?.status?.installedCSV ? safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installingOp!.ns}/clusterserviceversions/${installSub.status.installedCSV}`)) : null,
+    queryKey: ['install-csv', installSub?.status?.installedCSV, installingOp?.ns, clusterId],
+    queryFn: () => installSub?.status?.installedCSV ? safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installingOp!.ns}/clusterserviceversions/${installSub.status.installedCSV}`, clusterId)) : null,
     enabled: !!installSub?.status?.installedCSV && !!installingOp,
     refetchInterval: 3000,
   });
@@ -452,10 +463,10 @@ export default function OperatorCatalogView() {
   // Fetch CSV for installed operator to get provided APIs
   // Fetch subscription directly for selected operator (don't rely on readiness cache)
   const { data: selectedSub } = useQuery({
-    queryKey: ['operator-sub', selectedOp?.metadata?.name],
+    queryKey: ['operator-sub', selectedOp?.metadata?.name, clusterId],
     queryFn: async () => {
       if (!selectedOp) return null;
-      const allSubs = await k8sList<any>('/apis/operators.coreos.com/v1alpha1/subscriptions');
+      const allSubs = await k8sList<any>('/apis/operators.coreos.com/v1alpha1/subscriptions', undefined, clusterId);
       return allSubs.find((s: any) => (s.spec?.name || s.metadata?.name) === selectedOp.metadata.name) || null;
     },
     enabled: !!selectedOp,
@@ -466,8 +477,8 @@ export default function OperatorCatalogView() {
   const installedCsvNs = selectedSub?.metadata?.namespace;
 
   const { data: installedCsv } = useQuery({
-    queryKey: ['csv-detail', installedCsvName, installedCsvNs],
-    queryFn: () => safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installedCsvNs}/clusterserviceversions/${installedCsvName}`)),
+    queryKey: ['csv-detail', installedCsvName, installedCsvNs, clusterId],
+    queryFn: () => safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installedCsvNs}/clusterserviceversions/${installedCsvName}`, clusterId)),
     enabled: !!installedCsvName && !!installedCsvNs,
     staleTime: 30000,
   });
@@ -500,10 +511,10 @@ export default function OperatorCatalogView() {
   }, [installedCsv]);
 
   const { data: operatorPods = [] } = useQuery<any[]>({
-    queryKey: ['operator-pods', installedCsvNs, csvDeploymentNames],
+    queryKey: ['operator-pods', installedCsvNs, csvDeploymentNames, clusterId],
     queryFn: async () => {
       if (!installedCsvNs || csvDeploymentNames.length === 0) return [];
-      const allPods = await k8sList<any>(`/api/v1/namespaces/${installedCsvNs}/pods`);
+      const allPods = await k8sList<any>(`/api/v1/namespaces/${installedCsvNs}/pods`, undefined, clusterId);
       return allPods.filter((p: any) => csvDeploymentNames.some((dn: string) => p.metadata.name.startsWith(dn)));
     },
     enabled: csvDeploymentNames.length > 0 && !!installedCsvNs,
@@ -511,9 +522,9 @@ export default function OperatorCatalogView() {
   });
 
   const { data: installPlan } = useQuery({
-    queryKey: ['installplan', selectedSub?.status?.installPlanRef?.name, installedCsvNs],
+    queryKey: ['installplan', selectedSub?.status?.installPlanRef?.name, installedCsvNs, clusterId],
     queryFn: () => selectedSub?.status?.installPlanRef?.name && installedCsvNs
-      ? safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installedCsvNs}/installplans/${selectedSub.status.installPlanRef.name}`))
+      ? safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installedCsvNs}/installplans/${selectedSub.status.installPlanRef.name}`, clusterId))
       : null,
     enabled: !!selectedSub?.status?.installPlanRef?.name && !!installedCsvNs,
     staleTime: 60000,

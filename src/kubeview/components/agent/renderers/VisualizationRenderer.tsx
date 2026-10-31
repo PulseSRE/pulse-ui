@@ -13,6 +13,9 @@ import { isKnownRoute } from '../../../engine/routeTable';
 import { formatRelativeTime } from '../../../engine/formatters';
 import { MetricCard as SparklineMetricCard } from '../../metrics/Sparkline';
 import { pickDefaultContainer } from '../../logs/pickDefaultContainer';
+import { k8sFetch } from '../../../engine/query';
+import { LOCAL_CLUSTER_ID } from '../../../engine/clusterConnection';
+import { promFetch, METRICS_CLUSTER_ID } from '../../metrics/prometheus';
 import type {
   ComponentSpec,
   ChartSpec,
@@ -257,7 +260,8 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
   useEffect(() => {
     if (!query) return;
     let cancelled = false;
-    fetch(`/api/prometheus/api/v1/query?query=${encodeURIComponent(query)}`)
+    // The agent's queries are about its own (local) cluster's Prometheus.
+    promFetch(`/api/v1/query?query=${encodeURIComponent(query)}`, METRICS_CLUSTER_ID)
       .then(r => {
         if (!r.ok) throw new Error(`Prometheus returned ${r.status}`);
         return r.json();
@@ -690,14 +694,15 @@ export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
     // Try current logs first, then previous
     const fetchLogs = async (previous: boolean) => {
       if (previous) params.set('previous', 'true');
-      const res = await fetch(`/api/kubernetes/api/v1/namespaces/${ns}/pods/${resource}/log?${params}`);
+      // The agent's pods are on its own (local) cluster.
+      const res = await k8sFetch(LOCAL_CLUSTER_ID, `/api/v1/namespaces/${ns}/pods/${resource}/log?${params}`);
       // A pod-level log request without `container` 400s for any
       // multi-container pod. The AI-generated spec doesn't always know
       // which container to pick, so fall back to a sensible default
       // instead of silently showing "no logs" for the whole widget.
       if (res.status === 400 && !params.has('container')) {
         try {
-          const podRes = await fetch(`/api/kubernetes/api/v1/namespaces/${ns}/pods/${resource}`);
+          const podRes = await k8sFetch(LOCAL_CLUSTER_ID, `/api/v1/namespaces/${ns}/pods/${resource}`);
           if (podRes.ok) {
             const podData = await podRes.json();
             const containerNames = (podData?.spec?.containers ?? []).map((c: { name?: string }) => c.name);

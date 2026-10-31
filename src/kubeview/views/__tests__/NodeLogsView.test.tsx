@@ -10,10 +10,14 @@ vi.mock('react-router-dom', async () => {
 });
 
 vi.mock('../../store/uiStore', () => ({
-  useUIStore: (selector: any) => {
-    const state = { addToast: vi.fn(), addTab: vi.fn(), selectedNamespace: '*' };
-    return selector(state);
-  },
+  useUIStore: Object.assign(
+    (selector: any) => {
+      const state = { addToast: vi.fn(), addTab: vi.fn(), selectedNamespace: '*' };
+      return selector(state);
+    },
+    // k8sFetch reads impersonation from the store.
+    { getState: () => ({ impersonateUser: '', impersonateGroups: [] }) },
+  ),
 }));
 
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));

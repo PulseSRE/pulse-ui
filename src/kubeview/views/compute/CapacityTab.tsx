@@ -14,10 +14,19 @@ import { CHART_COLORS } from '../../engine/colors';
 import { useClusterStore } from '../../store/clusterStore';
 import { useCapacityProjections, type Lookback } from './useCapacityProjections';
 import { ExhaustionCard } from './ExhaustionCard';
+import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotice';
+import { useMetricsAvailable } from '../../hooks/useClusterBase';
 
 const LOOKBACK_OPTIONS: Lookback[] = ['7d', '30d', '90d'];
 
 export function CapacityTab() {
+  // Projections come from Prometheus, which Pulse reaches for the local cluster only.
+  const metricsAvailable = useMetricsAvailable();
+  if (!metricsAvailable) return <RemoteMetricsNotice what="Capacity projections" />;
+  return <LocalCapacityTab />;
+}
+
+function LocalCapacityTab() {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [lookback, setLookback] = React.useState<Lookback>('30d');
   const { projections, isLoading, criticalCount, warningCount } = useCapacityProjections(lookback);

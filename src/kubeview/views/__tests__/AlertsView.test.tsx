@@ -27,6 +27,11 @@ vi.mock('../../store/uiStore', () => ({
     {
       getState: () => ({
         setSelectedNamespace: vi.fn(),
+        // Prometheus/Kubernetes helpers read impersonation and report auth state.
+        addDegradedReason: vi.fn(),
+        removeDegradedReason: vi.fn(),
+        impersonateUser: '',
+        impersonateGroups: [],
       }),
     },
   ),
@@ -41,8 +46,9 @@ vi.mock('../../components/metrics/Sparkline', () => ({
   Sparkline: () => <div data-testid="sparkline" />,
 }));
 
-vi.mock('../../components/metrics/prometheus', () => ({
-  queryRange: vi.fn().mockResolvedValue([]),
+vi.mock('../../components/metrics/prometheus', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+queryRange: vi.fn().mockResolvedValue([]),
   getTimeRange: vi.fn().mockReturnValue([0, 1]),
 }));
 

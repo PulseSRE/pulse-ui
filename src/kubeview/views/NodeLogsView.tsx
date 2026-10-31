@@ -1,4 +1,5 @@
-import { useClusterBase } from '../hooks/useClusterBase';
+import { useActiveClusterId } from '../hooks/useClusterBase';
+import { k8sFetch } from '../engine/query';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { ArrowLeft, Search, Download, RefreshCw, FileText, Shield, Server, Box } from 'lucide-react';
@@ -20,7 +21,7 @@ const LOG_SOURCES: Array<{ id: LogSource; label: string; icon: React.ReactNode; 
 ];
 
 export default function NodeLogsView() {
-  const BASE = useClusterBase();
+  const clusterId = useActiveClusterId();
   const { name } = useParams<{ name: string }>();
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
@@ -49,7 +50,7 @@ export default function NodeLogsView() {
 
     const fetchFiles = async () => {
       try {
-        const res = await fetch(`${BASE}/api/v1/nodes/${name}/proxy/logs/${source.path}`);
+        const res = await k8sFetch(clusterId, `/api/v1/nodes/${name}/proxy/logs/${source.path}`);
         // A 403/500 is an error, not "no log files".
         if (!res.ok) {
           setFiles([]);
@@ -74,7 +75,7 @@ export default function NodeLogsView() {
       }
     };
     fetchFiles();
-  }, [name, source.path, filesReload]);
+  }, [name, source.path, clusterId, filesReload]);
 
   // Fetch log content for selected file
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function NodeLogsView() {
 
     const fetchLog = async () => {
       try {
-        const res = await fetch(`${BASE}/api/v1/nodes/${name}/proxy/logs/${source.path}${selectedFile}`);
+        const res = await k8sFetch(clusterId, `/api/v1/nodes/${name}/proxy/logs/${source.path}${selectedFile}`);
         if (!res.ok) { setLogContent(`Error: ${res.status} ${res.statusText}`); return; }
         const text = await res.text();
         // Limit to last 500 lines for performance
@@ -96,7 +97,7 @@ export default function NodeLogsView() {
       }
     };
     fetchLog();
-  }, [name, selectedFile, source.path]);
+  }, [name, selectedFile, source.path, clusterId]);
 
   // Filter log lines by search
   const filteredLines = React.useMemo(() => {

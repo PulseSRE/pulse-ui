@@ -17,6 +17,9 @@ import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { formatRelativeTime } from '../engine/formatters';
 import { sanitizePromQL } from '../engine/query';
+import { queryRange } from '../components/metrics/prometheus';
+import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
+import { useActiveClusterId, useMetricsAvailable } from '../hooks/useClusterBase';
 import type { Pod, Deployment, StatefulSet, DaemonSet, Service } from '../engine/types';
 import type { K8sResource } from '../engine/renderers';
 import { getPodStatus } from '../engine/renderers/statusUtils';
@@ -241,6 +244,7 @@ export default function ProjectDashboard() {
 
 function NamespaceCharts({ namespace }: { namespace: string }) {
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('6h');
+  const metricsAvailable = useMetricsAvailable();
   // Each chart manages its own hover state independently
 
   const rangeSeconds = { '1h': 3600, '6h': 21600, '24h': 86400 }[timeRange];
@@ -259,6 +263,14 @@ function NamespaceCharts({ namespace }: { namespace: string }) {
   const charts = metricQueries.slice(0, 4);
 
   if (charts.length === 0) return null;
+
+  if (!metricsAvailable) {
+    return (
+      <Card>
+        <RemoteMetricsNotice what="Resource metrics" />
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -305,17 +317,11 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
   query: string; title: string; yAxisLabel: string; yAxisFormat: string; colorIndex: number;
   start: number; end: number; step: number;
 }) {
+  const clusterId = useActiveClusterId();
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['prometheus', query, start, end, step],
-    queryFn: async () => {
-      const params = new URLSearchParams({ query, start: String(start), end: String(end), step: String(step) });
-      const res = await fetch(`/api/prometheus/api/v1/query_range?${params}`);
-      // Throw, so a failed query is an error and not "No data available".
-      if (!res.ok) throw new Error(`Prometheus returned ${res.status}`);
-      const json = await res.json();
-      if (json.status !== 'success') throw new Error(json.error || 'Prometheus query failed');
-      return json.data?.result || [];
-    },
+    queryKey: ['prometheus', query, start, end, step, clusterId],
+    // Throws on a failed request, so the panel says so instead of "No data".
+    queryFn: () => queryRange(query, start, end, step, clusterId),
     refetchInterval: 60000,
   });
 
@@ -342,6 +348,7 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
       </div>
     );
   }
+
 
   return (
     <div className="h-48">

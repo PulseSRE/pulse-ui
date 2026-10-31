@@ -21,6 +21,8 @@ import type {
   KeyValueSpec,
 } from '../../../engine/agentComponents';
 import { normalizeKeyValuePairs } from '../../../engine/agentComponents';
+import { k8sFetch } from '../../../engine/query';
+import { LOCAL_CLUSTER_ID } from '../../../engine/clusterConnection';
 
 // ---------------------------------------------------------------------------
 // Column Renderer Registry — smart rendering based on column type
@@ -430,9 +432,11 @@ export function AgentStatusList({ spec }: { spec: StatusListSpec }) {
     let cancelled = false;
     const fetches = resources.map(async (r) => {
       try {
-        const apiPath = r.kind === 'Pod' ? 'v1' : r.kind === 'Deployment' ? 'apis/apps/v1' : 'v1';
+        // Agent-generated widgets describe the agent's own (local) cluster, so
+        // they read it explicitly rather than whichever cluster is active.
+        const apiPath = r.kind === 'Deployment' ? '/apis/apps/v1' : '/api/v1';
         const plural = r.kind.toLowerCase() + 's';
-        const res = await fetch(`/api/kubernetes/${apiPath}/namespaces/${r.namespace}/${plural}/${r.name}`);
+        const res = await k8sFetch(LOCAL_CLUSTER_ID, `${apiPath}/namespaces/${r.namespace}/${plural}/${r.name}`);
         if (!res.ok) return { name: `${r.kind}/${r.name}`, status: 'unknown' as const, detail: r.namespace };
         const data = await res.json();
         const phase = data.status?.phase || '';

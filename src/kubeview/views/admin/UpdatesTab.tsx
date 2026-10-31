@@ -17,6 +17,8 @@ import { Panel } from '../../components/primitives/Panel';
 import { SnapshotsTab } from './SnapshotsTab';
 import { UpgradeProgressPanel } from './UpgradeProgressPanel';
 import { showErrorToast } from '../../engine/errorToast';
+import { getActiveClusterId } from '../../engine/clusterConnection';
+import { assertActiveCluster } from '../../engine/pendingCluster';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -82,6 +84,8 @@ export function UpdatesTab({
   const [updating, setUpdating] = React.useState(false);
   const [channelEdit, setChannelEdit] = React.useState('');
   const [showChannelEdit, setShowChannelEdit] = React.useState(false);
+  // The channel being edited belongs to the cluster that was active when the edit began.
+  const [channelClusterId, setChannelClusterId] = React.useState(() => getActiveClusterId());
 
   const [confirmDialog, setConfirmDialog] = React.useState<{
     title: string; description: string; confirmLabel: string;
@@ -89,6 +93,8 @@ export function UpdatesTab({
   } | null>(null);
 
   const handleStartUpdate = (version: string, image: string | undefined) => {
+    // The update targets the cluster this page showed when it was requested.
+    const clusterId = getActiveClusterId();
     setConfirmDialog({
       title: `Start cluster update to ${version}?`,
       description: `This will rolling-restart all nodes in the cluster. The update process cannot be easily reversed. Make sure you have a recent etcd backup before proceeding.`,
@@ -98,6 +104,7 @@ export function UpdatesTab({
         setConfirmDialog(null);
         setUpdating(true);
         try {
+          assertActiveCluster(clusterId, 'The cluster update');
           // JSON merge-patch merges nested objects field-by-field rather than
           // replacing them, so a patch of just { version } here would leave
           // any existing spec.desiredUpdate.image untouched. ClusterVersion's
@@ -114,7 +121,7 @@ export function UpdatesTab({
           }
           await k8sPatch('/apis/config.openshift.io/v1/clusterversions/version', {
             spec: { desiredUpdate: { version, image } },
-          }, 'application/merge-patch+json');
+          }, 'application/merge-patch+json', clusterId);
           addToast({ type: 'success', title: 'Cluster update started', detail: `Updating to ${version}` });
           queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
         } catch (err) {
@@ -128,9 +135,10 @@ export function UpdatesTab({
   const handleChangeChannel = async () => {
     if (!channelEdit) return;
     try {
+      assertActiveCluster(channelClusterId, 'The channel change');
       await k8sPatch('/apis/config.openshift.io/v1/clusterversions/version', {
         spec: { channel: channelEdit },
-      }, 'application/merge-patch+json');
+      }, 'application/merge-patch+json', channelClusterId);
       addToast({ type: 'success', title: 'Channel updated', detail: channelEdit });
       setShowChannelEdit(false);
       queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
@@ -214,7 +222,7 @@ export function UpdatesTab({
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-mono text-slate-200">{cvChannel || '\u2014'}</span>
-                <button onClick={() => { setChannelEdit(cvChannel); setShowChannelEdit(true); }} className="text-xs text-blue-400 hover:text-blue-300">Change</button>
+                <button onClick={() => { setChannelEdit(cvChannel); setChannelClusterId(getActiveClusterId()); setShowChannelEdit(true); }} className="text-xs text-blue-400 hover:text-blue-300">Change</button>
               </div>
             )}
           </div>

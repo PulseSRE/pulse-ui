@@ -38,8 +38,9 @@ vi.mock('../engine/query', () => ({
   k8sPatch: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock('../components/metrics/prometheus', () => ({
-  queryInstant: vi.fn().mockResolvedValue([]),
+vi.mock('../components/metrics/prometheus', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+queryInstant: vi.fn().mockResolvedValue([]),
   queryRange: vi.fn().mockResolvedValue([]),
   getTimeRange: vi.fn().mockReturnValue([0, 1]),
 }));

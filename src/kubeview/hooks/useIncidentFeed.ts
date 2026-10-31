@@ -21,6 +21,8 @@ import {
   type PrometheusAlert,
 } from '../engine/types/incident';
 import type { TimelineEntry } from '../engine/types/timeline';
+import { promFetch, metricsAvailableFor } from '../components/metrics/prometheus';
+import { useActiveClusterId } from './useClusterBase';
 
 export type { IncidentItem, IncidentSeverity, IncidentSource };
 
@@ -42,6 +44,12 @@ export interface UseIncidentFeedResult {
    * state needs to suppress it when alerting is simply unreachable.
    */
   isError: boolean;
+  /**
+   * Prometheus alerts cannot be read for the active cluster at all (Pulse
+   * reaches only the local cluster's Prometheus). Like `isError`, an empty
+   * alert list then means "unknown", never "none firing".
+   */
+  alertsUnavailable: boolean;
   counts: { critical: number; warning: number; info: number; total: number };
 }
 
@@ -78,16 +86,17 @@ export function useIncidentFeed(
     timelineRange = '1h',
   } = options;
 
+  const clusterId = useActiveClusterId();
   const findings = useMonitorStore((s) => s.findings);
   const errors = useErrorStore((s) => s.errors);
 
   const { data: alertGroups = [], isLoading: alertsLoading, isError: alertsError } = useQuery<
     PrometheusAlertGroup[]
   >({
-    queryKey: ['incidentFeed', 'alerts'],
+    queryKey: ['incidentFeed', 'alerts', clusterId],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/prometheus/api/v1/rules');
+        const res = await promFetch('/api/v1/rules', clusterId);
         if (!res.ok) {
           useUIStore.getState().addDegradedReason('observability_unavailable');
           return [];
@@ -101,7 +110,9 @@ export function useIncidentFeed(
       }
     },
     refetchInterval: 60000,
-    enabled: sources.includes('prometheus-alert'),
+    // Prometheus is reachable for the local cluster only; a remote cluster's
+    // feed leaves alerts out rather than showing the local cluster's.
+    enabled: sources.includes('prometheus-alert') && metricsAvailableFor(clusterId),
   });
 
   const timelineEnabled = sources.includes('timeline-entry');
@@ -185,6 +196,7 @@ export function useIncidentFeed(
     incidents: result.incidents,
     isLoading,
     isError: alertsError,
+    alertsUnavailable: sources.includes('prometheus-alert') && !metricsAvailableFor(clusterId),
     counts: result.counts,
   };
 }

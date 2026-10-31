@@ -7,14 +7,14 @@ import { useEffect } from 'react';
 import { useArgoCDStore } from '../store/argoCDStore';
 import type { ArgoSyncInfo, ArgoApplication } from '../engine/types';
 
-/** Check if ArgoCD is available and get applications */
-export function useArgoCD() {
-  const available = useArgoCDStore((s) => s.available);
+/**
+ * Run Argo CD detection for the active cluster if it has not run yet.
+ * A cluster switch resets the store (detected=false), so this re-detects
+ * for the new cluster instead of leaving GitOps badges hidden.
+ */
+function useArgoDetection() {
   const detecting = useArgoCDStore((s) => s.detecting);
   const detected = useArgoCDStore((s) => s.detected);
-  const applications = useArgoCDStore((s) => s.applications);
-  const applicationsLoading = useArgoCDStore((s) => s.applicationsLoading);
-  const namespace = useArgoCDStore((s) => s.namespace);
   const detect = useArgoCDStore((s) => s.detect);
 
   // Trigger detection once — don't retry after detection completes
@@ -23,14 +23,29 @@ export function useArgoCD() {
       detect();
     }
   }, [detected, detecting, detect]);
+}
+
+/** Check if ArgoCD is available and get applications */
+export function useArgoCD() {
+  const available = useArgoCDStore((s) => s.available);
+  const detecting = useArgoCDStore((s) => s.detecting);
+  const applications = useArgoCDStore((s) => s.applications);
+  const applicationsLoading = useArgoCDStore((s) => s.applicationsLoading);
+  const namespace = useArgoCDStore((s) => s.namespace);
+  useArgoDetection();
 
   return { available, detecting, applications, applicationsLoading, namespace };
 }
 
-/** Lookup sync info for a specific resource */
+/**
+ * Lookup sync info for a specific resource. Detects Argo CD itself, so a
+ * Detail page shows its GitOps badge/card/history without the user having
+ * visited /gitops first, and again after a cluster switch.
+ */
 export function useArgoSyncInfo(kind: string, namespace: string | undefined, name: string): ArgoSyncInfo | undefined {
   const available = useArgoCDStore((s) => s.available);
   const lookupResource = useArgoCDStore((s) => s.lookupResource);
+  useArgoDetection();
 
   if (!available) return undefined;
   return lookupResource(kind, namespace, name);

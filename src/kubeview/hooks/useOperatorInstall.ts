@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { k8sCreate, k8sGet } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
+import { useActiveClusterId } from './useClusterBase';
+import { assertActiveCluster } from '../engine/pendingCluster';
 
 export type InstallPhase = 'idle' | 'creating' | 'pending' | 'installing' | 'succeeded' | 'failed';
 
@@ -26,18 +28,21 @@ interface UseOperatorInstallResult {
 }
 
 export function useOperatorInstall(): UseOperatorInstallResult {
+  const clusterId = useActiveClusterId();
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<InstallPhase>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [installing, setInstalling] = useState<{ name: string; ns: string } | null>(null);
+  // The install remembers the cluster it was started on; progress is polled there.
+  const [installing, setInstalling] = useState<{ name: string; ns: string; clusterId: string } | null>(null);
+  const pollClusterId = installing?.clusterId ?? clusterId;
 
   // Poll subscription status
   const { data: sub } = useQuery({
-    queryKey: ['operator-install-sub', installing?.name, installing?.ns],
+    queryKey: ['operator-install-sub', installing?.name, installing?.ns, pollClusterId],
     queryFn: () =>
       installing
         ? safeQuery(() => k8sGet<any>(
-            `/apis/operators.coreos.com/v1alpha1/namespaces/${installing.ns}/subscriptions/${installing.name}`,
+            `/apis/operators.coreos.com/v1alpha1/namespaces/${installing.ns}/subscriptions/${installing.name}`, pollClusterId,
           ))
         : null,
     enabled: !!installing && phase !== 'idle' && phase !== 'succeeded' && phase !== 'failed',
@@ -47,11 +52,11 @@ export function useOperatorInstall(): UseOperatorInstallResult {
   // Poll CSV status
   const csvName = sub?.status?.installedCSV || null;
   const { data: csv } = useQuery({
-    queryKey: ['operator-install-csv', csvName, installing?.ns],
+    queryKey: ['operator-install-csv', csvName, installing?.ns, pollClusterId],
     queryFn: () =>
       csvName && installing
         ? safeQuery(() => k8sGet<any>(
-            `/apis/operators.coreos.com/v1alpha1/namespaces/${installing.ns}/clusterserviceversions/${csvName}`,
+            `/apis/operators.coreos.com/v1alpha1/namespaces/${installing.ns}/clusterserviceversions/${csvName}`, pollClusterId,
           ))
         : null,
     enabled: !!csvName && !!installing,
@@ -96,6 +101,7 @@ export function useOperatorInstall(): UseOperatorInstallResult {
       setError(null);
 
       try {
+        assertActiveCluster(clusterId, 'Installing this operator');
         const ns = opts.targetNamespace;
 
         // Create namespace (best effort)
@@ -105,7 +111,7 @@ export function useOperatorInstall(): UseOperatorInstallResult {
               apiVersion: 'v1',
               kind: 'Namespace',
               metadata: { name: ns },
-            });
+            }, clusterId);
           } catch {
             // May already exist
           }
@@ -122,6 +128,7 @@ export function useOperatorInstall(): UseOperatorInstallResult {
                 metadata: { name: `${opts.packageName}-group`, namespace: ns },
                 spec: { targetNamespaces: [ns] },
               },
+              clusterId,
             );
           } catch {
             // May already exist
@@ -143,16 +150,17 @@ export function useOperatorInstall(): UseOperatorInstallResult {
               installPlanApproval: 'Automatic',
             },
           },
+          clusterId,
         );
 
-        setInstalling({ name: opts.packageName, ns });
+        setInstalling({ name: opts.packageName, ns, clusterId });
         setPhase('pending');
       } catch (e) {
         setPhase('failed');
         setError(e instanceof Error ? e.message : 'Install failed');
       }
     },
-    [],
+    [clusterId],
   );
 
   const reset = useCallback(() => {

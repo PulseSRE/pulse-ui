@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { k8sList } from '../engine/query';
+import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 
 /**
  * The OpenShiftPulse CR, shared between the About page and the update
@@ -44,10 +45,11 @@ export function imageTag(image?: string): string {
 }
 
 export function usePulseCR(): PulseCR | null | undefined {
+  // Pulse's own CR is on the cluster Pulse runs on, whichever cluster is active.
   const { data } = useQuery({
-    queryKey: ['about', 'openshiftpulse-cr'],
+    queryKey: ['about', 'openshiftpulse-cr', LOCAL_CLUSTER_ID],
     queryFn: async () => {
-      const items = await k8sList<PulseCR>('/apis/pulse.ai/v1alpha1/openshiftpulses');
+      const items = await k8sList<PulseCR>('/apis/pulse.ai/v1alpha1/openshiftpulses', undefined, LOCAL_CLUSTER_ID);
       return items[0] ?? null;
     },
     refetchInterval: (query) => (query.state.data?.status?.phase === 'Upgrading' ? 5_000 : 60_000),

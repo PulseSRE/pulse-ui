@@ -1,4 +1,5 @@
 import { useClusterBase } from '../../hooks/useClusterBase';
+import { getClusterBase } from '../../engine/clusterConnection';
 import React, { useState, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
@@ -14,6 +15,8 @@ export interface DryRunPanelProps {
   apiPath: string;
   method: 'POST' | 'PUT';
   onClose: () => void;
+  /** Validate against this cluster (the one the YAML was loaded from); defaults to the active one. */
+  clusterId?: string;
   /** Which document this is, when several are validated together. */
   title?: string;
 }
@@ -61,8 +64,9 @@ function computeYamlDiffs(inputYaml: string, serverYaml: string): DiffEntry[] {
   return diffs;
 }
 
-export function DryRunPanel({ yaml, apiPath, method, onClose, title }: DryRunPanelProps) {
-  const BASE = useClusterBase();
+export function DryRunPanel({ yaml, apiPath, method, onClose, title, clusterId }: DryRunPanelProps) {
+  const activeBase = useClusterBase();
+  const BASE = clusterId ? getClusterBase(clusterId) : activeBase;
   const [result, setResult] = useState<DryRunResult>({
     status: 'idle',
     serverYaml: null,

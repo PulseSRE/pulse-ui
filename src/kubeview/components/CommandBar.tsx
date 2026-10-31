@@ -1,4 +1,3 @@
-import { useClusterBase } from '../hooks/useClusterBase';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check, Loader2, RefreshCw } from 'lucide-react';
@@ -14,7 +13,6 @@ import { performLogout } from '../engine/auth';
 import { usePulseUpgrade } from '../hooks/usePulseStatus';
 
 export function CommandBar() {
-  const clusterBase = useClusterBase();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showNsDropdown, setShowNsDropdown] = useState(false);
@@ -69,12 +67,12 @@ export function CommandBar() {
     queryFn: async () => {
       // Role from what the API server says this user may do ('*' on '*'),
       // not from group names: kube:admin has no groups and is cluster-admin.
+      // k8sFetch adds impersonation headers, so the role is the impersonated
+      // user's. Each call is deferred so a synchronous throw lands in
+      // allSettled instead of leaving the others as unhandled rejections.
       const [infraRes, userRes, ssarRes] = await Promise.allSettled([
-        fetch(`${clusterBase}/apis/config.openshift.io/v1/infrastructures/cluster`),
-        fetch(`${clusterBase}/apis/user.openshift.io/v1/users/~`),
-        // k8sFetch adds impersonation headers, so the role is the impersonated user's.
-        // Deferred so a synchronous throw lands in allSettled instead of
-        // leaving the two requests above as unhandled rejections.
+        Promise.resolve().then(() => k8sFetch(activeClusterId, '/apis/config.openshift.io/v1/infrastructures/cluster')),
+        Promise.resolve().then(() => k8sFetch(activeClusterId, '/apis/user.openshift.io/v1/users/~')),
         Promise.resolve().then(() => k8sFetch(activeClusterId, '/apis/authorization.k8s.io/v1/selfsubjectaccessreviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -125,9 +123,9 @@ export function CommandBar() {
 
   // Fetch namespaces
   const { data: namespaces = [], isLoading: namespacesLoading, error: namespacesError } = useQuery({
-    queryKey: ['toolbar', 'namespaces'],
+    queryKey: ['toolbar', 'namespaces', activeClusterId],
     queryFn: async () => {
-      const res = await fetch(`${clusterBase}/api/v1/namespaces`);
+      const res = await k8sFetch(activeClusterId, '/api/v1/namespaces');
       if (!res.ok) throw new Error(`Failed to fetch namespaces: ${res.status}`);
       const data = await res.json();
       return (data.items || []).map((i: any) => i.metadata.name).sort() as string[];
@@ -500,7 +498,7 @@ export function CommandBar() {
                     // Use the API server URL from cluster info, fallback to current origin
                     let server = window.location.origin;
                     try {
-                      const infraRes = await fetch(`${clusterBase}/apis/config.openshift.io/v1/infrastructures/cluster`);
+                      const infraRes = await k8sFetch(activeClusterId, '/apis/config.openshift.io/v1/infrastructures/cluster');
                       if (infraRes.ok) {
                         const infraData = await infraRes.json();
                         server = infraData.status?.apiServerURL || server;
