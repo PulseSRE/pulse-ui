@@ -4,15 +4,15 @@ import type { Event } from '../../engine/types';
 import { PodSummary } from './PodSummary';
 import { IncidentContext } from './IncidentContext';
 import { LabelsSection, AnnotationsSection, DetailSection } from './MetadataSections';
+import type { MetadataTarget } from './MetadataSections';
 import type { RelatedResource } from './types';
 
 interface PodDetailLayoutProps {
   resource: K8sResource;
   namespace: string;
   events: Event[];
-  actionLoading: string | null;
   relatedResources: RelatedResource[];
-  onAddLabel: () => void;
+  metaTarget: MetadataTarget;
   go: (path: string, title: string) => void;
 }
 
@@ -20,9 +20,8 @@ export function PodDetailLayout({
   resource,
   namespace,
   events,
-  actionLoading,
   relatedResources,
-  onAddLabel,
+  metaTarget,
   go,
 }: PodDetailLayoutProps) {
   return (
@@ -34,8 +33,8 @@ export function PodDetailLayout({
           <IncidentContext resource={resource} managedPods={[]} events={events} namespace={namespace} go={go} />
         </div>
         <div className="space-y-6">
-          <LabelsSection resource={resource} onAddLabel={onAddLabel} actionLoading={actionLoading} />
-          <AnnotationsSection resource={resource} />
+          <LabelsSection resource={resource} target={metaTarget} />
+          <AnnotationsSection resource={resource} target={metaTarget} />
           {/* Owner */}
           {relatedResources.length > 0 && (
             <DetailSection title="Owner">
