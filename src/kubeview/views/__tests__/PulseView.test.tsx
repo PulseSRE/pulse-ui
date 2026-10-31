@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -306,5 +306,20 @@ describe('the trust badge reports the agent, not the tab', () => {
     capabilitiesMock.mockResolvedValue({ max_trust_level: 0, effective_trust_level: 0 });
     renderPulse();
     expect(await screen.findByText(/Trust 0/)).toBeDefined();
+  });
+});
+
+describe('the live-updates toggle', () => {
+  afterEach(cleanup);
+
+  it('says it pauses this browser\'s stream, and only that', async () => {
+    const { useMonitorStore } = await import('../../store/monitorStore');
+    const setMonitorEnabled = vi.fn();
+    useMonitorStore.setState({ monitorEnabled: true, setMonitorEnabled } as never);
+    renderPulse();
+    const btn = screen.getByRole('button', { name: 'Live updates: on' });
+    expect(screen.queryByText(/Monitoring On/)).toBeNull();
+    fireEvent.click(btn);
+    expect(setMonitorEnabled).toHaveBeenCalledWith(false);
   });
 });
