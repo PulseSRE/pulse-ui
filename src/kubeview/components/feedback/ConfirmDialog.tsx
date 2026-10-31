@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Dialog } from '../primitives/Dialog';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -9,11 +10,18 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel?: string;
+  /** Label for the dismiss button. Default "Cancel". */
+  cancelLabel?: string;
   variant?: 'danger' | 'warning';
   loading?: boolean;
   children?: React.ReactNode;
 }
 
+/**
+ * A yes/no confirmation built on the Dialog primitive. Danger dialogs focus
+ * Cancel so Enter cannot delete by accident; while `loading`, it cannot be
+ * dismissed.
+ */
 export function ConfirmDialog({
   open,
   onClose,
@@ -21,141 +29,56 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = 'Delete',
+  cancelLabel = 'Cancel',
   variant = 'danger',
   loading = false,
   children,
 }: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-
-    // Focus Cancel for danger dialogs to prevent accidental deletion via Enter key
-    if (variant === 'danger') {
-      cancelButtonRef.current?.focus();
-    } else {
-      confirmButtonRef.current?.focus();
-    }
-
-    // Handle escape key
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !loading) {
-        onClose();
-      }
-    };
-
-    // Trap focus within dialog
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
-      const focusableElements = dialogRef.current?.querySelectorAll(
-        'button:not([disabled])'
-      );
-      if (!focusableElements || focusableElements.length === 0) return;
-
-      const firstElement = focusableElements[0] as HTMLElement;
-      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
-      if (e.shiftKey) {
-        if (document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    document.addEventListener('keydown', handleTab);
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.removeEventListener('keydown', handleTab);
-    };
-  }, [open, onClose, loading]);
-
-  if (!open) return null;
-
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && !loading) {
-      onClose();
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={handleBackdropClick}
-    >
-      <div
-        ref={dialogRef}
-        className="w-full max-w-md rounded-lg bg-slate-800 p-6 shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="dialog-title"
-        aria-describedby="dialog-description"
-      >
-        {/* Icon and title */}
-        <div className="mb-4 flex items-start gap-3">
-          <div
-            className={cn(
-              'shrink-0 rounded-full p-2',
-              variant === 'danger' ? 'bg-red-500/10' : 'bg-amber-500/10'
-            )}
-          >
-            <AlertTriangle
-              className={cn(
-                'h-6 w-6',
-                variant === 'danger' ? 'text-red-500' : 'text-amber-500'
-              )}
-            />
-          </div>
-          <div className="flex-1">
-            <h2 id="dialog-title" className="text-lg font-semibold text-slate-100">
-              {title}
-            </h2>
-          </div>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      description={description}
+      dismissible={!loading}
+      showClose={false}
+      initialFocusRef={variant === 'danger' ? cancelButtonRef : confirmButtonRef}
+      icon={
+        <div className={cn('shrink-0 rounded-full p-2', variant === 'danger' ? 'bg-red-500/10' : 'bg-amber-500/10')}>
+          <AlertTriangle className={cn('h-6 w-6', variant === 'danger' ? 'text-red-500' : 'text-amber-500')} />
         </div>
-
-        {/* Description */}
-        <p id="dialog-description" className="text-sm text-slate-300">
-          {description}
-        </p>
-        {children}
-
-        {/* Actions */}
-        <div className="mb-6" />
-        <div className="flex justify-end gap-3">
+      }
+      footer={
+        <>
           <button
             ref={cancelButtonRef}
+            type="button"
             onClick={onClose}
             disabled={loading}
             className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Cancel
+            {cancelLabel}
           </button>
           <button
             ref={confirmButtonRef}
+            type="button"
             onClick={onConfirm}
             disabled={loading}
             className={cn(
               'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-              variant === 'danger'
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-amber-500 hover:bg-amber-600'
+              variant === 'danger' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600',
             )}
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {confirmLabel}
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {children}
+    </Dialog>
   );
 }

@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { DrawerShell } from '../../components/primitives/DrawerShell';
 import {
-  X, Radar, Target, Search, Wrench, CheckCircle, FileText,
+  Radar, Target, Search, Wrench, CheckCircle, FileText,
   Sparkles, Loader2, XCircle, Minus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,38 +34,12 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
   const activeClusterId = useFleetStore(s => s.activeClusterId);
   const localName = useFleetStore(s => s.clusters.find(c => c.id === 'local')?.name);
   const outcome = incidentOutcome(lifecycle.action, lifecycle.verification);
-  const drawerRef = useRef<HTMLDivElement>(null);
 
   const { data: confidenceStats } = useQuery({
     queryKey: ['confidence-calibration'],
     queryFn: () => fetchConfidenceCalibration(30),
     staleTime: 5 * 60_000,
   });
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const drawer = drawerRef.current;
-    drawer?.focus();
-    const trapFocus = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab' || !drawer) return;
-      const items = Array.from(drawer.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], summary, [tabindex="0"]'));
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (!first) { event.preventDefault(); drawer.focus(); }
-      else if (event.shiftKey && (document.activeElement === first || document.activeElement === drawer)) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === drawer)) { event.preventDefault(); first.focus(); }
-    };
-    drawer?.addEventListener('keydown', trapFocus);
-    return () => { drawer?.removeEventListener('keydown', trapFocus); if (previousFocus?.isConnected) previousFocus.focus(); };
-  }, []);
 
   const detectionStatus: StageStatus = lifecycle.detection ? 'complete' : 'pending';
   const impactStatus: StageStatus = lifecycle.isLoading ? 'in-progress' : lifecycle.impact ? 'complete' : 'pending';
@@ -81,21 +55,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
     : 'pending';
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Incident Lifecycle" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div
-        ref={drawerRef}
-        tabIndex={-1}
-        className="relative w-full max-w-[480px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-200">Incident Lifecycle</h2>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200 transition-colors" aria-label="Close">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <DrawerShell title="Incident Lifecycle" onClose={onClose} width="max-w-[480px]" bodyClassName="">
 
         <section aria-label="Incident context and outcome" className="px-6 py-4 space-y-3 border-b border-slate-800">
           <h3 className="text-sm font-medium text-slate-100">{lifecycle.detection?.title ?? 'Incident details unavailable'}</h3>
@@ -447,8 +407,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
             )}
           </Stage>
         </div>
-      </div>
-    </div>
+    </DrawerShell>
   );
 }
 

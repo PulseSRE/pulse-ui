@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { VersionsPanel } from './VersionsPanel';
 import type { VersionEntry } from './VersionsPanel';
 import { DiffPanel } from './DiffPanel';
@@ -216,32 +217,14 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
   const availableFiles = SKILL_FILES.filter((f) => detail?.[f.key]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end"
-      onClick={onClose}
-      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Skill detail: ${name}`}
-    >
-      <div className="absolute inset-0 bg-black/50" />
-      <div
-        className="relative w-full max-w-3xl bg-slate-950 border-l border-slate-800 h-full overflow-auto shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 px-5 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <Puzzle className="w-5 h-5 text-violet-400" />
-              <div>
-                <h2 className="text-base font-semibold text-slate-100">{name}</h2>
-                {detail && (
-                  <p className="text-xs text-slate-500">v{detail.version} &middot; {detail.description}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
+    <DrawerShell
+      title={name}
+      onClose={onClose}
+      width="max-w-3xl"
+      bodyClassName=""
+      icon={<Puzzle className="w-5 h-5 text-violet-400" />}
+      subtitle={detail ? <>v{detail.version} &middot; {detail.description}</> : undefined}
+      actions={<>
               {dirty && (
                 <button
                   onClick={handleSave}
@@ -305,12 +288,8 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                   <Trash2 className="w-3.5 h-3.5" /> Delete
                 </button>
               )}
-              <button onClick={onClose} className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-slate-200">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
+      </>}
+      subheader={<>
           {/* Usage stats + sparkline */}
           {usageStats && usageStats.runs > 0 && (
             <div className="flex items-center gap-4 mb-3 px-1">
@@ -352,7 +331,8 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
               </button>
             ))}
           </div>
-        </div>
+      </>}
+    >
 
         {/* Clone input */}
         {showCloneInput && (
@@ -593,7 +573,6 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
         ) : (
           <div className="flex justify-center py-12 text-sm text-slate-500">Skill not found</div>
         )}
-      </div>
-    </div>
+    </DrawerShell>
   );
 }

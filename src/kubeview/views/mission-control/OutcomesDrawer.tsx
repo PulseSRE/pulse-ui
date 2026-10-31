@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { DrawerShell } from '../../components/primitives/DrawerShell';
 import {
-  X, CheckCircle, XCircle, ArrowUp, Clock, RotateCcw,
+  CheckCircle, XCircle, ArrowUp, Clock, RotateCcw,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
@@ -20,7 +21,6 @@ const FILTERS: { id: OutcomeFilter; label: string; color: string }[] = [
 ];
 
 export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
-  const drawerRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<OutcomeFilter>('all');
   const [lifecycleFindingId, setLifecycleFindingId] = useState<string | null>(null);
 
@@ -41,14 +41,6 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
   const filtered = filter === 'all'
     ? resolutions
     : resolutions.filter((r) => r.outcome === filter);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  useEffect(() => { drawerRef.current?.focus(); }, []);
 
   const outcomeIcon = (outcome: string) => {
     switch (outcome) {
@@ -76,23 +68,12 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Outcomes" onClick={onClose}>
-        <div className="absolute inset-0 bg-black/50" />
-        <div
-          ref={drawerRef}
-          tabIndex={-1}
-          className="relative w-[520px] h-full bg-slate-950 border-l border-slate-800 overflow-y-auto focus:outline-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 px-6 py-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-200">Fix Outcomes</h2>
-              <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-200 transition-colors" aria-label="Close">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      <DrawerShell
+        title="Fix Outcomes"
+        onClose={onClose}
+        width="max-w-[520px]"
+        bodyClassName=""
+        subheader={<>
             {/* Summary stats */}
             {summary && (
               <div className="grid grid-cols-4 gap-3 mb-3">
@@ -151,8 +132,8 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                 </button>
               ))}
             </div>
-          </div>
-
+        </>}
+      >
           {/* Resolution list */}
           <div className="px-6 py-4 space-y-2">
             {filtered.length === 0 ? (
@@ -227,8 +208,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           )}
-        </div>
-      </div>
+      </DrawerShell>
 
       {lifecycleFindingId && (
         <IncidentLifecycleDrawer

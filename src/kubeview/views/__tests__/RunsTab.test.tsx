@@ -77,7 +77,6 @@ describe('RunsTab', () => {
   });
 
   it('warns that cancelling a fix rolls it back before sending anything', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const posts: string[] = [];
     respondWith([runningFix], (url) => posts.push(url));
     renderWithProviders(<RunsTab />);
@@ -85,25 +84,40 @@ describe('RunsTab', () => {
     await waitFor(() => expect(screen.getByText('Cancel')).toBeTruthy());
     fireEvent.click(screen.getByText('Cancel'));
 
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(confirmSpy.mock.calls[0][0]).toContain('rolls it back');
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('rolls it back');
+    expect(dialog.textContent).toContain('restart_controller on web-1 in payments');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep running' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(posts).toHaveLength(0);
-    confirmSpy.mockRestore();
   });
 
   it('sends the cancel once confirmed', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const posts: string[] = [];
     respondWith([runningFix], (url) => posts.push(url));
     renderWithProviders(<RunsTab />);
 
     await waitFor(() => expect(screen.getByText('Cancel')).toBeTruthy());
     fireEvent.click(screen.getByText('Cancel'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel run' }));
 
     await waitFor(() => {
       expect(posts.some((u) => u.includes('/workflow-runs/incident-f-123/cancel'))).toBe(true);
     });
-    confirmSpy.mockRestore();
+  });
+
+  it('shows why a confirmed cancel failed', async () => {
+    respondWith([runningFix]);
+    renderWithProviders(<RunsTab />);
+    await waitFor(() => expect(screen.getByText('Cancel')).toBeTruthy());
+    const base = mockFetch.getMockImplementation()!;
+    mockFetch.mockImplementation((url: string, init?: RequestInit) =>
+      init?.method === 'POST'
+        ? Promise.resolve({ ok: false, status: 403, json: () => Promise.resolve({ detail: 'forbidden: not an admin' }) })
+        : base(url, init));
+    fireEvent.click(screen.getByText('Cancel'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel run' }));
+    expect(await screen.findByText('forbidden: not an admin')).toBeTruthy();
   });
 
   it('offers no cancel for a run that has already finished', async () => {

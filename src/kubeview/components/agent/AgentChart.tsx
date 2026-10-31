@@ -6,7 +6,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
-import { Plus, ChevronDown, Radio, Pause, Loader2, Settings, X, CheckCircle2, Minus } from 'lucide-react';
+import { Dialog } from '../primitives/Dialog';
+import { Plus, ChevronDown, Radio, Pause, Loader2, Settings, CheckCircle2, Minus } from 'lucide-react';
 import { useChartLiveData } from '../../hooks/useChartLiveData';
 import {
   LineChart, BarChart, AreaChart, PieChart, ScatterChart, RadarChart, Treemap,
@@ -521,29 +522,33 @@ function ChartEditorModal({
   const update = <K extends keyof ChartEditorEdits>(key: K, value: ChartEditorEdits[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
   const labelClass = 'text-[11px] text-slate-400 font-medium';
   const inputClass = 'w-full px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 outline-hidden focus:border-violet-500';
   const sectionClass = 'space-y-2';
 
   return createPortal(
-    <div className="fixed inset-0 z-100 flex items-center justify-center" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div
-        className="relative bg-slate-950 border border-slate-700 rounded-lg shadow-2xl w-full max-w-lg max-h-[80vh] overflow-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-100">Edit Chart</h3>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
-        </div>
-
+    <Dialog
+      open
+      onClose={onClose}
+      title="Edit Chart"
+      size="lg"
+      overlayClassName="z-100"
+      className="bg-slate-950 max-h-[80vh]"
+      bodyClassName="px-0 pb-0 border-t border-slate-800"
+      footer={
+        <>
+          <button onClick={onClose} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 rounded-sm transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onApply(draft)}
+            className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors font-medium"
+          >
+            Apply
+          </button>
+        </>
+      }
+    >
         <div className="p-4 space-y-4">
           {/* Data */}
           <div className={sectionClass}>
@@ -683,20 +688,7 @@ function ChartEditorModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="sticky bottom-0 bg-slate-950 border-t border-slate-800 px-4 py-3 flex items-center justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 rounded-sm transition-colors">
-            Cancel
-          </button>
-          <button
-            onClick={() => onApply(draft)}
-            className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors font-medium"
-          >
-            Apply
-          </button>
-        </div>
-      </div>
-    </div>,
+    </Dialog>,
     document.body,
   );
 }

@@ -399,13 +399,6 @@ const STATUS_ICONS = {
 };
 
 
-const STATUS_LIST_BG: Record<string, string> = {
-  healthy: 'bg-emerald-500/15',
-  warning: 'bg-amber-500/15',
-  error: 'bg-red-500/15',
-  pending: 'bg-blue-500/15',
-  unknown: 'bg-slate-500/15',
-};
 
 export function AgentStatusList({ spec }: { spec: StatusListSpec }) {
   const navigate = useNavigate();
@@ -492,7 +485,7 @@ export function AgentStatusList({ spec }: { spec: StatusListSpec }) {
               )}
               onClick={() => clickTarget && navigate(clickTarget)}
             >
-              <div className={cn('flex items-center justify-center w-5 h-5 rounded-full shrink-0', STATUS_LIST_BG[item.status] || 'bg-slate-800')}>
+              <div className={cn('flex items-center justify-center w-5 h-5 rounded-full shrink-0', statusClasses(item.status).bg)}>
                 <Icon className={cn('h-3 w-3', statusClasses(item.status).text)} />
               </div>
               <span className={cn('text-sm font-medium', clickTarget ? 'text-blue-400 group-hover:text-blue-300' : 'text-slate-200')}>{item.name || item.detail}</span>

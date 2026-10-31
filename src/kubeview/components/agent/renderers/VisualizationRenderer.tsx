@@ -320,7 +320,7 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
 // Timeline
 // ---------------------------------------------------------------------------
 
-const SEVERITY_COLORS: Record<string, string> = {
+const SEVERITY_HEX: Record<string, string> = {
   critical: TONE_CLASSES.danger.hex,
   warning: TONE_CLASSES.warning.hex,
   info: TONE_CLASSES.info.hex,
@@ -479,7 +479,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
                 <line x1={LABEL_WIDTH + 10} y1={laneY} x2={svgWidth - 10} y2={laneY} stroke="#1e293b" strokeWidth="1" />
 
                 {/* Lane label with colored dot and event count */}
-                <circle cx={8} cy={laneY} r={3} fill={grouping === 'severity' ? (SEVERITY_COLORS[lane.label.toLowerCase()] || CATEGORY_COLORS[lane.category]) : CATEGORY_COLORS[lane.category]} />
+                <circle cx={8} cy={laneY} r={3} fill={grouping === 'severity' ? (SEVERITY_HEX[lane.label.toLowerCase()] || CATEGORY_COLORS[lane.category]) : CATEGORY_COLORS[lane.category]} />
                 <text x={16} y={laneY - 1} fontSize="10" fill="#cbd5e1" dominantBaseline="middle" className="select-none" fontWeight="500">
                   {lane.label.length > 18 ? lane.label.slice(0, 18) + '...' : lane.label}
                 </text>
@@ -493,7 +493,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
                   const isDuration = evt.endTimestamp !== undefined;
                   const endX = isDuration ? timeToX(evt.endTimestamp!) : x;
                   const width = isDuration ? endX - x : 0;
-                  const color = SEVERITY_COLORS[evt.severity];
+                  const color = SEVERITY_HEX[evt.severity];
                   const isCritical = evt.severity === 'critical';
                   // Jitter overlapping events slightly
                   const jitter = (evtIdx % 3 - 1) * 3;
@@ -557,8 +557,8 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
             style={{ left: hoveredEvent.x, top: hoveredEvent.y - 12, transform: 'translate(-50%, -100%)' }}
           >
             <div className="flex items-center gap-1.5 mb-1">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_COLORS[hoveredEvent.event.severity] }} />
-              <span className="text-[10px] font-medium uppercase" style={{ color: SEVERITY_COLORS[hoveredEvent.event.severity] }}>{hoveredEvent.event.severity}</span>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: SEVERITY_HEX[hoveredEvent.event.severity] }} />
+              <span className="text-[10px] font-medium uppercase" style={{ color: SEVERITY_HEX[hoveredEvent.event.severity] }}>{hoveredEvent.event.severity}</span>
               <span className="text-[10px] text-slate-600">|</span>
               <span className="text-[10px] text-slate-400">{hoveredEvent.lane}</span>
             </div>
@@ -578,7 +578,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
       <div className="px-3 pb-2 flex items-center gap-4 text-[10px]">
         <div className="flex items-center gap-3">
           <span className="text-slate-500 uppercase tracking-wider">Severity:</span>
-          {Object.entries(SEVERITY_COLORS).map(([severity, color]) => (
+          {Object.entries(SEVERITY_HEX).map(([severity, color]) => (
             <div key={severity} className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
               <span className="text-slate-400 capitalize">{severity}</span>

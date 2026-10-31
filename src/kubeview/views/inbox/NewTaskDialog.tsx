@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Dialog } from '../../components/primitives/Dialog';
 import { Button } from '../../components/primitives/Button';
 import { Input } from '../../components/primitives/Input';
 import { useInboxStore } from '../../store/inboxStore';
@@ -16,8 +16,7 @@ export function NewTaskDialog({
   const [namespace, setNamespace] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const createTask = useInboxStore((s) => s.createTask);
-
-  if (!open) return null;
+  const titleRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,15 +41,15 @@ export function NewTaskDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-200">New Task</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="New Task"
+      initialFocusRef={titleRef}
+      dismissible={!submitting}
+      className="bg-slate-900 rounded-xl shadow-2xl"
+      bodyClassName="pb-6"
+    >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="task-title" className="block text-sm text-slate-400 mb-1">Title *</label>
@@ -59,7 +58,7 @@ export function NewTaskDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Rotate TLS certs for ingress"
-              autoFocus
+              ref={titleRef}
             />
           </div>
 
@@ -92,7 +91,6 @@ export function NewTaskDialog({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

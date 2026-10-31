@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
 import { describeAwaiting, fetchAwaitingApprovals, type AwaitingRun } from '../../engine/durableRunsApi';
 import { ApprovalButtons } from '../inbox/DurableRunControls';
+import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 
 interface RunMemo {
   kind?: string;
@@ -69,14 +70,19 @@ export function RunsTab() {
     queryFn: fetchAwaitingApprovals,
   });
 
-  const cancel = async (run: WorkflowRun) => {
+  // The run awaiting a yes/no before it is cancelled.
+  const [pendingCancel, setPendingCancel] = useState<WorkflowRun | null>(null);
+  const cancelPrompt = (run: WorkflowRun) => {
     const target = describe(run);
-    const undoes = run.memo?.kind === 'incident';
-    const message = undoes
-      ? `Cancel the fix for ${target}?\n\nIf the change has already been applied, cancelling rolls it back from the snapshot and records a "cancelled" verdict.`
-      : `Cancel ${target}?`;
-    if (!window.confirm(message)) return;
+    return run.memo?.kind === 'incident'
+      ? {
+          title: `Cancel the fix for ${target}?`,
+          description: 'If the change has already been applied, cancelling rolls it back from the snapshot and records a "cancelled" verdict.',
+        }
+      : { title: `Cancel ${target}?`, description: 'The run stops; work it has not started will not happen.' };
+  };
 
+  const cancel = async (run: WorkflowRun) => {
     setBusy(run.workflow_id);
     setError('');
     try {
@@ -195,7 +201,7 @@ export function RunsTab() {
               </span>
               {run.status === 'RUNNING' && (
                 <button
-                  onClick={() => cancel(run)}
+                  onClick={() => setPendingCancel(run)}
                   disabled={busy === run.workflow_id}
                   className="px-2 py-0.5 text-[10px] bg-red-600/20 hover:bg-red-600/40 disabled:opacity-40 text-red-300 rounded-sm border border-red-800/30 flex items-center gap-1 shrink-0 transition-colors"
                 >
@@ -208,6 +214,22 @@ export function RunsTab() {
             </div>
           ))}
         </div>
+      )}
+
+      {pendingCancel && (
+        <ConfirmDialog
+          open
+          onClose={() => setPendingCancel(null)}
+          onConfirm={() => {
+            const run = pendingCancel;
+            setPendingCancel(null);
+            void cancel(run);
+          }}
+          {...cancelPrompt(pendingCancel)}
+          confirmLabel="Cancel run"
+          cancelLabel="Keep running"
+          variant="warning"
+        />
       )}
     </div>
   );

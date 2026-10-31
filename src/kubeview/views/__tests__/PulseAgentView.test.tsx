@@ -46,11 +46,11 @@ function createQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 }
 
-async function renderView() {
+async function renderView(path = '/agent') {
   const PulseAgentView = (await import('../PulseAgentView')).default;
   return render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/agent']}>
+      <MemoryRouter initialEntries={[path]}>
         <PulseAgentView />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -76,6 +76,18 @@ describe('PulseAgentView', () => {
     expect(screen.getByText('Plans')).toBeDefined();
     expect(screen.getByText('MCP')).toBeDefined();
     expect(screen.getByText('Analytics')).toBeDefined();
+  });
+
+  it('groups tabs into Operate, Configure and Insights', async () => {
+    await renderView();
+    for (const g of ['Operate', 'Configure', 'Insights']) expect(screen.getByText(g)).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('opens the tab named in ?tab=', async () => {
+    await renderView('/agent?tab=components');
+    expect(screen.getByRole('tab', { name: 'Components' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('false');
   });
 
   it('defaults to overview tab with status sentence', async () => {

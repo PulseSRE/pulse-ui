@@ -3,7 +3,8 @@
  * "I want GitOps" to "my first app is syncing" in 4 steps.
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
+import { useModalFocus } from '../../components/primitives/Dialog';
 import { X, CheckCircle2, ArrowRight, Circle } from 'lucide-react';
 import { useGitOpsSetupStore, type WizardStep } from '../../store/gitopsSetupStore';
 import { OperatorInstallStep } from './steps/OperatorInstallStep';
@@ -26,15 +27,9 @@ const STEPS: { id: WizardStep; label: string; description: string }[] = [
 export function GitOpsSetupWizard() {
   const { wizardOpen, currentStep, completedSteps, closeWizard, setStep } = useGitOpsSetupStore();
 
-  // Escape to close
-  useEffect(() => {
-    if (!wizardOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeWizard();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [wizardOpen, closeWizard]);
+  // Escape closes, focus stays inside while open and returns afterwards.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocus(wizardOpen, panelRef, { onEscape: closeWizard });
 
   const goToStep = useCallback(
     (step: WizardStep) => {
@@ -54,12 +49,18 @@ export function GitOpsSetupWizard() {
   if (!wizardOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex" role="dialog" aria-label="GitOps Setup Wizard">
+    <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60" onClick={closeWizard} />
 
       {/* Modal */}
-      <div className="relative m-auto flex w-full max-w-4xl h-[80vh] bg-slate-900 rounded-xl border border-slate-700 shadow-2xl overflow-hidden">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="GitOps Setup Wizard"
+        className="relative m-auto flex w-full max-w-4xl h-[80vh] bg-slate-900 rounded-xl border border-slate-700 shadow-2xl overflow-hidden"
+      >
         {/* Left sidebar — step list */}
         <div className="w-64 border-r border-slate-700 p-6 flex flex-col">
           <h2 className="text-lg font-semibold text-slate-100 mb-6">Set Up GitOps</h2>
