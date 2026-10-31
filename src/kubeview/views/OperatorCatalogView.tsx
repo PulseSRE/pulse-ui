@@ -331,7 +331,7 @@ export default function OperatorCatalogView() {
 
     if (name.includes('cluster-logging')) return [
       { title: 'Create a ClusterLogForwarder', description: 'Configure what logs to collect and where to send them', path: '/create/observability.openshift.io~v1~clusterlogforwarders', label: 'Create ClusterLogForwarder' },
-      { title: 'Install Loki for log storage', description: 'CLO needs a log store — Loki is the recommended option', path: '/create/v1~pods?tab=operators&q=loki', label: 'Install Loki' },
+      { title: 'Install Loki for log storage', description: 'CLO needs a log store — Loki is the recommended option', path: '/operators?q=loki', label: 'Install Loki' },
     ];
     if (name.includes('loki')) return [
       { title: 'Create a LokiStack', description: 'Configure log storage with S3/Azure/GCS backend and storage class', path: '/create/loki.grafana.com~v1~lokistacks', label: 'Create LokiStack' },

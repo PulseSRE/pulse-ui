@@ -676,6 +676,10 @@ spec:
         if (isNode) go(`/r/v1~nodes/_/${name}`, name);
         else if (check.id === 'machine-health-checks') go('/create/machine.openshift.io~v1beta1~machinehealthchecks', 'Create MachineHealthCheck');
         else if (check.id === 'cluster-autoscaling') go('/create/autoscaling.openshift.io~v1~clusterautoscalers', 'Create ClusterAutoscaler');
+        else if (check.id === 'nodepool-health') {
+          const ns = item.metadata?.namespace;
+          go(ns ? `/r/hypershift.openshift.io~v1beta1~nodepools/${ns}/${name}` : '/r/hypershift.openshift.io~v1beta1~nodepools', name);
+        }
       }}
       navigateLabel={(check) =>
         check.id === 'machine-health-checks' || check.id === 'cluster-autoscaling' ? 'Create' : 'View'

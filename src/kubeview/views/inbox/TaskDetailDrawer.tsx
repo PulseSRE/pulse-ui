@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Clock, User, Calendar, Tag, Bot, Loader2,
   ArrowRight, RotateCcw, Archive, Search, CheckCircle2, ShieldCheck,
@@ -325,6 +326,7 @@ export function TaskDetailDrawer({
   const dismiss = useInboxStore((s) => s.dismiss);
   const restore = useInboxStore((s) => s.restore);
   const advanceStatus = useInboxStore((s) => s.advanceStatus);
+  const navigate = useNavigate();
 
   const [confirmDismiss, setConfirmDismiss] = useState(false);
   const [runbookBusy, setRunbookBusy] = useState(false);
@@ -372,7 +374,8 @@ export function TaskDetailDrawer({
       useUIStore.getState().addToast({
         type: 'success',
         title: `Runbook drafted as skill '${result.skill}'`,
-        detail: 'It stays out of routing until approved — review it in Toolbox → Skills.',
+        detail: 'It stays out of routing until approved — review it in Pulse Agent → Skills.',
+        action: { label: 'Open Skills', onClick: () => navigate('/agent?tab=skills') },
       });
     } catch (e) {
       useUIStore.getState().addToast({
@@ -397,8 +400,8 @@ export function TaskDetailDrawer({
         <InboxLifecycleStepper itemType={item.item_type} status={item.status} />
 
         {item.view_id && (
-          <a
-            href={`/custom/${item.view_id}`}
+          <Link
+            to={`/custom/${item.view_id}`}
             onClick={() => {
               if (item.status === 'claimed') advanceStatus(item.id, 'in_progress');
             }}
@@ -407,7 +410,7 @@ export function TaskDetailDrawer({
             <Search className="w-4 h-4" />
             Open Investigation View
             <ArrowRight className="w-4 h-4 ml-auto" />
-          </a>
+          </Link>
         )}
 
         {String(item.metadata?.view_status || '') === 'generating' && !item.view_id && (
@@ -603,7 +606,7 @@ export function TaskDetailDrawer({
 
           {/* Closure for chronic work: an investigated item can leave the
               queue as a durable skill instead of returning as a fresh
-              incident. The draft lands unreviewed in Toolbox → Skills. */}
+              incident. The draft lands unreviewed in Pulse Agent → Skills. */}
           {hasInvestigation && (
             <Button size="sm" variant="ghost" onClick={handleCreateRunbook} disabled={runbookBusy}>
               <BookOpen className="w-4 h-4 mr-1" />

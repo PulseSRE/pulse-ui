@@ -12,7 +12,11 @@
  * draft runbook skill through the existing approval gate.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+
+// The drawer links and navigates through the router.
+const render = (ui: Parameters<typeof rtlRender>[0]) => rtlRender(ui, { wrapper: MemoryRouter });
 import React from 'react';
 
 vi.mock('@/lib/utils', () => ({ cn: (...args: unknown[]) => args.filter(Boolean).join(' ') }));
@@ -189,6 +193,33 @@ describe('closure: create runbook from the drawer', () => {
     const toast = addToast.mock.calls[0][0];
     expect(toast.type).toBe('success');
     expect(toast.title).toContain('crashloop-payments');
+  });
+
+  it('the draft toast points at Pulse Agent → Skills and opens it through the router', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string | Request) => {
+      const u = typeof url === 'string' ? url : url.url;
+      return Promise.resolve({
+        ok: true, status: 200,
+        json: () => Promise.resolve(u.includes('/runbook') ? { skill: 'crashloop-payments' } : { steps: [] }),
+      });
+    });
+    const { TaskDetailDrawer } = await import('../TaskDetailDrawer');
+    function Where() {
+      const l = useLocation();
+      return <span data-testid="where">{l.pathname}{l.search}</span>;
+    }
+    rtlRender(
+      <MemoryRouter initialEntries={['/inbox']}>
+        <Routes><Route path="*" element={<><Where /><TaskDetailDrawer item={makeItem({ metadata: { investigation_summary: 's', suspected_cause: 'c' } })} onClose={() => {}} /></>} /></Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByText('Create Runbook'));
+    await waitFor(() => expect(addToast).toHaveBeenCalled());
+    const toast = addToast.mock.calls[0][0];
+    expect(toast.detail).toContain('Pulse Agent → Skills');
+    expect(toast.detail).not.toContain('Toolbox');
+    act(() => toast.action.onClick());
+    expect(screen.getByTestId('where').textContent).toBe('/agent?tab=skills');
   });
 
   it('an uninvestigated item does not offer it', async () => {

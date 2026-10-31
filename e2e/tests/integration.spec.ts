@@ -19,8 +19,8 @@ test.describe('Integration: Agent Health', () => {
 });
 
 test.describe('Integration: Data Flow', () => {
-  test('Welcome page renders with stat cards', async ({ page }) => {
-    await page.goto('/welcome');
+  test('Pulse page renders with stat cards', async ({ page }) => {
+    await page.goto('/pulse');
     await expect(page.locator('text=OpenShift Pulse').first()).toBeVisible({ timeout: 15_000 });
     // Stat cards render (Nodes, Alerts, etc.)
     await expect(page.locator('text=Nodes').first()).toBeVisible({ timeout: 5_000 });
@@ -33,8 +33,8 @@ test.describe('Integration: Data Flow', () => {
   });
 
   test('Compute view renders heading', async ({ page }) => {
-    // Navigate to welcome first to warm the bundle, then to compute
-    await page.goto('/welcome');
+    // Navigate to pulse first to warm the bundle, then to compute
+    await page.goto('/pulse');
     await page.waitForLoadState('networkidle');
     await page.goto('/compute');
     await expect(page.locator('h1:has-text("Compute")').first()).toBeVisible({ timeout: 15_000 });

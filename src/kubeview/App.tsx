@@ -8,6 +8,8 @@ import PulseView from './views/PulseView';
 import CustomView from './views/CustomView';
 import ClaimView from './views/ClaimView';
 import PreviewView from './views/PreviewView';
+import NotFoundView from './views/NotFoundView';
+import { SHELL_ROUTES, STANDALONE_ROUTES } from './engine/routeTable';
 import { resourceRoutes, domainRoutes } from './routes';
 
 function createQueryClient(clusterId: string) {
@@ -39,24 +41,24 @@ export default function OpenshiftPulseApp() {
       <BrowserRouter>
         <Routes>
           {/* A draft dashboard for the render service: no shell, nothing saved */}
-          <Route path="/preview" element={<PreviewView />} />
+          <Route path={STANDALONE_ROUTES.preview} element={<PreviewView />} />
           <Route path="/" element={<Shell />}>
             {/* Home */}
             <Route index element={<DefaultRedirect />} />
-            <Route path="pulse" element={<PulseView />} />
+            <Route path={SHELL_ROUTES.pulse} element={<PulseView />} />
 
             {/* Resource routes (list, detail, yaml, logs, metrics, create, deps, investigate) */}
             {resourceRoutes()}
 
             {/* Custom views */}
-            <Route path="custom/:viewId" element={<CustomView />} />
-            <Route path="share/:shareToken" element={<ClaimView />} />
+            <Route path={SHELL_ROUTES.customView} element={<CustomView />} />
+            <Route path={SHELL_ROUTES.share} element={<ClaimView />} />
 
             {/* Domain views (workloads, networking, compute, storage, etc.) */}
             {domainRoutes()}
 
-            {/* Catch-all */}
-            <Route path="*" element={<Navigate to="/pulse" replace />} />
+            {/* Unknown paths: say so instead of silently redirecting */}
+            <Route path="*" element={<NotFoundView />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -95,7 +95,7 @@ export function GitOpsConfig() {
                 once ArgoCD is installed.
               </p>
               <button
-                onClick={() => go('/create/v1~pods?tab=operators&q=openshift+gitops', 'Operator Catalog')}
+                onClick={() => go('/operators?q=openshift+gitops', 'Operator Catalog')}
                 className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
               >
                 Open Operator Catalog <ArrowRight className="w-3 h-3" />

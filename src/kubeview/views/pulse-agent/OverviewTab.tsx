@@ -13,6 +13,7 @@ import {
   type ActivityEvent,
 } from '../../engine/analyticsApi';
 import { TrustPolicy } from '../mission-control/TrustPolicy';
+import { classifyAgentLink } from '../../engine/agentLinks';
 import { ScannerDrawer } from '../mission-control/ScannerDrawer';
 
 export function OverviewTab() {
@@ -98,7 +99,7 @@ function StatusSentence({
         <Link to="/inbox" className="text-blue-400 hover:underline">{totalFindings} issue{totalFindings !== 1 ? 's' : ''}</Link>
         {' '}this week.{' '}
         {fixedCount > 0 && (
-          <><Link to="/inbox?preset=needs_attention" className="text-emerald-400 hover:underline">{fixedCount} auto-fixed</Link>{needsAttention > 0 ? ', ' : '.'}</>
+          <><Link to="/inbox?preset=agent_cleared" className="text-emerald-400 hover:underline">{fixedCount} auto-fixed</Link>{needsAttention > 0 ? ', ' : '.'}</>
         )}
         {needsAttention > 0 && (
           <Link to="/inbox?preset=needs_attention" className="text-amber-400 hover:underline">{needsAttention} need{needsAttention === 1 ? 's' : ''} attention</Link>
@@ -145,17 +146,25 @@ function ActivitySection({ events, isLoading }: { events: ActivityEvent[]; isLoa
         <p className="text-sm text-slate-500">No activity yet. The agent is monitoring but hasn&apos;t needed to intervene.</p>
       ) : (
         <ul className="space-y-1.5">
-          {events.map((evt, i) => (
-            <li key={i}>
-              <Link
-                to={evt.link}
-                className={cn('text-sm hover:underline flex items-center gap-2', EVENT_COLORS[evt.type] ?? 'text-slate-300')}
-              >
-                <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" />
-                {evt.description}
-              </Link>
-            </li>
-          ))}
+          {events.map((evt, i) => {
+            const target = classifyAgentLink(evt.link);
+            const color = EVENT_COLORS[evt.type] ?? 'text-slate-300';
+            return (
+              <li key={i}>
+                {target.kind === 'internal' ? (
+                  <Link to={target.to} className={cn('text-sm hover:underline flex items-center gap-2', color)}>
+                    <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" />
+                    {evt.description}
+                  </Link>
+                ) : (
+                  <span className={cn('text-sm flex items-center gap-2', color)}>
+                    <ChevronRight className="w-3 h-3 text-slate-600 shrink-0" />
+                    {evt.description}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

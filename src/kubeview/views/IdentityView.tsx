@@ -1277,6 +1277,9 @@ spec:
       ? `/r/v1~namespaces/_/${name}`
       : check.id === 'wildcard-rules'
       ? `/yaml/rbac.authorization.k8s.io~v1~clusterroles/_/${name}`
+      : check.id === 'sa-automount'
+      // Failing items here are ServiceAccounts, not RoleBindings.
+      ? `/r/v1~serviceaccounts/${ns}/${name}`
       : `/yaml/rbac.authorization.k8s.io~v1~rolebindings/${ns}/${name}`;
     go(path, name);
   }, [go]);

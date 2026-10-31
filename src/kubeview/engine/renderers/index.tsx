@@ -1,5 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { resolveKind } from '../kindRegistry';
+import { resourceDetailUrl } from '../gvr';
 
 // K8s Resource type
 export type K8sResource = {
@@ -60,26 +62,11 @@ const statusDotColors: Record<string, string> = {
 };
 
 /**
- * Convert a K8s kind to its plural resource name.
- * Handles irregular plurals common in Kubernetes.
+ * Convert a K8s kind to its plural resource name. Uses the discovered API
+ * resources first, then well-known kinds, and only guesses as a last resort.
  */
-export function kindToPlural(kind: string): string {
-  const lower = kind.toLowerCase();
-  const irregulars: Record<string, string> = {
-    endpoints: 'endpoints',
-    ingress: 'ingresses',
-    networkpolicy: 'networkpolicies',
-    podsecuritypolicy: 'podsecuritypolicies',
-    storageclass: 'storageclasses',
-    resourcequota: 'resourcequotas',
-    horizontalpodautoscaler: 'horizontalpodautoscalers',
-  };
-  if (irregulars[lower]) return irregulars[lower];
-  // Order matters: check 'ss'/'sh'/'ch'/'x'/'z' before generic 's' (e.g. "address" → "addresses")
-  if (lower.endsWith('ss') || lower.endsWith('sh') || lower.endsWith('ch') || lower.endsWith('x') || lower.endsWith('z')) return lower + 'es';
-  if (lower.endsWith('s')) return lower;
-  if (lower.endsWith('y') && !['a','e','i','o','u'].includes(lower[lower.length - 2])) return lower.slice(0, -1) + 'ies';
-  return lower + 's';
+export function kindToPlural(kind: string, apiVersion?: string): string {
+  return resolveKind(kind, apiVersion).plural;
 }
 
 /**
@@ -123,24 +110,13 @@ export function renderName(value: unknown, resource: K8sResource): ReactNode {
   // Use _gvrKey stamped by TableView, or build from apiVersion+kind as fallback
   const gvrKey = (resource as Record<string, unknown>)._gvrKey as string | undefined;
 
-  let gvrUrl = '';
+  let url = '#';
   if (gvrKey) {
-    gvrUrl = gvrKey.replace(/\//g, '~');
-  } else {
-    const apiVersion = resource.apiVersion || '';
-    const kind = resource.kind || '';
-    if (apiVersion && kind) {
-      const parts = apiVersion.split('/');
-      const plural = kindToPlural(kind);
-      gvrUrl = parts.length === 2
-        ? `${parts[0]}~${parts[1]}~${plural}`
-        : `${parts[0]}~${plural}`;
-    }
+    const gvrUrl = gvrKey.replace(/\//g, '~');
+    url = namespace ? `/r/${gvrUrl}/${namespace}/${name}` : `/r/${gvrUrl}/_/${name}`;
+  } else if (resource.kind) {
+    url = resourceDetailUrl({ apiVersion: resource.apiVersion, kind: resource.kind, metadata: { name, namespace } });
   }
-
-  const url = gvrUrl
-    ? (namespace ? `/r/${gvrUrl}/${namespace}/${name}` : `/r/${gvrUrl}/_/${name}`)
-    : '#';
 
   return (
     <Link to={url} className="font-semibold text-blue-400 hover:text-blue-300 hover:underline">
@@ -194,12 +170,13 @@ export function renderOwner(value: unknown, resource?: K8sResource): ReactNode {
   const owner = owners[0];
   const colorClass = OWNER_KIND_COLORS[owner.kind] || 'text-slate-400 bg-slate-500/10 border-slate-500/20';
   const abbrev = OWNER_KIND_ABBREV[owner.kind] || owner.kind;
-  const plural = kindToPlural(owner.kind);
-  const apiVersion = owner.apiVersion || 'apps/v1';
-  const [group, version] = apiVersion.includes('/') ? apiVersion.split('/') : ['', apiVersion];
-  const gvrUrl = group ? `${group}~${version}~${plural}` : `${version}~${plural}`;
-  const ns = resource?.metadata?.namespace;
-  const href = ns ? `/r/${gvrUrl}/${ns}/${owner.name}` : `/r/${gvrUrl}/_/${owner.name}`;
+  // An owner shares its dependent's namespace unless the owner kind is
+  // cluster-scoped (a mirror pod's Node owner, for instance).
+  const href = resourceDetailUrl({
+    apiVersion: owner.apiVersion,
+    kind: owner.kind,
+    metadata: { name: owner.name, namespace: resource?.metadata?.namespace },
+  });
 
   return (
     <Link to={href} className="inline-flex items-center gap-1.5 group max-w-[220px]" title={`${owner.kind}/${owner.name}`}>

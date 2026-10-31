@@ -3,6 +3,7 @@ import { getActiveClusterId } from '../engine/clusterConnection';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DegradedReason } from '../engine/degradedMode';
+import { isKnownRoute } from '../engine/routeTable';
 
 export interface Tab {
   id: string;
@@ -444,7 +445,10 @@ export const useUIStore = create<UIState>()(
           // Deduplicate by path
           if (seen.has(tab.path)) return null;
           seen.add(tab.path);
-          if (tab.path === '/' || tab.path === '/dashboard') return null;
+          if (tab.path === '/') return null;
+          // A tab for a route that no longer exists (e.g. /welcome, /incidents)
+          // would restore onto the Not Found page under its old title.
+          if (!isKnownRoute(tab.path)) return null;
           if (tab.title === 'Untitled' && !tab.pinned) return null;
           // Fix empty/untitled titles from older persisted state
           const title = tab.title?.trim() || tab.path.split('/').filter(Boolean).pop() || 'Untitled';
@@ -452,6 +456,10 @@ export const useUIStore = create<UIState>()(
           if (tab.id === 'pulse') return { ...tab, title };
           return { ...tab, title, id: `tab-${++tabIdCounter}` };
         }).filter(Boolean) as Tab[];
+        if (!tabs.some((t) => t.id === 'pulse')) {
+          const pulseTab = current.tabs.find((t) => t.id === 'pulse');
+          if (pulseTab) tabs.unshift(pulseTab);
+        }
 
         // Find active tab in the cleaned list
         const activeTab = tabs.find((t: Tab) => t.path === (persistedState.tabs || []).find((pt: Tab) => pt.id === persistedState.activeTabId)?.path);

@@ -5,7 +5,11 @@
  * if it supported the cause (the agent now stores evidence_detail, migration 041).
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { render as rtlRender, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+// The drawer links and navigates through the router.
+const render = (ui: Parameters<typeof rtlRender>[0]) => rtlRender(ui, { wrapper: MemoryRouter });
 import { TaskDetailDrawer } from '../TaskDetailDrawer';
 import type { InboxItem, InvestigationReport } from '../../../engine/inboxApi';
 import { fetchInboxInvestigation } from '../../../engine/inboxApi';

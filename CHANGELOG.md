@@ -4,6 +4,17 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Fixed
+- Links and routes (functionality review, Wave 1):
+  - An unknown address shows a "Page not found" page naming the path, with Back and Go to Pulse, instead of silently redirecting to /pulse. Restored tabs for pages that no longer exist (`/welcome`, `/incidents`) are dropped
+  - Resource links get the group, version, plural and scope from the cluster's discovered API resources: warning events, alerts, the timeline, fix history and the dependency graph no longer link Deployments to the core group, build `ingresss`/`hpas`, or put cluster-scoped objects (Nodes) under a namespace. Alerts no longer treat the Prometheus `job` label as a batch Job
+  - `/r/<gvr>?ns=` opens the list for that namespace, and `/create/<gvr>?namespace=` drafts in that namespace
+  - The logo, "Getting Started" and "Go Home" open real pages; "Session expired — click to log in again" signs out through oauth-proxy; Admin tabs follow `?tab=`; IngressController, ServiceAccount and NodePool audit items open their own pages; operator links open `/operators?q=`; GitOps "configure Git" points at the setup wizard's Git step
+  - Links from the agent open in-app without a full reload, external links open in a new tab, and links to pages Pulse doesn't have are shown as text with a tooltip. Activity links to the old `/incidents` page open the Inbox activity tab
+
+### Tests
+- `routeLinks.test.ts` checks every literal link in the source, and the links pulse-agent emits (`__tests__/fixtures/agentLinks.json`), against the route table that the router mounts
+
 ## v2.36.0 (2026-10-30)
 
 Paired with pulse-agent v2.36.0; runs with pulse-operator v0.11.0. Pull requests #156–#157. Needs pulse-agent v2.36.0 for the call citations (`call_ref`, `call_input`); earlier agents' reports render as before.

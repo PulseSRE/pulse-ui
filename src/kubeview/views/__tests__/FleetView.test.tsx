@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
-import fs from 'fs';
-import path from 'path';
+import { isKnownRoute } from '../../engine/routeTable';
 
 const mockFleetState: Record<string, any> = {
   fleetMode: 'multi',
@@ -28,8 +27,9 @@ vi.mock('../../store/uiStore', () => ({
   ),
 }));
 
+const goMock = vi.fn();
 vi.mock('../../hooks/useNavigateTab', () => ({
-  useNavigateTab: () => vi.fn(),
+  useNavigateTab: () => goMock,
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -40,35 +40,23 @@ vi.mock('react-router-dom', async () => {
 import FleetView from '../FleetView';
 
 describe('FleetView navigation links', () => {
-  const source = fs.readFileSync(
-    path.join(__dirname, '../FleetView.tsx'), 'utf-8'
-  );
+  afterEach(() => { cleanup(); goMock.mockReset(); });
 
-  it('has Resources navigation link to fleet resource browser', () => {
-    expect(source).toContain('/fleet/r/apps~v1~deployments');
-    expect(source).toContain('Resources');
-  });
-
-  it('has Workloads navigation link', () => {
-    expect(source).toContain('/fleet/workloads');
-    expect(source).toContain('Workloads');
-  });
-
-  it('has Alerts navigation link', () => {
-    expect(source).toContain('/fleet/alerts');
-    expect(source).toContain('Alerts');
-  });
-
-  it('has Compare navigation link', () => {
-    expect(source).toContain('/fleet/compare');
-    expect(source).toContain('Compare');
-  });
-
-  it('imports navigation icons', () => {
-    expect(source).toContain('Layers');
-    expect(source).toContain('Bell');
-    expect(source).toContain('GitCompare');
-    expect(source).toContain('Box');
+  it.each([
+    ['Resources', '/fleet/r/apps~v1~deployments'],
+    ['Workloads', '/fleet/workloads'],
+    ['Alerts', '/fleet/alerts'],
+    ['Compare', '/fleet/compare'],
+    ['Compliance', '/fleet/compliance'],
+    ['Drift', '/fleet/drift'],
+  ])('%s opens %s', (label, path) => {
+    mockFleetState.fleetMode = 'multi';
+    mockFleetState.clusters = [{ id: 'c1', name: 'prod', status: 'connected', connectionType: 'acm', metadata: { nodeCount: 3 } }];
+    render(<MemoryRouter><FleetView /></MemoryRouter>);
+    const button = screen.getAllByRole('button').find((b) => b.textContent?.trim() === label)!;
+    fireEvent.click(button);
+    expect(goMock).toHaveBeenCalledWith(path, expect.any(String));
+    expect(isKnownRoute(path)).toBe(true);
   });
 });
 

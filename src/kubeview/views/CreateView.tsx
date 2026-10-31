@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Package, FileText,
@@ -75,7 +76,12 @@ const OperatorCatalogView = lazy(() => import('./OperatorCatalogView'));
 export default function CreateView({ gvrKey }: CreateViewProps) {
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const storeNamespace = useUIStore((s) => s.selectedNamespace);
+  // `?namespace=<ns>` (e.g. StorageView's "add quota" link) names the target
+  // namespace; without it the global selector decides.
+  const location = useLocation();
+  const urlNamespace = new URLSearchParams(location.search).get('namespace');
+  const selectedNamespace = urlNamespace && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(urlNamespace) ? urlNamespace : storeNamespace;
   const registry = useClusterStore((s) => s.resourceRegistry);
   // The cluster this screen shows; creates go there, not to whichever is local.
   const clusterId = useFleetStore((s) => s.activeClusterId);

@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { classifyAgentLink, invalidLinkTitle, openExternal } from '../../engine/agentLinks';
 import { fetchComponentRegistry, type ComponentKindDef, type ComponentLayout } from '../../engine/componentRegistry';
 import { normalizeKeyValuePairs, type KeyValueSpec } from '../../engine/agentComponents';
 
@@ -100,14 +101,20 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
       const borderColor = status === 'error' ? 'border-red-800' : status === 'warning' ? 'border-amber-800' : 'border-emerald-800';
       const valueColor = status === 'error' ? 'text-red-400' : status === 'warning' ? 'text-amber-400' : 'text-emerald-400';
 
-      const Tag = link ? 'button' : 'div';
+      const target = classifyAgentLink(link);
+      const followable = target.kind !== 'invalid';
+      const Tag = followable ? 'button' : 'div';
       return (
         <Tag
-          onClick={link ? () => navigate(link) : undefined}
+          onClick={followable ? () => {
+            if (target.kind === 'internal') navigate(target.to);
+            else if (target.kind === 'external') openExternal(target.href);
+          } : undefined}
+          title={link && !followable ? invalidLinkTitle(link) : undefined}
           className={cn(
             'bg-slate-900 rounded-lg border p-3 text-center transition-colors',
             borderColor,
-            link && 'cursor-pointer hover:ring-1 hover:ring-blue-500/50',
+            followable && 'cursor-pointer hover:ring-1 hover:ring-blue-500/50',
           )}
         >
           <div className={cn('text-xl font-bold', valueColor)}>{value}{unit && <span className="text-sm ml-0.5">{unit}</span>}</div>

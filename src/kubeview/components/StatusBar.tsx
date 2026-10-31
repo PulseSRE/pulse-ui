@@ -12,6 +12,7 @@ import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '../engine/formatters';
 import { getNavByPath } from '../engine/navRegistry';
+import { performLogout } from '../engine/auth';
 
 
 export function StatusBar() {
@@ -46,7 +47,6 @@ export function StatusBar() {
   // Derive current page info from URL
   const pageInfo = (() => {
     const path = location.pathname;
-    if (path === '/welcome') return 'Welcome';
     const nav = getNavByPath(path);
     if (nav) return nav.label;
     if (path.startsWith('/r/')) {
@@ -88,7 +88,7 @@ export function StatusBar() {
         </span>
         {degradedReasons.has('session_expired') && (
           <button
-            onClick={() => { window.location.href = '/'; }}
+            onClick={() => performLogout()}
             className="ml-2 px-2 py-0.5 text-xs rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
           >
             Session expired — click to log in again

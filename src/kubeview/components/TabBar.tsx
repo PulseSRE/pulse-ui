@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react';
 import { getResourceIcon } from '../engine/iconRegistry';
 import { getRouteIcon, getRouteColor } from '../engine/navRegistry';
 import { pluralToKind } from '../engine/renderers/index';
+import { isKnownRoute } from '../engine/routeTable';
 
 // Helper to get icon component from string name
 function getIcon(iconName?: string) {
@@ -130,7 +131,8 @@ export function TabBar() {
       if (activeTabId !== matchingTab.id) {
         setActiveTab(matchingTab.id);
       }
-    } else if (currentPath !== '/' && currentPath !== '/dashboard') {
+    } else if (currentPath !== '/' && isKnownRoute(currentPath)) {
+      // Unknown paths show the Not Found page; they get no tab.
       // Create a new tab for this path (skip redirects and pinned defaults)
       const title = getTabTitle(currentPath);
 

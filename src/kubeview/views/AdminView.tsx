@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Settings, Puzzle, Shield, Database, GitBranch,
@@ -111,26 +112,21 @@ type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quot
 
 // --- Main component ---
 
-export default function AdminView() {
-  const searchParams = new URLSearchParams(window.location.search);
-  const initialTab = (searchParams.get('tab') as Tab) || 'overview';
-  const [activeTab, setActiveTabState] = React.useState<Tab>(initialTab);
-  const setActiveTab = (tab: Tab | string) => {
-    setActiveTabState(tab as Tab);
-    const url = new URL(window.location.href);
-    if (tab === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.pushState(null, '', url.toString());
-  };
+const ADMIN_TABS: readonly Tab[] = ['overview', 'operators', 'config', 'updates', 'snapshots', 'quotas', 'certificates', 'crds'];
 
-  // Sync tab state when browser back/forward navigates
-  React.useEffect(() => {
-    const handler = () => {
-      const t = new URLSearchParams(window.location.search).get('tab') as Tab | null;
-      setActiveTabState(t || 'overview');
-    };
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
-  }, []);
+export default function AdminView() {
+  // The tab follows `?tab=` through the router, so in-page links such as
+  // go('/admin?tab=crds') switch tabs instead of only changing the URL.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: Tab = tabParam && (ADMIN_TABS as readonly string[]).includes(tabParam) ? (tabParam as Tab) : 'overview';
+  const setActiveTab = React.useCallback((tab: Tab | string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tab === 'overview') next.delete('tab'); else next.set('tab', tab);
+      return next;
+    });
+  }, [setSearchParams]);
 
   // --- Data fetching ---
 

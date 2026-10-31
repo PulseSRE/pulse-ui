@@ -189,3 +189,33 @@ describe('log-forwarding gate', () => {
     expect(result.status).toBe('needs_attention');
   });
 });
+
+describe('gate actions open the page that fixes them', () => {
+  // A cluster with nothing configured, so every gate below wants an action.
+  const empty = vi.fn(async (path: string) => {
+    if (path.includes('clusterversions')) return { spec: { channel: 'candidate-4.16' }, status: { availableUpdates: [{ version: '4.16.1' }] } };
+    if (path.includes('oauths')) return { spec: { identityProviders: [] } };
+    if (path.includes('apiservers')) return { spec: { tlsSecurityProfile: { type: 'Old' }, encryption: { type: 'identity' } } };
+    if (path.includes('ingresscontrollers')) return { spec: {}, status: {} };
+    if (path.includes('ingresses')) return { spec: { domain: '' } };
+    return { items: [] };
+  }) as unknown as GateContext['fetchJson'];
+
+  it.each([
+    ['identity-providers', '/admin?tab=config'],
+    ['tls-profile', '/admin?tab=config'],
+    ['encryption', '/admin?tab=config'],
+    ['resource-quotas', '/admin?tab=quotas'],
+    ['limit-ranges', '/admin?tab=quotas'],
+    ['update-channel', '/admin?tab=updates'],
+    ['cluster-updated', '/admin?tab=updates'],
+    ['ingress-cert', '/admin?tab=config'],
+    ['custom-domain', '/admin?tab=config'],
+    ['logging-operator', '/operators?q=cluster-logging'],
+    ['coo', '/operators?q=observability'],
+    ['etcd-backup', '/operators?q=oadp'],
+  ])('%s → %s', async (id, path) => {
+    const result = await findGate(id).evaluate(makeCtx(empty));
+    expect(result.action?.path).toBe(path);
+  });
+});

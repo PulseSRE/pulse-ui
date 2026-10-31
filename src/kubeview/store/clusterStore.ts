@@ -1,5 +1,6 @@
 import { getActiveClusterId } from '../engine/clusterConnection';
 import { create } from 'zustand';
+import { setKindRegistry } from '../engine/kindRegistry';
 import {
   discoverResources,
   groupResources as groupDiscoveryResources,
@@ -88,3 +89,9 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
     });
   },
 }));
+
+// Resource URLs (engine/gvr resourceDetailUrl, kindToPlural) resolve kinds
+// against the discovered registry; keep it in step with this store.
+useClusterStore.subscribe((state, prev) => {
+  if (state.resourceRegistry !== prev.resourceRegistry) setKindRegistry(state.resourceRegistry);
+});
