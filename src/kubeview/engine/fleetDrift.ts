@@ -4,6 +4,7 @@
  */
 
 import { k8sGet } from './query';
+import { errorReason, isNotFound } from './readResult';
 import { getAllConnections } from './clusterConnection';
 
 export interface ResourceDiff {
@@ -14,7 +15,14 @@ export interface ResourceDiff {
 
 export interface DriftResult {
   resource: { apiPath: string; name: string; namespace?: string };
+  /** Clusters whose copy was read and compared. */
   clusters: string[];
+  /** How many clusters were asked. */
+  totalClusters: number;
+  /** Clusters where the resource does not exist (404): that is drift. */
+  absentClusters: string[];
+  /** Clusters that could not be read (403, 5xx, network): not compared. */
+  failedClusters: Array<{ id: string; reason: string }>;
   diffs: ResourceDiff[];
   identicalFields: number;
   driftedFields: number;
@@ -104,6 +112,8 @@ export async function fleetCompareResource(
   // Collect successful responses keyed by cluster ID
   const clusterData: Record<string, Record<string, unknown>> = {};
   const succeededClusters: string[] = [];
+  const absentClusters: string[] = [];
+  const failedClusters: Array<{ id: string; reason: string }> = [];
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
@@ -116,11 +126,15 @@ export async function fleetCompareResource(
       }
       clusterData[clusters[i].id] = filtered;
       succeededClusters.push(clusters[i].id);
+    } else if (isNotFound(result.reason)) {
+      absentClusters.push(clusters[i].id);
+    } else {
+      failedClusters.push({ id: clusters[i].id, reason: errorReason(result.reason) });
     }
   }
 
-  if (succeededClusters.length === 0) {
-    throw new Error('Failed to fetch resource from any cluster');
+  if (succeededClusters.length === 0 && absentClusters.length === 0) {
+    throw new Error(`Failed to fetch resource from any cluster${failedClusters.length ? `: ${failedClusters.map(f => `${f.id}: ${f.reason}`).join('; ')}` : ''}`);
   }
 
   // Collect all unique field paths
@@ -164,6 +178,9 @@ export async function fleetCompareResource(
   return {
     resource: { apiPath, name, namespace },
     clusters: succeededClusters,
+    totalClusters: clusters.length,
+    absentClusters,
+    failedClusters,
     diffs,
     identicalFields,
     driftedFields,

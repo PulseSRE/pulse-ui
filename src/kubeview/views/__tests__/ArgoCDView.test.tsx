@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, act, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useArgoCDStore } from '../../store/argoCDStore';
@@ -50,7 +50,9 @@ function renderView() {
 describe('ArgoCDView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useArgoCDStore.setState({ applicationsError: null, rolloutsAvailable: false, rollouts: [], rolloutsError: null });
   });
+  afterEach(cleanup);
 
   it('shows setup wizard CTA when ArgoCD is unavailable', () => {
     mockUseArgoCD.mockReturnValue({ available: false, detecting: false, applications: [], applicationsLoading: false, namespace: null });
@@ -84,6 +86,25 @@ describe('ArgoCDView', () => {
     expect(screen.getAllByText(/Applications/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Sync History/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Drift/).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows a load error, not "No ArgoCD Applications found", when the list failed', () => {
+    useArgoCDStore.setState({ applicationsError: 'Permission denied (403)' });
+    mockUseArgoCD.mockReturnValue({ available: true, detecting: false, applications: [], applicationsLoading: false, namespace: 'openshift-gitops' });
+    renderView();
+    expect(screen.getByRole('alert').textContent).toContain('ArgoCD Applications could not be loaded');
+    expect(screen.queryByText(/No ArgoCD Applications found/)).toBeNull();
+    useArgoCDStore.setState({ applicationsError: null });
+  });
+
+  it('shows the Rollouts tab once detection reports rollouts (subscribes to the store)', () => {
+    useArgoCDStore.setState({ rolloutsAvailable: false, rollouts: [] });
+    mockUseArgoCD.mockReturnValue({ available: true, detecting: false, applications: [], applicationsLoading: false, namespace: 'openshift-gitops' });
+    renderView();
+    expect(screen.queryByRole('tab', { name: 'Rollouts' })).toBeNull();
+    act(() => { useArgoCDStore.setState({ rolloutsAvailable: true }); });
+    expect(screen.getByRole('tab', { name: 'Rollouts' })).toBeTruthy();
+    useArgoCDStore.setState({ rolloutsAvailable: false });
   });
 
   it('shows empty state when no applications', () => {

@@ -467,7 +467,8 @@ function ComputeHealthAudit({
         description: 'Production clusters should have 3+ control plane nodes for high availability',
         why: 'etcd requires an odd-numbered quorum (3 or 5 nodes). With fewer than 3 masters, losing a single node causes cluster failure. 3 masters can tolerate 1 failure; 5 can tolerate 2.',
         passing: hasHA ? masterNodes.map(nodeDetailToAuditItem) : [],
-        failing: hasHA ? [] : masterNodes.map(nodeDetailToAuditItem),
+        // A failed check needs something in its failing list, or it reads as a pass.
+        failing: hasHA ? [] : masterNodes.length > 0 ? masterNodes.map(nodeDetailToAuditItem) : [{ name: '0 control plane nodes detected' }],
         yamlExample: `# Control plane nodes are provisioned during cluster installation.
 # To scale control plane nodes post-install, you must:
 # 1. Create new master Machines via MachineSet
@@ -488,7 +489,7 @@ function ComputeHealthAudit({
       description: isHyperShift ? 'Worker nodes for workload scheduling (all nodes are workers on hosted clusters)' : 'Production workloads should run on 2+ dedicated worker nodes (not on masters)',
       why: isHyperShift ? 'On HyperShift clusters, all visible nodes are workers. The control plane runs externally in a management cluster.' : 'Running application pods on control plane nodes creates resource contention with etcd and apiserver. Control plane stability is critical — separating workloads protects cluster availability.',
       passing: hasWorkers ? workerNodes.map(nodeDetailToAuditItem) : [],
-      failing: hasWorkers ? [] : workerNodes.map(nodeDetailToAuditItem),
+      failing: hasWorkers ? [] : workerNodes.length > 0 ? workerNodes.map(nodeDetailToAuditItem) : [{ name: '0 dedicated worker nodes' }],
       yamlExample: `# Worker nodes are created via MachineSets.
 # View existing MachineSets and scale them up:
 #   oc get machinesets -n openshift-machine-api
@@ -685,7 +686,8 @@ spec:
       onNavigateItem={(check, item) => {
         const name = item.metadata?.name || '';
         const isNode = check.id === 'ha-control-plane' || check.id === 'dedicated-workers' || check.id === 'node-pressure' || check.id === 'kubelet-version';
-        if (isNode) go(`/r/v1~nodes/_/${name}`, name);
+        if (isNode && !name) go('/compute', 'Compute');
+        else if (isNode) go(`/r/v1~nodes/_/${name}`, name);
         else if (check.id === 'machine-health-checks') go('/create/machine.openshift.io~v1beta1~machinehealthchecks', 'Create MachineHealthCheck');
         else if (check.id === 'cluster-autoscaling') go('/create/autoscaling.openshift.io~v1~clusterautoscalers', 'Create ClusterAutoscaler');
         else if (check.id === 'nodepool-health') {

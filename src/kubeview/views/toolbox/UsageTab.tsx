@@ -4,11 +4,23 @@ import { useShallow } from 'zustand/react/shallow';
 import { useToolUsageStore } from '../../store/toolUsageStore';
 import { useVisibilityAwareInterval } from '../../hooks/useVisibilityAwareInterval';
 import { UsageRow } from './UsageRow';
+import { useQuery } from '@tanstack/react-query';
+import { agentJson } from '../../engine/safeQuery';
+import { LoadError } from '../../components/primitives/LoadError';
 
 export function UsageTab() {
-  const { usage, usageLoading, filters, loadUsage } = useToolUsageStore(useShallow((s) => ({
-    usage: s.usage, usageLoading: s.usageLoading, filters: s.filters, loadUsage: s.loadUsage,
+  const { usage, usageLoading, usageError, filters, loadUsage } = useToolUsageStore(useShallow((s) => ({
+    usage: s.usage, usageLoading: s.usageLoading, usageError: s.usageError, filters: s.filters, loadUsage: s.loadUsage,
   })));
+  // The skill list comes from the agent, so scaffolded and custom skills appear.
+  const skillsQuery = useQuery({
+    queryKey: ['admin', 'skills'],
+    queryFn: () => agentJson<Record<string, unknown>[]>('/api/agent/skills'),
+  });
+  const skillNames = (skillsQuery.data ?? [])
+    .map((sk) => String(sk.name ?? ''))
+    .filter(Boolean)
+    .sort();
   const [toolFilter, setToolFilter] = useState(filters.tool_name || '');
   const [modeFilter, setModeFilter] = useState(filters.agent_mode || '');
   const [statusFilter, setStatusFilter] = useState(filters.status || '');
@@ -37,13 +49,10 @@ export function UsageTab() {
           className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
         >
           <option value="">All skills</option>
-          <option value="sre">SRE</option>
-          <option value="security">Security</option>
-          <option value="view_designer">View Designer</option>
-          <option value="plan_builder">Plan Builder</option>
-          <option value="capacity_planner">Capacity Planner</option>
-          <option value="postmortem">Postmortem</option>
-          <option value="slo_management">SLO Management</option>
+          {skillNames.map((name) => (
+            <option key={name} value={name}>{name.replace(/_/g, ' ')}</option>
+          ))}
+          {modeFilter && !skillNames.includes(modeFilter) && <option value={modeFilter}>{modeFilter.replace(/_/g, ' ')}</option>}
         </select>
         <select
           aria-label="Filter by status"
@@ -59,8 +68,14 @@ export function UsageTab() {
         {usage && <span className="text-xs text-slate-500 ml-auto">{usage.total} total</span>}
       </div>
 
+      {usageError && usage && (
+        <LoadError title={`${usageError}; showing the last page that loaded`} onRetry={() => loadUsage({})} />
+      )}
+
       {/* Table */}
-      {usageLoading && !usage ? (
+      {usageError && !usage ? (
+        <LoadError title={usageError} onRetry={() => loadUsage({})} />
+      ) : usageLoading && !usage ? (
         <div className="flex justify-center py-12"><div className="kv-skeleton w-8 h-8 rounded-full" /></div>
       ) : usage && usage.entries.length > 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
@@ -84,7 +99,9 @@ export function UsageTab() {
           </table>
         </div>
       ) : (
-        <div className="text-center py-12 text-sm text-slate-500">No tool usage recorded yet</div>
+        <div className="text-center py-12 text-sm text-slate-500">
+          {filters.tool_name || filters.agent_mode || filters.status ? 'No tool usage matches these filters' : 'No tool usage recorded yet'}
+        </div>
       )}
 
       {/* Pagination */}

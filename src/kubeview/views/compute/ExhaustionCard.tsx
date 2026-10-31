@@ -7,9 +7,11 @@ import type { ResourceProjection } from './useCapacityProjections';
 const LABELS: Record<string, string> = { cpu: 'CPU', memory: 'Memory', disk: 'Disk', pods: 'Pods' };
 
 export function ExhaustionCard({ projection }: { projection: ResourceProjection }) {
-  const { resource, currentRatio, daysUntilExhaustion, growthPerDay } = projection;
+  const { resource, currentRatio, projectedRatio, daysUntilExhaustion, growthPerDay } = projection;
   const pct = currentRatio !== null ? Math.round(currentRatio * 100) : null;
-  const isStable = daysUntilExhaustion === null;
+  // No Prometheus data is "No data", never a green "Stable".
+  const noData = daysUntilExhaustion === null && (currentRatio === null || projectedRatio === null);
+  const isStable = daysUntilExhaustion === null && !noData;
   const isCritical = daysUntilExhaustion !== null && daysUntilExhaustion <= 14;
   const isWarning = daysUntilExhaustion !== null && daysUntilExhaustion > 14 && daysUntilExhaustion <= 30;
 
@@ -27,9 +29,10 @@ export function ExhaustionCard({ projection }: { projection: ResourceProjection 
         isCritical ? 'text-red-400' :
         isWarning ? 'text-amber-400' :
         isStable ? 'text-emerald-400' :
+        noData ? 'text-slate-500' :
         'text-slate-100'
       )}>
-        {daysUntilExhaustion !== null ? `${daysUntilExhaustion}d` : 'Stable'}
+        {daysUntilExhaustion !== null ? `${daysUntilExhaustion}d` : noData ? 'No data' : 'Stable'}
       </div>
 
       {/* Current usage + trend */}

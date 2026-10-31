@@ -12,6 +12,11 @@ function gradeFromScore(score: number): HealthScoreResult['grade'] {
   return 'critical';
 }
 
+/**
+ * Cluster pins are coloured by connectivity only: Pulse has no health inputs
+ * for remote clusters here, so this is not a health score and is never shown
+ * as one (see ClusterTooltip).
+ */
 function statusToScore(status: ClusterConnection['status']): number {
   switch (status) {
     case 'connected': return 95;
@@ -74,16 +79,8 @@ function nodeHealthScore(node: K8sResource): number {
   return Math.max(0, score);
 }
 
-const DEFAULT_POSITIONS: Array<{ latitude: number; longitude: number }> = [
-  { latitude: 39.0, longitude: -77.5 },
-  { latitude: 46.2, longitude: -123.8 },
-  { latitude: 50.1, longitude: 8.7 },
-  { latitude: 35.7, longitude: 139.7 },
-  { latitude: -33.9, longitude: 151.2 },
-  { latitude: -23.6, longitude: -46.6 },
-  { latitude: 1.3, longitude: 103.8 },
-  { latitude: 53.3, longitude: -6.3 },
-];
+// No invented geography: places with no resolvable region are flagged
+// `locationUnknown` and listed off the map, not pinned to a real city.
 
 /**
  * Build MapCluster array from ClusterConnections.
@@ -92,7 +89,6 @@ const DEFAULT_POSITIONS: Array<{ latitude: number; longitude: number }> = [
 export function useMapClusters(clusters: ClusterConnection[], k8sNodes: K8sResource[]): MapCluster[] {
   return useMemo(() => {
     const result: MapCluster[] = [];
-    let defaultIdx = 0;
 
     for (const c of clusters) {
       const loc = c.location
@@ -109,9 +105,7 @@ export function useMapClusters(clusters: ClusterConnection[], k8sNodes: K8sResou
               }
             }
 
-            const pos = DEFAULT_POSITIONS[defaultIdx % DEFAULT_POSITIONS.length];
-            defaultIdx++;
-            return { latitude: pos.latitude, longitude: pos.longitude, region: 'unknown', displayName: c.name };
+            return { latitude: 0, longitude: 0, region: 'unknown', displayName: c.name, locationUnknown: true };
           })();
 
       const score = statusToScore(c.status);
@@ -122,6 +116,7 @@ export function useMapClusters(clusters: ClusterConnection[], k8sNodes: K8sResou
         longitude: loc.longitude,
         region: loc.region,
         displayName: loc.displayName,
+        locationUnknown: 'locationUnknown' in loc ? loc.locationUnknown : undefined,
         status: c.status,
         healthScore: score,
         healthGrade: gradeFromScore(score),
@@ -160,12 +155,12 @@ export function useMapZones(k8sNodes: K8sResource[], pods: K8sResource[]): MapZo
     }
 
     const result: MapZone[] = [];
-    let defaultIdx = 0;
 
     for (const [key, group] of zoneMap) {
       // Resolve coordinates from region
       const resolved = resolveRegionCoords(group.region) || resolveRegionCoords(group.zone);
       let latitude: number, longitude: number, displayName: string;
+      let locationUnknown = false;
 
       if (resolved) {
         latitude = resolved.latitude;
@@ -179,11 +174,10 @@ export function useMapZones(k8sNodes: K8sResource[], pods: K8sResource[]): MapZo
           longitude += offset * 0.5;
         }
       } else {
-        const pos = DEFAULT_POSITIONS[defaultIdx % DEFAULT_POSITIONS.length];
-        defaultIdx++;
-        latitude = pos.latitude;
-        longitude = pos.longitude;
+        latitude = 0;
+        longitude = 0;
         displayName = group.zone;
+        locationUnknown = true;
       }
 
       const nodeNames = group.nodes.map(n => n.metadata?.name || '');
@@ -207,6 +201,7 @@ export function useMapZones(k8sNodes: K8sResource[], pods: K8sResource[]): MapZo
         healthScore: avgScore,
         healthGrade: gradeFromScore(avgScore),
         podCount,
+        ...(locationUnknown ? { locationUnknown: true } : {}),
       });
     }
 
@@ -286,12 +281,17 @@ export function useMapEvents(events: K8sResource[], k8sNodes: K8sResource[]): Ma
 
       if (timestamp < oneHourAgo) continue;
 
-      let type: MapEvent['type'] = 'alert';
+      // Only Warning events are alerts; an unclassified Normal event
+      // (Pulled, Created, Started…) is not shown at all.
+      const eventType = ((e as Record<string, unknown>).type as string) || '';
+      let type: MapEvent['type'] | null = eventType === 'Warning' ? 'alert' : null;
       if (reason === 'ScalingReplicaSet' || reason === 'SuccessfulCreate') type = 'deploy';
       else if (reason === 'ScaledUp' || reason === 'ScaledDown') type = 'scale';
       else if (reason === 'BackOff' || reason === 'Killing' || reason === 'Restarting') type = 'restart';
       else if (reason === 'Evicted' || reason === 'Preempting') type = 'eviction';
       else if (reason === 'Scheduled' || reason === 'SuccessfullyAssigned') type = 'scheduled';
+
+      if (type === null) continue;
 
       let nodeName: string | undefined;
       if (kind === 'Node') nodeName = name;
@@ -313,6 +313,7 @@ export function useMapEvents(events: K8sResource[], k8sNodes: K8sResource[]): Ma
         nodeName,
         zone,
         timestamp,
+        isWarning: eventType === 'Warning',
       });
     }
 

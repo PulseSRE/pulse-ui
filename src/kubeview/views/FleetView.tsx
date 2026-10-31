@@ -57,6 +57,8 @@ export default function FleetView() {
   }, [clusters]);
 
   const connectedCount = clusters.filter(c => c.status === 'connected').length;
+  // A cluster's nodes are only counted once a health check has read them.
+  const uncountedClusters = clusters.filter(c => c.status !== 'connected' || c.metadata?.nodeCount == null).length;
   const unreachableCount = clusters.filter(c => c.status !== 'connected' && c.id !== 'local').length;
 
   // Single cluster — show guidance
@@ -162,10 +164,11 @@ export default function FleetView() {
         <div className="flex items-center gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <Server className="w-3.5 h-3.5" />
-            {clusters.reduce((sum, c) => sum + (c.metadata?.nodeCount || 0), 0)} total nodes
+            {clusters.reduce((sum, c) => sum + (c.status === 'connected' ? c.metadata?.nodeCount || 0 : 0), 0)} total nodes
+            {uncountedClusters > 0 && <span className="text-slate-600">({uncountedClusters} cluster{uncountedClusters !== 1 ? 's' : ''} not counted)</span>}
           </span>
           <span>·</span>
-          <span>{clusters.filter(c => c.status === 'connected').length}/{clusters.length} healthy</span>
+          <span>{clusters.filter(c => c.status === 'connected').length}/{clusters.length} reachable</span>
           {acmAvailable && (
             <>
               <span>·</span>

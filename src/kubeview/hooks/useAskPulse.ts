@@ -31,7 +31,8 @@ export function useAskPulse(query: string): UseAskPulseResult {
       return;
     }
     setResponse({
-      text: `Press **Enter** or click **Open in Agent** to ask the AI about: "${query.slice(0, 80)}"`,
+      // Plain text: this is a prompt to ask, not an answer (and the panel does not render markdown).
+      text: `Press Enter or click Open in Agent to ask Pulse: "${query.slice(0, 80)}"`,
       suggestions: [],
       actions: [],
       fromAgent: false,

@@ -250,6 +250,26 @@ describe('fleetStore', () => {
     expect(state.connectionMode).toBe('acm');
   });
 
+  it('detectACM does not report CPU cores as the node count', async () => {
+    // capacity.cpu used to become metadata.nodeCount ("Nodes: 48" for 48 cores).
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        items: [{
+          metadata: { name: 'cluster-a', labels: {} },
+          status: {
+            conditions: [{ type: 'ManagedClusterConditionAvailable', status: 'True' }],
+            version: { kubernetes: '1.28' },
+            capacity: { cpu: '48' },
+          },
+        }],
+      }),
+    });
+    const { updateConnectionStatus } = await import('../../engine/clusterConnection');
+    await useFleetStore.getState().detectACM();
+    expect(updateConnectionStatus).toHaveBeenCalledWith('cluster-a', 'connected', { version: '1.28' });
+  });
+
   it('detectACM sets acmAvailable false on 404', async () => {
     // Mock uiStore for toast
     vi.doMock('../uiStore', () => ({

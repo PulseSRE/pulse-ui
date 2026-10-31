@@ -10,7 +10,8 @@ import type { FixHistorySummary } from '../../engine/analyticsApi';
 
 const TRUST_ICONS = [Eye, MessageSquare, Shield, Zap, Activity] as const;
 
-const DEFAULT_AUTOFIX_CATEGORIES: AutofixCategory[] = [
+/** Labels for categories the server reports; never shown as "supported" on their own. */
+const KNOWN_AUTOFIX_CATEGORIES: AutofixCategory[] = [
   { id: 'crashloop', label: 'Crashlooping pods', description: 'Delete crashlooping pods (controller recreates)' },
   { id: 'workloads', label: 'Failed deployments', description: 'Rolling restart for degraded deployments' },
   { id: 'image_pull', label: 'Image pull errors', description: 'Restart deployment to clear image pull errors' },
@@ -43,7 +44,8 @@ interface TrustPolicyProps {
    * off than before.
    */
   effectiveTrustLevel?: number;
-  scannerCount: number;
+  /** null when coverage could not be read: the summary then gives no number. */
+  scannerCount: number | null;
   fixSummary: FixHistorySummary | null;
   supportedAutoFixCategories?: string[];
   autofixPaused?: boolean;
@@ -54,9 +56,14 @@ function buildCategoryLabel(id: string): string {
   return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Only what the server says it supports. When it reports nothing the answer is
+ * "not reported" — a hard-coded list here would claim support the agent may
+ * not have.
+ */
 function resolveCategories(serverCategories?: string[]): AutofixCategory[] {
-  if (!serverCategories || serverCategories.length === 0) return DEFAULT_AUTOFIX_CATEGORIES;
-  const defaultMap = new Map(DEFAULT_AUTOFIX_CATEGORIES.map((c) => [c.id, c]));
+  if (!serverCategories || serverCategories.length === 0) return [];
+  const defaultMap = new Map(KNOWN_AUTOFIX_CATEGORIES.map((c) => [c.id, c]));
   return serverCategories.map((id) =>
     defaultMap.get(id) ?? { id, label: buildCategoryLabel(id), description: `Auto-fix for ${id.replace(/_/g, ' ')} issues` },
   );
@@ -105,7 +112,7 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
   // for — except while hovering another level, where the point is to preview it.
   const describedLevel =
     hoveredLevel ?? ((effectiveTrustLevel ?? trustLevel) as TrustLevel);
-  const policySummary = buildPolicySummary(describedLevel, scannerCount, supportedAutoFixCategories ?? [], communicationStyle);
+  const policySummary = buildPolicySummary(describedLevel, scannerCount, supportedAutoFixCategories, communicationStyle);
   const runningElsewhere =
     effectiveTrustLevel !== undefined && effectiveTrustLevel !== trustLevel ? effectiveTrustLevel : null;
   const impactPreview = hoveredLevel !== null && hoveredLevel !== trustLevel
@@ -261,8 +268,10 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
   );
 }
 
-function buildPolicySummary(level: TrustLevel, scanners: number, categories: string[], style: CommunicationStyle): string {
-  const catNames = categories.length > 0 ? categories.join(', ').replace(/_/g, ' ') : 'none';
+function buildPolicySummary(level: TrustLevel, scannerCount: number | null, categories: string[] | undefined, style: CommunicationStyle): string {
+  // undefined: the agent did not say; []: it said there are none.
+  const catNames = categories === undefined ? 'not reported' : categories.length > 0 ? categories.join(', ').replace(/_/g, ' ') : 'none';
+  const scanners = scannerCount ?? 'its';
 
   switch (level) {
     case 0:

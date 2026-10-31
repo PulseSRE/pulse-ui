@@ -30,11 +30,13 @@ const ENV_COLORS: Record<string, string> = {
 };
 
 export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
-  const health = healthInput
-    ? computeHealthScore(healthInput)
-    : { score: cluster.status === 'connected' ? 100 : 0, grade: cluster.status === 'connected' ? 'healthy' as const : 'critical' as const, color: cluster.status === 'connected' ? 'text-emerald-400' : 'text-red-400', factors: [] };
+  // Without real health inputs there is no health score: being reachable is
+  // not the same as being healthy, so show only the connection status.
+  const health = healthInput ? computeHealthScore(healthInput) : null;
 
   const isReachable = cluster.status === 'connected';
+  const connectionLabel = isReachable ? 'Reachable' : cluster.status === 'auth-expired' ? 'Auth expired' : cluster.status === 'unknown' ? 'Not checked yet' : 'Unreachable';
+  const dotClass = health ? healthGradeColor(health.grade) : isReachable ? 'bg-emerald-500' : cluster.status === 'unknown' ? 'bg-slate-500' : 'bg-red-500';
   const envClass = ENV_COLORS[cluster.environment?.toLowerCase() || ''] || 'bg-slate-800 text-slate-400 border-slate-700';
 
   return (
@@ -44,13 +46,13 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
     >
       <Card className={cn(
         'p-4 transition-all hover:border-slate-600',
-        health.grade === 'critical' && 'border-red-800/50',
-        health.grade === 'degraded' && 'border-orange-800/50',
+        (health ? health.grade === 'critical' : !isReachable && cluster.status !== 'unknown') && 'border-red-800/50',
+        health?.grade === 'degraded' && 'border-orange-800/50',
       )}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 min-w-0">
-            <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', healthGradeColor(health.grade))} />
+            <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', dotClass)} />
             <span className="text-sm font-semibold text-slate-100 truncate">{cluster.name}</span>
             {cluster.environment && (
               <span className={cn('text-xs px-1.5 py-0.5 rounded-sm border shrink-0', envClass)}>
@@ -68,20 +70,19 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
           </div>
         </div>
 
-        {/* Health Score */}
-        <div className="flex items-end gap-3 mb-3">
-          <div className={cn('text-3xl font-bold tabular-nums', health.color)}>
-            {isReachable ? health.score : '—'}
+        {/* Health score only when there is something to score; otherwise connection status */}
+        {health && isReachable ? (
+          <div className="flex items-end gap-3 mb-3">
+            <div className={cn('text-3xl font-bold tabular-nums', health.color)}>{health.score}</div>
+            <div className="text-xs text-slate-500 pb-1">
+              {health.factors.length > 0 ? health.factors[0].detail : health.grade}
+            </div>
           </div>
-          <div className="text-xs text-slate-500 pb-1">
-            {isReachable ? (
-              health.grade === 'healthy' ? 'All systems go' :
-              health.factors.length > 0 ? health.factors[0].detail : health.grade
-            ) : (
-              cluster.status === 'auth-expired' ? 'Auth expired' : 'Unreachable'
-            )}
+        ) : (
+          <div className={cn('mb-3 text-sm font-medium', isReachable ? 'text-slate-300' : cluster.status === 'unknown' ? 'text-slate-500' : 'text-red-400')}>
+            {connectionLabel}
           </div>
-        </div>
+        )}
 
         {/* Metrics row */}
         {isReachable && (
@@ -108,7 +109,7 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
         )}
 
         {/* Health factors (if degraded) */}
-        {health.factors.length > 0 && health.grade !== 'healthy' && (
+        {health && health.factors.length > 0 && health.grade !== 'healthy' && (
           <div className="mt-3 pt-3 border-t border-slate-800 space-y-1">
             {health.factors.slice(0, 2).map((f, i) => (
               <div key={i} className="flex items-center gap-1.5 text-xs">

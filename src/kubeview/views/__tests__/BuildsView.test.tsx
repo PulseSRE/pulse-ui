@@ -81,6 +81,24 @@ describe('BuildsView', () => {
     expect(screen.getAllByText('v1.0').length).toBeGreaterThanOrEqual(1);
   });
 
+  it('shows one success rate over one population, with cancelled builds reported beside it', () => {
+    // 10 complete + 10 cancelled used to read "50% failure" and "100% success" side by side.
+    const b = (i: number, phase: string) => ({
+      metadata: { name: `b-${phase}-${i}`, namespace: 't', uid: `${phase}${i}`, creationTimestamp: '2025-01-01T00:00:00Z' },
+      spec: { strategy: { type: 'Docker' } },
+      status: { phase, startTimestamp: '2025-01-01T00:00:00Z', completionTimestamp: '2025-01-01T00:01:00Z' },
+    });
+    mockData['/apis/build.openshift.io/v1/builds'] = [
+      ...Array.from({ length: 10 }, (_, i) => b(i, 'Complete')),
+      ...Array.from({ length: 10 }, (_, i) => b(i, 'Cancelled')),
+    ];
+    renderView();
+    expect(screen.queryByText('Failure Rate')).toBeNull();
+    const card = screen.getByText('Success Rate').parentElement!;
+    expect(card.textContent).toContain('100.0%');
+    expect(card.textContent).toContain('10 of 10 finished builds · 10 cancelled, not counted');
+  });
+
   it('Start build is always visible and instantiates the BuildConfig on the active cluster', async () => {
     canStart = true;
     mockData['/apis/build.openshift.io/v1/buildconfigs'] = [{

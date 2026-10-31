@@ -127,21 +127,41 @@ describe('UpdatesTab', () => {
   });
 
   it('shows up-to-date message when no updates available', () => {
-    renderTab({ availableUpdates: [] });
+    renderTab({ availableUpdates: [], clusterVersion: makeClusterVersion() });
     expect(screen.getByText('Cluster is up to date')).toBeDefined();
   });
 
-  it('renders available updates with version numbers', () => {
+  it('renders available updates sorted by version, labels the first "Latest", and recommends nothing', () => {
+    // CVO's list is unordered; the UI used to call whatever came first "Recommended".
     renderTab({
       availableUpdates: [
-        { version: '4.15.5' },
         { version: '4.15.4' },
+        { version: '4.15.10' },
+        { version: '4.15.5' },
       ],
     });
 
-    expect(screen.getByText('4.15.5')).toBeDefined();
-    expect(screen.getByText('4.15.4')).toBeDefined();
-    expect(screen.getByText('Recommended')).toBeDefined();
+    const versions = screen.getAllByText(/^4\.15\.\d+$/)
+      .filter((el) => el.closest('.space-y-2'))
+      .map((el) => el.textContent);
+    expect(versions).toEqual(['4.15.10', '4.15.5', '4.15.4']);
+    expect(screen.getByText('Latest')).toBeDefined();
+    expect(screen.queryByText('Recommended')).toBeNull();
+  });
+
+  it('says update status is unknown, not "up to date", when ClusterVersion could not be read', () => {
+    renderTab({ clusterVersion: null, availableUpdates: [] });
+    expect(screen.queryByText('Cluster is up to date')).toBeNull();
+    expect(screen.getByText('Update status unknown')).toBeDefined();
+  });
+
+  it('says update status is unknown when CVO could not retrieve updates', () => {
+    renderTab({
+      availableUpdates: [],
+      clusterVersion: makeClusterVersion({ status: { conditions: [{ type: 'RetrievedUpdates', status: 'False', message: 'VersionNotFound' }], history: [] } as never }),
+    });
+    expect(screen.queryByText('Cluster is up to date')).toBeNull();
+    expect(screen.getByText(/could not retrieve available updates: VersionNotFound/)).toBeDefined();
   });
 
   it('shows known risks badge on updates with risks', () => {

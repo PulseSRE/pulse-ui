@@ -24,6 +24,17 @@ export interface GitOpsConfig {
   pathPrefix?: string;
 }
 
+/**
+ * Bitbucket App Passwords authenticate with HTTP Basic (`username:app-password`);
+ * only repository/workspace access tokens use Bearer. A token entered as
+ * `username:app-password` is sent as Basic, anything else as Bearer.
+ */
+export function bitbucketAuthHeader(token: string): string {
+  const sep = token.indexOf(':');
+  if (sep > 0) return `Basic ${btoa(token)}`;
+  return `Bearer ${token}`;
+}
+
 function validateRepoUrl(repoUrl: string): void {
   let parsed: URL;
   try {
@@ -309,7 +320,7 @@ class BitbucketProvider implements GitProvider {
     this.repo = repo;
     this.apiBase = `https://api.bitbucket.org/2.0/repositories/${owner}/${repo}`;
     this.headers = {
-      Authorization: `Bearer ${config.token}`,
+      Authorization: bitbucketAuthHeader(config.token),
       'Content-Type': 'application/json',
     };
   }

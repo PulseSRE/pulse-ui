@@ -27,6 +27,7 @@ const _mockTimelineData = {
   correlationGroups: [] as any[],
   counts: { alert: 0, event: 0, rollout: 0, config: 0 } as Record<string, number>,
   isLoading: false,
+  failedSources: [] as string[],
 };
 
 vi.mock('../../hooks/useIncidentTimeline', () => ({
@@ -46,6 +47,15 @@ describe('TimelineView', () => {
     _mockTimelineData.correlationGroups = [];
     _mockTimelineData.counts = { alert: 0, event: 0, rollout: 0, config: 0 };
     _mockTimelineData.isLoading = false;
+    _mockTimelineData.failedSources = [];
+  });
+
+  it('says the timeline is incomplete when Prometheus could not be read', () => {
+    _mockTimelineData.failedSources = ['alerts (Prometheus)'];
+    renderView();
+    expect(screen.getByRole('alert').textContent).toMatch(/Could not read alerts \(Prometheus\)/);
+    expect(screen.queryByText('No timeline entries found')).toBeNull();
+    expect(screen.getByText('Nothing found in the sources that could be read')).toBeDefined();
   });
 
   it('renders the page header', () => {

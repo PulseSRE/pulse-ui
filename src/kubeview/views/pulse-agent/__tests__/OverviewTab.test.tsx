@@ -114,3 +114,25 @@ describe('OverviewTab links', () => {
     expect(screen.getByText('Weird link').closest('a')).toBeNull();
   });
 });
+
+describe('OverviewTab honest status', () => {
+  afterEach(() => { cleanup(); });
+
+  it('calls fix actions fix actions, not "issues detected"', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchFixHistorySummary).mockResolvedValueOnce({ total_actions: 3, completed: 2, failed: 1, rolled_back: 0 } as never);
+    await renderTab();
+    expect(await screen.findByText('3 fix actions')).toBeDefined();
+    expect(document.body.textContent).not.toMatch(/detected/);
+  });
+
+  it('shows status unknown, not "0 scanners active, no issues detected", when the reads fail', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchFixHistorySummary).mockRejectedValueOnce(new Error('Analytics API error: 503'));
+    vi.mocked(api.fetchScannerCoverage).mockRejectedValueOnce(new Error('Analytics API error: 503'));
+    await renderTab();
+    expect(await screen.findByText(/Pulse status is unknown — fix history and scanner coverage could not be loaded/)).toBeDefined();
+    expect(document.body.textContent).not.toMatch(/no issues detected/);
+    expect(document.body.textContent).not.toMatch(/0 scanners/);
+  });
+});

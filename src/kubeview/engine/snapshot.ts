@@ -1,5 +1,4 @@
 import { useUIStore } from '../store/uiStore';
-import { K8S_BASE as BASE } from './gvr';
 import { getClusterBase } from './clusterConnection';
 
 export interface ClusterSnapshot {
@@ -28,7 +27,20 @@ export interface ClusterSnapshot {
     schedulerProfile: string;
     ingressDomain: string;
   };
+  /**
+   * Sources that could not be read (403, 5xx, network). A field built from an
+   * unavailable source is unknown, not '' / 0 / a default, and is never
+   * counted as matching.
+   */
+  unavailable?: SnapshotSource[];
 }
+
+export type SnapshotSource =
+  | 'clusterVersion' | 'infrastructure' | 'nodes' | 'clusterOperators' | 'crds' | 'storageClasses'
+  | 'namespaces' | 'clusterRoleBindings' | 'roleBindings' | 'oauth' | 'apiServer' | 'ingress' | 'scheduler' | 'proxy';
+
+/** OpenShift's scheduler profile when `spec.profile` is unset. */
+export const DEFAULT_SCHEDULER_PROFILE = 'LowNodeUtilization';
 
 export interface DiffRow {
   field: string;
@@ -36,6 +48,8 @@ export interface DiffRow {
   left: string;
   right: string;
   changed: boolean;
+  /** One side could not be read, so this row is neither a match nor a difference. */
+  unavailable?: boolean;
 }
 
 const SNAPSHOTS_KEY = 'openshiftpulse-snapshots';
@@ -57,7 +71,11 @@ export function saveSnapshots(snapshots: ClusterSnapshot[]) {
   }
 }
 
-async function fetchJson<T>(path: string, base: string = BASE): Promise<T | null> {
+/**
+ * Fetch one source. A 404 is an answer (the resource is not there: null); any
+ * other failure records the source as unavailable.
+ */
+async function fetchJson<T>(path: string, base: string, source: SnapshotSource, unavailable: Set<SnapshotSource>): Promise<T | null> {
   try {
     const { impersonateUser, impersonateGroups } = useUIStore.getState();
     const headers: Record<string, string> = {};
@@ -68,9 +86,15 @@ async function fetchJson<T>(path: string, base: string = BASE): Promise<T | null
       }
     }
     const res = await fetch(`${base}${path}`, { headers });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (res.status !== 404) unavailable.add(source);
+      return null;
+    }
     return await res.json();
-  } catch { return null; }
+  } catch {
+    unavailable.add(source);
+    return null;
+  }
 }
 
 export async function captureSnapshot(label: string, clusterId?: string): Promise<ClusterSnapshot> {
@@ -90,21 +114,23 @@ export async function captureSnapshot(label: string, clusterId?: string): Promis
     namespaceCount: 0,
   };
 
+  const unavailable = new Set<SnapshotSource>();
+  const get = <T,>(path: string, source: SnapshotSource) => fetchJson<T>(path, base, source, unavailable);
   const [cv, infra, nodesData, coData, crdData, scData, nsData, crbData, rbData, oauthData, apiServerData, ingressData, schedulerData, proxyData] = await Promise.all([
-    fetchJson<any>('/apis/config.openshift.io/v1/clusterversions/version', base),
-    fetchJson<any>('/apis/config.openshift.io/v1/infrastructures/cluster', base),
-    fetchJson<any>('/api/v1/nodes', base),
-    fetchJson<any>('/apis/config.openshift.io/v1/clusteroperators', base),
-    fetchJson<any>('/apis/apiextensions.k8s.io/v1/customresourcedefinitions', base),
-    fetchJson<any>('/apis/storage.k8s.io/v1/storageclasses', base),
-    fetchJson<any>('/api/v1/namespaces', base),
-    fetchJson<any>('/apis/rbac.authorization.k8s.io/v1/clusterrolebindings', base),
-    fetchJson<any>('/apis/rbac.authorization.k8s.io/v1/rolebindings', base),
-    fetchJson<any>('/apis/config.openshift.io/v1/oauths/cluster', base),
-    fetchJson<any>('/apis/config.openshift.io/v1/apiservers/cluster', base),
-    fetchJson<any>('/apis/config.openshift.io/v1/ingresses/cluster', base),
-    fetchJson<any>('/apis/config.openshift.io/v1/schedulers/cluster', base),
-    fetchJson<any>('/apis/config.openshift.io/v1/proxies/cluster', base),
+    get<any>('/apis/config.openshift.io/v1/clusterversions/version', 'clusterVersion'),
+    get<any>('/apis/config.openshift.io/v1/infrastructures/cluster', 'infrastructure'),
+    get<any>('/api/v1/nodes', 'nodes'),
+    get<any>('/apis/config.openshift.io/v1/clusteroperators', 'clusterOperators'),
+    get<any>('/apis/apiextensions.k8s.io/v1/customresourcedefinitions', 'crds'),
+    get<any>('/apis/storage.k8s.io/v1/storageclasses', 'storageClasses'),
+    get<any>('/api/v1/namespaces', 'namespaces'),
+    get<any>('/apis/rbac.authorization.k8s.io/v1/clusterrolebindings', 'clusterRoleBindings'),
+    get<any>('/apis/rbac.authorization.k8s.io/v1/rolebindings', 'roleBindings'),
+    get<any>('/apis/config.openshift.io/v1/oauths/cluster', 'oauth'),
+    get<any>('/apis/config.openshift.io/v1/apiservers/cluster', 'apiServer'),
+    get<any>('/apis/config.openshift.io/v1/ingresses/cluster', 'ingress'),
+    get<any>('/apis/config.openshift.io/v1/schedulers/cluster', 'scheduler'),
+    get<any>('/apis/config.openshift.io/v1/proxies/cluster', 'proxy'),
   ]);
 
   if (cv) snapshot.clusterVersion = cv.status?.desired?.version || cv.status?.history?.[0]?.version || '';
@@ -147,17 +173,66 @@ export async function captureSnapshot(label: string, clusterId?: string): Promis
 
   snapshot.config = {
     identityProviders: (oauthData?.spec?.identityProviders || []).map((idp: any) => `${idp.name} (${idp.type})`),
+    // Unset fields mean the platform default, but only when the read worked.
     tlsProfile: apiServerData?.spec?.tlsSecurityProfile?.type || 'Intermediate',
     proxyEnabled: !!(proxyData?.spec?.httpProxy || proxyData?.spec?.httpsProxy),
     encryptionType: apiServerData?.spec?.encryption?.type || 'identity',
-    schedulerProfile: schedulerData?.spec?.profile || 'HighNodeUtilization',
+    schedulerProfile: schedulerData?.spec?.profile || DEFAULT_SCHEDULER_PROFILE,
     ingressDomain: ingressData?.spec?.domain || '',
   };
+  if (unavailable.size > 0) snapshot.unavailable = [...unavailable].sort();
 
   return snapshot;
 }
 
+/** Which sources each diff field is built from. */
+const FIELD_SOURCES: Record<string, SnapshotSource[]> = {
+  'Cluster Version': ['clusterVersion'],
+  'Platform': ['infrastructure'],
+  'Control Plane Topology': ['infrastructure'],
+  'Node Count': ['nodes'],
+  'Kubelet Versions': ['nodes'],
+  'Namespace Count': ['namespaces'],
+  'CRD Count': ['crds'],
+  'CRDs Added': ['crds'],
+  'CRDs Removed': ['crds'],
+  'Storage Classes': ['storageClasses'],
+  'ClusterRoleBindings': ['clusterRoleBindings'],
+  'RoleBindings': ['roleBindings'],
+  'Cluster-Admin Added': ['clusterRoleBindings'],
+  'Cluster-Admin Removed': ['clusterRoleBindings'],
+  'Identity Providers': ['oauth'],
+  'TLS Profile': ['apiServer'],
+  'Proxy': ['proxy'],
+  'Encryption': ['apiServer'],
+  'Scheduler Profile': ['scheduler'],
+  'Ingress Domain': ['ingress'],
+};
+
+function sourcesFor(field: string): SnapshotSource[] {
+  if (field.startsWith('Operator: ')) return ['clusterOperators'];
+  return FIELD_SOURCES[field] ?? [];
+}
+
 export function compareSnapshots(left: ClusterSnapshot, right: ClusterSnapshot): DiffRow[] {
+  const rows = compareSnapshotFields(left, right);
+  const lu = new Set(left.unavailable ?? []);
+  const ru = new Set(right.unavailable ?? []);
+  if (lu.size === 0 && ru.size === 0) return rows;
+  const out: DiffRow[] = [];
+  for (const row of rows) {
+    const srcs = sourcesFor(row.field);
+    const lBad = srcs.some((x) => lu.has(x));
+    const rBad = srcs.some((x) => ru.has(x));
+    if (!lBad && !rBad) { out.push(row); continue; }
+    // Set-difference rows (added/removed) mean nothing when a side is unread.
+    if (/ (Added|Removed)$/.test(row.field) || row.field.startsWith('Operator: ')) continue;
+    out.push({ ...row, left: lBad ? 'unavailable' : row.left, right: rBad ? 'unavailable' : row.right, changed: false, unavailable: true });
+  }
+  return out;
+}
+
+function compareSnapshotFields(left: ClusterSnapshot, right: ClusterSnapshot): DiffRow[] {
   const rows: DiffRow[] = [];
   rows.push({ field: 'Cluster Version', category: 'Cluster', left: left.clusterVersion, right: right.clusterVersion, changed: left.clusterVersion !== right.clusterVersion });
   rows.push({ field: 'Platform', category: 'Cluster', left: left.platform, right: right.platform, changed: left.platform !== right.platform });

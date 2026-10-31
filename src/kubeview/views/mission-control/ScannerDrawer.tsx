@@ -6,15 +6,17 @@ import type { ScannerCoverage } from '../../engine/analyticsApi';
 
 const DISABLED_KEY = 'pulse-disabled-scanners';
 
-const SCANNER_INFO: Record<string, { description: string; autoFixable?: boolean; severity: string }> = {
-  crashloop: { description: 'Pods in CrashLoopBackOff — restarts > 5 in the last hour', autoFixable: true, severity: 'critical' },
+// Descriptions only. Whether a scanner's findings are auto-fixable comes from
+// the agent (supported_auto_fix_categories), not from a list kept here.
+const SCANNER_INFO: Record<string, { description: string; severity: string }> = {
+  crashloop: { description: 'Pods in CrashLoopBackOff — restarts > 5 in the last hour', severity: 'critical' },
   pending: { description: 'Pods stuck in Pending — unschedulable due to resources, affinity, or taints', severity: 'warning' },
-  workloads: { description: 'Deployments with 0 available replicas or progressing for too long', autoFixable: true, severity: 'critical' },
+  workloads: { description: 'Deployments with 0 available replicas or progressing for too long', severity: 'critical' },
   nodes: { description: 'Nodes with MemoryPressure, DiskPressure, or PIDPressure conditions', severity: 'critical' },
   cert_expiry: { description: 'TLS certificates in Secrets expiring within 30 days', severity: 'warning' },
   alerts: { description: 'Firing Prometheus alerts from Alertmanager (excludes Watchdog and InfoInhibitor)', severity: 'critical' },
   oom: { description: 'Pods killed by OOM (Out of Memory) — containers exceeding memory limits', severity: 'warning' },
-  image_pull: { description: 'Pods in ImagePullBackOff — wrong image tag, missing registry auth, or network issues', autoFixable: true, severity: 'warning' },
+  image_pull: { description: 'Pods in ImagePullBackOff — wrong image tag, missing registry auth, or network issues', severity: 'warning' },
   operators: { description: 'ClusterOperators in Degraded state — platform components not fully healthy', severity: 'warning' },
   daemonsets: { description: 'DaemonSets with fewer ready pods than desired — missing coverage on some nodes', severity: 'warning' },
   hpa: { description: 'HPAs at maxReplicas with ScalingLimited condition — unable to scale further', severity: 'warning' },
@@ -48,10 +50,13 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 interface ScannerDrawerProps {
   coverage: ScannerCoverage | null;
+  /** From /capabilities; undefined when the agent does not report it. */
+  supportedAutoFixCategories?: string[];
   onClose: () => void;
 }
 
-export function ScannerDrawer({ coverage, onClose }: ScannerDrawerProps) {
+export function ScannerDrawer({ coverage, supportedAutoFixCategories, onClose }: ScannerDrawerProps) {
+  const autoFixable = new Set(supportedAutoFixCategories ?? []);
   const setDisabledBackend = useMonitorStore((s) => s.setDisabledScanners);
 
   const [disabled, setDisabled] = useState<Set<string>>(() => {
@@ -78,7 +83,8 @@ export function ScannerDrawer({ coverage, onClose }: ScannerDrawerProps) {
   return (
     <DrawerShell title="Scanner Coverage" onClose={onClose}>
       <p className="text-[11px] text-slate-500 mb-1">
-        The monitor runs all enabled scanners every 60 seconds against your cluster. Findings appear in the Incident Center. Scanners cannot be added or customized — they are built into the agent.
+        The monitor runs its scanners against your cluster on the agent&apos;s configured scan interval. Findings appear in the Inbox. Scanners cannot be added or customized — they are built into the agent.
+        The switches below only change what this browser&apos;s connection asks for; they do not change the agent&apos;s configuration.
       </p>
       <div className="text-xs text-slate-500 mb-4">
         {activeCount}/{scanners.length} scanners active
@@ -101,7 +107,7 @@ export function ScannerDrawer({ coverage, onClose }: ScannerDrawerProps) {
                   <span className="text-sm text-slate-200 font-medium">
                     {scanner.name.replace(/^scan_/, '').replace(/_/g, ' ')}
                   </span>
-                  {info?.autoFixable && (
+                  {autoFixable.has(scanner.name.replace(/^scan_/, '')) && (
                     <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-emerald-900/40 text-emerald-400 border border-emerald-800/40">auto-fix</span>
                   )}
                   {info && (

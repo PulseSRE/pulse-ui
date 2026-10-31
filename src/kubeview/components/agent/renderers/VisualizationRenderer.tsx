@@ -255,29 +255,39 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
   const extra = spec as unknown as Record<string, unknown>;
   const query = extra.query as string || '';
   const title = spec.title || '';
-  const [liveValue, setLiveValue] = useState<string | null>(null);
+  const [live, setLive] = useState<{ state: 'idle' | 'ok' | 'nodata' | 'error'; value?: string }>({ state: 'idle' });
 
   useEffect(() => {
     if (!query) return;
     let cancelled = false;
     // The agent's queries are about its own (local) cluster's Prometheus.
     promFetch(`/api/v1/query?query=${encodeURIComponent(query)}`, METRICS_CLUSTER_ID)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`Prometheus returned ${r.status}`);
+        return r.json();
+      })
       .then(data => {
         if (cancelled) return;
         const results = data?.data?.result || [];
-        if (results.length > 0) {
-          const raw = parseFloat(results[0].value?.[1] || '0');
-          setLiveValue(Number.isInteger(raw) ? String(raw) : raw.toFixed(2));
+        if (results.length > 0 && results[0].value?.[1] !== undefined) {
+          const raw = parseFloat(results[0].value[1]);
+          setLive({ state: 'ok', value: Number.isInteger(raw) ? String(raw) : raw.toFixed(2) });
         } else {
-          setLiveValue('0');
+          // An empty result is "no data", not a measured zero.
+          setLive({ state: 'nodata' });
         }
       })
-      .catch(() => { if (!cancelled) setLiveValue(null); });
+      .catch(() => { if (!cancelled) setLive({ state: 'error' }); });
     return () => { cancelled = true; };
   }, [query]);
 
-  const value = spec.value || liveValue || (query ? '...' : '—');
+  // The live value wins over the agent's snapshot in spec.value, which may be stale.
+  const value = live.state === 'ok'
+    ? live.value!
+    : live.state === 'nodata'
+      ? '—'
+      : spec.value || (query && live.state === 'idle' ? '...' : '—');
+  const liveNote = live.state === 'nodata' ? 'no data' : live.state === 'error' && !spec.value ? 'could not query Prometheus' : '';
   const goodDir = spec.trendGood || 'down';
   const trendIsGood = spec.trend === goodDir;
   const trendColor = !spec.trend || spec.trend === 'stable'
@@ -292,8 +302,9 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
     )}>
       <span className="text-xs text-slate-400 mb-1">{title}</span>
       <div className="text-2xl font-bold text-slate-100 font-mono">
-        {value}{spec.unit && <span className="text-sm text-slate-400 ml-0.5">{spec.unit}</span>}
+        {value}{spec.unit && value !== '—' && <span className="text-sm text-slate-400 ml-0.5">{spec.unit}</span>}
       </div>
+      {liveNote && <div className="text-[10px] text-slate-500 mt-0.5">{liveNote}</div>}
       {spec.trend && spec.trendValue && (
         <div className={cn('text-xs mt-1 font-medium', trendColor)}>
           {trendArrow} {spec.trendValue}

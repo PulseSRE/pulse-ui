@@ -174,6 +174,34 @@ describe('ArgoCDStore', () => {
 
       expect(useArgoCDStore.getState().applications).toHaveLength(0);
       expect(useArgoCDStore.getState().applicationsLoading).toBe(false);
+      // The failure is kept, so the page can say so instead of "No Applications".
+      expect(useArgoCDStore.getState().applicationsError).toBe('Forbidden');
+    });
+
+    it('clears the error after a successful reload', async () => {
+      useArgoCDStore.setState({ available: true, namespace: 'openshift-gitops', applicationsError: 'Forbidden' });
+      mockK8sList.mockResolvedValueOnce([makeArgoApp('app1')]);
+      await useArgoCDStore.getState().loadApplications();
+      expect(useArgoCDStore.getState().applicationsError).toBeNull();
+    });
+  });
+
+  describe('rollouts', () => {
+    it('loads rollouts after detection finds the rollouts resource', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, clone: () => ({ json: () => Promise.resolve({ resources: [{ name: 'applications' }, { name: 'rollouts' }] }) }) });
+      const rollout = { metadata: { name: 'canary', namespace: 'web', uid: 'r1' } };
+      mockK8sList.mockImplementation(async (path: string) => (path.includes('rollouts') ? [rollout] : []) as never);
+
+      await useArgoCDStore.getState().detect();
+      await vi.waitFor(() => expect(useArgoCDStore.getState().rollouts).toHaveLength(1));
+      expect(mockK8sList).toHaveBeenCalledWith('/apis/argoproj.io/v1alpha1/rollouts', undefined, expect.anything());
+      expect(useArgoCDStore.getState().rolloutsAvailable).toBe(true);
+    });
+
+    it('keeps a rollouts read failure as an error', async () => {
+      mockK8sList.mockRejectedValueOnce(Object.assign(new Error('forbidden'), { statusCode: 403 }));
+      await useArgoCDStore.getState().loadRollouts();
+      expect(useArgoCDStore.getState().rolloutsError).toBe('Permission denied (403)');
     });
   });
 });

@@ -42,19 +42,20 @@ interface UseIncidentTimelineOptions {
 export function useIncidentTimeline({ timeRange, namespace, categories }: UseIncidentTimelineOptions) {
   // Events
   const clusterId = useActiveClusterId();
-  const { data: rawEvents = [], isLoading: eventsLoading } = useK8sListWatch<Event>({
+  const { data: rawEvents = [], isLoading: eventsLoading, isError: eventsError } = useK8sListWatch<Event>({
     apiPath: '/api/v1/events?limit=500',
     enabled: categories?.has('event') ?? false,
   });
 
   // Alerts from Prometheus
-  const { data: alertGroups = [], isLoading: alertsLoading } = useQuery({
+  const { data: alertGroups = [], isLoading: alertsLoading, isError: alertsError } = useQuery({
     queryKey: ['timeline', 'alerts', clusterId],
     queryFn: async () => {
       const res = await promFetch('/api/v1/rules', clusterId);
       if (!res.ok) {
+        // Throw: an unreachable Prometheus is "alerts unknown", not "no alerts".
         useUIStore.getState().addDegradedReason('observability_unavailable');
-        return [];
+        throw new Error(`Prometheus returned ${res.status}`);
       }
       useUIStore.getState().removeDegradedReason('observability_unavailable');
       const json = await res.json();
@@ -66,7 +67,7 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   });
 
   // ReplicaSets + Deployments for rollouts
-  const { data: replicaSets = [], isLoading: rsLoading } = useK8sListWatch<ReplicaSet>({
+  const { data: replicaSets = [], isLoading: rsLoading, isError: rsError } = useK8sListWatch<ReplicaSet>({
     apiPath: '/apis/apps/v1/replicasets',
     namespace,
     enabled: categories?.has('rollout'),
@@ -78,18 +79,26 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   });
 
   // ClusterVersion + ClusterOperators for config changes
-  const { data: clusterVersion = null, isLoading: cvLoading } = useQuery({
+  const { data: clusterVersion = null, isLoading: cvLoading, isError: cvError } = useQuery({
     queryKey: ['timeline', 'clusterversion', clusterId],
     queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
     staleTime: 60000,
     enabled: categories?.has('config'),
   });
-  const { data: operators = [], isLoading: opsLoading } = useK8sListWatch<ClusterOperator>({
+  const { data: operators = [], isLoading: opsLoading, isError: opsError } = useK8sListWatch<ClusterOperator>({
     apiPath: '/apis/config.openshift.io/v1/clusteroperators',
     enabled: categories?.has('config'),
   });
 
   const isLoading = eventsLoading || alertsLoading || rsLoading || deploysLoading || cvLoading || opsLoading;
+
+  /** Sources that were asked for and could not be read. */
+  const failedSources: string[] = [
+    categories?.has('alert') && alertsError ? 'alerts (Prometheus)' : '',
+    categories?.has('event') && eventsError ? 'events' : '',
+    categories?.has('rollout') && rsError ? 'rollouts' : '',
+    categories?.has('config') && (cvError || opsError) ? 'config changes' : '',
+  ].filter(Boolean);
 
   // Stable string key for categories Set (React can't compare Sets in deps)
   const categoriesKey = categories instanceof Set ? [...categories].sort().join(',') : '';
@@ -136,5 +145,5 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   const correlationGroups = result?.correlationGroups || [];
   const counts = result?.counts || { alert: 0, event: 0, rollout: 0, config: 0 };
 
-  return { entries, correlationGroups, counts, isLoading };
+  return { entries, correlationGroups, counts, isLoading, failedSources };
 }

@@ -3,8 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Shield, ShieldAlert, ShieldCheck, ShieldOff, Lock, Key, Users,
   CheckCircle, XCircle, AlertTriangle, ArrowRight, ChevronDown, ChevronRight,
-  Globe, Server, Eye, FileText, Network, Bot,
+  Globe, Server, Eye, FileText, Network, Bot, HelpCircle, Loader2,
 } from 'lucide-react';
+import { LoadError } from '../components/primitives/LoadError';
+import { useKubeadminSecret } from '../hooks/useKubeadminSecret';
+import { errorReason } from '../engine/readResult';
 import { cn } from '@/lib/utils';
 import { k8sGet, k8sList } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
@@ -22,7 +25,10 @@ import { useActiveClusterId } from '../hooks/useClusterBase';
 interface SecurityAuditCheck {
   id: string;
   label: string;
-  pass: boolean;
+  /** null = could not be checked (the read failed); never counted as a pass. */
+  pass: boolean | null;
+  /** The read has not answered yet: neither a result nor unknown. */
+  pending?: boolean;
   detail: string;
   severity: 'critical' | 'warning' | 'info';
   link?: string;
@@ -40,30 +46,27 @@ export default function SecurityView() {
   const hasSealedSecrets = apiGroups.some((g) => g.name === 'bitnami.com');
 
   // Data
-  const { data: oauthConfig } = useQuery({
+  const { data: oauthConfig, isError: oauthError, error: oauthErr, isLoading: oauthLoading } = useQuery({
     queryKey: ['security', 'oauth', clusterId],
     queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster', clusterId)),
     staleTime: 120000,
   });
-  const { data: apiServer } = useQuery({
+  const { data: apiServer, isError: apiServerError, error: apiServerErr, isLoading: apiServerLoading } = useQuery({
     queryKey: ['security', 'apiserver', clusterId],
     queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/apiservers/cluster', clusterId)),
     staleTime: 120000,
   });
-  const { data: users = [] } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'users', clusterId],
-    queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/user.openshift.io/v1/users', undefined, clusterId))) ?? [],
-    staleTime: 60000,
-  });
-  const { data: clusterRoleBindings = [], isLoading: crbLoading } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings' });
-  const { data: sccs = [] } = useQuery<K8sResource[]>({
+  const { data: kubeadmin } = useKubeadminSecret();
+  const { data: clusterRoleBindings = [], isLoading: crbLoading, isError: crbError } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings' });
+  const { data: sccs = [], isError: sccsError, error: sccsErr, isLoading: sccsLoading, refetch: refetchSccs } = useQuery<K8sResource[]>({
     queryKey: ['security', 'sccs', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/security.openshift.io/v1/securitycontextconstraints', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
-  const { data: networkPolicies = [] } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
-  const { data: namespaces = [] } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
-  const { data: secrets = [] } = useQuery<K8sResource[]>({
+  const { data: networkPolicies = [], isError: netpolError, isLoading: netpolLoading } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
+  const { data: namespaces = [], isError: nsError, isLoading: nsLoading } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
+  // A 403 on secrets is "unknown", not 0 certificates.
+  const { data: secrets = [], isError: secretsError, isLoading: secretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'secrets-summary', clusterId],
     queryFn: async () => {
       const s = await k8sList<K8sResource>('/api/v1/secrets', undefined, clusterId);
@@ -71,7 +74,7 @@ export default function SecurityView() {
     },
     staleTime: 120000,
   });
-  const { data: externalSecrets = [] } = useQuery<K8sResource[]>({
+  const { data: externalSecrets = [], isError: externalSecretsError, isLoading: externalSecretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'externalsecrets', clusterId],
     queryFn: async () => {
       // ESO 0.17+ serves ExternalSecret at v1 (v1beta1 is no longer served);
@@ -85,7 +88,7 @@ export default function SecurityView() {
     staleTime: 120000,
     enabled: hasExternalSecrets,
   });
-  const { data: sealedSecrets = [] } = useQuery<K8sResource[]>({
+  const { data: sealedSecrets = [], isError: sealedSecretsError, isLoading: sealedSecretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'sealedsecrets', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/bitnami.com/v1alpha1/sealedsecrets', undefined, clusterId))) ?? [],
     staleTime: 120000,
@@ -93,7 +96,7 @@ export default function SecurityView() {
   });
 
   // StackRox / ACS detection
-  const { data: acsInstalled = false } = useQuery({
+  const { data: acsInstalled = false, isError: acsError, isLoading: acsLoading } = useQuery({
     queryKey: ['security', 'acs', clusterId],
     queryFn: async () => {
       const csvs = (await safeQuery(() => k8sList<K8sResource>('/apis/operators.coreos.com/v1alpha1/clusterserviceversions', undefined, clusterId))) ?? [];
@@ -104,9 +107,11 @@ export default function SecurityView() {
 
   // Derived
   const identityProviders = oauthConfig?.spec?.identityProviders || [];
-  const tlsProfile = apiServer?.spec?.tlsSecurityProfile?.type || 'Intermediate';
-  const encryptionType = apiServer?.spec?.encryption?.type || 'identity';
-  const kubeadminExists = users.some((u) => u.metadata?.name === 'kube:admin' || u.metadata?.name === 'kubeadmin');
+  // An unset profile means Intermediate — but only when the APIServer was read.
+  const apiServerRead = !apiServerError && apiServer != null;
+  const apiServerReason = apiServerError ? errorReason(apiServerErr) : 'APIServer config not found';
+  const tlsProfile = apiServerRead ? apiServer?.spec?.tlsSecurityProfile?.type || 'Intermediate' : null;
+  const encryptionType = apiServerRead ? apiServer?.spec?.encryption?.type || 'identity' : null;
 
   const clusterAdmins = useMemo(() => {
     const subjects: Array<{ name: string; kind: string; binding: string }> = [];
@@ -138,10 +143,6 @@ export default function SecurityView() {
     userNamespaces.filter((ns) => !nsWithNetPol.has(ns.metadata?.name)),
   [userNamespaces, nsWithNetPol]);
 
-  const privilegedSCCs = useMemo(() =>
-    sccs.filter(s => (s as any).allowPrivilegedContainer === true || s.metadata?.name === 'privileged'),
-  [sccs]);
-
   const tlsSecretCount = secrets.filter((s: any) => s.type === 'kubernetes.io/tls').length;
   const opaqueSecretCount = secrets.filter((s: any) => s.type === 'Opaque').length;
 
@@ -153,22 +154,27 @@ export default function SecurityView() {
     c.push({
       id: 'idp',
       label: 'Identity Provider configured',
-      pass: identityProviders.length > 0,
-      detail: identityProviders.length > 0
+      pass: oauthError ? null : identityProviders.length > 0,
+      detail: oauthError ? `Could not read OAuth config: ${errorReason(oauthErr)}` : identityProviders.length > 0
         ? `${identityProviders.length} provider${identityProviders.length > 1 ? 's' : ''}: ${identityProviders.map((p: any) => `${p.name} (${p.type})`).join(', ')}`
         : 'No identity provider configured — only kubeadmin can log in',
       severity: identityProviders.length > 0 ? 'info' : 'critical',
       link: '/admin?tab=config', linkTitle: 'Cluster Config',
     });
 
+    // kubeadmin is the kube-system/kubeadmin Secret, not a User object.
     c.push({
       id: 'kubeadmin',
       label: 'kubeadmin user removed',
-      pass: !kubeadminExists,
-      detail: kubeadminExists
-        ? 'kubeadmin still exists — remove after configuring an identity provider'
-        : 'kubeadmin has been removed',
-      severity: kubeadminExists ? 'warning' : 'info',
+      pass: !kubeadmin || kubeadmin.state === 'unknown' ? null : kubeadmin.state === 'absent',
+      detail: !kubeadmin
+        ? 'Checking kube-system/kubeadmin…'
+        : kubeadmin.state === 'unknown'
+          ? `Could not read kube-system/kubeadmin: ${kubeadmin.reason}`
+          : kubeadmin.state === 'present'
+            ? 'kubeadmin still exists — remove after configuring an identity provider'
+            : 'kubeadmin has been removed',
+      severity: kubeadmin?.state === 'present' ? 'warning' : 'info',
       link: '/identity?tab=users', linkTitle: 'Identity & Access',
     });
 
@@ -177,8 +183,10 @@ export default function SecurityView() {
       c.push({
         id: 'tls',
         label: 'TLS security profile',
-        pass: tlsProfile !== 'Old',
-        detail: `TLS profile: ${tlsProfile}${tlsProfile === 'Old' ? ' — allows weak ciphers, upgrade to Intermediate or Modern' : ''}`,
+        pass: tlsProfile === null ? null : tlsProfile !== 'Old',
+        detail: tlsProfile === null
+          ? `Unknown — ${apiServerReason}`
+          : `TLS profile: ${tlsProfile}${tlsProfile === 'Old' ? ' — allows weak ciphers, upgrade to Intermediate or Modern' : ''}`,
         severity: tlsProfile === 'Old' ? 'critical' : 'info',
       });
     }
@@ -188,8 +196,10 @@ export default function SecurityView() {
       c.push({
         id: 'encryption',
         label: 'Encryption at rest',
-        pass: encryptionType !== 'identity',
-        detail: encryptionType === 'identity'
+        pass: encryptionType === null ? null : encryptionType !== 'identity',
+        detail: encryptionType === null
+          ? `Unknown — ${apiServerReason}`
+          : encryptionType === 'identity'
           ? 'Secrets are stored unencrypted in etcd — enable aescbc or aesgcm encryption'
           : `Encryption type: ${encryptionType}`,
         severity: encryptionType === 'identity' ? 'warning' : 'info',
@@ -200,8 +210,8 @@ export default function SecurityView() {
     c.push({
       id: 'clusteradmin',
       label: `Cluster-admin access limited (≤${CLUSTER_ADMIN_THRESHOLD})`,
-      pass: clusterAdmins.length <= CLUSTER_ADMIN_THRESHOLD,
-      detail: clusterAdmins.length === 0
+      pass: crbError ? null : clusterAdmins.length <= CLUSTER_ADMIN_THRESHOLD,
+      detail: crbError ? 'Could not read ClusterRoleBindings' : clusterAdmins.length === 0
         ? 'No non-system cluster-admin bindings'
         : `${clusterAdmins.length} subject${clusterAdmins.length > 1 ? 's' : ''} with cluster-admin: ${clusterAdmins.map(a => `${a.kind}/${a.name}`).join(', ')}`,
       severity: clusterAdmins.length > CLUSTER_ADMIN_THRESHOLD + 2 ? 'warning' : 'info',
@@ -212,32 +222,16 @@ export default function SecurityView() {
     c.push({
       id: 'netpol',
       label: 'Network policies in user namespaces',
-      pass: unprotectedNamespaces.length === 0,
-      detail: unprotectedNamespaces.length === 0
+      pass: netpolError || nsError ? null : unprotectedNamespaces.length === 0,
+      detail: netpolError || nsError ? 'Could not read namespaces or network policies' : unprotectedNamespaces.length === 0
         ? `All ${userNamespaces.length} user namespaces have network policies`
         : `${unprotectedNamespaces.length} of ${userNamespaces.length} user namespaces have no network policies`,
       severity: unprotectedNamespaces.length > 0 ? 'warning' : 'info',
       link: '/networking', linkTitle: 'Networking',
     });
 
-    // SCCs
-    c.push({
-      id: 'scc',
-      label: 'Privileged SCCs tracked',
-      pass: true,
-      detail: `${sccs.length} SCCs total, ${privilegedSCCs.length} allow privileged containers`,
-      severity: 'info',
-    });
-
-    // Certificates
-    c.push({
-      id: 'certs',
-      label: 'TLS certificates managed',
-      pass: tlsSecretCount > 0,
-      detail: `${tlsSecretCount} TLS certificates, ${opaqueSecretCount} opaque secrets`,
-      severity: 'info',
-      link: '/admin?tab=certificates', linkTitle: 'Certificates',
-    });
+    // (No "Privileged SCCs tracked" / "TLS certificates managed" checks: they
+    // could only pass. SCCs and certificate counts are shown below instead.)
 
     // Secrets management
     const hasExternalSecrets = externalSecrets.length > 0;
@@ -246,8 +240,10 @@ export default function SecurityView() {
     c.push({
       id: 'secrets-mgmt',
       label: 'Secrets management',
-      pass: hasSecretsMgmt,
-      detail: hasExternalSecrets
+      pass: hasSecretsMgmt ? true : externalSecretsError || sealedSecretsError ? null : false,
+      detail: !hasSecretsMgmt && (externalSecretsError || sealedSecretsError)
+        ? 'Could not read ExternalSecrets / SealedSecrets'
+        : hasExternalSecrets
         ? `${externalSecrets.length} ExternalSecret${externalSecrets.length !== 1 ? 's' : ''}`
         : hasSealedSecrets
         ? `${sealedSecrets.length} SealedSecret${sealedSecrets.length !== 1 ? 's' : ''}`
@@ -259,20 +255,39 @@ export default function SecurityView() {
     c.push({
       id: 'acs',
       label: 'Advanced Cluster Security (ACS)',
-      pass: acsInstalled,
-      detail: acsInstalled
+      pass: acsInstalled ? true : acsError ? null : false,
+      detail: !acsInstalled && acsError
+        ? 'Could not read ClusterServiceVersions to detect ACS'
+        : acsInstalled
         ? 'Red Hat ACS / StackRox is installed — vulnerability scanning and runtime protection active'
         : 'ACS / StackRox not detected — consider installing for vulnerability scanning and compliance',
       severity: acsInstalled ? 'info' : 'warning',
     });
 
-    return c;
-  }, [identityProviders, kubeadminExists, tlsProfile, encryptionType, clusterAdmins, unprotectedNamespaces, userNamespaces, sccs, privilegedSCCs, tlsSecretCount, opaqueSecretCount, externalSecrets, sealedSecrets, acsInstalled, isHyperShift]);
+    // While a read has not answered, its check is "Checking…", not a result:
+    // an empty default list would otherwise pass or fail it.
+    const pending: Record<string, boolean> = {
+      idp: oauthLoading,
+      kubeadmin: !kubeadmin,
+      tls: apiServerLoading,
+      encryption: apiServerLoading,
+      clusteradmin: crbLoading,
+      netpol: netpolLoading || nsLoading,
+      'secrets-mgmt': externalSecretsLoading || sealedSecretsLoading,
+      acs: acsLoading,
+    };
+    return c.map((check) => pending[check.id]
+      ? { ...check, pass: null, pending: true, detail: 'Checking…', severity: 'info' as const }
+      : check);
+  }, [oauthLoading, apiServerLoading, crbLoading, netpolLoading, nsLoading, externalSecretsLoading, sealedSecretsLoading, acsLoading, identityProviders, oauthError, oauthErr, kubeadmin, tlsProfile, encryptionType, apiServerReason, crbError, clusterAdmins, netpolError, nsError, unprotectedNamespaces, userNamespaces, externalSecrets, sealedSecrets, externalSecretsError, sealedSecretsError, acsInstalled, acsError, isHyperShift]);
 
-  const passCount = checks.filter(c => c.pass).length;
+  // Unknown checks are neither passing nor failing; the score says so.
+  const passCount = checks.filter(c => c.pass === true).length;
+  const unknownCount = checks.filter(c => c.pass === null && !c.pending).length;
+  const pendingCount = checks.filter(c => c.pending).length;
   const auditScore = Math.round((passCount / checks.length) * 100);
-  const criticalFails = checks.filter(c => !c.pass && c.severity === 'critical');
-  const warningFails = checks.filter(c => !c.pass && c.severity === 'warning');
+  const criticalFails = checks.filter(c => c.pass === false && c.severity === 'critical');
+  const warningFails = checks.filter(c => c.pass === false && c.severity === 'warning');
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
@@ -330,15 +345,17 @@ export default function SecurityView() {
               {passCount}/{checks.length}
             </div>
             <div className="text-xs text-slate-400 mt-1">checks passing</div>
+            {unknownCount > 0 && <div className="text-xs text-slate-400 mt-2">{unknownCount} could not be checked</div>}
+            {pendingCount > 0 && <div className="text-xs text-slate-500 mt-1">{pendingCount} still checking</div>}
             {criticalFails.length > 0 && <div className="text-xs text-red-400 mt-2">{criticalFails.length} critical</div>}
             {warningFails.length > 0 && <div className="text-xs text-yellow-400">{warningFails.length} warning</div>}
           </div>
-          <SummaryCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={String(clusterAdmins.length)}
-            sub={clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
-          <SummaryCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={String(networkPolicies.length)}
-            sub={`${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
-          <SummaryCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={String(tlsSecretCount)}
-            sub={`${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
+          <SummaryCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={crbError || crbLoading ? '—' : String(clusterAdmins.length)}
+            sub={crbError ? 'ClusterRoleBindings could not be read' : crbLoading ? 'Loading…' : clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
+          <SummaryCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={netpolError || netpolLoading ? '—' : String(networkPolicies.length)}
+            sub={netpolError ? 'Network policies could not be read' : netpolLoading ? 'Loading…' : `${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
+          <SummaryCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={secretsError || secretsLoading ? '—' : String(tlsSecretCount)}
+            sub={secretsError ? 'Secrets could not be read' : secretsLoading ? 'Loading…' : `${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
         </div>
 
         {/* Security Audit */}
@@ -349,13 +366,17 @@ export default function SecurityView() {
               Security Audit
             </h2>
             <span className={cn('text-xs font-medium', passCount === checks.length ? 'text-green-400' : 'text-yellow-400')}>
-              {passCount}/{checks.length} passed
+              {passCount}/{checks.length} passed{unknownCount > 0 ? ` · ${unknownCount} unknown` : ''}{pendingCount > 0 ? ` · ${pendingCount} checking` : ''}
             </span>
           </div>
           <div className="divide-y divide-slate-800">
             {checks.map((check) => (
               <div key={check.id} className="px-4 py-3 flex items-start gap-3">
-                {check.pass
+                {check.pending
+                  ? <Loader2 className="w-4 h-4 text-slate-500 shrink-0 mt-0.5 animate-spin" aria-label="Checking" />
+                  : check.pass === null
+                  ? <HelpCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" aria-label="Unknown" />
+                  : check.pass
                   ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
                   : check.severity === 'critical'
                   ? <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
@@ -380,14 +401,18 @@ export default function SecurityView() {
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
               <Key className="w-4 h-4 text-red-400" />
-              Cluster-Admin Access ({clusterAdmins.length})
+              Cluster-Admin Access ({crbError || crbLoading ? '—' : clusterAdmins.length})
             </h2>
             <button onClick={() => go('/identity?tab=rbac', 'Identity & Access')}
               className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
               Manage <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-          {clusterAdmins.length === 0 ? (
+          {crbError ? (
+            <LoadError className="m-3" title="ClusterRoleBindings could not be loaded" />
+          ) : crbLoading ? (
+            <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
+          ) : clusterAdmins.length === 0 ? (
             <div className="px-4 py-6 text-center text-xs text-slate-500">No non-system cluster-admin bindings found</div>
           ) : (
             <div className="divide-y divide-slate-800">
@@ -405,7 +430,11 @@ export default function SecurityView() {
         </Card>
 
         {/* SCCs */}
-        <SCCPanel sccs={sccs} go={go} />
+        {sccsError ? (
+          <LoadError title="Security Context Constraints could not be loaded" error={sccsErr} onRetry={() => { void refetchSccs(); }} />
+        ) : sccsLoading ? null : (
+          <SCCPanel sccs={sccs} go={go} />
+        )}
 
         {/* Unprotected Namespaces */}
         {unprotectedNamespaces.length > 0 && (

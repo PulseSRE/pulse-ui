@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, ArrowRight, Plus, X, ExternalLink, GitBranch, Layers, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ArrowRight, Plus, X, ExternalLink, GitBranch, Layers, RefreshCw } from 'lucide-react';
 import { useArgoCDStore } from '../../../store/argoCDStore';
 import { useGitOpsConfig } from '../../../hooks/useGitOpsConfig';
 import { useGitOpsSetupStore } from '../../../store/gitopsSetupStore';
@@ -16,11 +16,30 @@ export function VerificationStep({ onClose }: Props) {
   const go = useNavigateTab();
   const argoAvailable = useArgoCDStore((s) => s.available);
   const applications = useArgoCDStore((s) => s.applications);
+  const applicationsError = useArgoCDStore((s) => s.applicationsError);
   const { config } = useGitOpsConfig();
   const setStep = useGitOpsSetupStore((s) => s.setStep);
   const exportSummary = useGitOpsSetupStore((s) => s.exportSummary);
 
   const latestApp = applications.length > 0 ? applications[applications.length - 1] : null;
+
+  // "Complete" only when the operator, the repository and an Application are
+  // all actually there; otherwise say what is missing.
+  const checks: Array<{ label: string; ok: boolean; detail: string }> = [
+    { label: 'Operator', ok: argoAvailable, detail: argoAvailable ? 'OpenShift GitOps installed' : 'Not detected' },
+    { label: 'Git Repository', ok: !!config?.repoUrl, detail: config?.repoUrl || 'Not configured' },
+    {
+      label: 'Application',
+      ok: !!latestApp && !applicationsError,
+      detail: applicationsError
+        ? `Unknown — ${applicationsError}`
+        : latestApp
+          ? `${latestApp.metadata.name}${latestApp.status?.sync?.status ? ` · ${latestApp.status.sync.status}` : ''}${latestApp.status?.health?.status ? ` · ${latestApp.status.health.status}` : ''}`
+          : 'None created',
+    },
+  ];
+  const complete = checks.every((c) => c.ok);
+  const missing = checks.filter((c) => !c.ok).map((c) => c.label);
 
   const gitBrowseUrl = config?.repoUrl
     ? config.repoUrl.replace(/\.git$/, '')
@@ -29,30 +48,30 @@ export function VerificationStep({ onClose }: Props) {
   return (
     <div className="space-y-6">
       <div className="text-center py-4">
-        <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-slate-100">GitOps Setup Complete</h3>
-        <p className="text-sm text-slate-400 mt-2">Your cluster is ready for GitOps workflows.</p>
+        {complete ? (
+          <>
+            <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-slate-100">GitOps Setup Complete</h3>
+            <p className="text-sm text-slate-400 mt-2">The operator, repository and an Application are in place.</p>
+          </>
+        ) : (
+          <>
+            <AlertTriangle className="w-14 h-14 text-amber-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-slate-100">GitOps setup is not finished</h3>
+            <p className="text-sm text-slate-400 mt-2">Still missing: {missing.join(', ')}</p>
+          </>
+        )}
       </div>
 
       <div className="bg-slate-900 border border-slate-700 rounded-lg divide-y divide-slate-800">
-        <div className="flex items-center justify-between px-4 py-3">
-          <span className="text-sm text-slate-400">Operator</span>
-          <span className={cn('text-sm', argoAvailable ? 'text-emerald-400' : 'text-slate-500')}>
-            {argoAvailable ? 'OpenShift GitOps installed' : 'Not detected'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3">
-          <span className="text-sm text-slate-400">Git Repository</span>
-          <span className="text-sm text-slate-200 font-mono truncate max-w-[280px]">
-            {config?.repoUrl || 'Not configured'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3">
-          <span className="text-sm text-slate-400">Application</span>
-          <span className="text-sm text-slate-200">
-            {latestApp?.metadata.name || 'None created'}
-          </span>
-        </div>
+        {checks.map((c) => (
+          <div key={c.label} className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm text-slate-400">{c.label}</span>
+            <span className={cn('text-sm truncate max-w-[280px]', c.ok ? 'text-emerald-400' : 'text-amber-400', c.label === 'Git Repository' && 'font-mono')}>
+              {c.detail}
+            </span>
+          </div>
+        ))}
       </div>
 
       {exportSummary && (
@@ -120,7 +139,7 @@ export function VerificationStep({ onClose }: Props) {
         </button>
 
         {exportSummary && (
-          <button onClick={() => setStep('first-app')} className={SECONDARY_BTN}>
+          <button onClick={() => setStep('export')} className={SECONDARY_BTN}>
             <RefreshCw className="w-4 h-4" />
             Re-export Cluster
           </button>

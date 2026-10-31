@@ -10,6 +10,7 @@ import { useUIStore } from '../store/uiStore';
 import { useIncidentTimeline, type TimeRange } from '../hooks/useIncidentTimeline';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../engine/types/timeline';
 import { Card } from '../components/primitives/Card';
+import { LoadError } from '../components/primitives/LoadError';
 import { CHART_COLORS } from '../engine/colors';
 
 const TIME_RANGES: TimeRange[] = ['15m', '1h', '6h', '24h', '3d', '7d'];
@@ -180,6 +181,12 @@ export default function TimelineView() {
           </Card>
         )}
 
+        {timeline.failedSources.length > 0 && !isLoading && (
+          <LoadError
+            title={`Could not read ${timeline.failedSources.join(', ')} — the timeline below is incomplete`}
+          />
+        )}
+
         {/* Timeline stream */}
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
@@ -189,7 +196,7 @@ export default function TimelineView() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <Info className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">No timeline entries found</p>
+              <p className="text-slate-400 text-sm">{timeline.failedSources.length > 0 ? 'Nothing found in the sources that could be read' : 'No timeline entries found'}</p>
               <p className="text-slate-500 text-xs mt-1">Try adjusting the time range or enabling more categories</p>
             </div>
           </div>

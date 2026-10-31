@@ -219,6 +219,25 @@ describe('PulseView', () => {
     expect(screen.queryByText('All clear')).toBeNull();
   });
 
+  it('does not claim fixable findings were "auto-fixed overnight"', async () => {
+    const { useMonitorStore } = await import('../../store/monitorStore');
+    const prev = useMonitorStore.getState();
+    useMonitorStore.setState({
+      lastScanTime: Date.now(),
+      findings: [
+        { id: 'f1', severity: 'critical', category: 'crashloop', title: 'web crashlooping', summary: '', resources: [], autoFixable: true, timestamp: Date.now() },
+        { id: 'f2', severity: 'critical', category: 'crashloop', title: 'api crashlooping', summary: '', resources: [], autoFixable: true, timestamp: Date.now() },
+      ],
+    });
+    try {
+      renderPulse();
+      expect(screen.getAllByText(/critical/).length).toBeGreaterThan(0);
+      expect(document.body.textContent).not.toMatch(/auto-fixed/);
+    } finally {
+      useMonitorStore.setState({ findings: prev.findings, lastScanTime: prev.lastScanTime });
+    }
+  });
+
   // A remote cluster's alerts cannot be read (Prometheus is local-only), so
   // zero alerts there is unknown — never "all clear" or "nominal".
   describe('remote cluster active', () => {

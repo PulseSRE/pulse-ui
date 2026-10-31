@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardBody } from '../../components/primitives/Card';
 import { captureSnapshot, compareSnapshots, type ClusterSnapshot, type DiffRow } from '../../engine/snapshot';
 import { getAllConnections } from '../../engine/clusterConnection';
+import { LoadError } from '../../components/primitives/LoadError';
 
 interface CompareViewProps {
   clusterA?: string;
@@ -50,8 +51,12 @@ export default function CompareView({ clusterA, clusterB }: CompareViewProps) {
     }
   };
 
+  // Rows with an unreadable side are neither matches nor differences.
   const changedCount = diff.filter(r => r.changed).length;
-  const matchedCount = diff.filter(r => !r.changed).length;
+  const matchedCount = diff.filter(r => !r.changed && !r.unavailable).length;
+  const unavailableCount = diff.filter(r => r.unavailable).length;
+  const unreadA = snapshotA?.unavailable ?? [];
+  const unreadB = snapshotB?.unavailable ?? [];
 
   // Group diff rows by category
   const groupedDiff = diff.reduce<Record<string, DiffRow[]>>((acc, row) => {
@@ -136,7 +141,19 @@ export default function CompareView({ clusterA, clusterB }: CompareViewProps) {
             <div className="flex gap-6 text-sm">
               <span className="text-emerald-400">{matchedCount} fields match</span>
               <span className="text-amber-400">{changedCount} fields differ</span>
+              {unavailableCount > 0 && <span className="text-slate-400">{unavailableCount} fields could not be compared</span>}
             </div>
+            {(unreadA.length > 0 || unreadB.length > 0) && (
+              <LoadError
+                className="mt-3"
+                title="Some settings could not be read, so they are not compared"
+                error={[
+                  unreadA.length > 0 ? `${clusterNameA}: ${unreadA.join(', ')}` : '',
+                  unreadB.length > 0 ? `${clusterNameB}: ${unreadB.join(', ')}` : '',
+                ].filter(Boolean).join(' · ')}
+                onRetry={handleCompare}
+              />
+            )}
           </CardBody>
         </Card>
       )}
@@ -160,7 +177,7 @@ export default function CompareView({ clusterA, clusterB }: CompareViewProps) {
                     key={row.field}
                     className={cn(
                       'border-b border-slate-800',
-                      row.changed ? 'bg-amber-950/30' : 'bg-emerald-950/20'
+                      row.unavailable ? 'bg-slate-900/50' : row.changed ? 'bg-amber-950/30' : 'bg-emerald-950/20'
                     )}
                   >
                     <td className="px-4 py-2 font-medium text-slate-300">{row.field}</td>

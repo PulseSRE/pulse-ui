@@ -70,6 +70,9 @@ describe('DriftDetectorView', () => {
     mockCompare.mockResolvedValue({
       resource: { apiPath: '/apis/apps/v1/deployments', name: 'my-app', namespace: 'default' },
       clusters: ['c1', 'c2'],
+      totalClusters: 2,
+      absentClusters: [],
+      failedClusters: [],
       diffs: [
         { field: 'spec.replicas', values: { c1: 3, c2: 5 }, drifted: true },
         { field: 'spec.strategy.type', values: { c1: 'RollingUpdate', c2: 'RollingUpdate' }, drifted: false },
@@ -102,6 +105,9 @@ describe('DriftDetectorView', () => {
     mockCompare.mockResolvedValue({
       resource: { apiPath: '/apis/apps/v1/deployments', name: 'my-app', namespace: 'default' },
       clusters: ['c1', 'c2'],
+      totalClusters: 2,
+      absentClusters: [],
+      failedClusters: [],
       diffs: [
         { field: 'spec.replicas', values: { c1: 3, c2: 3 }, drifted: false },
       ],
@@ -120,7 +126,32 @@ describe('DriftDetectorView', () => {
     fireEvent.click(buttons[0]);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Resources are identical across all clusters/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Resources are identical across all 2 clusters/).length).toBeGreaterThan(0);
     });
+  });
+
+  it('never says "identical" when a cluster could not be read, and lists absent clusters as drift', async () => {
+    // Before: failed and missing clusters were dropped, and one successful read
+    // reported "Resources are identical across all clusters".
+    mockCompare.mockResolvedValue({
+      resource: { apiPath: '/apis/apps/v1/deployments', name: 'my-app', namespace: 'default' },
+      clusters: ['c1'],
+      totalClusters: 3,
+      absentClusters: ['c2'],
+      failedClusters: [{ id: 'c3', reason: 'Permission denied (403)' }],
+      diffs: [{ field: 'spec.replicas', values: { c1: 3 }, drifted: false }],
+      identicalFields: 1,
+      driftedFields: 0,
+    });
+
+    render(<DriftDetectorView />);
+    fireEvent.change(screen.getAllByLabelText('Resource type')[0], { target: { value: 'apps/v1/deployments' } });
+    fireEvent.change(screen.getAllByLabelText('Resource name')[0], { target: { value: 'my-app' } });
+    fireEvent.click(screen.getAllByRole('button', { name: /compare/i })[0]);
+
+    await waitFor(() => expect(screen.getByText(/1 of 3 clusters compared/)).toBeTruthy());
+    expect(screen.getByText(/Drift: the resource is absent on cluster-2/)).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('c3: Permission denied (403)');
+    expect(document.body.textContent).not.toMatch(/identical across/);
   });
 });

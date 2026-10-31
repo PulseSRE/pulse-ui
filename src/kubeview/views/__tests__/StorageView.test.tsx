@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -17,7 +17,8 @@ vi.mock('../../hooks/useK8sListWatch', () => ({
   useK8sListWatch: ({ apiPath }: { apiPath: string }) => ({ data: mockData[apiPath] || [], isLoading: false }),
 }));
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));
-vi.mock('../../engine/query', () => ({ k8sList: vi.fn().mockResolvedValue([]), k8sGet: vi.fn().mockResolvedValue(null) }));
+const k8sList = vi.fn();
+vi.mock('../../engine/query', () => ({ k8sList: (...a: unknown[]) => k8sList(...a), k8sGet: vi.fn().mockResolvedValue(null) }));
 vi.mock('../../components/metrics/Sparkline', () => ({
   MetricCard: ({ title }: { title: string }) => <div data-testid="metric-card">{title}</div>,
 }));
@@ -32,6 +33,7 @@ function renderView() {
 }
 
 describe('StorageView', () => {
+  beforeEach(() => { k8sList.mockReset(); k8sList.mockResolvedValue([]); });
   afterEach(() => { cleanup(); Object.keys(mockData).forEach(k => delete mockData[k]); });
 
   it('renders page header', () => {
@@ -64,5 +66,28 @@ describe('StorageView', () => {
   it('renders page with no data without crashing', () => {
     const { container } = renderView();
     expect(container.querySelector('.bg-slate-950')).toBeDefined();
+  });
+
+  it('does not raise "No StorageClasses configured" while the list is loading', () => {
+    k8sList.mockReturnValue(new Promise(() => {}));
+    renderView();
+    expect(document.body.textContent).not.toMatch(/No StorageClasses configured|No default StorageClass set/);
+    expect(screen.getAllByText('Loading storage classes…').length).toBeGreaterThan(0);
+  });
+
+  it('shows a load error, not "no StorageClasses", when the list is forbidden', async () => {
+    k8sList.mockImplementation((path: string) =>
+      path.includes('storageclasses') ? Promise.reject(Object.assign(new Error('forbidden'), { statusCode: 403 })) : Promise.resolve([]));
+    renderView();
+    await waitFor(() => expect(screen.getByText('StorageClasses could not be loaded')).toBeDefined());
+    expect(document.body.textContent).not.toMatch(/No StorageClasses configured|No default StorageClass set|No storage classes configured/);
+  });
+
+  it('fails the Default StorageClass check when there are no classes at all', async () => {
+    mockData['/api/v1/persistentvolumeclaims'] = [{ metadata: { name: 'data', namespace: 'app', uid: 'p1' }, spec: {}, status: { phase: 'Bound' } }];
+    renderView();
+    await waitFor(() => expect(screen.getByText('Default StorageClass')).toBeDefined());
+    const check = screen.getByText('Default StorageClass').closest('button')!;
+    expect(check.textContent).toContain('1 of 1 need attention');
   });
 });

@@ -11,16 +11,18 @@ import { useFleetStore } from '../../store/fleetStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { Card, CardHeader, CardBody } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
+import { LoadError } from '../../components/primitives/LoadError';
 import type { K8sResource } from '../../engine/renderers/index';
 
+/** `null` means the list call for that cluster failed: unknown, not zero. */
 interface ClusterWorkloadSummary {
   clusterId: string;
   clusterName: string;
-  deployments: number;
-  pods: number;
-  failedPods: number;
-  unhealthyDeploys: number;
-  error?: string;
+  deployments: number | null;
+  pods: number | null;
+  failedPods: number | null;
+  unhealthyDeploys: number | null;
+  errors: string[];
 }
 
 function isPodFailed(pod: K8sResource): boolean {
@@ -51,43 +53,34 @@ export default function FleetWorkloadsView() {
         fleetList<K8sResource>('/api/v1/pods'),
       ]);
 
-      // Build per-cluster map
+      // Build per-cluster map. A failed list is unknown, never 0.
       const clusterMap = new Map<string, ClusterWorkloadSummary>();
+      const entry = (clusterId: string, clusterName: string) => {
+        let e = clusterMap.get(clusterId);
+        if (!e) {
+          e = { clusterId, clusterName, deployments: null, pods: null, failedPods: null, unhealthyDeploys: null, errors: [] };
+          clusterMap.set(clusterId, e);
+        }
+        return e;
+      };
 
       for (const dr of deployResults) {
-        clusterMap.set(dr.clusterId, {
-          clusterId: dr.clusterId,
-          clusterName: dr.clusterName,
-          deployments: dr.status === 'fulfilled' ? dr.data.length : 0,
-          pods: 0,
-          failedPods: 0,
-          unhealthyDeploys: dr.status === 'fulfilled'
-            ? dr.data.filter(isDeployUnhealthy).length
-            : 0,
-          error: dr.error,
-        });
+        const e = entry(dr.clusterId, dr.clusterName);
+        if (dr.status === 'fulfilled') {
+          e.deployments = dr.data.length;
+          e.unhealthyDeploys = dr.data.filter(isDeployUnhealthy).length;
+        } else {
+          e.errors.push(`Deployments: ${dr.error || 'request failed'}`);
+        }
       }
 
       for (const pr of podResults) {
-        const existing = clusterMap.get(pr.clusterId);
-        if (existing) {
-          existing.pods = pr.status === 'fulfilled' ? pr.data.length : 0;
-          existing.failedPods = pr.status === 'fulfilled'
-            ? pr.data.filter(isPodFailed).length
-            : 0;
-          if (!existing.error && pr.error) existing.error = pr.error;
+        const e = entry(pr.clusterId, pr.clusterName);
+        if (pr.status === 'fulfilled') {
+          e.pods = pr.data.length;
+          e.failedPods = pr.data.filter(isPodFailed).length;
         } else {
-          clusterMap.set(pr.clusterId, {
-            clusterId: pr.clusterId,
-            clusterName: pr.clusterName,
-            deployments: 0,
-            pods: pr.status === 'fulfilled' ? pr.data.length : 0,
-            failedPods: pr.status === 'fulfilled'
-              ? pr.data.filter(isPodFailed).length
-              : 0,
-            unhealthyDeploys: 0,
-            error: pr.error,
-          });
+          e.errors.push(`Pods: ${pr.error || 'request failed'}`);
         }
       }
 
@@ -99,16 +92,18 @@ export default function FleetWorkloadsView() {
 
   useEffect(() => { fetchWorkloads(); }, [fetchWorkloads]);
 
+  // Totals cover only the clusters that could be read.
   const totals = useMemo(() => {
     let deployments = 0, pods = 0, failedPods = 0, unhealthyDeploys = 0;
     for (const s of summaries) {
-      deployments += s.deployments;
-      pods += s.pods;
-      failedPods += s.failedPods;
-      unhealthyDeploys += s.unhealthyDeploys;
+      deployments += s.deployments ?? 0;
+      pods += s.pods ?? 0;
+      failedPods += s.failedPods ?? 0;
+      unhealthyDeploys += s.unhealthyDeploys ?? 0;
     }
     return { deployments, pods, failedPods, unhealthyDeploys };
   }, [summaries]);
+  const failedClusters = summaries.filter((s) => s.errors.length > 0);
 
   const handleClusterClick = (clusterId: string, clusterName: string) => {
     setActiveCluster(clusterId);
@@ -145,9 +140,17 @@ export default function FleetWorkloadsView() {
             Fleet Workloads
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Aggregated workload overview across {summaries.length} cluster{summaries.length !== 1 ? 's' : ''}
+            Aggregated workload overview across {summaries.length - failedClusters.length} of {summaries.length} cluster{summaries.length !== 1 ? 's' : ''}
           </p>
         </div>
+
+        {failedClusters.length > 0 && (
+          <LoadError
+            title={`Workloads could not be read from ${failedClusters.length} cluster${failedClusters.length !== 1 ? 's' : ''}; totals leave them out`}
+            error={failedClusters.map((c) => `${c.clusterName}: ${c.errors.join('; ')}`).join(' · ')}
+            onRetry={fetchWorkloads}
+          />
+        )}
 
         {/* Summary cards */}
         <MetricGrid>
@@ -206,14 +209,19 @@ export default function FleetWorkloadsView() {
                     onClick={() => handleClusterClick(s.clusterId, s.clusterName)}
                     className="border-b border-slate-800 hover:bg-slate-800/70 cursor-pointer transition-colors"
                   >
-                    <td className="px-4 py-2.5 text-slate-200 font-medium">{s.clusterName}</td>
-                    <td className="px-4 py-2.5 text-right text-slate-300 font-mono">{s.deployments}</td>
-                    <td className="px-4 py-2.5 text-right text-slate-300 font-mono">{s.pods}</td>
-                    <td className={cn('px-4 py-2.5 text-right font-mono', s.failedPods > 0 ? 'text-red-400' : 'text-slate-300')}>
-                      {s.failedPods}
+                    <td className="px-4 py-2.5 text-slate-200 font-medium">
+                      {s.clusterName}
+                      {s.errors.length > 0 && (
+                        <span className="ml-2 text-xs text-red-400" title={s.errors.join('; ')}>could not read</span>
+                      )}
                     </td>
-                    <td className={cn('px-4 py-2.5 text-right font-mono', s.unhealthyDeploys > 0 ? 'text-amber-400' : 'text-slate-300')}>
-                      {s.unhealthyDeploys}
+                    <td className="px-4 py-2.5 text-right text-slate-300 font-mono">{s.deployments ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-300 font-mono">{s.pods ?? '—'}</td>
+                    <td className={cn('px-4 py-2.5 text-right font-mono', (s.failedPods ?? 0) > 0 ? 'text-red-400' : 'text-slate-300')}>
+                      {s.failedPods ?? '—'}
+                    </td>
+                    <td className={cn('px-4 py-2.5 text-right font-mono', (s.unhealthyDeploys ?? 0) > 0 ? 'text-amber-400' : 'text-slate-300')}>
+                      {s.unhealthyDeploys ?? '—'}
                     </td>
                   </tr>
                 ))}

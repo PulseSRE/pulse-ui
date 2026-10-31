@@ -180,8 +180,8 @@ export interface TlsSecretLike {
  */
 export const TLS_SECRETS_PATH = '/api/v1/secrets?fieldSelector=type=kubernetes.io/tls';
 
-export async function fetchTlsSecrets<T extends TlsSecretLike>(): Promise<T[]> {
-  const secrets = await k8sList<T>(TLS_SECRETS_PATH);
+export async function fetchTlsSecrets<T extends TlsSecretLike>(clusterId?: string): Promise<T[]> {
+  const secrets = await k8sList<T>(TLS_SECRETS_PATH, undefined, clusterId);
   // The server already filtered; this only guards against a proxy or mock
   // that ignores the field selector.
   return secrets.filter((s) => s.type === 'kubernetes.io/tls');

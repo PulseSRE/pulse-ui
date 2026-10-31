@@ -40,7 +40,8 @@ export default function TopologyMap({ nodes, pods, events = [], go }: TopologyMa
     const avgCpu = zoneUtilization.length > 0 ? Math.round(zoneUtilization.reduce((s, z) => s + z.cpuPercent, 0) / zoneUtilization.length) : 0;
     const avgMem = zoneUtilization.length > 0 ? Math.round(zoneUtilization.reduce((s, z) => s + z.memoryPercent, 0) / zoneUtilization.length) : 0;
     const zones = mapZones.length;
-    const alerts = mapEvents.filter(e => e.type === 'alert' || e.type === 'restart').length;
+    // Warning events only: Normal events (Pulled, Created, Killing…) are not alerts.
+    const alerts = mapEvents.filter(e => e.isWarning).length;
     return { totalNodes, readyNodes, totalPods, runningPods, failedPods, pendingPods, avgCpu, avgMem, zones, alerts };
   }, [mapNodes, mapPods, zoneUtilization, mapZones, mapEvents]);
 

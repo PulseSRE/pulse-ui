@@ -6,7 +6,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { k8sGet, k8sCreate, k8sPatch } from '../engine/query';
 import type { K8sResource } from '../engine/renderers';
-import type { GitOpsConfig } from '../engine/gitProvider';
+import { bitbucketAuthHeader, type GitOpsConfig } from '../engine/gitProvider';
 import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 
 const SECRET_PATH = '/api/v1/namespaces/openshiftpulse/secrets/openshiftpulse-gitops-config';
@@ -116,7 +116,7 @@ export function useGitOpsConfig(): UseGitOpsConfigResult {
         const owner = parts[parts.length - 2];
         const repo = parts[parts.length - 1];
         testUrl = `https://api.bitbucket.org/2.0/repositories/${owner}/${repo}`;
-        headers.Authorization = `Bearer ${testConfig.token}`;
+        headers.Authorization = bitbucketAuthHeader(testConfig.token);
       }
 
       const res = await fetch(testUrl, { headers });
@@ -130,7 +130,7 @@ export function useGitOpsConfig(): UseGitOpsConfigResult {
       if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')) {
         return {
           success: false,
-          error: 'Cannot reach Git provider directly from the browser (blocked by Content Security Policy). Save your config and the Pulse Agent will validate the connection server-side.',
+          error: 'Cannot reach the Git provider from the browser (blocked by Content Security Policy), so the connection was not tested. You can still save the configuration; it is first used when a pull request is created.',
         };
       }
       return { success: false, error: msg };

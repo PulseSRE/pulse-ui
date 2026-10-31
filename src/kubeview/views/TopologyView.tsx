@@ -46,7 +46,8 @@ async function fetchBlastRadius(nodeId: string): Promise<BlastRadiusNode[]> {
   const res = await agentFetch(
     `/api/agent/topology/blast-radius?node_id=${encodeURIComponent(nodeId)}`
   );
-  if (!res.ok) return [];
+  // A failed lookup is an error, not "no downstream" (a leaf node).
+  if (!res.ok) throw new Error(`Blast radius request failed (${res.status})`);
   const data = await res.json();
   return data.resources ?? [];
 }
@@ -90,7 +91,7 @@ export default function TopologyView() {
   });
 
   // Blast radius from API (richer than client-side BFS)
-  const { data: blastRadiusData } = useQuery({
+  const { data: blastRadiusData, isError: blastRadiusError, refetch: refetchBlastRadius } = useQuery({
     queryKey: ['topology-blast-radius', selectedNode],
     queryFn: () => fetchBlastRadius(selectedNode!),
     enabled: !!selectedNode,
@@ -352,7 +353,12 @@ export default function TopologyView() {
                   <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                     Downstream
                   </h4>
-                  {!blastRadiusData ? (
+                  {blastRadiusError ? (
+                    <span role="alert" className="text-xs text-red-400">
+                      Downstream could not be loaded.{' '}
+                      <button type="button" className="underline hover:text-red-300" onClick={() => { void refetchBlastRadius(); }}>Retry</button>
+                    </span>
+                  ) : !blastRadiusData ? (
                     <Loader2 className="w-4 h-4 text-slate-600 animate-spin" />
                   ) : blastRadiusData.length === 0 ? (
                     <span className="text-xs text-slate-600">None (leaf node)</span>

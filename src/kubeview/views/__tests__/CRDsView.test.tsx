@@ -13,8 +13,9 @@ vi.mock('../../store/uiStore', () => ({
   useUIStore: (selector: any) => selector({ selectedNamespace: '*', addTab: vi.fn() }),
 }));
 const mockData: Record<string, any[]> = {};
+const listState = { isError: false, error: null as unknown, refetch: vi.fn() };
 vi.mock('../../hooks/useK8sListWatch', () => ({
-  useK8sListWatch: ({ apiPath }: { apiPath: string }) => ({ data: mockData[apiPath] || [], isLoading: false }),
+  useK8sListWatch: ({ apiPath }: { apiPath: string }) => ({ data: mockData[apiPath] || [], isLoading: false, ...listState }),
 }));
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));
 vi.mock('@/lib/utils', () => ({ cn: (...args: any[]) => args.filter(Boolean).join(' ') }));
@@ -58,9 +59,24 @@ describe('CRDsView', () => {
     expect(screen.getByPlaceholderText(/Search by name/)).toBeDefined();
   });
 
-  it('shows empty state when no CRDs match', () => {
+  it('says no CRDs are installed when the list is genuinely empty', () => {
     renderView();
-    expect(screen.getAllByText(/No CRDs match/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('No CRDs are installed')).toBeDefined();
+  });
+
+  it('shows a load error with retry, not "No CRDs match your filters", when the list fails', () => {
+    listState.isError = true;
+    listState.error = new Error('forbidden');
+    try {
+      renderView();
+      expect(screen.getByRole('alert').textContent).toContain('CustomResourceDefinitions could not be loaded');
+      expect(screen.queryByText(/No CRDs match/)).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      expect(listState.refetch).toHaveBeenCalled();
+    } finally {
+      listState.isError = false;
+      listState.error = null;
+    }
   });
 
   it('renders CRDs grouped by API group', () => {

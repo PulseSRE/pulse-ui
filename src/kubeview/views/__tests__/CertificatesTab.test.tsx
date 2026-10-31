@@ -227,6 +227,29 @@ describe('CertificatesTab', () => {
     expect(screen.queryByText('ok')).toBeNull();
   });
 
+  it('counts unknown expiry separately, so the Healthy card matches what it filters to', async () => {
+    const inSixtyDays = new Date(Date.now() + 60 * 86400000).toISOString();
+    k8sListMock.mockResolvedValue([
+      makeTlsSecret({ name: 'ok', namespace: 'ns1', annotations: { 'cert-manager.io/certificate-expiry': inSixtyDays } }),
+      makeTlsSecret({ name: 'mystery', namespace: 'ns2' }),
+    ]);
+    renderTab();
+    await waitFor(() => expect(screen.getByText('mystery')).toBeDefined());
+
+    const healthyCard = screen.getByText('Healthy (> 30d)').closest('button')!;
+    expect(healthyCard.textContent).toContain('1');
+    const unknownCard = screen.getByText('Unknown expiry').closest('button')!;
+    expect(unknownCard.textContent).toContain('1');
+
+    fireEvent.click(healthyCard);
+    expect(screen.getByText('ok')).toBeDefined();
+    expect(screen.queryByText('mystery')).toBeNull();
+
+    fireEvent.click(unknownCard);
+    expect(screen.getByText('mystery')).toBeDefined();
+    expect(screen.queryByText('ok')).toBeNull();
+  });
+
   it('detects service-ca issuer from annotations', async () => {
     const inSixtyDays = new Date(Date.now() + 60 * 86400000).toISOString();
     k8sListMock.mockResolvedValue([

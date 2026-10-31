@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CreateApplicationStep } from '../views/argocd/steps/CreateApplicationStep';
 import { VerificationStep } from '../views/argocd/steps/VerificationStep';
@@ -11,6 +11,17 @@ import { VerificationStep } from '../views/argocd/steps/VerificationStep';
 
 const mockSetExportSummary = vi.fn();
 const mockMarkComplete = vi.fn();
+const mockSetStep = vi.fn();
+let mockArgo: Record<string, unknown> = {};
+function resetArgo() {
+  mockArgo = {
+    namespace: 'openshift-gitops',
+    available: true,
+    applicationsError: null,
+    applications: [{ metadata: { name: 'test-app', namespace: 'openshift-gitops' } }],
+  };
+}
+resetArgo();
 let mockSelectedCategories: string[] = [];
 let mockSelectedNamespaces: string[] = [];
 let mockExportSummary: {
@@ -30,7 +41,7 @@ vi.mock('../store/gitopsSetupStore', () => ({
       setExportSummary: mockSetExportSummary,
       exportSummary: mockExportSummary,
       exportSelections: { clusterName: '', categoryIds: [], namespaces: [], exportMode: 'pr' },
-      setStep: vi.fn(),
+      setStep: mockSetStep,
     };
     return selector(state);
   },
@@ -38,14 +49,7 @@ vi.mock('../store/gitopsSetupStore', () => ({
 
 vi.mock('../store/argoCDStore', () => ({
   useArgoCDStore: (selector: (s: Record<string, unknown>) => unknown) => {
-    const state = {
-      namespace: 'openshift-gitops',
-      available: true,
-      applications: [
-        { metadata: { name: 'test-app', namespace: 'openshift-gitops' } },
-      ],
-    };
-    return selector(state);
+    return selector(mockArgo);
   },
 }));
 
@@ -163,9 +167,32 @@ describe('VerificationStep', () => {
     mockSelectedCategories = [];
     mockSelectedNamespaces = [];
     mockExportSummary = null;
+    resetArgo();
   });
 
   afterEach(cleanup);
+
+  it('does not claim "Setup Complete" when the operator is missing or no Application exists', () => {
+    mockArgo = { ...mockArgo, available: false, applications: [] };
+    renderWithQuery(<VerificationStep onClose={vi.fn()} />);
+    expect(screen.queryByText('GitOps Setup Complete')).toBeNull();
+    expect(screen.getByText('GitOps setup is not finished')).toBeTruthy();
+    expect(screen.getByText('Still missing: Operator, Application')).toBeTruthy();
+  });
+
+  it('treats a failed Application read as unknown, not complete', () => {
+    mockArgo = { ...mockArgo, applications: [], applicationsError: 'Permission denied (403)' };
+    renderWithQuery(<VerificationStep onClose={vi.fn()} />);
+    expect(screen.queryByText('GitOps Setup Complete')).toBeNull();
+    expect(screen.getByText('Unknown — Permission denied (403)')).toBeTruthy();
+  });
+
+  it('Re-export Cluster goes to the export step', () => {
+    mockExportSummary = { resourceCount: 1, categories: ['a'], namespaces: ['b'], clusterName: 'c' };
+    renderWithQuery(<VerificationStep onClose={vi.fn()} />);
+    fireEvent.click(screen.getByText('Re-export Cluster'));
+    expect(mockSetStep).toHaveBeenCalledWith('export');
+  });
 
   it('renders basic verification summary', () => {
     renderWithQuery(<VerificationStep onClose={vi.fn()} />);

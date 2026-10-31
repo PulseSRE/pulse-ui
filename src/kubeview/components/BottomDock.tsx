@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { X, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
+import { LoadError } from './primitives/LoadError';
+import { loadStatus } from './primitives/QueryState';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { formatAge } from '../engine/dateUtils';
 import type { Event } from '../engine/types';
@@ -152,7 +154,8 @@ export function BottomDock() {
 }
 
 function EventStream() {
-  const { data: rawEvents = [] } = useK8sListWatch<Event>({ apiPath: '/api/v1/events?limit=200' });
+  const eventsQuery = useK8sListWatch<Event>({ apiPath: '/api/v1/events?limit=200' });
+  const rawEvents = eventsQuery.data ?? [];
 
   const events = useMemo(() => {
     return [...rawEvents]
@@ -164,6 +167,18 @@ function EventStream() {
       .slice(0, 100);
   }, [rawEvents]);
 
+  // Loading and failure are not "no events".
+  const status = loadStatus(eventsQuery);
+  if (status === 'loading') {
+    return <div className="p-4 text-sm text-slate-500" role="status">Loading events…</div>;
+  }
+  if (status === 'error') {
+    return (
+      <div className="p-3">
+        <LoadError title="Events could not be loaded" error={eventsQuery.error} onRetry={() => { void eventsQuery.refetch(); }} />
+      </div>
+    );
+  }
   if (events.length === 0) {
     return <div className="p-4 text-sm text-slate-500">No events in the cluster</div>;
   }

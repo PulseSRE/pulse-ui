@@ -5,7 +5,7 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   Loader2, CheckCircle2, AlertTriangle, Play, XCircle,
-  ExternalLink, FileText, Circle,
+  ExternalLink, Circle,
 } from 'lucide-react';
 import { useGitOpsSetupStore } from '../../../store/gitopsSetupStore';
 import { useGitOpsConfig } from '../../../hooks/useGitOpsConfig';
@@ -41,12 +41,10 @@ export function ExportStep({ onComplete }: Props) {
 
   const [phase, setPhase] = useState<'idle' | 'running' | 'done' | 'error' | 'cancelled'>('idle');
   const [categoryProgress, setCategoryProgress] = useState<Record<string, CategoryProgress>>({});
-  const [committedFiles, setCommittedFiles] = useState<string[]>([]);
   const [totalFiles, setTotalFiles] = useState(0);
   const [prUrl, setPrUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const fileLogRef = useRef<HTMLDivElement>(null);
 
   // Abort export on unmount
   useEffect(() => {
@@ -106,7 +104,6 @@ export function ExportStep({ onComplete }: Props) {
       initial[cat.id] = { status: 'pending', fileCount: 0 };
     }
     setCategoryProgress(initial);
-    setCommittedFiles([]);
     setPhase('running');
     setErrorMessage(null);
 
@@ -220,27 +217,6 @@ export function ExportStep({ onComplete }: Props) {
         </div>
       )}
 
-      {committedFiles.length > 0 && (
-        <div className="border border-slate-700 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center gap-2">
-            <FileText className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs text-slate-400">
-              Committed files ({committedFiles.length})
-            </span>
-          </div>
-          <div
-            ref={fileLogRef}
-            className="max-h-40 overflow-y-auto p-2 bg-slate-950"
-          >
-            {committedFiles.map((f, i) => (
-              <div key={i} className="text-xs text-slate-500 font-mono py-0.5 truncate">
-                {f}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {phase === 'running' && (
         <button
           onClick={handleCancel}
@@ -281,7 +257,7 @@ export function ExportStep({ onComplete }: Props) {
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-950/30 border border-emerald-900 rounded-lg p-3">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            Exported {totalFiles || committedFiles.length} files across {doneCategories} categories
+            Exported {totalFiles} files across {doneCategories} categories
           </div>
 
           {prUrl && (

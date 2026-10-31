@@ -166,7 +166,7 @@ export function GitOpsConfig() {
                   autoComplete="off"
                   value={form.token}
                   onChange={(e) => setForm({ ...form, token: e.target.value })}
-                  placeholder={form.provider === 'github' ? 'ghp_...' : form.provider === 'gitlab' ? 'glpat-...' : 'App password'}
+                  placeholder={form.provider === 'github' ? 'ghp_...' : form.provider === 'gitlab' ? 'glpat-...' : 'username:app-password'}
                   className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden font-mono pr-10"
                 />
                 <button
@@ -218,7 +218,7 @@ export function GitOpsConfig() {
               Save Configuration
             </button>
             <span className="text-xs text-slate-500">
-              The Pulse Agent will verify the connection when creating PRs
+              Use Test Connection to check the token; nothing else validates it before a pull request is created
             </span>
           </div>
 

@@ -26,6 +26,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { Node, Pod, ClusterOperator, ClusterVersion, Condition, Event, Secret, PersistentVolumeClaim } from '../../engine/types';
 import type { Deployment } from '../../engine/types/apps';
 import { useClusterStore } from '../../store/clusterStore';
+import { compareVersions } from '../../engine/version';
 import { useArgoCDStore } from '../../store/argoCDStore';
 import { Card } from '../../components/primitives/Card';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
@@ -222,8 +223,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
 
   // === Queries ===
   const { data: tlsSecrets = [], isError: tlsSecretsError } = useQuery<Secret[]>({
-    queryKey: ['k8s', 'list', 'tls-secrets'],
-    queryFn: () => fetchTlsSecrets<Secret>(),
+    queryKey: ['k8s', 'list', 'tls-secrets', clusterId],
+    queryFn: () => fetchTlsSecrets<Secret>(clusterId),
     staleTime: 120_000, refetchInterval: 300_000,
   });
 
@@ -280,7 +281,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     staleTime: 120_000, refetchInterval: 300_000,
   });
 
-  const { data: clusterVersion } = useQuery<ClusterVersion | null>({
+  // Subscribe, so drift appears when the Argo store finishes loading.
+  const argoApplications = useArgoCDStore((s) => s.applications);
+  const { data: clusterVersion, isError: clusterVersionError, isPending: clusterVersionPending } = useQuery<ClusterVersion | null>({
     queryKey: ['k8s', 'get', 'clusterversion', clusterId],
     queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
     staleTime: 300_000, refetchInterval: 600_000,
@@ -376,7 +379,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     const currentVersion = clusterVersion.status?.desired?.version || '';
     const updates = clusterVersion.status?.availableUpdates || [];
     if (updates.length === 0) return null;
-    return { current: currentVersion, available: updates[0]?.version || '', count: updates.length };
+    // CVO does not order availableUpdates; show the newest.
+    const latest = [...updates].sort((a, b) => compareVersions(b.version || '', a.version || ''))[0];
+    return { current: currentVersion, available: latest?.version || '', count: updates.length };
   }, [clusterVersion]);
 
   // Recent changes — individual events with links + who
@@ -490,7 +495,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     }
     for (const c of certsExpiringSoon7) items.push({ severity: 'critical', title: `Cert ${c.name} expires in ${c.daysUntilExpiry}d`, detail: c.namespace, path: `/r/v1~secrets/${c.namespace}/${c.name}`, pathTitle: c.name });
     // ArgoCD drift
-    const argoApps = useArgoCDStore.getState().applications;
+    const argoApps = argoApplications;
     const outOfSync = argoApps.filter(a => a.status?.sync?.status === 'OutOfSync');
     if (outOfSync.length > 0) {
       items.push({ severity: 'warning', title: `${outOfSync.length} ArgoCD app${outOfSync.length > 1 ? 's' : ''} out of sync`, detail: outOfSync.map(a => a.metadata.name).slice(0, 3).join(', '), path: '/gitops', pathTitle: 'GitOps' });
@@ -501,7 +506,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
       seen.add(item.title);
       return true;
     });
-  }, [degradedOperators, unhealthyNodes, criticalAlerts, failedPods, certsExpiringSoon7]);
+  }, [degradedOperators, unhealthyNodes, criticalAlerts, failedPods, certsExpiringSoon7, argoApplications]);
 
   const pendingPods = useMemo(() => userPods.filter((p) => p.status?.phase === 'Pending'), [userPods]);
 
@@ -928,6 +933,17 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                   View updates <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
+            ) : clusterVersion?.status?.conditions?.some((c) => c.type === 'RetrievedUpdates' && c.status === 'False') ? (
+              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                Unknown — the cluster could not retrieve available updates
+              </button>
+            ) : clusterVersionError || (!clusterVersionPending && !clusterVersion) ? (
+              // A failed or missing ClusterVersion is not "up to date".
+              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                Unknown — ClusterVersion could not be read
+              </button>
+            ) : clusterVersionPending ? (
+              <span className="text-xs text-slate-500">Checking…</span>
             ) : (
               <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Up to date</button>
             )}
