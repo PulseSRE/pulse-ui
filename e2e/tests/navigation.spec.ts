@@ -2,7 +2,7 @@ import { test, expect } from 'playwright/test';
 
 test.describe('Navigation', () => {
   test('Welcome page loads and shows key elements', async ({ page }) => {
-    await page.goto('/welcome');
+    await page.goto('/pulse');
     await expect(page.locator('text=OpenShift Pulse').first()).toBeVisible({ timeout: 15_000 });
   });
 
@@ -61,8 +61,11 @@ test.describe('Navigation', () => {
     await expect(page.locator('text=Alerts').first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test('unknown routes fall back to /pulse', async ({ page }) => {
+  test('unknown routes show Not Found, which links back to /pulse', async ({ page }) => {
     await page.goto('/nonexistent-page');
-    await page.waitForURL(/pulse/, { timeout: 10_000 });
+    await expect(page.getByText('Page not found')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('/nonexistent-page').first()).toBeVisible();
+    await page.getByRole('button', { name: /Go to Pulse/ }).click();
+    await page.waitForURL(/\/pulse/, { timeout: 10_000 });
   });
 });

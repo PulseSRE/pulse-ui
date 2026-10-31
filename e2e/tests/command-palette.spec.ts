@@ -4,7 +4,7 @@ const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 test.describe('Command Palette', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/welcome');
+    await page.goto('/pulse');
     await expect(page.locator('text=OpenShift Pulse').first()).toBeVisible({ timeout: 15_000 });
   });
 
