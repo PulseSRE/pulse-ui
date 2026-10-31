@@ -30,13 +30,13 @@ vi.mock('../../hooks/useK8sListWatch', () => ({
 }));
 
 vi.mock('../../components/logs/LogStream', () => ({
-  default: ({ namespace, podName, containerName }: any) => (
-    <div data-testid="log-stream">LogStream: {podName} {containerName}</div>
+  default: ({ podName, containerName, previous }: any) => (
+    <div data-testid="log-stream">LogStream: {podName} {containerName}{previous ? ' (previous)' : ''}</div>
   ),
 }));
 vi.mock('../../components/logs/MultiContainerLogs', () => ({
-  default: ({ podName, containers }: any) => (
-    <div data-testid="multi-container-logs">MultiContainerLogs: {podName} ({containers.length} containers)</div>
+  default: ({ podName, containers, previous }: any) => (
+    <div data-testid="multi-container-logs">MultiContainerLogs: {podName} ({containers.length} containers) [{containers.map((c: any) => `${c.name}:${c.type}`).join(',')}]{previous ? ' (previous)' : ''}</div>
   ),
 }));
 vi.mock('../../components/logs/MultiPodLogs', () => ({
@@ -110,8 +110,35 @@ describe('LogsView', () => {
   it('shows error message on fetch failure', () => {
     mockPodQueryResult = { data: undefined, isLoading: false, error: new Error('404 Not Found') };
     renderView({ namespace: 'default', podName: 'missing-pod' });
-    expect(screen.getByText(/Failed to load pod/)).toBeDefined();
+    expect(screen.getByText(/Could not load pod missing-pod/)).toBeDefined();
     expect(screen.getByText(/404 Not Found/)).toBeDefined();
+  });
+
+  it('the Previous instance toggle switches the stream to the previous instance', () => {
+    mockPodQueryResult = {
+      data: { spec: { containers: [{ name: 'app' }] }, status: { containerStatuses: [{ name: 'app', restartCount: 3, state: { running: {} } }] } },
+      isLoading: false,
+      error: null,
+    };
+    renderView({ namespace: 'default', podName: 'my-pod' });
+    expect(screen.getByText('LogStream: my-pod app')).toBeDefined();
+    fireEvent.click(screen.getByLabelText(/Previous instance \(3 restarts\)/));
+    expect(screen.getByText('LogStream: my-pod app (previous)')).toBeDefined();
+  });
+
+  it('lists ephemeral (debug) containers alongside app and init containers', () => {
+    mockPodQueryResult = {
+      data: {
+        spec: { containers: [{ name: 'app' }], initContainers: [{ name: 'setup' }], ephemeralContainers: [{ name: 'debug-x1' }] },
+        status: { ephemeralContainerStatuses: [{ name: 'debug-x1', state: { running: {} } }] },
+      },
+      isLoading: false,
+      error: null,
+    };
+    renderView({ namespace: 'default', podName: 'my-pod' });
+    expect(screen.getByText(/\[app:container,setup:init,debug-x1:ephemeral\]/)).toBeDefined();
+    fireEvent.click(screen.getByLabelText(/Previous instance/));
+    expect(screen.getByText(/\(previous\)/)).toBeDefined();
   });
 
   it('shows loading skeleton while pod data loads', () => {

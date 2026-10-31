@@ -128,6 +128,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
       id: 'scale',
       label: 'Scale',
       icon: 'minus-plus',
+      requires: 'update',
       render: (resource, onAction) => {
         const status = getDeploymentStatus(resource);
         return (
@@ -156,10 +157,12 @@ export const deploymentEnhancer: ResourceEnhancer = {
       id: 'restart',
       label: 'Restart',
       icon: 'rotate-cw',
+      requires: 'update',
       render: (resource, onAction) => {
         return (
           <button
             onClick={() => onAction('restart-rollout', { resource })}
+            aria-label="Restart rollout"
             className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
             title="Restart Rollout"
           >

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Plus, Clipboard, AlertCircle, Upload } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
+import { parseManifest } from '../../engine/manifest';
 
 interface YamlValidation {
   valid: boolean;
@@ -13,59 +14,19 @@ interface YamlValidation {
 }
 
 function validateYaml(text: string): YamlValidation {
-  const result: YamlValidation = { valid: false, errors: [], docCount: 0 };
-  if (!text.trim()) {
-    result.errors.push('Empty input');
-    return result;
-  }
-
-  const docs = text.split(/^---$/m).filter(d => d.trim());
-  result.docCount = docs.length;
-
-  for (let i = 0; i < docs.length; i++) {
-    const doc = docs[i].trim();
-    const label = docs.length > 1 ? `Document ${i + 1}: ` : '';
-
-    if (doc.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(doc);
-        if (!parsed.apiVersion) result.errors.push(`${label}Missing apiVersion`);
-        if (!parsed.kind) result.errors.push(`${label}Missing kind`);
-        if (i === 0) { result.kind = parsed.kind; result.apiVersion = parsed.apiVersion; result.name = parsed.metadata?.name; }
-      } catch {
-        result.errors.push(`${label}Invalid JSON syntax`);
-      }
-      continue;
-    }
-
-    if (!doc.includes(':')) {
-      result.errors.push(`${label}Does not look like YAML (no key: value pairs found)`);
-      continue;
-    }
-
-    const lines = doc.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
-    const hasTabs = lines.some(l => l.startsWith('\t'));
-    if (hasTabs) {
-      result.errors.push(`${label}YAML uses tabs for indentation (use spaces instead)`);
-    }
-
-    const hasApiVersion = lines.some(l => /^apiVersion\s*:/.test(l));
-    const hasKind = lines.some(l => /^kind\s*:/.test(l));
-    if (!hasApiVersion) result.errors.push(`${label}Missing apiVersion`);
-    if (!hasKind) result.errors.push(`${label}Missing kind`);
-
-    if (i === 0) {
-      const avMatch = doc.match(/^apiVersion\s*:\s*(.+)$/m);
-      const kindMatch = doc.match(/^kind\s*:\s*(.+)$/m);
-      const nameMatch = doc.match(/^\s+name\s*:\s*(.+)$/m);
-      if (avMatch) result.apiVersion = avMatch[1].trim();
-      if (kindMatch) result.kind = kindMatch[1].trim();
-      if (nameMatch) result.name = nameMatch[1].trim();
-    }
-  }
-
-  result.valid = result.errors.length === 0;
-  return result;
+  if (!text.trim()) return { valid: false, errors: ['Empty input'], docCount: 0 };
+  // Parsed structurally (js-yaml), so a tab, a bad indent or a missing kind
+  // is reported per document rather than guessed from line prefixes.
+  const { documents, errors } = parseManifest(text);
+  const first = documents[0];
+  return {
+    valid: errors.length === 0 && documents.length > 0,
+    kind: first?.kind,
+    apiVersion: first?.apiVersion,
+    name: first?.name,
+    errors,
+    docCount: documents.length,
+  };
 }
 
 export function ImportYamlTab({ onImport }: { onImport: (yaml: string) => void }) {
@@ -140,7 +101,7 @@ export function ImportYamlTab({ onImport }: { onImport: (yaml: string) => void }
                   Valid {validation.kind && <span className="font-medium">{validation.kind}</span>}
                   {validation.apiVersion && <span className="text-green-500 ml-1">({validation.apiVersion})</span>}
                   {validation.name && <span className="text-green-500 ml-1">"{validation.name}"</span>}
-                  {validation.docCount > 1 && <span className="text-green-500 ml-1">— {validation.docCount} documents</span>}
+                  {validation.docCount > 1 && <span className="text-green-500 ml-1">and {validation.docCount - 1} more — {validation.docCount} documents</span>}
                 </span>
               </div>
             ) : (

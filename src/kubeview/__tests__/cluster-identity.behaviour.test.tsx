@@ -49,7 +49,11 @@ let REMOTE_BASE = '';
 
 type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;
 let handler: Handler;
-const fetchMock = vi.fn((input: RequestInfo | URL, init: RequestInit = {}) => Promise.resolve(handler(String(input), init)));
+const SSAR = '/apis/authorization.k8s.io/v1/selfsubjectaccessreviews';
+// Permission checks (useCanI) answer "allowed"; they are not part of what these tests assert.
+const fetchMock = vi.fn((input: RequestInfo | URL, init: RequestInit = {}) => Promise.resolve(
+  String(input).endsWith(SSAR) ? json({ status: { allowed: true } }) : handler(String(input), init),
+));
 
 function json(body: unknown, status = 200, statusText = 'OK') {
   return new Response(JSON.stringify(body), { status, statusText, headers: { 'content-type': 'application/json' } });
@@ -58,7 +62,7 @@ function text(body: string, status = 200, statusText = 'OK') {
   return new Response(body, { status, statusText });
 }
 function calls() {
-  return fetchMock.mock.calls.map(([u, init]) => ({
+  return fetchMock.mock.calls.filter(([u]) => !String(u).endsWith(SSAR)).map(([u, init]) => ({
     url: String(u),
     method: (init as RequestInit | undefined)?.method ?? 'GET',
     headers: ((init as RequestInit | undefined)?.headers ?? {}) as Record<string, string>,
@@ -178,7 +182,7 @@ describe('logs are fetched from the active cluster with impersonation', () => {
   it('pod logs: a forbidden pod read says so', async () => {
     handler = () => json({ message: 'pods "web-1" is forbidden' }, 403, 'Forbidden');
     renderWithClient(<LogsView namespace="shop" podName="web-1" />);
-    expect(await screen.findByText(/Failed to load pod/)).toBeTruthy();
+    expect(await screen.findByText(/Could not load pod web-1/)).toBeTruthy();
   });
 
   it('merged pod logs: shows each pod that failed and why, alongside the pods that worked', async () => {
@@ -280,7 +284,7 @@ describe('review follow-ups', () => {
     setActive(REMOTE);
     handler = (url) => (url.includes('/log') ? json({ message: 'pods "web-1" is forbidden: cannot get pods/log' }, 403, 'Forbidden') : json({ items: [] }));
     renderWithClient(<IncidentContext resource={pod as never} managedPods={[]} events={[]} namespace="shop" go={vi.fn()} />);
-    const alert = await screen.findByText(/Could not load logs:/);
+    const alert = await screen.findByText(/Logs could not be loaded:/);
     expect(alert.textContent).toMatch(/forbidden|permission/i);
     expect(screen.queryByText('No logs available')).toBeNull();
     expect(calls().find(c => c.url.includes('/log'))!.url.startsWith(`${REMOTE_BASE}/api/v1/namespaces/shop/pods/web-1/log`)).toBe(true);

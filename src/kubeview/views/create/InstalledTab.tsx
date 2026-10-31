@@ -9,6 +9,7 @@ import { useUIStore } from '../../store/uiStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { k8sFetch } from '../../engine/query';
+import { LoadError } from '../../components/primitives/LoadError';
 import { useFleetStore } from '../../store/fleetStore';
 import type { Deployment, StatefulSet, Secret } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
@@ -21,6 +22,30 @@ interface Subscription {
   spec?: { name?: string; channel?: string; [key: string]: unknown };
   status?: { installedCSV?: string; state?: string; [key: string]: unknown };
   [key: string]: unknown;
+}
+
+interface HelmReleaseRow {
+  name: string;
+  namespace: string;
+  version: string;
+  status: string;
+}
+
+/** One row per release (namespace + name), from its highest revision. */
+export function latestHelmRevisions(secrets: Secret[]): HelmReleaseRow[] {
+  const byRelease = new Map<string, HelmReleaseRow>();
+  for (const s of secrets) {
+    const labels = s.metadata.labels || {};
+    const name = labels['name'] || s.metadata.name;
+    const namespace = s.metadata.namespace || '';
+    const version = labels['version'] || '1';
+    const key = `${namespace}/${name}`;
+    const current = byRelease.get(key);
+    if (!current || Number(version) > Number(current.version)) {
+      byRelease.set(key, { name, namespace, version, status: labels['status'] || 'unknown' });
+    }
+  }
+  return [...byRelease.values()].sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name));
 }
 
 export function InstalledTab() {
@@ -36,29 +61,26 @@ export function InstalledTab() {
     namespace: nsFilter,
   });
 
-  // Fetch Helm Releases (secrets with owner=helm label)
-  const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
+  // Fetch Helm Releases (secrets with owner=helm label). Helm keeps one
+  // secret per revision; the release is its highest revision. In
+  // all-namespaces mode this lists every namespace — it used to read only
+  // `default`, and to keep whichever revision happened to come first.
   const clusterId = useFleetStore((s) => s.activeClusterId);
   // Not ['helm', 'releases', ...]: HelmTab caches a different shape there,
   // and the two used to overwrite each other's data.
-  const { data: helmReleases = [] } = useQuery({
-    queryKey: ['helm', 'installed-releases', clusterId, ns],
+  const { data: helmReleases = [], error: helmError } = useQuery({
+    queryKey: ['helm', 'installed-releases', clusterId, nsFilter ?? '*'],
     queryFn: async () => {
-      const res = await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/secrets?labelSelector=owner%3Dhelm`);
-      if (!res.ok) return [];
+      const path = nsFilter
+        ? `/api/v1/namespaces/${nsFilter}/secrets?labelSelector=owner%3Dhelm`
+        : '/api/v1/secrets?labelSelector=owner%3Dhelm';
+      const res = await k8sFetch(clusterId, path);
+      if (!res.ok) throw new Error(`Helm releases could not be listed (${res.status})`);
       const data = await res.json();
-      return (data.items || []).map((s: Secret) => {
-        const name = s.metadata.labels?.['name'] || s.metadata.name;
-        const version = s.metadata.labels?.['version'] || '1';
-        return {
-          name,
-          version,
-          status: s.metadata.labels?.['status'] || 'unknown',
-          namespace: s.metadata.namespace,
-        };
-      }).filter((r: { name: string }, i: number, arr: { name: string }[]) => arr.findIndex((x) => x.name === r.name) === i);
+      return latestHelmRevisions(data.items || []);
     },
     refetchInterval: 30000,
+    retry: false,
   });
 
   // Fetch Deployments
@@ -92,7 +114,7 @@ export function InstalledTab() {
     : userSubscriptions;
 
   const filteredHelmReleases = q
-    ? helmReleases.filter((r: { name?: string }) =>
+    ? helmReleases.filter((r: HelmReleaseRow) =>
         r.name?.toLowerCase().includes(q)
       )
     : helmReleases;
@@ -209,13 +231,15 @@ export function InstalledTab() {
             <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredHelmReleases.length}</span>
           </h3>
         </div>
-        {filteredHelmReleases.length === 0 ? (
+        {helmError ? (
+          <LoadError title="Helm releases could not be listed" error={helmError} />
+        ) : filteredHelmReleases.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-4">No Helm releases installed</p>
         ) : (
           <div className="space-y-2">
-            {filteredHelmReleases.slice(0, 5).map((release: { name?: string; namespace?: string; version?: string; status?: string }, i: number) => (
+            {filteredHelmReleases.slice(0, 5).map((release: HelmReleaseRow) => (
               <div
-                key={i}
+                key={`${release.namespace}/${release.name}`}
                 className="flex items-center justify-between p-3 bg-slate-800/50 rounded-sm border border-slate-700"
               >
                 <div className="flex-1 min-w-0">

@@ -10,7 +10,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { Pod, Event, Container, ContainerStatus } from '../../engine/types';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { Card } from '../../components/primitives/Card';
-import { useActiveClusterId } from '../../hooks/useClusterBase';
+import { useFleetStore } from '../../store/fleetStore';
 
 export function IncidentContext({ resource, managedPods, events, namespace, go }: {
   resource: K8sResource;
@@ -19,7 +19,6 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   namespace?: string;
   go: (path: string, title: string) => void;
 }) {
-  const clusterId = useActiveClusterId();
   const isPod = resource.kind === 'Pod';
   const isWorkload = resource.kind === 'Deployment' || resource.kind === 'StatefulSet' || resource.kind === 'DaemonSet';
 
@@ -69,16 +68,18 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   const logPodName = isPod ? resource.metadata.name : worstPodName;
   const logPodNs = isPod ? namespace : worstPodNs;
 
-  const { data: logText, isLoading: logsLoading, error: logsError } = useQuery({
-    queryKey: ['incident-logs', logPodNs, logPodName, activeContainer, showPrevious, clusterId],
+  const clusterId = useFleetStore((s) => s.activeClusterId);
+  const { data: logText, isLoading: logsLoading, error: logError } = useQuery({
+    queryKey: ['incident-logs', clusterId, logPodNs, logPodName, activeContainer, showPrevious],
     queryFn: () => logPodNs && logPodName
       ? k8sLogs(logPodNs, logPodName, activeContainer || undefined, {
           tailLines: 80,
-          ...(showPrevious ? {} : {}),
+          previous: showPrevious,
         }, clusterId)
       : Promise.resolve(''),
     enabled: !!logPodName && !!logPodNs,
     staleTime: 15000,
+    retry: false,
   });
 
   const relevantEvents = React.useMemo(() => {
@@ -172,7 +173,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
                 <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer">
                   <input type="checkbox" checked={showPrevious} onChange={(e) => setShowPrevious(e.target.checked)}
                     className="rounded-sm border-slate-600" />
-                  Previous
+                  Previous instance
                 </label>
                 <button onClick={() => go(`/logs/${logPodNs}/${logPodName}`, `${logPodName} (Logs)`)}
                   className="text-xs text-blue-400 hover:text-blue-300">Full logs →</button>
@@ -180,9 +181,11 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
             </div>
             {logsLoading ? (
               <div className="flex items-center gap-2 py-4 text-xs text-slate-500"><Loader2 className="w-3 h-3 animate-spin" /> Loading logs...</div>
-            ) : logsError ? (
-              <div role="alert" className="text-xs text-red-300 py-2">
-                Could not load logs: {logsError instanceof Error ? logsError.message : String(logsError)}
+            ) : logError ? (
+              <div className="text-xs text-amber-400 py-2" role="alert">
+                {showPrevious
+                  ? 'No logs from a previous instance: the container has not restarted, or its previous logs were already removed.'
+                  : `Logs could not be loaded: ${logError instanceof Error ? logError.message : String(logError)}`}
               </div>
             ) : logText ? (
               <pre className="text-xs text-slate-400 font-mono bg-slate-950 rounded-sm p-3 max-h-48 overflow-auto whitespace-pre-wrap">

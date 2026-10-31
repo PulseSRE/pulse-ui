@@ -144,4 +144,25 @@ describe('LogStream', () => {
     expect(screen.getByRole('status').textContent).toContain('stream ended');
     expect(screen.queryByText('Live')).toBeNull();
   });
+
+  it('previous=true asks for the previous instance and never follows', async () => {
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(200, 'crashed here'));
+    await act(async () => {
+      render(<LogStream namespace="shop" podName="web-1" containerName="app" previous follow />);
+    });
+    const url = String(vi.mocked(fetch).mock.calls[0][0]);
+    expect(url).toContain('/api/v1/namespaces/shop/pods/web-1/log?');
+    expect(url).toContain('previous=true');
+    expect(url).not.toContain('follow=true');
+    expect(screen.getByText('crashed here')).toBeTruthy();
+    expect(screen.getByText(/Showing logs from the previous instance/)).toBeTruthy();
+  });
+
+  it('previous=true on a container that never restarted says so', async () => {
+    vi.mocked(fetch).mockReturnValueOnce(mockFetchResponse(400, 'previous terminated container "app" not found'));
+    await act(async () => {
+      render(<LogStream namespace="shop" podName="web-1" containerName="app" previous />);
+    });
+    expect(screen.getByText(/No previous instance/)).toBeTruthy();
+  });
 });

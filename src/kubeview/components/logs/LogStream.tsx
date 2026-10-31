@@ -19,6 +19,8 @@ interface LogStreamProps {
   timestamps?: boolean;
   tailLines?: number;
   sinceSeconds?: number;
+  /** Show the previous (terminated) instance's logs. Not streamable. */
+  previous?: boolean;
   onLineClick?: (line: ParsedLogLine) => void;
   /** Cluster the pod lives on; defaults to the active cluster. */
   clusterId?: string;
@@ -34,6 +36,7 @@ export default function LogStream({
   timestamps = true,
   tailLines = 1000,
   sinceSeconds,
+  previous = false,
   onLineClick,
   clusterId: clusterIdProp,
 }: LogStreamProps) {
@@ -73,12 +76,14 @@ export default function LogStream({
       params.set('sinceSeconds', String(sinceSeconds));
     }
 
-    if (followMode) {
+    if (previous) {
+      params.set('previous', 'true');
+    } else if (followMode) {
       params.set('follow', 'true');
     }
 
     return `/api/v1/namespaces/${namespace}/pods/${podName}/log?${params}`;
-  }, [namespace, podName, containerName, tailLines, sinceSeconds]);
+  }, [namespace, podName, containerName, tailLines, sinceSeconds, previous]);
 
   // Fetch logs
   useEffect(() => {
@@ -99,7 +104,8 @@ export default function LogStream({
       setShowingPrevious(false);
 
       try {
-        let url = buildLogUrl(isFollowing);
+        const streaming = isFollowing && !previous;
+        let url = buildLogUrl(streaming);
         let response = await k8sFetch(clusterId, url, { signal: controller.signal });
 
         // 400 usually means multi-container pod without container param — auto-detect first container
@@ -120,10 +126,13 @@ export default function LogStream({
         }
 
         if (!response.ok) {
+          if (previous && response.status === 400) {
+            throw new Error('No previous instance: the container has not restarted, or its previous logs were already removed.');
+          }
           throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
         }
 
-        if (isFollowing && response.body) {
+        if (streaming && response.body) {
           // Streaming mode. The stream starts with the same tail a one-off fetch
           // returns, so it replaces what is on screen rather than appending to it;
           // appending duplicated the whole tail every time follow was switched on.
@@ -157,15 +166,15 @@ export default function LogStream({
         // One-off fetch. If the running container has written nothing (it just
         // crashed or restarted), show the previous instance's logs, and say so.
         let text = await response.text();
-        let previous = false;
-        if (!text.trim()) {
+        let fellBack = false;
+        if (!text.trim() && !previous) {
           try {
             const prevResponse = await k8sFetch(clusterId, withParam(url, 'previous', 'true'), { signal: controller.signal });
             if (prevResponse.ok) {
               const prevText = await prevResponse.text();
               if (prevText.trim()) {
                 text = prevText;
-                previous = true;
+                fellBack = true;
               }
             }
           } catch (err) {
@@ -179,7 +188,7 @@ export default function LogStream({
           const detected = detectLogFormat(rawLines);
           setLogFormat(detected);
           setLines(appendCapped([], rawLines.map((line) => parseLogLine(line, detected)), MAX_LINES));
-          setShowingPrevious(previous);
+          setShowingPrevious(fellBack);
           setLoading(false);
         }
       } catch (err) {
@@ -198,7 +207,7 @@ export default function LogStream({
         abortControllerRef.current.abort();
       }
     };
-  }, [namespace, podName, containerName, isFollowing, buildLogUrl, clusterId, reconnectKey]);
+  }, [namespace, podName, containerName, isFollowing, buildLogUrl, clusterId, reconnectKey, previous]);
 
   // Auto-scroll when following
   useEffect(() => {
@@ -337,8 +346,9 @@ export default function LogStream({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setIsFollowing(!isFollowing)}
-            className="p-1.5 hover:bg-slate-700 rounded-sm text-slate-300 transition-colors"
-            title={isFollowing ? 'Pause streaming' : 'Resume streaming'}
+            disabled={previous}
+            className="p-1.5 hover:bg-slate-700 rounded-sm text-slate-300 transition-colors disabled:opacity-40"
+            title={previous ? 'A previous instance has stopped; there is nothing to stream' : isFollowing ? 'Pause streaming' : 'Resume streaming'}
           >
             {isFollowing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </button>
@@ -385,6 +395,11 @@ export default function LogStream({
         </div>
       </div>
 
+      {previous && (
+        <div role="status" className="px-3 py-1.5 text-xs bg-amber-950/60 border-b border-amber-800 text-amber-200">
+          Showing logs from the previous instance of this container, before it last restarted.
+        </div>
+      )}
       {showingPrevious && (
         <div role="status" className="px-3 py-1.5 text-xs bg-amber-950/60 border-b border-amber-800 text-amber-200">
           The running container has no output yet, so these are logs from the previous instance, before it restarted.

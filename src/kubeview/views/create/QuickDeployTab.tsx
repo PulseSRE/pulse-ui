@@ -99,6 +99,29 @@ export function QuickDeployTab() {
         throw new Error(err.message);
       }
 
+      // The Deployment exists from here on. Service and Route failures used to
+      // be swallowed and the deploy reported as complete; each is now checked
+      // and a partial result says what is missing.
+      const partial: string[] = [];
+      const postChecked = async (path: string, body: unknown, what: string) => {
+        try {
+          const res = await k8sFetch(clusterId, path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ message: res.statusText }));
+            partial.push(`${what}: ${err.message || `${res.status} ${res.statusText}`}`);
+            return false;
+          }
+          return true;
+        } catch (e) {
+          partial.push(`${what}: ${e instanceof Error ? e.message : String(e)}`);
+          return false;
+        }
+      };
+
       if (port) {
         const service = {
           apiVersion: 'v1',
@@ -109,13 +132,11 @@ export function QuickDeployTab() {
             ports: [{ port: parseInt(port), targetPort: parseInt(port), protocol: 'TCP' }],
           },
         };
-        await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/services`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(service),
-        });
+        const serviceOk = await postChecked(`/api/v1/namespaces/${ns}/services`, service, 'Service');
 
-        if (createRoute) {
+        if (createRoute && !serviceOk) {
+          partial.push('Route: not created because the Service was not');
+        } else if (createRoute) {
           const route = {
             apiVersion: 'route.openshift.io/v1',
             kind: 'Route',
@@ -126,15 +147,15 @@ export function QuickDeployTab() {
               tls: { termination: 'edge' },
             },
           };
-          await k8sFetch(clusterId, `/apis/route.openshift.io/v1/namespaces/${ns}/routes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(route),
-          }).catch(() => { /* best-effort — route creation is optional */ });
+          await postChecked(`/apis/route.openshift.io/v1/namespaces/${ns}/routes`, route, 'Route');
         }
       }
 
-      addToast({ type: 'success', title: `Application "${name}" created`, detail: `Watching rollout in ${ns}` });
+      if (partial.length > 0) {
+        addToast({ type: 'warning', title: `Deployment "${name}" created, but not everything was`, detail: partial.join('; ') });
+      } else {
+        addToast({ type: 'success', title: `Application "${name}" created`, detail: `Watching rollout in ${ns}` });
+      }
       setDeployedApp({ name: name.trim(), ns, clusterId });
     } catch (err) {
       showErrorToast(err, 'Deploy failed');

@@ -29,17 +29,23 @@ export function DeleteConfirmModal({ open, resource, deleting, onConfirm, onClos
 interface DeleteProgressProps {
   resource: K8sResource;
   namespace?: string;
+  /** API path of the deleted resource: the progress polls this, not a guessed Deployment path. */
+  apiPath: string;
   onClose: () => void;
 }
 
-export function DeleteProgressModal({ resource, namespace, onClose }: DeleteProgressProps) {
+export function DeleteProgressModal({ resource, namespace, apiPath, onClose }: DeleteProgressProps) {
+  const selector = (resource.spec as { selector?: { matchLabels?: Record<string, string> } } | undefined)?.selector?.matchLabels;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
       <div className="w-full max-w-2xl">
         <DeployProgress
           type={resource.kind === 'Job' ? 'job' : 'deployment'}
           name={resource.metadata.name}
-          namespace={namespace || 'default'}
+          namespace={namespace || undefined}
+          resourcePath={apiPath}
+          kind={resource.kind}
+          podSelector={selector}
           mode="delete"
           onClose={onClose}
         />
