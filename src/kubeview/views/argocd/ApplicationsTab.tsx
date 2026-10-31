@@ -318,36 +318,22 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                     </div>
                   )}
 
-                  {/* Conditions */}
-                  {(app.status?.conditions || []).length > 0 && (
-                    <div className="mt-2">
-                      <div className="text-xs text-slate-500 mb-1">Conditions</div>
-                      {(app.status?.conditions || []).map((cond, i) => (
-                        <div key={i} className="text-xs text-amber-400/70 flex items-center gap-1.5">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span className="font-medium">{cond.type}:</span>
-                          <span className="text-slate-400">{cond.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
                   {/* Condition Timeline */}
                   {(() => {
-                    const conditionsWithTime = (app.status?.conditions || [])
-                      .filter((c) => c.lastTransitionTime)
-                      .sort((a, b) => new Date(b.lastTransitionTime!).getTime() - new Date(a.lastTransitionTime!).getTime());
+                    // One list of conditions: newest first, undated ones last.
+                    const conditionsWithTime = [...(app.status?.conditions || [])]
+                      .sort((a, b) => (b.lastTransitionTime ? new Date(b.lastTransitionTime).getTime() : 0) - (a.lastTransitionTime ? new Date(a.lastTransitionTime).getTime() : 0));
                     if (conditionsWithTime.length === 0) return null;
                     return (
                       <div className="mt-2">
-                        <div className="text-xs text-slate-500 mb-1">Condition Timeline</div>
+                        <div className="text-xs text-slate-500 mb-1">Conditions</div>
                         <div className="relative ml-2 border-l border-slate-700 pl-3 space-y-2">
                           {conditionsWithTime.map((cond, i) => (
                             <div key={i} className="relative">
                               <div className="absolute left-[-15px] top-1 w-2 h-2 rounded-full bg-amber-500/70 border border-slate-800" />
                               <div className="flex items-baseline gap-2">
                                 <span className="text-xs font-medium text-amber-400/80">{cond.type}</span>
-                                <span className="text-xs text-slate-600">{timeAgo(cond.lastTransitionTime!)}</span>
+                                {cond.lastTransitionTime && <span className="text-xs text-slate-600">{timeAgo(cond.lastTransitionTime)}</span>}
                               </div>
                               <p className="text-xs text-slate-500 mt-0.5 truncate" title={cond.message}>{cond.message}</p>
                             </div>

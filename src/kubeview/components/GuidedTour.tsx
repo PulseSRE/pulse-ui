@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { HeartPulse, Siren, Bot, Shield, Sparkles, ChevronRight, ChevronLeft, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { HeartPulse, Inbox, Bot, Shield, Sparkles, ChevronRight, ChevronLeft, X, ArrowRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 const STORAGE_KEY = 'openshiftpulse-tour-completed';
@@ -10,22 +11,26 @@ interface TourStep {
   icon: LucideIcon;
   iconColor: string;
   iconBg: string;
+  /** The page this step describes; "Show me" ends the tour and opens it. */
+  showMe?: { path: string; label: string };
 }
 
 const TOUR_STEPS: TourStep[] = [
   {
     title: 'Welcome to Pulse',
-    description: 'Your cluster health at a glance. The Posture Bar shows if everything is OK.',
+    description: 'Your cluster health at a glance. Cluster Pulse shows whether everything is OK and what needs a look.',
     icon: HeartPulse,
     iconColor: 'text-rose-400',
     iconBg: 'bg-rose-500/15',
+    showMe: { path: '/pulse', label: 'Cluster Pulse' },
   },
   {
-    title: 'Incident Center',
-    description: 'All alerts, findings, and auto-fix results in one place. The Active tab shows what needs attention now.',
-    icon: Siren,
+    title: 'Inbox',
+    description: 'Findings, alerts, tasks and approvals in one worklist. "Needs attention" shows what to act on now; Timeline has the full event history.',
+    icon: Inbox,
     iconColor: 'text-amber-400',
     iconBg: 'bg-amber-500/15',
+    showMe: { path: '/inbox', label: 'Inbox' },
   },
   {
     title: 'AI Agent',
@@ -40,6 +45,7 @@ const TOUR_STEPS: TourStep[] = [
     icon: Shield,
     iconColor: 'text-emerald-400',
     iconBg: 'bg-emerald-500/15',
+    showMe: { path: '/agent', label: 'Pulse Agent' },
   },
   {
     title: "You're Ready",
@@ -51,6 +57,7 @@ const TOUR_STEPS: TourStep[] = [
 ];
 
 export function GuidedTour() {
+  const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
 
@@ -106,6 +113,14 @@ export function GuidedTour() {
           </div>
           <h2 className="mb-2 text-lg font-semibold text-white">{current.title}</h2>
           <p className="text-sm leading-relaxed text-slate-400">{current.description}</p>
+          {current.showMe && (
+            <button
+              onClick={() => { const to = current.showMe!.path; dismiss(); navigate(to); }}
+              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-400 hover:text-blue-300"
+            >
+              Show me {current.showMe.label} <ArrowRight className="h-3 w-3" />
+            </button>
+          )}
         </div>
 
         {/* Footer: dots + nav */}

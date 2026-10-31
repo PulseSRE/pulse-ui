@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Package, FileText,
-  AlertCircle, Box, Loader2, Upload, Puzzle, Ship, ShieldCheck, CheckCircle, XCircle,
+  AlertCircle, Box, Upload, Puzzle, Ship, ShieldCheck, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
@@ -76,8 +76,6 @@ interface CreateResult {
   message?: string;
 }
 
-import { lazy, Suspense } from 'react';
-const OperatorCatalogView = lazy(() => import('./OperatorCatalogView'));
 
 
 export default function CreateView({ gvrKey }: CreateViewProps) {
@@ -100,6 +98,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   const urlTab = searchParams.get('tab') as CreateTab | null;
   const activeTab: CreateTab = urlTab && CREATE_TABS.includes(urlTab) ? urlTab : 'installed';
   const setActiveTab = (tab: CreateTab) => {
+    if (tab === 'operators') { go('/operators', 'Operators'); return; }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (tab === 'installed') next.delete('tab'); else next.set('tab', tab);
@@ -361,10 +360,10 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
         </div>
 
         {activeTab === 'installed' && <InstalledTab />}
+        {/* The operator catalog is one page, /operators. Old
+            `?tab=operators&q=…` links land there with their search. */}
         {activeTab === 'operators' && (
-          <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-blue-400 animate-spin" /></div>}>
-            <OperatorCatalogView />
-          </Suspense>
+          <Navigate to={`/operators${searchParams.get('q') ? `?q=${encodeURIComponent(searchParams.get('q')!)}` : ''}`} replace />
         )}
         {activeTab === 'deploy' && <QuickDeployTab />}
         {activeTab === 'helm' && <HelmTab />}

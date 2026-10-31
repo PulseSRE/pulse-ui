@@ -1,3 +1,4 @@
+import { inUserNamespaces, isPlatformNamespace } from '../engine/platformNamespaces';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -86,7 +87,6 @@ export default function NetworkingView() {
     return eps;
   }, [routes, ingresses]);
 
-  const nonTlsEndpoints = exposedEndpoints.filter(e => !e.tls);
   const notAdmittedRoutes = routes.filter(r => {
     const admitted = r.status?.ingress?.some((ing) => ing.conditions?.some((c) => c.type === 'Admitted' && c.status === 'True'));
     return admitted === false;
@@ -99,12 +99,23 @@ export default function NetworkingView() {
     return nsSet;
   }, [netpols]);
 
-  // Issues
-  const issues: Array<{ msg: string; severity: 'warning' | 'critical'; action?: { label: string; path: string } }> = [];
-  if (nonTlsEndpoints.length > 0) issues.push({ msg: `${nonTlsEndpoints.length} endpoint${nonTlsEndpoints.length > 1 ? 's' : ''} exposed without TLS`, severity: 'warning' });
-  if (notAdmittedRoutes.length > 0) issues.push({ msg: `${notAdmittedRoutes.length} route${notAdmittedRoutes.length > 1 ? 's' : ''} not admitted by ingress controller`, severity: 'critical' });
-  if (netpols.length === 0) issues.push({ msg: 'No network policies configured — all pod traffic is unrestricted', severity: 'warning', action: { label: 'Create Policy', path: '/create/networking.k8s.io~v1~networkpolicies' } });
-  if (nsFilter && !namespacesWithPolicies.has(nsFilter)) issues.push({ msg: `No network policies in ${nsFilter}`, severity: 'warning', action: { label: 'Create Policy', path: '/create/networking.k8s.io~v1~networkpolicies' } });
+  // Issues — one banner per problem. Route TLS lives in the audit below
+  // (it is a best-practice check, with the fix), not also as a banner and a
+  // stat-card subtitle; not-admitted routes are counted here and listed in the
+  // audit.
+  const scrollToAudit = () => document.getElementById('networking-audit')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  const issues: Array<{ msg: string; severity: 'warning' | 'critical'; action?: { label: string; path?: string; onClick?: () => void } }> = [];
+  if (notAdmittedRoutes.length > 0) issues.push({ msg: `${notAdmittedRoutes.length} route${notAdmittedRoutes.length > 1 ? 's' : ''} not admitted by ingress controller`, severity: 'critical', action: { label: 'See routes', onClick: scrollToAudit } });
+  // One network-policy banner: for the selected namespace when there is one.
+  if (nsFilter ? !namespacesWithPolicies.has(nsFilter) : netpols.length === 0) {
+    issues.push({
+      msg: nsFilter
+        ? `No network policies in ${nsFilter} — its pod traffic is unrestricted`
+        : 'No network policies configured — all pod traffic is unrestricted',
+      severity: 'warning',
+      action: { label: 'Create Policy', path: '/create/networking.k8s.io~v1~networkpolicies' },
+    });
+  }
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
@@ -144,7 +155,7 @@ export default function NetworkingView() {
                   <span className="text-sm text-slate-200">{issue.msg}</span>
                 </div>
                 {issue.action && (
-                  <button onClick={() => go(issue.action!.path, issue.action!.label)} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                  <button onClick={() => (issue.action!.onClick ? issue.action!.onClick() : go(issue.action!.path!, issue.action!.label))} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
                     {issue.action.label} <ArrowRight className="w-3 h-3" />
                   </button>
                 )}
@@ -163,7 +174,6 @@ export default function NetworkingView() {
           <button onClick={() => go('/r/route.openshift.io~v1~routes', 'Routes')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Routes</div>
             <div className="text-xl font-bold text-slate-100">{routes.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{exposedEndpoints.filter(e => e.type === 'Route' && e.tls).length} TLS</div>
           </button>
           <button onClick={() => go('/r/networking.k8s.io~v1~ingresses', 'Ingresses')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Ingresses</div>
@@ -177,7 +187,7 @@ export default function NetworkingView() {
           <Card className="p-3">
             <div className="text-xs text-slate-400 mb-1">Endpoints</div>
             <div className="text-xl font-bold text-slate-100">{exposedEndpoints.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{nonTlsEndpoints.length > 0 ? `${nonTlsEndpoints.length} no TLS` : 'All secured'}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Routes and Ingress paths</div>
           </Card>
         </div>
 
@@ -211,6 +221,7 @@ export default function NetworkingView() {
         </MetricGrid>
 
         {/* Networking Health Audit */}
+        <div id="networking-audit" />
         <NetworkingHealthAudit
           routes={routes}
           services={services}
@@ -322,40 +333,14 @@ export default function NetworkingView() {
           </Panel>
         )}
 
-        {/* Not Admitted Routes */}
-        {notAdmittedRoutes.length > 0 && (
-          <Panel title={`Not Admitted Routes (${notAdmittedRoutes.length})`} icon={<AlertCircle className="w-4 h-4 text-red-500" />}>
-            <div className="space-y-1">
-              {notAdmittedRoutes.map((r) => (
-                <button key={r.metadata.uid} onClick={() => go(`/r/route.openshift.io~v1~routes/${r.metadata.namespace}/${r.metadata.name}`, r.metadata.name)}
-                  className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-sm text-slate-200">{r.metadata.name}</span>
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{r.metadata.namespace}</span>
-                  </div>
-                  <span className="text-xs text-slate-500 font-mono">{r.spec?.host || '—'}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-800">
-              <div className="text-xs text-slate-500 space-y-1">
-                <p className="font-medium text-slate-400">Common causes:</p>
-                <p>1. Host conflicts with another Route in the same namespace</p>
-                <p>2. Ingress controller not configured for the Route's domain</p>
-                <p>3. TLS certificate issues (missing or invalid Secret)</p>
-              </div>
-            </div>
-          </Panel>
-        )}
 
         {/* Network Policies summary */}
         <Panel title="Network Policies" icon={<Shield className="w-4 h-4 text-indigo-400" />}>
           {netpols.length === 0 ? (
             <div className="text-center py-4">
               <Shield className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-              <p className="text-sm text-slate-400">No network policies configured</p>
-              <p className="text-xs text-slate-600 mt-1">All pod-to-pod traffic is allowed by default</p>
+              {/* The warning banner above says what this means; not repeated. */}
+              <p className="text-sm text-slate-400">None yet</p>
               <button onClick={() => go('/create/networking.k8s.io~v1~networkpolicies', 'Create NetworkPolicy')}
                 className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors">
                 Create Network Policy
@@ -422,7 +407,7 @@ function NetworkingHealthAudit({
   const allNamespaces = React.useMemo(() => {
     const nsSet = new Set<string>();
     for (const s of services) {
-      if (s.metadata?.namespace && s.metadata.namespace !== 'default' && s.metadata.namespace !== 'kube-system' && !s.metadata.namespace.startsWith('openshift-')) {
+      if (s.metadata?.namespace && !isPlatformNamespace(s.metadata.namespace)) {
         nsSet.add(s.metadata.namespace);
       }
     }
@@ -450,9 +435,14 @@ function NetworkingHealthAudit({
   const checks: AuditCheck[] = React.useMemo(() => {
     const allChecks: AuditCheck[] = [];
 
+    // Platform objects (openshift-*, kube-*) are left out of every audit
+    // here, as they are on Workloads and Security.
+    const userRoutes = inUserNamespaces(routes);
+    const userServices = inUserNamespaces(services);
+
     // 1. TLS on Routes
-    const routesWithTLS = routes.filter(r => r.spec?.tls);
-    const routesWithoutTLS = routes.filter(r => !r.spec?.tls);
+    const routesWithTLS = userRoutes.filter(r => r.spec?.tls);
+    const routesWithoutTLS = userRoutes.filter(r => !r.spec?.tls);
     allChecks.push({
       id: 'route-tls',
       title: 'TLS on Routes',
@@ -492,8 +482,8 @@ spec:
     });
 
     // 3. Avoid NodePort Services
-    const nodePortServices = services.filter(s => s.spec?.type === 'NodePort');
-    const nonNodePortServices = services.filter(s => s.spec?.type !== 'NodePort');
+    const nodePortServices = userServices.filter(s => s.spec?.type === 'NodePort');
+    const nonNodePortServices = userServices.filter(s => s.spec?.type !== 'NodePort');
     allChecks.push({
       id: 'nodeport-services',
       title: 'Avoid NodePort Services',

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 
 const mockClusters = [
@@ -13,7 +13,11 @@ const mockState = {
   clusters: mockClusters,
   fleetMode: 'multi' as const,
   refreshAllHealth: vi.fn().mockResolvedValue(undefined),
+  setActiveCluster: vi.fn(),
 };
+
+const go = vi.fn();
+vi.mock('../../../hooks/useNavigateTab', () => ({ useNavigateTab: () => go }));
 
 vi.mock('../../../store/fleetStore', () => ({
   useFleetStore: vi.fn(() => mockState),
@@ -28,7 +32,7 @@ vi.mock('../../../components/agent/AmbientInsight', () => ({
   AmbientInsight: () => <div data-testid="ambient-insight" />,
 }));
 
-import { FleetReportTab, computeRiskScore } from '../FleetReportTab';
+import { FleetReportTab, computeReachability } from '../FleetReportTab';
 
 describe('FleetReportTab', () => {
   afterEach(() => cleanup());
@@ -39,11 +43,23 @@ describe('FleetReportTab', () => {
     expect(screen.getByText('prod-west')).toBeTruthy();
   });
 
-  it('shows fleet risk score', () => {
+  it('shows reachability (high is good), not a "risk score"', () => {
     render(<FleetReportTab />);
     // 2/3 connected = 67%
-    expect(screen.getByTestId('risk-score').textContent).toBe('67');
-    expect(screen.getByTestId('risk-badge').textContent).toBe('Degraded');
+    expect(screen.getByText('Fleet reachability')).toBeTruthy();
+    expect(screen.queryByText(/Risk Score/i)).toBeNull();
+    expect(screen.getByTestId('risk-score').textContent).toBe('67%');
+    expect(screen.getByTestId('risk-badge').textContent).toBe('Partly reachable');
+    // The connected ratio is not repeated as "x / y clusters healthy".
+    expect(screen.queryByText(/clusters healthy/)).toBeNull();
+  });
+
+  it('a cluster row switches Pulse to that cluster; "Open Fleet" goes to /fleet', () => {
+    render(<FleetReportTab />);
+    fireEvent.click(screen.getByTitle('Show prod-east on Pulse'));
+    expect(mockState.setActiveCluster).toHaveBeenCalledWith('prod-east');
+    fireEvent.click(screen.getByText('Open Fleet →'));
+    expect(go).toHaveBeenCalledWith('/fleet', 'Fleet');
   });
 
   it('shows cluster count badge', () => {
@@ -69,14 +85,14 @@ describe('FleetReportTab', () => {
 
 // Regression: with no clusters, or none checked yet, the fleet scored 100
 // "Healthy" — absence of data shown as absence of problems.
-describe('computeRiskScore', () => {
+describe('computeReachability', () => {
   it('does not call an empty fleet healthy', () => {
-    expect(computeRiskScore([])).toMatchObject({ score: null, label: 'No clusters' });
+    expect(computeReachability([])).toMatchObject({ score: null, label: 'No clusters' });
   });
   it('does not call unchecked clusters healthy', () => {
-    expect(computeRiskScore([{ status: 'unknown' }, { status: 'unknown' }])).toMatchObject({ score: null, label: 'Checking' });
+    expect(computeReachability([{ status: 'unknown' }, { status: 'unknown' }])).toMatchObject({ score: null, label: 'Checking' });
   });
   it('scores only the clusters whose health is known', () => {
-    expect(computeRiskScore([{ status: 'connected' }, { status: 'unreachable' }, { status: 'unknown' }])).toMatchObject({ score: 50, label: 'Critical' });
+    expect(computeReachability([{ status: 'connected' }, { status: 'unreachable' }, { status: 'unknown' }])).toMatchObject({ score: 50, label: 'Mostly unreachable' });
   });
 });

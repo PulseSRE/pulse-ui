@@ -5,7 +5,7 @@ import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
 import { useCustomViewStore } from '../store/customViewStore';
 import { getResourceIcon, getResourceIconName } from '../engine/iconRegistry';
-import { getNavItemsByGroup } from '../engine/navRegistry';
+import { getNavItemsByGroup, matchesNavQuery, NAV_ITEMS } from '../engine/navRegistry';
 
 interface GroupedResources {
   [groupName: string]: Array<{
@@ -72,6 +72,9 @@ export function ResourceBrowser() {
     );
   });
 
+  // The search box filters the page sections as well as the resource groups.
+  const navSections = getNavItemsByGroup(NAV_ITEMS.filter((item) => matchesNavQuery(item, searchQuery.trim())));
+
   function toggleGroup(group: string) {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -131,7 +134,8 @@ export function ResourceBrowser() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search resources..."
+              placeholder="Search pages and resources..."
+              aria-label="Search pages and resources"
               className="flex-1 bg-transparent text-sm text-slate-100 placeholder-slate-500 outline-hidden"
             />
           </div>
@@ -141,7 +145,10 @@ export function ResourceBrowser() {
         <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Views section — derived from canonical navRegistry */}
           <div className="border-b border-slate-700 p-3 space-y-3">
-            {getNavItemsByGroup().map((section) => (
+            {navSections.length === 0 && (
+              <p className="px-2 py-1 text-xs text-slate-600">No pages match "{searchQuery}"</p>
+            )}
+            {navSections.map((section) => (
               <div key={section.group}>
                 <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
                   {section.label}

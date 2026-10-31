@@ -77,6 +77,12 @@ describe('OperatorsTab', () => {
     expect(screen.getByText('3')).toBeDefined();
   });
 
+  it('links to the OperatorHub operators page', () => {
+    render(<OperatorsTab operators={[]} go={goMock} />);
+    fireEvent.click(screen.getByRole('button', { name: /add-on operators \(OperatorHub\)/ }));
+    expect(goMock).toHaveBeenCalledWith('/operators', 'Operators');
+  });
+
   it('renders operator names in the list', () => {
     const operators = [
       makeOperator({ name: 'console', available: true, version: '4.15.3' }),

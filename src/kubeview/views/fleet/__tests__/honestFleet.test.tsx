@@ -5,7 +5,11 @@
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
+import { render as rtlRender, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+// Fleet pages carry the fleet tab bar, which reads the current route.
+const render = (ui: React.ReactElement) => rtlRender(<MemoryRouter initialEntries={['/fleet']}>{ui}</MemoryRouter>);
 
 const connections: Array<Record<string, unknown>> = [];
 vi.mock('../../../engine/clusterConnection', () => ({
@@ -105,7 +109,9 @@ describe('ComplianceView', () => {
     expect(screen.getByRole('alert').textContent).toMatch(/could not be read/);
   });
 
-  it('passes kubeadmin only on a 404, and shows the real scheduler default', async () => {
+  // The scheduler profile is compared on Compare & Drift now (CompareView uses
+  // the same DEFAULT_SCHEDULER_PROFILE); Compliance no longer repeats it.
+  it('passes kubeadmin only on a 404', async () => {
     setClusters('east');
     mockFetchRoutes({
       '/secrets/kubeadmin': { status: 404, body: { code: 404 } },
@@ -113,9 +119,10 @@ describe('ComplianceView', () => {
       'schedulers/cluster': { body: { spec: {} } },
     }, 404);
     render(<ComplianceView />);
-    await waitFor(() => expect(screen.getByText('LowNodeUtilization (default)')).toBeTruthy());
-    const kubeadminRow = screen.getByText('kubeadmin Removed').closest('tr')!;
-    expect(kubeadminRow.querySelector('[aria-label="Compliant"]')).toBeTruthy();
+    await waitFor(() => {
+      const kubeadminRow = screen.getByText('kubeadmin Removed').closest('tr')!;
+      expect(kubeadminRow.querySelector('[aria-label="Compliant"]')).toBeTruthy();
+    });
     expect(document.body.textContent).not.toMatch(/HighNodeUtilization/);
   });
 });

@@ -1,4 +1,4 @@
-import { Route, useParams } from 'react-router-dom';
+import { Route, Navigate, useParams } from 'react-router-dom';
 import React, { Suspense, lazy } from 'react';
 import { LoadingFallback } from '../components/LoadingFallback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -13,12 +13,11 @@ const SecurityView = lazy(() => import('../views/SecurityView'));
 const IdentityView = lazy(() => import('../views/IdentityView'));
 const ArgoCDView = lazy(() => import('../views/ArgoCDView'));
 const FleetView = lazy(() => import('../views/FleetView'));
-const CompareView = lazy(() => import('../views/fleet/CompareView'));
+const FleetComparePage = lazy(() => import('../views/fleet/FleetComparePage'));
 const ComplianceView = lazy(() => import('../views/fleet/ComplianceView'));
 const FleetResourceView = lazy(() => import('../views/fleet/FleetResourceView'));
 const FleetWorkloadsView = lazy(() => import('../views/fleet/FleetWorkloadsView'));
 const FleetAlertsView = lazy(() => import('../views/fleet/FleetAlertsView'));
-const DriftDetectorView = lazy(() => import('../views/fleet/DriftDetectorView').then(m => ({ default: m.DriftDetectorView })));
 const InboxPage = lazy(() => import('../views/InboxPage').then(m => ({ default: m.InboxPage })));
 const OnboardingView = lazy(() => import('../views/OnboardingView'));
 const AboutView = lazy(() => import('../views/AboutView'));
@@ -58,12 +57,13 @@ export function domainRoutes() {
       <Route path={DOMAIN_ROUTES.alerts} element={<Lazy fallbackTitle="Alerts"><AlertsView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.gitops} element={<Lazy fallbackTitle="GitOps"><ArgoCDView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.fleet} element={<Lazy fallbackTitle="Fleet"><FleetView /></Lazy>} />
-      <Route path={DOMAIN_ROUTES.fleetCompare} element={<Lazy fallbackTitle="Fleet Compare"><CompareView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.fleetCompare} element={<Lazy fallbackTitle="Fleet Compare"><FleetComparePage /></Lazy>} />
       <Route path={DOMAIN_ROUTES.fleetCompliance} element={<Lazy fallbackTitle="Fleet Compliance"><ComplianceView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.fleetWorkloads} element={<Lazy fallbackTitle="Fleet Workloads"><FleetWorkloadsView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.fleetAlerts} element={<Lazy fallbackTitle="Fleet Alerts"><FleetAlertsView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.fleetResource} element={<Lazy fallbackTitle="Fleet Resource"><FleetResourceRoute /></Lazy>} />
-      <Route path={DOMAIN_ROUTES.fleetDrift} element={<Lazy fallbackTitle="Drift Detector"><DriftDetectorView /></Lazy>} />
+      {/* Drift Detector is the "One resource" mode of Compare & Drift. */}
+      <Route path={DOMAIN_ROUTES.fleetDrift} element={<Navigate to="/fleet/compare?mode=resource" replace />} />
       <Route path={DOMAIN_ROUTES.inbox} element={<Lazy fallbackTitle="Inbox"><InboxPage /></Lazy>} />
       <Route path={DOMAIN_ROUTES.readiness} element={<Lazy fallbackTitle="Readiness"><OnboardingView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.about} element={<Lazy fallbackTitle="About"><AboutView /></Lazy>} />

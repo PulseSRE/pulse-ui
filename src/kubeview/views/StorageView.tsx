@@ -101,12 +101,12 @@ export default function StorageView() {
     return [...map.entries()].sort((a, b) => b[1].count - a[1].count);
   }, [pvcs]);
 
-  const pendingPVCs = React.useMemo(() => pvcs.filter((p) => p.status?.phase === 'Pending'), [pvcs]);
   const releasedPVs = React.useMemo(() => pvs.filter((p) => p.status?.phase === 'Released'), [pvs]);
   const defaultSC = storageClasses.find((sc) => sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true');
 
   const issues: Array<{ msg: string; severity: 'warning' | 'critical'; action?: { label: string; path: string } }> = [];
-  if (pvcStatus.Pending > 0) issues.push({ msg: `${pvcStatus.Pending} PVC${pvcStatus.Pending > 1 ? 's' : ''} stuck in Pending`, severity: 'warning' });
+  // Pending PVCs: counted here once; the audit below lists them with causes.
+  if (pvcStatus.Pending > 0) issues.push({ msg: `${pvcStatus.Pending} PVC${pvcStatus.Pending > 1 ? 's' : ''} stuck in Pending`, severity: 'warning', action: { label: 'See PVCs', path: '#storage-audit' } });
   if (pvcStatus.Lost > 0) issues.push({ msg: `${pvcStatus.Lost} PVC${pvcStatus.Lost > 1 ? 's' : ''} in Lost state`, severity: 'critical' });
   if (pvStatus.Released > 0) issues.push({ msg: `${pvStatus.Released} PV${pvStatus.Released > 1 ? 's' : ''} in Released state (can be reclaimed)`, severity: 'warning' });
   if (pvStatus.Failed > 0) issues.push({ msg: `${pvStatus.Failed} PV${pvStatus.Failed > 1 ? 's' : ''} in Failed state`, severity: 'critical' });
@@ -154,7 +154,9 @@ export default function StorageView() {
                   <span className="text-sm text-slate-200">{issue.msg}</span>
                 </div>
                 {issue.action && (
-                  <button onClick={() => go(issue.action!.path, issue.action!.label)} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                  <button onClick={() => (issue.action!.path.startsWith('#')
+                    ? document.getElementById(issue.action!.path.slice(1))?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+                    : go(issue.action!.path, issue.action!.label))} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
                     {issue.action.label} <ArrowRight className="w-3 h-3" />
                   </button>
                 )}
@@ -168,7 +170,7 @@ export default function StorageView() {
           <button onClick={() => go('/r/v1~persistentvolumeclaims', 'PVCs')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pvcStatus.Pending > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">PVCs</div>
             <div className="text-xl font-bold text-slate-100">{pvcsError ? '—' : pvcs.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{pvcsError ? 'Could not be read' : `${pvcStatus.Bound} bound · ${pvcStatus.Pending} pending`}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{pvcsError ? 'Could not be read' : `${pvcStatus.Bound} bound`}</div>
           </button>
           <button onClick={() => go('/r/v1~persistentvolumes', 'PVs')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Persistent Volumes</div>
@@ -217,6 +219,7 @@ export default function StorageView() {
         </MetricGrid>
 
         {/* Storage Health Audit */}
+        <div id="storage-audit" />
         <StorageHealthAudit
           pvcs={pvcs}
           pvcsLoaded={pvcsLoaded}
@@ -300,65 +303,7 @@ export default function StorageView() {
           </Panel>
         </div>
 
-        {/* PVCs by storage class — capacity bar chart */}
-        {pvcByClass.length > 0 && (
-          <Panel title="Capacity by Storage Class" icon={<HardDrive className="w-4 h-4 text-orange-500" />}>
-            <div className="space-y-3">
-              {pvcByClass.map(([sc, info]) => {
-                const maxGi = Math.max(...pvcByClass.map(([, i]) => i.totalGi), 1);
-                const pct = (info.totalGi / maxGi) * 100;
-                return (
-                  <div key={sc}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-slate-300">{sc}</span>
-                      <div className="flex items-center gap-3 text-xs">
-                        {info.pending > 0 && <span className="text-amber-400">{info.pending} pending</span>}
-                        <span className="text-slate-400">{info.count} PVCs</span>
-                        <span className="font-mono text-slate-300">{info.totalGi.toFixed(1)} Gi</span>
-                      </div>
-                    </div>
-                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Panel>
-        )}
-
-        {/* Pending PVCs */}
-        {pendingPVCs.length > 0 && (
-          <Panel title={`Pending PVCs (${pendingPVCs.length})`} icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}>
-            <div className="space-y-1">
-              {pendingPVCs.map((pvc) => (
-                <button key={pvc.metadata.uid} onClick={() => go(`/r/v1~persistentvolumeclaims/${pvc.metadata.namespace}/${pvc.metadata.name}`, pvc.metadata.name)}
-                  className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-sm text-slate-200">{pvc.metadata.name}</span>
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{pvc.metadata.namespace}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500">{pvc.spec?.resources?.requests?.storage || '?'}</span>
-                    <span className="text-xs text-slate-600">{pvc.spec?.storageClassName || '(default)'}</span>
-                    <ArrowRight className="w-3 h-3 text-slate-600" />
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-800">
-              <div className="text-xs text-slate-500 space-y-1">
-                <p className="font-medium text-slate-400">Common causes for pending PVCs:</p>
-                <p>1. No StorageClass matches the requested class</p>
-                <p>2. Storage provisioner is not running or unhealthy</p>
-                <p>3. Cloud provider quota exceeded (check cloud console)</p>
-                <p>4. WaitForFirstConsumer binding — PVC binds when a pod uses it</p>
-              </div>
-            </div>
-          </Panel>
-        )}
-
+        {/* Per-class PVC count and capacity are in the Storage Classes panel; pending PVCs are in the audit. */}
         {/* Released PVs */}
         {releasedPVs.length > 0 && (
           <Panel title={`Released PVs (${releasedPVs.length})`} icon={<Info className="w-4 h-4 text-blue-500" />}>
@@ -516,11 +461,14 @@ kubectl describe pvc <pvc-name>`,
     allChecks.push({
       id: 'reclaim-policy',
       title: 'Volume Reclaim Policy',
-      description: 'Production StorageClasses should use Retain policy to prevent accidental data loss',
+      // Every OpenShift default StorageClass uses Delete; this is advice for
+      // production data, not a failure.
+      informational: true,
+      description: 'Consider Retain for StorageClasses that hold production data, to prevent accidental data loss',
       why: 'Delete reclaim policy automatically deletes the underlying volume when a PVC is deleted. This is convenient for dev/test but dangerous in production — a single kubectl delete can permanently destroy data.',
       passing: retainSCs as AuditItem[],
       failing: deleteSCs as AuditItem[],
-      failingLabel: `Needs attention (${deleteSCs.length})`,
+      failingLabel: `Delete policy (${deleteSCs.length})`,
       yamlExample: `apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:

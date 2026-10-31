@@ -5,11 +5,12 @@ import { getNodeStatus } from '../../engine/renderers/statusUtils';
 
 interface NodeAlertsProps {
   unreadyNodes: K8sResource[];
-  pressureNodes: K8sResource[];
+  /** Pressure is shown on the node map and in the Node Pressure audit; banners are for NotReady only. */
+  pressureNodes?: K8sResource[];
   go: (path: string, title: string) => void;
 }
 
-export function NodeAlerts({ unreadyNodes, pressureNodes, go }: NodeAlertsProps) {
+export function NodeAlerts({ unreadyNodes, pressureNodes = [], go }: NodeAlertsProps) {
   if (unreadyNodes.length === 0 && pressureNodes.length === 0) return null;
 
   return (

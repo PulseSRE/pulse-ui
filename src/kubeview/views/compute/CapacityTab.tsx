@@ -1,17 +1,14 @@
 /**
  * CapacityTab — capacity planning with predict_linear() projections.
- * Shows days-until-exhaustion, trend charts, and per-resource breakdowns.
+ * Shows days-until-exhaustion per resource. The utilization trend charts are
+ * on the Compute Overview tab.
  */
 
 import React from 'react';
 import { AlertTriangle, TrendingUp, Info, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { MetricCard } from '../../components/metrics/Sparkline';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
-import { Panel } from '../../components/primitives/Panel';
 import { Card } from '../../components/primitives/Card';
-import { CHART_COLORS } from '../../engine/colors';
-import { useClusterStore } from '../../store/clusterStore';
 import { useCapacityProjections, type Lookback } from './useCapacityProjections';
 import { ExhaustionCard } from './ExhaustionCard';
 import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotice';
@@ -27,7 +24,6 @@ export function CapacityTab() {
 }
 
 function LocalCapacityTab() {
-  const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [lookback, setLookback] = React.useState<Lookback>('30d');
   const { projections, isLoading, criticalCount, warningCount } = useCapacityProjections(lookback);
 
@@ -94,41 +90,7 @@ function LocalCapacityTab() {
             ))}
           </MetricGrid>
 
-          {/* Trend charts */}
-          <Panel title="Resource Trends" icon={<TrendingUp className="w-4 h-4 text-blue-400" />}>
-            <MetricGrid>
-              <MetricCard
-                title="CPU Utilization"
-                query={isHyperShift
-                  ? "sum(rate(node_cpu_seconds_total{mode!='idle'}[5m])) / count(count by (cpu) (node_cpu_seconds_total)) * 100"
-                  : "sum(rate(node_cpu_seconds_total{mode!='idle'}[5m])) / sum(machine_cpu_cores) * 100"}
-                unit="%"
-                color={CHART_COLORS.blue}
-                thresholds={{ warning: 70, critical: 90 }}
-              />
-              <MetricCard
-                title="Memory Utilization"
-                query="(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100"
-                unit="%"
-                color={CHART_COLORS.violet}
-                thresholds={{ warning: 75, critical: 90 }}
-              />
-              <MetricCard
-                title="Disk Utilization"
-                query='(1 - sum(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}) / sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})) * 100'
-                unit="%"
-                color={CHART_COLORS.amber}
-                thresholds={{ warning: 80, critical: 95 }}
-              />
-              <MetricCard
-                title="Pod Utilization"
-                query="sum(kubelet_running_pods) / sum(kube_node_status_allocatable{resource='pods'}) * 100"
-                unit="%"
-                color={CHART_COLORS.emerald}
-                thresholds={{ warning: 70, critical: 90 }}
-              />
-            </MetricGrid>
-          </Panel>
+          {/* CPU, memory, disk and pod trends are on the Overview tab; not repeated here. */}
 
           {/* Disclaimer */}
           <div className="flex items-start gap-2 text-xs text-slate-600">

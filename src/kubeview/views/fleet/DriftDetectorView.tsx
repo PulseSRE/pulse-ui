@@ -21,13 +21,15 @@ export function DriftDetectorView() {
   const [result, setResult] = useState<DriftResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Build sorted list of resource types from registry
+  // Every type, namespaced and cluster-scoped: cluster config (APIServer,
+  // OAuth, …) is often exactly what drifts between clusters.
   const resourceTypes = useMemo(() => {
     if (!resourceRegistry) return [];
     return Array.from(resourceRegistry.entries())
-      .filter(([, r]) => r.namespaced)
       .sort(([, a], [, b]) => a.kind.localeCompare(b.kind));
   }, [resourceRegistry]);
+  const selectedType = resourceType ? resourceRegistry?.get(resourceType) : undefined;
+  const clusterScoped = selectedType ? !selectedType.namespaced : false;
 
   // Get cluster names for display (reactive to cluster changes)
   const fleetClusters = useFleetStore((s) => s.clusters);
@@ -39,7 +41,14 @@ export function DriftDetectorView() {
     return map;
   }, [fleetClusters]);
 
-  const canCompare = resourceType && name;
+  // Which clusters to compare (all connected ones unless narrowed).
+  const connectedClusters = useMemo(() => fleetClusters.filter((c) => c.status === 'connected'), [fleetClusters]);
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const chosenClusters = connectedClusters.filter((c) => !excluded.has(c.id)).map((c) => c.id);
+
+  // A namespaced type needs a namespace: an empty box used to read as
+  // "default" (its placeholder) but searched cluster-wide paths instead.
+  const canCompare = !!resourceType && !!name.trim() && (clusterScoped || !!namespace.trim()) && chosenClusters.length >= 2;
 
   const handleCompare = async () => {
     if (!canCompare) return;
@@ -59,7 +68,8 @@ export function DriftDetectorView() {
       const driftResult = await fleetCompareResource(
         apiPath,
         name.trim(),
-        namespace.trim() || undefined,
+        clusterScoped ? undefined : namespace.trim(),
+        chosenClusters,
       );
       setResult(driftResult);
     } catch (err) {
@@ -81,9 +91,9 @@ export function DriftDetectorView() {
       <div className="flex items-center gap-3">
         <GitCompareArrows className="h-5 w-5 text-blue-400" />
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Configuration Drift</h2>
+          <h2 className="text-lg font-semibold text-slate-100">Resource drift</h2>
           <p className="text-sm text-slate-400">
-            Compare a resource across all connected clusters to detect configuration differences.
+            Compare one resource across clusters to find where its configuration differs.
           </p>
         </div>
       </div>
@@ -102,7 +112,7 @@ export function DriftDetectorView() {
               <option value="">Select type...</option>
               {resourceTypes.map(([key, rt]) => (
                 <option key={key} value={key}>
-                  {rt.kind} ({rt.group || 'core'}/{rt.version})
+                  {rt.kind} ({rt.group || 'core'}/{rt.version}){rt.namespaced ? '' : ' · cluster-scoped'}
                 </option>
               ))}
             </select>
@@ -114,7 +124,8 @@ export function DriftDetectorView() {
               type="text"
               value={namespace}
               onChange={e => setNamespace(e.target.value)}
-              placeholder="default"
+              disabled={clusterScoped}
+              placeholder={clusterScoped ? 'cluster-scoped' : 'e.g. default'}
               className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
               aria-label="Namespace"
             />
@@ -149,6 +160,28 @@ export function DriftDetectorView() {
           </div>
         </div>
       </div>
+
+      {connectedClusters.length > 2 && (
+        <fieldset className="rounded-lg border border-slate-700 bg-slate-900 p-3">
+          <legend className="px-1 text-xs font-medium text-slate-400">Clusters</legend>
+          <div className="flex flex-wrap gap-3">
+            {connectedClusters.map((c) => (
+              <label key={c.id} className="flex items-center gap-1.5 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={!excluded.has(c.id)}
+                  onChange={() => setExcluded((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(c.id)) next.delete(c.id); else next.add(c.id);
+                    return next;
+                  })}
+                />
+                {c.name}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {/* Error */}
       {error && (

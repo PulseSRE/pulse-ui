@@ -174,7 +174,7 @@ describe('OpenShift Pulse ResourceBrowser', () => {
 
   it('filters resources by search query', () => {
     renderBrowser();
-    const input = screen.getByPlaceholderText(/Search resources/);
+    const input = screen.getByPlaceholderText(/Search pages and resources/);
     fireEvent.change(input, { target: { value: 'node' } });
     expect(screen.getByText('nodes')).toBeDefined();
     expect(screen.queryByText('pods')).toBeNull();
@@ -182,7 +182,7 @@ describe('OpenShift Pulse ResourceBrowser', () => {
 
   it('filters across groups by search', () => {
     renderBrowser();
-    const input = screen.getByPlaceholderText(/Search resources/);
+    const input = screen.getByPlaceholderText(/Search pages and resources/);
     fireEvent.change(input, { target: { value: 'deploy' } });
     expect(screen.getByText('apps')).toBeDefined();
     expect(screen.queryByText('Core (v1)')).toBeNull();
@@ -216,5 +216,32 @@ describe('OpenShift Pulse ResourceBrowser', () => {
     expect(sidebar).not.toBeNull();
     const scrollBody = sidebar!.querySelector('.flex-1.overflow-y-auto');
     expect(scrollBody).not.toBeNull();
+  });
+
+  it('the search box filters the page sections too', () => {
+    renderBrowser();
+    fireEvent.change(screen.getByPlaceholderText(/Search pages and resources/), { target: { value: 'timeline' } });
+    expect(screen.getByText('Timeline')).toBeDefined();
+    expect(screen.queryByText('Cluster Pulse')).toBeNull();
+    expect(screen.queryByText('AGENT')).toBeNull();
+  });
+
+  it('says so when no page matches', () => {
+    renderBrowser();
+    fireEvent.change(screen.getByPlaceholderText(/Search pages and resources/), { target: { value: 'zzzz-nothing' } });
+    expect(screen.getByText(/No pages match/)).toBeDefined();
+  });
+
+  it('groups Alerts with Inbox/Timeline and Security with Identity', () => {
+    renderBrowser();
+    const sectionOf = (label: string) => {
+      const btn = screen.getByRole('button', { name: label });
+      return btn.parentElement!.firstElementChild!.textContent;
+    };
+    expect(sectionOf('Alerts')).toBe('OPERATIONS');
+    expect(sectionOf('Inbox')).toBe('OPERATIONS');
+    expect(sectionOf('Timeline')).toBe('OPERATIONS');
+    expect(sectionOf('Security')).toBe('ADMINISTRATION');
+    expect(sectionOf('Identity & Access')).toBe('ADMINISTRATION');
   });
 });

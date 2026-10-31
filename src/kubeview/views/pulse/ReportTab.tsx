@@ -199,10 +199,31 @@ export interface ReportTabProps {
   operators: ClusterOperator[];
   /** Lists that failed to load; those areas are unknown, not clear. */
   unavailable?: string[];
+  /**
+   * The events PulseView already watches. The report used to list every
+   * event in the cluster a second time on its own poll.
+   */
+  events?: Event[];
+  /**
+   * Open findings + firing alerts as the posture bar counts them. "All clear"
+   * is only shown when this is 0, so the page cannot say "3 critical" above
+   * and "All clear" below.
+   */
+  postureIssues?: number;
   go: (path: string, title: string) => void;
 }
 
-export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavailable = [], go }: ReportTabProps) {
+/**
+ * Kinds whose events are real changes — rollouts, scaling, configuration —
+ * rather than pod lifecycle noise (Pulled, Scheduled, Killing, …).
+ */
+const CHANGE_KINDS = new Set([
+  'Deployment', 'StatefulSet', 'DaemonSet', 'DeploymentConfig', 'CronJob',
+  'HorizontalPodAutoscaler', 'ConfigMap', 'MachineConfigPool', 'ClusterVersion', 'ClusterOperator',
+]);
+const RECENT_CHANGES_SHOWN = 8;
+
+export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavailable = [], events = [], postureIssues, go }: ReportTabProps) {
   const clusterId = useActiveClusterId();
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
@@ -289,17 +310,13 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     staleTime: 300_000, refetchInterval: 600_000,
   });
 
-  const { data: recentEvents = [] } = useQuery<Event[]>({
-    queryKey: ['k8s', 'list', 'events-1h', undefined, clusterId],
-    queryFn: async () => {
-      const events = await k8sList<Event>('/api/v1/events', undefined, clusterId);
-      const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
-      return events.filter((e) => {
-        return (e.lastTimestamp || e.metadata?.creationTimestamp || '') >= oneHourAgo;
-      });
-    },
-    staleTime: 60_000, refetchInterval: 120_000,
-  });
+  // Rollouts and config changes in the last hour, from the watched events.
+  const recentEvents = useMemo(() => {
+    const oneHourAgo = new Date(Date.now() - 3600_000).toISOString();
+    return events.filter((e) =>
+      CHANGE_KINDS.has(e.involvedObject?.kind || '')
+      && (e.lastTimestamp || e.metadata?.creationTimestamp || '') >= oneHourAgo);
+  }, [events]);
 
   // === Derived data ===
   const userPods = useMemo(() => allPods.filter(p => !isSystemNamespace(p.metadata.namespace)), [allPods]);
@@ -328,7 +345,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const { certs: certInfos, unreadable: unreadableCerts } = useMemo(() => summarizeTlsSecrets(tlsSecrets), [tlsSecrets]);
   const certsExpiringSoon7 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry < 7), [certInfos]);
   const certsExpiringSoon30 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry >= 7 && c.daysUntilExpiry < 30), [certInfos]);
-  const urgentCerts = useMemo(() => [...certInfos].filter(c => (c.daysUntilExpiry ?? 999) < 30).sort((a, b) => (a.daysUntilExpiry ?? 9999) - (b.daysUntilExpiry ?? 9999)).slice(0, 5), [certInfos]);
+  // Zone 1 lists 7–30 days; under 7 days is an Attention item in Zone 3.
+  const urgentCerts = useMemo(() => [...certInfos].filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry >= 7 && c.daysUntilExpiry < 30).sort((a, b) => (a.daysUntilExpiry ?? 9999) - (b.daysUntilExpiry ?? 9999)).slice(0, 5), [certInfos]);
 
   const readyNodes = useMemo(() => nodes.filter((n) => (n.status?.conditions || []).some((c) => c.type === 'Ready' && c.status === 'True')), [nodes]);
   const runningPods = useMemo(() => userPods.filter((p) => p.status?.phase === 'Running'), [userPods]);
@@ -393,7 +411,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
         const tb = b.lastTimestamp || b.metadata.creationTimestamp || '';
         return tb.localeCompare(ta);
       })
-      .slice(0, 8)
+      .slice(0, RECENT_CHANGES_SHOWN)
       .map(e => {
         const obj = e.involvedObject || {} as Event['involvedObject'];
         const kind = obj.kind || '';
@@ -641,7 +659,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Lock className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-xs text-slate-400 font-medium">Certificates Expiring Soon</span>
+                    <span className="text-xs text-slate-400 font-medium">Certificates expiring in 7–30 days</span>
                   </div>
                   <button onClick={() => go('/admin?tab=certificates', 'Certificates')}
                     className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
@@ -674,18 +692,11 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
               </div>
             )}
 
-            {degradedOperators.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-slate-800">
-                <div className="text-xs text-red-400 font-medium mb-1">{degradedOperators.length} degraded operator{degradedOperators.length !== 1 ? 's' : ''}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {degradedOperators.map(op => (
-                    <button key={op.metadata.name} onClick={() => go('/admin?tab=operators', 'Operators')}
-                      className="text-xs px-2 py-0.5 bg-red-900/30 text-red-300 rounded-sm hover:bg-red-900/50 transition-colors">
-                      {op.metadata.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {(degradedOperators.length > 0 || certsExpiringSoon7.length > 0) && (
+              <a href="#pulse-attention" onClick={(e) => { e.preventDefault(); document.getElementById('pulse-attention')?.scrollIntoView?.({ behavior: 'smooth' }); }}
+                className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-1 text-xs text-red-300 hover:text-red-200">
+                {[degradedOperators.length > 0 && 'Degraded operators', certsExpiringSoon7.length > 0 && 'certificates expiring within 7 days'].filter(Boolean).join(' and ')} are listed under Needs Attention <ArrowRight className="w-3 h-3" />
+              </a>
             )}
           </Card>
         </div>
@@ -791,7 +802,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
       </div>
 
       {/* ═══════ ZONE 3: Fire Alarm ═══════ */}
-      <div className="space-y-3">
+      <div className="space-y-3" id="pulse-attention">
         <ZoneHeader number={3} title="Fire Alarm" subtitle="What's broken right now?" icon={<AlertOctagon className="w-4 h-4 text-red-400" />} />
 
         {attentionItems.length > 0 && (
@@ -904,12 +915,14 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           </div>
         )}
         {/* No all-clear while alerts could not be read: zero is then unknown. */}
-        {unavailable.length === 0 && !alertsError && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
-          <button onClick={() => go('/readiness', 'Readiness')} className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center hover:border-green-800/50 transition-colors">
+        {/* Also silent while the posture bar above counts open findings or
+            alerts: one page, one verdict. Not a link — there is nothing to open. */}
+        {unavailable.length === 0 && !alertsError && !postureIssues && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
+          <div role="status" className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
             <div className="text-sm font-medium text-slate-200">All clear</div>
             <div className="text-xs text-slate-500 mt-0.5">{nodes.length} nodes, {operators.length} operators, {userPods.length} user pods — no issues detected</div>
-          </button>
+          </div>
         )}
       </div>
 
@@ -953,8 +966,12 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <Clock className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-medium text-slate-200">Recent Changes (1h)</span>
-              <span className="text-xs text-slate-500 ml-auto">{recentEvents.length} events</span>
+              <span className="text-xs font-medium text-slate-200">Rollouts &amp; config changes (1h)</span>
+              {recentEvents.length > RECENT_CHANGES_SHOWN && (
+                <button onClick={() => go('/timeline', 'Timeline')} className="text-xs text-blue-400 hover:text-blue-300 ml-auto">
+                  {recentEvents.length - RECENT_CHANGES_SHOWN} more on Timeline
+                </button>
+              )}
             </div>
             {recentChanges.length > 0 ? (
               <div className="space-y-1">
@@ -974,7 +991,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-slate-500">No recent events</div>
+              <div className="text-xs text-slate-500">No rollouts or config changes in the last hour</div>
             )}
           </Card>
         </div>

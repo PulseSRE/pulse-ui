@@ -1,7 +1,7 @@
 /**
  * ComplianceView — fleet-wide compliance dashboard.
- * Shows security posture, certificate expiry, RBAC baseline, and configuration drift
- * across all connected clusters.
+ * Shows security posture, certificate expiry and RBAC baseline across all
+ * connected clusters. Configuration drift is on Compare & Drift (/fleet/compare).
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -13,11 +13,11 @@ import {
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardBody } from '../../components/primitives/Card';
 import { getAllConnections } from '../../engine/clusterConnection';
-import { readK8s, listK8s, type ReadResult } from '../../engine/readResult';
-import { DEFAULT_SCHEDULER_PROFILE } from '../../engine/snapshot';
+import { readK8s, listK8s } from '../../engine/readResult';
+import { useNavigateTab } from '../../hooks/useNavigateTab';
+import { FleetSubNav } from './FleetSubNav';
 import { LoadError } from '../../components/primitives/LoadError';
 
-const UNAVAILABLE = 'unavailable';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,11 +47,6 @@ interface ClusterAdminBinding {
   subjects: string[];
 }
 
-interface DriftField {
-  field: string;
-  values: Record<string, string>; // clusterId -> value
-  majority: string;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,34 +78,19 @@ function expiryColor(days: number): string {
   return 'text-emerald-400 bg-emerald-950/20';
 }
 
-function majorityValue(values: Record<string, string>): string {
-  const counts = new Map<string, number>();
-  for (const v of Object.values(values)) {
-    counts.set(v, (counts.get(v) || 0) + 1);
-  }
-  let best = '';
-  let bestCount = 0;
-  for (const [v, c] of counts) {
-    if (c > bestCount) {
-      best = v;
-      bestCount = c;
-    }
-  }
-  return best;
-}
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function ComplianceView() {
+  const go = useNavigateTab();
   const clusters = getAllConnections().filter(c => c.status === 'connected');
 
   const [loading, setLoading] = useState(false);
   const [securityChecks, setSecurityChecks] = useState<SecurityCheck[]>([]);
   const [certificates, setCertificates] = useState<CertEntry[]>([]);
   const [clusterAdminBindings, setClusterAdminBindings] = useState<ClusterAdminBinding[]>([]);
-  const [driftFields, setDriftFields] = useState<DriftField[]>([]);
   const [scanErrors, setScanErrors] = useState<string[]>([]);
   const [scanned, setScanned] = useState(false);
 
@@ -221,53 +201,6 @@ export default function ComplianceView() {
     setClusterAdminBindings(bindings);
   }, [clusters]);
 
-  // ------ Configuration Drift ------
-  const runDriftDetection = useCallback(async () => {
-    const fields: DriftField[] = [];
-
-    // Unset fields mean the platform default — but only when the read worked.
-    const configPaths = [
-      { path: '/apis/config.openshift.io/v1/clusterversions/version', field: 'Cluster Version', extract: (d: any) => d?.status?.desired?.version || d?.status?.history?.[0]?.version || 'unknown' },
-      { path: '/apis/config.openshift.io/v1/oauths/cluster', field: 'OAuth Config', extract: (d: any) => (d?.spec?.identityProviders || []).map((p: any) => p.type).sort().join(', ') || 'none' },
-      { path: '/apis/config.openshift.io/v1/apiservers/cluster', field: 'TLS Profile', extract: (d: any) => d?.spec?.tlsSecurityProfile?.type || 'Intermediate' },
-      { path: '/apis/config.openshift.io/v1/apiservers/cluster', field: 'Encryption Type', extract: (d: any) => d?.spec?.encryption?.type || 'identity' },
-      { path: '/apis/config.openshift.io/v1/ingresses/cluster', field: 'Ingress Domain', extract: (d: any) => d?.spec?.domain || 'unknown' },
-      { path: '/apis/config.openshift.io/v1/schedulers/cluster', field: 'Scheduler Profile', extract: (d: any) => d?.spec?.profile || `${DEFAULT_SCHEDULER_PROFILE} (default)` },
-    ];
-
-    // Fetch all config resources — group by path to avoid duplicate fetches
-    const pathCache: Record<string, Record<string, ReadResult<any>>> = {};
-
-    for (const cp of configPaths) {
-      if (!pathCache[cp.path]) {
-        pathCache[cp.path] = {};
-        await Promise.all(clusters.map(async (cluster) => {
-          pathCache[cp.path][cluster.id] = await readK8s<any>(cp.path, cluster.id);
-        }));
-      }
-
-      const values: Record<string, string> = {};
-      const readable: Record<string, string> = {};
-      for (const cluster of clusters) {
-        const r = pathCache[cp.path][cluster.id];
-        if (r.state === 'error') {
-          values[cluster.id] = UNAVAILABLE;
-        } else {
-          values[cluster.id] = cp.extract(r.state === 'ok' ? r.data : null);
-          readable[cluster.id] = values[cluster.id];
-        }
-      }
-
-      fields.push({
-        field: cp.field,
-        values,
-        majority: majorityValue(readable),
-      });
-    }
-
-    setDriftFields(fields);
-  }, [clusters]);
-
   // ------ Scan All ------
   const runFullScan = useCallback(async () => {
     setLoading(true);
@@ -277,14 +210,13 @@ export default function ComplianceView() {
         runSecurityChecks(),
         runCertScan(errors),
         runRBACComparison(errors),
-        runDriftDetection(),
       ]);
       setScanErrors(errors);
       setScanned(true);
     } finally {
       setLoading(false);
     }
-  }, [runSecurityChecks, runCertScan, runRBACComparison, runDriftDetection]);
+  }, [runSecurityChecks, runCertScan, runRBACComparison]);
 
   // Auto-scan on mount if clusters available
   useEffect(() => {
@@ -329,6 +261,7 @@ export default function ComplianceView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        <FleetSubNav />
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -532,59 +465,19 @@ export default function ComplianceView() {
           </CardBody>
         </Card>
 
-        {/* Configuration Drift Detection */}
+        {/* Configuration drift lives on Compare & Drift (one place, two modes). */}
         <Card>
-          <CardHeader
-            title="Configuration Drift Detection"
-            icon={<GitCompare className="h-4 w-4" />}
-          />
-          <CardBody className="p-0">
-            {loading && driftFields.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
-                <span className="ml-2 text-sm text-slate-500">Detecting drift...</span>
-              </div>
-            ) : driftFields.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-500">
-                No configuration data to compare.
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-700 text-xs text-slate-400">
-                    <th className="px-4 py-2 text-left font-medium">Configuration</th>
-                    {clusters.map(c => (
-                      <th key={c.id} className="px-4 py-2 text-center font-medium">{c.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {driftFields.map((df) => (
-                    <tr key={df.field} className="border-b border-slate-800">
-                      <td className="px-4 py-2 font-medium text-slate-300">{df.field}</td>
-                      {clusters.map(c => {
-                        const val = df.values[c.id] || '--';
-                        const isDrift = val !== UNAVAILABLE && val !== df.majority;
-                        return (
-                          <td
-                            key={c.id}
-                            className={cn(
-                              'px-4 py-2 text-center font-mono text-sm',
-                              isDrift ? 'text-amber-400 bg-amber-950/30' : val === UNAVAILABLE ? 'text-slate-500 italic' : 'text-slate-400'
-                            )}
-                          >
-                            {val}
-                            {isDrift && (
-                              <span className="ml-1 text-xs text-amber-500" title="Differs from majority">(drift)</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <CardBody className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <GitCompare className="h-4 w-4 text-slate-400" />
+              Compare cluster configuration (version, identity providers, TLS, encryption, ingress, scheduler) across clusters.
+            </div>
+            <button
+              onClick={() => go('/fleet/compare', 'Fleet Compare & Drift')}
+              className="shrink-0 text-xs text-blue-400 hover:text-blue-300"
+            >
+              Open Compare &amp; Drift →
+            </button>
           </CardBody>
         </Card>
       </div>

@@ -134,9 +134,34 @@ describe('OverviewTab', () => {
     expect(screen.getAllByText('4.15.0').length).toBeGreaterThan(0);
     expect(screen.getByTestId('info-card-Platform')).toBeDefined();
     expect(screen.getByText('AWS')).toBeDefined();
-    expect(screen.getByTestId('info-card-Nodes')).toBeDefined();
-    // "1" appears multiple times (nodes count, operator count, etc.)
-    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+    // Nodes are in the Nodes panel only.
+    expect(screen.queryByTestId('info-card-Nodes')).toBeNull();
+  });
+
+  describe('each fact once, linked to where it lives', () => {
+    it('counts operators only on the Cluster Operators card, which opens the Operators tab', () => {
+      const props = makeProps();
+      render(<OverviewTab {...props} />);
+      expect(screen.queryByText(/^ClusterOperators \(/)).toBeNull();
+      fireEvent.click(screen.getByTestId('info-card-Cluster Operators'));
+      expect(props.setActiveTab).toHaveBeenCalledWith('operators');
+      expect(props.go).not.toHaveBeenCalledWith('/readiness', expect.anything());
+    });
+
+    it('the Namespaces card opens the namespace list, not Quotas', () => {
+      const props = makeProps();
+      render(<OverviewTab {...props} />);
+      fireEvent.click(screen.getByTestId('info-card-Namespaces'));
+      expect(props.go).toHaveBeenCalledWith('/r/v1~namespaces', 'Namespaces');
+      expect(props.setActiveTab).not.toHaveBeenCalledWith('quotas');
+    });
+
+    it('"Manage providers" opens Cluster Config with OAuth expanded', () => {
+      const props = makeProps();
+      render(<OverviewTab {...props} />);
+      fireEvent.click(screen.getByText('Manage providers'));
+      expect(props.go).toHaveBeenCalledWith('/admin?tab=config&section=oauth', 'Administration');
+    });
   });
 
   it('renders cluster capacity panel', () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
 vi.mock('../../../engine/fleetDrift', () => ({
   fleetCompareResource: vi.fn(),
@@ -36,6 +36,13 @@ vi.mock('../../../store/clusterStore', () => ({
           plural: 'services',
           namespaced: true,
         }],
+        ['config.openshift.io/v1/apiservers', {
+          kind: 'APIServer',
+          group: 'config.openshift.io',
+          version: 'v1',
+          plural: 'apiservers',
+          namespaced: false,
+        }],
       ]),
     }),
   ),
@@ -49,6 +56,7 @@ const mockCompare = vi.mocked(fleetCompareResource);
 beforeEach(() => {
   vi.clearAllMocks();
 });
+afterEach(() => cleanup());
 
 describe('DriftDetectorView', () => {
   it('renders resource selector inputs', () => {
@@ -121,6 +129,7 @@ describe('DriftDetectorView', () => {
     const names = screen.getAllByLabelText('Resource name');
     fireEvent.change(selects[0], { target: { value: 'apps/v1/deployments' } });
     fireEvent.change(names[0], { target: { value: 'my-app' } });
+    fireEvent.change(screen.getByLabelText('Namespace'), { target: { value: 'default' } });
 
     const buttons = screen.getAllByRole('button', { name: /compare/i });
     fireEvent.click(buttons[0]);
@@ -128,6 +137,38 @@ describe('DriftDetectorView', () => {
     await waitFor(() => {
       expect(screen.getAllByText(/Resources are identical across all 2 clusters/).length).toBeGreaterThan(0);
     });
+  });
+
+  it('requires a namespace for a namespaced type instead of guessing', () => {
+    render(<DriftDetectorView />);
+    fireEvent.change(screen.getByLabelText('Resource type'), { target: { value: 'apps/v1/deployments' } });
+    fireEvent.change(screen.getByLabelText('Resource name'), { target: { value: 'my-app' } });
+    const compare = screen.getByRole('button', { name: /compare/i }) as HTMLButtonElement;
+    expect(compare.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Namespace'), { target: { value: 'shop' } });
+    expect(compare.disabled).toBe(false);
+  });
+
+  it('compares cluster-scoped config such as the APIServer', async () => {
+    mockCompare.mockResolvedValue({
+      resource: { apiPath: '/apis/config.openshift.io/v1/apiservers', name: 'cluster' },
+      clusters: ['c1', 'c2'], diffs: [], identicalFields: 0, driftedFields: 0,
+    });
+    render(<DriftDetectorView />);
+    fireEvent.change(screen.getByLabelText('Resource type'), { target: { value: 'config.openshift.io/v1/apiservers' } });
+    expect((screen.getByLabelText('Namespace') as HTMLInputElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Resource name'), { target: { value: 'cluster' } });
+    fireEvent.click(screen.getByRole('button', { name: /compare/i }));
+    await waitFor(() => expect(mockCompare).toHaveBeenCalledWith('/apis/config.openshift.io/v1/apiservers', 'cluster', undefined, ['c1', 'c2']));
+  });
+
+  it('shows the error when the comparison fails', async () => {
+    mockCompare.mockRejectedValue(new Error('403 Forbidden'));
+    render(<DriftDetectorView />);
+    fireEvent.change(screen.getByLabelText('Resource type'), { target: { value: 'config.openshift.io/v1/apiservers' } });
+    fireEvent.change(screen.getByLabelText('Resource name'), { target: { value: 'cluster' } });
+    fireEvent.click(screen.getByRole('button', { name: /compare/i }));
+    expect(await screen.findByText('403 Forbidden')).toBeDefined();
   });
 
   it('never says "identical" when a cluster could not be read, and lists absent clusters as drift', async () => {
@@ -147,6 +188,7 @@ describe('DriftDetectorView', () => {
     render(<DriftDetectorView />);
     fireEvent.change(screen.getAllByLabelText('Resource type')[0], { target: { value: 'apps/v1/deployments' } });
     fireEvent.change(screen.getAllByLabelText('Resource name')[0], { target: { value: 'my-app' } });
+    fireEvent.change(screen.getByLabelText('Namespace'), { target: { value: 'default' } });
     fireEvent.click(screen.getAllByRole('button', { name: /compare/i })[0]);
 
     await waitFor(() => expect(screen.getByText(/1 of 3 clusters compared/)).toBeTruthy());

@@ -325,4 +325,43 @@ describe('OpenShift Pulse CommandPalette', () => {
     const nodeItems = screen.getAllByText('Nodes');
     expect(nodeItems.length).toBe(2);
   });
+
+  describe('pages without a sidebar entry', () => {
+    it.each([
+      ['builds', 'Builds', '/workloads?tab=builds'],
+      ['events', 'Events', '/r/v1~events'],
+      ['helm', 'Helm', '/create/v1~pods?tab=helm'],
+      ['crds', 'Custom Resource Definitions', '/admin?tab=crds'],
+      ['certificates', 'Certificates', '/admin?tab=certificates'],
+    ])('"%s" finds %s and opens %s', (q, title, path) => {
+      renderPalette();
+      fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: q } });
+      fireEvent.click(screen.getByText(title));
+      expect(navigateMock).toHaveBeenCalledWith(path);
+    });
+
+    it('lists a project dashboard per namespace and opens /project/<ns>', () => {
+      queryClient.setQueryData(['toolbar', 'namespaces', 'local'], ['default', 'payments', 'openshift-ingress']);
+      renderPalette();
+      fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: 'paym' } });
+      fireEvent.click(screen.getByText('Project: payments'));
+      expect(navigateMock).toHaveBeenCalledWith('/project/payments');
+    });
+
+    it('"project" lists the projects without flooding the default browse list', () => {
+      queryClient.setQueryData(['toolbar', 'namespaces', 'local'], ['default', 'payments']);
+      renderPalette();
+      expect(screen.queryByText('Project: payments')).toBeNull();
+      fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: 'project' } });
+      expect(screen.getByText('Project: default')).toBeDefined();
+      expect(screen.getByText('Project: payments')).toBeDefined();
+    });
+
+    it('calls the dependency graph "Topology" everywhere', () => {
+      renderPalette();
+      fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: 'blast' } });
+      expect(screen.getByText('Topology')).toBeDefined();
+      expect(screen.queryByText('Impact Analysis')).toBeNull();
+    });
+  });
 });

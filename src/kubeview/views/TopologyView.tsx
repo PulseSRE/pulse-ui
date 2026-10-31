@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { parseTopologyFocus, topologyNodeMatches } from '../engine/topologyLinks';
 import { useQuery } from '@tanstack/react-query';
 import {
   Network, Loader2, RefreshCw, AlertTriangle, Zap, Shield, Clock, X,
@@ -71,8 +73,13 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function TopologyView() {
   const activeNs = useUIStore((s) => s.selectedNamespace);
+  // `?namespace=` and `?focus=Kind/ns/name` open the graph on one resource
+  // (a resource's "Dependencies" action and old /deps links land here).
+  const [searchParams] = useSearchParams();
+  const focus = useMemo(() => parseTopologyFocus(searchParams.get('focus')), [searchParams]);
+  const urlNamespace = searchParams.get('namespace');
   const [selectedNamespace, setSelectedNamespace] = useState<string>(
-    activeNs && activeNs !== '*' ? activeNs : 'openshiftpulse',
+    urlNamespace ?? focus?.namespace ?? (activeNs && activeNs !== '*' ? activeNs : 'openshiftpulse'),
   );
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -96,6 +103,19 @@ export default function TopologyView() {
     queryFn: () => fetchBlastRadius(selectedNode!),
     enabled: !!selectedNode,
   });
+
+  // Select the focused resource once its namespace's graph has loaded.
+  const focusApplied = useRef(false);
+  const focusNode = useMemo(
+    () => (focus && data ? data.nodes.find((n) => topologyNodeMatches(n, focus)) ?? null : null),
+    [focus, data],
+  );
+  useEffect(() => {
+    if (focusApplied.current || !focusNode) return;
+    focusApplied.current = true;
+    setSelectedNode(focusNode.id);
+  }, [focusNode]);
+  const focusMissing = !!focus && !!data && !focusNode;
 
   const topology = data ?? { nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } };
 
@@ -172,7 +192,7 @@ export default function TopologyView() {
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
               <Network className="w-6 h-6 text-cyan-400" />
-              Impact Analysis
+              Topology
             </h1>
             <p className="text-sm text-slate-400 mt-1">
               Resource dependencies, risk overlay, and blast radius
@@ -198,6 +218,12 @@ export default function TopologyView() {
             </button>
           </div>
         </div>
+
+        {focusMissing && focus && (
+          <div role="status" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400">
+            {focus.kind}/{focus.name} is not in the dependency graph{focus.namespace ? ` for ${focus.namespace}` : ''} yet. The graph is rebuilt on each monitor scan.
+          </div>
+        )}
 
         {/* Summary cards */}
         <div className="grid grid-cols-5 gap-3">
@@ -271,6 +297,7 @@ export default function TopologyView() {
                 setHoveredNode={setHoveredNode}
                 selectedNode={selectedNode}
                 setSelectedNode={setSelectedNode}
+                blastRadiusIds={blastRadiusData?.map((r) => r.id)}
               />
             </div>
 

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import {
-  HeartPulse, Shield, Activity,
+  HeartPulse, Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip } from '../components/primitives/Tooltip';
@@ -176,6 +176,7 @@ export default function PulseView() {
   const go = useNavigateTab();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const fleetMode = useFleetStore((s) => s.fleetMode);
+  const activeClusterName = useFleetStore((s) => s.clusters?.find((c) => c.id === s.activeClusterId)?.name ?? s.activeClusterId);
 
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const { data: nodes = [], isLoading: nodesLoading, isError: nodesError } = useK8sListWatch<Node>({ apiPath: '/api/v1/nodes' });
@@ -251,10 +252,6 @@ export default function PulseView() {
     }
   }, [lastScanTime, scanning]);
 
-  const readyNodeCount = nodes.filter(n => {
-    const conds = n.status?.conditions || [];
-    return conds.some(c => c.type === 'Ready' && c.status === 'True');
-  }).length;
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
@@ -263,6 +260,13 @@ export default function PulseView() {
         {/* An open episode outranks everything below it — those tiles are
             showing its symptoms. */}
         <OpenEpisodeBanner onOpen={() => go('/inbox', 'Inbox')} onVisibleChange={setEpisodeBannerShown} />
+
+        {/* In fleet mode the posture bar and map describe one cluster; say which. */}
+        {fleetMode === 'multi' && (
+          <p className="text-xs text-slate-500" data-testid="pulse-cluster-scope">
+            Posture and map below: <span className="text-slate-300 font-medium">{activeClusterName}</span> · fleet summary further down
+          </p>
+        )}
 
         {/* ── Cluster Posture Bar ── */}
         <ClusterPostureBar
@@ -288,12 +292,7 @@ export default function PulseView() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <StatPill
-              icon={<Shield className="w-3 h-3" />}
-              label={`${readyNodeCount}/${nodes.length} nodes`}
-              color={readyNodeCount === nodes.length ? 'emerald' : 'amber'}
-              onClick={() => go('/compute', 'Compute')}
-            />
+            {/* Node readiness lives in the report's Nodes tile (one place). */}
             <Tooltip
               content={
                 <div className="w-56">
@@ -391,30 +390,12 @@ export default function PulseView() {
             pvcs={pvcs}
             operators={operators}
             unavailable={unavailable}
+            events={events}
+            postureIssues={incidentCounts.total}
             go={go}
           />
         )}
       </div>
     </div>
-  );
-}
-
-function StatPill({ icon, label, color, onClick }: {
-  icon: React.ReactNode; label: string; color: 'emerald' | 'amber' | 'red' | 'violet'; onClick: () => void;
-}) {
-  const colors = {
-    emerald: 'text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10',
-    amber: 'text-amber-400 border-amber-500/30 hover:bg-amber-500/10',
-    red: 'text-red-400 border-red-500/30 hover:bg-red-500/10',
-    violet: 'text-violet-400 border-violet-500/30 hover:bg-violet-500/10',
-  };
-  return (
-    <button
-      onClick={onClick}
-      className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors', colors[color])}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

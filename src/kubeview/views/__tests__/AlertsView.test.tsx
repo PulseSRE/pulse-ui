@@ -115,10 +115,10 @@ describe('AlertsView', () => {
 
   it('renders 3 tabs: Firing, Rules, Silences', () => {
     renderAlerts();
-    // Tab buttons contain text like "Firing (0)", "Rules (0)", "Silences (0)"
-    expect(screen.getByRole('tab', { name: /^Firing \(/ })).toBeDefined();
-    expect(screen.getByRole('tab', { name: /^Rules \(/ })).toBeDefined();
-    expect(screen.getByRole('tab', { name: /^Silences \(/ })).toBeDefined();
+    // Tabs carry no counts: the stat row is the one place they live.
+    expect(screen.getByRole('tab', { name: 'Firing & pending' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Rules' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Silences' })).toBeDefined();
   });
 
   it('shows "No alerts firing" badge when no alerts', async () => {
@@ -170,7 +170,7 @@ describe('AlertsView', () => {
 
   it('shows "No active silences" when switching to silences tab', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     expect(screen.getByText('No active silences')).toBeDefined();
   });
@@ -184,14 +184,14 @@ describe('AlertsView', () => {
 
   it('shows Create Silence button in silences tab', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     expect(screen.getByText('Create Silence')).toBeDefined();
   });
 
   it('opens silence form when Create Silence is clicked', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     const createBtn = screen.getByText('Create Silence');
     fireEvent.click(createBtn);
@@ -201,7 +201,7 @@ describe('AlertsView', () => {
 
   it('silence form shows duration presets', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     const createBtn = screen.getByText('Create Silence');
     fireEvent.click(createBtn);
@@ -216,7 +216,7 @@ describe('AlertsView', () => {
 
   it('silence form has matchers section', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     const createBtn = screen.getByText('Create Silence');
     fireEvent.click(createBtn);
@@ -306,7 +306,7 @@ describe('AlertsView', () => {
     });
 
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
 
     // Wait for silences to load
@@ -316,7 +316,7 @@ describe('AlertsView', () => {
 
   it('silence form can add and remove matchers', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     const createBtn = screen.getByText('Create Silence');
     fireEvent.click(createBtn);
@@ -332,7 +332,7 @@ describe('AlertsView', () => {
 
   it('silence form closes when Cancel is clicked', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     const createBtn = screen.getByText('Create Silence');
     fireEvent.click(createBtn);
@@ -348,7 +348,7 @@ describe('AlertsView', () => {
 
   it('shows EmptyState with guidance when firing alerts tab is empty', async () => {
     renderAlerts();
-    const firingTab = screen.getByRole('tab', { name: /^Firing \(/ });
+    const firingTab = screen.getByRole('tab', { name: 'Firing & pending' });
     fireEvent.click(firingTab);
     expect((await screen.findAllByText('No alerts firing')).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Prometheus reports no firing or pending alerts.')).toBeDefined();
@@ -356,7 +356,7 @@ describe('AlertsView', () => {
 
   it('shows EmptyState with guidance when rules tab is empty', () => {
     renderAlerts();
-    const rulesTab = screen.getByRole('tab', { name: /^Rules \(/ });
+    const rulesTab = screen.getByRole('tab', { name: 'Rules' });
     fireEvent.click(rulesTab);
     expect(screen.getByText('No alert rules found')).toBeDefined();
     expect(screen.getByText('Prometheus reports no alerting rules.')).toBeDefined();
@@ -364,7 +364,7 @@ describe('AlertsView', () => {
 
   it('shows EmptyState with guidance when silences tab is empty', () => {
     renderAlerts();
-    const silencesTab = screen.getByRole('tab', { name: /^Silences \(/ });
+    const silencesTab = screen.getByRole('tab', { name: 'Silences' });
     fireEvent.click(silencesTab);
     expect(screen.getByText('No active silences')).toBeDefined();
     expect(screen.getByText('Silences temporarily mute alerts. Create one to suppress a noisy alert during maintenance.')).toBeDefined();
@@ -476,7 +476,7 @@ describe('alert sources are handled separately', () => {
 
   it('does not invent "admin" as the silence author when the user lookup fails', async () => {
     renderAlerts();
-    fireEvent.click(screen.getByRole('tab', { name: /^Silences \(/ }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Silences' }));
     fireEvent.click(screen.getByText('Create Silence'));
     const creator = screen.getByLabelText('Created by') as HTMLInputElement;
     expect(creator.value).toBe('');
@@ -489,5 +489,47 @@ describe('alert sources are handled separately', () => {
     expect(screen.getByText('No critical alerts')).toBeDefined();
     expect(screen.getByText(/1 alert is firing or pending outside this filter/)).toBeDefined();
     expect(document.body.textContent).not.toMatch(/healthy/i);
+  });
+});
+
+/** One count strip: the stat row. "Firing" counts firing only. */
+describe('alert counts appear once', () => {
+  const rules = {
+    data: {
+      groups: [{
+        name: 'g',
+        rules: [
+          { name: 'NodeDown', query: 'x', state: 'firing', health: 'ok', type: 'alerting', labels: { severity: 'critical' }, annotations: {},
+            alerts: [{ labels: { alertname: 'NodeDown', severity: 'critical' }, annotations: {}, state: 'firing', activeAt: '2024-01-01T00:00:00Z' }] },
+          { name: 'DiskFilling', query: 'x', state: 'firing', health: 'ok', type: 'alerting', labels: { severity: 'warning' }, annotations: {},
+            alerts: [{ labels: { alertname: 'DiskFilling', severity: 'warning' }, annotations: {}, state: 'firing', activeAt: '2024-01-01T00:00:00Z' }] },
+          { name: 'CertSoon', query: 'x', state: 'pending', health: 'ok', type: 'alerting', labels: { severity: 'critical' }, annotations: {},
+            alerts: [{ labels: { alertname: 'CertSoon', severity: 'critical' }, annotations: {}, state: 'pending', activeAt: '2024-01-01T00:00:00Z' }] },
+        ],
+      }],
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState(null, '', '/');
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('/rules')) return Promise.resolve({ ok: true, headers: jsonHeaders, json: () => Promise.resolve(rules) });
+      return Promise.resolve({ ok: true, headers: jsonHeaders, json: () => Promise.resolve([]) });
+    });
+  });
+  afterEach(cleanup);
+
+  it('"Firing" counts firing alerts only, with the severity split beside it, and nowhere else', async () => {
+    renderAlerts();
+    await waitFor(() => expect(screen.getByText('Firing').parentElement?.textContent).toContain('2'));
+    const firing = screen.getByText('Firing').parentElement!;
+    expect(firing.textContent).toContain('1 critical');
+    expect(firing.textContent).toContain('1 warning');
+    expect(screen.getByText('Pending').parentElement?.textContent).toContain('1');
+    // No header pills or tab label repeating the counts.
+    expect(screen.getAllByText(/\b1 critical\b/)).toHaveLength(1);
+    expect(screen.queryByRole('tab', { name: /\(\d+\)/ })).toBeNull();
+    expect(screen.queryAllByTestId('metric-card').map((c) => c.textContent)).not.toContain('Critical Alerts');
   });
 });

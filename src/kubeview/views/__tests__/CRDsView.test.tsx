@@ -41,9 +41,10 @@ const makeCRD = (name: string, group: string, kind: string, scope: string = 'Nam
 describe('CRDsView', () => {
   afterEach(() => { cleanup(); Object.keys(mockData).forEach(k => delete mockData[k]); });
 
-  it('renders page header', () => {
+  it('has no page header of its own inside Administration, and links to the CRD table', () => {
     renderView();
-    expect(screen.getAllByText('Custom Resource Definitions').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.getByText('Open as table →')).toBeDefined();
   });
 
   it('shows stat cards', () => {

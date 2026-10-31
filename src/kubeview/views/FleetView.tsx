@@ -7,7 +7,7 @@
 import React from 'react';
 import {
   Globe, RefreshCw, Loader2, Plus, Info, Server,
-  CheckCircle, AlertTriangle, Layers, Bell, GitCompare, Box, GitBranch,
+  CheckCircle, AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFleetStore } from '../store/fleetStore';
@@ -16,6 +16,7 @@ import { useUIStore } from '../store/uiStore';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { FleetCard } from './fleet/FleetCard';
+import { FleetSubNav } from './fleet/FleetSubNav';
 import type { HealthScoreInput } from '../engine/healthScore';
 import { computeHealthScore } from '../engine/healthScore';
 
@@ -59,7 +60,7 @@ export default function FleetView() {
   const connectedCount = clusters.filter(c => c.status === 'connected').length;
   // A cluster's nodes are only counted once a health check has read them.
   const uncountedClusters = clusters.filter(c => c.status !== 'connected' || c.metadata?.nodeCount == null).length;
-  const unreachableCount = clusters.filter(c => c.status !== 'connected' && c.id !== 'local').length;
+  const unreachableCount = clusters.length - connectedCount;
 
   // Single cluster — show guidance
   if (fleetMode === 'single') {
@@ -139,14 +140,16 @@ export default function FleetView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        <FleetSubNav />
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
               <Globe className="w-6 h-6 text-blue-500" /> Fleet
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              {connectedCount} cluster{connectedCount !== 1 ? 's' : ''} connected
+            {/* One summary: how many of the fleet's clusters Pulse can reach. */}
+            <p className="text-sm text-slate-400 mt-1" data-testid="fleet-reachability">
+              {connectedCount} of {clusters.length} cluster{clusters.length !== 1 ? 's' : ''} reachable
               {unreachableCount > 0 && <span className="text-red-400 ml-1">· {unreachableCount} unreachable</span>}
             </p>
           </div>
@@ -167,64 +170,12 @@ export default function FleetView() {
             {clusters.reduce((sum, c) => sum + (c.status === 'connected' ? c.metadata?.nodeCount || 0 : 0), 0)} total nodes
             {uncountedClusters > 0 && <span className="text-slate-600">({uncountedClusters} cluster{uncountedClusters !== 1 ? 's' : ''} not counted)</span>}
           </span>
-          <span>·</span>
-          <span>{clusters.filter(c => c.status === 'connected').length}/{clusters.length} reachable</span>
           {acmAvailable && (
             <>
               <span>·</span>
               <span className="text-violet-400">ACM managed</span>
             </>
           )}
-        </div>
-
-        {/* Fleet navigation */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => go('/fleet/r/apps~v1~deployments', 'Fleet Resources')}
-            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Layers className="w-3 h-3" /> Resources
-            </span>
-          </button>
-          <button
-            onClick={() => go('/fleet/workloads', 'Fleet Workloads')}
-            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Box className="w-3 h-3" /> Workloads
-            </span>
-          </button>
-          <button
-            onClick={() => go('/fleet/alerts', 'Fleet Alerts')}
-            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <Bell className="w-3 h-3" /> Alerts
-            </span>
-          </button>
-          <button
-            onClick={() => go('/fleet/compare', 'Fleet Compare')}
-            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <GitCompare className="w-3 h-3" /> Compare
-            </span>
-          </button>
-          <button
-            onClick={() => go('/fleet/compliance', 'Fleet Compliance')}
-            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5">Compliance</span>
-          </button>
-          <button
-            onClick={() => go('/fleet/drift', 'Drift Detection')}
-            className="px-3 py-1.5 text-xs rounded-sm border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <GitBranch className="w-3 h-3" /> Drift
-            </span>
-          </button>
         </div>
 
         {/* Cluster cards grid */}

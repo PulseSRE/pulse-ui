@@ -96,4 +96,53 @@ describe('WorkloadsView', () => {
       'web (Logs)',
     );
   });
+
+  describe('each problem count appears once', () => {
+    function crashloopFixture() {
+      mockData['/api/v1/pods'] = [1, 2, 3].map((i) => ({
+        metadata: { name: `web-${i}`, namespace: 'shop', uid: `p${i}` },
+        status: { phase: 'Running', containerStatuses: [{ name: 'c', restartCount: 1, state: { waiting: { reason: 'CrashLoopBackOff' } } }] },
+      }));
+      mockData['/apis/apps/v1/deployments'] = [{
+        metadata: { name: 'web', namespace: 'shop', uid: 'd1' },
+        spec: { replicas: 3, selector: { matchLabels: { app: 'web' } } },
+        status: { availableReplicas: 0, readyReplicas: 0, conditions: [] },
+      }];
+    }
+
+    it('shows the crashloop and unhealthy-deployment counts only in the banner', () => {
+      crashloopFixture();
+      renderView();
+      expect(screen.getAllByText(/3 pods in CrashLoopBackOff/)).toHaveLength(1);
+      expect(screen.getAllByText(/1 deployment not fully available/)).toHaveLength(1);
+      // No stat-card badge, CrashLoopBackOff metric card, Pod Status row or
+      // "Unhealthy Deployments (1)" panel repeating them.
+      expect(screen.queryByText('CrashLoopBackOff')).toBeNull();
+      expect(screen.queryByText('CrashLoop')).toBeNull();
+      expect(screen.queryByText(/Unhealthy Deployments/)).toBeNull();
+      expect(screen.queryByText('Unhealthy (1)')).toBeNull();
+      expect(screen.queryAllByTestId('metric-card').map((c) => c.textContent)).not.toContain('CrashLoopBackOff');
+    });
+
+    it('the crashloop banner opens the pod list', () => {
+      crashloopFixture();
+      renderView();
+      fireEvent.click(screen.getByRole('button', { name: /3 pods in CrashLoopBackOff/ }));
+      expect(goMock).toHaveBeenCalledWith('/r/v1~pods', 'Pods');
+    });
+
+    it('the unhealthy-deployments banner filters the deployments list to them', () => {
+      crashloopFixture();
+      mockData['/apis/apps/v1/deployments'].push({
+        metadata: { name: 'api', namespace: 'shop', uid: 'd2' },
+        spec: { replicas: 1, selector: { matchLabels: { app: 'api' } } },
+        status: { availableReplicas: 1, readyReplicas: 1, replicas: 1, conditions: [{ type: 'Available', status: 'True' }] },
+      });
+      renderView();
+      expect(screen.getByText('api')).toBeDefined();
+      fireEvent.click(screen.getByRole('button', { name: /deployment not fully available/ }));
+      expect(screen.queryByText('api')).toBeNull();
+      expect(screen.getAllByText('web').length).toBeGreaterThan(0);
+    });
+  });
 });
