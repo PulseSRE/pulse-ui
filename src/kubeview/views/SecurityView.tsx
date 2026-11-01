@@ -66,8 +66,8 @@ export default function SecurityView() {
     queryFn: async () => (await safeQuery(() => k8sList<K8sResource>('/apis/security.openshift.io/v1/securitycontextconstraints', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
-  const { data: networkPolicies = [], isError: netpolError, isLoading: netpolLoading } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
-  const { data: namespaces = [], isError: nsError, isLoading: nsLoading } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
+  const { data: networkPolicies = [], isError: netpolError, error: netpolErr, isLoading: netpolLoading, refetch: refetchNetpol } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
+  const { data: namespaces = [], isError: nsError, error: nsErr, isLoading: nsLoading, refetch: refetchNs } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
   const { data: externalSecrets = [], isError: externalSecretsError, isLoading: externalSecretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'externalsecrets', clusterId],
     queryFn: async () => {
@@ -209,7 +209,7 @@ export default function SecurityView() {
       detail: netpolError || nsError ? 'Could not read namespaces or network policies' : unprotectedNamespaces.length === 0
         ? `All ${userNamespaces.length} user namespaces have network policies`
         : `${unprotectedNamespaces.length} of ${userNamespaces.length} user namespaces have no network policies`,
-      severity: unprotectedNamespaces.length > 0 ? 'warning' : 'info',
+      severity: netpolError || nsError || unprotectedNamespaces.length > 0 ? 'warning' : 'info',
       link: '/networking', linkTitle: 'Networking',
     });
 
@@ -423,8 +423,16 @@ export default function SecurityView() {
           <SCCPanel sccs={sccs} go={go} />
         )}
 
-        {/* Unprotected Namespaces */}
-        {unprotectedNamespaces.length > 0 && (
+        {/* Unprotected Namespaces — only from two successful reads. With
+            either list missing, every namespace would look unprotected. */}
+        {(netpolError || nsError) && (
+          <LoadError
+            title="Could not check which namespaces lack network policies"
+            error={netpolError ? netpolErr : nsErr}
+            onRetry={() => { if (netpolError) void refetchNetpol(); if (nsError) void refetchNs(); }}
+          />
+        )}
+        {!netpolError && !nsError && !netpolLoading && !nsLoading && unprotectedNamespaces.length > 0 && (
           <div className="bg-slate-900 rounded-lg border border-yellow-900/30">
             <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
