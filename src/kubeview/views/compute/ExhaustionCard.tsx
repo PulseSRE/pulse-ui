@@ -7,7 +7,7 @@ import type { ResourceProjection } from './useCapacityProjections';
 const LABELS: Record<string, string> = { cpu: 'CPU', memory: 'Memory', disk: 'Disk', pods: 'Pods' };
 
 export function ExhaustionCard({ projection }: { projection: ResourceProjection }) {
-  const { resource, currentRatio, projectedRatio, daysUntilExhaustion, growthPerDay } = projection;
+  const { resource, currentRatio, projectedRatio, daysUntilExhaustion, growthPerDay, noDataReason, failed } = projection;
   const pct = currentRatio !== null ? Math.round(currentRatio * 100) : null;
   // No Prometheus data is "No data", never a green "Stable".
   const noData = daysUntilExhaustion === null && (currentRatio === null || projectedRatio === null);
@@ -32,8 +32,14 @@ export function ExhaustionCard({ projection }: { projection: ResourceProjection 
         noData ? 'text-slate-500' :
         'text-slate-100'
       )}>
-        {daysUntilExhaustion !== null ? `${daysUntilExhaustion}d` : noData ? 'No data' : 'Stable'}
+        {daysUntilExhaustion !== null ? `${daysUntilExhaustion}d` : noData ? (failed ? 'Unknown' : 'No data') : 'Stable'}
       </div>
+      {/* Say why there is no projection: a failed query is not "no data". */}
+      {noData && noDataReason && (
+        <div className={cn('text-xs mt-0.5', failed ? 'text-red-400/80' : 'text-slate-500')} data-unknown="" role={failed ? 'alert' : undefined}>
+          {noDataReason}
+        </div>
+      )}
 
       {/* Current usage + trend */}
       <div className="flex items-center gap-1.5 mt-1">

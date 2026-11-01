@@ -11,6 +11,7 @@ import { CHART_COLOR_SEQUENCE } from '../engine/colors';
 import { queryRange } from '../components/metrics/prometheus';
 import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { useActiveClusterId, useMetricsAvailable } from '../hooks/useClusterBase';
+import { useMetricsWindow } from '../hooks/useMetricsWindow';
 
 interface MetricsViewProps {
   gvrKey: string;
@@ -33,10 +34,9 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const metricsAvailable = useMetricsAvailable();
 
-  const rangeSeconds = TIME_RANGES[timeRange];
-  const end = Math.floor(Date.now() / 1000);
-  const start = end - rangeSeconds;
-  const step = Math.max(15, Math.floor(rangeSeconds / 200));
+  // The window is state that advances each minute, not Date.now() per render:
+  // hovering a chart re-renders this view, and must not refetch every chart.
+  const { start, end, step } = useMetricsWindow(TIME_RANGES[timeRange]);
 
   const metricQueries = useMemo(() => {
     return getMetricsForResource(gvrKey, { metadata: { name, namespace } });
@@ -138,7 +138,9 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
     queryKey: ['prometheus', resolvedQuery, start, end, step, clusterId],
     // Throws on a failed request, so the panel says so instead of "No data".
     queryFn: () => queryRange(resolvedQuery, start, end, step, clusterId),
-    refetchInterval: 60000,
+    // The window advances every minute; keep the last chart on screen while
+    // the next one loads instead of flashing a skeleton.
+    placeholderData: (prev) => prev,
   });
 
   const series = useMemo(() => {

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useMetricsWindow } from '../hooks/useMetricsWindow';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -323,10 +324,9 @@ function NamespaceCharts({ namespace }: { namespace: string }) {
   const metricsAvailable = useMetricsAvailable();
   // Each chart manages its own hover state independently
 
-  const rangeSeconds = { '1h': 3600, '6h': 21600, '24h': 86400 }[timeRange];
-  const end = Math.floor(Date.now() / 1000);
-  const start = end - rangeSeconds;
-  const step = Math.max(15, Math.floor(rangeSeconds / 200));
+  // A window held in state (advanced each minute), not Date.now() per render,
+  // so re-renders do not change every chart's query key and refetch it.
+  const { start, end, step } = useMetricsWindow({ '1h': 3600, '6h': 21600, '24h': 86400 }[timeRange]);
 
   const metricQueries = useMemo(
     () => getMetricsForResource('v1/namespaces', { metadata: { name: namespace } }),
@@ -398,7 +398,7 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
     queryKey: ['prometheus', query, start, end, step, clusterId],
     // Throws on a failed request, so the panel says so instead of "No data".
     queryFn: () => queryRange(query, start, end, step, clusterId),
-    refetchInterval: 60000,
+    placeholderData: (prev) => prev,
   });
 
   const series = useMemo(() => {

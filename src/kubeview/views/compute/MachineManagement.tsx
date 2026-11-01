@@ -5,9 +5,27 @@ import { useActionDialog } from '../../components/ActionDialog';
 import { deleteRequest, sendWrite, setReplicas } from '../../engine/workloadActions';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
+import { LoadError } from '../../components/primitives/LoadError';
 import type { K8sResource } from '../../engine/renderers';
 import type { Machine, MachineSet, NodePool, Condition } from '../../engine/types';
 import type { MachineAutoscalerResource, ClusterAutoscalerResource, MachineHealthCheckResource } from './types';
+
+/** A read that failed (403, 500, network): shown as an error, never as "none". */
+export interface ReadFailure { error: unknown; retry: () => void }
+
+/** Which machine-API reads failed; a missing key means the read succeeded (or is pending). */
+export interface MachineReads {
+  machines?: ReadFailure;
+  machineSets?: ReadFailure;
+  healthChecks?: ReadFailure;
+  machineAutoscalers?: ReadFailure;
+  clusterAutoscaler?: ReadFailure;
+  nodePools?: ReadFailure;
+}
+
+function ReadFailed({ what, failure }: { what: string; failure: ReadFailure }) {
+  return <LoadError title={`${what} could not be loaded`} error={failure.error} onRetry={failure.retry} className="m-3" />;
+}
 
 interface MachineManagementProps {
   isHyperShift: boolean;
@@ -17,38 +35,39 @@ interface MachineManagementProps {
   machineAutoscalers: K8sResource[];
   clusterAutoscaler: K8sResource[];
   nodePools: NodePool[];
+  reads?: MachineReads;
   go: (path: string, title: string) => void;
 }
 
 export function MachineManagement({
   isHyperShift, machines, machineSets, healthChecks,
-  machineAutoscalers, clusterAutoscaler, nodePools, go,
+  machineAutoscalers, clusterAutoscaler, nodePools, reads = {}, go,
 }: MachineManagementProps) {
   if (isHyperShift) {
-    return <HyperShiftSection nodePools={nodePools} go={go} />;
+    return <HyperShiftSection nodePools={nodePools} failure={reads.nodePools} go={go} />;
   }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <MachineSetsCard machineSets={machineSets} machineAutoscalers={machineAutoscalers} go={go} />
-      <MachinesCard machines={machines} go={go} />
-      <HealthChecksCard healthChecks={healthChecks} go={go} />
-      <AutoscalingCard clusterAutoscaler={clusterAutoscaler} machineAutoscalers={machineAutoscalers} go={go} />
+      <MachineSetsCard machineSets={machineSets} machineAutoscalers={machineAutoscalers} failure={reads.machineSets} go={go} />
+      <MachinesCard machines={machines} failure={reads.machines} go={go} />
+      <HealthChecksCard healthChecks={healthChecks} failure={reads.healthChecks} go={go} />
+      <AutoscalingCard clusterAutoscaler={clusterAutoscaler} machineAutoscalers={machineAutoscalers} failures={[reads.clusterAutoscaler, reads.machineAutoscalers]} go={go} />
     </div>
   );
 }
 
-function HyperShiftSection({ nodePools, go }: { nodePools: NodePool[]; go: (path: string, title: string) => void }) {
+function HyperShiftSection({ nodePools, failure, go }: { nodePools: NodePool[]; failure?: ReadFailure; go: (path: string, title: string) => void }) {
   return (
     <div className="space-y-6">
       <Card>
         <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-            NodePools ({nodePools.length})
+            NodePools{failure ? '' : ` (${nodePools.length})`}
             <span className="text-xs px-2 py-0.5 bg-violet-900/50 text-violet-300 rounded-full">HyperShift</span>
           </h2>
         </div>
-        {nodePools.length === 0 ? (
+        {failure ? <ReadFailed what="NodePools" failure={failure} /> : nodePools.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <p className="text-sm text-slate-500">No NodePools found</p>
             <p className="text-xs text-slate-600 mt-1">NodePool resources may not be accessible from the guest cluster, or the hypershift.openshift.io API is not available.</p>
@@ -107,7 +126,7 @@ function HyperShiftSection({ nodePools, go }: { nodePools: NodePool[]; go: (path
   );
 }
 
-function MachineSetsCard({ machineSets, machineAutoscalers, go }: { machineSets: MachineSet[]; machineAutoscalers: K8sResource[]; go: (path: string, title: string) => void }) {
+function MachineSetsCard({ machineSets, machineAutoscalers, failure, go }: { machineSets: MachineSet[]; machineAutoscalers: K8sResource[]; failure?: ReadFailure; go: (path: string, title: string) => void }) {
   const { allowed: canPatch } = useCanI('patch', 'machine.openshift.io', 'machinesets', 'openshift-machine-api');
   const { open, dialog } = useActionDialog();
   const scale = (ms: MachineSet, autoscaled: boolean) => {
@@ -128,11 +147,11 @@ function MachineSetsCard({ machineSets, machineAutoscalers, go }: { machineSets:
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100">MachineSets ({machineSets.length})</h2>
+        <h2 className="text-sm font-semibold text-slate-100">MachineSets{failure ? '' : ` (${machineSets.length})`}</h2>
         <button onClick={() => go('/r/machine.openshift.io~v1beta1~machinesets', 'MachineSets')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-        {machineSets.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No MachineSets</div> : machineSets.map((ms) => {
+        {failure ? <ReadFailed what="MachineSets" failure={failure} /> : machineSets.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No MachineSets</div> : machineSets.map((ms) => {
           const desired = ms.spec?.replicas ?? 0;
           const ready = ms.status?.readyReplicas ?? 0;
           const autoscaler = (machineAutoscalers as MachineAutoscalerResource[]).find((a) => a.spec?.scaleTargetRef?.name === ms.metadata.name);
@@ -165,7 +184,7 @@ function MachineSetsCard({ machineSets, machineAutoscalers, go }: { machineSets:
   );
 }
 
-function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string, title: string) => void }) {
+function MachinesCard({ machines, failure, go }: { machines: Machine[]; failure?: ReadFailure; go: (path: string, title: string) => void }) {
   const { allowed: canDelete } = useCanI('delete', 'machine.openshift.io', 'machines', 'openshift-machine-api');
   const { open, dialog } = useActionDialog();
   const remove = (m: Machine) => {
@@ -206,11 +225,11 @@ function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100">Machines ({machines.length})</h2>
+        <h2 className="text-sm font-semibold text-slate-100">Machines{failure ? '' : ` (${machines.length})`}</h2>
         <button onClick={() => go('/r/machine.openshift.io~v1beta1~machines', 'Machines')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-        {machines.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No Machines</div> : machines.map((m) => {
+        {failure ? <ReadFailed what="Machines" failure={failure} /> : machines.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No Machines</div> : machines.map((m) => {
           const phase = m.status?.phase || 'Unknown';
           const instanceType = (m.spec?.providerSpec?.value?.instanceType as string) || '';
           const nodeRef = m.status?.nodeRef?.name || '';
@@ -252,15 +271,15 @@ function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string
   );
 }
 
-function HealthChecksCard({ healthChecks, go }: { healthChecks: K8sResource[]; go: (path: string, title: string) => void }) {
+function HealthChecksCard({ healthChecks, failure, go }: { healthChecks: K8sResource[]; failure?: ReadFailure; go: (path: string, title: string) => void }) {
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-100">Machine Health Checks ({healthChecks.length})</h2>
+        <h2 className="text-sm font-semibold text-slate-100">Machine Health Checks{failure ? '' : ` (${healthChecks.length})`}</h2>
         <button onClick={() => go('/r/machine.openshift.io~v1beta1~machinehealthchecks', 'HealthChecks')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-        {healthChecks.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No health checks configured</div> : (healthChecks as MachineHealthCheckResource[]).map((hc) => {
+        {failure ? <ReadFailed what="MachineHealthChecks" failure={failure} /> : healthChecks.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No health checks configured</div> : (healthChecks as MachineHealthCheckResource[]).map((hc) => {
           const maxUnhealthy = hc.spec?.maxUnhealthy || '100%';
           const conditions = hc.spec?.unhealthyConditions || [];
           const currentHealthy = hc.status?.currentHealthy ?? 0;
@@ -286,7 +305,21 @@ function HealthChecksCard({ healthChecks, go }: { healthChecks: K8sResource[]; g
   );
 }
 
-function AutoscalingCard({ clusterAutoscaler, machineAutoscalers, go }: { clusterAutoscaler: K8sResource[]; machineAutoscalers: K8sResource[]; go: (path: string, title: string) => void }) {
+function AutoscalingCard({ clusterAutoscaler, machineAutoscalers, failures, go }: { clusterAutoscaler: K8sResource[]; machineAutoscalers: K8sResource[]; failures: Array<ReadFailure | undefined>; go: (path: string, title: string) => void }) {
+  const [caFailure, maFailure] = failures;
+  if (caFailure || maFailure) {
+    // "Not configured" is only an answer when both reads succeeded.
+    const what = caFailure && maFailure ? 'ClusterAutoscalers and MachineAutoscalers' : caFailure ? 'ClusterAutoscalers' : 'MachineAutoscalers';
+    const failure = (caFailure ?? maFailure)!;
+    return (
+      <Card>
+        <div className="px-4 py-3 border-b border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-100">Autoscaling</h2>
+        </div>
+        <ReadFailed what={what} failure={{ error: failure.error, retry: () => { caFailure?.retry(); maFailure?.retry(); } }} />
+      </Card>
+    );
+  }
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">

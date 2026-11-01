@@ -48,9 +48,11 @@ export async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {
   } catch (e) {
     // 404 = resource legitimately doesn't exist
     if (e instanceof Response && e.status === 404) return null;
-    // Check for fetch Response-like objects
-    if (typeof e === 'object' && e !== null && 'status' in e) {
-      const status = (e as { status: number }).status;
+    // Response-like objects carry `status`; k8s helpers throw PulseError,
+    // which carries `statusCode` (it used to be missed, so a 404 from k8sList
+    // — an API the cluster does not have — was treated as a failure).
+    if (typeof e === 'object' && e !== null && ('status' in e || 'statusCode' in e)) {
+      const status = 'status' in e ? (e as { status: number }).status : (e as { statusCode: number }).statusCode;
       if (status === 404) return null;
       if (status === 401) {
         useUIStore.getState().addDegradedReason('session_expired');
