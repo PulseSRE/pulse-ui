@@ -12,15 +12,29 @@
 
 const PRIVATE_PRIMITIVES = /^(StatCard|StatusDot|StatPill|SummaryCard)$/;
 
-// Module-style constant maps: STATUS_COLORS, SEVERITY_COLOR, PHASE_STYLES,
-// POD_STATUS_COLOR, RISK_BORDER_COLORS, HEALTH_BG …
-const STATUS_MAP_NAME =
-  /^[A-Z0-9_]*(STATUS|SEVERITY|PHASE|HEALTH|RISK|OUTCOME)[A-Z0-9_]*_(COLOU?RS?|STYLES?|CLASSES|TONES?|BORDERS?|BGS?)$/;
+// Status → colour maps, whatever the casing or wherever they are declared
+// (module scope or inside a component): STATUS_COLORS, statusColors,
+// severityColor, POD_STATUS_COLOR, PHASE_COLOR_MAP, SEVERITY_DOT, HEALTH_BG …
+// Names are compared in UPPER_SNAKE form. A map of labels (STATUS_MAP,
+// STATUS_LABELS) is not a colour map and is allowed.
+const STATUS_WORD = /(^|_)(STATUS|SEVERITY|PHASE|HEALTH|RISK|OUTCOME)(_|$)/;
+const COLOUR_SUFFIX = /_(COLOU?RS?|STYLES?|CLASSES|CLASS|TONES?|BORDERS?|BGS?|DOTS?)(_MAP)?$/;
+
+function upperSnake(name) {
+  return name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase();
+}
+
+function isStatusMapName(name) {
+  const n = upperSnake(name);
+  return STATUS_WORD.test(n) && COLOUR_SUFFIX.test(n);
+}
 
 function isMapInit(node) {
   if (!node) return false;
   if (node.type === 'ObjectExpression') return true;
   if (node.type === 'TSAsExpression' || node.type === 'TSSatisfiesExpression') return isMapInit(node.expression);
+  // `const severityColor = { critical: 'text-red-400', … }[sev]`
+  if (node.type === 'MemberExpression') return isMapInit(node.object);
   return false;
 }
 
@@ -67,7 +81,7 @@ const noInlineStatusColors = {
   create(context) {
     return {
       VariableDeclarator(node) {
-        if (node.id.type === 'Identifier' && STATUS_MAP_NAME.test(node.id.name) && isMapInit(node.init)) {
+        if (node.id.type === 'Identifier' && isStatusMapName(node.id.name) && isMapInit(node.init)) {
           context.report({ node: node.id, messageId: 'inlineMap', data: { name: node.id.name } });
         }
       },

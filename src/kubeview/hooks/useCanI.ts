@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { k8sFetch } from '../engine/query';
 import { useFleetStore } from '../store/fleetStore';
+import { useUIStore } from '../store/uiStore';
 
 interface AccessReviewSpec {
   verb: string;       // "get", "list", "create", "update", "delete", "patch"
@@ -17,6 +18,12 @@ interface AccessReviewSpec {
 }
 
 const WRITE_VERBS = new Set(['create', 'update', 'patch', 'delete', 'deletecollection']);
+
+// When the review itself fails (network error, non-2xx), write verbs fail
+// closed — a button stays disabled rather than offering a write the user may
+// not have. Read verbs fail open: hiding a view because the review endpoint
+// hiccupped would be worse, and the read itself is still enforced by the API
+// server, which returns its own 403.
 
 async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<boolean> {
   const failOpen = !WRITE_VERBS.has(spec.verb);
@@ -53,9 +60,14 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
 
 export function useCanI(verb: string, group: string, resource: string, namespace?: string) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
+  // The answer is about whoever the request runs as, so impersonation is part
+  // of the cache key: an admin's "allowed" must not be reused after they start
+  // impersonating someone else.
+  const impersonateUser = useUIStore((s) => s.impersonateUser);
+  const impersonateGroups = useUIStore((s) => s.impersonateGroups);
   const failOpen = !WRITE_VERBS.has(verb);
   const { data: allowed = failOpen, isLoading } = useQuery({
-    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, clusterId],
+    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, clusterId, impersonateUser, impersonateGroups.join(',')],
     queryFn: () => checkAccess({ verb, group, resource, namespace }, clusterId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 10 * 60 * 1000,

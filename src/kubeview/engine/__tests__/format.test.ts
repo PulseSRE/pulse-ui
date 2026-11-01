@@ -31,7 +31,8 @@ describe('formatAge (bare table age)', () => {
     expect(formatAge(ago(12 * M), '—', NOW)).toBe('12m');
     expect(formatAge(ago(3 * H), '—', NOW)).toBe('3h');
     expect(formatAge(ago(5 * D), '—', NOW)).toBe('5d');
-    expect(formatAge(ago(65 * D), '—', NOW)).toBe('2mo');
+    expect(formatAge(ago(65 * D), '—', NOW)).toBe('65d');
+    expect(formatAge(ago(364 * D), '—', NOW)).toBe('364d');
     expect(formatAge(ago(400 * D), '—', NOW)).toBe('1y');
   });
   it('shows the fallback for a missing timestamp and 0s for clock skew', () => {
@@ -51,6 +52,7 @@ describe('formatRelative', () => {
     expect(formatRelative(ago(30 * S), '—', NOW)).toBe('30s ago');
     expect(formatRelative(ago(5 * M), '—', NOW)).toBe('5m ago');
     expect(formatRelative(ago(2 * D), '—', NOW)).toBe('2d ago');
+    expect(formatRelative(ago(65 * D), '—', NOW)).toBe('2mo ago');
   });
 });
 

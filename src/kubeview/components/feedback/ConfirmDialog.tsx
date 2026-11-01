@@ -48,7 +48,10 @@ export function ConfirmDialog({
       description={description}
       dismissible={!loading}
       showClose={false}
-      initialFocusRef={variant === 'danger' ? cancelButtonRef : confirmButtonRef}
+      // Danger: Cancel, so Enter cannot delete by accident. Otherwise the
+      // confirm button — unless it is disabled (e.g. until a risk box is
+      // ticked), in which case the first focusable element in the dialog.
+      initialFocusRef={variant === 'danger' ? cancelButtonRef : confirmDisabled ? undefined : confirmButtonRef}
       icon={
         <div className={cn('shrink-0 rounded-full p-2', variant === 'danger' ? 'bg-red-500/10' : 'bg-amber-500/10')}>
           <AlertTriangle className={cn('h-6 w-6', variant === 'danger' ? 'text-red-500' : 'text-amber-500')} />

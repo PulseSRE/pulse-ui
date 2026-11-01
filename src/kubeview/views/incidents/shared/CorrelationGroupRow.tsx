@@ -1,5 +1,6 @@
 import { ChevronRight, ChevronDown, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { statusClasses } from '../../../engine/statusColors';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../../../engine/types/timeline';
 
 const CATEGORY_LABELS: Record<TimelineCategory, string> = {
@@ -7,13 +8,6 @@ const CATEGORY_LABELS: Record<TimelineCategory, string> = {
   event: 'Events',
   rollout: 'Rollouts',
   config: 'Config',
-};
-
-const SEVERITY_DOT: Record<string, string> = {
-  critical: 'bg-red-500',
-  warning: 'bg-amber-500',
-  info: 'bg-blue-500',
-  normal: 'bg-slate-500',
 };
 
 export function summarizeEventPattern(entries: TimelineEntry[]): string | null {
@@ -57,13 +51,6 @@ export function CorrelationGroupRow({
   const ns = (group.key || '').split('/')[2];
   const pattern = summarizeEventPattern(group.entries);
 
-  const severityColor: Record<string, string> = {
-    critical: 'text-red-400',
-    warning: 'text-amber-400',
-    info: 'text-blue-400',
-    normal: 'text-slate-400',
-  };
-
   return (
     <div>
       <button
@@ -84,7 +71,7 @@ export function CorrelationGroupRow({
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className={cn('text-sm font-medium truncate', severityColor[group.severity] || 'text-slate-400')}>
+              <span className={cn('text-sm font-medium truncate', statusClasses(group.severity).text)}>
                 {label}
               </span>
               {ns && ns !== '_' && <span className="text-xs text-slate-600 shrink-0">{ns}</span>}
@@ -128,7 +115,7 @@ export function CorrelationGroupRow({
                 <span className="text-xs text-slate-600 w-16 shrink-0">
                   {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                 </span>
-                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', SEVERITY_DOT[entry.severity] || 'bg-slate-500')} />
+                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusClasses(entry.severity).solid)} />
                 <span className="text-slate-300 truncate">{entry.title}</span>
                 {entry.detail && <span className="text-xs text-slate-600 truncate max-w-[200px]">{entry.detail}</span>}
                 <span className="text-xs text-slate-600 shrink-0 ml-auto">{CATEGORY_LABELS[entry.category]}</span>

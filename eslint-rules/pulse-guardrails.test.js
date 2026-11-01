@@ -33,12 +33,18 @@ tester.run('no-inline-status-colors', plugin.rules['no-inline-status-colors'], {
     "import { statusClasses } from '../engine/statusColors'; const c = statusClasses('warning').text;",
     "const STATUS_LABELS = { ok: 'OK' };",
     "const statusColor = isOk ? 'text-emerald-400' : 'text-red-400';",
+    "const STATUS_MAP = { ok: 'OK', bad: 'Broken' };",
+    "const statusLabels = { ok: 'OK' };",
   ],
   invalid: [
     { code: "const STATUS_COLORS = { warning: 'text-yellow-400' };", errors: [{ messageId: 'inlineMap' }] },
     { code: "const SEVERITY_COLOR: Record<string, string> = { critical: 'bg-red-500' };", errors: [{ messageId: 'inlineMap' }] },
     { code: "const POD_STATUS_COLOR = { Running: '#10b981' } as const;", errors: [{ messageId: 'inlineMap' }] },
     { code: "const PHASE_STYLES = { Paused: { color: 'text-amber-400' } };", errors: [{ messageId: 'inlineMap' }] },
+    { code: "const statusColors = { ok: 'text-emerald-400' };", errors: [{ messageId: 'inlineMap' }] },
+    { code: "const PHASE_COLOR_MAP = { Running: 'bg-green-500' };", errors: [{ messageId: 'inlineMap' }] },
+    { code: "const SEVERITY_DOT = { critical: 'bg-red-500' };", errors: [{ messageId: 'inlineMap' }] },
+    { code: "function Row({ sev }) { const severityColor = { critical: 'text-red-400' }[sev]; return severityColor; }", errors: [{ messageId: 'inlineMap' }] },
   ],
 });
 
@@ -58,6 +64,7 @@ describe('repository ESLint config', () => {
       'function StatCard() { return null; }',
       "export function go() { if (window.confirm('sure?')) StatCard(); return STATUS_COLORS; }",
       "export function go2() { return confirm('sure?'); }",
+      "export function go3() { return globalThis.confirm('sure?'); }",
     ].join('\n');
     const rules = await lint(code, 'src/kubeview/views/NewPage.tsx');
     expect(rules).toEqual(expect.arrayContaining([
@@ -66,6 +73,7 @@ describe('repository ESLint config', () => {
       'no-restricted-properties',
       'no-restricted-globals',
     ]));
+    expect(rules.filter((r) => r === 'no-restricted-properties')).toHaveLength(2);
   }, 30_000);
 
   it('lets primitives and the engine define them', async () => {

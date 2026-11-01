@@ -112,6 +112,9 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
       <Tabs
         value={selectedPod ?? ALL_PODS}
         onValueChange={(v) => setSelectedPod(v === ALL_PODS ? null : v)}
+        // Each pod tab opens a log stream; arrow keys move focus and Enter
+        // selects, so walking the list does not open a stream per pod.
+        activationMode="manual"
         className="flex-1 flex flex-col overflow-hidden"
       >
         <TabsList aria-label="Pod selector" className="flex rounded-none border-0 border-b border-slate-800 bg-slate-900/50 px-4 py-2 overflow-x-auto">

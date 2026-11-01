@@ -132,6 +132,8 @@ describe('focus trap reaches more than buttons', () => {
     const box = screen.getByRole('checkbox', { name: 'I accept these risks' });
     const link = screen.getByRole('link', { name: 'Read the risks' });
     expect(update.disabled).toBe(true);
+    // Opens on the first thing that can act, not the disabled confirm.
+    expect(document.activeElement).toBe(box);
 
     // Disabled confirm: the first focusable is the checkbox; Cancel is last.
     cancel.focus();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useCanI } from '../useCanI';
@@ -8,9 +8,11 @@ import { registerCluster, resetConnections } from '../../engine/clusterConnectio
 import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
 
-function wrapper({ children }: { children: React.ReactNode }) {
+function makeWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  };
 }
 
 describe('useCanI', () => {
@@ -26,13 +28,14 @@ describe('useCanI', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
     useUIStore.setState({ impersonateUser: '', impersonateGroups: [] });
   });
 
   it('asks the active cluster, as the impersonated user', async () => {
     fetchMock.mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: { allowed: true } }) });
-    const { result } = renderHook(() => useCanI('delete', 'apps', 'deployments', 'shop'), { wrapper });
+    const { result } = renderHook(() => useCanI('delete', 'apps', 'deployments', 'shop'), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -48,19 +51,33 @@ describe('useCanI', () => {
 
   it('denies a write when the review is refused (403)', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 403, json: () => Promise.resolve({}) });
-    const { result } = renderHook(() => useCanI('delete', 'apps', 'deployments', 'shop'), { wrapper });
+    const { result } = renderHook(() => useCanI('delete', 'apps', 'deployments', 'shop'), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.allowed).toBe(false);
   });
 
   it('denies a write on a network error but leaves reads open', async () => {
     fetchMock.mockRejectedValue(new TypeError('network down'));
-    const write = renderHook(() => useCanI('patch', '', 'pods'), { wrapper });
+    const write = renderHook(() => useCanI('patch', '', 'pods'), { wrapper: makeWrapper() });
     await waitFor(() => expect(write.result.current.isLoading).toBe(false));
     expect(write.result.current.allowed).toBe(false);
 
-    const read = renderHook(() => useCanI('list', '', 'pods'), { wrapper });
+    const read = renderHook(() => useCanI('list', '', 'pods'), { wrapper: makeWrapper() });
     await waitFor(() => expect(read.result.current.isLoading).toBe(false));
     expect(read.result.current.allowed).toBe(true);
+  });
+
+  it('asks again, and answers differently, when impersonation changes', async () => {
+    useUIStore.setState({ impersonateUser: '', impersonateGroups: [] });
+    fetchMock.mockImplementation((_url: string, init: { headers: Record<string, string> }) =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve({ status: { allowed: !init.headers['Impersonate-User'] } }) }));
+    const { result } = renderHook(() => useCanI('delete', '', 'pods', 'shop'), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.allowed).toBe(true));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    act(() => useUIStore.setState({ impersonateUser: 'bob', impersonateGroups: [] }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1][1].headers['Impersonate-User']).toBe('bob');
+    await waitFor(() => expect(result.current.allowed).toBe(false));
   });
 });

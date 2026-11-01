@@ -14,8 +14,8 @@
  */
 
 export type StatusTone =
-  | 'danger' // critical, error, failed
-  | 'warning' // warning, degraded-but-serving
+  | 'danger' // critical, error, failed, degraded, unavailable
+  | 'warning' // warning, at risk, stale, out of sync (degraded is danger)
   | 'progress' // pending, progressing, in flight
   | 'success' // healthy, running, succeeded
   | 'neutral' // unknown, not compared, no data

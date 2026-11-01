@@ -44,7 +44,12 @@ export default [
       'pulse/no-private-stat-primitives': 'error',
       'pulse/no-inline-status-colors': 'error',
       'no-restricted-globals': ['error', { name: 'confirm', message: 'Use ConfirmDialog (components/feedback) instead of window.confirm.' }],
-      'no-restricted-properties': ['error', { object: 'window', property: 'confirm', message: 'Use ConfirmDialog (components/feedback) instead of window.confirm.' }],
+      'no-restricted-properties': [
+        'error',
+        { object: 'window', property: 'confirm', message: 'Use ConfirmDialog (components/feedback) instead of window.confirm.' },
+        { object: 'globalThis', property: 'confirm', message: 'Use ConfirmDialog (components/feedback) instead of globalThis.confirm.' },
+        { object: 'self', property: 'confirm', message: 'Use ConfirmDialog (components/feedback) instead of self.confirm.' },
+      ],
     },
   },
   {
@@ -62,10 +67,12 @@ export default [
       'src/kubeview/components/topology/GraphRenderer.tsx', // Wave 8 (graphs)
       'src/kubeview/components/topology/constants.ts', // Wave 8 (graphs)
       'src/kubeview/views/TopologyView.tsx', // Wave 8 (graphs)
+      'src/kubeview/views/TimelineView.tsx', // Wave 8 (graphs)
       'src/kubeview/views/argocd/RolloutsTab.tsx', // Wave 7a (workload actions)
       'src/kubeview/views/compute/NodeHexMap.tsx', // Wave 7a (node actions)
       'src/kubeview/views/mission-control/ScannerDrawer.tsx', // Wave 6 (dedup/regroup)
       'src/kubeview/views/inbox/InboxItem.tsx', // Wave 7c (inbox/fix actions)
+      'src/kubeview/views/inbox/InboxGroup.tsx', // Wave 7c (inbox/fix actions)
       'src/kubeview/components/agent/FindingCard.tsx', // Wave 7c (inbox/fix actions)
     ],
     rules: { 'pulse/no-inline-status-colors': 'off' },

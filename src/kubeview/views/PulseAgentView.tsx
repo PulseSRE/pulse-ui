@@ -1,4 +1,5 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Bot, List, BarChart3, History, Brain,
   Puzzle, Layers, Cable, Target, Workflow,
@@ -55,7 +56,33 @@ const TAB_GROUPS: Array<{ label: string; tabs: TabDef[] }> = [
 
 const TAB_IDS: AgentTab[] = TAB_GROUPS.flatMap((g) => g.tabs.map((t) => t.id));
 
+const LAST_TAB_KEY = 'agent-tab';
+
+function readLastTab(): AgentTab | null {
+  try {
+    const v = sessionStorage.getItem(LAST_TAB_KEY);
+    return v && (TAB_IDS as string[]).includes(v) ? (v as AgentTab) : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberTab(tab: string) {
+  try { sessionStorage.setItem(LAST_TAB_KEY, tab); } catch { /* storage unavailable */ }
+}
+
 export default function PulseAgentView() {
+  // `?tab=` wins. Without it, reopen the tab last used in this session.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.has('tab')) return;
+    const last = readLastTab();
+    if (last && last !== 'overview') {
+      setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('tab', last); return next; }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on arrival
+  }, []);
+
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -64,7 +91,7 @@ export default function PulseAgentView() {
           <h1 className="text-lg font-semibold text-slate-100">Pulse Agent</h1>
         </div>
 
-        <Tabs defaultValue="overview" urlSync={{ values: TAB_IDS }} className="space-y-6">
+        <Tabs defaultValue="overview" urlSync={{ values: TAB_IDS }} onValueChange={rememberTab} className="space-y-6">
           <TabsList aria-label="Pulse Agent tabs" className="flex flex-wrap">
             {TAB_GROUPS.map((group, gi) => (
               <React.Fragment key={group.label}>

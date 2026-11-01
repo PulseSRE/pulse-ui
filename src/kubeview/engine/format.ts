@@ -27,27 +27,32 @@ const MIN = 60 * SEC;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
-/** The coarsest single unit for a non-negative span in ms: 45s, 12m, 3h, 5d, 2mo, 1y. */
-function spanUnit(ms: number): string {
+/**
+ * The coarsest single unit for a non-negative span in ms: 45s, 12m, 3h, 5d,
+ * then years. With `months`, 30–364 days read as months (2mo) — prose ("2mo
+ * ago"); without, days run to 364 like `kubectl get` (65d), so table ages sort
+ * and compare the way operators expect.
+ */
+function spanUnit(ms: number, months: boolean): string {
   const d = Math.max(0, ms);
   if (d < MIN) return `${Math.floor(d / SEC)}s`;
   if (d < HOUR) return `${Math.floor(d / MIN)}m`;
   if (d < DAY) return `${Math.floor(d / HOUR)}h`;
   const days = Math.floor(d / DAY);
   if (days >= 365) return `${Math.floor(days / 365)}y`;
-  if (days >= 30) return `${Math.floor(days / 30)}mo`;
+  if (months && days >= 30) return `${Math.floor(days / 30)}mo`;
   return `${days}d`;
 }
 
 /**
- * Bare age of a timestamp, the way a resource table shows it: "45s", "12m",
- * "3h", "5d", "2mo", "1y". `fallback` (default "—") when there is no time.
+ * Bare age of a timestamp, the way `kubectl get` shows it: "45s", "12m",
+ * "3h", "65d", "1y". `fallback` (default "—") when there is no time.
  * A timestamp slightly in the future (clock skew) reads "0s".
  */
 export function formatAge(input: TimeInput, fallback = '—', now: number = Date.now()): string {
   const ms = toEpochMs(input);
   if (ms === null) return fallback;
-  return spanUnit(now - ms);
+  return spanUnit(now - ms, false);
 }
 
 /**
@@ -61,7 +66,7 @@ export function formatRelative(input: TimeInput, fallback = '—', now: number =
   if (ms === null) return fallback;
   const diff = now - ms;
   if (diff < 5 * SEC) return 'just now';
-  return `${spanUnit(diff)} ago`;
+  return `${spanUnit(diff, true)} ago`;
 }
 
 /**

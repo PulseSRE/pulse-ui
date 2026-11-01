@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bell, Activity, RefreshCw, Settings, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { statusClasses } from '../../../engine/statusColors';
 import type { TimelineEntry, TimelineCategory } from '../../../engine/types/timeline';
 
 export const CATEGORY_CONFIG: Record<TimelineCategory, { label: string; icon: React.ElementType; color: string }> = {
@@ -19,13 +20,6 @@ export function HistoryEntryCard({ entry, onClick, onRollback }: {
   const Icon = cfg.icon;
   const hasResource = !!entry.resource;
 
-  const severityDot: Record<string, string> = {
-    critical: 'bg-red-500',
-    warning: 'bg-amber-500',
-    info: 'bg-blue-500',
-    normal: 'bg-slate-500',
-  };
-
   return (
     <div
       className={cn(
@@ -38,7 +32,7 @@ export function HistoryEntryCard({ entry, onClick, onRollback }: {
       onKeyDown={hasResource ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
     >
       {/* Timeline dot */}
-      <div className={cn('absolute left-[-25px] top-5 w-3 h-3 rounded-full border-2 border-slate-950', severityDot[entry.severity] || 'bg-slate-500')} />
+      <div className={cn('absolute left-[-25px] top-5 w-3 h-3 rounded-full border-2 border-slate-950', statusClasses(entry.severity).solid)} />
 
       <div className="flex items-start gap-3">
         <div className={cn('shrink-0 mt-0.5', cfg.color)}>
