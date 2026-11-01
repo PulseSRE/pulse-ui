@@ -156,6 +156,14 @@ describe('OverviewTab', () => {
       expect(props.setActiveTab).not.toHaveBeenCalledWith('quotas');
     });
 
+    it('"View full timeline" opens the events timeline, not Inbox activity', () => {
+      const event = { metadata: { name: 'e1', namespace: 'shop', uid: 'e1' }, reason: 'BackOff', message: 'x', involvedObject: { kind: 'Pod', name: 'web', namespace: 'shop' } };
+      const props = makeProps({ latestEvents: [event] as never, recentEvents: [event] as never });
+      render(<OverviewTab {...props} />);
+      fireEvent.click(screen.getByText('View full timeline'));
+      expect(props.go).toHaveBeenCalledWith('/timeline?cat=event', 'Timeline');
+    });
+
     it('"Manage providers" opens Cluster Config with OAuth expanded', () => {
       const props = makeProps();
       render(<OverviewTab {...props} />);

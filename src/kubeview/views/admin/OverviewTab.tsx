@@ -487,7 +487,7 @@ export function OverviewTab({
               );
             })}
           </div>
-          <button onClick={() => go('/inbox?tab=activity', 'Incident History')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
+          <button onClick={() => go('/timeline?cat=event', 'Timeline')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
             View full timeline <ArrowRight className="w-3 h-3" />
           </button>
         </Panel>

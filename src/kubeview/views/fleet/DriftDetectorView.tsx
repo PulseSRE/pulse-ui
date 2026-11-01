@@ -71,7 +71,7 @@ export function DriftDetectorView() {
         clusterScoped ? undefined : namespace.trim(),
         chosenClusters,
       );
-      setResult(driftResult);
+      setResult({ ...driftResult, absentClusters: driftResult.absentClusters ?? [], failedClusters: driftResult.failedClusters ?? [] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Comparison failed');
     } finally {

@@ -7,9 +7,15 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return { ...actual, useNavigate: () => vi.fn() };
 });
+const uiActions = vi.hoisted(() => ({ expandAISidebar: vi.fn(), setAISidebarMode: vi.fn() }));
 vi.mock('../../store/uiStore', () => ({
-  useUIStore: (selector: any) => selector({ selectedNamespace: '*', addTab: vi.fn(), addToast: vi.fn() }),
+  useUIStore: Object.assign(
+    (selector: any) => selector({ selectedNamespace: '*', addTab: vi.fn(), addToast: vi.fn() }),
+    { getState: () => uiActions },
+  ),
 }));
+const sendMessage = vi.hoisted(() => vi.fn());
+vi.mock('../../store/agentStore', () => ({ useAgentStore: { getState: () => ({ sendMessage }) } }));
 vi.mock('../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));
 vi.mock('@/lib/utils', () => ({ cn: (...args: any[]) => args.filter(Boolean).join(' ') }));
 vi.mock('../../components/primitives/Card', () => ({
@@ -103,5 +109,18 @@ describe('TimelineView', () => {
     renderView();
     expect(screen.getByText('HighMemoryUsage')).toBeDefined();
     expect(screen.getByText('1 entries')).toBeDefined();
+  });
+
+  it('"Investigate with AI" on a correlated incident asks the agent (moved here from Inbox › Activity)', () => {
+    const now = new Date().toISOString();
+    _mockTimelineData.correlationGroups = [{
+      key: 'Deployment/web/shop', severity: 'critical', timeRange: { start: now, end: now },
+      entries: [{ id: 'e1', timestamp: now, category: 'event', severity: 'warning', title: 'BackOff', source: { type: 'k8s-event' } }],
+    }];
+    renderView();
+    fireEvent.click(screen.getByText(/Deployment/, { selector: 'span' }).closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: /Investigate with AI/ }));
+    expect(sendMessage).toHaveBeenCalledWith(expect.stringContaining('Investigate Deployment web in namespace shop'));
+    expect(uiActions.expandAISidebar).toHaveBeenCalled();
   });
 });

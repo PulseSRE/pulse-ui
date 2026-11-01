@@ -152,7 +152,7 @@ describe('DriftDetectorView', () => {
   it('compares cluster-scoped config such as the APIServer', async () => {
     mockCompare.mockResolvedValue({
       resource: { apiPath: '/apis/config.openshift.io/v1/apiservers', name: 'cluster' },
-      clusters: ['c1', 'c2'], diffs: [], identicalFields: 0, driftedFields: 0,
+      clusters: ['c1', 'c2'], totalClusters: 2, absentClusters: [], failedClusters: [], diffs: [], identicalFields: 0, driftedFields: 0,
     });
     render(<DriftDetectorView />);
     fireEvent.change(screen.getByLabelText('Resource type'), { target: { value: 'config.openshift.io/v1/apiservers' } });
