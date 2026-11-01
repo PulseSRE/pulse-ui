@@ -86,7 +86,7 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
 
         {/* Metrics row */}
         {isReachable && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className={cn('grid gap-2 text-xs', healthInput ? 'grid-cols-3' : 'grid-cols-2')}>
             <div>
               <div className="text-slate-500">Nodes</div>
               <div className="font-mono text-slate-300">
@@ -99,12 +99,16 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
                 {cluster.metadata?.version?.replace('v', '') || '—'}
               </div>
             </div>
-            <div>
-              <div className="text-slate-500">Alerts</div>
-              <div className={cn('font-mono', healthInput && (healthInput.alertCriticalCount > 0) ? 'text-red-400' : 'text-slate-300')}>
-                {healthInput ? healthInput.alertCriticalCount + healthInput.alertWarningCount : '—'}
+            {/* Only with a real alert count: a column that always reads "—"
+                looks like a figure the card failed to fetch. */}
+            {healthInput && (
+              <div>
+                <div className="text-slate-500">Alerts</div>
+                <div className={cn('font-mono', healthInput.alertCriticalCount > 0 ? 'text-red-400' : 'text-slate-300')}>
+                  {healthInput.alertCriticalCount + healthInput.alertWarningCount}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

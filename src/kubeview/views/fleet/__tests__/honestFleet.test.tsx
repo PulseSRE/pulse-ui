@@ -16,6 +16,7 @@ vi.mock('../../../engine/clusterConnection', () => ({
   getAllConnections: () => connections,
   getClusterBase: (id?: string) => (id && id !== 'local' ? `/k/${id}` : '/api/kubernetes'),
   getActiveClusterId: () => 'local',
+  LOCAL_CLUSTER_ID: 'local',
 }));
 vi.mock('../../../store/uiStore', () => {
   const state = { impersonateUser: '', impersonateGroups: [], addDegradedReason: vi.fn(), removeDegradedReason: vi.fn(), addToast: vi.fn(), selectedNamespace: '*' };

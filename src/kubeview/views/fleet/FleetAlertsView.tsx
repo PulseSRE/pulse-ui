@@ -18,6 +18,7 @@ import type { FleetAlert } from '../../engine/types/incident';
 import { FleetSubNav } from './FleetSubNav';
 import { LoadError } from '../../components/primitives/LoadError';
 import { errorReason } from '../../engine/readResult';
+import { metricsAvailableFor } from '../../components/metrics/prometheus';
 
 export default function FleetAlertsView() {
   const go = useNavigateTab();
@@ -154,7 +155,11 @@ export default function FleetAlertsView() {
     });
   }, [filteredAlerts]);
 
-  const handleAlertClick = (alert: FleetAlert) => {
+  // A row opens its detail here. /alerts reads only the local cluster's
+  // Prometheus, so switching to a remote cluster and opening it dead-ended;
+  // the deep link is offered only where it leads somewhere.
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const openInAlerts = (alert: FleetAlert) => {
     setActiveCluster(alert.clusterId);
     go('/alerts', `${alert.clusterName} -- Alerts`);
   };
@@ -298,10 +303,17 @@ export default function FleetAlertsView() {
             )}
             {sortedAlerts.map((alert, i) => {
               const correlationCount = correlationMap.get(alert.alertName)?.size || 0;
+              const rowKey = `${alert.clusterId}-${alert.alertName}-${alert.namespace}-${i}`;
+              const isOpen = expanded === rowKey;
+              const summary = alert.annotations?.summary || alert.annotations?.message;
+              const description = alert.annotations?.description;
               return (
+                <React.Fragment key={rowKey}>
                 <tr
-                  key={`${alert.clusterId}-${alert.alertName}-${alert.namespace}-${i}`}
-                  onClick={() => handleAlertClick(alert)}
+                  onClick={() => setExpanded(isOpen ? null : rowKey)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(isOpen ? null : rowKey); } }}
+                  tabIndex={0}
+                  aria-expanded={isOpen}
                   className="hover:bg-slate-800/70 transition-colors cursor-pointer"
                 >
                   <td className="px-4 py-3 text-sm text-slate-200">{alert.clusterName}</td>
@@ -327,6 +339,29 @@ export default function FleetAlertsView() {
                     </span>
                   </td>
                 </tr>
+                {isOpen && (
+                  <tr data-testid="fleet-alert-detail" className="bg-slate-900/60">
+                    <td colSpan={6} className="px-4 py-3 text-xs space-y-2">
+                      {summary && <p className="text-slate-200">{summary}</p>}
+                      {description && <p className="text-slate-400 whitespace-pre-wrap">{description}</p>}
+                      {!summary && !description && <p className="text-slate-500 italic">This alert has no summary or description.</p>}
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(alert.labels ?? {}).map(([k, v]) => (
+                          <span key={k} className="font-mono px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-300">{k}={v}</span>
+                        ))}
+                      </div>
+                      {metricsAvailableFor(alert.clusterId) ? (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); openInAlerts(alert); }}
+                          className="text-blue-400 hover:text-blue-300">
+                          Open in Alerts
+                        </button>
+                      ) : (
+                        <p className="text-slate-500">Silencing and alert history are available for the local cluster only.</p>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               );
             })}
           </tbody>
