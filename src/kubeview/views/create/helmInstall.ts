@@ -37,11 +37,13 @@ export function helmArgs(a: HelmAction, namespace: string): string[] {
       return ['install', a.releaseName, a.chartName, '--repo', a.repoUrl, '--namespace', namespace,
         ...(a.version ? ['--version', a.version] : []), ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
     case 'upgrade':
+      // --reset-values: the values given (possibly none) replace the release's
+      // values. Without it Helm 3 reuses the previous values when none are given.
       return ['upgrade', a.releaseName, a.chartName, '--repo', a.repoUrl, '--namespace', namespace,
-        ...(a.version ? ['--version', a.version] : []), ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
+        ...(a.version ? ['--version', a.version] : []), '--reset-values', ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
     case 'upgrade-stored':
       return ['upgrade', a.releaseName, `${CHART_MOUNT}/${CHART_ARCHIVE_KEY}`, '--namespace', namespace,
-        ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
+        '--reset-values', ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
     case 'rollback':
       return ['rollback', a.releaseName, String(a.revision), '--namespace', namespace, '--wait', '--timeout', '5m'];
     case 'uninstall':

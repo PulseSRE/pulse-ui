@@ -5,7 +5,9 @@
  * templates and other files) inside every release Secret. That is enough to
  * run "helm upgrade" with edited values and the same chart version when the
  * chart's repository is not configured in Pulse. Helm does not store
- * subcharts, so a chart with dependencies cannot be rebuilt this way.
+ * subcharts — declared dependencies or charts vendored in charts/ — so a
+ * release that rendered any subchart cannot be rebuilt this way: the rebuilt
+ * chart would lack them and the upgrade would delete what they rendered.
  */
 import { dump } from 'js-yaml';
 
@@ -22,6 +24,29 @@ export interface StoredChart {
   files: StoredChartFile[];
   /** Base64 of values.schema.json, when the chart has one. */
   schema?: string;
+  /** Subcharts the release rendered (from its manifest and hooks), which the record does not contain. */
+  renderedSubcharts: string[];
+}
+
+/**
+ * Subcharts a release rendered, by name. Helm marks each rendered document
+ * with `# Source: <chart>/charts/<sub>/templates/…` and each hook with its
+ * path, whether or not Chart.yaml declares the subchart.
+ */
+export function renderedSubcharts(rel: Record<string, any> | null): string[] {
+  const names = new Set<string>();
+  const add = (path: string) => {
+    const m = /^[^/\n]+\/charts\/([^/\n]+)\//.exec(path);
+    if (m) names.add(m[1]);
+  };
+  if (typeof rel?.manifest === 'string') {
+    for (const m of rel.manifest.matchAll(/^# Source: (.+)$/gm)) add(m[1].trim());
+  }
+  for (const h of Array.isArray(rel?.hooks) ? rel!.hooks : []) {
+    if (typeof h?.path === 'string') add(h.path);
+    if (typeof h?.manifest === 'string') for (const m of h.manifest.matchAll(/^# Source: (.+)$/gm)) add(m[1].trim());
+  }
+  return [...names].sort();
 }
 
 /** The chart as stored in a decoded release record, or undefined when it is not there. */
@@ -36,6 +61,7 @@ export function storedChartFromRelease(rel: Record<string, any> | null): StoredC
     templates: files(chart.templates),
     files: files(chart.files),
     schema: typeof chart.schema === 'string' && chart.schema ? chart.schema : undefined,
+    renderedSubcharts: renderedSubcharts(rel),
   };
 }
 
@@ -46,6 +72,9 @@ export function storedChartBlocker(chart: StoredChart | undefined): string | nul
   if (Array.isArray(deps) && deps.length > 0) {
     const names = deps.map((d: { name?: string }) => d?.name).filter(Boolean).join(', ');
     return `The chart depends on ${names || 'subcharts'}, and Helm does not keep subcharts in the release record, so the chart cannot be rebuilt from it.`;
+  }
+  if (chart.renderedSubcharts.length > 0) {
+    return `The release rendered the subchart${chart.renderedSubcharts.length === 1 ? '' : 's'} ${chart.renderedSubcharts.join(', ')} (vendored in charts/), and Helm does not keep subcharts in the release record: an upgrade with the rebuilt chart would delete everything they rendered.`;
   }
   return null;
 }

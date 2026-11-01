@@ -148,7 +148,8 @@ describe('Compute machines', () => {
     await waitFor(enabled('Pause MachineConfigPool worker'));
     fireEvent.click(screen.getByRole('button', { name: 'Pause MachineConfigPool worker' }));
     let dialog = await screen.findByRole('dialog');
-    expect(dialog.textContent).toMatch(/Certificates still rotate/);
+    expect(dialog.textContent).toMatch(/rotated certificates .* do not reach nodes in a paused pool, and kubelet certificates can expire/);
+    expect(dialog.textContent).not.toMatch(/Certificates still rotate/);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Pause' }));
     await waitFor(() => expect(writes()).toHaveLength(1));
     expect(writes()[0]).toMatchObject({ method: 'PATCH', path: '/apis/machineconfiguration.openshift.io/v1/machineconfigpools/worker', body: { spec: { paused: true } } });

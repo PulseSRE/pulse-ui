@@ -9,7 +9,7 @@
  */
 import { loadAll } from 'js-yaml';
 import type { Secret } from './types';
-import { storedChartFromRelease, type StoredChart } from './helmChartArchive';
+import { renderedSubcharts, storedChartFromRelease, type StoredChart } from './helmChartArchive';
 
 export interface HelmRevision {
   name: string;
@@ -26,8 +26,10 @@ export interface HelmRevision {
   description?: string;
   /** Objects in the rendered manifest (what uninstall deletes, what rollback restores). */
   resources?: Array<{ apiVersion: string; kind: string; name: string }>;
-  /** The chart Helm stored with this revision (kept on the latest revision only). */
+  /** The chart Helm stored with this revision (kept only on the revision Edit values starts from). */
   storedChart?: StoredChart;
+  /** The release rendered subcharts (declared or vendored in charts/), which the record does not contain. */
+  hasSubcharts?: boolean;
   secretName: string;
 }
 
@@ -96,7 +98,18 @@ export async function revisionFromSecret(s: Secret): Promise<HelmRevision> {
     description: rel.info?.description,
     status: rel.info?.status || base.status,
     storedChart: storedChartFromRelease(rel),
+    hasSubcharts: renderedSubcharts(rel).length > 0 || (Array.isArray(rel.chart?.metadata?.dependencies) && rel.chart.metadata.dependencies.length > 0),
   };
+}
+
+/**
+ * The revision "Edit values" starts from: the deployed one. After a failed
+ * upgrade the latest revision is `failed` and the previous one is still
+ * `deployed`; its chart and values are what is running. Falls back to the
+ * latest when no revision is deployed. `revs` is newest first.
+ */
+export function valuesBaseRevision<T extends HelmRevision>(revs: T[]): T | undefined {
+  return revs.find((r) => r.status === 'deployed') ?? revs[0];
 }
 
 /** One summary per release (namespace + name): its highest revision, with every revision attached. */
@@ -110,9 +123,10 @@ export async function summarizeHelmReleases(secrets: Secret[]): Promise<HelmRele
   }
   return [...byRelease.values()].map((revs) => {
     revs.sort((a, b) => b.revision - a.revision);
-    // Only the latest revision's chart is used (a values-only upgrade); drop
-    // the others so every revision's templates are not kept in memory.
-    const revisions = revs.map((r, i) => (i === 0 ? r : { ...r, storedChart: undefined }));
+    // Only the chart of the revision a values-only upgrade starts from is
+    // used; drop the others so every revision's templates are not kept.
+    const base = valuesBaseRevision(revs);
+    const revisions = revs.map((r) => (r === base ? r : { ...r, storedChart: undefined }));
     return { ...revisions[0], revisions };
   }).sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name));
 }

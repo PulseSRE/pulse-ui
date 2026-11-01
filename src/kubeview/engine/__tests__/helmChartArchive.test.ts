@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { gunzipSync } from 'zlib';
-import { buildChartArchive, storedChartBlocker, storedChartFromRelease, tar } from '../helmChartArchive';
+import { buildChartArchive, renderedSubcharts, storedChartBlocker, storedChartFromRelease, tar } from '../helmChartArchive';
 
 const b64 = (s: string) => Buffer.from(s).toString('base64');
 
@@ -47,6 +47,18 @@ describe('chart archive from a release record', () => {
     expect(storedChartBlocker(withDeps)).toMatch(/depends on redis/);
     const escaping = storedChartFromRelease({ chart: { ...rel.chart, templates: [{ name: '../etc/passwd', data: b64('x') }] } });
     await expect(buildChartArchive(escaping)).rejects.toThrow(/is not relative/);
+  });
+
+  it('finds undeclared subcharts from the manifest sources and hook paths, and refuses to rebuild', async () => {
+    const withSub = {
+      ...rel,
+      manifest: '---\n# Source: web/templates/deploy.yaml\nkind: Deployment\n---\n# Source: web/charts/redis/templates/sts.yaml\nkind: StatefulSet\n',
+      hooks: [{ path: 'web/charts/pg/templates/job.yaml', manifest: '' }],
+    };
+    expect(renderedSubcharts(withSub)).toEqual(['pg', 'redis']);
+    expect(renderedSubcharts({ ...rel, manifest: '# Source: web/templates/charts-config.yaml\n' })).toEqual([]);
+    await expect(buildChartArchive(storedChartFromRelease(withSub))).rejects.toThrow(/subcharts pg, redis \(vendored in charts\/\)/);
+    expect(storedChartBlocker(storedChartFromRelease(rel))).toBeNull();
   });
 
   it('ends the archive with two zero blocks and pads file data to 512 bytes', () => {

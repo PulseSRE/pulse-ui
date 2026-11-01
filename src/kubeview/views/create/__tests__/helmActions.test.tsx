@@ -84,7 +84,7 @@ describe('Helm release actions', () => {
     await waitFor(() => expect(jobArgs()).toBeDefined());
     const secret = h.writes().find((w) => w.path === '/api/v1/namespaces/team-a/secrets');
     expect(secret?.body.stringData).toEqual({ 'values.yaml': 'replicaCount: 4\n' });
-    expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://charts.example.com', '--namespace', 'team-a', '--version', '15.2.0', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
+    expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://charts.example.com', '--namespace', 'team-a', '--version', '15.2.0', '--reset-values', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
     const spec = h.writes().find((w) => w.path === JOBS)!.body.spec.template.spec;
     expect(spec.volumes).toContainEqual({ name: 'values', secret: { secretName: 'helm-values-shop-x1' } });
     expect(spec.containers[0].image).toBe(RUNNER);
@@ -140,7 +140,8 @@ metadata:
     fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: '' } });
     expect(within(dialog).getByText(/No values: the release is reset to the chart's defaults/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
-    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://mirror.example.com', '--namespace', 'team-a', '--version', '15.0.0', '--wait', '--timeout', '5m']));
+    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://mirror.example.com', '--namespace', 'team-a', '--version', '15.0.0', '--reset-values', '--wait', '--timeout', '5m']));
+    // No values file: --reset-values makes the release use the chart's defaults, as the dialog says, instead of Helm reusing the previous values.
     expect(h.writes().some((w) => w.path.endsWith('/secrets'))).toBe(false);
   });
 
@@ -162,7 +163,7 @@ metadata:
     fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: 'replicaCount: 5\n' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Apply values' }));
 
-    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', '/tmp/chart/chart.tgz', '--namespace', 'team-a', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']));
+    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', '/tmp/chart/chart.tgz', '--namespace', 'team-a', '--reset-values', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']));
     const secrets = h.writes().filter((w) => w.method === 'POST' && w.path === '/api/v1/namespaces/team-a/secrets');
     expect(secrets.map((w) => w.body.metadata.generateName)).toEqual(['helm-chart-shop-', 'helm-values-shop-']);
     expect(secrets[1].body.stringData).toEqual({ 'values.yaml': 'replicaCount: 5\n' });
@@ -209,6 +210,59 @@ metadata:
     await waitFor(() => expect(h.writes().filter((w) => w.method === 'DELETE').map((w) => w.path).sort())
       .toEqual(['/api/v1/namespaces/team-a/secrets/helm-chart-shop-x1', '/api/v1/namespaces/team-a/secrets/helm-values-shop-x1']));
     expect(screen.queryByTestId('job-progress')).toBeNull();
+  });
+
+  it('Edit values refuses a release that rendered an undeclared subchart vendored in charts/', async () => {
+    const vendored = `${PLAIN_MANIFEST}---
+# Source: nginx/charts/redis/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: shop-redis
+`;
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.method === 'GET' && r.path.includes('owner%3Dhelm')
+      ? json({ items: [releaseSecret('shop', 'team-a', 1, 'deployed', '15.1.0', {}, vendored)] })
+      : base(r));
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
+    await screen.findByTestId('helm-release-shop');
+    await clickWhenEnabled('Edit values of shop');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/rendered the subchart redis \(vendored in charts\/\).*would delete everything they rendered/)).toBeTruthy();
+    expect(within(dialog).queryByLabelText('Values')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+    expect(h.writes()).toHaveLength(0);
+  });
+
+  it('after a failed upgrade, Edit values starts from the deployed revision\'s chart and values and says so', async () => {
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.method === 'GET' && r.path.includes('owner%3Dhelm')
+      ? json({ items: [
+        releaseSecret('shop', 'team-a', 1, 'deployed', '15.1.0', { replicaCount: 2 }),
+        releaseSecret('shop', 'team-a', 2, 'failed', '15.2.0', { replicaCount: 9 }),
+      ] })
+      : base(r));
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
+    await screen.findByTestId('helm-release-shop');
+    await clickWhenEnabled('Edit values of shop');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/chart Helm stored in rev 1 \(nginx 15\.1\.0\).*The latest revision, rev 2, is failed; this starts from rev 1, the deployed one/)).toBeTruthy();
+    expect((within(dialog).getByLabelText('Values') as HTMLTextAreaElement).value).toBe('replicaCount: 2\n');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Apply values' }));
+    await waitFor(() => expect(jobArgs()).toBeDefined());
+    const chart = h.writes().find((w) => w.method === 'POST' && w.body?.metadata?.generateName === 'helm-chart-shop-')!;
+    const files = untar(gunzipSync(Buffer.from(chart.body.data['chart.tgz'], 'base64')));
+    expect(files['nginx/Chart.yaml']).toMatch(/version: 15\.1\.0/);
+  });
+
+  it('Edit values is disabled without permission to create Secrets; Upgrade is not', async () => {
+    h.state.denied.add('create secrets');
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />);
+    await screen.findByTestId('helm-release-shop');
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Upgrade shop' }) as HTMLButtonElement).disabled).toBe(false));
+    const edit = screen.getByRole('button', { name: 'Edit values of shop' }) as HTMLButtonElement;
+    expect(edit.disabled).toBe(true);
+    expect(edit.title).toBe('You do not have permission to create Secrets in team-a');
   });
 
   it('labels Upgrade with the newest version the repository offers', async () => {
@@ -270,6 +324,13 @@ metadata:
 });
 
 describe('helm runner pieces', () => {
+  it('upgrade args always carry --reset-values, so empty values mean chart defaults', () => {
+    expect(helmArgs({ action: 'upgrade', releaseName: 'r', chartName: 'c', repoUrl: 'https://x' }, 'ns'))
+      .toEqual(['upgrade', 'r', 'c', '--repo', 'https://x', '--namespace', 'ns', '--reset-values', '--wait', '--timeout', '5m']);
+    expect(helmArgs({ action: 'upgrade-stored', releaseName: 'r', chartSecretName: 'cs' }, 'ns'))
+      .toEqual(['upgrade', 'r', '/tmp/chart/chart.tgz', '--namespace', 'ns', '--reset-values', '--wait', '--timeout', '5m']);
+  });
+
   it('install args carry the chosen version and the values file', () => {
     expect(helmArgs({ action: 'install', releaseName: 'r', chartName: 'c', repoUrl: 'https://x', version: '1.2.3', valuesSecretName: 's' }, 'ns'))
       .toEqual(['install', 'r', 'c', '--repo', 'https://x', '--namespace', 'ns', '--version', '1.2.3', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);

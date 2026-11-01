@@ -28,7 +28,7 @@ export function mcpPauseSpec(mcp: K8sResource): ActionSpec {
       }
     : {
         title: `Pause MachineConfigPool "${name}"?`,
-        description: 'Node updates stop for this pool: no MachineConfig changes, including a cluster update\'s new OS and configuration, are applied to its nodes, so they are not drained or rebooted until it is unpaused. Certificates still rotate. Do not leave the pool paused for long: its nodes fall behind the rest of the cluster, and later cluster updates can be blocked until they catch up.',
+        description: 'Node updates stop for this pool: no MachineConfig changes, including a cluster update\'s new OS and configuration, are applied to its nodes, so they are not drained or rebooted until it is unpaused. On some OpenShift versions, rotated certificates (such as the kube-apiserver-to-kubelet signer CA) do not reach nodes in a paused pool, and kubelet certificates can expire. Do not leave the pool paused for long: its nodes also fall behind the rest of the cluster, and later cluster updates can be blocked until they catch up.',
         confirmLabel: 'Pause',
         run: (cid) => sendWrite(setMcpPaused(mcp, true), cid),
         success: `MachineConfigPool "${name}" paused`,

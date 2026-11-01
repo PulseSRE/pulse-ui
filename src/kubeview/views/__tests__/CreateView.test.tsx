@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -116,6 +116,25 @@ describe('CreateView', () => {
     expect(screen.getByTestId('yaml-editor')).toBeDefined();
     expect(screen.getByText('Create Pod')).toBeDefined();
     expect(screen.queryByRole('tab', { name: /Quick Deploy/ })).toBeNull();
+  });
+
+  it.each([
+    ['networking.k8s.io/v1/networkpolicies', 'NetworkPolicy'],
+    ['v1/configmaps', 'ConfigMap'],
+    ['loki.grafana.com/v1/lokistacks', 'LokiStack'],
+    ['v1/persistentvolumeclaims', 'PersistentVolumeClaim'],
+  ])('with the resource registry not loaded yet, /create/%s starts from the %s template', (gvr, kind) => {
+    renderCreateView({ gvrKey: gvr }, `/create/${gvr.replace(/\//g, '~')}`);
+    expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).toMatch(new RegExp(`^kind: ${kind}$`, 'm'));
+    expect(screen.getByText(`Create ${kind}`)).toBeDefined();
+  });
+
+  it('with the registry not loaded and no template, the skeleton names a real kind', async () => {
+    renderCreateView({ gvrKey: 'v1/serviceaccounts' }, '/create/v1~serviceaccounts');
+    expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).toMatch(/^kind: ServiceAccount$/m);
+    cleanup();
+    renderCreateView({ gvrKey: 'v1/resourcequotas' }, '/create/v1~resourcequotas');
+    await waitFor(() => expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).toMatch(/^kind: ResourceQuota$/m));
   });
 
   it('the hub with ?tab=yaml opens the Import YAML tab, not an editor', () => {

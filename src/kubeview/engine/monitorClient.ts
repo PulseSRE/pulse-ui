@@ -15,6 +15,9 @@ export interface ResourceRef {
   kind: string;
   name: string;
   namespace?: string;
+  /** The controller that owns it, when the agent reports one. */
+  ownerKind?: string;
+  ownerName?: string;
 }
 
 export interface InvestigationPhase {
@@ -46,6 +49,8 @@ export interface Finding {
   confidence?: number;
   noiseScore?: number;
   timestamp: number;
+  /** When the condition began (epoch ms), from the agent; `timestamp` is when it was reported. */
+  startedAt?: number;
   investigationPhases?: InvestigationPhase[];
   planId?: string;
   planName?: string;

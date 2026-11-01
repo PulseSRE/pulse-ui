@@ -54,6 +54,19 @@ export function kindFromPlural(plural: string): string {
     cronjobs: 'CronJob',
     configmaps: 'ConfigMap',
     serviceaccounts: 'ServiceAccount',
+    resourcequotas: 'ResourceQuota',
+    limitranges: 'LimitRange',
+    persistentvolumes: 'PersistentVolume',
+    storageclasses: 'StorageClass',
+    clusterroles: 'ClusterRole',
+    clusterrolebindings: 'ClusterRoleBinding',
+    rolebindings: 'RoleBinding',
+    customresourcedefinitions: 'CustomResourceDefinition',
+    prometheusrules: 'PrometheusRule',
+    servicemonitors: 'ServiceMonitor',
+    machinehealthchecks: 'MachineHealthCheck',
+    clusterautoscalers: 'ClusterAutoscaler',
+    machineautoscalers: 'MachineAutoscaler',
   };
   if (special[plural]) return special[plural];
   const singular = plural.endsWith('ies') ? `${plural.slice(0, -3)}y` : plural.replace(/s$/, '');

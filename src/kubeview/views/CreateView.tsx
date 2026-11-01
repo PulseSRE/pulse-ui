@@ -10,7 +10,7 @@ import { useClusterStore } from '../store/clusterStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
-import { resolveSnippet, getSnippetSuggestions, type Snippet } from '../components/yaml/SnippetEngine';
+import { resolveSnippet, snippets, type Snippet } from '../components/yaml/SnippetEngine';
 import { k8sFetch } from '../engine/query';
 import { parseManifest, describeManifest, type ManifestDocument } from '../engine/manifest';
 import { useFleetStore } from '../store/fleetStore';
@@ -64,6 +64,26 @@ function generateSpecFromSchema(properties: Record<string, any>, indent = 2): st
   return lines.join('\n');
 }
 
+/** Lowercase plural of a kind, as an API resource name (NetworkPolicy → networkpolicies). */
+function pluralOfKind(kind: string): string {
+  const k = kind.toLowerCase();
+  if (/[^aeiou]y$/.test(k)) return `${k.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/.test(k)) return `${k}es`;
+  return `${k}s`;
+}
+
+/** The first snippet whose manifest is of this kind, matched by plural or case-insensitive kind. */
+function snippetForKind(candidates: Snippet[], plural: string, kind: string): Snippet | undefined {
+  const p = plural.toLowerCase();
+  const k = kind.toLowerCase();
+  return candidates.find((sn) => {
+    const m = /^kind:\s*(\S+)\s*$/m.exec(sn.body);
+    if (!m) return false;
+    const sk = m[1].toLowerCase();
+    return sk === k || pluralOfKind(sk) === p;
+  });
+}
+
 interface CreateViewProps {
   /**
    * The kind to create (`/create/<gvr>`): the page opens straight into its
@@ -82,6 +102,7 @@ interface CreateResult {
 }
 
 import { renderCreateTemplate } from '../engine/createTemplates';
+import { kindFromPlural } from '../engine/topologyLinks';
 
 
 export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
@@ -117,7 +138,7 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   const resourcePlural = gvrParts[gvrParts.length - 1];
   const resourceType = registry?.get(activeGvr) ?? (activeGvr.split('/').length === 2 ? registry?.get(`core/${activeGvr}`) : undefined);
   // A blank editor (no kind chosen) says "resource" until its YAML names one.
-  const fallbackKind = resourceType?.kind || (resourcePlural ? resourcePlural.replace(/s$/, '').replace(/^./, (c) => c.toUpperCase()) : 'resource');
+  const fallbackKind = resourceType?.kind || (resourcePlural ? kindFromPlural(resourcePlural) : 'resource');
   const defaultNs = selectedNamespace !== '*' ? selectedNamespace : 'default';
   // What the editor actually holds, parsed structurally: the header, create and
   // validate all follow the documents, not the route the editor was opened from.
@@ -138,10 +159,11 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
       return;
     }
     if (!hub) {
-      const shortName = resourcePlural.replace(/s$/, '').toLowerCase();
-      // Suggestions match by substring ("pod" finds the PVC snippets): use one
-      // only when it is a manifest of this kind.
-      const snip = getSnippetSuggestions(shortName).find((sn) => new RegExp(`^kind:\\s*${fallbackKind}\\s*$`, 'm').test(sn.body));
+      // A template is used only when it is a manifest of this kind (a substring
+      // search would give /create/v1~pods a PVC). Compared by plural and
+      // case-insensitively, because before the resource registry loads (deep
+      // link, reload, cluster switch) the kind is only a guess from the plural.
+      const snip = snippetForKind(snippets, resourcePlural, fallbackKind);
       if (snip) {
         const resolved = resolveSnippet(snip);
         const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
@@ -184,7 +206,7 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
     const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
 
     const rt = registry?.get(gvr) ?? (parts.length === 2 ? registry?.get(`core/${gvr}`) : undefined);
-    const kindName = rt?.kind || plural.replace(/s$/, '').replace(/^./, c => c.toUpperCase());
+    const kindName = rt?.kind || kindFromPlural(plural);
 
     let schemaYaml = '';
     if (group) {

@@ -586,7 +586,8 @@ describe('UpdatesTab — pause and resume a MachineConfigPool', () => {
     fireEvent.click(within(progress).getByRole('button', { name: 'Pause MachineConfigPool master' }));
     const dialog = await screen.findByRole('dialog');
     expect(dialog.textContent).toMatch(/Node updates stop for this pool/);
-    expect(dialog.textContent).toMatch(/Certificates still rotate/);
+    expect(dialog.textContent).toMatch(/rotated certificates .* do not reach nodes in a paused pool, and kubelet certificates can expire/);
+    expect(dialog.textContent).not.toMatch(/Certificates still rotate/);
     expect(dialog.textContent).toMatch(/Do not leave the pool paused for long/);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Pause' }));
     await vi.waitFor(() => expect(k8sPatch).toHaveBeenCalledTimes(1));

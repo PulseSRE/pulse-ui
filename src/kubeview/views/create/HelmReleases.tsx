@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dump, load } from 'js-yaml';
 import { Ship, FileText, ArrowUpCircle, RotateCcw, Trash2, Folder, Pencil } from 'lucide-react';
 import { k8sFetch } from '../../engine/query';
-import { summarizeHelmReleases, type HelmReleaseSummary } from '../../engine/helmRelease';
+import { summarizeHelmReleases, valuesBaseRevision, type HelmReleaseSummary } from '../../engine/helmRelease';
 import type { Secret } from '../../engine/types';
 import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
@@ -138,6 +138,9 @@ function ReleaseRow({ release, charts, onValues, onAction }: {
 }) {
   const { allowed: canRun } = useCanI('create', 'batch', 'jobs', release.namespace);
   const denied = canRun ? undefined : `You do not have permission to create Jobs in ${release.namespace}`;
+  // Edit values also creates two Secrets (the rebuilt chart and the values).
+  const { allowed: canCreateSecrets } = useCanI('create', '', 'secrets', release.namespace);
+  const valuesDenied = denied ?? (canCreateSecrets ? undefined : `You do not have permission to create Secrets in ${release.namespace}`);
   const candidates = repoCandidates(charts, release);
   const noRepo = candidates.length === 0
     ? `Upgrading to another chart version needs the chart's repository: ${release.chart ?? 'this chart'} is not in any configured chart repository. Edit values still works with the installed chart.`
@@ -161,7 +164,7 @@ function ReleaseRow({ release, charts, onValues, onAction }: {
       </div>
       <div className="flex items-center gap-1.5">
         <Button size="sm" variant="ghost" onClick={onValues} aria-label={`Values of ${release.name}`}><FileText className="w-3.5 h-3.5" /> Values</Button>
-        <Button size="sm" variant="secondary" onClick={() => onAction('values')} disabled={!canRun} title={denied} aria-label={`Edit values of ${release.name}`}><Pencil className="w-3.5 h-3.5" /> Edit values</Button>
+        <Button size="sm" variant="secondary" onClick={() => onAction('values')} disabled={!!valuesDenied} title={valuesDenied} aria-label={`Edit values of ${release.name}`}><Pencil className="w-3.5 h-3.5" /> Edit values</Button>
         <Button size="sm" variant="secondary" onClick={() => onAction('upgrade')} disabled={!canRun || !!noRepo} title={denied ?? noRepo} aria-label={`Upgrade ${release.name}`}><ArrowUpCircle className="w-3.5 h-3.5" /> {upgradeLabel}</Button>
         <Button size="sm" variant="secondary" onClick={() => onAction('rollback')} disabled={!canRun || release.revisions.length < 2}
           title={denied ?? (release.revisions.length < 2 ? 'There is no earlier revision to roll back to' : undefined)} aria-label={`Roll back ${release.name}`}>
@@ -190,17 +193,22 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
   const source = candidates.find((c) => c.repoUrl === repoUrl);
   const [version, setVersion] = React.useState(source?.versions[0] ?? '');
   React.useEffect(() => { setVersion(source?.versions[0] ?? ''); }, [repoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [valuesText, setValuesText] = React.useState(r.values && Object.keys(r.values).length > 0 ? dump(r.values) : '');
+  // Edit values starts from the deployed revision (after a failed upgrade, the
+  // one still running), not necessarily the latest.
+  const base = target.kind === 'values' ? (valuesBaseRevision(r.revisions) ?? r) : r;
+  const [valuesText, setValuesText] = React.useState(base.values && Object.keys(base.values).length > 0 ? dump(base.values) : '');
   const [valuesError, setValuesError] = React.useState<string | null>(null);
   const earlier = r.revisions.filter((rev) => rev.revision !== r.revision);
   const [revision, setRevision] = React.useState<number>(earlier[0]?.revision ?? 0);
 
   // The runner's Role only covers some kinds; helm fails part-way on anything else.
   const editsValues = target.kind === 'upgrade' || target.kind === 'values';
-  const storedBlock = target.kind === 'values' ? storedChartBlocker(r.storedChart) : null;
+  const storedBlock = target.kind === 'values' ? storedChartBlocker(base.storedChart) : null;
   const affected = target.kind === 'rollback'
     ? r.revisions.find((rev) => rev.revision === revision)?.resources
-    : r.resources;
+    : target.kind === 'values' && base !== r
+      ? (base.resources && r.resources ? [...base.resources, ...r.resources] : undefined)
+      : r.resources;
   const uncovered = affected?.filter((x) => !runnerCanManage(x.apiVersion, x.kind)) ?? [];
   const runnerBlock = affected === undefined
     ? `The release record could not be read, so Pulse cannot check that the Helm runner may manage its resources.`
@@ -223,7 +231,7 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
       const rel = t.release;
       let jobName: string;
       if (t.kind === 'values') {
-        const chartArchive = await buildChartArchive(rel.storedChart);
+        const chartArchive = await buildChartArchive(base.storedChart);
         jobName = await runHelmAction(clusterId, rel.namespace, { action: 'upgrade-stored', releaseName: rel.name, chartArchive }, valuesText);
       } else if (t.kind === 'upgrade') {
         if (!source?.repoUrl) throw new Error(`Choose the repository to upgrade ${rel.chart ?? 'the chart'} from`);
@@ -243,11 +251,14 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
   const blocked = upgradeBlocked || !!storedBlock || !!runnerBlock;
   const resourceSummary = affected?.length ? `${affected.length} object${affected.length === 1 ? '' : 's'}: ${[...new Set(affected.map((x) => x.kind))].join(', ')}` : 'no objects';
   const title = target.kind === 'values' ? `Edit values of ${r.name}?` : target.kind === 'upgrade' ? `Upgrade ${r.name}?` : target.kind === 'rollback' ? `Roll back ${r.name}?` : `Uninstall ${r.name}?`;
-  const chartName = `${r.chart ?? 'chart'}${r.chartVersion ? ` ${r.chartVersion}` : ''}`;
+  const chartName = `${base.chart ?? 'chart'}${base.chartVersion ? ` ${base.chartVersion}` : ''}`;
+  const notLatest = target.kind === 'values' && base.revision !== r.revision
+    ? ` The latest revision, rev ${r.revision}, is ${r.status}; this starts from rev ${base.revision}, the deployed one, and its chart and values.`
+    : '';
   const description = target.kind === 'values'
     ? storedBlock
       ? `Pulse cannot edit this release's values: ${storedBlock}${candidates.length ? ' Use Upgrade, which fetches the chart from its repository.' : ' Add the chart\'s repository under Chart Repositories and use Upgrade instead.'}`
-      : `Runs "helm upgrade ${r.name}" in ${r.namespace} as a Job with the chart Helm stored in rev ${r.revision} (${chartName}), so no chart repository is needed and the chart version does not change. The values below replace rev ${r.revision}'s user values; previous values are not reused, so anything removed here falls back to the chart's default. The release moves to rev ${r.revision + 1}.`
+      : `Runs "helm upgrade ${r.name}" in ${r.namespace} as a Job with the chart Helm stored in rev ${base.revision} (${chartName}), so no chart repository is needed and the running chart version does not change. The values below replace rev ${base.revision}'s user values; previous values are not reused, so anything removed here falls back to the chart's default. The release moves to rev ${r.revision + 1}.${notLatest}`
     : target.kind === 'upgrade'
     ? upgradeBlocked
       ? `The chart ${r.chart ?? '(unknown)'} is not in any configured chart repository, so Pulse cannot fetch a version to upgrade to. Add its repository under Chart Repositories first.`

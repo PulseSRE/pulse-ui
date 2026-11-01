@@ -78,27 +78,63 @@ function escapeRe(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+interface SignalRef { kind: string; name: string; namespace?: string; ownerKind?: string; ownerName?: string }
+
+/**
+ * Where a time can be matched to a revision: only when the revisions' start
+ * times increase with their numbers. A Deployment rollback reuses the old
+ * ReplicaSet and gives it the newest revision number, so creation times no
+ * longer say when each revision ran (nor when the rollback happened); then
+ * signals are placed only by exact pod/ReplicaSet name.
+ */
+function timeMatcher(revisions: RevisionWindow[]): (ms: number) => number | null {
+  const byRev = [...revisions].sort((a, b) => a.revision - b.revision);
+  const starts = byRev.map((r) => (r.createdAt ? Date.parse(r.createdAt) : NaN));
+  if (byRev.length === 0 || starts.some((t) => !Number.isFinite(t))) return () => null;
+  if (!starts.every((t, i) => i === 0 || t >= starts[i - 1])) return () => null;
+  return (ms) => {
+    let found: number | null = null;
+    for (let i = 0; i < byRev.length; i++) if (starts[i] <= ms) found = byRev[i].revision;
+    return found;
+  };
+}
+
 /**
  * The revision a signal belongs to: exactly, when it names a pod or
  * ReplicaSet of a known Deployment revision; otherwise by when it started.
- * Null when it is not about this workload.
+ * Null when it is not about this workload. Every kind involved is
+ * namespaced, so a reference without a namespace (and none from its item)
+ * is not matched.
  */
 function revisionFor(
-  resources: Array<{ kind: string; name: string; namespace?: string }>,
+  resources: SignalRef[],
   startedMs: number,
   workload: WorkloadRef,
   revisions: RevisionWindow[],
+  byTime: (ms: number) => number | null,
+  itemNamespace?: string | null,
 ): number | null {
   let aboutWorkload = false;
   for (const r of resources) {
-    if (r.namespace && r.namespace !== workload.namespace) continue;
+    const ns = r.namespace || itemNamespace || undefined;
+    if (ns !== workload.namespace) continue;
     if (r.kind === workload.kind && r.name === workload.name) { aboutWorkload = true; continue; }
+    // A stated owner decides; it must be this workload (or, for a Deployment's pod, one of its ReplicaSets).
+    if (r.ownerKind && r.ownerName) {
+      if (r.ownerKind === workload.kind && r.ownerName === workload.name) { aboutWorkload = true; continue; }
+      if (workload.kind === 'Deployment' && r.ownerKind === 'ReplicaSet') {
+        const hit = revisions.find((rev) => rev.name === r.ownerName);
+        if (hit) return hit.revision;
+      }
+      continue;
+    }
     if (workload.kind === 'Deployment' && (r.kind === 'Pod' || r.kind === 'ReplicaSet')) {
       // Pods and ReplicaSets of a Deployment carry the ReplicaSet's name: an exact revision.
       const hit = revisions.find((rev) => (r.kind === 'ReplicaSet' ? r.name === rev.name : r.name.startsWith(`${rev.name}-`)));
       if (hit) return hit.revision;
     }
     if (r.kind === 'Pod') {
+      // Without an owner, a name of the controller's pattern is taken as its pod.
       const own = workload.kind === 'StatefulSet'
         ? new RegExp(`^${escapeRe(workload.name)}-\\d+$`)
         : workload.kind === 'DaemonSet' ? new RegExp(`^${escapeRe(workload.name)}-[a-z0-9]{5}$`) : null;
@@ -106,15 +142,7 @@ function revisionFor(
     }
   }
   if (!aboutWorkload || !Number.isFinite(startedMs)) return null;
-  const dated = revisions
-    .filter((r) => r.createdAt && Number.isFinite(Date.parse(r.createdAt)))
-    .sort((a, b) => Date.parse(a.createdAt!) - Date.parse(b.createdAt!));
-  let found: number | null = null;
-  for (const r of dated) {
-    if (Date.parse(r.createdAt!) <= startedMs) found = r.revision;
-    else break;
-  }
-  return found;
+  return byTime(startedMs);
 }
 
 /**
@@ -134,12 +162,15 @@ export function correlateClientSignals(
     if (!byRev.has(rev)) byRev.set(rev, []);
     byRev.get(rev)!.push(s);
   };
+  const byTime = timeMatcher(revisions);
   const inboxByFinding = new Map(inboxItems.filter((i) => i.finding_id).map((i) => [i.finding_id!, i]));
   const shownInbox = new Set<string>();
   for (const f of findings) {
     const item = inboxByFinding.get(f.id);
     if (item) shownInbox.add(item.id);
-    add(revisionFor(f.resources || [], f.timestamp, workload, revisions), {
+    // When the condition began (the agent's startedAt), not when it was last reported.
+    const started = typeof f.startedAt === 'number' && f.startedAt > 0 ? f.startedAt : f.timestamp;
+    add(revisionFor(f.resources || [], started, workload, revisions, byTime), {
       label: f.title,
       severity: f.severity,
       href: item ? `/inbox?task=${encodeURIComponent(item.id)}` : undefined,
@@ -148,7 +179,7 @@ export function correlateClientSignals(
   }
   for (const i of inboxItems) {
     if (shownInbox.has(i.id)) continue;
-    add(revisionFor(i.resources || [], i.created_at * 1000, workload, revisions), {
+    add(revisionFor(i.resources || [], i.created_at * 1000, workload, revisions, byTime, i.namespace), {
       label: i.title,
       severity: i.severity ?? undefined,
       href: `/inbox?task=${encodeURIComponent(i.id)}`,
