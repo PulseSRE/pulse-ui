@@ -4,6 +4,7 @@
  * of any kind (> 3), the Identity banner counted every subject including
  * system ones (> 5), and the Identity audit counted only Users (> 2).
  */
+import { isPlatformNamespace } from './platformNamespaces';
 import type { ClusterRoleBinding } from './types';
 
 /** More non-system cluster-admin subjects than this is flagged. */
@@ -24,7 +25,7 @@ export function isSystemBinding(name: string): boolean {
 
 export function isSystemSubject(s: { kind: string; name: string; namespace?: string }): boolean {
   if (s.name?.startsWith('system:')) return true;
-  if (s.kind === 'ServiceAccount' && (s.namespace?.startsWith('openshift-') || s.namespace?.startsWith('kube-'))) return true;
+  if (s.kind === 'ServiceAccount' && isPlatformNamespace(s.namespace)) return true;
   return false;
 }
 
