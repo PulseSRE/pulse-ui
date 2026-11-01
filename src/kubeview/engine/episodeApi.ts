@@ -44,6 +44,8 @@ export interface EpisodeSymptom {
   attached_at: number;
   detached_at: number | null;
   detached_by: string | null;
+  /** The symptom's open inbox item (agent ≥ Wave 7c); null when it has none. */
+  item_id?: string | null;
 }
 
 /** Config, RBAC or deployment activity shortly before an episode began. */

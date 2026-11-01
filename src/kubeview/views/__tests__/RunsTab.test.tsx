@@ -16,6 +16,7 @@ import React from 'react';
 
 vi.mock('@/lib/utils', () => ({ cn: (...args: unknown[]) => args.filter(Boolean).join(' ') }));
 
+import { MemoryRouter } from 'react-router-dom';
 import { RunsTab } from '../toolbox/RunsTab';
 
 const mockFetch = vi.fn();
@@ -23,7 +24,11 @@ global.fetch = mockFetch as unknown as typeof fetch;
 
 function renderWithProviders(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    </MemoryRouter>,
+  );
 }
 
 const runningFix = {

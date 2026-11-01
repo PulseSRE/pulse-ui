@@ -117,6 +117,8 @@ export const useCustomViewStore = create<CustomViewState>()(
             positions: v.positions || {},
             generatedAt: new Date(v.created_at).getTime(),
             owner: v.owner,
+            // Kept so the views list can filter by type (it was dropped here).
+            view_type: v.view_type,
           }))
           .filter((v: ViewSpec) => {
             if (seenIds.has(v.id)) return false;

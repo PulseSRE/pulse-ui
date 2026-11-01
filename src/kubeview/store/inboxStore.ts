@@ -18,6 +18,7 @@ import {
   createInboxTask,
   advanceInboxStatus,
   restoreInboxItem,
+  escalateInboxItem,
   type InboxItem,
   type InboxGroup,
   type InboxFilters,
@@ -68,8 +69,10 @@ interface InboxState {
   resolve: (id: string) => Promise<boolean>;
   pin: (id: string) => Promise<boolean>;
   restore: (id: string) => Promise<boolean>;
+  /** Re-raise as a fresh, untriaged task; the current item is resolved. Returns the new item id. */
+  escalate: (id: string) => Promise<string | null>;
   advanceStatus: (id: string, status: string) => Promise<boolean>;
-  createTask: (data: { title: string; summary?: string; namespace?: string }) => Promise<boolean>;
+  createTask: (data: { title: string; summary?: string; namespace?: string; due_date?: number }) => Promise<boolean>;
 }
 
 export const useInboxStore = create<InboxState>((set, get) => ({
@@ -168,6 +171,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     try {
       await unclaimInboxItem(id);
       get().refresh();
+      _toast('success', 'Released — back in the queue for anyone to claim');
       return true;
     } catch {
       _toast('error', 'Failed to unclaim');
@@ -231,6 +235,22 @@ export const useInboxStore = create<InboxState>((set, get) => ({
     } catch {
       _toast('error', 'Failed to restore');
       return false;
+    }
+  },
+
+  escalate: async (id) => {
+    try {
+      const { finding_id: newId } = await escalateInboxItem(id);
+      get().refresh();
+      useUIStore.getState().addToast({
+        type: 'success',
+        title: 'Escalated — re-opened as a new task at full priority',
+        action: newId ? { label: 'Open', onClick: () => get().setSelectedItem(newId) } : undefined,
+      });
+      return newId ?? null;
+    } catch {
+      _toast('error', 'Failed to escalate');
+      return null;
     }
   },
 

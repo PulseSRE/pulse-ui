@@ -28,6 +28,17 @@ export interface ActionRecord {
    * Absent on older agents, and on proposals nothing explains.
    */
   explainedBy?: string;
+  /**
+   * The open inbox item for this proposal's finding. Sent by the agent on
+   * pending proposals only, so a proposal can open its item and the item can
+   * answer its proposal.
+   */
+  inboxItemId?: string;
+  /** Who declined the proposal and why (on a rejection's action_report). */
+  rejectedBy?: string;
+  rejectionReason?: string;
+  /** On a rejection: whether fix learning could count it (false for proposals older than the cause field). */
+  learned?: boolean;
   durationMs: number;
   rollbackAvailable: boolean;
   rollbackAction?: { tool: string; input: Record<string, unknown> };
@@ -176,4 +187,28 @@ export async function requestRollback(actionId: string): Promise<void> {
       body?.error || `Failed to request rollback: ${res.status} ${res.statusText}`,
     );
   }
+}
+
+/**
+ * Decline a proposed fix, with the reason.
+ *
+ * Same authority as approving (a signed-in admin). The agent records the
+ * rejection against the fix's cause and strategy, so a fix people keep
+ * declining stops being proposed, and notes it on the finding's inbox item,
+ * which stays open. A 409 means the proposal was already answered.
+ */
+export async function rejectFix(actionId: string, reason: string): Promise<ActionRecord> {
+  const res = await agentFetch(
+    `${AGENT_BASE}/fix-history/${encodeURIComponent(actionId)}/reject`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    },
+  );
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(body?.error || body?.detail || `Failed to reject fix: ${res.status} ${res.statusText}`);
+  }
+  return body as ActionRecord;
 }

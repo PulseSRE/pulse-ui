@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import { EpisodePanel, timelineRangeFor } from '../EpisodePanel';
+import { MemoryRouter } from 'react-router-dom';
 
 const fetchOpenEpisodes = vi.fn();
 const fetchEpisode = vi.fn();
@@ -92,20 +93,20 @@ describe('EpisodePanel', () => {
 
   it('renders nothing when no episode is open', async () => {
     fetchOpenEpisodes.mockResolvedValue([]);
-    const { container } = render(<EpisodePanel />);
+    const { container } = render(<EpisodePanel />, { wrapper: MemoryRouter });
     await waitFor(() => expect(fetchOpenEpisodes).toHaveBeenCalled());
     expect(container.innerHTML).toBe('');
   });
 
   it('leads with the cause, not the symptoms', async () => {
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
     expect(screen.getByText('Cause')).toBeTruthy();
   });
 
   it('measures "started" from the episode when the cause reports no onset of its own', async () => {
     fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, started_at: Math.floor(Date.now() / 1000) - 600 }]);
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/started 10m ago/)).toBeTruthy();
   });
 
@@ -119,31 +120,31 @@ describe('EpisodePanel', () => {
         cause_started_at: Math.floor(Date.now() / 1000) - 2 * 86400,
       },
     ]);
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/started 2d ago/)).toBeTruthy();
     expect(screen.queryByText(/started 7s ago/)).toBeNull();
   });
 
   it('shows the blast radius so the list is not mistaken for separate problems', async () => {
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/2 symptoms across 2 namespaces/)).toBeTruthy();
     expect(screen.getByText(/not separate problems/i)).toBeTruthy();
   });
 
   it('folds the symptoms underneath the cause', async () => {
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(SYMPTOMS[0].title)).toBeTruthy();
     expect(screen.getByText(SYMPTOMS[1].title)).toBeTruthy();
   });
 
   it('marks a recurring episode', async () => {
     fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, recurrence_of: 'ep-earlier' }]);
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText('recurring')).toBeTruthy();
   });
 
   it('detaching a symptom tells the agent and removes it from view', async () => {
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText(SYMPTOMS[0].title);
 
     fireEvent.click(screen.getAllByTitle(/not caused by the episode/i)[0]);
@@ -156,14 +157,14 @@ describe('EpisodePanel', () => {
 
   it('survives the agent being unreachable', async () => {
     fetchOpenEpisodes.mockRejectedValue(new Error('offline'));
-    const { container } = render(<EpisodePanel />);
+    const { container } = render(<EpisodePanel />, { wrapper: MemoryRouter });
     await waitFor(() => expect(fetchOpenEpisodes).toHaveBeenCalled());
     expect(container.innerHTML).toBe('');
   });
 
   it('renders the cause even when its symptoms cannot be loaded', async () => {
     fetchEpisode.mockRejectedValue(new Error('offline'));
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
   });
 });
@@ -203,7 +204,7 @@ describe('EpisodePanel context', () => {
       symptoms: SYMPTOMS,
       recurrence: { occurrences: 6, recurring: true, window_seconds: 39600, interval_seconds: 7200 },
     });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     // "6 times in 11h · every 2h" — the sentence that turns a page into a diagnosis
     expect(await screen.findByText(/6 times in 11h/)).toBeTruthy();
     expect(screen.getByText(/every 2h/)).toBeTruthy();
@@ -215,14 +216,14 @@ describe('EpisodePanel context', () => {
       symptoms: SYMPTOMS,
       recurrence: { occurrences: 3, recurring: true, window_seconds: 39600 },
     });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/3 times in 11h/)).toBeTruthy();
     expect(screen.queryByText(/every/)).toBeNull();
   });
 
   it('shows what changed before it started, with how long before', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: CHANGES });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText('cluster-admin granted to svc/deployer')).toBeTruthy();
     expect(screen.getByText('−2m')).toBeTruthy();
     expect(screen.getByText('−7m')).toBeTruthy();
@@ -230,13 +231,13 @@ describe('EpisodePanel context', () => {
 
   it('does not claim the change caused it', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: CHANGES });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/not necessarily the cause/i)).toBeTruthy();
   });
 
   it('renders against an agent that sends neither field', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
     expect(screen.queryByText(/not necessarily the cause/i)).toBeNull();
   });
@@ -247,7 +248,7 @@ describe('EpisodePanel context', () => {
       symptoms: SYMPTOMS,
     });
     fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, recurrence_of: 'ep-earlier' }]);
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText('recurring')).toBeTruthy();
   });
 });
@@ -274,7 +275,7 @@ describe('EpisodePanel investigation and dismissal', () => {
         timestamp: 1, failed: false,
       },
     });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/peer latency/)).toBeTruthy();
     expect(screen.getByText(/check the network path/)).toBeTruthy();
   });
@@ -289,7 +290,7 @@ describe('EpisodePanel investigation and dismissal', () => {
         timestamp: 1, failed: true,
       },
     });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/Connection error/)).toBeTruthy();
     expect(screen.getByText(/without\s+root-cause analysis/)).toBeTruthy();
   });
@@ -305,7 +306,7 @@ describe('EpisodePanel investigation and dismissal', () => {
       recurrence: { occurrences: 6, recurring: true, window_seconds: 39600, interval_seconds: 7200 },
       changes: [{ category: 'audit_rbac', title: 'cluster-admin granted', namespace: 'ns', at: 1, seconds_before: 120 }],
     });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     // The prompt used to be read off an embedded chat panel. There is only one
     // chat surface now, so it is read off the message sent into the sidebar.
     //
@@ -326,14 +327,14 @@ describe('EpisodePanel investigation and dismissal', () => {
 
   it('an operator can dismiss the episode', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     fireEvent.click(await screen.findByText('Dismiss'));
     await waitFor(() => expect(dismissEpisode).toHaveBeenCalledWith('ep-1'));
   });
 
   it('renders against an agent that returns no investigation', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
     expect(screen.queryByTestId('inline-agent')).toBeNull();
   });
@@ -380,7 +381,7 @@ describe('an episode that explains nothing does not lead the queue', () => {
   it('puts the cause that explains the most first', async () => {
     // Returned worst-first by the API, as it was on the cluster.
     fetchOpenEpisodes.mockResolvedValue([EMPTY, FULL]);
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     await waitFor(() => expect(screen.getByText('HighOverallControlPlaneMemory')).toBeDefined());
     const rendered = document.body.textContent ?? '';
     expect(rendered.indexOf('HighOverallControlPlaneMemory')).toBeLessThan(
@@ -391,14 +392,14 @@ describe('an episode that explains nothing does not lead the queue', () => {
   it('says so in words rather than showing a bare zero', async () => {
     // "0 symptoms" reads like a count that failed to load.
     fetchOpenEpisodes.mockResolvedValue([EMPTY]);
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/explains nothing yet/)).toBeDefined();
     expect(screen.queryByText(/0 symptoms/)).toBeNull();
   });
 
   it('does not dress it as an alarm', async () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY]);
-    const { container } = render(<EpisodePanel />);
+    const { container } = render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText(/explains nothing yet/);
     const card = container.querySelector('div[class*="rounded-lg"][class*="border"]');
     expect(card?.className).not.toMatch(/border-red/);
@@ -411,7 +412,7 @@ describe('an episode that explains nothing does not lead the queue', () => {
     // A detail fetch that never resolves pins the pre-load state.
     fetchOpenEpisodes.mockResolvedValue([FULL]);
     fetchEpisode.mockImplementation(() => new Promise(() => {}));
-    const { container } = render(<EpisodePanel />);
+    const { container } = render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText('HighOverallControlPlaneMemory');
     expect(screen.queryByText(/explains nothing yet/)).toBeNull();
     const card = container.querySelector('div[class*="rounded-lg"][class*="border"]');
@@ -421,13 +422,13 @@ describe('an episode that explains nothing does not lead the queue', () => {
   it('trusts the list payload for an empty episode before detail loads too', async () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY]);
     fetchEpisode.mockImplementation(() => new Promise(() => {}));
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/explains nothing yet/)).toBeDefined();
   });
 
   it('an episode that does explain something keeps the alarm', async () => {
     fetchOpenEpisodes.mockResolvedValue([FULL]);
-    const { container } = render(<EpisodePanel />);
+    const { container } = render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText('HighOverallControlPlaneMemory');
     const card = container.querySelector('div[class*="rounded-lg"][class*="border"]');
     expect(card?.className).toMatch(/border-red/);
@@ -469,7 +470,7 @@ describe('an episode points at what else changed', () => {
   it('links from the card with that range', async () => {
     fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, symptom_count: 2 }]);
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     const link = await screen.findByText(/What else changed/);
     expect(link.closest('a')?.getAttribute('href')).toMatch(/^\/timeline\?range=/);
   });
@@ -508,7 +509,7 @@ describe('an episode card offers a way to act on the cause', () => {
   it('offers a fix action even with no symptoms and no investigation', async () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/How do I fix this\?/)).toBeDefined();
   });
 
@@ -518,7 +519,7 @@ describe('an episode card offers a way to act on the cause', () => {
     // connection states, and nothing to say which one to use.
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     fireEvent.click(await screen.findByText(/How do I fix this\?/));
 
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
@@ -531,7 +532,7 @@ describe('an episode card offers a way to act on the cause', () => {
     // Previously impossible: no symptoms meant no chevron, so no way in.
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     fireEvent.click(await screen.findByText(/How do I fix this\?/));
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
     expect(connectAndSend.mock.calls[0][0]).toContain('ControlPlaneNodeMemoryHigh');
@@ -540,7 +541,7 @@ describe('an episode card offers a way to act on the cause', () => {
   it('tells the agent which episode is being asked about', async () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     fireEvent.click(await screen.findByText(/How do I fix this\?/));
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
     expect(connectAndSend.mock.calls[0][1]).toMatchObject({ kind: 'Episode', name: EMPTY_EP.id });
@@ -549,7 +550,7 @@ describe('an episode card offers a way to act on the cause', () => {
   it('does not start a conversation until asked', async () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText(/How do I fix this\?/);
     expect(connectAndSend).not.toHaveBeenCalled();
   });
@@ -561,7 +562,7 @@ describe('an episode card offers a way to act on the cause', () => {
       symptoms: SYMPTOMS,
       investigation: { summary: 'etcd is thrashing', failed: false, recommended_fix: 'add memory' },
     });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText(/How do I fix this\?/);
     expect(screen.queryByTestId('inline-agent')).toBeNull();
   });
@@ -601,14 +602,14 @@ describe('an episode leads with what changed', () => {
 
   it('names the related change on the card without expanding it', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: [ROLLOUT, NEIGHBOUR] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     expect(await screen.findByText(/Changed 9m before:/)).toBeTruthy();
     expect(screen.getAllByText(ROLLOUT.title).length).toBeGreaterThan(0);
   });
 
   it('does not lead with a change that is merely nearby', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: [NEIGHBOUR] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText(EPISODE.cause_title);
     await waitFor(() => expect(fetchEpisode).toHaveBeenCalled());
     expect(screen.queryByText(/Changed 1m before:/)).toBeNull();
@@ -616,7 +617,7 @@ describe('an episode leads with what changed', () => {
 
   it('rolling back goes through the agent, which asks before changing anything', async () => {
     fetchEpisode.mockResolvedValue({ episode: EPISODE, symptoms: SYMPTOMS, changes: [ROLLOUT] });
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     const [button] = await screen.findAllByRole('button', { name: /Roll back/ });
     fireEvent.click(button);
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
@@ -627,7 +628,7 @@ describe('an episode leads with what changed', () => {
 
   it('a failed detach is reported and the symptom stays', async () => {
     detachSymptom.mockRejectedValueOnce(new Error('agent unavailable'));
-    render(<EpisodePanel />);
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
     await screen.findByText(EPISODE.cause_title);
     const rows = await screen.findAllByRole('button', { name: /Not related/ });
     fireEvent.click(rows[0]);

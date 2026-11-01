@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { ProposedFixes } from '../ProposedFixes';
 import { approveFix, fetchFixHistory } from '../../../engine/fixHistory';
+import { resetApprovalsStore } from '../../../store/approvalsStore';
 
 vi.mock('../../../engine/fixHistory', () => ({
   fetchFixHistory: vi.fn(),
@@ -28,6 +29,7 @@ const PROPOSAL = {
 describe('ProposedFixes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetApprovalsStore();
     vi.mocked(fetchFixHistory).mockResolvedValue({ actions: [PROPOSAL], total: 1, page: 1, pageSize: 20 });
     vi.mocked(approveFix).mockResolvedValue({ ...PROPOSAL, status: 'completed', tool: 'delete_pod' });
   });
