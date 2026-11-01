@@ -15,7 +15,8 @@ import { MetricCard as SparklineMetricCard } from '../../metrics/Sparkline';
 import { pickDefaultContainer } from '../../logs/pickDefaultContainer';
 import { k8sFetch } from '../../../engine/query';
 import { LOCAL_CLUSTER_ID } from '../../../engine/clusterConnection';
-import { promFetch, METRICS_CLUSTER_ID } from '../../metrics/prometheus';
+import { queryInstant, METRICS_CLUSTER_ID } from '../../metrics/prometheus';
+import { useQuery } from '@tanstack/react-query';
 import type {
   ComponentSpec,
   ChartSpec,
@@ -252,34 +253,28 @@ export function AgentProgressList({ spec }: { spec: ProgressListSpec }) {
 
 /** Single big number with trend indicator — auto-fetches from Prometheus when query prop is present */
 export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
-  const extra = spec as unknown as Record<string, unknown>;
-  const query = extra.query as string || '';
+  const query = spec.query || '';
   const title = spec.title || '';
-  const [live, setLive] = useState<{ state: 'idle' | 'ok' | 'nodata' | 'error'; value?: string }>({ state: 'idle' });
-
-  useEffect(() => {
-    if (!query) return;
-    let cancelled = false;
-    // The agent's queries are about its own (local) cluster's Prometheus.
-    promFetch(`/api/v1/query?query=${encodeURIComponent(query)}`, METRICS_CLUSTER_ID)
-      .then(r => {
-        if (!r.ok) throw new Error(`Prometheus returned ${r.status}`);
-        return r.json();
-      })
-      .then(data => {
-        if (cancelled) return;
-        const results = data?.data?.result || [];
-        if (results.length > 0 && results[0].value?.[1] !== undefined) {
-          const raw = parseFloat(results[0].value[1]);
-          setLive({ state: 'ok', value: Number.isInteger(raw) ? String(raw) : raw.toFixed(2) });
-        } else {
-          // An empty result is "no data", not a measured zero.
-          setLive({ state: 'nodata' });
-        }
-      })
-      .catch(() => { if (!cancelled) setLive({ state: 'error' }); });
-    return () => { cancelled = true; };
-  }, [query]);
+  const refreshMs = (typeof spec.refreshInterval === 'number' && spec.refreshInterval > 0 ? spec.refreshInterval : 60) * 1000;
+  // Live: re-queried on refreshInterval. The agent's queries are about its own
+  // (local) cluster's Prometheus.
+  const liveQuery = useQuery({
+    queryKey: ['stat-card-live', query, METRICS_CLUSTER_ID],
+    queryFn: () => queryInstant(query, undefined, METRICS_CLUSTER_ID),
+    enabled: !!query,
+    refetchInterval: refreshMs,
+    staleTime: refreshMs / 2,
+    retry: 1,
+  });
+  const results = liveQuery.data;
+  const live: { state: 'idle' | 'ok' | 'nodata' | 'error'; value?: string } = !query || (liveQuery.isPending && !liveQuery.isError)
+    ? { state: 'idle' }
+    : liveQuery.isError && !results
+      ? { state: 'error' }
+      : results && results.length > 0 && Number.isFinite(results[0].value)
+        ? { state: 'ok', value: Number.isInteger(results[0].value) ? String(results[0].value) : results[0].value.toFixed(2) }
+        // An empty result is "no data", not a measured zero.
+        : { state: 'nodata' };
 
   // The live value wins over the agent's snapshot in spec.value, which may be stale.
   const value = live.state === 'ok'

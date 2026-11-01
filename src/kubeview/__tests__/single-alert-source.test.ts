@@ -67,10 +67,18 @@ describe('firing alerts have a single source', () => {
     ).toEqual([]);
   });
 
+  /**
+   * The timeline asks a different question: which alerts fired *and resolved*
+   * over a past range, which neither the rules API nor useIncidentFeed (both
+   * current state) can answer. It never produces a firing count.
+   */
+  const ALERTS_HISTORY_ALLOWLIST = ['kubeview/hooks/useIncidentTimeline.ts'];
+
   it('nothing queries ALERTS{alertstate="firing"} directly', () => {
     const offenders = files
       .filter((f) => /ALERTS\{alertstate=/.test(fs.readFileSync(f, 'utf8')))
-      .map(rel);
+      .map(rel)
+      .filter((f) => !ALERTS_HISTORY_ALLOWLIST.includes(f));
     expect(
       offenders,
       'route firing alerts through useIncidentFeed instead of a second query — ' +

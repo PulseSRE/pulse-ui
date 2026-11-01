@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUIStore } from '../../../store/uiStore';
 
 vi.mock('../../../components/DeployProgress', () => ({ default: () => null }));
@@ -22,6 +23,8 @@ beforeEach(() => {
   serviceStatus = 201;
   useUIStore.setState({ toasts: [], selectedNamespace: 'shop' } as never);
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
+    // The namespace picker's list read is not part of what these tests assert.
+    if ((init.method || 'GET') === 'GET') return new Response(JSON.stringify({ items: [] }), { status: 200 });
     calls.push({ method: init.method || 'GET', url });
     if (url.endsWith('/services')) {
       return serviceStatus === 201
@@ -34,7 +37,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 function deploy() {
-  render(<MemoryRouter><QuickDeployTab /></MemoryRouter>);
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><QuickDeployTab /></MemoryRouter></QueryClientProvider>);
   fireEvent.change(screen.getByPlaceholderText('my-app'), { target: { value: 'web' } });
   fireEvent.change(screen.getByPlaceholderText('nginx:latest or quay.io/org/image:tag'), { target: { value: 'nginx:1' } });
   fireEvent.change(screen.getByPlaceholderText('8080 (optional — creates Service)'), { target: { value: '8080' } });
