@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, X, Download, Upload } from 'lucide-react';
+import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, X, Download, Upload, Copy } from 'lucide-react';
+import { SearchInput } from '../components/primitives/SearchInput';
+import { FilterButtonGroup } from '../components/primitives/FilterButtonGroup';
 import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { EmptyState } from '../components/primitives/EmptyState';
@@ -64,6 +66,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
   const loading = useCustomViewStore((s) => s.loading);
   const error = useCustomViewStore((s) => s.error);
   const loadViews = useCustomViewStore((s) => s.loadViews);
+  const forceLoadViews = useCustomViewStore((s) => s.forceLoadViews);
   const deleteView = useCustomViewStore((s) => s.deleteView);
   const shareView = useCustomViewStore((s) => s.shareView);
 
@@ -75,6 +78,27 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
 
   const [historyError, setHistoryError] = useState<{ title: string; error: unknown } | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [cloningId, setCloningId] = useState<string | null>(null);
+
+  const handleClone = async (view: ViewSpec) => {
+    setCloningId(view.id);
+    try {
+      const { id } = await agentJson<{ id: string }>(`${AGENT_BASE}/views/${encodeURIComponent(view.id)}/clone`, { method: 'POST' });
+      // Not throttled: the list loaded seconds ago and must show the copy now.
+      await forceLoadViews();
+      useUIStore.getState().addToast({
+        type: 'success',
+        title: `Cloned "${view.title}"`,
+        action: { label: 'Open', onClick: () => navigate(`/custom/${id}`) },
+      });
+    } catch (e) {
+      useUIStore.getState().addToast({ type: 'error', title: 'Clone failed', detail: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setCloningId(null);
+    }
+  };
 
   const openHistory = async (viewId: string) => {
     setHistoryViewId(viewId);
@@ -155,17 +179,35 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
 
   const handleShare = async (view: ViewSpec) => {
     const token = await shareView(view.id);
-    if (token) {
-      const basePath = window.location.pathname.split('/views')[0];
-      const url = `${window.location.origin}${basePath}/share/${token}`;
-      navigator.clipboard.writeText(url);
+    if (!token) {
+      // Used to fail silently: the button just did nothing.
+      useUIStore.getState().addToast({ type: 'error', title: 'Share failed', detail: 'The agent did not create a share link. Try again.' });
+      return;
+    }
+    const basePath = window.location.pathname.split('/views')[0];
+    const url = `${window.location.origin}${basePath}/share/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      useUIStore.getState().addToast({ type: 'success', title: 'Share link copied', detail: url, duration: 4000 });
       setCopiedId(view.id);
       setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Clipboard refused (permissions, insecure context): show the link so it can be copied by hand.
+      useUIStore.getState().addToast({ type: 'warning', title: 'Copy the share link', detail: url, duration: 0 });
     }
   };
 
   // Sort views by most recently created first
-  const sortedViews = [...views].sort((a, b) => b.generatedAt - a.generatedAt);
+  const query = search.trim().toLowerCase();
+  const sortedViews = [...views]
+    .filter((v) => !typeFilter || (v.view_type ?? 'custom') === typeFilter)
+    .filter((v) => !query || v.title.toLowerCase().includes(query) || (v.description ?? '').toLowerCase().includes(query))
+    .sort((a, b) => b.generatedAt - a.generatedAt);
+  const typeCounts = views.reduce<Record<string, number>>((acc, v) => {
+    const t = v.view_type ?? 'custom';
+    acc[t] = (acc[t] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className={embedded ? '' : 'h-full overflow-auto bg-slate-950 p-6'}>
@@ -208,15 +250,27 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
         )}
 
         {/* Error state */}
-        {error && (
-          <div className="flex items-center justify-center py-10">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-red-400">{error}</p>
-              <button onClick={loadViews} className="text-xs text-violet-400 hover:text-violet-300">
-                Retry
-              </button>
-            </div>
+        {error && <LoadError title="Views could not be loaded" error={error} onRetry={loadViews} className="my-4" />}
+
+        {/* Type filter and search */}
+        {views.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <FilterButtonGroup
+              options={[
+                { key: 'all', label: `All (${views.length})` },
+                ...(['custom', 'incident', 'assessment', 'plan'] as const)
+                  .filter((t) => typeCounts[t])
+                  .map((t) => ({ key: t, label: `${t[0].toUpperCase()}${t.slice(1)} (${typeCounts[t]})` })),
+              ]}
+              value={typeFilter ?? 'all'}
+              onChange={(v) => setTypeFilter(!v || v === 'all' ? null : v)}
+            />
+            <SearchInput value={search} onChange={setSearch} placeholder="Search views" className="w-56" />
           </div>
+        )}
+
+        {views.length > 0 && sortedViews.length === 0 && (
+          <p className="py-6 text-center text-sm text-slate-500">No views match this filter.</p>
         )}
 
         {/* Empty state */}
@@ -307,8 +361,18 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                       onClick={() => handleShare(view)}
                       className="p-1.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
                       title={copiedId === view.id ? 'Copied!' : 'Share'}
+                      aria-label={`Share ${view.title}`}
                     >
                       {copiedId === view.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => handleClone(view)}
+                      disabled={cloningId === view.id}
+                      className="p-1.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-40"
+                      title="Clone"
+                      aria-label={`Clone ${view.title}`}
+                    >
+                      {cloningId === view.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                     <button
                       onClick={() => openHistory(view.id)}

@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
 
 vi.mock('@/lib/utils', () => ({ cn: (...args: unknown[]) => args.filter(Boolean).join(' ') }));
@@ -49,7 +50,11 @@ const waiting = {
 
 function withQuery(ui: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>{ui}</QueryClientProvider>
+    </MemoryRouter>,
+  );
 }
 
 describe('approving a waiting phase', () => {
@@ -99,15 +104,16 @@ describe('Runs tab', () => {
   beforeEach(() => mockFetch.mockReset());
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-  it('lists runs waiting for approval with what they wait on, answerable in place', async () => {
+  it('says runs are waiting and links to the one approvals queue instead of answering here', async () => {
     route({
       '/workflow-runs/awaiting-approval': () => ({ body: { runs: [waiting] } }),
       '/workflow-runs?': () => ({ body: { runs: [] } }),
     });
     withQuery(<RunsTab />);
-    await waitFor(() => expect(screen.getByText('Waiting for your approval')).toBeTruthy());
-    expect(screen.getByText("'remediate' of the crashloop plan on web-0 in shop")).toBeTruthy();
-    expect(screen.getByText('Approve')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('1 run is waiting for your approval')).toBeTruthy());
+    const link = screen.getByText('Answer in Inbox → Approvals').closest('a');
+    expect(link?.getAttribute('href')).toBe('/inbox?tab=approvals');
+    expect(screen.queryByText('Approve')).toBeNull();
   });
 
   it('shows no approval section when nothing waits or durable execution is off', async () => {
@@ -117,7 +123,7 @@ describe('Runs tab', () => {
     });
     withQuery(<RunsTab />);
     await waitFor(() => expect(screen.getByText('No durable runs yet.')).toBeTruthy());
-    expect(screen.queryByText('Waiting for your approval')).toBeNull();
+    expect(screen.queryByText(/waiting for your approval/)).toBeNull();
   });
 });
 

@@ -218,6 +218,8 @@ export interface InvestigationReport {
   evidence_detail?: EvidenceItem[];
   alternatives_considered: string[];
   alternativesConsidered?: string[];
+  /** Suspected prompt injection seen in cluster data and not followed (agent ≥ Wave 7c). */
+  security_notes?: string[];
 }
 
 export async function fetchInboxInvestigation(id: string): Promise<InvestigationReport | null> {

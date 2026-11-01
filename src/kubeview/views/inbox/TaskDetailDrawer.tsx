@@ -4,7 +4,7 @@ import {
   Clock, User, Calendar, Tag, Bot, Loader2,
   ArrowRight, RotateCcw, Archive, Search, CheckCircle2, ShieldCheck,
   ChevronDown, ChevronRight, Play, SkipForward, XCircle, AlertTriangle,
-  MessageSquare, RefreshCw, BookOpen,
+  MessageSquare, RefreshCw, BookOpen, ShieldAlert, Wrench,
 } from 'lucide-react';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Badge } from '../../components/primitives/Badge';
@@ -26,6 +26,9 @@ import { useActionPlanStore, resolveStepStatus, isStepDone, type ActionPlanStep 
 import { InboxLifecycleStepper } from './InboxLifecycle';
 import { DurableApprovalPanel, DurableRunStarter } from './DurableRunControls';
 import { EvidenceList } from '../incidents/shared/EvidenceList';
+import { resourceDetailUrl } from '../../engine/gvr';
+import { proposalForItem, useApprovalsStore } from '../../store/approvalsStore';
+import { ProposalActions, type ProposalOutcome } from './ProposedFixes';
 
 function formatDueDate(ts: number): string {
   const date = new Date(ts * 1000);
@@ -262,7 +265,65 @@ function ActionPlanSection({
 }
 
 
-function InvestigationCard({ report }: { report: InvestigationReport }) {
+/**
+ * Suspected prompt injection the agent saw in cluster data and did not follow.
+ * Kept out of the cause on purpose; shown beside it, in a warning style, so a
+ * person knows someone tried to steer the agent.
+ */
+export function SecurityNotes({ notes }: { notes: string[] }) {
+  if (notes.length === 0) return null;
+  return (
+    <div role="alert" className="rounded-md border border-orange-700/60 bg-orange-950/30 p-2.5 space-y-1">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-orange-300">
+        <ShieldAlert className="w-3.5 h-3.5" />
+        Suspected prompt injection — not followed
+      </div>
+      <ul className="space-y-0.5 text-xs text-orange-200/90 list-disc ml-5">
+        {notes.map((n) => (
+          <li key={n}>{n}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function stringList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string' && n.trim() !== '') : [];
+}
+
+/** A fix the agent proposed for this item's finding, answerable here. */
+function PendingFixPanel({ item }: { item: InboxItem }) {
+  const proposal = useApprovalsStore((s) => proposalForItem(s.proposals, item));
+  const [outcome, setOutcome] = useState<ProposalOutcome | null>(null);
+  if (outcome) {
+    return (
+      <div className={`rounded-lg border p-3 text-sm ${outcome.ok ? 'border-slate-700 text-slate-300' : 'border-red-800/50 text-red-300'}`}>
+        {outcome.message}
+      </div>
+    );
+  }
+  if (!proposal) return null;
+  const description = typeof proposal.input?.fixDescription === 'string' ? proposal.input.fixDescription : '';
+  return (
+    <div className="rounded-lg border border-orange-700/50 bg-orange-950/20 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-xs font-medium text-orange-300">
+        <Wrench className="w-3.5 h-3.5" />
+        A proposed fix is waiting on you
+      </div>
+      <p className="text-sm text-slate-300">{description || proposal.reasoning}</p>
+      {proposal.explainedBy && (
+        <p className="text-xs text-amber-400/90">
+          Symptom of {proposal.explainedBy} — fixing this treats the symptom, not the cause.
+        </p>
+      )}
+      <div className="flex justify-end">
+        <ProposalActions action={proposal} onOutcome={setOutcome} />
+      </div>
+    </div>
+  );
+}
+
+function InvestigationCard({ report, securityNotes = [] }: { report: InvestigationReport; securityNotes?: string[] }) {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const confidencePct = Math.round(report.confidence * 100);
 
@@ -279,6 +340,7 @@ function InvestigationCard({ report }: { report: InvestigationReport }) {
           style={{ width: `${confidencePct}%` }}
         />
       </div>
+      <SecurityNotes notes={securityNotes} />
       {report.summary && (
         <p className="text-sm text-slate-300">{report.summary}</p>
       )}
@@ -352,6 +414,9 @@ export function TaskDetailDrawer({
   const actionPlan = (item.metadata?.action_plan ?? null) as ActionPlanStep[] | null;
   const blastRadius = item.metadata?.blast_radius as Record<string, unknown> | undefined;
   const agentError = String(item.metadata?.agent_error || '');
+  const securityNotes = Array.from(
+    new Set([...stringList(investigation?.security_notes), ...stringList(item.metadata?.security_notes)]),
+  );
 
   const handleInvestigate = () => {
     if (item.status === 'claimed') advanceStatus(item.id, 'in_progress');
@@ -458,6 +523,11 @@ export function TaskDetailDrawer({
           </div>
         )}
 
+        {item.status !== 'resolved' && item.status !== 'archived' && <PendingFixPanel item={item} />}
+
+        {/* Notes arrive on the item even when the report row cannot be read. */}
+        {!investigation && <SecurityNotes notes={securityNotes} />}
+
         {item.metadata?.generator === 'durable_approvals'
           && typeof item.metadata?.workflow_id === 'string'
           && typeof item.metadata?.phase_id === 'string'
@@ -516,7 +586,7 @@ export function TaskDetailDrawer({
             title="Investigation"
             subtitle="What's the root cause?"
           >
-            <InvestigationCard report={investigation} />
+            <InvestigationCard report={investigation} securityNotes={securityNotes} />
           </CollapsibleSection>
         )}
 
@@ -586,8 +656,14 @@ export function TaskDetailDrawer({
             <h3 className="text-xs font-medium text-slate-500 uppercase mb-2">Resources</h3>
             <div className="space-y-1">
               {item.resources.map((r, i) => (
-                <div key={i} className="text-sm text-slate-400">
-                  {r.kind}/{r.name}
+                <div key={i} className="text-sm">
+                  <Link
+                    to={resourceDetailUrl({ kind: r.kind, metadata: { name: r.name, namespace: r.namespace } })}
+                    onClick={onClose}
+                    className="text-blue-400 hover:underline"
+                  >
+                    {r.kind}/{r.name}
+                  </Link>
                   {r.namespace && <span className="text-slate-600 ml-1">({r.namespace})</span>}
                 </div>
               ))}

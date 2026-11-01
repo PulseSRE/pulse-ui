@@ -6,9 +6,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface WaiverEntry {
+export interface WaiverEntry {
   reason: string;
   waivedAt: number;
+  /** Who waived it ('' when the signed-in user could not be looked up). */
+  approvedBy?: string;
 }
 
 interface OnboardingState {
@@ -19,7 +21,7 @@ interface OnboardingState {
   /** Dismiss the onboarding (set to seen) */
   dismissOnboarding: () => void;
   /** Add a waiver for a readiness gate */
-  addWaiver: (gateId: string, reason: string) => void;
+  addWaiver: (gateId: string, reason: string, approvedBy?: string) => void;
   /** Remove a waiver */
   removeWaiver: (gateId: string) => void;
 }
@@ -30,8 +32,8 @@ export const useOnboardingStore = create<OnboardingState>()(
       aiOnboardingSeen: false,
       waivers: {},
       dismissOnboarding: () => set({ aiOnboardingSeen: true }),
-      addWaiver: (gateId, reason) => set((s) => ({
-        waivers: { ...s.waivers, [gateId]: { reason, waivedAt: Date.now() } },
+      addWaiver: (gateId, reason, approvedBy = '') => set((s) => ({
+        waivers: { ...s.waivers, [gateId]: { reason, waivedAt: Date.now(), approvedBy } },
       })),
       removeWaiver: (gateId) => set((s) => {
         const { [gateId]: _, ...rest } = s.waivers;

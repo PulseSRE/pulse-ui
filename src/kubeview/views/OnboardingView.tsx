@@ -1,17 +1,19 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ClipboardCheck, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { InstallationReadinessPanel } from '../components/onboarding/InstallationReadinessPanel';
 import { ReadinessWizard } from '../components/onboarding/ReadinessWizard';
 import { ReadinessChecklist } from '../components/onboarding/ReadinessChecklist';
-import type { OnboardingMode, ReadinessReport, CategoryView, GateStatus, ReadinessCategory, CategorySummary } from '../components/onboarding/types';
+import type { OnboardingMode, ReadinessReport, CategoryView, GateStatus, ReadinessCategory, CategorySummary, GateResult, ReadinessGate, Waiver } from '../components/onboarding/types';
 import { buildCategoryViews, computeScore } from '../components/onboarding/types';
 import { ALL_GATES, evaluateAllGates } from '../engine/readiness/gates';
 import type { GateContext } from '../engine/readiness/types';
 import { useClusterStore } from '../store/clusterStore';
 import { agentFetch } from '../engine/safeQuery';
-import { k8sFetch } from '../engine/query';
+import { k8sFetch, k8sGet } from '../engine/query';
+import { useOnboardingStore, type WaiverEntry } from '../store/onboardingStore';
 import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 
 const STORAGE_KEY = 'openshiftpulse:onboarding-completed';
@@ -30,6 +32,69 @@ function markOnboardingComplete() {
   } catch {
     /* noop */
   }
+}
+
+const ALL_CATEGORIES: ReadinessCategory[] = [
+  'prerequisites', 'security', 'reliability', 'observability', 'operations', 'gitops',
+];
+
+/**
+ * A waived gate stays waived until it actually passes. Waivers are kept per
+ * browser (the agent has no waiver endpoint), with the reason and who waived
+ * it, so they survive a reload and say why the gate is not counted against
+ * the score.
+ */
+export function applyWaivers(
+  results: Record<string, GateResult>,
+  waivers: Record<string, WaiverEntry>,
+): Record<string, GateResult> {
+  const out = { ...results };
+  for (const [gateId, w] of Object.entries(waivers)) {
+    const r = out[gateId];
+    if (!r || r.status === 'passed' || r.status === 'checking') continue;
+    out[gateId] = {
+      ...r,
+      status: 'waived',
+      detail: `Waived${w.approvedBy ? ` by ${w.approvedBy}` : ''}: ${w.reason}`,
+    };
+  }
+  return out;
+}
+
+/**
+ * Category summaries and the score, from gate results. The one place this is
+ * counted: the first evaluation counted a waived gate as passed and re-verify
+ * counted it as not started, so the score dropped after any re-verify.
+ */
+export function summariseReadiness(
+  results: Record<string, GateResult>,
+  gates: ReadinessGate[],
+): { categories: Record<ReadinessCategory, CategorySummary>; score: number } {
+  const categories = {} as Record<ReadinessCategory, CategorySummary>;
+  for (const catId of ALL_CATEGORIES) {
+    const catGates = gates.filter((g) => g.category === catId);
+    let passed = 0, failed = 0, needs_attention = 0, not_started = 0;
+    for (const g of catGates) {
+      switch (results[g.id]?.status ?? 'not_started') {
+        case 'passed': case 'waived': passed++; break;
+        case 'failed': failed++; break;
+        case 'needs_attention': needs_attention++; break;
+        default: not_started++; break;
+      }
+    }
+    const total = catGates.length;
+    categories[catId] = { passed, failed, needs_attention, not_started, total, score: total > 0 ? Math.round((passed / total) * 100) : 0 };
+  }
+  return { categories, score: computeScore(categories) };
+}
+
+function toReportWaivers(waivers: Record<string, WaiverEntry>): Record<string, Waiver> {
+  return Object.fromEntries(
+    Object.entries(waivers).map(([gateId, w]) => [
+      gateId,
+      { gateId, reason: w.reason, approvedBy: w.approvedBy ?? '', createdAt: w.waivedAt, expiresAt: null },
+    ]),
+  );
 }
 
 /** Dual-mode view: wizard for first-run, checklist for returning users. */
@@ -57,56 +122,55 @@ export default function OnboardingView() {
     isHyperShift,
   }), [isHyperShift]);
 
+  const waivers = useOnboardingStore((s) => s.waivers);
+  const addWaiver = useOnboardingStore((s) => s.addWaiver);
+  // Who is waiving: the signed-in user of the cluster Pulse runs on. No
+  // made-up author — if the lookup fails the waiver is recorded without one.
+  const { data: currentUser = '' } = useQuery({
+    queryKey: ['currentUser', LOCAL_CLUSTER_ID],
+    queryFn: async () => {
+      try {
+        const data = await k8sGet<{ metadata?: { name?: string } }>('/apis/user.openshift.io/v1/users/~', LOCAL_CLUSTER_ID);
+        return data.metadata?.name || '';
+      } catch {
+        return '';
+      }
+    },
+    staleTime: 300_000,
+  });
+
+  /** Raw gate results, before waivers. Kept so a waiver can be applied or lifted without re-running gates. */
+  const [rawResults, setRawResults] = React.useState<Record<string, GateResult> | null>(null);
+  const [attempt, setAttempt] = React.useState(0);
+
   // Evaluate all readiness gates against the live cluster
   React.useEffect(() => {
     let cancelled = false;
-    const ctx = makeGateContext();
-
-    evaluateAllGates(ctx).then((results) => {
-      if (cancelled) return;
-
-      // Build category summaries from real results
-      const allCategories: ReadinessCategory[] = [
-        'prerequisites', 'security', 'reliability', 'observability', 'operations', 'gitops',
-      ];
-      const categories = {} as Record<ReadinessCategory, CategorySummary>;
-      for (const catId of allCategories) {
-        const catGates = ALL_GATES.filter((g) => g.category === catId);
-        let passed = 0;
-        let failed = 0;
-        let needs_attention = 0;
-        let not_started = 0;
-        for (const g of catGates) {
-          const status = results[g.id]?.status ?? 'not_started';
-          switch (status) {
-            case 'passed': case 'waived': passed++; break;
-            case 'failed': failed++; break;
-            case 'needs_attention': needs_attention++; break;
-            default: not_started++; break;
-          }
-        }
-        const total = catGates.length;
-        categories[catId] = { passed, failed, needs_attention, not_started, total, score: total > 0 ? Math.round((passed / total) * 100) : 0 };
-      }
-
-      const score = computeScore(categories);
-      setReport({
-        score,
-        productionReady: score >= 80,
-        results,
-        waivers: {},
-        categories,
-        generatedAt: Date.now(),
-      });
+    setEvalError(null);
+    evaluateAllGates(makeGateContext()).then((results) => {
+      if (!cancelled) setRawResults(results);
     }).catch((err) => {
-      // H9: handle evaluation promise rejection
       if (cancelled) return;
       console.error('Evaluation failed:', err);
       setEvalError(err instanceof Error ? err : new Error(String(err)));
     });
-
     return () => { cancelled = true; };
-  }, []);
+  }, [attempt, makeGateContext]);
+
+  // The report is derived: raw results, then waivers, then one summary.
+  React.useEffect(() => {
+    if (!rawResults) return;
+    const results = applyWaivers(rawResults, waivers);
+    const { categories, score } = summariseReadiness(results, ALL_GATES);
+    setReport({
+      score,
+      productionReady: score >= 80,
+      results,
+      waivers: toReportWaivers(waivers),
+      categories,
+      generatedAt: Date.now(),
+    });
+  }, [rawResults, waivers]);
 
   const categoryViews: CategoryView[] = React.useMemo(() => {
     if (!report) return [];
@@ -114,99 +178,29 @@ export default function OnboardingView() {
   }, [report]);
 
   const handleWaive = React.useCallback((gateId: string, reason: string) => {
-    setReport((prev) => {
-      if (!prev) return prev;
-      const results = { ...prev.results };
-      if (results[gateId]) {
-        results[gateId] = { ...results[gateId], status: 'waived' as GateStatus };
-      }
-      // Recompute category summaries
-      const categories = { ...prev.categories };
-      for (const [catId, summary] of Object.entries(categories)) {
-        const catGates = ALL_GATES.filter((g) => g.category === catId);
-        let passed = 0;
-        let failed = 0;
-        let needs_attention = 0;
-        let not_started = 0;
-        for (const g of catGates) {
-          const status = results[g.id]?.status ?? 'not_started';
-          switch (status) {
-            case 'passed': case 'waived': passed++; break;
-            case 'failed': failed++; break;
-            case 'needs_attention': needs_attention++; break;
-            default: not_started++; break;
-          }
-        }
-        categories[catId as keyof typeof categories] = {
-          ...summary,
-          passed,
-          failed,
-          needs_attention,
-          not_started,
-          score: catGates.length > 0 ? Math.round((passed / catGates.length) * 100) : 0,
-        };
-      }
-      return { ...prev, results, categories, score: computeScore(categories) };
-    });
-  }, []);
+    addWaiver(gateId, reason.trim(), currentUser);
+  }, [addWaiver, currentUser]);
 
   const handleReVerify = React.useCallback((gateId: string) => {
-    // Set status to checking
-    setReport((prev) => {
-      if (!prev) return prev;
-      const results = { ...prev.results };
-      if (results[gateId]) {
-        results[gateId] = { ...results[gateId], status: 'checking' as GateStatus };
-      }
-      return { ...prev, results };
-    });
-
-    // Actually re-evaluate the gate
     const gate = ALL_GATES.find((g) => g.id === gateId);
     if (!gate) return;
+    setRawResults((prev) => prev && prev[gateId]
+      ? { ...prev, [gateId]: { ...prev[gateId], status: 'checking' as GateStatus } }
+      : prev);
 
     gate.evaluate(makeGateContext()).then((result) => {
-      setReport((prev) => {
-        if (!prev) return prev;
-        const results = { ...prev.results, [gateId]: result };
-
-        // Recompute category summaries
-        const allCategories: ReadinessCategory[] = [
-          'prerequisites', 'security', 'reliability', 'observability', 'operations', 'gitops',
-        ];
-        const categories = {} as Record<ReadinessCategory, CategorySummary>;
-        for (const catId of allCategories) {
-          const catGates = ALL_GATES.filter((g) => g.category === catId);
-          let passed = 0, failed = 0, needs_attention = 0, not_started = 0;
-          for (const g of catGates) {
-            const r = results[g.id];
-            if (!r) { not_started++; continue; }
-            if (r.status === 'passed') passed++;
-            else if (r.status === 'failed') failed++;
-            else if (r.status === 'needs_attention') needs_attention++;
-            else not_started++;
-          }
-          const summary = prev.categories[catId as keyof typeof prev.categories] || {};
-          categories[catId as keyof typeof categories] = {
-            ...summary,
-            passed,
-            failed,
-            needs_attention,
-            not_started,
-            score: catGates.length > 0 ? Math.round((passed / catGates.length) * 100) : 0,
-          };
-        }
-        return { ...prev, results, categories, score: computeScore(categories) };
-      });
+      setRawResults((prev) => ({ ...(prev ?? {}), [gateId]: result }));
     }).catch(() => {
-      setReport((prev) => {
-        if (!prev) return prev;
-        const results = { ...prev.results };
-        results[gateId] = { ...results[gateId], status: 'failed' as GateStatus, detail: 'Evaluation failed — check cluster connectivity' };
-        return { ...prev, results };
-      });
+      setRawResults((prev) => ({
+        ...(prev ?? {}),
+        [gateId]: {
+          ...(prev?.[gateId] ?? { gateId, fixGuidance: '', evaluatedAt: Date.now() }),
+          status: 'failed' as GateStatus,
+          detail: 'Evaluation failed — check cluster connectivity',
+        },
+      }));
     });
-  }, []);
+  }, [makeGateContext]);
 
   const switchToChecklist = React.useCallback(() => {
     markOnboardingComplete();
@@ -258,7 +252,7 @@ export default function OnboardingView() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <span className="text-sm text-red-400">Evaluation failed: {evalError.message}</span>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => { setReport(null); setRawResults(null); setAttempt((n) => n + 1); }}
               className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors"
             >
               Retry
