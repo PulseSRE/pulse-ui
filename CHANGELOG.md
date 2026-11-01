@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Fixed
+- A resource list's Create button opens that kind's editor again. Pods sent `/create/v1~pods?tab=yaml`, which the new Software redirect turned into Import YAML. Moving between two `/create/…` pages now starts a fresh editor instead of keeping the previous kind's YAML.
+
 - **CI actions on Node 24.** GitHub has deprecated Node.js 20 for actions and was forcing these onto Node 24 with a warning on every run. Bumped to the current majors, the same ones pulse-operator already uses: `actions/checkout@v7`, `actions/setup-python@v7`, `actions/setup-node@v7`, `actions/upload-artifact@v7`, `docker/build-push-action@v7`, `docker/login-action@v4`, `pnpm/action-setup@v6` (each only where the repo uses it).
 
 ### CI

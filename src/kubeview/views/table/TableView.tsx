@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPathFor } from '../../engine/routeTable';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
@@ -337,8 +338,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   }, [gvrKey]);
 
   const handleCreate = React.useCallback(() => {
-    const gvrUrl = gvrKey.replace(/\//g, '~');
-    const path = `/create/${gvrUrl}?tab=yaml`;
+    const path = createPathFor(gvrKey);
     addTab({ title: `Create ${resourceKind}`, path, pinned: false, closable: true });
     navigate(path);
   }, [gvrKey, resourceKind, addTab, navigate]);

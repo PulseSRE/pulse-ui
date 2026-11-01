@@ -127,6 +127,14 @@ export function isKnownRoute(pathWithQuery: string): boolean {
 }
 
 /** True for an absolute http(s) URL. */
+/**
+ * The editor for creating one resource of a kind. No `?tab=`: on Pods a
+ * `?tab=` means an old Software-hub link and redirects to /software.
+ */
+export function createPathFor(gvrKey: string): string {
+  return `/create/${gvrKey.replace(/\//g, '~')}`;
+}
+
 export function isExternalUrl(link: string): boolean {
   return /^https?:\/\//i.test(link.trim());
 }

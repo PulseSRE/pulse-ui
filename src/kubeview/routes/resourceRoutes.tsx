@@ -80,7 +80,9 @@ function CreateRoute() {
   return (
     <ErrorBoundary fallbackTitle="Create Resource">
       <Suspense fallback={<LoadingFallback />}>
-        <CreateView gvrKey={parseGvr(gvr)} />
+        {/* Keyed so moving between two /create/... pages starts a fresh editor
+            instead of keeping the previous kind's YAML (the Outlet does not remount). */}
+        <CreateView key={`${gvr}${location.search}`} gvrKey={parseGvr(gvr)} />
       </Suspense>
     </ErrorBoundary>
   );
