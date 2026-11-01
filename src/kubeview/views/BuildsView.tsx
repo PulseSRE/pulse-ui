@@ -17,6 +17,8 @@ import { Card } from '../components/primitives/Card';
 import { showErrorToast } from '../engine/errorToast';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { ScrollText } from 'lucide-react';
+import { LoadError } from '../components/primitives/LoadError';
+import { isNotFound } from '../engine/readResult';
 
 function getBuildStatus(build: Build): { phase: string; color: string; icon: React.ReactNode } {
   const phase = build.status?.phase || 'Unknown';
@@ -46,9 +48,24 @@ export default function BuildsView() {
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const { allowed: canStartBuild } = useCanI('create', 'build.openshift.io', 'buildconfigs/instantiate', nsFilter);
 
-  const { data: builds = [] } = useK8sListWatch({ apiPath: '/apis/build.openshift.io/v1/builds', namespace: nsFilter });
-  const { data: buildConfigs = [] } = useK8sListWatch({ apiPath: '/apis/build.openshift.io/v1/buildconfigs', namespace: nsFilter });
-  const { data: imageStreams = [] } = useK8sListWatch({ apiPath: '/apis/image.openshift.io/v1/imagestreams', namespace: nsFilter });
+  const buildsQ = useK8sListWatch({ apiPath: '/apis/build.openshift.io/v1/builds', namespace: nsFilter });
+  const bcQ = useK8sListWatch({ apiPath: '/apis/build.openshift.io/v1/buildconfigs', namespace: nsFilter });
+  const isQ = useK8sListWatch({ apiPath: '/apis/image.openshift.io/v1/imagestreams', namespace: nsFilter });
+  const { data: builds = [] } = buildsQ;
+  const { data: buildConfigs = [] } = bcQ;
+  const { data: imageStreams = [] } = isQ;
+  // A failed or forbidden list is not an empty one: counts show "—", the
+  // panels show the error, and nothing is computed from the missing list.
+  const buildsFailed = !!buildsQ.isError;
+  const bcFailed = !!bcQ.isError;
+  const isFailed = !!isQ.isError;
+  const listError = (q: typeof buildsQ, what: string) => (
+    <LoadError
+      title={isNotFound(q.error) ? `${what} are not available on this cluster` : `${what} could not be loaded`}
+      error={q.error}
+      onRetry={() => { void q.refetch(); }}
+    />
+  );
 
   async function cancelBuild(namespace: string, name: string) {
     try {
@@ -168,7 +185,7 @@ export default function BuildsView() {
 
   // Issues
   const issues: Array<{ msg: string; severity: 'warning' | 'critical' }> = [];
-  if (failedBuilds.length > 0) issues.push({ msg: `${failedBuilds.length} failed build${failedBuilds.length > 1 ? 's' : ''}`, severity: 'critical' });
+  if (!buildsFailed && failedBuilds.length > 0) issues.push({ msg: `${failedBuilds.length} failed build${failedBuilds.length > 1 ? 's' : ''}`, severity: 'critical' });
   // A running build is not a problem; it is listed under In Progress.
 
   // Trigger build
@@ -220,23 +237,25 @@ export default function BuildsView() {
         <MetricGrid>
           <button onClick={() => go('/r/build.openshift.io~v1~buildconfigs', 'BuildConfigs')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">BuildConfigs</div>
-            <div className="text-xl font-bold text-slate-100">{buildConfigs.length}</div>
+            <div className="text-xl font-bold text-slate-100">{bcFailed ? '—' : buildConfigs.length}</div>
           </button>
           <button onClick={() => go('/r/build.openshift.io~v1~builds', 'Builds')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedBuilds.length > 0 ? 'border-red-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Builds</span>
             </div>
-            <div className="text-xl font-bold text-slate-100">{builds.length}</div>
+            <div className="text-xl font-bold text-slate-100">{buildsFailed ? '—' : builds.length}</div>
           </button>
           <button onClick={() => go('/r/image.openshift.io~v1~imagestreams', 'ImageStreams')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">ImageStreams</div>
-            <div className="text-xl font-bold text-slate-100">{imageStreams.length}</div>
+            <div className="text-xl font-bold text-slate-100">{isFailed ? '—' : imageStreams.length}</div>
           </button>
           <Card className="p-3">
             <div className="text-xs text-slate-400 mb-1">Image Tags</div>
-            <div className="text-xl font-bold text-slate-100">{totalTags}</div>
+            <div className="text-xl font-bold text-slate-100">{isFailed ? '—' : totalTags}</div>
           </Card>
         </MetricGrid>
+
+        {buildsFailed && listError(buildsQ, 'Builds')}
 
         {/* Build Metrics — computed from build objects (no Prometheus dependency) */}
         {builds.length > 0 && (
@@ -305,8 +324,8 @@ export default function BuildsView() {
         )}
 
         {/* BuildConfigs */}
-        <Panel title={`BuildConfigs (${buildConfigs.length})`} icon={<Layers className="w-4 h-4 text-blue-400" />}>
-          {buildConfigs.length === 0 ? (
+        <Panel title={bcFailed ? 'BuildConfigs' : `BuildConfigs (${buildConfigs.length})`} icon={<Layers className="w-4 h-4 text-blue-400" />}>
+          {bcFailed ? listError(bcQ, 'BuildConfigs') : buildConfigs.length === 0 ? (
             <div className="text-center py-6 text-sm text-slate-500">No BuildConfigs{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="divide-y divide-slate-800">
@@ -319,7 +338,7 @@ export default function BuildsView() {
                 const key = `${ns}/${name}`;
                 const stats = buildConfigStats.get(key);
                 const avgDuration = stats && stats.count > 0 ? formatDuration('2000-01-01T00:00:00Z', new Date(new Date('2000-01-01T00:00:00Z').getTime() + stats.total / stats.count).toISOString()) : '—';
-                const lastBuildPhase = stats?.lastStatus || '—';
+                const lastBuildPhase = buildsFailed ? 'unknown' : stats?.lastStatus || '—';
                 const lastBuildTime = stats?.lastBuild ? timeAgo(stats.lastBuild) : '—';
 
                 return (
@@ -436,8 +455,10 @@ export default function BuildsView() {
         )}
 
         {/* Recent Builds */}
-        <Panel title={`Recent Builds (${builds.length})`} icon={<Hammer className="w-4 h-4 text-orange-400" />}>
-          {builds.length === 0 ? (
+        <Panel title={buildsFailed ? 'Recent Builds' : `Recent Builds (${builds.length})`} icon={<Hammer className="w-4 h-4 text-orange-400" />}>
+          {buildsFailed ? (
+            <p className="text-center py-6 text-sm text-slate-500" data-unknown="">Builds could not be read (see above).</p>
+          ) : builds.length === 0 ? (
             <div className="text-center py-6 text-sm text-slate-500">No builds{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="overflow-x-auto">
@@ -500,8 +521,8 @@ export default function BuildsView() {
         </Panel>
 
         {/* ImageStreams */}
-        <Panel title={`ImageStreams (${imageStreams.length})`} icon={<Box className="w-4 h-4 text-purple-400" />}>
-          {imageStreams.length === 0 ? (
+        <Panel title={isFailed ? 'ImageStreams' : `ImageStreams (${imageStreams.length})`} icon={<Box className="w-4 h-4 text-purple-400" />}>
+          {isFailed ? listError(isQ, 'ImageStreams') : imageStreams.length === 0 ? (
             <div className="text-center py-6 text-sm text-slate-500">No ImageStreams{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="divide-y divide-slate-800">

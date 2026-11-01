@@ -28,6 +28,8 @@ interface Props {
   onPodClick?: (namespace: string, name: string) => void;
   onViewAll?: () => void;
   isHyperShift?: boolean;
+  /** The pod list could not be read: pod counts are unknown, not 0. */
+  podsUnknown?: boolean;
   /**
    * Cluster actions (cordon, drain, terminal, logs, exec, delete). Without
    * them the menus only offer navigation and copy — never an item that does
@@ -362,7 +364,7 @@ function HexNode({ nd, pods, onClick, onOpenDetails, onPodClick, actions }: {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewAll, isHyperShift, actions }: Props) {
+export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewAll, isHyperShift, actions, podsUnknown }: Props) {
   const [podMenu, setPodMenu] = useState<{ x: number; y: number; pod: PodInfo } | null>(null);
   const MAX_VISIBLE = isHyperShift ? 12 : 8;
   const [filter, setFilter] = useState('');
@@ -414,7 +416,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-100">Cluster Nodes</h3>
-            <p className="text-xs text-slate-500">{readyCount}/{nodes.length} ready · {totalPods}/{totalCap} pods</p>
+            <p className="text-xs text-slate-500">{readyCount}/{nodes.length} ready · {podsUnknown ? <span data-unknown="">pods unknown</span> : `${totalPods}/${totalCap} pods`}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-slate-500">

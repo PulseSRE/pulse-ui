@@ -20,7 +20,8 @@ import { Panel } from '../components/primitives/Panel';
 import { sanitizePromQL } from '../engine/query';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { Card } from '../components/primitives/Card';
-import type { AuditCheck } from '../components/audit/types';
+import { LoadError } from '../components/primitives/LoadError';
+import { readsState, type AuditCheck } from '../components/audit/types';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 import { WorkloadListPanel, type RowSummary } from './workloads/WorkloadListPanel';
 import { timeAgo } from '../engine/dateUtils';
@@ -78,13 +79,39 @@ export default function WorkloadsView() {
     setActiveTab(tab);
   };
 
-  const { data: deployments = [], isLoading: deploysLoading } = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
-  const { data: statefulsets = [] } = useK8sListWatch<StatefulSet>({ apiPath: '/apis/apps/v1/statefulsets', namespace: nsFilter });
-  const { data: daemonsets = [] } = useK8sListWatch<DaemonSet>({ apiPath: '/apis/apps/v1/daemonsets', namespace: nsFilter });
-  const { data: pods = [], isLoading: podsLoading } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: nsFilter });
-  const { data: jobs = [] } = useK8sListWatch<Job>({ apiPath: '/apis/batch/v1/jobs', namespace: nsFilter });
-  const { data: cronjobs = [] } = useK8sListWatch<CronJob>({ apiPath: '/apis/batch/v1/cronjobs', namespace: nsFilter });
-  const { data: pdbs = [] } = useK8sListWatch<PodDisruptionBudget>({ apiPath: '/apis/policy/v1/poddisruptionbudgets', namespace: nsFilter });
+  const deploysQ = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });
+  const stsQ = useK8sListWatch<StatefulSet>({ apiPath: '/apis/apps/v1/statefulsets', namespace: nsFilter });
+  const dsQ = useK8sListWatch<DaemonSet>({ apiPath: '/apis/apps/v1/daemonsets', namespace: nsFilter });
+  const podsQ = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: nsFilter });
+  const jobsQ = useK8sListWatch<Job>({ apiPath: '/apis/batch/v1/jobs', namespace: nsFilter });
+  const cronQ = useK8sListWatch<CronJob>({ apiPath: '/apis/batch/v1/cronjobs', namespace: nsFilter });
+  const pdbsQ = useK8sListWatch<PodDisruptionBudget>({ apiPath: '/apis/policy/v1/poddisruptionbudgets', namespace: nsFilter });
+  const { data: deployments = [], isLoading: deploysLoading } = deploysQ;
+  const { data: statefulsets = [] } = stsQ;
+  const { data: daemonsets = [] } = dsQ;
+  const { data: pods = [], isLoading: podsLoading } = podsQ;
+  const { data: jobs = [] } = jobsQ;
+  const { data: cronjobs = [] } = cronQ;
+  const { data: pdbs = [] } = pdbsQ;
+  // A failed or forbidden list is not an empty one: its count shows "—", its
+  // banners and audit checks are skipped, and its panel shows the error.
+  const failed = {
+    deployments: !!deploysQ.isError, statefulsets: !!stsQ.isError, daemonsets: !!dsQ.isError,
+    pods: !!podsQ.isError, jobs: !!jobsQ.isError, cronjobs: !!cronQ.isError, pdbs: !!pdbsQ.isError,
+  };
+  const failedLists = ([
+    ['Deployments', failed.deployments], ['StatefulSets', failed.statefulsets], ['DaemonSets', failed.daemonsets],
+    ['Pods', failed.pods], ['Jobs', failed.jobs], ['CronJobs', failed.cronjobs],
+  ] as const).filter(([, f]) => f).map(([label]) => label);
+  const firstError = [deploysQ, stsQ, dsQ, podsQ, jobsQ, cronQ].find((q) => q.isError)?.error;
+  const retryFailed = () => {
+    for (const q of [deploysQ, stsQ, dsQ, podsQ, jobsQ, cronQ, pdbsQ]) if (q.isError) void q.refetch();
+  };
+  const listErrorProps = (q: { isError: boolean; error: unknown; refetch: () => unknown }) => ({
+    isError: q.isError, error: q.error, onRetry: () => { void q.refetch(); },
+  });
+  /** A stat card's count, or "—" when its list could not be read. */
+  const count = (isFailed: boolean, n: number) => (isFailed ? '—' : n);
 
   // Pod status breakdown
   const podStats = React.useMemo(() => {
@@ -152,11 +179,11 @@ export default function WorkloadsView() {
   // Issues
   // Each banner opens the list it counts, already filtered.
   const issues: Array<{ msg: string; severity: 'warning' | 'critical'; open: () => void }> = [];
-  if (podStats.CrashLoop > 0) issues.push({ msg: `${podStats.CrashLoop} pod${podStats.CrashLoop > 1 ? 's' : ''} in CrashLoopBackOff`, severity: 'critical', open: () => go('/r/v1~pods?q=CrashLoopBackOff', 'Pods (CrashLoopBackOff)') });
-  if (podStats.ImagePull > 0) issues.push({ msg: `${podStats.ImagePull} pod${podStats.ImagePull > 1 ? 's' : ''} with image pull errors`, severity: 'critical', open: () => go('/r/v1~pods?q=ImagePull', 'Pods (image pull errors)') });
-  if (unhealthyDeploys.length > 0) issues.push({ msg: `${unhealthyDeploys.length} deployment${unhealthyDeploys.length > 1 ? 's' : ''} not fully available`, severity: 'warning', open: () => showList('workloads-deployments', () => setDeployFilter('unhealthy')) });
-  if (unhealthySS.length > 0) issues.push({ msg: `${unhealthySS.length} StatefulSet${unhealthySS.length > 1 ? 's' : ''} not ready`, severity: 'warning', open: () => showList('workloads-statefulsets', () => setStsFilter('unhealthy')) });
-  if (failedJobs.length > 0) issues.push({ msg: `${failedJobs.length} failed job${failedJobs.length > 1 ? 's' : ''}`, severity: 'warning', open: () => showList('workloads-jobs', () => setJobFilter('failed')) });
+  if (!failed.pods && podStats.CrashLoop > 0) issues.push({ msg: `${podStats.CrashLoop} pod${podStats.CrashLoop > 1 ? 's' : ''} in CrashLoopBackOff`, severity: 'critical', open: () => go('/r/v1~pods?q=CrashLoopBackOff', 'Pods (CrashLoopBackOff)') });
+  if (!failed.pods && podStats.ImagePull > 0) issues.push({ msg: `${podStats.ImagePull} pod${podStats.ImagePull > 1 ? 's' : ''} with image pull errors`, severity: 'critical', open: () => go('/r/v1~pods?q=ImagePull', 'Pods (image pull errors)') });
+  if (!failed.deployments && unhealthyDeploys.length > 0) issues.push({ msg: `${unhealthyDeploys.length} deployment${unhealthyDeploys.length > 1 ? 's' : ''} not fully available`, severity: 'warning', open: () => showList('workloads-deployments', () => setDeployFilter('unhealthy')) });
+  if (!failed.statefulsets && unhealthySS.length > 0) issues.push({ msg: `${unhealthySS.length} StatefulSet${unhealthySS.length > 1 ? 's' : ''} not ready`, severity: 'warning', open: () => showList('workloads-statefulsets', () => setStsFilter('unhealthy')) });
+  if (!failed.jobs && failedJobs.length > 0) issues.push({ msg: `${failedJobs.length} failed job${failedJobs.length > 1 ? 's' : ''}`, severity: 'warning', open: () => showList('workloads-jobs', () => setJobFilter('failed')) });
 
   if (activeTab === 'builds') {
     return (
@@ -214,6 +241,14 @@ export default function WorkloadsView() {
           </div>
         )}
 
+        {failedLists.length > 0 && (
+          <LoadError
+            title={`${failedLists.join(', ')} could not be loaded`}
+            error={firstError}
+            onRetry={retryFailed}
+          />
+        )}
+
         {/* Issues */}
         {issues.length > 0 && (
           <div className="space-y-2">
@@ -235,37 +270,37 @@ export default function WorkloadsView() {
           <button onClick={() => go('/r/apps~v1~deployments', 'Deployments')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthyDeploys.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Deployments</span>
-              {unhealthyDeploys.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
+              {!failed.deployments && unhealthyDeploys.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
-            <div className="text-xl font-bold text-slate-100">{deployments.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.deployments, deployments.length)}</div>
           </button>
           <button onClick={() => go('/r/apps~v1~statefulsets', 'StatefulSets')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthySS.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">StatefulSets</span>
-              {unhealthySS.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
+              {!failed.statefulsets && unhealthySS.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
-            <div className="text-xl font-bold text-slate-100">{statefulsets.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.statefulsets, statefulsets.length)}</div>
           </button>
           <button onClick={() => go('/r/apps~v1~daemonsets', 'DaemonSets')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">DaemonSets</div>
-            <div className="text-xl font-bold text-slate-100">{daemonsets.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.daemonsets, daemonsets.length)}</div>
           </button>
           <button onClick={() => go('/r/v1~pods', 'Pods')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', crashingPods.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Pods</span>
-              {crashingPods.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
+              {!failed.pods && crashingPods.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
-            <div className="text-xl font-bold text-slate-100">{pods.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.pods, pods.length)}</div>
           </button>
           <button onClick={() => go('/r/batch~v1~jobs', 'Jobs')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedJobs.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Jobs</span>
             </div>
-            <div className="text-xl font-bold text-slate-100">{jobs.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.jobs, jobs.length)}</div>
           </button>
           <button onClick={() => go('/r/batch~v1~cronjobs', 'CronJobs')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">CronJobs</div>
-            <div className="text-xl font-bold text-slate-100">{cronjobs.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.cronjobs, cronjobs.length)}</div>
           </button>
         </div>
 
@@ -327,10 +362,13 @@ export default function WorkloadsView() {
         </MetricGrid>
 
         {/* Workload Health Audit */}
-        <WorkloadHealthAudit deployments={deployments} pdbs={pdbs} go={go} />
+        <WorkloadHealthAudit deployments={deployments} deploymentsFailed={failed.deployments} pdbsFailed={failed.pdbs} pdbs={pdbs} go={go} />
 
         {/* Pod Status Breakdown */}
         <Panel title="Pod Status" icon={<Box className="w-4 h-4 text-blue-400" />}>
+          {failed.pods ? (
+            <p className="text-sm text-slate-500 py-2" data-unknown="">Pod status unknown — pods could not be read.</p>
+          ) : (
           <div className="space-y-2">
             {/* A distribution: rows add up to the pod total. */}
             {Object.entries(podStats).filter(([, count]) => count > 0).map(([status, count]) => {
@@ -353,6 +391,7 @@ export default function WorkloadsView() {
               );
             })}
           </div>
+          )}
         </Panel>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -388,6 +427,7 @@ export default function WorkloadsView() {
           title="Deployments"
           icon={<Package className="w-4 h-4 text-blue-400" />}
           items={sortedDeploys}
+          {...listErrorProps(deploysQ)}
           gvr="apps~v1~deployments"
           browseLabel="Browse all deployments"
           emptyText={`No deployments${nsFilter ? ` in ${nsFilter}` : ''}`}
@@ -426,6 +466,7 @@ export default function WorkloadsView() {
           title="StatefulSets"
           icon={<Database className="w-4 h-4 text-violet-400" />}
           items={statefulsets}
+          {...listErrorProps(stsQ)}
           gvr="apps~v1~statefulsets"
           browseLabel="Browse all StatefulSets"
           emptyText={`No StatefulSets${nsFilter ? ` in ${nsFilter}` : ''}`}
@@ -445,6 +486,7 @@ export default function WorkloadsView() {
           title="DaemonSets"
           icon={<Layers className="w-4 h-4 text-cyan-400" />}
           items={daemonsets}
+          {...listErrorProps(dsQ)}
           gvr="apps~v1~daemonsets"
           browseLabel="Browse all DaemonSets"
           emptyText={`No DaemonSets${nsFilter ? ` in ${nsFilter}` : ''}`}
@@ -464,6 +506,7 @@ export default function WorkloadsView() {
           title="CronJobs"
           icon={<CalendarClock className="w-4 h-4 text-amber-400" />}
           items={cronjobs}
+          {...listErrorProps(cronQ)}
           gvr="batch~v1~cronjobs"
           browseLabel="Browse all CronJobs"
           emptyText={`No CronJobs${nsFilter ? ` in ${nsFilter}` : ''}`}
@@ -486,6 +529,7 @@ export default function WorkloadsView() {
           title="Jobs"
           icon={<PlayCircle className="w-4 h-4 text-emerald-400" />}
           items={jobs}
+          {...listErrorProps(jobsQ)}
           gvr="batch~v1~jobs"
           browseLabel="Browse all Jobs"
           emptyText={`No Jobs${nsFilter ? ` in ${nsFilter}` : ''}`}
@@ -516,7 +560,7 @@ export default function WorkloadsView() {
 
 // ===== Workload Health Audit =====
 
-function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deployment[]; pdbs: PodDisruptionBudget[]; go: (path: string, title: string) => void }) {
+function WorkloadHealthAudit({ deployments, deploymentsFailed, pdbs, pdbsFailed, go }: { deployments: Deployment[]; deploymentsFailed: boolean; pdbs: PodDisruptionBudget[]; pdbsFailed: boolean; go: (path: string, title: string) => void }) {
   // PDB label selectors for matching
   const pdbSelectors = React.useMemo(() =>
     pdbs.map((pdb) => ({
@@ -565,6 +609,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
             cpu: "500m"
             memory: "512Mi"`,
       fixLabel: 'How to fix — add to your Deployment YAML:',
+      ...readsState(['Deployments', deploymentsFailed]),
     });
 
     // 2. Liveness probes
@@ -592,6 +637,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
           periodSeconds: 10
           failureThreshold: 3`,
       fixLabel: 'How to fix — add to your Deployment YAML:',
+      ...readsState(['Deployments', deploymentsFailed]),
     });
 
     // 3. Readiness probes
@@ -618,6 +664,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
           initialDelaySeconds: 5
           periodSeconds: 5`,
       fixLabel: 'How to fix — add to your Deployment YAML:',
+      ...readsState(['Deployments', deploymentsFailed]),
     });
 
     // 4. PodDisruptionBudgets
@@ -630,6 +677,7 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
       why: 'During cluster upgrades or node maintenance, all pods on a node are evicted. Without a PDB, all replicas of a deployment could be evicted simultaneously, causing downtime.',
       passing: multiReplicaDeploys.filter(d => hasPDB(d)),
       failing: noPDB,
+      ...(multiReplicaDeploys.length === 0 ? { state: 'notApplicable' as const, stateReason: 'no Deployments with more than one replica' } : {}),
       yamlExample: `apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -640,6 +688,7 @@ spec:
     matchLabels:
       app: my-app    # must match deployment selector`,
       fixLabel: 'How to fix — add to your Deployment YAML:',
+      ...readsState(['Deployments', deploymentsFailed], ['PodDisruptionBudgets', pdbsFailed]),
     });
 
     // 5. Replicas > 1 for HA
@@ -654,6 +703,7 @@ spec:
       yamlExample: `spec:
   replicas: 2    # minimum for HA, 3+ recommended`,
       fixLabel: 'How to fix — add to your Deployment YAML:',
+      ...readsState(['Deployments', deploymentsFailed]),
     });
 
     // 6. Rolling update strategy
@@ -672,12 +722,13 @@ spec:
       maxUnavailable: 1
       maxSurge: 1`,
       fixLabel: 'How to fix — add to your Deployment YAML:',
+      ...readsState(['Deployments', deploymentsFailed]),
     });
 
     return allChecks;
-  }, [deployments, pdbSelectors]);
+  }, [deployments, deploymentsFailed, pdbsFailed, pdbSelectors]);
 
-  if (deployments.length === 0) return null;
+  if (!deploymentsFailed && deployments.length === 0) return null;
 
   return (
     <HealthAuditPanel

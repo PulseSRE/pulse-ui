@@ -17,6 +17,13 @@ export interface ResourceProjection {
   projectedRatio: number | null; // at +90 days
   daysUntilExhaustion: number | null; // null = stable/declining
   growthPerDay: number | null;   // ratio per day
+  /**
+   * Why there is no projection, when there is none: the query failed, or it
+   * answered with no series. Unset when there is data.
+   */
+  noDataReason?: string;
+  /** True when a query behind this projection failed (vs. answered empty). */
+  failed?: boolean;
 }
 
 export interface CapacityProjections {
@@ -53,61 +60,72 @@ export function useCapacityProjections(lookback: Lookback = '30d'): CapacityProj
     : 'sum(machine_cpu_cores)';
 
   // Current usage ratios
-  const { data: cpuCurrent, isLoading: l1 } = useQuery({
+  const cpuCurrentQ = useQuery({
     queryKey: ['capacity', 'cpu-current', isHyperShift, clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant(`sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) / ${cpuDivisor}`, undefined, clusterId))) ?? [],
     refetchInterval: 60000,
   });
-  const { data: memCurrent, isLoading: l2 } = useQuery({
+  const memCurrentQ = useQuery({
     queryKey: ['capacity', 'mem-current', clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant('1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)', undefined, clusterId))) ?? [],
     refetchInterval: 60000,
   });
-  const { data: diskCurrent, isLoading: l3 } = useQuery({
+  const diskCurrentQ = useQuery({
     queryKey: ['capacity', 'disk-current', clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant('1 - sum(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}) / sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})', undefined, clusterId))) ?? [],
     refetchInterval: 60000,
   });
-  const { data: podsCurrent, isLoading: l4 } = useQuery({
+  const podsCurrentQ = useQuery({
     queryKey: ['capacity', 'pods-current', clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant('sum(kubelet_running_pods) / sum(kube_node_status_allocatable{resource="pods"})', undefined, clusterId))) ?? [],
     refetchInterval: 60000,
   });
 
   // Projected usage at +90 days using predict_linear
-  const { data: cpuProjected, isLoading: l5 } = useQuery({
+  const cpuProjectedQ = useQuery({
     queryKey: ['capacity', 'cpu-projected', lookback, isHyperShift, clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear(sum(rate(node_cpu_seconds_total{mode!="idle"}[5m]))[${lookback}:5m], ${HORIZON_SECONDS}) / ${cpuDivisor}`, undefined, clusterId))) ?? [],
     refetchInterval: 300000,
   });
-  const { data: memProjected, isLoading: l6 } = useQuery({
+  const memProjectedQ = useQuery({
     queryKey: ['capacity', 'mem-projected', lookback, clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear((sum(node_memory_MemTotal_bytes) - sum(node_memory_MemAvailable_bytes))[${lookback}:5m], ${HORIZON_SECONDS}) / sum(node_memory_MemTotal_bytes)`, undefined, clusterId))) ?? [],
     refetchInterval: 300000,
   });
-  const { data: diskProjected, isLoading: l7 } = useQuery({
+  const diskProjectedQ = useQuery({
     queryKey: ['capacity', 'disk-projected', lookback, clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear((sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}) - sum(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}))[${lookback}:5m], ${HORIZON_SECONDS}) / sum(node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})`, undefined, clusterId))) ?? [],
     refetchInterval: 300000,
   });
-  const { data: podsProjected, isLoading: l8 } = useQuery({
+  const podsProjectedQ = useQuery({
     queryKey: ['capacity', 'pods-projected', lookback, clusterId],
     queryFn: async () => (await safeQuery(() => queryInstant(`predict_linear(sum(kubelet_running_pods)[${lookback}:5m], ${HORIZON_SECONDS}) / sum(kube_node_status_allocatable{resource="pods"})`, undefined, clusterId))) ?? [],
     refetchInterval: 300000,
   });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
+    const isLoading = [cpuCurrentQ, memCurrentQ, diskCurrentQ, podsCurrentQ, cpuProjectedQ, memProjectedQ, diskProjectedQ, podsProjectedQ].some((q) => q.isLoading);
 
-  const cpuExh = computeExhaustion(extractValue(cpuCurrent), extractValue(cpuProjected));
-  const memExh = computeExhaustion(extractValue(memCurrent), extractValue(memProjected));
-  const diskExh = computeExhaustion(extractValue(diskCurrent), extractValue(diskProjected));
-  const podsExh = computeExhaustion(extractValue(podsCurrent), extractValue(podsProjected));
+  type Q = { data?: unknown; isError: boolean; error: unknown };
+  const project = (resource: ResourceProjection['resource'], cur: Q, proj: Q): ResourceProjection => {
+    const currentRatio = cur.isError ? null : extractValue(cur.data);
+    const projectedRatio = proj.isError ? null : extractValue(proj.data);
+    const exh = computeExhaustion(currentRatio, projectedRatio);
+    const failedQ = cur.isError ? cur : proj.isError ? proj : null;
+    const noDataReason = failedQ
+      ? `Prometheus query failed${failedQ.error instanceof Error && failedQ.error.message ? `: ${failedQ.error.message}` : ''}`
+      : currentRatio === null
+        ? 'Prometheus returned no usage series'
+        : projectedRatio === null
+          ? `Not enough history for a ${lookback} trend`
+          : undefined;
+    return { resource, currentRatio, projectedRatio, daysUntilExhaustion: exh.days, growthPerDay: exh.growth, noDataReason, failed: !!failedQ };
+  };
 
   const projections: ResourceProjection[] = [
-    { resource: 'cpu', currentRatio: extractValue(cpuCurrent), projectedRatio: extractValue(cpuProjected), daysUntilExhaustion: cpuExh.days, growthPerDay: cpuExh.growth },
-    { resource: 'memory', currentRatio: extractValue(memCurrent), projectedRatio: extractValue(memProjected), daysUntilExhaustion: memExh.days, growthPerDay: memExh.growth },
-    { resource: 'disk', currentRatio: extractValue(diskCurrent), projectedRatio: extractValue(diskProjected), daysUntilExhaustion: diskExh.days, growthPerDay: diskExh.growth },
-    { resource: 'pods', currentRatio: extractValue(podsCurrent), projectedRatio: extractValue(podsProjected), daysUntilExhaustion: podsExh.days, growthPerDay: podsExh.growth },
+    project('cpu', cpuCurrentQ, cpuProjectedQ),
+    project('memory', memCurrentQ, memProjectedQ),
+    project('disk', diskCurrentQ, diskProjectedQ),
+    project('pods', podsCurrentQ, podsProjectedQ),
   ];
 
   const criticalCount = projections.filter(p => p.daysUntilExhaustion !== null && p.daysUntilExhaustion <= 14).length;

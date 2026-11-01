@@ -85,6 +85,16 @@ describe('safeQuery', () => {
     expect(mockAddDegradedReason).toHaveBeenCalledWith('session_expired');
   });
 
+  it('returns null on a 404 PulseError from the k8s helpers (statusCode, not status)', async () => {
+    const err = Object.assign(new Error('not found'), { statusCode: 404 });
+    expect(await safeQuery(() => Promise.reject(err))).toBeNull();
+  });
+
+  it('rethrows a 403 PulseError from the k8s helpers', async () => {
+    const err = Object.assign(new Error('forbidden'), { statusCode: 403 });
+    await expect(safeQuery(() => Promise.reject(err))).rejects.toBe(err);
+  });
+
   it('rethrows non-404 errors', async () => {
     await expect(
       safeQuery(() => Promise.reject({ status: 500 })),
