@@ -95,19 +95,23 @@ export function useIncidentFeed(
   >({
     queryKey: ['incidentFeed', 'alerts', clusterId],
     queryFn: async () => {
+      // A failed read is an error, not "no alerts": returning [] here made
+      // isError permanently false, so the home page could call a cluster
+      // healthy whose alerting it could not see.
+      let res: Response;
       try {
-        const res = await promFetch('/api/v1/rules', clusterId);
-        if (!res.ok) {
-          useUIStore.getState().addDegradedReason('observability_unavailable');
-          return [];
-        }
-        useUIStore.getState().removeDegradedReason('observability_unavailable');
-        const json = await res.json();
-        return json.data?.groups ?? [];
-      } catch {
+        res = await promFetch('/api/v1/rules', clusterId);
+      } catch (e) {
         useUIStore.getState().addDegradedReason('observability_unavailable');
-        return [];
+        throw e;
       }
+      if (!res.ok) {
+        useUIStore.getState().addDegradedReason('observability_unavailable');
+        throw new Error(`Alert rules could not be read (HTTP ${res.status})`);
+      }
+      useUIStore.getState().removeDegradedReason('observability_unavailable');
+      const json = await res.json();
+      return json.data?.groups ?? [];
     },
     refetchInterval: 60000,
     // Prometheus is reachable for the local cluster only; a remote cluster's
