@@ -351,12 +351,12 @@ describe('Overview links go where they say', () => {
     expect(go).toHaveBeenCalledWith(url, event.involvedObject.name);
   });
 
-  it('"View full timeline" opens the Inbox activity tab', () => {
+  it('"View full timeline" opens the events timeline', () => {
     const go = vi.fn();
     const event = ev('Pod', 'p', 'shop', 'v1');
     render(<OverviewTab {...makeProps({ latestEvents: [event], recentEvents: [event], go })} />);
     fireEvent.click(screen.getByText(/View full timeline/));
-    expect(go).toHaveBeenCalledWith('/inbox?tab=activity', expect.any(String));
+    expect(go).toHaveBeenCalledWith('/timeline?cat=event', 'Timeline');
   });
 
   it('"View certificates" opens the certificates tab', () => {
