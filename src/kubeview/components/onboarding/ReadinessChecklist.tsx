@@ -6,18 +6,27 @@ import { Badge } from '../primitives/Badge';
 import { GateCard } from './GateCard';
 import { ReadinessScore } from './ReadinessScore';
 import { WaiverDialog } from './WaiverDialog';
-import type { ReadinessCategory, CategoryView } from './types';
+import type { ReadinessCategory, CategoryView, Waiver } from './types';
+import type { WaiverStorage } from '../../engine/readiness/waivers';
 
 interface ReadinessChecklistProps {
   score: number;
   categories: CategoryView[];
-  onWaive: (gateId: string, reason: string) => void;
+  /** Save a waiver; the dialog stays open, showing the error, if this throws. */
+  onWaive: (gateId: string, reason: string, expiresAt: number | null) => void | Promise<void>;
   onReVerify: (gateId: string) => void;
+  /** Waivers in force, keyed by gate id, for showing who waived what and when. */
+  waivers?: Record<string, Waiver>;
+  /** Where waivers are kept; told to the person waiving. */
+  waiverStorage?: WaiverStorage;
+  /** Why the waiver list could not be loaded, if it could not. */
+  waiverLoadError?: string;
+  onUnwaive?: (gateId: string) => void | Promise<void>;
   onSwitchToWizard: () => void;
 }
 
 /** Dashboard-style checklist with expandable category sections. */
-export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onSwitchToWizard }: ReadinessChecklistProps) {
+export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onSwitchToWizard, waivers, waiverStorage, waiverLoadError, onUnwaive }: ReadinessChecklistProps) {
   const [expanded, setExpanded] = React.useState<Set<ReadinessCategory>>(() => {
     // Auto-expand categories with failures
     const failing = new Set<ReadinessCategory>();
@@ -89,6 +98,8 @@ export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onS
                       result={cat.results[gate.id]}
                       onReVerify={onReVerify}
                       onWaive={(gateId) => setWaiverTarget(gateId)}
+                      waiver={waivers?.[gate.id]}
+                      onUnwaive={onUnwaive}
                     />
                   ))}
                 </div>
@@ -120,8 +131,11 @@ export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onS
         gateTitle={waiverGate?.title || ''}
         open={waiverTarget !== null}
         onClose={() => setWaiverTarget(null)}
-        onConfirm={(reason) => {
-          if (waiverTarget) onWaive(waiverTarget, reason);
+        storage={waiverStorage}
+        loadError={waiverLoadError}
+        onConfirm={async (reason, expiresAt) => {
+          if (!waiverTarget) return;
+          await onWaive(waiverTarget, reason, expiresAt ?? null);
           setWaiverTarget(null);
         }}
       />

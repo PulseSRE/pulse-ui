@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
-import type { GateStatus, ReadinessGate, GateResult } from '../../engine/readiness/types';
+import type { GateStatus, ReadinessGate, GateResult, Waiver } from '../../engine/readiness/types';
 import { askPulse } from '../../engine/askPulse';
 
 interface GateCardProps {
@@ -13,8 +13,16 @@ interface GateCardProps {
   result?: GateResult;
   waived?: boolean;
   waiverReason?: string;
+  /** The waiver in force for this gate: who waived it, when, why and until when. */
+  waiver?: Waiver;
   onReVerify?: (gateId: string) => void;
   onWaive?: (gateId: string) => void;
+  /** Lift the waiver. If it throws, the error is shown on the card and the waiver stays. */
+  onUnwaive?: (gateId: string) => void | Promise<void>;
+}
+
+function formatDate(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 const STATUS_CONFIG: Record<GateStatus, {
@@ -30,8 +38,22 @@ const STATUS_CONFIG: Record<GateStatus, {
   waived:      { icon: <ShieldOff className="w-4 h-4" />, color: 'text-slate-400', label: 'Waived' },
 };
 
-export function GateCard({ gate, result, waived, waiverReason, onReVerify, onWaive }: GateCardProps) {
+export function GateCard({ gate, result, waived, waiverReason, waiver, onReVerify, onWaive, onUnwaive }: GateCardProps) {
   const go = useNavigateTab();
+  const [unwaiving, setUnwaiving] = React.useState(false);
+  const [unwaiveError, setUnwaiveError] = React.useState<string | null>(null);
+  const handleUnwaive = async () => {
+    if (!onUnwaive) return;
+    setUnwaiving(true);
+    setUnwaiveError(null);
+    try {
+      await onUnwaive(gate.id);
+    } catch (err) {
+      setUnwaiveError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUnwaiving(false);
+    }
+  };
   const status: GateStatus = waived ? 'waived' : (result?.status ?? 'not_started');
   const cfg = STATUS_CONFIG[status];
   const [expanded, setExpanded] = React.useState(status === 'failed' || status === 'needs_attention');
@@ -86,8 +108,42 @@ export function GateCard({ gate, result, waived, waiverReason, onReVerify, onWai
             </div>
           )}
 
-          {waived && waiverReason && (
+          {waived && waiverReason && !waiver && (
             <div className="text-xs text-slate-500 italic">Waived: {waiverReason}</div>
+          )}
+
+          {status === 'passed' && waiver && (
+            <div className="text-xs text-slate-400 bg-slate-800/50 rounded-md p-3 space-y-1" data-testid="waiver-details">
+              {/* Not counted while the gate passes, but it still stands: if the gate
+                  breaks again it would come back as "Waived" with this reason. */}
+              <div className="font-medium text-slate-300">
+                This gate now passes; its waiver is no longer needed.
+              </div>
+              <p>
+                Still on file: waived{waiver.approvedBy ? ` by ${waiver.approvedBy}` : ''}
+                {waiver.createdAt ? ` on ${formatDate(waiver.createdAt)}` : ''}
+                {waiver.expiresAt !== null ? `, expires ${formatDate(waiver.expiresAt)}` : ', no expiry'}
+                {' '}(<span className="italic">{waiver.reason}</span>). If the gate fails again it will be waived
+                with this reason unless you remove it.
+              </p>
+              {unwaiveError && (
+                <p role="alert" className="text-red-300">{unwaiveError}</p>
+              )}
+            </div>
+          )}
+
+          {status === 'waived' && waiver && (
+            <div className="text-xs text-slate-400 bg-slate-800/50 rounded-md p-3 space-y-1" data-testid="waiver-details">
+              <div className="font-medium text-slate-300">
+                Waived{waiver.approvedBy ? ` by ${waiver.approvedBy}` : ''}
+                {waiver.createdAt ? ` on ${formatDate(waiver.createdAt)}` : ''}
+                {waiver.expiresAt !== null ? ` · expires ${formatDate(waiver.expiresAt)}` : ' · no expiry'}
+              </div>
+              <p className="italic">{waiver.reason}</p>
+              {unwaiveError && (
+                <p role="alert" className="text-red-300 not-italic">{unwaiveError}</p>
+              )}
+            </div>
           )}
 
           <div className="flex items-center gap-2 pt-1">
@@ -125,6 +181,15 @@ export function GateCard({ gate, result, waived, waiverReason, onReVerify, onWai
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800/50 hover:bg-slate-800 rounded-md transition-colors"
               >
                 <ShieldOff className="w-3 h-3" /> Waive
+              </button>
+            )}
+            {onUnwaive && waiver && (status === 'waived' || status === 'passed') && (
+              <button
+                onClick={handleUnwaive}
+                disabled={unwaiving}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800/50 hover:bg-slate-800 rounded-md transition-colors disabled:opacity-60"
+              >
+                <ShieldCheck className="w-3 h-3" /> {unwaiving ? 'Removing…' : 'Remove waiver'}
               </button>
             )}
           </div>
