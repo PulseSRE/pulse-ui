@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { parseTopologyFocus, topologyNodeMatches } from '../engine/topologyLinks';
+import { useFleetStore } from '../store/fleetStore';
+import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
+import { LocalClusterOnlyNotice } from '../components/feedback/LocalClusterOnlyNotice';
 import { useQuery } from '@tanstack/react-query';
 import {
   Network, Loader2, RefreshCw, AlertTriangle, Zap, Shield, Clock, X,
@@ -73,6 +76,10 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export default function TopologyView() {
   const activeNs = useUIStore((s) => s.selectedNamespace);
+  // The agent's graph is of the cluster it runs in. For a remote cluster it
+  // would show the hub's resources under the remote cluster's name.
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
+  const isLocalCluster = activeClusterId === LOCAL_CLUSTER_ID;
   // `?namespace=` and `?focus=Kind/ns/name` open the graph on one resource
   // (a resource's "Dependencies" action and old /deps links land here).
   const [searchParams] = useSearchParams();
@@ -88,6 +95,7 @@ export default function TopologyView() {
     queryKey: ['topology', selectedNamespace],
     queryFn: () => fetchTopology(selectedNamespace || undefined),
     refetchInterval: 120_000,
+    enabled: isLocalCluster,
   });
 
   const { data: allData } = useQuery({
@@ -95,13 +103,14 @@ export default function TopologyView() {
     queryFn: () => fetchTopology(),
     staleTime: 300_000,
     refetchOnWindowFocus: false,
+    enabled: isLocalCluster,
   });
 
   // Blast radius from API (richer than client-side BFS)
   const { data: blastRadiusData, isError: blastRadiusError, refetch: refetchBlastRadius } = useQuery({
     queryKey: ['topology-blast-radius', selectedNode],
     queryFn: () => fetchBlastRadius(selectedNode!),
-    enabled: !!selectedNode,
+    enabled: !!selectedNode && isLocalCluster,
   });
 
   // Select the focused resource once its namespace's graph has loaded.
@@ -159,6 +168,20 @@ export default function TopologyView() {
     () => topology.nodes.filter(n => n.recentlyChanged),
     [topology.nodes],
   );
+
+  if (!isLocalCluster) {
+    return (
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <div className="max-w-[1400px] mx-auto space-y-4">
+          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
+            <Network className="w-6 h-6 text-cyan-400" />
+            Topology
+          </h1>
+          <LocalClusterOnlyNotice what="Topology" />
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

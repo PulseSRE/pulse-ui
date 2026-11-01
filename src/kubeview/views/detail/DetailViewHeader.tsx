@@ -44,6 +44,8 @@ interface DetailViewHeaderProps {
   onViewYaml: () => void;
   onViewMetrics: () => void;
   onViewDeps: () => void;
+  /** Why Dependencies is unavailable (e.g. a remote cluster); the item is then disabled with this as its title. */
+  depsUnavailable?: string;
   onViewNodeLogs?: () => void;
   onOpenProject?: () => void;
   onDeleteRequest: () => void;
@@ -70,6 +72,7 @@ export function DetailViewHeader({
   onViewYaml,
   onViewMetrics,
   onViewDeps,
+  depsUnavailable,
   onViewNodeLogs,
   onOpenProject,
   onDeleteRequest,
@@ -193,7 +196,13 @@ export function DetailViewHeader({
             ...workload.items,
             ...(workload.items.length ? ['separator' as const] : []),
             { icon: <Activity className="w-3.5 h-3.5" />, label: 'Metrics', onClick: onViewMetrics },
-            namespace ? { icon: <GitBranch className="w-3.5 h-3.5" />, label: 'Dependencies', onClick: onViewDeps } : null,
+            namespace ? {
+              icon: <GitBranch className="w-3.5 h-3.5" />,
+              label: depsUnavailable ? 'Dependencies (local cluster only)' : 'Dependencies',
+              onClick: onViewDeps,
+              disabled: !!depsUnavailable,
+              title: depsUnavailable,
+            } : null,
             'separator',
             { icon: <Trash2 className={cn('w-3.5 h-3.5', canDelete ? 'text-red-400' : 'text-slate-600')} />, label: canDelete ? 'Delete' : 'Delete (no permission)', onClick: onDeleteRequest, danger: canDelete, disabled: !canDelete, title: canDelete ? undefined : 'No delete permission' },
           ]}

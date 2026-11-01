@@ -130,6 +130,15 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     categories?.has('config') && (cvError || opsError) ? 'config changes' : '',
   ].filter(Boolean);
 
+  /**
+   * Sources that were asked for but cannot be read for this cluster at all
+   * (as opposed to failing): Prometheus is reachable for the local cluster
+   * only. Listed so the page does not present the timeline as complete.
+   */
+  const unavailableSources: string[] = [
+    categories?.has('alert') && !metricsAvailableFor(clusterId) ? 'alerts' : '',
+  ].filter(Boolean);
+
   // Stable string key for categories Set (React can't compare Sets in deps)
   const categoriesKey = categories instanceof Set ? [...categories].sort().join(',') : '';
 
@@ -189,5 +198,5 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   /** Cluster-wide events hit the cap: older or unrelated events may be missing. */
   const eventsCapped = !namespace && (categories?.has('event') ?? false) && rawEvents.length >= CLUSTER_EVENTS_CAP;
 
-  return { entries, correlationGroups, counts, isLoading, failedSources, requestedSources, refetch, eventsCapped };
+  return { entries, correlationGroups, counts, isLoading, failedSources, unavailableSources, requestedSources, refetch, eventsCapped };
 }
