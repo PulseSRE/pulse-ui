@@ -5,22 +5,22 @@ import {
   Terminal,
   FileCode,
   ArrowLeft,
-  RotateCw,
-  Plus,
-  Minus,
   GitBranch,
   Copy,
   Star,
   Bug,
   ChevronRight,
   Activity,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../../engine/renderers';
-import type { Container, Deployment } from '../../engine/types';
 import { StatusBadge } from '../../components/primitives/StatusBadge';
 import { ActionMenu } from '../../components/primitives/ActionMenu';
 import { ArgoSyncBadge } from '../../components/ArgoSyncBadge';
+import { useWorkloadActions } from '../../components/workloads/WorkloadActionMenu';
+import { routeUrl } from '../../engine/workloadActions';
+import { NodeHeaderActions } from './NodeHeaderActions';
 
 interface DetailViewHeaderProps {
   resource: K8sResource;
@@ -32,10 +32,7 @@ interface DetailViewHeaderProps {
   currentPath: string;
   actionLoading: string | null;
   isWorkload: boolean;
-  isScalable: boolean;
-  isRestartable: boolean;
   canDelete: boolean;
-  canUpdate: boolean;
   onNavigateBack: () => void;
   onGoToList: () => void;
   onGoToListFiltered: () => void;
@@ -44,12 +41,11 @@ interface DetailViewHeaderProps {
   onViewLogs: () => void;
   onOpenTerminal: () => void;
   onDebug: () => void;
-  onScale: (delta: number) => void;
-  onRestart: () => void;
   onViewYaml: () => void;
   onViewMetrics: () => void;
   onViewDeps: () => void;
   onViewNodeLogs?: () => void;
+  onOpenProject?: () => void;
   onDeleteRequest: () => void;
 }
 
@@ -62,10 +58,7 @@ export function DetailViewHeader({
   starred,
   actionLoading,
   isWorkload,
-  isScalable,
-  isRestartable,
   canDelete,
-  canUpdate,
   onNavigateBack,
   onGoToList,
   onGoToListFiltered,
@@ -74,15 +67,17 @@ export function DetailViewHeader({
   onViewLogs,
   onOpenTerminal,
   onDebug,
-  onScale,
-  onRestart,
   onViewYaml,
   onViewMetrics,
   onViewDeps,
   onViewNodeLogs,
+  onOpenProject,
   onDeleteRequest,
 }: DetailViewHeaderProps) {
-  const spec = (resource.spec as Record<string, unknown>) || {};
+  // Kind-specific actions (scale, restart, pause, trigger, re-run, restart pod…)
+  // join the "more actions" menu; the header keeps Logs, Terminal and Delete.
+  const workload = useWorkloadActions(resource, { context: 'detail', onDeleted: onGoToList });
+  const url = resource.kind === 'Route' ? routeUrl(resource) : null;
 
   return (
     <div className="flex items-start justify-between">
@@ -166,30 +161,27 @@ export function DetailViewHeader({
             )}
           </>
         )}
-        {isScalable && (
-          <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-sm bg-slate-800/50" title={canUpdate ? undefined : 'No update permission'}>
-            <button onClick={() => onScale(-1)} disabled={!canUpdate || !!actionLoading} className={cn('px-1.5 py-1 rounded-sm transition-colors disabled:opacity-30', canUpdate ? 'text-slate-400 hover:bg-slate-700 hover:text-slate-200' : 'text-slate-700 cursor-not-allowed')}>
-              <Minus className="w-3 h-3" />
-            </button>
-            <span className={cn('px-2 py-0.5 text-xs font-mono text-slate-300', actionLoading === 'scale' && 'animate-pulse')}>
-              {(resource.spec as Deployment['spec'])?.replicas ?? 0}
-            </span>
-            <button onClick={() => onScale(1)} disabled={!canUpdate || !!actionLoading} className={cn('px-1.5 py-1 rounded-sm transition-colors disabled:opacity-30', canUpdate ? 'text-slate-400 hover:bg-slate-700 hover:text-slate-200' : 'text-slate-700 cursor-not-allowed')}>
-              <Plus className="w-3 h-3" />
-            </button>
-          </div>
-        )}
-        {isRestartable && (
-          <button
-            onClick={onRestart}
-            disabled={!canUpdate || !!actionLoading}
-            className={cn('px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 transition-colors disabled:opacity-50',
-              canUpdate ? 'text-slate-400 hover:bg-slate-800 hover:text-orange-400' : 'text-slate-700 cursor-not-allowed'
-            )}
-            title={canUpdate ? 'Restart rollout' : 'No update permission'}
-          >
-            <RotateCw className={cn('w-3.5 h-3.5', actionLoading === 'restart' && 'animate-spin')} /> {actionLoading === 'restart' ? 'Restarting...' : 'Restart'}
+        {resource.kind === 'Node' && onViewNodeLogs && (
+          <button onClick={onViewNodeLogs} className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors">
+            <FileText className="w-3.5 h-3.5" /> Node logs
           </button>
+        )}
+        {resource.kind === 'Node' && <NodeHeaderActions node={resource} />}
+        {(resource.kind === 'Namespace' || resource.kind === 'Project') && onOpenProject && (
+          <button onClick={onOpenProject} className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-blue-400 flex items-center gap-1.5 transition-colors">
+            <Activity className="w-3.5 h-3.5" /> Open project dashboard
+          </button>
+        )}
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-blue-400 flex items-center gap-1.5 transition-colors"
+            title={url}
+          >
+            <ExternalLink className="w-3.5 h-3.5" /> Open URL
+          </a>
         )}
         <button onClick={onViewYaml} className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-blue-400 flex items-center gap-1.5 transition-colors">
           <FileCode className="w-3.5 h-3.5" /> YAML
@@ -198,13 +190,15 @@ export function DetailViewHeader({
         {/* More actions dropdown */}
         <ActionMenu
           items={[
-            resource.kind === 'Node' && onViewNodeLogs ? { icon: <FileText className="w-3.5 h-3.5" />, label: 'Node Logs', onClick: onViewNodeLogs } : null,
+            ...workload.items,
+            ...(workload.items.length ? ['separator' as const] : []),
             { icon: <Activity className="w-3.5 h-3.5" />, label: 'Metrics', onClick: onViewMetrics },
             namespace ? { icon: <GitBranch className="w-3.5 h-3.5" />, label: 'Dependencies', onClick: onViewDeps } : null,
             'separator',
             { icon: <Trash2 className={cn('w-3.5 h-3.5', canDelete ? 'text-red-400' : 'text-slate-600')} />, label: canDelete ? 'Delete' : 'Delete (no permission)', onClick: onDeleteRequest, danger: canDelete, disabled: !canDelete, title: canDelete ? undefined : 'No delete permission' },
           ]}
         />
+        {workload.dialog}
       </div>
     </div>
   );

@@ -343,6 +343,14 @@ export function CommandBar() {
                     <div className="px-3 py-4 text-center text-xs text-slate-500">No namespaces match "{nsFilter}"</div>
                   )}
                 </div>
+                {selectedNamespace !== '*' && (
+                  <button
+                    onClick={() => { setShowNsDropdown(false); setNsFilter(''); go(`/project/${encodeURIComponent(selectedNamespace)}`, `Project ${selectedNamespace}`); }}
+                    className="w-full px-3 py-2 text-left text-xs text-blue-400 hover:bg-slate-700 border-t border-slate-700"
+                  >
+                    Open project dashboard for {selectedNamespace} →
+                  </button>
+                )}
               </div>
             </>
           )}

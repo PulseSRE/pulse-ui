@@ -6,14 +6,14 @@ import { IncidentContext } from './IncidentContext';
 import { RolloutHistory } from './RolloutHistory';
 import { WorkloadAudit } from './WorkloadAudit';
 import { LabelsSection, AnnotationsSection } from './MetadataSections';
+import type { MetadataTarget } from './MetadataSections';
 
 interface DeploymentDetailLayoutProps {
   resource: K8sResource;
   namespace: string;
   managedPods: K8sResource[];
   events: Event[];
-  actionLoading: string | null;
-  onAddLabel: () => void;
+  metaTarget: MetadataTarget;
   go: (path: string, title: string) => void;
 }
 
@@ -22,10 +22,14 @@ export function DeploymentDetailLayout({
   namespace,
   managedPods,
   events,
-  actionLoading,
-  onAddLabel,
+  metaTarget,
   go,
 }: DeploymentDetailLayoutProps) {
+  React.useEffect(() => {
+    if (window.location.hash === '#rollback') {
+      document.getElementById('rollback')?.scrollIntoView?.({ block: 'start' });
+    }
+  }, []);
   return (
     <div className="space-y-6">
       <DeploymentSummary resource={resource} managedPods={managedPods} go={go} />
@@ -34,12 +38,15 @@ export function DeploymentDetailLayout({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
           <IncidentContext resource={resource} managedPods={managedPods} events={events} namespace={namespace} go={go} />
-          <RolloutHistory resource={resource} namespace={namespace} />
+          {/* "Roll back…" in the actions menu links here. */}
+          <div id="rollback" className="scroll-mt-4">
+            <RolloutHistory resource={resource} namespace={namespace} />
+          </div>
         </div>
         <div className="space-y-6">
           <WorkloadAudit resource={resource} go={go} />
-          <LabelsSection resource={resource} onAddLabel={onAddLabel} actionLoading={actionLoading} />
-          <AnnotationsSection resource={resource} />
+          <LabelsSection resource={resource} target={metaTarget} />
+          <AnnotationsSection resource={resource} target={metaTarget} />
         </div>
       </div>
     </div>

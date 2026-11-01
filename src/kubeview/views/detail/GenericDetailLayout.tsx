@@ -7,7 +7,9 @@ import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { askPulse } from '../../engine/askPulse';
 import { Card } from '../../components/primitives/Card';
 import { LabelsSection, AnnotationsSection, DetailSection } from './MetadataSections';
+import type { MetadataTarget } from './MetadataSections';
 import { IncidentContext } from './IncidentContext';
+import { KindSections } from './KindSections';
 import { RolloutHistory, isRolloutWorkload } from './RolloutHistory';
 import { WorkloadAudit } from './WorkloadAudit';
 import DataEditor from '../../components/DataEditor';
@@ -27,8 +29,7 @@ interface GenericDetailLayoutProps {
   managedPods: K8sResource[];
   relatedResources: RelatedResource[];
   isWorkload: boolean;
-  actionLoading: string | null;
-  onAddLabel: () => void;
+  metaTarget: MetadataTarget;
   onSwitchToEvents: () => void;
   go: (path: string, title: string) => void;
 }
@@ -42,8 +43,7 @@ export function GenericDetailLayout({
   managedPods,
   relatedResources,
   isWorkload,
-  actionLoading,
-  onAddLabel,
+  metaTarget,
   onSwitchToEvents,
   go,
 }: GenericDetailLayoutProps) {
@@ -84,8 +84,10 @@ export function GenericDetailLayout({
           />
         )}
 
-        <LabelsSection resource={resource} onAddLabel={onAddLabel} actionLoading={actionLoading} />
-        <AnnotationsSection resource={resource} />
+        <KindSections resource={resource} go={go} />
+
+        <LabelsSection resource={resource} target={metaTarget} />
+        <AnnotationsSection resource={resource} target={metaTarget} />
 
         {/* Spec (simplified) */}
         {spec && Object.keys(spec).length > 0 && (

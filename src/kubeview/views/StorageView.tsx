@@ -20,12 +20,21 @@ import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { useActiveClusterId } from '../hooks/useClusterBase';
+import { Button } from '../components/primitives/Button';
+import { useCanI } from '../hooks/useCanI';
+import { useActionDialog } from '../components/ActionDialog';
+import { useSetDefaultStorageClass } from './detail/KindSections';
+import { deleteRequest, sendWrite, isDefaultStorageClass } from '../engine/workloadActions';
 
 export default function StorageView() {
   const clusterId = useActiveClusterId();
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const go = useNavigateTab();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
+  const { canPatch: canSetDefaultSC, setDefault, dialog: defaultScDialog } = useSetDefaultStorageClass();
+  const { allowed: canDeletePV } = useCanI('delete', '', 'persistentvolumes');
+  const { allowed: canCreatePVC } = useCanI('create', '', 'persistentvolumeclaims', nsFilter);
+  const { open: openAction, dialog: actionDialog } = useActionDialog();
 
   // Real-time data
   const { data: pvcs = [], isLoading: pvcsLoading, isError: pvcsError, error: pvcsErr } = useK8sListWatch<PersistentVolumeClaim>({ apiPath: '/api/v1/persistentvolumeclaims', namespace: nsFilter });
@@ -123,6 +132,16 @@ export default function StorageView() {
           icon={<HardDrive className="w-6 h-6 text-orange-500" />}
           title="Storage"
           subtitle={<>Persistent volumes, claims, storage classes, and capacity{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
+          actions={(
+            <Button
+              size="sm"
+              onClick={() => go(nsFilter ? `/create/v1~persistentvolumeclaims?namespace=${encodeURIComponent(nsFilter)}` : '/create/v1~persistentvolumeclaims', 'Create PVC')}
+              disabled={!canCreatePVC}
+              title={canCreatePVC ? undefined : 'You do not have permission to create PersistentVolumeClaims here'}
+            >
+              <Plus className="w-3.5 h-3.5" /> Create PVC
+            </Button>
+          )}
         />
 
         {(pvcsLoading || pvsLoading) && pvcs.length === 0 && (
@@ -240,14 +259,15 @@ export default function StorageView() {
             ) : (
               <div className="space-y-2">
                 {storageClasses.map((sc) => {
-                  const isDefault = sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true';
+                  const isDefault = isDefaultStorageClass(sc as unknown as K8sResource);
                   const provisioner = sc.provisioner || 'unknown';
                   const reclaimPolicy = sc.reclaimPolicy || 'Delete';
                   const volumeBinding = sc.volumeBindingMode || 'Immediate';
                   const classStats = pvcByClass.find(([name]) => name === sc.metadata.name);
                   return (
-                    <button key={sc.metadata.uid} onClick={() => go(`/r/storage.k8s.io~v1~storageclasses/_/${sc.metadata.name}`, sc.metadata.name)}
-                      className="flex items-start justify-between w-full py-2.5 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
+                    <div key={sc.metadata.uid} className="flex items-start gap-2 rounded-sm hover:bg-slate-800/50 transition-colors">
+                    <button onClick={() => go(`/r/storage.k8s.io~v1~storageclasses/_/${sc.metadata.name}`, sc.metadata.name)}
+                      className="flex-1 min-w-0 flex items-start justify-between py-2.5 px-3 text-left">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-200">{sc.metadata.name}</span>
@@ -270,6 +290,20 @@ export default function StorageView() {
                         )}
                       </div>
                     </button>
+                    {!isDefault && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="mt-2 mr-2 shrink-0"
+                        onClick={() => setDefault(sc)}
+                        disabled={!canSetDefaultSC}
+                        title={canSetDefaultSC ? 'Make this the default StorageClass' : 'You do not have permission to change StorageClasses'}
+                        aria-label={`Set ${sc.metadata.name} as default StorageClass`}
+                      >
+                        Set default
+                      </Button>
+                    )}
+                    </div>
                   );
                 })}
               </div>
@@ -286,14 +320,15 @@ export default function StorageView() {
             ) : (
               <div className="space-y-2">
                 {csiDrivers.map((driver) => (
-                  <div key={driver.metadata.uid} className="py-2 px-3 rounded-sm hover:bg-slate-800/50">
+                  <button key={driver.metadata.uid} onClick={() => go(`/r/storage.k8s.io~v1~csidrivers/_/${driver.metadata.name}`, driver.metadata.name)}
+                    className="w-full text-left py-2 px-3 rounded-sm hover:bg-slate-800/50 transition-colors">
                     <div className="text-sm text-slate-200 font-medium">{driver.metadata.name}</div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                       {driver.spec?.attachRequired !== false && <span>Attach required</span>}
                       {driver.spec?.podInfoOnMount && <span>Pod info on mount</span>}
                       {driver.spec?.volumeLifecycleModes?.map((m: string) => <span key={m}>{m}</span>)}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -364,8 +399,9 @@ export default function StorageView() {
           <Panel title={`Released PVs (${releasedPVs.length})`} icon={<Info className="w-4 h-4 text-blue-500" />}>
             <div className="space-y-1">
               {releasedPVs.map((pv) => (
-                <button key={pv.metadata.uid} onClick={() => go(`/r/v1~persistentvolumes/_/${pv.metadata.name}`, pv.metadata.name)}
-                  className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
+                <div key={pv.metadata.uid} className="flex items-center gap-1 rounded-sm hover:bg-slate-800/50 transition-colors">
+                <button onClick={() => go(`/r/v1~persistentvolumes/_/${pv.metadata.name}`, pv.metadata.name)}
+                  className="flex-1 min-w-0 flex items-center justify-between py-2 px-3 text-left">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-500" />
                     <span className="text-sm text-slate-200">{pv.metadata.name}</span>
@@ -376,10 +412,35 @@ export default function StorageView() {
                     <ArrowRight className="w-3 h-3 text-slate-600" />
                   </div>
                 </button>
+                <button
+                  onClick={() => {
+                    const policy = pv.spec?.persistentVolumeReclaimPolicy || 'Retain';
+                    const was = pv.spec?.claimRef?.name ? ` It was bound to ${pv.spec.claimRef.namespace}/${pv.spec.claimRef.name}.` : '';
+                    openAction({
+                      title: `Delete PersistentVolume "${pv.metadata.name}"?`,
+                      description: policy === 'Delete'
+                        ? `Its reclaim policy is Delete: the backing volume will be destroyed with it, and its data cannot be recovered.${was}`
+                        : policy === 'Recycle'
+                          ? `Its reclaim policy is Recycle (deprecated): the PV object is removed; whether the backing data is scrubbed depends on the volume plugin.${was}`
+                          : `Its reclaim policy is Retain: the PV object is removed, but the backing storage is NOT deleted by Kubernetes. The data stays on the storage system until you remove it there.${was}`,
+                      confirmLabel: policy === 'Delete' ? 'Delete PV and volume' : 'Delete PV',
+                      variant: 'danger',
+                      run: (cid) => sendWrite(deleteRequest(pv), cid),
+                      success: `PersistentVolume "${pv.metadata.name}" deleted`,
+                    });
+                  }}
+                  disabled={!canDeletePV}
+                  title={canDeletePV ? 'Delete this PV' : 'You do not have permission to delete PersistentVolumes'}
+                  aria-label={`Delete PV ${pv.metadata.name}`}
+                  className="p-2 text-slate-500 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+                </div>
               ))}
             </div>
             <div className="mt-3 pt-3 border-t border-slate-800">
-              <p className="text-xs text-slate-500">Released PVs still hold data but are no longer bound. Set <code className="text-slate-400">persistentVolumeReclaimPolicy: Retain</code> to keep data, or delete the PV to reclaim storage.</p>
+              <p className="text-xs text-slate-500">A PV is Released when its claim was deleted and its reclaim policy kept the volume. It still holds the data but cannot be bound again as is. Delete the PV object once the data is no longer needed (and remove the backing volume on the storage system), or clear its <code className="text-slate-400">claimRef</code> to make it Available again.</p>
             </div>
           </Panel>
         )}
@@ -391,7 +452,8 @@ export default function StorageView() {
               {volumeSnapshots.slice(0, 10).map((snap) => {
                 const ready = snap.status?.readyToUse;
                 return (
-                  <div key={snap.metadata.uid} className="flex items-center justify-between py-2 px-3 rounded-sm hover:bg-slate-800/50">
+                  <button key={snap.metadata.uid} onClick={() => go(`/r/snapshot.storage.k8s.io~v1~volumesnapshots/${snap.metadata.namespace}/${snap.metadata.name}`, snap.metadata.name)}
+                    className="w-full flex items-center justify-between py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                     <div className="flex items-center gap-2">
                       {ready ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <AlertCircle className="w-3.5 h-3.5 text-amber-500" />}
                       <span className="text-sm text-slate-200">{snap.metadata.name}</span>
@@ -401,13 +463,15 @@ export default function StorageView() {
                       <span>Source: {snap.spec?.source?.persistentVolumeClaimName || '—'}</span>
                       <span>{snap.status?.restoreSize || ''}</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </Panel>
         )}
       </div>
+      {defaultScDialog}
+      {actionDialog}
     </div>
   );
 }

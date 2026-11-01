@@ -1,5 +1,8 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Scale, Trash2 } from 'lucide-react';
+import { useCanI } from '../../hooks/useCanI';
+import { useActionDialog } from '../../components/ActionDialog';
+import { deleteRequest, sendWrite, setReplicas } from '../../engine/workloadActions';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import type { K8sResource } from '../../engine/renderers';
@@ -105,6 +108,23 @@ function HyperShiftSection({ nodePools, go }: { nodePools: NodePool[]; go: (path
 }
 
 function MachineSetsCard({ machineSets, machineAutoscalers, go }: { machineSets: MachineSet[]; machineAutoscalers: K8sResource[]; go: (path: string, title: string) => void }) {
+  const { allowed: canPatch } = useCanI('patch', 'machine.openshift.io', 'machinesets', 'openshift-machine-api');
+  const { open, dialog } = useActionDialog();
+  const scale = (ms: MachineSet, autoscaled: boolean) => {
+    const current = ms.spec?.replicas ?? 0;
+    open({
+      title: `Scale MachineSet "${ms.metadata.name}"`,
+      description: `Set how many machines (and so nodes) this MachineSet keeps; it has ${current}. Adding machines provisions new cloud instances (and cost); removing them deletes machines and drains their nodes.${autoscaled ? ' A MachineAutoscaler manages this MachineSet and may change the count back within its min/max.' : ''}`,
+      confirmLabel: 'Scale',
+      inputs: [{
+        id: 'replicas', label: 'Machines', initial: String(current), type: 'number', min: 0,
+        validate: (v) => (/^\d+$/.test(v.trim()) && Number(v) <= 500 ? null : 'Enter a whole number from 0 to 500'),
+      }],
+      warning: (v) => (Number(v.replicas) < current ? `${current - Number(v.replicas)} machine(s) will be deleted and their nodes drained.` : null),
+      run: (cid, v) => sendWrite(setReplicas(ms as unknown as K8sResource, Number(v.replicas)), cid),
+      success: (v) => `MachineSet "${ms.metadata.name}" scaled to ${v.replicas}`,
+    });
+  };
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
@@ -117,8 +137,9 @@ function MachineSetsCard({ machineSets, machineAutoscalers, go }: { machineSets:
           const ready = ms.status?.readyReplicas ?? 0;
           const autoscaler = (machineAutoscalers as MachineAutoscalerResource[]).find((a) => a.spec?.scaleTargetRef?.name === ms.metadata.name);
           return (
-            <button key={ms.metadata.uid} onClick={() => go(`/r/machine.openshift.io~v1beta1~machinesets/${ms.metadata.namespace}/${ms.metadata.name}`, ms.metadata.name)}
-              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/50 text-left">
+            <div key={ms.metadata.uid} className="flex items-center hover:bg-slate-800/50">
+            <button onClick={() => go(`/r/machine.openshift.io~v1beta1~machinesets/${ms.metadata.namespace}/${ms.metadata.name}`, ms.metadata.name)}
+              className="flex-1 min-w-0 flex items-center justify-between px-4 py-2.5 text-left">
               <div className="flex items-center gap-2 min-w-0">
                 <div className={cn('w-2 h-2 rounded-full shrink-0', ready === desired ? 'bg-green-500' : 'bg-yellow-500')} />
                 <span className="text-sm text-slate-200 truncate">{ms.metadata.name}</span>
@@ -126,14 +147,62 @@ function MachineSetsCard({ machineSets, machineAutoscalers, go }: { machineSets:
               </div>
               <span className={cn('text-xs font-mono shrink-0', ready === desired ? 'text-green-400' : 'text-yellow-400')}>{ready}/{desired}</span>
             </button>
+            <button
+              onClick={() => scale(ms, !!autoscaler)}
+              disabled={!canPatch}
+              title={canPatch ? 'Scale' : 'You do not have permission to scale MachineSets'}
+              aria-label={`Scale MachineSet ${ms.metadata.name}`}
+              className="p-2 mr-2 text-slate-500 hover:text-blue-400 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Scale className="w-3.5 h-3.5" />
+            </button>
+            </div>
           );
         })}
       </div>
+      {dialog}
     </Card>
   );
 }
 
 function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string, title: string) => void }) {
+  const { allowed: canDelete } = useCanI('delete', 'machine.openshift.io', 'machines', 'openshift-machine-api');
+  const { open, dialog } = useActionDialog();
+  const remove = (m: Machine) => {
+    const node = m.status?.nodeRef?.name;
+    const owners = m.metadata.ownerReferences ?? [];
+    const cpms = owners.some((o) => o.kind === 'ControlPlaneMachineSet');
+    const owned = cpms || owners.some((o) => o.kind === 'MachineSet');
+    const controlPlane = cpms || m.metadata.labels?.['machine.openshift.io/cluster-api-machine-role'] === 'master';
+    const nodePart = node ? `node "${node}" is drained and removed, and its ` : '';
+    if (controlPlane && !cpms) {
+      // No ControlPlaneMachineSet: nothing replaces it and etcd loses a member for good.
+      open({
+        title: `Machine "${m.metadata.name}" is a control-plane machine`,
+        description: `It runs an etcd member and the API server, and no ControlPlaneMachineSet manages it, so nothing would replace it: deleting it shrinks etcd and can lose quorum (with three members, losing two stops the cluster). Replace control-plane machines with the documented etcd member replacement procedure, not from here.`,
+        confirmLabel: 'Delete machine',
+        variant: 'danger',
+        inputs: [{ id: 'confirm', label: `Type the machine name to delete it anyway`, initial: '', validate: (v) => (v === m.metadata.name ? null : 'Type the exact machine name') }],
+        run: (cid) => sendWrite(deleteRequest(m as unknown as K8sResource), cid),
+        success: `Machine "${m.metadata.name}" is being deleted`,
+      });
+      return;
+    }
+    open({
+      title: `Delete Machine "${m.metadata.name}"?`,
+      description: `The machine's ${nodePart}cloud instance is deleted. ${
+        cpms
+          ? 'It is a control-plane machine (etcd member): its ControlPlaneMachineSet creates a replacement and moves the etcd member, one machine at a time. Do not delete another control-plane machine until the replacement is Running and etcd is healthy, or quorum can be lost.'
+          : owned
+            ? 'Its MachineSet then creates a replacement machine (and node) to keep its count.'
+            : 'No MachineSet or ControlPlaneMachineSet owns this machine, so nothing replaces it.'
+      }`,
+      confirmLabel: 'Delete machine',
+      variant: 'danger',
+      run: (cid) => sendWrite(deleteRequest(m as unknown as K8sResource), cid),
+      success: `Machine "${m.metadata.name}" is being deleted`,
+    });
+  };
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
@@ -146,8 +215,9 @@ function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string
           const instanceType = (m.spec?.providerSpec?.value?.instanceType as string) || '';
           const nodeRef = m.status?.nodeRef?.name || '';
           return (
-            <button key={m.metadata.uid} onClick={() => go(`/r/machine.openshift.io~v1beta1~machines/${m.metadata.namespace}/${m.metadata.name}`, m.metadata.name)}
-              className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/50 text-left">
+            <div key={m.metadata.uid} className="flex items-center hover:bg-slate-800/50">
+            <button onClick={() => go(`/r/machine.openshift.io~v1beta1~machines/${m.metadata.namespace}/${m.metadata.name}`, m.metadata.name)}
+              className="flex-1 min-w-0 flex items-center justify-between px-4 py-2.5 text-left">
               <div className="flex items-center gap-2 min-w-0">
                 <div className={cn('w-2 h-2 rounded-full shrink-0', phase === 'Running' ? 'bg-green-500' : phase === 'Provisioning' ? 'bg-yellow-500' : 'bg-red-500')} />
                 <div className="min-w-0">
@@ -164,9 +234,20 @@ function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string
                 )}>{phase}</span>
               </div>
             </button>
+            <button
+              onClick={() => remove(m)}
+              disabled={!canDelete}
+              title={canDelete ? 'Delete machine' : 'You do not have permission to delete Machines'}
+              aria-label={`Delete Machine ${m.metadata.name}`}
+              className="p-2 mr-2 text-slate-500 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+            </div>
           );
         })}
       </div>
+      {dialog}
     </Card>
   );
 }

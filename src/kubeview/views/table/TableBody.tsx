@@ -7,6 +7,7 @@ import { useUIStore } from '../../store/uiStore';
 import { EmptyState } from '../../components/primitives/EmptyState';
 import type { K8sResource, ColumnDef } from '../../engine/renderers';
 import type { ResourceEnhancer } from '../../engine/enhancers';
+import { WorkloadActionMenu, TABLE_ACTION_KINDS } from '../../components/workloads/WorkloadActionMenu';
 
 interface SortState {
   column: string;
@@ -280,6 +281,9 @@ export function TableBody({
                         {action.render(resource, handleAction)}
                       </div>
                     ))}
+                    {TABLE_ACTION_KINDS.has(resource.kind) && (
+                      <WorkloadActionMenu resource={resource} includeDelete={false} />
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

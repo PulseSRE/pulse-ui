@@ -60,7 +60,7 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
   }
 }
 
-export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string) {
+export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string, opts: { enabled?: boolean } = {}) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
   // The answer is about whoever the request runs as, so impersonation is part
   // of the cache key: an admin's "allowed" must not be reused after they start
@@ -70,14 +70,16 @@ export function useCanI(verb: string, group: string, resource: string, namespace
   // mocks without groups still work).
   const impersonateGroups = useUIStore((s) => (s.impersonateGroups ?? []).join(','));
   const failOpen = !WRITE_VERBS.has(verb);
+  const enabled = opts.enabled ?? true;
   const { data: allowed = failOpen, isLoading } = useQuery({
     queryKey: ['rbac', 'can-i', verb, group, resource, namespace, subresource, clusterId, impersonateUser ?? '', impersonateGroups],
     queryFn: () => checkAccess({ verb, group, resource, namespace, subresource }, clusterId),
+    enabled,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 10 * 60 * 1000,
   });
 
-  return { allowed, isLoading };
+  return { allowed: enabled ? allowed : false, isLoading: enabled && isLoading };
 }
 
 /**

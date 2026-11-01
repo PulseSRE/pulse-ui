@@ -29,6 +29,8 @@ export interface StatCardProps {
   explanation?: MetricExplanation;
   /** Makes the card a real <button>. */
   onClick?: () => void;
+  /** Accessible name for the clickable card, when label + value alone do not say what a click does. */
+  ariaLabel?: string;
   /** Smaller value text for dense analytics grids. */
   size?: 'md' | 'sm';
   className?: string;
@@ -69,6 +71,7 @@ export function StatCard({
   barTone,
   explanation,
   onClick,
+  ariaLabel,
   size = 'md',
   className,
 }: StatCardProps) {
@@ -113,6 +116,7 @@ export function StatCard({
         <button
           type="button"
           onClick={onClick}
+          aria-label={ariaLabel}
           className="block w-full p-3 text-left rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           {body}
