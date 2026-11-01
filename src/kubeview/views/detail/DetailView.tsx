@@ -6,9 +6,10 @@ import { XCircle } from 'lucide-react';
 import { k8sGet, k8sDelete, k8sPatch, k8sCreate, k8sList } from '../../engine/query';
 import { terminalTargets, defaultTerminalTarget } from '../../engine/terminalTargets';
 import { pickDefaultContainer } from '../../components/logs/pickDefaultContainer';
-import { scalePatch } from '../../engine/writeGuards';
+import { assertActiveCluster } from '../../engine/pendingCluster';
+import { getActiveClusterId } from '../../engine/clusterConnection';
 import type { K8sResource } from '../../engine/renderers';
-import type { Deployment, Pod, Event, Container, Condition } from '../../engine/types';
+import type { Deployment, Pod, Event, Condition } from '../../engine/types';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { kindToPlural } from '../../engine/renderers/index';
 import { buildApiPath } from '../../hooks/useResourceUrl';
@@ -26,7 +27,8 @@ import { DetailViewTabBar, ConditionsTable, EventsList } from './DetailViewTabs'
 import { DeploymentDetailLayout } from './DeploymentDetailLayout';
 import { PodDetailLayout } from './PodDetailLayout';
 import { GenericDetailLayout } from './GenericDetailLayout';
-import { DeleteConfirmModal, DeleteProgressModal, AddLabelDialog } from './DetailViewModals';
+import { DeleteConfirmModal, DeleteProgressModal } from './DetailViewModals';
+import type { MetadataTarget } from './MetadataSections';
 
 interface DetailViewProps {
   gvrKey: string;
@@ -51,19 +53,17 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   // RBAC permission checks
   const { allowed: canDelete } = useCanI('delete', resourceGroup, resourcePlural, namespace);
-  const { allowed: canUpdate } = useCanI('update', resourceGroup, resourcePlural, namespace);
 
   // Build API path for this specific resource
   const apiPath = React.useMemo(
     () => buildApiPath(gvrKey, namespace, name),
     [gvrKey, namespace, name]
   );
+  const metaTarget: MetadataTarget = React.useMemo(
+    () => ({ apiPath, group: resourceGroup, plural: resourcePlural }),
+    [apiPath, resourceGroup, resourcePlural],
+  );
 
-  // Build list API path for cache invalidation
-  const listApiPath = React.useMemo(() => {
-    if (gvrParts.length === 2) return `/api/${gvrParts[0]}/${gvrParts[1]}`;
-    return `/apis/${gvrParts[0]}/${gvrParts[1]}/${gvrParts[2]}`;
-  }, [gvrKey]);
 
   // Fetch the resource
   const { data: resource, isLoading, error } = useQuery<K8sResource>({
@@ -169,7 +169,9 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     if (!resource) return;
     setDeleting(true);
     try {
-      await k8sDelete(apiPath, clusterId, { uid: resource?.metadata.uid, resourceVersion: resource?.metadata.resourceVersion });
+      const pinned = deleteClusterId ?? clusterId;
+      assertActiveCluster(pinned, `Deleting ${resource.kind} "${resource.metadata.name}"`);
+      await k8sDelete(apiPath, pinned, { uid: resource?.metadata.uid, resourceVersion: resource?.metadata.resourceVersion });
       queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
         if (!old || !Array.isArray(old)) return old;
         return old.filter((r: K8sResource) => r.metadata?.uid !== resource.metadata.uid);
@@ -275,40 +277,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     }
   };
 
-  const handleScale = async (delta: number) => {
-    if (!resource || actionLoading) return;
-    const currentReplicas = (resource.spec as Deployment['spec'])?.replicas ?? 0;
-    const newReplicas = Math.max(0, currentReplicas + delta);
-    setActionLoading('scale');
-    try {
-      await k8sPatch(apiPath, scalePatch(resource, newReplicas), undefined, clusterId);
-      addToast({ type: 'success', title: `Scaled to ${newReplicas} replicas` });
-      queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
-    } catch (err) {
-      showErrorToast(err, 'Scale failed');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRestart = async () => {
-    if (!resource || actionLoading) return;
-    setActionLoading('restart');
-    try {
-      await k8sPatch(apiPath, {
-        spec: { template: { metadata: { annotations: { 'kubectl.kubernetes.io/restartedAt': new Date().toISOString() } } } },
-      }, undefined, clusterId);
-      addToast({ type: 'success', title: `Rollout restart triggered` });
-      queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      queryClient.invalidateQueries({ queryKey: ['k8s', 'list', listApiPath] });
-    } catch (err) {
-      showErrorToast(err, 'Restart failed');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   const handleOpenTerminal = async () => {
     if (!resource) return;
     if (resource.kind === 'Node') {
@@ -354,42 +322,15 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   // ── UI state ─────────────────────────────────────────
 
-  const isScalable = resource?.kind === 'Deployment' || resource?.kind === 'StatefulSet' || resource?.kind === 'ReplicaSet';
-  const isRestartable = resource?.kind === 'Deployment';
   const [detailTab, setDetailTab] = React.useState<'overview' | 'conditions' | 'events'>('overview');
   const currentPath = namespace ? `/r/${gvrUrl}/${namespace}/${name}` : `/r/${gvrUrl}/_/${name}`;
   const [starred, setStarred] = React.useState(() => isFavorite(currentPath));
-  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  // The cluster is pinned when the delete confirmation opens.
+  const [deleteClusterId, setDeleteClusterId] = React.useState<string | null>(null);
+  const showDeleteConfirm = deleteClusterId !== null;
+  const setShowDeleteConfirm = (show: boolean) => setDeleteClusterId(show ? getActiveClusterId() : null);
   const [showDeleteProgress, setShowDeleteProgress] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
-  const [showLabelDialog, setShowLabelDialog] = React.useState(false);
-  const [labelKey, setLabelKey] = React.useState('');
-  const [labelValue, setLabelValue] = React.useState('');
-
-  const handleOpenLabelDialog = React.useCallback(() => {
-    setLabelKey('');
-    setLabelValue('');
-    setShowLabelDialog(true);
-  }, []);
-
-  const handleAddLabelSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const k = labelKey.trim();
-    const v = labelValue.trim();
-    if (!k) return;
-    setActionLoading('label');
-    try {
-      await k8sPatch(apiPath, { metadata: { labels: { [k]: v } } }, undefined, clusterId);
-      addToast({ type: 'success', title: `Label ${k}=${v} added` });
-      queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      setShowLabelDialog(false);
-    } catch (err) {
-      showErrorToast(err, 'Failed to add label');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   // ── Error state ──────────────────────────────────────
 
   if (error) {
@@ -471,10 +412,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           currentPath={currentPath}
           actionLoading={actionLoading}
           isWorkload={isWorkload}
-          isScalable={isScalable}
-          isRestartable={isRestartable}
           canDelete={canDelete}
-          canUpdate={canUpdate}
           onNavigateBack={() => navigate(-1)}
           onGoToList={() => go(`/r/${gvrUrl}`, resourcePlural)}
           onGoToListFiltered={() => go(`/r/${gvrUrl}?ns=${namespace}`, `${resourcePlural} (${namespace})`)}
@@ -487,12 +425,11 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           onViewLogs={handleViewLogs}
           onOpenTerminal={handleOpenTerminal}
           onDebug={handleDebug}
-          onScale={handleScale}
-          onRestart={handleRestart}
           onViewYaml={handleViewYaml}
           onViewMetrics={handleViewMetrics}
           onViewDeps={() => go(`/deps/${gvrUrl}/${namespace}/${name}`, `${name} (Deps)`)}
           onViewNodeLogs={resource.kind === 'Node' ? () => go(`/node-logs/${name}`, `${name} (Logs)`) : undefined}
+          onOpenProject={() => go(`/project/${encodeURIComponent(name)}`, `Project ${name}`)}
           onDeleteRequest={() => setShowDeleteConfirm(true)}
         />
 
@@ -517,8 +454,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                 namespace={namespace}
                 managedPods={managedPods}
                 events={sortedEvents}
-                actionLoading={actionLoading}
-                onAddLabel={handleOpenLabelDialog}
+                metaTarget={metaTarget}
                 go={go}
               />
             )}
@@ -528,9 +464,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                 resource={resource}
                 namespace={namespace}
                 events={sortedEvents}
-                actionLoading={actionLoading}
                 relatedResources={relatedResources}
-                onAddLabel={handleOpenLabelDialog}
+                metaTarget={metaTarget}
                 go={go}
               />
             )}
@@ -545,8 +480,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
                 managedPods={managedPods}
                 relatedResources={relatedResources}
                 isWorkload={isWorkload}
-                actionLoading={actionLoading}
-                onAddLabel={handleOpenLabelDialog}
+                metaTarget={metaTarget}
                 onSwitchToEvents={() => setDetailTab('events')}
                 go={go}
               />
@@ -567,17 +501,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         }}
       />
     )}
-
-    <AddLabelDialog
-      open={showLabelDialog}
-      labelKey={labelKey}
-      labelValue={labelValue}
-      actionLoading={actionLoading}
-      onLabelKeyChange={setLabelKey}
-      onLabelValueChange={setLabelValue}
-      onSubmit={handleAddLabelSubmit}
-      onClose={() => setShowLabelDialog(false)}
-    />
 
     {showDeleteConfirm && resource && (
       <DeleteConfirmModal
