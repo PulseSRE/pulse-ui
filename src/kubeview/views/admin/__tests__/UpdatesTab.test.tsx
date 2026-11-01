@@ -10,9 +10,10 @@ import type { UpdatesTabProps } from '../UpdatesTab';
 
 // --- Mocks ---
 
+const addToastMock = vi.fn();
 vi.mock('../../../store/uiStore', () => ({
   useUIStore: (selector: any) => {
-    const state = { addToast: vi.fn() };
+    const state = { addToast: addToastMock };
     return selector(state);
   },
 }));
@@ -415,6 +416,23 @@ describe('UpdatesTab', () => {
         'application/merge-patch+json',
         'local',
       );
+      // The PATCH response had no acceptRisks (feature gate off): the toast says so rather than claiming it was recorded.
+      await vi.waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'success', detail: expect.stringContaining('did not record acceptRisks'),
+      })));
+    });
+
+    it('says the accepted risks were recorded when the cluster kept them', async () => {
+      vi.mocked(k8sPatch).mockResolvedValueOnce({ spec: { desiredUpdate: { acceptRisks: [{ name: 'OVNInterconnectMigration' }, { name: 'AROBrokenDNSMasq' }] } } });
+      renderGraph();
+      fireEvent.click(screen.getByRole('button', { name: '4.17.1 — Conditional, 2 risks' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Review risks and update to 4.17.1' }));
+      expect(screen.getByRole('dialog').textContent).toContain('recorded only where the ClusterUpdateAcceptRisks feature gate is enabled');
+      fireEvent.click(screen.getByRole('checkbox'));
+      fireEvent.click(screen.getByRole('button', { name: 'Accept risks and update' }));
+      await vi.waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'success', detail: 'Updating to 4.17.1 · accepted risks recorded in spec.desiredUpdate.acceptRisks',
+      })));
     });
 
     it('a rejected patch is reported, not shown as started', async () => {

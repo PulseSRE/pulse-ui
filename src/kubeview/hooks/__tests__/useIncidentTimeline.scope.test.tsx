@@ -42,7 +42,8 @@ describe('useIncidentTimeline scoping', () => {
     expect(events).toMatchObject({ apiPath: '/api/v1/events', namespace: 'prod', enabled: true });
     await waitFor(() => expect(result.current.entries.map((e) => e.title)).toEqual(['KubePodCrashLooping (resolved)']));
     const [query, start, end, step] = queryRangeMock.mock.calls[0];
-    expect(query).toBe('ALERTS{alertstate="firing",namespace="prod"}');
+    // max_over_time over each step catches alerts shorter than the step.
+    expect(query).toBe('max_over_time(ALERTS{alertstate="firing",namespace="prod"}[30s])');
     expect(end - start).toBe(3600);
     expect(step).toBe(30);
     expect(result.current.requestedSources).toBe(2);
@@ -50,8 +51,10 @@ describe('useIncidentTimeline scoping', () => {
 
   it('reports alerts as failed when the range query fails', async () => {
     queryRangeMock.mockRejectedValue(new Error('503'));
-    const { result } = renderHook(() => useIncidentTimeline({ timeRange: '6h', categories: new Set(['alert']) }), { wrapper });
+    const { result } = renderHook(() => useIncidentTimeline({ timeRange: '6h', categories: new Set(['alert', 'event']) }), { wrapper });
     await waitFor(() => expect(result.current.failedSources).toEqual(['alerts (Prometheus)']));
-    expect(queryRangeMock.mock.calls[0][0]).toBe('ALERTS{alertstate="firing"}');
+    expect(queryRangeMock.mock.calls[0][0]).toBe('max_over_time(ALERTS{alertstate="firing"}[90s])');
+    // Cluster-wide events are capped.
+    expect(listWatchCalls.find((c) => String(c.apiPath).includes('events'))?.apiPath).toBe('/api/v1/events?limit=1000');
   });
 });

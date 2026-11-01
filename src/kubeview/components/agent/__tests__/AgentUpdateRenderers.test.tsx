@@ -27,6 +27,7 @@ vi.mock('../../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: true, isLo
 import { AgentComponentRenderer } from '../renderers';
 import type { ComponentSpec } from '../../../engine/agentComponents';
 import { getKnownKinds } from '../../../engine/componentRegistry';
+import { useFleetStore } from '../../../store/fleetStore';
 
 function renderSpec(spec: unknown) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -73,7 +74,7 @@ describe('agent update renderers', () => {
 
   it('upgrade_graph renders the graph read-only and sends the user to Admin › Updates to act', async () => {
     renderSpec(upgradeGraphSpec);
-    const conditional = await screen.findByRole('button', { name: '4.17.1 — Conditional, 1 risk' });
+    const conditional = await screen.findByRole('button', { name: '4.17.1 — Conditional, 1 risk' }, { timeout: 5000 });
     expect(screen.getByRole('img', { name: 'Current version 4.16.3' })).toBeDefined();
     fireEvent.click(conditional);
     expect(screen.getByText('OVNInterconnectMigration')).toBeDefined();
@@ -96,10 +97,37 @@ describe('agent update renderers', () => {
       status: { readyReplicas: 1 },
     }]);
     renderSpec(rolloutSpec);
-    expect(await screen.findByRole('button', { name: 'Revision 1 (current)' })).toBeDefined();
+    expect(await screen.findByRole('button', { name: 'Revision 1 (current)' }, { timeout: 5000 })).toBeDefined();
     expect(k8sGetMock).toHaveBeenCalledWith('/apis/apps/v1/namespaces/prod/deployments/api', 'local');
     fireEvent.click(screen.getByRole('button', { name: 'Open Deployment prod/api' }));
     expect(navigateMock).toHaveBeenCalledWith('/r/apps~v1~deployments/prod/api');
+  });
+
+  it('rollout_history offers no rollback while another cluster is active (permission is checked on the active one)', async () => {
+    const before = useFleetStore.getState().activeClusterId;
+    useFleetStore.setState({ activeClusterId: 'other' });
+    try {
+      k8sGetMock.mockResolvedValue({
+        apiVersion: 'apps/v1', kind: 'Deployment',
+        metadata: { name: 'api', namespace: 'prod', uid: 'u', resourceVersion: '5', annotations: { 'deployment.kubernetes.io/revision': '2' } },
+        spec: { replicas: 1, template: { spec: { containers: [{ name: 'app', image: 'reg/api:1.2' }] } } },
+        status: {},
+      });
+      const mk = (rev: number, image: string) => ({
+        apiVersion: 'apps/v1', kind: 'ReplicaSet',
+        metadata: { name: `api-${rev}`, uid: `rs${rev}`, annotations: { 'deployment.kubernetes.io/revision': String(rev) }, ownerReferences: [{ kind: 'Deployment', name: 'api', uid: 'u' }] },
+        spec: { replicas: 1, template: { spec: { containers: [{ name: 'app', image }] } } },
+        status: {},
+      });
+      k8sListMock.mockResolvedValue([mk(1, 'reg/api:1.1'), mk(2, 'reg/api:1.2')]);
+      renderSpec(rolloutSpec);
+      fireEvent.click(await screen.findByRole('button', { name: 'Revision 1' }, { timeout: 5000 }));
+      expect(screen.queryByRole('button', { name: 'Roll back to revision 1' })).toBeNull();
+      // The history itself is still the agent's (local) cluster.
+      expect(k8sListMock).toHaveBeenCalledWith('/apis/apps/v1/replicasets', 'prod', 'local');
+    } finally {
+      useFleetStore.setState({ activeClusterId: before });
+    }
   });
 
   it('rollout_history falls back to the agent snapshot, saying so, when the workload cannot be read', async () => {

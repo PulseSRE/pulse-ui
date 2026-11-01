@@ -159,9 +159,14 @@ export interface RolloutHistoryProps {
   namespace: string;
   /** The cluster the resource was read from; defaults to the active cluster. */
   clusterId?: string;
+  /**
+   * False hides rollback, e.g. when the history is of another cluster than the
+   * active one, whose RBAC useCanI cannot check.
+   */
+  allowRollback?: boolean;
 }
 
-export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp }: RolloutHistoryProps) {
+export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, allowRollback = true }: RolloutHistoryProps) {
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const clusterId = clusterIdProp ?? activeClusterId;
   const kind = resource.kind as WorkloadKind;
@@ -186,6 +191,9 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp }
   const rollingOut = !!flight && flight.desired > 0 && flight.updated < flight.desired;
   const currentTemplate = (resource.spec as { template?: PodTemplateSpec } | undefined)?.template;
   const path = `/apis/apps/v1/namespaces/${namespace}/${PLURAL[kind]}/${resource.metadata.name}`;
+  // Like `kubectl rollout undo`: a paused Deployment would take the template but
+  // roll nothing out, so a "rolling back" message would be false.
+  const paused = kind === 'Deployment' && !!(resource.spec as { paused?: boolean } | undefined)?.paused;
 
   async function handleRollback() {
     if (!target) return;
@@ -201,12 +209,19 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp }
         delete template.metadata.labels['pod-template-hash'];
         delete template.metadata.labels['controller-revision-hash'];
       }
+      const ops: Array<Record<string, unknown>> = [
+        { op: 'test', path: '/metadata/resourceVersion', value: target.resourceVersion },
+        { op: 'replace', path: '/spec/template', value: template },
+      ];
+      // kubectl rollout undo carries the revision's change-cause onto the Deployment.
+      if (kind === 'Deployment' && target.rev.changeCause) {
+        ops.push(resource.metadata.annotations
+          ? { op: 'add', path: '/metadata/annotations/kubernetes.io~1change-cause', value: target.rev.changeCause }
+          : { op: 'add', path: '/metadata/annotations', value: { 'kubernetes.io/change-cause': target.rev.changeCause } });
+      }
       await k8sPatch(
         path,
-        [
-          { op: 'test', path: '/metadata/resourceVersion', value: target.resourceVersion },
-          { op: 'replace', path: '/spec/template', value: template },
-        ],
+        ops,
         'application/json-patch+json',
         target.clusterId,
       );
@@ -315,7 +330,10 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp }
                         {templateDiff(currentTemplate, shown.template).map((d, i) => <li key={i} className="font-mono">{d}</li>)}
                       </ul>
                     </div>
-                    {canPatch && (
+                    {allowRollback && canPatch && paused && (
+                      <p className="text-amber-300/80">This Deployment is paused: resume it before rolling back, or the new template would not roll out.</p>
+                    )}
+                    {allowRollback && canPatch && !paused && (
                       <button
                         type="button"
                         onClick={() => setTarget({ rev: shown, clusterId, resourceVersion: resource.metadata.resourceVersion })}

@@ -243,7 +243,7 @@ export interface RangeSeries {
 }
 
 /**
- * Alerts that fired and resolved inside the range, from `ALERTS{alertstate="firing"}`
+ * Alerts that fired and resolved inside the range, from the ALERTS series (firing state)
  * sampled with query_range. Each run of consecutive samples is one firing; a run
  * that stops before the last sample resolved (the rules API only knows alerts
  * that are active now, so resolved ones were missing from the timeline).

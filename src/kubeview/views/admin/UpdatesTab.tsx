@@ -113,8 +113,17 @@ export function UpdatesTab({
     try {
       assertActiveCluster(clusterId, 'The cluster update');
       const patch = desiredUpdatePatch(target, clusterVersion?.spec?.desiredUpdate?.acceptRisks);
-      await k8sPatch(CV_PATH, patch, 'application/merge-patch+json', clusterId);
-      addToast({ type: 'success', title: 'Cluster update started', detail: `Updating to ${target.version}` });
+      const updated = await k8sPatch<ClusterVersion>(CV_PATH, patch, 'application/merge-patch+json', clusterId);
+      let detail = `Updating to ${target.version}`;
+      if (patch.spec.desiredUpdate.acceptRisks) {
+        // Without the ClusterUpdateAcceptRisks gate the API drops the field; say which happened.
+        const kept = new Set((updated?.spec?.desiredUpdate?.acceptRisks || []).map((r) => r.name));
+        const recorded = target.risks.every((r) => kept.has(r.name));
+        detail += recorded
+          ? ` · accepted risks recorded in spec.desiredUpdate.acceptRisks`
+          : ` · this cluster did not record acceptRisks (ClusterUpdateAcceptRisks feature gate is off)`;
+      }
+      addToast({ type: 'success', title: 'Cluster update started', detail });
       invalidate();
     } catch (err) {
       showErrorToast(err, 'Update failed');
@@ -348,7 +357,7 @@ export function UpdatesTab({
             void applyUpdate(target, clusterId);
           }}
           title={`Accept ${riskDialog.target.risks.length} risk${riskDialog.target.risks.length === 1 ? '' : 's'} and update to ${riskDialog.target.version}?`}
-          description={`${riskDialog.target.version} is not recommended for this cluster. The update rolling-restarts every node and cannot easily be reversed. The accepted risks are recorded in spec.desiredUpdate.acceptRisks.`}
+          description={`${riskDialog.target.version} is not recommended for this cluster. The update rolling-restarts every node and cannot easily be reversed. The accepted risks are sent as spec.desiredUpdate.acceptRisks, which is recorded only where the ClusterUpdateAcceptRisks feature gate is enabled.`}
           confirmLabel="Accept risks and update"
           variant="danger"
           confirmDisabled={!risksAccepted}

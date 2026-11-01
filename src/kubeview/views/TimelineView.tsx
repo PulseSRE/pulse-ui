@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
-import { useIncidentTimeline, TIME_RANGE_MS, type TimeRange } from '../hooks/useIncidentTimeline';
+import { useIncidentTimeline, TIME_RANGE_MS, CLUSTER_EVENTS_CAP, type TimeRange } from '../hooks/useIncidentTimeline';
 import { bucketEntries } from '../engine/timeline';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../engine/types/timeline';
@@ -201,6 +201,12 @@ export default function TimelineView() {
             title={`Could not read ${failedSources.join(', ')} — the timeline below is incomplete`}
             onRetry={timeline.refetch}
           />
+        )}
+
+        {timeline.eventsCapped && (
+          <p role="status" className="text-xs text-amber-300/80">
+            Events are capped at {CLUSTER_EVENTS_CAP} cluster-wide, so some in this range may be missing. Select a namespace to see all of its events.
+          </p>
         )}
 
         {/* Timeline stream */}

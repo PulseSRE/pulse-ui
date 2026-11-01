@@ -34,6 +34,7 @@ const _mockTimelineData = {
 
 vi.mock('../../hooks/useIncidentTimeline', () => ({
   useIncidentTimeline: () => _mockTimelineData,
+  CLUSTER_EVENTS_CAP: 1000,
   TIME_RANGE_MS: { '15m': 900000, '1h': 3600000, '6h': 21600000, '24h': 86400000, '3d': 259200000, '7d': 604800000 },
 }));
 
@@ -65,6 +66,13 @@ describe('TimelineView', () => {
     expect(screen.queryByRole('list', { name: 'Timeline density' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(_mockTimelineData.refetch).toHaveBeenCalled();
+  });
+
+  it('says when cluster-wide events hit the cap', () => {
+    (_mockTimelineData as Record<string, unknown>).eventsCapped = true;
+    renderView();
+    expect(screen.getByRole('status').textContent).toContain('Events are capped at 1000 cluster-wide');
+    (_mockTimelineData as Record<string, unknown>).eventsCapped = false;
   });
 
   it('a partial failure can be retried too', () => {

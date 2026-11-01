@@ -133,6 +133,34 @@ describe('RolloutHistory', () => {
     expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'success', title: 'Rollback to revision 1 started' }));
   });
 
+  it('copies the revision change-cause onto the Deployment, like kubectl rollout undo', async () => {
+    k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1', 'dep-uid', 'pin to 1.1')]);
+    k8sPatchMock.mockResolvedValue({});
+    render(<RolloutHistory resource={deployment() as any} namespace="prod" />, { wrapper });
+    fireEvent.click(await screen.findByRole('button', { name: 'Revision 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back to revision 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back' }));
+    await waitFor(() => expect(k8sPatchMock).toHaveBeenCalledTimes(1));
+    expect(k8sPatchMock.mock.calls[0][1][2]).toEqual({ op: 'add', path: '/metadata/annotations/kubernetes.io~1change-cause', value: 'pin to 1.1' });
+  });
+
+  it('refuses to roll back a paused Deployment and says why', async () => {
+    k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1')]);
+    const paused = deployment();
+    (paused.spec as Record<string, unknown>).paused = true;
+    render(<RolloutHistory resource={paused as any} namespace="prod" />, { wrapper });
+    fireEvent.click(await screen.findByRole('button', { name: 'Revision 1' }));
+    expect(screen.queryByRole('button', { name: 'Roll back to revision 1' })).toBeNull();
+    expect(screen.getByText(/This Deployment is paused: resume it before rolling back/)).toBeDefined();
+  });
+
+  it('hides rollback when told the history is not of the active cluster', async () => {
+    k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1')]);
+    render(<RolloutHistory resource={deployment() as any} namespace="prod" allowRollback={false} />, { wrapper });
+    fireEvent.click(await screen.findByRole('button', { name: 'Revision 1' }));
+    expect(screen.queryByRole('button', { name: 'Roll back to revision 1' })).toBeNull();
+  });
+
   it('a concurrent change rejected by the API is reported as a failure, never as started', async () => {
     k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1')]);
     k8sPatchMock.mockRejectedValue(new Error('the server rejected our request due to an error in our request (test failed)'));

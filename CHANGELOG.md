@@ -9,7 +9,7 @@ Release entries are historical records. Counts, timings, security scans, and fea
   - **Admin › Updates is an update graph.**
     - It draws the installed path, the current version and every target, one column per minor version. Edges are coloured by what ClusterVersion says: recommended (`availableUpdates`), conditional (`conditionalUpdates`, with the risk count) or blocked (a minor target while Upgradeable=False). During an update the release being installed sits between current and the targets, because CVO computes targets from it.
     - Selecting a target shows its risks with names and links, the Recommended message and an estimated duration taken from the last completed update's duration (labelled as such). The update action patches `spec.desiredUpdate` {version, image} on the cluster the page showed.
-    - A conditional target needs an explicit "accept risks" confirmation that lists each risk. The patch then adds the risk names to `spec.desiredUpdate.acceptRisks` and keeps any already accepted.
+    - A conditional target needs an explicit "accept risks" confirmation that lists each risk. The patch then adds the risk names to `spec.desiredUpdate.acceptRisks` and keeps any already accepted. That field is recorded only where the ClusterUpdateAcceptRisks feature gate is on, and the toast says whether this cluster kept it. Every focusable control in the confirm dialog's focus trap (not only buttons) can be reached with Tab, so the required checkbox is reachable while confirm is disabled.
     - While an update runs:
       - an overall bar parsed from CVO's "x of y done (z%)";
       - ClusterOperators at the target version, N of M, with degraded ones linked;
@@ -22,7 +22,7 @@ Release entries are historical records. Counts, timings, security scans, and fea
     - Nodes in rollout and drain-blocking PDBs link to their objects. The duplicate in-progress banner, the separate conditional-risks panel and the unused SnapshotsTab import are gone.
   - **Rollout history for Deployments, StatefulSets and DaemonSets** replaces RollbackPanel.
     - A horizontal revision timeline built from ReplicaSets or ControllerRevisions, watched live. It shows the image changes between revisions, the change-cause, the current revision, and a rollout-in-progress bar.
-    - Rollback to any revision is RBAC-gated (`patch`), confirmed with a diff and pinned to the cluster. It replaces `spec.template` exactly: JSON Patch `test` on the shown resourceVersion plus `replace`. For a StatefulSet or DaemonSet it restores the ControllerRevision template.
+    - Rollback to any revision is RBAC-gated (`patch`), confirmed with a diff and pinned to the cluster. It replaces `spec.template` exactly: JSON Patch `test` on the shown resourceVersion plus `replace`. For a StatefulSet or DaemonSet it restores the ControllerRevision template. As with `kubectl rollout undo`, a paused Deployment is refused (with the reason) and the revision's change-cause is copied onto the Deployment. From chat, rollback is offered only while the agent's cluster is the active one.
   - Agent components:
     - `upgrade_graph` renders the same graph, read-only, linking to Admin › Updates to act.
     - `rollout_history` renders the live history (with rollback) on the agent's cluster, or the agent's snapshot, labelled, when the workload cannot be read.
@@ -30,8 +30,8 @@ Release entries are historical records. Counts, timings, security scans, and fea
     - `stat_card` re-queries its PromQL `query` every `refreshInterval` seconds.
   - **Timeline:**
     - a density chart per category over the selected range;
-    - events listed for the selected namespace without the cluster-wide `limit=500`;
-    - alerts that fired and resolved within the range, from `ALERTS` sampled over it;
+    - events listed for the selected namespace without the cluster-wide `limit=500`, and capped at 1000 cluster-wide with a note when the cap is hit;
+    - alerts that fired and resolved within the range, from `max_over_time(ALERTS{…}[step])` so short alerts are not missed between samples;
     - an error with retry, not an empty timeline, when no source could be read; a partial failure also offers retry.
 
 ### CI

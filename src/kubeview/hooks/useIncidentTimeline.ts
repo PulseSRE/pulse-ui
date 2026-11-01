@@ -25,6 +25,9 @@ import { promFetch, metricsAvailableFor, queryRange } from '../components/metric
 
 export type TimeRange = '15m' | '1h' | '6h' | '24h' | '3d' | '7d';
 
+/** Most events fetched when no namespace is selected. */
+export const CLUSTER_EVENTS_CAP = 1000;
+
 export const TIME_RANGE_MS: Record<TimeRange, number> = {
   '15m': 15 * 60 * 1000,
   '1h': 3600 * 1000,
@@ -45,8 +48,10 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   // (The API has no time filter; a cluster-wide limit=500 dropped arbitrary
   // events, often exactly the recent ones.)
   const clusterId = useActiveClusterId();
+  // Cluster-wide, the event list is capped so a large cluster cannot pull every
+  // event into the browser; the view says so when the cap is reached.
   const eventsQuery = useK8sListWatch<Event>({
-    apiPath: '/api/v1/events',
+    apiPath: namespace ? '/api/v1/events' : `/api/v1/events?limit=${CLUSTER_EVENTS_CAP}`,
     namespace,
     enabled: categories?.has('event') ?? false,
   });
@@ -60,7 +65,8 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     queryFn: async () => {
       const end = Math.floor(Date.now() / 1000);
       const selector = namespace ? `ALERTS{alertstate="firing",namespace="${namespace.replace(/"/g, '')}"}` : 'ALERTS{alertstate="firing"}';
-      const series = await queryRange(selector, end - rangeSec, end, stepSec, clusterId);
+      // max_over_time over each step so an alert shorter than the step is not missed between samples.
+      const series = await queryRange(`max_over_time(${selector}[${stepSec}s])`, end - rangeSec, end, stepSec, clusterId);
       return resolvedAlertsToTimeline(series, end, stepSec);
     },
     refetchInterval: 60000,
@@ -180,5 +186,8 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     }
   };
 
-  return { entries, correlationGroups, counts, isLoading, failedSources, requestedSources, refetch };
+  /** Cluster-wide events hit the cap: older or unrelated events may be missing. */
+  const eventsCapped = !namespace && (categories?.has('event') ?? false) && rawEvents.length >= CLUSTER_EVENTS_CAP;
+
+  return { entries, correlationGroups, counts, isLoading, failedSources, requestedSources, refetch, eventsCapped };
 }

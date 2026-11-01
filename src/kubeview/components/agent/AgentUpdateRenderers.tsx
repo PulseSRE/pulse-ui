@@ -21,6 +21,7 @@ import { k8sGet } from '../../engine/query';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { timeAgo } from '../../engine/dateUtils';
 import { resourceDetailUrl } from '../../engine/gvr';
+import { useFleetStore } from '../../store/fleetStore';
 import type { UpgradeGraphSpec, RolloutHistorySpec } from '../../engine/agentComponents';
 import type { UpgradeModel } from '../../engine/upgradeGraph';
 import type { K8sResource } from '../../engine/renderers';
@@ -62,6 +63,7 @@ export function AgentUpgradeGraph({ spec }: { spec: UpgradeGraphSpec }) {
 
 export function AgentRolloutHistory({ spec }: { spec: RolloutHistorySpec }) {
   const navigate = useNavigate();
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const w = spec.workload;
   const plural = w ? PLURAL[w.kind] : undefined;
   const path = plural ? `/apis/apps/v1/namespaces/${w.namespace}/${plural}/${w.name}` : '';
@@ -82,7 +84,13 @@ export function AgentRolloutHistory({ spec }: { spec: RolloutHistorySpec }) {
     <div className="my-2 space-y-1">
       {spec.title && <div className="text-xs font-medium text-slate-300">{spec.title}</div>}
       {workload.data ? (
-        <RolloutHistory resource={workload.data} namespace={w.namespace} clusterId={LOCAL_CLUSTER_ID} />
+        <RolloutHistory
+          resource={workload.data}
+          namespace={w.namespace}
+          clusterId={LOCAL_CLUSTER_ID}
+          // Permission is checked on the active cluster; offer rollback only when that is the agent's.
+          allowRollback={activeClusterId === LOCAL_CLUSTER_ID}
+        />
       ) : (
         <SnapshotTimeline spec={spec} note={workload.isError ? `Live revisions could not be read (${workload.error instanceof Error ? workload.error.message : 'error'}); showing the agent's snapshot.` : undefined} />
       )}

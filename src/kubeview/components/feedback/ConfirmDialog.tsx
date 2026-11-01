@@ -53,8 +53,10 @@ export function ConfirmDialog({
     const handleTab = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
 
+      // Every focusable control, not only buttons: a dialog whose confirm is
+      // disabled until a checkbox is ticked must let Tab reach the checkbox.
       const focusableElements = dialogRef.current?.querySelectorAll(
-        'button:not([disabled])'
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
       );
       if (!focusableElements || focusableElements.length === 0) return;
 
