@@ -35,10 +35,35 @@ async function detail(res: Response, fallback: string): Promise<string> {
   return (body && typeof body.detail === 'string' && body.detail) || `${fallback} (${res.status})`;
 }
 
-/** Runs parked on an approval gate. Empty when durable execution is off. */
+/**
+ * The agent's answer when durable execution is switched off: 503 with
+ * TemporalDisabledError's "…is not configured…" detail (or 404 from an agent
+ * without the route). Temporal configured but unreachable is also a 503, and
+ * that one is a failure, not "off".
+ */
+export function isDurableDisabled(status: number, detail: string): boolean {
+  return status === 404 || (status === 503 && /durable plan execution is not configured|PULSE_AGENT_TEMPORAL_HOST/i.test(detail));
+}
+
+/** Thrown when durable execution is off; callers show "not configured", not an error. */
+export class DurableDisabledError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DurableDisabledError';
+  }
+}
+
+/**
+ * Runs parked on an approval gate. Empty when durable execution is off;
+ * any other failure throws, so a broken read is not "nothing waiting".
+ */
 export async function fetchAwaitingApprovals(): Promise<AwaitingRun[]> {
   const res = await agentFetch(`${AGENT_BASE}/workflow-runs/awaiting-approval`);
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const reason = await detail(res, 'Could not load runs awaiting approval');
+    if (isDurableDisabled(res.status, reason)) return [];
+    throw new Error(reason);
+  }
   const data = await res.json();
   // Only rows that actually name a waiting phase are answerable.
   return (data.runs ?? []).filter((r: AwaitingRun) => typeof r?.phase_id === 'string' && r.phase_id);

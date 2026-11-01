@@ -137,12 +137,29 @@ describe('RunsTab', () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 503,
-      json: () => Promise.resolve({ detail: 'Set PULSE_AGENT_TEMPORAL_HOST' }),
+      json: () => Promise.resolve({ detail: 'Durable plan execution is not configured. Set PULSE_AGENT_TEMPORAL_HOST to a Temporal frontend.' }),
     });
     renderWithProviders(<RunsTab />);
 
     await waitFor(() => {
       expect(screen.getByText(/Durable execution is not configured/)).toBeTruthy();
     });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it.each([
+    [401, 'Unauthorized'],
+    [403, 'Forbidden'],
+    [500, 'Internal Server Error'],
+    [503, 'Cannot reach the Temporal server at temporal:7233: ConnectError'],
+    [503, 'Server not configured'],
+  ])('shows a %i as a failed read, not "not configured"', async (status, detail) => {
+    mockFetch.mockResolvedValue({ ok: false, status, json: () => Promise.resolve({ detail }) });
+    renderWithProviders(<RunsTab />);
+
+    expect(await screen.findByText('Could not load durable runs')).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain(detail);
+    expect(screen.queryByText(/Durable execution is not configured/)).toBeNull();
+    expect(screen.queryByText('No durable runs yet.')).toBeNull();
   });
 });

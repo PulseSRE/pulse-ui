@@ -74,9 +74,9 @@ describe('IdentityView', () => {
   it('does not report kubeadmin as removed when the secret cannot be read', async () => {
     renderWithFailedRequests(<IdentityView />, { status: 403 });
     const title = await screen.findByText('kubeadmin Removed');
-    await waitFor(() => expect(title.parentElement!.textContent).toMatch(/1 need attention/));
-    fireEvent.click(title.closest('button')!);
-    expect(await screen.findByText(/Unknown — could not read kube-system\/kubeadmin \(Permission denied \(403\)\)/)).toBeTruthy();
+    // Unknown is neither a pass nor a failing row.
+    await waitFor(() => expect(title.parentElement!.textContent).toMatch(/Could not check — kube-system\/kubeadmin could not be read \(Permission denied \(403\)\)/));
+    expect(title.parentElement!.textContent).not.toMatch(/need attention|pass/);
   });
 });
 

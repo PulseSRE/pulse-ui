@@ -256,6 +256,49 @@ describe('the approvals queue', () => {
     expect(await screen.findByText('Could not load proposed fixes')).toBeTruthy();
     expect(screen.queryByText('Nothing is waiting on you')).toBeNull();
   });
+
+  it.each([403, 500])('a durable-run list that fails with %i says so instead of "nothing waiting"', async (status) => {
+    route([
+      ['/workflow-runs/awaiting-approval', () => ({ status, body: { detail: `boom ${status}` } })],
+      ['GET /api/agent/fix-history', () => ({ body: { actions: [], total: 0, page: 1, pageSize: 20 } })],
+    ]);
+    inRouter(<ApprovalsQueue />);
+    expect(await screen.findByText('Could not load durable runs waiting for approval')).toBeTruthy();
+    expect(screen.getByText(`boom ${status}`)).toBeTruthy();
+    expect(screen.queryByText('Nothing is waiting on you')).toBeNull();
+  });
+
+  it('durable execution switched off (503 "not configured") is an empty list, not an error', async () => {
+    route([
+      ['/workflow-runs/awaiting-approval', () => ({ status: 503, body: { detail: 'Durable plan execution is not configured. Set PULSE_AGENT_TEMPORAL_HOST.' } })],
+      ['GET /api/agent/fix-history', () => ({ body: { actions: [], total: 0, page: 1, pageSize: 20 } })],
+    ]);
+    inRouter(<ApprovalsQueue />);
+    expect(await screen.findByText('Nothing is waiting on you')).toBeTruthy();
+    expect(screen.queryByText('Could not load durable runs waiting for approval')).toBeNull();
+  });
+
+  it('the agent\'s auth 503 "Server not configured" is an error, not "durable execution off"', async () => {
+    route([
+      ['/workflow-runs/awaiting-approval', () => ({ status: 503, body: { detail: 'Server not configured' } })],
+      ['GET /api/agent/fix-history', () => ({ body: { actions: [], total: 0, page: 1, pageSize: 20 } })],
+    ]);
+    inRouter(<ApprovalsQueue />);
+    expect(await screen.findByText('Could not load durable runs waiting for approval')).toBeTruthy();
+    expect(screen.getByText('Server not configured')).toBeTruthy();
+    expect(screen.queryByText('Nothing is waiting on you')).toBeNull();
+  });
+
+  it('keeps the last known runs when a later read fails', async () => {
+    useApprovalsStore.setState({ runs: [run as never] });
+    route([
+      ['/workflow-runs/awaiting-approval', () => ({ status: 500, body: {} })],
+      ['GET /api/agent/fix-history', () => ({ body: { actions: [], total: 0, page: 1, pageSize: 20 } })],
+    ]);
+    inRouter(<ApprovalsQueue />);
+    expect(await screen.findByText('Could not load durable runs waiting for approval')).toBeTruthy();
+    expect(screen.getByText('1 durable run waiting for approval')).toBeTruthy();
+  });
 });
 
 describe('inbox row actions', () => {

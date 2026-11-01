@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, User, Shield, Key, ArrowRight, CheckCircle, AlertTriangle,
-  UserCheck, Search, Activity, Clock, Lock, Fingerprint,
+  UserCheck, Search, Activity, Clock, Lock, Fingerprint, HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet, k8sDelete } from '../engine/query';
@@ -21,6 +21,7 @@ import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { Card } from '../components/primitives/Card';
 import { Panel } from '../components/primitives/Panel';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { LoadError } from '../components/primitives/LoadError';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { showErrorToast } from '../engine/errorToast';
 import type { AuditCheck, AuditItem } from '../components/audit/types';
@@ -34,6 +35,15 @@ import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from 
 import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
 import { CreateGroupButton, GroupMemberControls, type GroupLike } from './identity/GroupActions';
 import { AccessPanel } from './identity/AccessPanel';
+
+/** One shared empty list, so a missing list does not change memo inputs every render. */
+const NO_ITEMS: K8sResource[] = [];
+
+/** A count, or "—" marked unknown when the list behind it could not be read. */
+function Count({ n, failed }: { n: number; failed: boolean }) {
+  if (failed) return <span data-unknown title="Could not be read">—</span>;
+  return <>{n}</>;
+}
 
 function subjectUrl(s: { kind: string; name: string; namespace?: string }): string {
   if (s.kind === 'ServiceAccount') return `/r/v1~serviceaccounts/${s.namespace}/${s.name}`;
@@ -132,28 +142,45 @@ export default function IdentityView() {
   const [search, setSearch] = useState('');
 
   // ---- Data (useK8sListWatch for real-time updates) ----
-  const { data: users = [], isLoading: usersLoading } = useK8sListWatch({ apiPath: '/apis/user.openshift.io/v1/users' });
-  const { data: groups = [] } = useK8sListWatch({ apiPath: '/apis/user.openshift.io/v1/groups' });
-  const { data: serviceAccounts = [] } = useK8sListWatch({ apiPath: '/api/v1/serviceaccounts', namespace: nsFilter });
-  const { data: clusterRoles = [] } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterroles' });
-  const { data: clusterRoleBindings = [] } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings' });
-  const { data: roles = [] } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/roles', namespace: nsFilter });
-  const { data: roleBindings = [] } = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/rolebindings', namespace: nsFilter });
-  const { data: namespaces = [] } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
+  const usersQ = useK8sListWatch({ apiPath: '/apis/user.openshift.io/v1/users' });
+  const groupsQ = useK8sListWatch({ apiPath: '/apis/user.openshift.io/v1/groups' });
+  const saQ = useK8sListWatch({ apiPath: '/api/v1/serviceaccounts', namespace: nsFilter });
+  const clusterRolesQ = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterroles' });
+  const crbQ = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings' });
+  const rolesQ = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/roles', namespace: nsFilter });
+  const rbQ = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/rolebindings', namespace: nsFilter });
+  const nsQ = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
+  const users = usersQ.data ?? NO_ITEMS;
+  const usersLoading = usersQ.isLoading;
+  const groups = groupsQ.data ?? NO_ITEMS;
+  const serviceAccounts = saQ.data ?? NO_ITEMS;
+  const clusterRoles = clusterRolesQ.data ?? NO_ITEMS;
+  const clusterRoleBindings = crbQ.data ?? NO_ITEMS;
+  const roles = rolesQ.data ?? NO_ITEMS;
+  const roleBindings = rbQ.data ?? NO_ITEMS;
+  const namespaces = nsQ.data ?? NO_ITEMS;
+  // A list that failed is unknown, not empty: its counts read "—", its
+  // panels show the error, and audit checks that depend on it are not passed.
+  const listQueries = [
+    ['users', usersQ], ['groups', groupsQ], ['service accounts', saQ], ['cluster roles', clusterRolesQ],
+    ['cluster role bindings', crbQ], ['roles', rolesQ], ['role bindings', rbQ], ['namespaces', nsQ],
+  ] as const;
+  const failedLists = listQueries.filter(([, q]) => q.isError);
+  const retryFailed = () => { for (const [, q] of failedLists) void q.refetch(); };
 
   // kubeadmin secret check
   // A 403 used to read as "removed"; only a 404 proves it is gone.
   const { data: kubeadminStatus } = useKubeadminSecret();
 
   // OAuth config
-  const { data: oauthConfig } = useQuery({
+  const { data: oauthConfig, isError: oauthError } = useQuery({
     queryKey: ['users', 'oauth', clusterId],
     queryFn: () => safeQuery(() => k8sGet<any>('/apis/config.openshift.io/v1/oauths/cluster', clusterId)),
     staleTime: 120000,
   });
 
   // OAuth access tokens (recent sessions)
-  const { data: accessTokens = [] } = useQuery<K8sResource[]>({
+  const { data: accessTokens = [], isError: tokensError } = useQuery<K8sResource[]>({
     queryKey: ['users', 'oauthaccesstokens', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/oauth.openshift.io/v1/oauthaccesstokens', undefined, clusterId))) ?? [],
     staleTime: 60000,
@@ -222,6 +249,15 @@ export default function IdentityView() {
     addToast({ type: 'warning', title: `Impersonating ${username}`, detail: 'All API requests now use this identity' });
   };
 
+  const identityUnreadable = React.useMemo<IdentityUnreadable>(() => ({
+    users: usersQ.isError, groups: groupsQ.isError, clusterRoleBindings: crbQ.isError,
+    oauth: oauthError, accessTokens: tokensError,
+  }), [usersQ.isError, groupsQ.isError, crbQ.isError, oauthError, tokensError]);
+
+  const rbacAuditUnreadable = listQueries
+    .filter(([name, q]) => q.isError && name !== 'groups')
+    .map(([name]) => name);
+
   // ---- Loading skeleton ----
   const isLoading = usersLoading && users.length === 0;
 
@@ -244,19 +280,27 @@ export default function IdentityView() {
 
         {/* Impersonation is announced once, by the global banner in the Shell. */}
 
+        {failedLists.length > 0 && (
+          <LoadError
+            title={`Could not read ${failedLists.map(([name]) => name).join(', ')} — counts and checks that need them are unknown`}
+            error={failedLists[0][1].error}
+            onRetry={retryFailed}
+          />
+        )}
+
         {/* Summary header with counts */}
         <MetricGrid className="md:grid-cols-4">
           <button onClick={() => setActiveTab('users')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'users' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">Users</div>
-            <div className="text-xl font-bold text-slate-100">{users.length}</div>
+            <div className="text-xl font-bold text-slate-100"><Count n={users.length} failed={usersQ.isError} /></div>
           </button>
           <button onClick={() => setActiveTab('groups-sa')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'groups-sa' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">Groups</div>
-            <div className="text-xl font-bold text-slate-100">{groups.length}</div>
+            <div className="text-xl font-bold text-slate-100"><Count n={groups.length} failed={groupsQ.isError} /></div>
           </button>
           <button onClick={() => setActiveTab('groups-sa')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'groups-sa' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">Service Accounts</div>
-            <div className="text-xl font-bold text-slate-100">{serviceAccounts.length}</div>
+            <div className="text-xl font-bold text-slate-100"><Count n={serviceAccounts.length} failed={saQ.isError} /></div>
           </button>
           {/* Roles and bindings are counted on the RBAC tab. */}
           <button onClick={() => setActiveTab('rbac')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'rbac' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
@@ -335,10 +379,12 @@ export default function IdentityView() {
           <>
             <Card>
               <div className="px-4 py-3 border-b border-slate-800">
-                <h2 className="text-sm font-semibold text-slate-100">Users ({filteredUsers.length})</h2>
+                <h2 className="text-sm font-semibold text-slate-100">Users (<Count n={filteredUsers.length} failed={usersQ.isError} />)</h2>
               </div>
               <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
-                {filteredUsers.length === 0 ? (
+                {usersQ.isError ? (
+                  <LoadError className="m-3" title="Users could not be loaded" error={usersQ.error} onRetry={() => { void usersQ.refetch(); }} />
+                ) : filteredUsers.length === 0 ? (
                   <EmptyState icon={<User className="w-8 h-8" />} title="No users found" description="OpenShift User objects are created on first console login. Users authenticating only via CLI or API won't appear here." />
                 ) : filteredUsers.map((user: K8sResourceExt) => {
                   const uRoles = userRoles.get(user.metadata.name) || [];
@@ -385,6 +431,7 @@ export default function IdentityView() {
               oauthConfig={oauthConfig}
               accessTokens={accessTokens as K8sResource[]}
               kubeadminStatus={kubeadminStatus}
+              unreadable={identityUnreadable}
               go={go}
               addToast={addToast}
               queryClient={queryClient}
@@ -399,11 +446,13 @@ export default function IdentityView() {
               {/* Groups */}
               <Card>
                 <div className="px-4 py-3 border-b border-slate-800">
-                  <h2 className="text-sm font-semibold text-slate-100">Groups ({filteredGroups.length})</h2>
+                  <h2 className="text-sm font-semibold text-slate-100">Groups (<Count n={filteredGroups.length} failed={groupsQ.isError} />)</h2>
                   <CreateGroupButton />
                 </div>
                 <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
-                  {filteredGroups.length === 0 ? (
+                  {groupsQ.isError ? (
+                    <LoadError className="m-3" title="Groups could not be loaded" error={groupsQ.error} onRetry={() => { void groupsQ.refetch(); }} />
+                  ) : filteredGroups.length === 0 ? (
                     <EmptyState icon={<Users className="w-8 h-8" />} title="No groups found" description="No OpenShift groups match your search." />
                   ) : filteredGroups.map((group: K8sResourceExt) => {
                     const members = group.users || [];
@@ -438,7 +487,9 @@ export default function IdentityView() {
                   <button onClick={() => go('/r/v1~serviceaccounts', 'ServiceAccounts')} className="text-xs text-violet-400 hover:text-violet-300">View all →</button>
                 </div>
                 <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
-                  {appSAs.length === 0 ? (
+                  {saQ.isError ? (
+                    <LoadError className="m-3" title="Service accounts could not be loaded" error={saQ.error} onRetry={() => { void saQ.refetch(); }} />
+                  ) : appSAs.length === 0 ? (
                     <EmptyState icon={<Key className="w-8 h-8" />} title="No application service accounts" description="No non-system service accounts match your search." />
                   ) : appSAs.slice(0, 50).map((sa: K8sResourceExt) => {
                     const saName = `system:serviceaccount:${sa.metadata.namespace}:${sa.metadata.name}`;
@@ -466,7 +517,7 @@ export default function IdentityView() {
             </div>
 
             {/* SA by Namespace breakdown */}
-            <Panel title="Service Accounts by Namespace" icon={<Key className="w-4 h-4 text-violet-500" />}>
+            {!saQ.isError && <Panel title="Service Accounts by Namespace" icon={<Key className="w-4 h-4 text-violet-500" />}>
               <div className="space-y-2">
                 {saByNamespace.map(([ns, count]) => (
                   <div key={ns} className="flex items-center justify-between py-1 px-2">
@@ -480,7 +531,7 @@ export default function IdentityView() {
                   </div>
                 ))}
               </div>
-            </Panel>
+            </Panel>}
           </>
         )}
 
@@ -491,24 +542,30 @@ export default function IdentityView() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button onClick={() => go('/r/rbac.authorization.k8s.io~v1~clusterroles', 'ClusterRoles')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
                 <div className="text-xs text-slate-400 mb-1">Cluster Roles</div>
-                <div className="text-xl font-bold text-slate-100">{clusterRoles.length}</div>
+                <div className="text-xl font-bold text-slate-100"><Count n={clusterRoles.length} failed={clusterRolesQ.isError} /></div>
               </button>
               <button onClick={() => go('/r/rbac.authorization.k8s.io~v1~clusterrolebindings', 'ClusterRoleBindings')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
                 <div className="text-xs text-slate-400 mb-1">Cluster Bindings</div>
-                <div className="text-xl font-bold text-slate-100">{clusterRoleBindings.length}</div>
+                <div className="text-xl font-bold text-slate-100"><Count n={clusterRoleBindings.length} failed={crbQ.isError} /></div>
               </button>
               <button onClick={() => go('/r/rbac.authorization.k8s.io~v1~roles', 'Roles')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
                 <div className="text-xs text-slate-400 mb-1">Roles</div>
-                <div className="text-xl font-bold text-slate-100">{roles.length}</div>
+                <div className="text-xl font-bold text-slate-100"><Count n={roles.length} failed={rolesQ.isError} /></div>
               </button>
               <button onClick={() => go('/r/rbac.authorization.k8s.io~v1~rolebindings', 'RoleBindings')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
                 <div className="text-xs text-slate-400 mb-1">Role Bindings</div>
-                <div className="text-xl font-bold text-slate-100">{roleBindings.length}</div>
+                <div className="text-xl font-bold text-slate-100"><Count n={roleBindings.length} failed={rbQ.isError} /></div>
               </button>
             </div>
 
-            {/* RBAC Health Audit */}
-            <RBACHealthAudit
+            {/* RBAC Health Audit — every check reads these lists; with one
+                missing, a check would pass on data it never saw. */}
+            {rbacAuditUnreadable.length > 0 ? (
+              <LoadError
+                title={`RBAC Health Audit could not run — ${rbacAuditUnreadable.join(', ')} could not be read`}
+                onRetry={retryFailed}
+              />
+            ) : <RBACHealthAudit
               clusterRoles={clusterRoles as ClusterRole[]}
               clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
               roles={roles as Role[]}
@@ -517,7 +574,7 @@ export default function IdentityView() {
               namespaces={namespaces as Namespace[]}
               users={users}
               go={go}
-            />
+            />}
 
             {/* Grant / revoke / who-can */}
             <AccessPanel
@@ -526,6 +583,8 @@ export default function IdentityView() {
               namespaces={namespaces as Namespace[]}
               clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
               roleBindings={roleBindings as RoleBinding[]}
+              bindingsError={crbQ.isError ? crbQ.error ?? true : rbQ.isError ? rbQ.error ?? true : undefined}
+              onRetryBindings={() => { if (crbQ.isError) void crbQ.refetch(); if (rbQ.isError) void rbQ.refetch(); }}
             />
 
             {/* Recent RBAC Changes */}
@@ -537,8 +596,10 @@ export default function IdentityView() {
 
             {/* Cluster Admin subjects */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Panel title={`Cluster Admin Subjects (${broadPermissions.length})`} icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
-                {broadPermissions.length === 0 ? (
+              <Panel title={`Cluster Admin Subjects (${crbQ.isError ? '—' : broadPermissions.length})`} icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
+                {crbQ.isError ? (
+                  <LoadError title="Cluster role bindings could not be read — cluster-admin holders are unknown" error={crbQ.error} onRetry={() => { void crbQ.refetch(); }} />
+                ) : broadPermissions.length === 0 ? (
                   <EmptyState icon={<Shield className="w-8 h-8" />} title="No cluster-admin bindings" description="No subjects have cluster-admin privileges." className="py-6" />
                 ) : (
                   <div className="space-y-1 max-h-64 overflow-auto">
@@ -724,9 +785,14 @@ function RecentSessions({ accessTokens, go }: { accessTokens: K8sResource[]; go:
 // ---------------------------------------------------------------------------
 // Identity & Access Audit (from UserManagementView)
 // ---------------------------------------------------------------------------
-function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminStatus, go, addToast, queryClient }: {
+interface IdentityUnreadable {
+  users: boolean; groups: boolean; clusterRoleBindings: boolean; oauth: boolean; accessTokens: boolean;
+}
+
+function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminStatus, unreadable, go, addToast, queryClient }: {
   users: K8sResource[]; groups: K8sResource[]; clusterRoleBindings: ClusterRoleBinding[]; oauthConfig: any;
-  accessTokens: K8sResource[]; kubeadminStatus: KubeadminStatus | undefined; go: (path: string, title: string) => void;
+  accessTokens: K8sResource[]; kubeadminStatus: KubeadminStatus | undefined; unreadable: IdentityUnreadable;
+  go: (path: string, title: string) => void;
   addToast: (t: any) => void; queryClient: any;
 }) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
@@ -770,6 +836,8 @@ function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, access
       id: string; title: string; description: string; why: string;
       passing: Array<{ metadata?: { name?: string; uid?: string }; name?: string; binding?: string; [key: string]: unknown }>; failing: Array<{ metadata?: { name?: string; uid?: string }; name?: string; binding?: string; [key: string]: unknown }>; yamlExample: string;
       action?: { label: string; danger?: boolean; id: string; path?: string };
+      /** Set when the data this check needs could not be read: neither pass nor fail. */
+      unknown?: string;
     }> = [];
 
     // 1. Identity Providers configured
@@ -932,11 +1000,28 @@ users:
       action: groups.length === 0 ? { label: 'Create Group', id: 'create-group', path: '/create/user.openshift.io~v1~groups' } : undefined,
     });
 
-    return allChecks;
-  }, [users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminStatus, currentUserIsKubeAdmin]);
+    // A check whose input could not be read is unknown, never a pass.
+    const unknownBecause: Record<string, string | undefined> = {
+      'identity-providers': unreadable.oauth ? 'the OAuth configuration could not be read' : undefined,
+      'cluster-admin-audit': unreadable.clusterRoleBindings ? 'cluster role bindings could not be read' : undefined,
+      'sa-cluster-admin': unreadable.clusterRoleBindings ? 'cluster role bindings could not be read' : undefined,
+      'inactive-users': unreadable.users ? 'users could not be read'
+        : unreadable.accessTokens ? 'OAuth sessions could not be read' : undefined,
+      'groups-configured': unreadable.groups ? 'groups could not be read' : undefined,
+      // A 403 on the secret is not "kubeadmin still exists": unknown, not a failing row.
+      'kubeadmin-removed': kubeadminStatus?.state === 'unknown'
+        ? `kube-system/kubeadmin could not be read (${kubeadminStatus.reason})`
+        : !kubeadminStatus ? 'still checking kube-system/kubeadmin' : undefined,
+    };
+    return allChecks.map((c) => {
+      const reason = unknownBecause[c.id];
+      return reason ? { ...c, unknown: reason, passing: [], failing: [], action: undefined } : c;
+    });
+  }, [users, groups, clusterRoleBindings, oauthConfig, accessTokens, kubeadminStatus, currentUserIsKubeAdmin, unreadable]);
 
-  const totalPassing = checks.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
-  const score = Math.round((totalPassing / checks.length) * 100);
+  const totalPassing = checks.reduce((s, c) => s + (!c.unknown && c.failing.length === 0 ? 1 : 0), 0);
+  const unknownCount = checks.filter((c) => c.unknown).length;
+  const score = unknownCount > 0 ? null : Math.round((totalPassing / checks.length) * 100);
 
   return (
     <Card>
@@ -945,13 +1030,19 @@ users:
           <Activity className="w-4 h-4 text-violet-400" /> Identity & Access Audit
         </h2>
         <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
-          <span className="text-xs text-slate-500">{totalPassing}/{checks.length} passing</span>
+          {score === null ? (
+            <span className="text-sm font-bold text-slate-400" data-unknown title="Some checks could not run">—</span>
+          ) : (
+            <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
+          )}
+          <span className="text-xs text-slate-500">
+            {totalPassing}/{checks.length} passing{unknownCount > 0 && ` · ${unknownCount} could not be checked`}
+          </span>
         </div>
       </div>
       <div className="divide-y divide-slate-800">
         {checks.map((check) => {
-          const pass = check.failing.length === 0;
+          const pass = !check.unknown && check.failing.length === 0;
           const expanded = expandedCheck === check.id;
           return (
             <div key={check.id}>
@@ -960,11 +1051,12 @@ users:
                 className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  {pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
+                  {check.unknown ? <HelpCircle className="w-4 h-4 text-slate-500 shrink-0" aria-label="Unknown" />
+                    : pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
                   <div>
                     <span className="text-sm text-slate-200">{check.title}</span>
                     <span className="text-xs text-slate-500 ml-2">
-                      {pass ? `${check.passing.length} pass` : `${check.failing.length} need attention`}
+                      {check.unknown ? `Could not check — ${check.unknown}` : pass ? `${check.passing.length} pass` : `${check.failing.length} need attention`}
                     </span>
                   </div>
                 </div>

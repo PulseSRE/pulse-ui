@@ -7,6 +7,7 @@ import { showErrorToast } from '../../engine/errorToast';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { useInboxStore } from '../../store/inboxStore';
+import { LoadError } from '../../components/primitives/LoadError';
 import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes, isLikelyRelated } from '../../engine/episodeApi';
 import type {
   Episode,
@@ -430,6 +431,8 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
 
 export function EpisodePanel() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  // Last known episodes stay on a failed refresh; the error is shown, not hidden.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetchOpenEpisodes()
@@ -439,8 +442,11 @@ export function EpisodePanel() {
       // Neither can explain the other — equal causal layers — so symptom
       // ownership went entirely to whichever claimed them, and the loser
       // still took a full-width card at the top of the queue.
-      .then((list) => setEpisodes([...list].sort((a, b) => b.symptom_count - a.symptom_count)))
-      .catch(() => setEpisodes([]));
+      .then((list) => {
+        setEpisodes([...list].sort((a, b) => b.symptom_count - a.symptom_count));
+        setLoadError(null);
+      })
+      .catch((err: unknown) => setLoadError(err instanceof Error ? err.message : 'Could not load open incidents'));
   }, []);
 
   useEffect(() => {
@@ -449,10 +455,17 @@ export function EpisodePanel() {
     return () => clearInterval(timer);
   }, [load]);
 
-  if (episodes.length === 0) return null;
+  if (episodes.length === 0 && !loadError) return null;
 
   return (
     <div className="space-y-2 px-4 pt-3">
+      {loadError && (
+        <LoadError
+          title={episodes.length > 0 ? 'Open incidents could not be refreshed — showing the last known' : 'Could not check for open incidents'}
+          error={loadError}
+          onRetry={load}
+        />
+      )}
       {episodes.map((e) => (
         <EpisodeCard key={e.id} episode={e} onChanged={load} />
       ))}

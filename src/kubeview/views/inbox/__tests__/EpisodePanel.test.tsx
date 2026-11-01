@@ -155,11 +155,11 @@ describe('EpisodePanel', () => {
     await waitFor(() => expect(screen.queryByText(SYMPTOMS[0].title)).toBeNull());
   });
 
-  it('survives the agent being unreachable', async () => {
-    fetchOpenEpisodes.mockRejectedValue(new Error('offline'));
-    const { container } = render(<EpisodePanel />, { wrapper: MemoryRouter });
-    await waitFor(() => expect(fetchOpenEpisodes).toHaveBeenCalled());
-    expect(container.innerHTML).toBe('');
+  it.each([403, 500])('says it could not check for open incidents when the read fails with %i', async (status) => {
+    fetchOpenEpisodes.mockRejectedValue(new Error(`Episode API error: ${status} on /episodes`));
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
+    expect(await screen.findByText('Could not check for open incidents')).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain(String(status));
   });
 
   it('renders the cause even when its symptoms cannot be loaded', async () => {

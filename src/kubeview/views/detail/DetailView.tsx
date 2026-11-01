@@ -8,7 +8,7 @@ import { k8sGet, k8sDelete, k8sPatch, k8sCreate, k8sList } from '../../engine/qu
 import { terminalTargets, defaultTerminalTarget } from '../../engine/terminalTargets';
 import { pickDefaultContainer } from '../../components/logs/pickDefaultContainer';
 import { assertActiveCluster } from '../../engine/pendingCluster';
-import { getActiveClusterId } from '../../engine/clusterConnection';
+import { getActiveClusterId, LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import type { K8sResource } from '../../engine/renderers';
 import type { Deployment, Pod, Event, Condition } from '../../engine/types';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
@@ -429,6 +429,9 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           onDebug={handleDebug}
           onViewYaml={handleViewYaml}
           onViewMetrics={handleViewMetrics}
+          depsUnavailable={clusterId !== LOCAL_CLUSTER_ID
+            ? 'The dependency graph comes from the Pulse agent, which watches the local cluster only.'
+            : undefined}
           onViewDeps={() => (isTopologyKind(resource.kind)
             ? go(topologyFocusPath(resource.kind, namespace, name), 'Topology')
             : addToast({ type: 'warning', title: `The dependency graph does not track ${resource.kind}`, detail: 'Topology covers workloads, pods, services, routes, ingresses, volumes, config and RBAC service accounts.' }))}

@@ -79,6 +79,7 @@ export default function TimelineView() {
   const counts = timeline.counts || { alert: 0, event: 0, rollout: 0, config: 0 };
   const isLoading = timeline.isLoading;
   const failedSources = timeline.failedSources || [];
+  const unavailableSources = timeline.unavailableSources || [];
   // Every requested source failed: an error, not an empty timeline.
   const allFailed = !isLoading && failedSources.length > 0 && failedSources.length >= (timeline.requestedSources ?? categories.size);
 
@@ -217,6 +218,13 @@ export default function TimelineView() {
           />
         )}
 
+        {unavailableSources.length > 0 && (
+          <p role="note" data-testid="timeline-unavailable-sources" className="text-xs text-slate-400 bg-slate-900 border border-slate-800 rounded-sm px-3 py-2">
+            Unavailable for this cluster: {unavailableSources.join(', ')} — alerts are read from the local cluster&apos;s
+            Prometheus only, so they are left out here rather than shown from another cluster.
+          </p>
+        )}
+
         {timeline.eventsCapped && (
           <p role="status" className="text-xs text-amber-300/80">
             Events are capped at {CLUSTER_EVENTS_CAP} cluster-wide, so some in this range may be missing. Select a namespace to see all of its events.
@@ -232,7 +240,7 @@ export default function TimelineView() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <Info className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm">{failedSources.length > 0 ? 'Nothing found in the sources that could be read' : 'No timeline entries found'}</p>
+              <p className="text-slate-400 text-sm">{failedSources.length > 0 || unavailableSources.length > 0 ? 'Nothing found in the sources that could be read' : 'No timeline entries found'}</p>
               <p className="text-slate-500 text-xs mt-1">Try adjusting the time range or enabling more categories</p>
             </div>
           </div>

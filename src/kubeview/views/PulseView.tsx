@@ -79,6 +79,7 @@ function ClusterPostureBar({
   onInvestigate,
   investigateShownAbove = false,
   alertsUnknown = false,
+  alertsRemote = false,
 }: {
   incidentCounts: { critical: number; warning: number; info: number; total: number };
   /** Highest-severity, most-recent incident from the same feed the counts come from. */
@@ -97,6 +98,8 @@ function ClusterPostureBar({
    * Prometheus Pulse cannot reach). Zero alerts is then unknown, not clear.
    */
   alertsUnknown?: boolean;
+  /** Alerts are unknown because this is a remote cluster, not because a read failed. */
+  alertsRemote?: boolean;
 }) {
   const criticalCount = incidentCounts.critical;
   const warningCount = incidentCounts.warning;
@@ -151,7 +154,9 @@ function ClusterPostureBar({
       }
     >
       {level === 'unknown' && (alertsUnknown && lastScanTime
-        ? <>No all-clear — alerts for this cluster could not be read</>
+        ? (alertsRemote
+          ? <>No all-clear — alerts are available for the local cluster only</>
+          : <>No all-clear — alerts for this cluster could not be read</>)
         : <>Checking the cluster…</>)}
       {level === 'green' && <>All clear — 0 critical, 0 warnings</>}
       {level === 'yellow' && (
@@ -227,6 +232,13 @@ export default function PulseView() {
   const { counts: incidentCounts, incidents, isError: alertsError, alertsUnavailable } = useIncidentFeed({ limit: 0 });
   const topIncident = incidents.length > 0 ? incidents[0] : null;
 
+  const alertStateRef = useRef({ alerts: 0, alertsUnknown: false, alertsRemote: false });
+  alertStateRef.current = {
+    alerts: incidents.filter((i) => i.source === 'prometheus-alert').length,
+    alertsUnknown: alertsError || alertsUnavailable,
+    alertsRemote: alertsUnavailable,
+  };
+
   const [scanning, setScanning] = useState(false);
   const [episodeBannerShown, setEpisodeBannerShown] = useState(false);
   const scanTimeRef = useRef(lastScanTime);
@@ -240,13 +252,24 @@ export default function PulseView() {
     if (scanning && lastScanTime !== scanTimeRef.current) {
       setScanning(false);
       const f = useMonitorStore.getState().findings;
+      // The scan only produces findings; the posture bar also counts firing
+      // alerts. "Looks healthy" has to answer for both, and cannot be said
+      // when alerts could not be read at all.
+      const { alerts, alertsUnknown, alertsRemote } = alertStateRef.current;
+      const parts: string[] = [];
+      if (f.length > 0) parts.push(`${f.length} finding${f.length !== 1 ? 's' : ''}`);
+      if (alerts > 0) parts.push(`${alerts} firing alert${alerts !== 1 ? 's' : ''}`);
       useUIStore.getState().addToast({
-        type: f.length > 0 ? 'warning' : 'success',
+        type: parts.length > 0 || alertsUnknown ? 'warning' : 'success',
         tier: 'system',
         title: 'Scan complete',
-        detail: f.length > 0
-          ? `Found ${f.length} issue${f.length !== 1 ? 's' : ''}.`
-          : 'No issues found — cluster looks healthy.',
+        detail: parts.length > 0
+          ? `Found ${parts.join(' and ')}.`
+          : alertsUnknown
+            ? alertsRemote
+              ? 'No findings. Alerts are available for the local cluster only, so health is unknown.'
+              : 'No findings, but alerts could not be read — health is unknown.'
+            : 'No findings or firing alerts — cluster looks healthy.',
         duration: 5000,
       });
     }
@@ -277,6 +300,7 @@ export default function PulseView() {
           onInvestigate={() => go('/inbox', 'Inbox')}
           investigateShownAbove={episodeBannerShown}
           alertsUnknown={alertsError || alertsUnavailable}
+          alertsRemote={alertsUnavailable}
         />
         {alertsUnavailable && <RemoteMetricsNotice compact what="Alerts and metrics" />}
 

@@ -278,7 +278,7 @@ describe('PulseView', () => {
       renderPulse();
       expect(screen.queryByText(/All clear/)).toBeNull();
       expect(screen.queryByText('All Systems Nominal')).toBeNull();
-      expect(screen.getByText(/No all-clear — alerts for this cluster could not be read/)).toBeDefined();
+      expect(screen.getByText(/No all-clear — alerts are available for the local cluster only/)).toBeDefined();
       expect(screen.getAllByText(/Alerts and metrics are available for the local cluster only/).length).toBeGreaterThan(0);
     });
   });

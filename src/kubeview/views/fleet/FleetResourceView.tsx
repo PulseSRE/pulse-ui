@@ -106,16 +106,22 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
 
   // Per-cluster counts
   const perClusterCounts = useMemo(() => {
-    const map = new Map<string, { name: string; count: number; error?: string }>();
+    // A cluster whose list failed has an unknown count, not 0.
+    const map = new Map<string, { name: string; count: number | null; error?: string }>();
     for (const r of results) {
       map.set(r.clusterId, {
         name: r.clusterName,
-        count: r.status === 'fulfilled' ? r.data.length : 0,
+        count: r.status === 'fulfilled' ? r.data.length : null,
         error: r.error,
       });
     }
     return map;
   }, [results]);
+  const readClusterCount = useMemo(
+    () => Array.from(perClusterCounts.values()).filter((c) => c.count !== null).length,
+    [perClusterCounts],
+  );
+  const unreadClusterCount = perClusterCounts.size - readClusterCount;
 
   // Filter
   const filteredRows = useMemo(() => {
@@ -242,7 +248,10 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
               Fleet {resourceKind}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              {sortedRows.length} resources across {perClusterCounts.size} clusters
+              {sortedRows.length} resources across {readClusterCount} cluster{readClusterCount !== 1 ? 's' : ''}
+              {unreadClusterCount > 0 && (
+                <span className="text-red-400 ml-1">· could not read {unreadClusterCount} cluster{unreadClusterCount !== 1 ? 's' : ''}</span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -256,7 +265,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
               <option value="all">All clusters</option>
               {clusterIds.map(id => {
                 const info = perClusterCounts.get(id);
-                return <option key={id} value={id}>{info?.name || id} ({info?.count || 0})</option>;
+                return <option key={id} value={id}>{info?.name || id} ({info?.count ?? '—'})</option>;
               })}
             </select>
             {/* Namespace filter */}
@@ -288,7 +297,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
             <span key={id} className="flex items-center gap-1.5 text-xs text-slate-400">
               {statusDot(clusterMap.get(id)?.status || 'unknown')}
               <span className="text-slate-300">{info.name}</span>
-              <span className="font-mono">{info.count}</span>
+              <span className="font-mono">{info.count ?? '—'}</span>
               {info.error && <span className="text-red-400">(error)</span>}
             </span>
           ))}

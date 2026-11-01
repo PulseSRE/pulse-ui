@@ -62,7 +62,12 @@ export function OverviewTab() {
       </div>
 
       {/* 2. Recent Activity */}
-      <ActivitySection events={activityQ.data?.events ?? []} isLoading={activityQ.isLoading} />
+      <ActivitySection
+        events={activityQ.data?.events ?? []}
+        isLoading={activityQ.isLoading}
+        error={activityQ.isError ? activityQ.error : null}
+        onRetry={() => { void activityQ.refetch(); }}
+      />
 
       {/* 3. Trust Controls */}
       <TrustPolicy
@@ -156,7 +161,9 @@ const EVENT_COLORS: Record<string, string> = {
 /** How many recent agent events the Overview summarises; the full list is Inbox › Activity. */
 const ACTIVITY_PREVIEW = 3;
 
-function ActivitySection({ events, isLoading }: { events: ActivityEvent[]; isLoading: boolean }) {
+function ActivitySection({ events, isLoading, error, onRetry }: {
+  events: ActivityEvent[]; isLoading: boolean; error: unknown; onRetry: () => void;
+}) {
   if (isLoading) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
@@ -172,7 +179,10 @@ function ActivitySection({ events, isLoading }: { events: ActivityEvent[]; isLoa
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
       <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recent Activity</h2>
-      {events.length === 0 ? (
+      {error ? (
+        // A failed read is not "the agent hasn't needed to intervene".
+        <LoadError title="Recent activity could not be loaded" error={error} onRetry={onRetry} />
+      ) : events.length === 0 ? (
         <p className="text-sm text-slate-500">No activity yet. The agent is monitoring but hasn&apos;t needed to intervene.</p>
       ) : (
         <ul className="space-y-1.5">

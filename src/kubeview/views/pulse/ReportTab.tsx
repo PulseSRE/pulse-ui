@@ -140,7 +140,24 @@ function ClusterZen({ nodeCount, podCount, deploymentCount, go, onDismiss }: Clu
   );
 }
 
-function RiskScoreRing({ score }: { score: number }) {
+function RiskScoreRing({ score, unknownReason }: { score: number; unknownReason?: string }) {
+  if (unknownReason) {
+    // Some inputs could not be read: a number here would be a guess, and
+    // "Healthy" a claim the page cannot back.
+    return (
+      <div className="flex items-center gap-4" data-testid="risk-score-unknown">
+        <svg width="100" height="100" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r={44} fill="none" stroke="#1e293b" strokeWidth={6} strokeDasharray="4 6" />
+          <text x="50" y="57" textAnchor="middle" className="fill-slate-400 font-bold" style={{ fontSize: '26px' }}>—</text>
+        </svg>
+        <div>
+          <div className="text-sm font-semibold text-slate-400">Unknown</div>
+          <div className="text-xs text-slate-500 mt-0.5">Cluster Risk Score</div>
+          <div className="text-xs text-slate-500 mt-0.5 max-w-[10rem]">{unknownReason}</div>
+        </div>
+      </div>
+    );
+  }
   const clamped = Math.max(0, Math.min(100, score));
   const radius = 44;
   const stroke = 6;
@@ -526,6 +543,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const isZenState = riskScore <= 5
     && !alertsError // don't show Zen if alerting is broken
     && unavailable.length === 0 // nor when a list failed to load
+    // nor under a posture bar that counts open findings or firing alerts
+    && !postureIssues
+    && warningAlerts.length === 0
     && (nodes.length > 0 || allPods.length > 0) // must have actual data loaded
     && attentionItems.length === 0
     && criticalAlerts.length === 0
@@ -569,7 +589,14 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           {/* Risk score */}
           <Card className="lg:col-span-1 p-4 flex flex-col items-center justify-center relative">
-            <RiskScoreRing score={riskScore} />
+            <RiskScoreRing
+              score={riskScore}
+              unknownReason={
+                alertsError ? 'Alerts could not be read'
+                  : unavailable.length > 0 ? `Could not read ${unavailable.join(', ')}`
+                    : undefined
+              }
+            />
             <button onClick={() => setShowScoreDetails(!showScoreDetails)}
               className="mt-2 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors">
               <Info className="w-3 h-3" />

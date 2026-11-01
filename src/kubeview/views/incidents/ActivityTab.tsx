@@ -13,6 +13,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
+import { LoadError } from '../../components/primitives/LoadError';
 import { useUIStore } from '../../store/uiStore';
 import { useMonitorStore } from '../../store/monitorStore';
 import { useAgentStore } from '../../store/agentStore';
@@ -34,7 +35,9 @@ import { IncidentLifecycleDrawer } from './IncidentLifecycleDrawer';
 
 async function fetchPostmortems(): Promise<{ postmortems: Postmortem[]; total: number }> {
   const res = await agentFetch('/api/agent/postmortems');
-  if (!res.ok) return { postmortems: [], total: 0 };
+  // An agent without postmortems (404) has none; anything else is a failed read.
+  if (res.status === 404) return { postmortems: [], total: 0 };
+  if (!res.ok) throw new Error(`Postmortems could not be loaded (${res.status})`);
   return res.json();
 }
 
@@ -52,11 +55,12 @@ export function ActivityTab() {
   const investigations = useMonitorStore((s) => s.investigations);
   const fixHistory = useMonitorStore((s) => s.fixHistory);
   const loadFixHistory = useMonitorStore((s) => s.loadFixHistory);
+  const fixHistoryError = useMonitorStore((s) => s.fixHistoryError);
   const findings = useMonitorStore((s) => s.findings);
 
   useEffect(() => { loadFixHistory(); }, [loadFixHistory]);
 
-  const { data: postmortemData } = useQuery({
+  const { data: postmortemData, isError: postmortemsFailed, error: postmortemsError, refetch: refetchPostmortems } = useQuery({
     queryKey: ['postmortems'],
     queryFn: fetchPostmortems,
     refetchInterval: 60_000,
@@ -211,6 +215,10 @@ export function ActivityTab() {
         </button>
       </div>
 
+      {postmortemsFailed && (
+        <LoadError title="Postmortems could not be loaded" error={postmortemsError} onRetry={() => { void refetchPostmortems(); }} />
+      )}
+
       {/* Agent section: investigations + postmortems + learning */}
       {(filteredInvestigations.length > 0 || postmortems.length > 0 || learningEvents.length > 0) && (
         <div className="space-y-4">
@@ -278,11 +286,19 @@ export function ActivityTab() {
 
       {/* Agent actions by date */}
       <div className="flex items-center gap-4 text-xs text-slate-500">
-        <span>{mergedEntries.length} agent action{mergedEntries.length !== 1 ? 's' : ''}</span>
+        {/* With fix history unreadable the total is unknown, not the investigations alone. */}
+        {fixHistoryError
+          ? <span data-unknown>— agent actions</span>
+          : <span>{mergedEntries.length} agent action{mergedEntries.length !== 1 ? 's' : ''}</span>}
       </div>
 
+      {fixHistoryError && (
+        // A failed read is not "No agent actions": the fixes are unknown.
+        <LoadError title="Agent fix history could not be loaded" error={fixHistoryError} onRetry={() => loadFixHistory()} />
+      )}
+
       {mergedEntries.length === 0 ? (
-        <EmptyState
+        fixHistoryError ? null : <EmptyState
           icon={<Info className="w-8 h-8" />}
           title="No agent actions"
           description={searchQuery ? 'No agent actions match your search.' : 'Fixes the agent applies, or you approve in chat, appear here.'}

@@ -283,7 +283,14 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
     : live.state === 'nodata'
       ? '—'
       : spec.value || (query && live.state === 'idle' ? '...' : '—');
-  const liveNote = live.state === 'nodata' ? 'no data' : live.state === 'error' && !spec.value ? 'could not query Prometheus' : '';
+  // A value that is not the live answer must say so: the agent's snapshot
+  // after a failed query, or the last live value after a failed refresh.
+  const stale = !!query && liveQuery.isError && (live.state === 'ok' || (live.state === 'error' && !!spec.value));
+  const liveNote = live.state === 'nodata'
+    ? 'no data'
+    : live.state === 'error'
+      ? spec.value ? 'stale — could not query Prometheus; showing the agent\'s earlier value' : 'could not query Prometheus'
+      : stale ? 'stale — could not refresh from Prometheus' : '';
   const goodDir = spec.trendGood || 'down';
   const trendIsGood = spec.trend === goodDir;
   const trendColor = !spec.trend || spec.trend === 'stable'
@@ -297,10 +304,10 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
       metricStatusBorder(spec.status)
     )}>
       <span className="text-xs text-slate-400 mb-1">{title}</span>
-      <div className="text-2xl font-bold text-slate-100 font-mono">
+      <div className={cn('text-2xl font-bold font-mono', stale ? 'text-slate-400' : 'text-slate-100')} data-stale={stale || undefined}>
         {value}{spec.unit && value !== '—' && <span className="text-sm text-slate-400 ml-0.5">{spec.unit}</span>}
       </div>
-      {liveNote && <div className="text-[10px] text-slate-500 mt-0.5">{liveNote}</div>}
+      {liveNote && <div className={cn('text-[10px] mt-0.5', stale ? 'text-amber-400' : 'text-slate-500')}>{liveNote}</div>}
       {spec.trend && spec.trendValue && (
         <div className={cn('text-xs mt-1 font-medium', trendColor)}>
           {trendArrow} {spec.trendValue}

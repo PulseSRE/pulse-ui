@@ -94,11 +94,22 @@ describe('OpenEpisodeBanner', () => {
     expect(await screen.findByText('+2 more open')).toBeTruthy();
   });
 
-  it('survives the agent being unreachable', async () => {
-    fetchOpenEpisodes.mockRejectedValue(new Error('offline'));
-    const { container } = render(<OpenEpisodeBanner onOpen={vi.fn()} />);
-    await waitFor(() => expect(fetchOpenEpisodes).toHaveBeenCalled());
-    expect(container.innerHTML).toBe('');
+  it.each([403, 500])('says it could not check, rather than vanishing, when the read fails with %i', async (status) => {
+    const onVisibleChange = vi.fn();
+    fetchOpenEpisodes.mockRejectedValue(new Error(`Episode API error: ${status} on /episodes`));
+    render(<OpenEpisodeBanner onOpen={vi.fn()} onVisibleChange={onVisibleChange} />);
+    expect(await screen.findByText('Could not check for open incidents')).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain(String(status));
+    // No episode is claimed either way: the posture bar keeps its own action.
+    expect(onVisibleChange).not.toHaveBeenCalledWith(true);
+  });
+
+  it('retries a failed read and shows the episode once it loads', async () => {
+    fetchOpenEpisodes.mockRejectedValueOnce(new Error('Episode API error: 500 on /episodes'));
+    render(<OpenEpisodeBanner onOpen={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /retry/i }));
+    expect(await screen.findByText(EPISODE.cause_title)).toBeTruthy();
+    expect(screen.queryByText('Could not check for open incidents')).toBeNull();
   });
 
   it('tells the page whether it is showing', async () => {

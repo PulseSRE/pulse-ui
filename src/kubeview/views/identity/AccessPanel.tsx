@@ -163,7 +163,11 @@ function GrantAccess({ clusterRoles, roles, namespaces }: { clusterRoles: Cluste
   );
 }
 
-function BindingsList({ clusterRoleBindings, roleBindings }: { clusterRoleBindings: ClusterRoleBinding[]; roleBindings: RoleBinding[] }) {
+function BindingsList({ clusterRoleBindings, roleBindings, bindingsError, onRetry }: {
+  clusterRoleBindings: ClusterRoleBinding[]; roleBindings: RoleBinding[];
+  /** Set when a binding list could not be read: the list is then unknown, not "no match". */
+  bindingsError?: unknown; onRetry?: () => void;
+}) {
   const [q, setQ] = React.useState('');
   const [showSystem, setShowSystem] = React.useState(false);
   const all: BindingRef[] = React.useMemo(() => [
@@ -186,7 +190,9 @@ function BindingsList({ clusterRoleBindings, roleBindings }: { clusterRoleBindin
         <label className="flex items-center gap-1 text-xs text-slate-400"><input type="checkbox" checked={showSystem} onChange={(e) => setShowSystem(e.target.checked)} /> system</label>
       </div>
       <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
-        {shown.length === 0 ? <p className="py-3 text-xs text-slate-500">No bindings match.</p> : shown.slice(0, 100).map((b) => (
+        {bindingsError ? (
+          <LoadError className="my-2" title="Bindings could not be loaded" error={bindingsError} onRetry={onRetry} />
+        ) : shown.length === 0 ? <p className="py-3 text-xs text-slate-500">No bindings match.</p> : shown.slice(0, 100).map((b) => (
           <div key={`${b.kind}/${b.namespace ?? ''}/${b.name}`} className="py-1.5 flex items-center gap-2 text-xs">
             <span className="text-slate-500 w-36 shrink-0 truncate">{b.kind === 'ClusterRoleBinding' ? 'cluster' : b.namespace}</span>
             <span className="text-slate-200 font-mono truncate">{b.roleRef.name}</span>
@@ -268,11 +274,13 @@ function WhoCan() {
 export function AccessPanel(props: {
   clusterRoles: ClusterRole[]; roles: Role[]; namespaces: Namespace[];
   clusterRoleBindings: ClusterRoleBinding[]; roleBindings: RoleBinding[];
+  bindingsError?: unknown; onRetryBindings?: () => void;
 }) {
   return (
     <Card className="p-4 space-y-6">
       <GrantAccess clusterRoles={props.clusterRoles} roles={props.roles} namespaces={props.namespaces} />
-      <BindingsList clusterRoleBindings={props.clusterRoleBindings} roleBindings={props.roleBindings} />
+      <BindingsList clusterRoleBindings={props.clusterRoleBindings} roleBindings={props.roleBindings}
+        bindingsError={props.bindingsError} onRetry={props.onRetryBindings} />
       <WhoCan />
     </Card>
   );
