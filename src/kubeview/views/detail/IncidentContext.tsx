@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { ScrollText, Loader2 } from 'lucide-react';
-import { k8sLogs } from '../../engine/query';
+import { k8sLogs, sanitizePromQL } from '../../engine/query';
 import { pickDefaultContainer } from '../../components/logs/pickDefaultContainer';
 import { MetricCard } from '../../components/metrics/Sparkline';
 import { CHART_COLORS } from '../../engine/colors';
@@ -99,9 +99,19 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
 
   const warningEvents = relevantEvents.filter((e) => e.type === 'Warning');
 
-  const metricFilter = isPod
-    ? `namespace="${namespace}",pod="${resource.metadata.name}"`
-    : `namespace="${namespace}"`;
+  // Usage of this object's own pods. A workload used to be filtered by
+  // namespace only, so its "Resource Usage" was the whole namespace's.
+  const managedPodKey = managedPods.map((p) => p.metadata?.name ?? '').filter(Boolean).sort().join('\n');
+  const metricFilter = React.useMemo(() => {
+    if (!namespace) return '';
+    const ns = `namespace="${sanitizePromQL(namespace)}"`;
+    if (isPod) return `${ns},pod="${sanitizePromQL(resource.metadata.name)}"`;
+    const names = managedPodKey ? managedPodKey.split('\n').map(sanitizePromQL).filter(Boolean) : [];
+    if (names.length === 0) return '';
+    // Pod names are DNS-1123: only "." needs escaping in the regex (as "\\." inside a PromQL string).
+    return `${ns},pod=~"${names.map((n) => n.replace(/\./g, '\\\\.')).join('|')}"`;
+  }, [namespace, isPod, resource.metadata.name, managedPodKey]);
+  const podCount = isPod ? 1 : managedPodKey ? managedPodKey.split('\n').length : 0;
 
   if (!isPod && !isWorkload) return null;
   if (!worstPod && !isPod) return null;
@@ -197,23 +207,21 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
           </div>
         )}
 
-        {namespace && (
+        {metricFilter && (
           <div className="px-4 py-3">
-            <div className="text-xs font-medium text-slate-400 mb-2">Resource Usage</div>
+            <div className="text-xs font-medium text-slate-400 mb-2">
+              Resource Usage{!isPod && <span className="text-slate-500 font-normal"> · {podCount} pod{podCount === 1 ? '' : 's'} of this {resource.kind}</span>}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <MetricCard
                 title="CPU"
-                query={isPod
-                  ? `sum(rate(container_cpu_usage_seconds_total{${metricFilter},pod="${resource.metadata.name}",container!=""}[5m])) * 1000`
-                  : `sum(rate(container_cpu_usage_seconds_total{${metricFilter},container!=""}[5m])) * 1000`}
+                query={`sum(rate(container_cpu_usage_seconds_total{${metricFilter},container!=""}[5m])) * 1000`}
                 unit="m"
                 color={CHART_COLORS.blue}
               />
               <MetricCard
                 title="Memory"
-                query={isPod
-                  ? `sum(container_memory_working_set_bytes{${metricFilter},pod="${resource.metadata.name}",container!=""}) / 1024 / 1024`
-                  : `sum(container_memory_working_set_bytes{${metricFilter},container!=""}) / 1024 / 1024`}
+                query={`sum(container_memory_working_set_bytes{${metricFilter},container!=""}) / 1024 / 1024`}
                 unit=" Mi"
                 color={CHART_COLORS.violet}
               />

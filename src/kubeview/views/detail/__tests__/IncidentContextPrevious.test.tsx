@@ -5,7 +5,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const k8sLogs = vi.fn();
-vi.mock('../../../engine/query', () => ({ k8sLogs: (...a: unknown[]) => k8sLogs(...a) }));
+vi.mock('../../../engine/query', () => ({ k8sLogs: (...a: unknown[]) => k8sLogs(...a), sanitizePromQL: (v: string) => v }));
 vi.mock('../../../hooks/useK8sListWatch', () => ({ useK8sListWatch: () => ({ data: [], isLoading: false }) }));
 vi.mock('../../../components/metrics/Sparkline', () => ({ MetricCard: () => null }));
 

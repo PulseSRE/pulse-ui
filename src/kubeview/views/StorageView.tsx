@@ -46,22 +46,24 @@ export default function StorageView() {
     queryFn: () => k8sList('/apis/storage.k8s.io/v1/storageclasses', undefined, clusterId) as Promise<StorageClass[]>,
     staleTime: 60000,
   });
-  const { data: csiDrivers = [] } = useQuery<CSIDriver[]>({
+  // safeQuery turns only a 404 into []; a 403 or 500 is an error, shown as
+  // such rather than as "No CSI drivers" or "snapshots not installed".
+  const { data: csiDrivers = [], isError: csiError, error: csiErr, refetch: refetchCsi } = useQuery<CSIDriver[]>({
     queryKey: ['storage', 'csidrivers', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/storage.k8s.io/v1/csidrivers', undefined, clusterId))) ?? [] as CSIDriver[],
     staleTime: 120000,
   });
-  const { data: volumeSnapshots = [] } = useQuery<VolumeSnapshot[]>({
+  const { data: volumeSnapshots = [], isError: snapError, error: snapErr, refetch: refetchSnaps } = useQuery<VolumeSnapshot[]>({
     queryKey: ['storage', 'volumesnapshots', nsFilter, clusterId],
     queryFn: async () => ((await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshots', nsFilter, clusterId))) ?? []) as VolumeSnapshot[],
     staleTime: 60000,
   });
-  const { data: volumeSnapshotClasses = [] } = useQuery<K8sResource[]>({
+  const { data: volumeSnapshotClasses = [], isError: vscError } = useQuery<K8sResource[]>({
     queryKey: ['storage', 'volumesnapshotclasses', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshotclasses', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
-  const { data: resourceQuotas = [] } = useK8sListWatch({ apiPath: '/api/v1/resourcequotas', namespace: nsFilter });
+  const { data: resourceQuotas = [], isError: rqFailed } = useK8sListWatch({ apiPath: '/api/v1/resourcequotas', namespace: nsFilter });
 
   // Computed stats
   const pvcStatus = React.useMemo(() => {
@@ -244,9 +246,12 @@ export default function StorageView() {
           pvcsLoaded={pvcsLoaded}
           storageClasses={storageClasses}
           storageClassesLoaded={scLoaded}
+          storageClassesFailed={scError}
           volumeSnapshots={volumeSnapshots}
           volumeSnapshotClasses={volumeSnapshotClasses}
+          volumeSnapshotClassesFailed={vscError}
           resourceQuotas={resourceQuotas}
+          resourceQuotasFailed={rqFailed}
           go={go}
         />
 
@@ -315,7 +320,9 @@ export default function StorageView() {
 
           {/* CSI Drivers */}
           <Panel title="CSI Drivers" icon={<Server className="w-4 h-4 text-cyan-500" />}>
-            {csiDrivers.length === 0 ? (
+            {csiError ? (
+              <LoadError title="CSI drivers could not be loaded" error={csiErr} onRetry={() => { void refetchCsi(); }} />
+            ) : csiDrivers.length === 0 ? (
               <div className="text-center py-4">
                 <div className="text-sm text-slate-500">No CSI drivers found</div>
                 <p className="text-xs text-slate-600 mt-1">CSI drivers provide dynamic storage provisioning</p>
@@ -391,7 +398,12 @@ export default function StorageView() {
         )}
 
         {/* Volume Snapshots */}
-        {volumeSnapshots.length > 0 && (
+        {snapError && (
+          <Panel title="Volume Snapshots" icon={<Package className="w-4 h-4 text-green-500" />}>
+            <LoadError title="VolumeSnapshots could not be loaded" error={snapErr} onRetry={() => { void refetchSnaps(); }} />
+          </Panel>
+        )}
+        {!snapError && volumeSnapshots.length > 0 && (
           <Panel title={`Volume Snapshots (${volumeSnapshots.length})`} icon={<Package className="w-4 h-4 text-green-500" />}>
             <div className="space-y-1">
               {volumeSnapshots.slice(0, 10).map((snap) => {
@@ -442,7 +454,7 @@ function formatGi(gi: number): string {
 
 // ===== Storage Health Audit =====
 
-import type { AuditCheck, AuditItem } from '../components/audit/types';
+import { readsState, type AuditCheck, type AuditItem } from '../components/audit/types';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 
 function StorageHealthAudit({
@@ -450,18 +462,24 @@ function StorageHealthAudit({
   pvcsLoaded,
   storageClasses,
   storageClassesLoaded,
+  storageClassesFailed,
   volumeSnapshots,
   volumeSnapshotClasses,
+  volumeSnapshotClassesFailed,
   resourceQuotas,
+  resourceQuotasFailed,
   go,
 }: {
   pvcs: PersistentVolumeClaim[];
   pvcsLoaded: boolean;
   storageClasses: StorageClass[];
   storageClassesLoaded: boolean;
+  storageClassesFailed: boolean;
   volumeSnapshots: VolumeSnapshot[];
   volumeSnapshotClasses: K8sResource[];
+  volumeSnapshotClassesFailed: boolean;
   resourceQuotas: K8sResource[];
+  resourceQuotasFailed: boolean;
   go: (path: string, title: string) => void;
 }) {
   const checks: AuditCheck[] = React.useMemo(() => {
@@ -533,6 +551,7 @@ kubectl describe pvc <pvc-name>`,
       passing: retainSCs as AuditItem[],
       failing: deleteSCs as AuditItem[],
       failingLabel: `Delete policy (${deleteSCs.length})`,
+      ...readsState(['StorageClasses', storageClassesFailed]),
       yamlExample: `apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -558,6 +577,7 @@ parameters:
       passing: wffcSCs as AuditItem[],
       failing: immediateSCs as AuditItem[],
       failingLabel: `Needs attention (${immediateSCs.length})`,
+      ...readsState(['StorageClasses', storageClassesFailed]),
       yamlExample: `apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -577,6 +597,7 @@ parameters:
       why: 'Without VolumeSnapshot support, you cannot create backups of persistent data or clone volumes. This is critical for disaster recovery, blue/green deployments, and testing with production data.',
       passing: hasSnapshotCRDs ? [{ name: `${volumeSnapshotClasses.length} VolumeSnapshotClass(es) configured` }] : [],
       failing: hasSnapshotCRDs ? [] : [{ name: 'VolumeSnapshot CRDs not installed' }],
+      ...readsState(['VolumeSnapshotClasses', volumeSnapshotClassesFailed]),
       yamlExample: `# Install VolumeSnapshot CRDs and CSI snapshotter
 # For most cloud providers, this is automatic.
 # For on-prem, install:
@@ -610,6 +631,7 @@ spec:
       passing: quotasWithStorage as AuditItem[],
       failing: namespacesWithoutQuota.map(ns => ({ metadata: { name: ns, namespace: ns } })),
       failingLabel: `Missing quotas (${namespacesWithoutQuota.length})`,
+      ...readsState(['ResourceQuotas', resourceQuotasFailed]),
       yamlExample: `apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -622,7 +644,7 @@ spec:
     });
 
     return allChecks;
-  }, [pvcs, pvcsLoaded, storageClasses, storageClassesLoaded, volumeSnapshots, volumeSnapshotClasses, resourceQuotas]);
+  }, [pvcs, pvcsLoaded, storageClasses, storageClassesLoaded, storageClassesFailed, volumeSnapshots, volumeSnapshotClasses, volumeSnapshotClassesFailed, resourceQuotas, resourceQuotasFailed]);
 
   const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
     const id = check.id;

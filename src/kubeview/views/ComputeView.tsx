@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Server } from 'lucide-react';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
-import type { AuditCheck } from '../components/audit/types';
+import { readsState, type AuditCheck } from '../components/audit/types';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
@@ -32,6 +32,11 @@ import { MachineManagement } from './compute/MachineManagement';
 import { MachineConfigSection } from './compute/MachineConfigSection';
 import type { NodeDetail, PrometheusResult } from './compute/types';
 import { useActiveClusterId } from '../hooks/useClusterBase';
+import { LoadError } from '../components/primitives/LoadError';
+import type { MachineReads, ReadFailure } from './compute/MachineManagement';
+
+/** Stable empty list, so memos over an unread list do not recompute every render. */
+const NONE: never[] = [];
 
 export default function ComputeView() {
   const clusterId = useActiveClusterId();
@@ -49,51 +54,61 @@ export default function ComputeView() {
   const platform = useClusterStore((s) => s.platform);
   const clusterVersion = useClusterStore((s) => s.clusterVersion);
 
-  const { data: nodes = [] } = useK8sListWatch<Node>({ apiPath: '/api/v1/nodes' });
-  const { data: pods = [] } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods' });
+  const nodesQ = useK8sListWatch<Node>({ apiPath: '/api/v1/nodes' });
+  const podsQ = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods' });
+  const { data: nodes = [] } = nodesQ;
+  const { data: pods = [] } = podsQ;
+  const nodesFailed = !!nodesQ.isError;
+  const podsFailed = !!podsQ.isError;
 
-  const { data: machines = [] } = useQuery<Machine[]>({
+  const machinesQ = useQuery<Machine[]>({
     queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machines', undefined, clusterId],
     queryFn: async () => (await safeQuery(() => k8sList<Machine>('/apis/machine.openshift.io/v1beta1/machines', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
+  const machines = machinesQ.data ?? NONE;
 
-  const { data: machineSets = [] } = useQuery<MachineSet[]>({
+  const machineSetsQ = useQuery<MachineSet[]>({
     queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinesets', undefined, clusterId],
     queryFn: async () => (await safeQuery(() => k8sList<MachineSet>('/apis/machine.openshift.io/v1beta1/machinesets', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
+  const machineSets = machineSetsQ.data ?? NONE;
 
-  const { data: healthChecks = [] } = useQuery<K8sResource[]>({
+  const healthChecksQ = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/machine.openshift.io/v1beta1/machinehealthchecks', undefined, clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/machine.openshift.io/v1beta1/machinehealthchecks', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
+  const healthChecks = healthChecksQ.data ?? NONE;
 
-  const { data: machineAutoscalers = [] } = useQuery<K8sResource[]>({
+  const machineAutoscalersQ = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1beta1/machineautoscalers', undefined, clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1beta1/machineautoscalers', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
+  const machineAutoscalers = machineAutoscalersQ.data ?? NONE;
 
-  const { data: clusterAutoscaler = [] } = useQuery<K8sResource[]>({
+  const clusterAutoscalerQ = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/apis/autoscaling.openshift.io/v1/clusterautoscalers', undefined, clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/autoscaling.openshift.io/v1/clusterautoscalers', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: !isHyperShift,
   });
+  const clusterAutoscaler = clusterAutoscalerQ.data ?? NONE;
 
   // NodePools (HyperShift only)
-  const { data: nodePools = [] } = useQuery<NodePool[]>({
+  const nodePoolsQ = useQuery<NodePool[]>({
     queryKey: ['compute', 'nodepools', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList<NodePool>('/apis/hypershift.openshift.io/v1beta1/nodepools', undefined, clusterId))) ?? [],
     staleTime: 60000,
     enabled: isHyperShift,
   });
+  const nodePools = nodePoolsQ.data ?? NONE;
 
   // Per-node CPU usage from Prometheus, joined against kube_node_info to get
   // a reliable `node` label. kube_node_info (from kube-state-metrics) has no
@@ -141,6 +156,17 @@ export default function ComputeView() {
     queryFn: async () => (await safeQuery(() => k8sList('/apis/machineconfiguration.openshift.io/v1/machineconfigpools', undefined, clusterId))) ?? [],
     staleTime: 60000,
   });
+
+  // Reads that failed (a 403 or 500; safeQuery turns only a 404 into []). A
+  // failed read is shown as an error and its checks as unknown, never as
+  // "not configured" or an empty list.
+  const readError = (q: { isError: boolean; error: unknown; refetch: () => unknown }): ReadFailure | undefined =>
+    q.isError ? { error: q.error, retry: () => { void q.refetch(); } } : undefined;
+  const machineReads: MachineReads = {
+    machines: readError(machinesQ), machineSets: readError(machineSetsQ), healthChecks: readError(healthChecksQ),
+    machineAutoscalers: readError(machineAutoscalersQ), clusterAutoscaler: readError(clusterAutoscalerQ), nodePools: readError(nodePoolsQ),
+  };
+  const coreFailed = ([['Nodes', nodesFailed], ['Pods', podsFailed]] as const).filter(([, f]) => f).map(([l]) => l);
 
   const readyCount = nodes.filter((n) => getNodeStatus(n).ready).length;
   const unreadyNodes = nodes.filter((n) => !getNodeStatus(n).ready);
@@ -242,7 +268,7 @@ export default function ComputeView() {
       if (a.status.ready && !b.status.ready) return 1;
       return b.podCount - a.podCount;
     });
-  }, [nodes, podsByNode, nodeMemMetrics]);
+  }, [nodes, podsByNode, nodeMemMetrics, nodeCpuMetrics, machines]);
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
@@ -273,14 +299,21 @@ export default function ComputeView() {
         {computeTab === 'capacity' && <CapacityTab />}
 
         {computeTab === 'overview' && <>
-        {/* Cluster type summary */}
-        <ClusterTypeSummary
+        {coreFailed.length > 0 && (
+          <LoadError
+            title={`${coreFailed.join(' and ')} could not be loaded`}
+            error={nodesQ.error ?? podsQ.error}
+            onRetry={() => { if (nodesFailed) void nodesQ.refetch(); if (podsFailed) void podsQ.refetch(); }}
+          />
+        )}
+        {/* Cluster type summary — computed from the node list, so skipped without it */}
+        {!nodesFailed && <ClusterTypeSummary
           isHyperShift={isHyperShift}
           nodeDetails={nodeDetails}
           nodePools={nodePools}
           clusterVersion={clusterVersion}
           platform={platform}
-        />
+        />}
 
         {/* Key metrics — sparklines for trends, static for capacity */}
         {!metricsAvailableFor(clusterId) && (
@@ -323,10 +356,10 @@ export default function ComputeView() {
 
         {/* Capacity summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Nodes" value={`${readyCount}/${nodes.length}`} issues={unreadyNodes.length} onClick={() => go('/r/v1~nodes', 'Nodes')} />
-          <StatCard label="Total CPU" value={formatCpu(clusterCapacity.cpuCores)} />
-          <StatCard label="Total Memory" value={formatBytes(clusterCapacity.memBytes)} />
-          <StatCard label="Pods" value={`${clusterCapacity.totalPods}/${clusterCapacity.podCapacity}`} />
+          <StatCard label="Nodes" value={nodesFailed ? '—' : `${readyCount}/${nodes.length}`} issues={unreadyNodes.length} onClick={() => go('/r/v1~nodes', 'Nodes')} />
+          <StatCard label="Total CPU" value={nodesFailed ? '—' : formatCpu(clusterCapacity.cpuCores)} />
+          <StatCard label="Total Memory" value={nodesFailed ? '—' : formatBytes(clusterCapacity.memBytes)} />
+          <StatCard label="Pods" value={nodesFailed || podsFailed ? '—' : `${clusterCapacity.totalPods}/${clusterCapacity.podCapacity}`} />
         </div>
 
         {/* Alerts */}
@@ -344,10 +377,12 @@ export default function ComputeView() {
               machineAutoscalers={machineAutoscalers}
               clusterAutoscaler={clusterAutoscaler}
               nodePools={nodePools}
+              reads={machineReads}
               go={go}
             />
 
-            <NodeHexMap
+            {!nodesFailed && <NodeHexMap
+              podsUnknown={podsFailed}
               nodes={nodeDetails}
               podsByNode={podDetailsByNode}
               onNodeClick={(name) => go(`/r/v1~nodes/_/${name}`, name)}
@@ -355,7 +390,7 @@ export default function ComputeView() {
               onViewAll={() => go('/r/v1~nodes', 'Nodes')}
               isHyperShift
               actions={nodeMapActions}
-            />
+            />}
 
             <ComputeHealthAudit
               nodes={nodes}
@@ -364,6 +399,7 @@ export default function ComputeView() {
               machineAutoscalers={machineAutoscalers}
               nodeDetails={nodeDetails}
               nodePools={nodePools}
+              reads={{ ...machineReads, nodes: nodesFailed }}
               go={go}
             />
 
@@ -381,17 +417,19 @@ export default function ComputeView() {
               machineAutoscalers={machineAutoscalers}
               nodeDetails={nodeDetails}
               nodePools={nodePools}
+              reads={{ ...machineReads, nodes: nodesFailed }}
               go={go}
             />
 
-            <NodeHexMap
+            {!nodesFailed && <NodeHexMap
+              podsUnknown={podsFailed}
               nodes={nodeDetails}
               podsByNode={podDetailsByNode}
               onNodeClick={(name) => go(`/r/v1~nodes/_/${name}`, name)}
               onPodClick={(ns, name) => go(`/r/v1~pods/${ns}/${name}`, name)}
               onViewAll={() => go('/r/v1~nodes', 'Nodes')}
               actions={nodeMapActions}
-            />
+            />}
 
             <MachineManagement
               isHyperShift={isHyperShift}
@@ -401,6 +439,7 @@ export default function ComputeView() {
               machineAutoscalers={machineAutoscalers}
               clusterAutoscaler={clusterAutoscaler}
               nodePools={nodePools}
+              reads={machineReads}
               go={go}
             />
 
@@ -431,6 +470,7 @@ function ComputeHealthAudit({
   machineAutoscalers,
   nodeDetails,
   nodePools,
+  reads,
   go,
 }: {
   nodes: Node[];
@@ -439,6 +479,7 @@ function ComputeHealthAudit({
   machineAutoscalers: K8sResource[];
   nodeDetails: NodeDetail[];
   nodePools: NodePool[];
+  reads: MachineReads & { nodes: boolean };
   go: (path: string, title: string) => void;
 }) {
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
@@ -458,7 +499,8 @@ function ComputeHealthAudit({
         passing: hasHA ? masterNodes.map(nodeDetailToAuditItem) : [],
         // A failed check needs something in its failing list, or it reads as a pass.
         failing: hasHA ? [] : masterNodes.length > 0 ? masterNodes.map(nodeDetailToAuditItem) : [{ name: '0 control plane nodes detected' }],
-        yamlExample: `# Control plane nodes are provisioned during cluster installation.
+        ...readsState(['Nodes', reads.nodes]),
+      yamlExample: `# Control plane nodes are provisioned during cluster installation.
 # To scale control plane nodes post-install, you must:
 # 1. Create new master Machines via MachineSet
 # 2. Update etcd members
@@ -479,6 +521,7 @@ function ComputeHealthAudit({
       why: isHyperShift ? 'On HyperShift clusters, all visible nodes are workers. The control plane runs externally in a management cluster.' : 'Running application pods on control plane nodes creates resource contention with etcd and apiserver. Control plane stability is critical — separating workloads protects cluster availability.',
       passing: hasWorkers ? workerNodes.map(nodeDetailToAuditItem) : [],
       failing: hasWorkers ? [] : workerNodes.length > 0 ? workerNodes.map(nodeDetailToAuditItem) : [{ name: '0 dedicated worker nodes' }],
+      ...readsState(['Nodes', reads.nodes]),
       yamlExample: `# Worker nodes are created via MachineSets.
 # View existing MachineSets and scale them up:
 #   oc get machinesets -n openshift-machine-api
@@ -498,7 +541,8 @@ function ComputeHealthAudit({
         why: 'Without MachineHealthChecks, failed nodes remain in the cluster in NotReady state. Pods are rescheduled but the node is never recovered. MHCs detect and replace failed nodes automatically, restoring capacity.',
         passing: hasMHC ? healthChecks : [],
         failing: hasMHC ? [] : [{ metadata: { name: 'No MachineHealthChecks configured' } }],
-        yamlExample: `apiVersion: machine.openshift.io/v1beta1
+        ...readsState(['MachineHealthChecks', !!reads.healthChecks]),
+      yamlExample: `apiVersion: machine.openshift.io/v1beta1
 kind: MachineHealthCheck
 metadata:
   name: worker-health-check
@@ -542,6 +586,7 @@ spec:
           _pressureTypes: pressures.join(', '),
         };
       }),
+      ...readsState(['Nodes', reads.nodes]),
       yamlExample: `# Node pressure is resolved by freeing resources:
 #
 # DiskPressure:
@@ -578,6 +623,7 @@ spec:
       why: 'Version skew between nodes can cause unpredictable behavior, API incompatibilities, and upgrade issues. Kubernetes supports n-1 minor version skew, but consistency is best practice.',
       passing: consistentVersion ? nodeDetails.map(nd => nd.node) : [],
       failing: mismatchedNodes,
+      ...readsState(['Nodes', reads.nodes]),
       yamlExample: `# Kubelet version is updated via cluster upgrades:
 #   oc adm upgrade
 #
@@ -603,6 +649,7 @@ spec:
       why: 'Without autoscaling, pending pods wait indefinitely when capacity is exhausted. Manual scaling is slow and error-prone. Autoscaling adds nodes on demand and removes them when idle, optimizing cost and availability.',
       passing: hasAutoscaling ? autoscalingResources : [],
       failing: hasAutoscaling ? [] : [{ metadata: { name: 'Autoscaling not configured' } }],
+      ...readsState(['ClusterAutoscalers', !!reads.clusterAutoscaler], ['MachineAutoscalers', !!reads.machineAutoscalers]),
       yamlExample: `# Step 1: Create ClusterAutoscaler (one per cluster)
 apiVersion: autoscaling.openshift.io/v1
 kind: ClusterAutoscaler
@@ -632,7 +679,18 @@ spec:
     }
 
     // 7. NodePool Health (HyperShift only)
-    if (isHyperShift && nodePools.length > 0) {
+    if (isHyperShift && reads.nodePools) {
+      allChecks.push({
+        id: 'nodepool-health',
+        title: 'NodePool Health',
+        description: 'All NodePools should have desired replicas ready and no degraded conditions',
+        why: 'NodePools manage worker node lifecycle on HyperShift clusters. Unhealthy NodePools mean nodes are not being provisioned or replaced correctly.',
+        passing: [],
+        failing: [],
+        yamlExample: '',
+        ...readsState(['NodePools', true]),
+      });
+    } else if (isHyperShift && nodePools.length > 0) {
       const nps = nodePools;
       const unhealthyPools = nps.filter(np => {
         const desired = np.spec?.replicas ?? 0;
@@ -664,9 +722,9 @@ spec:
     }
 
     return allChecks;
-  }, [nodes, healthChecks, clusterAutoscaler, machineAutoscalers, nodeDetails, nodePools, isHyperShift]);
+  }, [nodes, healthChecks, clusterAutoscaler, machineAutoscalers, nodeDetails, nodePools, isHyperShift, reads.nodes, reads.healthChecks, reads.clusterAutoscaler, reads.machineAutoscalers, reads.nodePools]);
 
-  if (nodes.length === 0) return null;
+  if (!reads.nodes && nodes.length === 0) return null;
 
   return (
     <HealthAuditPanel

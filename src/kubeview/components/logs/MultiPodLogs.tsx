@@ -51,6 +51,11 @@ export default function MultiPodLogs({
   const [mergedLogs, setMergedLogs] = useState<MergedLogLine[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Refetch when the set of pods changes, not when the caller passes a new
+  // array with the same names (every watch event did, re-fetching and
+  // flashing the loading state).
+  const podKey = podNames.join('\n');
+
   // Fetch and merge logs from all pods when "all" is selected
   useEffect(() => {
     if (selectedPod !== 'all') {
@@ -63,7 +68,8 @@ export default function MultiPodLogs({
     setSourceErrors([]);
 
     const fetchAllLogs = async () => {
-      const results = await Promise.all(podNames.map(async (podName, index) => {
+      const names = podKey ? podKey.split('\n') : [];
+      const results = await Promise.all(names.map(async (podName, index) => {
         const params = new URLSearchParams({ timestamps: 'true', tailLines: '300' });
         if (containerName) params.set('container', containerName);
         const result = await fetchSourceLogs(clusterId, namespace, podName, params, { autoDetectContainer: true });
@@ -93,7 +99,7 @@ export default function MultiPodLogs({
     return () => {
       mounted = false;
     };
-  }, [selectedPod, namespace, podNames, containerName, clusterId, reloadKey]);
+  }, [selectedPod, namespace, podKey, containerName, clusterId, reloadKey]);
 
   // Truncate pod name for display (remove hash suffix)
   const truncatePodName = (podName: string): string => {
