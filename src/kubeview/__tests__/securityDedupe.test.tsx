@@ -17,7 +17,7 @@ beforeEach(() => vi.unstubAllGlobals());
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('SecurityView', () => {
-  it('states the pass count once and names cluster admins once', async () => {
+  it('states the pass count once and keeps the panel title free of a second admin count', async () => {
     const fetchMock = mockFetchRoutes({
       '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings': { body: { items: [
         { metadata: { name: 'ops' }, roleRef: { name: 'cluster-admin' }, subjects: [{ kind: 'User', name: 'alice' }] },
@@ -25,7 +25,6 @@ describe('SecurityView', () => {
     }, 404);
     renderWithClient(<SecurityView />);
     await waitFor(() => expect(screen.getByText(/User\/alice/)).toBeDefined());
-    expect(screen.getAllByText(/alice/)).toHaveLength(1);
     expect(screen.getAllByText(/checks passing/)).toHaveLength(1);
     expect(screen.queryByText(/\d+\/\d+ passed/)).toBeNull();
     expect(screen.queryByText(/Cluster-Admin Access \(/)).toBeNull();

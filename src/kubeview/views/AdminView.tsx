@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Settings, Puzzle, Shield, Database, GitBranch,
-  ArrowUpCircle, GitCompare, Gauge, Lock, Blocks,
+  ArrowUpCircle, GitCompare, Gauge, Lock, Blocks, FileKey,
 } from 'lucide-react';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 
@@ -22,6 +22,7 @@ import ClusterConfig from '../components/ClusterConfig';
 import { parseCpu, parseMem, parseResourceValue } from '../engine/formatting';
 import { QuotasTab } from './admin/QuotasTab';
 import { CertificatesTab } from './admin/CertificatesTab';
+import { CsrTab } from './admin/CsrTab';
 import { OverviewTab } from './admin/OverviewTab';
 import { OperatorsTab } from './admin/OperatorsTab';
 import { UpdatesTab } from './admin/UpdatesTab';
@@ -112,11 +113,11 @@ interface AvailableUpdate {
   risks?: Array<{ name?: string; message?: string }>;
 }
 
-type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'crds';
+type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quotas' | 'certificates' | 'csrs' | 'crds';
 
 // --- Main component ---
 
-const ADMIN_TABS: readonly Tab[] = ['overview', 'operators', 'config', 'updates', 'snapshots', 'quotas', 'certificates', 'crds'];
+const ADMIN_TABS: readonly Tab[] = ['overview', 'operators', 'config', 'updates', 'snapshots', 'quotas', 'certificates', 'csrs', 'crds'];
 
 export default function AdminView() {
   // The tab follows `?tab=` through the router, so in-page links such as
@@ -135,11 +136,16 @@ export default function AdminView() {
 
   // --- Data fetching ---
 
-  const { data: clusterVersion, isLoading: cvLoading, isError: cvError } = useQuery({
-    queryKey: ['admin', 'clusterversion', clusterId],
-    queryFn: () => safeQuery(() => k8sGet<ClusterVersion>('/apis/config.openshift.io/v1/clusterversions/version', clusterId)),
-    staleTime: 60000,
-  });
+  // Watched, not fetched once: during an upgrade the progress, stuck-update
+  // detection and pool bars must move without a page reload. A 404 means the
+  // cluster is not OpenShift (no ClusterVersion), which is not an error.
+  const cvList = useK8sListWatch<ClusterVersion>({ apiPath: '/apis/config.openshift.io/v1/clusterversions', clusterId });
+  const clusterVersion = React.useMemo(
+    () => (cvList.data || []).find((cv) => cv.metadata?.name === 'version') ?? null,
+    [cvList.data],
+  );
+  const cvLoading = cvList.isLoading;
+  const cvError = cvList.isError && (cvList.error as { status?: number } | null)?.status !== 404;
 
   const { data: infra } = useQuery({
     queryKey: ['admin', 'infra', clusterId],
@@ -259,13 +265,11 @@ export default function AdminView() {
     staleTime: 60000,
   });
 
-  // Same queryKey ComputeView uses for MachineConfigPools — real per-pool node
-  // rollout progress (updatedMachineCount/machineCount, Degraded/Updating
-  // conditions), shared cache when both views have fetched it.
-  const { data: machineConfigPools = [] } = useQuery<MachineConfigPool[]>({
-    queryKey: ['compute', 'machineconfigpools', clusterId],
-    queryFn: async () => (await safeQuery(() => k8sList<MachineConfigPool>('/apis/machineconfiguration.openshift.io/v1/machineconfigpools', undefined, clusterId))) ?? [],
-    staleTime: 60000,
+  // Per-pool node rollout progress (updatedMachineCount/machineCount,
+  // Degraded/Updating), watched so the bars move during an upgrade.
+  const { data: machineConfigPools = [] } = useK8sListWatch<MachineConfigPool>({
+    apiPath: '/apis/machineconfiguration.openshift.io/v1/machineconfigpools',
+    clusterId,
   });
 
   // Pods are only needed to correlate PodDisruptionBudgets against nodes
@@ -429,6 +433,7 @@ export default function AdminView() {
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <GitCompare className="w-3.5 h-3.5" /> },
     { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Gauge className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Gauge className="w-3.5 h-3.5" /> },
     { id: 'certificates', label: 'Certificates', icon: <Lock className="w-3.5 h-3.5 text-red-400" />, activeIcon: <Lock className="w-3.5 h-3.5" /> },
+    { id: 'csrs', label: 'Certificate requests', icon: <FileKey className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <FileKey className="w-3.5 h-3.5" /> },
     { id: 'crds', label: 'CRDs', icon: <Blocks className="w-3.5 h-3.5 text-indigo-400" />, activeIcon: <Blocks className="w-3.5 h-3.5" /> },
   ];
 
@@ -559,6 +564,9 @@ export default function AdminView() {
 
         {/* ===== CERTIFICATES ===== */}
         {activeTab === 'certificates' && <CertificatesTab go={go} />}
+
+        {/* ===== CERTIFICATE SIGNING REQUESTS ===== */}
+        {activeTab === 'csrs' && <CsrTab go={go} />}
 
         {/* ===== CRDs ===== */}
         {activeTab === 'crds' && <Suspense fallback={<div className="text-center py-8 text-slate-500 text-sm">Loading...</div>}><CRDsView /></Suspense>}

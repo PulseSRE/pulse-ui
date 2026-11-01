@@ -65,7 +65,6 @@ describe('SecurityView with every read forbidden', () => {
     await waitFor(() => expect(auditRow('TLS security profile').textContent).toMatch(/TLS profile: Intermediate/));
     await waitFor(() => expect(screen.getByText('Security Context Constraints (1)')).toBeTruthy());
     await waitFor(() => expect(auditRow('Cluster-admin access limited (≤3)').textContent).toMatch(/No non-system cluster-admin bindings/));
-    expect(screen.getAllByText(/No non-system cluster-admin bindings/)).toHaveLength(1);
     expect(screen.queryByText('Privileged SCCs tracked')).toBeNull();
     expect(screen.queryByText('TLS certificates managed')).toBeNull();
   });

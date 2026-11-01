@@ -11,14 +11,16 @@ export interface ClusterVersion {
   spec?: {
     clusterID?: string;
     channel?: string;
-    desiredUpdate?: { version?: string; image?: string; force?: boolean };
+    // acceptRisks: names of conditional-update risks the admin accepted
+    // (feature gate ClusterUpdateAcceptRisks; pruned by clusters without it).
+    desiredUpdate?: { version?: string; image?: string; force?: boolean; acceptRisks?: Array<{ name: string }> };
     upstream?: string;
   };
   status?: {
-    desired?: { version: string; image: string };
-    history?: Array<{ state: string; version: string; startedTime?: string; completionTime?: string; image?: string }>;
+    desired?: { version: string; image: string; channels?: string[]; url?: string };
+    history?: Array<{ state: string; version: string; startedTime?: string; completionTime?: string; image?: string; verified?: boolean }>;
     conditions?: Condition[];
-    availableUpdates?: Array<{ version: string; image?: string }>;
+    availableUpdates?: Array<{ version: string; image?: string; channels?: string[]; url?: string }>;
     // Conditional updates (config.openshift.io/v1 ClusterVersion.status.conditionalUpdates):
     // recommended updates that carry known, structured risks for this cluster's
     // specific configuration (e.g. platform, topology). Distinct from

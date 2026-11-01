@@ -6,7 +6,7 @@ describe('componentRegistry', () => {
     invalidateComponentRegistry();
   });
 
-  it('getKnownKinds returns all 25 built-in kinds', () => {
+  it('getKnownKinds returns all 27 built-in kinds', () => {
     const kinds = getKnownKinds();
     expect(kinds).toContain('data_table');
     expect(kinds).toContain('chart');
@@ -20,7 +20,9 @@ describe('componentRegistry', () => {
     expect(kinds).toContain('resolution_tracker');
     expect(kinds).toContain('blast_radius');
     expect(kinds).toContain('status_pipeline');
-    expect(kinds.length).toBe(25);
+    expect(kinds).toContain('upgrade_graph');
+    expect(kinds).toContain('rollout_history');
+    expect(kinds.length).toBe(27);
   });
 
   it('invalidateComponentRegistry clears cache', () => {

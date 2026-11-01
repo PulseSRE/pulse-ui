@@ -1,3 +1,4 @@
+import type { UpgradeModel } from './upgradeGraph';
 /**
  * Agent Component Specs — structured UI components returned by agent tools.
  *
@@ -30,7 +31,34 @@ export type ComponentSpec =
   | ConfidenceBadgeSpec
   | ResolutionTrackerSpec
   | BlastRadiusSpec
-  | StatusPipelineSpec;
+  | StatusPipelineSpec
+  | UpgradeGraphSpec
+  | RolloutHistorySpec;
+
+/** OpenShift update graph — produced by the agent's get_cluster_updates tool. */
+export interface UpgradeGraphSpec extends UpgradeModel {
+  kind: 'upgrade_graph';
+  title?: string;
+}
+
+/** Revision timeline of a workload — produced by get_rollout_history. */
+export interface RolloutHistorySpec {
+  kind: 'rollout_history';
+  title?: string;
+  workload: { kind: 'Deployment' | 'StatefulSet' | 'DaemonSet'; namespace: string; name: string; gvr?: string };
+  revisions: Array<{
+    revision: number;
+    name: string;
+    createdAt?: string | null;
+    images: string[];
+    changeCause?: string;
+    replicas?: { ready: number; desired: number } | null;
+    current: boolean;
+    source?: 'replicaset' | 'controllerrevision' | 'argocd';
+  }>;
+  inFlight?: { strategy?: string; updated: number; ready: number; available: number; desired: number; conditions?: Array<{ type: string; status: string; reason?: string; message?: string }> };
+  correlations?: Array<{ revision: number; alertsOrFindings: string[] }>;
+}
 
 export interface RelationshipTreeSpec {
   kind: 'relationship_tree';
@@ -192,9 +220,24 @@ export interface ChartSpec {
   xAxisLabel?: string;
   height?: number;
   query?: string;      // stored PromQL for live refresh + editing
-  timeRange?: string;  // stored for refresh
+  timeRange?: string;  // stored for refresh (older specs said time_range; normalized on read)
+  /** Seconds between re-queries; overrides the view's refresh. */
+  refreshInterval?: number;
+  /** Sliding window that streams: short range (default 15m), fast refresh (default 10s). */
+  live?: boolean;
+  /** Query step in seconds. */
+  step?: number;
+  /** Events marked on the time axis. */
+  annotations?: ChartAnnotation[];
   /** Warning/critical threshold lines on the chart */
   thresholds?: { warning?: number; critical?: number };
+}
+
+export interface ChartAnnotation {
+  /** Epoch ms, epoch seconds or an ISO timestamp. */
+  timestamp: number | string;
+  label: string;
+  kind?: 'rollout' | 'alert' | 'config';
 }
 
 export interface TabsSpec {
@@ -323,7 +366,12 @@ export interface ProgressListSpec {
 export interface StatCardSpec {
   kind: 'stat_card';
   title: string;
-  value: string;
+  /** Initial/static value; a live query result replaces it. */
+  value?: string;
+  /** PromQL instant query that keeps the value live. */
+  query?: string;
+  /** Seconds between re-queries (default 60). */
+  refreshInterval?: number;
   unit?: string;
   trend?: 'up' | 'down' | 'stable';
   trendValue?: string;

@@ -76,6 +76,7 @@ interface CreateResult {
   message?: string;
 }
 
+import { renderCreateTemplate } from '../engine/createTemplates';
 
 
 export default function CreateView({ gvrKey }: CreateViewProps) {
@@ -133,6 +134,14 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
 
   // If we came with a specific GVR (not the default catalog) or ?tab=yaml, go straight to YAML editor
   useMemo(() => {
+    // `?template=<id>&namespace=<ns>`: a reviewed manifest prefilled for that namespace.
+    const templated = renderCreateTemplate(searchParams.get('template'), selectedNamespace);
+    if (templated) {
+      setYaml(templated);
+      initialYamlRef.current = templated;
+      setEditMode(true);
+      return;
+    }
     if (gvrKey !== 'v1/pods' || urlTab === 'yaml') {
       const shortName = resourcePlural.replace(/s$/, '').toLowerCase();
       const snips = getSnippetSuggestions(shortName);

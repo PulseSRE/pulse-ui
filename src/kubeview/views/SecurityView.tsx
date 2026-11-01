@@ -21,6 +21,9 @@ import { useClusterStore } from '../store/clusterStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Card } from '../components/primitives/Card';
 import { askPulse } from '../engine/askPulse';
+import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from '../engine/clusterAdmins';
+import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
+import { createTemplateUrl } from '../engine/createTemplates';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 
 interface SecurityAuditCheck {
@@ -36,7 +39,6 @@ interface SecurityAuditCheck {
   linkTitle?: string;
 }
 
-const CLUSTER_ADMIN_THRESHOLD = 3;
 
 export default function SecurityView() {
   const clusterId = useActiveClusterId();
@@ -105,19 +107,9 @@ export default function SecurityView() {
   const tlsProfile = apiServerRead ? apiServer?.spec?.tlsSecurityProfile?.type || 'Intermediate' : null;
   const encryptionType = apiServerRead ? apiServer?.spec?.encryption?.type || 'identity' : null;
 
-  const clusterAdmins = useMemo(() => {
-    const subjects: Array<{ name: string; kind: string; binding: string }> = [];
-    for (const b of clusterRoleBindings as ClusterRoleBinding[]) {
-      if (b.roleRef?.name !== 'cluster-admin') continue;
-      const bn = b.metadata?.name || '';
-      if (bn.startsWith('system:') || bn.startsWith('openshift-')) continue;
-      for (const s of b.subjects || []) {
-        if (s.name?.startsWith('system:')) continue;
-        subjects.push({ name: s.name, kind: s.kind, binding: bn });
-      }
-    }
-    return subjects;
-  }, [clusterRoleBindings]);
+  // Shared with Identity: one definition of who has cluster-admin and how many is too many.
+  const clusterAdmins = useMemo(() => clusterAdminSubjects(clusterRoleBindings as ClusterRoleBinding[]), [clusterRoleBindings]);
+  const crbByName = useMemo(() => new Map((clusterRoleBindings as ClusterRoleBinding[]).map((b) => [b.metadata?.name || '', b])), [clusterRoleBindings]);
 
   const userNamespaces = useMemo(() =>
     namespaces.filter((ns) => {
@@ -199,12 +191,13 @@ export default function SecurityView() {
     // Cluster-admin (threshold is a module constant, configurable at top of file)
     c.push({
       id: 'clusteradmin',
-      label: `Cluster-admin access limited (≤${CLUSTER_ADMIN_THRESHOLD})`,
-      pass: crbError ? null : clusterAdmins.length <= CLUSTER_ADMIN_THRESHOLD,
+      label: `Cluster-admin access limited (≤${CLUSTER_ADMIN_LIMIT})`,
+      pass: crbError ? null : !tooManyClusterAdmins(clusterAdmins),
       detail: crbError ? 'Could not read ClusterRoleBindings' : clusterAdmins.length === 0
         ? 'No non-system cluster-admin bindings'
         : `${clusterAdmins.length} subject${clusterAdmins.length > 1 ? 's' : ''} with cluster-admin: ${clusterAdmins.map(a => `${a.kind}/${a.name}`).join(', ')}`,
-      severity: clusterAdmins.length > CLUSTER_ADMIN_THRESHOLD + 2 ? 'warning' : 'info',
+      // A failing check is a warning; `info` made it count as neither critical nor warning.
+      severity: tooManyClusterAdmins(clusterAdmins) ? 'warning' : 'info',
       link: '/identity?tab=rbac', linkTitle: 'Identity & Access',
     });
 
@@ -380,7 +373,48 @@ export default function SecurityView() {
           </div>
         </Card>
 
-        {/* Cluster-admin subjects are named in the audit row above (with Manage → Identity). */}
+        {/* Cluster-admin subjects, with the action to remove a binding. The
+            count is in the audit row above, not repeated in this title. */}
+        <Card>
+          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+              <Key className="w-4 h-4 text-red-400" />
+              Cluster-Admin Access
+            </h2>
+            <button onClick={() => go('/identity?tab=rbac', 'Identity & Access')}
+              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+              Manage <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+          {crbError ? (
+            <LoadError className="m-3" title="ClusterRoleBindings could not be loaded" />
+          ) : crbLoading ? (
+            <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
+          ) : clusterAdmins.length === 0 ? (
+            <div className="px-4 py-6 text-center text-xs text-slate-500">No non-system cluster-admin bindings found</div>
+          ) : (
+            <div className="divide-y divide-slate-800">
+              {clusterAdmins.map((admin, i) => (
+                <div key={i} className="px-4 py-2.5 flex items-center gap-3">
+                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', admin.kind === 'User' ? 'bg-blue-900/50 text-blue-300' : admin.kind === 'Group' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-800 text-slate-400')}>
+                    {admin.kind}
+                  </span>
+                  <span className="text-sm text-slate-200 font-mono">{admin.name}</span>
+                  <span className="text-xs text-slate-500 ml-auto">via {admin.binding}</span>
+                  {crbByName.get(admin.binding) && (
+                    <RevokeBindingButton label="Remove binding" binding={{
+                      kind: 'ClusterRoleBinding',
+                      name: admin.binding,
+                      uid: crbByName.get(admin.binding)!.metadata?.uid,
+                      roleRef: { kind: 'ClusterRole', name: 'cluster-admin' },
+                      subjects: crbByName.get(admin.binding)!.subjects || [],
+                    }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {/* SCCs */}
         {sccsError ? (
@@ -406,10 +440,17 @@ export default function SecurityView() {
               <p className="text-xs text-slate-500 mb-3">These user namespaces have no NetworkPolicy — all pod-to-pod traffic is allowed by default.</p>
               <div className="flex flex-wrap gap-2">
                 {unprotectedNamespaces.map((ns) => (
-                  <button key={ns.metadata?.name} onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
-                    className="text-xs px-2.5 py-1.5 bg-yellow-950/30 border border-yellow-900/50 text-yellow-300 rounded-sm hover:bg-yellow-900/40 transition-colors">
-                    {ns.metadata?.name}
-                  </button>
+                  <span key={ns.metadata?.name} className="inline-flex items-center rounded-sm border border-yellow-900/50 bg-yellow-950/30 text-xs">
+                    <button onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
+                      className="px-2.5 py-1.5 text-yellow-300 hover:bg-yellow-900/40 transition-colors">
+                      {ns.metadata?.name}
+                    </button>
+                    <button onClick={() => go(createTemplateUrl('default-deny', ns.metadata?.name || ''), `Default-deny ${ns.metadata?.name}`)}
+                      aria-label={`Create default-deny ingress NetworkPolicy in ${ns.metadata?.name}`}
+                      className="px-2 py-1.5 border-l border-yellow-900/50 text-blue-300 hover:bg-yellow-900/40">
+                      + default-deny ingress
+                    </button>
+                  </span>
                 ))}
               </div>
             </div>

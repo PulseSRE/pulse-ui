@@ -1,12 +1,19 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { ShieldCheck, Search, AlertTriangle, CheckCircle, XCircle, Clock, ArrowUpDown, Eye, EyeOff } from 'lucide-react';
-import { k8sList } from '../../engine/query';
+import { k8sList, k8sDelete } from '../../engine/query';
 import { Panel } from '../../components/primitives/Panel';
 import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
+import { LoadError } from '../../components/primitives/LoadError';
+import { Button } from '../../components/primitives/Button';
+import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { safeQuery } from '../../engine/safeQuery';
+import { useCanI } from '../../hooks/useCanI';
+import { usePinnedAction } from '../../hooks/usePinnedAction';
+import { useUIStore } from '../../store/uiStore';
 
 // --- Types ---
 
@@ -21,6 +28,10 @@ interface CertInfo {
   status: 'critical' | 'warning' | 'healthy' | 'unknown';
   daysLeft: number | null;
   isSystem: boolean;
+  /** cert-manager Certificate that owns this secret, if any. */
+  certificateName?: string;
+  /** Service whose serving cert service-ca issued into this secret, if any. */
+  serviceName?: string;
 }
 
 type StatusFilter = 'all' | 'critical' | 'warning' | 'healthy' | 'unknown';
@@ -135,6 +146,9 @@ function extractCertInfo(secret: any): CertInfo {
     issuer, expiresAt, createdAt,
     status, daysLeft,
     isSystem: isSystemNamespace(namespace),
+    certificateName: annotations['cert-manager.io/certificate-name'] || undefined,
+    serviceName: annotations['service.beta.openshift.io/originating-service-name']
+      || annotations['service.alpha.openshift.io/originating-service-name'] || undefined,
   };
 }
 
@@ -161,13 +175,33 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
   const [sortAsc, setSortAsc] = React.useState(true);
   const [showSystem, setShowSystem] = React.useState(false);
 
-  const { data: secrets = [], isLoading, error } = useQuery<any[]>({
+  const { data: secrets = [], isLoading, error, refetch } = useQuery<any[]>({
     queryKey: ['k8s', 'list', '/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId],
     queryFn: () => k8sList('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId),
     staleTime: 60000,
   });
 
   const certs = React.useMemo(() => secrets.map(extractCertInfo), [secrets]);
+
+  // Routes that serve a secret directly (spec.tls.externalCertificate), so a
+  // certificate links to what it is presented on. Unreadable routes just mean
+  // no route links, not an error on the certificate list.
+  const { data: routes = [] } = useQuery<any[]>({
+    queryKey: ['admin', 'cert-routes', clusterId],
+    queryFn: async () => (await safeQuery(() => k8sList('/apis/route.openshift.io/v1/routes', undefined, clusterId))) ?? [],
+    staleTime: 60000,
+  });
+  const routesBySecret = React.useMemo(() => {
+    const m = new Map<string, Array<{ name: string; namespace: string }>>();
+    for (const r of routes) {
+      const secretName = r?.spec?.tls?.externalCertificate?.name;
+      if (!secretName) continue;
+      const key = `${r.metadata?.namespace}/${secretName}`;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push({ name: r.metadata?.name, namespace: r.metadata?.namespace });
+    }
+    return m;
+  }, [routes]);
 
   const filtered = React.useMemo(() => {
     let list = certs;
@@ -252,13 +286,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
   }
 
   if (error) {
-    return (
-      <div className="text-center py-16">
-        <XCircle className="w-8 h-8 text-red-400 mx-auto mb-3" />
-        <div className="text-sm text-red-400 mb-1">Failed to load certificates</div>
-        <p className="text-xs text-slate-500">{(error as Error).message}</p>
-      </div>
-    );
+    return <LoadError title="Failed to load certificates" error={error} onRetry={() => refetch()} />;
   }
 
   return (
@@ -363,6 +391,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
                   <th className="py-2 px-2 text-left font-normal"><SortHeader field="issuer">Issuer</SortHeader></th>
                   <th className="py-2 px-2 text-left font-normal"><SortHeader field="expires">Expires</SortHeader></th>
                   <th className="py-2 px-2 text-left font-normal"><SortHeader field="age">Age</SortHeader></th>
+                  <th className="py-2 px-2 text-left font-normal">Used by / actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
@@ -397,6 +426,9 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
                     <td className="py-2 px-2">
                       <span className="text-slate-500">{formatDate(cert.createdAt)}</span>
                     </td>
+                    <td className="py-2 px-2">
+                      <CertActions cert={cert} routes={routesBySecret.get(`${cert.namespace}/${cert.name}`) ?? []} go={go} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -409,6 +441,68 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
 }
 
 // --- Small subcomponents ---
+
+/**
+ * Links to what the certificate belongs to and, for service-ca serving
+ * certificates, a rotate action: deleting the secret makes the service-ca
+ * operator issue a fresh one for the same Service.
+ */
+function CertActions({ cert, routes, go }: {
+  cert: CertInfo;
+  routes: Array<{ name: string; namespace: string }>;
+  go: (path: string, title: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const addToast = useUIStore((s) => s.addToast);
+  const rotate = usePinnedAction<CertInfo>();
+  const canRotate = !!cert.serviceName;
+  const { allowed: canDelete } = useCanI('delete', '', 'secrets', cert.namespace);
+
+  const confirmRotate = () => rotate.run(`Rotating ${cert.name}`, async (c, clusterId) => {
+    await k8sDelete(`/api/v1/namespaces/${c.namespace}/secrets/${c.name}`, clusterId, { uid: c.uid });
+    addToast({ type: 'success', title: `${c.name} deleted`, detail: `service-ca will re-issue it for Service ${c.serviceName}` });
+    queryClient.invalidateQueries({ queryKey: ['k8s', 'list', '/api/v1/secrets?fieldSelector=type=kubernetes.io/tls'] });
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {cert.certificateName && (
+        <button className="text-blue-400 hover:text-blue-300" onClick={() => go(`/r/cert-manager.io~v1~certificates/${cert.namespace}/${cert.certificateName}`, cert.certificateName!)}>
+          Certificate/{cert.certificateName}
+        </button>
+      )}
+      {cert.serviceName && (
+        <button className="text-blue-400 hover:text-blue-300" onClick={() => go(`/r/v1~services/${cert.namespace}/${cert.serviceName}`, cert.serviceName!)}>
+          Service/{cert.serviceName}
+        </button>
+      )}
+      {routes.map((r) => (
+        <button key={r.name} className="text-blue-400 hover:text-blue-300" onClick={() => go(`/r/route.openshift.io~v1~routes/${r.namespace}/${r.name}`, r.name)}>
+          Route/{r.name}
+        </button>
+      ))}
+      {canRotate && (
+        <Button size="sm" variant="secondary" onClick={() => rotate.open(cert)} disabled={!canDelete}
+          aria-label={`Rotate ${cert.name}`}
+          title={canDelete ? 'Delete the secret so service-ca issues a new certificate' : `You do not have permission to delete secrets in ${cert.namespace}`}>
+          Rotate
+        </Button>
+      )}
+      <ConfirmDialog
+        open={!!rotate.pending}
+        onClose={rotate.close}
+        onConfirm={confirmRotate}
+        title={`Rotate ${cert.name}?`}
+        description={`Deletes the secret ${cert.namespace}/${cert.name}. The service-ca operator then issues a new serving certificate for Service ${cert.serviceName} into a secret of the same name, usually within a minute. Pods that mounted the old secret keep serving the old certificate until they restart or reload it.`}
+        confirmLabel="Delete and re-issue"
+        variant="warning"
+        loading={rotate.running}
+      >
+        {rotate.error && <LoadError className="mt-3" title="The certificate was not rotated" error={rotate.error} />}
+      </ConfirmDialog>
+    </div>
+  );
+}
 
 function StatusDot({ status }: { status: CertInfo['status'] }) {
   const cls = status === 'critical' ? 'bg-red-500' :
