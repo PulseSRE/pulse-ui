@@ -101,9 +101,9 @@ export default function WorkloadsView() {
   };
   const failedLists = ([
     ['Deployments', failed.deployments], ['StatefulSets', failed.statefulsets], ['DaemonSets', failed.daemonsets],
-    ['Pods', failed.pods], ['Jobs', failed.jobs], ['CronJobs', failed.cronjobs],
+    ['Pods', failed.pods], ['Jobs', failed.jobs], ['CronJobs', failed.cronjobs], ['PodDisruptionBudgets', failed.pdbs],
   ] as const).filter(([, f]) => f).map(([label]) => label);
-  const firstError = [deploysQ, stsQ, dsQ, podsQ, jobsQ, cronQ].find((q) => q.isError)?.error;
+  const firstError = [deploysQ, stsQ, dsQ, podsQ, jobsQ, cronQ, pdbsQ].find((q) => q.isError)?.error;
   const retryFailed = () => {
     for (const q of [deploysQ, stsQ, dsQ, podsQ, jobsQ, cronQ, pdbsQ]) if (q.isError) void q.refetch();
   };

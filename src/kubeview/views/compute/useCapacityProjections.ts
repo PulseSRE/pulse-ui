@@ -103,7 +103,7 @@ export function useCapacityProjections(lookback: Lookback = '30d'): CapacityProj
     refetchInterval: 300000,
   });
 
-    const isLoading = [cpuCurrentQ, memCurrentQ, diskCurrentQ, podsCurrentQ, cpuProjectedQ, memProjectedQ, diskProjectedQ, podsProjectedQ].some((q) => q.isLoading);
+  const isLoading = [cpuCurrentQ, memCurrentQ, diskCurrentQ, podsCurrentQ, cpuProjectedQ, memProjectedQ, diskProjectedQ, podsProjectedQ].some((q) => q.isLoading);
 
   type Q = { data?: unknown; isError: boolean; error: unknown };
   const project = (resource: ResourceProjection['resource'], cur: Q, proj: Q): ResourceProjection => {
@@ -111,8 +111,11 @@ export function useCapacityProjections(lookback: Lookback = '30d'): CapacityProj
     const projectedRatio = proj.isError ? null : extractValue(proj.data);
     const exh = computeExhaustion(currentRatio, projectedRatio);
     const failedQ = cur.isError ? cur : proj.isError ? proj : null;
+    // queryInstant's errors already start "Prometheus query failed: …" or
+    // "Prometheus error: …"; add the prefix only when they do not.
+    const message = failedQ?.error instanceof Error ? failedQ.error.message : '';
     const noDataReason = failedQ
-      ? `Prometheus query failed${failedQ.error instanceof Error && failedQ.error.message ? `: ${failedQ.error.message}` : ''}`
+      ? (/^Prometheus /.test(message) ? message : `Prometheus query failed${message ? `: ${message}` : ''}`)
       : currentRatio === null
         ? 'Prometheus returned no usage series'
         : projectedRatio === null

@@ -63,7 +63,7 @@ export default function StorageView() {
     queryFn: async () => (await safeQuery(() => k8sList('/apis/snapshot.storage.k8s.io/v1/volumesnapshotclasses', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
-  const { data: resourceQuotas = [] } = useK8sListWatch({ apiPath: '/api/v1/resourcequotas', namespace: nsFilter });
+  const { data: resourceQuotas = [], isError: rqFailed } = useK8sListWatch({ apiPath: '/api/v1/resourcequotas', namespace: nsFilter });
 
   // Computed stats
   const pvcStatus = React.useMemo(() => {
@@ -251,6 +251,7 @@ export default function StorageView() {
           volumeSnapshotClasses={volumeSnapshotClasses}
           volumeSnapshotClassesFailed={vscError}
           resourceQuotas={resourceQuotas}
+          resourceQuotasFailed={rqFailed}
           go={go}
         />
 
@@ -466,6 +467,7 @@ function StorageHealthAudit({
   volumeSnapshotClasses,
   volumeSnapshotClassesFailed,
   resourceQuotas,
+  resourceQuotasFailed,
   go,
 }: {
   pvcs: PersistentVolumeClaim[];
@@ -477,6 +479,7 @@ function StorageHealthAudit({
   volumeSnapshotClasses: K8sResource[];
   volumeSnapshotClassesFailed: boolean;
   resourceQuotas: K8sResource[];
+  resourceQuotasFailed: boolean;
   go: (path: string, title: string) => void;
 }) {
   const checks: AuditCheck[] = React.useMemo(() => {
@@ -628,6 +631,7 @@ spec:
       passing: quotasWithStorage as AuditItem[],
       failing: namespacesWithoutQuota.map(ns => ({ metadata: { name: ns, namespace: ns } })),
       failingLabel: `Missing quotas (${namespacesWithoutQuota.length})`,
+      ...readsState(['ResourceQuotas', resourceQuotasFailed]),
       yamlExample: `apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -640,7 +644,7 @@ spec:
     });
 
     return allChecks;
-  }, [pvcs, pvcsLoaded, storageClasses, storageClassesLoaded, storageClassesFailed, volumeSnapshots, volumeSnapshotClasses, volumeSnapshotClassesFailed, resourceQuotas]);
+  }, [pvcs, pvcsLoaded, storageClasses, storageClassesLoaded, storageClassesFailed, volumeSnapshots, volumeSnapshotClasses, volumeSnapshotClassesFailed, resourceQuotas, resourceQuotasFailed]);
 
   const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
     const id = check.id;

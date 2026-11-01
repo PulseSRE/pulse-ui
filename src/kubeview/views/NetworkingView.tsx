@@ -23,6 +23,7 @@ import { useActiveClusterId } from '../hooks/useClusterBase';
 import { useCanI } from '../hooks/useCanI';
 import { Button } from '../components/primitives/Button';
 import { LoadError } from '../components/primitives/LoadError';
+import { isNotFound } from '../engine/readResult';
 
 /**
  * Services with a selector whose Endpoints object has no ready address
@@ -80,17 +81,20 @@ export default function NetworkingView() {
   // A failed or forbidden list is not an empty one: its count shows "—", the
   // banners and audit checks that depend on it are skipped or unknown, and
   // its panel shows the error.
+  // A 404 on Routes means the cluster has no Route API (not OpenShift): a
+  // neutral "not available" (there are no Routes), not an error.
+  const routesAbsent = !!routesQ.isError && isNotFound(routesQ.error);
   const failed = {
-    services: !!svcQ.isError, ingresses: !!ingQ.isError, routes: !!routesQ.isError, netpols: !!netpolsQ.isError,
+    services: !!svcQ.isError, ingresses: !!ingQ.isError, routes: !!routesQ.isError && !routesAbsent, netpols: !!netpolsQ.isError,
   };
   const netpolsLoaded = !netpolsQ.isLoading && !failed.netpols;
   const failedLists = ([
     ['Services', failed.services], ['Ingresses', failed.ingresses], ['Routes', failed.routes],
     ['NetworkPolicies', failed.netpols], ['Endpoints', endpointsFailed],
   ] as const).filter(([, f]) => f).map(([label]) => label);
-  const firstError = [svcQ, ingQ, routesQ, netpolsQ].find((q) => q.isError)?.error ?? endpointsErr;
+  const firstError = [svcQ, ingQ, ...(failed.routes ? [routesQ] : []), netpolsQ].find((q) => q.isError)?.error ?? endpointsErr;
   const retryFailed = () => {
-    for (const q of [svcQ, ingQ, routesQ, netpolsQ]) if (q.isError) void q.refetch();
+    for (const q of [svcQ, ingQ, ...(failed.routes ? [routesQ] : []), netpolsQ]) if (q.isError) void q.refetch();
     if (endpointsFailed) void refetchEndpoints();
   };
   const count = (isFailed: boolean, n: number) => (isFailed ? '—' : n);
@@ -258,7 +262,8 @@ export default function NetworkingView() {
           </button>
           <button onClick={() => go('/r/route.openshift.io~v1~routes', 'Routes')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Routes</div>
-            <div className="text-xl font-bold text-slate-100">{count(failed.routes, routes.length)}</div>
+            <div className="text-xl font-bold text-slate-100">{routesAbsent ? 'n/a' : count(failed.routes, routes.length)}</div>
+            {routesAbsent && <div className="text-xs text-slate-500 mt-0.5" data-not-available="">Not available on this cluster</div>}
           </button>
           <button onClick={() => go('/r/networking.k8s.io~v1~ingresses', 'Ingresses')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Ingresses</div>

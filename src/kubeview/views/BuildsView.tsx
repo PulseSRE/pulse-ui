@@ -59,13 +59,13 @@ export default function BuildsView() {
   const buildsFailed = !!buildsQ.isError;
   const bcFailed = !!bcQ.isError;
   const isFailed = !!isQ.isError;
-  const listError = (q: typeof buildsQ, what: string) => (
-    <LoadError
-      title={isNotFound(q.error) ? `${what} are not available on this cluster` : `${what} could not be loaded`}
-      error={q.error}
-      onRetry={() => { void q.refetch(); }}
-    />
-  );
+  // A 404 is an answer (the cluster has no Build/Image API, e.g. not
+  // OpenShift): a neutral note, no alert or Retry. A 403/500 is an error.
+  const listError = (q: typeof buildsQ, what: string) => (isNotFound(q.error) ? (
+    <NotAvailable what={what} />
+  ) : (
+    <LoadError title={`${what} could not be loaded`} error={q.error} onRetry={() => { void q.refetch(); }} />
+  ));
 
   async function cancelBuild(namespace: string, name: string) {
     try {
@@ -457,7 +457,7 @@ export default function BuildsView() {
         {/* Recent Builds */}
         <Panel title={buildsFailed ? 'Recent Builds' : `Recent Builds (${builds.length})`} icon={<Hammer className="w-4 h-4 text-orange-400" />}>
           {buildsFailed ? (
-            <p className="text-center py-6 text-sm text-slate-500" data-unknown="">Builds could not be read (see above).</p>
+            <p className="text-center py-6 text-sm text-slate-500" data-unknown="">{isNotFound(buildsQ.error) ? 'Builds are not available on this cluster.' : 'Builds could not be read (see above).'}</p>
           ) : builds.length === 0 ? (
             <div className="text-center py-6 text-sm text-slate-500">No builds{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
@@ -563,3 +563,11 @@ export default function BuildsView() {
   );
 }
 
+/** A list whose API this cluster does not serve (404): not an error, not "none". */
+export function NotAvailable({ what }: { what: string }) {
+  return (
+    <p className="text-center py-6 text-sm text-slate-500" data-not-available="">
+      {what} are not available on this cluster (the API is not installed).
+    </p>
+  );
+}

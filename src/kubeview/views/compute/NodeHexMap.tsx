@@ -178,8 +178,10 @@ function GaugeBar({ icon: Icon, value, color }: { icon: any; value: number | nul
 
 // ─── Hex Node ────────────────────────────────────────────────────────────────
 
-function HexNode({ nd, pods, onClick, onOpenDetails, onPodClick, actions }: {
+function HexNode({ nd, pods, podsUnknown, onClick, onOpenDetails, onPodClick, actions }: {
   nd: NodeDetail; pods?: PodInfo[];
+  /** The pod list could not be read: show "—", not 0 pods. */
+  podsUnknown?: boolean;
   onClick?: () => void;
   onOpenDetails?: () => void;
   onPodClick?: (ns: string, name: string) => void;
@@ -277,7 +279,7 @@ function HexNode({ nd, pods, onClick, onOpenDetails, onPodClick, actions }: {
 
         {/* Pod dots */}
         <div className="flex flex-wrap gap-[2px] justify-center max-w-[90px]">
-          {pods ? (
+          {podsUnknown ? null : pods ? (
             <>
               {pods.slice(0, 30).map((pod) => (
                 <div
@@ -308,7 +310,7 @@ function HexNode({ nd, pods, onClick, onOpenDetails, onPodClick, actions }: {
             ))
           )}
         </div>
-        <div className="text-[8px] font-mono text-slate-500 mt-0.5">{nd.podCount}/{nd.podCap}</div>
+        <div className="text-[8px] font-mono text-slate-500 mt-0.5" data-unknown={podsUnknown ? '' : undefined}>{podsUnknown ? '—' : nd.podCount}/{nd.podCap}</div>
       </div>
 
       {/* Pod tooltip */}
@@ -496,6 +498,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                   key={nd.name}
                   nd={nd}
                   pods={podsByNode?.[nd.name]}
+                  podsUnknown={podsUnknown}
                   onClick={() => setExpandedNode(expandedNode === nd.name ? null : nd.name)}
                   onOpenDetails={onNodeClick ? () => onNodeClick(nd.name) : undefined}
                   onPodClick={onPodClick}
@@ -523,7 +526,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ background: color }} />
                 <span className="text-xs font-semibold text-slate-200">{shortName}</span>
-                <span className="text-[10px] text-slate-500">{nd.roles.join(', ')} · {pods.length}/{nd.podCap} pods</span>
+                <span className="text-[10px] text-slate-500">{nd.roles.join(', ')} · {podsUnknown ? '—' : pods.length}/{nd.podCap} pods</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -542,7 +545,9 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
             </div>
 
             {/* Pod table */}
-            {pods.length === 0 ? (
+            {podsUnknown ? (
+              <div className="px-4 py-6 text-center text-xs text-slate-500" data-unknown="">Pods could not be read</div>
+            ) : pods.length === 0 ? (
               <div className="px-4 py-6 text-center text-xs text-slate-500">No pods on this node</div>
             ) : (
               <div className="max-h-64 overflow-auto">

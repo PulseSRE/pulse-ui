@@ -101,7 +101,7 @@ describe('HealthAuditPanel', () => {
 describe.each(STATUSES)('WorkloadsView with every list failing (%i)', (status) => {
   it('shows the error and "—" counts — no green dots, no "No StatefulSets", no audit pass', async () => {
     renderWithFailedRequests(<WorkloadsView />, { status });
-    await waitFor(() => expect(screen.getByText('Deployments, StatefulSets, DaemonSets, Pods, Jobs, CronJobs could not be loaded')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Deployments, StatefulSets, DaemonSets, Pods, Jobs, CronJobs, PodDisruptionBudgets could not be loaded')).toBeTruthy());
     for (const label of ['Deployments', 'StatefulSets', 'DaemonSets', 'Pods', 'Jobs', 'CronJobs']) {
       const stat = screen.getAllByText(label).map((el) => el.closest('button')).find((b) => b && b.className.includes('rounded-lg'))!;
       expect(stat.textContent, label).toContain('—');
@@ -265,6 +265,7 @@ describe('CapacityTab', () => {
     renderWithFailedRequests(<CapacityTab />, { status });
     await waitFor(() => expect(screen.getAllByText('Unknown')).toHaveLength(4));
     expect(screen.getAllByText(/Prometheus query failed/)).toHaveLength(4);
+    expect(document.body.textContent).not.toMatch(/Prometheus query failed: Prometheus query failed/);
     expect(screen.queryByText('Stable')).toBeNull();
     expect(screen.queryByText('No data')).toBeNull();
   });
@@ -286,7 +287,7 @@ describe.each(STATUSES)('StorageView CSI drivers and snapshots failing (%i)', (s
       status,
       routes: {
         '/apis/storage.k8s.io/v1/storageclasses': list([{ metadata: { name: 'gp3', uid: 'sc1', annotations: { 'storageclass.kubernetes.io/is-default-class': 'true' } }, provisioner: 'ebs' }]),
-        '/api/v1/persistentvolumeclaims': list([]),
+        '/api/v1/persistentvolumeclaims': list([{ metadata: { name: 'data', namespace: 'shop', uid: 'pvc1' }, spec: { storageClassName: 'gp3', resources: { requests: { storage: '1Gi' } } }, status: { phase: 'Bound' } }]),
         '/api/v1/persistentvolumes': list([]),
       },
     });
@@ -295,6 +296,10 @@ describe.each(STATUSES)('StorageView CSI drivers and snapshots failing (%i)', (s
     expect(screen.queryByText('No CSI drivers found')).toBeNull();
     await waitFor(() => expect(auditRow('Volume Snapshot Support').dataset.auditOutcome).toBe('unknown'));
     expect(document.body.textContent).not.toMatch(/VolumeSnapshot CRDs not installed/);
+    // ResourceQuotas unread: the quota check is unknown, not "Missing quotas" for every namespace.
+    await waitFor(() => expect(auditRow('Storage Resource Quotas').dataset.auditOutcome).toBe('unknown'));
+    expect(auditRow('Storage Resource Quotas').textContent).toMatch(/Could not check — ResourceQuotas could not be read/);
+    expect(document.body.textContent).not.toMatch(/Missing quotas/);
   });
 });
 
@@ -367,5 +372,76 @@ describe('IncidentContext resource usage', () => {
     renderWithClient(<IncidentContext resource={pod('api-1') as never} managedPods={[]} events={[]} namespace="shop" go={vi.fn()} />);
     const cards = await screen.findAllByTestId('metric-card');
     for (const c of cards) expect(c.getAttribute('data-query')).toContain('namespace="shop",pod="api-1"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review fixes on #180
+
+describe('Workload logs keep the shown pods when a refresh fails', () => {
+  it('keeps the logs on screen and shows the error inline', async () => {
+    let fail = false;
+    const podItem = { metadata: { name: 'api-1', namespace: 'shop', uid: 'p1' }, status: { phase: 'Running' } };
+    mockFetchRoutes({
+      '/api/v1/namespaces/shop/pods/api-1/log': { body: 'hello from api-1' },
+      '/api/v1/namespaces/shop/pods': () => (fail ? { status: 500, body: { code: 500 } } : list([podItem])),
+    });
+    const ui = <Routes><Route path="/logs/:ns/:name" element={<LogsView namespace="shop" podName="api" />} /></Routes>;
+    const { client } = renderWithClient(ui, { route: '/logs/shop/api?selector=app%3Dapi&kind=Deployment' });
+    await waitFor(() => expect(screen.getByText(/All 1 pod/)).toBeTruthy());
+    fail = true;
+    await client.refetchQueries();
+    await waitFor(() => expect(screen.getByText(/Could not refresh the pods of Deployment api/)).toBeTruthy());
+    // The merged logs view is still mounted with the last list.
+    expect(screen.getByText(/All 1 pod/)).toBeTruthy();
+    expect(screen.queryByText('Could not list the pods of Deployment api')).toBeNull();
+  });
+});
+
+describe('ComputeView with only pods failing', () => {
+  it.each(STATUSES)('shows "—" pod counts on node tiles, not 0/110 (%i)', async (status) => {
+    renderWithFailedRequests(<ComputeView />, {
+      status,
+      routes: {
+        '/api/v1/nodes': list([{ metadata: { name: 'w1', uid: 'w1', labels: { 'node-role.kubernetes.io/worker': '' } }, status: { conditions: [{ type: 'Ready', status: 'True' }], capacity: { cpu: '4', memory: '16Gi', pods: '110' }, allocatable: { pods: '110' }, nodeInfo: { kubeletVersion: 'v1.30.0' } } }]),
+      },
+    });
+    await waitFor(() => expect(screen.getByText('Pods could not be loaded')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('—/110')).toBeTruthy());
+    expect(screen.queryByText('0/110')).toBeNull();
+    expect(screen.getByText('pods unknown')).toBeTruthy();
+  });
+});
+
+describe('A missing API (404) is "not available", not an error', () => {
+  it('BuildsView: neutral note, no alert or Retry', async () => {
+    mockFetchRoutes({}, 404);
+    renderWithClient(<BuildsView />);
+    await waitFor(() => expect(screen.getByText(/BuildConfigs are not available on this cluster/)).toBeTruthy());
+    expect(screen.getByText(/ImageStreams are not available on this cluster/)).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/No builds|could not be loaded/);
+  });
+
+  it('NetworkingView: no Route API is not an error, and route checks are not applicable', async () => {
+    mockFetchRoutes({
+      '/api/v1/services': list([]),
+      '/apis/networking.k8s.io/v1/ingresses': list([]),
+      '/apis/route.openshift.io/v1/routes': { status: 404, body: { code: 404 } },
+      '/apis/networking.k8s.io/v1/networkpolicies': list([]),
+      '/api/v1/endpoints': list([]),
+      'ingresscontrollers': { status: 404, body: { code: 404 } },
+    });
+    renderWithClient(<NetworkingView />);
+    await waitFor(() => expect(screen.getByText('Not available on this cluster')).toBeTruthy());
+    expect(screen.queryByText(/could not be loaded/)).toBeNull();
+    expect(auditRow('TLS on Routes').dataset.auditOutcome).toBe('notApplicable');
+  });
+
+  it('BuildsView: a 403 is still an error with Retry', async () => {
+    renderWithFailedRequests(<BuildsView />, { status: 403 });
+    await waitFor(() => expect(screen.getByText('BuildConfigs could not be loaded')).toBeTruthy());
+    expect(screen.getAllByRole('button', { name: 'Retry' }).length).toBeGreaterThan(0);
   });
 });

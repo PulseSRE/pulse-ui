@@ -34,6 +34,10 @@ export default function NodeLogsView() {
   const [filesReload, setFilesReload] = useState(0);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [logContent, setLogContent] = useState('');
+  // A failed read is an error, not log content: it used to be written into
+  // the log body ("Error: 403 …") and could be downloaded as the file.
+  const [logError, setLogError] = useState<string | null>(null);
+  const [logReload, setLogReload] = useState(0);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -80,25 +84,31 @@ export default function NodeLogsView() {
 
   // Fetch log content for selected file
   useEffect(() => {
-    if (!name || !selectedFile) { setLogContent(''); return; }
+    if (!name || !selectedFile) { setLogContent(''); setLogError(null); return; }
     setLoading(true);
+    setLogError(null);
 
     const fetchLog = async () => {
       try {
         const res = await k8sFetch(clusterId, `/api/v1/nodes/${name}/proxy/logs/${source.path}${selectedFile}`);
-        if (!res.ok) { setLogContent(`Error: ${res.status} ${res.statusText}`); return; }
+        if (!res.ok) {
+          setLogContent('');
+          setLogError(errorReason(res));
+          return;
+        }
         const text = await res.text();
         // Limit to last 500 lines for performance
         const lines = text.split('\n');
         setLogContent(lines.length > 500 ? lines.slice(-500).join('\n') : text);
       } catch (err) {
-        setLogContent(`Failed to fetch: ${err instanceof Error ? err.message : String(err)}`);
+        setLogContent('');
+        setLogError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
       }
     };
     fetchLog();
-  }, [name, selectedFile, source.path, clusterId]);
+  }, [name, selectedFile, source.path, clusterId, logReload]);
 
   // Filter log lines by search
   const filteredLines = React.useMemo(() => {
@@ -110,7 +120,7 @@ export default function NodeLogsView() {
   }, [logContent, searchQuery]);
 
   const handleDownload = () => {
-    if (!logContent || !selectedFile) return;
+    if (!logContent || !selectedFile || logError) return;
     const blob = new Blob([logContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -144,7 +154,7 @@ export default function NodeLogsView() {
           <button onClick={handleRefresh} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" title="Refresh">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button onClick={handleDownload} disabled={!logContent} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Download">
+          <button onClick={handleDownload} disabled={!logContent || !!logError} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Download">
             <Download className="w-4 h-4" />
           </button>
         </div>
@@ -218,6 +228,8 @@ export default function NodeLogsView() {
               <div className="flex items-center justify-center h-full text-slate-500">Loading...</div>
             ) : !selectedFile ? (
               <div className="flex items-center justify-center h-full text-slate-500">Select a log file</div>
+            ) : logError ? (
+              <LoadError className="m-3 font-sans" title={`Could not read ${selectedFile}`} error={logError} onRetry={() => setLogReload((n) => n + 1)} />
             ) : filteredLines.length === 0 ? (
               <div className="flex items-center justify-center h-full text-slate-500">
                 {searchQuery ? `No lines match "${searchQuery}"` : 'Log file is empty'}
