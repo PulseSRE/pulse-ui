@@ -6,13 +6,19 @@ import { cn } from '@/lib/utils';
 import type { ClusterOperator, Condition } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { SearchInput } from '../../components/primitives/SearchInput';
+import { LoadError } from '../../components/primitives/LoadError';
 
 export interface OperatorsTabProps {
   operators: ClusterOperator[];
+  /** The ClusterOperator list is still loading. */
+  isLoading?: boolean;
+  /** The ClusterOperator list could not be read: counts are unknown, not 0/0/0. */
+  error?: unknown;
+  onRetry?: () => void;
   go: (path: string, title: string) => void;
 }
 
-export function OperatorsTab({ operators, go }: OperatorsTabProps) {
+export function OperatorsTab({ operators, isLoading, error, onRetry, go }: OperatorsTabProps) {
   const [search, setSearch] = React.useState('');
   const operatorList = operators.map((op) => {
     const conditions: Condition[] = op.status?.conditions || [];
@@ -31,6 +37,10 @@ export function OperatorsTab({ operators, go }: OperatorsTabProps) {
   const degradedOps = operatorList.filter((o) => o.degraded);
   const progressingOps = operatorList.filter((o) => o.progressing);
   const availableOps = operatorList.filter((o) => o.available && !o.degraded);
+  const unavailableOps = operatorList.filter((o) => !o.available);
+  // Counts only mean something once the list was actually read.
+  const known = !error && !isLoading;
+  const count = (n: number) => (known ? n : '\u2014');
 
   return (
     <div className="space-y-4">
@@ -40,21 +50,24 @@ export function OperatorsTab({ operators, go }: OperatorsTabProps) {
           Operator catalog (installed) →
         </button>
       </p>
+      {!!error && (
+        <LoadError title="ClusterOperators could not be read" error={error} onRetry={onRetry} />
+      )}
       <div className="grid grid-cols-3 gap-3">
         <Card className="p-3">
           <div className="flex items-center gap-2 text-green-400 mb-1"><CheckCircle className="w-4 h-4" /><span className="text-xs">Available</span></div>
-          <div className="text-xl font-bold text-slate-100">{availableOps.length}</div>
+          <div className="text-xl font-bold text-slate-100">{count(availableOps.length)}</div>
         </Card>
         <div className={cn('bg-slate-900 rounded-lg border p-3', degradedOps.length > 0 ? 'border-red-800' : 'border-slate-800')}>
           <div className="flex items-center gap-2 text-red-400 mb-1"><XCircle className="w-4 h-4" /><span className="text-xs">Degraded</span></div>
-          <div className="text-xl font-bold text-slate-100">{degradedOps.length}</div>
+          <div className="text-xl font-bold text-slate-100">{count(degradedOps.length)}</div>
         </div>
         <div className={cn('bg-slate-900 rounded-lg border p-3', progressingOps.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
           <div className="flex items-center gap-2 text-yellow-400 mb-1"><RefreshCw className="w-4 h-4" /><span className="text-xs">Progressing</span></div>
-          <div className="text-xl font-bold text-slate-100">{progressingOps.length}</div>
+          <div className="text-xl font-bold text-slate-100">{count(progressingOps.length)}</div>
         </div>
       </div>
-      {degradedOps.length === 0 && operatorList.length > 0 && (
+      {known && degradedOps.length === 0 && unavailableOps.length === 0 && operatorList.length > 0 && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-950/30 border border-emerald-800/50 rounded-lg">
           <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="text-xs text-emerald-300">All {operatorList.length} operators healthy — no degraded or unavailable operators</span>

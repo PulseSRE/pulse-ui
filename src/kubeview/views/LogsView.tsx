@@ -50,7 +50,7 @@ export default function LogsView({ namespace, podName }: LogsViewProps) {
 // --- Build logs (OpenShift Build API) ---
 function BuildLogsView({ namespace, buildName }: { namespace: string; buildName: string }) {
   const clusterId = useActiveClusterId();
-  const { data: logText, isLoading, error } = useQuery({
+  const { data: logText, isLoading, error, refetch } = useQuery({
     queryKey: ['build-log', namespace, buildName, clusterId],
     queryFn: async () => {
       const res = await k8sFetch(clusterId, `/apis/build.openshift.io/v1/namespaces/${namespace}/builds/${buildName}/log`);
@@ -70,7 +70,7 @@ function BuildLogsView({ namespace, buildName }: { namespace: string; buildName:
       </div>
       <div className="flex-1 overflow-auto bg-slate-950 p-4 font-mono text-xs text-slate-300">
         {isLoading && <div className="text-slate-500">Loading build logs...</div>}
-        {error && <div className="text-red-400">Failed to load build logs: {error instanceof Error ? error.message : String(error)}</div>}
+        {error && <LoadError title={`Could not load logs for build ${buildName}`} error={error} onRetry={() => { void refetch(); }} className="font-sans" />}
         {logText && <pre className="whitespace-pre-wrap">{logText}</pre>}
         {!isLoading && !error && !logText && <div className="text-slate-500">No logs available yet.</div>}
       </div>
@@ -87,13 +87,25 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
   const [selectedPod, setSelectedPod] = useState<string | null>(null);
 
   // Watch pods by label selector
-  const { data: pods = [], isLoading } = useK8sListWatch({
+  const { data, isLoading, isError, error, refetch } = useK8sListWatch({
     apiPath: `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(selector)}`,
     clusterId,
   });
+  const pods = data ?? [];
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full"><div className="kv-skeleton w-12 h-12 rounded-full" /></div>;
+  }
+
+  // A failed or forbidden pod list is not "No pods found". Only when there is
+  // no list at all does the error replace the view; a failed refresh of a list
+  // already shown keeps the logs on screen with the error above them.
+  if (isError && !data) {
+    return (
+      <div className="p-6">
+        <LoadError title={`Could not list the pods of ${kind} ${name}`} error={error} onRetry={() => { void refetch(); }} />
+      </div>
+    );
   }
 
   const podNames = pods.map((p: any) => p.metadata.name);
@@ -107,6 +119,15 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
         <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
         <span className="text-xs text-slate-500 ml-auto">{podNames.length} pod{podNames.length !== 1 ? 's' : ''}</span>
       </div>
+
+      {isError && (
+        <LoadError
+          className="m-2"
+          title={`Could not refresh the pods of ${kind} ${name}; showing the last list`}
+          error={error}
+          onRetry={() => { void refetch(); }}
+        />
+      )}
 
       {/* Pod selector tabs */}
       <Tabs

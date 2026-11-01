@@ -384,8 +384,24 @@ const clusterUpToDate: ReadinessGate = {
   priority: 'recommended',
   evaluate: (ctx) => safeEval(clusterUpToDate, async () => {
     const cv = await ctx.fetchJson<any>('/apis/config.openshift.io/v1/clusterversions/version');
-    const avail = cv?.status?.availableUpdates || [];
-    return { status: avail.length === 0 ? 'passed' : 'needs_attention', detail: avail.length === 0 ? 'Up to date' : `${avail.length} update${avail.length !== 1 ? 's' : ''} available`, fixGuidance: 'Apply available cluster updates.', action: { label: 'View Updates', path: '/admin?tab=updates' } };
+    const action = { label: 'View Updates', path: '/admin?tab=updates' };
+    // "Up to date" is only true when CVO actually retrieved the update graph
+    // (the same RetrievedUpdates check the Updates tab uses). An empty
+    // availableUpdates with RetrievedUpdates=False means "unknown", not current.
+    if (!cv) {
+      return { status: 'not_started', detail: 'Could not check: ClusterVersion could not be read', fixGuidance: 'Ensure API connectivity and try again.', action };
+    }
+    const retrieved = (cv.status?.conditions || []).find((c: { type?: string }) => c.type === 'RetrievedUpdates');
+    if (retrieved?.status === 'False') {
+      return { status: 'not_started', detail: `Could not check: the cluster could not retrieve available updates${retrieved.message ? ` (${retrieved.message})` : ''}`, fixGuidance: 'Fix the update service connection (channel, upstream, proxy) so the cluster can retrieve updates.', action };
+    }
+    // Conditional updates are updates too: a target with known risks is still
+    // a newer release the cluster is not on.
+    const versions = new Set<string>();
+    for (const u of cv.status?.availableUpdates || []) if (u?.version) versions.add(u.version);
+    for (const cu of cv.status?.conditionalUpdates || []) if (cu?.release?.version) versions.add(cu.release.version);
+    const n = versions.size;
+    return { status: n === 0 ? 'passed' : 'needs_attention', detail: n === 0 ? 'Up to date' : `${n} update${n !== 1 ? 's' : ''} available`, fixGuidance: 'Apply available cluster updates.', action };
   }),
 };
 

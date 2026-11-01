@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { ShieldCheck, Search, AlertTriangle, CheckCircle, XCircle, Clock, ArrowUpDown, Eye, EyeOff } from 'lucide-react';
 import { k8sList, k8sDelete } from '../../engine/query';
@@ -34,52 +35,16 @@ interface CertInfo {
   serviceName?: string;
 }
 
-type StatusFilter = 'all' | 'critical' | 'warning' | 'healthy' | 'unknown';
+type StatusFilter = 'all' | 'critical' | 'warning' | 'healthy' | 'unknown' | 'expiring';
+const STATUS_FILTERS: readonly StatusFilter[] = ['all', 'critical', 'warning', 'healthy', 'unknown', 'expiring'];
 type SortField = 'expires' | 'name' | 'namespace' | 'issuer' | 'age';
 
 // --- Certificate parsing helpers ---
-
-function parseCertExpiry(base64Cert: string): { notAfter: Date | null; subject: string; issuer: string } {
-  try {
-    const pem = atob(base64Cert);
-    const binary = Uint8Array.from(pem, c => c.charCodeAt(0));
-    const pemText = new TextDecoder().decode(binary);
-    const b64Match = pemText.match(/-----BEGIN CERTIFICATE-----\s*([\s\S]*?)\s*-----END CERTIFICATE-----/);
-    if (!b64Match) return { notAfter: null, subject: '', issuer: '' };
-
-    const derB64 = b64Match[1].replace(/\s/g, '');
-    const der = Uint8Array.from(atob(derB64), c => c.charCodeAt(0));
-    const text = new TextDecoder('ascii', { fatal: false }).decode(der);
-    const dateMatches = [...text.matchAll(/(\d{6,14})Z/g)];
-
-    if (dateMatches.length >= 2) {
-      const raw = dateMatches[1][1];
-      let year: number, month: number, day: number, hour: number, min: number, sec: number;
-      if (raw.length === 12) {
-        year = parseInt(raw.slice(0, 2));
-        year += year >= 50 ? 1900 : 2000;
-        month = parseInt(raw.slice(2, 4)) - 1;
-        day = parseInt(raw.slice(4, 6));
-        hour = parseInt(raw.slice(6, 8));
-        min = parseInt(raw.slice(8, 10));
-        sec = parseInt(raw.slice(10, 12));
-      } else if (raw.length === 14) {
-        year = parseInt(raw.slice(0, 4));
-        month = parseInt(raw.slice(4, 6)) - 1;
-        day = parseInt(raw.slice(6, 8));
-        hour = parseInt(raw.slice(8, 10));
-        min = parseInt(raw.slice(10, 12));
-        sec = parseInt(raw.slice(12, 14));
-      } else {
-        return { notAfter: null, subject: '', issuer: '' };
-      }
-      return { notAfter: new Date(Date.UTC(year, month, day, hour, min, sec)), subject: '', issuer: '' };
-    }
-    return { notAfter: null, subject: '', issuer: '' };
-  } catch {
-    return { notAfter: null, subject: '', issuer: '' };
-  }
-}
+//
+// Expiry comes from engine/certExpiry, the same parser the Admin Overview uses
+// for "N certs expiring": the certificate's own notAfter first, then the
+// cert-manager / service-ca annotations. Two parsers used to disagree, so the
+// Overview's count could open a list that said "No certificates match".
 
 function detectIssuer(secret: any): string {
   const annotations = secret.metadata?.annotations || {};
@@ -90,6 +55,10 @@ function detectIssuer(secret: any): string {
 }
 
 import { isSystemNamespace } from '../../engine/namespace';
+import { parseCertExpiry, fetchTlsSecrets, TLS_SECRETS_PATH, type TlsSecretLike } from '../../engine/certExpiry';
+
+/** Expiring within this many days (inclusive) counts as expiring — the same window the Overview counts. */
+export const EXPIRING_WITHIN_DAYS = 30;
 
 function extractCertInfo(secret: any): CertInfo {
   const annotations = secret.metadata?.annotations || {};
@@ -97,46 +66,17 @@ function extractCertInfo(secret: any): CertInfo {
   const namespace = secret.metadata?.namespace || '';
   const createdAt = secret.metadata?.creationTimestamp ? new Date(secret.metadata.creationTimestamp) : null;
 
-  let expiresAt: Date | null = null;
-  let commonName = '';
+  const commonName = annotations['cert-manager.io/common-name'] || '';
   const issuer = detectIssuer(secret);
 
-  // Strategy 1: cert-manager annotations
-  if (annotations['cert-manager.io/certificate-expiry']) {
-    expiresAt = new Date(annotations['cert-manager.io/certificate-expiry']);
-  }
-  if (annotations['cert-manager.io/common-name']) {
-    commonName = annotations['cert-manager.io/common-name'];
-  }
-
-  // Strategy 2: OpenShift service-ca annotations
-  if (!expiresAt && annotations['service.beta.openshift.io/expiry']) {
-    const val = annotations['service.beta.openshift.io/expiry'];
-    expiresAt = isNaN(Number(val)) ? new Date(val) : new Date(Number(val) * 1000);
-  }
-  if (!expiresAt && annotations['service.alpha.openshift.io/expiry']) {
-    const val = annotations['service.alpha.openshift.io/expiry'];
-    expiresAt = isNaN(Number(val)) ? new Date(val) : new Date(Number(val) * 1000);
-  }
-
-  // Strategy 3: Parse X.509 from tls.crt
-  if (!expiresAt && secret.data?.['tls.crt']) {
-    const parsed = parseCertExpiry(secret.data['tls.crt']);
-    if (parsed.notAfter) expiresAt = parsed.notAfter;
-    if (parsed.subject && !commonName) commonName = parsed.subject;
-  }
-
-  // Validate parsed date
-  if (expiresAt && isNaN(expiresAt.getTime())) expiresAt = null;
-
-  const now = Date.now();
-  const daysLeft = expiresAt ? Math.floor((expiresAt.getTime() - now) / (1000 * 60 * 60 * 24)) : null;
+  const parsed = parseCertExpiry(secret as TlsSecretLike);
+  const expiresAt = parsed.expiresAt;
+  const daysLeft = parsed.daysUntilExpiry;
 
   let status: CertInfo['status'] = 'unknown';
   if (daysLeft !== null) {
-    if (daysLeft < 0) status = 'critical';
-    else if (daysLeft < 7) status = 'critical';
-    else if (daysLeft < 30) status = 'warning';
+    if (daysLeft < 7) status = 'critical';
+    else if (daysLeft <= EXPIRING_WITHIN_DAYS) status = 'warning';
     else status = 'healthy';
   }
 
@@ -169,15 +109,21 @@ function formatDate(d: Date | null): string {
 
 export function CertificatesTab({ go }: { go: (path: string, title: string) => void }) {
   const clusterId = useActiveClusterId();
+  // `?filter=expiring&system=1` is how the Overview opens this tab, so the
+  // list shows exactly what its "N certs expiring" count counted.
+  const [searchParams] = useSearchParams();
+  const filterParam = searchParams.get('filter');
   const [search, setSearch] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>(
+    filterParam && (STATUS_FILTERS as readonly string[]).includes(filterParam) ? (filterParam as StatusFilter) : 'all',
+  );
   const [sortField, setSortField] = React.useState<SortField>('expires');
   const [sortAsc, setSortAsc] = React.useState(true);
-  const [showSystem, setShowSystem] = React.useState(false);
+  const [showSystem, setShowSystem] = React.useState(searchParams.get('system') === '1');
 
   const { data: secrets = [], isLoading, error, refetch } = useQuery<any[]>({
-    queryKey: ['k8s', 'list', '/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId],
-    queryFn: () => k8sList('/api/v1/secrets?fieldSelector=type=kubernetes.io/tls', undefined, clusterId),
+    queryKey: ['k8s', 'list', TLS_SECRETS_PATH, undefined, clusterId],
+    queryFn: () => fetchTlsSecrets(clusterId),
     staleTime: 60000,
   });
 
@@ -206,7 +152,8 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
   const filtered = React.useMemo(() => {
     let list = certs;
     if (!showSystem) list = list.filter(c => !c.isSystem);
-    if (statusFilter !== 'all') list = list.filter(c => c.status === statusFilter);
+    if (statusFilter === 'expiring') list = list.filter(c => c.daysLeft !== null && c.daysLeft <= EXPIRING_WITHIN_DAYS);
+    else if (statusFilter !== 'all') list = list.filter(c => c.status === statusFilter);
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(c =>
@@ -316,7 +263,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
             counts.warning > 0 ? 'border-yellow-800 hover:border-yellow-600' : 'border-slate-800',
             statusFilter === 'warning' && 'ring-1 ring-yellow-500')}>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-slate-400">Warning (&lt; 30d)</span>
+            <span className="text-xs text-slate-400">Warning (&le; 30d)</span>
             {counts.warning > 0 && <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />}
           </div>
           <div className={cn('text-xl font-bold', counts.warning > 0 ? 'text-yellow-400' : 'text-slate-100')}>{counts.warning}</div>
@@ -356,6 +303,9 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
           />
         </div>
         <div className="flex items-center gap-2">
+          {statusFilter === 'expiring' && (
+            <span className="text-xs text-slate-400">Showing certificates expiring within {EXPIRING_WITHIN_DAYS} days</span>
+          )}
           {statusFilter !== 'all' && (
             <button onClick={() => setStatusFilter('all')}
               className="text-xs px-2 py-1 bg-slate-800 text-slate-300 rounded-sm hover:bg-slate-700 transition-colors">

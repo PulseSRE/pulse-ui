@@ -1,8 +1,8 @@
 import React from 'react';
-import { Activity, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import { Activity, CheckCircle, AlertTriangle, Info, HelpCircle, MinusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../primitives/Card';
-import type { AuditItem, HealthAuditPanelProps } from './types';
+import { auditOutcome, type AuditItem, type HealthAuditPanelProps } from './types';
 
 /**
  * Shared health-audit panel used by domain views (Workloads, Storage, Compute,
@@ -20,10 +20,14 @@ export function HealthAuditPanel({
 }: HealthAuditPanelProps) {
   const [expandedCheck, setExpandedCheck] = React.useState<string | null>(null);
 
-  // Informational checks are advice; they do not count toward the score.
-  const scored = checks.filter((c) => !c.informational);
-  const totalPassing = scored.reduce((s, c) => s + (c.failing.length === 0 ? 1 : 0), 0);
-  const score = scored.length > 0 ? Math.round((totalPassing / scored.length) * 100) : 100;
+  // Only checks that were answered count: informational checks are advice, a
+  // check whose read failed is unknown, and a check with nothing to check is
+  // not applicable. None of those is a pass.
+  const outcomes = checks.map(auditOutcome);
+  const totalPassing = outcomes.filter((o) => o === 'pass').length;
+  const scoredCount = totalPassing + outcomes.filter((o) => o === 'fail').length;
+  const unknownCount = outcomes.filter((o) => o === 'unknown').length;
+  const score = scoredCount > 0 ? Math.round((totalPassing / scoredCount) * 100) : null;
 
   return (
     <Card>
@@ -32,34 +36,50 @@ export function HealthAuditPanel({
           <Activity className={cn('w-4 h-4', iconColorClass)} /> {title}
         </h2>
         <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>
-            {score}%
+          {score === null ? (
+            <span className="text-sm font-bold text-slate-500" data-unknown={unknownCount > 0 ? '' : undefined}>—</span>
+          ) : (
+            <span className={cn('text-sm font-bold',
+              score === 100 ? (unknownCount > 0 ? 'text-slate-300' : 'text-green-400') : score >= 60 ? 'text-amber-400' : 'text-red-400')}>
+              {score}%
+            </span>
+          )}
+          <span className="text-xs text-slate-500">
+            {scoredCount === 0 ? 'Nothing checked' : `${totalPassing}/${scoredCount} passing`}
+            {unknownCount > 0 && <span data-unknown="">{` · ${unknownCount} could not be checked`}</span>}
           </span>
-          <span className="text-xs text-slate-500">{totalPassing}/{scored.length} passing</span>
         </div>
       </div>
       <div className="divide-y divide-slate-800">
-        {checks.map((check) => {
-          const pass = check.failing.length === 0;
+        {checks.map((check, i) => {
+          const outcome = outcomes[i];
           const expanded = expandedCheck === check.id;
           return (
-            <div key={check.id}>
+            <div key={check.id} data-audit-outcome={outcome}>
               <button
                 onClick={() => setExpandedCheck(expanded ? null : check.id)}
                 className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  {check.informational
+                  {outcome === 'informational'
                     ? <Info className="w-4 h-4 text-blue-400 shrink-0" aria-label="informational" />
-                    : pass
-                    ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
-                    : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
+                    : outcome === 'pass'
+                    ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" aria-label="pass" />
+                    : outcome === 'fail'
+                    ? <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" aria-label="needs attention" />
+                    : outcome === 'unknown'
+                    ? <HelpCircle className="w-4 h-4 text-slate-400 shrink-0" aria-label="Unknown" />
+                    : <MinusCircle className="w-4 h-4 text-slate-500 shrink-0" aria-label="not applicable" />}
                   <div>
                     <span className="text-sm text-slate-200">{check.title}</span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      {check.informational
+                    <span className="text-xs text-slate-500 ml-2" data-unknown={outcome === 'unknown' ? '' : undefined}>
+                      {outcome === 'informational'
                         ? 'Informational'
-                        : pass
+                        : outcome === 'unknown'
+                        ? `Could not check${check.stateReason ? ` — ${check.stateReason}` : ''}`
+                        : outcome === 'notApplicable'
+                        ? `Not applicable — ${check.stateReason ?? 'nothing to check'}`
+                        : outcome === 'pass'
                         ? `${check.passing.length} pass`
                         : `${check.failing.length} of ${check.failing.length + check.passing.length} need attention`}
                     </span>
@@ -79,7 +99,7 @@ export function HealthAuditPanel({
                   </div>
 
                   {/* Failing items */}
-                  {check.failing.length > 0 && (
+                  {outcome !== 'unknown' && check.failing.length > 0 && (
                     <div>
                       <div className="text-xs text-amber-400 font-medium mb-1.5">
                         {check.failingLabel ?? `Missing (${check.failing.length})`}
@@ -114,7 +134,7 @@ export function HealthAuditPanel({
                   )}
 
                   {/* Passing items */}
-                  {check.passing.length > 0 && (
+                  {outcome !== 'unknown' && check.passing.length > 0 && (
                     <div>
                       <div className="text-xs text-green-400 font-medium mb-1">
                         {check.passingLabel ?? `Passing (${check.passing.length})`}

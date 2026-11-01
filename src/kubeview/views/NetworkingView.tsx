@@ -22,6 +22,8 @@ import { Card } from '../components/primitives/Card';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 import { useCanI } from '../hooks/useCanI';
 import { Button } from '../components/primitives/Button';
+import { LoadError } from '../components/primitives/LoadError';
+import { isNotFound } from '../engine/readResult';
 
 /**
  * Services with a selector whose Endpoints object has no ready address
@@ -52,23 +54,53 @@ export default function NetworkingView() {
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Real-time data
-  const { data: services = [], isLoading: svcLoading } = useK8sListWatch<Service>({ apiPath: '/api/v1/services', namespace: nsFilter });
-  const { data: ingresses = [], isLoading: ingLoading } = useK8sListWatch<Ingress>({ apiPath: '/apis/networking.k8s.io/v1/ingresses', namespace: nsFilter });
-  const { data: routes = [] } = useK8sListWatch<Route>({ apiPath: '/apis/route.openshift.io/v1/routes', namespace: nsFilter });
-  const { data: netpols = [] } = useK8sListWatch<NetworkPolicy>({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies', namespace: nsFilter });
+  const svcQ = useK8sListWatch<Service>({ apiPath: '/api/v1/services', namespace: nsFilter });
+  const ingQ = useK8sListWatch<Ingress>({ apiPath: '/apis/networking.k8s.io/v1/ingresses', namespace: nsFilter });
+  const routesQ = useK8sListWatch<Route>({ apiPath: '/apis/route.openshift.io/v1/routes', namespace: nsFilter });
+  const netpolsQ = useK8sListWatch<NetworkPolicy>({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies', namespace: nsFilter });
+  const { data: services = [], isLoading: svcLoading } = svcQ;
+  const { data: ingresses = [], isLoading: ingLoading } = ingQ;
+  const { data: routes = [] } = routesQ;
+  const { data: netpols = [] } = netpolsQ;
 
   // Cluster-scoped: endpoints, ingress controller
   // Not swallowed: a failed read must not turn into "every Service has no endpoints".
-  const { data: endpoints = [], isSuccess: endpointsLoaded } = useQuery<K8sResource[]>({
+  const { data: endpoints = [], isSuccess: endpointsLoaded, isError: endpointsFailed, error: endpointsErr, refetch: refetchEndpoints } = useQuery<K8sResource[]>({
     queryKey: ['networking', 'endpoints', nsFilter, clusterId],
     queryFn: () => k8sList('/api/v1/endpoints', nsFilter, clusterId),
     staleTime: 30000,
   });
-  const { data: ingressControllers = [] } = useQuery<K8sResource[]>({
+  // safeQuery turns only a 404 (no IngressController API: not OpenShift) into
+  // []; a 403 or 500 is an error, and the panel and audit check say so.
+  const { data: ingressControllers = [], isError: icFailed, error: icErr, refetch: refetchICs } = useQuery<K8sResource[]>({
     queryKey: ['networking', 'ingresscontrollers', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
+
+  // A failed or forbidden list is not an empty one: its count shows "—", the
+  // banners and audit checks that depend on it are skipped or unknown, and
+  // its panel shows the error.
+  // A 404 on Routes means the cluster has no Route API (not OpenShift): a
+  // neutral "not available" (there are no Routes), not an error.
+  const routesAbsent = !!routesQ.isError && isNotFound(routesQ.error);
+  const failed = {
+    services: !!svcQ.isError, ingresses: !!ingQ.isError, routes: !!routesQ.isError && !routesAbsent, netpols: !!netpolsQ.isError,
+  };
+  const netpolsLoaded = !netpolsQ.isLoading && !failed.netpols;
+  const failedLists = ([
+    ['Services', failed.services], ['Ingresses', failed.ingresses], ['Routes', failed.routes],
+    ['NetworkPolicies', failed.netpols], ['Endpoints', endpointsFailed],
+  ] as const).filter(([, f]) => f).map(([label]) => label);
+  const firstError = [svcQ, ingQ, ...(failed.routes ? [routesQ] : []), netpolsQ].find((q) => q.isError)?.error ?? endpointsErr;
+  const retryFailed = () => {
+    for (const q of [svcQ, ingQ, ...(failed.routes ? [routesQ] : []), netpolsQ]) if (q.isError) void q.refetch();
+    if (endpointsFailed) void refetchEndpoints();
+  };
+  const count = (isFailed: boolean, n: number) => (isFailed ? '—' : n);
+  const unreadNote = (what: string) => (
+    <p className="text-center py-6 text-sm text-slate-500" data-unknown="">{what} could not be read (see above).</p>
+  );
 
   const { allowed: canCreateSvc } = useCanI('create', '', 'services', nsFilter);
   const { allowed: canCreateRoute } = useCanI('create', 'route.openshift.io', 'routes', nsFilter);
@@ -141,7 +173,8 @@ export default function NetworkingView() {
   if (servicesWithoutEndpoints.length > 0) issues.push({ msg: `${servicesWithoutEndpoints.length} service${servicesWithoutEndpoints.length > 1 ? 's' : ''} with no ready endpoints`, severity: 'warning' });
   if (notAdmittedRoutes.length > 0) issues.push({ msg: `${notAdmittedRoutes.length} route${notAdmittedRoutes.length > 1 ? 's' : ''} not admitted by ingress controller`, severity: 'critical', action: { label: 'See routes', onClick: scrollToAudit } });
   // One network-policy banner: for the selected namespace when there is one.
-  if (nsFilter ? !namespacesWithPolicies.has(nsFilter) : netpols.length === 0) {
+  // Only a successful read can say there are no policies.
+  if (netpolsLoaded && (nsFilter ? !namespacesWithPolicies.has(nsFilter) : netpols.length === 0)) {
     issues.push({
       msg: nsFilter
         ? `No network policies in ${nsFilter} — its pod traffic is unrestricted`
@@ -196,6 +229,10 @@ export default function NetworkingView() {
           </div>
         )}
 
+        {failedLists.length > 0 && (
+          <LoadError title={`${failedLists.join(', ')} could not be loaded`} error={firstError} onRetry={retryFailed} />
+        )}
+
         {/* Issues */}
         {issues.length > 0 && (
           <div className="space-y-2">
@@ -220,25 +257,26 @@ export default function NetworkingView() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <button onClick={() => go('/r/v1~services', 'Services')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Services</div>
-            <div className="text-xl font-bold text-slate-100">{services.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{svcTypes.map(([t, c]) => `${c} ${t}`).slice(0, 2).join(' · ')}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.services, services.length)}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{failed.services ? 'Could not be read' : svcTypes.map(([t, c]) => `${c} ${t}`).slice(0, 2).join(' · ')}</div>
           </button>
           <button onClick={() => go('/r/route.openshift.io~v1~routes', 'Routes')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Routes</div>
-            <div className="text-xl font-bold text-slate-100">{routes.length}</div>
+            <div className="text-xl font-bold text-slate-100">{routesAbsent ? 'n/a' : count(failed.routes, routes.length)}</div>
+            {routesAbsent && <div className="text-xs text-slate-500 mt-0.5" data-not-available="">Not available on this cluster</div>}
           </button>
           <button onClick={() => go('/r/networking.k8s.io~v1~ingresses', 'Ingresses')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Ingresses</div>
-            <div className="text-xl font-bold text-slate-100">{ingresses.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.ingresses, ingresses.length)}</div>
           </button>
-          <button onClick={() => go('/r/networking.k8s.io~v1~networkpolicies', 'NetworkPolicies')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', netpols.length === 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button onClick={() => go('/r/networking.k8s.io~v1~networkpolicies', 'NetworkPolicies')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', netpolsLoaded && netpols.length === 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Network Policies</div>
-            <div className="text-xl font-bold text-slate-100">{netpols.length}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{netpols.length === 0 ? 'None configured' : `${namespacesWithPolicies.size} ns covered`}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.netpols, netpols.length)}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{failed.netpols ? 'Could not be read' : netpols.length === 0 ? 'None configured' : `${namespacesWithPolicies.size} ns covered`}</div>
           </button>
           <Card className="p-3">
             <div className="text-xs text-slate-400 mb-1">Endpoints</div>
-            <div className="text-xl font-bold text-slate-100">{exposedEndpoints.length}</div>
+            <div className="text-xl font-bold text-slate-100">{count(failed.routes || failed.ingresses, exposedEndpoints.length)}</div>
             <div className="text-xs text-slate-500 mt-0.5">Routes and Ingress paths</div>
           </Card>
         </div>
@@ -279,14 +317,15 @@ export default function NetworkingView() {
           services={services}
           netpols={netpols}
           ingressControllers={ingressControllers}
+          failed={{ ...failed, ingressControllers: icFailed }}
           nsFilter={nsFilter}
           go={go}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Exposed Endpoints */}
-          <Panel title={`Exposed Endpoints (${exposedEndpoints.length})`} icon={<ExternalLink className="w-4 h-4 text-blue-400" />}>
-            {exposedEndpoints.length === 0 ? (
+          <Panel title={failed.routes || failed.ingresses ? 'Exposed Endpoints' : `Exposed Endpoints (${exposedEndpoints.length})`} icon={<ExternalLink className="w-4 h-4 text-blue-400" />}>
+            {failed.routes && failed.ingresses ? unreadNote('Routes and Ingresses') : exposedEndpoints.length === 0 && (failed.routes || failed.ingresses) ? unreadNote(failed.routes ? 'Routes' : 'Ingresses') : exposedEndpoints.length === 0 ? (
               <div className="text-center py-6 text-sm text-slate-500">No exposed endpoints</div>
             ) : (
               <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
@@ -313,6 +352,7 @@ export default function NetworkingView() {
 
           {/* Service Types breakdown */}
           <Panel title="Service Types" icon={<Network className="w-4 h-4 text-green-400" />}>
+            {failed.services ? unreadNote('Services') : (
             <div className="space-y-3">
               {svcTypes.map(([type, count]) => {
                 const maxCount = Math.max(...svcTypes.map(([, c]) => c), 1);
@@ -331,6 +371,7 @@ export default function NetworkingView() {
               })}
               {svcTypes.length === 0 && <div className="text-sm text-slate-500 text-center py-4">No services</div>}
             </div>
+            )}
 
             {/* LoadBalancer + NodePort details */}
             {loadBalancerServices.length > 0 && (
@@ -352,7 +393,12 @@ export default function NetworkingView() {
         </div>
 
         {/* Ingress Controllers */}
-        {ingressControllers.length > 0 && (
+        {icFailed && (
+          <Panel title="Ingress Controllers" icon={<Server className="w-4 h-4 text-blue-400" />}>
+            <LoadError title="IngressControllers could not be loaded" error={icErr} onRetry={() => { void refetchICs(); }} />
+          </Panel>
+        )}
+        {!icFailed && ingressControllers.length > 0 && (
           <Panel title="Ingress Controllers" icon={<Server className="w-4 h-4 text-blue-400" />}>
             <div className="space-y-2">
               {ingressControllers.map((ic) => {
@@ -409,7 +455,9 @@ export default function NetworkingView() {
 
         {/* Network Policies summary */}
         <Panel title="Network Policies" icon={<Shield className="w-4 h-4 text-indigo-400" />}>
-          {netpols.length === 0 ? (
+          {failed.netpols ? unreadNote('NetworkPolicies') : !netpolsLoaded ? (
+            <div className="text-center py-4 text-sm text-slate-500">Loading network policies…</div>
+          ) : netpols.length === 0 ? (
             <div className="text-center py-4">
               <Shield className="w-8 h-8 text-slate-700 mx-auto mb-2" />
               {/* The warning banner above says what this means; not repeated. */}
@@ -458,7 +506,7 @@ export default function NetworkingView() {
 
 // ===== Networking Health Audit =====
 
-import type { AuditCheck, AuditItem } from '../components/audit/types';
+import { readsState, type AuditCheck, type AuditItem } from '../components/audit/types';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 
 function NetworkingHealthAudit({
@@ -466,6 +514,7 @@ function NetworkingHealthAudit({
   services,
   netpols,
   ingressControllers,
+  failed,
   nsFilter,
   go,
 }: {
@@ -473,6 +522,7 @@ function NetworkingHealthAudit({
   services: Service[];
   netpols: NetworkPolicy[];
   ingressControllers: K8sResource[];
+  failed: { services: boolean; routes: boolean; netpols: boolean; ingressControllers: boolean };
   nsFilter?: string;
   go: (path: string, title: string) => void;
 }) {
@@ -523,6 +573,7 @@ function NetworkingHealthAudit({
       why: 'Without TLS, traffic between clients and your application is unencrypted. This exposes sensitive data (credentials, session tokens, PII) to network sniffing and man-in-the-middle attacks.',
       passing: routesWithTLS,
       failing: routesWithoutTLS,
+      ...readsState(['Routes', failed.routes]),
       fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `spec:
   tls:
@@ -541,6 +592,7 @@ function NetworkingHealthAudit({
       why: 'By default, all pods can communicate with each other. Without NetworkPolicies, a compromised pod can access any other pod in the cluster, enabling lateral movement and data exfiltration.',
       passing: namespacesWithPoliciesArray.map(ns => ({ metadata: { name: ns, namespace: ns } })),
       failing: namespacesWithoutPolicies.map(ns => ({ metadata: { name: ns, namespace: ns } })),
+      ...readsState(['Services', failed.services], ['NetworkPolicies', failed.netpols]),
       fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -564,6 +616,7 @@ spec:
       why: 'NodePort services open ports (30000-32767) on every cluster node, bypassing ingress controllers and network policies. This increases attack surface and makes firewall management difficult.',
       passing: nonNodePortServices,
       failing: nodePortServices,
+      ...readsState(['Services', failed.services]),
       fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `# Instead of NodePort:
 apiVersion: v1
@@ -608,6 +661,7 @@ spec:
       why: 'A degraded IngressController cannot route traffic to your applications. This causes HTTP 503 errors for all Routes handled by that controller, resulting in complete application outages.',
       passing: healthyControllers,
       failing: unhealthyControllers,
+      ...readsState(['IngressControllers', failed.ingressControllers]),
       fixLabel: 'How to fix — troubleshooting steps:',
       yamlExample: `# Check controller status:
 oc get ingresscontroller -n openshift-ingress-operator
@@ -639,6 +693,7 @@ oc get ingresscontroller -n openshift-ingress-operator
       why: 'Not-admitted Routes are not served by the ingress controller. The hostname is not routable, causing 404 errors for all requests to that Route.',
       passing: admittedRoutes,
       failing: notAdmittedRoutes,
+      ...readsState(['Routes', failed.routes]),
       fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `# Common causes:
 # 1. Host conflicts — another Route in the same namespace already uses that hostname
@@ -665,6 +720,7 @@ spec:
       why: 'Ingress policies alone do not prevent compromised pods from making outbound connections. Egress policies restrict what external services pods can reach, limiting data exfiltration and lateral movement.',
       passing: namespacesWithEgress.map(ns => ({ metadata: { name: ns, namespace: ns } })),
       failing: namespacesWithIngressNoEgress.map(ns => ({ metadata: { name: ns, namespace: ns } })),
+      ...readsState(['NetworkPolicies', failed.netpols]),
       fixLabel: 'How to fix — add to your YAML:',
       yamlExample: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -679,7 +735,7 @@ spec:
     });
 
     return allChecks;
-  }, [routes, services, netpols, ingressControllers, allNamespaces, namespacesWithPolicies, namespacesWithEgressPolicies]);
+  }, [routes, services, netpols, ingressControllers, failed.services, failed.routes, failed.netpols, failed.ingressControllers, allNamespaces, namespacesWithPolicies, namespacesWithEgressPolicies]);
 
   const handleNavigate = React.useCallback((check: AuditCheck, item: AuditItem) => {
     const id = check.id;

@@ -7,6 +7,7 @@ import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Panel } from '../../components/primitives/Panel';
 import { EmptyState } from '../../components/primitives/EmptyState';
+import { LoadError } from '../../components/primitives/LoadError';
 import { FilterButtonGroup } from '../../components/primitives/FilterButtonGroup';
 import { WorkloadActionMenu } from '../../components/workloads/WorkloadActionMenu';
 import type { K8sResource } from '../../engine/renderers';
@@ -41,18 +42,22 @@ interface Props<T extends K8sResource> {
   /** Extra buttons per row, before the actions menu (e.g. logs). */
   rowExtras?: (item: T) => React.ReactNode;
   limit?: number;
+  /** Set when the list could not be read: shows the error, not the empty text. */
+  isError?: boolean;
+  error?: unknown;
+  onRetry?: () => void;
 }
 
 export function WorkloadListPanel<T extends K8sResource>({
-  id, title, icon, items, gvr, browseLabel, emptyText, summarize, filters = [], filter, onFilterChange, go, rowExtras, limit = 50,
+  id, title, icon, items, gvr, browseLabel, emptyText, summarize, filters = [], filter, onFilterChange, go, rowExtras, limit = 50, isError, error, onRetry,
 }: Props<T>) {
   const active = filters.find((f) => f.key === filter);
   const shown = active ? items.filter(active.test) : items;
 
   return (
     <div id={id} className="scroll-mt-4">
-      <Panel title={`${title} (${items.length})`} icon={icon}>
-        {items.length > 0 && filters.length > 0 && (
+      <Panel title={isError ? title : `${title} (${items.length})`} icon={icon}>
+        {!isError && items.length > 0 && filters.length > 0 && (
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-800">
             <FilterButtonGroup
               options={[
@@ -66,7 +71,9 @@ export function WorkloadListPanel<T extends K8sResource>({
             />
           </div>
         )}
-        {items.length === 0 ? (
+        {isError ? (
+          <LoadError title={`${title} could not be loaded`} error={error} onRetry={onRetry} className="m-3" />
+        ) : items.length === 0 ? (
           <EmptyState icon={icon} title={emptyText} className="py-6" />
         ) : shown.length === 0 ? (
           <p className="px-3 py-4 text-sm text-slate-500">No {title.toLowerCase()} match this filter.</p>

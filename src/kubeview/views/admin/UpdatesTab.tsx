@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Settings, Shield, Puzzle,
   CheckCircle, XCircle, RefreshCw,
-  AlertTriangle, GitBranch, Server,
+  AlertTriangle, GitBranch, Server, HelpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sPatch } from '../../engine/query';
@@ -22,6 +22,7 @@ import { assertActiveCluster } from '../../engine/pendingCluster';
 import { isPlatformNamespace } from '../../engine/platformNamespaces';
 import { useCanI } from '../../hooks/useCanI';
 import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
+import { errorReason } from '../../engine/readResult';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -55,7 +56,19 @@ export interface UpdatesTabProps {
   nodes: Node[];
   deployments: Deployment[];
   pdbs: PodDisruptionBudget[];
+  /** PodDisruptionBudgets or Deployments could not be read: the PDB check is unknown. */
+  pdbCheckError?: unknown;
+  /** PDBs or Deployments are still loading: the PDB check is unknown, not a pass. */
+  pdbCheckLoading?: boolean;
+  /** Nodes could not be read: "All nodes ready" is unknown, not "0/0 ready". */
+  nodesError?: unknown;
+  nodesLoading?: boolean;
+  /** ClusterOperators could not be read: "No degraded operators" is unknown. */
+  operatorsError?: unknown;
+  operatorsLoading?: boolean;
   etcdBackupExists: boolean | undefined;
+  /** Backups could not be read (403/500): the backup check is unknown, not "none configured". */
+  etcdBackupError?: unknown;
   isHyperShift: boolean;
   machineConfigPools: MachineConfigPool[];
   pods: Pod[];
@@ -65,8 +78,9 @@ export interface UpdatesTabProps {
 export function UpdatesTab({
   clusterVersion, cvVersion, cvChannel, platform,
   availableUpdates, isUpdating,
-  operators, nodes, deployments, pdbs,
-  etcdBackupExists, isHyperShift,
+  operators, nodes, deployments, pdbs, pdbCheckError, pdbCheckLoading,
+  nodesError, nodesLoading, operatorsError, operatorsLoading,
+  etcdBackupExists, etcdBackupError, isHyperShift,
   machineConfigPools, pods, go,
 }: UpdatesTabProps) {
   const addToast = useUIStore((s) => s.addToast);
@@ -297,17 +311,42 @@ export function UpdatesTab({
               });
               const pdbCoverage = userDeploys.length === 0 || deploysWithPDB.length >= userDeploys.length * 0.5;
 
-              const checks = [
-                { label: 'All nodes ready', pass: allNodesReady, detail: allNodesReady ? `${nodes.length}/${nodes.length} ready` : `${readyNodes.length}/${nodes.length} ready \u2014 fix unready nodes first` },
-                { label: 'No degraded operators', pass: allOpsHealthy, detail: allOpsHealthy ? `${operators.length} operators healthy` : `${degradedOps.length} degraded: ${degradedOps.slice(0, 3).map((o) => o.metadata.name).join(', ')}` },
+              // pass: true = ok, false = needs attention, null = could not check.
+              const backupCheck: { pass: boolean | null; detail: string } = isHyperShift
+                ? { pass: true, detail: 'Managed by hosting provider' }
+                : etcdBackupError
+                  ? { pass: null, detail: `Could not check: ${errorReason(etcdBackupError)}. Confirm a recent etcd backup exists before updating.` }
+                  : etcdBackupExists === undefined
+                    ? { pass: null, detail: 'Checking\u2026' }
+                    : etcdBackupExists
+                      ? { pass: true, detail: 'Backup schedule configured' }
+                      : { pass: false, detail: 'No automated backup configured \u2014 take a manual backup: ssh to control plane \u2192 /usr/local/bin/cluster-backup.sh /home/core/backup' };
+              const pdbCheck: { pass: boolean | null; detail: string } = pdbCheckError
+                ? { pass: null, detail: `Could not check: ${errorReason(pdbCheckError)}` }
+                : pdbCheckLoading
+                  ? { pass: null, detail: 'Checking\u2026' }
+                  : { pass: pdbCoverage, detail: userDeploys.length === 0 ? 'No multi-replica user deployments' : `${deploysWithPDB.length}/${userDeploys.length} multi-replica deployments have PDBs` };
+
+              const checks: Array<{ label: string; pass: boolean | null; detail: string }> = [
+                nodesError
+                  ? { label: 'All nodes ready', pass: null, detail: `Could not check: ${errorReason(nodesError)}` }
+                  : nodesLoading
+                    ? { label: 'All nodes ready', pass: null, detail: 'Checking\u2026' }
+                    : { label: 'All nodes ready', pass: allNodesReady, detail: allNodesReady ? `${nodes.length}/${nodes.length} ready` : `${readyNodes.length}/${nodes.length} ready \u2014 fix unready nodes first` },
+                operatorsError
+                  ? { label: 'No degraded operators', pass: null, detail: `Could not check: ${errorReason(operatorsError)}` }
+                  : operatorsLoading
+                    ? { label: 'No degraded operators', pass: null, detail: 'Checking\u2026' }
+                    : { label: 'No degraded operators', pass: allOpsHealthy, detail: allOpsHealthy ? `${operators.length} operators healthy` : `${degradedOps.length} degraded: ${degradedOps.slice(0, 3).map((o) => o.metadata.name).join(', ')}` },
                 { label: 'Stable update channel', pass: channelStable, detail: channelStable ? `Channel: ${cvChannel}` : `Channel "${cvChannel}" \u2014 consider switching to stable for production` },
-                { label: 'Etcd backup', pass: isHyperShift || !!etcdBackupExists, detail: isHyperShift ? 'Managed by hosting provider' : etcdBackupExists ? 'Backup schedule configured' : 'No automated backup configured \u2014 take a manual backup: ssh to control plane \u2192 /usr/local/bin/cluster-backup.sh /home/core/backup' },
-                { label: 'PodDisruptionBudgets', pass: pdbCoverage, detail: userDeploys.length === 0 ? 'No multi-replica user deployments' : `${deploysWithPDB.length}/${userDeploys.length} multi-replica deployments have PDBs` },
+                { label: 'Etcd backup', ...backupCheck },
+                { label: 'PodDisruptionBudgets', ...pdbCheck },
               ];
 
               return checks.map((check, i) => (
-                <div key={i} className="flex items-start gap-2 py-1.5 px-2">
-                  {check.pass ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
+                <div key={i} className="flex items-start gap-2 py-1.5 px-2" data-testid={`precheck-${check.label}`} data-status={check.pass === null ? 'unknown' : check.pass ? 'pass' : 'warn'}>
+                  {check.pass === null ? <HelpCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" aria-label="Could not check" />
+                    : check.pass ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
                   <div>
                     <span className="text-sm text-slate-200">{check.label}</span>
                     <div className="text-xs text-slate-500 mt-0.5">{check.detail}</div>

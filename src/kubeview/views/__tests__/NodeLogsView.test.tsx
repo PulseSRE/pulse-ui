@@ -88,4 +88,27 @@ describe('NodeLogsView', () => {
     await vi.waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(calls));
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(mockFetchResponse)));
   });
+
+  it.each([403, 500])('shows a failed log read as an error, not as the log body, and disables download (%i)', async (status) => {
+    const fetchMock = vi.fn((url: string) => String(url).endsWith('/proxy/logs/audit/')
+      ? Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('<a href="audit.log">audit.log</a>') })
+      : Promise.resolve({ ok: false, status, statusText: 'Nope', text: () => Promise.resolve('') }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderView();
+    await vi.waitFor(() => expect(screen.getByText('Could not read audit.log')).toBeDefined());
+    expect(screen.getByRole('alert').textContent).toContain(status === 403 ? 'Permission denied (403)' : `Request failed (${status})`);
+    expect(document.body.textContent).not.toMatch(/Error: \d{3}/);
+    expect((screen.getByTitle('Download') as HTMLButtonElement).disabled).toBe(true);
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(mockFetchResponse)));
+  });
+
+  it('shows and allows downloading a log that was read', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => String(url).endsWith('/proxy/logs/audit/')
+      ? Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('<a href="audit.log">audit.log</a>') })
+      : Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('line one') })));
+    renderView();
+    await vi.waitFor(() => expect(screen.getByText('line one')).toBeDefined());
+    expect((screen.getByTitle('Download') as HTMLButtonElement).disabled).toBe(false);
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(mockFetchResponse)));
+  });
 });

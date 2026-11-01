@@ -8,6 +8,7 @@ import { useUIStore } from '../../store/uiStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { LoadError } from '../../components/primitives/LoadError';
+import { isNotFound } from '../../engine/readResult';
 import type { Deployment, StatefulSet } from '../../engine/types';
 import { useHelmReleases } from './HelmReleases';
 import { Card } from '../../components/primitives/Card';
@@ -31,35 +32,42 @@ export function InstalledTab() {
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Fetch Operators (Subscriptions)
-  const { data: subscriptions = [] } = useK8sListWatch({
+  // Each section shows its own read error. A 403 used to read as
+  // "No operators installed" / "No deployments found".
+  const subsQuery = useK8sListWatch({
     apiPath: '/apis/operators.coreos.com/v1alpha1/subscriptions',
     namespace: nsFilter,
   });
+  const subscriptions = subsQuery.data ?? [];
+  // A 404 means OLM's API is not served: nothing is installed through it.
+  const subsError = subsQuery.isError && !isNotFound(subsQuery.error) ? subsQuery.error : null;
 
   // Helm releases are listed once, with their actions, on the Helm Charts
   // tab; this section only counts them (same query, same cache entry).
   const { data: helmReleases = [], error: helmError } = useHelmReleases(nsFilter);
 
   // Fetch Deployments
-  const { data: deployments = [] } = useK8sListWatch({
+  const deploymentsQuery = useK8sListWatch({
     apiPath: '/apis/apps/v1/deployments',
     namespace: nsFilter,
   });
+  const deployments = deploymentsQuery.data ?? [];
 
   // Fetch StatefulSets
-  const { data: statefulsets = [] } = useK8sListWatch({
+  const statefulsetsQuery = useK8sListWatch({
     apiPath: '/apis/apps/v1/statefulsets',
     namespace: nsFilter,
   });
+  const statefulsets = statefulsetsQuery.data ?? [];
 
   // Exclude platform namespaces
   const isUserNs = (ns: string) => !isPlatformNamespace(ns);
 
   const userDeployments = (deployments as Deployment[]).filter(d => isUserNs(d.metadata?.namespace || ''));
   const userStatefulSets = (statefulsets as StatefulSet[]).filter(s => isUserNs(s.metadata?.namespace || ''));
-  const userSubscriptions = (subscriptions as Subscription[]).filter(s => {
-    return true;
-  });
+  // Operators are listed in every namespace: an operator in a platform
+  // namespace (openshift-operators) is still one the user installed.
+  const userSubscriptions = subscriptions as unknown as Subscription[];
 
   // Filter all sections by search
   const q = search.toLowerCase();
@@ -108,7 +116,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Package className="w-4 h-4 text-purple-400" />
             Operators
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredSubscriptions.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{subsError ? '\u2014' : filteredSubscriptions.length}</span>
           </h3>
           <button
             onClick={() => go('/operators', 'Operators')}
@@ -117,7 +125,11 @@ export function InstalledTab() {
             View all <ArrowRight className="w-3 h-3" />
           </button>
         </div>
-        {filteredSubscriptions.length === 0 ? (
+        {subsError ? (
+          <LoadError title="Installed operators could not be listed" error={subsError} onRetry={() => { void subsQuery.refetch(); }} />
+        ) : subsQuery.isLoading && !subsQuery.isError ? (
+          <p className="text-xs text-slate-500 text-center py-4">Loading…</p>
+        ) : filteredSubscriptions.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-4">No operators installed</p>
         ) : (
           <div className="space-y-2">
@@ -210,7 +222,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Box className="w-4 h-4 text-blue-400" />
             Deployments
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredDeployments.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{deploymentsQuery.isError ? '\u2014' : filteredDeployments.length}</span>
           </h3>
           <button
             onClick={() => go('/workloads', 'Workloads')}
@@ -219,7 +231,11 @@ export function InstalledTab() {
             View all <ArrowRight className="w-3 h-3" />
           </button>
         </div>
-        {filteredDeployments.length === 0 ? (
+        {deploymentsQuery.isError ? (
+          <LoadError title="Deployments could not be listed" error={deploymentsQuery.error} onRetry={() => { void deploymentsQuery.refetch(); }} />
+        ) : deploymentsQuery.isLoading ? (
+          <p className="text-xs text-slate-500 text-center py-4">Loading…</p>
+        ) : filteredDeployments.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-4">No deployments found</p>
         ) : (
           <div className="space-y-2">
@@ -289,7 +305,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Database className="w-4 h-4 text-cyan-400" />
             StatefulSets
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredStatefulSets.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{statefulsetsQuery.isError ? '\u2014' : filteredStatefulSets.length}</span>
           </h3>
           <button
             onClick={() => go('/workloads', 'Workloads')}
@@ -298,7 +314,11 @@ export function InstalledTab() {
             View all <ArrowRight className="w-3 h-3" />
           </button>
         </div>
-        {filteredStatefulSets.length === 0 ? (
+        {statefulsetsQuery.isError ? (
+          <LoadError title="StatefulSets could not be listed" error={statefulsetsQuery.error} onRetry={() => { void statefulsetsQuery.refetch(); }} />
+        ) : statefulsetsQuery.isLoading ? (
+          <p className="text-xs text-slate-500 text-center py-4">Loading…</p>
+        ) : filteredStatefulSets.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-4">No statefulsets found</p>
         ) : (
           <div className="space-y-2">
