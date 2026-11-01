@@ -102,7 +102,9 @@ function ClusterZen({ nodeCount, podCount, deploymentCount, go, onDismiss }: Clu
 
       {/* Quick stats */}
       <div className="flex items-center gap-2 text-sm text-slate-500 mb-10">
-        <span className="text-emerald-400 font-medium">{nodeCount}</span> node{nodeCount !== 1 ? 's' : ''} healthy
+        <button type="button" data-testid="pulse-nodes-link" onClick={() => go('/compute', 'Compute')} className="hover:text-slate-300">
+          <span className="text-emerald-400 font-medium">{nodeCount}</span> node{nodeCount !== 1 ? 's' : ''} healthy
+        </button>
         <span className="text-slate-700 mx-1">&middot;</span>
         <span className="text-emerald-400 font-medium">{podCount}</span> pod{podCount !== 1 ? 's' : ''} running
         <span className="text-slate-700 mx-1">&middot;</span>
@@ -710,7 +712,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
         <MetricGrid>
           <MetricCard title="CPU" query="sum(rate(node_cpu_seconds_total{mode!='idle'}[5m])) / sum(machine_cpu_cores) * 100" unit="%" color={CHART_COLORS.blue} thresholds={{ warning: 70, critical: 90 }} onClick={() => go('/compute', 'Compute')} />
           <MetricCard title="Memory" query="(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100" unit="%" color={CHART_COLORS.violet} thresholds={{ warning: 75, critical: 90 }} onClick={() => go('/compute', 'Compute')} />
-          <button onClick={() => go('/compute', 'Compute')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 hover:border-slate-600 transition-colors text-left">
+          <button data-testid="pulse-nodes-link" onClick={() => go('/compute', 'Compute')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 hover:border-slate-600 transition-colors text-left">
             <div className="flex items-center gap-2 text-slate-400 text-xs font-medium uppercase tracking-wider">
               <Server className="w-3.5 h-3.5" />Nodes
             </div>
