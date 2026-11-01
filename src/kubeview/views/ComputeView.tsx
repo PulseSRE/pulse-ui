@@ -18,6 +18,7 @@ import type { Node, Pod, Machine, MachineSet, NodePool, Condition } from '../eng
 import { getNodeStatus } from '../engine/renderers/statusUtils';
 import { parseResourceValue, formatBytes, formatCpu } from '../engine/formatting';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { PendingCsrNotice } from './admin/CsrTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useClusterStore } from '../store/clusterStore';
 import { Card } from '../components/primitives/Card';
@@ -272,6 +273,8 @@ export default function ComputeView() {
           </h1>
           <p className="text-sm text-slate-400 mt-1">Cluster capacity, node health, and resource utilization</p>
         </div>
+
+        <PendingCsrNotice go={go} />
 
         {/* Tabs */}
         <Card className="flex gap-1 p-1">

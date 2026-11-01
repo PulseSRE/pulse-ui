@@ -6,18 +6,19 @@ import {
   ArrowRight, ArrowLeft, Star, Filter, Shield, Globe, Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { k8sList, k8sCreate, k8sDelete, k8sGet } from '../engine/query';
+import { k8sList, k8sDelete, k8sGet } from '../engine/query';
 import { LoadError } from '../components/primitives/LoadError';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { safeQuery } from '../engine/safeQuery';
 import { useUIStore } from '../store/uiStore';
 import { showErrorToast } from '../engine/errorToast';
-import { PulseError } from '../engine/errors';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { Card } from '../components/primitives/Card';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 import { assertActiveCluster } from '../engine/pendingCluster';
+import { InstallOperatorForm } from './operators/InstallOperatorForm';
+import { ManageSubscription } from './operators/ManageSubscription';
 
 interface PackageManifest {
   metadata: { name: string; namespace?: string };
@@ -57,19 +58,33 @@ const POPULAR_OPERATORS = [
   'kubevirt-hyperconverged', 'local-storage-operator', 'odf-operator',
 ];
 
+/** Where an operator installs by default: its known namespace, else the global one when it supports all namespaces. */
+function suggestedNamespace(name: string, allNsSupported: boolean | undefined): string {
+  if (name.includes('logging')) return 'openshift-logging';
+  if (name.includes('loki')) return 'openshift-operators-redhat';
+  if (allNsSupported) return 'openshift-operators';
+  return `openshift-${name}`;
+}
+
 export default function OperatorCatalogView() {
   const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
 
-  const [searchParams] = useSearchParams();
+  // The selected operator lives in the URL (`?pkg=`), so browser Back
+  // returns to the catalog and a detail page can be shared.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get('q') || '');
-  const [catalogFilter, setCatalogFilter] = useState<string>('all');
-  const [selectedOp, setSelectedOp] = useState<PackageManifest | null>(null);
-  const [installing, setInstalling] = useState(false);
-  const [selectedChannel, setSelectedChannel] = useState('');
-  const [installNs, setInstallNs] = useState('openshift-operators');
+  const [catalogFilter, setCatalogFilter] = useState<string>(searchParams.get('view') === 'installed' ? 'installed' : 'all');
+  const selectedPkgName = searchParams.get('pkg');
+  const setSelectedOp = React.useCallback((pkg: PackageManifest | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (pkg) next.set('pkg', pkg.metadata.name); else next.delete('pkg');
+      return next;
+    });
+  }, [setSearchParams]);
   const [installingOp, setInstallingOp] = useState<{ name: string; ns: string; displayName: string } | null>(null);
   const [visibleCount, setVisibleCount] = useState(60);
   const [uninstalling, setUninstalling] = useState(false);
@@ -110,6 +125,11 @@ export default function OperatorCatalogView() {
     return [...seen.values()];
   }, [packages]);
 
+  const selectedOp = useMemo(
+    () => (selectedPkgName ? dedupedPackages.find((p) => p.metadata.name === selectedPkgName) ?? null : null),
+    [selectedPkgName, dedupedPackages],
+  );
+
   // Filter and sort
   const filtered = useMemo(() => {
     let result = dedupedPackages;
@@ -140,59 +160,6 @@ export default function OperatorCatalogView() {
       return aName.localeCompare(bName);
     });
   }, [dedupedPackages, search, catalogFilter, installedNames]);
-
-  // Install operator
-  const handleInstall = async (pkg: PackageManifest, channel: string, ns: string) => {
-    setInstalling(true);
-    try {
-      assertActiveCluster(clusterId, 'Installing this operator');
-      // Create namespace if it doesn't exist (best effort)
-      if (ns !== 'openshift-operators') {
-        try {
-          await k8sCreate('/api/v1/namespaces', { apiVersion: 'v1', kind: 'Namespace', metadata: { name: ns } }, clusterId);
-        } catch (err: unknown) {
-          if (!(err instanceof PulseError && err.statusCode === 409)) showErrorToast(err, 'Failed to create namespace');
-        }
-      }
-
-      // Create OperatorGroup if namespace is not openshift-operators (which has a global one)
-      if (ns !== 'openshift-operators' && ns !== 'openshift-operators-redhat') {
-        try {
-          await k8sCreate(`/apis/operators.coreos.com/v1/namespaces/${ns}/operatorgroups`, {
-            apiVersion: 'operators.coreos.com/v1',
-            kind: 'OperatorGroup',
-            metadata: { name: `${pkg.metadata.name}-group`, namespace: ns },
-            spec: { targetNamespaces: [ns] },
-          }, clusterId);
-        } catch (err: unknown) {
-          if (!(err instanceof PulseError && err.statusCode === 409)) showErrorToast(err, 'Failed to create OperatorGroup');
-        }
-      }
-
-      // Create Subscription
-      await k8sCreate(`/apis/operators.coreos.com/v1alpha1/namespaces/${ns}/subscriptions`, {
-        apiVersion: 'operators.coreos.com/v1alpha1',
-        kind: 'Subscription',
-        metadata: { name: pkg.metadata.name, namespace: ns },
-        spec: {
-          channel,
-          name: pkg.metadata.name,
-          source: pkg.status.catalogSource,
-          sourceNamespace: pkg.status.catalogSourceNamespace || 'openshift-marketplace',
-          installPlanApproval: 'Automatic',
-        },
-      }, clusterId);
-
-      const displayName = pkg.status.channels?.[0]?.currentCSVDesc?.displayName || pkg.metadata.name;
-      addToast({ type: 'success', title: 'Subscription created', detail: `${displayName} installing in ${ns}` });
-      queryClient.invalidateQueries({ queryKey: ['readiness', 'subscriptions'] });
-      setInstallingOp({ name: pkg.metadata.name, ns, displayName });
-      setSelectedOp(null);
-    } catch (err) {
-      showErrorToast(err, 'Install failed');
-    }
-    setInstalling(false);
-  };
 
   // Uninstall operator
   const handleUninstall = async () => {
@@ -283,22 +250,6 @@ export default function OperatorCatalogView() {
     }
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [dedupedPackages]);
-
-  // Initialize channel/ns when operator is selected
-  React.useEffect(() => {
-    if (selectedOp) {
-      const channels = selectedOp.status.channels || [];
-      setSelectedChannel(selectedOp.status.defaultChannel || channels[0]?.name || '');
-      const desc = channels.find(c => c.name === selectedOp.status.defaultChannel)?.currentCSVDesc || channels[0]?.currentCSVDesc;
-      const allNsSupported = desc?.installModes?.find((m: any) => m.type === 'AllNamespaces')?.supported;
-      setInstallNs(
-        selectedOp.metadata.name.includes('logging') ? 'openshift-logging'
-        : selectedOp.metadata.name.includes('loki') ? 'openshift-operators-redhat'
-        : allNsSupported ? 'openshift-operators'
-        : `openshift-${selectedOp.metadata.name}`
-      );
-    }
-  }, [selectedOp]);
 
   // Track install progress
   const { data: installSub } = useQuery({
@@ -527,7 +478,8 @@ export default function OperatorCatalogView() {
       ? safeQuery(() => k8sGet<any>(`/apis/operators.coreos.com/v1alpha1/namespaces/${installedCsvNs}/installplans/${selectedSub.status.installPlanRef.name}`, clusterId))
       : null,
     enabled: !!selectedSub?.status?.installPlanRef?.name && !!installedCsvNs,
-    staleTime: 60000,
+    // A Manual InstallPlan is approved from here; keep its state current.
+    refetchInterval: 15000,
   });
 
   // Detail view
@@ -576,35 +528,24 @@ export default function OperatorCatalogView() {
 
           {/* Install form */}
           {!isInstalled && (
-            <div className="bg-blue-950/30 rounded-lg border border-blue-800 p-4 space-y-4">
-              <h2 className="text-sm font-semibold text-blue-200">Install Operator</h2>
-
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Channel</label>
-                <select value={selectedChannel} onChange={(e) => setSelectedChannel(e.target.value)}
-                  className="px-3 py-2 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-full max-w-xs">
-                  {channels.map(ch => <option key={ch.name} value={ch.name}>{ch.name} (v{ch.currentCSVDesc?.version})</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-400 block mb-1">Install Namespace</label>
-                <input type="text" value={installNs} onChange={(e) => setInstallNs(e.target.value)}
-                  className="px-3 py-2 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-full max-w-xs font-mono" />
-                <div className="text-xs text-slate-500 mt-1">
-                  {allNsSupported ? 'This operator supports all namespaces — openshift-operators is recommended.' : 'This operator requires its own namespace.'}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button onClick={() => handleInstall(selectedOp, selectedChannel, installNs)} disabled={installing}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
-                  {installing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
-                  {installing ? 'Installing...' : 'Install'}
-                </button>
-                <span className="text-xs text-slate-500">Creates Namespace, OperatorGroup, and Subscription</span>
-              </div>
-            </div>
+            <InstallOperatorForm
+              key={selectedOp.metadata.name}
+              pkg={{
+                name: selectedOp.metadata.name,
+                displayName: desc?.displayName || selectedOp.metadata.name,
+                source: selectedOp.status.catalogSource,
+                sourceNamespace: selectedOp.status.catalogSourceNamespace || 'openshift-marketplace',
+                defaultChannel: selectedOp.status.defaultChannel,
+                channels: channels.map((c) => ({ name: c.name, version: c.currentCSVDesc?.version, installModes: c.currentCSVDesc?.installModes })),
+                suggestedNamespace: suggestedNamespace(selectedOp.metadata.name, allNsSupported),
+              }}
+              onInstalled={(info) => {
+                addToast({ type: 'success', title: 'Subscription created', detail: `${info.displayName} installing in ${info.ns}` });
+                queryClient.invalidateQueries({ queryKey: ['readiness', 'subscriptions'] });
+                queryClient.invalidateQueries({ queryKey: ['operator-sub'] });
+                setInstallingOp(info);
+              }}
+            />
           )}
 
           {/* Provided APIs — show for installed operators */}
@@ -680,6 +621,15 @@ export default function OperatorCatalogView() {
                 <div><span className="text-slate-500">State</span><div className={cn('mt-0.5', selectedSub.status?.state === 'AtLatestKnown' ? 'text-green-400' : 'text-yellow-400')}>{selectedSub.status?.state || '—'}</div></div>
               </div>
             </Card>
+          )}
+
+          {isInstalled && selectedSub && (
+            <ManageSubscription
+              sub={selectedSub}
+              installPlan={installPlan}
+              channels={channels.map((c) => ({ name: c.name, version: c.currentCSVDesc?.version }))}
+              displayName={desc?.displayName || selectedOp.metadata.name}
+            />
           )}
 
           {/* Operator Components (deployments + pods) */}
@@ -780,7 +730,12 @@ export default function OperatorCatalogView() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2"><Puzzle className="w-6 h-6 text-violet-500" /> Operator Catalog</h1>
-          <p className="text-sm text-slate-400 mt-1">{catalogError ? 'Catalog could not be read' : isLoading ? 'Loading catalog…' : `${dedupedPackages.length} operators available from ${catalogs.length} sources`}</p>
+          <div className="flex flex-wrap items-center gap-x-2 text-sm text-slate-400 mt-1">
+            <p>{catalogError ? 'Catalog could not be read' : isLoading ? 'Loading catalog…' : `${dedupedPackages.length} operators available from ${catalogs.length} sources`}</p>
+            <button onClick={() => go('/admin?tab=operators', 'Cluster Operators')} className="text-blue-400 hover:text-blue-300">
+              Platform ClusterOperators →
+            </button>
+          </div>
         </div>
 
         {installProgressBanner}
