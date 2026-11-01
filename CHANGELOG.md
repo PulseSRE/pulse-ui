@@ -4,6 +4,8 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+- **CI actions on Node 24.** GitHub has deprecated Node.js 20 for actions and was forcing these onto Node 24 with a warning on every run. Bumped to the current majors, the same ones pulse-operator already uses: `actions/checkout@v7`, `actions/setup-python@v7`, `actions/setup-node@v7`, `actions/upload-artifact@v7`, `docker/build-push-action@v7`, `docker/login-action@v4`, `pnpm/action-setup@v6` (each only where the repo uses it).
+
 ### CI
 - `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
 
