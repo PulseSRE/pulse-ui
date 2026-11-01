@@ -219,3 +219,59 @@ describe('gate actions open the page that fixes them', () => {
     expect(result.action?.path).toBe(path);
   });
 });
+
+describe('cluster-updated gate', () => {
+  const evaluate = (cv: unknown) => findGate('cluster-updated').evaluate(makeCtx(vi.fn(async () => cv) as GateContext['fetchJson']));
+
+  it('is not a pass when the cluster could not retrieve updates (RetrievedUpdates=False)', async () => {
+    const result = await evaluate({
+      status: {
+        availableUpdates: null,
+        conditions: [{ type: 'RetrievedUpdates', status: 'False', reason: 'RemoteFailed', message: 'Unable to retrieve available updates: connection refused' }],
+      },
+    });
+    expect(result.status).toBe('not_started');
+    expect(result.detail).toMatch(/^Could not check/);
+    expect(result.detail).toContain('connection refused');
+    expect(result.detail).not.toMatch(/up to date/i);
+  });
+
+  it('counts conditional updates as available updates', async () => {
+    const result = await evaluate({
+      status: {
+        availableUpdates: [],
+        conditionalUpdates: [
+          { release: { version: '4.16.9' }, risks: [{ name: 'SomeRisk' }], conditions: [{ type: 'Recommended', status: 'False' }] },
+          { release: { version: '4.16.10' }, risks: [], conditions: [{ type: 'Recommended', status: 'True' }] },
+        ],
+        conditions: [{ type: 'RetrievedUpdates', status: 'True' }],
+      },
+    });
+    expect(result.status).toBe('needs_attention');
+    expect(result.detail).toBe('2 updates available');
+  });
+
+  it('does not double-count a version listed as both available and conditional', async () => {
+    const result = await evaluate({
+      status: {
+        availableUpdates: [{ version: '4.16.10' }],
+        conditionalUpdates: [{ release: { version: '4.16.10' }, conditions: [{ type: 'Recommended', status: 'True' }] }],
+        conditions: [{ type: 'RetrievedUpdates', status: 'True' }],
+      },
+    });
+    expect(result.detail).toBe('1 update available');
+  });
+
+  it('passes only when updates were retrieved and none are listed', async () => {
+    const result = await evaluate({ status: { availableUpdates: null, conditions: [{ type: 'RetrievedUpdates', status: 'True' }] } });
+    expect(result.status).toBe('passed');
+    expect(result.detail).toBe('Up to date');
+  });
+
+  it.each([403, 500])('reports unknown, not up to date, when ClusterVersion read fails with %i', async (status) => {
+    const fetchJson = vi.fn(async () => { throw Object.assign(new Error(`${status}`), { status }); }) as GateContext['fetchJson'];
+    const result = await findGate('cluster-updated').evaluate(makeCtx(fetchJson));
+    expect(result.status).toBe('not_started');
+    expect(result.detail).not.toMatch(/up to date/i);
+  });
+});

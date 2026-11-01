@@ -16,6 +16,7 @@ import { HelmReleases } from './HelmReleases';
 import { NamespacePicker, useInitialNamespace, isNamespaceName } from './NamespacePicker';
 import { usePinnedAction } from '../../hooks/usePinnedAction';
 import { LoadError } from '../../components/primitives/LoadError';
+import { errorReason } from '../../engine/readResult';
 
 /** HelmChartRepository CRD — not yet in engine/types, defined locally. */
 interface HelmChartRepository {
@@ -129,11 +130,15 @@ export function HelmTab() {
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Fetch chart repos from OpenShift HelmChartRepository CRDs
-  const { data: chartRepoCRDs = [] } = useQuery({
+  // A 404 means the HelmChartRepository API is not served (no cluster repos).
+  // Anything else is an error, shown above the list: a 403 used to read as an
+  // empty list, leaving only the default repo with no word why.
+  const { data: chartRepoCRDs = [], error: reposError, refetch: refetchRepos } = useQuery({
     queryKey: ['helm', 'repos', clusterId],
     queryFn: async () => {
       const res = await k8sFetch(clusterId, '/apis/helm.openshift.io/v1beta1/helmchartrepositories');
-      if (!res.ok) return [];
+      if (res.status === 404) return [] as HelmChartRepository[];
+      if (!res.ok) throw new Error(`Chart repositories could not be listed: ${errorReason({ status: res.status })}`);
       const data = await res.json();
       return (data.items || []) as HelmChartRepository[];
     },
@@ -155,10 +160,12 @@ export function HelmTab() {
   }
 
   // Fetch charts from all repos
-  const { data: chartCatalog = [], isLoading: chartsLoading } = useQuery<HelmChart[]>({
-    queryKey: ['helm', 'charts', 'index', repos.map(r => r.url).join(',')],
+  // Each repo's index that could not be fetched is recorded and shown, not skipped.
+  const { data: chartIndex, isLoading: chartsLoading } = useQuery<{ charts: HelmChart[]; failures: Array<{ repo: string; reason: string }> }>({
+    queryKey: ['helm', 'charts', 'index', clusterId, repos.map(r => r.url).join(',')],
     queryFn: async () => {
       const allCharts: HelmChart[] = [];
+      const failures: Array<{ repo: string; reason: string }> = [];
 
       for (const repo of repos) {
         if (!repo.url) continue;
@@ -191,15 +198,23 @@ export function HelmTab() {
             const text = await res.text();
             const parsed = parseHelmIndex(text, repo.name, repo.url);
             allCharts.push(...parsed);
+          } else {
+            failures.push({ repo: repo.name, reason: `index.yaml returned ${res.status}${res.statusText ? ` ${res.statusText}` : ''}` });
           }
-        } catch (err) { showErrorToast(err, 'Failed to load Helm chart'); }
+        } catch (err) {
+          failures.push({ repo: repo.name, reason: `index.yaml could not be fetched${err instanceof Error && err.message ? `: ${err.message}` : ''}` });
+        }
       }
 
-      return allCharts;
+      return { charts: allCharts, failures };
     },
     staleTime: 300000,
     enabled: repos.length > 0,
   });
+
+  const chartCatalog = chartIndex?.charts ?? [];
+  const indexFailures = chartIndex?.failures ?? [];
+  const failureFor = (repoName: string) => indexFailures.find((f) => f.repo === repoName);
 
   // Update repo chart counts
   for (const repo of repos) {
@@ -350,12 +365,16 @@ export function HelmTab() {
           </div>
         )}
 
+        {!!reposError && (
+          <LoadError className="mb-3" title="Cluster chart repositories could not be listed; only the default repository is shown" error={reposError} onRetry={() => { void refetchRepos(); }} />
+        )}
+
         {/* Repo list */}
         <div className="space-y-2">
           {repos.map((repo) => (
             <div key={repo.name} className="flex items-center justify-between px-3 py-2 bg-slate-800/30 rounded-sm border border-slate-800">
               <div className="flex items-center gap-3 min-w-0">
-                <div className={cn('w-2 h-2 rounded-full shrink-0', repo.isReady ? 'bg-green-500' : 'bg-yellow-500')} />
+                <div className={cn('w-2 h-2 rounded-full shrink-0', failureFor(repo.name) ? 'bg-red-500' : repo.isReady ? 'bg-green-500' : 'bg-yellow-500')} />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-slate-200">{repo.name}</span>
@@ -364,10 +383,11 @@ export function HelmTab() {
                     )}
                   </div>
                   <div className="text-xs text-slate-500 font-mono truncate">{repo.url}</div>
+                  {failureFor(repo.name) && <div className="text-xs text-red-300">{failureFor(repo.name)!.reason}</div>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-slate-500">{repo.chartCount} chart{repo.chartCount !== 1 ? 's' : ''}</span>
+                <span className="text-xs text-slate-500">{failureFor(repo.name) ? '\u2014 charts' : `${repo.chartCount} chart${repo.chartCount !== 1 ? 's' : ''}`}</span>
                 {!repo.isDefault && (
                   <button onClick={() => setDeleteRepo(repo.name)}
                     className="p-1 text-slate-500 hover:text-red-400 rounded-sm hover:bg-slate-700 transition-colors" title="Remove repository">
@@ -436,6 +456,14 @@ export function HelmTab() {
         {install.error && <LoadError className="mt-3" title="The install was not started" error={install.error} />}
       </ConfirmDialog>
 
+      {indexFailures.length > 0 && (
+        <LoadError
+          title={`Charts from ${indexFailures.length} repositor${indexFailures.length === 1 ? 'y' : 'ies'} could not be loaded`}
+          error={indexFailures.map((f) => `${f.repo}: ${f.reason}`).join('; ')}
+          onRetry={() => { queryClient.invalidateQueries({ queryKey: ['helm', 'charts'] }); }}
+        />
+      )}
+
       {/* Chart catalog */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -461,7 +489,7 @@ export function HelmTab() {
           <div className="col-span-full text-center py-8">
             <Ship className="w-8 h-8 text-slate-600 mx-auto mb-3" />
             <div className="text-sm text-slate-500">
-              {chartCatalog.length === 0 ? 'No charts available — check repository connectivity' : 'No charts match your search'}
+              {chartCatalog.length === 0 ? (indexFailures.length > 0 ? 'No charts could be loaded' : 'No charts available — check repository connectivity') : 'No charts match your search'}
             </div>
           </div>
         )}

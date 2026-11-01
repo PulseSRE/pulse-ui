@@ -87,7 +87,7 @@ export function WaiverDialog({ gateTitle, open, onClose, onConfirm, storage, loa
             </>
           ) : storage === 'browser' ? (
             <span data-testid="waiver-browser-notice" className="text-amber-300">
-              This agent does not support shared waivers (it is an older version), so this waiver is stored in
+              This agent does not provide shared waivers, so this waiver is stored in
               this browser only, for this cluster; other people and other browsers do not see it.
             </span>
           ) : loadError ? (

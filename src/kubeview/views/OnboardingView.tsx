@@ -397,7 +397,7 @@ export default function OnboardingView() {
 
         {waiverStorage === 'browser' && (
           <div data-testid="waiver-browser-banner" className="rounded-lg border border-amber-900/60 bg-amber-950/20 px-4 py-3 text-sm text-amber-300">
-            This agent does not support shared waivers (it is an older version). Waivers are kept in this browser
+            This agent does not provide shared waivers. Waivers are kept in this browser
             only; other people and other browsers do not see them.
           </div>
         )}
