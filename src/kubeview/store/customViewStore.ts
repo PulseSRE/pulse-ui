@@ -21,6 +21,8 @@ interface CustomViewState {
   views: ViewSpec[];
   loading: boolean;
   error: string | null;
+  /** Set only when loading the list failed (not a save/delete error), so a page can tell "not found" from "could not load". */
+  loadError: string | null;
   currentUser: string | null;
   /** The view currently being built in canvas mode */
   activeBuilderId: string | null;
@@ -93,6 +95,7 @@ export const useCustomViewStore = create<CustomViewState>()(
     views: [],
     loading: false,
     error: null,
+    loadError: null,
     currentUser: null,
     activeBuilderId: null,
 
@@ -103,7 +106,7 @@ export const useCustomViewStore = create<CustomViewState>()(
       if (_lastLoadAttempt && now - _lastLoadAttempt < 5000) return;
       _lastLoadAttempt = now;
 
-      set({ loading: true, error: null });
+      set({ loading: true, error: null, loadError: null });
       try {
         const data = await apiFetch('/views');
         const seenIds = new Set<string>();
@@ -128,7 +131,8 @@ export const useCustomViewStore = create<CustomViewState>()(
         set({ views, currentUser: data.owner, loading: false });
       } catch (err) {
         _lastLoadAttempt = 0; // Allow immediate retry on error
-        set({ loading: false, error: err instanceof Error ? err.message : 'Failed to load views' });
+        const msg = err instanceof Error ? err.message : 'Failed to load views';
+        set({ loading: false, error: msg, loadError: msg });
       }
     },
 

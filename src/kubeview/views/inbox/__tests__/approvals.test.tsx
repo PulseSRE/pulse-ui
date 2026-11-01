@@ -278,6 +278,17 @@ describe('the approvals queue', () => {
     expect(screen.queryByText('Could not load durable runs waiting for approval')).toBeNull();
   });
 
+  it('the agent\'s auth 503 "Server not configured" is an error, not "durable execution off"', async () => {
+    route([
+      ['/workflow-runs/awaiting-approval', () => ({ status: 503, body: { detail: 'Server not configured' } })],
+      ['GET /api/agent/fix-history', () => ({ body: { actions: [], total: 0, page: 1, pageSize: 20 } })],
+    ]);
+    inRouter(<ApprovalsQueue />);
+    expect(await screen.findByText('Could not load durable runs waiting for approval')).toBeTruthy();
+    expect(screen.getByText('Server not configured')).toBeTruthy();
+    expect(screen.queryByText('Nothing is waiting on you')).toBeNull();
+  });
+
   it('keeps the last known runs when a later read fails', async () => {
     useApprovalsStore.setState({ runs: [run as never] });
     route([

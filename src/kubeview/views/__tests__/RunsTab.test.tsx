@@ -152,6 +152,7 @@ describe('RunsTab', () => {
     [403, 'Forbidden'],
     [500, 'Internal Server Error'],
     [503, 'Cannot reach the Temporal server at temporal:7233: ConnectError'],
+    [503, 'Server not configured'],
   ])('shows a %i as a failed read, not "not configured"', async (status, detail) => {
     mockFetch.mockResolvedValue({ ok: false, status, json: () => Promise.resolve({ detail }) });
     renderWithProviders(<RunsTab />);

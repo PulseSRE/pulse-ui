@@ -6,6 +6,7 @@ import { useCustomViewStore } from '../store/customViewStore';
 import { useUIStore } from '../store/uiStore';
 import { AgentComponentRenderer } from '../components/agent/AgentComponentRenderer';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { LoadError } from '../components/primitives/LoadError';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { WidgetErrorBoundary } from '../components/agent/WidgetErrorBoundary';
 import { formatRelativeTime } from '../engine/formatters';
@@ -82,10 +83,17 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
 
   // Load views if the requested view isn't in the store yet (once per viewId)
   const loadViews = useCustomViewStore((s) => s.loadViews);
+  const forceLoadViews = useCustomViewStore((s) => s.forceLoadViews);
+  const viewsLoading = useCustomViewStore((s) => s.loading);
+  const viewsLoadError = useCustomViewStore((s) => s.loadError);
   const attemptedLoad = useRef<string | null>(null);
+  // State, not only the ref: a load the store skips (debounced) changes no
+  // store state, so this is what re-renders out of "Loading view…".
+  const [loadRequestedFor, setLoadRequestedFor] = useState<string | null>(null);
   useEffect(() => {
     if (!preview && viewId && !view && attemptedLoad.current !== viewId) {
       attemptedLoad.current = viewId;
+      setLoadRequestedFor(viewId);
       loadViews();
     }
   }, [preview, viewId, view, loadViews]);
@@ -214,6 +222,25 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
     },
     [view, editMode, updateView],
   );
+
+  // "View not found" only once the list loaded without it: not while it is
+  // loading (or about to), and not when the load failed.
+  if (!view && !preview && (viewsLoading || (!!viewId && loadRequestedFor !== viewId && !viewsLoadError))) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-950" role="status">
+        <p className="text-slate-500 text-sm">Loading view…</p>
+      </div>
+    );
+  }
+  if (!view && !preview && viewsLoadError) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-950 p-6">
+        <div className="max-w-md w-full">
+          <LoadError title="Views could not be loaded" error={viewsLoadError} onRetry={() => { void forceLoadViews(); }} />
+        </div>
+      </div>
+    );
+  }
 
   if (!view) {
     const handleCloseTab = () => {

@@ -35,7 +35,9 @@ import { IncidentLifecycleDrawer } from './IncidentLifecycleDrawer';
 
 async function fetchPostmortems(): Promise<{ postmortems: Postmortem[]; total: number }> {
   const res = await agentFetch('/api/agent/postmortems');
-  if (!res.ok) return { postmortems: [], total: 0 };
+  // An agent without postmortems (404) has none; anything else is a failed read.
+  if (res.status === 404) return { postmortems: [], total: 0 };
+  if (!res.ok) throw new Error(`Postmortems could not be loaded (${res.status})`);
   return res.json();
 }
 
@@ -58,7 +60,7 @@ export function ActivityTab() {
 
   useEffect(() => { loadFixHistory(); }, [loadFixHistory]);
 
-  const { data: postmortemData } = useQuery({
+  const { data: postmortemData, isError: postmortemsFailed, error: postmortemsError, refetch: refetchPostmortems } = useQuery({
     queryKey: ['postmortems'],
     queryFn: fetchPostmortems,
     refetchInterval: 60_000,
@@ -213,6 +215,10 @@ export function ActivityTab() {
         </button>
       </div>
 
+      {postmortemsFailed && (
+        <LoadError title="Postmortems could not be loaded" error={postmortemsError} onRetry={() => { void refetchPostmortems(); }} />
+      )}
+
       {/* Agent section: investigations + postmortems + learning */}
       {(filteredInvestigations.length > 0 || postmortems.length > 0 || learningEvents.length > 0) && (
         <div className="space-y-4">
@@ -280,7 +286,10 @@ export function ActivityTab() {
 
       {/* Agent actions by date */}
       <div className="flex items-center gap-4 text-xs text-slate-500">
-        <span>{mergedEntries.length} agent action{mergedEntries.length !== 1 ? 's' : ''}</span>
+        {/* With fix history unreadable the total is unknown, not the investigations alone. */}
+        {fixHistoryError
+          ? <span data-unknown>— agent actions</span>
+          : <span>{mergedEntries.length} agent action{mergedEntries.length !== 1 ? 's' : ''}</span>}
       </div>
 
       {fixHistoryError && (

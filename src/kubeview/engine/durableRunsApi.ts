@@ -42,7 +42,7 @@ async function detail(res: Response, fallback: string): Promise<string> {
  * that one is a failure, not "off".
  */
 export function isDurableDisabled(status: number, detail: string): boolean {
-  return status === 404 || (status === 503 && /not configured|PULSE_AGENT_TEMPORAL_HOST/i.test(detail));
+  return status === 404 || (status === 503 && /durable plan execution is not configured|PULSE_AGENT_TEMPORAL_HOST/i.test(detail));
 }
 
 /** Thrown when durable execution is off; callers show "not configured", not an error. */

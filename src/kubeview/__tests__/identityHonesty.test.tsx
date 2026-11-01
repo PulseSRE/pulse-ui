@@ -62,10 +62,29 @@ describe('IdentityView with failed reads', () => {
     expect(screen.queryByText('No subjects have cluster-admin privileges.')).toBeNull();
     expect(screen.getByText(/RBAC Health Audit could not run — cluster role bindings could not be read/)).toBeTruthy();
     expect(screen.queryByText('RBAC Health Audit')).toBeNull();
+    // The grant/revoke bindings list does not say "No bindings match."
+    expect(screen.getByText('Bindings could not be loaded')).toBeTruthy();
+    expect(screen.queryByText('No bindings match.')).toBeNull();
   });
 
-  it('groups failing: the groups check is unknown, not "No groups configured"', async () => {
-    renderWithFailedRequests(<IdentityView />, { status: 403, routes: without('/apis/user.openshift.io/v1/groups') });
+  it.each([403, 500])('role bindings failing with %i: the bindings list shows an error, not "No bindings match."', async (status) => {
+    renderWithFailedRequests(<IdentityView />, { status, routes: without('/apis/rbac.authorization.k8s.io/v1/rolebindings') });
+    await screen.findByRole('button', { name: 'alice' });
+    fireEvent.click(screen.getByText('Roles & bindings →'));
+    expect(await screen.findByText('Bindings could not be loaded')).toBeTruthy();
+    expect(screen.queryByText('No bindings match.')).toBeNull();
+  });
+
+  it.each([403, 500])('a kubeadmin secret read failing with %i is "Could not check", not a failing row', async (status) => {
+    const routes = { ...ALL_OK, '/api/v1/namespaces/kube-system/secrets/kubeadmin': { status, body: { kind: 'Status', code: status } } };
+    renderWithFailedRequests(<IdentityView />, { status: 404, routes });
+    expect(await screen.findByText(/Could not check — kube-system\/kubeadmin could not be read/)).toBeTruthy();
+    expect(screen.queryByText(/kube:admin still exists/)).toBeNull();
+    expect(screen.getByText(/1 could not be checked/)).toBeTruthy();
+  });
+
+  it.each([403, 500])('groups failing with %i: the groups check is unknown, not "No groups configured"', async (status) => {
+    renderWithFailedRequests(<IdentityView />, { status, routes: without('/apis/user.openshift.io/v1/groups') });
     expect(await screen.findByText(/Could not check — groups could not be read/)).toBeTruthy();
     fireEvent.click(screen.getAllByText('Groups')[0]);
     expect(await screen.findByText('Groups could not be loaded')).toBeTruthy();
@@ -81,5 +100,6 @@ describe('IdentityView with failed reads', () => {
     fireEvent.click(screen.getByText('Roles & bindings →'));
     expect(await screen.findByText('RBAC Health Audit')).toBeTruthy();
     expect(screen.getByText('Cluster Admin Subjects (1)')).toBeTruthy();
+    expect(screen.queryByText('Bindings could not be loaded')).toBeNull();
   });
 });

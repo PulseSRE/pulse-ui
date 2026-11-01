@@ -249,6 +249,11 @@ export default function IdentityView() {
     addToast({ type: 'warning', title: `Impersonating ${username}`, detail: 'All API requests now use this identity' });
   };
 
+  const identityUnreadable = React.useMemo<IdentityUnreadable>(() => ({
+    users: usersQ.isError, groups: groupsQ.isError, clusterRoleBindings: crbQ.isError,
+    oauth: oauthError, accessTokens: tokensError,
+  }), [usersQ.isError, groupsQ.isError, crbQ.isError, oauthError, tokensError]);
+
   const rbacAuditUnreadable = listQueries
     .filter(([name, q]) => q.isError && name !== 'groups')
     .map(([name]) => name);
@@ -426,10 +431,7 @@ export default function IdentityView() {
               oauthConfig={oauthConfig}
               accessTokens={accessTokens as K8sResource[]}
               kubeadminStatus={kubeadminStatus}
-              unreadable={{
-                users: usersQ.isError, groups: groupsQ.isError, clusterRoleBindings: crbQ.isError,
-                oauth: oauthError, accessTokens: tokensError,
-              }}
+              unreadable={identityUnreadable}
               go={go}
               addToast={addToast}
               queryClient={queryClient}
@@ -581,6 +583,8 @@ export default function IdentityView() {
               namespaces={namespaces as Namespace[]}
               clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
               roleBindings={roleBindings as RoleBinding[]}
+              bindingsError={crbQ.isError ? crbQ.error ?? true : rbQ.isError ? rbQ.error ?? true : undefined}
+              onRetryBindings={() => { if (crbQ.isError) void crbQ.refetch(); if (rbQ.isError) void rbQ.refetch(); }}
             />
 
             {/* Recent RBAC Changes */}
@@ -1004,6 +1008,10 @@ users:
       'inactive-users': unreadable.users ? 'users could not be read'
         : unreadable.accessTokens ? 'OAuth sessions could not be read' : undefined,
       'groups-configured': unreadable.groups ? 'groups could not be read' : undefined,
+      // A 403 on the secret is not "kubeadmin still exists": unknown, not a failing row.
+      'kubeadmin-removed': kubeadminStatus?.state === 'unknown'
+        ? `kube-system/kubeadmin could not be read (${kubeadminStatus.reason})`
+        : !kubeadminStatus ? 'still checking kube-system/kubeadmin' : undefined,
     };
     return allChecks.map((c) => {
       const reason = unknownBecause[c.id];
@@ -1013,7 +1021,6 @@ users:
 
   const totalPassing = checks.reduce((s, c) => s + (!c.unknown && c.failing.length === 0 ? 1 : 0), 0);
   const unknownCount = checks.filter((c) => c.unknown).length;
-  // The kubeadmin check reports its own unknown as a failing row; that is not a pass either.
   const score = unknownCount > 0 ? null : Math.round((totalPassing / checks.length) * 100);
 
   return (

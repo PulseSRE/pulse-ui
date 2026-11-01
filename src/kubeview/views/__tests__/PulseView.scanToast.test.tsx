@@ -35,6 +35,7 @@ vi.mock('../../engine/analyticsApi', async () => {
 
 import PulseView from '../PulseView';
 import { useMonitorStore } from '../../store/monitorStore';
+import { useFleetStore } from '../../store/fleetStore';
 
 function mockRules(res: { ok: boolean; status: number; firing?: number }) {
   const alerts = Array.from({ length: res.firing ?? 0 }, (_, i) => ({
@@ -49,13 +50,15 @@ function mockRules(res: { ok: boolean; status: number; firing?: number }) {
 }
 
 /** Render, wait until the alert read has settled, then finish a scan. */
-async function scan() {
+async function scan({ remote = false } = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   render(<QueryClientProvider client={qc}><MemoryRouter><PulseView /></MemoryRouter></QueryClientProvider>);
-  await waitFor(() => {
-    const q = qc.getQueryCache().find({ queryKey: ['incidentFeed', 'alerts'], exact: false });
-    expect(q && q.state.status !== 'pending').toBe(true);
-  });
+  if (!remote) {
+    await waitFor(() => {
+      const q = qc.getQueryCache().find({ queryKey: ['incidentFeed', 'alerts'], exact: false });
+      expect(q && q.state.status !== 'pending').toBe(true);
+    });
+  }
   fireEvent.click(screen.getByText('Scan Now'));
   act(() => { useMonitorStore.setState({ lastScanTime: Date.now() + 1 }); });
   await waitFor(() => expect(addToast).toHaveBeenCalled());
@@ -66,7 +69,7 @@ beforeEach(() => {
   addToast.mockReset();
   useMonitorStore.setState({ connected: true, findings: [], lastScanTime: 1, triggerScan: vi.fn() } as never);
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); useFleetStore.setState({ activeClusterId: 'local' }); });
 
 describe('PulseView scan-complete toast', () => {
   it('says the cluster looks healthy only with no findings and no firing alerts', async () => {
@@ -90,5 +93,16 @@ describe('PulseView scan-complete toast', () => {
     expect(t.type).toBe('warning');
     expect(t.detail).toMatch(/alerts could not be read/);
     expect(t.detail).not.toMatch(/looks healthy/);
+  });
+
+  it('on a remote cluster says alerts are local-only, not that they could not be read', async () => {
+    useFleetStore.setState({ activeClusterId: 'east', clusters: [{ id: 'east', name: 'east', status: 'connected' }] as never });
+    mockRules({ ok: true, status: 200 });
+    const t = await scan({ remote: true });
+    expect(t.type).toBe('warning');
+    expect(t.detail).toMatch(/local cluster only/);
+    expect(t.detail).not.toMatch(/could not be read/);
+    expect(t.detail).not.toMatch(/looks healthy/);
+    expect(screen.getByText(/alerts are available for the local cluster only/)).toBeTruthy();
   });
 });
