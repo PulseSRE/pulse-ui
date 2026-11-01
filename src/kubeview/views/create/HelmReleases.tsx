@@ -21,6 +21,7 @@ import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import DeployProgress from '../../components/DeployProgress';
 import { runHelmAction } from './helmRunner';
+import { runnerCanManage } from './helmInstall';
 
 export interface ChartSource {
   name: string;
@@ -163,12 +164,29 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
   const addToast = useUIStore((s) => s.addToast);
   const target = action.pending!.target;
   const r = target.release;
-  const source = charts.find((c) => c.name === r.chart);
+  // The release record names the chart but not its repository: offer every
+  // configured repository that has a chart of that name, and make the user
+  // pick when there is more than one, rather than guessing by name.
+  const candidates = charts.filter((c) => c.name === r.chart && !!c.repoUrl);
+  const [repoUrl, setRepoUrl] = React.useState(candidates.length === 1 ? candidates[0].repoUrl! : '');
+  const source = candidates.find((c) => c.repoUrl === repoUrl);
   const [version, setVersion] = React.useState(source?.versions[0] ?? '');
+  React.useEffect(() => { setVersion(source?.versions[0] ?? ''); }, [repoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
   const [valuesText, setValuesText] = React.useState(r.values && Object.keys(r.values).length > 0 ? dump(r.values) : '');
   const [valuesError, setValuesError] = React.useState<string | null>(null);
   const earlier = r.revisions.filter((rev) => rev.revision !== r.revision);
   const [revision, setRevision] = React.useState<number>(earlier[0]?.revision ?? 0);
+
+  // The runner's Role only covers some kinds; helm fails part-way on anything else.
+  const affected = target.kind === 'rollback'
+    ? r.revisions.find((rev) => rev.revision === revision)?.resources
+    : r.resources;
+  const uncovered = affected?.filter((x) => !runnerCanManage(x.apiVersion, x.kind)) ?? [];
+  const runnerBlock = affected === undefined
+    ? `The release record could not be read, so Pulse cannot check that the Helm runner may manage its resources.`
+    : uncovered.length > 0
+      ? `This release contains ${[...new Set(uncovered.map((x) => x.kind))].join(', ')}, which the Helm runner's Role in ${r.namespace} cannot manage, so the Job would fail part-way. Run this ${target.kind} with helm and sufficient permissions instead.`
+      : null;
 
   const confirm = () => {
     if (target.kind === 'upgrade') {
@@ -185,7 +203,7 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
       const rel = t.release;
       let jobName: string;
       if (t.kind === 'upgrade') {
-        if (!source?.repoUrl) throw new Error(`Chart ${rel.chart ?? '(unknown)'} is not in any configured repository`);
+        if (!source?.repoUrl) throw new Error(`Choose the repository to upgrade ${rel.chart ?? 'the chart'} from`);
         jobName = await runHelmAction(clusterId, rel.namespace, { action: 'upgrade', releaseName: rel.name, chartName: source.name, repoUrl: source.repoUrl, version: version || undefined }, valuesText);
       } else if (t.kind === 'rollback') {
         jobName = await runHelmAction(clusterId, rel.namespace, { action: 'rollback', releaseName: rel.name, revision });
@@ -198,29 +216,42 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
     });
   };
 
-  const upgradeBlocked = target.kind === 'upgrade' && !source?.repoUrl;
+  const upgradeBlocked = target.kind === 'upgrade' && candidates.length === 0;
+  const blocked = upgradeBlocked || !!runnerBlock;
+  const resourceSummary = affected?.length ? `${affected.length} object${affected.length === 1 ? '' : 's'}: ${[...new Set(affected.map((x) => x.kind))].join(', ')}` : 'no objects';
   const title = target.kind === 'upgrade' ? `Upgrade ${r.name}?` : target.kind === 'rollback' ? `Roll back ${r.name}?` : `Uninstall ${r.name}?`;
   const description = target.kind === 'upgrade'
     ? upgradeBlocked
       ? `The chart ${r.chart ?? '(unknown)'} is not in any configured chart repository, so Pulse cannot fetch a version to upgrade to. Add its repository under Chart Repositories first.`
-      : `Runs "helm upgrade ${r.name} ${r.chart}${version ? ` --version ${version}` : ''}" from ${source?.repoName ?? source?.repoUrl} in ${r.namespace} as a Job, with the values below (replacing rev ${r.revision}'s user values). The release moves to rev ${r.revision + 1}.`
+      : `Runs "helm upgrade ${r.name} ${r.chart}${version ? ` --version ${version}` : ''}" from ${source ? (source.repoName ?? source.repoUrl) : 'the repository you choose'} in ${r.namespace} as a Job. The values below replace rev ${r.revision}'s user values; previous values are not reused, so anything removed here falls back to the chart's default. The release moves to rev ${r.revision + 1}. A newer chart may add kinds the runner cannot manage.`
     : target.kind === 'rollback'
       ? `Runs "helm rollback ${r.name} ${revision}" in ${r.namespace} as a Job. The release returns to rev ${revision}'s chart and values as a new revision (rev ${r.revision + 1}).`
-      : `Runs "helm uninstall ${r.name}" in ${r.namespace} as a Job. Every resource the chart created is deleted, and the release history is removed.`;
+      : `Runs "helm uninstall ${r.name}" in ${r.namespace} as a Job. Helm deletes the objects it recorded for rev ${r.revision} (${resourceSummary}) — except any the chart marks "keep" — and removes the release history.`;
 
   return (
     <ConfirmDialog
       open
       onClose={action.close}
-      onConfirm={() => { if (upgradeBlocked) action.close(); else void confirm(); }}
+      onConfirm={() => { if (blocked) action.close(); else void confirm(); }}
       title={title}
       description={description}
-      confirmLabel={upgradeBlocked ? 'Close' : target.kind === 'upgrade' ? 'Upgrade' : target.kind === 'rollback' ? 'Roll back' : 'Uninstall'}
+      confirmLabel={blocked ? 'Close' : target.kind === 'upgrade' ? 'Upgrade' : target.kind === 'rollback' ? 'Roll back' : 'Uninstall'}
       variant={target.kind === 'uninstall' ? 'danger' : 'warning'}
       loading={action.running}
     >
-      {target.kind === 'upgrade' && !upgradeBlocked && (
+      {runnerBlock && !upgradeBlocked && <LoadError className="mt-3" title={`The ${target.kind} cannot run from Pulse`} error={runnerBlock} />}
+      {target.kind === 'upgrade' && !blocked && (
         <div className="mt-3 space-y-2">
+          {candidates.length > 1 && (
+            <label className="block text-xs text-slate-400">
+              Repository ({candidates.length} have a chart named {r.chart})
+              <select aria-label="Repository" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)}
+                className="mt-1 w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
+                <option value="">Choose the repository this release came from…</option>
+                {candidates.map((c) => <option key={c.repoUrl} value={c.repoUrl}>{c.repoName} — {c.repoUrl}</option>)}
+              </select>
+            </label>
+          )}
           <label className="block text-xs text-slate-400">
             Chart version
             <select aria-label="Chart version" value={version} onChange={(e) => setVersion(e.target.value)}
@@ -233,10 +264,11 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
             <textarea aria-label="Values" value={valuesText} onChange={(e) => setValuesText(e.target.value)} rows={8}
               className="mt-1 w-full px-2 py-1.5 text-xs font-mono bg-slate-900 border border-slate-600 rounded-sm text-slate-200" />
           </label>
+          {!valuesText.trim() && <p className="text-xs text-amber-300">No values: the release is reset to the chart's defaults.</p>}
           {valuesError && <LoadError title="The values are not valid YAML" error={valuesError} />}
         </div>
       )}
-      {target.kind === 'rollback' && (
+      {target.kind === 'rollback' && earlier.length > 0 && (
         <label className="mt-3 block text-xs text-slate-400">
           Revision
           <select aria-label="Revision" value={revision} onChange={(e) => setRevision(Number(e.target.value))}

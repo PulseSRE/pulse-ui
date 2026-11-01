@@ -461,9 +461,9 @@ export default function SecurityView() {
                       {ns.metadata?.name}
                     </button>
                     <button onClick={() => go(createTemplateUrl('default-deny', ns.metadata?.name || ''), `Default-deny ${ns.metadata?.name}`)}
-                      aria-label={`Create default-deny NetworkPolicy in ${ns.metadata?.name}`}
+                      aria-label={`Create default-deny ingress NetworkPolicy in ${ns.metadata?.name}`}
                       className="px-2 py-1.5 border-l border-yellow-900/50 text-blue-300 hover:bg-yellow-900/40">
-                      + default-deny
+                      + default-deny ingress
                     </button>
                   </span>
                 ))}

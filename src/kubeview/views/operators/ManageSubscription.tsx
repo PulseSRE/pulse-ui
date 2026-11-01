@@ -20,7 +20,7 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 
 type Change =
   | { kind: 'channel'; channel: string }
-  | { kind: 'approval'; approval: ApprovalStrategy }
+  | { kind: 'approval'; approval: ApprovalStrategy; alsoApprove?: InstallPlanLike }
   | { kind: 'approve-plan'; plan: InstallPlanLike };
 
 export function ManageSubscription({ sub, installPlan, channels, displayName }: {
@@ -54,7 +54,10 @@ export function ManageSubscription({ sub, installPlan, channels, displayName }: 
       addToast({ type: 'success', title: `${displayName} now follows ${change.channel}` });
     } else if (change.kind === 'approval') {
       await patchSubscription(clusterId, sub, { installPlanApproval: change.approval });
-      addToast({ type: 'success', title: `${displayName} updates are now ${change.approval}` });
+      // OLM does not approve an InstallPlan that was created while approval was
+      // Manual; switching to Automatic approves the waiting one explicitly.
+      if (change.alsoApprove) await approveInstallPlan(clusterId, change.alsoApprove);
+      addToast({ type: 'success', title: `${displayName} updates are now ${change.approval}`, detail: change.alsoApprove ? `InstallPlan ${change.alsoApprove.metadata.name} approved` : undefined });
     } else {
       await approveInstallPlan(clusterId, change.plan);
       addToast({ type: 'success', title: `InstallPlan ${change.plan.metadata.name} approved` });
@@ -69,7 +72,13 @@ export function ManageSubscription({ sub, installPlan, channels, displayName }: 
   const description = !change ? '' : change.kind === 'channel'
     ? `Sets spec.channel on Subscription ${ns}/${sub.metadata.name} from ${currentChannel} to ${change.channel}. OLM then resolves the newest version in that channel${currentApproval === 'Manual' ? ' and creates an InstallPlan that waits for approval' : ' and upgrades the operator automatically'}.`
     : change.kind === 'approval'
-      ? `Sets spec.installPlanApproval on Subscription ${ns}/${sub.metadata.name} to ${change.approval}. ${change.approval === 'Manual' ? 'Future updates wait for an InstallPlan approval.' : 'Pending and future updates install without asking.'}`
+      ? `Sets spec.installPlanApproval on Subscription ${ns}/${sub.metadata.name} to ${change.approval}. ${change.approval === 'Manual'
+        ? 'Future updates wait for an InstallPlan approval.'
+        : change.alsoApprove
+          ? `Future updates install without asking, and the waiting InstallPlan ${change.alsoApprove.metadata.name} is approved now (installing ${(change.alsoApprove.spec?.clusterServiceVersionNames || []).join(', ') || 'its version'}).`
+          : pendingPlan
+            ? `Future updates install without asking. The waiting InstallPlan ${pendingPlan.metadata.name} is not approved by this change and still needs approval (you cannot patch InstallPlans in ${ns}).`
+            : 'Future updates install without asking.'}`
       : `Sets spec.approved=true on InstallPlan ${ns}/${change.plan.metadata.name}. OLM then installs ${(change.plan.spec?.clusterServiceVersionNames || []).join(', ') || 'the planned version'}.`;
 
   return (
@@ -113,7 +122,9 @@ export function ManageSubscription({ sub, installPlan, channels, displayName }: 
           Update approval: <span className="text-slate-200">{currentApproval}</span>
           <Button size="sm" variant="secondary" className="ml-2" disabled={!canPatchSub}
             title={canPatchSub ? undefined : `You do not have permission to patch Subscriptions in ${ns}`}
-            onClick={() => action.open({ kind: 'approval', approval: currentApproval === 'Manual' ? 'Automatic' : 'Manual' })}>
+            onClick={() => action.open(currentApproval === 'Manual'
+              ? { kind: 'approval', approval: 'Automatic', alsoApprove: pendingPlan && canPatchPlan ? pendingPlan : undefined }
+              : { kind: 'approval', approval: 'Manual' })}>
             Switch to {currentApproval === 'Manual' ? 'Automatic' : 'Manual'}
           </Button>
         </div>

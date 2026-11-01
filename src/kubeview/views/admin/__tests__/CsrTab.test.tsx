@@ -8,21 +8,25 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createHarness, json, k8sStatus, REMOTE } from '../../../__tests__/actionHarness';
 import { CsrTab, PendingCsrNotice } from '../CsrTab';
+import { csrRequest } from '../../../__tests__/csrFixture';
+import { kubeletServingProblems, parseCsrRequest } from '../../../engine/csr';
 
 const h = createHarness();
+const CREATED = new Date(Date.now() - 600000).toISOString();
 const LIST = '/apis/certificates.k8s.io/v1/certificatesigningrequests';
 
-function csr(name: string, opts: { signer?: string; user?: string; groups?: string[]; approved?: boolean } = {}) {
+function csr(name: string, opts: { signer?: string; user?: string; groups?: string[]; approved?: boolean; usages?: string[]; cn?: string } = {}) {
+  const user = opts.user ?? `system:node:${name}`;
   return {
     apiVersion: 'certificates.k8s.io/v1',
     kind: 'CertificateSigningRequest',
-    metadata: { name, uid: `uid-${name}`, resourceVersion: '42', creationTimestamp: new Date(Date.now() - 600000).toISOString() },
+    metadata: { name, uid: `uid-${name}`, resourceVersion: '42', creationTimestamp: CREATED },
     spec: {
       signerName: opts.signer ?? 'kubernetes.io/kubelet-serving',
-      username: opts.user ?? `system:node:${name}`,
+      username: user,
       groups: opts.groups ?? ['system:nodes', 'system:authenticated'],
-      usages: ['digital signature', 'server auth'],
-      request: 'LS0t',
+      usages: opts.usages ?? ['digital signature', 'server auth'],
+      request: csrRequest({ cn: opts.cn ?? user, o: ['system:nodes'], dns: [`${name}.example.internal`], ips: [[10, 0, 0, 7]] }),
     },
     status: opts.approved ? { conditions: [{ type: 'Approved', status: 'True' }], certificate: 'Y2VydA==' } : {},
   };
@@ -33,6 +37,9 @@ const ITEMS = [
   csr('csr-node-b'),
   csr('csr-other', { signer: 'kubernetes.io/kube-apiserver-client', user: 'alice', groups: ['system:authenticated'] }),
   csr('csr-done', { approved: true }),
+  // Kubelet-serving signer, but not what the node is: refused by machine-approver, never bulk-approved.
+  csr('csr-bad-cn', { cn: 'system:node:someone-else' }),
+  csr('csr-bad-usage', { usages: ['digital signature', 'server auth', 'client auth'] }),
 ];
 
 beforeEach(() => {
@@ -79,8 +86,8 @@ describe('CsrTab', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Approve 2 kubelet serving CSRs/ }));
     const list = within(await screen.findByRole('dialog')).getByRole('list', { name: 'Requests to approve' });
     expect(within(list).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'csr-node-a — system:node:csr-node-a',
-      'csr-node-b — system:node:csr-node-b',
+      'csr-node-a — system:node:csr-node-a — SANs csr-node-a.example.internal, 10.0.0.7',
+      'csr-node-b — system:node:csr-node-b — SANs csr-node-b.example.internal, 10.0.0.7',
     ]);
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(h.writes()).toHaveLength(2));
@@ -135,11 +142,40 @@ describe('CsrTab', () => {
   });
 });
 
+describe('kubelet serving requests that are not what they claim', () => {
+  it('parses subject and SANs from the PEM request', () => {
+    expect(parseCsrRequest(csr('n1').spec.request)).toEqual({
+      commonName: 'system:node:n1', organizations: ['system:nodes'], dnsNames: ['n1.example.internal'], ipAddresses: ['10.0.0.7'], emailAddresses: [],
+    });
+  });
+
+  it('flags a CN that is not the requesting node, and extra usages', () => {
+    expect(kubeletServingProblems(csr('csr-bad-cn', { cn: 'system:node:someone-else' }))).toEqual(['subject CN is "system:node:someone-else", but the requester is system:node:csr-bad-cn']);
+    expect(kubeletServingProblems(csr('csr-bad-usage', { usages: ['digital signature', 'server auth', 'client auth'] }))).toEqual(['asks for usages a kubelet serving certificate does not need: client auth']);
+    expect(kubeletServingProblems(csr('no-server', { usages: ['digital signature'] }))).toEqual(['does not ask for server auth']);
+  });
+
+  it('excludes them from bulk approval and explains why when approved one at a time', async () => {
+    h.renderUi(<CsrTab go={go} />);
+    fireEvent.click(await screen.findByRole('button', { name: /Approve 2 kubelet serving CSRs/ }));
+    const list = within(await screen.findByRole('dialog')).getByRole('list', { name: 'Requests to approve' });
+    expect(list.textContent).not.toMatch(/csr-bad/);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve csr-bad-cn' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/not included in bulk approval.*subject CN is "system:node:someone-else"/);
+    const details = within(dialog).getByLabelText('Certificate request');
+    expect(details.textContent).toContain('csr-bad-cn.example.internal');
+    expect(details.textContent).toContain('10.0.0.7');
+  });
+});
+
 describe('PendingCsrNotice (Compute)', () => {
   it('shows the pending count and links to Admin › Certificate requests', async () => {
     const visited: string[] = [];
     h.renderUi(<PendingCsrNotice go={(p) => visited.push(p)} />);
-    fireEvent.click(await screen.findByRole('button', { name: /3 certificate signing requests are pending approval/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /5 certificate signing requests are pending approval/ }));
     expect(visited).toEqual(['/admin?tab=csrs']);
   });
 

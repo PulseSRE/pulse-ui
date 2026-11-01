@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileKey, Check, X, CheckCheck } from 'lucide-react';
 import { k8sList } from '../../engine/query';
 import {
-  CSR_LIST_PATH, csrStatus, decideCsr, isKubeletServing, isPending,
+  CSR_LIST_PATH, csrStatus, decideCsr, isKubeletServing, isPending, kubeletServingProblems, parseCsrRequest,
   type CertificateSigningRequest, type CSRStatus,
 } from '../../engine/csr';
 import { formatAge } from '../../engine/dateUtils';
@@ -211,9 +211,10 @@ export function CsrTab({ go }: { go: (path: string, title: string) => void }) {
       >
         {target?.kind === 'bulk' && (
           <ul className="mt-3 max-h-48 overflow-auto space-y-1 text-xs font-mono text-slate-300" aria-label="Requests to approve">
-            {target.csrs.map((c) => <li key={c.metadata.name}>{c.metadata.name} — {c.spec.username}</li>)}
+            {target.csrs.map((c) => <li key={c.metadata.name}>{c.metadata.name} — {c.spec.username} — {sanText(c)}</li>)}
           </ul>
         )}
+        {target?.kind === 'one' && <CsrRequestDetails csr={target.csr} />}
         {action.error && <LoadError className="mt-3" title="Not done" error={action.error} />}
         {bulkResult && (
           <ul className="mt-2 space-y-1 text-xs text-red-300" aria-label="Failed approvals">
@@ -239,5 +240,36 @@ export function PendingCsrNotice({ go }: { go: (path: string, title: string) => 
       {pending} certificate signing request{pending === 1 ? ' is' : 's are'} pending approval — nodes may not join or serve logs until approved
       <span className="ml-auto text-xs text-amber-300">Review →</span>
     </button>
+  );
+}
+
+function sanText(csr: CertificateSigningRequest): string {
+  const p = parseCsrRequest(csr.spec.request);
+  if (!p) return 'request unreadable';
+  const sans = [...p.dnsNames, ...p.ipAddresses, ...p.emailAddresses];
+  return sans.length ? `SANs ${sans.join(', ')}` : 'no SANs';
+}
+
+/** What the request actually asks for, and why it is not a plain kubelet serving request. */
+function CsrRequestDetails({ csr }: { csr: CertificateSigningRequest }) {
+  const parsed = parseCsrRequest(csr.spec.request);
+  const problems = csr.spec.signerName === 'kubernetes.io/kubelet-serving' ? kubeletServingProblems(csr) : [];
+  return (
+    <div className="mt-3 space-y-2 text-xs">
+      {parsed ? (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-slate-300" aria-label="Certificate request">
+          <dt className="text-slate-500">Subject CN</dt><dd>{parsed.commonName || '—'}</dd>
+          <dt className="text-slate-500">Subject O</dt><dd>{parsed.organizations.join(', ') || '—'}</dd>
+          <dt className="text-slate-500">DNS names</dt><dd>{parsed.dnsNames.join(', ') || '—'}</dd>
+          <dt className="text-slate-500">IP addresses</dt><dd>{parsed.ipAddresses.join(', ') || '—'}</dd>
+        </dl>
+      ) : <p className="text-amber-300">The certificate request could not be read; check it before approving.</p>}
+      {problems.length > 0 && (
+        <div role="alert" className="rounded border border-amber-800 bg-amber-950/30 px-3 py-2 text-amber-200">
+          Not a well-formed kubelet serving request, so it is not included in bulk approval:
+          <ul className="list-disc ml-4 mt-1">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
+        </div>
+      )}
+    </div>
   );
 }

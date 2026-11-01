@@ -46,6 +46,7 @@ const RULES = {
 const SILENCES = [
   { id: 'act-1', status: { state: 'active' }, matchers: [{ name: 'alertname', value: 'Watchdog', isRegex: false }], startsAt: iso(-3600000), endsAt: iso(3600000), createdBy: 'ops', comment: 'watchdog noise' },
   { id: 'pen-1', status: { state: 'pending' }, matchers: [{ name: 'namespace', value: 'shop', isRegex: false }], startsAt: iso(3600000), endsAt: iso(7200000), createdBy: 'ops', comment: 'maintenance window' },
+  { id: 'neg-1', status: { state: 'active' }, matchers: [{ name: 'namespace', value: 'shop', isRegex: false, isEqual: false }], startsAt: iso(-3600000), endsAt: iso(3600000), createdBy: 'ops', comment: 'everything but shop' },
   { id: 'exp-1', status: { state: 'expired' }, matchers: [{ name: 'alertname', value: 'Old', isRegex: false }], startsAt: iso(-7200000), endsAt: iso(-3600000), createdBy: 'ops', comment: 'old one' },
 ];
 
@@ -101,7 +102,32 @@ describe('Silences', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Update' }));
     await waitFor(() => expect(h.writes()).toHaveLength(1));
     expect(h.writes()[0]).toMatchObject({ method: 'POST', url: '/api/alertmanager/api/v2/silences' });
-    expect(h.writes()[0].body).toMatchObject({ id: 'act-1', matchers: [{ name: 'alertname', value: 'Watchdog', isRegex: false }], comment: 'watchdog noise', createdBy: 'alice' });
+    expect(h.writes()[0].body).toMatchObject({ id: 'act-1', matchers: [{ name: 'alertname', value: 'Watchdog', isRegex: false, isEqual: true }], comment: 'watchdog noise', createdBy: 'alice' });
+  });
+
+  it('editing a negative matcher keeps it negative (isEqual:false) and says !=', async () => {
+    renderAt('/alerts?tab=silences');
+    expect((await screen.findByText('namespace!=shop')).textContent).toBe('namespace!=shop');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit silence everything but shop' }));
+    expect((screen.getByRole('checkbox', { name: 'Not equal (matcher 1)' }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Update Silence' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/mutes every alert matching namespace!="shop"/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Update' }));
+    await waitFor(() => expect(h.writes()).toHaveLength(1));
+    expect(h.writes()[0].body.matchers).toEqual([{ name: 'namespace', value: 'shop', isRegex: false, isEqual: false }]);
+  });
+
+  it('when the current user is unknown, the author is left empty and required — not copied from the silence', async () => {
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.path === '/apis/user.openshift.io/v1/users/~' ? json({}, 500) : base(r));
+    renderAt('/alerts?tab=silences');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit silence watchdog noise' }));
+    const inputs = screen.getAllByRole('textbox');
+    expect(inputs.some((i) => (i as HTMLInputElement).value === 'ops')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Update Silence' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(h.writes()).toHaveLength(0);
   });
 
   it('recreating an expired silence creates a new one (no id) once a duration is chosen', async () => {
@@ -115,7 +141,7 @@ describe('Silences', () => {
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Create' }));
     await waitFor(() => expect(h.writes()).toHaveLength(1));
     expect(h.writes()[0].body.id).toBeUndefined();
-    expect(h.writes()[0].body.matchers).toEqual([{ name: 'alertname', value: 'Old', isRegex: false }]);
+    expect(h.writes()[0].body.matchers).toEqual([{ name: 'alertname', value: 'Old', isRegex: false, isEqual: true }]);
   });
 
   it('expire sends DELETE for that silence; a refusal stays in the dialog', async () => {

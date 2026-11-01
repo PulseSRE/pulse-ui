@@ -41,7 +41,8 @@ interface AlertGroup {
 interface Silence {
   id: string;
   status: { state: string };
-  matchers: Array<{ name: string; value: string; isRegex: boolean }>;
+  /** isEqual=false is a negative matcher (!= or !~); Alertmanager treats a missing isEqual as true. */
+  matchers: Array<{ name: string; value: string; isRegex: boolean; isEqual?: boolean }>;
   startsAt: string;
   endsAt: string;
   createdBy: string;
@@ -54,10 +55,17 @@ interface SilenceMatcher {
   name: string;
   value: string;
   isRegex: boolean;
+  /** false for != / !~. Always sent, so editing a negative matcher never turns it positive. */
+  isEqual: boolean;
 }
 
-function describeMatchers(matchers: SilenceMatcher[]): string {
-  return matchers.map((m) => `${m.name}${m.isRegex ? '=~' : '='}"${m.value}"`).join(', ') || 'no matchers';
+function describeMatchers(matchers: Array<{ name: string; value: string; isRegex: boolean; isEqual?: boolean }>): string {
+  return matchers.map((m) => `${m.name}${matcherOp(m)}"${m.value}"`).join(', ') || 'no matchers';
+}
+
+export function matcherOp(m: { isRegex: boolean; isEqual?: boolean }): string {
+  const negative = m.isEqual === false;
+  return m.isRegex ? (negative ? '!~' : '=~') : (negative ? '!=' : '=');
 }
 
 interface SilenceFormData {
@@ -128,7 +136,7 @@ function LocalAlertsView() {
   const setGroupBy = (v: typeof groupBy) => { setGroupByState(v); updateUrlParam('groupBy', v, 'none'); };
   const [showSilenceForm, setShowSilenceForm] = useState(false);
   const [silenceForm, setSilenceForm] = useState<SilenceFormData>({
-    matchers: [{ name: 'alertname', value: '', isRegex: false }],
+    matchers: [{ name: 'alertname', value: '', isRegex: false, isEqual: true }],
     startsAt: '',
     endsAt: '',
     createdBy: '',
@@ -207,8 +215,10 @@ function LocalAlertsView() {
             const isSilenced = activeSilences.some(silence =>
               silence.matchers.every(m => {
                 const labelVal = alert.labels[m.name] || '';
-                if (m.isRegex) { try { return new RegExp(m.value).test(labelVal); } catch { return false; } }
-                return labelVal === m.value;
+                let match: boolean;
+                if (m.isRegex) { try { match = new RegExp(`^(?:${m.value})$`).test(labelVal); } catch { return false; } }
+                else match = labelVal === m.value;
+                return m.isEqual === false ? !match : match;
               })
             );
 
@@ -307,7 +317,7 @@ function LocalAlertsView() {
   // Silence helpers
   const resetSilenceForm = () => {
     setSilenceForm({
-      matchers: [{ name: 'alertname', value: '', isRegex: false }],
+      matchers: [{ name: 'alertname', value: '', isRegex: false, isEqual: true }],
       startsAt: '',
       endsAt: '',
       createdBy: currentUser,
@@ -329,7 +339,7 @@ function LocalAlertsView() {
   const addMatcher = () => {
     setSilenceForm((prev) => ({
       ...prev,
-      matchers: [...prev.matchers, { name: '', value: '', isRegex: false }],
+      matchers: [...prev.matchers, { name: '', value: '', isRegex: false, isEqual: true }],
     }));
   };
 
@@ -353,6 +363,7 @@ function LocalAlertsView() {
       name,
       value,
       isRegex: false,
+      isEqual: true,
     }));
     setSilenceForm({
       matchers,
@@ -417,10 +428,11 @@ function LocalAlertsView() {
     const expired = silence.status.state === 'expired';
     setSilenceForm({
       id: expired ? undefined : silence.id,
-      matchers: silence.matchers.map((m) => ({ name: m.name, value: m.value, isRegex: m.isRegex })),
+      matchers: silence.matchers.map((m) => ({ name: m.name, value: m.value, isRegex: m.isRegex, isEqual: m.isEqual !== false })),
       startsAt: expired ? '' : silence.startsAt,
       endsAt: expired ? '' : silence.endsAt,
-      createdBy: currentUser || silence.createdBy,
+      // The person saving the silence, never the original author; empty means they must enter it.
+      createdBy: currentUser,
       comment: silence.comment,
     });
     setShowSilenceForm(true);
@@ -729,6 +741,16 @@ function LocalAlertsView() {
                           <label className="flex items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
                             <input
                               type="checkbox"
+                              aria-label={`Not equal (matcher ${idx + 1})`}
+                              checked={!matcher.isEqual}
+                              onChange={(e) => updateMatcher(idx, 'isEqual', !e.target.checked)}
+                              className="rounded-sm border-slate-700"
+                            />
+                            Not
+                          </label>
+                          <label className="flex items-center gap-1 text-xs text-slate-400 whitespace-nowrap">
+                            <input
+                              type="checkbox"
                               checked={matcher.isRegex}
                               onChange={(e) => updateMatcher(idx, 'isRegex', e.target.checked)}
                               className="rounded-sm border-slate-700"
@@ -866,7 +888,7 @@ function LocalAlertsView() {
                       <div className="space-y-1 mb-2">
                         {silence.matchers.map((m, i) => (
                           <span key={i} className="text-xs font-mono text-slate-400 mr-2">
-                            {m.name}{m.isRegex ? '=~' : '='}{m.value}
+                            {m.name}{matcherOp(m)}{m.value}
                           </span>
                         ))}
                       </div>

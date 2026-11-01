@@ -253,7 +253,10 @@ function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, 
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<Array<{ key: string; value: string }>>([]);
   const { allowed: canEdit } = useCanI('patch', '', 'resourcequotas', q.metadata.namespace);
-  const save = usePinnedAction<Record<string, string>>();
+  // The edit is pinned to the quota as it was read: a watch update while the
+  // dialog is open must not change what the patch removes or which version it
+  // is conditioned on.
+  const save = usePinnedAction<{ before: Record<string, string>; after: Record<string, string>; resourceVersion?: string }>();
 
   const startEdit = () => { setDraft(Object.entries(hard).map(([key, value]) => ({ key, value }))); setEditing(true); };
   const after = Object.fromEntries(draft.filter((d) => d.key.trim()).map((d) => [d.key.trim(), d.value.trim()]));
@@ -261,9 +264,9 @@ function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, 
   const changes = Object.entries(patch.spec.hard);
   const invalid = draft.some((d) => d.key.trim() && !d.value.trim());
 
-  const confirm = () => save.run(`Updating ResourceQuota ${q.metadata.name}`, async (next, clusterId) => {
+  const confirm = () => save.run(`Updating ResourceQuota ${q.metadata.name}`, async (pinned, clusterId) => {
     await k8sPatch(`/api/v1/namespaces/${q.metadata.namespace}/resourcequotas/${q.metadata.name}`,
-      quotaHardPatch(hard, next, q.metadata.resourceVersion), 'application/merge-patch+json', clusterId);
+      quotaHardPatch(pinned.before, pinned.after, pinned.resourceVersion), 'application/merge-patch+json', clusterId);
     addToast({ type: 'success', title: `ResourceQuota ${q.metadata.name} updated` });
     setEditing(false);
     queryClient.invalidateQueries({ queryKey: ['admin'] });
@@ -301,7 +304,7 @@ function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, 
             <Button size="sm" variant="ghost" onClick={() => setDraft([...draft, { key: '', value: '' }])}>+ Add resource</Button>
             <span className="flex-1" />
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
-            <Button size="sm" disabled={changes.length === 0 || invalid} onClick={() => save.open(after)}>Save</Button>
+            <Button size="sm" disabled={changes.length === 0 || invalid} onClick={() => save.open({ before: { ...hard }, after, resourceVersion: q.metadata.resourceVersion })}>Save</Button>
           </div>
         </div>
       ) : (
@@ -338,7 +341,9 @@ function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, 
         loading={save.running}
       >
         <ul className="mt-3 space-y-1 text-xs font-mono text-slate-300" aria-label="Quota changes">
-          {changes.map(([k, v]) => <li key={k}>{k}: {hard[k] ?? '(none)'} → {v === null ? '(removed)' : v}</li>)}
+          {save.pending && Object.entries(quotaHardPatch(save.pending.target.before, save.pending.target.after).spec.hard).map(([k, v]) => (
+            <li key={k}>{k}: {save.pending!.target.before[k] ?? '(none)'} → {v === null ? '(removed)' : v}</li>
+          ))}
         </ul>
         {save.error && <LoadError className="mt-3" title="The quota was not changed" error={save.error} />}
       </ConfirmDialog>

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createHarness, clickWhenEnabled, json, k8sStatus, REMOTE } from '../../../__tests__/actionHarness';
 import { HelmReleases } from '../HelmReleases';
-import { helmArgs, parseIndexForTest, releaseSecret } from './helmTestUtils';
+import { helmArgs, parseIndexForTest, releaseSecret, PLAIN_MANIFEST } from './helmTestUtils';
 
 vi.mock('../../../components/DeployProgress', () => ({ default: ({ name }: { name: string }) => <div data-testid="job-progress">{name}</div> }));
 
@@ -27,7 +27,7 @@ beforeEach(() => {
   h.state.handler = (r) => {
     if (r.method === 'GET' && r.path.includes('owner%3Dhelm')) return json({ items: ITEMS });
     if (r.method === 'POST' && r.path.endsWith('/secrets')) return json({ metadata: { name: 'helm-values-shop-x1' } });
-    if (r.method === 'POST' && r.path === JOBS) return json({ metadata: { name: `helm-${r.body.spec.template.spec.containers[0].args[0]}-shop-abc12` } });
+    if (r.method === 'POST' && r.path === JOBS) return json({ metadata: { name: `helm-${r.body.spec.template.spec.containers[0].args[0]}-shop-abc12`, uid: 'job-uid-1' } });
     return json({});
   };
 });
@@ -73,6 +73,9 @@ describe('Helm release actions', () => {
     const spec = h.writes().find((w) => w.path === JOBS)!.body.spec.template.spec;
     expect(spec.volumes).toContainEqual({ name: 'values', secret: { secretName: 'helm-values-shop-x1' } });
     expect(spec.containers[0].image).toBe(RUNNER);
+    // The values Secret is owned by the Job, so it is garbage-collected with it.
+    await waitFor(() => expect(h.writes().find((w) => w.method === 'PATCH' && w.path === '/api/v1/namespaces/team-a/secrets/helm-values-shop-x1')?.body)
+      .toEqual({ metadata: { ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'helm-upgrade-shop-abc12', uid: 'job-uid-1' }] } }));
   });
 
   it('rejects invalid values YAML without sending anything', async () => {
@@ -84,6 +87,46 @@ describe('Helm release actions', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
     expect(await within(dialog).findByText('The values are not valid YAML')).toBeTruthy();
     expect(h.writes()).toHaveLength(0);
+  });
+
+  it('blocks uninstall, rollback and upgrade when the release has kinds the runner Role cannot manage', async () => {
+    const withCrb = `${PLAIN_MANIFEST}---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: shop-reader
+`;
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.method === 'GET' && r.path.includes('owner%3Dhelm')
+      ? json({ items: [releaseSecret('shop', 'team-a', 1, 'superseded', '15.0.0', {}, withCrb), releaseSecret('shop', 'team-a', 2, 'deployed', '15.1.0', {}, withCrb)] })
+      : base(r));
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />);
+    await screen.findByTestId('helm-release-shop');
+    for (const action of ['Uninstall shop', 'Roll back shop', 'Upgrade shop']) {
+      await clickWhenEnabled(action);
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByRole('alert').textContent).toMatch(/contains ClusterRoleBinding, which the Helm runner's Role in team-a cannot manage/);
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    }
+    expect(h.writes()).toHaveLength(0);
+  });
+
+  it('asks which repository when several have a chart of that name, and says empty values reset to defaults', async () => {
+    const twoRepos = [...CHARTS, { name: 'nginx', repoName: 'mirror', repoUrl: 'https://mirror.example.com', versions: ['15.0.0'] }];
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={twoRepos} />);
+    await screen.findByTestId('helm-release-shop');
+    await clickWhenEnabled('Upgrade shop');
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
+    expect(await within(dialog).findByText(/Choose the repository to upgrade nginx from/)).toBeTruthy();
+    expect(h.writes()).toHaveLength(0);
+    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Repository' }), { target: { value: 'https://mirror.example.com' } });
+    fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: '' } });
+    expect(within(dialog).getByText(/No values: the release is reset to the chart's defaults/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
+    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://mirror.example.com', '--namespace', 'team-a', '--version', '15.0.0', '--wait', '--timeout', '5m']));
+    expect(h.writes().some((w) => w.path.endsWith('/secrets'))).toBe(false);
   });
 
   it('says upgrade is not possible when the chart is in no configured repository', async () => {
@@ -100,7 +143,7 @@ describe('Helm release actions', () => {
     await screen.findByTestId('helm-release-shop');
     await clickWhenEnabled('Uninstall shop');
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/Every resource the chart created is deleted/)).toBeTruthy();
+    expect(within(dialog).getByText(/deletes the objects it recorded for rev 2 \(2 objects: Service, Deployment\)/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
     await waitFor(() => expect(jobArgs()).toEqual(['uninstall', 'shop', '--namespace', 'team-a', '--wait', '--timeout', '5m']));
   });

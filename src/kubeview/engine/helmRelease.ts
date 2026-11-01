@@ -7,6 +7,7 @@
  * document holding the chart metadata, the user-supplied values (`config`)
  * and the rendered manifest.
  */
+import { loadAll } from 'js-yaml';
 import type { Secret } from './types';
 
 export interface HelmRevision {
@@ -22,7 +23,23 @@ export interface HelmRevision {
   values?: Record<string, unknown>;
   updated?: string;
   description?: string;
+  /** Objects in the rendered manifest (what uninstall deletes, what rollback restores). */
+  resources?: Array<{ apiVersion: string; kind: string; name: string }>;
   secretName: string;
+}
+
+export function manifestResources(manifest: string | undefined): Array<{ apiVersion: string; kind: string; name: string }> {
+  if (!manifest) return [];
+  const out: Array<{ apiVersion: string; kind: string; name: string }> = [];
+  try {
+    loadAll(manifest, (doc) => {
+      const d = doc as { apiVersion?: string; kind?: string; metadata?: { name?: string } } | null;
+      if (d?.kind) out.push({ apiVersion: d.apiVersion ?? '', kind: d.kind, name: d.metadata?.name ?? '' });
+    });
+  } catch {
+    // Unparseable manifest: treated as unknown by callers (resources undefined).
+  }
+  return out;
 }
 
 export interface HelmReleaseSummary extends HelmRevision {
@@ -71,6 +88,7 @@ export async function revisionFromSecret(s: Secret): Promise<HelmRevision> {
     chartVersion: rel.chart?.metadata?.version,
     appVersion: rel.chart?.metadata?.appVersion,
     values: rel.config ?? {},
+    resources: typeof rel.manifest === 'string' ? manifestResources(rel.manifest) : undefined,
     updated: rel.info?.last_deployed,
     description: rel.info?.description,
     status: rel.info?.status || base.status,

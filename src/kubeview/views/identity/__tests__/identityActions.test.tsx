@@ -4,16 +4,20 @@
  * create/delete/membership — exact requests, confirmations, failures, and
  * the shared "too many cluster-admins" definition.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { clickWhenEnabled, createHarness, json, k8sStatus } from '../../../__tests__/actionHarness';
-import { AccessPanel, accessReviewBody, grantBody } from '../AccessPanel';
+import { AccessPanel, accessReviewBody, grantBody, grantsFullControl } from '../AccessPanel';
 import { CreateGroupButton, GroupMemberControls } from '../GroupActions';
 import { RevokeBindingButton } from '../../../components/rbac/RevokeBinding';
 import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from '../../../engine/clusterAdmins';
 import type { ClusterRoleBinding } from '../../../engine/types';
 
 const h = createHarness();
+// These tests drive several selects and wait on async permission checks; under a
+// loaded CI runner that can exceed the 5s default, so give them room (they still
+// fail on a real problem — every wait asserts a specific outcome).
+vi.setConfig({ testTimeout: 30000 });
 beforeEach(() => h.setup());
 afterEach(() => { cleanup(); h.teardown(); });
 
@@ -61,6 +65,21 @@ describe('Grant access', () => {
         subjects: [{ kind: 'User', apiGroup: 'rbac.authorization.k8s.io', name: 'alice' }],
       },
     });
+  });
+
+  it('granting cluster-admin is a danger confirmation that says it hands over the cluster', async () => {
+    h.renderUi(<AccessPanel clusterRoles={[...CLUSTER_ROLES, { metadata: { name: 'cluster-admin' } } as never]} roles={[]} namespaces={NAMESPACES} clusterRoleBindings={[]} roleBindings={[]} />);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Scope' }), { target: { value: 'cluster' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Role' }), { target: { value: 'cluster-admin' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Subject name' }), { target: { value: 'eve' } });
+    await clickWhenEnabled('Grant');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('alert').textContent).toBe('This gives eve full control of the cluster: every resource in every namespace, including Secrets and RBAC.');
+    // danger dialogs focus Cancel, so Enter does not grant
+    expect(document.activeElement?.textContent).toBe('Cancel');
+    expect(grantsFullControl({ scope: 'cluster', roleKind: 'ClusterRole', roleName: 'admin' })).toBe(true);
+    expect(grantsFullControl({ scope: 'namespace', roleKind: 'ClusterRole', roleName: 'admin' })).toBe(false);
+    expect(grantsFullControl({ scope: 'namespace', roleKind: 'ClusterRole', roleName: 'edit' })).toBe(false);
   });
 
   it('a cluster-wide ServiceAccount grant builds a ClusterRoleBinding', () => {

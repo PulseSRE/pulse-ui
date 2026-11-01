@@ -17,19 +17,20 @@ export const CREATE_TEMPLATES: Record<string, CreateTemplate> = {
   'default-deny': {
     id: 'default-deny',
     gvr: 'networking.k8s.io/v1/networkpolicies',
-    label: 'Default-deny NetworkPolicy',
+    label: 'Default-deny ingress NetworkPolicy',
     yaml: (ns) => `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-all
+  name: default-deny-ingress
   namespace: ${ns}
 spec:
-  # Selects every pod in the namespace. With no ingress or egress rules,
-  # all traffic to and from those pods is denied until other policies allow it.
+  # Denies all INGRESS to every pod in ${ns} until other policies allow it.
+  # Egress is not restricted, so DNS and outbound calls keep working. To deny
+  # egress as well, add "- Egress" below together with a rule that allows DNS
+  # (UDP/TCP 53 to the openshift-dns namespace).
   podSelector: {}
   policyTypes:
     - Ingress
-    - Egress
 `,
   },
   'resource-quota': {

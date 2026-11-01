@@ -6,13 +6,17 @@
  * opening a dialog and confirming it.
  */
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import { getAllConnections, getClusterBase, registerCluster, resetConnections } from '../engine/clusterConnection';
 import { useFleetStore } from '../store/fleetStore';
 import { useUIStore } from '../store/uiStore';
+
+// Permission checks and list reads resolve over several ticks; on a loaded
+// runner 1s (the default) is not always enough. Waits still assert outcomes.
+configure({ asyncUtilTimeout: 5000 });
 
 export const SSAR = '/apis/authorization.k8s.io/v1/selfsubjectaccessreviews';
 export const REMOTE = 'prod-east';

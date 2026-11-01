@@ -35,6 +35,11 @@ export interface GrantRequest {
   bindingName: string;
 }
 
+/** cluster-admin anywhere, or admin cluster-wide: the grants that hand over control. */
+export function grantsFullControl(g: Pick<GrantRequest, 'scope' | 'roleName' | 'roleKind'>): boolean {
+  return (g.roleKind === 'ClusterRole' || g.scope === 'cluster') && (g.roleName === 'cluster-admin' || (g.scope === 'cluster' && g.roleName === 'admin'));
+}
+
 export function suggestBindingName(subject: string, role: string): string {
   return `${subject}-${role}`.toLowerCase().replace(/[^a-z0-9.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63) || 'binding';
 }
@@ -81,6 +86,7 @@ function GrantAccess({ clusterRoles, roles, namespaces }: { clusterRoles: Cluste
   });
 
   const t = action.pending?.target;
+  const fullControl = t ? grantsFullControl(t) : false;
   return (
     <div className="space-y-3">
       <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><KeyRound className="w-3.5 h-3.5 text-violet-400" /> Grant access</h3>
@@ -141,9 +147,16 @@ function GrantAccess({ clusterRoles, roles, namespaces }: { clusterRoles: Cluste
         title={t ? `Grant ${t.roleName} to ${t.subjectName}?` : ''}
         description={t ? `Creates ${t.scope === 'cluster' ? 'ClusterRoleBinding' : `RoleBinding in ${t.namespace}`} ${t.bindingName} binding ${t.scope === 'cluster' ? 'ClusterRole' : t.roleKind} ${t.roleName} to ${t.subjectKind === 'ServiceAccount' ? `ServiceAccount ${t.subjectNamespace}/${t.subjectName}` : `${t.subjectKind} ${t.subjectName}`}${t.scope === 'cluster' ? ' across every namespace' : ''}.` : ''}
         confirmLabel="Grant"
-        variant="warning"
+        variant={fullControl ? 'danger' : 'warning'}
         loading={action.running}
       >
+        {fullControl && t && (
+          <p role="alert" className="mt-3 rounded border border-red-800 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+            {t.scope === 'cluster'
+              ? `This gives ${t.subjectName} full control of the cluster: every resource in every namespace, including Secrets and RBAC.`
+              : `This gives ${t.subjectName} full control of namespace ${t.namespace}, including its Secrets and RBAC.`}
+          </p>
+        )}
         {action.error && <LoadError className="mt-3" title="Access was not granted" error={action.error} />}
       </ConfirmDialog>
     </div>

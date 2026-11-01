@@ -114,6 +114,35 @@ export function buildHelmJob(input: { namespace: string; runnerImage: string; se
   };
 }
 
+const VERBS = ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete'] as const;
+
+/**
+ * What the runner's namespace Role lets helm manage. A chart with any other
+ * kind (cluster-scoped RBAC, CRDs, custom resources) cannot be upgraded,
+ * rolled back or uninstalled by the runner; the UI checks first.
+ */
+export const HELM_RUNNER_RULES = [
+  { apiGroups: [''], resources: ['configmaps', 'endpoints', 'persistentvolumeclaims', 'pods', 'secrets', 'serviceaccounts', 'services'], verbs: VERBS },
+  { apiGroups: ['apps'], resources: ['daemonsets', 'deployments', 'replicasets', 'statefulsets'], verbs: VERBS },
+  { apiGroups: ['batch'], resources: ['cronjobs', 'jobs'], verbs: VERBS },
+  { apiGroups: ['networking.k8s.io'], resources: ['ingresses', 'networkpolicies'], verbs: VERBS },
+  { apiGroups: ['route.openshift.io'], resources: ['routes'], verbs: VERBS },
+] as const;
+
+const KIND_PLURALS: Record<string, string> = {
+  ConfigMap: 'configmaps', Endpoints: 'endpoints', PersistentVolumeClaim: 'persistentvolumeclaims', Pod: 'pods', Secret: 'secrets',
+  ServiceAccount: 'serviceaccounts', Service: 'services', DaemonSet: 'daemonsets', Deployment: 'deployments', ReplicaSet: 'replicasets',
+  StatefulSet: 'statefulsets', CronJob: 'cronjobs', Job: 'jobs', Ingress: 'ingresses', NetworkPolicy: 'networkpolicies', Route: 'routes',
+};
+
+/** Whether the runner Role covers objects of this apiVersion/kind. */
+export function runnerCanManage(apiVersion: string, kind: string): boolean {
+  const group = apiVersion.includes('/') ? apiVersion.split('/')[0] : '';
+  const plural = KIND_PLURALS[kind];
+  if (!plural) return false;
+  return HELM_RUNNER_RULES.some((r) => (r.apiGroups as readonly string[]).includes(group) && (r.resources as readonly string[]).includes(plural));
+}
+
 export const HELM_RUNNER_IMAGE_DIGEST_PATTERN = /^[^\s@]+@sha256:[a-f0-9]{64}$/i;
 
 function assertDigestPinnedImage(image: string): void {
@@ -146,33 +175,7 @@ export function buildHelmInstallResources(input: BuildHelmInstallResourcesInput)
         namespace: input.namespace,
         labels,
       },
-      rules: [
-        {
-          apiGroups: [''],
-          resources: ['configmaps', 'endpoints', 'persistentvolumeclaims', 'pods', 'secrets', 'serviceaccounts', 'services'],
-          verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete'],
-        },
-        {
-          apiGroups: ['apps'],
-          resources: ['daemonsets', 'deployments', 'replicasets', 'statefulsets'],
-          verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete'],
-        },
-        {
-          apiGroups: ['batch'],
-          resources: ['cronjobs', 'jobs'],
-          verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete'],
-        },
-        {
-          apiGroups: ['networking.k8s.io'],
-          resources: ['ingresses', 'networkpolicies'],
-          verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete'],
-        },
-        {
-          apiGroups: ['route.openshift.io'],
-          resources: ['routes'],
-          verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete'],
-        },
-      ],
+      rules: HELM_RUNNER_RULES.map((r) => ({ ...r, apiGroups: [...r.apiGroups], resources: [...r.resources], verbs: [...r.verbs] })),
     },
     roleBinding: {
       apiVersion: 'rbac.authorization.k8s.io/v1',

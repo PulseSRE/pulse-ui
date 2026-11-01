@@ -8,6 +8,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { clickWhenEnabled, createHarness, json, k8sStatus } from '../../../__tests__/actionHarness';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../../../engine/watch', () => ({ watchManager: { watch: () => ({ unsubscribe: () => {} }) } }));
 const visited: string[] = [];
@@ -38,7 +40,7 @@ describe('SecurityView actions', () => {
 
   it('offers a prefilled default-deny NetworkPolicy for a namespace without one', async () => {
     h.renderUi(<SecurityView />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Create default-deny NetworkPolicy in shop' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Create default-deny ingress NetworkPolicy in shop' }));
     expect(visited).toEqual(['/create/networking.k8s.io~v1~networkpolicies?template=default-deny&namespace=shop']);
   });
 
@@ -60,6 +62,9 @@ describe('Templates', () => {
   it('prefill the namespace and refuse an invalid one', () => {
     expect(renderCreateTemplate('default-deny', 'shop')).toContain('namespace: shop\nspec:\n');
     expect(renderCreateTemplate('default-deny', 'shop')).toContain('podSelector: {}');
+    // Ingress only: denying egress without a DNS allow rule would break name resolution.
+    expect(renderCreateTemplate('default-deny', 'shop')).toMatch(/policyTypes:\n    - Ingress\n$/);
+    expect(renderCreateTemplate('default-deny', 'shop')).toMatch(/Egress is not restricted, so DNS/);
     expect(renderCreateTemplate('default-deny', 'Bad NS')).toBeNull();
     expect(renderCreateTemplate('nope', 'shop')).toBeNull();
     expect(createTemplateUrl('limit-range', 'shop')).toBe('/create/v1~limitranges?template=limit-range&namespace=shop');
@@ -95,6 +100,20 @@ describe('QuotasTab', () => {
       path: '/api/v1/namespaces/shop/resourcequotas/compute',
       body: { metadata: { resourceVersion: '77' }, spec: { hard: { 'requests.cpu': '8', pods: null } } },
     });
+  });
+
+  it('the patch uses the quota as it was when the dialog opened, even if it updates meanwhile', async () => {
+    const { rerender } = h.renderUi(<QuotasTab quotas={[quota as never]} limitRanges={[]} go={() => {}} />);
+    await clickWhenEnabled('Edit quota compute');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove pods' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByRole('dialog');
+    // A watch update arrives: another key appears and the resourceVersion moves on.
+    const updated = { ...quota, metadata: { ...quota.metadata, resourceVersion: '78' }, spec: { hard: { ...quota.spec.hard, services: '5' } } };
+    rerender(<QueryClientProvider client={new QueryClient()}><MemoryRouter><QuotasTab quotas={[updated as never]} limitRanges={[]} go={() => {}} /></MemoryRouter></QueryClientProvider>);
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Update quota' }));
+    await waitFor(() => expect(h.writes()).toHaveLength(1));
+    expect(h.writes()[0].body).toEqual({ metadata: { resourceVersion: '77' }, spec: { hard: { pods: null } } });
   });
 
   it('a conflicting edit is reported in the dialog', async () => {

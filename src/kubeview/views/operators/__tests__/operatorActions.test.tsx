@@ -148,6 +148,34 @@ describe('ManageSubscription', () => {
     ]);
   });
 
+  it('switching to Automatic also approves the waiting Manual InstallPlan, and says so', async () => {
+    h.renderUi(<ManageSubscription sub={sub} installPlan={plan} channels={channels} displayName="Loki" />);
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement).disabled).toBe(false));
+    await clickWhenEnabled('Switch to Automatic');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/waiting InstallPlan install-abc is approved now \(installing loki.v6.0.4\)/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(h.writes()).toHaveLength(2));
+    expect(h.writes().map((w) => [w.path, w.body])).toEqual([
+      ['/apis/operators.coreos.com/v1alpha1/namespaces/team-logs/subscriptions/loki-operator', { spec: { installPlanApproval: 'Automatic' } }],
+      ['/apis/operators.coreos.com/v1alpha1/namespaces/team-logs/installplans/install-abc', { spec: { approved: true } }],
+    ]);
+  });
+
+  it('without InstallPlan permission, switching to Automatic says the waiting plan still needs approval', async () => {
+    h.state.denied.add('patch installplans');
+    h.renderUi(<ManageSubscription sub={sub} installPlan={plan} channels={channels} displayName="Loki" />);
+    await clickWhenEnabled('Switch to Automatic');
+    // permission answers are async; reopen once the plan permission has resolved
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement).disabled).toBe(true));
+    await clickWhenEnabled('Switch to Automatic');
+    expect(within(await screen.findByRole('dialog')).getByText(/install-abc is not approved by this change and still needs approval/)).toBeTruthy();
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(h.writes()).toHaveLength(1));
+    expect(h.writes()[0].body).toEqual({ spec: { installPlanApproval: 'Automatic' } });
+  });
+
   it('refuses a change prepared on another cluster', async () => {
     h.renderUi(<ManageSubscription sub={sub} installPlan={plan} channels={channels} displayName="Loki" />);
     await clickWhenEnabled('Approve');
