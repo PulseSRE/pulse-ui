@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
-import { fetchAwaitingApprovals, type AwaitingRun } from '../../engine/durableRunsApi';
+import { DurableDisabledError, fetchAwaitingApprovals, isDurableDisabled, type AwaitingRun } from '../../engine/durableRunsApi';
+import { LoadError } from '../../components/primitives/LoadError';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 
 interface RunMemo {
@@ -46,7 +47,7 @@ export function RunsTab() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const { data, isLoading, isError } = useQuery<{ runs: WorkflowRun[] }>({
+  const { data, isLoading, isError, error: runsError, refetch } = useQuery<{ runs: WorkflowRun[] }>({
     queryKey: ['workflow-runs'],
     // Poll while anything is still running; idle otherwise.
     refetchInterval: (q) =>
@@ -55,8 +56,11 @@ export function RunsTab() {
       const res = await agentFetch('/api/agent/workflow-runs?limit=50');
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        // 503 carries the "set PULSE_AGENT_TEMPORAL_HOST" explanation.
-        throw new Error(body.detail || `Failed to load runs (${res.status})`);
+        const reason = (typeof body.detail === 'string' && body.detail) || `Failed to load runs (${res.status})`;
+        // 503 "not configured" means durable execution is off; a 503 for an
+        // unreachable Temporal, a 500 or a 401 is a failed read.
+        if (isDurableDisabled(res.status, reason)) throw new DurableDisabledError(reason);
+        throw new Error(reason);
       }
       return res.json();
     },
@@ -154,7 +158,11 @@ export function RunsTab() {
         </div>
       )}
 
-      {isError && (
+      {isError && !(runsError instanceof DurableDisabledError) && (
+        <LoadError title="Could not load durable runs" error={runsError} onRetry={() => { void refetch(); }} />
+      )}
+
+      {isError && runsError instanceof DurableDisabledError && (
         <div className="px-3 py-2 text-xs rounded-md border bg-slate-900 border-slate-800 text-slate-400">
           Durable execution is not configured on this agent, so there are no runs
           to show. Enable <code className="text-slate-300">spec.temporal</code> on

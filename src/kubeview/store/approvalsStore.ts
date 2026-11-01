@@ -27,6 +27,8 @@ interface ApprovalsState {
   loaded: boolean;
   /** Set when the proposal list could not be read; the queue says so rather than "nothing waiting". */
   proposalsError: string | null;
+  /** Set when the durable-run approvals could not be read (not when durable execution is off). */
+  runsError: string | null;
 
   refreshProposals: () => Promise<void>;
   refreshRuns: () => Promise<void>;
@@ -44,6 +46,7 @@ const INITIAL = {
   runs: [] as AwaitingRun[],
   loaded: false,
   proposalsError: null as string | null,
+  runsError: null as string | null,
 };
 
 export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
@@ -60,10 +63,12 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
 
   refreshRuns: async () => {
     try {
-      set({ runs: await fetchAwaitingApprovals() });
-    } catch {
-      // Durable execution is optional; with it off there is nothing to answer.
-      set({ runs: [] });
+      // Durable execution off answers [] here; that is "nothing to answer".
+      set({ runs: await fetchAwaitingApprovals(), runsError: null });
+    } catch (e) {
+      // Anything else is a failed read: keep the last known runs and say so,
+      // rather than "Nothing is waiting on you".
+      set({ runsError: e instanceof Error ? e.message : 'Could not load runs awaiting approval' });
     }
   },
 

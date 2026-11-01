@@ -22,6 +22,7 @@ export function ApprovalsQueue() {
   const runs = useApprovalsStore((s) => s.runs);
   const loaded = useApprovalsStore((s) => s.loaded);
   const proposalsError = useApprovalsStore((s) => s.proposalsError);
+  const runsError = useApprovalsStore((s) => s.runsError);
   const refresh = useApprovalsStore((s) => s.refresh);
   const refreshRuns = useApprovalsStore((s) => s.refreshRuns);
   const runAnswered = useApprovalsStore((s) => s.runAnswered);
@@ -39,6 +40,10 @@ export function ApprovalsQueue() {
     <div className="space-y-3 p-4">
       {proposalsError && (
         <LoadError title="Could not load proposed fixes" error={proposalsError} onRetry={refresh} />
+      )}
+
+      {runsError && (
+        <LoadError title="Could not load durable runs waiting for approval" error={runsError} onRetry={refreshRuns} />
       )}
 
       <ProposedFixes />
@@ -70,7 +75,7 @@ export function ApprovalsQueue() {
         </div>
       )}
 
-      {loaded && !proposalsError && nothing && (
+      {loaded && !proposalsError && !runsError && nothing && (
         <EmptyState
           icon={<UserCheck className="h-8 w-8" />}
           title="Nothing is waiting on you"
