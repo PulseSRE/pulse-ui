@@ -59,3 +59,15 @@ export function kindFromPlural(plural: string): string {
   const singular = plural.endsWith('ies') ? `${plural.slice(0, -3)}y` : plural.replace(/s$/, '');
   return singular.charAt(0).toUpperCase() + singular.slice(1);
 }
+
+/** Kinds the agent's dependency graph builds nodes for (dependency_graph.py). */
+const TOPOLOGY_KINDS = new Set([
+  'Deployment', 'ReplicaSet', 'StatefulSet', 'DaemonSet', 'Job', 'CronJob', 'Pod',
+  'PersistentVolumeClaim', 'ConfigMap', 'Secret', 'ServiceAccount', 'Service',
+  'Ingress', 'NetworkPolicy', 'Route', 'HorizontalPodAutoscaler', 'Node',
+]);
+
+/** True when /topology can show this kind. */
+export function isTopologyKind(kind: string): boolean {
+  return TOPOLOGY_KINDS.has(kind);
+}

@@ -327,8 +327,8 @@ export default function WorkloadsView() {
         {/* Pod Status Breakdown */}
         <Panel title="Pod Status" icon={<Box className="w-4 h-4 text-blue-400" />}>
           <div className="space-y-2">
-            {/* CrashLoop and ImagePull are counted in the banner above. */}
-            {Object.entries(podStats).filter(([status, count]) => count > 0 && status !== 'CrashLoop' && status !== 'ImagePull').map(([status, count]) => {
+            {/* A distribution: rows add up to the pod total. */}
+            {Object.entries(podStats).filter(([, count]) => count > 0).map(([status, count]) => {
               const maxCount = Math.max(...Object.values(podStats).filter(v => v > 0), 1);
               const pct = (count / maxCount) * 100;
               const color = status === 'Running' ? 'bg-green-500' : status === 'Succeeded' ? 'bg-blue-500' : status === 'Pending' ? 'bg-amber-500' : 'bg-red-500';

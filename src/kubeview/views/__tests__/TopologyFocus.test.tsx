@@ -101,3 +101,12 @@ describe('/deps redirects to /topology', () => {
     expect(screen.getByRole('button', { name: /Retry/ })).toBeDefined();
   });
 });
+
+describe('isTopologyKind', () => {
+  it('knows which kinds the graph tracks', async () => {
+    const { isTopologyKind } = await import('../../engine/topologyLinks');
+    expect(isTopologyKind('Deployment')).toBe(true);
+    expect(isTopologyKind('PersistentVolumeClaim')).toBe(true);
+    expect(isTopologyKind('ClusterRole')).toBe(false);
+  });
+});

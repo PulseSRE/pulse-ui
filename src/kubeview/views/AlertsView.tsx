@@ -480,9 +480,9 @@ function LocalAlertsView() {
         {/* Alert metrics */}
         {allAlerts.length > 0 && (
           <MetricGrid>
-            {/* Firing / critical / warning counts are the stat row above; the
-                sparklines that restated them (from a second source, ALERTS,
-                which also counts pending) are gone. */}
+            {/* History, not a second count: the firing trend over time. The
+                current numbers are the stat row above. */}
+            <MetricCard title="Firing alerts (trend)" query="sum(ALERTS{alertstate='firing'}) or vector(0)" unit="" color={CHART_COLORS.red} />
             <MetricCard title="Alertmanager Notifications" query="sum(rate(alertmanager_notifications_total[5m])) * 300" unit="/5m" color={CHART_COLORS.violet} />
           </MetricGrid>
         )}

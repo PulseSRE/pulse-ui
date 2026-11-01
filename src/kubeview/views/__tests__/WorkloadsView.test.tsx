@@ -118,7 +118,8 @@ describe('WorkloadsView', () => {
       // No stat-card badge, CrashLoopBackOff metric card, Pod Status row or
       // "Unhealthy Deployments (1)" panel repeating them.
       expect(screen.queryByText('CrashLoopBackOff')).toBeNull();
-      expect(screen.queryByText('CrashLoop')).toBeNull();
+      // The Pod Status distribution still lists CrashLoop so its rows add up.
+      expect(screen.getByText('CrashLoop')).toBeDefined();
       expect(screen.queryByText(/Unhealthy Deployments/)).toBeNull();
       expect(screen.queryByText('Unhealthy (1)')).toBeNull();
       expect(screen.queryAllByTestId('metric-card').map((c) => c.textContent)).not.toContain('CrashLoopBackOff');

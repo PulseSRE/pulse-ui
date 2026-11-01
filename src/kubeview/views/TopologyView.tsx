@@ -105,16 +105,23 @@ export default function TopologyView() {
   });
 
   // Select the focused resource once its namespace's graph has loaded.
-  const focusApplied = useRef(false);
+  // Applied once per ?focus value, so a new focus (another resource's
+  // "Dependencies") re-selects while the page stays mounted.
+  const focusApplied = useRef<string | null>(null);
+  const focusKey = searchParams.get('focus');
+  useEffect(() => {
+    if (urlNamespace !== null) setSelectedNamespace(urlNamespace);
+    else if (focus) setSelectedNamespace(focus.namespace);
+  }, [urlNamespace, focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const focusNode = useMemo(
     () => (focus && data ? data.nodes.find((n) => topologyNodeMatches(n, focus)) ?? null : null),
     [focus, data],
   );
   useEffect(() => {
-    if (focusApplied.current || !focusNode) return;
-    focusApplied.current = true;
+    if (!focusNode || focusApplied.current === focusKey) return;
+    focusApplied.current = focusKey;
     setSelectedNode(focusNode.id);
-  }, [focusNode]);
+  }, [focusNode, focusKey]);
   const focusMissing = !!focus && !!data && !focusNode;
 
   const topology = data ?? { nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } };
