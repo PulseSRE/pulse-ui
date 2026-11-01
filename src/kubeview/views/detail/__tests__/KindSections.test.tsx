@@ -145,11 +145,11 @@ describe('Service endpoints', () => {
 });
 
 describe('StorageClass', () => {
-  it('Set as default clears the old default first, then sets this one', async () => {
+  it('Set as default marks this class first, then clears the GA and beta default on the others', async () => {
     respond((c) => (c.method === 'GET' && c.path === '/apis/storage.k8s.io/v1/storageclasses' ? json({ kind: 'StorageClassList', apiVersion: 'storage.k8s.io/v1', items: [
       { metadata: { name: 'old', annotations: { 'storageclass.kubernetes.io/is-default-class': 'true' } } },
       { metadata: { name: 'fast' } },
-      { metadata: { name: 'other' } },
+      { metadata: { name: 'other', annotations: { 'storageclass.beta.kubernetes.io/is-default-class': 'true' } } },
     ] }) : undefined));
     const sc = { apiVersion: 'storage.k8s.io/v1', kind: 'StorageClass', metadata: { name: 'fast', uid: 'f' } } as unknown as K8sResource;
     renderWithProviders(<KindSections resource={sc} go={go} />);
@@ -157,11 +157,31 @@ describe('StorageClass', () => {
     await waitFor(() => expect(btn().disabled).toBe(false));
     fireEvent.click(btn());
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Set as default' }));
-    await waitFor(() => expect(writes()).toHaveLength(2));
-    expect(writes().map((w) => [w.path, w.body.metadata.annotations['storageclass.kubernetes.io/is-default-class']])).toEqual([
-      ['/apis/storage.k8s.io/v1/storageclasses/old', 'false'],
-      ['/apis/storage.k8s.io/v1/storageclasses/fast', 'true'],
+    await waitFor(() => expect(writes()).toHaveLength(3));
+    expect(writes().map((w) => [w.path, w.body.metadata.annotations])).toEqual([
+      ['/apis/storage.k8s.io/v1/storageclasses/fast', { 'storageclass.kubernetes.io/is-default-class': 'true' }],
+      ['/apis/storage.k8s.io/v1/storageclasses/old', { 'storageclass.kubernetes.io/is-default-class': 'false', 'storageclass.beta.kubernetes.io/is-default-class': null }],
+      ['/apis/storage.k8s.io/v1/storageclasses/other', { 'storageclass.kubernetes.io/is-default-class': 'false', 'storageclass.beta.kubernetes.io/is-default-class': null }],
     ]);
     expect(calls.some((c) => c.method === 'GET' && c.path === '/apis/storage.k8s.io/v1/storageclasses')).toBe(true);
+  });
+});
+
+describe('StorageClass partial failure', () => {
+  it('says exactly which classes changed when clearing an old default fails', async () => {
+    respond((c) => (c.method === 'GET' && c.path === '/apis/storage.k8s.io/v1/storageclasses' ? json({ kind: 'StorageClassList', apiVersion: 'storage.k8s.io/v1', items: [
+      { metadata: { name: 'a', annotations: { 'storageclass.kubernetes.io/is-default-class': 'true' } } },
+      { metadata: { name: 'b', annotations: { 'storageclass.kubernetes.io/is-default-class': 'true' } } },
+      { metadata: { name: 'fast' } },
+    ] }) : undefined));
+    respond((c) => (c.method === 'PATCH' && c.path.endsWith('/storageclasses/b') ? json({ kind: 'Status', message: 'forbidden', code: 403 }, 403) : undefined));
+    const sc = { apiVersion: 'storage.k8s.io/v1', kind: 'StorageClass', metadata: { name: 'fast', uid: 'f' } } as unknown as K8sResource;
+    renderWithProviders(<KindSections resource={sc} go={go} />);
+    const btn = () => screen.getByRole('button', { name: /Set as default/ }) as HTMLButtonElement;
+    await waitFor(() => expect(btn().disabled).toBe(false));
+    fireEvent.click(btn());
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Set as default' }));
+    const alert = await waitFor(() => within(screen.getByRole('dialog')).getByRole('alert'));
+    expect(alert.textContent).toMatch(/"fast" is now a default; cleared the default on "a"\. Still marked default: "b"\. Failed on "b"/);
   });
 });

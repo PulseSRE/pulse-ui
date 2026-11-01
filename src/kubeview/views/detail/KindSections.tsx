@@ -9,11 +9,11 @@ import { k8sGet, k8sList } from '../../engine/query';
 import { PulseError } from '../../engine/errors';
 import { useFleetStore } from '../../store/fleetStore';
 import { useCanI } from '../../hooks/useCanI';
-import { useActionDialog } from '../../components/ActionDialog';
+import { useActionDialog, describeWriteError } from '../../components/ActionDialog';
 import { Button } from '../../components/primitives/Button';
 import { LoadError } from '../../components/primitives/LoadError';
 import {
-  DEFAULT_SC_ANNOTATION, expandPvc, quantityToBytes, sendWrite, setDefaultStorageClass, setHpaBounds,
+  isDefaultStorageClass, expandPvc, quantityToBytes, sendWrite, setDefaultStorageClass, setHpaBounds,
 } from '../../engine/workloadActions';
 import type { K8sResource } from '../../engine/renderers';
 import type { Pod } from '../../engine/types';
@@ -249,12 +249,26 @@ export function useSetDefaultStorageClass() {
   const { open, dialog } = useActionDialog();
   const setDefault = (target: K8sResource) => open({
     title: `Make "${target.metadata.name}" the default StorageClass?`,
-    description: 'Claims that name no StorageClass will be provisioned from this class. The default annotation is removed from every other class first, so there is never more than one default (two defaults make such claims fail).',
+    description: 'Claims that name no StorageClass will be provisioned from this class. It is marked default first, then the default annotation (GA and beta) is removed from every other class, so it is the only default. (While more than one class is default, the newest default is used.)',
     confirmLabel: 'Set as default',
     run: async (cid) => {
       // Read the current classes on the pinned cluster, not a possibly stale list.
       const all = await k8sList<K8sResource>('/apis/storage.k8s.io/v1/storageclasses', undefined, cid);
-      for (const req of setDefaultStorageClass(target, all)) await sendWrite(req, cid);
+      const reqs = setDefaultStorageClass(target, all);
+      const done: string[] = [];
+      for (const req of reqs) {
+        const name = req.path.split('/').pop()!;
+        try {
+          await sendWrite(req, cid);
+          done.push(name);
+        } catch (err) {
+          // Say exactly what did and did not change.
+          const what = name === target.metadata.name
+            ? 'Nothing was changed'
+            : `"${target.metadata.name}" is now a default; cleared the default on ${done.slice(1).map((n) => `"${n}"`).join(', ') || 'no other class'}. Still marked default: ${reqs.slice(done.length).map((r) => `"${r.path.split('/').pop()}"`).join(', ')}`;
+          throw new Error(`${what}. Failed on "${name}": ${describeWriteError(err)}`);
+        }
+      }
     },
     success: `"${target.metadata.name}" is now the default StorageClass`,
   });
@@ -263,7 +277,7 @@ export function useSetDefaultStorageClass() {
 
 function StorageClassSection({ sc }: { sc: K8sResource }) {
   const { canPatch, setDefault, dialog } = useSetDefaultStorageClass();
-  const isDefault = sc.metadata.annotations?.[DEFAULT_SC_ANNOTATION] === 'true';
+  const isDefault = isDefaultStorageClass(sc);
   return (
     <DetailSection
       title="Default class"

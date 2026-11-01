@@ -4,20 +4,60 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### CI
+- `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
+
 ### Added
 - Workload, node and storage actions (functionality review, Wave 7a). Every state-changing action asks first, saying what will happen; is disabled with the reason when RBAC does not allow it; is pinned to the cluster that was active when its dialog opened; and shows a failed write in the dialog
-  - One actions menu for Deployments (set replicas, rollout restart, pause/resume, roll back, delete), StatefulSets (set replicas, restart, delete), DaemonSets (restart, delete), CronJobs (trigger now, as `oc create job --from=cronjob/…`; suspend/resume), Jobs (re-run, without the old selector and controller labels; delete) and Pods (restart/delete saying whether a controller replaces it, logs, exec), on the Workloads lists, resource tables and detail pages. The header's ±1 scale and unconfirmed Restart are replaced by it
+  - One actions menu for Deployments (set replicas, rollout restart, pause/resume, roll back, delete), StatefulSets (set replicas, restart, delete), DaemonSets (restart, delete), CronJobs (trigger now, as `oc create job --from=cronjob/…`; suspend/resume), Jobs (re-run, without the old selector and controller labels; delete), ReplicaSets (scale) and Pods (restart/delete saying whether a controller replaces it, logs, exec), on the Workloads lists, resource tables and detail pages. The header's ±1 scale and unconfirmed Restart are replaced by it
   - The Workloads page lists StatefulSets, DaemonSets, CronJobs and Jobs, and each issue banner opens the list it counts, filtered
   - Node pages: Cordon/Uncordon (confirmed) and Drain, and a visible Node logs button
-  - Storage: Create PVC; expand a PVC (only when its StorageClass allows expansion, otherwise disabled with the reason) and see which pods mount it; delete a Released PV; set the default StorageClass (the old default is cleared first); CSI driver and VolumeSnapshot rows open their pages
+  - Storage: Create PVC; expand a PVC (only when its StorageClass allows expansion, otherwise disabled with the reason) and see which pods mount it; delete a Released PV (warning that the backing volume is destroyed when its reclaim policy is Delete); set the default StorageClass (this class is marked first, then the GA and beta default annotations are cleared on the others); CSI driver and VolumeSnapshot rows open their pages
   - Labels and annotations sections are always shown and can be added, edited and removed with a JSON patch that applies only to the version on screen
   - HPA min/max editing, a Route "Open URL" (https when TLS), and a Service endpoints section
   - Networking: create Service/Route/Ingress in the selected namespace, and "Services with no ready endpoints" (skipped when Endpoints cannot be read)
-  - Compute: scale a MachineSet, delete a Machine (says the node goes and whether its MachineSet replaces it), pause/unpause a MachineConfigPool
+  - Compute: scale a MachineSet, delete a Machine (says the node goes and what replaces it; control-plane machines warn about etcd quorum and, without a ControlPlaneMachineSet, need the name typed), pause/unpause a MachineConfigPool
   - Project dashboard: summary cards open the filtered lists; Routes, PVCs and quota usage sections; "Create in <ns>". It opens from the namespace picker and from a Namespace's page
-
-### CI
-- `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
+- Update graph, rollout history and live charts (Wave 8; pairs with pulse-agent's `get_cluster_updates`/`get_rollout_history`):
+  - **Admin › Updates is an update graph.**
+    - It draws the installed path, the current version and every target, one column per minor version. Edges are coloured by what ClusterVersion says: recommended (`availableUpdates`), conditional (`conditionalUpdates`, with the risk count) or blocked (a minor target while Upgradeable=False). During an update the release being installed sits between current and the targets, because CVO computes targets from it.
+    - Selecting a target shows its risks with names and links, the Recommended message and an estimated duration taken from the last completed update's duration (labelled as such). The update action patches `spec.desiredUpdate` {version, image} on the cluster the page showed.
+    - A conditional target needs an explicit "accept risks" confirmation that lists each risk. The patch then adds the risk names to `spec.desiredUpdate.acceptRisks` and keeps any already accepted. That field is recorded only where the ClusterUpdateAcceptRisks feature gate is on, and the toast says whether this cluster kept it. Every focusable control in the confirm dialog's focus trap (not only buttons) can be reached with Tab, so the required checkbox is reachable while confirm is disabled.
+    - While an update runs:
+      - an overall bar parsed from CVO's "x of y done (z%)";
+      - ClusterOperators at the target version, N of M, with degraded ones linked;
+      - a rollout bar per MachineConfigPool, linked;
+      - blockers;
+      - the time remaining, estimated from the last update.
+    - History is a timeline with real durations: no "0" artefact, and no spinner on historical Partial entries.
+    - ClusterVersion and MachineConfigPools are watched (`useK8sListWatch`), so progress moves without a reload.
+    - The channel picker offers the next minor (needed for a minor update) and eus only for even minors, and uses `status.desired.channels` when the release lists them.
+    - Nodes in rollout and drain-blocking PDBs link to their objects. The duplicate in-progress banner, the separate conditional-risks panel and the unused SnapshotsTab import are gone.
+  - **Rollout history for Deployments, StatefulSets and DaemonSets** replaces RollbackPanel.
+    - A horizontal revision timeline built from ReplicaSets or ControllerRevisions, watched live. It shows the image changes between revisions, the change-cause, the current revision, and a rollout-in-progress bar.
+    - Rollback to any revision is RBAC-gated (`patch`), confirmed with a diff and pinned to the cluster. It replaces `spec.template` exactly: JSON Patch `test` on the shown resourceVersion plus `replace`. For a StatefulSet or DaemonSet it restores the ControllerRevision template. As with `kubectl rollout undo`, a paused Deployment is refused (with the reason) and the revision's change-cause is copied onto the Deployment. From chat, rollback is offered only while the agent's cluster is the active one.
+  - Agent components:
+    - `upgrade_graph` renders the same graph, read-only, linking to Admin › Updates to act.
+    - `rollout_history` renders the live history (with rollback) on the agent's cluster, or the agent's snapshot, labelled, when the workload cannot be read.
+    - `chart` honours `refreshInterval` (seconds), `live` (a 15m sliding window refreshed every 10s), `step` and `annotations` (rollout/alert/config markers on the time axis, listed under the chart). The old `time_range` field is read as `timeRange`.
+    - `stat_card` re-queries its PromQL `query` every `refreshInterval` seconds.
+  - **Timeline:**
+    - a density chart per category over the selected range;
+    - events listed for the selected namespace without the cluster-wide `limit=500`, and capped at 1000 cluster-wide with a note when the cap is hit;
+    - alerts that fired and resolved within the range, from `max_over_time(ALERTS{…}[step])` so short alerts are not missed between samples;
+    - an error with retry, not an empty timeline, when no source could be read; a partial failure also offers retry.
+- Admin and operations actions (functionality review, Wave 7b). Every one confirms with exactly what will happen, is disabled without the RBAC permission (SelfSubjectAccessReview), is pinned to the cluster it was opened on (refused with a reason if the active cluster changed), and shows failures in its dialog:
+  - Certificate signing requests: Admin › Certificate requests lists CSRs (requester, signer, usages, age, status) with Approve / Deny on the approval subresource and bulk approval of kubelet-serving CSRs from an explicit list; Compute shows a banner when any are pending
+  - Certificates: links to the owning cert-manager Certificate, service-ca Service and Routes; Rotate for service-ca serving certificates (deletes the secret so service-ca re-issues it); the load error has Retry
+  - Operators: install reuses the namespace's OperatorGroup (no more TooManyOperatorGroups), takes the install mode from the CSV's installModes and refuses incompatible groups with a reason; Automatic/Manual approval at install; installed operators show "upgrade available", can change channel, switch approval and approve a pending InstallPlan; the operator detail is in the URL (`?pkg=`) so Back works; Admin ClusterOperators and the OLM catalog link to each other
+  - Helm: one releases list (Helm Charts tab; Installed links to it) with "rev N", chart version, values view, upgrade (chart version + values), rollback to a revision and uninstall — all run by the existing digest-pinned helm runner Job, values passed in a mounted Secret. Helm install takes a chart version and values; Helm install and Quick Deploy require a namespace in all-namespaces mode instead of using `default`
+  - Alerts: silences are listed by state (active, pending, expired) with edit (replace) / recreate and expire; Pending and Silenced stats filter the list to what they count; rules open a detail drawer (expression, `for`, labels, annotations, defining PrometheusRule with Edit YAML, Silence, Investigate with Pulse); "Create alert rule" opens a PrometheusRule template
+  - Identity: users, groups, service accounts and cluster-admin subjects open their detail pages; create/delete groups and add/remove members (with resourceVersion, so concurrent edits are refused); grant a RoleBinding or ClusterRoleBinding (role, subject, namespace) and revoke (delete) bindings, listing every subject that loses access; a "Who can…?" SubjectAccessReview check
+  - One definition of "too many cluster-admins" (more than 3 non-system subjects on non-system bindings) shared by Security and Identity; a failing check is a warning
+  - Security: "+ default-deny" on namespaces without a NetworkPolicy opens a prefilled policy; cluster-admin bindings can be removed
+  - Quotas: inline edit of ResourceQuota hard limits (merge patch with resourceVersion); unprotected namespaces open prefilled ResourceQuota / LimitRange creates
+  - SLO: the service is picked from the cluster's Deployments, with a note when the name exists in several namespaces (the agent matches `deployment=` without a namespace); SLOs can be edited
+  - `/create/<gvr>?template=<id>&namespace=<ns>` opens reviewed templates (default-deny NetworkPolicy, ResourceQuota, LimitRange, PrometheusRule)
 
 ### Fixed
 - Links and routes (functionality review, Wave 1):

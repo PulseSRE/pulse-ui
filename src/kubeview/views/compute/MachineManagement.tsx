@@ -170,10 +170,33 @@ function MachinesCard({ machines, go }: { machines: Machine[]; go: (path: string
   const { open, dialog } = useActionDialog();
   const remove = (m: Machine) => {
     const node = m.status?.nodeRef?.name;
-    const owned = (m.metadata.ownerReferences ?? []).some((o) => o.kind === 'MachineSet');
+    const owners = m.metadata.ownerReferences ?? [];
+    const cpms = owners.some((o) => o.kind === 'ControlPlaneMachineSet');
+    const owned = cpms || owners.some((o) => o.kind === 'MachineSet');
+    const controlPlane = cpms || m.metadata.labels?.['machine.openshift.io/cluster-api-machine-role'] === 'master';
+    const nodePart = node ? `node "${node}" is drained and removed, and its ` : '';
+    if (controlPlane && !cpms) {
+      // No ControlPlaneMachineSet: nothing replaces it and etcd loses a member for good.
+      open({
+        title: `Machine "${m.metadata.name}" is a control-plane machine`,
+        description: `It runs an etcd member and the API server, and no ControlPlaneMachineSet manages it, so nothing would replace it: deleting it shrinks etcd and can lose quorum (with three members, losing two stops the cluster). Replace control-plane machines with the documented etcd member replacement procedure, not from here.`,
+        confirmLabel: 'Delete machine',
+        variant: 'danger',
+        inputs: [{ id: 'confirm', label: `Type the machine name to delete it anyway`, initial: '', validate: (v) => (v === m.metadata.name ? null : 'Type the exact machine name') }],
+        run: (cid) => sendWrite(deleteRequest(m as unknown as K8sResource), cid),
+        success: `Machine "${m.metadata.name}" is being deleted`,
+      });
+      return;
+    }
     open({
       title: `Delete Machine "${m.metadata.name}"?`,
-      description: `The machine's ${node ? `node "${node}" is drained and removed, and its ` : ''}cloud instance is deleted. ${owned ? 'Its MachineSet then creates a replacement machine (and node) to keep its count.' : 'No MachineSet owns this machine, so nothing replaces it.'}`,
+      description: `The machine's ${nodePart}cloud instance is deleted. ${
+        cpms
+          ? 'It is a control-plane machine (etcd member): its ControlPlaneMachineSet creates a replacement and moves the etcd member, one machine at a time. Do not delete another control-plane machine until the replacement is Running and etcd is healthy, or quorum can be lost.'
+          : owned
+            ? 'Its MachineSet then creates a replacement machine (and node) to keep its count.'
+            : 'No MachineSet or ControlPlaneMachineSet owns this machine, so nothing replaces it.'
+      }`,
       confirmLabel: 'Delete machine',
       variant: 'danger',
       run: (cid) => sendWrite(deleteRequest(m as unknown as K8sResource), cid),

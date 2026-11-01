@@ -44,7 +44,7 @@ export function installFetch() {
     calls.push(call);
     if (path.endsWith('/selfsubjectaccessreviews')) {
       const a = body.spec.resourceAttributes;
-      return json({ status: { allowed: !!allow[`${a.verb}/${a.resource}`] } });
+      return json({ status: { allowed: !!allow[`${a.verb}/${a.resource}${a.subresource ? `/${a.subresource}` : ''}`] } });
     }
     for (const r of responders) { const res = r(call); if (res) return res; }
     if (method === 'GET') return json({ kind: 'List', apiVersion: 'v1', items: [] });

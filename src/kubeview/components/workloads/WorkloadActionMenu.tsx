@@ -7,6 +7,9 @@
  * stay in the menu, disabled, with the reason.
  */
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useFleetStore } from '../../store/fleetStore';
+import { k8sList } from '../../engine/query';
 import {
   Scale, RotateCw, Pause, Play, History, Trash2, Zap, FileText, Terminal, RefreshCcw,
 } from 'lucide-react';
@@ -25,11 +28,12 @@ import {
 import type { K8sResource } from '../../engine/renderers';
 
 /** Kinds whose resource-table rows get the menu (pods keep their own inline Logs/Restart). */
-export const TABLE_ACTION_KINDS = new Set(['Deployment', 'StatefulSet', 'DaemonSet', 'CronJob', 'Job']);
+export const TABLE_ACTION_KINDS = new Set(['Deployment', 'StatefulSet', 'ReplicaSet', 'DaemonSet', 'CronJob', 'Job']);
 
 const KIND_RBAC: Record<string, { group: string; plural: string }> = {
   Deployment: { group: 'apps', plural: 'deployments' },
   StatefulSet: { group: 'apps', plural: 'statefulsets' },
+  ReplicaSet: { group: 'apps', plural: 'replicasets' },
   DaemonSet: { group: 'apps', plural: 'daemonsets' },
   CronJob: { group: 'batch', plural: 'cronjobs' },
   Job: { group: 'batch', plural: 'jobs' },
@@ -77,9 +81,21 @@ export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOp
   const rbac = KIND_RBAC[kind] ?? { group: '', plural: '' };
   const ns = resource.metadata.namespace;
   const known = !!KIND_RBAC[kind];
-  const { allowed: canPatch } = useCanI('patch', rbac.group, rbac.plural, ns, { enabled: known && kind !== 'Pod' && kind !== 'Job' });
-  const { allowed: canDelete } = useCanI('delete', rbac.group, rbac.plural, ns, { enabled: known && kind !== 'CronJob' });
-  const { allowed: canCreateJobs } = useCanI('create', 'batch', 'jobs', ns, { enabled: kind === 'CronJob' || kind === 'Job' });
+  const scalable = kind === 'Deployment' || kind === 'StatefulSet' || kind === 'ReplicaSet';
+  const { allowed: canPatch } = useCanI('patch', rbac.group, rbac.plural, ns, undefined, { enabled: known && kind !== 'Pod' && kind !== 'Job' && kind !== 'ReplicaSet' });
+  // Scaling is also allowed to users who may only patch `<resource>/scale`.
+  const { allowed: canPatchScale } = useCanI('patch', rbac.group, rbac.plural, ns, 'scale', { enabled: scalable });
+  const { allowed: canDelete } = useCanI('delete', rbac.group, rbac.plural, ns, undefined, { enabled: known && kind !== 'CronJob' && kind !== 'ReplicaSet' });
+  const { allowed: canCreateJobs } = useCanI('create', 'batch', 'jobs', ns, undefined, { enabled: kind === 'CronJob' || kind === 'Job' });
+  const clusterId = useFleetStore((st) => st.activeClusterId);
+  // An HPA that targets this workload will move the count back within its bounds.
+  const { data: hpas = [] } = useQuery({
+    queryKey: ['k8s', 'list', 'hpas-for-scale', ns, clusterId],
+    queryFn: () => k8sList<K8sResource>(`/apis/autoscaling/v2/namespaces/${ns}/horizontalpodautoscalers`, undefined, clusterId),
+    enabled: scalable && !!ns,
+    retry: false,
+    staleTime: 60_000,
+  });
   const context = opts.context ?? 'list';
   if (!known) return { items: [], dialog: null };
 
@@ -87,19 +103,26 @@ export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOp
   const spec = (resource.spec ?? {}) as { replicas?: number; paused?: boolean; suspend?: boolean };
   const gate = (allowed: boolean) => (allowed ? {} : { disabled: true, title: NO_PERMISSION });
 
+  const hpa = hpas.find((h) => {
+    const t = (h.spec as { scaleTargetRef?: { kind?: string; name?: string } } | undefined)?.scaleTargetRef;
+    return t?.kind === kind && t?.name === name;
+  });
+  const hpaNote = hpa
+    ? ` HorizontalPodAutoscaler "${hpa.metadata.name}" manages this ${kind} (${(hpa.spec as { minReplicas?: number }).minReplicas ?? 1}–${(hpa.spec as { maxReplicas?: number }).maxReplicas} replicas) and will change the count back within those bounds; edit the HPA to change them.`
+    : '';
   const scaleItem = (): ActionMenuItem => ({
-    icon: icon(Scale), label: 'Set replicas…', ...gate(canPatch),
+    icon: icon(Scale), label: 'Set replicas…', ...gate(canPatch || canPatchScale),
     onClick: () => {
       const current = spec.replicas ?? 0;
       open({
         title: `Scale ${kind} "${name}"`,
-        description: `Set the number of replicas of ${ref(resource)}. It has ${current} now. The change only applies if nothing else has changed the ${kind} since this page loaded it.`,
+        description: `Set the number of replicas of ${ref(resource)}. It has ${current} now. The change only applies if nothing else has changed the ${kind} since this page loaded it.${hpaNote}`,
         confirmLabel: 'Scale',
         inputs: replicaInput(current),
         warning: (v) => (Number(v.replicas) === 0 && current > 0
           ? `Scaling to 0 stops all ${current} pod${current === 1 ? '' : 's'}: the workload serves nothing until it is scaled up again.`
           : null),
-        run: (cid, v) => sendWrite(setReplicas(resource, Number(v.replicas)), cid),
+        run: (cid, v) => sendWrite(setReplicas(resource, Number(v.replicas), !canPatch), cid),
         success: (v) => `Scaled "${name}" to ${Number(v.replicas)} replica${Number(v.replicas) === 1 ? '' : 's'}`,
       });
     },
@@ -169,6 +192,8 @@ export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOp
     });
   } else if (kind === 'StatefulSet') {
     items.push(scaleItem(), restartItem());
+  } else if (kind === 'ReplicaSet') {
+    items.push(scaleItem());
   } else if (kind === 'DaemonSet') {
     items.push(restartItem());
   } else if (kind === 'CronJob') {

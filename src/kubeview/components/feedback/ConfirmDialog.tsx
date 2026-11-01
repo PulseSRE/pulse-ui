@@ -11,7 +11,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   variant?: 'danger' | 'warning';
   loading?: boolean;
-  /** Keep the confirm button disabled (e.g. while an input is invalid). */
+  /** Keeps the confirm button disabled, e.g. until a required acknowledgement is ticked. */
   confirmDisabled?: boolean;
   children?: React.ReactNode;
 }
@@ -53,8 +53,10 @@ export function ConfirmDialog({
     const handleTab = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
 
+      // Every focusable control, not only buttons: a dialog whose confirm is
+      // disabled until a checkbox is ticked must let Tab reach the checkbox.
       const focusableElements = dialogRef.current?.querySelectorAll(
-        'button:not([disabled])'
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
       );
       if (!focusableElements || focusableElements.length === 0) return;
 

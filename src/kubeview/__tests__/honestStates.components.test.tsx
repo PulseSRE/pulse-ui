@@ -170,17 +170,23 @@ describe('ExhaustionCard', () => {
   });
 });
 
+// The stat card is a react-query consumer (it re-queries on refreshInterval).
+function renderWithQuery(ui: React.ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+}
+
 describe('AgentStatCard', () => {
   it('shows "no data" for an empty PromQL result instead of 0', async () => {
     mockFetchRoutes({ '/api/prometheus/api/v1/query': { body: { status: 'success', data: { result: [] } } } });
-    render(<AgentStatCard spec={{ kind: 'stat_card', title: 'Errors', query: 'sum(x)' } as never} />);
+    renderWithQuery(<AgentStatCard spec={{ kind: 'stat_card', title: 'Errors', query: 'sum(x)' } as never} />);
     await waitFor(() => expect(screen.getByText('no data')).toBeTruthy());
     expect(screen.queryByText('0')).toBeNull();
   });
 
   it('prefers the live value over a stale spec.value', async () => {
     mockFetchRoutes({ '/api/prometheus/api/v1/query': { body: { status: 'success', data: { result: [{ value: [0, '7'] }] } } } });
-    render(<AgentStatCard spec={{ kind: 'stat_card', title: 'Errors', query: 'sum(x)', value: '3' } as never} />);
+    renderWithQuery(<AgentStatCard spec={{ kind: 'stat_card', title: 'Errors', query: 'sum(x)', value: '3' } as never} />);
     await waitFor(() => expect(screen.getByText('7')).toBeTruthy());
     expect(screen.queryByText('3')).toBeNull();
   });

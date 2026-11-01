@@ -11,7 +11,7 @@ import { WorkloadActionMenu } from '../WorkloadActionMenu';
 import { useUIStore } from '../../../store/uiStore';
 import { useFleetStore } from '../../../store/fleetStore';
 import { registerCluster, resetConnections } from '../../../engine/clusterConnection';
-import { installFetch, setAllow, respond, writes, json, renderWithProviders } from './actionHarness';
+import { installFetch, setAllow, respond, writes, json, renderWithProviders, calls } from './actionHarness';
 import type { K8sResource } from '../../../engine/renderers';
 
 const deployment = {
@@ -172,6 +172,39 @@ describe('Deployment actions', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Pause' }));
     await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('alert').textContent).toMatch(/was not run/));
     expect(writes()).toHaveLength(0);
+  });
+});
+
+describe('Scale details', () => {
+  it('a ReplicaSet can be scaled', async () => {
+    setAllow({ 'patch/replicasets/scale': true });
+    const rs = { apiVersion: 'apps/v1', kind: 'ReplicaSet', metadata: { name: 'web-1', namespace: 'shop', uid: 'rs', resourceVersion: '2' }, spec: { replicas: 1 } } as unknown as K8sResource;
+    renderWithProviders(<WorkloadActionMenu resource={rs} />);
+    const dialog = await openItem(rs, 'Set replicas');
+    fireEvent.change(within(dialog).getByLabelText('Replicas'), { target: { value: '2' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Scale' }));
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(writes()[0]).toMatchObject({ method: 'PATCH', path: '/apis/apps/v1/namespaces/shop/replicasets/web-1/scale', body: { spec: { replicas: 2 } } });
+  });
+
+  it('a user who may only patch deployments/scale scales through the scale subresource', async () => {
+    setAllow({ 'patch/deployments/scale': true });
+    renderWithProviders(<WorkloadActionMenu resource={deployment} />);
+    const dialog = await openItem(deployment, 'Set replicas');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Scale' }));
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(writes()[0]).toMatchObject({ method: 'PATCH', path: '/apis/apps/v1/namespaces/shop/deployments/web/scale', body: { metadata: { resourceVersion: '41' }, spec: { replicas: 3 } } });
+  });
+
+  it('warns when an HPA manages the workload', async () => {
+    respond((c) => (c.method === 'GET' && c.path === '/apis/autoscaling/v2/namespaces/shop/horizontalpodautoscalers'
+      ? json({ kind: 'List', apiVersion: 'autoscaling/v2', items: [{ metadata: { name: 'web-hpa' }, spec: { minReplicas: 2, maxReplicas: 6, scaleTargetRef: { kind: 'Deployment', name: 'web' } } }] })
+      : undefined));
+    renderWithProviders(<WorkloadActionMenu resource={deployment} />);
+    await waitFor(() => expect(calls.some((c) => c.path.endsWith('/horizontalpodautoscalers'))).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    const dialog = await openItem(deployment, 'Set replicas');
+    expect(dialog.textContent).toMatch(/HorizontalPodAutoscaler "web-hpa" manages this Deployment \(2–6 replicas\)/);
   });
 });
 

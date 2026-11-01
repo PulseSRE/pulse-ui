@@ -102,6 +102,32 @@ describe('Compute machines', () => {
     expect(writes()[0]).toMatchObject({ method: 'DELETE', path: '/apis/machine.openshift.io/v1beta1/namespaces/openshift-machine-api/machines/workers-a-x1', body: { preconditions: { uid: 'm1' } } });
   });
 
+  it('a control-plane machine with no ControlPlaneMachineSet needs its name typed, with an etcd quorum warning', async () => {
+    setAllow({ 'delete/machines': true });
+    const master = { ...m, metadata: { ...m.metadata, name: 'master-0', uid: 'm0', ownerReferences: [], labels: { 'machine.openshift.io/cluster-api-machine-role': 'master' } } } as unknown as Machine;
+    renderWithProviders(<MachineManagement isHyperShift={false} machines={[master]} machineSets={[]} healthChecks={[]} machineAutoscalers={[]} clusterAutoscaler={[]} nodePools={[]} go={go} />);
+    await waitFor(enabled('Delete Machine master-0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Machine master-0' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toMatch(/etcd/);
+    expect(dialog.textContent).toMatch(/nothing would replace it/);
+    const confirm = within(dialog).getByRole('button', { name: 'Delete machine' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText(/Type the machine name/), { target: { value: 'master-0' } });
+    expect(confirm.disabled).toBe(false);
+  });
+
+  it('a ControlPlaneMachineSet-owned machine says it is replaced, one at a time', async () => {
+    setAllow({ 'delete/machines': true });
+    const cp = { ...m, metadata: { ...m.metadata, name: 'master-1', uid: 'm1b', ownerReferences: [{ kind: 'ControlPlaneMachineSet', name: 'cluster' }] } } as unknown as Machine;
+    renderWithProviders(<MachineManagement isHyperShift={false} machines={[cp]} machineSets={[]} healthChecks={[]} machineAutoscalers={[]} clusterAutoscaler={[]} nodePools={[]} go={go} />);
+    await waitFor(enabled('Delete Machine master-1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Machine master-1' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toMatch(/ControlPlaneMachineSet creates a replacement/);
+    expect(dialog.textContent).toMatch(/quorum/);
+  });
+
   it('a failed delete is shown in the dialog', async () => {
     setAllow({ 'delete/machines': true });
     respond((c) => (c.method === 'DELETE' ? json({ kind: 'Status', message: 'admission webhook denied', code: 400 }, 400) : undefined));

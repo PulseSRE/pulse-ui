@@ -24,7 +24,7 @@ import { Button } from '../components/primitives/Button';
 import { useCanI } from '../hooks/useCanI';
 import { useActionDialog } from '../components/ActionDialog';
 import { useSetDefaultStorageClass } from './detail/KindSections';
-import { deleteRequest, sendWrite } from '../engine/workloadActions';
+import { deleteRequest, sendWrite, isDefaultStorageClass } from '../engine/workloadActions';
 
 export default function StorageView() {
   const clusterId = useActiveClusterId();
@@ -259,7 +259,7 @@ export default function StorageView() {
             ) : (
               <div className="space-y-2">
                 {storageClasses.map((sc) => {
-                  const isDefault = sc.metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true';
+                  const isDefault = isDefaultStorageClass(sc as unknown as K8sResource);
                   const provisioner = sc.provisioner || 'unknown';
                   const reclaimPolicy = sc.reclaimPolicy || 'Delete';
                   const volumeBinding = sc.volumeBindingMode || 'Immediate';
@@ -413,14 +413,22 @@ export default function StorageView() {
                   </div>
                 </button>
                 <button
-                  onClick={() => openAction({
-                    title: `Delete PersistentVolume "${pv.metadata.name}"?`,
-                    description: `The PV object is removed${pv.spec?.claimRef?.name ? ` (it was bound to ${pv.spec.claimRef.namespace}/${pv.spec.claimRef.name})` : ''}. Its reclaim policy is ${pv.spec?.persistentVolumeReclaimPolicy || 'Retain'}, so the backing storage is NOT deleted by Kubernetes: the data stays on the storage system until you remove it there.`,
-                    confirmLabel: 'Delete PV',
-                    variant: 'danger',
-                    run: (cid) => sendWrite(deleteRequest(pv), cid),
-                    success: `PersistentVolume "${pv.metadata.name}" deleted`,
-                  })}
+                  onClick={() => {
+                    const policy = pv.spec?.persistentVolumeReclaimPolicy || 'Retain';
+                    const was = pv.spec?.claimRef?.name ? ` It was bound to ${pv.spec.claimRef.namespace}/${pv.spec.claimRef.name}.` : '';
+                    openAction({
+                      title: `Delete PersistentVolume "${pv.metadata.name}"?`,
+                      description: policy === 'Delete'
+                        ? `Its reclaim policy is Delete: the backing volume will be destroyed with it, and its data cannot be recovered.${was}`
+                        : policy === 'Recycle'
+                          ? `Its reclaim policy is Recycle (deprecated): the PV object is removed; whether the backing data is scrubbed depends on the volume plugin.${was}`
+                          : `Its reclaim policy is Retain: the PV object is removed, but the backing storage is NOT deleted by Kubernetes. The data stays on the storage system until you remove it there.${was}`,
+                      confirmLabel: policy === 'Delete' ? 'Delete PV and volume' : 'Delete PV',
+                      variant: 'danger',
+                      run: (cid) => sendWrite(deleteRequest(pv), cid),
+                      success: `PersistentVolume "${pv.metadata.name}" deleted`,
+                    });
+                  }}
                   disabled={!canDeletePV}
                   title={canDeletePV ? 'Delete this PV' : 'You do not have permission to delete PersistentVolumes'}
                   aria-label={`Delete PV ${pv.metadata.name}`}

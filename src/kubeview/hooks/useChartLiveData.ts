@@ -18,6 +18,25 @@ export const DEFAULT_REFRESH_INTERVAL_MS = 60_000;
 /** Default time range when spec.timeRange is missing */
 const DEFAULT_TIME_RANGE = '1h';
 
+/** A `live` chart is a short sliding window refreshed often. */
+export const LIVE_TIME_RANGE = '15m';
+export const LIVE_REFRESH_INTERVAL_MS = 10_000;
+
+/**
+ * Effective refresh (ms), window and step for a chart. The spec's own
+ * refreshInterval (seconds) wins over the view's; `live` shortens both the
+ * window and the refresh unless the spec sets them.
+ */
+export function chartRefreshSettings(spec: ChartSpec, viewRefreshMs?: number): { refreshMs: number; timeRange: string; step?: number } {
+  const own = typeof spec.refreshInterval === 'number' && spec.refreshInterval > 0 ? spec.refreshInterval * 1000 : undefined;
+  const refreshMs = own ?? (spec.live ? LIVE_REFRESH_INTERVAL_MS : viewRefreshMs ?? DEFAULT_REFRESH_INTERVAL_MS);
+  const timeRange = spec.timeRange || (spec.live ? LIVE_TIME_RANGE : DEFAULT_TIME_RANGE);
+  const step = typeof spec.step === 'number' && spec.step > 0
+    ? spec.step
+    : spec.live ? Math.max(5, Math.round(refreshMs / 1000)) : undefined;
+  return { refreshMs, timeRange, step };
+}
+
 const CHART_COLORS = [
   '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa',
   '#38bdf8', '#fb923c', '#e879f9', '#f472b6', '#2dd4bf',
@@ -73,8 +92,9 @@ import { useState, useCallback } from 'react';
 
 export function useChartLiveData(
   spec: ChartSpec,
-  refreshIntervalMs = DEFAULT_REFRESH_INTERVAL_MS,
+  viewRefreshIntervalMs?: number,
 ): LiveChartResult {
+  const { refreshMs: refreshIntervalMs, timeRange: effectiveRange, step } = chartRefreshSettings(spec, viewRefreshIntervalMs);
   const clusterId = useActiveClusterId();
   const [isPaused, setIsPaused] = useState(false);
   const togglePause = useCallback(() => setIsPaused((p) => !p), []);
@@ -87,11 +107,11 @@ export function useChartLiveData(
     isFetching,
     dataUpdatedAt,
   } = useQuery({
-    queryKey: ['chart-live', spec.query, spec.timeRange, clusterId],
+    queryKey: ['chart-live', spec.query, effectiveRange, step, clusterId],
     queryFn: async () => {
       if (!spec.query) throw new Error('No query');
 
-      const timeRangeStr = spec.timeRange || DEFAULT_TIME_RANGE;
+      const timeRangeStr = effectiveRange;
       let startSec: number;
       let endSec: number;
 
@@ -102,7 +122,7 @@ export function useChartLiveData(
         [startSec, endSec] = getTimeRange(DEFAULT_TIME_RANGE);
       }
 
-      const result = await queryRange(spec.query!, startSec, endSec, undefined, clusterId);
+      const result = await queryRange(spec.query!, startSec, endSec, step, clusterId);
       return promResultToSeries(result, spec.series);
     },
     enabled: hasQuery && !isPaused,

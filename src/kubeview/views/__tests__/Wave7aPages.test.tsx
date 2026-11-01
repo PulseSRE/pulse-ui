@@ -67,7 +67,7 @@ describe('Storage page', () => {
     fireEvent.click(btn());
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Set as default' }));
     await waitFor(() => expect(writes()).toHaveLength(2));
-    expect(writes().map((w) => w.path)).toEqual(['/apis/storage.k8s.io/v1/storageclasses/gp3', '/apis/storage.k8s.io/v1/storageclasses/fast']);
+    expect(writes().map((w) => w.path)).toEqual(['/apis/storage.k8s.io/v1/storageclasses/fast', '/apis/storage.k8s.io/v1/storageclasses/gp3']);
   });
 
   it('a Released PV can be deleted after a confirmation that says the data stays', async () => {
@@ -81,6 +81,18 @@ describe('Storage page', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete PV' }));
     await waitFor(() => expect(writes()).toHaveLength(1));
     expect(writes()[0]).toMatchObject({ method: 'DELETE', path: '/api/v1/persistentvolumes/pv-old', body: { preconditions: { uid: 'pv-u' } } });
+  });
+
+  it('a PV with reclaim policy Delete warns that the backing volume will be destroyed', async () => {
+    setAllow({ 'delete/persistentvolumes': true });
+    (mockData['/api/v1/persistentvolumes'][0] as { spec: Record<string, unknown> }).spec.persistentVolumeReclaimPolicy = 'Delete';
+    renderWithProviders(<StorageView />);
+    const btn = () => screen.getByRole('button', { name: 'Delete PV pv-old' }) as HTMLButtonElement;
+    await waitFor(() => expect(btn().disabled).toBe(false));
+    fireEvent.click(btn());
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toMatch(/backing volume will be destroyed/);
+    expect(within(dialog).getByRole('button', { name: 'Delete PV and volume' })).toBeTruthy();
   });
 
   it('PV delete is disabled without permission', async () => {

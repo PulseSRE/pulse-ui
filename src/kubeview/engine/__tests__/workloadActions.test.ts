@@ -22,6 +22,9 @@ describe('workloadActions helpers', () => {
     expect(quantityToBytes('1G')).toBe(1e9);
     expect(quantityToBytes('1.5Ti')).toBe(1.5 * 2 ** 40);
     expect(quantityToBytes('lots')).toBeNaN();
+    expect(quantityToBytes('1e9')).toBe(1e9);
+    expect(quantityToBytes('500m')).toBe(0.5);
+    expect(quantityToBytes('1E')).toBe(1e18);
   });
 
   it('builds a Route URL with https only for TLS routes', () => {
@@ -39,9 +42,9 @@ describe('workloadActions helpers', () => {
     expect(validateLabelValue('has space')).toMatch(/Value must be/);
   });
 
-  it('default StorageClass swap: every other default cleared, target last', () => {
+  it('default StorageClass swap: target set first, then every other default cleared', () => {
     const sc = (name: string, def = false) => ({ metadata: { name, annotations: def ? { 'storageclass.kubernetes.io/is-default-class': 'true' } : {} } }) as unknown as K8sResource;
     const reqs = setDefaultStorageClass(sc('b'), [sc('a', true), sc('b'), sc('c', true)]);
-    expect(reqs.map((r) => r.path.split('/').pop())).toEqual(['a', 'c', 'b']);
+    expect(reqs.map((r) => r.path.split('/').pop())).toEqual(['b', 'a', 'c']);
   });
 });

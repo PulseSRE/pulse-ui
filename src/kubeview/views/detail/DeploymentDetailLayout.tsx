@@ -3,7 +3,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { Event } from '../../engine/types';
 import { DeploymentSummary } from './DeploymentSummary';
 import { IncidentContext } from './IncidentContext';
-import { RollbackPanel } from './RollbackPanel';
+import { RolloutHistory } from './RolloutHistory';
 import { WorkloadAudit } from './WorkloadAudit';
 import { LabelsSection, AnnotationsSection } from './MetadataSections';
 import type { MetadataTarget } from './MetadataSections';
@@ -40,7 +40,7 @@ export function DeploymentDetailLayout({
           <IncidentContext resource={resource} managedPods={managedPods} events={events} namespace={namespace} go={go} />
           {/* "Roll back…" in the actions menu links here. */}
           <div id="rollback" className="scroll-mt-4">
-            <RollbackPanel resource={resource} namespace={namespace} />
+            <RolloutHistory resource={resource} namespace={namespace} />
           </div>
         </div>
         <div className="space-y-6">

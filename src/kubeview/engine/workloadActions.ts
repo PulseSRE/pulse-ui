@@ -48,11 +48,16 @@ export function rolloutRestart(resource: K8sResource, now: Date = new Date()): W
   };
 }
 
-/** Set an exact replica count, conditional on the version it was read from. */
-export function setReplicas(resource: K8sResource, replicas: number): WriteRequest {
+/**
+ * Set an exact replica count, conditional on the version it was read from.
+ * `viaScale` writes the scale subresource instead (for users who may patch
+ * `<resource>/scale` but not the object itself); it carries the same
+ * resourceVersion.
+ */
+export function setReplicas(resource: K8sResource, replicas: number, viaScale = false): WriteRequest {
   return {
     method: 'PATCH',
-    path: apiPathOf(resource),
+    path: viaScale ? `${apiPathOf(resource)}/scale` : apiPathOf(resource),
     patchType: MERGE_PATCH,
     body: { ...rvMeta(resource), spec: { replicas: Math.max(0, Math.floor(replicas)) } },
   };
@@ -217,11 +222,11 @@ export function validateLabelValue(value: string): string | null {
 
 /** Parse a Kubernetes quantity into bytes (binary and decimal suffixes). NaN when unparseable. */
 export function quantityToBytes(q: string): number {
-  const m = String(q).trim().match(/^(\d+(?:\.\d+)?)(Ki|Mi|Gi|Ti|Pi|Ei|k|K|M|G|T|P|E)?$/);
+  const m = String(q).trim().match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)(Ki|Mi|Gi|Ti|Pi|Ei|m|k|K|M|G|T|P|E)?$/);
   if (!m) return NaN;
   const n = parseFloat(m[1]);
   const mult: Record<string, number> = {
-    '': 1, Ki: 2 ** 10, Mi: 2 ** 20, Gi: 2 ** 30, Ti: 2 ** 40, Pi: 2 ** 50, Ei: 2 ** 60,
+    '': 1, m: 1e-3, Ki: 2 ** 10, Mi: 2 ** 20, Gi: 2 ** 30, Ti: 2 ** 40, Pi: 2 ** 50, Ei: 2 ** 60,
     k: 1e3, K: 1e3, M: 1e6, G: 1e9, T: 1e12, P: 1e15, E: 1e18,
   };
   return n * mult[m[2] ?? ''];
@@ -239,28 +244,35 @@ export function expandPvc(pvc: K8sResource, storage: string): WriteRequest {
 
 export const DEFAULT_SC_ANNOTATION = 'storageclass.kubernetes.io/is-default-class';
 
+export const BETA_DEFAULT_SC_ANNOTATION = 'storageclass.beta.kubernetes.io/is-default-class';
+
+export function isDefaultStorageClass(sc: K8sResource): boolean {
+  const a = sc.metadata.annotations ?? {};
+  return a[DEFAULT_SC_ANNOTATION] === 'true' || a[BETA_DEFAULT_SC_ANNOTATION] === 'true';
+}
+
 /**
- * Make one StorageClass the default: clear the annotation on every other
- * class that has it, then set it on the target. Two defaults at once make
- * the API server refuse PVCs that name no class, so the clears go first.
+ * Make one StorageClass the default: set the annotation on the target first
+ * (so there is never a moment with no default), then clear both the GA and
+ * the beta default annotation on every other class that has either.
  */
 export function setDefaultStorageClass(target: K8sResource, all: K8sResource[]): WriteRequest[] {
   const clears = all
-    .filter((sc) => sc.metadata.name !== target.metadata.name && sc.metadata.annotations?.[DEFAULT_SC_ANNOTATION] === 'true')
+    .filter((sc) => sc.metadata.name !== target.metadata.name && isDefaultStorageClass(sc))
     .map((sc) => ({
       method: 'PATCH' as const,
       path: `/apis/storage.k8s.io/v1/storageclasses/${sc.metadata.name}`,
       patchType: MERGE_PATCH,
-      body: { metadata: { annotations: { [DEFAULT_SC_ANNOTATION]: 'false' } } },
+      body: { metadata: { annotations: { [DEFAULT_SC_ANNOTATION]: 'false', [BETA_DEFAULT_SC_ANNOTATION]: null } } },
     }));
   return [
-    ...clears,
     {
       method: 'PATCH',
       path: `/apis/storage.k8s.io/v1/storageclasses/${target.metadata.name}`,
       patchType: MERGE_PATCH,
       body: { metadata: { annotations: { [DEFAULT_SC_ANNOTATION]: 'true' } } },
     },
+    ...clears,
   ];
 }
 

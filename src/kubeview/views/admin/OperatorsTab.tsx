@@ -34,6 +34,12 @@ export function OperatorsTab({ operators, go }: OperatorsTabProps) {
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-slate-500">
+        Platform ClusterOperators, managed by the cluster version operator. Add-on operators installed through OLM are in the{' '}
+        <button onClick={() => go('/operators?view=installed', 'Operators')} className="text-blue-400 hover:text-blue-300">
+          Operator catalog (installed) →
+        </button>
+      </p>
       <div className="grid grid-cols-3 gap-3">
         <Card className="p-3">
           <div className="flex items-center gap-2 text-green-400 mb-1"><CheckCircle className="w-4 h-4" /><span className="text-xs">Available</span></div>

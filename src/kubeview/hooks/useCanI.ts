@@ -15,6 +15,7 @@ interface AccessReviewSpec {
   group: string;      // "" for core, "apps" etc
   resource: string;   // "pods", "deployments" etc
   namespace?: string; // optional — omit for cluster-scoped check
+  subresource?: string; // e.g. "approval" for certificatesigningrequests/approval
 }
 
 const WRITE_VERBS = new Set(['create', 'update', 'patch', 'delete', 'deletecollection']);
@@ -31,6 +32,7 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
           group: spec.group,
           resource: spec.resource,
           ...(spec.namespace ? { namespace: spec.namespace } : {}),
+          ...(spec.subresource ? { subresource: spec.subresource } : {}),
         },
       },
     };
@@ -49,13 +51,13 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
   }
 }
 
-export function useCanI(verb: string, group: string, resource: string, namespace?: string, opts: { enabled?: boolean } = {}) {
+export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string, opts: { enabled?: boolean } = {}) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const failOpen = !WRITE_VERBS.has(verb);
   const enabled = opts.enabled ?? true;
   const { data: allowed = failOpen, isLoading } = useQuery({
-    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, clusterId],
-    queryFn: () => checkAccess({ verb, group, resource, namespace }, clusterId),
+    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, subresource, clusterId],
+    queryFn: () => checkAccess({ verb, group, resource, namespace, subresource }, clusterId),
     enabled,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 10 * 60 * 1000,

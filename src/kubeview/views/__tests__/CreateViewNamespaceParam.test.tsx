@@ -46,3 +46,19 @@ describe('CreateView ?namespace=', () => {
     expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).toMatch(/namespace: default/);
   });
 });
+
+describe('CreateView ?template=', () => {
+  afterEach(cleanup);
+
+  it('opens the editor on the reviewed template, in the linked namespace', () => {
+    renderAt('/create/v1~resourcequotas?template=resource-quota&namespace=team-a');
+    const yaml = (screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value;
+    expect(yaml).toMatch(/^apiVersion: v1\nkind: ResourceQuota\nmetadata:\n  name: compute-quota\n  namespace: team-a\n/);
+    expect(yaml).toMatch(/requests\.cpu: "4"/);
+  });
+
+  it('ignores an unknown template', () => {
+    renderAt('/create/v1~resourcequotas?template=nope&namespace=team-a');
+    expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).not.toMatch(/compute-quota/);
+  });
+});
