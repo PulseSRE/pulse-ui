@@ -52,6 +52,15 @@ Release entries are historical records. Counts, timings, security scans, and fea
   - `/create/<gvr>?template=<id>&namespace=<ns>` opens reviewed templates (default-deny NetworkPolicy, ResourceQuota, LimitRange, PrometheusRule)
 
 ### Fixed
+- Inbox actions and one approvals queue (functionality review, Wave 7c; needs pulse-agent #220):
+  - Inbox → **Approvals** (`/inbox?tab=approvals`) lists everything waiting for a person: proposed fixes and durable runs stopped at an approval gate, approved or rejected in place. A one-line banner above the inbox links to it; Pulse Agent → Runs links to it instead of keeping a second copy. The "Approval waiting" chip on a row now reflects a real pending proposal or run.
+  - Proposed fixes can be **rejected with a reason** (`POST /fix-history/{id}/reject`), and show what the fix would do (strategy, cause, description, linked resources) and a link to the inbox item. When the agent refuses an approval, its reason stays on screen.
+  - Inbox rows gain **Escalate** (with confirmation) and **Unclaim**; Claim uses a user-plus icon. The item drawer has **Approve/Reject** for a pending fix, resources link to their detail pages, and suspected prompt injection (`security_notes`) is shown as a warning beside the investigation.
+  - New task: due date and a namespace picker (falls back to typing when namespaces cannot be listed). Episode symptoms open their inbox item (or the resource), and "What else changed" navigates in the app instead of reloading it.
+  - Readiness waivers are kept with their reason and author (this browser; the agent has no waiver endpoint), and the score is counted one way on every recount, so re-verifying a gate no longer drops it. Retry re-runs the evaluation instead of reloading the page.
+  - Views: Clone, a type filter and search, and a toast when sharing fails (the link is shown if the clipboard refuses it). The views list keeps each view's type.
+
+### Fixed
 - Links and routes (functionality review, Wave 1):
   - An unknown address shows a "Page not found" page naming the path, with Back and Go to Pulse, instead of silently redirecting to /pulse. Restored tabs for pages that no longer exist (`/welcome`, `/incidents`) are dropped
   - Resource links get the group, version, plural and scope from the cluster's discovered API resources: warning events, alerts, the timeline, fix history and the dependency graph no longer link Deployments to the core group, build `ingresss`/`hpas`, or put cluster-scoped objects (Nodes) under a namespace. Alerts no longer treat the Prometheus `job` label as a batch Job

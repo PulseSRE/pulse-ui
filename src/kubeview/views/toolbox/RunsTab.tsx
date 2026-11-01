@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   Loader2, CheckCircle2, XCircle, Ban, Clock, RefreshCw, Workflow,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
-import { describeAwaiting, fetchAwaitingApprovals, type AwaitingRun } from '../../engine/durableRunsApi';
-import { ApprovalButtons } from '../inbox/DurableRunControls';
+import { fetchAwaitingApprovals, type AwaitingRun } from '../../engine/durableRunsApi';
 
 interface RunMemo {
   kind?: string;
@@ -130,32 +130,15 @@ export function RunsTab() {
       )}
 
       {(awaiting?.length ?? 0) > 0 && (
-        <div className="bg-amber-950/20 border border-amber-900/40 rounded-md">
-          <div className="px-3 py-2 text-xs font-medium text-amber-300 border-b border-amber-900/40">
-            Waiting for your approval
-          </div>
-          <div className="divide-y divide-amber-900/30">
-            {awaiting!.map((run) => (
-              <div key={`${run.workflow_id}:${run.phase_id}`} className="flex items-center gap-3 px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs text-slate-200 truncate">{describeAwaiting(run)}</div>
-                  <div className="text-[10px] text-slate-500 truncate">
-                    {run.workflow_id}
-                    {run.phases && Object.keys(run.phases).length > 0 && (
-                      <> · done: {Object.entries(run.phases).map(([id, p]) => `${id} ${p.status ?? ''}`.trim()).join(', ')}</>
-                    )}
-                  </div>
-                </div>
-                <ApprovalButtons
-                  run={run}
-                  onAnswered={() => {
-                    queryClient.invalidateQueries({ queryKey: ['workflow-runs-awaiting'] });
-                    queryClient.invalidateQueries({ queryKey: ['workflow-runs'] });
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+        // Answered in one place — Inbox → Approvals, beside proposed fixes —
+        // not in a second copy of the queue here.
+        <div className="flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-amber-950/20 border-amber-900/40 text-amber-300">
+          <span className="flex-1">
+            {awaiting!.length} run{awaiting!.length === 1 ? ' is' : 's are'} waiting for your approval
+          </span>
+          <Link to="/inbox?tab=approvals" className="font-medium text-amber-200 hover:underline">
+            Answer in Inbox → Approvals
+          </Link>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Inbox } from 'lucide-react';
+import { Inbox, UserCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { useInboxStore } from '../store/inboxStore';
@@ -10,7 +10,8 @@ import { InboxFilterBar } from './inbox/InboxFilterBar';
 import { InboxItem } from './inbox/InboxItem';
 import { InboxGroup } from './inbox/InboxGroup';
 import { EpisodePanel } from './inbox/EpisodePanel';
-import { ProposedFixes } from './inbox/ProposedFixes';
+import { ApprovalsQueue, useApprovalCount } from './inbox/ApprovalsQueue';
+import { useApprovalsStore } from '../store/approvalsStore';
 import { CapabilityBanner } from '../components/primitives/CapabilityBanner';
 import { NewTaskDialog } from './inbox/NewTaskDialog';
 import { TaskDetailDrawer } from './inbox/TaskDetailDrawer';
@@ -40,6 +41,16 @@ export function InboxPage() {
     refresh();
   }, [refresh]);
 
+  // What is waiting on a person: feeds the Approvals tab count, the banner,
+  // the "Approval waiting" chip on rows and the Approve button in the drawer.
+  const refreshApprovals = useApprovalsStore((s) => s.refresh);
+  const approvalCount = useApprovalCount();
+  useEffect(() => {
+    refreshApprovals();
+    const timer = setInterval(refreshApprovals, 60_000);
+    return () => clearInterval(timer);
+  }, [refreshApprovals]);
+
   useEffect(() => {
     if (didRestoreRef.current) return;
     didRestoreRef.current = true;
@@ -56,7 +67,7 @@ export function InboxPage() {
       useInboxStore.getState().setPreset(normalized as (typeof known)[number]);
     }
     const tab = searchParams.get('tab');
-    if (tab === 'activity' || tab === 'inbox') {
+    if (tab === 'activity' || tab === 'inbox' || tab === 'approvals') {
       setActiveTab(tab);
     }
   }, [searchParams, setSelectedItem]);
@@ -113,12 +124,30 @@ export function InboxPage() {
   return (
     <div className="flex flex-col h-full">
       <InboxHeader onNewTask={() => setNewTaskOpen(true)} />
-      <ProposedFixes />
+      {approvalCount > 0 && activeTab !== 'approvals' && (
+        // One line, not a second copy of the queue: the answers happen in the Approvals tab.
+        <div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-amber-700/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+          <UserCheck className="h-4 w-4 text-amber-400" />
+          <span className="flex-1">
+            {approvalCount} {approvalCount === 1 ? 'approval is' : 'approvals are'} waiting on you
+          </span>
+          <button
+            type="button"
+            onClick={() => handleTabChange('approvals')}
+            className="font-medium text-amber-300 hover:underline"
+          >
+            Review
+          </button>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="px-4 py-2 border-b border-slate-800">
           <TabsList>
             <TabsTrigger value="inbox">Inbox</TabsTrigger>
+            <TabsTrigger value="approvals">
+              Approvals{approvalCount > 0 ? ` (${approvalCount})` : ''}
+            </TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
         </div>
@@ -208,6 +237,10 @@ export function InboxPage() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="approvals" className="flex-1 overflow-y-auto">
+          <ApprovalsQueue />
         </TabsContent>
 
         <TabsContent value="activity" className="flex-1 overflow-y-auto">

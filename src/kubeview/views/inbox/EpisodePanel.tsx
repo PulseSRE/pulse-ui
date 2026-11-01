@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Undo2, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
 import { showErrorToast } from '../../engine/errorToast';
 import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
+import { resourceDetailUrl } from '../../engine/gvr';
+import { useInboxStore } from '../../store/inboxStore';
 import { detachSymptom, dismissEpisode, fetchEpisode, fetchOpenEpisodes, isLikelyRelated } from '../../engine/episodeApi';
 import type {
   Episode,
@@ -71,6 +74,50 @@ function askToRollBack(c: EpisodeChange, causeTitle: string): void {
       `"${c.title}" happened ${formatShortDuration(c.seconds_before)} before "${causeTitle}" began. ` +
       'Show me what will change before doing it.',
   );
+}
+
+/**
+ * The resource a symptom's correlation key names (`category:namespace:Kind/name`),
+ * when it can be linked. Pod names in keys have their generated suffix stripped,
+ * so they name no real pod and are not linked.
+ */
+export function symptomResource(correlationKey: string): { kind: string; name: string; namespace: string } | null {
+  const m = /^[^:]*:([^:]*):([A-Za-z]+)\/(.+)$/.exec(correlationKey);
+  if (!m) return null;
+  const [, namespace, kind, name] = m;
+  if (kind === 'Pod' || !name) return null;
+  return { kind, name, namespace };
+}
+
+/** A symptom's title, opening its inbox item when it has one, else its resource. */
+function SymptomTitle({ symptom }: { symptom: EpisodeSymptom }) {
+  const setSelectedItem = useInboxStore((s) => s.setSelectedItem);
+  const cls = 'min-w-0 flex-1 truncate text-left';
+  if (symptom.item_id) {
+    return (
+      <button
+        type="button"
+        onClick={() => setSelectedItem(symptom.item_id!)}
+        title="Open this item"
+        className={cn(cls, 'text-slate-200 hover:text-blue-300 hover:underline')}
+      >
+        {symptom.title}
+      </button>
+    );
+  }
+  const r = symptomResource(symptom.correlation_key);
+  if (r) {
+    return (
+      <Link
+        to={resourceDetailUrl({ kind: r.kind, metadata: { name: r.name, namespace: r.namespace } })}
+        title={`Open ${r.kind} ${r.name}`}
+        className={cn(cls, 'text-slate-200 hover:text-blue-300 hover:underline')}
+      >
+        {symptom.title}
+      </Link>
+    );
+  }
+  return <span className={cn(cls, 'text-slate-300')}>{symptom.title}</span>;
 }
 
 function RollBackButton({ change, causeTitle }: { change: EpisodeChange; causeTitle: string }) {
@@ -259,14 +306,15 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           <Wrench className="h-3 w-3" />
           How do I fix this?
         </button>
-        <a
-          href={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}
+        {/* Router navigation: a raw <a href> reloaded the whole app. */}
+        <Link
+          to={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}
           title="See alerts, events, rollouts and config changes from when this cause began"
           className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
         >
           <Clock className="h-3 w-3" />
           What else changed
-        </a>
+        </Link>
         <button
           onClick={handleDismiss}
           title="Close this episode — the cause reopens a new one if it returns"
@@ -357,7 +405,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             {symptoms.map((s) => (
               <li key={s.correlation_key} className="group flex items-center gap-2 py-0.5 text-xs">
                 <span className="w-24 shrink-0 truncate text-slate-500">{s.category}</span>
-                <span className="min-w-0 flex-1 truncate text-slate-300">{s.title}</span>
+                <SymptomTitle symptom={s} />
                 <button
                   onClick={() => handleDetach(s.correlation_key)}
                   disabled={busyKey === s.correlation_key}
