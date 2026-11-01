@@ -58,6 +58,8 @@ interface MonitorState {
   fixHistoryTotal: number;
   fixHistoryPage: number;
   fixHistoryLoading: boolean;
+  /** Set when the last fix-history read failed; the list is then unknown, not empty. */
+  fixHistoryError: string | null;
 
   // Skill activity
   activeSkill: string | null;
@@ -134,6 +136,7 @@ export const useMonitorStore = create<MonitorState>()(
       fixHistoryTotal: 0,
       fixHistoryPage: 1,
       fixHistoryLoading: false,
+      fixHistoryError: null,
 
       // Skill activity
       activeSkill: null,
@@ -436,11 +439,14 @@ export const useMonitorStore = create<MonitorState>()(
             fixHistoryTotal: response.total,
             fixHistoryPage: response.page,
             fixHistoryLoading: false,
+            fixHistoryError: null,
           });
         } catch (err) {
           if (requestId !== _fixHistoryRequestId) return; // stale
-          console.error('Failed to load fix history:', err);
-          set({ fixHistoryLoading: false });
+          set({
+            fixHistoryLoading: false,
+            fixHistoryError: err instanceof Error ? err.message : 'Could not load fix history',
+          });
         }
       },
 

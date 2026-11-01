@@ -98,8 +98,16 @@ async function get<T>(path: string): Promise<T> {
   return res.json();
 }
 
+/**
+ * Open episodes. An agent without the episodes route (404) has none to report;
+ * every other failure throws, so callers can say they could not check rather
+ * than imply nothing is open.
+ */
 export async function fetchOpenEpisodes(): Promise<Episode[]> {
-  const data = await get<{ episodes: Episode[] }>('/episodes');
+  const res = await agentFetch(`${AGENT_BASE}/episodes`);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`Episode API error: ${res.status} on /episodes`);
+  const data = (await res.json()) as { episodes?: Episode[] };
   return data.episodes ?? [];
 }
 

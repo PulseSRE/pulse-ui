@@ -153,4 +153,13 @@ describe('OverviewTab honest status', () => {
     expect(document.body.textContent).not.toMatch(/no issues detected/);
     expect(document.body.textContent).not.toMatch(/0 scanners/);
   });
+
+  it.each([403, 500])('shows a load error, not "No activity yet", when /activity fails with %i', async (status) => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchAgentActivity).mockRejectedValueOnce(new Error(`Analytics API error: ${status} on /api/agent/activity?days=7`));
+    await renderTab();
+    expect(await screen.findByText('Recent activity could not be loaded')).toBeDefined();
+    expect(screen.getByText(new RegExp(`Analytics API error: ${status}`))).toBeDefined();
+    expect(document.body.textContent).not.toMatch(/no activity yet/i);
+  });
 });

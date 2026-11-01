@@ -13,6 +13,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
+import { LoadError } from '../../components/primitives/LoadError';
 import { useUIStore } from '../../store/uiStore';
 import { useMonitorStore } from '../../store/monitorStore';
 import { useAgentStore } from '../../store/agentStore';
@@ -52,6 +53,7 @@ export function ActivityTab() {
   const investigations = useMonitorStore((s) => s.investigations);
   const fixHistory = useMonitorStore((s) => s.fixHistory);
   const loadFixHistory = useMonitorStore((s) => s.loadFixHistory);
+  const fixHistoryError = useMonitorStore((s) => s.fixHistoryError);
   const findings = useMonitorStore((s) => s.findings);
 
   useEffect(() => { loadFixHistory(); }, [loadFixHistory]);
@@ -281,8 +283,13 @@ export function ActivityTab() {
         <span>{mergedEntries.length} agent action{mergedEntries.length !== 1 ? 's' : ''}</span>
       </div>
 
+      {fixHistoryError && (
+        // A failed read is not "No agent actions": the fixes are unknown.
+        <LoadError title="Agent fix history could not be loaded" error={fixHistoryError} onRetry={() => loadFixHistory()} />
+      )}
+
       {mergedEntries.length === 0 ? (
-        <EmptyState
+        fixHistoryError ? null : <EmptyState
           icon={<Info className="w-8 h-8" />}
           title="No agent actions"
           description={searchQuery ? 'No agent actions match your search.' : 'Fixes the agent applies, or you approve in chat, appear here.'}

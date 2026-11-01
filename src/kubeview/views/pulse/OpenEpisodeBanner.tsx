@@ -4,6 +4,7 @@ import { SeverityBanner } from '../../components/primitives/SeverityBanner';
 import { fetchOpenEpisodes } from '../../engine/episodeApi';
 import type { Episode } from '../../engine/episodeApi';
 import { formatElapsed } from '../../engine/dateUtils';
+import { LoadError } from '../../components/primitives/LoadError';
 
 /**
  * Puts an open episode at the top of the landing view.
@@ -31,6 +32,10 @@ export function OpenEpisodeBanner({
   onVisibleChange?: (visible: boolean) => void;
 }) {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  // A failed read keeps the last known episodes and says it could not check;
+  // vanishing would read as "no open incident".
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const visible = episodes.length > 0;
 
   useEffect(() => {
@@ -44,10 +49,10 @@ export function OpenEpisodeBanner({
     const load = () =>
       fetchOpenEpisodes()
         .then((e) => {
-          if (!cancelled) setEpisodes(e);
+          if (!cancelled) { setEpisodes(e); setLoadError(null); }
         })
-        .catch(() => {
-          if (!cancelled) setEpisodes([]);
+        .catch((err: unknown) => {
+          if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Could not load open incidents');
         });
     load();
     const timer = setInterval(load, 60_000);
@@ -55,13 +60,24 @@ export function OpenEpisodeBanner({
       cancelled = true;
       clearInterval(timer);
     };
-  }, []);
+  }, [reloadKey]);
 
-  if (!visible) return null;
+  const errorNotice = loadError && (
+    <LoadError
+      className="py-2"
+      title={visible ? 'Open incidents could not be refreshed — showing the last known' : 'Could not check for open incidents'}
+      error={loadError}
+      onRetry={() => setReloadKey((k) => k + 1)}
+    />
+  );
+
+  if (!visible) return errorNotice || null;
 
   const [first, ...rest] = episodes;
 
   return (
+    <>
+    {errorNotice}
     <SeverityBanner
       level="red"
       eyebrow="Open incident"
@@ -85,5 +101,6 @@ export function OpenEpisodeBanner({
     >
       <span className="font-medium">{first.cause_title}</span>
     </SeverityBanner>
+    </>
   );
 }
