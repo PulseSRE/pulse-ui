@@ -17,6 +17,8 @@ interface ReadinessWizardProps {
   waivers?: Record<string, Waiver>;
   /** Where waivers are kept; told to the person waiving. */
   waiverStorage?: WaiverStorage;
+  /** Why the waiver list could not be loaded, if it could not. */
+  waiverLoadError?: string;
   onUnwaive?: (gateId: string) => void | Promise<void>;
   onSwitchToChecklist: () => void;
 }
@@ -26,7 +28,7 @@ const STEP_ORDER: ReadinessCategory[] = [
 ];
 
 /** 6-step wizard with non-linear sidebar navigation — modeled on GitOpsSetupWizard. */
-export function ReadinessWizard({ score, categories, onWaive, onReVerify, onSwitchToChecklist, waivers, waiverStorage, onUnwaive }: ReadinessWizardProps) {
+export function ReadinessWizard({ score, categories, onWaive, onReVerify, onSwitchToChecklist, waivers, waiverStorage, waiverLoadError, onUnwaive }: ReadinessWizardProps) {
   const [activeStep, setActiveStep] = React.useState<ReadinessCategory>('prerequisites');
   const [waiverTarget, setWaiverTarget] = React.useState<string | null>(null);
 
@@ -138,6 +140,7 @@ export function ReadinessWizard({ score, categories, onWaive, onReVerify, onSwit
         open={waiverTarget !== null}
         onClose={() => setWaiverTarget(null)}
         storage={waiverStorage}
+        loadError={waiverLoadError}
         onConfirm={async (reason, expiresAt) => {
           if (!waiverTarget) return;
           await onWaive(waiverTarget, reason, expiresAt ?? null);

@@ -12,8 +12,10 @@ interface WaiverDialogProps {
    * the error is shown and nothing is closed or dropped.
    */
   onConfirm: (reason: string, expiresAt: number | null) => void | Promise<void>;
-  /** Where the waiver will be kept. Unknown (undefined) while the agent is being asked. */
+  /** Where the waiver will be kept. Unknown (undefined) while the agent is being asked, or if it could not be. */
   storage?: WaiverStorage;
+  /** Why the waiver list could not be loaded, if it could not; saving is then refused. */
+  loadError?: string;
 }
 
 /** Local end of the chosen day, as epoch ms. */
@@ -28,7 +30,7 @@ function today(): string {
 }
 
 /** Modal dialog for capturing a waiver reason when marking a gate as accepted-risk. */
-export function WaiverDialog({ gateTitle, open, onClose, onConfirm, storage }: WaiverDialogProps) {
+export function WaiverDialog({ gateTitle, open, onClose, onConfirm, storage, loadError }: WaiverDialogProps) {
   const [reason, setReason] = React.useState('');
   const [expiry, setExpiry] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -81,12 +83,16 @@ export function WaiverDialog({ gateTitle, open, onClose, onConfirm, storage }: W
           {storage === 'cluster' ? (
             <>
               The waiver is saved on this cluster with your name and the time, and everyone using Pulse on
-              this cluster sees it. Only a Pulse administrator can waive gates.
+              this cluster sees it. Waiving requires Pulse administrator access (if configured).
             </>
           ) : storage === 'browser' ? (
             <span data-testid="waiver-browser-notice" className="text-amber-300">
               This agent does not support shared waivers (it is an older version), so this waiver is stored in
               this browser only, for this cluster; other people and other browsers do not see it.
+            </span>
+          ) : loadError ? (
+            <span data-testid="waiver-load-error" className="text-red-300">
+              Waivers could not be loaded from the agent, so this waiver cannot be saved yet: {loadError}
             </span>
           ) : (
             <>Checking where waivers are kept…</>

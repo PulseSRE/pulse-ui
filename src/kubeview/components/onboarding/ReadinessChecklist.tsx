@@ -19,12 +19,14 @@ interface ReadinessChecklistProps {
   waivers?: Record<string, Waiver>;
   /** Where waivers are kept; told to the person waiving. */
   waiverStorage?: WaiverStorage;
+  /** Why the waiver list could not be loaded, if it could not. */
+  waiverLoadError?: string;
   onUnwaive?: (gateId: string) => void | Promise<void>;
   onSwitchToWizard: () => void;
 }
 
 /** Dashboard-style checklist with expandable category sections. */
-export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onSwitchToWizard, waivers, waiverStorage, onUnwaive }: ReadinessChecklistProps) {
+export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onSwitchToWizard, waivers, waiverStorage, waiverLoadError, onUnwaive }: ReadinessChecklistProps) {
   const [expanded, setExpanded] = React.useState<Set<ReadinessCategory>>(() => {
     // Auto-expand categories with failures
     const failing = new Set<ReadinessCategory>();
@@ -130,6 +132,7 @@ export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onS
         open={waiverTarget !== null}
         onClose={() => setWaiverTarget(null)}
         storage={waiverStorage}
+        loadError={waiverLoadError}
         onConfirm={async (reason, expiresAt) => {
           if (!waiverTarget) return;
           await onWaive(waiverTarget, reason, expiresAt ?? null);

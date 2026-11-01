@@ -169,6 +169,18 @@ export default function OnboardingView() {
     return data.storage === 'cluster' ? data.waivers : toReportWaivers(browserWaivers);
   }, [waiverQuery.data, browserWaivers]);
 
+  // Once the cluster has a waiver for a gate, the browser copy is redundant —
+  // and harmful to keep: after that waiver is lifted or expires, the stale
+  // copy would be offered for "saving" again, and one click would re-waive a
+  // gate someone deliberately un-waived. So drop it as soon as the list says so.
+  React.useEffect(() => {
+    const data = waiverQuery.data;
+    if (data?.storage !== 'cluster') return;
+    for (const gateId of Object.keys(browserWaivers)) {
+      if (data.waivers[gateId]) removeWaiver(waiverKey(LOCAL_CLUSTER_ID, gateId));
+    }
+  }, [waiverQuery.data, browserWaivers, removeWaiver]);
+
   /** Browser-only waivers for gates the cluster has no waiver for: offered for saving, not counted. */
   const browserOnly = React.useMemo(() => {
     const data = waiverQuery.data;
@@ -397,7 +409,7 @@ export default function OnboardingView() {
               <div className="flex-1">
                 {browserOnly.length === 1 ? 'One waiver is' : `${browserOnly.length} waivers are`} saved only in this
                 browser ({browserOnly.map(([id]) => id).join(', ')}). They are not counted until they are saved to
-                the cluster, where everyone can see them. Saving needs a Pulse administrator.
+                the cluster, where everyone can see them. Saving requires Pulse administrator access (if configured).
               </div>
               <button
                 onClick={handleMigrate}
@@ -435,6 +447,7 @@ export default function OnboardingView() {
             onWaive={handleWaive}
             waivers={report.waivers}
             waiverStorage={waiverStorage}
+            waiverLoadError={waiverQuery.error?.message}
             onUnwaive={handleUnwaive}
             onReVerify={handleReVerify}
             onSwitchToChecklist={switchToChecklist}
@@ -446,6 +459,7 @@ export default function OnboardingView() {
             onWaive={handleWaive}
             waivers={report.waivers}
             waiverStorage={waiverStorage}
+            waiverLoadError={waiverQuery.error?.message}
             onUnwaive={handleUnwaive}
             onReVerify={handleReVerify}
             onSwitchToWizard={switchToWizard}

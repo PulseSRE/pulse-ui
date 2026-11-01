@@ -157,6 +157,7 @@ describe('cluster waivers', () => {
     const dialog = await waiveGate2('accepted until Q1');
     // The dialog says where the waiver goes.
     expect(dialog.textContent).toContain('saved on this cluster with your name');
+    expect(dialog.textContent).toContain('requires Pulse administrator access (if configured)');
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const [[url, init]] = calls('PUT');
@@ -227,6 +228,37 @@ describe('cluster waivers', () => {
     const alert = await within(screen.getByTestId('waiver-details')).findByRole('alert');
     expect(alert.textContent).toContain('Only a Pulse administrator can remove a waiver');
     await securityIs('1/1');
+  });
+
+  it('shows a waiver on a gate that now passes, says it is no longer needed, and removes it', async () => {
+    // gate-1 passes; a waiver from when it did not is still on file.
+    agent({ initial: [{ ...SERVER_WAIVER, gate_id: 'gate-1', reason: 'old risk' }] });
+    renderView();
+    await securityIs('0/1');
+    const prereq = screen.getAllByRole('button').find((b) => b.textContent?.startsWith('Prerequisites') && /\d\/\d/.test(b.textContent))!;
+    fireEvent.click(prereq);
+    openGate('Gate One');
+    const details = await screen.findByTestId('waiver-details');
+    expect(details.textContent).toContain('no longer needed');
+    expect(details.textContent).toContain('old risk');
+    expect(details.textContent).toContain('alice');
+    fireEvent.click(screen.getByText('Remove waiver'));
+    await waitFor(() => expect(calls('DELETE')).toHaveLength(1));
+    expect(calls('DELETE')[0][0]).toBe('/api/agent/readiness/waivers/gate-1');
+    await waitFor(() => expect(screen.queryByTestId('waiver-details')).toBeNull());
+  });
+
+  it('says in the dialog that waivers could not be loaded, instead of "checking" forever', async () => {
+    agent({ list: () => json({ error: 'Waiver storage is unavailable' }, 503) });
+    renderView();
+    await screen.findByText(/Could not load waivers \(503\)/);
+    const dialog = await waiveGate2('accepted');
+    expect(within(dialog).getByTestId('waiver-load-error').textContent).toContain('Could not load waivers (503)');
+    expect(dialog.textContent).not.toContain('Checking where waivers are kept');
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).toContain('cannot be saved');
+    expect(calls('PUT')).toHaveLength(0);
+    expect(useOnboardingStore.getState().waivers).toEqual({});
   });
 
   it('falls back to this browser on an older agent (404) and says so', async () => {
@@ -303,12 +335,29 @@ describe('moving browser-only waivers to the cluster', () => {
     expect(useOnboardingStore.getState().waivers['local/gate-2']).toBeDefined();
   });
 
-  it('does not offer gates the cluster already has a waiver for', async () => {
+  it('does not offer gates the cluster already has a waiver for, and drops the redundant browser copy', async () => {
     agent({ initial: [SERVER_WAIVER] });
     renderView();
     await securityIs('1/1');
-    await securityIs('1/1');
     expect(screen.queryByTestId('waiver-migration')).toBeNull();
+    await waitFor(() => expect(useOnboardingStore.getState().waivers['local/gate-2']).toBeUndefined());
+    // Another cluster's browser waivers are not this list's business.
+    expect(useOnboardingStore.getState().waivers['other-cluster/gate-2']).toBeDefined();
+  });
+
+  it('does not re-offer a stale browser copy after the cluster waiver is lifted', async () => {
+    agent({ initial: [SERVER_WAIVER] });
+    renderView();
+    await securityIs('1/1');
+    fireEvent.click(securityHeader());
+    openGate('Network policies');
+    fireEvent.click(await screen.findByText('Remove waiver'));
+    await waitFor(() => expect(calls('DELETE')).toHaveLength(1));
+    await securityIs('0/1');
+    // Lifted on purpose: the old browser copy must not come back as a one-click re-waive.
+    expect(screen.queryByTestId('waiver-migration')).toBeNull();
+    expect(useOnboardingStore.getState().waivers['local/gate-2']).toBeUndefined();
+    expect(calls('PUT')).toHaveLength(0);
   });
 });
 

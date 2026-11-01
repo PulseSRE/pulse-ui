@@ -112,6 +112,26 @@ export function GateCard({ gate, result, waived, waiverReason, waiver, onReVerif
             <div className="text-xs text-slate-500 italic">Waived: {waiverReason}</div>
           )}
 
+          {status === 'passed' && waiver && (
+            <div className="text-xs text-slate-400 bg-slate-800/50 rounded-md p-3 space-y-1" data-testid="waiver-details">
+              {/* Not counted while the gate passes, but it still stands: if the gate
+                  breaks again it would come back as "Waived" with this reason. */}
+              <div className="font-medium text-slate-300">
+                This gate now passes; its waiver is no longer needed.
+              </div>
+              <p>
+                Still on file: waived{waiver.approvedBy ? ` by ${waiver.approvedBy}` : ''}
+                {waiver.createdAt ? ` on ${formatDate(waiver.createdAt)}` : ''}
+                {waiver.expiresAt !== null ? `, expires ${formatDate(waiver.expiresAt)}` : ', no expiry'}
+                {' '}(<span className="italic">{waiver.reason}</span>). If the gate fails again it will be waived
+                with this reason unless you remove it.
+              </p>
+              {unwaiveError && (
+                <p role="alert" className="text-red-300">{unwaiveError}</p>
+              )}
+            </div>
+          )}
+
           {status === 'waived' && waiver && (
             <div className="text-xs text-slate-400 bg-slate-800/50 rounded-md p-3 space-y-1" data-testid="waiver-details">
               <div className="font-medium text-slate-300">
@@ -163,7 +183,7 @@ export function GateCard({ gate, result, waived, waiverReason, waiver, onReVerif
                 <ShieldOff className="w-3 h-3" /> Waive
               </button>
             )}
-            {onUnwaive && status === 'waived' && (
+            {onUnwaive && waiver && (status === 'waived' || status === 'passed') && (
               <button
                 onClick={handleUnwaive}
                 disabled={unwaiving}
