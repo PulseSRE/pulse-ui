@@ -6,13 +6,15 @@
  * clusters) checked overlapping things on three pages. They are now two modes
  * of this page:
  *   - Configuration (`?mode=config`, default): the cluster-config preset —
- *     version, identity providers, TLS, encryption, scheduler, ingress, RBAC.
+ *     every cluster against the majority (version, identity providers, TLS,
+ *     encryption, ingress, scheduler), plus a two-cluster snapshot diff.
  *   - Resource (`?mode=resource`): one named resource across all clusters.
  * /fleet/drift redirects to `?mode=resource`.
  */
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import CompareView from './CompareView';
+import { FleetConfigMatrix } from './FleetConfigMatrix';
 import { DriftDetectorView } from './DriftDetectorView';
 import { FleetSubNav } from './FleetSubNav';
 
@@ -56,7 +58,13 @@ export default function FleetComparePage() {
             </button>
           ))}
         </div>
-        {mode === 'config' ? <CompareView /> : <DriftDetectorView />}
+        {mode === 'config' ? (
+          <>
+            {/* Every cluster against the majority, then any two side by side. */}
+            <FleetConfigMatrix />
+            <CompareView />
+          </>
+        ) : <DriftDetectorView />}
       </div>
     </div>
   );

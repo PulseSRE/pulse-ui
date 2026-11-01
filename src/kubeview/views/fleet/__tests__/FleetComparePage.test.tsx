@@ -75,3 +75,28 @@ describe('Fleet Compliance', () => {
     vi.restoreAllMocks();
   });
 });
+
+describe('Compare & Drift › all clusters vs the majority', () => {
+  it('flags the cluster that differs from the majority and never counts an unreadable one', async () => {
+    const conn = await import('../../../engine/clusterConnection');
+    vi.spyOn(conn, 'getAllConnections').mockReturnValue([
+      { id: 'a', name: 'east', status: 'connected' },
+      { id: 'b', name: 'west', status: 'connected' },
+      { id: 'c', name: 'north', status: 'connected' },
+      { id: 'd', name: 'south', status: 'connected' },
+    ] as never);
+    const rr = await import('../../../engine/readResult');
+    vi.spyOn(rr, 'readK8s').mockImplementation(async (path: string, clusterId?: string) => {
+      if (clusterId === 'd') return { state: 'error', reason: 'Permission denied (403)' };
+      if (path.includes('apiservers')) return { state: 'ok', data: { spec: { tlsSecurityProfile: { type: clusterId === 'c' ? 'Old' : 'Intermediate' } } } };
+      return { state: 'ok', data: {} };
+    });
+    renderAt('/fleet/compare');
+    const tlsRow = (await screen.findByText('TLS Profile')).closest('tr')!;
+    await waitFor(() => expect(tlsRow.textContent).toContain('Old(drift)'));
+    expect(tlsRow.textContent).toContain('unavailable');
+    expect(tlsRow.textContent?.match(/\(drift\)/g)).toHaveLength(1);
+    expect(screen.getByTestId('config-matrix-summary').textContent).toMatch(/1 value differ/);
+    vi.restoreAllMocks();
+  });
+});
