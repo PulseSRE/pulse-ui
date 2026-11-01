@@ -36,6 +36,9 @@ import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
 import { CreateGroupButton, GroupMemberControls, type GroupLike } from './identity/GroupActions';
 import { AccessPanel } from './identity/AccessPanel';
 
+/** One shared empty list, so a missing list does not change memo inputs every render. */
+const NO_ITEMS: K8sResource[] = [];
+
 /** A count, or "—" marked unknown when the list behind it could not be read. */
 function Count({ n, failed }: { n: number; failed: boolean }) {
   if (failed) return <span data-unknown title="Could not be read">—</span>;
@@ -147,15 +150,15 @@ export default function IdentityView() {
   const rolesQ = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/roles', namespace: nsFilter });
   const rbQ = useK8sListWatch({ apiPath: '/apis/rbac.authorization.k8s.io/v1/rolebindings', namespace: nsFilter });
   const nsQ = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
-  const users = usersQ.data ?? [];
+  const users = usersQ.data ?? NO_ITEMS;
   const usersLoading = usersQ.isLoading;
-  const groups = groupsQ.data ?? [];
-  const serviceAccounts = saQ.data ?? [];
-  const clusterRoles = clusterRolesQ.data ?? [];
-  const clusterRoleBindings = crbQ.data ?? [];
-  const roles = rolesQ.data ?? [];
-  const roleBindings = rbQ.data ?? [];
-  const namespaces = nsQ.data ?? [];
+  const groups = groupsQ.data ?? NO_ITEMS;
+  const serviceAccounts = saQ.data ?? NO_ITEMS;
+  const clusterRoles = clusterRolesQ.data ?? NO_ITEMS;
+  const clusterRoleBindings = crbQ.data ?? NO_ITEMS;
+  const roles = rolesQ.data ?? NO_ITEMS;
+  const roleBindings = rbQ.data ?? NO_ITEMS;
+  const namespaces = nsQ.data ?? NO_ITEMS;
   // A list that failed is unknown, not empty: its counts read "—", its
   // panels show the error, and audit checks that depend on it are not passed.
   const listQueries = [
