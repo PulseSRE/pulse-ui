@@ -67,6 +67,7 @@ export const DOMAIN_ROUTES = {
   operators: 'operators',
   project: 'project/:namespace',
   timeline: 'timeline',
+  software: 'software',
 } as const;
 
 /** Every mounted pattern, as an absolute path. `/` (index → /pulse) is included. */

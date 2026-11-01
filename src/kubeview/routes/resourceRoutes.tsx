@@ -1,4 +1,4 @@
-import { Route, Navigate, useParams } from 'react-router-dom';
+import { Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import TableView from '../views/TableView';
 import DetailView from '../views/DetailView';
@@ -66,9 +66,17 @@ function MetricsRoute() {
   );
 }
 
+/**
+ * /create/<gvr> opens that kind's editor. The Software hub used to live at
+ * /create/v1~pods?tab=…; those links go to /software with their query.
+ */
 function CreateRoute() {
   const { gvr } = useParams<{ gvr: string }>();
-  if (!gvr) return <Navigate to="/pulse" replace />;
+  const location = useLocation();
+  if (!gvr) return <Navigate to="/software" replace />;
+  if (gvr === 'v1~pods' && new URLSearchParams(location.search).has('tab')) {
+    return <Navigate to={`/software${location.search}`} replace />;
+  }
   return (
     <ErrorBoundary fallbackTitle="Create Resource">
       <Suspense fallback={<LoadingFallback />}>

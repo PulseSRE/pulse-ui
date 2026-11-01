@@ -176,7 +176,7 @@ export function CommandBar() {
 
         {/* Quick create */}
         <button
-          onClick={() => go('/create/v1~pods', 'Create')}
+          onClick={() => go('/software', 'Software')}
           className="flex h-7 items-center gap-1.5 rounded-md bg-blue-600/80 hover:bg-blue-600 px-2.5 text-xs font-medium text-white transition-colors"
         >
           <Plus className="w-3 h-3" />

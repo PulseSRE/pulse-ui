@@ -276,13 +276,16 @@ export function setDefaultStorageClass(target: K8sResource, all: K8sResource[]):
   ];
 }
 
-/** Pause or unpause a MachineConfigPool (pausing holds config rollouts and the reboots they cause). */
+/**
+ * Pause or unpause a MachineConfigPool (pausing holds config rollouts and the
+ * reboots they cause), conditional on the version read.
+ */
 export function setMcpPaused(mcp: K8sResource, paused: boolean): WriteRequest {
   return {
     method: 'PATCH',
     path: `/apis/machineconfiguration.openshift.io/v1/machineconfigpools/${mcp.metadata.name}`,
     patchType: MERGE_PATCH,
-    body: { spec: { paused } },
+    body: { ...rvMeta(mcp), spec: { paused } },
   };
 }
 

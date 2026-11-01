@@ -57,7 +57,8 @@ export interface RolloutHistorySpec {
     source?: 'replicaset' | 'controllerrevision' | 'argocd';
   }>;
   inFlight?: { strategy?: string; updated: number; ready: number; available: number; desired: number; conditions?: Array<{ type: string; status: string; reason?: string; message?: string }> };
-  correlations?: Array<{ revision: number; alertsOrFindings: string[] }>;
+  /** Entries are strings or objects (title/name/alertname, severity, link/href/url); see engine/rolloutCorrelations. */
+  correlations?: Array<{ revision: number; alertsOrFindings: Array<string | Record<string, unknown>> }>;
 }
 
 export interface RelationshipTreeSpec {

@@ -78,10 +78,21 @@ describe('PulseAgentView', () => {
     expect(screen.getByText('Analytics')).toBeDefined();
   });
 
-  it('groups tabs into Operate, Configure and Insights', async () => {
+  it('groups tabs into Operate, Configure and Insights, and names each tab\'s group to assistive tech', async () => {
     await renderView();
     for (const g of ['Operate', 'Configure', 'Insights']) expect(screen.getByText(g)).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true');
+    const groups: Record<string, string[]> = {
+      Operate: ['Overview', 'Runs'],
+      Configure: ['Skills', 'Plans', 'Tools', 'MCP', 'Components'],
+      Insights: ['Usage', 'Analytics', 'Memory'],
+    };
+    for (const [group, tabs] of Object.entries(groups)) {
+      for (const t of tabs) expect(screen.getByRole('tab', { name: t, description: group })).toBeDefined();
+    }
+    // Still one tablist with every tab in it.
+    expect(screen.getAllByRole('tablist')).toHaveLength(1);
+    expect(screen.getAllByRole('tab')).toHaveLength(10);
   });
 
   it('opens the tab named in ?tab=', async () => {

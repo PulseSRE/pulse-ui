@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 
 const addToastMock = vi.fn();
 vi.mock('../../../store/uiStore', () => ({
@@ -38,10 +39,12 @@ vi.mock('../../../hooks/useCanI', () => ({ useCanI: (...a: unknown[]) => { canIC
 
 import { RolloutHistory, parseRevisions } from '../RolloutHistory';
 import { registerCluster, setActiveClusterId, unregisterCluster } from '../../../engine/clusterConnection';
+import { useMonitorStore } from '../../../store/monitorStore';
+import { useInboxStore } from '../../../store/inboxStore';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return <QueryClientProvider client={qc}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>;
 }
 
 const template = (image: string, extra: Record<string, unknown> = {}) => ({
@@ -246,6 +249,59 @@ describe('RolloutHistory', () => {
     k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2')]);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(await screen.findByRole('button', { name: 'Revision 2 (current)' })).toBeDefined();
+  });
+
+  describe('alerts and findings per revision', () => {
+    const finding = (id: string, title: string, resources: Array<{ kind: string; name: string; namespace: string }>, at: string, severity: 'critical' | 'warning' = 'warning') =>
+      ({ id, title, severity, category: 'x', summary: '', resources, autoFixable: false, timestamp: Date.parse(at) });
+    afterEach(() => {
+      useMonitorStore.setState({ findings: [] } as never);
+      useInboxStore.setState({ items: [] } as never);
+    });
+
+    it('marks monitor findings and inbox items on the revision they occurred in, linking to the inbox item', async () => {
+      useMonitorStore.setState({ findings: [
+        // A pod of ReplicaSet api-1: revision 1 exactly, whatever the time.
+        finding('f1', 'api-1-x7k2p crashlooping', [{ kind: 'Pod', name: 'api-1-x7k2p', namespace: 'prod' }], '2026-10-05T00:00:00Z', 'critical'),
+        // The Deployment itself, after revision 2 was created: revision 2.
+        finding('f2', 'api unavailable', [{ kind: 'Deployment', name: 'api', namespace: 'prod' }], '2026-10-02T06:00:00Z'),
+        // Another namespace's api: not this workload.
+        finding('f3', 'other api', [{ kind: 'Deployment', name: 'api', namespace: 'staging' }], '2026-10-02T06:00:00Z'),
+      ] } as never);
+      useInboxStore.setState({ items: [
+        { id: 'inb-9', finding_id: 'f2', title: 'api unavailable', severity: 'warning', resources: [{ kind: 'Deployment', name: 'api', namespace: 'prod' }], created_at: Date.parse('2026-10-02T06:00:00Z') / 1000 },
+        { id: 'inb-7', finding_id: null, title: 'Error budget burn on api', severity: 'critical', resources: [{ kind: 'Deployment', name: 'api', namespace: 'prod' }], created_at: Date.parse('2026-10-01T12:00:00Z') / 1000 },
+      ] } as never);
+      k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1')]);
+      render(<RolloutHistory resource={deployment() as any} namespace="prod" />, { wrapper });
+      await screen.findByRole('button', { name: 'Revision 2 (current)' });
+      expect(screen.getByTestId('revision-signals-1').textContent).toContain('2');
+      expect(screen.getByTestId('revision-signals-2').textContent).toContain('1');
+      // Revision 2 is shown: the finding and its inbox item are one entry, linked to the item.
+      const list2 = screen.getByLabelText('Alerts and findings during revision 2');
+      expect(list2.querySelectorAll('li')).toHaveLength(1);
+      expect(screen.getByRole('link', { name: 'api unavailable' }).getAttribute('href')).toBe('/inbox?task=inb-9');
+      fireEvent.click(screen.getByRole('button', { name: 'Revision 1' }));
+      const list1 = screen.getByLabelText('Alerts and findings during revision 1');
+      expect(list1.textContent).toContain('api-1-x7k2p crashlooping');
+      expect(screen.getByRole('link', { name: 'Error budget burn on api' }).getAttribute('href')).toBe('/inbox?task=inb-7');
+      // A finding without an inbox item is listed without a link.
+      expect(screen.queryByRole('link', { name: 'api-1-x7k2p crashlooping' })).toBeNull();
+      expect(screen.queryByText('other api')).toBeNull();
+    });
+
+    it('does not mark the agent cluster findings on another cluster history', async () => {
+      useMonitorStore.setState({ findings: [finding('f2', 'api unavailable', [{ kind: 'Deployment', name: 'api', namespace: 'prod' }], '2026-10-02T06:00:00Z')] } as never);
+      registerCluster({ id: 'east', name: 'East', connectionType: 'acm-proxy', target: 'east' });
+      try {
+        k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1')]);
+        render(<RolloutHistory resource={deployment() as any} namespace="prod" clusterId="east" />, { wrapper });
+        await screen.findByRole('button', { name: 'Revision 2 (current)' });
+        expect(screen.queryByTestId('revision-signals-2')).toBeNull();
+      } finally {
+        unregisterCluster('east');
+      }
+    });
   });
 
   it('renders nothing for kinds without revisions', () => {

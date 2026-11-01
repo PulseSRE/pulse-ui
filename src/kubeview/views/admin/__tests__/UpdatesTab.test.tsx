@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -32,6 +32,7 @@ vi.mock('../../../engine/errorToast', () => ({
 import { UpdatesTab } from '../UpdatesTab';
 import { k8sPatch } from '../../../engine/query';
 import { showErrorToast } from '../../../engine/errorToast';
+import { PulseError } from '../../../engine/errors';
 import { registerCluster, setActiveClusterId, unregisterCluster } from '../../../engine/clusterConnection';
 import { idleClusterVersion, inFlightClusterVersion, operatorsMidUpdate, poolsMidUpdate } from '../../../__fixtures__/clusterVersionUpdates';
 
@@ -567,4 +568,77 @@ describe('UpdatesTab', () => {
     expect(screen.getByText('The update service gave no release image for this version.')).toBeDefined();
   });
 
+});
+
+describe('UpdatesTab — pause and resume a MachineConfigPool', () => {
+  const MCP_PATH = (n: string) => `/apis/machineconfiguration.openshift.io/v1/machineconfigpools/${n}`;
+  const pools = () => poolsMidUpdate.map((p, i) => ({ ...p, metadata: { ...p.metadata, resourceVersion: `rv-${i}` } })) as MachineConfigPool[];
+  const inFlight = () => {
+    const cv = inFlightClusterVersion();
+    return { clusterVersion: cv, cvVersion: '4.16.8', isUpdating: true, availableUpdates: cv.status!.availableUpdates!, operators: operatorsMidUpdate, machineConfigPools: pools() };
+  };
+  beforeEach(() => { vi.clearAllMocks(); canPatch = true; setActiveClusterId('local'); });
+  afterEach(cleanup);
+
+  it('in flight: pausing a pool row explains the effect, then patches spec.paused conditional on the shown resourceVersion', async () => {
+    renderTab(inFlight());
+    const progress = screen.getByRole('region', { name: 'Update progress' });
+    fireEvent.click(within(progress).getByRole('button', { name: 'Pause MachineConfigPool master' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toMatch(/Node updates stop for this pool/);
+    expect(dialog.textContent).toMatch(/rotated certificates .* do not reach nodes in a paused pool, and kubelet certificates can expire/);
+    expect(dialog.textContent).not.toMatch(/Certificates still rotate/);
+    expect(dialog.textContent).toMatch(/Do not leave the pool paused for long/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Pause' }));
+    await vi.waitFor(() => expect(k8sPatch).toHaveBeenCalledTimes(1));
+    expect(k8sPatch).toHaveBeenCalledWith(MCP_PATH('master'), { metadata: { resourceVersion: 'rv-0' }, spec: { paused: true } }, 'application/merge-patch+json', 'local');
+    await vi.waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'success', title: 'MachineConfigPool "master" paused' })));
+    // No separate pool list during an update: the progress rows carry the action.
+    expect(screen.queryByRole('list', { name: 'MachineConfigPools' })).toBeNull();
+  });
+
+  it('between updates: pools are listed with Unpause for a paused pool', async () => {
+    const cv = idleClusterVersion();
+    renderTab({ clusterVersion: cv, cvVersion: '4.16.3', machineConfigPools: pools() });
+    const list = screen.getByRole('list', { name: 'MachineConfigPools' });
+    expect(list.textContent).toContain('Paused');
+    fireEvent.click(within(list).getByRole('button', { name: 'Unpause MachineConfigPool worker' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toMatch(/drained and rebooted one at a time/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Unpause' }));
+    await vi.waitFor(() => expect(k8sPatch).toHaveBeenCalledWith(MCP_PATH('worker'), { metadata: { resourceVersion: 'rv-1' }, spec: { paused: false } }, 'application/merge-patch+json', 'local'));
+  });
+
+  it('a pool changed since it was shown is not overwritten, and the dialog says so', async () => {
+    vi.mocked(k8sPatch).mockRejectedValueOnce(new PulseError({ message: 'the object has been modified', category: 'conflict' as never, statusCode: 409, context: {} as never, userMessage: 'Conflict', suggestions: [] }));
+    renderTab(inFlight());
+    fireEvent.click(screen.getByRole('button', { name: 'Pause MachineConfigPool master' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Pause' }));
+    expect(await within(screen.getByRole('dialog')).findByText(/The object changed since this page loaded it, so nothing was changed/)).toBeDefined();
+    expect(addToastMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+
+  it('is disabled without permission to patch MachineConfigPools', () => {
+    canPatch = false;
+    renderTab(inFlight());
+    const btn = screen.getByRole('button', { name: 'Pause MachineConfigPool master' }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.title).toBe('You do not have permission to change MachineConfigPools');
+  });
+
+  it('does not write when the active cluster changed after the dialog opened', async () => {
+    registerCluster({ id: 'other', name: 'Other', connectionType: 'acm-proxy', target: 'other' });
+    try {
+      renderTab(inFlight());
+      fireEvent.click(screen.getByRole('button', { name: 'Pause MachineConfigPool master' }));
+      const dialog = await screen.findByRole('dialog');
+      setActiveClusterId('other');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Pause' }));
+      expect(await within(screen.getByRole('dialog')).findByText(/was not run/)).toBeDefined();
+      expect(k8sPatch).not.toHaveBeenCalled();
+    } finally {
+      setActiveClusterId('local');
+      unregisterCluster('other');
+    }
+  });
 });

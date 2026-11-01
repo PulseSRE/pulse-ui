@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Package, FileText,
@@ -10,7 +10,7 @@ import { useClusterStore } from '../store/clusterStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
-import { resolveSnippet, getSnippetSuggestions, type Snippet } from '../components/yaml/SnippetEngine';
+import { resolveSnippet, snippets, type Snippet } from '../components/yaml/SnippetEngine';
 import { k8sFetch } from '../engine/query';
 import { parseManifest, describeManifest, type ManifestDocument } from '../engine/manifest';
 import { useFleetStore } from '../store/fleetStore';
@@ -64,8 +64,32 @@ function generateSpecFromSchema(properties: Record<string, any>, indent = 2): st
   return lines.join('\n');
 }
 
+/** Lowercase plural of a kind, as an API resource name (NetworkPolicy → networkpolicies). */
+function pluralOfKind(kind: string): string {
+  const k = kind.toLowerCase();
+  if (/[^aeiou]y$/.test(k)) return `${k.slice(0, -1)}ies`;
+  if (/(s|x|z|ch|sh)$/.test(k)) return `${k}es`;
+  return `${k}s`;
+}
+
+/** The first snippet whose manifest is of this kind, matched by plural or case-insensitive kind. */
+function snippetForKind(candidates: Snippet[], plural: string, kind: string): Snippet | undefined {
+  const p = plural.toLowerCase();
+  const k = kind.toLowerCase();
+  return candidates.find((sn) => {
+    const m = /^kind:\s*(\S+)\s*$/m.exec(sn.body);
+    if (!m) return false;
+    const sk = m[1].toLowerCase();
+    return sk === k || pluralOfKind(sk) === p;
+  });
+}
+
 interface CreateViewProps {
-  gvrKey: string;
+  /**
+   * The kind to create (`/create/<gvr>`): the page opens straight into its
+   * editor. Without it the page is the Software hub (`/software`).
+   */
+  gvrKey?: string;
 }
 
 type CreateTab = 'installed' | 'operators' | 'deploy' | 'helm' | 'templates' | 'yaml';
@@ -78,10 +102,14 @@ interface CreateResult {
 }
 
 import { renderCreateTemplate } from '../engine/createTemplates';
+import { kindFromPlural } from '../engine/topologyLinks';
 
 
-export default function CreateView({ gvrKey }: CreateViewProps) {
+export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
+  const hub = gvrProp === undefined;
+  const gvrKey = gvrProp ?? '';
   const go = useNavigateTab();
+  const navigate = useNavigate();
   const addToast = useUIStore((s) => s.addToast);
   const storeNamespace = useUIStore((s) => s.selectedNamespace);
   // `?namespace=<ns>` (e.g. StorageView's "add quota" link) names the target
@@ -94,7 +122,6 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
 
   const [searchParams] = useSearchParams();
-  const urlTab = searchParams.get('tab');
   const [editMode, setEditMode] = useState(false);
   const [activeGvr, setActiveGvr] = useState(gvrKey);
   const [yaml, setYaml] = useState('');
@@ -110,7 +137,8 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
   const gvrParts = activeGvr.split('/');
   const resourcePlural = gvrParts[gvrParts.length - 1];
   const resourceType = registry?.get(activeGvr) ?? (activeGvr.split('/').length === 2 ? registry?.get(`core/${activeGvr}`) : undefined);
-  const fallbackKind = resourceType?.kind || resourcePlural.replace(/s$/, '').replace(/^./, (c) => c.toUpperCase());
+  // A blank editor (no kind chosen) says "resource" until its YAML names one.
+  const fallbackKind = resourceType?.kind || (resourcePlural ? kindFromPlural(resourcePlural) : 'resource');
   const defaultNs = selectedNamespace !== '*' ? selectedNamespace : 'default';
   // What the editor actually holds, parsed structurally: the header, create and
   // validate all follow the documents, not the route the editor was opened from.
@@ -120,7 +148,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
     ? manifest.documents[0].apiVersion
     : manifest.documents.length > 1 ? '' : (gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]);
 
-  // If we came with a specific GVR (not the default catalog) or ?tab=yaml, go straight to YAML editor
+  // /create/<gvr> goes straight to that kind's editor; the hub opens on its tabs.
   useMemo(() => {
     // `?template=<id>&namespace=<ns>`: a reviewed manifest prefilled for that namespace.
     const templated = renderCreateTemplate(searchParams.get('template'), selectedNamespace);
@@ -130,11 +158,14 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
       setEditMode(true);
       return;
     }
-    if (gvrKey !== 'v1/pods' || urlTab === 'yaml') {
-      const shortName = resourcePlural.replace(/s$/, '').toLowerCase();
-      const snips = getSnippetSuggestions(shortName);
-      if (snips.length > 0) {
-        const resolved = resolveSnippet(snips[0]);
+    if (!hub) {
+      // A template is used only when it is a manifest of this kind (a substring
+      // search would give /create/v1~pods a PVC). Compared by plural and
+      // case-insensitively, because before the resource registry loads (deep
+      // link, reload, cluster switch) the kind is only a guess from the plural.
+      const snip = snippetForKind(snippets, resourcePlural, fallbackKind);
+      if (snip) {
+        const resolved = resolveSnippet(snip);
         const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
         const content = resolved.replace(/namespace: default/, `namespace: ${ns}`);
         setYaml(content);
@@ -145,6 +176,15 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
       setEditMode(true);
     }
   }, []);
+
+  /** "Blank YAML": an empty editor, not a Pod skeleton. */
+  function selectEmpty() {
+    setYaml('');
+    initialYamlRef.current = '';
+    setActiveGvr('');
+    setEditMode(true);
+    setError(null);
+  }
 
   function selectTemplate(snippet: Snippet, gvr: string) {
     const resolved = resolveSnippet(snippet);
@@ -166,7 +206,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
     const ns = selectedNamespace !== '*' ? selectedNamespace : 'default';
 
     const rt = registry?.get(gvr) ?? (parts.length === 2 ? registry?.get(`core/${gvr}`) : undefined);
-    const kindName = rt?.kind || plural.replace(/s$/, '').replace(/^./, c => c.toUpperCase());
+    const kindName = rt?.kind || kindFromPlural(plural);
 
     let schemaYaml = '';
     if (group) {
@@ -256,7 +296,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
       <div className="flex flex-col h-full bg-slate-950">
         <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
           <div className="flex items-center gap-3">
-            <button onClick={() => { if (window.history.length > 1) window.history.back(); else setEditMode(false); }} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Back"><ArrowLeft size={16} /></button>
+            <button onClick={() => { if (window.history.length > 1) window.history.back(); else if (hub) setEditMode(false); else navigate('/software'); }} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Back"><ArrowLeft size={16} /></button>
             <span className="text-sm font-medium text-slate-200">Create {kind}</span>
             {headerGroupVersion && <span className="text-xs text-slate-500">{headerGroupVersion}</span>}
           </div>
@@ -368,7 +408,7 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
           <TabsContent value="templates">
             <TemplatesTab
               onSelectTemplate={selectTemplate}
-              onSelectBlank={selectBlankYaml}
+              onSelectBlank={selectEmpty}
             />
           </TabsContent>
           <TabsContent value="yaml">

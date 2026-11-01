@@ -8,6 +8,8 @@
  * rollout_history renders the live RolloutHistory for the workload (watched,
  * with RBAC-gated, confirmed rollback) on the agent's own cluster. Until the
  * workload can be read, or if it cannot, the agent's snapshot is shown.
+ * Either way the agent's correlations (alerts/findings per revision) are
+ * marked on the revision they belong to.
  */
 
 import { useMemo } from 'react';
@@ -25,6 +27,8 @@ import { useFleetStore } from '../../store/fleetStore';
 import type { UpgradeGraphSpec, RolloutHistorySpec } from '../../engine/agentComponents';
 import type { UpgradeModel } from '../../engine/upgradeGraph';
 import type { K8sResource } from '../../engine/renderers';
+import { mergeCorrelations, normalizeAgentCorrelations, type RevisionCorrelation } from '../../engine/rolloutCorrelations';
+import { RevisionSignalList, RevisionSignalMarker } from '../../views/detail/RevisionSignals';
 
 const PLURAL: Record<string, string> = { Deployment: 'deployments', StatefulSet: 'statefulsets', DaemonSet: 'daemonsets' };
 
@@ -65,6 +69,7 @@ export function AgentRolloutHistory({ spec }: { spec: RolloutHistorySpec }) {
   const navigate = useNavigate();
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const w = spec.workload;
+  const correlations = useMemo(() => normalizeAgentCorrelations(spec.correlations), [spec.correlations]);
   const plural = w ? PLURAL[w.kind] : undefined;
   const path = plural ? `/apis/apps/v1/namespaces/${w.namespace}/${plural}/${w.name}` : '';
   const workload = useQuery({
@@ -90,9 +95,10 @@ export function AgentRolloutHistory({ spec }: { spec: RolloutHistorySpec }) {
           clusterId={LOCAL_CLUSTER_ID}
           // Permission is checked on the active cluster; offer rollback only when that is the agent's.
           allowRollback={activeClusterId === LOCAL_CLUSTER_ID}
+          correlations={correlations}
         />
       ) : (
-        <SnapshotTimeline spec={spec} note={workload.isError ? `Live revisions could not be read (${workload.error instanceof Error ? workload.error.message : 'error'}); showing the agent's snapshot.` : undefined} />
+        <SnapshotTimeline spec={spec} correlations={correlations} note={workload.isError ? `Live revisions could not be read (${workload.error instanceof Error ? workload.error.message : 'error'}); showing the agent's snapshot.` : undefined} />
       )}
       <button
         type="button"
@@ -105,8 +111,9 @@ export function AgentRolloutHistory({ spec }: { spec: RolloutHistorySpec }) {
   );
 }
 
-function SnapshotTimeline({ spec, note }: { spec: RolloutHistorySpec; note?: string }) {
+function SnapshotTimeline({ spec, note, correlations }: { spec: RolloutHistorySpec; note?: string; correlations: RevisionCorrelation[] }) {
   const revisions = [...(spec.revisions || [])].sort((a, b) => a.revision - b.revision);
+  const signals = mergeCorrelations(correlations);
   return (
     <section aria-label="Rollout history snapshot" className="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3">
       <div className="flex items-center gap-2 text-sm text-slate-100 mb-2">
@@ -123,9 +130,16 @@ function SnapshotTimeline({ spec, note }: { spec: RolloutHistorySpec; note?: str
             <div className="mt-1 truncate font-mono text-[10px] text-slate-400" title={r.images.join(', ')}>{r.images.map((i) => i.split('/').pop()).join(', ')}</div>
             {r.changeCause && <div className="truncate text-[10px] text-slate-500" title={r.changeCause}>{r.changeCause}</div>}
             {r.createdAt && <div className="text-[10px] text-slate-600">{timeAgo(r.createdAt)}</div>}
+            <RevisionSignalMarker revision={r.revision} items={signals.get(r.revision)} />
           </li>
         ))}
       </ol>
+      {revisions.filter((r) => signals.get(r.revision)?.length).map((r) => (
+        <div key={r.revision} className="mt-2 text-xs">
+          <span className="font-mono text-slate-300">#{r.revision}</span>
+          <RevisionSignalList revision={r.revision} items={signals.get(r.revision)} />
+        </div>
+      ))}
     </section>
   );
 }

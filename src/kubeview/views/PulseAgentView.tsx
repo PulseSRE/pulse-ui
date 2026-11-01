@@ -4,7 +4,7 @@ import {
   Bot, List, BarChart3, History, Brain,
   Puzzle, Layers, Cable, Target, Workflow,
 } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
+import { Tabs, TabsList, TabsGroup, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { OverviewTab } from './pulse-agent/OverviewTab';
 import { CatalogTab } from './toolbox/CatalogTab';
 import { SkillsTab } from './toolbox/SkillsTab';
@@ -24,7 +24,8 @@ interface TabDef { id: AgentTab; label: string; icon: React.ReactNode }
 /**
  * Ten flat tabs read as one undifferentiated strip. Grouped by what a person
  * is doing: running the agent, shaping what it can do, and learning from what
- * it did.
+ * it did. Grouping is presentation only: the tab ids are unchanged, so every
+ * existing `?tab=` link still opens its tab.
  */
 const TAB_GROUPS: Array<{ label: string; tabs: TabDef[] }> = [
   {
@@ -95,17 +96,13 @@ export default function PulseAgentView() {
         <Tabs defaultValue="overview" urlSync={{ values: TAB_IDS }} onValueChange={rememberTab} className="space-y-6">
           <TabsList aria-label="Pulse Agent tabs" className="flex flex-wrap">
             {TAB_GROUPS.map((group, gi) => (
-              <React.Fragment key={group.label}>
-                {gi > 0 && <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-800" />}
-                <span aria-hidden="true" className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                  {group.label}
-                </span>
+              <TabsGroup key={group.label} label={group.label} divider={gi > 0}>
                 {group.tabs.map((t) => (
                   <TabsTrigger key={t.id} value={t.id} className="font-normal data-[state=active]:[&_svg]:text-white">
                     {t.icon}{t.label}
                   </TabsTrigger>
                 ))}
-              </React.Fragment>
+              </TabsGroup>
             ))}
           </TabsList>
 

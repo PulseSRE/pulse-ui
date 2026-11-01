@@ -68,6 +68,44 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; iconActive: React
 ];
 
 // ---------------------------------------------------------------------------
+// Impersonation helpers
+// ---------------------------------------------------------------------------
+const RECENT_LIMIT = 5;
+const recentKey = (clusterId: string) => `pulse-recent-impersonation:${clusterId}`;
+
+/** Subjects this viewer impersonated recently on this cluster (a per-browser convenience). */
+function readRecentImpersonation(clusterId: string): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(recentKey(clusterId)) || '[]');
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string').slice(0, RECENT_LIMIT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberImpersonation(clusterId: string, subject: string): string[] {
+  const next = [subject, ...readRecentImpersonation(clusterId).filter((s) => s !== subject)].slice(0, RECENT_LIMIT);
+  try { localStorage.setItem(recentKey(clusterId), JSON.stringify(next)); } catch { /* storage unavailable */ }
+  return next;
+}
+
+/** The one Impersonate action, on user and service-account rows and recent targets. */
+function ImpersonateButton({ subject, label, active, onImpersonate }: { subject: string; label?: string; active: boolean; onImpersonate: (subject: string) => void }) {
+  return (
+    <button
+      onClick={() => onImpersonate(subject)}
+      disabled={active}
+      aria-label={active ? `Impersonating ${label ?? subject}` : `Impersonate ${label ?? subject}`}
+      className={cn('px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 transition-colors',
+        active ? 'bg-amber-900/50 text-amber-300' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200')}
+    >
+      <UserCheck className="w-3.5 h-3.5" />
+      {active ? 'Impersonating' : 'Impersonate'}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 export default function IdentityView() {
@@ -175,8 +213,12 @@ export default function IdentityView() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
   }, [serviceAccounts]);
 
+  const [recentTargets, setRecentTargets] = useState<string[]>(() => readRecentImpersonation(clusterId));
+  React.useEffect(() => { setRecentTargets(readRecentImpersonation(clusterId)); }, [clusterId]);
+
   const handleImpersonate = (username: string) => {
     setImpersonation(username);
+    setRecentTargets(rememberImpersonation(clusterId, username));
     addToast({ type: 'warning', title: `Impersonating ${username}`, detail: 'All API requests now use this identity' });
   };
 
@@ -323,17 +365,7 @@ export default function IdentityView() {
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleImpersonate(user.metadata.name)}
-                        disabled={impersonateUser === user.metadata.name}
-                        className={cn('px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 transition-colors',
-                          impersonateUser === user.metadata.name
-                            ? 'bg-amber-900/50 text-amber-300'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200')}
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        {impersonateUser === user.metadata.name ? 'Impersonating' : 'Impersonate'}
-                      </button>
+                      <ImpersonateButton subject={user.metadata.name} active={impersonateUser === user.metadata.name} onImpersonate={handleImpersonate} />
                     </div>
                   );
                 })}
@@ -424,6 +456,7 @@ export default function IdentityView() {
                           {saRoles.length > 0 && (
                             <span className="text-xs text-slate-500">{saRoles.length} role{saRoles.length !== 1 ? 's' : ''}</span>
                           )}
+                          <ImpersonateButton subject={saName} label={`${sa.metadata.namespace}/${sa.metadata.name}`} active={impersonateUser === saName} onImpersonate={handleImpersonate} />
                         </div>
                       </div>
                     );
@@ -564,74 +597,33 @@ export default function IdentityView() {
                     </button>
                   </div>
                 ) : (
-                  <div className="text-sm text-slate-500">Not currently impersonating any user. Select a user or service account below to impersonate.</div>
+                  <div className="text-sm text-slate-500">Not currently impersonating anyone. Requests use your own identity.</div>
                 )}
               </div>
             </Card>
 
-            {/* Users to impersonate */}
+            {/* Recent targets. Users and service accounts are impersonated from their own rows on the Users and Groups & Service Accounts tabs. */}
             <Card>
               <div className="px-4 py-3 border-b border-slate-800">
-                <h2 className="text-sm font-semibold text-slate-100">Users</h2>
+                <h2 className="text-sm font-semibold text-slate-100">Recently impersonated</h2>
               </div>
-              <div className="divide-y divide-slate-800 max-h-[400px] overflow-auto">
-                {filteredUsers.length === 0 ? (
-                  <EmptyState icon={<User className="w-8 h-8" />} title="No users found" className="py-6" />
-                ) : filteredUsers.map((user: K8sResourceExt) => (
-                  <div key={user.metadata.uid} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
+              <div className="divide-y divide-slate-800" aria-label="Recently impersonated">
+                {recentTargets.length === 0 ? (
+                  <EmptyState icon={<UserCheck className="w-8 h-8" />} title="No recent impersonation" className="py-6"
+                    description="Impersonate a user from the Users tab, or a service account from Groups & Service Accounts." />
+                ) : recentTargets.map((subject) => (
+                  <div key={subject} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
                     <div className="flex items-center gap-3">
-                      <User className="w-4 h-4 text-slate-400" />
-                      <span className="text-sm text-slate-200">{user.metadata.name}</span>
+                      {subject.startsWith('system:serviceaccount:') ? <Key className="w-4 h-4 text-slate-500" /> : <User className="w-4 h-4 text-slate-400" />}
+                      <span className="text-sm font-mono text-slate-200">{subject}</span>
                     </div>
-                    <button
-                      onClick={() => handleImpersonate(user.metadata.name)}
-                      disabled={impersonateUser === user.metadata.name}
-                      className={cn('px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 transition-colors',
-                        impersonateUser === user.metadata.name
-                          ? 'bg-amber-900/50 text-amber-300'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200')}
-                    >
-                      <UserCheck className="w-3.5 h-3.5" />
-                      {impersonateUser === user.metadata.name ? 'Active' : 'Impersonate'}
-                    </button>
+                    <ImpersonateButton subject={subject} active={impersonateUser === subject} onImpersonate={handleImpersonate} />
                   </div>
                 ))}
               </div>
-            </Card>
-
-            {/* Service Accounts to impersonate */}
-            <Card>
-              <div className="px-4 py-3 border-b border-slate-800">
-                <h2 className="text-sm font-semibold text-slate-100">Service Accounts</h2>
-              </div>
-              <div className="divide-y divide-slate-800 max-h-[400px] overflow-auto">
-                {appSAs.length === 0 ? (
-                  <EmptyState icon={<Key className="w-8 h-8" />} title="No application service accounts" className="py-6" />
-                ) : appSAs.slice(0, 50).map((sa: K8sResourceExt) => {
-                  const saFullName = `system:serviceaccount:${sa.metadata.namespace}:${sa.metadata.name}`;
-                  return (
-                    <div key={sa.metadata.uid} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <Key className="w-4 h-4 text-slate-500" />
-                        <div>
-                          <span className="text-sm text-slate-200">{sa.metadata.name}</span>
-                          <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm ml-2">{sa.metadata.namespace}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleImpersonate(saFullName)}
-                        disabled={impersonateUser === saFullName}
-                        className={cn('px-2 py-1 text-xs rounded-sm flex items-center gap-1.5 transition-colors',
-                          impersonateUser === saFullName
-                            ? 'bg-amber-900/50 text-amber-300'
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200')}
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        {impersonateUser === saFullName ? 'Active' : 'Impersonate'}
-                      </button>
-                    </div>
-                  );
-                })}
+              <div className="px-4 py-2.5 border-t border-slate-800 flex gap-3 text-xs">
+                <button onClick={() => setActiveTab('users')} className="text-violet-400 hover:text-violet-300">Choose a user →</button>
+                <button onClick={() => setActiveTab('groups-sa')} className="text-violet-400 hover:text-violet-300">Choose a service account →</button>
               </div>
             </Card>
           </>
