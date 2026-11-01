@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Dialog } from '../../components/primitives/Dialog';
+import { k8sList } from '../../engine/query';
+import type { K8sResource } from '../../engine/renderers';
+import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { Button } from '../../components/primitives/Button';
 import { Input } from '../../components/primitives/Input';
 import { useInboxStore } from '../../store/inboxStore';
@@ -14,9 +18,23 @@ export function NewTaskDialog({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [namespace, setNamespace] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const createTask = useInboxStore((s) => s.createTask);
   const titleRef = useRef<HTMLInputElement>(null);
+  const clusterId = useActiveClusterId();
+  // A picker of the namespaces that exist, so a task is not filed against a typo.
+  const nsQuery = useQuery<K8sResource[]>({
+    queryKey: ['k8s', 'list', '/api/v1/namespaces', undefined, clusterId],
+    queryFn: () => k8sList('/api/v1/namespaces', undefined, clusterId),
+    staleTime: 60_000,
+    enabled: open,
+  });
+  const namespaces = (nsQuery.data ?? [])
+    .map((n) => n.metadata?.name || '')
+    .filter(Boolean)
+    .sort();
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,11 +46,14 @@ export function NewTaskDialog({
         title: title.trim(),
         summary: description.trim() || undefined,
         namespace: namespace.trim() || undefined,
+        // The API takes epoch seconds; a date means the end of that local day.
+        due_date: dueDate ? Math.floor(new Date(`${dueDate}T23:59:59`).getTime() / 1000) : undefined,
       });
       if (ok) {
         setTitle('');
         setDescription('');
         setNamespace('');
+        setDueDate('');
       onClose();
       }
     } finally {
@@ -76,11 +97,37 @@ export function NewTaskDialog({
 
           <div>
             <label htmlFor="task-ns" className="block text-sm text-slate-400 mb-1">Namespace</label>
+            {nsQuery.isError ? (
+              // Cannot list namespaces (RBAC, offline): type it instead.
+              <Input
+                id="task-ns"
+                value={namespace}
+                onChange={(e) => setNamespace(e.target.value)}
+                placeholder="production"
+              />
+            ) : (
+              <select
+                id="task-ns"
+                value={namespace}
+                onChange={(e) => setNamespace(e.target.value)}
+                disabled={nsQuery.isLoading}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-violet-500"
+              >
+                <option value="">{nsQuery.isLoading ? 'Loading namespaces…' : 'None (cluster-wide)'}</option>
+                {namespaces.map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="task-due" className="block text-sm text-slate-400 mb-1">Due date</label>
             <Input
-              id="task-ns"
-              value={namespace}
-              onChange={(e) => setNamespace(e.target.value)}
-              placeholder="production"
+              id="task-due"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
             />
           </div>
 

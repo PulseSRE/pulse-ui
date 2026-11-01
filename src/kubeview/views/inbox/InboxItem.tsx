@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
-  XCircle, AlertTriangle, Info, CheckCircle2,
-  User, Pin, Eye, PauseCircle, Trash2,
+  XCircle, AlertTriangle, Info,
+  User, UserPlus, UserMinus, Pin, Eye, PauseCircle, Trash2, ArrowUpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '../../engine/formatters';
@@ -13,6 +13,7 @@ import { Tooltip } from '../../components/primitives/Tooltip';
 import { InboxLifecycleBadge } from './InboxLifecycle';
 import type { InboxItem as InboxItemType, InboxSeverity } from '../../engine/inboxApi';
 import { useInboxStore } from '../../store/inboxStore';
+import { itemAwaitsApproval, useApprovalsStore } from '../../store/approvalsStore';
 
 const SEVERITY_ICON: Record<InboxSeverity, typeof XCircle> = {
   critical: XCircle,
@@ -55,7 +56,7 @@ function getSourceLabel(createdBy: string): string {
  * were indistinguishable. One state wins, it gets a word, and the detail
  * stays in the tooltip.
  */
-function agentStateChip(item: InboxItemType): { label: string; cls: string; tooltip: string; pulse?: boolean } | null {
+function agentStateChip(item: InboxItemType, awaitsApproval = false): { label: string; cls: string; tooltip: string; pulse?: boolean } | null {
   const md = item.metadata || {};
   if (item.status === 'agent_reviewing') {
     return { label: 'Reviewing…', cls: 'bg-violet-900/40 text-violet-300 border-violet-700/40', tooltip: 'Agent is investigating', pulse: true };
@@ -66,8 +67,8 @@ function agentStateChip(item: InboxItemType): { label: string; cls: string; tool
   if (item.status === 'agent_cleared') {
     return { label: 'Cleared', cls: 'bg-emerald-900/30 text-emerald-400 border-emerald-800/30', tooltip: String(md.dismiss_reason || 'Cleared by agent') };
   }
-  if (md.has_pending_approval) {
-    return { label: 'Approval waiting', cls: 'bg-orange-900/40 text-orange-300 border-orange-700/40', tooltip: 'A proposed fix is waiting on you' };
+  if (awaitsApproval || md.has_pending_approval) {
+    return { label: 'Approval waiting', cls: 'bg-orange-900/40 text-orange-300 border-orange-700/40', tooltip: 'Waiting on your answer — open the item or Inbox → Approvals to approve or reject' };
   }
   if (item.status === 'archived' && md.archived_reason) {
     return { label: 'Archived', cls: 'bg-slate-800 text-slate-400 border-slate-700', tooltip: String(md.archived_reason) };
@@ -114,11 +115,16 @@ export function InboxItem({
   const snooze = useInboxStore((s) => s.snooze);
   const dismiss = useInboxStore((s) => s.dismiss);
   const pin = useInboxStore((s) => s.pin);
+  const unclaim = useInboxStore((s) => s.unclaim);
+  const escalate = useInboxStore((s) => s.escalate);
+  const awaitsApproval = useApprovalsStore((s) => itemAwaitsApproval(s, item));
+  const [confirmEscalate, setConfirmEscalate] = useState(false);
+  const isOpen = item.status !== 'resolved' && item.status !== 'archived';
 
   const severity: InboxSeverity = (item.severity as InboxSeverity) || 'info';
   const SeverityIcon = SEVERITY_ICON[severity] || Info;
   const isPinned = item.pinned_by.length > 0;
-  const stateChip = agentStateChip(item);
+  const stateChip = agentStateChip(item, awaitsApproval);
   const recurrence = Number(item.metadata?.recurrence_30d ?? 0);
   const sloImpact = (item.metadata?.slo_impact as Array<{ service: string; slo_type: string }> | undefined) ?? [];
   const priorityFactors = item.metadata?.priority_factors as Record<string, unknown> | undefined;
@@ -236,14 +242,36 @@ export function InboxItem({
                 </button>
               </Tooltip>
             )}
-            {!item.claimed_by && (
-              <Tooltip content="Claim">
+            {!item.claimed_by && isOpen && (
+              <Tooltip content="Claim — take ownership">
                 <button
                   onClick={(e) => { e.stopPropagation(); claim(item.id); }}
                   className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
                   aria-label="Claim"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
+                  <UserPlus className="w-4 h-4" />
+                </button>
+              </Tooltip>
+            )}
+            {item.claimed_by && isOpen && (
+              <Tooltip content={`Unclaim — release ${item.claimed_by}'s ownership`}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); unclaim(item.id); }}
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label="Unclaim"
+                >
+                  <UserMinus className="w-4 h-4" />
+                </button>
+              </Tooltip>
+            )}
+            {isOpen && (
+              <Tooltip content="Escalate — re-open as a new, untriaged task at full priority">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmEscalate(true); }}
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-amber-300 transition-colors"
+                  aria-label="Escalate"
+                >
+                  <ArrowUpCircle className="w-4 h-4" />
                 </button>
               </Tooltip>
             )}
@@ -285,6 +313,19 @@ export function InboxItem({
           </div>
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={confirmEscalate}
+        onClose={() => setConfirmEscalate(false)}
+        onConfirm={() => {
+          setConfirmEscalate(false);
+          escalate(item.id);
+        }}
+        title="Escalate this item?"
+        description={`"${item.title}" is resolved here and re-opened as a new task with no noise discount, so it ranks at full priority.`}
+        confirmLabel="Escalate"
+        variant="warning"
+      />
 
       <ConfirmDialog
         open={confirmDismiss}

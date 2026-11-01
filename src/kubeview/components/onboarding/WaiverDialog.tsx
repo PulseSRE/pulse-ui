@@ -36,7 +36,8 @@ export function WaiverDialog({ gateTitle, open, onClose, onConfirm }: WaiverDial
       description={
         <>
           You are waiving <span className="text-slate-200 font-medium">{gateTitle}</span>.
-          Please provide a reason for accepting this risk.
+          Please provide a reason for accepting this risk. Waivers are stored in this browser only,
+          for this cluster; other people and other browsers do not see them.
         </>
       }
     >
