@@ -20,6 +20,28 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
 import { Card } from '../components/primitives/Card';
 import { useActiveClusterId } from '../hooks/useClusterBase';
+import { useCanI } from '../hooks/useCanI';
+import { Button } from '../components/primitives/Button';
+
+/**
+ * Services with a selector whose Endpoints object has no ready address
+ * (missing, empty, or only not-ready addresses). ExternalName and
+ * selector-less Services are skipped: their endpoints are not pod-backed.
+ */
+export function findServicesWithoutReadyEndpoints(services: Service[], endpoints: K8sResource[]): Array<{ svc: Service; notReady: number }> {
+  const byKey = new Map(endpoints.map((e) => [`${e.metadata.namespace}/${e.metadata.name}`, e]));
+  const out: Array<{ svc: Service; notReady: number }> = [];
+  for (const svc of services) {
+    if (svc.spec?.type === 'ExternalName') continue;
+    if (!svc.spec?.selector || Object.keys(svc.spec.selector).length === 0) continue;
+    const ep = byKey.get(`${svc.metadata.namespace}/${svc.metadata.name}`);
+    const subsets = ((ep as { subsets?: Array<{ addresses?: unknown[]; notReadyAddresses?: unknown[] }> } | undefined)?.subsets) ?? [];
+    const ready = subsets.reduce((n, s) => n + (s.addresses?.length ?? 0), 0);
+    const notReady = subsets.reduce((n, s) => n + (s.notReadyAddresses?.length ?? 0), 0);
+    if (ready === 0) out.push({ svc, notReady });
+  }
+  return out;
+}
 
 const INGRESS_OPERATOR_NS = 'openshift-ingress-operator';
 
@@ -36,9 +58,10 @@ export default function NetworkingView() {
   const { data: netpols = [] } = useK8sListWatch<NetworkPolicy>({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies', namespace: nsFilter });
 
   // Cluster-scoped: endpoints, ingress controller
-  const { data: endpoints = [] } = useQuery<K8sResource[]>({
+  // Not swallowed: a failed read must not turn into "every Service has no endpoints".
+  const { data: endpoints = [], isSuccess: endpointsLoaded } = useQuery<K8sResource[]>({
     queryKey: ['networking', 'endpoints', nsFilter, clusterId],
-    queryFn: async () => (await safeQuery(() => k8sList('/api/v1/endpoints', nsFilter, clusterId))) ?? [],
+    queryFn: () => k8sList('/api/v1/endpoints', nsFilter, clusterId),
     staleTime: 30000,
   });
   const { data: ingressControllers = [] } = useQuery<K8sResource[]>({
@@ -46,6 +69,16 @@ export default function NetworkingView() {
     queryFn: async () => (await safeQuery(() => k8sList('/apis/operator.openshift.io/v1/namespaces/openshift-ingress-operator/ingresscontrollers', undefined, clusterId))) ?? [],
     staleTime: 120000,
   });
+
+  const { allowed: canCreateSvc } = useCanI('create', '', 'services', nsFilter);
+  const { allowed: canCreateRoute } = useCanI('create', 'route.openshift.io', 'routes', nsFilter);
+  const { allowed: canCreateIngress } = useCanI('create', 'networking.k8s.io', 'ingresses', nsFilter);
+
+  // Services that select pods but have no ready address: traffic to them fails.
+  const servicesWithoutEndpoints = React.useMemo(
+    () => (endpointsLoaded ? findServicesWithoutReadyEndpoints(services, endpoints) : []),
+    [services, endpoints, endpointsLoaded],
+  );
 
   // Service type breakdown
   const svcTypes = React.useMemo(() => {
@@ -105,6 +138,7 @@ export default function NetworkingView() {
   // audit.
   const scrollToAudit = () => document.getElementById('networking-audit')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   const issues: Array<{ msg: string; severity: 'warning' | 'critical'; action?: { label: string; path?: string; onClick?: () => void } }> = [];
+  if (servicesWithoutEndpoints.length > 0) issues.push({ msg: `${servicesWithoutEndpoints.length} service${servicesWithoutEndpoints.length > 1 ? 's' : ''} with no ready endpoints`, severity: 'warning' });
   if (notAdmittedRoutes.length > 0) issues.push({ msg: `${notAdmittedRoutes.length} route${notAdmittedRoutes.length > 1 ? 's' : ''} not admitted by ingress controller`, severity: 'critical', action: { label: 'See routes', onClick: scrollToAudit } });
   // One network-policy banner: for the selected namespace when there is one.
   if (nsFilter ? !namespacesWithPolicies.has(nsFilter) : netpols.length === 0) {
@@ -130,6 +164,24 @@ export default function NetworkingView() {
               Services, Routes, Ingresses, and Network Policies
               {nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {([
+              ['Service', 'v1~services', canCreateSvc],
+              ['Route', 'route.openshift.io~v1~routes', canCreateRoute],
+              ['Ingress', 'networking.k8s.io~v1~ingresses', canCreateIngress],
+            ] as const).map(([label, gvr, allowed]) => (
+              <Button
+                key={label}
+                size="sm"
+                variant="secondary"
+                disabled={!allowed}
+                title={allowed ? undefined : `You do not have permission to create ${label}s here`}
+                onClick={() => go(nsFilter ? `/create/${gvr}?namespace=${encodeURIComponent(nsFilter)}` : `/create/${gvr}`, `Create ${label}`)}
+              >
+                <Plus className="w-3.5 h-3.5" /> {label}
+              </Button>
+            ))}
           </div>
         </div>
 
@@ -333,6 +385,27 @@ export default function NetworkingView() {
           </Panel>
         )}
 
+
+        {/* Services whose selector matches no ready pod */}
+        {servicesWithoutEndpoints.length > 0 && (
+          <Panel title={`Services with no ready endpoints (${servicesWithoutEndpoints.length})`} icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}>
+            <div className="space-y-1">
+              {servicesWithoutEndpoints.slice(0, 20).map(({ svc, notReady }) => (
+                <button key={svc.metadata.uid ?? `${svc.metadata.namespace}/${svc.metadata.name}`}
+                  onClick={() => go(`/r/v1~services/${svc.metadata.namespace}/${svc.metadata.name}`, svc.metadata.name)}
+                  className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm text-slate-200 truncate">{svc.metadata.name}</span>
+                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{svc.metadata.namespace}</span>
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {notReady > 0 ? `${notReady} not ready` : `selector ${Object.entries(svc.spec?.selector ?? {}).map(([k, v]) => `${k}=${v}`).join(',')} matches no pod`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </Panel>
+        )}
 
         {/* Network Policies summary */}
         <Panel title="Network Policies" icon={<Shield className="w-4 h-4 text-indigo-400" />}>

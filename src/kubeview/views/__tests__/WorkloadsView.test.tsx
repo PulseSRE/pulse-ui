@@ -125,11 +125,11 @@ describe('WorkloadsView', () => {
       expect(screen.queryAllByTestId('metric-card').map((c) => c.textContent)).not.toContain('CrashLoopBackOff');
     });
 
-    it('the crashloop banner opens the pod list', () => {
+    it('the crashloop banner opens the pod list filtered to CrashLoopBackOff', () => {
       crashloopFixture();
       renderView();
       fireEvent.click(screen.getByRole('button', { name: /3 pods in CrashLoopBackOff/ }));
-      expect(goMock).toHaveBeenCalledWith('/r/v1~pods', 'Pods');
+      expect(goMock).toHaveBeenCalledWith('/r/v1~pods?q=CrashLoopBackOff', expect.any(String));
     });
 
     it('the unhealthy-deployments banner filters the deployments list to them', () => {

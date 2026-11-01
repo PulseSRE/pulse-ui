@@ -143,7 +143,7 @@ describe('DetailView RBAC disabled buttons', () => {
     cleanup();
   });
 
-  it('shows scale controls as disabled when canUpdate is false', async () => {
+  it('scale, restart and pause are in the actions menu, disabled with the reason, when update is denied', async () => {
     mockK8sGet.mockResolvedValue(makeDeployment());
 
     renderDetailView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'my-deployment' });
@@ -152,24 +152,12 @@ describe('DetailView RBAC disabled buttons', () => {
       expect(screen.getAllByText('my-deployment').length).toBeGreaterThanOrEqual(1);
     });
 
-    // Multiple elements may have "No update permission" (scale container + restart button)
-    const noPermElements = screen.getAllByTitle('No update permission');
-    expect(noPermElements.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('shows restart button as disabled with tooltip when canUpdate is false', async () => {
-    mockK8sGet.mockResolvedValue(makeDeployment());
-
-    renderDetailView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'my-deployment' });
-
-    await waitFor(() => {
-      expect(screen.getByText('Restart')).toBeDefined();
-    });
-
-    // The restart button itself should be disabled
-    const restartBtn = screen.getByText('Restart').closest('button');
-    expect(restartBtn).toHaveProperty('disabled', true);
-    expect(restartBtn?.getAttribute('title')).toBe('No update permission');
+    fireEvent.click(screen.getByTitle('More actions'));
+    for (const label of ['Set replicas…', 'Restart rollout', 'Pause rollout']) {
+      const item = screen.getByRole('menuitem', { name: label }) as HTMLButtonElement;
+      expect(item.disabled).toBe(true);
+      expect(item.getAttribute('title')).toMatch(/permission/);
+    }
   });
 
   it('shows delete menu item as disabled with tooltip when canDelete is false', async () => {
