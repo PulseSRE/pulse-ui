@@ -3,8 +3,10 @@
  * Readiness waivers are kept (with reason and author) and counted the same way
  * on every recount, so re-verifying a gate cannot drop the score.
  *
- * The agent has no waiver endpoint, so waivers persist in this browser through
- * the existing onboarding store (localStorage key `openshiftpulse-onboarding`).
+ * These cover the fallback for an agent without `/readiness/waivers` (it
+ * answers 404): waivers persist in this browser through the existing
+ * onboarding store (localStorage key `openshiftpulse-onboarding`). The
+ * agent-backed path is in OnboardingClusterWaivers.test.tsx.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
@@ -22,6 +24,13 @@ const k8sGet = vi.fn();
 vi.mock('../../engine/query', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('../../engine/query');
   return { ...actual, k8sGet: (...a: unknown[]) => k8sGet(...a) };
+});
+
+// An older agent: no waiver endpoint.
+const agentFetch = vi.fn();
+vi.mock('../../engine/safeQuery', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('../../engine/safeQuery');
+  return { ...actual, agentFetch: (...a: unknown[]) => agentFetch(...a) };
 });
 
 const gate1 = vi.fn();
@@ -81,6 +90,7 @@ beforeEach(() => {
   k8sGet.mockResolvedValue({ metadata: { name: 'alice' } });
   evaluateAllGates.mockResolvedValue({ 'gate-1': result('gate-1', 'passed'), 'gate-2': result('gate-2', 'failed', 'No NetworkPolicy') });
   gate1.mockResolvedValue(result('gate-1', 'passed'));
+  agentFetch.mockResolvedValue(new Response(JSON.stringify({ detail: 'Not Found' }), { status: 404 }));
 });
 afterEach(() => {
   cleanup();
@@ -126,6 +136,15 @@ describe('readiness waivers', () => {
     fireEvent.click(screen.getByText('waive gate-2'));
     await waitFor(() => expect(screen.getByTestId('gate-2').textContent).toBe('waived: Waived: accepted risk until Q1'));
     expect(useOnboardingStore.getState().waivers['local/gate-2'].approvedBy).toBe('');
+  });
+
+  it('only asks the agent for its list, and writes nothing to it, on the fallback', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('score').textContent).toBe('50'));
+    fireEvent.click(screen.getByText('waive gate-2'));
+    await waitFor(() => expect(screen.getByTestId('score').textContent).toBe('100'));
+    expect(agentFetch).toHaveBeenCalledTimes(1);
+    expect(agentFetch).toHaveBeenCalledWith('/api/agent/readiness/waivers');
   });
 
   it("ignores another cluster's waivers", async () => {

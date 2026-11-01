@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
 
 vi.mock('@/lib/utils', () => ({ cn: (...args: any[]) => args.filter(Boolean).join(' ') }));
@@ -14,7 +14,8 @@ vi.mock('../WaiverDialog', () => ({
     open ? (
       <div data-testid="waiver-dialog">
         <span>Waiver for {gateTitle}</span>
-        <button onClick={() => onConfirm('test reason')}>Confirm Waiver</button>
+        {/* The real dialog catches a failed save and shows it; so does this stand-in. */}
+        <button onClick={() => { Promise.resolve(onConfirm('test reason')).catch(() => {}); }}>Confirm Waiver</button>
         <button onClick={onClose}>Cancel</button>
       </div>
     ) : null,
@@ -124,10 +125,21 @@ describe('ReadinessWizard', () => {
     expect(screen.getByTestId('waiver-dialog')).toBeDefined();
   });
 
-  it('calls onWaive when waiver is confirmed', () => {
+  it('calls onWaive when waiver is confirmed, then closes the dialog', async () => {
     render(<ReadinessWizard score={75} categories={makeCategories()} onWaive={onWaive} onReVerify={onReVerify} onSwitchToChecklist={onSwitchToChecklist} />);
     fireEvent.click(screen.getByText('Waive-g1'));
     fireEvent.click(screen.getByText('Confirm Waiver'));
-    expect(onWaive).toHaveBeenCalledWith('g1', 'test reason');
+    // No expiry chosen: null, not undefined.
+    expect(onWaive).toHaveBeenCalledWith('g1', 'test reason', null);
+    await waitFor(() => expect(screen.queryByTestId('waiver-dialog')).toBeNull());
+  });
+
+  it('keeps the dialog open when saving the waiver fails', async () => {
+    const failing = vi.fn().mockRejectedValue(new Error('Only a Pulse administrator can waive a gate.'));
+    render(<ReadinessWizard score={75} categories={makeCategories()} onWaive={failing} onReVerify={onReVerify} onSwitchToChecklist={onSwitchToChecklist} />);
+    fireEvent.click(screen.getByText('Waive-g1'));
+    fireEvent.click(screen.getByText('Confirm Waiver'));
+    await waitFor(() => expect(failing).toHaveBeenCalled());
+    expect(screen.getByTestId('waiver-dialog')).toBeTruthy();
   });
 });

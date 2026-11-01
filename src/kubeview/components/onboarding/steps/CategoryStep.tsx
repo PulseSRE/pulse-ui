@@ -1,7 +1,7 @@
 import React from 'react';
 import { Server, Shield, HeartPulse, Eye, Wrench, GitBranch, type LucideIcon } from 'lucide-react';
 import { GateCard } from '../GateCard';
-import type { CategoryView, ReadinessCategory } from '../types';
+import type { CategoryView, ReadinessCategory, Waiver } from '../types';
 
 const CATEGORY_ICON: Record<ReadinessCategory, LucideIcon> = {
   prerequisites: Server,
@@ -16,10 +16,12 @@ interface Props {
   category: CategoryView;
   onReVerify?: (gateId: string) => void;
   onWaive?: (gateId: string) => void;
+  waivers?: Record<string, Waiver>;
+  onUnwaive?: (gateId: string) => void | Promise<void>;
 }
 
 /** Generic step component that renders a category header + its gate cards. */
-export function CategoryStep({ category, onReVerify, onWaive }: Props) {
+export function CategoryStep({ category, onReVerify, onWaive, waivers, onUnwaive }: Props) {
   const Icon = CATEGORY_ICON[category.id];
 
   return (
@@ -39,6 +41,8 @@ export function CategoryStep({ category, onReVerify, onWaive }: Props) {
             result={category.results[gate.id]}
             onReVerify={onReVerify}
             onWaive={onWaive}
+            waiver={waivers?.[gate.id]}
+            onUnwaive={onUnwaive}
           />
         ))}
       </div>
