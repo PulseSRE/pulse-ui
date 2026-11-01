@@ -189,6 +189,21 @@ describe('AgentStatCard', () => {
     renderWithQuery(<AgentStatCard spec={{ kind: 'stat_card', title: 'Errors', query: 'sum(x)', value: '3' } as never} />);
     await waitFor(() => expect(screen.getByText('7')).toBeTruthy());
     expect(screen.queryByText('3')).toBeNull();
+    expect(screen.queryByText(/stale/)).toBeNull();
+  });
+
+  it.each([403, 500])('marks the agent\'s snapshot stale when the live query fails with %i', async (status) => {
+    mockFetchRoutes({ '/api/prometheus/api/v1/query': { status, body: { status: 'error', error: 'nope' } } });
+    renderWithQuery(<AgentStatCard spec={{ kind: 'stat_card', title: 'Errors', query: 'sum(x)', value: '3' } as never} />);
+    await waitFor(() => expect(screen.getByText(/stale — could not query Prometheus/)).toBeTruthy(), { timeout: 5000 });
+    expect(screen.getByText('3').closest('[data-stale]')).toBeTruthy();
+  });
+
+  it('says it could not query, with no number, when there is no snapshot either', async () => {
+    mockFetchRoutes({ '/api/prometheus/api/v1/query': { status: 500, body: {} } });
+    renderWithQuery(<AgentStatCard spec={{ kind: 'stat_card', title: 'Errors', query: 'sum(x)' } as never} />);
+    await waitFor(() => expect(screen.getByText('could not query Prometheus')).toBeTruthy(), { timeout: 5000 });
+    expect(screen.getByText('—')).toBeTruthy();
   });
 });
 
