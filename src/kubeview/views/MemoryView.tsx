@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
+import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { agentJson } from '../engine/safeQuery';
 import { formatRelativeTime } from '../engine/formatters';
 import ClusterKnowledge from './memory/ClusterKnowledge';
@@ -128,6 +129,8 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
       queryClient.invalidateQueries({ queryKey: ['memory', 'summary'] });
     },
   });
+  // The row awaiting a yes/no before it is forgotten.
+  const [pendingForget, setPendingForget] = useState<{ kind: 'runbooks' | 'patterns' | 'incidents'; id: number; label: string } | null>(null);
   const forgetButton = (kind: 'runbooks' | 'patterns' | 'incidents', id: number | undefined, label: string) =>
     typeof id === 'number' ? (
       <button
@@ -135,9 +138,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         aria-label={`Forget ${label}`}
         title="Forget this — it taught the wrong lesson"
         disabled={forget.isPending}
-        onClick={() => {
-          if (window.confirm(`Forget ${label}? The agent will stop using it.`)) forget.mutate({ kind, id });
-        }}
+        onClick={() => setPendingForget({ kind, id, label })}
         className="shrink-0 rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-rose-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:opacity-40"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -297,6 +298,17 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
           </div>
         )}
         {forget.isError && <LoadError title="Could not forget that item" error={forget.error} onRetry={() => forget.reset()} />}
+        <ConfirmDialog
+          open={pendingForget !== null}
+          onClose={() => setPendingForget(null)}
+          onConfirm={() => {
+            if (pendingForget) forget.mutate({ kind: pendingForget.kind, id: pendingForget.id });
+            setPendingForget(null);
+          }}
+          title={`Forget ${pendingForget?.label ?? ''}?`}
+          description="The agent will stop using it."
+          confirmLabel="Forget"
+        />
 
         {/* Summary Cards */}
         {!embedded && summary && (

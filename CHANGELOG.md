@@ -59,6 +59,17 @@ Release entries are historical records. Counts, timings, security scans, and fea
   - SLO: the service is picked from the cluster's Deployments, with a note when the name exists in several namespaces (the agent matches `deployment=` without a namespace); SLOs can be edited
   - `/create/<gvr>?template=<id>&namespace=<ns>` opens reviewed templates (default-deny NetworkPolicy, ResourceQuota, LimitRange, PrometheusRule)
 
+### Changed
+- Shared building blocks (functionality review, Wave 5a):
+  - One status colour map (`engine/statusColors`): warning is amber everywhere (StatusBadge, inbox-style yellow is gone), pending/progressing is blue and unknown is slate in agent tables (they were amber), info is sky. StatusBadge, Badge and the agent data, visualization and relationship renderers use it
+  - One formatter module (`engine/format`) for age, relative time, durations, bytes and timestamps, with a fixed `en-US` locale; the old `formatters`/`formatting`/`dateUtils` names still work. Table ages read like `kubectl get` everywhere (`45s`, `12m`, `3h`, `65d`, `1y`), relative times say `2mo ago`, "… ago" is never doubled, and a clock-skewed timestamp reads "just now"
+  - Tabs are one accessible primitive (arrow keys, tab/tabpanel roles) on Pulse Agent, Software, resource details, logs, node logs and the operator catalog; Pulse Agent, Software and resource details keep the open tab in `?tab=`. Pulse Agent tabs are grouped Operate / Configure / Insights and "SkillPlan" is "Plans"
+  - One StatCard (icon, subtitle, usage bar, explanation, issue count); clickable cards are real buttons. Toolbox, Compute, Security and project dashboard cards use it
+  - One Dialog primitive (focus trap, Escape, aria-modal, focus returned): New Task, Waive Gate, GitOps Save, chart editor, GitOps setup wizard and ConfirmDialog use it. Version history, incident lifecycle, skill, tool and outcome drawers use DrawerShell. Escape closes only the innermost dialog
+  - Cancelling a durable run and forgetting a memory ask in a dialog instead of a browser `confirm()`
+  - Permission checks (`useCanI`) go through the same request path as every other cluster call, and are cached per impersonated user, so starting to impersonate someone re-asks instead of reusing the admin's answer for five minutes. Read checks still fail open when the review itself errors (the API server enforces the read); write checks fail closed
+  - ESLint fails on new private StatCard/StatusDot/StatPill/SummaryCard components, private status colour maps (any casing, module or function scope) and `window`/`globalThis` `confirm` (existing copies are allowlisted with the wave that owns them)
+
 ### Fixed
 - Inbox actions and one approvals queue (functionality review, Wave 7c; needs pulse-agent #220):
   - Inbox → **Approvals** (`/inbox?tab=approvals`) lists everything waiting for a person: proposed fixes and durable runs stopped at an approval gate, approved or rejected in place. A one-line banner above the inbox links to it; Pulse Agent → Runs links to it instead of keeping a second copy. The "Approval waiting" chip on a row now reflects a real pending proposal or run.

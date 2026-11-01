@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -46,11 +46,11 @@ function createQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 }
 
-async function renderView() {
+async function renderView(path = '/agent') {
   const PulseAgentView = (await import('../PulseAgentView')).default;
   return render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/agent']}>
+      <MemoryRouter initialEntries={[path]}>
         <PulseAgentView />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -73,9 +73,43 @@ describe('PulseAgentView', () => {
     expect(screen.getByText('Overview')).toBeDefined();
     expect(screen.getByText('Tools')).toBeDefined();
     expect(screen.getByText('Skills')).toBeDefined();
-    expect(screen.getByText('SkillPlan')).toBeDefined();
+    expect(screen.getByText('Plans')).toBeDefined();
     expect(screen.getByText('MCP')).toBeDefined();
     expect(screen.getByText('Analytics')).toBeDefined();
+  });
+
+  it('groups tabs into Operate, Configure and Insights', async () => {
+    await renderView();
+    for (const g of ['Operate', 'Configure', 'Insights']) expect(screen.getByText(g)).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('opens the tab named in ?tab=', async () => {
+    await renderView('/agent?tab=components');
+    expect(screen.getByRole('tab', { name: 'Components' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('reopens the tab last used in this session when the URL names none', async () => {
+    sessionStorage.setItem('agent-tab', 'components');
+    try {
+      await renderView('/agent');
+      await waitFor(() => expect(screen.getByRole('tab', { name: 'Components' }).getAttribute('aria-selected')).toBe('true'));
+    } finally {
+      sessionStorage.removeItem('agent-tab');
+    }
+  });
+
+  it('remembers the tab chosen, and ?tab= beats the remembered one', async () => {
+    sessionStorage.setItem('agent-tab', 'components');
+    try {
+      await renderView('/agent?tab=usage');
+      expect(screen.getByRole('tab', { name: 'Usage' }).getAttribute('aria-selected')).toBe('true');
+      fireEvent.click(screen.getByRole('tab', { name: 'Skills' }));
+      expect(sessionStorage.getItem('agent-tab')).toBe('skills');
+    } finally {
+      sessionStorage.removeItem('agent-tab');
+    }
   });
 
   it('defaults to overview tab with status sentence', async () => {

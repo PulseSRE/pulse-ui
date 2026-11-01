@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import {
-  X, Wrench, Shield, Clock, AlertTriangle,
+  Wrench, Shield, Clock, AlertTriangle,
   Database, CheckCircle2, XCircle, Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { agentFetch } from '../../engine/safeQuery';
 import type { ToolInfo } from '../../store/toolUsageStore';
 import { SourceBadge } from './SourceBadge';
@@ -39,23 +40,13 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
   const skills = tool.skills ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div
-        className="relative w-full max-w-lg bg-slate-950 border-l border-slate-800 h-full overflow-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 bg-slate-950 border-b border-slate-800 px-5 py-4 flex items-center justify-between z-10">
-          <div className="flex items-center gap-2 min-w-0">
-            <Wrench className="w-4 h-4 text-fuchsia-400 shrink-0" />
-            <h2 className="text-sm font-semibold text-slate-100 truncate font-mono">{tool.name}</h2>
-          </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 p-1">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
+    <DrawerShell
+      title={tool.name}
+      icon={<Wrench className="w-4 h-4 text-fuchsia-400 shrink-0" />}
+      onClose={onClose}
+      width="max-w-lg"
+      bodyClassName=""
+    >
         <div className="p-5 space-y-5">
           {/* Description */}
           <div>
@@ -162,7 +153,6 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </DrawerShell>
   );
 }

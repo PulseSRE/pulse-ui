@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FileText, Hash, Database, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
-import { StatCard } from './StatCard';
+import { StatCard } from '../../components/primitives/StatCard';
 
 interface PromptStats {
   avg_tokens: number;
@@ -94,10 +94,10 @@ export function PromptAuditSection() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Avg Prompt Tokens" value={promptStats.avg_tokens.toLocaleString()} icon={<Hash className="w-4 h-4 text-cyan-400" />} />
-        <StatCard label="Cache Hit Rate" value={`${(promptStats.cache_hit_rate * 100).toFixed(1)}%`} icon={<Database className="w-4 h-4 text-emerald-400" />} />
-        <StatCard label="Static / Dynamic" value={staticDynamic} icon={<BarChart3 className="w-4 h-4 text-violet-400" />} />
-        <StatCard label="Prompts Logged" value={promptStats.total_prompts.toLocaleString()} icon={<FileText className="w-4 h-4 text-blue-400" />} />
+        <StatCard size="sm" label="Avg Prompt Tokens" value={promptStats.avg_tokens.toLocaleString()} icon={<Hash className="w-4 h-4 text-cyan-400" />} />
+        <StatCard size="sm" label="Cache Hit Rate" value={`${(promptStats.cache_hit_rate * 100).toFixed(1)}%`} icon={<Database className="w-4 h-4 text-emerald-400" />} />
+        <StatCard size="sm" label="Static / Dynamic" value={staticDynamic} icon={<BarChart3 className="w-4 h-4 text-violet-400" />} />
+        <StatCard size="sm" label="Prompts Logged" value={promptStats.total_prompts.toLocaleString()} icon={<FileText className="w-4 h-4 text-blue-400" />} />
       </div>
 
       {/* Section Breakdown */}

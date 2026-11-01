@@ -6,9 +6,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getClusterBase } from '../engine/clusterConnection';
-import { getImpersonationHeaders } from '../engine/query';
+import { k8sFetch } from '../engine/query';
 import { useFleetStore } from '../store/fleetStore';
+import { useUIStore } from '../store/uiStore';
 
 interface AccessReviewSpec {
   verb: string;       // "get", "list", "create", "update", "delete", "patch"
@@ -19,6 +19,12 @@ interface AccessReviewSpec {
 }
 
 const WRITE_VERBS = new Set(['create', 'update', 'patch', 'delete', 'deletecollection']);
+
+// When the review itself fails (network error, non-2xx), write verbs fail
+// closed — a button stays disabled rather than offering a write the user may
+// not have. Read verbs fail open: hiding a view because the review endpoint
+// hiccupped would be worse, and the read itself is still enforced by the API
+// server, which returns its own 403.
 
 async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<boolean> {
   const failOpen = !WRITE_VERBS.has(spec.verb);
@@ -37,9 +43,12 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
       },
     };
 
-    const res = await fetch(`${getClusterBase(clusterId)}/apis/authorization.k8s.io/v1/selfsubjectaccessreviews`, {
+    // Through k8sFetch, like every other request: the review must ask the
+    // cluster being acted on, as the user being impersonated, or the answer
+    // describes someone else's permissions.
+    const res = await k8sFetch(clusterId, '/apis/authorization.k8s.io/v1/selfsubjectaccessreviews', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getImpersonationHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
@@ -53,10 +62,17 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
 
 export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string, opts: { enabled?: boolean } = {}) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
+  // The answer is about whoever the request runs as, so impersonation is part
+  // of the cache key: an admin's "allowed" must not be reused after they start
+  // impersonating someone else.
+  const impersonateUser = useUIStore((s) => s.impersonateUser);
+  // Joined in the selector so the key is a stable string (and partial store
+  // mocks without groups still work).
+  const impersonateGroups = useUIStore((s) => (s.impersonateGroups ?? []).join(','));
   const failOpen = !WRITE_VERBS.has(verb);
   const enabled = opts.enabled ?? true;
   const { data: allowed = failOpen, isLoading } = useQuery({
-    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, subresource, clusterId],
+    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, subresource, clusterId, impersonateUser ?? '', impersonateGroups],
     queryFn: () => checkAccess({ verb, group, resource, namespace, subresource }, clusterId),
     enabled,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes

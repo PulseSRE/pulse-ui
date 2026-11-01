@@ -24,7 +24,8 @@ import { GitOpsInfoCard } from '../../components/GitOpsInfoCard';
 import { ResourceHistoryPanel } from '../argocd/ResourceHistoryPanel';
 
 import { DetailViewHeader } from './DetailViewHeader';
-import { DetailViewTabBar, ConditionsTable, EventsList } from './DetailViewTabs';
+import { DetailViewTabBar, ConditionsTable, EventsList, DETAIL_TABS, type DetailTab } from './DetailViewTabs';
+import { Tabs, TabsContent, useTabParam } from '../../components/primitives/Tabs';
 import { DeploymentDetailLayout } from './DeploymentDetailLayout';
 import { PodDetailLayout } from './PodDetailLayout';
 import { GenericDetailLayout } from './GenericDetailLayout';
@@ -323,7 +324,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   // ── UI state ─────────────────────────────────────────
 
-  const [detailTab, setDetailTab] = React.useState<'overview' | 'conditions' | 'events'>('overview');
+  const [detailTab, setDetailTab] = useTabParam(DETAIL_TABS, 'overview');
   const currentPath = namespace ? `/r/${gvrUrl}/${namespace}/${name}` : `/r/${gvrUrl}/_/${name}`;
   const [starred, setStarred] = React.useState(() => isFavorite(currentPath));
   // The cluster is pinned when the delete confirmation opens.
@@ -436,17 +437,16 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           onDeleteRequest={() => setShowDeleteConfirm(true)}
         />
 
+        <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as DetailTab)} className="space-y-6">
         <DetailViewTabBar
-          activeTab={detailTab}
-          onTabChange={setDetailTab}
           conditions={conditions}
           eventCount={sortedEvents.length}
         />
 
-        {detailTab === 'conditions' && <ConditionsTable conditions={conditions} />}
-        {detailTab === 'events' && <EventsList events={sortedEvents} />}
+        <TabsContent value="conditions"><ConditionsTable conditions={conditions} /></TabsContent>
+        <TabsContent value="events"><EventsList events={sortedEvents} /></TabsContent>
 
-        {detailTab === 'overview' && (
+        <TabsContent value="overview" className="space-y-6">
           <>
             <GitOpsInfoCard kind={resource.kind} namespace={resource.metadata.namespace} name={resource.metadata.name} />
             <ResourceHistoryPanel kind={resource.kind} namespace={resource.metadata.namespace} name={resource.metadata.name} />
@@ -489,7 +489,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
               />
             )) as React.ReactNode}
           </>
-        )}
+        </TabsContent>
+        </Tabs>
       </div>
     </div>
 

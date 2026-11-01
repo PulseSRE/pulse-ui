@@ -8,25 +8,26 @@ import {
 import { cn } from '@/lib/utils';
 import type { Event, Condition } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
+import { TabsList, TabsTrigger } from '../../components/primitives/Tabs';
 
-type DetailTab = 'overview' | 'conditions' | 'events';
+export const DETAIL_TABS = ['overview', 'conditions', 'events'] as const;
+export type DetailTab = typeof DETAIL_TABS[number];
 
 interface DetailViewTabsProps {
-  activeTab: DetailTab;
-  onTabChange: (tab: DetailTab) => void;
   conditions: Condition[];
   eventCount: number;
 }
 
-export function DetailViewTabBar({ activeTab, onTabChange, conditions, eventCount }: DetailViewTabsProps) {
+/** The tab bar for a resource's detail page. Render inside a `<Tabs>` root. */
+export function DetailViewTabBar({ conditions, eventCount }: DetailViewTabsProps) {
   return (
-    <div className="flex gap-1 bg-slate-900 rounded-lg p-1 w-fit" role="tablist" aria-label="Detail tabs">
-      {(['overview', 'conditions', 'events'] as const).map((tab) => (
-        <button key={tab} role="tab" aria-selected={activeTab === tab} onClick={() => onTabChange(tab)} className={cn('px-4 py-1.5 text-xs rounded-md transition-colors capitalize focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500', activeTab === tab ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200')}>
+    <TabsList aria-label="Detail tabs" className="flex w-fit">
+      {DETAIL_TABS.map((tab) => (
+        <TabsTrigger key={tab} value={tab} className="px-4 font-normal capitalize">
           {tab === 'events' ? `Events (${eventCount})` : tab === 'conditions' ? `Conditions (${conditions.length})` : tab}
-        </button>
+        </TabsTrigger>
       ))}
-    </div>
+    </TabsList>
   );
 }
 

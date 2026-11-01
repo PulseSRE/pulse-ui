@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { Bot, Undo2, X } from 'lucide-react';
 import type { ComponentSpec } from '../../engine/agentComponents';
 import { useCustomViewStore, type ViewVersion } from '../../store/customViewStore';
+import { formatRelative } from '../../engine/format';
 
 /** Version actions written by agent edits (see pulse-agent view_mutations / agent_ws). */
 export function isAgentEdit(action: string): boolean {
@@ -83,13 +84,6 @@ function readDismissed(viewId: string): number | null {
   }
 }
 
-function ago(iso: string): string {
-  const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (sec < 60) return 'just now';
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  return `${Math.floor(sec / 3600)}h ago`;
-}
-
 export function AgentEditBanner({ viewId, layout }: { viewId: string; layout: ComponentSpec[] }) {
   const getLatestVersion = useCustomViewStore((s) => s.getLatestVersion);
   const restoreVersion = useCustomViewStore((s) => s.restoreVersion);
@@ -142,7 +136,7 @@ export function AgentEditBanner({ viewId, layout }: { viewId: string; layout: Co
       <Bot className="h-3.5 w-3.5 text-violet-400" aria-hidden />
       <span>
         <span className="font-semibold text-violet-300">Pulse changed this dashboard</span>{' '}
-        <span className="text-slate-400">{ago(latest.created_at)}:</span> {parts.join('; ')}
+        <span className="text-slate-400">{formatRelative(latest.created_at)}:</span> {parts.join('; ')}
       </span>
       {error && <span className="text-red-400">{error}</span>}
       <span className="ml-auto flex items-center gap-1">
