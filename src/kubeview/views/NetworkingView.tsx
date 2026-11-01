@@ -166,7 +166,7 @@ export default function NetworkingView() {
                 variant="secondary"
                 disabled={!allowed}
                 title={allowed ? undefined : `You do not have permission to create ${label}s here`}
-                onClick={() => go(`/create/${gvr}${nsFilter ? `?namespace=${encodeURIComponent(nsFilter)}` : ''}`, `Create ${label}`)}
+                onClick={() => go(nsFilter ? `/create/${gvr}?namespace=${encodeURIComponent(nsFilter)}` : `/create/${gvr}`, `Create ${label}`)}
               >
                 <Plus className="w-3.5 h-3.5" /> {label}
               </Button>

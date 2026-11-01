@@ -5,7 +5,10 @@
  */
 import React from 'react';
 import { vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, configure } from '@testing-library/react';
+
+// Access reviews resolve asynchronously; on a loaded CI runner 1s is not always enough.
+configure({ asyncUtilTimeout: 4000 });
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 

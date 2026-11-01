@@ -135,7 +135,7 @@ export default function StorageView() {
           actions={(
             <Button
               size="sm"
-              onClick={() => go(`/create/v1~persistentvolumeclaims${nsFilter ? `?namespace=${encodeURIComponent(nsFilter)}` : ''}`, 'Create PVC')}
+              onClick={() => go(nsFilter ? `/create/v1~persistentvolumeclaims?namespace=${encodeURIComponent(nsFilter)}` : '/create/v1~persistentvolumeclaims', 'Create PVC')}
               disabled={!canCreatePVC}
               title={canCreatePVC ? undefined : 'You do not have permission to create PersistentVolumeClaims here'}
             >

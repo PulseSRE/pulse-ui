@@ -147,7 +147,7 @@ describe('Project dashboard', () => {
     renderProject();
     fireEvent.click(screen.getByRole('button', { name: /^Deployments: 0/ }));
     expect(goMock).toHaveBeenCalledWith('/r/apps~v1~deployments?ns=shop', 'Deployments (shop)');
-    fireEvent.click(screen.getByRole('button', { name: /^Warning events/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Events/ }));
     expect(goMock).toHaveBeenCalledWith('/r/v1~events?ns=shop', 'Events (shop)');
   });
 

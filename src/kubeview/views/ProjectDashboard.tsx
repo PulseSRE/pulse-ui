@@ -110,7 +110,7 @@ export default function ProjectDashboard() {
           <SummaryCard label="DaemonSets" count={daemonsetsError ? null : daemonsets.length} icon={<Shield className="w-4 h-4" />} color="text-amber-400" onClick={list('apps~v1~daemonsets', 'DaemonSets')} />
           <SummaryCard label="Services" count={servicesError ? null : services.length} icon={<Globe className="w-4 h-4" />} color="text-cyan-400" onClick={list('v1~services', 'Services')} />
           <SummaryCard label="ConfigMaps" count={configmapsError ? null : configmaps.length} icon={<FileText className="w-4 h-4" />} color="text-slate-400" onClick={list('v1~configmaps', 'ConfigMaps')} />
-          <SummaryCard label="Warning events" count={eventsError ? null : allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />} onClick={list('v1~events', 'Events')}
+          <SummaryCard label="Events" count={eventsError ? null : allWarningEvents.length} icon={<AlertTriangle className="w-4 h-4" />} onClick={list('v1~events', 'Events')}
             color={!eventsError && allWarningEvents.length > 0 ? 'text-amber-400' : 'text-slate-400'} />
         </div>
 
