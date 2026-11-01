@@ -155,11 +155,14 @@ export default function AdminView() {
 
   const { data: nodes = [], isLoading: nodesLoading, isError: nodesError } = useK8sListWatch<Node>({
     apiPath: '/api/v1/nodes',
+    clusterId,
   });
 
-  const { data: operators = [], isLoading: opsLoading, isError: opsError } = useK8sListWatch<ClusterOperator>({
+  const operatorsQuery = useK8sListWatch<ClusterOperator>({
     apiPath: '/apis/config.openshift.io/v1/clusteroperators',
+    clusterId,
   });
+  const { data: operators = [], isLoading: opsLoading, isError: opsError } = operatorsQuery;
 
   const { data: firingAlerts = [], error: firingAlertsError } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
     queryKey: ['admin', 'firing-alerts', clusterId],
@@ -175,18 +178,20 @@ export default function AdminView() {
     refetchInterval: 30000,
   });
 
-  const { data: recentEvents = [] } = useQuery<K8sResource[]>({
+  // A failed read is an error, not "no events" / "no expiring certificates":
+  // the Overview shows it instead of hiding the panel.
+  const { data: recentEvents = [], error: recentEventsError, refetch: refetchEvents } = useQuery<K8sResource[]>({
     queryKey: ['admin', 'recent-events', clusterId],
-    queryFn: async () => (await safeQuery(() => k8sList('/api/v1/events?fieldSelector=type=Warning&limit=100', undefined, clusterId))) ?? [],
+    queryFn: () => k8sList('/api/v1/events?fieldSelector=type=Warning&limit=100', undefined, clusterId),
     refetchInterval: 30000,
   });
 
-  const { data: expiringCerts = [] } = useQuery<Array<{ name: string; namespace: string; daysLeft: number }>>({
+  const { data: expiringCerts = [], error: expiringCertsError, refetch: refetchExpiringCerts } = useQuery<Array<{ name: string; namespace: string; daysLeft: number }>>({
     queryKey: ['admin', 'expiring-certs', clusterId],
     queryFn: async () => {
       // Same parsing as the Certificates tab: the certificate's own notAfter,
       // then cert-manager/service-ca annotations. No guessed lifetimes.
-      const secrets = (await safeQuery(() => fetchTlsSecrets<TlsSecretLike>(clusterId))) ?? [];
+      const secrets = await fetchTlsSecrets<TlsSecretLike>(clusterId);
       const expiring: Array<{ name: string; namespace: string; daysLeft: number }> = [];
       for (const s of secrets) {
         const info = parseCertExpiry(s);
@@ -205,19 +210,21 @@ export default function AdminView() {
     staleTime: 60000,
   });
 
-  const { data: quotas = [] } = useQuery<ResourceQuota[]>({
+  const quotasQuery = useQuery<ResourceQuota[]>({
     queryKey: ['k8s', 'list', '/api/v1/resourcequotas', undefined, clusterId],
     queryFn: () => k8sList<ResourceQuota>('/api/v1/resourcequotas', undefined, clusterId),
     staleTime: 60000,
   });
+  const quotas = quotasQuery.data ?? [];
 
-  const { data: limitRanges = [] } = useQuery<LimitRange[]>({
+  const limitRangesQuery = useQuery<LimitRange[]>({
     queryKey: ['k8s', 'list', '/api/v1/limitranges', undefined, clusterId],
     queryFn: () => k8sList<LimitRange>('/api/v1/limitranges', undefined, clusterId),
     staleTime: 60000,
   });
+  const limitRanges = limitRangesQuery.data ?? [];
 
-  const { data: oauthConfig } = useQuery({
+  const { data: oauthConfig, isError: oauthError } = useQuery({
     queryKey: ['admin', 'oauth', clusterId],
     queryFn: () => safeQuery(() => k8sGet<OAuthConfig>('/apis/config.openshift.io/v1/oauths/cluster', clusterId)),
     staleTime: 120000,
@@ -241,27 +248,29 @@ export default function AdminView() {
     staleTime: 60000,
   });
 
-  const { data: ingressConfig } = useQuery({
+  const { data: ingressConfig, isError: ingressConfigError } = useQuery({
     queryKey: ['admin', 'config', 'ingress', clusterId],
     queryFn: () => safeQuery(() => k8sGet<IngressConfig>('/apis/config.openshift.io/v1/ingresses/cluster', clusterId)),
     staleTime: 120000,
   });
 
-  const { data: routerCert } = useQuery({
+  const { data: routerCert, isError: routerCertError } = useQuery({
     queryKey: ['admin', 'router-cert', clusterId],
     queryFn: () => safeQuery(() => k8sGet<K8sResource>('/api/v1/namespaces/openshift-ingress/secrets/router-certs-default', clusterId)),
     staleTime: 300000,
   });
 
-  const { data: pdbs = [] } = useQuery<PodDisruptionBudget[]>({
+  // The pre-update PDB check needs both lists; if either cannot be read the
+  // check is "Could not check", never "No multi-replica user deployments".
+  const { data: pdbs = [], error: pdbsError } = useQuery<PodDisruptionBudget[]>({
     queryKey: ['k8s', 'list', '/apis/policy/v1/poddisruptionbudgets', undefined, clusterId],
-    queryFn: async () => (await safeQuery(() => k8sList<PodDisruptionBudget>('/apis/policy/v1/poddisruptionbudgets', undefined, clusterId))) ?? [],
+    queryFn: () => k8sList<PodDisruptionBudget>('/apis/policy/v1/poddisruptionbudgets', undefined, clusterId),
     staleTime: 60000,
   });
 
-  const { data: deployments = [] } = useQuery<Deployment[]>({
+  const { data: deployments = [], error: deploymentsError } = useQuery<Deployment[]>({
     queryKey: ['k8s', 'list', '/apis/apps/v1/deployments', undefined, clusterId],
-    queryFn: async () => (await safeQuery(() => k8sList<Deployment>('/apis/apps/v1/deployments', undefined, clusterId))) ?? [],
+    queryFn: () => k8sList<Deployment>('/apis/apps/v1/deployments', undefined, clusterId),
     staleTime: 60000,
   });
 
@@ -280,10 +289,12 @@ export default function AdminView() {
     enabled: (clusterVersion?.status?.conditions || []).some((c: Condition) => c.type === 'Progressing' && c.status === 'True'),
   });
 
-  const { data: etcdBackupExists } = useQuery({
+  const { data: etcdBackupExists, error: etcdBackupError } = useQuery({
     queryKey: ['admin', 'etcd-backup', clusterId],
     // Backup is served at config.openshift.io/v1alpha1 (feature-gated by
     // AutomatedEtcdBackup), not v1 — v1 has never existed for this resource.
+    // A 404 (API not served) means no automated backup; a 403 or 500 is an
+    // error and the checklist says it could not check.
     queryFn: async () => { const items = await safeQuery(() => k8sList('/apis/config.openshift.io/v1alpha1/backups', undefined, clusterId)); return items ? items.length > 0 : false; },
     staleTime: 60000,
   });
@@ -431,7 +442,7 @@ export default function AdminView() {
     { id: 'config', label: 'Cluster Config', icon: <Database className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Database className="w-3.5 h-3.5" /> },
     { id: 'updates', label: `Updates${availableUpdates.length > 0 ? ` (${availableUpdates.length})` : ''}`, icon: <ArrowUpCircle className="w-3.5 h-3.5 text-green-400" />, activeIcon: <ArrowUpCircle className="w-3.5 h-3.5" /> },
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <GitCompare className="w-3.5 h-3.5" /> },
-    { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Gauge className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Gauge className="w-3.5 h-3.5" /> },
+    { id: 'quotas', label: `Quotas (${quotasQuery.isError ? '\u2014' : quotas.length})`, icon: <Gauge className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Gauge className="w-3.5 h-3.5" /> },
     { id: 'certificates', label: 'Certificates', icon: <Lock className="w-3.5 h-3.5 text-red-400" />, activeIcon: <Lock className="w-3.5 h-3.5" /> },
     { id: 'csrs', label: 'Certificate requests', icon: <FileKey className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <FileKey className="w-3.5 h-3.5" /> },
     { id: 'crds', label: 'CRDs', icon: <Blocks className="w-3.5 h-3.5 text-indigo-400" />, activeIcon: <Blocks className="w-3.5 h-3.5" /> },
@@ -517,12 +528,20 @@ export default function AdminView() {
             apiServerOperator={apiServerOperator}
             etcdOperator={etcdOperator}
             identityProviders={identityProviders}
+            identityProvidersError={oauthError}
             ingressConfig={ingressConfig}
+            ingressConfigError={ingressConfigError}
             certExpiry={certExpiry}
+            routerCertError={routerCertError}
             quotas={quotas}
             limitRanges={limitRanges}
+            quotasError={quotasQuery.isError || limitRangesQuery.isError}
             latestEvents={latestEvents}
             recentEvents={recentEvents}
+            recentEventsError={recentEventsError}
+            onRetryEvents={() => { void refetchEvents(); }}
+            expiringCertsError={expiringCertsError}
+            onRetryExpiringCerts={() => { void refetchExpiringCerts(); }}
             setActiveTab={setActiveTab}
             go={go}
           />
@@ -530,7 +549,15 @@ export default function AdminView() {
         )}
 
         {/* ===== OPERATORS ===== */}
-        {activeTab === 'operators' && <OperatorsTab operators={operators} go={go} />}
+        {activeTab === 'operators' && (
+          <OperatorsTab
+            operators={operators}
+            isLoading={opsLoading}
+            error={opsError ? (operatorsQuery.error ?? new Error('ClusterOperators could not be read')) : undefined}
+            onRetry={() => { void operatorsQuery.refetch(); }}
+            go={go}
+          />
+        )}
 
         {/* ===== CLUSTER CONFIG ===== */}
         {activeTab === 'config' && <ClusterConfig />}
@@ -548,7 +575,9 @@ export default function AdminView() {
             nodes={nodes}
             deployments={deployments}
             pdbs={pdbs}
+            pdbCheckError={pdbsError ?? deploymentsError ?? undefined}
             etcdBackupExists={etcdBackupExists}
+            etcdBackupError={etcdBackupError ?? undefined}
             isHyperShift={isHyperShift}
             machineConfigPools={machineConfigPools}
             pods={pods}
@@ -560,7 +589,18 @@ export default function AdminView() {
         {activeTab === 'snapshots' && <SnapshotsTab />}
 
         {/* ===== QUOTAS ===== */}
-        {activeTab === 'quotas' && <QuotasTab quotas={quotas} limitRanges={limitRanges} go={go} />}
+        {activeTab === 'quotas' && (
+          <QuotasTab
+            quotas={quotas}
+            limitRanges={limitRanges}
+            quotasError={quotasQuery.error ?? undefined}
+            limitRangesError={limitRangesQuery.error ?? undefined}
+            quotasLoading={quotasQuery.isLoading}
+            limitRangesLoading={limitRangesQuery.isLoading}
+            onRetry={() => { void quotasQuery.refetch(); void limitRangesQuery.refetch(); }}
+            go={go}
+          />
+        )}
 
         {/* ===== CERTIFICATES ===== */}
         {activeTab === 'certificates' && <CertificatesTab go={go} />}

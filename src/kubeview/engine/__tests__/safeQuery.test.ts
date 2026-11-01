@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { safeQuery, checkAuth, agentFetch } from '../safeQuery';
+import { PulseError } from '../errors';
 
 // Mock uiStore
 const mockAddDegradedReason = vi.fn();
@@ -83,6 +84,16 @@ describe('safeQuery', () => {
       safeQuery(() => Promise.reject({ status: 401 })),
     ).rejects.toEqual({ status: 401 });
     expect(mockAddDegradedReason).toHaveBeenCalledWith('session_expired');
+  });
+
+  it('returns null on the 404 PulseError that k8sList throws (statusCode, not status)', async () => {
+    const err = new PulseError({ message: 'not found', category: 'not_found', statusCode: 404, context: { operation: 'list' }, userMessage: 'Not found', suggestions: [] });
+    expect(await safeQuery(() => Promise.reject(err))).toBeNull();
+  });
+
+  it.each([403, 500])('rethrows a %i PulseError', async (statusCode) => {
+    const err = new PulseError({ message: 'x', category: 'server', statusCode, context: { operation: 'list' }, userMessage: 'x', suggestions: [] });
+    await expect(safeQuery(() => Promise.reject(err))).rejects.toBe(err);
   });
 
   it('rethrows non-404 errors', async () => {

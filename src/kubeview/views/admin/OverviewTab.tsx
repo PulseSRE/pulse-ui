@@ -14,6 +14,13 @@ import { formatMem } from '../../engine/formatting';
 import { formatRelative } from '../../engine/format';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { ControlPlaneMetrics } from '../../components/metrics/ControlPlaneMetrics';
+import { LoadError } from '../../components/primitives/LoadError';
+import { isSystemNamespace } from '../../engine/namespace';
+
+/** Shown in place of a value that could not be read: unknown, never a default. */
+function CouldNotRead({ what }: { what: string }) {
+  return <span className="text-xs px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-400" title={`${what} could not be read`}>Could not read</span>;
+}
 
 /** OpenShift operator resource (operator.openshift.io/v1) */
 interface OperatorResource extends K8sResource {
@@ -65,12 +72,22 @@ export interface OverviewTabProps {
   apiServerOperator: OperatorResource | null | undefined;
   etcdOperator: OperatorResource | null | undefined;
   identityProviders: Array<{ name: string; type: string }>;
+  /** The OAuth config could not be read: providers are unknown, not "none". */
+  identityProvidersError?: boolean;
   ingressConfig: IngressConfig | null | undefined;
+  /** The Ingress config could not be read: the default certificate is unknown, not "Self-signed". */
+  ingressConfigError?: boolean;
   certExpiry: { date: Date; daysLeft: number } | null;
+  routerCertError?: boolean;
   quotas: K8sResource[];
   limitRanges: K8sResource[];
+  quotasError?: boolean;
   latestEvents: K8sResource[];
   recentEvents: K8sResource[];
+  recentEventsError?: unknown;
+  onRetryEvents?: () => void;
+  expiringCertsError?: unknown;
+  onRetryExpiringCerts?: () => void;
   setActiveTab: (tab: string) => void;
   go: (path: string, title: string) => void;
 }
@@ -97,10 +114,14 @@ export function OverviewTab({
   clusterAge, nsStats, crds, crdGroupCount,
   availableUpdates, expiringCerts, quotaHotSpots,
   clusterCapacity, apiServerOperator, etcdOperator,
-  identityProviders, ingressConfig, certExpiry,
-  quotas, limitRanges, latestEvents, recentEvents,
+  identityProviders, identityProvidersError, ingressConfig, ingressConfigError, certExpiry, routerCertError,
+  quotas, limitRanges, quotasError, latestEvents, recentEvents, recentEventsError, onRetryEvents,
+  expiringCertsError, onRetryExpiringCerts,
   setActiveTab, go,
 }: OverviewTabProps) {
+  // The Certificates tab hides platform namespaces by default; open it with
+  // them shown when this count includes any, so the list matches the count.
+  const certsLink = `/admin?tab=certificates&filter=expiring${expiringCerts.some((c) => isSystemNamespace(c.namespace)) ? '&system=1' : ''}`;
   return (
     <>
       {/* Loading skeleton */}
@@ -229,6 +250,10 @@ export function OverviewTab({
         </div>
       )}
 
+      {!!expiringCertsError && (
+        <LoadError title="Certificate expiry could not be checked" error={expiringCertsError} onRetry={onRetryExpiringCerts} />
+      )}
+
       {/* Status signals row */}
       {(expiringCerts.length > 0 || quotaHotSpots.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -250,7 +275,7 @@ export function OverviewTab({
                 ))}
                 {expiringCerts.length > 3 && <div className="text-xs text-slate-500">+{expiringCerts.length - 3} more</div>}
               </div>
-              <button onClick={() => setActiveTab('certificates')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
+              <button onClick={() => go(certsLink, 'Administration')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
                 View certificates <ArrowRight className="w-3 h-3" />
               </button>
             </Card>
@@ -399,7 +424,9 @@ export function OverviewTab({
 
         {/* Identity Providers */}
         <Panel title="Identity Providers" icon={<Shield className="w-4 h-4 text-teal-500" />}>
-          {identityProviders.length === 0 ? (
+          {identityProvidersError ? (
+            <div className="text-sm text-slate-400 py-2">Identity providers could not be read</div>
+          ) : identityProviders.length === 0 ? (
             <div className="text-sm text-slate-500 py-2">No identity providers configured</div>
           ) : (
             <div className="space-y-1">
@@ -421,15 +448,25 @@ export function OverviewTab({
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-300">Apps Domain</span>
-              <span className="text-xs font-mono text-slate-400">{ingressConfig?.spec?.domain || '\u2014'}</span>
+              <span className="text-xs font-mono text-slate-400">{ingressConfigError ? '\u2014' : ingressConfig?.spec?.domain || '\u2014'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-300">Default Certificate</span>
-              <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
-                ingressConfig?.spec?.defaultCertificate ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'
-              )}>{ingressConfig?.spec?.defaultCertificate ? 'Custom' : 'Self-signed'}</span>
+              {ingressConfigError || !ingressConfig ? (
+                ingressConfigError ? <CouldNotRead what="The Ingress config" /> : <span className="text-xs text-slate-500">{'\u2014'}</span>
+              ) : (
+                <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
+                  ingressConfig.spec?.defaultCertificate ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'
+                )}>{ingressConfig.spec?.defaultCertificate ? 'Custom' : 'Self-signed'}</span>
+              )}
             </div>
-            {certExpiry && (
+            {routerCertError && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300">Router Cert Expires</span>
+                <CouldNotRead what="The router certificate" />
+              </div>
+            )}
+            {!routerCertError && certExpiry && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-300">Router Cert Expires</span>
                 <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
@@ -441,7 +478,7 @@ export function OverviewTab({
             )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-300">Quotas / Limit Ranges</span>
-              <span className="text-xs text-slate-400">{quotas.length} quotas, {limitRanges.length} limits</span>
+              {quotasError ? <CouldNotRead what="Quotas or limit ranges" /> : <span className="text-xs text-slate-400">{quotas.length} quotas, {limitRanges.length} limits</span>}
             </div>
           </div>
           <button onClick={() => setActiveTab('config')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
@@ -451,8 +488,11 @@ export function OverviewTab({
       </div>
 
       {/* Recent Warning Events */}
-      {latestEvents.length > 0 && (
-        <Panel title={`Recent Warning Events (${recentEvents.length})`} icon={<AlertCircle className="w-4 h-4 text-amber-500" />}>
+      {!!recentEventsError && (
+        <LoadError title="Recent warning events could not be read" error={recentEventsError} onRetry={onRetryEvents} />
+      )}
+      {!recentEventsError && latestEvents.length > 0 && (
+        <Panel title={`Recent Warning Events (${recentEvents.length >= 100 ? '100+' : recentEvents.length})`} icon={<AlertCircle className="w-4 h-4 text-amber-500" />}>
           <div className="space-y-1.5">
             {latestEvents.map((event, i) => {
               const ev = event as any;

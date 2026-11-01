@@ -163,6 +163,8 @@ export interface CertInfo {
   name: string;
   namespace: string;
   daysUntilExpiry: number | null;
+  /** The notAfter the days were computed from, when known. */
+  expiresAt: Date | null;
   expirySource: 'certificate' | 'cert-manager' | 'service-ca' | 'unknown';
 }
 
@@ -209,20 +211,22 @@ export function parseCertExpiry(secret: TlsSecretLike): CertInfo {
   const namespace = secret.metadata.namespace || '';
 
   const fromCert = certNotAfterFromSecretData(secret.data?.['tls.crt']);
-  if (fromCert) return { name, namespace, daysUntilExpiry: daysFromNow(fromCert), expirySource: 'certificate' };
+  if (fromCert) return { name, namespace, daysUntilExpiry: daysFromNow(fromCert), expiresAt: fromCert, expirySource: 'certificate' };
 
   const annotations = secret.metadata.annotations || {};
   const certManagerExpiry = annotations['cert-manager.io/certificate-expiry'];
   if (certManagerExpiry) {
     const expiry = new Date(certManagerExpiry);
-    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expirySource: 'cert-manager' };
+    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expiresAt: expiry, expirySource: 'cert-manager' };
   }
-  const serviceCaExpiry = annotations['service.beta.openshift.io/expiry'];
+  // service-ca writes an RFC 3339 time; older secrets may carry epoch seconds
+  // or only the alpha annotation.
+  const serviceCaExpiry = annotations['service.beta.openshift.io/expiry'] || annotations['service.alpha.openshift.io/expiry'];
   if (serviceCaExpiry) {
-    const expiry = new Date(serviceCaExpiry);
-    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expirySource: 'service-ca' };
+    const expiry = /^\d+$/.test(serviceCaExpiry) ? new Date(Number(serviceCaExpiry) * 1000) : new Date(serviceCaExpiry);
+    if (!isNaN(expiry.getTime())) return { name, namespace, daysUntilExpiry: daysFromNow(expiry), expiresAt: expiry, expirySource: 'service-ca' };
   }
-  return { name, namespace, daysUntilExpiry: null, expirySource: 'unknown' };
+  return { name, namespace, daysUntilExpiry: null, expiresAt: null, expirySource: 'unknown' };
 }
 
 /**

@@ -39,9 +39,22 @@ interface LimitRange extends K8sResource {
   };
 }
 
-export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]; limitRanges: LimitRange[]; go: (path: string, title: string) => void }) {
+export interface QuotasTabProps {
+  quotas: ResourceQuota[];
+  limitRanges: LimitRange[];
+  /** The ResourceQuota list could not be read: quotas are unknown, not zero. */
+  quotasError?: unknown;
+  /** The LimitRange list could not be read. */
+  limitRangesError?: unknown;
+  quotasLoading?: boolean;
+  limitRangesLoading?: boolean;
+  onRetry?: () => void;
+  go: (path: string, title: string) => void;
+}
+
+export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, quotasLoading, limitRangesLoading, onRetry, go }: QuotasTabProps) {
   const clusterId = useActiveClusterId();
-  const { data: namespaces = [] } = useQuery<K8sResource[]>({
+  const { data: namespaces = [], error: namespacesError, isLoading: namespacesLoading, refetch: refetchNamespaces } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/api/v1/namespaces', undefined, clusterId],
     queryFn: () => k8sList('/api/v1/namespaces', undefined, clusterId),
     staleTime: 60000,
@@ -56,6 +69,13 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
   const quotaNamespaces = new Set(quotas.map((q) => q.metadata?.namespace));
   const lrNamespaces = new Set(limitRanges.map((lr) => lr.metadata?.namespace));
   const unprotectedNs = userNamespaces.filter((ns) => !quotaNamespaces.has(ns.metadata?.name) && !lrNamespaces.has(ns.metadata?.name));
+  // Which namespaces are unprotected is only known when all three lists were
+  // read. A failed quota read used to list every namespace as "no quota".
+  const quotasKnown = !quotasError && !quotasLoading;
+  const limitRangesKnown = !limitRangesError && !limitRangesLoading;
+  const namespacesKnown = !namespacesError && !namespacesLoading;
+  const unprotectedKnown = quotasKnown && limitRangesKnown && namespacesKnown;
+  const dash = '\u2014';
 
   // Aggregate usage across all quotas
   const totalResources = React.useMemo(() => {
@@ -74,34 +94,42 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
 
   return (
     <div className="space-y-6">
+      {!!quotasError && <LoadError title="ResourceQuotas could not be read" error={quotasError} onRetry={onRetry} />}
+      {!!limitRangesError && <LoadError title="LimitRanges could not be read" error={limitRangesError} onRetry={onRetry} />}
+      {!!namespacesError && <LoadError title="Namespaces could not be read" error={namespacesError} onRetry={() => { void refetchNamespaces(); }} />}
+
       {/* Summary cards */}
       <MetricGrid>
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">Resource Quotas</div>
-          <div className="text-xl font-bold text-slate-100">{quotas.length}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{quotaNamespaces.size} namespace{quotaNamespaces.size !== 1 ? 's' : ''}</div>
+          <div className="text-xl font-bold text-slate-100">{quotasKnown ? quotas.length : dash}</div>
+          <div className="text-xs text-slate-500 mt-0.5">{quotasKnown ? `${quotaNamespaces.size} namespace${quotaNamespaces.size !== 1 ? 's' : ''}` : 'unknown'}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">Limit Ranges</div>
-          <div className="text-xl font-bold text-slate-100">{limitRanges.length}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{lrNamespaces.size} namespace{lrNamespaces.size !== 1 ? 's' : ''}</div>
+          <div className="text-xl font-bold text-slate-100">{limitRangesKnown ? limitRanges.length : dash}</div>
+          <div className="text-xs text-slate-500 mt-0.5">{limitRangesKnown ? `${lrNamespaces.size} namespace${lrNamespaces.size !== 1 ? 's' : ''}` : 'unknown'}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">User Namespaces</div>
-          <div className="text-xl font-bold text-slate-100">{userNamespaces.length}</div>
+          <div className="text-xl font-bold text-slate-100">{namespacesKnown ? userNamespaces.length : dash}</div>
         </Card>
-        <div className={cn('bg-slate-900 rounded-lg border p-3', unprotectedNs.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+        <div data-testid="unprotected-card" className={cn('bg-slate-900 rounded-lg border p-3', unprotectedKnown && unprotectedNs.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-slate-400">Unprotected</span>
-            {unprotectedNs.length > 0 && <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />}
+            {unprotectedKnown && unprotectedNs.length > 0 && <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />}
           </div>
-          <div className={cn('text-xl font-bold', unprotectedNs.length > 0 ? 'text-yellow-400' : 'text-green-400')}>{unprotectedNs.length}</div>
-          <div className="text-xs text-slate-500 mt-0.5">no quota or limit range</div>
+          {unprotectedKnown ? (
+            <div className={cn('text-xl font-bold', unprotectedNs.length > 0 ? 'text-yellow-400' : 'text-green-400')}>{unprotectedNs.length}</div>
+          ) : (
+            <div className="text-xl font-bold text-slate-400">{dash}</div>
+          )}
+          <div className="text-xs text-slate-500 mt-0.5">{unprotectedKnown ? 'no quota or limit range' : 'unknown: a list could not be read'}</div>
         </div>
       </MetricGrid>
 
       {/* Cluster-wide resource usage */}
-      {Object.keys(totalResources).length > 0 && (
+      {quotasKnown && Object.keys(totalResources).length > 0 && (
         <Panel title="Cluster Quota Usage" icon={<Database className="w-4 h-4 text-blue-400" />}>
           <div className="space-y-3">
             {Object.entries(totalResources).sort(([a], [b]) => a.localeCompare(b)).map(([key, { hard, used }]) => {
@@ -135,8 +163,10 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
       )}
 
       {/* Per-namespace quota details */}
-      <Panel title={`Resource Quotas (${quotas.length})`} icon={<Shield className="w-4 h-4 text-orange-500" />}>
-        {quotas.length === 0 ? (
+      <Panel title={`Resource Quotas (${quotasKnown ? quotas.length : dash})`} icon={<Shield className="w-4 h-4 text-orange-500" />}>
+        {!quotasKnown ? (
+          <div className="text-sm text-slate-500 text-center py-6">{quotasError ? 'Unknown \u2014 the list could not be read' : 'Loading\u2026'}</div>
+        ) : quotas.length === 0 ? (
           <div className="text-center py-6">
             <div className="text-sm text-slate-500 mb-2">No resource quotas configured</div>
             <p className="text-xs text-slate-600 max-w-md mx-auto">Resource quotas limit total CPU, memory, and object counts per namespace. Without quotas, a single namespace can consume all cluster resources.</p>
@@ -150,8 +180,10 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
       </Panel>
 
       {/* Limit Ranges */}
-      <Panel title={`Limit Ranges (${limitRanges.length})`} icon={<Shield className="w-4 h-4 text-yellow-500" />}>
-        {limitRanges.length === 0 ? (
+      <Panel title={`Limit Ranges (${limitRangesKnown ? limitRanges.length : dash})`} icon={<Shield className="w-4 h-4 text-yellow-500" />}>
+        {!limitRangesKnown ? (
+          <div className="text-sm text-slate-500 text-center py-6">{limitRangesError ? 'Unknown \u2014 the list could not be read' : 'Loading\u2026'}</div>
+        ) : limitRanges.length === 0 ? (
           <div className="text-center py-6">
             <div className="text-sm text-slate-500 mb-2">No limit ranges configured</div>
             <p className="text-xs text-slate-600 max-w-md mx-auto">LimitRanges set default and max CPU/memory for containers that don't specify their own. Without them, containers can request unlimited resources.</p>
@@ -213,7 +245,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
       </Panel>
 
       {/* Unprotected namespaces */}
-      {unprotectedNs.length > 0 && (
+      {unprotectedKnown && unprotectedNs.length > 0 && (
         <Panel title={`Unprotected Namespaces (${unprotectedNs.length})`} icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
           <p className="text-xs text-slate-500 mb-3">These user namespaces have no ResourceQuota or LimitRange. Workloads can consume unlimited resources.</p>
           <div className="flex flex-wrap gap-2">

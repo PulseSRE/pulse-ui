@@ -359,11 +359,18 @@ describe('Overview links go where they say', () => {
     expect(go).toHaveBeenCalledWith('/timeline?cat=event', 'Timeline');
   });
 
-  it('"View certificates" opens the certificates tab', () => {
-    const setActiveTab = vi.fn();
-    render(<OverviewTab {...makeProps({ expiringCerts: [{ name: 'c', namespace: 'n', daysLeft: 3 }], setActiveTab })} />);
+  it('"View certificates" opens the certificates tab filtered to what was counted', () => {
+    const go = vi.fn();
+    render(<OverviewTab {...makeProps({ expiringCerts: [{ name: 'c', namespace: 'n', daysLeft: 3 }], go })} />);
     fireEvent.click(screen.getByText(/View certificates/));
-    expect(setActiveTab).toHaveBeenCalledWith('certificates');
+    expect(go).toHaveBeenCalledWith('/admin?tab=certificates&filter=expiring', 'Administration');
+  });
+
+  it('"View certificates" shows system certificates when the count includes them', () => {
+    const go = vi.fn();
+    render(<OverviewTab {...makeProps({ expiringCerts: [{ name: 'router', namespace: 'openshift-ingress', daysLeft: 3 }], go })} />);
+    fireEvent.click(screen.getByText(/View certificates/));
+    expect(go).toHaveBeenCalledWith('/admin?tab=certificates&filter=expiring&system=1', 'Administration');
   });
 
   it('the CRDs card switches to the CRDs tab in place', () => {

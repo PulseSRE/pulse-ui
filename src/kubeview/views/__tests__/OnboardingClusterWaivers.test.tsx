@@ -261,12 +261,19 @@ describe('cluster waivers', () => {
     expect(useOnboardingStore.getState().waivers).toEqual({});
   });
 
-  it('falls back to this browser on an older agent (404) and says so', async () => {
+  it('falls back to this browser when the agent has no waiver API (404) and says so', async () => {
     agent({ list: () => json({ detail: 'Not Found' }, 404) });
     renderView();
-    expect(await screen.findByTestId('waiver-browser-banner')).toBeTruthy();
+    const banner = await screen.findByTestId('waiver-browser-banner');
+    // A 404 says this agent does not provide shared waivers; it does not say
+    // why, so the page must not guess "an older version".
+    expect(banner.textContent).toContain('This agent does not provide shared waivers');
+    expect(banner.textContent).not.toMatch(/older version/);
     const dialog = await waiveGate2('accepted');
-    expect(within(dialog).getByTestId('waiver-browser-notice').textContent).toContain('stored in this browser only');
+    const notice = within(dialog).getByTestId('waiver-browser-notice');
+    expect(notice.textContent).toContain('stored in this browser only');
+    expect(notice.textContent).toContain('This agent does not provide shared waivers');
+    expect(notice.textContent).not.toMatch(/older version/);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(useOnboardingStore.getState().waivers['local/gate-2']).toMatchObject({ reason: 'accepted', approvedBy: 'browser-user' });
     expect(calls('PUT')).toHaveLength(0);
