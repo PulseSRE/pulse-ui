@@ -29,6 +29,7 @@ import { useActiveClusterId } from '../hooks/useClusterBase';
 import { k8sFetch } from '../engine/query';
 import { getActiveClusterId } from '../engine/clusterConnection';
 import { assertActiveCluster } from '../engine/pendingCluster';
+import { isPlatformNamespace } from '../engine/platformNamespaces';
 
 // ---------------------------------------------------------------------------
 // K8s resource with extra OpenShift-specific fields
@@ -141,8 +142,7 @@ export default function IdentityView() {
     return sa.metadata.name.toLowerCase().includes(q) || sa.metadata.namespace?.toLowerCase().includes(q);
   });
   const appSAs = filteredSAs.filter((sa: K8sResourceExt) => {
-    const ns = sa.metadata.namespace || '';
-    return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift' && sa.metadata.name !== 'default';
+    return !isPlatformNamespace(sa.metadata.namespace) && sa.metadata.name !== 'default';
   });
 
   // Cluster-admin subjects
@@ -851,8 +851,7 @@ oc adm policy add-cluster-role-to-user edit <user>`,
     const saClusterAdmins = clusterAdminBindings.flatMap((crb) =>
       (crb.subjects || []).filter((s) => {
         if (s.kind !== 'ServiceAccount') return false;
-        const ns = s.namespace || '';
-        return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift';
+        return !isPlatformNamespace(s.namespace);
       }).map((s) => ({
         metadata: { name: `${s.namespace}/${s.name}`, uid: `${crb.metadata.name}-${s.namespace}-${s.name}` },
       }))
@@ -1050,7 +1049,7 @@ function RBACHealthAudit({
   serviceAccounts: ServiceAccount[]; namespaces: Namespace[];
   users: K8sResource[]; go: (path: string, title: string) => void;
 }) {
-  const isSystemNS = (ns: string) => ns.startsWith('openshift-') || ns.startsWith('kube-') || ns === 'openshift' || ns === 'default';
+  const isSystemNS = (ns: string) => isPlatformNamespace(ns);
   const isSystemRole = (roleName: string) =>
     roleName.startsWith('system:') || roleName.startsWith('openshift:') || roleName.includes(':kube-');
 

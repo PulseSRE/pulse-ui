@@ -30,6 +30,7 @@ import { loadSnapshots } from '../engine/snapshot';
 import { GitOpsConfig } from '../components/GitOpsConfig';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { promFetch, MetricsUnavailableError } from '../components/metrics/prometheus';
+import { isPlatformNamespace } from '../engine/platformNamespaces';
 
 /** OpenShift Infrastructure resource (config.openshift.io/v1) */
 interface Infrastructure extends K8sResource {
@@ -361,10 +362,7 @@ export default function AdminView() {
 
   const nsStats = React.useMemo(() => {
     const all = namespaces;
-    const system = all.filter(ns => {
-      const name = ns.metadata?.name || '';
-      return name.startsWith('openshift-') || name.startsWith('kube-') || name === 'default' || name === 'openshift';
-    });
+    const system = all.filter(ns => isPlatformNamespace(ns.metadata?.name));
     return { total: all.length, user: all.length - system.length, system: system.length };
   }, [namespaces]);
 

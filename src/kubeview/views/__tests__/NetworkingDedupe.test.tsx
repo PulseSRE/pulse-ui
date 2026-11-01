@@ -19,6 +19,7 @@ vi.mock('../../components/metrics/prometheus', () => ({ queryInstant: vi.fn().mo
 
 import NetworkingView from '../NetworkingView';
 import { isPlatformNamespace } from '../../engine/platformNamespaces';
+import { isSystemNamespace } from '../../engine/namespace';
 
 function renderView() {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><NetworkingView /></MemoryRouter></QueryClientProvider>);
@@ -59,7 +60,16 @@ describe('Networking shows each fact once', () => {
 
 describe('isPlatformNamespace', () => {
   it.each([
-    ['openshift-console', true], ['openshift', true], ['kube-system', true], ['kube-public', true],
-    ['default', false], ['shop', false], ['openshiftish', false], [undefined, false],
+    ['openshift-console', true], ['openshift', true], ['openshift-x', true], ['kube-system', true], ['kube-x', true],
+    ['default', false], ['openshiftpulse', false], ['shop', false], ['openshiftish', false], [undefined, false],
   ])('%s → %s', (ns, want) => expect(isPlatformNamespace(ns as string | undefined)).toBe(want));
+});
+
+describe('isSystemNamespace uses the same rule', () => {
+  it.each(['openshift', 'openshift-x', 'kube-x', 'default', 'openshiftpulse', 'shop'])('%s agrees with isPlatformNamespace', (ns) => {
+    expect(isSystemNamespace(ns)).toBe(isPlatformNamespace(ns));
+  });
+  it('treats a missing namespace (cluster-scoped) as not a user namespace', () => {
+    expect(isSystemNamespace(undefined)).toBe(true);
+  });
 });

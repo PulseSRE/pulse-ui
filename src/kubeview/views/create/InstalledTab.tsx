@@ -13,6 +13,7 @@ import { LoadError } from '../../components/primitives/LoadError';
 import { useFleetStore } from '../../store/fleetStore';
 import type { Deployment, StatefulSet, Secret } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
+import { isPlatformNamespace } from '../../engine/platformNamespaces';
 
 /** OLM Subscription — not yet in engine/types, so defined locally. */
 interface Subscription {
@@ -96,7 +97,7 @@ export function InstalledTab() {
   });
 
   // Exclude platform namespaces
-  const isUserNs = (ns: string) => !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift' && ns !== 'default';
+  const isUserNs = (ns: string) => !isPlatformNamespace(ns);
 
   const userDeployments = (deployments as Deployment[]).filter(d => isUserNs(d.metadata?.namespace || ''));
   const userStatefulSets = (statefulsets as StatefulSet[]).filter(s => isUserNs(s.metadata?.namespace || ''));

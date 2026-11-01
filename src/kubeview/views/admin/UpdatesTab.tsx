@@ -19,6 +19,7 @@ import { UpgradeProgressPanel } from './UpgradeProgressPanel';
 import { showErrorToast } from '../../engine/errorToast';
 import { getActiveClusterId } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
+import { isPlatformNamespace } from '../../engine/platformNamespaces';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -253,8 +254,7 @@ export function UpdatesTab({
 
               // Real PDB check: user deployments with >1 replica that have PDBs
               const userDeploys = deployments.filter((d) => {
-                const ns = d.metadata?.namespace || '';
-                return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && (d.spec?.replicas ?? 0) > 1;
+                return !isPlatformNamespace(d.metadata?.namespace) && (d.spec?.replicas ?? 0) > 1;
               });
               const pdbSelectors = pdbs.map((p) => p.spec?.selector?.matchLabels || {});
               const deploysWithPDB = userDeploys.filter((d) => {

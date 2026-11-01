@@ -10,6 +10,7 @@ import type { Namespace } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
+import { isPlatformNamespace } from '../../engine/platformNamespaces';
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -41,8 +42,7 @@ export function QuotasTab({ quotas, limitRanges, go }: { quotas: ResourceQuota[]
 
   const userNamespaces = React.useMemo(() =>
     namespaces.filter((ns) => {
-      const name = ns.metadata?.name || '';
-      return !name.startsWith('openshift-') && !name.startsWith('kube-') && name !== 'default' && name !== 'openshift';
+      return !isPlatformNamespace(ns.metadata?.name);
     }),
   [namespaces]);
 
