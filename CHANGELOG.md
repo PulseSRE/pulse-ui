@@ -58,6 +58,13 @@ Release entries are historical records. Counts, timings, security scans, and fea
   - Quotas: inline edit of ResourceQuota hard limits (merge patch with resourceVersion); unprotected namespaces open prefilled ResourceQuota / LimitRange creates
   - SLO: the service is picked from the cluster's Deployments, with a note when the name exists in several namespaces (the agent matches `deployment=` without a namespace); SLOs can be edited
   - `/create/<gvr>?template=<id>&namespace=<ns>` opens reviewed templates (default-deny NetworkPolicy, ResourceQuota, LimitRange, PrometheusRule)
+- Gaps from the functionality review:
+  - Helm: **Edit values** works for every release, with or without a configured chart repository. Helm keeps the release's chart in its release Secret, so Pulse rebuilds that chart as an archive, mounts it into the runner Job from a Secret and runs `helm upgrade` with the edited values and the same chart version. A chart with dependencies (Helm does not store subcharts) says so instead. **Upgrade to X** is offered only when a configured repository has the chart, and says why it is unavailable otherwise. Secrets made for a Job that could not be created are removed
+  - Rollout history marks the alerts and findings of each revision on the timeline and lists them in the revision details, linking where a link exists: the agent's `rollout_history.correlations`, and on the agent's own cluster the monitor findings and inbox items the UI already holds for the workload or its pods
+  - Admin › Updates: pause or resume a MachineConfigPool from its row (during an update in the progress rows, otherwise in a pool list), with a confirmation that explains the effect; RBAC-gated, pinned to the cluster, conditional on the pool's resourceVersion. Compute uses the same action, now also conditional on resourceVersion
+  - The Software hub has its own route, `/software`, in the sidebar and palette. `/create/v1~pods?tab=…` redirects there; `/create/<gvr>` opens that kind's editor (only a template of that kind is used as the starting point). "Blank YAML" opens an empty editor instead of a Pod
+  - Pulse Agent tab groups (Operate / Configure / Insights) come from the Tabs primitive's `TabsGroup`, which names each tab's group to assistive tech; every `?tab=` value, the session's last tab and the `?drawer=` rule are unchanged
+  - Identity: Impersonate appears once per subject, on user rows (Users) and service-account rows (Groups & Service Accounts). The Impersonation tab shows who is being impersonated and recent targets instead of repeating both lists
 
 ### Changed
 - Shared building blocks (functionality review, Wave 5a):

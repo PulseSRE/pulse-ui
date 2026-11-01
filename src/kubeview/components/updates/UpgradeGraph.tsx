@@ -50,6 +50,8 @@ export interface UpgradeGraphProps {
   hiddenBlockerTypes?: string[];
   /** Why the target list may be incomplete (ClusterVersion unreadable, updates not retrieved). */
   updatesUnknownReason?: string;
+  /** Actions on a MachineConfigPool row of the progress section (e.g. pause). Omit for read-only. */
+  renderPoolAction?: (poolName: string) => React.ReactNode;
 }
 
 interface Placed {
@@ -145,7 +147,7 @@ function LinkButton({ path, title, onNavigate, children }: { path?: string; titl
   );
 }
 
-export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason, onNavigate, readOnlyHint, hiddenBlockerTypes, updatesUnknownReason }: UpgradeGraphProps) {
+export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason, onNavigate, readOnlyHint, hiddenBlockerTypes, updatesUnknownReason, renderPoolAction }: UpgradeGraphProps) {
   const model = React.useMemo(() => (hiddenBlockerTypes?.length
     ? { ...fullModel, blockers: fullModel.blockers.filter((b) => !hiddenBlockerTypes.includes(b.type)) }
     : fullModel), [fullModel, hiddenBlockerTypes]);
@@ -307,7 +309,7 @@ export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason,
       )}
 
       {/* In-flight progress */}
-      {model.progress.phase !== 'idle' && <ProgressSection model={model} onNavigate={onNavigate} />}
+      {model.progress.phase !== 'idle' && <ProgressSection model={model} onNavigate={onNavigate} renderPoolAction={renderPoolAction} />}
 
       {/* Blockers that are not progress-specific */}
       {model.progress.phase === 'idle' && model.blockers.length > 0 && <Blockers model={model} onNavigate={onNavigate} />}
@@ -389,7 +391,7 @@ function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, 
   );
 }
 
-function ProgressSection({ model, onNavigate }: { model: UpgradeModel; onNavigate?: UpgradeGraphProps['onNavigate'] }) {
+function ProgressSection({ model, onNavigate, renderPoolAction }: { model: UpgradeModel; onNavigate?: UpgradeGraphProps['onNavigate']; renderPoolAction?: UpgradeGraphProps['renderPoolAction'] }) {
   const p = model.progress;
   const target = model.desired?.version || '';
   const failing = p.phase === 'failing';
@@ -443,6 +445,7 @@ function ProgressSection({ model, onNavigate }: { model: UpgradeModel; onNavigat
                   <LinkButton path={`/r/machineconfiguration.openshift.io~v1~machineconfigpools/_/${pool.name}`} title={pool.name} onNavigate={onNavigate}>{pool.name}</LinkButton>
                   {pool.degraded && <span className="px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded-sm">Degraded</span>}
                   {pool.paused && <span className="px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded-sm">Paused</span>}
+                  {renderPoolAction?.(pool.name)}
                 </span>
                 <span className="font-mono text-slate-400">{pool.updated}/{pool.total} nodes updated</span>
               </div>

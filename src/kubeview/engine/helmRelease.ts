@@ -9,6 +9,7 @@
  */
 import { loadAll } from 'js-yaml';
 import type { Secret } from './types';
+import { storedChartFromRelease, type StoredChart } from './helmChartArchive';
 
 export interface HelmRevision {
   name: string;
@@ -25,6 +26,8 @@ export interface HelmRevision {
   description?: string;
   /** Objects in the rendered manifest (what uninstall deletes, what rollback restores). */
   resources?: Array<{ apiVersion: string; kind: string; name: string }>;
+  /** The chart Helm stored with this revision (kept on the latest revision only). */
+  storedChart?: StoredChart;
   secretName: string;
 }
 
@@ -92,6 +95,7 @@ export async function revisionFromSecret(s: Secret): Promise<HelmRevision> {
     updated: rel.info?.last_deployed,
     description: rel.info?.description,
     status: rel.info?.status || base.status,
+    storedChart: storedChartFromRelease(rel),
   };
 }
 
@@ -106,6 +110,9 @@ export async function summarizeHelmReleases(secrets: Secret[]): Promise<HelmRele
   }
   return [...byRelease.values()].map((revs) => {
     revs.sort((a, b) => b.revision - a.revision);
-    return { ...revs[0], revisions: revs };
+    // Only the latest revision's chart is used (a values-only upgrade); drop
+    // the others so every revision's templates are not kept in memory.
+    const revisions = revs.map((r, i) => (i === 0 ? r : { ...r, storedChart: undefined }));
+    return { ...revisions[0], revisions };
   }).sort((a, b) => a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name));
 }

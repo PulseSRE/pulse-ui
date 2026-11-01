@@ -29,6 +29,7 @@ const ProjectDashboard = lazy(() => import('../views/ProjectDashboard'));
 const TimelineView = lazy(() => import('../views/TimelineView'));
 const SloView = lazy(() => import('../views/SloView'));
 const TopologyView = lazy(() => import('../views/TopologyView'));
+const CreateView = lazy(() => import('../views/CreateView'));
 
 function Lazy({ children, fallbackTitle }: { children: React.ReactNode; fallbackTitle?: string }) {
   return (
@@ -74,6 +75,8 @@ export function domainRoutes() {
       <Route path={DOMAIN_ROUTES.operators} element={<Lazy fallbackTitle="Operators"><OperatorCatalogView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.project} element={<Lazy fallbackTitle="Project"><ProjectDashboard /></Lazy>} />
       <Route path={DOMAIN_ROUTES.timeline} element={<Lazy fallbackTitle="Timeline"><TimelineView /></Lazy>} />
+      {/* Software hub: installed software, Quick Deploy, Helm, templates, Import YAML. */}
+      <Route path={DOMAIN_ROUTES.software} element={<Lazy fallbackTitle="Software"><CreateView /></Lazy>} />
     </>
   );
 }

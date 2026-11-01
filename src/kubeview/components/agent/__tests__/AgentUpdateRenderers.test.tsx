@@ -142,4 +142,29 @@ describe('agent update renderers', () => {
     expect(snapshot.textContent).toContain('api:1.2');
     await waitFor(() => expect(screen.queryByRole('button', { name: /Roll back/ })).toBeNull());
   });
+
+  it('rollout_history draws the agent correlations on the snapshot timeline, linking where the agent gave a known page', async () => {
+    k8sGetMock.mockRejectedValue(new Error('deployments.apps "api" is forbidden'));
+    renderSpec({
+      ...rolloutSpec,
+      correlations: [
+        { revision: 2, alertsOrFindings: [
+          'KubePodCrashLooping',
+          { title: 'High error rate after rollout', severity: 'critical', link: '/inbox?task=inb-3' },
+          { alertname: 'Ignored link', link: '/no/such/page' },
+          { severity: 'warning' }, // no label: dropped
+        ] },
+        { revision: 'x', alertsOrFindings: ['malformed'] },
+      ],
+    });
+    const marker = await screen.findByTestId('revision-signals-2', {}, { timeout: 4000 });
+    expect(marker.textContent).toContain('3');
+    expect(screen.queryByTestId('revision-signals-1')).toBeNull();
+    const list = screen.getByLabelText('Alerts and findings during revision 2');
+    expect(list.textContent).toContain('KubePodCrashLooping');
+    expect(screen.getByRole('link', { name: 'High error rate after rollout' }).getAttribute('href')).toBe('/inbox?task=inb-3');
+    // A link to a page Pulse does not have is not followed.
+    expect(screen.getByText('Ignored link').tagName).toBe('SPAN');
+    expect(screen.queryByText('malformed')).toBeNull();
+  });
 });

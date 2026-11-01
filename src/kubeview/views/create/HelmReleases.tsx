@@ -1,11 +1,13 @@
 /**
  * The one Helm releases list: chart and version, revision, status, values,
- * and the actions the Helm runner Job supports (upgrade, rollback, uninstall).
+ * and the actions the Helm runner Job supports: edit values (with the chart
+ * Helm stored in the release, so no repository is needed), upgrade to another
+ * chart version (needs the chart's repository), rollback and uninstall.
  */
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dump, load } from 'js-yaml';
-import { Ship, FileText, ArrowUpCircle, RotateCcw, Trash2, Folder } from 'lucide-react';
+import { Ship, FileText, ArrowUpCircle, RotateCcw, Trash2, Folder, Pencil } from 'lucide-react';
 import { k8sFetch } from '../../engine/query';
 import { summarizeHelmReleases, type HelmReleaseSummary } from '../../engine/helmRelease';
 import type { Secret } from '../../engine/types';
@@ -22,6 +24,7 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import DeployProgress from '../../components/DeployProgress';
 import { runHelmAction } from './helmRunner';
 import { runnerCanManage } from './helmInstall';
+import { buildChartArchive, storedChartBlocker } from '../../engine/helmChartArchive';
 
 export interface ChartSource {
   name: string;
@@ -32,6 +35,7 @@ export interface ChartSource {
 }
 
 type ReleaseAction =
+  | { kind: 'values'; release: HelmReleaseSummary }
   | { kind: 'upgrade'; release: HelmReleaseSummary }
   | { kind: 'rollback'; release: HelmReleaseSummary }
   | { kind: 'uninstall'; release: HelmReleaseSummary };
@@ -90,7 +94,7 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       ) : (
         <div className="divide-y divide-slate-800">
           {releases.map((r) => (
-            <ReleaseRow key={`${r.namespace}/${r.name}`} release={r}
+            <ReleaseRow key={`${r.namespace}/${r.name}`} release={r} charts={charts}
               onValues={() => setValuesFor(r)}
               onAction={(kind) => action.open({ kind, release: r } as ReleaseAction)} />
           ))}
@@ -121,13 +125,25 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
   );
 }
 
-function ReleaseRow({ release, onValues, onAction }: {
+/** Configured repositories that have a chart with this release's chart name. */
+function repoCandidates(charts: ChartSource[], release: HelmReleaseSummary): ChartSource[] {
+  return charts.filter((c) => c.name === release.chart && !!c.repoUrl);
+}
+
+function ReleaseRow({ release, charts, onValues, onAction }: {
   release: HelmReleaseSummary;
+  charts: ChartSource[];
   onValues: () => void;
   onAction: (kind: ReleaseAction['kind']) => void;
 }) {
   const { allowed: canRun } = useCanI('create', 'batch', 'jobs', release.namespace);
   const denied = canRun ? undefined : `You do not have permission to create Jobs in ${release.namespace}`;
+  const candidates = repoCandidates(charts, release);
+  const noRepo = candidates.length === 0
+    ? `Upgrading to another chart version needs the chart's repository: ${release.chart ?? 'this chart'} is not in any configured chart repository. Edit values still works with the installed chart.`
+    : undefined;
+  const newest = candidates.length === 1 ? candidates[0].versions[0] : undefined;
+  const upgradeLabel = newest && newest !== release.chartVersion ? `Upgrade to ${newest}` : 'Upgrade';
   return (
     <div className="py-3 flex flex-wrap items-center gap-3" data-testid={`helm-release-${release.name}`}>
       <div className="flex-1 min-w-0">
@@ -140,11 +156,13 @@ function ReleaseRow({ release, onValues, onAction }: {
           <span className="flex items-center gap-1"><Folder className="w-3 h-3" />{release.namespace}</span>
           {release.chart && <span>chart {release.chart}{release.chartVersion ? ` ${release.chartVersion}` : ''}</span>}
           {release.appVersion && <span className="text-slate-500">app {release.appVersion}</span>}
+          {noRepo && <span className="text-slate-500" data-testid={`helm-no-repo-${release.name}`}>No chart repository configured for upgrades</span>}
         </div>
       </div>
       <div className="flex items-center gap-1.5">
         <Button size="sm" variant="ghost" onClick={onValues} aria-label={`Values of ${release.name}`}><FileText className="w-3.5 h-3.5" /> Values</Button>
-        <Button size="sm" variant="secondary" onClick={() => onAction('upgrade')} disabled={!canRun} title={denied} aria-label={`Upgrade ${release.name}`}><ArrowUpCircle className="w-3.5 h-3.5" /> Upgrade</Button>
+        <Button size="sm" variant="secondary" onClick={() => onAction('values')} disabled={!canRun} title={denied} aria-label={`Edit values of ${release.name}`}><Pencil className="w-3.5 h-3.5" /> Edit values</Button>
+        <Button size="sm" variant="secondary" onClick={() => onAction('upgrade')} disabled={!canRun || !!noRepo} title={denied ?? noRepo} aria-label={`Upgrade ${release.name}`}><ArrowUpCircle className="w-3.5 h-3.5" /> {upgradeLabel}</Button>
         <Button size="sm" variant="secondary" onClick={() => onAction('rollback')} disabled={!canRun || release.revisions.length < 2}
           title={denied ?? (release.revisions.length < 2 ? 'There is no earlier revision to roll back to' : undefined)} aria-label={`Roll back ${release.name}`}>
           <RotateCcw className="w-3.5 h-3.5" /> Rollback
@@ -167,7 +185,7 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
   // The release record names the chart but not its repository: offer every
   // configured repository that has a chart of that name, and make the user
   // pick when there is more than one, rather than guessing by name.
-  const candidates = charts.filter((c) => c.name === r.chart && !!c.repoUrl);
+  const candidates = repoCandidates(charts, r);
   const [repoUrl, setRepoUrl] = React.useState(candidates.length === 1 ? candidates[0].repoUrl! : '');
   const source = candidates.find((c) => c.repoUrl === repoUrl);
   const [version, setVersion] = React.useState(source?.versions[0] ?? '');
@@ -178,6 +196,8 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
   const [revision, setRevision] = React.useState<number>(earlier[0]?.revision ?? 0);
 
   // The runner's Role only covers some kinds; helm fails part-way on anything else.
+  const editsValues = target.kind === 'upgrade' || target.kind === 'values';
+  const storedBlock = target.kind === 'values' ? storedChartBlocker(r.storedChart) : null;
   const affected = target.kind === 'rollback'
     ? r.revisions.find((rev) => rev.revision === revision)?.resources
     : r.resources;
@@ -189,7 +209,7 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
       : null;
 
   const confirm = () => {
-    if (target.kind === 'upgrade') {
+    if (editsValues) {
       try {
         const parsed = valuesText.trim() ? load(valuesText) : {};
         if (parsed !== null && typeof parsed !== 'object') throw new Error('Values must be a YAML mapping');
@@ -202,7 +222,10 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
     return action.run(`${target.kind} of ${r.name}`, async (t, clusterId) => {
       const rel = t.release;
       let jobName: string;
-      if (t.kind === 'upgrade') {
+      if (t.kind === 'values') {
+        const chartArchive = await buildChartArchive(rel.storedChart);
+        jobName = await runHelmAction(clusterId, rel.namespace, { action: 'upgrade-stored', releaseName: rel.name, chartArchive }, valuesText);
+      } else if (t.kind === 'upgrade') {
         if (!source?.repoUrl) throw new Error(`Choose the repository to upgrade ${rel.chart ?? 'the chart'} from`);
         jobName = await runHelmAction(clusterId, rel.namespace, { action: 'upgrade', releaseName: rel.name, chartName: source.name, repoUrl: source.repoUrl, version: version || undefined }, valuesText);
       } else if (t.kind === 'rollback') {
@@ -210,17 +233,22 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
       } else {
         jobName = await runHelmAction(clusterId, rel.namespace, { action: 'uninstall', releaseName: rel.name });
       }
-      addToast({ type: 'success', title: `Helm ${t.kind} started`, detail: `${rel.name} in ${rel.namespace} (Job ${jobName})` });
+      addToast({ type: 'success', title: `Helm ${t.kind === 'values' ? 'upgrade (values only)' : t.kind} started`, detail: `${rel.name} in ${rel.namespace} (Job ${jobName})` });
       onStarted({ name: jobName, ns: rel.namespace, clusterId });
       queryClient.invalidateQueries({ queryKey: ['helm'] });
     });
   };
 
   const upgradeBlocked = target.kind === 'upgrade' && candidates.length === 0;
-  const blocked = upgradeBlocked || !!runnerBlock;
+  const blocked = upgradeBlocked || !!storedBlock || !!runnerBlock;
   const resourceSummary = affected?.length ? `${affected.length} object${affected.length === 1 ? '' : 's'}: ${[...new Set(affected.map((x) => x.kind))].join(', ')}` : 'no objects';
-  const title = target.kind === 'upgrade' ? `Upgrade ${r.name}?` : target.kind === 'rollback' ? `Roll back ${r.name}?` : `Uninstall ${r.name}?`;
-  const description = target.kind === 'upgrade'
+  const title = target.kind === 'values' ? `Edit values of ${r.name}?` : target.kind === 'upgrade' ? `Upgrade ${r.name}?` : target.kind === 'rollback' ? `Roll back ${r.name}?` : `Uninstall ${r.name}?`;
+  const chartName = `${r.chart ?? 'chart'}${r.chartVersion ? ` ${r.chartVersion}` : ''}`;
+  const description = target.kind === 'values'
+    ? storedBlock
+      ? `Pulse cannot edit this release's values: ${storedBlock}${candidates.length ? ' Use Upgrade, which fetches the chart from its repository.' : ' Add the chart\'s repository under Chart Repositories and use Upgrade instead.'}`
+      : `Runs "helm upgrade ${r.name}" in ${r.namespace} as a Job with the chart Helm stored in rev ${r.revision} (${chartName}), so no chart repository is needed and the chart version does not change. The values below replace rev ${r.revision}'s user values; previous values are not reused, so anything removed here falls back to the chart's default. The release moves to rev ${r.revision + 1}.`
+    : target.kind === 'upgrade'
     ? upgradeBlocked
       ? `The chart ${r.chart ?? '(unknown)'} is not in any configured chart repository, so Pulse cannot fetch a version to upgrade to. Add its repository under Chart Repositories first.`
       : `Runs "helm upgrade ${r.name} ${r.chart}${version ? ` --version ${version}` : ''}" from ${source ? (source.repoName ?? source.repoUrl) : 'the repository you choose'} in ${r.namespace} as a Job. The values below replace rev ${r.revision}'s user values; previous values are not reused, so anything removed here falls back to the chart's default. The release moves to rev ${r.revision + 1}. A newer chart may add kinds the runner cannot manage.`
@@ -235,14 +263,14 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
       onConfirm={() => { if (blocked) action.close(); else void confirm(); }}
       title={title}
       description={description}
-      confirmLabel={blocked ? 'Close' : target.kind === 'upgrade' ? 'Upgrade' : target.kind === 'rollback' ? 'Roll back' : 'Uninstall'}
+      confirmLabel={blocked ? 'Close' : target.kind === 'values' ? 'Apply values' : target.kind === 'upgrade' ? 'Upgrade' : target.kind === 'rollback' ? 'Roll back' : 'Uninstall'}
       variant={target.kind === 'uninstall' ? 'danger' : 'warning'}
       loading={action.running}
     >
-      {runnerBlock && !upgradeBlocked && <LoadError className="mt-3" title={`The ${target.kind} cannot run from Pulse`} error={runnerBlock} />}
-      {target.kind === 'upgrade' && !blocked && (
+      {runnerBlock && !upgradeBlocked && !storedBlock && <LoadError className="mt-3" title={`The ${target.kind} cannot run from Pulse`} error={runnerBlock} />}
+      {editsValues && !blocked && (
         <div className="mt-3 space-y-2">
-          {candidates.length > 1 && (
+          {target.kind === 'upgrade' && candidates.length > 1 && (
             <label className="block text-xs text-slate-400">
               Repository ({candidates.length} have a chart named {r.chart})
               <select aria-label="Repository" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)}
@@ -252,13 +280,13 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
               </select>
             </label>
           )}
-          <label className="block text-xs text-slate-400">
+          {target.kind === 'upgrade' && <label className="block text-xs text-slate-400">
             Chart version
             <select aria-label="Chart version" value={version} onChange={(e) => setVersion(e.target.value)}
               className="mt-1 w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
               {(source?.versions ?? []).map((v) => <option key={v} value={v}>{v}{v === r.chartVersion ? ' (installed)' : ''}</option>)}
             </select>
-          </label>
+          </label>}
           <label className="block text-xs text-slate-400">
             Values (YAML)
             <textarea aria-label="Values" value={valuesText} onChange={(e) => setValuesText(e.target.value)} rows={8}
@@ -281,7 +309,7 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
           </select>
         </label>
       )}
-      {action.error && <LoadError className="mt-3" title={`The ${target.kind} was not started`} error={action.error} />}
+      {action.error && <LoadError className="mt-3" title={`The ${target.kind === 'values' ? 'values upgrade' : target.kind} was not started`} error={action.error} />}
     </ConfirmDialog>
   );
 }

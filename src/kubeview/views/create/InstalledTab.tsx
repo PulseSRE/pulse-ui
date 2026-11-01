@@ -186,7 +186,7 @@ export function InstalledTab() {
             <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredHelmReleases.length}</span>
           </h3>
           <button
-            onClick={() => go('/create/v1~pods?tab=helm', 'Helm Charts')}
+            onClick={() => go('/software?tab=helm', 'Helm Charts')}
             className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
           >
             Manage releases <ArrowRight className="w-3 h-3" />

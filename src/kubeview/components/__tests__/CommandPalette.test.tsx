@@ -330,7 +330,7 @@ describe('OpenShift Pulse CommandPalette', () => {
     it.each([
       ['builds', 'Builds', '/workloads?tab=builds'],
       ['events', 'Events', '/r/v1~events'],
-      ['helm', 'Helm', '/create/v1~pods?tab=helm'],
+      ['helm', 'Helm', '/software?tab=helm'],
       ['crds', 'Custom Resource Definitions', '/admin?tab=crds'],
       ['certificates', 'Certificates', '/admin?tab=certificates'],
     ])('"%s" finds %s and opens %s', (q, title, path) => {
@@ -338,6 +338,13 @@ describe('OpenShift Pulse CommandPalette', () => {
       fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: q } });
       fireEvent.click(screen.getByText(title));
       expect(navigateMock).toHaveBeenCalledWith(path);
+    });
+
+    it('"software" finds the Software hub at its own route', () => {
+      renderPalette();
+      fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: 'software' } });
+      fireEvent.click(screen.getByText('Software'));
+      expect(navigateMock).toHaveBeenCalledWith('/software');
     });
 
     it('lists a project dashboard per namespace and opens /project/<ns>', () => {

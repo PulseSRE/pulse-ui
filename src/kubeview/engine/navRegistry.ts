@@ -41,6 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'slo', label: 'Service Levels', icon: 'Activity', path: '/slo', group: 'operations', subtitle: 'SLO burn rates and service health targets', keywords: ['slo', 'service level', 'burn rate', 'error budget', 'availability'], color: 'text-teal-400' },
 
   // Administration
+  { id: 'software', label: 'Software', icon: 'Package', path: '/software', group: 'administration', subtitle: 'Installed software, Quick Deploy, Helm charts, templates, Import YAML', keywords: ['software', 'create', 'deploy', 'install', 'helm', 'templates', 'import', 'yaml', 'new'], color: 'text-blue-400' },
   { id: 'operators', label: 'Operators', icon: 'Puzzle', path: '/operators', group: 'administration', subtitle: 'OperatorHub — browse, install, manage cluster operators', keywords: ['operators', 'operatorhub', 'install', 'olm', 'catalog', 'subscriptions'], color: 'text-purple-400' },
   { id: 'admin', label: 'Administration', icon: 'Settings', path: '/admin', group: 'administration', subtitle: 'Config, updates, snapshots, quotas, certificates', keywords: ['config', 'updates', 'quotas', 'certificates', 'crds'], color: 'text-slate-400' },
   { id: 'identity', label: 'Identity & Access', icon: 'Shield', path: '/identity', group: 'administration', subtitle: 'Users, groups, RBAC, impersonation', keywords: ['users', 'groups', 'service', 'accounts', 'rbac', 'impersonation'], color: 'text-teal-400' },
@@ -61,7 +62,7 @@ export const NAV_ITEMS: NavItem[] = [
 export const PALETTE_SHORTCUTS: NavItem[] = [
   { id: 'builds', label: 'Builds', icon: 'Hammer', path: '/workloads?tab=builds', group: 'cluster', subtitle: 'BuildConfigs and recent builds', keywords: ['builds', 'buildconfigs', 'ci', 's2i', 'pipeline'] },
   { id: 'events', label: 'Events', icon: 'Zap', path: '/r/v1~events', group: 'cluster', subtitle: 'Kubernetes events in the selected namespace', keywords: ['events', 'warnings', 'kubernetes events'] },
-  { id: 'helm', label: 'Helm', icon: 'Ship', path: '/create/v1~pods?tab=helm', group: 'administration', subtitle: 'Helm charts and releases', keywords: ['helm', 'charts', 'releases'] },
+  { id: 'helm', label: 'Helm', icon: 'Ship', path: '/software?tab=helm', group: 'administration', subtitle: 'Helm charts and releases', keywords: ['helm', 'charts', 'releases'] },
   { id: 'crds', label: 'Custom Resource Definitions', icon: 'Blocks', path: '/admin?tab=crds', group: 'administration', subtitle: 'CRDs installed on the cluster', keywords: ['crds', 'crd', 'custom resources', 'apiextensions'] },
   { id: 'certificates', label: 'Certificates', icon: 'Lock', path: '/admin?tab=certificates', group: 'administration', subtitle: 'TLS certificates and expiry', keywords: ['certificates', 'certs', 'tls', 'expiry', 'ssl'] },
 ];

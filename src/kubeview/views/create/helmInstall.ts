@@ -19,10 +19,15 @@ interface BuildHelmInstallResourcesInput {
 export type HelmAction =
   | { action: 'install'; releaseName: string; chartName: string; repoUrl: string; version?: string; valuesSecretName?: string }
   | { action: 'upgrade'; releaseName: string; chartName: string; repoUrl: string; version?: string; valuesSecretName?: string }
+  /** Values-only upgrade with the chart Helm stored in the release, mounted from a Secret as an archive. */
+  | { action: 'upgrade-stored'; releaseName: string; chartSecretName: string; valuesSecretName?: string }
   | { action: 'rollback'; releaseName: string; revision: number }
   | { action: 'uninstall'; releaseName: string };
 
 const VALUES_MOUNT = '/tmp/values';
+const CHART_MOUNT = '/tmp/chart';
+/** Key of the chart archive in the chart Secret. */
+export const CHART_ARCHIVE_KEY = 'chart.tgz';
 
 /** `helm` arguments for an action. Values come only from the mounted Secret file. */
 export function helmArgs(a: HelmAction, namespace: string): string[] {
@@ -34,6 +39,9 @@ export function helmArgs(a: HelmAction, namespace: string): string[] {
     case 'upgrade':
       return ['upgrade', a.releaseName, a.chartName, '--repo', a.repoUrl, '--namespace', namespace,
         ...(a.version ? ['--version', a.version] : []), ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
+    case 'upgrade-stored':
+      return ['upgrade', a.releaseName, `${CHART_MOUNT}/${CHART_ARCHIVE_KEY}`, '--namespace', namespace,
+        ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
     case 'rollback':
       return ['rollback', a.releaseName, String(a.revision), '--namespace', namespace, '--wait', '--timeout', '5m'];
     case 'uninstall':
@@ -56,17 +64,33 @@ export function buildHelmValuesSecret(namespace: string, releaseName: string, va
   };
 }
 
+/** The Secret that carries a rebuilt chart archive to the runner. */
+export function buildHelmChartSecret(namespace: string, releaseName: string, archiveBase64: string) {
+  return {
+    apiVersion: 'v1',
+    kind: 'Secret',
+    metadata: {
+      generateName: `helm-chart-${releaseName}-`.slice(0, 58),
+      namespace,
+      labels: { app: 'helm-install', release: releaseName },
+    },
+    type: 'Opaque',
+    data: { [CHART_ARCHIVE_KEY]: archiveBase64 },
+  };
+}
+
 /** A Job running one helm action. Uses generateName so repeated actions never collide. */
 export function buildHelmJob(input: { namespace: string; runnerImage: string; serviceAccountName: string; helm: HelmAction; chartLabel?: string }) {
   assertDigestPinnedImage(input.runnerImage);
   const a = input.helm;
-  const valuesSecretName = a.action === 'install' || a.action === 'upgrade' ? a.valuesSecretName : undefined;
+  const valuesSecretName = a.action === 'install' || a.action === 'upgrade' || a.action === 'upgrade-stored' ? a.valuesSecretName : undefined;
+  const chartSecretName = a.action === 'upgrade-stored' ? a.chartSecretName : undefined;
   const labels = { app: 'helm-install', release: a.releaseName, ...(input.chartLabel ? { chart: input.chartLabel } : {}) };
   return {
     apiVersion: 'batch/v1',
     kind: 'Job',
     metadata: {
-      generateName: `helm-${a.action}-${a.releaseName}-`.slice(0, 58),
+      generateName: `helm-${a.action === 'upgrade-stored' ? 'upgrade' : a.action}-${a.releaseName}-`.slice(0, 58),
       namespace: input.namespace,
       labels,
     },
@@ -95,6 +119,7 @@ export function buildHelmJob(input: { namespace: string; runnerImage: string; se
               { name: 'helm-home', mountPath: '/tmp/helm' },
               { name: 'tmp', mountPath: '/tmp/work' },
               ...(valuesSecretName ? [{ name: 'values', mountPath: VALUES_MOUNT, readOnly: true }] : []),
+              ...(chartSecretName ? [{ name: 'chart', mountPath: CHART_MOUNT, readOnly: true }] : []),
             ],
             securityContext: {
               allowPrivilegeEscalation: false,
@@ -107,6 +132,7 @@ export function buildHelmJob(input: { namespace: string; runnerImage: string; se
             { name: 'helm-home', emptyDir: {} },
             { name: 'tmp', emptyDir: {} },
             ...(valuesSecretName ? [{ name: 'values', secret: { secretName: valuesSecretName } }] : []),
+            ...(chartSecretName ? [{ name: 'chart', secret: { secretName: chartSecretName } }] : []),
           ],
         },
       },

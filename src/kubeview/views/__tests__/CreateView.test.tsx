@@ -61,7 +61,7 @@ function makeQueryClient() {
 
 import CreateView from '../CreateView';
 
-function renderCreateView(props: { gvrKey: string } = { gvrKey: 'v1/pods' }, initialEntry = '/create/v1~pods') {
+function renderCreateView(props: { gvrKey?: string } = {}, initialEntry = '/software') {
   const qc = makeQueryClient();
   return render(
     <QueryClientProvider client={qc}>
@@ -111,15 +111,35 @@ describe('CreateView', () => {
     expect(screen.getByTestId('yaml-editor')).toBeDefined();
   });
 
-  it('goes to YAML editor for pods when tab=yaml is in URL', () => {
-    renderCreateView({ gvrKey: 'v1/pods' }, '/create/v1~pods?tab=yaml');
+  it('/create/v1~pods opens the Pod editor like any other kind', () => {
+    renderCreateView({ gvrKey: 'v1/pods' }, '/create/v1~pods');
     expect(screen.getByTestId('yaml-editor')).toBeDefined();
+    expect(screen.getByText('Create Pod')).toBeDefined();
+    expect(screen.queryByRole('tab', { name: /Quick Deploy/ })).toBeNull();
   });
 
-  it('shows catalog tabs for pods without tab=yaml', () => {
-    renderCreateView({ gvrKey: 'v1/pods' });
-    expect(screen.getByText('Quick Deploy')).toBeDefined();
-    expect(screen.getByText('Helm Charts')).toBeDefined();
+  it('the hub with ?tab=yaml opens the Import YAML tab, not an editor', () => {
+    renderCreateView({}, '/software?tab=yaml');
+    expect(screen.queryByTestId('yaml-editor')).toBeNull();
+    expect(screen.getByRole('tab', { name: /Import YAML/ }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('Blank YAML opens an empty editor, not a Pod', () => {
+    renderCreateView({}, '/software?tab=templates');
+    fireEvent.click(screen.getByText('Blank YAML'));
+    expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).toBe('');
+    expect(screen.getByText('Create resource')).toBeDefined();
+    expect(screen.queryByText(/Pod/)).toBeNull();
+    // Writing a manifest names its kind.
+    fireEvent.change(screen.getByTestId('yaml-editor'), { target: { value: 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: x\n' } });
+    expect(screen.getByText('Create ConfigMap')).toBeDefined();
+  });
+
+  it('back from a kind editor with no history goes to the Software hub', () => {
+    Object.defineProperty(window.history, 'length', { value: 1, writable: true });
+    renderCreateView({ gvrKey: 'apps/v1/deployments' }, '/create/apps~v1~deployments');
+    fireEvent.click(screen.getByLabelText('Back'));
+    expect(navigateMock).toHaveBeenCalledWith('/software');
   });
 
   it('back button in YAML editor uses browser history', () => {

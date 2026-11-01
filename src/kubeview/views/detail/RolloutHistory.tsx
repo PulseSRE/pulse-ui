@@ -9,6 +9,11 @@
  * guarded by a `test` of the resourceVersion the page showed, so a concurrent
  * change is rejected rather than overwritten), on the cluster the page was
  * showing when the rollback was requested, and only with permission to patch.
+ *
+ * Alerts and findings are marked on the revision they occurred in: those the
+ * agent correlated (passed in), and, for the agent's own cluster, the monitor
+ * findings and inbox items the client holds that name this workload or its
+ * pods. Resolved findings the client never received are not shown.
  */
 
 import { useMemo, useState } from 'react';
@@ -26,6 +31,11 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { LoadError } from '../../components/primitives/LoadError';
 import type { K8sResource } from '../../engine/renderers';
 import type { Container, PodTemplateSpec } from '../../engine/types';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
+import { useMonitorStore } from '../../store/monitorStore';
+import { useInboxStore } from '../../store/inboxStore';
+import { correlateClientSignals, mergeCorrelations, type RevisionCorrelation } from '../../engine/rolloutCorrelations';
+import { RevisionSignalList, RevisionSignalMarker } from './RevisionSignals';
 
 type WorkloadKind = 'Deployment' | 'StatefulSet' | 'DaemonSet';
 
@@ -164,9 +174,11 @@ export interface RolloutHistoryProps {
    * active one, whose RBAC useCanI cannot check.
    */
   allowRollback?: boolean;
+  /** Alerts/findings per revision from elsewhere (the agent's rollout_history.correlations). */
+  correlations?: RevisionCorrelation[];
 }
 
-export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, allowRollback = true }: RolloutHistoryProps) {
+export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, allowRollback = true, correlations }: RolloutHistoryProps) {
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const clusterId = clusterIdProp ?? activeClusterId;
   const kind = resource.kind as WorkloadKind;
@@ -178,6 +190,15 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
   const listPath = kind === 'Deployment' ? '/apis/apps/v1/replicasets' : '/apis/apps/v1/controllerrevisions';
   const list = useK8sListWatch<K8sResource>({ apiPath: listPath, namespace, clusterId, enabled: supported });
   const revisions = useMemo(() => (list.data ? parseRevisions(resource, list.data) : []), [resource, list.data]);
+  // Monitor findings and inbox items describe the agent's cluster only.
+  const findings = useMonitorStore((s) => s.findings);
+  const inboxItems = useInboxStore((s) => s.items);
+  const signals = useMemo(() => mergeCorrelations(
+    correlations ?? [],
+    clusterId === LOCAL_CLUSTER_ID && supported
+      ? correlateClientSignals({ kind, namespace, name: resource.metadata.name }, revisions, findings, inboxItems)
+      : [],
+  ), [correlations, clusterId, supported, kind, namespace, resource.metadata.name, revisions, findings, inboxItems]);
 
   const [selected, setSelected] = useState<number | null>(null);
   const [target, setTarget] = useState<{ rev: RevisionEntry; clusterId: string; resourceVersion?: string } | null>(null);
@@ -299,6 +320,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
                           {changes[0]}{changes.length > 1 ? ` +${changes.length - 1}` : ''}
                         </span>
                       )}
+                      <RevisionSignalMarker revision={rev.revision} items={signals.get(rev.revision)} />
                     </button>
                   </li>
                 );
@@ -322,6 +344,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
                   <span className="text-slate-500">Change cause: </span>
                   <span className="text-slate-300">{shown.changeCause || 'not recorded'}</span>
                 </div>
+                <RevisionSignalList revision={shown.revision} items={signals.get(shown.revision)} />
                 {!shown.current && (
                   <>
                     <div>

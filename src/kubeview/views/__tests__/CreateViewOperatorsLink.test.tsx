@@ -24,7 +24,7 @@ function renderAt(path: string) {
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path="/create/:gvr" element={<CreateView gvrKey="v1/pods" />} />
+          <Route path="/software" element={<CreateView />} />
           <Route path="/operators" element={<div>operators page</div>} />
         </Routes>
         <Where />
@@ -38,14 +38,14 @@ afterEach(cleanup);
 
 describe('Create › Operators', () => {
   it('the Operators tab opens /operators instead of embedding a second catalog', async () => {
-    renderAt('/create/v1~pods');
+    renderAt('/software');
     fireEvent.click(screen.getByRole('tab', { name: /Operators/ }));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/operators'));
     expect(screen.queryByTestId('embedded-catalog')).toBeNull();
   });
 
   it('an old ?tab=operators&q= link lands on /operators with the search', async () => {
-    renderAt('/create/v1~pods?tab=operators&q=cluster-logging');
+    renderAt('/software?tab=operators&q=cluster-logging');
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/operators?q=cluster-logging'));
     expect(screen.getByText('operators page')).toBeDefined();
   });

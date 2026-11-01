@@ -2,7 +2,7 @@ import React from 'react';
 import {
   Settings, Shield, Puzzle,
   CheckCircle, XCircle, RefreshCw,
-  AlertTriangle, GitBranch,
+  AlertTriangle, GitBranch, Server,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sPatch } from '../../engine/query';
@@ -21,6 +21,7 @@ import { getActiveClusterId } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
 import { isPlatformNamespace } from '../../engine/platformNamespaces';
 import { useCanI } from '../../hooks/useCanI';
+import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -172,6 +173,12 @@ export function UpdatesTab({
     }
   };
 
+  // The pool row's action acts on the live (watched) pool, so its resourceVersion is current.
+  const poolAction = (name: string) => {
+    const mcp = machineConfigPools.find((p) => p.metadata.name === name);
+    return mcp ? <MachineConfigPoolPauseButton mcp={mcp} variant="text" /> : null;
+  };
+
   const updateDisabledReason = updating ? 'An update request is being sent.'
     : isUpdating ? 'An update is already in progress.'
     : !canPatchCv ? 'You do not have permission to patch the ClusterVersion.'
@@ -201,8 +208,32 @@ export function UpdatesTab({
           onNavigate={go}
           hiddenBlockerTypes={['upgradeable']}
           updatesUnknownReason={updatesUnknownReason}
+          renderPoolAction={poolAction}
         />
       </Panel>
+
+      {/* Between updates the progress rows are not shown: pools are listed here so one can be paused before an update starts. */}
+      {model.progress.phase === 'idle' && machineConfigPools.length > 0 && (
+        <Panel title={`MachineConfigPools (${machineConfigPools.length})`} icon={<Server className="w-4 h-4 text-slate-400" />}>
+          <ul className="divide-y divide-slate-800" aria-label="MachineConfigPools">
+            {machineConfigPools.map((mcp) => {
+              const st = mcp.status || {};
+              return (
+                <li key={mcp.metadata.name} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+                  <span className="flex items-center gap-2">
+                    <button type="button" onClick={() => go(`/r/machineconfiguration.openshift.io~v1~machineconfigpools/_/${mcp.metadata.name}`, mcp.metadata.name)} className="font-mono text-blue-400 hover:text-blue-300 hover:underline">{mcp.metadata.name}</button>
+                    {isMcpPaused(mcp) && <span className="px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded-sm">Paused</span>}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-slate-400">{st.updatedMachineCount ?? 0}/{st.machineCount ?? 0} nodes updated</span>
+                    {poolAction(mcp.metadata.name)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      )}
 
       {/* Current version + channel */}
       <Panel title="Current Version" icon={<Settings className="w-4 h-4 text-slate-400" />}>

@@ -8,7 +8,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createHarness, clickWhenEnabled, json, k8sStatus, REMOTE } from '../../../__tests__/actionHarness';
 import { HelmReleases } from '../HelmReleases';
-import { helmArgs, parseIndexForTest, releaseSecret, PLAIN_MANIFEST } from './helmTestUtils';
+import { gunzipSync } from 'zlib';
+import { helmArgs, parseIndexForTest, releaseSecret, PLAIN_MANIFEST, SVC_TEMPLATE } from './helmTestUtils';
+
+/** Files of a ustar archive by path (prefix + name). */
+function untar(buf: Buffer): Record<string, string> {
+  const out: Record<string, string> = {};
+  let o = 0;
+  while (o + 512 <= buf.length && buf[o] !== 0) {
+    const field = (a: number, n: number) => buf.subarray(o + a, o + a + n).toString().replace(/\0.*$/s, '');
+    const size = parseInt(field(124, 12), 8);
+    const prefix = field(345, 155);
+    out[(prefix ? `${prefix}/` : '') + field(0, 100)] = buf.subarray(o + 512, o + 512 + size).toString();
+    o += 512 + Math.ceil(size / 512) * 512;
+  }
+  return out;
+}
 
 vi.mock('../../../components/DeployProgress', () => ({ default: ({ name }: { name: string }) => <div data-testid="job-progress">{name}</div> }));
 
@@ -26,7 +41,7 @@ beforeEach(() => {
   (window as unknown as { __OPENSHIFTPULSE_CONFIG__?: unknown }).__OPENSHIFTPULSE_CONFIG__ = { helmInstall: { runnerImage: RUNNER } };
   h.state.handler = (r) => {
     if (r.method === 'GET' && r.path.includes('owner%3Dhelm')) return json({ items: ITEMS });
-    if (r.method === 'POST' && r.path.endsWith('/secrets')) return json({ metadata: { name: 'helm-values-shop-x1' } });
+    if (r.method === 'POST' && r.path.endsWith('/secrets')) return json({ metadata: { name: `${r.body.metadata.generateName}x1` } });
     if (r.method === 'POST' && r.path === JOBS) return json({ metadata: { name: `helm-${r.body.spec.template.spec.containers[0].args[0]}-shop-abc12`, uid: 'job-uid-1' } });
     return json({});
   };
@@ -89,7 +104,7 @@ describe('Helm release actions', () => {
     expect(h.writes()).toHaveLength(0);
   });
 
-  it('blocks uninstall, rollback and upgrade when the release has kinds the runner Role cannot manage', async () => {
+  it('blocks uninstall, rollback, upgrade and edit values when the release has kinds the runner Role cannot manage', async () => {
     const withCrb = `${PLAIN_MANIFEST}---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -102,7 +117,7 @@ metadata:
       : base(r));
     h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />);
     await screen.findByTestId('helm-release-shop');
-    for (const action of ['Uninstall shop', 'Roll back shop', 'Upgrade shop']) {
+    for (const action of ['Uninstall shop', 'Roll back shop', 'Upgrade shop', 'Edit values of shop']) {
       await clickWhenEnabled(action);
       const dialog = await screen.findByRole('dialog');
       expect(within(dialog).getByRole('alert').textContent).toMatch(/contains ClusterRoleBinding, which the Helm runner's Role in team-a cannot manage/);
@@ -129,13 +144,78 @@ metadata:
     expect(h.writes().some((w) => w.path.endsWith('/secrets'))).toBe(false);
   });
 
-  it('says upgrade is not possible when the chart is in no configured repository', async () => {
+  it('without a repository, Upgrade is unavailable and says why; Edit values upgrades with the chart stored in the release', async () => {
     h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
     await screen.findByTestId('helm-release-shop');
-    await clickWhenEnabled('Upgrade shop');
-    expect(within(await screen.findByRole('dialog')).getByText(/not in any configured chart repository/)).toBeTruthy();
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
+    expect(screen.getByTestId('helm-no-repo-shop').textContent).toBe('No chart repository configured for upgrades');
+    // Once the Job permission resolves, Edit values is enabled but Upgrade stays disabled with the reason.
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Edit values of shop' }) as HTMLButtonElement).disabled).toBe(false));
+    const upgrade = screen.getByRole('button', { name: 'Upgrade shop' }) as HTMLButtonElement;
+    expect(upgrade.disabled).toBe(true);
+    expect(upgrade.title).toMatch(/nginx is not in any configured chart repository\. Edit values still works/);
+
+    await clickWhenEnabled('Edit values of shop');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/with the chart Helm stored in rev 2 \(nginx 15\.1\.0\), so no chart repository is needed/)).toBeTruthy();
+    expect(within(dialog).queryByRole('combobox', { name: 'Chart version' })).toBeNull();
+    expect((within(dialog).getByLabelText('Values') as HTMLTextAreaElement).value).toContain('replicaCount: 2');
+    fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: 'replicaCount: 5\n' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Apply values' }));
+
+    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', '/tmp/chart/chart.tgz', '--namespace', 'team-a', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']));
+    const secrets = h.writes().filter((w) => w.method === 'POST' && w.path === '/api/v1/namespaces/team-a/secrets');
+    expect(secrets.map((w) => w.body.metadata.generateName)).toEqual(['helm-chart-shop-', 'helm-values-shop-']);
+    expect(secrets[1].body.stringData).toEqual({ 'values.yaml': 'replicaCount: 5\n' });
+    // The chart Secret holds a gzipped tar of the stored chart, rooted at nginx/.
+    const files = untar(gunzipSync(Buffer.from(secrets[0].body.data['chart.tgz'], 'base64')));
+    expect(Object.keys(files)).toEqual(['nginx/Chart.yaml', 'nginx/values.yaml', 'nginx/templates/svc.yaml', 'nginx/README.md']);
+    expect(files['nginx/Chart.yaml']).toMatch(/name: nginx\nversion: 15\.1\.0/);
+    expect(files['nginx/templates/svc.yaml']).toBe(SVC_TEMPLATE);
+    const spec = h.writes().find((w) => w.path === JOBS)!.body.spec.template.spec;
+    expect(spec.volumes).toContainEqual({ name: 'chart', secret: { secretName: 'helm-chart-shop-x1' } });
+    expect(spec.volumes).toContainEqual({ name: 'values', secret: { secretName: 'helm-values-shop-x1' } });
+    expect(spec.containers[0].volumeMounts).toContainEqual({ name: 'chart', mountPath: '/tmp/chart', readOnly: true });
+    // Both Secrets are owned by the Job.
+    await waitFor(() => expect(h.writes().filter((w) => w.method === 'PATCH' && w.path.startsWith('/api/v1/namespaces/team-a/secrets/')).map((w) => w.path))
+      .toEqual(['/api/v1/namespaces/team-a/secrets/helm-chart-shop-x1', '/api/v1/namespaces/team-a/secrets/helm-values-shop-x1']));
+    expect((await screen.findByTestId('job-progress')).textContent).toBe('helm-upgrade-shop-abc12');
+  });
+
+  it('Edit values says why it cannot run when the chart has subcharts Helm did not store', async () => {
+    const base = h.state.handler;
+    const deps = { dependencies: [{ name: 'redis', version: '19.x', repository: 'https://charts.example.com' }] };
+    h.state.handler = (r) => (r.method === 'GET' && r.path.includes('owner%3Dhelm')
+      ? json({ items: [releaseSecret('shop', 'team-a', 1, 'deployed', '15.1.0', {}, PLAIN_MANIFEST, deps)] })
+      : base(r));
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
+    await screen.findByTestId('helm-release-shop');
+    await clickWhenEnabled('Edit values of shop');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/depends on redis, and Helm does not keep subcharts in the release record/)).toBeTruthy();
+    expect(within(dialog).queryByLabelText('Values')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(h.writes()).toHaveLength(0);
+  });
+
+  it('a failed Edit values Job create is shown, and the Secrets made for it are removed', async () => {
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.method === 'POST' && r.path === JOBS ? k8sStatus(403, 'jobs.batch is forbidden') : base(r));
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
+    await screen.findByTestId('helm-release-shop');
+    await clickWhenEnabled('Edit values of shop');
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Apply values' }));
+    expect(await screen.findByText('jobs.batch is forbidden')).toBeTruthy();
+    expect(screen.getByText('The values upgrade was not started')).toBeTruthy();
+    await waitFor(() => expect(h.writes().filter((w) => w.method === 'DELETE').map((w) => w.path).sort())
+      .toEqual(['/api/v1/namespaces/team-a/secrets/helm-chart-shop-x1', '/api/v1/namespaces/team-a/secrets/helm-values-shop-x1']));
+    expect(screen.queryByTestId('job-progress')).toBeNull();
+  });
+
+  it('labels Upgrade with the newest version the repository offers', async () => {
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />);
+    await screen.findByTestId('helm-release-shop');
+    expect(screen.getByRole('button', { name: 'Upgrade shop' }).textContent).toContain('Upgrade to 15.3.0');
+    expect(screen.queryByTestId('helm-no-repo-shop')).toBeNull();
   });
 
   it('uninstall runs "helm uninstall" after a danger confirmation', async () => {

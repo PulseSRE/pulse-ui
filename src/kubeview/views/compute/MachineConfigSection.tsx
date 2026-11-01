@@ -1,8 +1,6 @@
 import React from 'react';
-import { ArrowRight, Pause, Play } from 'lucide-react';
-import { useCanI } from '../../hooks/useCanI';
-import { useActionDialog } from '../../components/ActionDialog';
-import { sendWrite, setMcpPaused } from '../../engine/workloadActions';
+import { ArrowRight } from 'lucide-react';
+import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import type { K8sResource } from '../../engine/renderers';
@@ -23,23 +21,6 @@ export function MachineConfigSection({ machineConfigPools, go }: MachineConfigSe
 }
 
 function MachineConfigPoolsCard({ machineConfigPools, go }: { machineConfigPools: K8sResource[]; go: (path: string, title: string) => void }) {
-  const { allowed: canPatch } = useCanI('patch', 'machineconfiguration.openshift.io', 'machineconfigpools');
-  const { open, dialog } = useActionDialog();
-  const togglePause = (mcp: K8sResource, paused: boolean) => open(paused
-    ? {
-        title: `Unpause MachineConfigPool "${mcp.metadata.name}"?`,
-        description: 'Pending MachineConfig changes start rolling out to this pool\'s nodes, which are drained and rebooted one at a time (up to maxUnavailable).',
-        confirmLabel: 'Unpause',
-        run: (cid) => sendWrite(setMcpPaused(mcp, false), cid),
-        success: `MachineConfigPool "${mcp.metadata.name}" unpaused`,
-      }
-    : {
-        title: `Pause MachineConfigPool "${mcp.metadata.name}"?`,
-        description: 'No MachineConfig changes roll out to this pool (no drains or reboots) until it is unpaused. Certificate rotations still queue up: do not leave a pool paused for long, or kubelet certificates can expire.',
-        confirmLabel: 'Pause',
-        run: (cid) => sendWrite(setMcpPaused(mcp, true), cid),
-        success: `MachineConfigPool "${mcp.metadata.name}" paused`,
-      });
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
@@ -62,7 +43,7 @@ function MachineConfigPoolsCard({ machineConfigPools, go }: { machineConfigPools
           const updatedCount = mcp.status?.updatedMachineCount ?? 0;
           const currentConfig = mcp.status?.configuration?.name || '';
 
-          const paused = !!(mcp.spec as { paused?: boolean } | undefined)?.paused;
+          const paused = isMcpPaused(mcp);
           return (
             <div key={mcp.metadata.uid} className="flex items-center hover:bg-slate-800/50 transition-colors">
             <button onClick={() => go(`/r/machineconfiguration.openshift.io~v1~machineconfigpools/_/${mcp.metadata.name}`, mcp.metadata.name)}
@@ -84,20 +65,11 @@ function MachineConfigPoolsCard({ machineConfigPools, go }: { machineConfigPools
                 {currentConfig && <span className="font-mono truncate max-w-[200px]">Config: {currentConfig}</span>}
               </div>
             </button>
-            <button
-              onClick={() => togglePause(mcp, paused)}
-              disabled={!canPatch}
-              title={canPatch ? (paused ? 'Unpause' : 'Pause') : 'You do not have permission to change MachineConfigPools'}
-              aria-label={`${paused ? 'Unpause' : 'Pause'} MachineConfigPool ${mcp.metadata.name}`}
-              className="p-2 mr-2 text-slate-500 hover:text-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-            </button>
+            <MachineConfigPoolPauseButton mcp={mcp} />
             </div>
           );
         })}
       </div>
-      {dialog}
     </Card>
   );
 }

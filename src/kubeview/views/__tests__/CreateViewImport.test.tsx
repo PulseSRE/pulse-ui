@@ -86,13 +86,13 @@ function GoTo({ to }: { to: string }) {
   return <button onClick={() => nav(to)}>go-{to}</button>;
 }
 
-function renderCreate(entry = '/create/v1~pods') {
+function renderCreate(entry = '/software') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
-          <Route path="/create/:gvr" element={<><CreateView gvrKey="v1/pods" /><Where /><GoTo to="/create/v1~pods?tab=templates" /></>} />
+          <Route path="/software" element={<><CreateView /><Where /><GoTo to="/software?tab=templates" /></>} />
           <Route path="*" element={<Where />} />
         </Routes>
       </MemoryRouter>
@@ -166,9 +166,9 @@ describe('Import YAML', () => {
 
 describe('Software tabs follow the URL', () => {
   it('a link to ?tab=templates switches the tab without remounting', () => {
-    renderCreate('/create/v1~pods');
+    renderCreate('/software');
     expect(screen.getByText('installed-tab')).toBeTruthy();
-    fireEvent.click(screen.getByText('go-/create/v1~pods?tab=templates'));
+    fireEvent.click(screen.getByText('go-/software?tab=templates'));
     expect(screen.queryByText('installed-tab')).toBeNull();
     expect(screen.getByRole('tab', { name: /Templates/ }).getAttribute('aria-selected')).toBe('true');
   });

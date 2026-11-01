@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,14 @@ import { cn } from '@/lib/utils';
  * written to the URL, an unknown or missing value falls back to the default,
  * and changes replace the history entry so Back leaves the page instead of
  * stepping through tabs.
+ *
+ * Many tabs can be grouped inside one TabsList:
+ *
+ *   <TabsList><TabsGroup label="Configure"><TabsTrigger …/>…</TabsGroup>…</TabsList>
+ *
+ * A group shows its label before its tabs and names it to assistive tech as
+ * each tab's description. It stays one tablist, so arrow keys move across
+ * groups and the tab ids (and `?tab=` links) do not change.
  */
 
 /* ── URL sync hook (usable on its own for pages that render panels themselves) ── */
@@ -138,15 +146,38 @@ export const TabsList = React.forwardRef<
 ));
 TabsList.displayName = 'TabsList';
 
+/* ── Group (a labelled run of triggers inside one TabsList) ── */
+const TabsGroupContext = createContext<string | undefined>(undefined);
+
+export function TabsGroup({ label, divider = true, children }: {
+  label: string;
+  /** A rule before the group; turn off for the first group. */
+  divider?: boolean;
+  children: React.ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div role="presentation" className="contents" data-tabs-group={label}>
+      {divider && <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-800" />}
+      <span id={id} aria-hidden="true" className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+        {label}
+      </span>
+      <TabsGroupContext.Provider value={id}>{children}</TabsGroupContext.Provider>
+    </div>
+  );
+}
+
 /* ── Trigger (individual tab) ── */
 export const TabsTrigger = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
 >(({ className, onClick, ...props }, ref) => {
   const ctx = useContext(TabsSelectContext);
+  const groupLabelId = useContext(TabsGroupContext);
   return (
   <TabsPrimitive.Trigger
     ref={ref}
+    aria-describedby={groupLabelId}
     onClick={(e) => {
       onClick?.(e);
       if (!e.defaultPrevented && !props.disabled) ctx?.select(props.value);

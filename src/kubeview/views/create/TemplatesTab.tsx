@@ -43,7 +43,8 @@ const CATEGORY_ORDER = ['Workloads', 'Networking', 'Config & Storage', 'Storage'
 
 export function TemplatesTab({ onSelectTemplate, onSelectBlank }: {
   onSelectTemplate: (snippet: Snippet, gvr: string) => void;
-  onSelectBlank: (gvr: string) => void;
+  /** Open an empty editor (no kind chosen). */
+  onSelectBlank: () => void;
 }) {
   const [search, setSearch] = useState('');
 
@@ -94,7 +95,7 @@ export function TemplatesTab({ onSelectTemplate, onSelectBlank }: {
               const meta = SNIPPET_CATEGORIES[snippet.prefix];
               const Icon = meta?.icon || FileText;
               const color = meta?.color || 'text-slate-400';
-              const gvr = meta?.gvr || 'v1/pods';
+              const gvr = meta?.gvr || '';
               return (
                 <button key={snippet.prefix} onClick={() => onSelectTemplate(snippet, gvr)}
                   className="flex flex-col items-start gap-2 p-4 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors text-left">
@@ -116,12 +117,12 @@ export function TemplatesTab({ onSelectTemplate, onSelectBlank }: {
 
       <div>
         <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Or start from scratch</h2>
-        <button onClick={() => onSelectBlank('v1/pods')}
+        <button onClick={() => onSelectBlank()}
           className="flex items-center gap-3 p-4 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors">
           <FileText className="w-5 h-5 text-slate-400" />
           <div className="text-left">
             <div className="text-sm font-medium text-slate-200">Blank YAML</div>
-            <div className="text-xs text-slate-500">Start with an empty editor</div>
+            <div className="text-xs text-slate-500">Start with an empty editor and paste or write any manifest</div>
           </div>
         </button>
       </div>
