@@ -5,15 +5,26 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { fireEvent } from '@testing-library/react';
 import { resourceRoutes } from '../../routes/resourceRoutes';
 import { domainRoutes } from '../../routes/domainRoutes';
-import { isKnownRoute } from '../../engine/routeTable';
+import { isKnownRoute, createPathFor } from '../../engine/routeTable';
 import { NAV_ITEMS, PALETTE_SHORTCUTS } from '../../engine/navRegistry';
 
+const mounts: string[] = [];
 vi.mock('../CreateView', () => ({
-  default: ({ gvrKey }: { gvrKey?: string }) => <div data-testid="create">{gvrKey === undefined ? 'hub' : `editor:${gvrKey}`}</div>,
+  default: function CreateViewMock({ gvrKey }: { gvrKey?: string }) {
+    useEffect(() => { mounts.push(gvrKey ?? 'hub'); }, []);
+    return <div data-testid="create">{gvrKey === undefined ? 'hub' : `editor:${gvrKey}`}</div>;
+  },
 }));
+
+function GoTo({ to }: { to: string }) {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(to)}>go</button>;
+}
 
 function Where() {
   const l = useLocation();
@@ -51,6 +62,28 @@ describe('Software route', () => {
     renderAt('/create/v1~pods');
     expect((await screen.findByTestId('create')).textContent).toBe('editor:v1/pods');
     expect(screen.getByTestId('where').textContent).toBe('/create/v1~pods');
+  });
+
+  it("a list's Create opens that kind's editor, Pods included (not Import YAML)", async () => {
+    expect(createPathFor('v1/pods')).toBe('/create/v1~pods');
+    expect(createPathFor('apps/v1/deployments')).toBe('/create/apps~v1~deployments');
+    renderAt(createPathFor('v1/pods'));
+    expect((await screen.findByTestId('create')).textContent).toBe('editor:v1/pods');
+    expect(screen.getByTestId('where').textContent).toBe('/create/v1~pods');
+  });
+
+  it('moving between two /create pages starts a fresh editor for the new kind', async () => {
+    mounts.length = 0;
+    render(
+      <MemoryRouter initialEntries={['/create/apps~v1~deployments']}>
+        <Routes><Route path="/">{resourceRoutes()}{domainRoutes()}</Route></Routes>
+        <GoTo to="/create/v1~persistentvolumeclaims" />
+      </MemoryRouter>,
+    );
+    expect((await screen.findByTestId('create')).textContent).toBe('editor:apps/v1/deployments');
+    fireEvent.click(screen.getByText('go'));
+    await waitFor(() => expect(screen.getByTestId('create').textContent).toBe('editor:v1/persistentvolumeclaims'));
+    expect(mounts).toEqual(['apps/v1/deployments', 'v1/persistentvolumeclaims']);
   });
 
   it('the sidebar and palette point at /software', () => {
