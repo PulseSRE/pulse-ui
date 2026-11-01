@@ -64,10 +64,12 @@ export function useCanI(verb: string, group: string, resource: string, namespace
   // of the cache key: an admin's "allowed" must not be reused after they start
   // impersonating someone else.
   const impersonateUser = useUIStore((s) => s.impersonateUser);
-  const impersonateGroups = useUIStore((s) => s.impersonateGroups);
+  // Joined in the selector so the key is a stable string (and partial store
+  // mocks without groups still work).
+  const impersonateGroups = useUIStore((s) => (s.impersonateGroups ?? []).join(','));
   const failOpen = !WRITE_VERBS.has(verb);
   const { data: allowed = failOpen, isLoading } = useQuery({
-    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, clusterId, impersonateUser, impersonateGroups.join(',')],
+    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, clusterId, impersonateUser ?? '', impersonateGroups],
     queryFn: () => checkAccess({ verb, group, resource, namespace }, clusterId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 10 * 60 * 1000,
