@@ -60,13 +60,10 @@ export function InboxHeader({
               {newCount} new
             </Badge>
           )}
-          {totalOpen > 0 && (
-            <span className="text-xs text-slate-500">
-              {totalOpen} open
-              {(stats.unique_issues ?? 0) > 0 && (stats.unique_issues ?? 0) < totalOpen && (
-                <> ({stats.unique_issues} unique)</>
-              )}
-            </span>
+          {/* The needs-attention count is the "Needs Attention" filter below;
+              only the deduplicated figure, which says something new, is here. */}
+          {(stats.unique_issues ?? 0) > 0 && (stats.unique_issues ?? 0) < totalOpen && (
+            <span className="text-xs text-slate-500">{stats.unique_issues} unique issues</span>
           )}
           {(stats.agent_reviewing ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-violet-400">

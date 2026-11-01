@@ -90,4 +90,18 @@ describe('StorageView', () => {
     const check = screen.getByText('Default StorageClass').closest('button')!;
     expect(check.textContent).toContain('1 of 1 need attention');
   });
+
+  describe('each fact once', () => {
+    const pvc = (name: string, phase: string, sc = 'gp3') => ({ metadata: { name, namespace: 'shop', uid: name }, spec: { storageClassName: sc, resources: { requests: { storage: '10Gi' } } }, status: { phase, capacity: { storage: '10Gi' } } });
+
+    it('counts pending PVCs once (the banner); the audit lists them', () => {
+      mockData['/api/v1/persistentvolumeclaims'] = [pvc('a', 'Pending'), pvc('b', 'Pending'), pvc('c', 'Bound')];
+      renderView();
+      expect(screen.getAllByText(/2 PVCs stuck in Pending/)).toHaveLength(1);
+      expect(screen.queryByText(/Pending PVCs \(/)).toBeNull();
+      expect(screen.queryByText(/\b2 pending\b/)).toBeNull();
+      expect(screen.queryByText('Capacity by Storage Class')).toBeNull();
+      expect(screen.getByText('PVC Binding Status')).toBeDefined();
+    });
+  });
 });

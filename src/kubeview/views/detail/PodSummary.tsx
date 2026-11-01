@@ -6,9 +6,6 @@ import {
   Server, Shield, Cpu, MemoryStick, Image,
   ChevronDown, ChevronRight, HardDrive, Play, Pause, Square,
 } from 'lucide-react';
-import { MetricCard } from '../../components/metrics/Sparkline';
-import { CHART_COLORS } from '../../engine/colors';
-import { sanitizePromQL } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
 import type { Pod, Container, ContainerPort, ContainerStatus, VolumeMount, Probe } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
@@ -80,8 +77,6 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
   const phaseBorder = phase === 'Running' && readyCount === containers.length ? 'border-green-800/50' :
     phase === 'Failed' ? 'border-red-800/50' : 'border-slate-800';
 
-  const safeName = sanitizePromQL(name);
-  const safeNs = sanitizePromQL(ns);
 
   return (
     <div className="space-y-4">
@@ -135,23 +130,7 @@ export function PodSummary({ resource, go }: PodSummaryProps) {
         </div>
       </div>
 
-      {/* Pod metrics */}
-      {ns && (
-        <div className="grid grid-cols-2 gap-3">
-          <MetricCard
-            title="Pod CPU"
-            query={`sum(rate(container_cpu_usage_seconds_total{pod="${safeName}",namespace="${safeNs}",container!="POD",container!=""}[5m])) * 1000`}
-            unit=" m"
-            color={CHART_COLORS.blue}
-          />
-          <MetricCard
-            title="Pod Memory"
-            query={`sum(container_memory_working_set_bytes{pod="${safeName}",namespace="${safeNs}",container!="POD",container!=""}) / 1024 / 1024`}
-            unit=" Mi"
-            color={CHART_COLORS.violet}
-          />
-        </div>
-      )}
+      {/* Pod CPU and memory sparklines are in the incident context panel (once). */}
 
       {/* Init containers */}
       {initContainers.length > 0 && (

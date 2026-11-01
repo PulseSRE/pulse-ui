@@ -63,6 +63,9 @@ import {
   LayoutDashboard,
   Gauge,
   Info,
+  Zap,
+  Ship,
+  Blocks,
 } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
@@ -129,6 +132,9 @@ const iconRegistry: Record<string, LucideIcon> = {
   LayoutDashboard,
   Gauge,
   Info,
+  Zap,
+  Ship,
+  Blocks,
 };
 
 /**

@@ -177,6 +177,19 @@ describe('PulseView', () => {
     expect(screen.getByText('Roadmap')).toBeDefined();
   });
 
+  it('shows node readiness once (the report\'s Nodes tile), not also as a header pill', () => {
+    setMockData({
+      '/api/v1/nodes': { data: [makeNode('node-1', true), makeNode('node-2', false)], isLoading: false },
+      '/api/v1/pods': { data: [], isLoading: false },
+      '/apis/apps/v1/deployments': { data: [], isLoading: false },
+      '/api/v1/persistentvolumeclaims': { data: [], isLoading: false },
+      '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('kube-apiserver', true)], isLoading: false },
+    });
+    renderPulse();
+    expect(screen.queryByText('1/2 nodes')).toBeNull();
+    expect(screen.getAllByText('1 / 2')).toHaveLength(1);
+  });
+
   it('renders metric sparkline cards', () => {
     setMockData({
       '/api/v1/nodes': { data: [], isLoading: false },

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, cleanup } from '@testing-library/react';
+import { render, screen, act, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useArgoCDStore } from '../../store/argoCDStore';
@@ -64,6 +64,17 @@ describe('ArgoCDView', () => {
     mockUseArgoCD.mockReturnValue({ available: true, detecting: false, applications: [], applicationsLoading: false, namespace: 'openshift-gitops' });
     renderView();
     expect(screen.getAllByText(/GitOps/).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('counts apps in the stat cards only; Missing counts as unhealthy; Out of Sync opens Drift', () => {
+    const app = (name: string, sync: string, health: string) => ({ apiVersion: 'argoproj.io/v1alpha1', kind: 'Application', metadata: { name, namespace: 'openshift-gitops', uid: name }, status: { sync: { status: sync }, health: { status: health }, resources: [] } });
+    mockUseArgoCD.mockReturnValue({ available: true, detecting: false, applications: [app('a', 'OutOfSync', 'Missing'), app('b', 'Synced', 'Healthy')], applicationsLoading: false, namespace: 'openshift-gitops' });
+    renderView();
+    expect(screen.queryByRole('tab', { name: /\(\d+\)/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show degraded applications' }).textContent).toContain('1');
+    fireEvent.click(screen.getByRole('button', { name: 'Show drift' }));
+    expect(screen.getByRole('tab', { name: 'Drift' }).getAttribute('aria-selected')).toBe('true');
+    window.history.replaceState(null, '', '/');
   });
 
   it('renders application count cards', () => {

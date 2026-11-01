@@ -5,12 +5,13 @@ import DetailView from '../views/DetailView';
 import { LoadingFallback } from '../components/LoadingFallback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { RESOURCE_ROUTES } from '../engine/routeTable';
+import { useClusterStore } from '../store/clusterStore';
+import { kindFromPlural, topologyFocusPath } from '../engine/topologyLinks';
 
 const YamlEditorView = lazy(() => import('../views/YamlEditorView'));
 const LogsView = lazy(() => import('../views/LogsView'));
 const MetricsView = lazy(() => import('../views/MetricsView'));
 const CreateView = lazy(() => import('../views/CreateView'));
-const DependencyView = lazy(() => import('../views/DependencyView'));
 const NodeLogsView = lazy(() => import('../views/NodeLogsView'));
 
 function parseGvr(gvr: string) {
@@ -77,16 +78,19 @@ function CreateRoute() {
   );
 }
 
+/**
+ * /deps/:gvr/:namespace/:name used to render a second, client-built
+ * dependency graph. It now opens /topology focused on the resource, so old
+ * links keep working and there is one graph.
+ */
 function DependencyRoute() {
   const { gvr, namespace, name } = useParams<{ gvr: string; namespace?: string; name: string }>();
-  if (!gvr || !name) return <Navigate to="/pulse" replace />;
-  return (
-    <ErrorBoundary fallbackTitle="Dependencies">
-      <Suspense fallback={<LoadingFallback />}>
-        <DependencyView gvrKey={parseGvr(gvr)} namespace={namespace} name={name} />
-      </Suspense>
-    </ErrorBoundary>
-  );
+  const registry = useClusterStore((s) => s.resourceRegistry);
+  if (!gvr || !name) return <Navigate to="/topology" replace />;
+  const gvrKey = parseGvr(gvr);
+  const plural = gvrKey.split('/').pop() || '';
+  const kind = (registry?.get(gvrKey) ?? registry?.get(`core/${gvrKey}`))?.kind || kindFromPlural(plural);
+  return <Navigate to={topologyFocusPath(kind, namespace === '_' ? undefined : namespace, name)} replace />;
 }
 
 export function resourceRoutes() {

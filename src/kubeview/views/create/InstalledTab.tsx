@@ -11,6 +11,7 @@ import { LoadError } from '../../components/primitives/LoadError';
 import type { Deployment, StatefulSet } from '../../engine/types';
 import { useHelmReleases } from './HelmReleases';
 import { Card } from '../../components/primitives/Card';
+import { isPlatformNamespace } from '../../engine/platformNamespaces';
 
 /** OLM Subscription — not yet in engine/types, so defined locally. */
 interface Subscription {
@@ -52,7 +53,7 @@ export function InstalledTab() {
   });
 
   // Exclude platform namespaces
-  const isUserNs = (ns: string) => !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift' && ns !== 'default';
+  const isUserNs = (ns: string) => !isPlatformNamespace(ns);
 
   const userDeployments = (deployments as Deployment[]).filter(d => isUserNs(d.metadata?.namespace || ''));
   const userStatefulSets = (statefulsets as StatefulSet[]).filter(s => isUserNs(s.metadata?.namespace || ''));
@@ -110,7 +111,7 @@ export function InstalledTab() {
             <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredSubscriptions.length}</span>
           </h3>
           <button
-            onClick={() => go('/create/v1~pods?tab=operators', 'Operators')}
+            onClick={() => go('/operators', 'Operators')}
             className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
           >
             View all <ArrowRight className="w-3 h-3" />
@@ -134,7 +135,7 @@ export function InstalledTab() {
                 >
                   <div className="flex-1 min-w-0">
                     <button
-                      onClick={() => go(`/create/v1~pods?tab=operators&q=${encodeURIComponent(sub.spec?.name || name)}`, sub.spec?.name || name)}
+                      onClick={() => go(`/operators?q=${encodeURIComponent(sub.spec?.name || name)}`, sub.spec?.name || name)}
                       className="text-sm font-medium text-slate-100 hover:text-blue-400 transition-colors"
                     >
                       {sub.spec?.name || name}

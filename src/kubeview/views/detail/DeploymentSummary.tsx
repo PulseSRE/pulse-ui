@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import {
   Box, CheckCircle, XCircle, AlertCircle, Clock,
-  ArrowRight, Image, Cpu, MemoryStick, Shield, Loader2,
+  ArrowRight, Image, Loader2,
 } from 'lucide-react';
 import type { K8sResource } from '../../engine/renderers';
 import type { Deployment, Pod, Container, ContainerPort, ContainerStatus } from '../../engine/types';
@@ -120,10 +120,6 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
         </div>
         <div className="divide-y divide-slate-800">
           {containers.map((c) => {
-            const hasLimits = c.resources?.limits?.cpu && c.resources?.limits?.memory;
-            const hasRequests = c.resources?.requests?.cpu && c.resources?.requests?.memory;
-            const limits = c.resources?.limits;
-            const hasProbes = c.livenessProbe || c.readinessProbe;
             return (
               <div key={c.name} className="px-4 py-2.5 flex items-center gap-4">
                 <Image className="w-4 h-4 text-blue-400 shrink-0" />
@@ -138,22 +134,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
                   </div>
                   <div className="text-xs text-slate-400 font-mono truncate mt-0.5">{c.image}</div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {hasLimits && (
-                    <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm flex items-center gap-1">
-                      <Cpu className="w-3 h-3" /> {limits?.cpu}
-                      <MemoryStick className="w-3 h-3 ml-1" /> {limits?.memory}
-                    </span>
-                  )}
-                  {!hasLimits && (
-                    <span className="text-xs px-1.5 py-0.5 bg-yellow-900/30 text-yellow-400 rounded-sm">no limits</span>
-                  )}
-                  {hasProbes ? (
-                    <Shield className="w-3.5 h-3.5 text-green-500" aria-label="Has probes" />
-                  ) : (
-                    <Shield className="w-3.5 h-3.5 text-slate-600" aria-label="No probes" />
-                  )}
-                </div>
+                {/* Limits and probes are checked in the Workload Audit below; not repeated per container. */}
               </div>
             );
           })}

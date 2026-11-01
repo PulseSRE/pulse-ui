@@ -15,6 +15,7 @@ import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { formatDuration } from '../../engine/dateUtils';
 import { CardHeader, CardBody } from '../../components/primitives/Card';
 import type { FleetAlert } from '../../engine/types/incident';
+import { FleetSubNav } from './FleetSubNav';
 import { LoadError } from '../../components/primitives/LoadError';
 import { errorReason } from '../../engine/readResult';
 
@@ -221,6 +222,7 @@ export default function FleetAlertsView() {
       {failedBanner && <div className="px-6 pt-4">{failedBanner}</div>}
       {/* Header */}
       <div className="border-b border-slate-800 px-6 py-4">
+        <FleetSubNav className="mb-3" />
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">

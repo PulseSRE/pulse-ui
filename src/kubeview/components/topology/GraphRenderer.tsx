@@ -280,11 +280,17 @@ interface GraphRendererProps {
   setSelectedNode: Dispatch<SetStateAction<string | null>>;
   layoutHint?: 'top-down' | 'left-to-right' | 'grouped';
   includeMetrics?: boolean;
+  /**
+   * The blast radius as the agent computed it. When given, the highlight
+   * shows exactly these resources, so it matches the count beside the graph.
+   * Without it the renderer falls back to following outgoing edges.
+   */
+  blastRadiusIds?: readonly string[];
 }
 
 export default function GraphRenderer({
   nodes, edges, hoveredNode, setHoveredNode, selectedNode, setSelectedNode,
-  layoutHint, includeMetrics,
+  layoutHint, includeMetrics, blastRadiusIds,
 }: GraphRendererProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -312,6 +318,7 @@ export default function GraphRenderer({
 
   const blastRadius = useMemo(() => {
     if (!selectedNode) return new Set<string>();
+    if (blastRadiusIds) return new Set<string>([selectedNode, ...blastRadiusIds]);
     const visited = new Set<string>([selectedNode]);
     const queue = [selectedNode];
     const adj = new Map<string, string[]>();
@@ -329,7 +336,7 @@ export default function GraphRenderer({
       }
     }
     return visited;
-  }, [selectedNode, edges]);
+  }, [selectedNode, edges, blastRadiusIds]);
 
   const svgWidth = useMemo(() => {
     if (layout.length === 0) return 800;

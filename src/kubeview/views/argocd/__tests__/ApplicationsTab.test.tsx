@@ -80,10 +80,11 @@ describe('ApplicationsTab', () => {
     fireEvent.click(row);
 
     // Check condition timeline is visible
-    expect(within(container).getByText('Condition Timeline')).toBeDefined();
-    // Both the Conditions section and Timeline section render condition data
-    expect(within(container).getAllByText(/SyncError/).length).toBeGreaterThanOrEqual(2);
-    expect(within(container).getAllByText(/OrphanedResourceWarning/).length).toBeGreaterThanOrEqual(2);
+    // One conditions list (a timeline), not a list and a timeline of the same data.
+    expect(within(container).getAllByText('Conditions')).toHaveLength(1);
+    expect(within(container).queryByText('Condition Timeline')).toBeNull();
+    expect(within(container).getAllByText(/SyncError/)).toHaveLength(1);
+    expect(within(container).getAllByText(/OrphanedResourceWarning/)).toHaveLength(1);
   });
 
   it('does not show condition timeline if no lastTransitionTime', () => {
@@ -128,7 +129,7 @@ describe('ApplicationsTab', () => {
     fireEvent.click(row);
 
     // Find the Condition Timeline container and check order within it
-    const timelineLabel = within(container).getByText('Condition Timeline');
+    const timelineLabel = within(container).getByText('Conditions');
     const timelineContainer = timelineLabel.parentElement!;
     const timelineText = timelineContainer.textContent || '';
     const newerIdx = timelineText.indexOf('NewerCondition');

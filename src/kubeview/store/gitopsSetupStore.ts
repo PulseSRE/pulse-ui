@@ -91,7 +91,6 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
 
       detectCompletedSteps: async () => {
         const completed: WizardStep[] = [];
-        let resumeStep: WizardStep = 'operator';
 
         // Check operator
         const argoStore = useArgoCDStore.getState();
@@ -100,14 +99,12 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
         }
         if (useArgoCDStore.getState().available) {
           completed.push('operator');
-          resumeStep = 'git-config';
         }
 
         // Check git config (K8s Secret)
         try {
           await k8sGet('/api/v1/namespaces/openshiftpulse/secrets/openshiftpulse-gitops-config');
           completed.push('git-config');
-          resumeStep = 'select-resources';
         } catch {
           // Not configured
         }
@@ -116,21 +113,22 @@ export const useGitOpsSetupStore = create<GitOpsSetupState>()(
         const { exportSelections, exportSummary } = get();
         if (exportSelections.categoryIds.length > 0 && exportSelections.clusterName) {
           if (!completed.includes('select-resources')) completed.push('select-resources');
-          resumeStep = 'export';
         }
         if (exportSummary) {
           if (!completed.includes('select-resources')) completed.push('select-resources');
           if (!completed.includes('export')) completed.push('export');
-          resumeStep = 'first-app';
         }
 
         // Check if apps exist
         if (useArgoCDStore.getState().applications.length > 0) {
           completed.push('first-app');
-          resumeStep = 'done';
         }
 
-        set({ completedSteps: completed, currentStep: completed.length >= 4 ? 'done' : resumeStep });
+        // Resume at the first step not yet done. Counting completed steps
+        // (>= 4) jumped to Verification with "Create Apps" still undone.
+        const ORDER: WizardStep[] = ['operator', 'git-config', 'select-resources', 'export', 'first-app'];
+        const firstIncomplete = ORDER.find((step) => !completed.includes(step));
+        set({ completedSteps: completed, currentStep: firstIncomplete ?? 'done' });
       },
     }),
     {

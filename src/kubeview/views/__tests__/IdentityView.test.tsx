@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -17,5 +18,13 @@ describe('IdentityView', () => {
   it('renders page header', () => { r(); expect(document.body.textContent).toContain('Identity'); });
   it('renders all 4 tabs', () => { r(); const text = document.body.textContent || ''; expect(text).toContain('Users'); expect(text).toContain('Groups & Service Accounts'); expect(text).toContain('RBAC'); expect(text).toContain('Impersonation'); });
   it('renders without crashing', () => { const { container } = r(); expect(container.querySelector('.bg-slate-950')).toBeDefined(); });
-  it('shows summary counts', () => { r(); expect(document.body.textContent).toContain('Cluster Roles'); expect(document.body.textContent).toContain('Role Bindings'); });
+  it('shows summary counts', () => { r(); for (const l of ['Users', 'Groups', 'Service Accounts']) expect(screen.getAllByText(l).length).toBeGreaterThan(0); });
+  it('counts roles and bindings on the RBAC tab only, and shows the SA-by-namespace panel once', () => {
+    r();
+    expect(screen.queryByText('Cluster Roles')).toBeNull();
+    fireEvent.click(screen.getByText('Roles & bindings →'));
+    expect(screen.getAllByText('Cluster Roles')).toHaveLength(1);
+    expect(screen.getAllByText('Role Bindings')).toHaveLength(1);
+    expect(screen.queryByText('Service Accounts by Namespace')).toBeNull();
+  });
 });

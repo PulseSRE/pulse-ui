@@ -47,6 +47,12 @@ describe('ComputeView', () => {
     expect(screen.getAllByText(/Total Memory/).length).toBeGreaterThanOrEqual(1);
   });
 
+  it('has one pod-density metric, on allocatable pod slots', () => {
+    renderView();
+    expect(screen.getAllByText('Pod Density')).toHaveLength(1);
+    expect(screen.queryByText('Pod Utilization')).toBeNull();
+  });
+
   it('shows metric cards', () => {
     renderView();
     expect(screen.getAllByTestId('metric-card').length).toBeGreaterThanOrEqual(4);

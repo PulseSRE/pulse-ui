@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Shield, Globe, Image, Network, Cpu, Lock, ChevronDown, ChevronRight,
@@ -40,7 +41,12 @@ const CONFIG_SECTIONS: ConfigSection[] = [
 ];
 
 export default function ClusterConfig() {
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  // `?section=oauth` (e.g. Overview → "Manage providers") opens that section.
+  const [searchParams] = useSearchParams();
+  const requested = searchParams.get('section');
+  const [expandedSection, setExpandedSection] = useState<string | null>(
+    requested && CONFIG_SECTIONS.some((s) => s.id === requested) ? requested : null,
+  );
 
   return (
     <div className="space-y-2">
@@ -141,6 +147,8 @@ function OAuthEditor({ data, apiPath, clusterId }: { data: any; apiPath: string;
       await k8sPatch(apiPath, { spec: { identityProviders: updated } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Identity provider removed', detail: name });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'oauth'] });
+      // The Overview's identity-provider list reads ['admin', 'oauth', …].
+      queryClient.invalidateQueries({ queryKey: ['admin', 'oauth'] });
     } catch (err) {
       showErrorToast(err, 'Failed to update OAuth');
     }
@@ -175,6 +183,8 @@ function OAuthEditor({ data, apiPath, clusterId }: { data: any; apiPath: string;
       await k8sPatch(apiPath, { spec: { identityProviders: [...providers, provider] } }, MERGE_PATCH, clusterId);
       addToast({ type: 'success', title: 'Identity provider added', detail: `${newName} (${newType})` });
       queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'oauth'] });
+      // The Overview's identity-provider list reads ['admin', 'oauth', …].
+      queryClient.invalidateQueries({ queryKey: ['admin', 'oauth'] });
       resetForm();
     } catch (err) {
       showErrorToast(err, 'Failed to add provider');

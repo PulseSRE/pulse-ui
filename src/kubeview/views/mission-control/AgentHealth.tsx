@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Shield, ChevronRight, Brain, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { CheckCircle2, XCircle, Shield, ChevronRight, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import type { FixHistorySummary, ScannerCoverage, ConfidenceCalibration, CostStats, ReadinessSummary } from '../../engine/analyticsApi';
@@ -25,7 +25,7 @@ interface AgentHealthProps {
 }
 
 export function AgentHealth({
-  evalStatus, coverage, fixSummary, confidence, costStats, readiness,
+  evalStatus, coverage, fixSummary, confidence, readiness,
   onOpenScannerDrawer, onOpenEvalDrawer, onOpenMemoryDrawer, onOpenOutcomesDrawer,
   memoryPatternCount = 0,
 }: AgentHealthProps) {
@@ -37,7 +37,6 @@ export function AgentHealth({
         <CoverageCard coverage={coverage} onClick={onOpenScannerDrawer} />
         <OutcomesCard
           fixSummary={fixSummary}
-          costStats={costStats}
           readiness={readiness}
           memoryPatternCount={memoryPatternCount}
           onMemoryClick={onOpenMemoryDrawer}
@@ -136,10 +135,9 @@ function CoverageCard({ coverage, onClick }: { coverage: ScannerCoverage | null;
 }
 
 function OutcomesCard({
-  fixSummary, costStats, readiness, memoryPatternCount, onMemoryClick, onCardClick,
+  fixSummary, readiness, memoryPatternCount, onMemoryClick, onCardClick,
 }: {
   fixSummary: FixHistorySummary | null;
-  costStats: CostStats | null;
   readiness: ReadinessSummary | null;
   memoryPatternCount: number;
   onMemoryClick: () => void;
@@ -149,7 +147,8 @@ function OutcomesCard({
     <Card onClick={onCardClick} className="group">
       <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Outcomes</h3>
+          {/* The one fix-outcome card on this page, with its window stated. */}
+          <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Fix outcomes · last 7 days</h3>
           <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
         </div>
 
@@ -217,38 +216,14 @@ function OutcomesCard({
           </div>
         )}
 
-        {costStats && costStats.cost && costStats.cost.total_usd > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs text-slate-400">
-              Cost ({costStats.total_incidents} conversations): <span className="text-slate-200 font-medium">${costStats.cost.total_usd.toFixed(2)}</span>
-              {costStats.trend.delta_pct !== 0 && (
-                <TrendBadge delta={costStats.trend.delta_pct} invertColor />
-              )}
-            </div>
-            <div className="text-xs text-slate-500">
-              ${costStats.cost.avg_per_incident_usd.toFixed(3)}/conversation · input ${costStats.cost.input_usd.toFixed(2)} · output ${costStats.cost.output_usd.toFixed(2)}
-              {costStats.cost.cache_savings_usd > 0 && (
-                <span className="text-emerald-500"> · saved ${costStats.cost.cache_savings_usd.toFixed(2)} (cache)</span>
-              )}
-            </div>
-          </div>
-        )}
-        {costStats && (!costStats.cost || costStats.cost.total_usd === 0) && costStats.avg_tokens_per_incident > 0 && (
-          <div className="text-xs text-slate-400">
-            Avg tokens/incident: <span className="text-slate-200">{(costStats.avg_tokens_per_incident / 1000).toFixed(1)}K</span>
-            {costStats.trend.delta_pct !== 0 && (
-              <TrendBadge delta={costStats.trend.delta_pct} invertColor />
-            )}
-          </div>
-        )}
-
+        {/* Cost lives in Analytics › Cost Breakdown; it is not repeated here. */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-          <button onClick={onMemoryClick} className="text-xs text-violet-400 hover:text-violet-300">
+          <button onClick={(e) => { e.stopPropagation(); onMemoryClick(); }} className="text-xs text-violet-400 hover:text-violet-300">
             <Brain className="w-3 h-3 inline mr-1" />{memoryPatternCount} patterns learned
           </button>
           {readiness && readiness.total_gates > 0 && (
-            <span className="text-xs text-slate-500">
-              Readiness: {readiness.passed}/{readiness.total_gates}
+            <span className="text-xs text-slate-500" title="The agent's installation checks, not the /readiness production gates">
+              Install health: {readiness.passed}/{readiness.total_gates}
             </span>
           )}
         </div>
@@ -270,15 +245,5 @@ function DimensionBar({ label, score }: { label: string; score: number }) {
       </div>
       <span className="text-[10px] text-slate-500 w-8 text-right">{pct}%</span>
     </div>
-  );
-}
-
-function TrendBadge({ delta, invertColor = false }: { delta: number; invertColor?: boolean }) {
-  const positive = invertColor ? delta < 0 : delta > 0;
-  const Icon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
-  return (
-    <span className={cn('inline-flex items-center gap-0.5 ml-1 text-[10px]', positive ? 'text-emerald-400' : 'text-red-400')}>
-      <Icon className="w-3 h-3" />{Math.abs(delta).toFixed(1)}%
-    </span>
   );
 }

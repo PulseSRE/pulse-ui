@@ -107,15 +107,20 @@ export default function BuildsView() {
     return map;
   }, [builds]);
 
-  // Failed builds
+  // Failed and running builds come from every build, the same list the
+  // "Build Status" breakdown counts. They used to come from the 50 newest, so
+  // the banner and the breakdown could disagree.
+  const allBuildsNewestFirst = React.useMemo(() =>
+    [...(builds as Build[])].sort((a, b) =>
+      new Date(b.metadata?.creationTimestamp || 0).getTime() - new Date(a.metadata?.creationTimestamp || 0).getTime()),
+  [builds]);
   const failedBuilds = React.useMemo(() =>
-    recentBuilds.filter(b => b.status?.phase === 'Failed' || b.status?.phase === 'Error'),
-  [recentBuilds]);
+    allBuildsNewestFirst.filter(b => b.status?.phase === 'Failed' || b.status?.phase === 'Error'),
+  [allBuildsNewestFirst]);
 
-  // Running builds
   const runningBuilds = React.useMemo(() =>
-    recentBuilds.filter(b => b.status?.phase === 'Running' || b.status?.phase === 'New' || b.status?.phase === 'Pending'),
-  [recentBuilds]);
+    allBuildsNewestFirst.filter(b => b.status?.phase === 'Running' || b.status?.phase === 'New' || b.status?.phase === 'Pending'),
+  [allBuildsNewestFirst]);
 
   // ImageStream tag count
   const totalTags = React.useMemo(() =>
@@ -164,7 +169,7 @@ export default function BuildsView() {
   // Issues
   const issues: Array<{ msg: string; severity: 'warning' | 'critical' }> = [];
   if (failedBuilds.length > 0) issues.push({ msg: `${failedBuilds.length} failed build${failedBuilds.length > 1 ? 's' : ''}`, severity: 'critical' });
-  if (runningBuilds.length > 0) issues.push({ msg: `${runningBuilds.length} build${runningBuilds.length > 1 ? 's' : ''} in progress`, severity: 'warning' });
+  // A running build is not a problem; it is listed under In Progress.
 
   // Trigger build
   const handleTriggerBuild = async (bc: BuildConfig) => {
@@ -220,7 +225,6 @@ export default function BuildsView() {
           <button onClick={() => go('/r/build.openshift.io~v1~builds', 'Builds')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedBuilds.length > 0 ? 'border-red-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Builds</span>
-              {failedBuilds.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{failedBuilds.length}</span>}
             </div>
             <div className="text-xl font-bold text-slate-100">{builds.length}</div>
           </button>
@@ -361,7 +365,7 @@ export default function BuildsView() {
 
         {/* Running Builds */}
         {runningBuilds.length > 0 && (
-          <Panel title={`In Progress (${runningBuilds.length})`} icon={<Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}>
+          <Panel title="In Progress" icon={<Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}>
             <div className="divide-y divide-slate-800">
               {runningBuilds.map((b: Build) => {
                 const { phase, color, icon } = getBuildStatus(b);
@@ -400,7 +404,7 @@ export default function BuildsView() {
 
         {/* Failed Builds */}
         {failedBuilds.length > 0 && (
-          <Panel title={`Failed Builds (${failedBuilds.length})`} icon={<XCircle className="w-4 h-4 text-red-500" />}>
+          <Panel title="Failed Builds" icon={<XCircle className="w-4 h-4 text-red-500" />}>
             <div className="divide-y divide-slate-800">
               {failedBuilds.slice(0, 20).map((b: Build) => {
                 const name = b.metadata?.name || '';

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, lazy, Suspense } from 'react';
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Bot, List, BarChart3, History, Brain,
@@ -50,6 +50,14 @@ export default function PulseAgentView() {
     if (tab === 'overview') next.delete('tab'); else next.set('tab', tab);
     setSearchParams(next, { replace: true });
   };
+
+  // Follow in-page links that change ?tab= (e.g. Analytics → "learned
+  // patterns" opens ?tab=memory) instead of reading the tab only at mount.
+  const urlTab = searchParams.get('tab') as AgentTab | null;
+  useEffect(() => {
+    if (urlTab && TAB_IDS.includes(urlTab)) setActiveTabState(urlTab);
+    else if (!urlTab && searchParams.get('drawer')) setActiveTabState('overview');
+  }, [urlTab, searchParams]);
 
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 

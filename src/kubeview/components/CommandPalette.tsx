@@ -20,7 +20,9 @@ import { usePrefetchOnHover } from '../hooks/usePrefetchOnHover';
 import { useAskPulse } from '../hooks/useAskPulse';
 import { AskPulsePanel } from './AskPulsePanel';
 import { getRecentQueries } from '../engine/askPulseUtils';
-import { ALL_NAV_ITEMS, matchesNavQuery } from '../engine/navRegistry';
+import { ALL_NAV_ITEMS, PALETTE_SHORTCUTS, matchesNavQuery, projectPath } from '../engine/navRegistry';
+import { useQueryClient } from '@tanstack/react-query';
+import { useFleetStore } from '../store/fleetStore';
 
 /** Capitalize first letter of each word: "deployments" → "Deployments", "poddisruptionbudgets" → "Poddisruptionbudgets" */
 function titleCase(s: string): string {
@@ -133,7 +135,11 @@ export function CommandPalette() {
   }, [searchAllClusters, query]);
 
   // Build command items based on mode
-  const items = getCommandItems(mode, query, resourceRegistry, location.pathname, smartPrompts, customViews);
+  // The namespace list the CommandBar already fetched for its picker.
+  const queryClient = useQueryClient();
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
+  const namespaces = queryClient.getQueryData<string[]>(['toolbar', 'namespaces', activeClusterId]) ?? [];
+  const items = getCommandItems(mode, query, resourceRegistry, location.pathname, smartPrompts, customViews, namespaces);
 
   const handleSelect = useCallback((item: CommandItem) => {
     // AI query items: send to dock agent panel
@@ -358,6 +364,7 @@ function getCommandItems(
   _currentPath: string = '/',
   smartPrompts: SmartPromptItem[] = [],
   customViewsList: Array<{ id: string; title: string; description?: string; layout?: any[] }> = [],
+  namespaces: string[] = [],
 ): CommandItem[] {
   const cleanQuery = query.replace(/^[/:?]/, '').toLowerCase();
 
@@ -381,7 +388,7 @@ function getCommandItems(
     }
 
     // Built-in pages — derived from canonical navRegistry
-    const matchingPages: CommandItem[] = ALL_NAV_ITEMS
+    const matchingPages: CommandItem[] = [...ALL_NAV_ITEMS, ...PALETTE_SHORTCUTS]
       .filter((nav) => matchesNavQuery(nav, cleanQuery))
       .map((nav) => ({
         type: 'nav' as const,
@@ -392,6 +399,25 @@ function getCommandItems(
         path: nav.path,
       }));
     items.push(...matchingPages);
+
+    // Project dashboards: one per namespace. Listed only when the query names
+    // them ("project", or part of a namespace name), so browsing isn't flooded.
+    if (cleanQuery) {
+      const wantsProjects = 'projects'.startsWith(cleanQuery) || cleanQuery.startsWith('project');
+      const nsQuery = cleanQuery.replace(/^projects?\s*/, '');
+      const projectItems: CommandItem[] = namespaces
+        .filter((ns) => (wantsProjects && !nsQuery) || (nsQuery && ns.toLowerCase().includes(nsQuery)))
+        .slice(0, 8)
+        .map((ns) => ({
+          type: 'nav' as const,
+          id: `project-${ns}`,
+          title: `Project: ${ns}`,
+          subtitle: 'Project dashboard for this namespace',
+          icon: 'Folder',
+          path: projectPath(ns),
+        }));
+      items.push(...projectItems);
+    }
 
     // Custom dashboards (AI-generated) — dedup by title, keep newest
     const customViews = customViewsList;
