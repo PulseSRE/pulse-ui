@@ -16,6 +16,7 @@ import { HelmReleases } from './HelmReleases';
 import { NamespacePicker, useInitialNamespace, isNamespaceName } from './NamespacePicker';
 import { usePinnedAction } from '../../hooks/usePinnedAction';
 import { LoadError } from '../../components/primitives/LoadError';
+import { errorReason } from '../../engine/readResult';
 
 /** HelmChartRepository CRD — not yet in engine/types, defined locally. */
 interface HelmChartRepository {
@@ -137,7 +138,7 @@ export function HelmTab() {
     queryFn: async () => {
       const res = await k8sFetch(clusterId, '/apis/helm.openshift.io/v1beta1/helmchartrepositories');
       if (res.status === 404) return [] as HelmChartRepository[];
-      if (!res.ok) throw new Error(`Chart repositories could not be listed: ${res.status === 403 ? 'Permission denied (403)' : `request failed (${res.status}${res.statusText ? ` ${res.statusText}` : ''})`}`);
+      if (!res.ok) throw new Error(`Chart repositories could not be listed: ${errorReason({ status: res.status })}`);
       const data = await res.json();
       return (data.items || []) as HelmChartRepository[];
     },
@@ -161,7 +162,7 @@ export function HelmTab() {
   // Fetch charts from all repos
   // Each repo's index that could not be fetched is recorded and shown, not skipped.
   const { data: chartIndex, isLoading: chartsLoading } = useQuery<{ charts: HelmChart[]; failures: Array<{ repo: string; reason: string }> }>({
-    queryKey: ['helm', 'charts', 'index', repos.map(r => r.url).join(',')],
+    queryKey: ['helm', 'charts', 'index', clusterId, repos.map(r => r.url).join(',')],
     queryFn: async () => {
       const allCharts: HelmChart[] = [];
       const failures: Array<{ repo: string; reason: string }> = [];

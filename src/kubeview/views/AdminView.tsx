@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { k8sList, k8sGet } from '../engine/query';
 import { fetchTlsSecrets, parseCertExpiry, certNotAfterFromSecretData, type TlsSecretLike } from '../engine/certExpiry';
 import { safeQuery } from '../engine/safeQuery';
+import { isNotFound } from '../engine/readResult';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import type { K8sResource } from '../engine/renderers';
 import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition, Namespace, MachineConfigPool, Pod } from '../engine/types';
@@ -145,7 +146,7 @@ export default function AdminView() {
     [cvList.data],
   );
   const cvLoading = cvList.isLoading;
-  const cvError = cvList.isError && (cvList.error as { status?: number } | null)?.status !== 404;
+  const cvError = cvList.isError && !isNotFound(cvList.error);
 
   const { data: infra } = useQuery({
     queryKey: ['admin', 'infra', clusterId],
@@ -153,7 +154,7 @@ export default function AdminView() {
     staleTime: 60000,
   });
 
-  const { data: nodes = [], isLoading: nodesLoading, isError: nodesError } = useK8sListWatch<Node>({
+  const { data: nodes = [], isLoading: nodesLoading, isError: nodesError, error: nodesErr } = useK8sListWatch<Node>({
     apiPath: '/api/v1/nodes',
     clusterId,
   });
@@ -224,7 +225,7 @@ export default function AdminView() {
   });
   const limitRanges = limitRangesQuery.data ?? [];
 
-  const { data: oauthConfig, isError: oauthError } = useQuery({
+  const { data: oauthConfig, isError: oauthError, isLoading: oauthLoading } = useQuery({
     queryKey: ['admin', 'oauth', clusterId],
     queryFn: () => safeQuery(() => k8sGet<OAuthConfig>('/apis/config.openshift.io/v1/oauths/cluster', clusterId)),
     staleTime: 120000,
@@ -262,13 +263,13 @@ export default function AdminView() {
 
   // The pre-update PDB check needs both lists; if either cannot be read the
   // check is "Could not check", never "No multi-replica user deployments".
-  const { data: pdbs = [], error: pdbsError } = useQuery<PodDisruptionBudget[]>({
+  const { data: pdbs = [], error: pdbsError, isLoading: pdbsLoading } = useQuery<PodDisruptionBudget[]>({
     queryKey: ['k8s', 'list', '/apis/policy/v1/poddisruptionbudgets', undefined, clusterId],
     queryFn: () => k8sList<PodDisruptionBudget>('/apis/policy/v1/poddisruptionbudgets', undefined, clusterId),
     staleTime: 60000,
   });
 
-  const { data: deployments = [], error: deploymentsError } = useQuery<Deployment[]>({
+  const { data: deployments = [], error: deploymentsError, isLoading: deploymentsLoading } = useQuery<Deployment[]>({
     queryKey: ['k8s', 'list', '/apis/apps/v1/deployments', undefined, clusterId],
     queryFn: () => k8sList<Deployment>('/apis/apps/v1/deployments', undefined, clusterId),
     staleTime: 60000,
@@ -529,6 +530,7 @@ export default function AdminView() {
             etcdOperator={etcdOperator}
             identityProviders={identityProviders}
             identityProvidersError={oauthError}
+            identityProvidersLoading={oauthLoading}
             ingressConfig={ingressConfig}
             ingressConfigError={ingressConfigError}
             certExpiry={certExpiry}
@@ -536,6 +538,7 @@ export default function AdminView() {
             quotas={quotas}
             limitRanges={limitRanges}
             quotasError={quotasQuery.isError || limitRangesQuery.isError}
+            quotasLoading={quotasQuery.isLoading || limitRangesQuery.isLoading}
             latestEvents={latestEvents}
             recentEvents={recentEvents}
             recentEventsError={recentEventsError}
@@ -576,6 +579,11 @@ export default function AdminView() {
             deployments={deployments}
             pdbs={pdbs}
             pdbCheckError={pdbsError ?? deploymentsError ?? undefined}
+            pdbCheckLoading={pdbsLoading || deploymentsLoading}
+            nodesError={nodesError ? (nodesErr ?? new Error('Nodes could not be read')) : undefined}
+            nodesLoading={nodesLoading}
+            operatorsError={opsError ? (operatorsQuery.error ?? new Error('ClusterOperators could not be read')) : undefined}
+            operatorsLoading={opsLoading}
             etcdBackupExists={etcdBackupExists}
             etcdBackupError={etcdBackupError ?? undefined}
             isHyperShift={isHyperShift}

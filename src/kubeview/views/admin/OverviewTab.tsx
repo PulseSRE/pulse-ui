@@ -74,6 +74,7 @@ export interface OverviewTabProps {
   identityProviders: Array<{ name: string; type: string }>;
   /** The OAuth config could not be read: providers are unknown, not "none". */
   identityProvidersError?: boolean;
+  identityProvidersLoading?: boolean;
   ingressConfig: IngressConfig | null | undefined;
   /** The Ingress config could not be read: the default certificate is unknown, not "Self-signed". */
   ingressConfigError?: boolean;
@@ -82,6 +83,7 @@ export interface OverviewTabProps {
   quotas: K8sResource[];
   limitRanges: K8sResource[];
   quotasError?: boolean;
+  quotasLoading?: boolean;
   latestEvents: K8sResource[];
   recentEvents: K8sResource[];
   recentEventsError?: unknown;
@@ -114,8 +116,8 @@ export function OverviewTab({
   clusterAge, nsStats, crds, crdGroupCount,
   availableUpdates, expiringCerts, quotaHotSpots,
   clusterCapacity, apiServerOperator, etcdOperator,
-  identityProviders, identityProvidersError, ingressConfig, ingressConfigError, certExpiry, routerCertError,
-  quotas, limitRanges, quotasError, latestEvents, recentEvents, recentEventsError, onRetryEvents,
+  identityProviders, identityProvidersError, identityProvidersLoading, ingressConfig, ingressConfigError, certExpiry, routerCertError,
+  quotas, limitRanges, quotasError, quotasLoading, latestEvents, recentEvents, recentEventsError, onRetryEvents,
   expiringCertsError, onRetryExpiringCerts,
   setActiveTab, go,
 }: OverviewTabProps) {
@@ -426,6 +428,8 @@ export function OverviewTab({
         <Panel title="Identity Providers" icon={<Shield className="w-4 h-4 text-teal-500" />}>
           {identityProvidersError ? (
             <div className="text-sm text-slate-400 py-2">Identity providers could not be read</div>
+          ) : identityProvidersLoading ? (
+            <div className="text-sm text-slate-500 py-2">{'\u2014'}</div>
           ) : identityProviders.length === 0 ? (
             <div className="text-sm text-slate-500 py-2">No identity providers configured</div>
           ) : (
@@ -478,7 +482,7 @@ export function OverviewTab({
             )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-300">Quotas / Limit Ranges</span>
-              {quotasError ? <CouldNotRead what="Quotas or limit ranges" /> : <span className="text-xs text-slate-400">{quotas.length} quotas, {limitRanges.length} limits</span>}
+              {quotasError ? <CouldNotRead what="Quotas or limit ranges" /> : quotasLoading ? <span className="text-xs text-slate-400">{'\u2014'}</span> : <span className="text-xs text-slate-400">{quotas.length} quotas, {limitRanges.length} limits</span>}
             </div>
           </div>
           <button onClick={() => setActiveTab('config')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">

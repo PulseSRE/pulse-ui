@@ -58,6 +58,14 @@ export interface UpdatesTabProps {
   pdbs: PodDisruptionBudget[];
   /** PodDisruptionBudgets or Deployments could not be read: the PDB check is unknown. */
   pdbCheckError?: unknown;
+  /** PDBs or Deployments are still loading: the PDB check is unknown, not a pass. */
+  pdbCheckLoading?: boolean;
+  /** Nodes could not be read: "All nodes ready" is unknown, not "0/0 ready". */
+  nodesError?: unknown;
+  nodesLoading?: boolean;
+  /** ClusterOperators could not be read: "No degraded operators" is unknown. */
+  operatorsError?: unknown;
+  operatorsLoading?: boolean;
   etcdBackupExists: boolean | undefined;
   /** Backups could not be read (403/500): the backup check is unknown, not "none configured". */
   etcdBackupError?: unknown;
@@ -70,7 +78,8 @@ export interface UpdatesTabProps {
 export function UpdatesTab({
   clusterVersion, cvVersion, cvChannel, platform,
   availableUpdates, isUpdating,
-  operators, nodes, deployments, pdbs, pdbCheckError,
+  operators, nodes, deployments, pdbs, pdbCheckError, pdbCheckLoading,
+  nodesError, nodesLoading, operatorsError, operatorsLoading,
   etcdBackupExists, etcdBackupError, isHyperShift,
   machineConfigPools, pods, go,
 }: UpdatesTabProps) {
@@ -314,11 +323,21 @@ export function UpdatesTab({
                       : { pass: false, detail: 'No automated backup configured \u2014 take a manual backup: ssh to control plane \u2192 /usr/local/bin/cluster-backup.sh /home/core/backup' };
               const pdbCheck: { pass: boolean | null; detail: string } = pdbCheckError
                 ? { pass: null, detail: `Could not check: ${errorReason(pdbCheckError)}` }
-                : { pass: pdbCoverage, detail: userDeploys.length === 0 ? 'No multi-replica user deployments' : `${deploysWithPDB.length}/${userDeploys.length} multi-replica deployments have PDBs` };
+                : pdbCheckLoading
+                  ? { pass: null, detail: 'Checking\u2026' }
+                  : { pass: pdbCoverage, detail: userDeploys.length === 0 ? 'No multi-replica user deployments' : `${deploysWithPDB.length}/${userDeploys.length} multi-replica deployments have PDBs` };
 
               const checks: Array<{ label: string; pass: boolean | null; detail: string }> = [
-                { label: 'All nodes ready', pass: allNodesReady, detail: allNodesReady ? `${nodes.length}/${nodes.length} ready` : `${readyNodes.length}/${nodes.length} ready \u2014 fix unready nodes first` },
-                { label: 'No degraded operators', pass: allOpsHealthy, detail: allOpsHealthy ? `${operators.length} operators healthy` : `${degradedOps.length} degraded: ${degradedOps.slice(0, 3).map((o) => o.metadata.name).join(', ')}` },
+                nodesError
+                  ? { label: 'All nodes ready', pass: null, detail: `Could not check: ${errorReason(nodesError)}` }
+                  : nodesLoading
+                    ? { label: 'All nodes ready', pass: null, detail: 'Checking\u2026' }
+                    : { label: 'All nodes ready', pass: allNodesReady, detail: allNodesReady ? `${nodes.length}/${nodes.length} ready` : `${readyNodes.length}/${nodes.length} ready \u2014 fix unready nodes first` },
+                operatorsError
+                  ? { label: 'No degraded operators', pass: null, detail: `Could not check: ${errorReason(operatorsError)}` }
+                  : operatorsLoading
+                    ? { label: 'No degraded operators', pass: null, detail: 'Checking\u2026' }
+                    : { label: 'No degraded operators', pass: allOpsHealthy, detail: allOpsHealthy ? `${operators.length} operators healthy` : `${degradedOps.length} degraded: ${degradedOps.slice(0, 3).map((o) => o.metadata.name).join(', ')}` },
                 { label: 'Stable update channel', pass: channelStable, detail: channelStable ? `Channel: ${cvChannel}` : `Channel "${cvChannel}" \u2014 consider switching to stable for production` },
                 { label: 'Etcd backup', ...backupCheck },
                 { label: 'PodDisruptionBudgets', ...pdbCheck },

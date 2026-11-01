@@ -8,6 +8,7 @@ import { useUIStore } from '../../store/uiStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { LoadError } from '../../components/primitives/LoadError';
+import { isNotFound } from '../../engine/readResult';
 import type { Deployment, StatefulSet } from '../../engine/types';
 import { useHelmReleases } from './HelmReleases';
 import { Card } from '../../components/primitives/Card';
@@ -39,7 +40,7 @@ export function InstalledTab() {
   });
   const subscriptions = subsQuery.data ?? [];
   // A 404 means OLM's API is not served: nothing is installed through it.
-  const subsError = subsQuery.isError && (subsQuery.error as { status?: number } | null)?.status !== 404 ? subsQuery.error : null;
+  const subsError = subsQuery.isError && !isNotFound(subsQuery.error) ? subsQuery.error : null;
 
   // Helm releases are listed once, with their actions, on the Helm Charts
   // tab; this section only counts them (same query, same cache entry).
@@ -126,7 +127,7 @@ export function InstalledTab() {
         </div>
         {subsError ? (
           <LoadError title="Installed operators could not be listed" error={subsError} onRetry={() => { void subsQuery.refetch(); }} />
-        ) : subsQuery.isLoading ? (
+        ) : subsQuery.isLoading && !subsQuery.isError ? (
           <p className="text-xs text-slate-500 text-center py-4">Loading…</p>
         ) : filteredSubscriptions.length === 0 ? (
           <p className="text-xs text-slate-500 text-center py-4">No operators installed</p>

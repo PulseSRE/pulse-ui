@@ -87,7 +87,36 @@ describe.each([[403, 'Permission denied (403)'], [500, 'Request failed (500)']] 
     const backup = screen.getByTestId('precheck-Etcd backup');
     await waitFor(() => expect(backup.getAttribute('data-status')).toBe('unknown'));
     expect(backup.textContent).toContain(`Could not check: ${reason}`);
-    expect(document.body.textContent).not.toMatch(/No multi-replica user deployments|No automated backup configured|Backup schedule configured/);
+    // Nodes and ClusterOperators failed too: not "0/0 ready" / "0 operators healthy".
+    for (const label of ['All nodes ready', 'No degraded operators']) {
+      const row = screen.getByTestId(`precheck-${label}`);
+      expect(row.getAttribute('data-status'), label).toBe('unknown');
+      expect(row.textContent, label).toContain(`Could not check: ${reason}`);
+    }
+    expect(document.body.textContent).not.toMatch(/No multi-replica user deployments|No automated backup configured|Backup schedule configured|0\/0 ready|operators healthy/);
+    // Only the channel check, read from the ClusterVersion that did load, may pass.
+    const passing = [...document.querySelectorAll('[data-testid^="precheck-"][data-status="pass"]')].map((e) => e.getAttribute('data-testid'));
+    expect(passing).toEqual(['precheck-Stable update channel']);
+  });
+});
+
+describe('Admin › Updates pre-update checklist while reads are in flight', () => {
+  it('shows "Checking…", not a pass, for every check', async () => {
+    mockFetchRoutes({
+      '/apis/config.openshift.io/v1/clusterversions': list([clusterVersion]),
+      '/api/v1/nodes': () => { throw new Error('unused'); },
+    });
+    // Everything but ClusterVersion hangs.
+    const base = globalThis.fetch as unknown as (u: RequestInfo | URL, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal('fetch', vi.fn((u: RequestInfo | URL, i?: RequestInit) => String(u).includes('/clusterversions') ? base(u, i) : new Promise(() => {})));
+    renderWithClient(<AdminView />, { route: '/admin?tab=updates' });
+    const pdb = await screen.findByTestId('precheck-PodDisruptionBudgets');
+    for (const label of ['All nodes ready', 'No degraded operators', 'PodDisruptionBudgets', 'Etcd backup']) {
+      const row = screen.getByTestId(`precheck-${label}`);
+      expect(row.getAttribute('data-status'), label).toBe('unknown');
+      expect(row.textContent, label).toContain('Checking');
+    }
+    expect(pdb.textContent).not.toMatch(/No multi-replica/);
   });
 });
 
@@ -157,6 +186,37 @@ describe.each([403, 500])('Admin › Overview with Ingress, OAuth, events and ce
   });
 });
 
+describe('Admin › Overview while reads are in flight', () => {
+  it('shows "—", not "No identity providers configured" or "0 quotas, 0 limits"', () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    renderWithClient(<AdminView />, { route: '/admin' });
+    expect(screen.queryByText('No identity providers configured')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/0 quotas, 0 limits/);
+    expect(screen.getByText('Quotas / Limit Ranges').parentElement!.textContent).toContain('\u2014');
+  });
+});
+
+describe('Admin › Overview on a cluster without ClusterVersion (404)', () => {
+  it('is not a load failure', async () => {
+    const fetchMock = mockFetchRoutes({
+      '/apis/config.openshift.io/v1/clusterversions': { status: 404, body: { kind: 'Status', code: 404 } },
+      '/api/v1/nodes': list([]),
+      '/apis/config.openshift.io/v1/clusteroperators': list([]),
+    }, 404);
+    renderWithClient(<AdminView />, { route: '/admin' });
+    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/clusterversions'))).toBe(true));
+    // Let the 404 settle into the query before asserting the banner is absent.
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.queryByText('Failed to load cluster data')).toBeNull();
+  });
+
+  it('a 403 on ClusterVersion is a load failure', async () => {
+    mockFetchRoutes({ '/api/v1/nodes': list([]), '/apis/config.openshift.io/v1/clusteroperators': list([]) }, 403);
+    renderWithClient(<AdminView />, { route: '/admin' });
+    await waitFor(() => expect(screen.getByText('Failed to load cluster data')).toBeTruthy());
+  });
+});
+
 describe('Admin › Overview happy path', () => {
   it('a readable Ingress config without a custom certificate is "Self-signed"', async () => {
     mockFetchRoutes({ '/apis/config.openshift.io/v1/ingresses/cluster': { body: { metadata: { name: 'cluster' }, spec: { domain: 'apps.example.com' } } } });
@@ -209,6 +269,17 @@ describe.each([403, 500])('Operator catalog with Subscriptions failing (%i)', (s
   });
 });
 
+describe('Operator catalog while Subscriptions load', () => {
+  it('shows "Installed (—)", not "Installed (0)"', async () => {
+    const base = mockFetchRoutes({ '/apis/packages.operators.coreos.com/v1/packagemanifests': list([pkg('loki-operator')]) }) as unknown as (u: RequestInfo | URL, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal('fetch', vi.fn((u: RequestInfo | URL, i?: RequestInit) => String(u).includes('/subscriptions') ? new Promise(() => {}) : base(u, i)));
+    renderWithClient(<OperatorCatalogView />, { route: '/operators' });
+    await waitFor(() => expect(screen.getByRole('tab', { name: /All \(1\)/ })).toBeTruthy());
+    expect(screen.getByRole('tab', { name: /Installed \(\u2014\)/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Installed \(0\)/ })).toBeNull();
+  });
+});
+
 describe('Operator catalog happy path', () => {
   it('a 404 on Subscriptions (no OLM) is a real zero, with no error', async () => {
     mockFetchRoutes({
@@ -228,6 +299,19 @@ describe.each([403, 500])('Software › Installed with every list failing (%i)',
     expect(screen.getByText('Deployments could not be listed')).toBeTruthy();
     expect(screen.getByText('StatefulSets could not be listed')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/No operators installed|No deployments found|No statefulsets found/);
+  });
+});
+
+describe('Software › Installed without OLM (Subscriptions 404)', () => {
+  it('says "No operators installed", with no error', async () => {
+    mockFetchRoutes({
+      '/apis/operators.coreos.com/v1alpha1/subscriptions': { status: 404, body: { kind: 'Status', code: 404 } },
+      '/apis/apps/v1/deployments': list([]),
+      '/apis/apps/v1/statefulsets': list([]),
+    });
+    renderWithClient(<InstalledTab />, { route: '/software' });
+    await waitFor(() => expect(screen.getByText('No operators installed')).toBeTruthy());
+    expect(screen.queryByText('Installed operators could not be listed')).toBeNull();
   });
 });
 

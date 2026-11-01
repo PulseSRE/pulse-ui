@@ -103,7 +103,7 @@ export default function OperatorCatalogView() {
   // Fetch installed subscriptions
   // A 404 means OLM is not installed (nothing installed through it); a 403 or
   // 500 is an error, shown as such rather than as "Installed (0)".
-  const { data: subscriptions = [], error: subscriptionsErr, refetch: refetchSubscriptions } = useQuery<any[]>({
+  const { data: subscriptions = [], error: subscriptionsErr, isLoading: subscriptionsLoading, refetch: refetchSubscriptions } = useQuery<any[]>({
     queryKey: ['readiness', 'subscriptions', clusterId],
     queryFn: async () => (await safeQuery(() => k8sList('/apis/operators.coreos.com/v1alpha1/subscriptions', undefined, clusterId))) ?? [],
     staleTime: 60000,
@@ -795,7 +795,7 @@ export default function OperatorCatalogView() {
           </div>
           <TabsList aria-label="Catalog filter" className="flex border-0">
             <TabsTrigger value="installed" className="font-normal data-[state=active]:bg-green-600">
-              Installed ({subscriptionsErr ? '\u2014' : installedNames.size})
+              Installed ({subscriptionsErr || subscriptionsLoading ? '\u2014' : installedNames.size})
             </TabsTrigger>
             <TabsTrigger value="all" className="font-normal">
               All ({dedupedPackages.length})
