@@ -44,6 +44,19 @@ const ALL_CATEGORIES: ReadinessCategory[] = [
  * it, so they survive a reload and say why the gate is not counted against
  * the score.
  */
+/** Waivers are stored per cluster: `<clusterId>/<gateId>`. */
+export function waiverKey(clusterId: string, gateId: string): string {
+  return `${clusterId}/${gateId}`;
+}
+
+/** This cluster's waivers, keyed by gate id. */
+export function waiversFor(clusterId: string, all: Record<string, WaiverEntry>): Record<string, WaiverEntry> {
+  const prefix = `${clusterId}/`;
+  return Object.fromEntries(
+    Object.entries(all).filter(([k]) => k.startsWith(prefix)).map(([k, w]) => [k.slice(prefix.length), w]),
+  );
+}
+
 export function applyWaivers(
   results: Record<string, GateResult>,
   waivers: Record<string, WaiverEntry>,
@@ -122,7 +135,9 @@ export default function OnboardingView() {
     isHyperShift,
   }), [isHyperShift]);
 
-  const waivers = useOnboardingStore((s) => s.waivers);
+  // Readiness describes the cluster Pulse is deployed on, so its waivers are filed under that cluster.
+  const allWaivers = useOnboardingStore((s) => s.waivers);
+  const waivers = React.useMemo(() => waiversFor(LOCAL_CLUSTER_ID, allWaivers), [allWaivers]);
   const addWaiver = useOnboardingStore((s) => s.addWaiver);
   // Who is waiving: the signed-in user of the cluster Pulse runs on. No
   // made-up author — if the lookup fails the waiver is recorded without one.
@@ -178,7 +193,7 @@ export default function OnboardingView() {
   }, [report]);
 
   const handleWaive = React.useCallback((gateId: string, reason: string) => {
-    addWaiver(gateId, reason.trim(), currentUser);
+    addWaiver(waiverKey(LOCAL_CLUSTER_ID, gateId), reason.trim(), currentUser);
   }, [addWaiver, currentUser]);
 
   const handleReVerify = React.useCallback((gateId: string) => {

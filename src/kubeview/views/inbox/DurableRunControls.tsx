@@ -8,6 +8,7 @@ import {
   type AwaitingRun,
   type InboxPlan,
 } from '../../engine/durableRunsApi';
+import { useTrustStore } from '../../store/trustStore';
 
 /**
  * Approve or deny a durable run's waiting phase, wherever the question shows up.
@@ -22,6 +23,7 @@ export function ApprovalButtons({
   run: Pick<AwaitingRun, 'workflow_id' | 'phase_id' | 'memo'>;
   onAnswered?: (approved: boolean) => void;
 }) {
+  const observeMode = useTrustStore((s) => s.trustLevel === 0);
   const [busy, setBusy] = useState(false);
   const [answered, setAnswered] = useState<boolean | null>(null);
   const [error, setError] = useState('');
@@ -58,7 +60,8 @@ export function ApprovalButtons({
       <div className="flex gap-1">
         <button
           onClick={() => answer(true)}
-          disabled={busy}
+          disabled={busy || observeMode}
+          title={observeMode ? 'Observe mode — switch trust level to approve' : undefined}
           className="px-2 py-0.5 text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 disabled:opacity-40 text-emerald-300 rounded-sm border border-emerald-800/30 flex items-center gap-1 transition-colors"
         >
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
@@ -73,6 +76,7 @@ export function ApprovalButtons({
           Deny
         </button>
       </div>
+      {observeMode && <span className="text-[10px] text-slate-500">Observe mode — switch trust level to approve</span>}
       {error && <span className="text-[10px] text-amber-300">{error}</span>}
     </div>
   );

@@ -208,7 +208,7 @@ export async function rejectFix(actionId: string, reason: string): Promise<Actio
   );
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(body?.error || `Failed to reject fix: ${res.status} ${res.statusText}`);
+    throw new Error(body?.error || body?.detail || `Failed to reject fix: ${res.status} ${res.statusText}`);
   }
   return body as ActionRecord;
 }

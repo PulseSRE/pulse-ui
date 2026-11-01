@@ -20,6 +20,7 @@ import { TaskDetailDrawer } from '../TaskDetailDrawer';
 import { resetApprovalsStore, useApprovalsStore } from '../../../store/approvalsStore';
 import { useInboxStore } from '../../../store/inboxStore';
 import { useUIStore } from '../../../store/uiStore';
+import { useTrustStore } from '../../../store/trustStore';
 import type { ActionRecord } from '../../../engine/fixHistory';
 import type { InboxItem as InboxItemType } from '../../../engine/inboxApi';
 
@@ -114,6 +115,7 @@ beforeEach(() => {
   resetApprovalsStore();
   useInboxStore.setState({ selectedItemId: null, items: [] });
   useUIStore.setState({ toasts: [] });
+  useTrustStore.setState({ trustLevel: 1 });
 });
 afterEach(() => {
   cleanup();
@@ -149,13 +151,33 @@ describe('rejecting a proposed fix', () => {
     expect(screen.getByText('Answered')).toBeTruthy();
   });
 
-  it("shows the agent's refusal in the dialog when the proposal was already answered", async () => {
-    route(routes(() => ({ status: 409, body: { error: 'Somebody else just answered this proposal' } })));
+  it("keeps the agent's refusal on screen when the proposal was already answered and drops out of the list", async () => {
+    // The real agent: after the 409 the re-read list no longer has the proposal.
+    let lists = 0;
+    route([
+      ['POST /api/agent/fix-history/a-1/reject', () => ({ status: 409, body: { error: 'Somebody else just answered this proposal' } })],
+      ['GET /api/agent/fix-history', () => ({ body: { actions: lists++ === 0 ? [PROPOSAL] : [], total: 0, page: 1, pageSize: 20 } })],
+    ]);
     inRouter(<ProposedFixes />);
     fireEvent.click(await screen.findByRole('button', { name: 'Reject' }));
     fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'no' } });
     fireEvent.click(screen.getByRole('button', { name: 'Reject fix' }));
     expect(await screen.findByText('Somebody else just answered this proposal')).toBeTruthy();
+    await waitFor(() => expect(lists).toBeGreaterThan(1));
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull();
+    expect(screen.getByText('Somebody else just answered this proposal')).toBeTruthy();
+  });
+
+  it('observe mode offers no approval, but still lets a person reject', async () => {
+    useTrustStore.setState({ trustLevel: 0 });
+    const calls = route(routes(() => ({ body: {} })));
+    inRouter(<ProposedFixes />);
+    const approve = await screen.findByRole('button', { name: 'Approve' });
+    expect((approve as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Observe mode — switch trust level to approve')).toBeTruthy();
+    fireEvent.click(approve);
+    expect(sent(calls, 'POST', '/approve')).toHaveLength(0);
+    expect((screen.getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('shows the plan it would run, links the resource and opens the inbox item', async () => {
@@ -197,6 +219,23 @@ describe('the approvals queue', () => {
       approved: true,
     });
     await waitFor(() => expect(screen.queryByText('1 durable run waiting for approval')).toBeNull());
+  });
+
+  it('observe mode cannot approve a durable run', async () => {
+    useTrustStore.setState({ trustLevel: 0 });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const calls = route([
+      ['/workflow-runs/awaiting-approval', () => ({ body: { runs: [run] } })],
+      ['GET /api/agent/fix-history', () => ({ body: { actions: [], total: 0, page: 1, pageSize: 20 } })],
+    ]);
+    inRouter(<ApprovalsQueue />);
+    const row = (await screen.findByText("'remediate' of the crashloop plan on web-0 in shop")).closest('li')!;
+    const approve = within(row).getByRole('button', { name: /Approve/ }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+    fireEvent.click(approve);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(sent(calls, 'POST', '/approve')).toHaveLength(0);
+    expect(within(row).getByText('Observe mode — switch trust level to approve')).toBeTruthy();
   });
 
   it('says nothing is waiting only when the lists loaded and are empty', async () => {
@@ -293,6 +332,18 @@ describe('the item drawer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(sent(calls, 'POST', '/fix-history/a-1/approve')).toHaveLength(1));
     expect(await screen.findByText('Ran restart_deployment')).toBeTruthy();
+  });
+
+  it('observe mode shows no working Approve in the drawer', async () => {
+    useTrustStore.setState({ trustLevel: 0 });
+    const calls = route([['GET /api/agent/inbox/inb-1/plan', () => ({ status: 404, body: {} })]]);
+    useApprovalsStore.setState({ proposals: [PROPOSAL] });
+    inRouter(<TaskDetailDrawer item={item()} onClose={vi.fn()} />);
+    const approve = screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(true);
+    fireEvent.click(approve);
+    expect(sent(calls, 'POST', '/approve')).toHaveLength(0);
+    expect(screen.getByText('Observe mode — switch trust level to approve')).toBeTruthy();
   });
 
   it("shows the agent's refusal when approving is refused", async () => {

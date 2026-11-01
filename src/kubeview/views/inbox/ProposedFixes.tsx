@@ -8,6 +8,10 @@ import { formatElapsed } from '../../engine/dateUtils';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { useApprovalsStore } from '../../store/approvalsStore';
 import { useInboxStore } from '../../store/inboxStore';
+import { useTrustStore } from '../../store/trustStore';
+
+/** Shown in place of Approve in observe mode (trust level 0): nothing is changed from this browser. */
+export const OBSERVE_MODE_APPROVE = 'Observe mode — switch trust level to approve';
 
 /** What happened to a proposal a person just answered, shown in place of it. */
 export interface ProposalOutcome {
@@ -66,8 +70,12 @@ export function RejectFixDialog({
       });
       onClose();
     } catch (e) {
-      // Already answered, or not allowed: the agent's own words.
-      setError(e instanceof Error ? e.message : 'Reject failed');
+      // Already answered, or not allowed: the agent's own words. Reported to
+      // the parent, not kept in this dialog: the list is re-read after a
+      // refusal, the stale proposal drops out, and this row (dialog and all)
+      // unmounts — a message kept here would vanish with it.
+      onRejected({ ok: false, refused: true, message: e instanceof Error ? e.message : 'Reject failed' });
+      onClose();
     } finally {
       setBusy(false);
     }
@@ -179,6 +187,7 @@ export function ProposalActions({
   onOutcome: (outcome: ProposalOutcome) => void;
 }) {
   const approve = useApprovalsStore((s) => s.approve);
+  const observeMode = useTrustStore((s) => s.trustLevel === 0);
   const [busy, setBusy] = useState(false);
   const [rejecting, setRejecting] = useState(false);
 
@@ -202,13 +211,19 @@ export function ProposalActions({
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={doApprove} disabled={busy}>
+        <Button
+          size="sm"
+          onClick={doApprove}
+          disabled={busy || observeMode}
+          title={observeMode ? OBSERVE_MODE_APPROVE : undefined}
+        >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-label="Approving" /> : 'Approve'}
         </Button>
         <Button size="sm" variant="secondary" onClick={() => setRejecting(true)} disabled={busy}>
           Reject
         </Button>
       </div>
+      {observeMode && <span className="text-[11px] text-slate-500">{OBSERVE_MODE_APPROVE}</span>}
       <RejectFixDialog action={action} open={rejecting} onClose={() => setRejecting(false)} onRejected={onOutcome} />
     </div>
   );

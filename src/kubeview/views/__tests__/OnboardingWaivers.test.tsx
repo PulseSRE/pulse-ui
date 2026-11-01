@@ -96,13 +96,14 @@ describe('readiness waivers', () => {
 
     await waitFor(() => expect(screen.getByTestId('score').textContent).toBe('100'));
     expect(screen.getByTestId('gate-2').textContent).toBe('waived: Waived by alice: accepted risk until Q1');
-    const saved = useOnboardingStore.getState().waivers['gate-2'];
+    // Filed under the cluster the readiness checks describe.
+    const saved = useOnboardingStore.getState().waivers['local/gate-2'];
     expect(saved).toMatchObject({ reason: 'accepted risk until Q1', approvedBy: 'alice' });
     expect(localStorage.getItem('openshiftpulse-onboarding')).toContain('accepted risk until Q1');
   });
 
   it('a waiver survives a reload', async () => {
-    useOnboardingStore.setState({ waivers: { 'gate-2': { reason: 'accepted', waivedAt: 1, approvedBy: 'bob' } } });
+    useOnboardingStore.setState({ waivers: { 'local/gate-2': { reason: 'accepted', waivedAt: 1, approvedBy: 'bob' } } });
     renderView();
     await waitFor(() => expect(screen.getByTestId('score').textContent).toBe('100'));
     expect(screen.getByTestId('gate-2').textContent).toContain('Waived by bob: accepted');
@@ -124,7 +125,14 @@ describe('readiness waivers', () => {
     await waitFor(() => expect(screen.getByTestId('score').textContent).toBe('50'));
     fireEvent.click(screen.getByText('waive gate-2'));
     await waitFor(() => expect(screen.getByTestId('gate-2').textContent).toBe('waived: Waived: accepted risk until Q1'));
-    expect(useOnboardingStore.getState().waivers['gate-2'].approvedBy).toBe('');
+    expect(useOnboardingStore.getState().waivers['local/gate-2'].approvedBy).toBe('');
+  });
+
+  it("ignores another cluster's waivers", async () => {
+    useOnboardingStore.setState({ waivers: { 'other-cluster/gate-2': { reason: 'theirs', waivedAt: 1, approvedBy: 'eve' } } });
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('score').textContent).toBe('50'));
+    expect(screen.getByTestId('gate-2').textContent).toContain('failed');
   });
 
   it('Retry re-runs the evaluation instead of reloading the page', async () => {
