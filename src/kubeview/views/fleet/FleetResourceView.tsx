@@ -16,6 +16,7 @@ import { getAllConnections, type ClusterConnection } from '../../engine/clusterC
 import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
 import type { K8sResource } from '../../engine/renderers/index';
+import { FleetSubNav } from './FleetSubNav';
 
 interface FleetResourceViewProps {
   gvrKey: string;
@@ -233,6 +234,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
     <div className="h-full flex flex-col bg-slate-950">
       {/* Header */}
       <div className="border-b border-slate-800 px-6 py-4">
+        <FleetSubNav className="mb-3" />
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">

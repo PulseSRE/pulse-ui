@@ -56,8 +56,10 @@ export function WorkloadListPanel<T extends K8sResource>({
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-800">
             <FilterButtonGroup
               options={[
-                { key: null, label: `All (${items.length})` },
-                ...filters.map((f) => ({ key: f.key, label: `${f.label} (${items.filter(f.test).length})` })),
+                // No counts on the filters: problem counts are the page's
+                // banners, and the panel title has the total.
+                { key: null, label: 'All' },
+                ...filters.map((f) => ({ key: f.key, label: f.label })),
               ]}
               value={filter}
               onChange={onFilterChange}

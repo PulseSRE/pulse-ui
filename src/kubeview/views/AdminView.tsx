@@ -31,6 +31,7 @@ import { loadSnapshots } from '../engine/snapshot';
 import { GitOpsConfig } from '../components/GitOpsConfig';
 import { SectionHeader } from '../components/primitives/SectionHeader';
 import { promFetch, MetricsUnavailableError } from '../components/metrics/prometheus';
+import { isPlatformNamespace } from '../engine/platformNamespaces';
 
 /** OpenShift Infrastructure resource (config.openshift.io/v1) */
 interface Infrastructure extends K8sResource {
@@ -365,10 +366,7 @@ export default function AdminView() {
 
   const nsStats = React.useMemo(() => {
     const all = namespaces;
-    const system = all.filter(ns => {
-      const name = ns.metadata?.name || '';
-      return name.startsWith('openshift-') || name.startsWith('kube-') || name === 'default' || name === 'openshift';
-    });
+    const system = all.filter(ns => isPlatformNamespace(ns.metadata?.name));
     return { total: all.length, user: all.length - system.length, system: system.length };
   }, [namespaces]);
 
@@ -429,14 +427,14 @@ export default function AdminView() {
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; activeIcon: React.ReactNode }> = [
     { id: 'overview', label: 'Overview', icon: <Settings className="w-3.5 h-3.5 text-slate-400" />, activeIcon: <Settings className="w-3.5 h-3.5" /> },
-    { id: 'operators', label: `Operators (${operators.length})${opDegraded > 0 ? ` \u00b7 ${opDegraded} degraded` : ''}`, icon: <Puzzle className="w-3.5 h-3.5 text-purple-400" />, activeIcon: <Puzzle className="w-3.5 h-3.5" /> },
+    { id: 'operators', label: 'Operators', icon: <Puzzle className="w-3.5 h-3.5 text-purple-400" />, activeIcon: <Puzzle className="w-3.5 h-3.5" /> },
     { id: 'config', label: 'Cluster Config', icon: <Database className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Database className="w-3.5 h-3.5" /> },
     { id: 'updates', label: `Updates${availableUpdates.length > 0 ? ` (${availableUpdates.length})` : ''}`, icon: <ArrowUpCircle className="w-3.5 h-3.5 text-green-400" />, activeIcon: <ArrowUpCircle className="w-3.5 h-3.5" /> },
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <GitCompare className="w-3.5 h-3.5" /> },
     { id: 'quotas', label: `Quotas (${quotas.length})`, icon: <Gauge className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <Gauge className="w-3.5 h-3.5" /> },
     { id: 'certificates', label: 'Certificates', icon: <Lock className="w-3.5 h-3.5 text-red-400" />, activeIcon: <Lock className="w-3.5 h-3.5" /> },
     { id: 'csrs', label: 'Certificate requests', icon: <FileKey className="w-3.5 h-3.5 text-amber-400" />, activeIcon: <FileKey className="w-3.5 h-3.5" /> },
-    { id: 'crds', label: `CRDs (${crds.length})`, icon: <Blocks className="w-3.5 h-3.5 text-indigo-400" />, activeIcon: <Blocks className="w-3.5 h-3.5" /> },
+    { id: 'crds', label: 'CRDs', icon: <Blocks className="w-3.5 h-3.5 text-indigo-400" />, activeIcon: <Blocks className="w-3.5 h-3.5" /> },
   ];
 
   return (

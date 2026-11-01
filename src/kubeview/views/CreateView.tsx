@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Package, FileText,
-  AlertCircle, Box, Loader2, Upload, Puzzle, Ship, ShieldCheck, CheckCircle, XCircle,
+  AlertCircle, Box, Upload, Puzzle, Ship, ShieldCheck, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
@@ -77,9 +77,7 @@ interface CreateResult {
   message?: string;
 }
 
-import { lazy, Suspense } from 'react';
 import { renderCreateTemplate } from '../engine/createTemplates';
-const OperatorCatalogView = lazy(() => import('./OperatorCatalogView'));
 
 
 export default function CreateView({ gvrKey }: CreateViewProps) {
@@ -360,10 +358,10 @@ export default function CreateView({ gvrKey }: CreateViewProps) {
           </TabsList>
 
           <TabsContent value="installed"><InstalledTab /></TabsContent>
+          {/* The operator catalog is one page, /operators. The Operators tab and
+              old `?tab=operators&q=…` links land there with their search. */}
           <TabsContent value="operators">
-            <Suspense fallback={<div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-blue-400 animate-spin" /></div>}>
-              <OperatorCatalogView />
-            </Suspense>
+            <Navigate to={`/operators${searchParams.get('q') ? `?q=${encodeURIComponent(searchParams.get('q')!)}` : ''}`} replace />
           </TabsContent>
           <TabsContent value="deploy"><QuickDeployTab /></TabsContent>
           <TabsContent value="helm"><HelmTab /></TabsContent>

@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useVisibilityAwareInterval } from '../hooks/useVisibilityAwareInterval';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Bot, Bell, GitPullRequest } from 'lucide-react';
+import { AlertTriangle, Bot, GitPullRequest } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { DEGRADED_MESSAGES } from '../engine/degradedMode';
 import { useUIStore } from '../store/uiStore';
 import { useFleetStore } from '../store/fleetStore';
-import { useInboxStore } from '../store/inboxStore';
 import { useMonitorStore } from '../store/monitorStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
@@ -33,7 +32,6 @@ export function StatusBar() {
   const activeCluster = useFleetStore((s) => s.clusters.find(c => c.id === s.activeClusterId));
 
   const navigate = useNavigate();
-  const findingsCount = useInboxStore((s) => s.stats?.needs_attention ?? 0);
   const pendingReviewCount = useMonitorStore((s) => s.pendingActions.length);
 
   const [relativeTime, setRelativeTime] = useState(formatRelativeTime(lastSyncTime));
@@ -57,11 +55,10 @@ export function StatusBar() {
       }
       if (parts.length >= 4) return `${parts[parts.length - 1]}`;
     }
-    if (path.startsWith('/create/')) return 'Software';
+    if (path.startsWith('/create/')) return 'Create';
     if (path.startsWith('/yaml/')) return 'YAML Editor';
     if (path.startsWith('/logs/')) return 'Logs';
     if (path.startsWith('/metrics/')) return 'Metrics';
-    if (path.startsWith('/deps/')) return 'Dependencies';
     return '';
   })();
 
@@ -101,16 +98,7 @@ export function StatusBar() {
 
       {/* Right */}
       <div className="flex items-center gap-3">
-        {findingsCount > 0 && (
-          <button
-            onClick={() => navigate('/inbox')}
-            className="flex items-center gap-1 text-red-400 px-1.5 py-0.5 rounded-sm hover:bg-red-500/10 transition-colors"
-            title={`${findingsCount} active finding${findingsCount !== 1 ? 's' : ''}`}
-          >
-            <Bell className="h-3 w-3" />
-            <span>{findingsCount}</span>
-          </button>
-        )}
+        {/* The inbox count lives in one place: the CommandBar bell. */}
         {pendingReviewCount > 0 && (
           <button
             onClick={() => navigate('/inbox?preset=needs_attention')}

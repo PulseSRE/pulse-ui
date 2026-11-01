@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 import { safeQuery, agentFetch } from '../../engine/safeQuery';
 import {
   fetchIntelligenceSections,
-  fetchPromptStats,
   fetchFixHistorySummary,
   fetchScannerCoverage,
   fetchConfidenceCalibration,
@@ -24,9 +23,8 @@ import { PromptAuditSection } from './PromptAuditSection';
 import { AgentHealth } from '../mission-control/AgentHealth';
 import { AgentAccuracy } from '../mission-control/AgentAccuracy';
 import { CapabilityDiscovery } from '../mission-control/CapabilityDiscovery';
-import { ScannerDrawer } from '../mission-control/ScannerDrawer';
 import { EvalDrawer } from '../mission-control/EvalDrawer';
-import { MemoryDrawer } from '../mission-control/MemoryDrawer';
+import { useNavigate } from 'react-router-dom';
 import { OutcomesDrawer } from '../mission-control/OutcomesDrawer';
 
 export function AnalyticsTab() {
@@ -36,14 +34,13 @@ export function AnalyticsTab() {
     staleTime: 60_000,
   });
 
-  const { data: promptAnalytics } = useQuery({
-    queryKey: ['analytics', 'prompt'],
-    queryFn: () => safeQuery(() => fetchPromptStats()),
-    staleTime: 60_000,
-  });
-
   // Agent health data
-  const [drawerOpen, setDrawerOpen] = useState<'scanner' | 'eval' | 'memory' | 'outcomes' | null>(null);
+  // Scanners and memory each have one home on /agent: the Overview scanner
+  // drawer and the Memory tab. These used to open second copies here.
+  const navigate = useNavigate();
+  const openScanners = () => navigate('/agent?drawer=scanners');
+  const openMemory = () => navigate('/agent?tab=memory');
+  const [drawerOpen, setDrawerOpen] = useState<'eval' | 'outcomes' | null>(null);
   const evalQ = useQuery({ queryKey: ['agent', 'eval-status'], queryFn: fetchAgentEvalStatus, refetchInterval: 60_000 });
   const fixQ = useQuery({ queryKey: ['agent', 'fix-history-summary'], queryFn: () => fetchFixHistorySummary(), staleTime: 60_000 });
   const coverageQ = useQuery({ queryKey: ['agent', 'scanner-coverage'], queryFn: () => fetchScannerCoverage(), staleTime: 60_000 });
@@ -68,7 +65,7 @@ export function AnalyticsTab() {
       {/* Skill Routing → Skills tab, Tool Usage → Tools tab, Unused Tools → Tools tab */}
 
       {/* Prompt & Token Efficiency */}
-      {(promptAnalytics?.stats || intelligence?.token_trending || intelligence?.query_reliability) && (
+      {(intelligence?.token_trending || intelligence?.query_reliability) && (
         <div className="border-t border-slate-800 pt-6">
           <h2 className="text-sm font-semibold text-slate-200 mb-1 flex items-center gap-2">
             <FileText className="w-4 h-4 text-green-400" />
@@ -78,28 +75,7 @@ export function AnalyticsTab() {
         </div>
       )}
 
-      {/* Prompt Analytics */}
-      {promptAnalytics?.stats && (
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-xs font-medium text-slate-300 mb-3">Prompt Size & Cache</h3>
-          <div className="text-sm text-slate-200">
-            Avg tokens: {promptAnalytics.stats.avg_tokens.toLocaleString()} &middot; Cache hit rate: {(promptAnalytics.stats.cache_hit_rate * 100).toFixed(0)}%
-          </div>
-          {Object.keys(promptAnalytics.stats.section_avg).length > 0 && (
-            <div className="mt-2 space-y-1">
-              {Object.entries(promptAnalytics.stats.section_avg).map(([section, avg]) => (
-                <div key={section} className="flex items-center gap-2 text-xs">
-                  <span className="w-24 text-slate-500 truncate">{section}</span>
-                  <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500/60 rounded-full" style={{ width: `${Math.min((avg as number) / 100, 100)}%` }} />
-                  </div>
-                  <span className="w-12 text-right text-slate-500">{(avg as number).toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Avg prompt tokens and cache hit rate: Prompt Audit, below. */}
 
       {/* Token Trending */}
       {intelligence?.token_trending && (intelligence.token_trending.input_delta_pct !== 0 || intelligence.token_trending.output_delta_pct !== 0 || intelligence.token_trending.cache_delta_pct !== 0) && (
@@ -155,9 +131,9 @@ export function AnalyticsTab() {
           confidence={confidenceQ.data ?? null}
           costStats={costQ.data ?? null}
           readiness={readinessQ.data ?? null}
-          onOpenScannerDrawer={() => setDrawerOpen('scanner')}
+          onOpenScannerDrawer={openScanners}
           onOpenEvalDrawer={() => setDrawerOpen('eval')}
-          onOpenMemoryDrawer={() => setDrawerOpen('memory')}
+          onOpenMemoryDrawer={openMemory}
           onOpenOutcomesDrawer={() => setDrawerOpen('outcomes')}
           memoryPatternCount={accuracyQ.data?.learning?.total_patterns ?? 0}
         />
@@ -166,7 +142,7 @@ export function AnalyticsTab() {
       {/* Agent Accuracy */}
       <AgentAccuracy
         accuracy={accuracyQ.data ?? null}
-        onOpenMemoryDrawer={() => setDrawerOpen('memory')}
+        onOpenMemoryDrawer={openMemory}
       />
 
       {/* Capability Discovery */}
@@ -174,9 +150,7 @@ export function AnalyticsTab() {
         <CapabilityDiscovery recommendations={recsQ.data.recommendations} />
       )}
 
-      {drawerOpen === 'scanner' && <ScannerDrawer coverage={coverageQ.data ?? null} onClose={() => setDrawerOpen(null)} />}
       {drawerOpen === 'eval' && <EvalDrawer evalStatus={evalQ.data} onClose={() => setDrawerOpen(null)} />}
-      {drawerOpen === 'memory' && <MemoryDrawer onClose={() => setDrawerOpen(null)} />}
       {drawerOpen === 'outcomes' && <OutcomesDrawer onClose={() => setDrawerOpen(null)} />}
     </div>
   );
@@ -219,7 +193,8 @@ function KpiSection() {
         Operational KPIs (7 days)
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-        {Object.entries(kpis).map(([key, kpi]) => {
+        {/* Fix success is on Agent Health › Fix outcomes; not repeated here. */}
+        {Object.entries(kpis).filter(([key]) => key !== 'auto_fix_success').map(([key, kpi]) => {
           const info = KPI_INFO[key];
           const noData = kpi.status === 'info' && (kpi.value === 0 || kpi.value === '0');
           const val = noData ? '\u2014' :
@@ -278,9 +253,9 @@ function CostSection({ costStats }: { costStats: CostStats | null }) {
           <div className="text-lg font-bold text-slate-100">${cost.total_usd.toFixed(2)}</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
-          <div className="text-[10px] text-slate-500 mb-1">Per Session</div>
+          <div className="text-[10px] text-slate-500 mb-1">Per conversation</div>
           <div className="text-lg font-bold text-slate-100">${cost.avg_per_incident_usd.toFixed(3)}</div>
-          <div className="text-[9px] text-slate-600">{total_incidents} sessions</div>
+          <div className="text-[9px] text-slate-600">{total_incidents} conversations</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
           <div className="text-[10px] text-slate-500 mb-1">Cache Savings</div>
@@ -302,7 +277,7 @@ function CostSection({ costStats }: { costStats: CostStats | null }) {
               <div key={m.mode} className="flex items-center justify-between text-xs">
                 <span className="text-slate-300 capitalize">{m.mode}</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-slate-500">{m.count} sessions</span>
+                  <span className="text-slate-500">{m.count} conversations</span>
                   <span className="text-slate-200 font-medium">${(m.cost_usd ?? 0).toFixed(2)}</span>
                 </div>
               </div>

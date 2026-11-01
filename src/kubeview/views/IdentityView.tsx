@@ -29,6 +29,7 @@ import { useActiveClusterId } from '../hooks/useClusterBase';
 import { k8sFetch } from '../engine/query';
 import { getActiveClusterId } from '../engine/clusterConnection';
 import { assertActiveCluster } from '../engine/pendingCluster';
+import { isPlatformNamespace } from '../engine/platformNamespaces';
 import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from '../engine/clusterAdmins';
 import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
 import { CreateGroupButton, GroupMemberControls, type GroupLike } from './identity/GroupActions';
@@ -151,8 +152,7 @@ export default function IdentityView() {
     return sa.metadata.name.toLowerCase().includes(q) || sa.metadata.namespace?.toLowerCase().includes(q);
   });
   const appSAs = filteredSAs.filter((sa: K8sResourceExt) => {
-    const ns = sa.metadata.namespace || '';
-    return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift' && sa.metadata.name !== 'default';
+    return !isPlatformNamespace(sa.metadata.namespace) && sa.metadata.name !== 'default';
   });
 
   // Cluster-admin subjects
@@ -200,22 +200,10 @@ export default function IdentityView() {
           </div>
         </div>
 
-        {/* Impersonation banner */}
-        {impersonateUser && (
-          <div className="flex items-center justify-between px-4 py-3 bg-amber-900/30 border border-amber-800 rounded-lg">
-            <div className="flex items-center gap-2">
-              <UserCheck className="w-5 h-5 text-amber-400" />
-              <span className="text-sm text-amber-200">Currently impersonating <span className="font-mono font-bold">{impersonateUser}</span></span>
-            </div>
-            <button onClick={() => { clearImpersonation(); addToast({ type: 'success', title: 'Impersonation cleared' }); }}
-              className="px-3 py-1.5 text-xs bg-amber-800 hover:bg-amber-700 text-amber-200 rounded-sm transition-colors">
-              Stop Impersonating
-            </button>
-          </div>
-        )}
+        {/* Impersonation is announced once, by the global banner in the Shell. */}
 
         {/* Summary header with counts */}
-        <MetricGrid className="md:grid-cols-5">
+        <MetricGrid className="md:grid-cols-4">
           <button onClick={() => setActiveTab('users')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'users' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">Users</div>
             <div className="text-xl font-bold text-slate-100">{users.length}</div>
@@ -228,13 +216,10 @@ export default function IdentityView() {
             <div className="text-xs text-slate-400 mb-1">Service Accounts</div>
             <div className="text-xl font-bold text-slate-100">{serviceAccounts.length}</div>
           </button>
+          {/* Roles and bindings are counted on the RBAC tab. */}
           <button onClick={() => setActiveTab('rbac')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'rbac' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
-            <div className="text-xs text-slate-400 mb-1">Cluster Roles</div>
-            <div className="text-xl font-bold text-slate-100">{clusterRoles.length}</div>
-          </button>
-          <button onClick={() => setActiveTab('rbac')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'rbac' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
-            <div className="text-xs text-slate-400 mb-1">Role Bindings</div>
-            <div className="text-xl font-bold text-slate-100">{clusterRoleBindings.length + roleBindings.length}</div>
+            <div className="text-xs text-slate-400 mb-1">RBAC</div>
+            <div className="text-sm font-medium text-slate-300 mt-2">Roles &amp; bindings →</div>
           </button>
         </MetricGrid>
 
@@ -470,7 +455,7 @@ export default function IdentityView() {
         {activeTab === 'rbac' && (
           <>
             {/* Stat cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button onClick={() => go('/r/rbac.authorization.k8s.io~v1~clusterroles', 'ClusterRoles')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
                 <div className="text-xs text-slate-400 mb-1">Cluster Roles</div>
                 <div className="text-xl font-bold text-slate-100">{clusterRoles.length}</div>
@@ -486,10 +471,6 @@ export default function IdentityView() {
               <button onClick={() => go('/r/rbac.authorization.k8s.io~v1~rolebindings', 'RoleBindings')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
                 <div className="text-xs text-slate-400 mb-1">Role Bindings</div>
                 <div className="text-xl font-bold text-slate-100">{roleBindings.length}</div>
-              </button>
-              <button onClick={() => go('/r/v1~serviceaccounts', 'ServiceAccounts')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
-                <div className="text-xs text-slate-400 mb-1">Service Accounts</div>
-                <div className="text-xl font-bold text-slate-100">{serviceAccounts.length}</div>
               </button>
             </div>
 
@@ -551,21 +532,6 @@ export default function IdentityView() {
                 )}
               </Panel>
 
-              <Panel title="Service Accounts by Namespace" icon={<Key className="w-4 h-4 text-violet-500" />}>
-                <div className="space-y-2">
-                  {saByNamespace.map(([ns, count]) => (
-                    <div key={ns} className="flex items-center justify-between py-1 px-2">
-                      <span className="text-sm text-slate-300">{ns}</span>
-                      <div className="flex items-center gap-3">
-                        <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-violet-500 rounded-full" style={{ width: `${(count / serviceAccounts.length) * 100}%` }} />
-                        </div>
-                        <span className="text-xs text-slate-400 font-mono w-6 text-right">{count}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
             </div>
           </>
         )}
@@ -901,8 +867,7 @@ oc adm policy add-cluster-role-to-user edit <user>`,
     const saClusterAdmins = clusterAdminBindings.flatMap((crb) =>
       (crb.subjects || []).filter((s) => {
         if (s.kind !== 'ServiceAccount') return false;
-        const ns = s.namespace || '';
-        return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift';
+        return !isPlatformNamespace(s.namespace);
       }).map((s) => ({
         metadata: { name: `${s.namespace}/${s.name}`, uid: `${crb.metadata.name}-${s.namespace}-${s.name}` },
       }))
@@ -1100,7 +1065,7 @@ function RBACHealthAudit({
   serviceAccounts: ServiceAccount[]; namespaces: Namespace[];
   users: K8sResource[]; go: (path: string, title: string) => void;
 }) {
-  const isSystemNS = (ns: string) => ns.startsWith('openshift-') || ns.startsWith('kube-') || ns === 'openshift' || ns === 'default';
+  const isSystemNS = (ns: string) => isPlatformNamespace(ns);
   const isSystemRole = (roleName: string) =>
     roleName.startsWith('system:') || roleName.startsWith('openshift:') || roleName.includes(':kube-');
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Bot, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -18,7 +18,18 @@ import { ScannerDrawer } from '../mission-control/ScannerDrawer';
 import { LoadError } from '../../components/primitives/LoadError';
 
 export function OverviewTab() {
-  const [scannerDrawerOpen, setScannerDrawerOpen] = useState(false);
+  // `?drawer=scanners` opens the scanner drawer (Analytics links here rather
+  // than keeping its own copy).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [scannerDrawerOpen, setScannerDrawerOpenState] = useState(searchParams.get('drawer') === 'scanners');
+  const setScannerDrawerOpen = (open: boolean) => {
+    setScannerDrawerOpenState(open);
+    if (!open && searchParams.get('drawer')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('drawer');
+      setSearchParams(next, { replace: true });
+    }
+  };
 
   const healthQ = useQuery({ queryKey: ['agent', 'health'], queryFn: fetchAgentHealth, refetchInterval: 30_000 });
   const fixQ = useQuery({ queryKey: ['agent', 'fix-history-summary'], queryFn: () => fetchFixHistorySummary(), staleTime: 60_000 });
@@ -142,6 +153,9 @@ const EVENT_COLORS: Record<string, string> = {
   investigation: 'text-slate-400',
 };
 
+/** How many recent agent events the Overview summarises; the full list is Inbox › Activity. */
+const ACTIVITY_PREVIEW = 3;
+
 function ActivitySection({ events, isLoading }: { events: ActivityEvent[]; isLoading: boolean }) {
   if (isLoading) {
     return (
@@ -162,7 +176,7 @@ function ActivitySection({ events, isLoading }: { events: ActivityEvent[]; isLoa
         <p className="text-sm text-slate-500">No activity yet. The agent is monitoring but hasn&apos;t needed to intervene.</p>
       ) : (
         <ul className="space-y-1.5">
-          {events.map((evt, i) => {
+          {events.slice(0, ACTIVITY_PREVIEW).map((evt, i) => {
             const target = classifyAgentLink(evt.link);
             const color = EVENT_COLORS[evt.type] ?? 'text-slate-300';
             return (
@@ -183,6 +197,9 @@ function ActivitySection({ events, isLoading }: { events: ActivityEvent[]; isLoa
           })}
         </ul>
       )}
+      <Link to="/inbox?tab=activity" className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+        {events.length > ACTIVITY_PREVIEW ? `All ${events.length} agent actions` : 'All agent activity'} in the Inbox <ChevronRight className="w-3 h-3" />
+      </Link>
     </div>
   );
 }

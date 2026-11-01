@@ -88,10 +88,11 @@ describe('ComplianceView', () => {
     expect(screen.getAllByText('RBAC Baseline Comparison').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows the Configuration Drift Detection section', () => {
+  it('links configuration drift to Compare & Drift instead of repeating it', () => {
     twoClusterSetup();
     renderView();
-    expect(screen.getAllByText('Configuration Drift Detection').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('Configuration Drift Detection')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Open Compare & Drift/ }).length).toBeGreaterThanOrEqual(1);
   });
 
   it('handles single-cluster gracefully', () => {

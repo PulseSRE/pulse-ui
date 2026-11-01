@@ -90,17 +90,14 @@ export default function CRDsView() {
     return `/r/${gvr}`;
   }
 
+  // Rendered inside Administration › CRDs, which supplies the page header.
   return (
-    <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Puzzle className="w-6 h-6 text-purple-500" /> Custom Resource Definitions
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Browse CRDs and their instances across all API groups
-          </p>
+    <div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-400">Browse CRDs and their instances across all API groups</p>
+          <button onClick={() => go('/r/apiextensions.k8s.io~v1~customresourcedefinitions', 'CustomResourceDefinitions')}
+            className="text-xs text-blue-400 hover:text-blue-300">Open as table →</button>
         </div>
 
         {/* Stats */}

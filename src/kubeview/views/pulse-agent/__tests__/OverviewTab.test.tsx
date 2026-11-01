@@ -115,6 +115,24 @@ describe('OverviewTab links', () => {
   });
 });
 
+describe('OverviewTab recent activity is a summary', () => {
+  afterEach(() => { cleanup(); });
+
+  it('shows the latest three and links to Inbox › Activity for the rest', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchAgentActivity).mockResolvedValueOnce({
+      period_days: 7,
+      events: ['a', 'b', 'c', 'd', 'e'].map((x) => ({ type: 'auto_fix', description: `Fix ${x}`, link: '/inbox?tab=activity', count: 1 })),
+    } as never);
+    await renderTab();
+    expect(await screen.findByText('Fix a')).toBeDefined();
+    expect(screen.getByText('Fix c')).toBeDefined();
+    expect(screen.queryByText('Fix d')).toBeNull();
+    const all = screen.getByText(/All 5 agent actions in the Inbox/).closest('a')!;
+    expect(all.getAttribute('href')).toBe('/inbox?tab=activity');
+  });
+});
+
 describe('OverviewTab honest status', () => {
   afterEach(() => { cleanup(); });
 

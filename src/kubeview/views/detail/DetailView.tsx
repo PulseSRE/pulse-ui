@@ -1,4 +1,5 @@
 import { useFleetStore } from '../../store/fleetStore';
+import { isTopologyKind, topologyFocusPath } from '../../engine/topologyLinks';
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -428,7 +429,9 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           onDebug={handleDebug}
           onViewYaml={handleViewYaml}
           onViewMetrics={handleViewMetrics}
-          onViewDeps={() => go(`/deps/${gvrUrl}/${namespace}/${name}`, `${name} (Deps)`)}
+          onViewDeps={() => (isTopologyKind(resource.kind)
+            ? go(topologyFocusPath(resource.kind, namespace, name), 'Topology')
+            : addToast({ type: 'warning', title: `The dependency graph does not track ${resource.kind}`, detail: 'Topology covers workloads, pods, services, routes, ingresses, volumes, config and RBAC service accounts.' }))}
           onViewNodeLogs={resource.kind === 'Node' ? () => go(`/node-logs/${name}`, `${name} (Logs)`) : undefined}
           onOpenProject={() => go(`/project/${encodeURIComponent(name)}`, `Project ${name}`)}
           onDeleteRequest={() => setShowDeleteConfirm(true)}

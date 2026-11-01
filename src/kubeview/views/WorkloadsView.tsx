@@ -1,3 +1,4 @@
+import { inUserNamespaces } from '../engine/platformNamespaces';
 import React, { lazy, Suspense } from 'react';
 import {
   Package, Box, Clock, AlertCircle, XCircle,
@@ -6,7 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { K8sResource } from '../engine/renderers';
-import type { Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob, ReplicaSet } from '../engine/types';
+import type { Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob } from '../engine/types';
 import type { Condition, Container, ContainerStatus, LabelSelector, ObjectMeta } from '../engine/types';
 import { getDeploymentStatus, getPodStatus } from '../engine/renderers/statusUtils';
 import { useUIStore } from '../store/uiStore';
@@ -83,7 +84,6 @@ export default function WorkloadsView() {
   const { data: pods = [], isLoading: podsLoading } = useK8sListWatch<Pod>({ apiPath: '/api/v1/pods', namespace: nsFilter });
   const { data: jobs = [] } = useK8sListWatch<Job>({ apiPath: '/apis/batch/v1/jobs', namespace: nsFilter });
   const { data: cronjobs = [] } = useK8sListWatch<CronJob>({ apiPath: '/apis/batch/v1/cronjobs', namespace: nsFilter });
-  const { data: replicasets = [] } = useK8sListWatch<ReplicaSet>({ apiPath: '/apis/apps/v1/replicasets', namespace: nsFilter });
   const { data: pdbs = [] } = useK8sListWatch<PodDisruptionBudget>({ apiPath: '/apis/policy/v1/poddisruptionbudgets', namespace: nsFilter });
 
   // Pod status breakdown
@@ -139,11 +139,6 @@ export default function WorkloadsView() {
       return rb - ra;
     }),
   [pods]);
-
-  // Old ReplicaSets (desired=0 but still present)
-  const oldReplicaSets = React.useMemo(() =>
-    replicasets.filter(rs => (rs.spec?.replicas ?? 0) === 0 && (rs.status?.replicas ?? 0) === 0),
-  [replicasets]);
 
   const sortedDeploys = React.useMemo(() =>
     [...deployments].sort((a, b) => {
@@ -240,14 +235,14 @@ export default function WorkloadsView() {
           <button onClick={() => go('/r/apps~v1~deployments', 'Deployments')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthyDeploys.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Deployments</span>
-              {unhealthyDeploys.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{unhealthyDeploys.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+              {unhealthyDeploys.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{deployments.length}</div>
           </button>
           <button onClick={() => go('/r/apps~v1~statefulsets', 'StatefulSets')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthySS.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">StatefulSets</span>
-              {unhealthySS.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{unhealthySS.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+              {unhealthySS.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{statefulsets.length}</div>
           </button>
@@ -258,14 +253,13 @@ export default function WorkloadsView() {
           <button onClick={() => go('/r/v1~pods', 'Pods')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', crashingPods.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Pods</span>
-              {crashingPods.length > 0 ? <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{crashingPods.length}</span> : <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+              {crashingPods.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{pods.length}</div>
           </button>
           <button onClick={() => go('/r/batch~v1~jobs', 'Jobs')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedJobs.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Jobs</span>
-              {failedJobs.length > 0 && <span className="text-xs px-1.5 py-0.5 bg-red-900 text-red-300 rounded-sm">{failedJobs.length}</span>}
             </div>
             <div className="text-xl font-bold text-slate-100">{jobs.length}</div>
           </button>
@@ -322,15 +316,6 @@ export default function WorkloadsView() {
             thresholds={{ warning: 1, critical: 5 }}
           />
           <MetricCard
-            title="CrashLoopBackOff"
-            query={nsFilter
-              ? `count(kube_pod_container_status_waiting_reason{namespace="${safeNs}",reason="CrashLoopBackOff"}) or vector(0)`
-              : 'count(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}) or vector(0)'}
-            unit=""
-            color={CHART_COLORS.red}
-            thresholds={{ warning: 1, critical: 3 }}
-          />
-          <MetricCard
             title="Pending Pods"
             query={nsFilter
               ? `count(kube_pod_status_phase{namespace="${safeNs}",phase="Pending"}) or vector(0)`
@@ -347,6 +332,7 @@ export default function WorkloadsView() {
         {/* Pod Status Breakdown */}
         <Panel title="Pod Status" icon={<Box className="w-4 h-4 text-blue-400" />}>
           <div className="space-y-2">
+            {/* A distribution: rows add up to the pod total. */}
             {Object.entries(podStats).filter(([, count]) => count > 0).map(([status, count]) => {
               const maxCount = Math.max(...Object.values(podStats).filter(v => v > 0), 1);
               const pct = (count / maxCount) * 100;
@@ -370,31 +356,6 @@ export default function WorkloadsView() {
         </Panel>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Unhealthy Deployments */}
-          {unhealthyDeploys.length > 0 && (
-            <Panel title={`Unhealthy Deployments (${unhealthyDeploys.length})`} icon={<XCircle className="w-4 h-4 text-red-500" />}>
-              <div className="space-y-1">
-                {unhealthyDeploys.slice(0, 10).map((d) => {
-                  const s = getDeploymentStatus(d);
-                  return (
-                    <button key={d.metadata.uid} onClick={() => go(`/r/apps~v1~deployments/${d.metadata.namespace}/${d.metadata.name}`, d.metadata.name)}
-                      className="w-full flex items-center justify-between p-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                        <span className="text-sm text-slate-200 truncate">{d.metadata.name}</span>
-                        <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{d.metadata.namespace}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-red-400">{s.ready}/{s.desired}</span>
-                        <ArrowRight className="w-3 h-3 text-slate-600" />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </Panel>
-          )}
-
           {/* High Restart Pods */}
           {highRestartPods.length > 0 && (
             <Panel title={`High Restart Pods (${highRestartPods.length})`} icon={<RefreshCw className="w-4 h-4 text-amber-500" />}>
@@ -576,11 +537,8 @@ function WorkloadHealthAudit({ deployments, pdbs, go }: { deployments: Deploymen
   const checks: AuditCheck[] = React.useMemo(() => {
     const allChecks: AuditCheck[] = [];
 
-    // Exclude platform-managed deployments (openshift-*, kube-*) — they're CVO-managed
-    const userDeployments = deployments.filter((d) => {
-      const ns = d.metadata?.namespace || '';
-      return !ns.startsWith('openshift-') && !ns.startsWith('kube-') && ns !== 'openshift';
-    });
+    // Exclude platform-managed deployments — one rule for every audit.
+    const userDeployments = inUserNamespaces(deployments);
 
     // 1. Resource requests/limits
     const noLimits = userDeployments.filter(d => {

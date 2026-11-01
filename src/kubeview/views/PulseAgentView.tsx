@@ -75,7 +75,8 @@ export default function PulseAgentView() {
   // `?tab=` wins. Without it, reopen the tab last used in this session.
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
-    if (searchParams.has('tab')) return;
+    // A `?drawer=` link (e.g. an Overview card) means Overview, not the last tab.
+    if (searchParams.has('tab') || searchParams.has('drawer')) return;
     const last = readLastTab();
     if (last && last !== 'overview') {
       setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('tab', last); return next; }, { replace: true });

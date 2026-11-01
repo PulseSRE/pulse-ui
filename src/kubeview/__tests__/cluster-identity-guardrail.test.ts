@@ -219,7 +219,7 @@ describe('cluster identity guardrail', () => {
 
   it('scans all of src/ outside the engine, including src/lib', () => {
     const scanned = files.map(rel);
-    expect(scanned).toContain('lib/dependencyGraph.ts');
+    expect(scanned).toContain('lib/utils.ts');
     expect(scanned).toContain('kubeview/views/YamlEditorView.tsx');
     expect(scanned.some(f => f.startsWith(EXEMPT_DIR))).toBe(false);
   });

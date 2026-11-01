@@ -14,6 +14,19 @@ import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../engin
 import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
 import { CHART_COLORS } from '../engine/colors';
+import { CorrelationGroupRow } from './incidents/shared/CorrelationGroupRow';
+import { useAgentStore } from '../store/agentStore';
+
+/** Ask the agent about a correlated incident (moved here from Inbox › Activity). */
+function investigateGroup(group: CorrelationGroup) {
+  const label = (group.key || '').split('/').slice(0, 2).join(' ');
+  const ns = (group.key || '').split('/')[2];
+  const eventSummary = group.entries.slice(0, 8).map((e) => e.title).join(', ');
+  const query = `Investigate ${label}${ns && ns !== '_' ? ` in namespace ${ns}` : ''}. Recent events: ${eventSummary}. What is the root cause and how should I fix it?`;
+  useAgentStore.getState().sendMessage(query);
+  useUIStore.getState().expandAISidebar();
+  useUIStore.getState().setAISidebarMode('chat');
+}
 
 const TIME_RANGES: TimeRange[] = ['15m', '1h', '6h', '24h', '3d', '7d'];
 
@@ -179,12 +192,13 @@ export default function TimelineView() {
             </div>
             <div className="divide-y divide-slate-800">
               {correlationGroups.slice(0, 10).map((group) => (
-                <CorrelationRow
+                <CorrelationGroupRow
                   key={group.key}
                   group={group}
                   expanded={selectedCorrelation === group.key}
                   onToggle={() => setSelectedCorrelation(selectedCorrelation === group.key ? null : group.key)}
                   onEntryClick={handleEntryClick}
+                  onInvestigate={() => investigateGroup(group)}
                 />
               ))}
             </div>
@@ -359,78 +373,6 @@ function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: 
     </div>
   );
 }
-
-function CorrelationRow({ group, expanded, onToggle, onEntryClick }: {
-  group: CorrelationGroup;
-  expanded: boolean;
-  onToggle: () => void;
-  onEntryClick: (entry: TimelineEntry) => void;
-}) {
-  const categoryCounts = new Map<TimelineCategory, number>();
-  for (const e of group.entries || []) {
-    categoryCounts.set(e.category, (categoryCounts.get(e.category) || 0) + 1);
-  }
-  const label = (group.key || '').split('/').slice(0, 2).join(' / ');
-  const ns = (group.key || '').split('/')[2];
-
-  const severityColor = {
-    critical: 'text-red-400',
-    warning: 'text-amber-400',
-    info: 'text-blue-400',
-    normal: 'text-slate-400',
-  }[group.severity];
-
-  return (
-    <div>
-      <button onClick={onToggle} className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-slate-800/30 transition-colors">
-        <div className="flex items-center gap-3">
-          {expanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-          <span className={cn('w-2 h-2 rounded-full', group.severity === 'critical' ? 'bg-red-500' : group.severity === 'warning' ? 'bg-amber-500' : 'bg-blue-500')} />
-          <span className={cn('text-sm font-medium', severityColor)}>{label}</span>
-          {ns && ns !== '_' && <span className="text-xs text-slate-600">{ns}</span>}
-        </div>
-        <div className="flex items-center gap-2">
-          {Array.from(categoryCounts.entries()).map(([cat, count]) => {
-            const cfg = CATEGORY_CONFIG[cat];
-            const CatIcon = cfg.icon;
-            return (
-              <span key={cat} className="flex items-center gap-1 text-xs text-slate-500">
-                <CatIcon className={cn('w-3 h-3', cfg.color)} />
-                {count}
-              </span>
-            );
-          })}
-          <span className="text-xs text-slate-600">{group.entries.length} entries</span>
-        </div>
-      </button>
-      {expanded && (
-        <div className="px-4 pb-3 space-y-2 ml-7">
-          {group.entries.map((entry) => (
-            <div
-              key={entry.id}
-              className={cn('flex items-center gap-3 p-2 rounded-sm text-sm', entry.resource && 'cursor-pointer hover:bg-slate-800/50')}
-              onClick={() => entry.resource && onEntryClick(entry)}
-            >
-              <span className="text-xs text-slate-600 w-16 shrink-0">
-                {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', {
-                'bg-red-500': entry.severity === 'critical',
-                'bg-amber-500': entry.severity === 'warning',
-                'bg-blue-500': entry.severity === 'info',
-                'bg-slate-500': entry.severity === 'normal',
-              })} />
-              <span className="text-slate-300 truncate">{entry.title}</span>
-              <span className="text-xs text-slate-600 shrink-0">{CATEGORY_CONFIG[entry.category].label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Helpers ──
 
 function getDateKey(date: Date): string {
   const now = new Date();

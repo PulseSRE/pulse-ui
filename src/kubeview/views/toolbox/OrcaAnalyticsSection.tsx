@@ -28,12 +28,6 @@ export function OrcaAnalyticsSection() {
     staleTime: 60_000,
   });
 
-  const { data: fixSummary } = useQuery({
-    queryKey: ['analytics', 'fix-summary'],
-    queryFn: () => safeQuery(() => fetchFixHistorySummary(30)),
-    staleTime: 60_000,
-  });
-
   const { data: strategies } = useQuery({
     queryKey: ['analytics', 'fix-strategies'],
     queryFn: async () => (await safeQuery(() => fetchFixStrategies(30))) ?? { strategies: [], days: 30 },
@@ -46,7 +40,7 @@ export function OrcaAnalyticsSection() {
     staleTime: 60_000,
   });
 
-  const hasData = topology || (templates && templates.length > 0) || (postmortemCount && postmortemCount > 0) || fixSummary;
+  const hasData = topology || (templates && templates.length > 0) || (postmortemCount && postmortemCount > 0);
   if (!hasData) return null;
 
   return (
@@ -56,7 +50,7 @@ export function OrcaAnalyticsSection() {
         Agent Intelligence
       </h2>
       <p className="text-[11px] text-slate-500 -mt-2">
-        Multi-signal skill selection, investigation plans, fix outcomes, and dependency analysis.
+        Multi-signal skill selection, investigation plans, fix strategies, and dependency analysis.
       </p>
 
       {/* Summary cards */}
@@ -115,49 +109,7 @@ export function OrcaAnalyticsSection() {
         </div>
       )}
 
-      {/* Fix Outcomes */}
-      {fixSummary && fixSummary.total_actions > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-xs font-medium text-slate-300 mb-1">Fix Outcomes</h3>
-          <p className="text-[11px] text-slate-500 mb-3">How well automated fixes resolve issues (last 30 days).</p>
-          <div className={cn('grid gap-4 text-center text-xs', (fixSummary.verification.recurred ?? 0) > 0 ? 'grid-cols-5' : 'grid-cols-4')}>
-            <div>
-              <div className="text-slate-400">Success Rate</div>
-              <div className="text-lg font-bold text-emerald-400">{(fixSummary.success_rate * 100).toFixed(0)}%</div>
-            </div>
-            <div>
-              <div className="text-slate-400">Verified Fixed</div>
-              <div className="text-lg font-bold text-emerald-400">{fixSummary.verification.resolved}</div>
-            </div>
-            <div>
-              <div className="text-slate-400">Still Failing</div>
-              <div className="text-lg font-bold text-red-400">{fixSummary.verification.still_failing}</div>
-            </div>
-            {(fixSummary.verification.recurred ?? 0) > 0 && (
-              <div title="Fixes that verified healthy, then the same condition returned within the recurrence window.">
-                <div className="text-slate-400">Recurred</div>
-                <div className="text-lg font-bold text-amber-400">{fixSummary.verification.recurred}</div>
-              </div>
-            )}
-            <div>
-              <div className="text-slate-400">Rollback Rate</div>
-              <div className="text-lg font-bold text-amber-400">{(fixSummary.rollback_rate * 100).toFixed(0)}%</div>
-            </div>
-          </div>
-          {fixSummary.by_category.length > 0 && (
-            <div className="mt-3 space-y-1">
-              {fixSummary.by_category.slice(0, 5).map((c) => (
-                <div key={c.category} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-300">{actionCategoryLabel(c.category)}</span>
-                  <span className="text-slate-400">
-                    {c.success_count}/{c.count} fixed
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Fix outcomes: one card, Agent Health › Fix outcomes (last 7 days). */}
 
       {/* Dependency Graph breakdown */}
       {topology && Object.keys(topology.kinds).length > 0 && (

@@ -66,7 +66,8 @@ export default function ArgoCDView() {
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
 
   const outOfSyncCount = (applications || []).filter(a => a.status?.sync?.status === 'OutOfSync').length;
-  const degradedCount = (applications || []).filter(a => a.status?.health?.status === 'Degraded').length;
+  // Missing (resources not in the cluster) is as unhealthy as Degraded.
+  const degradedCount = (applications || []).filter(a => a.status?.health?.status === 'Degraded' || a.status?.health?.status === 'Missing').length;
 
   const appPath = (name: string, ns: string) => `/apis/argoproj.io/v1alpha1/namespaces/${ns}/applications/${name}`;
 
@@ -171,9 +172,10 @@ export default function ArgoCDView() {
   }
 
   const tabs: Array<{ id: Tab; label: string }> = [
-    { id: 'applications', label: `Applications (${applications.length})` },
+    // Counts live in the stat cards above (which open these tabs), not here too.
+    { id: 'applications', label: 'Applications' },
     { id: 'history', label: 'Sync History' },
-    { id: 'drift', label: `Drift${outOfSyncCount > 0 ? ` (${outOfSyncCount})` : ''}` },
+    { id: 'drift', label: 'Drift' },
     { id: 'projects', label: 'Projects' },
     ...(rolloutsAvailable ? [{ id: 'rollouts' as Tab, label: 'Rollouts' }] : []),
   ];
@@ -217,10 +219,18 @@ export default function ArgoCDView() {
 
         {/* Summary */}
         <MetricGrid>
-          <StatCard label="Applications" value={applicationsError ? '—' : applications.length} />
-          <StatCard label="Synced" value={applicationsError ? '—' : applications.filter(a => a.status?.sync?.status === 'Synced').length} variant={applicationsError ? 'default' : 'success'} />
-          <StatCard label="Out of Sync" value={applicationsError ? '—' : outOfSyncCount} variant={outOfSyncCount > 0 ? 'warning' : 'default'} highlight={outOfSyncCount > 0} />
-          <StatCard label="Degraded" value={applicationsError ? '—' : degradedCount} variant={degradedCount > 0 ? 'error' : 'default'} highlight={degradedCount > 0} />
+          <button type="button" className="text-left" onClick={() => setActiveTab('applications')} aria-label="Show applications">
+            <StatCard label="Applications" value={applicationsError ? '—' : applications.length} />
+          </button>
+          <button type="button" className="text-left" onClick={() => setActiveTab('applications')} aria-label="Show synced applications">
+            <StatCard label="Synced" value={applicationsError ? '—' : applications.filter(a => a.status?.sync?.status === 'Synced').length} variant={applicationsError ? 'default' : 'success'} />
+          </button>
+          <button type="button" className="text-left" onClick={() => setActiveTab('drift')} aria-label="Show drift">
+            <StatCard label="Out of Sync" value={applicationsError ? '—' : outOfSyncCount} variant={outOfSyncCount > 0 ? 'warning' : 'default'} highlight={outOfSyncCount > 0} />
+          </button>
+          <button type="button" className="text-left" onClick={() => setActiveTab('applications')} aria-label="Show degraded applications">
+            <StatCard label="Degraded / Missing" value={applicationsError ? '—' : degradedCount} variant={degradedCount > 0 ? 'error' : 'default'} highlight={degradedCount > 0} />
+          </button>
         </MetricGrid>
 
         {/* Tabs */}

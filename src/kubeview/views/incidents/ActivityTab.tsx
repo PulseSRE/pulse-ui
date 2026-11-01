@@ -1,14 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
+/**
+ * Inbox › Activity — what the agent did: fixes (with rollback),
+ * investigations, postmortems and what it learned.
+ *
+ * The cluster event timeline (events, alerts, rollouts, config changes,
+ * correlated by resource) is /timeline; this tab used to be a second copy of
+ * it built on the same hook. It now links there instead.
+ */
 import {
-  Search, Info, Bell, Activity, RefreshCw, Settings, Bot,
-  Sparkles, Clock,
+  Search, Info, Bot, Sparkles, Clock, ArrowRight,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
-import { LoadError } from '../../components/primitives/LoadError';
-import { useIncidentTimeline, type TimeRange } from '../../hooks/useIncidentTimeline';
 import { useUIStore } from '../../store/uiStore';
 import { useMonitorStore } from '../../store/monitorStore';
 import { useAgentStore } from '../../store/agentStore';
@@ -22,25 +26,11 @@ import { actionCategoryLabel } from '../../engine/fixHistory';
 import { agentFetch } from '../../engine/safeQuery';
 import { requestRollback, type ActionRecord } from '../../engine/fixHistory';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
-import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../../engine/types/timeline';
-import { CorrelationGroupRow } from './shared/CorrelationGroupRow';
+import type { TimelineEntry, TimelineCategory } from '../../engine/types/timeline';
 import { HistoryEntryCard } from './shared/HistoryEntryCard';
 import { InvestigationCard } from './shared/InvestigationCard';
 import { PostmortemCard, type Postmortem } from './shared/PostmortemCard';
 import { IncidentLifecycleDrawer } from './IncidentLifecycleDrawer';
-
-const TIME_RANGES: TimeRange[] = ['15m', '1h', '6h', '24h', '3d', '7d'];
-
-type ViewMode = 'by-resource' | 'by-date';
-type ActivityCategory = 'events' | 'alerts' | 'agent' | 'rollouts' | 'config';
-
-const ACTIVITY_CATEGORIES: { id: ActivityCategory; label: string; icon: React.ElementType }[] = [
-  { id: 'events', label: 'Events', icon: Activity },
-  { id: 'alerts', label: 'Alerts', icon: Bell },
-  { id: 'agent', label: 'Agent', icon: Bot },
-  { id: 'rollouts', label: 'Rollouts', icon: RefreshCw },
-  { id: 'config', label: 'Config', icon: Settings },
-];
 
 async function fetchPostmortems(): Promise<{ postmortems: Postmortem[]; total: number }> {
   const res = await agentFetch('/api/agent/postmortems');
@@ -53,40 +43,13 @@ export function ActivityTab() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
-  const [viewMode, setViewMode] = useState<ViewMode>('by-date');
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategories, setActiveCategories] = useState<Set<ActivityCategory>>(
-    () => new Set(['events', 'alerts', 'agent', 'rollouts', 'config']),
-  );
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [lifecycleFindingId, setLifecycleFindingId] = useState<string | null>(null);
   const [rollbackTarget, setRollbackTarget] = useState<ActionRecord | null>(null);
   const [rollbackBusy, setRollbackBusy] = useState(false);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
 
-  const toggleCategory = (cat: ActivityCategory) => {
-    setActiveCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return next;
-    });
-  };
-
-  // Map activity categories to timeline categories
-  const timelineCategories = useMemo(() => {
-    const cats = new Set<TimelineCategory>();
-    if (activeCategories.has('events')) cats.add('event');
-    if (activeCategories.has('alerts')) cats.add('alert');
-    if (activeCategories.has('rollouts')) cats.add('rollout');
-    if (activeCategories.has('config')) cats.add('config');
-    return cats;
-  }, [activeCategories]);
-
-  const timeline = useIncidentTimeline({ timeRange, namespace: nsFilter, categories: timelineCategories });
   const investigations = useMonitorStore((s) => s.investigations);
-  const _recentActions = useMonitorStore((s) => s.recentActions);
   const fixHistory = useMonitorStore((s) => s.fixHistory);
   const loadFixHistory = useMonitorStore((s) => s.loadFixHistory);
   const findings = useMonitorStore((s) => s.findings);
@@ -103,10 +66,8 @@ export function ActivityTab() {
     queryKey: ['learning-feed', 7],
     queryFn: () => fetchLearningFeed(7),
     refetchInterval: 60_000,
-    enabled: activeCategories.has('agent'),
   });
 
-  const showAgent = activeCategories.has('agent');
   const postmortems = postmortemData?.postmortems ?? [];
   const learningEvents = learningData?.events ?? [];
 
@@ -122,11 +83,11 @@ export function ActivityTab() {
     [findings, investigations, nsFilter],
   );
 
-  // Merge timeline entries with fix history for "by date" mode
+  // The agent's actions, newest first.
   const mergedEntries = useMemo(() => {
-    let all = [...(timeline.entries || [])];
+    let all: TimelineEntry[] = [];
 
-    if (showAgent) {
+    {
       for (const action of fixHistory) {
         // A chat_action row is a write the operator approved in chat — labeling
         // it a plain "Fix" would make a human decision read as an autonomous one.
@@ -163,7 +124,7 @@ export function ActivityTab() {
     }
 
     return all;
-  }, [timeline.entries, fixHistory, searchQuery, showAgent]);
+  }, [fixHistory, searchQuery]);
 
   // Completed fixes the agent can undo — keyed by action id, which is also the
   // timeline entry id the merge above assigns them.
@@ -210,16 +171,6 @@ export function ActivityTab() {
     return groups;
   }, [mergedEntries]);
 
-  // Correlation groups for "by resource" mode
-  const filteredGroups = useMemo(() => {
-    const groups = timeline.correlationGroups || [];
-    if (!searchQuery) return groups;
-    const q = searchQuery.toLowerCase();
-    return groups.filter(
-      (g) => g.key.toLowerCase().includes(q) || g.entries.some((e) => e.title.toLowerCase().includes(q)),
-    );
-  }, [timeline.correlationGroups, searchQuery]);
-
   const handleEntryClick = (entry: TimelineEntry) => {
     if (entry.resource) {
       const path = resourceDetailUrl({
@@ -231,16 +182,6 @@ export function ActivityTab() {
     }
   };
 
-  const handleInvestigate = (group: CorrelationGroup) => {
-    const label = (group.key || '').split('/').slice(0, 2).join(' ');
-    const ns = (group.key || '').split('/')[2];
-    const eventSummary = group.entries.slice(0, 8).map((e) => e.title).join(', ');
-    const query = `Investigate ${label}${ns && ns !== '_' ? ` in namespace ${ns}` : ''}. Recent events: ${eventSummary}. What is the root cause and how should I fix it?`;
-    useAgentStore.getState().sendMessage(query);
-    useUIStore.getState().expandAISidebar();
-    useUIStore.getState().setAISidebarMode('chat');
-  };
-
   const handlePostmortemInvestigate = (query: string) => {
     useAgentStore.getState().sendMessage(query);
     useUIStore.getState().expandAISidebar();
@@ -249,77 +190,29 @@ export function ActivityTab() {
 
   return (
     <div className="space-y-6">
-      {/* Controls */}
+      {/* The event timeline is one page: /timeline. */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* View mode toggle */}
-        <div className="flex gap-1 p-1 bg-slate-900 rounded-lg border border-slate-800" role="radiogroup" aria-label="View mode">
-          <button
-            role="radio"
-            aria-checked={viewMode === 'by-date'}
-            onClick={() => setViewMode('by-date')}
-            className={cn('px-3 py-1.5 text-xs rounded-sm transition-colors', viewMode === 'by-date' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
-          >
-            By Date
-          </button>
-          <button
-            role="radio"
-            aria-checked={viewMode === 'by-resource'}
-            onClick={() => setViewMode('by-resource')}
-            className={cn('px-3 py-1.5 text-xs rounded-sm transition-colors', viewMode === 'by-resource' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
-          >
-            By Resource
-          </button>
-        </div>
-
-        {/* Time range */}
-        <Card className="flex gap-1 p-1">
-          {TIME_RANGES.map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={cn('px-3 py-1.5 text-xs rounded-sm transition-colors', timeRange === range ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200')}
-            >
-              {range}
-            </button>
-          ))}
-        </Card>
-
-        {/* Category filters */}
-        <Card className="flex gap-1 p-1">
-          {ACTIVITY_CATEGORIES.map(({ id, label, icon: Icon }) => {
-            const active = activeCategories.has(id);
-            return (
-              <button
-                key={id}
-                onClick={() => toggleCategory(id)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors',
-                  active ? 'bg-slate-700 text-slate-200' : 'text-slate-500 hover:text-slate-400',
-                )}
-              >
-                <Icon className={cn('w-3.5 h-3.5', active ? 'text-violet-400' : 'text-slate-600')} />
-                {label}
-              </button>
-            );
-          })}
-        </Card>
-
-        {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search activity..."
-            aria-label="Search activity"
+            placeholder="Search agent actions..."
+            aria-label="Search agent actions"
             className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
           />
         </div>
+        <button
+          onClick={() => go('/timeline', 'Timeline')}
+          className="ml-auto inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+        >
+          Cluster events, alerts, rollouts and config changes are on Timeline <ArrowRight className="w-3 h-3" />
+        </button>
       </div>
 
       {/* Agent section: investigations + postmortems + learning */}
-      {showAgent && (filteredInvestigations.length > 0 || postmortems.length > 0 || learningEvents.length > 0) && (
+      {(filteredInvestigations.length > 0 || postmortems.length > 0 || learningEvents.length > 0) && (
         <div className="space-y-4">
           {/* Investigations */}
           {filteredInvestigations.length > 0 && (
@@ -383,86 +276,40 @@ export function ActivityTab() {
         </div>
       )}
 
-      {/* Main content: by resource or by date */}
-      {viewMode === 'by-resource' ? (
-        <>
-          <div className="flex items-center gap-4 text-xs text-slate-500">
-            <span>{filteredGroups.length} correlated incidents</span>
-            <span>-</span>
-            <span>{timeline.entries?.length || 0} total entries</span>
-          </div>
+      {/* Agent actions by date */}
+      <div className="flex items-center gap-4 text-xs text-slate-500">
+        <span>{mergedEntries.length} agent action{mergedEntries.length !== 1 ? 's' : ''}</span>
+      </div>
 
-          {timeline.isLoading ? (
-            <div className="flex items-center justify-center h-48">
-              <span className="text-slate-500 text-sm">Loading correlation data...</span>
-            </div>
-          ) : filteredGroups.length === 0 ? (
-            <EmptyState
-              icon={<Info className="w-8 h-8" />}
-              title="No correlated incidents"
-              description="No correlation patterns detected in this time window."
-            />
-          ) : (
-            <Card>
-              <div className="divide-y divide-slate-800">
-                {filteredGroups.map((group) => (
-                  <CorrelationGroupRow
-                    key={group.key}
-                    group={group}
-                    expanded={expandedGroup === group.key}
-                    onToggle={() => setExpandedGroup(expandedGroup === group.key ? null : group.key)}
-                    onEntryClick={handleEntryClick}
-                    onInvestigate={() => handleInvestigate(group)}
-                  />
-                ))}
-              </div>
-            </Card>
-          )}
-        </>
+      {mergedEntries.length === 0 ? (
+        <EmptyState
+          icon={<Info className="w-8 h-8" />}
+          title="No agent actions"
+          description={searchQuery ? 'No agent actions match your search.' : 'Fixes the agent applies, or you approve in chat, appear here.'}
+        />
       ) : (
-        <>
-          <div className="flex items-center gap-4 text-xs text-slate-500">
-            <span>{mergedEntries.length} entries</span>
-          </div>
-
-          {timeline.failedSources.length > 0 && !timeline.isLoading && (
-            <LoadError title={`Could not read ${timeline.failedSources.join(', ')} — this history is incomplete`} />
-          )}
-          {timeline.isLoading ? (
-            <div className="flex items-center justify-center h-48">
-              <span className="text-slate-500 text-sm">Loading history...</span>
+        <div className="space-y-6">
+          {Object.entries(groupedEntries).map(([dateKey, dateEntries]) => (
+            <div key={dateKey}>
+              <div className="sticky top-0 z-10 bg-slate-950 py-2 mb-3">
+                <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wide">{dateKey}</h2>
+              </div>
+              <div className="relative pl-6 border-l-2 border-slate-800 space-y-3">
+                {dateEntries.map((entry) => {
+                  const rollbackable = rollbackableById.get(entry.id);
+                  return (
+                    <HistoryEntryCard
+                      key={entry.id}
+                      entry={entry}
+                      onClick={() => handleEntryClick(entry)}
+                      onRollback={rollbackable ? () => { setRollbackError(null); setRollbackTarget(rollbackable); } : undefined}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          ) : mergedEntries.length === 0 ? (
-            <EmptyState
-              icon={<Info className="w-8 h-8" />}
-              title="No activity"
-              description="Adjust the time range or enable more categories to see activity."
-            />
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(groupedEntries).map(([dateKey, dateEntries]) => (
-                <div key={dateKey}>
-                  <div className="sticky top-0 z-10 bg-slate-950 py-2 mb-3">
-                    <h2 className="text-sm font-semibold text-slate-100 uppercase tracking-wide">{dateKey}</h2>
-                  </div>
-                  <div className="relative pl-6 border-l-2 border-slate-800 space-y-3">
-                    {dateEntries.map((entry) => {
-                      const rollbackable = rollbackableById.get(entry.id);
-                      return (
-                        <HistoryEntryCard
-                          key={entry.id}
-                          entry={entry}
-                          onClick={() => handleEntryClick(entry)}
-                          onRollback={rollbackable ? () => { setRollbackError(null); setRollbackTarget(rollbackable); } : undefined}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
       {lifecycleFindingId && (

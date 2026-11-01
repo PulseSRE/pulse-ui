@@ -6,10 +6,11 @@ test.describe('View Content', () => {
     await expect(page.locator('text=Cluster Pulse').first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test('Pulse page compute pill navigates to compute', async ({ page }) => {
+  test('Pulse page node readiness navigates to compute', async ({ page }) => {
     await page.goto('/pulse');
     await expect(page.locator('text=Cluster Pulse').first()).toBeVisible({ timeout: 15_000 });
-    await page.locator('text=nodes').first().click();
+    // Node readiness is shown once: the report's Nodes tile (or the Zen summary).
+    await page.getByTestId('pulse-nodes-link').first().click();
     await page.waitForURL(/compute/, { timeout: 10_000 });
   });
 

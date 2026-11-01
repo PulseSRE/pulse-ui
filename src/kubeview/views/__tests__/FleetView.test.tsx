@@ -46,17 +46,41 @@ describe('FleetView navigation links', () => {
     ['Resources', '/fleet/r/apps~v1~deployments'],
     ['Workloads', '/fleet/workloads'],
     ['Alerts', '/fleet/alerts'],
-    ['Compare', '/fleet/compare'],
+    ['Compare & Drift', '/fleet/compare'],
     ['Compliance', '/fleet/compliance'],
-    ['Drift', '/fleet/drift'],
-  ])('%s opens %s', (label, path) => {
+  ])('the fleet tab bar: %s opens %s', (label, path) => {
     mockFleetState.fleetMode = 'multi';
     mockFleetState.clusters = [{ id: 'c1', name: 'prod', status: 'connected', connectionType: 'acm', metadata: { nodeCount: 3 } }];
-    render(<MemoryRouter><FleetView /></MemoryRouter>);
-    const button = screen.getAllByRole('button').find((b) => b.textContent?.trim() === label)!;
-    fireEvent.click(button);
+    render(<MemoryRouter initialEntries={['/fleet']}><FleetView /></MemoryRouter>);
+    const nav = screen.getByRole('navigation', { name: 'Fleet pages' });
+    expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('Overview');
+    fireEvent.click(screen.getByRole('button', { name: label }));
     expect(goMock).toHaveBeenCalledWith(path, expect.any(String));
     expect(isKnownRoute(path)).toBe(true);
+  });
+
+  it('there is no separate "Drift" page any more', () => {
+    mockFleetState.fleetMode = 'multi';
+    mockFleetState.clusters = [{ id: 'c1', name: 'prod', status: 'connected', connectionType: 'acm', metadata: { nodeCount: 3 } }];
+    render(<MemoryRouter initialEntries={['/fleet']}><FleetView /></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: 'Drift' })).toBeNull();
+  });
+});
+
+describe('FleetView summary', () => {
+  afterEach(cleanup);
+
+  it('states reachability once, against every cluster', () => {
+    mockFleetState.fleetMode = 'multi';
+    mockFleetState.clusters = [
+      { id: 'local', name: 'local', status: 'unreachable', connectionType: 'local', metadata: {} },
+      { id: 'c1', name: 'prod', status: 'connected', connectionType: 'acm', metadata: { nodeCount: 3 } },
+      { id: 'c2', name: 'stage', status: 'connected', connectionType: 'acm', metadata: { nodeCount: 2 } },
+    ];
+    render(<MemoryRouter initialEntries={['/fleet']}><FleetView /></MemoryRouter>);
+    // The unreachable count includes `local` too, so the two numbers add up.
+    expect(screen.getByTestId('fleet-reachability').textContent).toBe('2 of 3 clusters reachable· 1 unreachable');
+    expect(screen.queryByText(/healthy/)).toBeNull();
   });
 });
 

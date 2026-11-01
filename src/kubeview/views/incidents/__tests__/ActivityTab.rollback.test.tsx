@@ -8,7 +8,8 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => vi.fn() };
 });
 vi.mock('@/lib/utils', () => ({ cn: (...args: any[]) => args.filter(Boolean).join(' ') }));
-vi.mock('../../../hooks/useNavigateTab', () => ({ useNavigateTab: () => vi.fn() }));
+const goMock = vi.fn();
+vi.mock('../../../hooks/useNavigateTab', () => ({ useNavigateTab: () => goMock }));
 vi.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: undefined }) }));
 vi.mock('../../../engine/analyticsApi', () => ({ fetchLearningFeed: vi.fn() }));
 vi.mock('../../../engine/safeQuery', () => ({ agentFetch: vi.fn() }));
@@ -158,5 +159,24 @@ describe('ActivityTab rollback', () => {
     // Dialog stays open so the operator can read the refusal
     expect(screen.getByText('Roll back this fix?')).toBeDefined();
     expect(_uiState.addToast).not.toHaveBeenCalled();
+  });
+});
+
+describe('ActivityTab is agent activity only', () => {
+  afterEach(() => cleanup());
+
+  it('does not rebuild the event timeline; it links to /timeline', () => {
+    _monitorState.fixHistory = [makeAction()];
+    render(<ActivityTab />);
+    expect(screen.queryByRole('radiogroup', { name: 'View mode' })).toBeNull();
+    expect(screen.getByText('1 agent action')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: /are on Timeline/ }));
+    expect(goMock).toHaveBeenCalledWith('/timeline', 'Timeline');
+  });
+
+  it('says so when the agent has taken no action', () => {
+    _monitorState.fixHistory = [];
+    render(<ActivityTab />);
+    expect(screen.getByText('No agent actions')).toBeDefined();
   });
 });

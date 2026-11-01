@@ -1,3 +1,4 @@
+import { isPlatformNamespace } from '../engine/platformNamespaces';
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -9,7 +10,6 @@ import { LoadError } from '../components/primitives/LoadError';
 import { useKubeadminSecret } from '../hooks/useKubeadminSecret';
 import { errorReason } from '../engine/readResult';
 import { cn } from '@/lib/utils';
-import { StatCard } from '../components/primitives/StatCard';
 import { k8sGet, k8sList } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
 import { useNavigateTab } from '../hooks/useNavigateTab';
@@ -68,15 +68,6 @@ export default function SecurityView() {
   });
   const { data: networkPolicies = [], isError: netpolError, isLoading: netpolLoading } = useK8sListWatch({ apiPath: '/apis/networking.k8s.io/v1/networkpolicies' });
   const { data: namespaces = [], isError: nsError, isLoading: nsLoading } = useK8sListWatch({ apiPath: '/api/v1/namespaces' });
-  // A 403 on secrets is "unknown", not 0 certificates.
-  const { data: secrets = [], isError: secretsError, isLoading: secretsLoading } = useQuery<K8sResource[]>({
-    queryKey: ['security', 'secrets-summary', clusterId],
-    queryFn: async () => {
-      const s = await k8sList<K8sResource>('/api/v1/secrets', undefined, clusterId);
-      return s;
-    },
-    staleTime: 120000,
-  });
   const { data: externalSecrets = [], isError: externalSecretsError, isLoading: externalSecretsLoading } = useQuery<K8sResource[]>({
     queryKey: ['security', 'externalsecrets', clusterId],
     queryFn: async () => {
@@ -122,8 +113,8 @@ export default function SecurityView() {
 
   const userNamespaces = useMemo(() =>
     namespaces.filter((ns) => {
-      const name = ns.metadata?.name || '';
-      return !name.startsWith('openshift-') && !name.startsWith('kube-') && name !== 'default' && name !== 'openshift';
+      // One platform rule for every audit (engine/platformNamespaces).
+      return !isPlatformNamespace(ns.metadata?.name);
     }),
   [namespaces]);
 
@@ -136,8 +127,6 @@ export default function SecurityView() {
     userNamespaces.filter((ns) => !nsWithNetPol.has(ns.metadata?.name)),
   [userNamespaces, nsWithNetPol]);
 
-  const tlsSecretCount = secrets.filter((s: any) => s.type === 'kubernetes.io/tls').length;
-  const opaqueSecretCount = secrets.filter((s: any) => s.type === 'Opaque').length;
 
   // Audit checks
   const checks: SecurityAuditCheck[] = useMemo(() => {
@@ -332,7 +321,7 @@ export default function SecurityView() {
         )}
 
         {/* Score + Summary */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div className={cn('bg-slate-900 rounded-lg border p-4 flex flex-col items-center justify-center',
             auditScore === 100 ? 'border-green-800/50' : auditScore >= 75 ? 'border-yellow-800/50' : 'border-red-800/50')}>
             <div className={cn('text-4xl font-bold', auditScore === 100 ? 'text-green-400' : auditScore >= 75 ? 'text-yellow-400' : 'text-red-400')}>
@@ -344,12 +333,8 @@ export default function SecurityView() {
             {criticalFails.length > 0 && <div className="text-xs text-red-400 mt-2">{criticalFails.length} critical</div>}
             {warningFails.length > 0 && <div className="text-xs text-yellow-400">{warningFails.length} warning</div>}
           </div>
-          <StatCard icon={<Users className="w-4 h-4 text-blue-400" />} label="Cluster Admins" value={crbError || crbLoading ? '—' : String(clusterAdmins.length)}
-            subtitle={crbError ? 'ClusterRoleBindings could not be read' : crbLoading ? 'Loading…' : clusterAdmins.length > 0 ? clusterAdmins.slice(0, 2).map(a => a.name).join(', ') : 'none'} onClick={() => go('/identity?tab=rbac', 'Identity & Access')} />
-          <StatCard icon={<Network className="w-4 h-4 text-cyan-400" />} label="Network Policies" value={netpolError || netpolLoading ? '—' : String(networkPolicies.length)}
-            subtitle={netpolError ? 'Network policies could not be read' : netpolLoading ? 'Loading…' : `${nsWithNetPol.size} namespaces covered`} onClick={() => go('/networking', 'Networking')} />
-          <StatCard icon={<Lock className="w-4 h-4 text-amber-400" />} label="TLS Certificates" value={secretsError || secretsLoading ? '—' : String(tlsSecretCount)}
-            subtitle={secretsError ? 'Secrets could not be read' : secretsLoading ? 'Loading…' : `${opaqueSecretCount} opaque secrets`} onClick={() => go('/admin?tab=certificates', 'Certificates')} />
+          {/* Cluster admins, network-policy coverage and certificates are
+              audit rows below (each with a link); no second summary card. */}
         </div>
 
         {/* Security Audit */}
@@ -359,9 +344,7 @@ export default function SecurityView() {
               <ShieldCheck className="w-4 h-4 text-indigo-400" />
               Security Audit
             </h2>
-            <span className={cn('text-xs font-medium', passCount === checks.length ? 'text-green-400' : 'text-yellow-400')}>
-              {passCount}/{checks.length} passed{unknownCount > 0 ? ` · ${unknownCount} unknown` : ''}{pendingCount > 0 ? ` · ${pendingCount} checking` : ''}
-            </span>
+            {/* The pass count is the score card above. */}
           </div>
           <div className="divide-y divide-slate-800">
             {checks.map((check) => (
@@ -390,12 +373,13 @@ export default function SecurityView() {
           </div>
         </Card>
 
-        {/* Cluster-Admin Subjects */}
+        {/* Cluster-admin subjects, with the action to remove a binding. The
+            count is in the audit row above, not repeated in this title. */}
         <Card>
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
               <Key className="w-4 h-4 text-red-400" />
-              Cluster-Admin Access ({crbError || crbLoading ? '—' : clusterAdmins.length})
+              Cluster-Admin Access
             </h2>
             <button onClick={() => go('/identity?tab=rbac', 'Identity & Access')}
               className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
@@ -445,7 +429,7 @@ export default function SecurityView() {
             <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
                 <ShieldOff className="w-4 h-4 text-yellow-400" />
-                Namespaces Without Network Policies ({unprotectedNamespaces.length})
+                Namespaces Without Network Policies
               </h2>
               <button onClick={() => go('/networking', 'Networking')}
                 className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
@@ -483,6 +467,7 @@ export default function SecurityView() {
     </div>
   );
 }
+
 
 function SCCPanel({ sccs, go }: { sccs: K8sResource[]; go: (path: string, title: string) => void }) {
   const [expanded, setExpanded] = useState(false);

@@ -56,4 +56,11 @@ describe('CapacityTab', () => {
       expect(screen.getByText(/linear regression/)).toBeDefined();
     });
   });
+
+  it('does not repeat the Overview tab\'s CPU / memory / disk / pod trend charts', async () => {
+    renderTab();
+    await vi.waitFor(() => expect(screen.getByText(/linear regression/)).toBeDefined());
+    expect(screen.queryAllByTestId('metric-card')).toHaveLength(0);
+    expect(screen.queryByText('Resource Trends')).toBeNull();
+  });
 });

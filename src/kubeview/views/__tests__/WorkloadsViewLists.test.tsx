@@ -50,7 +50,8 @@ describe('Workloads lists', () => {
     expect(screen.getByText('4/5 nodes')).toBeTruthy();
     expect(screen.getByText('0 2 * * *')).toBeTruthy();
     expect(screen.getByText('suspended')).toBeTruthy();
-    expect(screen.getByText('Failed')).toBeTruthy();
+    // The job's state (the filter button is also labelled "Failed", without a count).
+    expect(screen.getAllByText('Failed').some((el) => !el.closest('button[aria-pressed]'))).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: /^agent/ }));
     expect(goMock).toHaveBeenCalledWith('/r/apps~v1~daemonsets/ops/agent', 'agent');
   });

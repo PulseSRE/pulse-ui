@@ -13,6 +13,7 @@ import { Card, CardHeader, CardBody } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { LoadError } from '../../components/primitives/LoadError';
 import type { K8sResource } from '../../engine/renderers/index';
+import { FleetSubNav } from './FleetSubNav';
 
 /** `null` means the list call for that cluster failed: unknown, not zero. */
 interface ClusterWorkloadSummary {
@@ -133,6 +134,7 @@ export default function FleetWorkloadsView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        <FleetSubNav />
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
