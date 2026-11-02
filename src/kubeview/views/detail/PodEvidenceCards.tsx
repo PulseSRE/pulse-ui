@@ -81,6 +81,9 @@ export function CrashLogCard({ pod, go }: { pod: K8sResource; go: (path: string,
   const ns = pod.metadata.namespace || '';
   const primary = primaryContainer(pod as never);
   const restarted = (primary?.status?.restartCount ?? 0) > 0;
+  // A container that ended and was not restarted (restartPolicy: Never): its
+  // current instance is the one that crashed.
+  const endedNow = !restarted && !!primary?.status?.state?.terminated;
   return (
     <section aria-labelledby="log-h" className="flex flex-col gap-2.5 rounded-xl border border-slate-800 bg-slate-900 p-4">
       <div className="flex items-baseline gap-2">
@@ -91,11 +94,16 @@ export function CrashLogCard({ pod, go }: { pod: K8sResource; go: (path: string,
       </div>
       {!primary ? (
         <p className="text-xs text-slate-400">This pod has no containers.</p>
+      ) : endedNow ? (
+        <>
+          <p className="text-xs text-slate-500">{primary.init ? 'Init container' : 'Container'} {primary.name}, the instance that ended</p>
+          <PodLogTail namespace={ns} pod={pod.metadata.name} container={primary.name} lines={40} />
+        </>
       ) : !restarted ? (
         <p className="text-xs text-slate-400">Container {primary.name} has not restarted, so there is no crashed instance to show.</p>
       ) : (
         <>
-          <p className="text-xs text-slate-500">Container {primary.name}, previous instance</p>
+          <p className="text-xs text-slate-500">{primary.init ? 'Init container' : 'Container'} {primary.name}, previous instance</p>
           <PodLogTail namespace={ns} pod={pod.metadata.name} container={primary.name} previous lines={40} />
         </>
       )}

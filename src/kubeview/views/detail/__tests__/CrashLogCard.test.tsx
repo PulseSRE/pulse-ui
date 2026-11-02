@@ -43,4 +43,10 @@ describe('CrashLogCard', () => {
     expect(screen.getByText(/has not restarted/)).toBeDefined();
     expect(k8sLogs).not.toHaveBeenCalled();
   });
+  it('a restartPolicy: Never container that ended shows the log of that instance', async () => {
+    k8sLogs.mockResolvedValue('fatal: missing DB_URL');
+    wrap(<CrashLogCard pod={{ ...crashedPod, status: { phase: 'Failed', containerStatuses: [{ name: 'api', ready: false, restartCount: 0, state: { terminated: { reason: 'Error', exitCode: 1 } } }] } } as never} go={vi.fn()} />);
+    expect(await screen.findByText('fatal: missing DB_URL')).toBeDefined();
+    expect(k8sLogs).toHaveBeenCalledWith('payments', 'api-x', 'api', { tailLines: 40, previous: false }, 'local');
+  });
 });
