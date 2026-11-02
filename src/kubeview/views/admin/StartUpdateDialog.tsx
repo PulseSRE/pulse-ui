@@ -16,6 +16,8 @@ export interface StartUpdateDialogProps {
   blockers: ReadinessCheck[];
   /** How many readiness checks could not be completed. */
   unknownCount: number;
+  /** The target readiness was checked for; when it is not this one, the dialog says so. */
+  readinessFor?: string;
   pools: MachineConfigPool[] | null;
   history: UpgradeHistoryEntry[];
   username: string | null;
@@ -45,7 +47,7 @@ function poolState(pools: MachineConfigPool[] | null): string {
  * update), what happens to worker pools, and whether it can be undone.
  */
 export function StartUpdateDialog({
-  target, fromVersion, clusterId, blockers, unknownCount, pools, history, username, usernameLoading, logValid,
+  target, fromVersion, clusterId, blockers, unknownCount, readinessFor, pools, history, username, usernameLoading, logValid,
   patchPreview, onConfirm, onClose,
 }: StartUpdateDialogProps) {
   const [reason, setReason] = React.useState('');
@@ -96,6 +98,11 @@ export function StartUpdateDialog({
               I understand and want to update anyway
             </label>
           </div>
+        )}
+        {readinessFor && readinessFor !== target.version && (
+          <p className="rounded-md border border-slate-700 bg-slate-900/60 px-3 py-2 text-slate-300" data-testid="start-update-other-target">
+            Readiness on this page was checked for {readinessFor}, not {target.version}, so its blockers are not listed here.
+          </p>
         )}
         {!needsAck && unknownCount > 0 && (
           <p className="rounded-md border border-amber-900 bg-amber-950/30 px-3 py-2 text-amber-200" data-testid="start-update-unknown">

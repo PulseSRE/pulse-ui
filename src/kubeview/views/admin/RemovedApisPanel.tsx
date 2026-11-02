@@ -44,9 +44,12 @@ export function useApiRemovalReads() {
     adminGates: gates.data as ReadResult<ConfigMap>,
     adminAcks: acks.data as ReadResult<ConfigMap>,
   };
+  const times = [arcs.dataUpdatedAt, gates.dataUpdatedAt, acks.dataUpdatedAt];
   return {
     clusterId,
     reads,
+    /** When the oldest of the three reads answered; 0 until all have. */
+    updatedAt: times.every((t) => t > 0) ? Math.min(...times) : 0,
     refetchAll: () => { void arcs.refetch(); void gates.refetch(); void acks.refetch(); },
     refetchAcks: () => acks.refetch(),
   };

@@ -61,7 +61,9 @@ export function useUpgradeReadinessReads({ enabled }: { enabled: boolean }) {
   });
 
   const all = [csrs, certs, etcdPods, backups, schedules];
-  const checkedAt = Math.max(0, ...all.map((q) => q.dataUpdatedAt || 0));
+  // "Checked N ago" is as old as the oldest read; null until every read has answered.
+  const times = all.map((q) => q.dataUpdatedAt || 0);
+  const checkedAt = times.every((t) => t > 0) ? Math.min(...times) : 0;
   const username = whoami.data?.state === 'ok' ? (whoami.data.data.metadata?.name || null) : null;
 
   return {

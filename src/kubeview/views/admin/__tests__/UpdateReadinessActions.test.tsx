@@ -285,6 +285,41 @@ describe('Pause worker pools first', () => {
     ]);
   });
 
+  it('master and arbiter pools are not worker pools', () => {
+    renderTab({ machineConfigPools: [pool('master'), pool('arbiter'), pool('worker', true)] });
+    expect(screen.queryByRole('button', { name: 'Pause worker pools first' })).toBeNull();
+    expect(screen.getByTestId('worker-pools-paused').textContent).toBe('Worker pools paused: worker');
+  });
+
+  it('a failure part-way names the pools already paused', async () => {
+    vi.mocked(k8sPatch)
+      .mockResolvedValueOnce({}).mockResolvedValueOnce({}) // dry runs
+      .mockResolvedValueOnce({}) // worker paused
+      .mockRejectedValueOnce(Object.assign(new Error('machineconfigpools "infra" is forbidden'), { status: 403 }));
+    renderTab({ machineConfigPools: [pool('worker', false, 'a'), pool('infra', false, 'b')] });
+    fireEvent.click(screen.getByRole('button', { name: 'Pause worker pools first' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Pause' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toMatch(/infra: .*forbidden.*already paused: worker/);
+    expect(addToastMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+
+  it('pending CSRs and an expired control-plane certificate are blockers; a 404 on etcd pods is unknown', async () => {
+    listByPath['/certificatesigningrequests'] = [{ metadata: { name: 'csr-1' }, spec: { signerName: 'kubernetes.io/kubelet-serving' }, status: {} }];
+    listByPath['openshift-kube-apiserver/secrets'] = [{ type: 'kubernetes.io/tls', metadata: { name: 'old', namespace: 'openshift-kube-apiserver', annotations: { 'service.beta.openshift.io/expiry': '2020-01-01T00:00:00Z' } } }];
+    listByPath['openshift-etcd/pods'] = Object.assign(new Error('not found'), { status: 404 });
+    const go = vi.fn();
+    renderTab({ go, operators: [{ apiVersion: 'config.openshift.io/v1', kind: 'ClusterOperator', metadata: { name: 'etcd', uid: 'e', creationTimestamp: '' }, status: { conditions: [{ type: 'Available', status: 'True' }] } } as ClusterOperator] });
+    await vi.waitFor(() => expect(screen.getByTestId('readiness-csrs').dataset.status).toBe('blocker'));
+    fireEvent.click(within(screen.getByTestId('readiness-csrs')).getByRole('button', { name: 'Certificate requests' }));
+    expect(go).toHaveBeenCalledWith('/admin?tab=csrs', 'Certificate requests');
+    await vi.waitFor(() => expect(screen.getByTestId('readiness-cp-certs').dataset.status).toBe('blocker'));
+    expect(screen.getByTestId('readiness-cp-certs').textContent).toMatch(/openshift-kube-apiserver\/old expired/);
+    fireEvent.click(within(screen.getByTestId('readiness-cp-certs')).getByRole('button', { name: 'Certificates' }));
+    expect(go).toHaveBeenCalledWith('/admin?tab=certificates&system=1', 'Certificates');
+    await vi.waitFor(() => expect(screen.getByTestId('readiness-etcd-health').dataset.status).toBe('unknown'));
+  });
+
   it('cancel sends nothing; without permission the button is disabled', async () => {
     const { unmount } = renderTab({ machineConfigPools: [pool('worker')] });
     fireEvent.click(screen.getByRole('button', { name: 'Pause worker pools first' }));

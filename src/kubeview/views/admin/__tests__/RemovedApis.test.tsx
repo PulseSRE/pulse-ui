@@ -433,6 +433,18 @@ describe('Acknowledge an admin gate', () => {
     expect(screen.getAllByRole('button', { name: 'Acknowledge' })).toHaveLength(2);
   });
 
+  it('Upgradeable=False (AdminAckRequired) keeps the acknowledgement row a Blocker quoting the cluster, even when gates are unreadable or all acknowledged', async () => {
+    mockFetchRoutes(routes({ '/configmaps/admin-gates': { status: 500, body: {} } }));
+    const { unmount } = renderTab({ clusterVersion: clusterVersion(true) });
+    await waitFor(() => expect(screen.getByTestId('readiness-admin-ack').dataset.status).toBe('blocker'));
+    expect(screen.getByTestId('readiness-admin-ack').textContent).toMatch(/Upgradeable=False \(AdminAckRequired\): Kubernetes 1\.32 and therefore OpenShift 4\.19 remove several APIs/);
+    unmount();
+    mockFetchRoutes(routes());
+    renderTab({ clusterVersion: clusterVersion(true) });
+    expect((await verdict()).dataset.status).toBe('no_go');
+    expect(screen.getByTestId('readiness-admin-ack').dataset.status).toBe('blocker');
+  });
+
   it('Upgradeable=False when gates cannot be read: the command fallback stays', async () => {
     mockFetchRoutes(routes({ '/configmaps/admin-gates': { status: 500, body: {} } }));
     renderTab({ clusterVersion: clusterVersion(true) });

@@ -250,6 +250,7 @@ describe('UpdatesTab', () => {
       pdbs: [{ apiVersion: 'policy/v1', kind: 'PodDisruptionBudget', metadata: { name: 'db', namespace: 'payments', uid: 'pdb' }, spec: { selector: { matchLabels: { app: 'db' } } }, status: { disruptionsAllowed: 0 } }],
     });
     expect(row('pdbs').dataset.status).toBe('passed');
+    expect(row('pdbs').textContent).toMatch(/Nodes in paused pool worker are not counted: their nodes will drain when unpaused/);
     expect(screen.getByTestId('worker-pools-paused').textContent).toContain('worker');
   });
 
@@ -280,6 +281,53 @@ describe('UpdatesTab', () => {
     renderTab({ clusterVersion: makeClusterVersion(), availableUpdates: [{ version: '4.15.5', image: 'quay.io/x@sha256:1' }], nodes: [makeNode('node-1', false)] as any });
     fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse' }));
     expect(askPulse).toHaveBeenCalledWith(expect.stringMatching(/Not ready to update to 4\.15\.5[\s\S]*- Blocker: Nodes ready: 0\/1 nodes are Ready/), { kind: 'ClusterVersion', name: 'version' });
+  });
+
+  it('Ask Pulse is disabled on a remote cluster, with the agent dock\'s reason', async () => {
+    const { useFleetStore } = await import('../../../store/fleetStore');
+    useFleetStore.setState({ activeClusterId: 'east' });
+    try {
+      renderTab({ clusterVersion: makeClusterVersion() });
+      const ask = screen.getByRole('button', { name: 'Ask Pulse' }) as HTMLButtonElement;
+      expect(ask.disabled).toBe(true);
+      expect(ask.title).toBe('This agent runs on Local Cluster. Remote resource-context actions are unavailable.');
+      expect(screen.getByTestId('readiness-ask-disabled').textContent).toMatch(/runs on Local Cluster/);
+      fireEvent.click(ask);
+      expect(askPulse).not.toHaveBeenCalled();
+    } finally {
+      useFleetStore.setState({ activeClusterId: 'local' });
+    }
+  });
+
+  it('while the ClusterVersion is loading, its checks say Checking…, not Passed or Unknown', () => {
+    renderTab({ clusterVersion: null, clusterVersionLoading: true });
+    expect(row('channel').dataset.status).toBe('checking');
+    expect(row('removed-apis').dataset.status).toBe('checking');
+    expect(screen.getByTestId('upgrade-readiness').dataset.verdict).not.toBe('ready');
+  });
+
+  it('the stuck-update Re-apply confirm does not list the readiness blockers of a different target', async () => {
+    const cv = makeClusterVersion({
+      spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/x@sha256:old' } },
+      status: {
+        desired: { version: '4.21.27', image: 'quay.io/x@sha256:old' },
+        conditions: [{ type: 'Progressing', status: 'False', lastTransitionTime: new Date(Date.now() - 10 * 60000).toISOString() }],
+        history: [],
+      },
+    });
+    renderTab({
+      clusterVersion: cv,
+      nodes: [makeNode('node-1', false)] as any,
+      availableUpdates: [{ version: '4.21.28', image: 'quay.io/x@sha256:new' }, { version: '4.21.30', image: 'quay.io/x@sha256:newer' }],
+    });
+    // Readiness is for the picked target, 4.21.30.
+    expect(screen.getByRole('heading', { name: 'Not ready to update to 4.21.30' })).toBeDefined();
+    fireEvent.click(screen.getByText('Re-apply update to 4.21.28'));
+    expect(within(screen.getByRole('dialog')).queryByTestId('start-update-blockers')).toBeNull();
+    expect(within(screen.getByRole('dialog')).getByTestId('start-update-other-target').textContent).toMatch(/checked for 4\.21\.30, not 4\.21\.28/);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: /Start update/ }));
+    expect(within(screen.getByRole('dialog')).getByTestId('start-update-blockers').textContent).toMatch(/Nodes ready: 0\/1/);
   });
 
   it('shows operator update progress when isUpdating is true', () => {

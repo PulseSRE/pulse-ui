@@ -136,6 +136,34 @@ describe('Admin › Updates readiness happy path', () => {
   });
 });
 
+describe('Admin › Updates Recheck', () => {
+  it('re-reads every readiness read: alerts, PDBs, pods, CSRs, certificates, etcd, backups and the removed-API reads', async () => {
+    const fetchMock = mockFetchRoutes({
+      '/apis/config.openshift.io/v1/clusterversions': list([clusterVersion]),
+      '/api/v1/alerts': { body: { data: { alerts: [] } } },
+      '/apis/policy/v1/poddisruptionbudgets': list([]),
+      '/api/v1/pods': list([]),
+      '/api/v1/nodes': list([]),
+      '/certificatesigningrequests': list([]),
+      '/secrets?fieldSelector': list([]),
+      'openshift-etcd/pods': list([]),
+      '/etcdbackups': list([]),
+      '/v1alpha1/backups': list([]),
+      '/apirequestcounts': list([]),
+      '/configmaps/admin-gates': { body: { data: {} } },
+      '/configmaps/admin-acks': { body: { data: {} } },
+    });
+    renderWithClient(<AdminView />, { route: '/admin?tab=updates' });
+    const keys = ['/api/v1/alerts', '/apis/policy/v1/poddisruptionbudgets', '/api/kubernetes/api/v1/pods', '/certificatesigningrequests', 'secrets?fieldSelector', 'openshift-etcd/pods', '/etcdbackups', '/v1alpha1/backups', '/apirequestcounts', 'admin-gates', 'admin-acks'];
+    const count = (k: string) => fetchMock.mock.calls.filter(([u]) => String(u).includes(k)).length;
+    await waitFor(() => { for (const k of keys) expect(count(k), k).toBeGreaterThan(0); });
+    await waitFor(() => expect(screen.getByTestId('readiness-counts').textContent).toMatch(/checked/));
+    const before = Object.fromEntries(keys.map((k) => [k, count(k)]));
+    fireEvent.click(screen.getByRole('button', { name: 'Recheck' }));
+    await waitFor(() => { for (const k of keys) expect(count(k), k).toBeGreaterThan(before[k]); });
+  });
+});
+
 describe.each([403, 500])('Admin › Operators with the ClusterOperator list failing (%i)', (status) => {
   it('shows the error and "—" tiles, not 0/0/0', async () => {
     renderWithFailedRequests(<AdminView />, { status, route: '/admin?tab=operators' });
