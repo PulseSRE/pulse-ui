@@ -16,7 +16,10 @@ function r() { return render(<QueryClientProvider client={new QueryClient({ defa
 describe('IdentityView', () => {
   afterEach(cleanup);
   it('renders page header', () => { r(); expect(document.body.textContent).toContain('Identity'); });
-  it('renders all 4 tabs', () => { r(); const text = document.body.textContent || ''; expect(text).toContain('Users'); expect(text).toContain('Groups & Service Accounts'); expect(text).toContain('RBAC'); expect(text).toContain('Impersonation'); });
+  it('renders the Users, Groups & Service Accounts and RBAC tabs', () => {
+    r();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Users', 'Groups & Service Accounts', 'RBAC']);
+  });
   it('renders without crashing', () => { const { container } = r(); expect(container.querySelector('.bg-slate-950')).toBeDefined(); });
   it('shows summary counts', () => { r(); for (const l of ['Users', 'Groups', 'Service Accounts']) expect(screen.getAllByText(l).length).toBeGreaterThan(0); });
   it('counts roles and bindings on the RBAC tab only, and shows the SA-by-namespace panel once', () => {

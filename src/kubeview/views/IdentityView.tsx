@@ -68,38 +68,19 @@ type K8sResourceExt = K8sResource & {
 // ---------------------------------------------------------------------------
 // Tab type
 // ---------------------------------------------------------------------------
-type TabId = 'users' | 'groups-sa' | 'rbac' | 'impersonation';
+// Impersonation is started from a user or service-account row and announced
+// (with Stop) by the global banner in the Shell; it has no tab of its own.
+// An old `?tab=impersonation` link falls back to Users.
+type TabId = 'users' | 'groups-sa' | 'rbac';
+const TAB_IDS: readonly TabId[] = ['users', 'groups-sa', 'rbac'];
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; iconActive: React.ReactNode }[] = [
   { id: 'users', label: 'Users', icon: <User className="w-3.5 h-3.5 text-blue-400" />, iconActive: <User className="w-3.5 h-3.5" /> },
   { id: 'groups-sa', label: 'Groups & Service Accounts', icon: <Key className="w-3.5 h-3.5 text-amber-400" />, iconActive: <Key className="w-3.5 h-3.5" /> },
   { id: 'rbac', label: 'RBAC', icon: <Shield className="w-3.5 h-3.5 text-red-400" />, iconActive: <Shield className="w-3.5 h-3.5" /> },
-  { id: 'impersonation', label: 'Impersonation', icon: <UserCheck className="w-3.5 h-3.5 text-green-400" />, iconActive: <UserCheck className="w-3.5 h-3.5" /> },
 ];
 
-// ---------------------------------------------------------------------------
-// Impersonation helpers
-// ---------------------------------------------------------------------------
-const RECENT_LIMIT = 5;
-const recentKey = (clusterId: string) => `pulse-recent-impersonation:${clusterId}`;
-
-/** Subjects this viewer impersonated recently on this cluster (a per-browser convenience). */
-function readRecentImpersonation(clusterId: string): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(recentKey(clusterId)) || '[]');
-    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string').slice(0, RECENT_LIMIT) : [];
-  } catch {
-    return [];
-  }
-}
-
-function rememberImpersonation(clusterId: string, subject: string): string[] {
-  const next = [subject, ...readRecentImpersonation(clusterId).filter((s) => s !== subject)].slice(0, RECENT_LIMIT);
-  try { localStorage.setItem(recentKey(clusterId), JSON.stringify(next)); } catch { /* storage unavailable */ }
-  return next;
-}
-
-/** The one Impersonate action, on user and service-account rows and recent targets. */
+/** The one Impersonate action, on user and service-account rows. */
 function ImpersonateButton({ subject, label, active, onImpersonate }: { subject: string; label?: string; active: boolean; onImpersonate: (subject: string) => void }) {
   return (
     <button
@@ -125,13 +106,12 @@ export default function IdentityView() {
   const addToast = useUIStore((s) => s.addToast);
   const impersonateUser = useUIStore((s) => s.impersonateUser);
   const setImpersonation = useUIStore((s) => s.setImpersonation);
-  const clearImpersonation = useUIStore((s) => s.clearImpersonation);
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   const urlTab = new URLSearchParams(window.location.search).get('tab') as TabId | null;
   const [activeTab, setActiveTabState] = useState<TabId>(
-    urlTab && ['users', 'groups-sa', 'rbac', 'impersonation'].includes(urlTab) ? urlTab : 'users',
+    urlTab && TAB_IDS.includes(urlTab) ? urlTab : 'users',
   );
   const setActiveTab = (tab: TabId) => {
     setActiveTabState(tab);
@@ -240,12 +220,8 @@ export default function IdentityView() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
   }, [serviceAccounts]);
 
-  const [recentTargets, setRecentTargets] = useState<string[]>(() => readRecentImpersonation(clusterId));
-  React.useEffect(() => { setRecentTargets(readRecentImpersonation(clusterId)); }, [clusterId]);
-
   const handleImpersonate = (username: string) => {
     setImpersonation(username);
-    setRecentTargets(rememberImpersonation(clusterId, username));
     addToast({ type: 'warning', title: `Impersonating ${username}`, detail: 'All API requests now use this identity' });
   };
 
@@ -272,7 +248,7 @@ export default function IdentityView() {
               Identity &amp; Access
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Users, groups, service accounts, RBAC, and impersonation
+              Users, groups, service accounts, and RBAC
               {nsFilter && <span className="text-violet-400 ml-1">in {nsFilter}</span>}
             </p>
           </div>
@@ -627,66 +603,6 @@ export default function IdentityView() {
               </Panel>
 
             </div>
-          </>
-        )}
-
-        {/* ==================== IMPERSONATION TAB ==================== */}
-        {activeTab === 'impersonation' && (
-          <>
-            {/* Current impersonation status */}
-            <Card>
-              <div className="px-4 py-3 border-b border-slate-800">
-                <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-violet-400" /> Impersonation
-                </h2>
-              </div>
-              <div className="p-4">
-                {impersonateUser ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-amber-900/30 flex items-center justify-center">
-                        <UserCheck className="w-5 h-5 text-amber-400" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-slate-200">Currently impersonating</div>
-                        <div className="text-sm font-mono text-amber-300">{impersonateUser}</div>
-                      </div>
-                    </div>
-                    <button onClick={() => { clearImpersonation(); addToast({ type: 'success', title: 'Impersonation cleared' }); }}
-                      className="px-3 py-1.5 text-xs bg-amber-800 hover:bg-amber-700 text-amber-200 rounded-sm transition-colors">
-                      Stop Impersonating
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-sm text-slate-500">Not currently impersonating anyone. Requests use your own identity.</div>
-                )}
-              </div>
-            </Card>
-
-            {/* Recent targets. Users and service accounts are impersonated from their own rows on the Users and Groups & Service Accounts tabs. */}
-            <Card>
-              <div className="px-4 py-3 border-b border-slate-800">
-                <h2 className="text-sm font-semibold text-slate-100">Recently impersonated</h2>
-              </div>
-              <div className="divide-y divide-slate-800" aria-label="Recently impersonated">
-                {recentTargets.length === 0 ? (
-                  <EmptyState icon={<UserCheck className="w-8 h-8" />} title="No recent impersonation" className="py-6"
-                    description="Impersonate a user from the Users tab, or a service account from Groups & Service Accounts." />
-                ) : recentTargets.map((subject) => (
-                  <div key={subject} className="px-4 py-2.5 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      {subject.startsWith('system:serviceaccount:') ? <Key className="w-4 h-4 text-slate-500" /> : <User className="w-4 h-4 text-slate-400" />}
-                      <span className="text-sm font-mono text-slate-200">{subject}</span>
-                    </div>
-                    <ImpersonateButton subject={subject} active={impersonateUser === subject} onImpersonate={handleImpersonate} />
-                  </div>
-                ))}
-              </div>
-              <div className="px-4 py-2.5 border-t border-slate-800 flex gap-3 text-xs">
-                <button onClick={() => setActiveTab('users')} className="text-violet-400 hover:text-violet-300">Choose a user →</button>
-                <button onClick={() => setActiveTab('groups-sa')} className="text-violet-400 hover:text-violet-300">Choose a service account →</button>
-              </div>
-            </Card>
           </>
         )}
 

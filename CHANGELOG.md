@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Changed
+- **One entry point per thing.** Software › Operators (it only redirected to /operators) is gone; old `/software?tab=operators&q=…` and `/create/v1~pods?tab=operators…` links still land on /operators with their search. Identity & Access › Impersonation is gone: Impersonate stays on each user and service-account row, the Shell banner shows who is impersonated with Stop, and an old `?tab=impersonation` link opens Users (the per-browser "Recently impersonated" list is dropped; there was no Impersonate menu to move it to). Security no longer lists cluster-admin holders a second time; its audit row stays and links, with a "Cluster-admin holders → Identity & Access" line, to Identity › RBAC, which lists them with Revoke. Admin › Operators (ClusterOperators) is now "Platform operators" on its tab, the Overview card and the links to it, so it is not confused with OLM's /operators catalog; `/admin?tab=operators` still opens it.
+
 ### Fixed
 - Pulse home, Security, Fleet, Inbox/approvals, Pulse Agent, Identity & Access, Topology, Timeline and agent stat cards no longer show a failed or unreadable read as healthy or empty (Wave 9a). Zen needs a clear posture bar and no warning alerts; the risk ring is Unknown when alerts can't be read; Security lists unprotected namespaces only from two successful reads; Fleet Alerts rows open their detail on the fleet page; failed approvals, activity, fix-history, episode and Identity reads show LoadError and unknown counts/checks; Topology, Dependencies and the Timeline's alerts say they are local-cluster only.
 

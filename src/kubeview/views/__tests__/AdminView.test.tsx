@@ -81,7 +81,21 @@ describe('AdminView', () => {
     expect(screen.getByText(/^Snapshots/)).toBeDefined();
     expect(screen.getAllByText(/Quotas/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Certificates')).toBeDefined();
-    expect(screen.getByText(/^Operators/)).toBeDefined();
+    expect(screen.getByRole('tab', { name: /Platform operators/ })).toBeDefined();
+  });
+
+  // ClusterOperators are "Platform operators" so they are not confused with
+  // OLM's /operators catalog; the `?tab=operators` param still selects them.
+  it('an old ?tab=operators link opens the Platform operators tab', () => {
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/admin?tab=operators']}>
+          <AdminView />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByRole('tab', { name: /Platform operators/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByRole('tab', { name: /^Operators$/ })).toBeNull();
   });
 
   it('renders the Administration heading', () => {
@@ -211,7 +225,8 @@ describe('AdminView', () => {
     vi.mocked(k8sGet).mockResolvedValue(null as never);
     renderAdmin();
     await waitFor(() => {
-      const card = screen.getByText('Cluster Operators').parentElement!;
+      // The tab and the Overview card are both named "Platform operators"; the card is the one that is not a tab.
+      const card = screen.getAllByText('Platform operators').find((el) => !el.closest('[role="tab"]'))!.parentElement!;
       expect(card.textContent).toContain('1/2');
     });
   });

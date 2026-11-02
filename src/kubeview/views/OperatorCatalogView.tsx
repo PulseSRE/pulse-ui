@@ -735,8 +735,8 @@ export default function OperatorCatalogView() {
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2"><Puzzle className="w-6 h-6 text-violet-500" /> Operator Catalog</h1>
           <div className="flex flex-wrap items-center gap-x-2 text-sm text-slate-400 mt-1">
             <p>{catalogError ? 'Catalog could not be read' : isLoading ? 'Loading catalog…' : `${dedupedPackages.length} operators available from ${catalogs.length} sources`}</p>
-            <button onClick={() => go('/admin?tab=operators', 'Cluster Operators')} className="text-blue-400 hover:text-blue-300">
-              Platform ClusterOperators →
+            <button onClick={() => go('/admin?tab=operators', 'Platform operators')} className="text-blue-400 hover:text-blue-300">
+              Platform operators →
             </button>
           </div>
         </div>

@@ -210,7 +210,7 @@ export function OverviewTab({
       <MetricGrid>
         {/* Explicit operator counts, not an invented health percentage */}
         <InfoCard
-          label="Cluster Operators"
+          label="Platform operators"
           value={operators.length === 0 ? '\u2014' : `${opSteady}/${operators.length}`}
           sub={
             operators.length === 0
@@ -376,7 +376,7 @@ export function OverviewTab({
                 </div>
               );
             })}
-            {/* Operator counts are the Cluster Operators card above; this
+            {/* Operator counts are the Platform operators card above; this
                 panel names the degraded ones. */}
             <div className="border-t border-slate-800 pt-2 mt-1">
               {/* Named degraded operators */}

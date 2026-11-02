@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * Security: default-deny NetworkPolicy from an unprotected namespace, remove
- * a cluster-admin binding. Quotas: inline edit of hard limits and prefilled
+ * Security: default-deny NetworkPolicy from an unprotected namespace; the
+ * cluster-admin list (with Revoke) lives on Identity › RBAC. Quotas: inline edit of hard limits and prefilled
  * ResourceQuota/LimitRange creates. Certificates: rotate a service-ca
  * serving certificate. Templates: the create flow opens them prefilled.
  */
@@ -16,6 +16,7 @@ const visited: string[] = [];
 vi.mock('../../../hooks/useNavigateTab', () => ({ useNavigateTab: () => (p: string) => visited.push(p) }));
 
 import SecurityView from '../../SecurityView';
+import IdentityView from '../../IdentityView';
 import { QuotasTab, quotaHardPatch } from '../QuotasTab';
 import { CertificatesTab } from '../CertificatesTab';
 import { renderCreateTemplate, createTemplateUrl } from '../../../engine/createTemplates';
@@ -44,17 +45,34 @@ describe('SecurityView actions', () => {
     expect(visited).toEqual(['/create/networking.k8s.io~v1~networkpolicies?template=default-deny&namespace=shop']);
   });
 
-  it('removes a cluster-admin binding after naming everyone who loses access', async () => {
+  // Cluster-admin holders are listed once, with Revoke, on Identity › RBAC.
+  // Security keeps the audit row (the check) and a link there.
+  it('keeps the cluster-admin check and links to Identity › RBAC instead of a second list', async () => {
     h.renderUi(<SecurityView />);
-    const buttons = await screen.findAllByRole('button', { name: 'Remove binding ClusterRoleBinding shop-admins' });
-    await waitFor(() => expect((buttons[0] as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(buttons[0]);
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('User alice')).toBeTruthy();
-    expect(within(dialog).getByText('User bob')).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete binding' }));
-    await waitFor(() => expect(h.writes()).toHaveLength(1));
-    expect(h.writes()[0]).toMatchObject({ method: 'DELETE', path: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/shop-admins' });
+    expect(await screen.findByText(/2 subjects with cluster-admin: User\/alice, User\/bob/)).toBeTruthy();
+    expect(screen.queryByText('Cluster-Admin Access')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Remove binding|Revoke/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Cluster-admin holders → Identity & Access/ }));
+    expect(visited).toEqual(['/identity?tab=rbac']);
+  });
+
+  it('Identity › RBAC removes a cluster-admin binding after naming everyone who loses access', async () => {
+    window.history.replaceState(null, '', '/identity?tab=rbac');
+    try {
+      h.renderUi(<IdentityView />, '/identity?tab=rbac');
+      const panel = (await screen.findByText(/Cluster Admin Subjects \(2\)/)).closest('section, div[class*="rounded"]') as HTMLElement;
+      const buttons = await within(panel).findAllByRole('button', { name: 'Revoke ClusterRoleBinding shop-admins' });
+      await waitFor(() => expect((buttons[0] as HTMLButtonElement).disabled).toBe(false));
+      fireEvent.click(buttons[0]);
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByText('User alice')).toBeTruthy();
+      expect(within(dialog).getByText('User bob')).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Delete binding' }));
+      await waitFor(() => expect(h.writes()).toHaveLength(1));
+      expect(h.writes()[0]).toMatchObject({ method: 'DELETE', path: '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings/shop-admins' });
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
   });
 });
 

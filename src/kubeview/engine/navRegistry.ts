@@ -42,7 +42,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   // Administration
   { id: 'software', label: 'Software', icon: 'Package', path: '/software', group: 'administration', subtitle: 'Installed software, Quick Deploy, Helm charts, templates, Import YAML', keywords: ['software', 'create', 'deploy', 'install', 'helm', 'templates', 'import', 'yaml', 'new'], color: 'text-blue-400' },
-  { id: 'operators', label: 'Operators', icon: 'Puzzle', path: '/operators', group: 'administration', subtitle: 'OperatorHub — browse, install, manage cluster operators', keywords: ['operators', 'operatorhub', 'install', 'olm', 'catalog', 'subscriptions'], color: 'text-purple-400' },
+  { id: 'operators', label: 'Operators', icon: 'Puzzle', path: '/operators', group: 'administration', subtitle: 'OperatorHub — browse, install, manage add-on operators', keywords: ['operators', 'operatorhub', 'install', 'olm', 'catalog', 'subscriptions'], color: 'text-purple-400' },
   { id: 'admin', label: 'Administration', icon: 'Settings', path: '/admin', group: 'administration', subtitle: 'Config, updates, snapshots, quotas, certificates', keywords: ['config', 'updates', 'quotas', 'certificates', 'crds'], color: 'text-slate-400' },
   { id: 'identity', label: 'Identity & Access', icon: 'Shield', path: '/identity', group: 'administration', subtitle: 'Users, groups, RBAC, impersonation', keywords: ['users', 'groups', 'service', 'accounts', 'rbac', 'impersonation'], color: 'text-teal-400' },
   { id: 'security', label: 'Security', icon: 'ShieldCheck', path: '/security', group: 'administration', subtitle: 'Pod security, RBAC analysis, image scanning', keywords: ['security', 'audit', 'sccs', 'rbac', 'network', 'policies', 'access', 'scanning'], color: 'text-red-400' },
