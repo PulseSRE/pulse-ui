@@ -1,0 +1,215 @@
+/**
+ * "Pulse found the cause": the open monitor finding for this resource (or the
+ * workload that owns it, or — on a workload page — one of its pods), with the
+ * investigation's cause, evidence, the alternatives it ruled out, confidence
+ * and when. No finding: a Diagnose button that asks the agent through the
+ * inbox and shows the report in the same card.
+ *
+ * Findings come from the monitor's WebSocket and describe the agent's own
+ * cluster only; when that connection is down the card says so instead of
+ * "nothing found".
+ */
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Stethoscope, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useMonitorStore } from '../../store/monitorStore';
+import { useFleetStore } from '../../store/fleetStore';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
+import type { Finding, InvestigationReport as MonitorReport, EvidenceItem } from '../../engine/monitorClient';
+import type { InvestigationReport as InboxReport } from '../../engine/inboxApi';
+import { useDiagnose, type DiagnoseTarget } from './useDiagnose';
+
+const SEVERITY_RANK: Record<string, number> = { critical: 3, warning: 2, info: 1 };
+
+export interface CauseMatch {
+  kind: string;
+  name: string;
+  namespace: string;
+  /** The workload that owns the resource (pod page). */
+  owner?: { kind: string; name: string };
+  /** Pods of the workload (workload page). */
+  podNames?: string[];
+}
+
+/** The open, undismissed monitor finding about this resource, worst and newest first. */
+export function findingFor(findings: Finding[], dismissed: string[], m: CauseMatch): Finding | null {
+  const pods = new Set(m.podNames ?? []);
+  const hit = findings.filter((f) => !dismissed.includes(f.id) && f.category !== 'degraded' && f.resources.some((r) => {
+    if (r.namespace && r.namespace !== m.namespace) return false;
+    if (r.kind === m.kind && r.name === m.name) return true;
+    if (m.owner && r.kind === m.owner.kind && r.name === m.owner.name) return true;
+    if (m.owner && r.ownerKind === m.owner.kind && r.ownerName === m.owner.name) return true;
+    if (r.ownerKind === m.kind && r.ownerName === m.name) return true;
+    return r.kind === 'Pod' && pods.has(r.name);
+  }));
+  hit.sort((a, b) => (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0) || b.timestamp - a.timestamp);
+  return hit[0] ?? null;
+}
+
+function hhmm(ms: number | undefined): string {
+  return ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+function evidenceLines(detail: EvidenceItem[] | undefined, plain: string[] | undefined): Array<{ text: string; source?: string; unverified?: boolean }> {
+  if (detail && detail.length) {
+    return detail.filter((e) => e.stance !== 'contradicts').map((e) => ({ text: e.observation, source: e.source, unverified: !!e.unverified_source }));
+  }
+  return (plain ?? []).map((t) => ({ text: t }));
+}
+
+interface ReportView {
+  cause: string;
+  evidence: Array<{ text: string; source?: string; unverified?: boolean }>;
+  alternatives: string[];
+  confidence?: number;
+}
+
+function fromMonitor(r: MonitorReport): ReportView {
+  return { cause: r.suspectedCause || r.summary, evidence: evidenceLines(r.evidenceDetail, r.evidence), alternatives: r.alternativesConsidered ?? [], confidence: r.confidence };
+}
+
+function fromInbox(r: InboxReport): ReportView {
+  return {
+    cause: r.suspected_cause || r.suspectedCause || r.summary,
+    evidence: evidenceLines(r.evidence_detail, r.evidence),
+    alternatives: r.alternatives_considered ?? r.alternativesConsidered ?? [],
+    confidence: r.confidence,
+  };
+}
+
+function Report({ view }: { view: ReportView }) {
+  return (
+    <>
+      <p className="text-[15px] leading-relaxed text-slate-100">{view.cause}</p>
+      {view.evidence.length > 0 && (
+        <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-snug text-slate-300" aria-label="Evidence">
+          {view.evidence.map((e, i) => (
+            <li key={i}>
+              {e.text}
+              {e.source && <span className="text-slate-500"> — from {e.source}</span>}
+              {e.unverified && <span className="text-amber-300"> (source not verified)</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {view.alternatives.length > 0 && (
+        <details className="text-[13px] text-slate-400">
+          <summary className="cursor-pointer">Also considered (ruled out)</summary>
+          <div className="pt-1.5 leading-relaxed">{view.alternatives.join(' · ')}</div>
+        </details>
+      )}
+    </>
+  );
+}
+
+function Confidence({ value }: { value?: number }) {
+  if (value === undefined || value === null) return <span className="ml-auto text-xs text-slate-500">Confidence not reported</span>;
+  return <span className="ml-auto rounded-full bg-blue-950 px-2.5 py-0.5 text-xs text-blue-200">Confidence {value.toFixed(2)}</span>;
+}
+
+export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) {
+  const clusterId = useFleetStore((s) => s.activeClusterId);
+  const connected = useMonitorStore((s) => s.connected);
+  const connectionError = useMonitorStore((s) => s.connectionError);
+  const findings = useMonitorStore((s) => s.findings);
+  const dismissed = useMonitorStore((s) => s.dismissedFindingIds);
+  const investigations = useMonitorStore((s) => s.investigations);
+  const target: DiagnoseTarget = { kind: match.kind, name: match.name, namespace: match.namespace };
+  const { state, run } = useDiagnose(target);
+
+  const remote = clusterId !== LOCAL_CLUSTER_ID;
+  const podKey = (match.podNames ?? []).join(',');
+  const finding = React.useMemo(
+    () => (remote ? null : findingFor(findings, dismissed, match)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [remote, findings, dismissed, match.kind, match.name, match.namespace, match.owner?.kind, match.owner?.name, podKey],
+  );
+  const investigation = React.useMemo(
+    () => (finding ? investigations.filter((i) => i.findingId === finding.id).sort((a, b) => b.timestamp - a.timestamp)[0] : undefined),
+    [finding, investigations],
+  );
+
+  const found = !!investigation && investigation.status === 'completed' && !!(investigation.suspectedCause || investigation.summary);
+  const title = found || state.phase === 'done' ? 'Pulse found the cause' : finding ? 'Pulse found a problem' : 'Cause';
+
+  const diagnoseButton = (label = 'Diagnose') => (
+    <button
+      type="button"
+      onClick={() => void run()}
+      disabled={state.phase === 'starting' || state.phase === 'waiting'}
+      className="min-h-[40px] self-start rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <section aria-labelledby="cause-h" className={cn('flex flex-col gap-3.5 rounded-xl border bg-slate-900 p-5', found || state.phase === 'done' ? 'border-blue-800' : 'border-slate-800')}>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Stethoscope className="h-[18px] w-[18px] text-blue-300" aria-hidden />
+        <h2 id="cause-h" className="text-base font-semibold text-slate-100">{title}</h2>
+        {finding && (
+          <span className="text-xs text-slate-400">
+            Monitor finding · open since {hhmm(finding.startedAt ?? finding.timestamp)}
+            {investigation ? ` · investigated ${hhmm(investigation.timestamp)}` : ' · not investigated yet'}
+          </span>
+        )}
+        {finding && <Confidence value={investigation?.confidence ?? finding.confidence} />}
+        {!finding && state.phase === 'done' && <Confidence value={state.report.confidence} />}
+      </div>
+
+      {remote && <p className="text-sm text-slate-400">Pulse monitors the cluster it is deployed on only, so it has no findings for this cluster.</p>}
+
+      {!remote && finding && found && <Report view={fromMonitor(investigation!)} />}
+      {!remote && finding && !found && (
+        <>
+          <p className="text-[15px] leading-relaxed text-slate-100">{finding.title}</p>
+          {finding.summary && <p className="text-[13px] text-slate-300">{finding.summary}</p>}
+          {investigation?.status === 'failed' && <p className="text-xs text-amber-300">The investigation failed{investigation.error ? `: ${investigation.error}` : ''}.</p>}
+          {state.phase === 'idle' && diagnoseButton(investigation?.status === 'failed' ? 'Diagnose again' : 'Diagnose')}
+        </>
+      )}
+
+      {!remote && !finding && state.phase === 'idle' && (
+        connected ? (
+          <>
+            <p className="text-sm text-slate-400">No open monitor finding for this {noun}.</p>
+            {diagnoseButton()}
+          </>
+        ) : connectionError ? (
+          <p className="text-sm text-slate-400" data-testid="monitor-unreachable">
+            The Pulse agent&apos;s monitor is unreachable ({connectionError}), so findings for this {noun} cannot be shown.
+          </p>
+        ) : (
+          <p className="text-sm text-slate-400">Connecting to the Pulse monitor…</p>
+        )
+      )}
+
+      {state.phase === 'starting' && <p className="flex items-center gap-2 text-sm text-slate-300"><Loader2 className="h-4 w-4 animate-spin" /> Asking the agent to investigate…</p>}
+      {state.phase === 'waiting' && (
+        <p className="flex items-center gap-2 text-sm text-slate-300" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Investigating{state.reused ? ' (using the open inbox item for this resource)' : ''}… The report appears here when it is ready.
+          {state.note && <span className="text-amber-300"> {state.note}</span>}
+        </p>
+      )}
+      {state.phase === 'done' && <Report view={fromInbox(state.report)} />}
+      {state.phase === 'failed' && (
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-red-300">Diagnose failed: {state.reason}</p>
+          {diagnoseButton('Try again')}
+        </div>
+      )}
+      {state.phase === 'timeout' && (
+        <p className="text-sm text-slate-300">
+          No report after 10 minutes. The agent works its inbox queue in order; the item stays open in the{' '}
+          <Link to="/inbox" className="text-blue-400 hover:underline">Inbox</Link> (Diagnose {match.kind} {match.namespace}/{match.name}).
+        </p>
+      )}
+      {state.phase === 'unreachable' && (
+        <p className="text-sm text-slate-400" data-testid="diagnose-unreachable">The Pulse agent is unreachable ({state.reason}); nothing was investigated.</p>
+      )}
+    </section>
+  );
+}

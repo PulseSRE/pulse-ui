@@ -8,6 +8,11 @@ import { IncidentContext } from './IncidentContext';
 import { AskPulseCard, usePageChatContext } from './AskPulseCard';
 import { usePodOwner } from './usePodOwner';
 import { usePodUsage } from './usePodUsage';
+import { CauseCard } from './CauseCard';
+import { FixCard } from './FixCard';
+import { ChangesCard } from './ChangesCard';
+import { MemoryCard, CrashLogCard } from './PodEvidenceCards';
+import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { LabelsSection, AnnotationsSection } from './MetadataSections';
 import type { MetadataTarget } from './MetadataSections';
 import type { RelatedResource } from './types';
@@ -38,6 +43,15 @@ export function PodDetailLayout({
   const { usage, isLoading: usageLoading } = usePodUsage(namespace, podNames);
   const context = { kind: 'Pod', name: resource.metadata.name, namespace, gvr: 'v1/pods' };
   usePageChatContext(context);
+  const isTemplateOwner = !!owner && ['Deployment', 'StatefulSet', 'DaemonSet'].includes(owner.kind);
+  // Revisions of the owning Deployment, to mark them on the memory chart.
+  const rsList = useK8sListWatch<K8sResource>({ apiPath: '/apis/apps/v1/replicasets', namespace, enabled: owner?.kind === 'Deployment' });
+  const revisions = React.useMemo(() => (owner?.kind === 'Deployment' && rsList.data
+    ? rsList.data
+      .filter((rs) => rs.metadata.ownerReferences?.some((o) => o.kind === 'Deployment' && o.name === owner.name))
+      .map((rs) => ({ revision: rs.metadata.annotations?.['deployment.kubernetes.io/revision'] ?? '?', at: rs.metadata.creationTimestamp }))
+    : undefined), [owner?.kind, owner?.name, rsList.data]);
+  const changesOf = owner && owner.kind !== 'ReplicaSet' ? { kind: owner.kind, name: owner.name } : { kind: 'Pod', name: resource.metadata.name };
 
   return (
     <div className="space-y-5">
@@ -45,11 +59,27 @@ export function PodDetailLayout({
 
       <div className="flex flex-wrap items-start gap-5">
         <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
+          <CauseCard
+            match={{ kind: 'Pod', name: resource.metadata.name, namespace, owner: owner ? { kind: owner.kind, name: owner.name } : undefined }}
+            noun="pod"
+          />
+          <FixCard
+            pod={resource}
+            ownerApiPath={isTemplateOwner ? owner!.apiPath : undefined}
+            usage={usage}
+            usageLoading={usageLoading}
+            events={events}
+            ownerPage={owner ? { path: owner.path, label: `${owner.kind} ${owner.name}` } : undefined}
+            go={go}
+          />
           <ContainerFacts pod={resource} go={go} />
           <PodSummary resource={resource} go={go} />
           <IncidentContext resource={resource} managedPods={[]} events={events} namespace={namespace} go={go} />
         </div>
         <aside className="flex min-w-0 flex-[1_1_360px] flex-col gap-5">
+          <ChangesCard namespace={namespace} kind={changesOf.kind} name={changesOf.name} />
+          <MemoryCard pod={resource} revisions={revisions} />
+          <CrashLogCard pod={resource} go={go} />
           <AskPulseCard context={context} placeholder="Why does this pod keep restarting?" />
           <LabelsSection resource={resource} target={metaTarget} />
           <AnnotationsSection resource={resource} target={metaTarget} />
