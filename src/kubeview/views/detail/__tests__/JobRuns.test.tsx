@@ -87,3 +87,17 @@ describe('CronJob runs', () => {
     expect(screen.queryByText(/No runs kept/)).toBeNull();
   });
 });
+
+describe('attempt outcome and which log', () => {
+  it('a retried attempt that is running again is Running, not Failed, and its log is the previous instance', async () => {
+    const p = pod('report-28-r', 'Running', '2026-11-02T10:00:00Z');
+    p.status.containerStatuses = [{ name: 'main', ready: true, restartCount: 1, state: { running: {} }, lastState: { terminated: { reason: 'Error', exitCode: 3, finishedAt: '2026-11-02T10:01:00Z' } } } as never];
+    renderIt(job, [p]);
+    expect(screen.getByText('Running')).toBeDefined();
+    expect(screen.getByText('retried after exit 3 (Error)')).toBeDefined();
+    expect(screen.queryByText('Failed')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Show log of report-28-r'));
+    await screen.findByText('panic: cannot open /data/report.csv');
+    expect(k8sLogs).toHaveBeenCalledWith('ops', 'report-28-r', 'main', { tailLines: 60, previous: true }, 'local');
+  });
+});

@@ -1,9 +1,8 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
 import { formatRelative } from '../../engine/format';
 import { Clock, Globe, Server, HardDrive } from 'lucide-react';
 import type { K8sResource } from '../../engine/renderers';
-import type { Pod, Container, ContainerStatus } from '../../engine/types';
+import type { Pod } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 
 interface PodSummaryProps {
@@ -19,9 +18,7 @@ export function PodSummary({ resource }: PodSummaryProps) {
   const qosClass = status?.qosClass || '—';
   const serviceAccount = spec?.serviceAccountName || spec?.serviceAccount || '—';
   const restartPolicy = spec?.restartPolicy || 'Always';
-  const initContainers: Container[] = spec?.initContainers || [];
   const volumes = spec?.volumes || [];
-  const initContainerStatuses: ContainerStatus[] = status?.initContainerStatuses || [];
   const age = formatRelative(resource.metadata.creationTimestamp);
 
 
@@ -39,42 +36,6 @@ export function PodSummary({ resource }: PodSummaryProps) {
       </dl>
 
       {/* Pod CPU and memory sparklines are in the incident context panel (once). */}
-
-      {/* Init containers */}
-      {initContainers.length > 0 && (
-        <Card>
-          <div className="px-4 py-2.5 border-b border-slate-800">
-            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Init Containers ({initContainers.length})</h3>
-          </div>
-          <div className="divide-y divide-slate-800">
-            {initContainers.map((c, idx) => {
-              const cs = initContainerStatuses.find((s) => s.name === c.name);
-              const isReady = cs?.ready === true;
-              const state = cs?.state;
-              const stateLabel = state?.running ? 'Running' : state?.waiting ? (state.waiting.reason || 'Waiting') :
-                state?.terminated ? (state.terminated.reason || 'Completed') : 'Pending';
-              const terminated = state?.terminated;
-              return (
-                <div key={c.name} className="px-4 py-2.5 flex items-center gap-3">
-                  <div className={cn('w-2 h-2 rounded-full shrink-0',
-                    terminated?.exitCode === 0 ? 'bg-green-500' : isReady ? 'bg-blue-500' : state?.waiting ? 'bg-yellow-500' : 'bg-slate-500'
-                  )} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-200">{c.name}</span>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
-                        terminated?.exitCode === 0 ? 'bg-green-900/50 text-green-300' :
-                        state?.waiting ? 'bg-yellow-900/50 text-yellow-300' : 'bg-slate-800 text-slate-400'
-                      )}>{stateLabel}</span>
-                    </div>
-                    <div className="text-xs text-slate-400 font-mono truncate mt-0.5">{c.image}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
 
       {/* Volumes */}
       {volumes.length > 0 && (

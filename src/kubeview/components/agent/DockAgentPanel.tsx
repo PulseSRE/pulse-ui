@@ -436,7 +436,10 @@ export function DockAgentPanel() {
 
     // A custom view, or the resource the page on screen is about (Pod and
     // Deployment pages set it), goes with the question as context.
-    const ctx = currentViewId ? { kind: 'custom_view', name: '', viewId: currentViewId } : (pageContext ?? undefined);
+    // Resource context is only sent for the local cluster: the agent would act
+    // on its own cluster's object of that name, not the remote one on screen.
+    const pagePart = activeClusterId === 'local' ? (pageContext ?? undefined) : undefined;
+    const ctx = currentViewId ? { kind: 'custom_view', name: '', viewId: currentViewId } : pagePart;
     sendMessage(text, ctx);
     setInput('');
     if (inputRef.current) inputRef.current.style.height = 'auto';
@@ -564,7 +567,7 @@ export function DockAgentPanel() {
         </div>
       )}
 
-      {pageContext && !currentViewId && (
+      {pageContext && !currentViewId && activeClusterId === 'local' && (
         <div className="border-t border-slate-700 px-3 pt-1.5 text-xs text-slate-400" data-testid="dock-page-context">
           Asking about {pageContext.kind} <span className="font-mono text-slate-300">{pageContext.namespace ? `${pageContext.namespace}/` : ''}{pageContext.name}</span>
         </div>

@@ -22,9 +22,13 @@ export interface Termination {
   ranForMs: number | null;
 }
 
-/** How a container's previous instance ended (`lastState.terminated`), or null. */
+/**
+ * How a container last ended: its previous instance (`lastState.terminated`),
+ * or — when it never restarted, as with a failed `restartPolicy: Never` pod —
+ * the instance that is itself terminated now. Null when it has not ended.
+ */
 export function lastTermination(cs: ContainerStatus | undefined): Termination | null {
-  const t = cs?.lastState?.terminated;
+  const t = cs?.lastState?.terminated ?? cs?.state?.terminated;
   if (!t) return null;
   const s = toEpochMs(t.startedAt);
   const f = toEpochMs(t.finishedAt);
@@ -37,21 +41,45 @@ export function lastTermination(cs: ContainerStatus | undefined): Termination | 
   };
 }
 
+/** Every container status, init containers first (they run first). */
+export function allContainerStatuses(pod: PodLike): Array<ContainerStatus & { init?: boolean }> {
+  return [
+    ...(pod.status?.initContainerStatuses ?? []).map((c) => ({ ...c, init: true })),
+    ...(pod.status?.containerStatuses ?? []),
+  ];
+}
+
+/** Total restarts, init containers included. */
+export function podRestarts(pod: PodLike): number {
+  return allContainerStatuses(pod).reduce((n, c) => n + (c.restartCount || 0), 0);
+}
+
+/** The spec of a container or init container by name. */
+export function containerSpec(pod: PodLike, name: string | undefined): Container | undefined {
+  if (!name) return undefined;
+  return (pod.spec?.containers ?? []).find((c) => c.name === name) ?? (pod.spec?.initContainers ?? []).find((c) => c.name === name);
+}
+
 /**
- * The container to talk about: the one whose last instance ended most
- * recently, else one that is waiting in a bad state, else the first.
+ * The container to talk about: the one (init containers included) whose last
+ * instance ended badly most recently, else one waiting in a bad state, else
+ * the first app container.
  */
-export function primaryContainer(pod: PodLike): { name: string; status?: ContainerStatus } | null {
+export function primaryContainer(pod: PodLike): { name: string; status?: ContainerStatus; init?: boolean } | null {
   const containers = pod.spec?.containers ?? [];
   if (containers.length === 0) return null;
-  const statuses = pod.status?.containerStatuses ?? [];
+  const statuses = allContainerStatuses(pod);
+  const endedAt = (c: ContainerStatus) => toEpochMs(lastTermination(c)?.finishedAt) ?? 0;
   const ended = statuses
-    .filter((c) => c.lastState?.terminated)
-    .sort((a, b) => (toEpochMs(b.lastState?.terminated?.finishedAt) ?? 0) - (toEpochMs(a.lastState?.terminated?.finishedAt) ?? 0))[0];
+    .filter((c) => {
+      const t = lastTermination(c);
+      return t && (c.lastState?.terminated || (t.exitCode ?? 0) !== 0);
+    })
+    .sort((a, b) => endedAt(b) - endedAt(a))[0];
   const bad = statuses.find((c) => c.state?.waiting?.reason && BAD_WAITING.has(c.state.waiting.reason));
   const pick = ended ?? bad;
-  if (pick) return { name: pick.name, status: pick };
-  return { name: containers[0].name, status: statuses.find((s) => s.name === containers[0].name) };
+  if (pick) return { name: pick.name, status: pick, init: !!pick.init };
+  return { name: containers[0].name, status: statuses.find((s) => s.name === containers[0].name && !s.init) };
 }
 
 /** "Waiting · CrashLoopBackOff (back-off 2m40s restarting …)" etc. */

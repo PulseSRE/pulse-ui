@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { readK8s } from '../../engine/readResult';
 import type { K8sResource } from '../../engine/renderers';
 import { useFleetStore } from '../../store/fleetStore';
+import { ownerLink } from '../../engine/ownerRef';
 
 export interface PodOwner {
   kind: string;
@@ -26,20 +27,10 @@ export interface PodOwner {
   replicaSet?: string;
 }
 
-const GROUP_OF: Record<string, string> = {
-  Deployment: 'apps', ReplicaSet: 'apps', StatefulSet: 'apps', DaemonSet: 'apps', Job: 'batch', CronJob: 'batch',
-};
-
-function plural(kind: string): string {
-  return `${kind.toLowerCase()}s`;
-}
-
+/** Owner paths for a kind with the default apiVersion (apps/batch/core). */
 export function ownerPaths(kind: string, namespace: string, name: string): { apiPath: string; path: string } {
-  const group = GROUP_OF[kind];
-  const p = plural(kind);
-  const gvr = group ? `${group}~v1~${p}` : `v1~${p}`;
-  const apiPath = group ? `/apis/${group}/v1/namespaces/${namespace}/${p}/${name}` : `/api/v1/namespaces/${namespace}/${p}/${name}`;
-  return { apiPath, path: `/r/${gvr}/${namespace}/${name}` };
+  const { apiPath, path } = ownerLink({ kind, name }, namespace);
+  return { apiPath, path };
 }
 
 export function usePodOwner(pod: K8sResource): { owner: PodOwner | null; isLoading: boolean } {
@@ -59,10 +50,8 @@ export function usePodOwner(pod: K8sResource): { owner: PodOwner | null; isLoadi
 
   if (!isRS) {
     const hash = pod.metadata.labels?.['controller-revision-hash'];
-    return {
-      owner: { kind: ref.kind, name: ref.name, ...ownerPaths(ref.kind, ns, ref.name), revision: hash },
-      isLoading: false,
-    };
+    const { apiPath, path } = ownerLink(ref, ns);
+    return { owner: { kind: ref.kind, name: ref.name, apiPath, path, revision: hash }, isLoading: false };
   }
 
   if (rs.isLoading || !rs.data) {
