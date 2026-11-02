@@ -110,7 +110,7 @@ export interface ApiRemovalInputs {
   apiRequestCounts: ReadResult<APIRequestCount[]>;
   adminGates: ReadResult<ConfigMap>;
   adminAcks: ReadResult<ConfigMap>;
-  /** A target version or minor ("4.19" or "4.19.3"); defaults to the next minor after current. */
+  /** A target version or minor ("4.19" or "4.19.3"); defaults to `defaultTargetMinor` (lowest offered newer minor, else current + 1). */
   targetVersion?: string;
 }
 
@@ -164,6 +164,17 @@ export function targetMinorOptions(cv: ClusterVersion | null | undefined): strin
   return [...minors].sort((a, b) => (parseMinor(a)!.minor - parseMinor(b)!.minor));
 }
 
+/**
+ * The target checked when none is picked: the lowest newer minor the channel
+ * offers, else current + 1 (on stable-4.N only z-streams are offered until the
+ * channel is switched, which is exactly when this check matters).
+ */
+export function defaultTargetMinor(cv: ClusterVersion | null | undefined): string | null {
+  const cur = parseMinor(currentClusterVersion(cv));
+  if (!cur) return null;
+  return offeredMinors(cv)[0] ?? fmt({ major: cur.major, minor: cur.minor + 1 });
+}
+
 /** "next minor (not yet offered on your channel)" when the minor is current+1 and not offered. */
 export function targetMinorLabel(cv: ClusterVersion | null | undefined, minor: string): string {
   return offeredMinors(cv).includes(minor) ? minor : `${minor} \u2014 next minor (not yet offered on your channel)`;
@@ -204,9 +215,14 @@ function aggregateCallers(arc: APIRequestCount): ApiCaller[] {
     .sort((a, b) => Number(a.platform) - Number(b.platform) || b.requestCount - a.requestCount || a.username.localeCompare(b.username));
 }
 
-/** APIs removed in `targetKube` or earlier, split by whether they were called in the last 24h. */
-export function classifyRemovedApis(counts: APIRequestCount[], targetKube: string): { inUse: RemovedApi[]; unused: RemovedApi[] } {
+/**
+ * APIs removed after `currentKube` and no later than `targetKube`, split by
+ * whether they were called in the last 24h. An API removed in the running
+ * release or earlier is already gone and is not this update's problem.
+ */
+export function classifyRemovedApis(counts: APIRequestCount[], targetKube: string, currentKube?: string | null): { inUse: RemovedApi[]; unused: RemovedApi[] } {
   const target = parseMinor(targetKube);
+  const current = parseMinor(currentKube);
   const inUse: RemovedApi[] = [];
   const unused: RemovedApi[] = [];
   if (!target) return { inUse, unused };
@@ -214,6 +230,7 @@ export function classifyRemovedApis(counts: APIRequestCount[], targetKube: strin
     const removed = parseMinor(arc.status?.removedInRelease);
     if (!removed) continue;
     if (removed.major > target.major || (removed.major === target.major && removed.minor > target.minor)) continue;
+    if (current && (removed.major < current.major || (removed.major === current.major && removed.minor <= current.minor))) continue;
     const callers = aggregateCallers(arc);
     const requestCount = arc.status?.requestCount ?? callers.reduce((n, c) => n + c.requestCount, 0);
     const api: RemovedApi = {
@@ -274,7 +291,7 @@ export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVe
   const cur = parseMinor(current);
   if (!cur) return { ...base, reason: 'Could not check: the current cluster version is unknown.' };
 
-  const targetMinor = targetVersion ? parseMinor(targetVersion) : { major: cur.major, minor: cur.minor + 1 };
+  const targetMinor = parseMinor(targetVersion ?? defaultTargetMinor(clusterVersion));
   if (!targetMinor || targetMinor.major !== cur.major || targetMinor.minor <= cur.minor) {
     return { ...base, reason: `Could not check: ${targetVersion ?? 'the target'} is not a newer minor than ${fmt(cur)}.` };
   }
@@ -288,7 +305,7 @@ export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVe
   let inUse: RemovedApi[] = [];
   let unused: RemovedApi[] = [];
   if (apiRequestCounts.state === 'ok') {
-    ({ inUse, unused } = classifyRemovedApis(apiRequestCounts.data, kube));
+    ({ inUse, unused } = classifyRemovedApis(apiRequestCounts.data, kube, kubeMinorForOcp(fmt(cur))));
   } else if (apiRequestCounts.state === 'absent') {
     failures.push('APIRequestCount is not available on this cluster (it is an OpenShift API), so API usage could not be checked');
   } else {
@@ -319,21 +336,23 @@ export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVe
   }
   if (pendingGates.length) blockers.push(`${plural(pendingGates.length, 'admin acknowledgement')} for ${ocp} ${pendingGates.length === 1 ? 'is' : 'are'} not given`);
 
-  if (upgradeableBlocker) {
+  // A proven blocker stays no_go even when another read failed: nothing that
+  // read could have returned would turn it into a go.
+  if (blockers.length) {
     const unread = failures.length ? ` Also could not check: ${failures.join('; ')}.` : '';
     return { ...result, status: 'no_go', reason: `${capitalize(blockers.join('; '))}.${unread}` };
   }
   if (failures.length) {
-    const known = blockers.length ? ` Found so far: ${blockers.join('; ')}.` : '';
-    return { ...result, status: 'unknown', reason: `Could not check: ${failures.join('; ')}.${known}` };
+    return { ...result, status: 'unknown', reason: `Could not check: ${failures.join('; ')}. Nothing found so far blocks the update.` };
   }
-  if (blockers.length) {
-    return { ...result, status: 'no_go', reason: `${capitalize(blockers.join('; '))}.` };
-  }
+  // Each intermediate release can publish its own admin gates once the cluster reaches it.
+  const intermediateNote = targetMinor.minor > cur.minor + 1
+    ? ` Only the admin gates published so far (for the step out of ${fmt(cur)}) are covered; each intermediate release can publish its own when the cluster reaches it.`
+    : '';
   const gateNote = gates.length ? ` and ${plural(gates.length, 'admin gate')} for ${ocp} ${gates.length === 1 ? 'is' : 'are'} acknowledged` : ' and no admin acknowledgement is required';
   return {
     ...result,
     status: 'go',
-    reason: `No API removed in Kubernetes ${kube} (OpenShift ${ocp}) was called in the last 24h${gateNote}. Callers that run less often than daily (weekly jobs, quarterly tools) will not appear in this window.`,
+    reason: `No API removed in Kubernetes ${kube} (OpenShift ${ocp}) was called in the last 24h${gateNote}. Callers that run less often than daily (weekly jobs, quarterly tools) will not appear in this window.${intermediateNote}`,
   };
 }

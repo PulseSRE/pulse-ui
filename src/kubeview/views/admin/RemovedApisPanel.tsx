@@ -1,5 +1,5 @@
 import React from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { FileWarning, CheckCircle, XCircle, HelpCircle, Loader2, ChevronRight, ChevronDown, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Panel } from '../../components/primitives/Panel';
@@ -91,6 +91,11 @@ function useResourceListPath(clusterId: string) {
   };
 }
 
+/** The merge patch that acknowledges a gate; the confirm dialog shows it verbatim. */
+export function ackPatch(key: string): { data: Record<string, string> } {
+  return { data: { [key]: 'true' } };
+}
+
 /**
  * Acknowledge admin gates: merge-patches openshift-config/admin-acks with the
  * user's own credentials on the cluster the reads came from, after a confirm
@@ -106,7 +111,6 @@ export function AdminGateActions({ gates, clusterId, onAcked }: {
   const [confirm, setConfirm] = React.useState<{ gate: AdminGate; clusterId: string } | null>(null);
   const [pending, setPending] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, unknown>>({});
-  const queryClient = useQueryClient();
 
   const noPermission = 'You do not have permission to patch ConfigMaps in openshift-config.';
 
@@ -116,10 +120,10 @@ export function AdminGateActions({ gates, clusterId, onAcked }: {
     setPending(true);
     try {
       assertActiveCluster(pinned, 'The acknowledgement');
-      await k8sPatch(ADMIN_ACKS_PATH, { data: { [gate.key]: 'true' } }, 'application/merge-patch+json', pinned);
+      await k8sPatch(ADMIN_ACKS_PATH, ackPatch(gate.key), 'application/merge-patch+json', pinned);
       setErrors((e) => Object.fromEntries(Object.entries(e).filter(([k]) => k !== gate.key)));
+      // The ClusterVersion watch picks up the Upgradeable condition change on its own.
       await onAcked();
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'clusterversion'] });
     } catch (err) {
       setErrors((e) => ({ ...e, [gate.key]: err }));
     }
@@ -175,7 +179,12 @@ export function AdminGateActions({ gates, clusterId, onAcked }: {
           confirmLabel="Acknowledge"
           variant="warning"
           loading={pending}
-        />
+        >
+          <div className="mt-3 text-xs">
+            <div className="text-slate-400 mb-1">Merge patch sent to openshift-config/admin-acks:</div>
+            <pre data-testid="admin-ack-patch-body" className="font-mono text-slate-200 bg-slate-950 border border-slate-800 rounded-sm px-2 py-1.5 whitespace-pre-wrap break-all">{JSON.stringify(ackPatch(confirm.gate.key))}</pre>
+          </div>
+        </ConfirmDialog>
       )}
     </ul>
   );
@@ -236,8 +245,12 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
 
         {verdict && <p className="text-xs text-slate-300" data-testid="removed-apis-reason">{verdict.reason}</p>}
 
-        {verdict?.status === 'unknown' && verdict.failures.length > 0 && (
-          <LoadError title="Removed APIs could not be checked" error={verdict.failures.join('; ')} onRetry={onRetry} />
+        {verdict && verdict.failures.length > 0 && (
+          <LoadError
+            title={verdict.status === 'unknown' ? 'Removed APIs could not be checked' : 'Part of the removed-API check could not be read'}
+            error={verdict.failures.join('; ')}
+            onRetry={onRetry}
+          />
         )}
 
         {verdict?.status === 'no_go' && (

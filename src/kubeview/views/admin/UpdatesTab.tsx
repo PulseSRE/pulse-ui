@@ -24,7 +24,7 @@ import { useCanI } from '../../hooks/useCanI';
 import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
 import { errorReason } from '../../engine/readResult';
 import { RemovedApisPanel, AdminGateActions, useApiRemovalReads, VERDICT_LABEL } from './RemovedApisPanel';
-import { computeApiRemovalVerdict, parseMinor, targetMinorOptions, targetMinorLabel, currentClusterVersion, type ApiRemovalVerdict } from '../../engine/upgradeApiRemovals';
+import { computeApiRemovalVerdict, defaultTargetMinor, parseMinor, targetMinorOptions, targetMinorLabel, currentClusterVersion, type ApiRemovalVerdict } from '../../engine/upgradeApiRemovals';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -97,7 +97,9 @@ export function UpdatesTab({
 
   const [confirmDialog, setConfirmDialog] = React.useState<{
     title: string; description: string; confirmLabel: string;
-    variant: 'danger' | 'warning'; onConfirm: () => void; warning?: React.ReactNode;
+    variant: 'danger' | 'warning'; onConfirm: () => void;
+    /** Update target whose removed-API warning is shown; computed at render so a verdict that arrives later still appears. */
+    warningVersion?: string;
   } | null>(null);
   // A conditional target is confirmed only after its risks are explicitly accepted.
   const [riskDialog, setRiskDialog] = React.useState<{ target: UpgradeTarget; clusterId: string } | null>(null);
@@ -107,7 +109,9 @@ export function UpdatesTab({
   const removal = useApiRemovalReads();
   const removalOptions = React.useMemo(() => targetMinorOptions(clusterVersion), [clusterVersion]);
   const [pickedRemovalTarget, setPickedRemovalTarget] = React.useState<string | undefined>();
-  const removalTarget = pickedRemovalTarget && removalOptions.includes(pickedRemovalTarget) ? pickedRemovalTarget : removalOptions[0];
+  const removalTarget = pickedRemovalTarget && removalOptions.includes(pickedRemovalTarget)
+    ? pickedRemovalTarget
+    : defaultTargetMinor(clusterVersion) ?? removalOptions[0];
   const verdictFor = React.useCallback((targetVersion?: string): ApiRemovalVerdict | null => (
     removal.reads ? computeApiRemovalVerdict({ clusterVersion, ...removal.reads, targetVersion }) : null
   ), [removal.reads, clusterVersion]);
@@ -185,7 +189,7 @@ export function UpdatesTab({
       description: `This will rolling-restart all nodes in the cluster. The update process cannot be easily reversed. Make sure you have a recent etcd backup before proceeding.`,
       confirmLabel: 'Start Update',
       variant: 'warning',
-      warning: removalWarningFor(version),
+      warningVersion: version,
       onConfirm: () => {
         setConfirmDialog(null);
         void applyUpdate({ version, image, state: 'recommended', risks: [] }, clusterId);
@@ -470,7 +474,7 @@ export function UpdatesTab({
           confirmLabel={confirmDialog.confirmLabel}
           variant={confirmDialog.variant}
         >
-          {confirmDialog.warning && <div className="mt-3">{confirmDialog.warning}</div>}
+          {confirmDialog.warningVersion && removalWarningFor(confirmDialog.warningVersion) && <div className="mt-3">{removalWarningFor(confirmDialog.warningVersion)}</div>}
         </ConfirmDialog>
       )}
 

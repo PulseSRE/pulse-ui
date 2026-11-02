@@ -252,6 +252,42 @@ describe('Removed APIs panel: agent-aligned rules', () => {
     expect(option.textContent).toMatch(/next minor \(not yet offered on your channel\)/);
   });
 
+  it('No-go with a failed read still offers Retry, and Retry re-reads', async () => {
+    let acksReads = 0;
+    mockFetchRoutes(routes({
+      '/apis/apiserver.openshift.io/v1/apirequestcounts': { body: IN_USE },
+      '/configmaps/admin-acks': () => { acksReads += 1; return { status: 500, body: { kind: 'Status', code: 500 } }; },
+    }));
+    renderTab();
+    expect((await verdict()).dataset.status).toBe('no_go');
+    expect(screen.getByTestId('removed-apis-reason').textContent).toMatch(/Also could not check: the admin-acks ConfigMap could not be read/);
+    const alert = within(panel()).getByRole('alert');
+    expect(alert.textContent).toMatch(/Part of the removed-API check could not be read/);
+    const before = acksReads;
+    fireEvent.click(within(alert).getByRole('button', { name: /retry/i }));
+    await waitFor(() => expect(acksReads).toBeGreaterThan(before));
+  });
+
+  it('Start Update dialog opened while the check is still running shows the verdict once it arrives', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const inner = mockFetchRoutes(routes({ '/apis/apiserver.openshift.io/v1/apirequestcounts': { body: IN_USE } }));
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('apirequestcounts')) await gate;
+      return inner(input, init);
+    });
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: /^4\.19\.2 — / }));
+    const target = screen.getByRole('region', { name: 'Update target 4.19.2' });
+    const btn = within(target).getByRole('button', { name: 'Update to 4.19.2' }) as HTMLButtonElement;
+    await waitFor(() => expect(btn.disabled).toBe(false));
+    fireEvent.click(btn);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByTestId('removed-apis-update-warning').textContent).toMatch(/Checking/);
+    release();
+    await waitFor(() => expect(within(dialog).getByTestId('removed-apis-update-warning').textContent).toMatch(/No-go.*was called 120 times/));
+  });
+
   it('truncates very long usernames and user agents to ~120 characters, keeping the full text in the tooltip', async () => {
     const longUser = `u-${'x'.repeat(300)}`;
     const longAgent = `agent/${'y'.repeat(300)}`;
@@ -290,7 +326,8 @@ describe('Acknowledge an admin gate', () => {
     useFleetStore.setState({ activeClusterId: 'east' });
     try {
       const fetchMock = ackRoutes();
-      renderTab();
+      const { client } = renderTab();
+      const invalidate = vi.spyOn(client, 'invalidateQueries');
       await verdict();
       fireEvent.click(await ackButton());
       const dialog = await screen.findByRole('dialog');
@@ -298,6 +335,8 @@ describe('Acknowledge an admin gate', () => {
       expect(dialog.textContent).toContain('openshift-config/admin-acks');
       expect(dialog.textContent).toContain(`setting key ${GATE} to "true"`);
       expect(dialog.textContent).toContain('East');
+      // The literal merge-patch body is shown, and is exactly what is sent.
+      expect(within(dialog).getByTestId('admin-ack-patch-body').textContent).toBe(`{"data":{"${GATE}":"true"}}`);
       fireEvent.click(within(dialog).getByRole('button', { name: 'Acknowledge' }));
 
       await waitFor(() => expect(within(screen.getByTestId(`admin-gate-${GATE}`)).getByText('Acknowledged')).toBeTruthy());
@@ -306,6 +345,9 @@ describe('Acknowledge an admin gate', () => {
       expect((init as RequestInit).headers).toMatchObject({ 'Content-Type': 'application/merge-patch+json' });
       expect(JSON.parse(String((init as RequestInit).body))).toEqual({ data: { [GATE]: 'true' } });
       expect((await verdict()).dataset.status).toBe('go');
+      // Acknowledged state comes from re-reading admin-acks; no stray invalidation of an unused ClusterVersion key.
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['admin', 'clusterversion'] });
+      expect(String(JSON.parse(String((patchCalls(fetchMock)[0][1] as RequestInit).body)).data[GATE])).toBe('true');
     } finally {
       setActiveClusterId('local');
       useFleetStore.setState({ activeClusterId: 'local' });

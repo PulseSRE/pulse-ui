@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeApiRemovalVerdict, kubeMinorForOcp, targetMinorOptions, classifyRemovedApis,
-  applicableGates, currentClusterVersion, parseApiRequestCountName, targetMinorLabel, upgradeableBlockerOf,
+  applicableGates, currentClusterVersion, defaultTargetMinor, parseApiRequestCountName, targetMinorLabel, upgradeableBlockerOf,
   type APIRequestCount, type ApiRemovalInputs,
 } from '../upgradeApiRemovals';
 import type { ClusterVersion, ConfigMap } from '../types';
@@ -197,14 +197,41 @@ describe('computeApiRemovalVerdict', () => {
     expect(v.reason).toMatch(/admin-acks ConfigMap could not be read/);
   });
 
-  it('still reports blockers it found when another read failed, but stays unknown', () => {
+  it('a removed API in use is no_go even when another read failed, and says what could not be checked', () => {
     const v = computeApiRemovalVerdict(inputs({
       apiRequestCounts: ok([arc('flowschemas.v1beta3.flowcontrol.apiserver.k8s.io', '1.32', 3)]),
       adminAcks: { state: 'error', reason: 'Request failed (500)' },
     }));
-    expect(v.status).toBe('unknown');
+    expect(v.status).toBe('no_go');
     expect(v.inUse).toHaveLength(1);
-    expect(v.reason).toMatch(/Found so far: 1 API removed/);
+    expect(v.reason).toMatch(/^1 API removed in Kubernetes 1\.32 was called 3 times/);
+    expect(v.reason).toMatch(/Also could not check: the admin-acks ConfigMap could not be read \(Request failed \(500\)\)/);
+  });
+
+  it('an unacknowledged in-scope gate is no_go even when APIRequestCounts could not be read', () => {
+    const v = computeApiRemovalVerdict(inputs({
+      apiRequestCounts: { state: 'error', reason: 'Permission denied (403)' },
+      adminAcks: ok(cm('admin-acks', {})),
+    }));
+    expect(v.status).toBe('no_go');
+    expect(v.reason).toMatch(/admin acknowledgement for 4\.19 is not given\. Also could not check: APIRequestCounts could not be read/);
+  });
+
+  it('with no blocker found and a read failed, stays unknown and says nothing found so far blocks', () => {
+    const v = computeApiRemovalVerdict(inputs({ adminAcks: { state: 'error', reason: 'Request failed (500)' } }));
+    expect(v.status).toBe('unknown');
+    expect(v.reason).toMatch(/^Could not check: .*\. Nothing found so far blocks the update\.$/);
+  });
+
+  it('skips APIs already removed in the running release: 4.18 (Kubernetes 1.31) with a 1.29 removal still called is not a blocker', () => {
+    const v = computeApiRemovalVerdict(inputs({
+      apiRequestCounts: ok([arc('flowschemas.v1beta2.flowcontrol.apiserver.k8s.io', '1.29', 40, [['jane', 'kubectl', 40]]), arc('x.v1beta1.example.io', '1.31', 7)]),
+    }));
+    expect(v.status).toBe('go');
+    expect(v.inUse).toEqual([]);
+    expect(v.unused).toEqual([]);
+    // Removed after the running release and by the target: still counted.
+    expect(computeApiRemovalVerdict(inputs({ apiRequestCounts: ok([arc('y.v1beta1.example.io', '1.32', 2)]) })).status).toBe('no_go');
   });
 
   it('is unknown when the ClusterVersion is unreadable or the target cannot be determined', () => {
@@ -225,8 +252,33 @@ describe('computeApiRemovalVerdict', () => {
     expect(v.status).toBe('no_go');
     expect(v.inUse).toHaveLength(1);
     expect(v.gates.filter((g) => !g.acknowledged).map((g) => g.key)).toEqual(['ack-4.19-kube-1.33-api-removals-in-4.20']);
+    expect(v.reason).not.toMatch(/intermediate release/);
     // The same API is not a blocker for 4.19, which ships 1.32.
     expect(computeApiRemovalVerdict(inputs({ apiRequestCounts: ok([arc('x.v1beta1.example.io', '1.33', 5)]) })).status).toBe('go');
+  });
+
+  it('Go for a target two minors ahead notes that intermediate releases may publish new gates; one minor ahead does not', () => {
+    const two = computeApiRemovalVerdict(inputs({ targetVersion: '4.20' }));
+    expect(two.status).toBe('go');
+    expect(two.reason).toMatch(/Only the admin gates published so far \(for the step out of 4\.18\) are covered; each intermediate release can publish its own/);
+    const one = computeApiRemovalVerdict(inputs({ targetVersion: '4.19' }));
+    expect(one.status).toBe('go');
+    expect(one.reason).not.toMatch(/intermediate release/);
+  });
+
+  it('defaults to the lowest newer minor the channel offers, falling back to current + 1', () => {
+    const offered = cv('4.18.5', {
+      availableUpdates: [{ version: '4.18.7' }, { version: '4.21.0' }],
+      conditionalUpdates: [{ release: { version: '4.20.1' }, risks: [] }],
+    } as Partial<NonNullable<ClusterVersion['status']>>);
+    expect(defaultTargetMinor(offered)).toBe('4.20');
+    const v = computeApiRemovalVerdict(inputs({ clusterVersion: offered }));
+    expect(v.target).toEqual({ ocp: '4.20', kube: '1.33' });
+    expect(v.targetNotOffered).toBe(false);
+    const zOnly = cv('4.18.5', { availableUpdates: [{ version: '4.18.7' }] } as Partial<NonNullable<ClusterVersion['status']>>);
+    expect(defaultTargetMinor(zOnly)).toBe('4.19');
+    expect(computeApiRemovalVerdict(inputs({ clusterVersion: zOnly })).targetNotOffered).toBe(true);
+    expect(defaultTargetMinor(null)).toBeNull();
   });
 
   it('handles an empty APIRequestCount list as go when no gate is pending', () => {
