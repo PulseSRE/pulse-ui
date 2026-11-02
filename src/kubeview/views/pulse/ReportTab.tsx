@@ -509,7 +509,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   // Attention items (Zone 3)
   const attentionItems = useMemo(() => {
     const items: AttentionItem[] = [];
-    for (const co of degradedOperators) items.push({ severity: 'critical', title: `Operator ${co.metadata.name} degraded`, detail: 'Cluster operator not functioning', path: '/admin?tab=operators', pathTitle: 'Operators' });
+    for (const co of degradedOperators) items.push({ severity: 'critical', title: `Operator ${co.metadata.name} degraded`, detail: 'Cluster operator not functioning', path: '/admin?tab=operators', pathTitle: 'Platform operators' });
     for (const n of unhealthyNodes) items.push({ severity: 'critical', title: `Node ${n.metadata.name} NotReady`, detail: 'Not accepting workloads', path: `/r/v1~nodes/_/${n.metadata.name}`, pathTitle: n.metadata.name,
       steps: ['Check kubelet status on the node', 'Review node conditions (DiskPressure, MemoryPressure)', 'Check network connectivity to control plane', 'Review system logs (journalctl -u kubelet)'] });
     for (const a of criticalAlerts) items.push({ severity: 'critical', title: a.title || 'Critical alert', detail: a.namespace ? `in ${a.namespace}` : 'cluster-scoped', path: '/alerts', pathTitle: 'Alerts' });

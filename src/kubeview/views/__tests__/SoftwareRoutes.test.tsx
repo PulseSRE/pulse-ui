@@ -21,6 +21,8 @@ vi.mock('../CreateView', () => ({
   },
 }));
 
+vi.mock('../OperatorCatalogView', () => ({ default: () => <div data-testid="catalog">operator catalog</div> }));
+
 function GoTo({ to }: { to: string }) {
   const navigate = useNavigate();
   return <button onClick={() => navigate(to)}>go</button>;
@@ -53,6 +55,19 @@ describe('Software route', () => {
     renderAt(`/create/v1~pods?tab=${tab}&q=x`);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(`/software?tab=${tab}&q=x`));
     expect((await screen.findByTestId('create')).textContent).toBe('hub');
+  });
+
+  // The Software › Operators tab only redirected to /operators and is gone.
+  // Old links to it still reach the catalog, with their search.
+  it.each([
+    ['/software?tab=operators', '/operators'],
+    ['/software?tab=operators&q=cluster-logging', '/operators?q=cluster-logging'],
+    ['/create/v1~pods?tab=operators&q=cluster logging', '/operators?q=cluster%20logging'],
+  ])('old Operators-tab link %s lands on %s', async (from, to) => {
+    renderAt(from);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(to));
+    expect(await screen.findByTestId('catalog')).toBeDefined();
+    expect(screen.queryByTestId('create')).toBeNull();
   });
 
   it('/create/<gvr> goes straight to that kind\'s editor, Pods included', async () => {
