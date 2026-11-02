@@ -544,12 +544,78 @@ describe('UpdatesTab', () => {
       expect(Array.from(select.options).map((o) => o.value)).toEqual(['fast-4.16', 'stable-4.16', 'stable-4.17']);
       fireEvent.change(select, { target: { value: 'stable-4.17' } });
       fireEvent.click(screen.getByText('Save'));
+      // Save asks first; nothing is patched until the change is confirmed.
+      expect(await screen.findByText('Change update channel from stable-4.16 to stable-4.17?')).toBeDefined();
+      expect(k8sPatch).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'Change channel' }));
       await vi.waitFor(() => expect(k8sPatch).toHaveBeenCalledWith(
         '/apis/config.openshift.io/v1/clusterversions/version',
         { spec: { channel: 'stable-4.17' } },
         'application/merge-patch+json',
         'local',
       ));
+    });
+
+    it('the confirmation says which offered targets stay and which drop out, from their release channels', async () => {
+      const cv = idleClusterVersion({ channels: ['stable-4.16', 'fast-4.16'] });
+      const availableUpdates = [
+        { version: '4.16.8', image: 'quay.io/ocp@sha256:bbb', channels: ['stable-4.16', 'fast-4.16'] },
+        { version: '4.17.2', image: 'quay.io/ocp@sha256:ddd', channels: ['stable-4.17'] },
+      ];
+      renderTab({ clusterVersion: cv, cvVersion: '4.16.3', cvChannel: 'stable-4.16', availableUpdates });
+      fireEvent.click(screen.getByText('Change'));
+      fireEvent.change(screen.getByRole('combobox', { name: 'Update channel' }), { target: { value: 'fast-4.16' } });
+      fireEvent.click(screen.getByText('Save'));
+      const impact = await screen.findByTestId('channel-change-impact');
+      expect(impact.textContent).toMatch(/Still offered \(their release lists fast-4\.16\): 4\.16\.8/);
+      expect(impact.textContent).toMatch(/No longer offered \(their release does not list fast-4\.16\): 4\.17\.2/);
+      // The conditional 4.17.1 carries no channel list: unknown, not "kept".
+      expect(impact.textContent).toMatch(/Not known \(the release metadata lists no channels\): 4\.17\.1/);
+      expect(impact.textContent).toMatch(/Updates only in fast-4\.16 appear after the cluster refreshes/);
+    });
+
+    it('when the cluster\'s channel list does not include the new channel, warns that updates may disappear instead of "still offered"', async () => {
+      // No status.desired.channels: the picker offers generated channels, and
+      // whether 4.16.3 is in stable-4.17 is not known.
+      const cv = idleClusterVersion();
+      const availableUpdates = [{ version: '4.17.2', image: 'quay.io/ocp@sha256:ddd', channels: ['stable-4.17'] }];
+      renderTab({ clusterVersion: cv, cvVersion: '4.16.3', cvChannel: 'stable-4.16', availableUpdates });
+      fireEvent.click(screen.getByText('Change'));
+      fireEvent.change(screen.getByRole('combobox', { name: 'Update channel' }), { target: { value: 'stable-4.17' } });
+      fireEvent.click(screen.getByText('Save'));
+      const impact = await screen.findByTestId('channel-change-impact');
+      expect(within(impact).getByRole('alert').textContent).toMatch(/does not show whether the installed release \(4\.16\.3\) is in stable-4\.17\. Updates may disappear until the cluster's version is in that channel\./);
+      expect(impact.textContent).not.toMatch(/Still offered/);
+      expect(impact.textContent).toMatch(/Their release lists stable-4\.17, but they may not be offered: 4\.17\.2/);
+    });
+
+    it('says "still offered" only when the cluster\'s channel list includes the new channel', async () => {
+      const cv = idleClusterVersion({ channels: ['stable-4.16', 'fast-4.16'] });
+      const availableUpdates = [{ version: '4.16.8', image: 'quay.io/ocp@sha256:bbb', channels: ['stable-4.16', 'fast-4.16'] }];
+      renderTab({ clusterVersion: cv, cvVersion: '4.16.3', cvChannel: 'stable-4.16', availableUpdates });
+      fireEvent.click(screen.getByText('Change'));
+      fireEvent.change(screen.getByRole('combobox', { name: 'Update channel' }), { target: { value: 'fast-4.16' } });
+      fireEvent.click(screen.getByText('Save'));
+      const impact = await screen.findByTestId('channel-change-impact');
+      expect(within(impact).queryByRole('alert')).toBeNull();
+      expect(impact.textContent).toMatch(/Still offered \(their release lists fast-4\.16\): 4\.16\.8/);
+    });
+
+    it('cancelling the channel confirmation sends nothing', async () => {
+      renderTab({ clusterVersion: idleClusterVersion(), cvVersion: '4.16.3', cvChannel: 'stable-4.16' });
+      fireEvent.click(screen.getByText('Change'));
+      fireEvent.change(screen.getByRole('combobox', { name: 'Update channel' }), { target: { value: 'fast-4.16' } });
+      fireEvent.click(screen.getByText('Save'));
+      await screen.findByText('Change update channel from stable-4.16 to fast-4.16?');
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+      expect(screen.queryByText('Change update channel from stable-4.16 to fast-4.16?')).toBeNull();
+      expect(k8sPatch).not.toHaveBeenCalled();
+    });
+
+    it('without permission to patch the ClusterVersion there is no Change button', () => {
+      canPatch = false;
+      renderTab({ clusterVersion: idleClusterVersion(), cvVersion: '4.16.3', cvChannel: 'stable-4.16' });
+      expect(screen.queryByText('Change')).toBeNull();
     });
 
     it('Cancel closes the editor without patching', () => {

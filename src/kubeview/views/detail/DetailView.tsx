@@ -7,6 +7,11 @@ import { XCircle } from 'lucide-react';
 import { k8sGet, k8sDelete, k8sPatch, k8sCreate, k8sList } from '../../engine/query';
 import { terminalTargets, defaultTerminalTarget } from '../../engine/terminalTargets';
 import { pickDefaultContainer } from '../../components/logs/pickDefaultContainer';
+import { useActionDialog } from '../../components/ActionDialog';
+import {
+  NODE_DEBUG_NAMESPACE, NODE_DEBUG_IMAGE, NODE_DEBUG_DEADLINE_SECONDS, NODE_DEBUG_NODE_LABEL, POD_DEBUG_IMAGE,
+  nodeDebugPodName, buildNodeDebugPod, buildEphemeralDebugPatch, validateImageRef,
+} from '../../engine/debugPods';
 import { assertActiveCluster } from '../../engine/pendingCluster';
 import { getActiveClusterId, LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import type { K8sResource } from '../../engine/renderers';
@@ -45,7 +50,6 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
   const setDockContext = useUIStore((s) => s.setDockContext);
-  const [actionLoading, setActionLoading] = React.useState<string | null>(null);
 
   // Build GVR URL segment for navigation
   const gvrUrl = gvrKey.replace(/\//g, '~');
@@ -55,6 +59,17 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   // RBAC permission checks
   const { allowed: canDelete } = useCanI('delete', resourceGroup, resourcePlural, namespace);
+  // Debug on a node creates a pod in NODE_DEBUG_NAMESPACE; on a pod it patches
+  // the pod's ephemeralcontainers subresource. Offer it only when allowed.
+  const isNodeRoute = resourceGroup === '' && resourcePlural === 'nodes';
+  const isPodRoute = resourceGroup === '' && resourcePlural === 'pods';
+  const { allowed: canCreateNodeDebug } = useCanI('create', '', 'pods', NODE_DEBUG_NAMESPACE, undefined, { enabled: isNodeRoute });
+  const { allowed: canPodDebug } = useCanI('patch', '', 'pods', namespace, 'ephemeralcontainers', { enabled: isPodRoute && !!namespace });
+  const debugDenied = isNodeRoute
+    ? (canCreateNodeDebug ? undefined : `You do not have permission to create pods in ${NODE_DEBUG_NAMESPACE}`)
+    : isPodRoute
+      ? (canPodDebug ? undefined : 'You do not have permission to add debug containers to this pod')
+      : undefined;
 
   // Build API path for this specific resource
   const apiPath = React.useMemo(
@@ -207,75 +222,62 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     go(`/metrics/${gvrUrl}/${ns}/${name}`, `${name} (Metrics)`);
   };
 
-  const handleDebug = async () => {
-    if (!resource || actionLoading) return;
-    setActionLoading('debug');
-    try {
-      if (resource.kind === 'Node') {
-        const debugName = `debug-${resource.metadata.name.slice(0, 20)}-${Date.now().toString(36).slice(-4)}`;
-        const debugPod = {
-          apiVersion: 'v1',
-          kind: 'Pod',
-          metadata: {
-            name: debugName,
-            namespace: 'default',
-            labels: { 'openshiftpulse/debug': 'true', 'openshiftpulse/debug-node': resource.metadata.name },
-          },
-          spec: {
-            nodeName: resource.metadata.name,
-            hostPID: true,
-            hostNetwork: true,
-            restartPolicy: 'Never',
-            containers: [{
-              name: 'debug',
-              image: 'registry.redhat.io/rhel9/support-tools:latest',
-              command: ['sleep', '3600'],
-              securityContext: { privileged: true },
-              volumeMounts: [{ name: 'host', mountPath: '/host' }],
-            }],
-            volumes: [{ name: 'host', hostPath: { path: '/' } }],
-          },
-        };
-        await k8sCreate('/api/v1/namespaces/default/pods', debugPod, clusterId);
-        addToast({ type: 'success', title: `Debug pod created: ${debugName}`, detail: 'Host filesystem at /host. Run: chroot /host. Pod auto-deletes in 1 hour.' });
-        useUIStore.getState().openTerminal({
+  // Debug writes to the cluster (a privileged pod, or a container added to a
+  // running pod), so it asks first and says exactly what it will create.
+  const { open: openAction, dialog: actionDialog } = useActionDialog();
+  const handleDebug = () => {
+    if (!resource || debugDenied) return;
+    if (resource.kind === 'Node') {
+      const node = resource.metadata.name;
+      const debugName = nodeDebugPodName(node);
+      openAction({
+        title: `Start a privileged debug pod on node "${node}"?`,
+        description: `This creates pod "${debugName}" in namespace "${NODE_DEBUG_NAMESPACE}", scheduled onto ${node}.`,
+        confirmLabel: 'Create debug pod',
+        variant: 'danger',
+        what: 'The debug pod',
+        body: (
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-300">
+            <li>Image <span className="font-mono">{NODE_DEBUG_IMAGE}</span></li>
+            <li>Privileged container, sharing the node&apos;s process IDs (hostPID) and network (hostNetwork)</li>
+            <li>The node&apos;s whole filesystem mounted read-write at <span className="font-mono">/host</span></li>
+            <li>Stopped by Kubernetes after {NODE_DEBUG_DEADLINE_SECONDS / 60} minutes (activeDeadlineSeconds). &quot;End session&quot; in the terminal deletes it sooner.</li>
+          </ul>
+        ),
+        run: (cid) => k8sCreate(`/api/v1/namespaces/${NODE_DEBUG_NAMESPACE}/pods`, buildNodeDebugPod(node, debugName), cid),
+        success: `Debug pod created: ${debugName}`,
+        successDetail: `Host filesystem at /host (chroot /host). It stops after ${NODE_DEBUG_DEADLINE_SECONDS / 60} minutes; End session in the terminal deletes it.`,
+        onDone: () => useUIStore.getState().openTerminal({
           clusterId,
-          namespace: 'default',
+          namespace: NODE_DEBUG_NAMESPACE,
           podName: debugName,
           containerName: 'debug',
           isNode: true,
-        });
-      } else if (resource.kind === 'Pod' && namespace) {
-        const debugContainerName = `debug-${Date.now().toString(36).slice(-6)}`;
-        const patch = {
-          spec: {
-            ephemeralContainers: [
-              ...((resource.spec as Pod['spec'] & { ephemeralContainers?: unknown[] })?.ephemeralContainers || []),
-              {
-                name: debugContainerName,
-                image: 'busybox:latest',
-                command: ['sh'],
-                stdin: true,
-                tty: true,
-                // Share the app container's process namespace, not a sidecar's.
-                targetContainerName: pickDefaultContainer(((resource.spec as Pod['spec'])?.containers ?? []).map((c) => c.name)),
-              },
-            ],
-          },
-        };
-        await k8sPatch(
-          `/api/v1/namespaces/${namespace}/pods/${resource.metadata.name}/ephemeralcontainers`,
-          patch,
+        }),
+      });
+    } else if (resource.kind === 'Pod' && namespace) {
+      const podName = resource.metadata.name;
+      const debugContainerName = `debug-${Date.now().toString(36).slice(-6)}`;
+      // Share the app container's process namespace, not a sidecar's.
+      const target = pickDefaultContainer(((resource.spec as Pod['spec'])?.containers ?? []).map((c) => c.name));
+      openAction({
+        title: `Add a debug container to pod "${podName}"?`,
+        description: `This adds ephemeral container "${debugContainerName}" to ${namespace}/${podName}${target ? `, sharing the process namespace of "${target}"` : ''}. Ephemeral containers cannot be removed; the container stays in the pod spec until the pod is deleted.`,
+        confirmLabel: 'Add debug container',
+        what: 'The debug container',
+        inputs: [{ id: 'image', label: 'Image (the node must be able to pull it)', initial: POD_DEBUG_IMAGE, validate: validateImageRef }],
+        run: (cid, values) => k8sPatch(
+          `/api/v1/namespaces/${namespace}/pods/${podName}/ephemeralcontainers`,
+          buildEphemeralDebugPatch(resource as Pod, debugContainerName, values.image.trim(), target),
           'application/strategic-merge-patch+json',
-          clusterId,
-        );
-        addToast({ type: 'success', title: `Debug container "${debugContainerName}" added`, detail: 'Shares process namespace with the target container. Connect via terminal.' });
-        queryClient.invalidateQueries({ queryKey: ['detail', apiPath] });
-      }
-    } catch (err) {
-      showErrorToast(err, 'Debug failed');
-    } finally {
-      setActionLoading(null);
+          cid,
+        ),
+        success: `Debug container "${debugContainerName}" added`,
+        successDetail: 'Shares process namespace with the target container. Connect via terminal.',
+        // Refetch this pod (key ['detail', apiPath, clusterId]) so the new
+        // ephemeral container shows up and the terminal can pick it.
+        onDone: () => { void queryClient.invalidateQueries({ queryKey: ['detail', apiPath] }); },
+      });
     }
   };
 
@@ -287,7 +289,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       // node's running debug pod instead, if Debug has created one.
       try {
         const pods = await k8sList<Pod>(
-          `/api/v1/namespaces/default/pods?labelSelector=${encodeURIComponent(`openshiftpulse/debug-node=${resource.metadata.name}`)}`,
+          `/api/v1/namespaces/${NODE_DEBUG_NAMESPACE}/pods?labelSelector=${encodeURIComponent(`${NODE_DEBUG_NODE_LABEL}=${resource.metadata.name}`)}`,
           undefined,
           clusterId,
         );
@@ -302,7 +304,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         }
         useUIStore.getState().openTerminal({
           clusterId,
-          namespace: 'default',
+          namespace: NODE_DEBUG_NAMESPACE,
           podName: live.metadata.name,
           containerName: 'debug',
           isNode: true,
@@ -412,7 +414,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           resourcePlural={resourcePlural}
           starred={starred}
           currentPath={currentPath}
-          actionLoading={actionLoading}
+          actionLoading={null}
+          debugDisabledReason={debugDenied}
           isWorkload={isWorkload}
           canDelete={canDelete}
           onNavigateBack={() => navigate(-1)}
@@ -508,6 +511,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         }}
       />
     )}
+
+    {actionDialog}
 
     {showDeleteConfirm && resource && (
       <DeleteConfirmModal

@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCanI } from '../../hooks/useCanI';
 import { useActionDialog } from '../../components/ActionDialog';
 import { DrainNodeDialog } from '../../components/DrainNodeDialog';
-import { setNodeSchedulable } from '../../engine/nodeActions';
+import { setNodeSchedulable, scheduleChangeCopy } from '../../engine/nodeActions';
 import { getActiveClusterId } from '../../engine/clusterConnection';
 import type { K8sResource } from '../../engine/renderers';
 
@@ -31,13 +31,7 @@ export function NodeHeaderActions({ node }: { node: K8sResource }) {
           className={`${btn} hover:text-emerald-400`}
           disabled={!canPatch}
           title={noPerm}
-          onClick={() => open({
-            title: `Uncordon node "${name}"?`,
-            description: `The scheduler will place new pods on ${name} again. Pods already running elsewhere are not moved back.`,
-            confirmLabel: 'Uncordon',
-            run: (cid) => setNodeSchedulable(name, true, cid),
-            success: `Node "${name}" uncordoned`,
-          })}
+          onClick={() => open({ ...scheduleChangeCopy(name, true), run: (cid) => setNodeSchedulable(name, true, cid) })}
         >
           <CheckCircle className="w-3.5 h-3.5" /> Uncordon
         </button>
@@ -46,13 +40,7 @@ export function NodeHeaderActions({ node }: { node: K8sResource }) {
           className={`${btn} hover:text-amber-400`}
           disabled={!canPatch}
           title={noPerm}
-          onClick={() => open({
-            title: `Cordon node "${name}"?`,
-            description: `No new pods will be scheduled on ${name}. Pods already running there keep running; use Drain to move them.`,
-            confirmLabel: 'Cordon',
-            run: (cid) => setNodeSchedulable(name, false, cid),
-            success: `Node "${name}" cordoned`,
-          })}
+          onClick={() => open({ ...scheduleChangeCopy(name, false), run: (cid) => setNodeSchedulable(name, false, cid) })}
         >
           <Ban className="w-3.5 h-3.5" /> Cordon
         </button>

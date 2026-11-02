@@ -14,7 +14,10 @@ import { errorReason } from '../engine/readResult';
 type LogSource = 'audit' | 'journal' | 'crio' | 'containers' | 'ovn';
 
 const LOG_SOURCES: Array<{ id: LogSource; label: string; icon: React.ReactNode; path: string; description: string }> = [
-  { id: 'audit', label: 'Audit Logs', icon: <Shield className="w-4 h-4" />, path: 'audit/', description: 'API server audit events' },
+  // /var/log/audit on the node is the Linux audit daemon (auditd), not the
+  // Kubernetes API server audit log (which lives under kube-apiserver/ etc. on
+  // control-plane nodes).
+  { id: 'audit', label: 'Host audit (auditd)', icon: <Shield className="w-4 h-4" />, path: 'audit/', description: 'Linux audit daemon records from /var/log/audit on this node (not Kubernetes API server audit events)' },
   { id: 'journal', label: 'Journal', icon: <Server className="w-4 h-4" />, path: 'journal/', description: 'System journal (kubelet, crio)' },
   { id: 'crio', label: 'CRI-O', icon: <Box className="w-4 h-4" />, path: 'crio/', description: 'Container runtime logs' },
   { id: 'containers', label: 'Containers', icon: <Box className="w-4 h-4" />, path: 'containers/', description: 'Container stdout/stderr' },
@@ -164,12 +167,13 @@ export default function NodeLogsView() {
       <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as LogSource)} className="flex-1 flex flex-col overflow-hidden">
       <TabsList aria-label="Log source tabs" className="flex shrink-0 overflow-x-auto rounded-none border-0 border-b border-slate-800 bg-transparent px-4 py-2">
         {LOG_SOURCES.map((src) => (
-          <TabsTrigger key={src.id} value={src.id} className="font-normal bg-slate-900">
+          <TabsTrigger key={src.id} value={src.id} title={src.description} className="font-normal bg-slate-900">
             {src.icon}
             {src.label}
           </TabsTrigger>
         ))}
       </TabsList>
+      <p className="shrink-0 border-b border-slate-800 px-4 py-1.5 text-xs text-slate-500">{source.description}</p>
 
       {/* Main content */}
       <TabsContent value={activeSource} className="flex-1 flex overflow-hidden">

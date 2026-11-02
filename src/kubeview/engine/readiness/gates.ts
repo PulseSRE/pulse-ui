@@ -446,12 +446,28 @@ const etcdBackup: ReadinessGate = {
     // AutomatedEtcdBackup), not v1 — see openshift/api's
     // config/v1alpha1/types_backup.go. v1 has never existed for this
     // resource, so probing it always 404s even when backups are configured.
-    const items = (await safeQuery(() => listItems(ctx, '/apis/config.openshift.io/v1alpha1/backups'))) ?? [];
+    // safeQuery gives null on 404: the Backup API is not served at all (the
+    // Technology Preview feature set is off), which is different from "served
+    // but nothing configured".
+    const items = await safeQuery(() => listItems(ctx, '/apis/config.openshift.io/v1alpha1/backups'));
+    // OADP/Velero backs up application resources and volumes, not etcd.
+    // etcd is backed up by the cluster's own Backup resource or by running
+    // cluster-backup.sh on a control-plane node.
+    const cronJob = 'or schedule a CronJob that runs /usr/local/bin/cluster-backup.sh on a control-plane node and copies the snapshot off the node';
+    if (items === null) {
+      return {
+        status: 'needs_attention',
+        detail: "No Backup resource (API not enabled); a cluster-backup.sh CronJob can't be detected here",
+        fixGuidance: 'Schedule a CronJob that runs /usr/local/bin/cluster-backup.sh on a control-plane node and copies the snapshot off the node. '
+          + 'The automated Backup resource (config.openshift.io/v1alpha1) needs the TechPreviewNoUpgrade feature set: enabling it cannot be undone, blocks minor-version updates and is not for production clusters. '
+          + 'OADP does not back up etcd; use it for application backups.',
+      };
+    }
     return {
       status: items.length > 0 ? 'passed' : 'needs_attention',
-      detail: items.length > 0 ? 'Backup configured' : 'No automated backup configured',
-      fixGuidance: 'Configure automated etcd backups using OADP or a CronJob.',
-      action: items.length > 0 ? undefined : { label: 'Setup OADP', path: '/operators?q=oadp' },
+      detail: items.length > 0 ? 'Automated etcd backup configured' : 'No automated etcd backup configured',
+      fixGuidance: `Create a Backup resource (config.openshift.io/v1alpha1) with an etcd schedule and a PVC to write to, ${cronJob}. OADP does not back up etcd; use it for application backups.`,
+      action: items.length > 0 ? undefined : { label: 'Create etcd Backup', path: '/create/config.openshift.io~v1alpha1~backups' },
     };
   }),
 };

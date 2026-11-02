@@ -89,12 +89,39 @@ describe('etcd-backup gate', () => {
     expect(result.status).toBe('passed');
   });
 
-  it('reports needs_attention when no Backup resource exists', async () => {
+  it('when the Backup API is not served, says so and points at cluster-backup.sh, not OADP', async () => {
     const fetchJson = vi.fn(async () => notFound());
 
     const result = await findGate('etcd-backup').evaluate(makeCtx(fetchJson));
 
     expect(result.status).toBe('needs_attention');
+    expect(result.detail).toBe("No Backup resource (API not enabled); a cluster-backup.sh CronJob can't be detected here");
+    expect(result.fixGuidance).toContain('cluster-backup.sh');
+    // Enabling the Tech Preview feature set is irreversible: say so before suggesting it.
+    expect(result.fixGuidance).toMatch(/TechPreviewNoUpgrade feature set: enabling it cannot be undone, blocks minor-version updates and is not for production/);
+    expect(result.fixGuidance).toContain('OADP does not back up etcd');
+    expect(result.fixGuidance).not.toMatch(/using OADP/);
+    // No link to a create form for an API the cluster does not serve, and none to OADP.
+    expect(result.action).toBeUndefined();
+  });
+
+  it('when the Backup API is served but empty, offers to create an etcd Backup (not OADP)', async () => {
+    const fetchJson = vi.fn(async () => ({ items: [] }));
+
+    const result = await findGate('etcd-backup').evaluate(makeCtx(fetchJson));
+
+    expect(result.status).toBe('needs_attention');
+    expect(result.detail).toBe('No automated etcd backup configured');
+    expect(result.action).toEqual({ label: 'Create etcd Backup', path: '/create/config.openshift.io~v1alpha1~backups' });
+    expect(result.fixGuidance).toContain('OADP does not back up etcd');
+  });
+
+  it('a 403 on the Backup list is not a pass', async () => {
+    const fetchJson = vi.fn(async () => { throw Object.assign(new Error('forbidden'), { status: 403 }); });
+
+    const result = await findGate('etcd-backup').evaluate(makeCtx(fetchJson));
+
+    expect(result.status).not.toBe('passed');
   });
 });
 
@@ -213,7 +240,7 @@ describe('gate actions open the page that fixes them', () => {
     ['custom-domain', '/admin?tab=config'],
     ['logging-operator', '/operators?q=cluster-logging'],
     ['coo', '/operators?q=observability'],
-    ['etcd-backup', '/operators?q=oadp'],
+    ['etcd-backup', '/create/config.openshift.io~v1alpha1~backups'],
   ])('%s → %s', async (id, path) => {
     const result = await findGate(id).evaluate(makeCtx(empty));
     expect(result.action?.path).toBe(path);

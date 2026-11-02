@@ -311,7 +311,7 @@ export default function OperatorCatalogView() {
     if (name.includes('oadp') || name.includes('data-protection')) return [
       { title: 'Create a DataProtectionApplication', description: 'Configure backup storage location (S3, Azure, GCS) and schedule', path: '/create/oadp.openshift.io~v1alpha1~dataprotectionapplications', label: 'Create DPA' },
       { title: 'Create backup credentials Secret', description: 'DPA needs a Secret with your cloud storage credentials', path: '/create/v1~secrets', label: 'Create Secret' },
-      { title: 'Create a Backup Schedule', description: 'Set up recurring etcd and application backups', path: '/create/velero.io~v1~schedules', label: 'Create Schedule' },
+      { title: 'Create a Backup Schedule', description: 'Set up recurring application backups (namespaces, resources and volumes). OADP does not back up etcd; that is the cluster Backup resource or cluster-backup.sh', path: '/create/velero.io~v1~schedules', label: 'Create Schedule' },
     ];
     if (name.includes('quay')) return [
       { title: 'Create a QuayRegistry', description: 'Deploy a Quay registry instance with managed storage and database', path: '/create/quay.redhat.com~v1~quayregistries', label: 'Create QuayRegistry' },

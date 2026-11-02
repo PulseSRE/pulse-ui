@@ -175,6 +175,28 @@ export function channelOptions(version: string, currentChannel: string, desiredC
   return options;
 }
 
+/**
+ * What a channel change does to the update targets offered now, from the
+ * release metadata already on the ClusterVersion: a target whose `channels`
+ * include the new channel stays, one whose `channels` do not drops out, and
+ * one with no channel list is unknown. Releases only in the new channel are
+ * not known until the CVO fetches the new graph.
+ */
+export function channelChangeImpact(
+  targets: Array<Pick<UpgradeTarget, 'version' | 'channels'>>,
+  newChannel: string,
+): { kept: string[]; dropped: string[]; unknown: string[] } {
+  const kept: string[] = [];
+  const dropped: string[] = [];
+  const unknown: string[] = [];
+  for (const t of targets) {
+    if (!t.channels || t.channels.length === 0) unknown.push(t.version);
+    else if (t.channels.includes(newChannel)) kept.push(t.version);
+    else dropped.push(t.version);
+  }
+  return { kept, dropped, unknown };
+}
+
 // ---------------------------------------------------------------------------
 // Model
 // ---------------------------------------------------------------------------

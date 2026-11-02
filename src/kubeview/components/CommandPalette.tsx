@@ -490,32 +490,11 @@ function getCommandItems(
   }
 
   if (mode === 'action') {
-    // Show actions — navigate to relevant views
+    // ":Scale deployment", ":Restart deployment" and ":Delete resource" used
+    // to sit here and only opened a list. Scale, restart and delete live on
+    // each resource's actions menu, where they confirm against that resource;
+    // Workloads is in the palette's navigation results.
     return ([
-      {
-        type: 'nav' as const,
-        id: 'scale',
-        title: 'Scale deployment',
-        subtitle: 'Navigate to deployments to scale',
-        icon: 'ArrowUpDown',
-        path: '/r/apps~v1~deployments',
-      },
-      {
-        type: 'nav' as const,
-        id: 'restart',
-        title: 'Restart deployment',
-        subtitle: 'Navigate to deployments to restart',
-        icon: 'RotateCw',
-        path: '/r/apps~v1~deployments',
-      },
-      {
-        type: 'nav' as const,
-        id: 'delete',
-        title: 'Delete resource',
-        subtitle: 'Browse resources to delete',
-        icon: 'Trash2',
-        path: '/workloads',
-      },
       {
         type: 'action' as const,
         id: 'create-dashboard',

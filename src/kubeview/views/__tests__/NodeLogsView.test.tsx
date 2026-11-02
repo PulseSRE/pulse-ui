@@ -53,11 +53,20 @@ describe('NodeLogsView', () => {
 
   it('renders all log source tabs', () => {
     renderView();
-    expect(screen.getByText('Audit Logs')).toBeDefined();
+    expect(screen.getByText('Host audit (auditd)')).toBeDefined();
     expect(screen.getByText('Journal')).toBeDefined();
     expect(screen.getByText('CRI-O')).toBeDefined();
     expect(screen.getByText('Containers')).toBeDefined();
     expect(screen.getByText('OVN/Network')).toBeDefined();
+  });
+
+  it('labels /var/log/audit as host auditd, never as API server audit events', () => {
+    renderView();
+    expect(screen.queryByText('Audit Logs')).toBeNull();
+    const tab = screen.getByRole('tab', { name: /Host audit \(auditd\)/ });
+    expect(tab.getAttribute('title')).toMatch(/not Kubernetes API server audit events/);
+    expect(screen.getByText(/Linux audit daemon records from \/var\/log\/audit on this node/)).toBeDefined();
+    expect(screen.queryByText(/^API server audit events$/)).toBeNull();
   });
 
   it('shows file list sidebar with count', () => {

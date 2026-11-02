@@ -134,12 +134,35 @@ describe('node inline actions', () => {
     expect(k8sPatch).not.toHaveBeenCalled();
   });
 
-  it('Cordon patches the node through its own path', async () => {
+  it('Cordon asks first (same words as the node page), then patches the node through its own path', async () => {
     renderTable('v1/nodes');
     fireEvent.click(screen.getByRole('button', { name: 'Cordon node' }));
+    expect(await screen.findByText('Cordon node "worker-1"?')).toBeTruthy();
+    expect(screen.getByText(/No new pods will be scheduled on worker-1/)).toBeTruthy();
+    expect(k8sPatch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cordon' }));
     await waitFor(() => expect(k8sPatch).toHaveBeenCalled());
     expect(k8sPatch.mock.calls[0][0]).toBe('/api/v1/nodes/worker-1');
     expect(k8sPatch.mock.calls[0][1]).toEqual({ spec: { unschedulable: true } });
+  });
+
+  it('cancelling the cordon confirmation sends nothing', async () => {
+    renderTable('v1/nodes');
+    fireEvent.click(screen.getByRole('button', { name: 'Cordon node' }));
+    await screen.findByText('Cordon node "worker-1"?');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByText('Cordon node "worker-1"?')).toBeNull());
+    expect(k8sPatch).not.toHaveBeenCalled();
+  });
+
+  it('Uncordon on a cordoned node asks first too', async () => {
+    watch.data = [{ ...nodeRes, spec: { unschedulable: true } }];
+    renderTable('v1/nodes');
+    fireEvent.click(screen.getByRole('button', { name: 'Uncordon node' }));
+    expect(await screen.findByText('Uncordon node "worker-1"?')).toBeTruthy();
+    expect(k8sPatch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Uncordon' }));
+    await waitFor(() => expect(k8sPatch.mock.calls[0]?.[1]).toEqual({ spec: { unschedulable: false } }));
   });
 
   it('hides cordon and drain without update permission', () => {
