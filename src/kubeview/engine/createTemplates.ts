@@ -17,20 +17,78 @@ export const CREATE_TEMPLATES: Record<string, CreateTemplate> = {
   'default-deny': {
     id: 'default-deny',
     gvr: 'networking.k8s.io/v1/networkpolicies',
-    label: 'Default-deny ingress NetworkPolicy',
-    yaml: (ns) => `apiVersion: networking.k8s.io/v1
+    label: 'Default-deny ingress NetworkPolicy (router allowed)',
+    // Two policies. A bare deny-all-ingress also blocks the OpenShift router,
+    // which silently breaks every Route in the namespace; the second policy
+    // lets the router back in.
+    yaml: (ns) => `# Denies all INGRESS to every pod in ${ns} until other policies allow it.
+# Egress is not restricted, so DNS and outbound calls keep working. To deny
+# egress too, use the "Default-deny egress (DNS allowed)" template.
+apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny-ingress
   namespace: ${ns}
 spec:
-  # Denies all INGRESS to every pod in ${ns} until other policies allow it.
-  # Egress is not restricted, so DNS and outbound calls keep working. To deny
-  # egress as well, add "- Egress" below together with a rule that allows DNS
-  # (UDP/TCP 53 to the openshift-dns namespace).
   podSelector: {}
   policyTypes:
     - Ingress
+---
+# Allows the OpenShift router (ingress controller) to reach pods in ${ns},
+# so Routes keep working. OpenShift labels the router's namespace with
+# policy-group.network.openshift.io/ingress (also when the router uses the
+# HostNetwork endpoint strategy). Delete this policy only if ${ns} serves no
+# Routes.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-openshift-ingress
+  namespace: ${ns}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              policy-group.network.openshift.io/ingress: ""
+# Pods in ${ns} calling each other, and Prometheus scraping them, are now
+# denied too; add policies for those if they need it.
+`,
+  },
+  'default-deny-egress': {
+    id: 'default-deny-egress',
+    gvr: 'networking.k8s.io/v1/networkpolicies',
+    label: 'Default-deny egress NetworkPolicy (DNS allowed)',
+    yaml: (ns) => `# Denies all EGRESS from every pod in ${ns} except DNS lookups.
+# Without the DNS rule every name lookup fails, so nothing can resolve even
+# the hosts you allow later. Add policies for each destination the pods need
+# (other namespaces, the API server, external services).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress-allow-dns
+  namespace: ${ns}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # Cluster DNS: the openshift-dns pods listen on 5353; 53 is the Service port.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-dns
+      ports:
+        - protocol: UDP
+          port: 5353
+        - protocol: TCP
+          port: 5353
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
 `,
   },
   'resource-quota': {

@@ -15,6 +15,7 @@ import { k8sCreate, k8sGet, k8sList, k8sPatch } from './query';
 import { PulseError } from './errors';
 import { terminalTargets, defaultTerminalTarget } from './terminalTargets';
 import { useUIStore } from '../store/uiStore';
+import { NODE_DEBUG_NAMESPACE, NODE_DEBUG_NODE_LABEL } from './debugPods';
 import type { Pod } from './types';
 
 export const nodePath = (name: string) => `/api/v1/nodes/${encodeURIComponent(name)}`;
@@ -22,6 +23,28 @@ export const nodePath = (name: string) => `/api/v1/nodes/${encodeURIComponent(na
 /** Cordon (true) or uncordon (false) a node. */
 export function setNodeSchedulable(name: string, schedulable: boolean, clusterId?: string) {
   return k8sPatch(nodePath(name), { spec: { unschedulable: !schedulable } }, 'application/strategic-merge-patch+json', clusterId);
+}
+
+/**
+ * What a cordon/uncordon confirmation says. One text for the node page, the
+ * node table and the node map, so every path asks the same question.
+ */
+export function scheduleChangeCopy(name: string, schedulable: boolean): {
+  title: string; description: string; confirmLabel: string; success: string;
+} {
+  return schedulable
+    ? {
+      title: `Uncordon node "${name}"?`,
+      description: `The scheduler will place new pods on ${name} again. Pods already running elsewhere are not moved back.`,
+      confirmLabel: 'Uncordon',
+      success: `Node "${name}" uncordoned`,
+    }
+    : {
+      title: `Cordon node "${name}"?`,
+      description: `No new pods will be scheduled on ${name}. Pods already running there keep running; use Drain to move them.`,
+      confirmLabel: 'Cordon',
+      success: `Node "${name}" cordoned`,
+    };
 }
 
 interface LabelSelector {
@@ -284,7 +307,7 @@ export function describeDrain(r: DrainResult): { type: 'success' | 'warning' | '
 export async function openNodeTerminal(node: string, clusterId: string | undefined): Promise<boolean> {
   const { addToast, openTerminal } = useUIStore.getState();
   const pods = await k8sList<Pod>(
-    `/api/v1/namespaces/default/pods?labelSelector=${encodeURIComponent(`openshiftpulse/debug-node=${node}`)}`,
+    `/api/v1/namespaces/${NODE_DEBUG_NAMESPACE}/pods?labelSelector=${encodeURIComponent(`${NODE_DEBUG_NODE_LABEL}=${node}`)}`,
     undefined,
     clusterId,
   );
@@ -297,7 +320,7 @@ export async function openNodeTerminal(node: string, clusterId: string | undefin
     });
     return false;
   }
-  openTerminal({ clusterId, namespace: 'default', podName: live.metadata.name, containerName: 'debug', isNode: true });
+  openTerminal({ clusterId, namespace: NODE_DEBUG_NAMESPACE, podName: live.metadata.name, containerName: 'debug', isNode: true });
   return true;
 }
 

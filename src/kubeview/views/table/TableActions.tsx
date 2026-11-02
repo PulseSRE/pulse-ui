@@ -9,7 +9,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { ColumnDef } from '../../engine/renderers';
 import type { DeleteProgressItem } from './DeleteProgress';
 import { scalePatch } from '../../engine/writeGuards';
-import { setNodeSchedulable } from '../../engine/nodeActions';
+import { setNodeSchedulable, scheduleChangeCopy } from '../../engine/nodeActions';
 
 export interface PendingConfirm {
   title: string;
@@ -135,12 +135,21 @@ export function useTableActions({
           return;
         }
         await apply();
-      } else if (action === 'cordon') {
-        await setNodeSchedulable(resourceName, false, clusterId);
-        addToast({ type: 'success', title: `Node "${resourceName}" cordoned` });
-      } else if (action === 'uncordon') {
-        await setNodeSchedulable(resourceName, true, clusterId);
-        addToast({ type: 'success', title: `Node "${resourceName}" uncordoned` });
+      } else if (action === 'cordon' || action === 'uncordon') {
+        // Ask first, with the same words as the node page and the node map.
+        const schedulable = action === 'uncordon';
+        const copy = scheduleChangeCopy(resourceName, schedulable);
+        setPendingConfirm({
+          title: copy.title,
+          description: copy.description,
+          confirmLabel: copy.confirmLabel,
+          run: async () => {
+            await setNodeSchedulable(resourceName, schedulable, clusterId);
+            addToast({ type: 'success', title: copy.success });
+          },
+        });
+        setInlineActionLoading(null);
+        return;
       } else if (action === 'drain') {
         // The drain dialog confirms, cordons, evicts and reports.
         // The cluster is pinned now, so a cluster switch can't retarget the drain.

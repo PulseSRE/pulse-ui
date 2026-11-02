@@ -1,4 +1,5 @@
 import { inUserNamespaces, isPlatformNamespace } from '../engine/platformNamespaces';
+import { createTemplateUrl } from '../engine/createTemplates';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -603,7 +604,22 @@ spec:
   policyTypes:
   - Ingress
   # No ingress rules = deny all ingress
-  # Then create additional policies to allow specific traffic`,
+---
+# Without this the OpenShift router is denied too and every Route breaks.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-openshift-ingress
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          policy-group.network.openshift.io/ingress: ""
+# Then create additional policies to allow specific traffic`,
     });
 
     // 3. Avoid NodePort Services
@@ -725,13 +741,23 @@ spec:
       yamlExample: `apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny-egress
+  name: default-deny-egress-allow-dns
 spec:
   podSelector: {}           # applies to all pods in namespace
   policyTypes:
   - Egress
-  # No egress rules = deny all egress
-  # Then create policies to allow specific destinations (DNS, APIs, etc)`,
+  egress:
+  # Keep DNS: without it no name resolves, even for destinations you allow later
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+    ports:
+    - { protocol: UDP, port: 5353 }
+    - { protocol: TCP, port: 5353 }
+    - { protocol: UDP, port: 53 }
+    - { protocol: TCP, port: 53 }
+  # Then create policies to allow specific destinations (APIs, other services)`,
     });
 
     return allChecks;
@@ -748,8 +774,11 @@ spec:
       editPath = `/yaml/route.openshift.io~v1~routes/${ns}/${name}`;
     } else if (id === 'nodeport-services') {
       editPath = `/yaml/v1~services/${ns}/${name}`;
-    } else if (id === 'network-policies' || id === 'egress-policies') {
-      editPath = `/create/networking.k8s.io~v1~networkpolicies`;
+    } else if (id === 'network-policies') {
+      // The reviewed template, prefilled for this namespace (router allowed in).
+      editPath = createTemplateUrl('default-deny', name);
+    } else if (id === 'egress-policies') {
+      editPath = createTemplateUrl('default-deny-egress', name);
     } else if (id === 'ingress-health') {
       // IngressControllers are namespaced, in openshift-ingress-operator.
       editPath = resourceDetailUrl({ apiVersion: 'operator.openshift.io/v1', kind: 'IngressController', metadata: { name, namespace: ns || INGRESS_OPERATOR_NS } });

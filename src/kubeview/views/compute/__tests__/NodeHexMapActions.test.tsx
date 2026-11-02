@@ -115,15 +115,47 @@ async function openPodMenu() {
 }
 
 describe('NodeHexMap node actions', () => {
-  it('Cordon patches spec.unschedulable on the node', async () => {
+  it('Cordon asks first (same words as the node page), then patches spec.unschedulable', async () => {
     renderMap();
     const menu = await openNodeMenu();
     fireEvent.click(await within(menu).findByRole('menuitem', { name: 'Cordon Node' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Cordon node "worker-1"?')).toBeTruthy();
+    expect(within(dialog).getByText(/No new pods will be scheduled on worker-1/)).toBeTruthy();
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cordon' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'PATCH')).toBe(true));
     const patch = calls.find((c) => c.method === 'PATCH')!;
     expect(patch.url).toBe('/api/kubernetes/api/v1/nodes/worker-1');
     expect(patch.body).toEqual({ spec: { unschedulable: true } });
     await waitFor(() => expect(useUIStore.getState().toasts.some((t) => t.title === 'Node "worker-1" cordoned')).toBe(true));
+  });
+
+  it('cancelling the cordon confirmation sends nothing', async () => {
+    renderMap();
+    const menu = await openNodeMenu();
+    fireEvent.click(await within(menu).findByRole('menuitem', { name: 'Cordon Node' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+  });
+
+  it('Uncordon on a cordoned node asks first too', async () => {
+    const cordonedNode = { ...node, unschedulable: true } as NodeDetail;
+    function CordonedHarness() {
+      const { actions, dialogs } = useNodeMapActions();
+      return (<><NodeHexMap nodes={[cordonedNode]} podsByNode={pods} actions={actions} />{dialogs}</>);
+    }
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={qc}><MemoryRouter><CordonedHarness /></MemoryRouter></QueryClientProvider>);
+    const menu = await openNodeMenu();
+    fireEvent.click(await within(menu).findByRole('menuitem', { name: /Uncordon/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Uncordon node "worker-1"?')).toBeTruthy();
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Uncordon' }));
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ spec: { unschedulable: false } }));
   });
 
   it('Drain asks for confirmation, then cordons and evicts', async () => {
@@ -185,7 +217,10 @@ describe('NodeHexMap node actions', () => {
     renderMap();
     const menu = await openNodeMenu();
     fireEvent.click(await within(menu).findByRole('menuitem', { name: 'Cordon Node' }));
-    await waitFor(() => expect(useUIStore.getState().toasts.some((t) => t.type === 'error')).toBe(true));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cordon' }));
+    // The failure stays in the dialog, where the user can retry or cancel.
+    expect(await within(dialog).findByText(/Cordon failed: Permission denied/)).toBeTruthy();
     expect(useUIStore.getState().toasts.some((t) => t.title === 'Node "worker-1" cordoned')).toBe(false);
   });
 

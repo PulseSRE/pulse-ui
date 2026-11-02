@@ -11,7 +11,8 @@ import { useCanI } from '../../hooks/useCanI';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { k8sDelete } from '../../engine/query';
 import { showErrorToast } from '../../engine/errorToast';
-import { setNodeSchedulable, openNodeTerminal, openPodTerminal } from '../../engine/nodeActions';
+import { setNodeSchedulable, scheduleChangeCopy, openNodeTerminal, openPodTerminal } from '../../engine/nodeActions';
+import { useActionDialog } from '../../components/ActionDialog';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 
@@ -36,6 +37,7 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const addToast = useUIStore((s) => s.addToast);
   const go = useNavigateTab();
+  const { open: openAction, dialog: actionDialog } = useActionDialog();
   const queryClient = useQueryClient();
   const { allowed: canUpdateNodes } = useCanI('update', '', 'nodes');
   const { allowed: canDeletePods } = useCanI('delete', '', 'pods');
@@ -49,14 +51,15 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
     queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
   }, [queryClient]);
 
+  // Cordon/uncordon ask first, with the same words as the node page and table
+  // (scheduleChangeCopy); the dialog pins the cluster that was active on open.
   const setCordoned = useCallback((node: string, cordoned: boolean) => {
-    setNodeSchedulable(node, !cordoned, clusterId)
-      .then(() => {
-        addToast({ type: 'success', title: `Node "${node}" ${cordoned ? 'cordoned' : 'uncordoned'}` });
-        refresh();
-      })
-      .catch((err) => showErrorToast(err, `${cordoned ? 'Cordon' : 'Uncordon'} failed`));
-  }, [clusterId, addToast, refresh]);
+    openAction({
+      ...scheduleChangeCopy(node, !cordoned),
+      run: (cid) => setNodeSchedulable(node, !cordoned, cid),
+      onDone: refresh,
+    });
+  }, [openAction, refresh]);
 
   const actions: NodeMapActions = {
     canUpdateNodes,
@@ -94,6 +97,7 @@ export function useNodeMapActions(): { actions: NodeMapActions; dialogs: React.R
 
   const dialogs = (
     <>
+      {actionDialog}
       {drainTarget && (
         <DrainNodeDialog
           node={drainTarget.node}

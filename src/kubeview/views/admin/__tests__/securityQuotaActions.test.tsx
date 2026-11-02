@@ -62,8 +62,8 @@ describe('Templates', () => {
   it('prefill the namespace and refuse an invalid one', () => {
     expect(renderCreateTemplate('default-deny', 'shop')).toContain('namespace: shop\nspec:\n');
     expect(renderCreateTemplate('default-deny', 'shop')).toContain('podSelector: {}');
-    // Ingress only: denying egress without a DNS allow rule would break name resolution.
-    expect(renderCreateTemplate('default-deny', 'shop')).toMatch(/policyTypes:\n    - Ingress\n$/);
+    // Ingress only, with the router allowed back in (see networkPolicyTemplates.test.tsx).
+    expect(renderCreateTemplate('default-deny', 'shop')).toContain('name: allow-from-openshift-ingress');
     expect(renderCreateTemplate('default-deny', 'shop')).toMatch(/Egress is not restricted, so DNS/);
     expect(renderCreateTemplate('default-deny', 'Bad NS')).toBeNull();
     expect(renderCreateTemplate('nope', 'shop')).toBeNull();

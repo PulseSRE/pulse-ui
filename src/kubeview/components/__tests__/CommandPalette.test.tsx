@@ -221,8 +221,21 @@ describe('OpenShift Pulse CommandPalette', () => {
   it('shows action items when query starts with :', () => {
     renderPalette();
     const input = screen.getByPlaceholderText(/Search resources/);
+    fireEvent.change(input, { target: { value: ':scan' } });
+    expect(screen.getByText('Scan cluster now')).toBeDefined();
+  });
+
+  it('does not offer :Scale or :Restart entries that would only open a list', () => {
+    renderPalette();
+    const input = screen.getByPlaceholderText(/Search resources/);
     fireEvent.change(input, { target: { value: ':scale' } });
-    expect(screen.getByText('Scale deployment')).toBeDefined();
+    expect(screen.queryByText('Scale deployment')).toBeNull();
+    fireEvent.change(input, { target: { value: ':restart' } });
+    expect(screen.queryByText('Restart deployment')).toBeNull();
+    fireEvent.change(input, { target: { value: ':' } });
+    expect(screen.queryByText('Scale deployment')).toBeNull();
+    expect(screen.queryByText('Restart deployment')).toBeNull();
+    expect(screen.getByText('Scan cluster now')).toBeDefined();
   });
 
   it('shows AI-powered query suggestions when query starts with ?', () => {

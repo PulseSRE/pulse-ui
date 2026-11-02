@@ -41,6 +41,8 @@ interface DetailViewHeaderProps {
   onViewLogs: () => void;
   onOpenTerminal: () => void;
   onDebug: () => void;
+  /** Why Debug is not offered (RBAC); the button is then disabled with this as its title. */
+  debugDisabledReason?: string;
   onViewYaml: () => void;
   onViewMetrics: () => void;
   onViewDeps: () => void;
@@ -69,6 +71,7 @@ export function DetailViewHeader({
   onViewLogs,
   onOpenTerminal,
   onDebug,
+  debugDisabledReason,
   onViewYaml,
   onViewMetrics,
   onViewDeps,
@@ -157,7 +160,7 @@ export function DetailViewHeader({
               <Terminal className="w-3.5 h-3.5" /> Terminal
             </button>
             {!resource.metadata.labels?.['openshiftpulse/debug'] && (
-            <button onClick={onDebug} disabled={!!actionLoading} className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-amber-400 flex items-center gap-1.5 transition-colors disabled:opacity-50">
+            <button onClick={onDebug} disabled={!!actionLoading || !!debugDisabledReason} title={debugDisabledReason} className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-amber-400 flex items-center gap-1.5 transition-colors disabled:opacity-50">
               <Bug className={cn('w-3.5 h-3.5', actionLoading === 'debug' && 'animate-pulse')} />
               {actionLoading === 'debug' ? 'Creating...' : 'Debug'}
             </button>

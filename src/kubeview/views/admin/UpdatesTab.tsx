@@ -15,7 +15,7 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { Panel } from '../../components/primitives/Panel';
 import { UpgradeProgressPanel } from './UpgradeProgressPanel';
 import { UpgradeGraph } from '../../components/updates/UpgradeGraph';
-import { buildUpgradeModel, channelOptions, desiredUpdatePatch, type UpgradeTarget } from '../../engine/upgradeGraph';
+import { buildUpgradeModel, channelOptions, channelChangeImpact, desiredUpdatePatch, type UpgradeTarget } from '../../engine/upgradeGraph';
 import { showErrorToast } from '../../engine/errorToast';
 import { getActiveClusterId } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
@@ -100,6 +100,7 @@ export function UpdatesTab({
     variant: 'danger' | 'warning'; onConfirm: () => void;
     /** Update target whose removed-API warning is shown; computed at render so a verdict that arrives later still appears. */
     warningVersion?: string;
+    body?: React.ReactNode;
   } | null>(null);
   // A conditional target is confirmed only after its risks are explicitly accepted.
   const [riskDialog, setRiskDialog] = React.useState<{ target: UpgradeTarget; clusterId: string } | null>(null);
@@ -207,19 +208,53 @@ export function UpdatesTab({
     handleStartUpdate(target.version, target.image);
   };
 
-  const handleChangeChannel = async () => {
-    if (!channelEdit) return;
+  const applyChannel = async (channel: string, clusterId: string) => {
     try {
-      assertActiveCluster(channelClusterId, 'The channel change');
+      assertActiveCluster(clusterId, 'The channel change');
       await k8sPatch(CV_PATH, {
-        spec: { channel: channelEdit },
-      }, 'application/merge-patch+json', channelClusterId);
-      addToast({ type: 'success', title: 'Channel updated', detail: channelEdit });
+        spec: { channel },
+      }, 'application/merge-patch+json', clusterId);
+      addToast({ type: 'success', title: 'Channel updated', detail: `${channel} \u00b7 the update list changes once the cluster fetches the new channel's graph` });
       setShowChannelEdit(false);
       invalidate();
     } catch (err) {
       showErrorToast(err, 'Channel update failed');
     }
+  };
+
+  // Changing the channel changes which updates the cluster is offered, so it
+  // asks first and says what it knows about the targets on screen now.
+  const handleChangeChannel = () => {
+    if (!channelEdit) return;
+    if (channelEdit === cvChannel) { setShowChannelEdit(false); return; }
+    const next = channelEdit;
+    const clusterId = channelClusterId;
+    const impact = channelChangeImpact(model.nodes, next);
+    const list = (vs: string[]) => <span className="font-mono">{vs.join(', ')}</span>;
+    setConfirmDialog({
+      title: `Change update channel from ${cvChannel || '(none)'} to ${next}?`,
+      description: `The cluster will fetch the update graph for ${next}. The updates offered here will change once it has; nothing is installed by changing the channel.`,
+      confirmLabel: 'Change channel',
+      variant: 'warning',
+      body: (
+        <div className="mt-3 space-y-1 text-xs text-slate-300" data-testid="channel-change-impact">
+          {model.nodes.length === 0 ? (
+            <p>No update is offered in {cvChannel || 'the current channel'} now. Updates in {next} appear after the cluster refreshes.</p>
+          ) : (
+            <>
+              {impact.kept.length > 0 && <p>Still offered (their release lists {next}): {list(impact.kept)}</p>}
+              {impact.dropped.length > 0 && <p className="text-amber-300">No longer offered (their release does not list {next}): {list(impact.dropped)}</p>}
+              {impact.unknown.length > 0 && <p>Not known (the release metadata lists no channels): {list(impact.unknown)}</p>}
+              <p className="text-slate-400">Updates only in {next} appear after the cluster refreshes.</p>
+            </>
+          )}
+        </div>
+      ),
+      onConfirm: () => {
+        setConfirmDialog(null);
+        void applyChannel(next, clusterId);
+      },
+    });
   };
 
   // The pool row's action acts on the live (watched) pool, so its resourceVersion is current.
@@ -474,6 +509,7 @@ export function UpdatesTab({
           confirmLabel={confirmDialog.confirmLabel}
           variant={confirmDialog.variant}
         >
+          {confirmDialog.body}
           {confirmDialog.warningVersion && removalWarningFor(confirmDialog.warningVersion) && <div className="mt-3">{removalWarningFor(confirmDialog.warningVersion)}</div>}
         </ConfirmDialog>
       )}

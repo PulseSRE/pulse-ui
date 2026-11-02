@@ -490,24 +490,10 @@ function getCommandItems(
   }
 
   if (mode === 'action') {
-    // Show actions — navigate to relevant views
+    // ":Scale deployment" / ":Restart deployment" used to sit here and only
+    // opened the Deployments list. Scale and restart live on each workload's
+    // actions menu, where they confirm against that workload.
     return ([
-      {
-        type: 'nav' as const,
-        id: 'scale',
-        title: 'Scale deployment',
-        subtitle: 'Navigate to deployments to scale',
-        icon: 'ArrowUpDown',
-        path: '/r/apps~v1~deployments',
-      },
-      {
-        type: 'nav' as const,
-        id: 'restart',
-        title: 'Restart deployment',
-        subtitle: 'Navigate to deployments to restart',
-        icon: 'RotateCw',
-        path: '/r/apps~v1~deployments',
-      },
       {
         type: 'nav' as const,
         id: 'delete',
