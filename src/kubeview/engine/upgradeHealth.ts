@@ -111,8 +111,8 @@ export function getDrainBlockingNodes(nodes: Node[]): NodeRolloutStatus[] {
 
 export interface PdbLike {
   metadata: { name: string; namespace?: string; uid?: string };
-  spec?: { selector?: { matchLabels?: Record<string, string> } };
-  status?: { disruptionsAllowed?: number };
+  spec?: { selector?: { matchLabels?: Record<string, string> }; minAvailable?: number | string; maxUnavailable?: number | string };
+  status?: { disruptionsAllowed?: number; currentHealthy?: number; desiredHealthy?: number; expectedPods?: number };
 }
 
 export interface PodLike {
@@ -126,6 +126,12 @@ export interface BlockingPdb {
   disruptionsAllowed: number;
   /** Names of in-rollout nodes running a pod this PDB's selector covers. */
   blockedNodeNames: string[];
+  /** The pods a drain of those nodes would have to evict, and could not. */
+  blockedPods: Array<{ name: string; namespace: string; nodeName: string }>;
+  minAvailable?: number | string;
+  maxUnavailable?: number | string;
+  currentHealthy?: number;
+  desiredHealthy?: number;
 }
 
 /**
@@ -136,7 +142,7 @@ export interface BlockingPdb {
  * empty matchLabels technically matches every pod and would produce noisy
  * false positives.
  */
-export function getBlockingPdbs(pdbs: PdbLike[], pods: PodLike[], nodesInRollout: NodeRolloutStatus[]): BlockingPdb[] {
+export function getBlockingPdbs(pdbs: PdbLike[], pods: PodLike[], nodesInRollout: Array<Pick<NodeRolloutStatus, 'name'>>): BlockingPdb[] {
   const rolloutNodeNames = new Set(nodesInRollout.map((n) => n.name));
   if (rolloutNodeNames.size === 0) return [];
 
@@ -150,17 +156,25 @@ export function getBlockingPdbs(pdbs: PdbLike[], pods: PodLike[], nodesInRollout
     if (selectorEntries.length === 0) continue;
 
     const blockedNodeNames = new Set<string>();
+    const blockedPods: BlockingPdb['blockedPods'] = [];
     for (const pod of pods) {
       if ((pod.metadata.namespace || '') !== namespace) continue;
       const nodeName = pod.spec?.nodeName;
       if (!nodeName || !rolloutNodeNames.has(nodeName)) continue;
       const podLabels = pod.metadata.labels || {};
       const matchesSelector = selectorEntries.every(([key, value]) => podLabels[key] === value);
-      if (matchesSelector) blockedNodeNames.add(nodeName);
+      if (matchesSelector) {
+        blockedNodeNames.add(nodeName);
+        blockedPods.push({ name: pod.metadata.name, namespace, nodeName });
+      }
     }
 
     if (blockedNodeNames.size > 0) {
-      result.push({ name: pdb.metadata.name, namespace, disruptionsAllowed, blockedNodeNames: [...blockedNodeNames] });
+      result.push({
+        name: pdb.metadata.name, namespace, disruptionsAllowed, blockedNodeNames: [...blockedNodeNames], blockedPods,
+        minAvailable: pdb.spec?.minAvailable, maxUnavailable: pdb.spec?.maxUnavailable,
+        currentHealthy: pdb.status?.currentHealthy, desiredHealthy: pdb.status?.desiredHealthy,
+      });
     }
   }
   return result;
