@@ -595,17 +595,7 @@ function NetworkingHealthAudit({
       failing: namespacesWithoutPolicies.map(ns => ({ metadata: { name: ns, namespace: ns } })),
       ...readsState(['Services', failed.services], ['NetworkPolicies', failed.netpols]),
       fixLabel: 'How to fix — add to your YAML:',
-      yamlExample: `apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-ingress
-spec:
-  podSelector: {}           # applies to all pods in namespace
-  policyTypes:
-  - Ingress
-  # No ingress rules = deny all ingress
----
-# Without this the OpenShift router is denied too and every Route breaks.
+      yamlExample: `# Create this first: without it the OpenShift router is denied too and every Route breaks.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -619,6 +609,19 @@ spec:
     - namespaceSelector:
         matchLabels:
           policy-group.network.openshift.io/ingress: ""
+    - namespaceSelector:      # router with the HostNetwork strategy
+        matchLabels:
+          policy-group.network.openshift.io/host-network: ""
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}           # applies to all pods in namespace
+  policyTypes:
+  - Ingress
+  # No ingress rules = deny all ingress not allowed above
 # Then create additional policies to allow specific traffic`,
     });
 

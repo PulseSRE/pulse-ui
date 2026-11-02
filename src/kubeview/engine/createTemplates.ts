@@ -19,26 +19,17 @@ export const CREATE_TEMPLATES: Record<string, CreateTemplate> = {
     gvr: 'networking.k8s.io/v1/networkpolicies',
     label: 'Default-deny ingress NetworkPolicy (router allowed)',
     // Two policies. A bare deny-all-ingress also blocks the OpenShift router,
-    // which silently breaks every Route in the namespace; the second policy
-    // lets the router back in.
-    yaml: (ns) => `# Denies all INGRESS to every pod in ${ns} until other policies allow it.
-# Egress is not restricted, so DNS and outbound calls keep working. To deny
-# egress too, use the "Default-deny egress (DNS allowed)" template.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-ingress
-  namespace: ${ns}
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
----
-# Allows the OpenShift router (ingress controller) to reach pods in ${ns},
-# so Routes keep working. OpenShift labels the router's namespace with
-# policy-group.network.openshift.io/ingress (also when the router uses the
-# HostNetwork endpoint strategy). Delete this policy only if ${ns} serves no
-# Routes.
+    // which silently breaks every Route in the namespace; the allow policy
+    // lets the router back in. It comes first: the create flow posts the
+    // documents in order, so a failure part-way never leaves deny-only.
+    yaml: (ns) => `# Allows the OpenShift router (ingress controller) to reach pods in ${ns},
+# so Routes keep working:
+# - namespaces labelled policy-group.network.openshift.io/ingress: the
+#   router's namespace with the default endpoint publishing strategies;
+# - namespaces labelled policy-group.network.openshift.io/host-network:
+#   host-network traffic, which is how the router arrives when it uses the
+#   HostNetwork endpoint publishing strategy.
+# Delete this policy only if ${ns} serves no Routes.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -53,6 +44,22 @@ spec:
         - namespaceSelector:
             matchLabels:
               policy-group.network.openshift.io/ingress: ""
+        - namespaceSelector:
+            matchLabels:
+              policy-group.network.openshift.io/host-network: ""
+---
+# Denies all INGRESS to every pod in ${ns} that no other policy allows.
+# Egress is not restricted, so DNS and outbound calls keep working. To deny
+# egress too, use the "Default-deny egress (DNS allowed)" template.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: ${ns}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
 # Pods in ${ns} calling each other, and Prometheus scraping them, are now
 # denied too; add policies for those if they need it.
 `,

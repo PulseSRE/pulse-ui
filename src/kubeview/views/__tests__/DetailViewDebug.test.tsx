@@ -26,6 +26,7 @@ vi.mock('../../components/metrics/Sparkline', () => ({
 
 import DetailView from '../DetailView';
 import PodTerminal from '../../components/PodTerminal';
+import { BottomDock } from '../../components/BottomDock';
 import { useUIStore } from '../../store/uiStore';
 import { resetConnections } from '../../engine/clusterConnection';
 import { NODE_DEBUG_DEADLINE_SECONDS, NODE_DEBUG_IMAGE, POD_DEBUG_IMAGE } from '../../engine/debugPods';
@@ -188,6 +189,18 @@ describe('pod Debug', () => {
     expect(patch.body.spec.ephemeralContainers[0]).toMatchObject({ image: 'mirror.example.com/tools/busybox:1.36', targetContainerName: 'app' });
   });
 
+  it('refetches the pod after the container is added, so it appears without a reload', async () => {
+    renderDetail({ gvrKey: 'v1/pods', namespace: 'shop', name: 'web-1' });
+    const btn = await debugButton();
+    await waitFor(() => expect(btn.disabled).toBe(false));
+    const podGets = () => calls.filter((c) => c.method === 'GET' && c.url.endsWith('/api/v1/namespaces/shop/pods/web-1')).length;
+    const before = podGets();
+    fireEvent.click(btn);
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Add debug container' }));
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    await waitFor(() => expect(podGets()).toBeGreaterThan(before));
+  });
+
   it('an empty image cannot be confirmed', async () => {
     renderDetail({ gvrKey: 'v1/pods', namespace: 'shop', name: 'web-1' });
     const btn = await debugButton();
@@ -236,6 +249,52 @@ describe('node debug terminal: End session', () => {
     fireEvent.click(screen.getByRole('button', { name: /End session/ }));
     await waitFor(() => expect(useUIStore.getState().toasts.some((t) => t.type === 'error')).toBe(true));
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closing the node debug terminal asks first; Delete (the default) deletes the pod and closes', async () => {
+    const onClose = vi.fn();
+    render(<PodTerminal namespace="default" podName="debug-worker-1-ab12" containerName="debug" isNode onClose={onClose} />);
+    fireEvent.click(screen.getAllByTitle('Close')[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Delete the debug pod now?' });
+    expect(onClose).not.toHaveBeenCalled();
+    const del = within(dialog).getByRole('button', { name: 'Delete' });
+    await waitFor(() => expect(document.activeElement).toBe(del));
+    expect(within(dialog).getByRole('button', { name: 'Keep running' })).toBeTruthy();
+    fireEvent.click(del);
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(writes()).toEqual([expect.objectContaining({ method: 'DELETE', url: '/api/kubernetes/api/v1/namespaces/default/pods/debug-worker-1-ab12' })]);
+  });
+
+  it('Keep running closes without deleting and says the pod stops on its own within the hour', async () => {
+    const onClose = vi.fn();
+    render(<PodTerminal namespace="default" podName="debug-worker-1-ab12" containerName="debug" isNode onClose={onClose} />);
+    fireEvent.click(screen.getAllByTitle('Close')[1]);
+    const dialog = await screen.findByRole('dialog', { name: 'Delete the debug pod now?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep running' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(writes()).toHaveLength(0);
+    const toast = useUIStore.getState().toasts.find((t) => /still running/.test(t.title))!;
+    expect(toast.detail).toMatch(/stops on its own within 60 minutes/);
+  });
+
+  it('closing the dock on a node debug terminal asks too; an ordinary terminal closes straight away', async () => {
+    useUIStore.setState({ bottomDockPanel: 'terminal', terminalContext: { namespace: 'default', podName: 'debug-worker-1-ab12', containerName: 'debug', isNode: true } } as never);
+    const { unmount } = render(<BottomDock />);
+    fireEvent.click(screen.getAllByTitle('Close')[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Delete the debug pod now?' });
+    expect(useUIStore.getState().bottomDockPanel).toBe('terminal');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(useUIStore.getState().bottomDockPanel).toBeNull());
+    expect(writes()).toEqual([expect.objectContaining({ method: 'DELETE', url: '/api/kubernetes/api/v1/namespaces/default/pods/debug-worker-1-ab12' })]);
+    unmount();
+
+    calls.length = 0;
+    useUIStore.setState({ bottomDockPanel: 'terminal', terminalContext: { namespace: 'shop', podName: 'web-1', containerName: 'app' } } as never);
+    render(<BottomDock />);
+    fireEvent.click(screen.getAllByTitle('Close')[0]);
+    expect(useUIStore.getState().bottomDockPanel).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(writes()).toHaveLength(0);
   });
 
   it('is not offered on an ordinary pod terminal', () => {

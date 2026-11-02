@@ -274,6 +274,9 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
         ),
         success: `Debug container "${debugContainerName}" added`,
         successDetail: 'Shares process namespace with the target container. Connect via terminal.',
+        // Refetch this pod (key ['detail', apiPath, clusterId]) so the new
+        // ephemeral container shows up and the terminal can pick it.
+        onDone: () => { void queryClient.invalidateQueries({ queryKey: ['detail', apiPath] }); },
       });
     }
   };

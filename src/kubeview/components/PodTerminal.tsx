@@ -3,10 +3,7 @@ import { getClusterBase } from '../engine/clusterConnection';
 import type { TerminalTarget } from '../engine/terminalTargets';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Loader2, Terminal, Copy, Check, Trash2, Power } from 'lucide-react';
-import { k8sDelete } from '../engine/query';
-import { showErrorToast } from '../engine/errorToast';
-import { useUIStore } from '../store/uiStore';
-import { NODE_DEBUG_NAMESPACE, nodeDebugPodPath } from '../engine/debugPods';
+import { useNodeDebugClose, isNodeDebugTerminal } from './useNodeDebugClose';
 import { cn } from '@/lib/utils';
 
 interface PodTerminalProps {
@@ -71,25 +68,13 @@ export default function PodTerminal({ namespace, podName, containerName, contain
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // A node debug pod is privileged; ending the session deletes it instead of
-  // leaving it to its activeDeadlineSeconds.
-  const canEndSession = !!isNode && namespace === NODE_DEBUG_NAMESPACE;
-  const [ending, setEnding] = useState(false);
-  const handleEndSession = async () => {
-    setEnding(true);
-    try {
-      await k8sDelete(nodeDebugPodPath(podName), clusterId);
-      useUIStore.getState().addToast({ type: 'success', title: `Debug pod "${podName}" deleted` });
-      onClose();
-    } catch (err) {
-      showErrorToast(err, 'Could not delete the debug pod');
-    } finally {
-      setEnding(false);
-    }
-  };
+  // A node debug pod is privileged: End session deletes it, and closing the
+  // terminal asks whether to delete it (useNodeDebugClose).
+  const canEndSession = isNodeDebugTerminal({ namespace, podName, isNode });
+  const { requestClose, endSession, ending, prompt: closePrompt } = useNodeDebugClose({ namespace, podName, clusterId, isNode }, onClose);
   const endSessionButton = canEndSession ? (
     <button
-      onClick={() => { void handleEndSession(); }}
+      onClick={() => { void endSession(); }}
       disabled={ending}
       className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-xs text-amber-400 hover:bg-slate-800 disabled:opacity-50"
       title={`Delete debug pod ${podName} and close the terminal`}
@@ -325,13 +310,13 @@ export default function PodTerminal({ namespace, podName, containerName, contain
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-xs" onClick={requestClose} />
       <div className="relative w-full max-w-5xl h-[480px] bg-(--kv-term-bg) border border-slate-700 rounded-t-xl shadow-2xl flex flex-col z-50">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800 bg-(--kv-term-surface) rounded-t-xl">
           <div className="flex items-center gap-3">
             <div className="flex gap-1.5">
-              <button onClick={onClose} className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors" title="Close" />
+              <button onClick={requestClose} className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors" title="Close" />
               <div className="w-3 h-3 rounded-full bg-yellow-500" />
               <div className="w-3 h-3 rounded-full bg-green-500" />
             </div>
@@ -362,7 +347,7 @@ export default function PodTerminal({ namespace, podName, containerName, contain
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors" title="Close">
+            <button onClick={requestClose} className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors" title="Close">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -418,6 +403,7 @@ export default function PodTerminal({ namespace, podName, containerName, contain
           )}
         </div>
       </div>
+      {closePrompt}
     </div>
   );
 }

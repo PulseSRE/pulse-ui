@@ -7,6 +7,7 @@ import { loadStatus } from './primitives/QueryState';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { formatAge } from '../engine/dateUtils';
 import type { Event } from '../engine/types';
+import { useNodeDebugClose } from './useNodeDebugClose';
 
 const LogStream = lazy(() => import('./logs/LogStream'));
 const PodTerminal = lazy(() => import('./PodTerminal'));
@@ -21,6 +22,10 @@ export function BottomDock() {
   const closeBottomDock = useUIStore((s) => s.closeBottomDock);
   const dockContext = useUIStore((s) => s.dockContext);
   const terminalContext = useUIStore((s) => s.terminalContext);
+  // Closing the dock while it shows a node debug terminal asks whether to
+  // delete the privileged debug pod.
+  const { requestClose: requestTerminalClose, prompt: debugClosePrompt } = useNodeDebugClose(terminalContext, closeBottomDock);
+  const closeDock = panel === 'terminal' ? requestTerminalClose : closeBottomDock;
 
   const [isResizing, setIsResizing] = useState(false);
   const startY = useRef(0);
@@ -58,6 +63,7 @@ export function BottomDock() {
 
   return (
     <div className="border-t border-slate-700 bg-slate-900 flex flex-col shrink-0" style={{ height }}>
+      {debugClosePrompt}
       {/* Resize handle */}
       <div
         onMouseDown={handleMouseDown}
@@ -76,7 +82,7 @@ export function BottomDock() {
               role="tab"
               aria-selected={panel === t.id}
               onClick={() => openBottomDock(t.id)}
-              onDoubleClick={closeBottomDock}
+              onDoubleClick={closeDock}
               className={cn(
                 'px-2 py-1 rounded-sm transition-colors',
                 panel === t.id ? 'bg-slate-700 text-emerald-400' : 'text-slate-400 hover:text-slate-200',
@@ -87,7 +93,7 @@ export function BottomDock() {
           ))}
         </div>
         <button
-          onClick={closeBottomDock}
+          onClick={closeDock}
           className="rounded-sm p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-slate-200"
           title="Close"
         >
@@ -135,6 +141,7 @@ export function BottomDock() {
                   containers={terminalContext.containers}
                   clusterId={terminalContext.clusterId}
                   isNode={terminalContext.isNode}
+                  // End session has already deleted the pod: close without asking.
                   onClose={closeBottomDock}
                   inline
                 />

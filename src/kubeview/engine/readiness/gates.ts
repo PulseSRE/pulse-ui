@@ -457,8 +457,10 @@ const etcdBackup: ReadinessGate = {
     if (items === null) {
       return {
         status: 'needs_attention',
-        detail: 'No automated etcd backup: the Backup API (config.openshift.io/v1alpha1) is not enabled on this cluster',
-        fixGuidance: `Enable automated etcd backups (Technology Preview, TechPreviewNoUpgrade feature set) ${cronJob}. OADP does not back up etcd; use it for application backups.`,
+        detail: "No Backup resource (API not enabled); a cluster-backup.sh CronJob can't be detected here",
+        fixGuidance: 'Schedule a CronJob that runs /usr/local/bin/cluster-backup.sh on a control-plane node and copies the snapshot off the node. '
+          + 'The automated Backup resource (config.openshift.io/v1alpha1) needs the TechPreviewNoUpgrade feature set: enabling it cannot be undone, blocks minor-version updates and is not for production clusters. '
+          + 'OADP does not back up etcd; use it for application backups.',
       };
     }
     return {

@@ -231,6 +231,13 @@ export function UpdatesTab({
     const clusterId = channelClusterId;
     const impact = channelChangeImpact(model.nodes, next);
     const list = (vs: string[]) => <span className="font-mono">{vs.join(', ')}</span>;
+    // The installed release lists the channels it is in (status.desired.channels).
+    // Unless the new channel is one of them, the cluster may be offered nothing
+    // from it until its own version is in that channel, so "still offered" is
+    // only said when the list includes it.
+    const installedVersion = model.current.version || cvVersion;
+    const installedInChannel = model.channels?.length ? model.channels.includes(next) : null;
+    const installedNotInChannel = installedInChannel !== true;
     setConfirmDialog({
       title: `Change update channel from ${cvChannel || '(none)'} to ${next}?`,
       description: `The cluster will fetch the update graph for ${next}. The updates offered here will change once it has; nothing is installed by changing the channel.`,
@@ -238,11 +245,21 @@ export function UpdatesTab({
       variant: 'warning',
       body: (
         <div className="mt-3 space-y-1 text-xs text-slate-300" data-testid="channel-change-impact">
+          {installedNotInChannel && (
+            <p role="alert" className="text-amber-300">
+              {installedInChannel === false
+                ? `The installed release${installedVersion ? ` (${installedVersion})` : ''} is not in ${next}.`
+                : `The cluster's channel list does not show whether the installed release${installedVersion ? ` (${installedVersion})` : ''} is in ${next}.`}
+              {' '}Updates may disappear until the cluster&apos;s version is in that channel.
+            </p>
+          )}
           {model.nodes.length === 0 ? (
             <p>No update is offered in {cvChannel || 'the current channel'} now. Updates in {next} appear after the cluster refreshes.</p>
           ) : (
             <>
-              {impact.kept.length > 0 && <p>Still offered (their release lists {next}): {list(impact.kept)}</p>}
+              {impact.kept.length > 0 && (installedNotInChannel
+                ? <p>Their release lists {next}, but they may not be offered: {list(impact.kept)}</p>
+                : <p>Still offered (their release lists {next}): {list(impact.kept)}</p>)}
               {impact.dropped.length > 0 && <p className="text-amber-300">No longer offered (their release does not list {next}): {list(impact.dropped)}</p>}
               {impact.unknown.length > 0 && <p>Not known (the release metadata lists no channels): {list(impact.unknown)}</p>}
               <p className="text-slate-400">Updates only in {next} appear after the cluster refreshes.</p>

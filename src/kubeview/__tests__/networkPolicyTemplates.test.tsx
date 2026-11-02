@@ -40,7 +40,9 @@ function policies(id: string, ns: string): Policy[] {
 
 describe('default-deny template', () => {
   it('denies ingress but lets the OpenShift router in, so Routes keep working', () => {
-    const [deny, allowRouter, ...rest] = policies('default-deny', 'shop');
+    // The allow policy comes first: documents are created in order, so a
+    // failure after the first never leaves the namespace deny-only.
+    const [allowRouter, deny, ...rest] = policies('default-deny', 'shop');
     expect(rest).toHaveLength(0);
 
     expect(deny.kind).toBe('NetworkPolicy');
@@ -53,7 +55,11 @@ describe('default-deny template', () => {
     expect(allowRouter.spec.podSelector).toEqual({});
     expect(allowRouter.spec.policyTypes).toEqual(['Ingress']);
     expect(allowRouter.spec.ingress).toEqual([
-      { from: [{ namespaceSelector: { matchLabels: { 'policy-group.network.openshift.io/ingress': '' } } }] },
+      { from: [
+        { namespaceSelector: { matchLabels: { 'policy-group.network.openshift.io/ingress': '' } } },
+        // The router with the HostNetwork endpoint publishing strategy.
+        { namespaceSelector: { matchLabels: { 'policy-group.network.openshift.io/host-network': '' } } },
+      ] },
     ]);
   });
 
@@ -62,6 +68,8 @@ describe('default-deny template', () => {
     for (const p of policies('default-deny', 'shop')) expect(p.spec.policyTypes).not.toContain('Egress');
     expect(yaml).toMatch(/Allows the OpenShift router \(ingress controller\)/);
     expect(yaml).toMatch(/policy-group\.network\.openshift\.io\/ingress/);
+    expect(yaml).toMatch(/HostNetwork endpoint publishing strategy/);
+    expect(yaml).not.toMatch(/also when the router uses/);
   });
 
   it('refuses an invalid namespace', () => {

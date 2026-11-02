@@ -574,6 +574,33 @@ describe('UpdatesTab', () => {
       expect(impact.textContent).toMatch(/Updates only in fast-4\.16 appear after the cluster refreshes/);
     });
 
+    it('when the cluster\'s channel list does not include the new channel, warns that updates may disappear instead of "still offered"', async () => {
+      // No status.desired.channels: the picker offers generated channels, and
+      // whether 4.16.3 is in stable-4.17 is not known.
+      const cv = idleClusterVersion();
+      const availableUpdates = [{ version: '4.17.2', image: 'quay.io/ocp@sha256:ddd', channels: ['stable-4.17'] }];
+      renderTab({ clusterVersion: cv, cvVersion: '4.16.3', cvChannel: 'stable-4.16', availableUpdates });
+      fireEvent.click(screen.getByText('Change'));
+      fireEvent.change(screen.getByRole('combobox', { name: 'Update channel' }), { target: { value: 'stable-4.17' } });
+      fireEvent.click(screen.getByText('Save'));
+      const impact = await screen.findByTestId('channel-change-impact');
+      expect(within(impact).getByRole('alert').textContent).toMatch(/does not show whether the installed release \(4\.16\.3\) is in stable-4\.17\. Updates may disappear until the cluster's version is in that channel\./);
+      expect(impact.textContent).not.toMatch(/Still offered/);
+      expect(impact.textContent).toMatch(/Their release lists stable-4\.17, but they may not be offered: 4\.17\.2/);
+    });
+
+    it('says "still offered" only when the cluster\'s channel list includes the new channel', async () => {
+      const cv = idleClusterVersion({ channels: ['stable-4.16', 'fast-4.16'] });
+      const availableUpdates = [{ version: '4.16.8', image: 'quay.io/ocp@sha256:bbb', channels: ['stable-4.16', 'fast-4.16'] }];
+      renderTab({ clusterVersion: cv, cvVersion: '4.16.3', cvChannel: 'stable-4.16', availableUpdates });
+      fireEvent.click(screen.getByText('Change'));
+      fireEvent.change(screen.getByRole('combobox', { name: 'Update channel' }), { target: { value: 'fast-4.16' } });
+      fireEvent.click(screen.getByText('Save'));
+      const impact = await screen.findByTestId('channel-change-impact');
+      expect(within(impact).queryByRole('alert')).toBeNull();
+      expect(impact.textContent).toMatch(/Still offered \(their release lists fast-4\.16\): 4\.16\.8/);
+    });
+
     it('cancelling the channel confirmation sends nothing', async () => {
       renderTab({ clusterVersion: idleClusterVersion(), cvVersion: '4.16.3', cvChannel: 'stable-4.16' });
       fireEvent.click(screen.getByText('Change'));

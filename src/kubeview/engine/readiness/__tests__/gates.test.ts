@@ -95,8 +95,10 @@ describe('etcd-backup gate', () => {
     const result = await findGate('etcd-backup').evaluate(makeCtx(fetchJson));
 
     expect(result.status).toBe('needs_attention');
-    expect(result.detail).toMatch(/Backup API \(config\.openshift\.io\/v1alpha1\) is not enabled/);
+    expect(result.detail).toBe("No Backup resource (API not enabled); a cluster-backup.sh CronJob can't be detected here");
     expect(result.fixGuidance).toContain('cluster-backup.sh');
+    // Enabling the Tech Preview feature set is irreversible: say so before suggesting it.
+    expect(result.fixGuidance).toMatch(/TechPreviewNoUpgrade feature set: enabling it cannot be undone, blocks minor-version updates and is not for production/);
     expect(result.fixGuidance).toContain('OADP does not back up etcd');
     expect(result.fixGuidance).not.toMatch(/using OADP/);
     // No link to a create form for an API the cluster does not serve, and none to OADP.
