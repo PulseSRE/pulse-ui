@@ -27,6 +27,12 @@ export interface UpgradeProgressPanelProps {
   onReapplyUpdate: (version: string, image: string | undefined) => void;
   /** In-app navigation for node and PDB links. */
   go?: (path: string, title: string) => void;
+  /**
+   * Acknowledge actions for the unacknowledged admin gates (from admin-gates),
+   * shown instead of the command text. The command text remains only when no
+   * gate key is known.
+   */
+  adminAck?: React.ReactNode;
 }
 
 function ObjectLink({ path, title, go, className, children }: { path: string; title: string; go?: UpgradeProgressPanelProps['go']; className?: string; children: React.ReactNode }) {
@@ -52,7 +58,7 @@ function ObjectLink({ path, title, go, className, children }: { path: string; ti
  */
 export function UpgradeProgressPanel({
   clusterVersion, isUpdating, nodes, machineConfigPools, pdbs, pods,
-  availableUpdates, onReapplyUpdate, go,
+  availableUpdates, onReapplyUpdate, go, adminAck,
 }: UpgradeProgressPanelProps) {
   const mismatch = React.useMemo(() => detectDesiredUpdateMismatch(clusterVersion), [clusterVersion]);
   const upgradeableBlocker = React.useMemo(() => getUpgradeableBlocker(clusterVersion), [clusterVersion]);
@@ -115,7 +121,12 @@ export function UpgradeProgressPanel({
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-amber-300">Cluster is not upgradeable{upgradeableBlocker.reason ? ` (${upgradeableBlocker.reason})` : ''}</div>
               <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap">{upgradeableBlocker.message}</p>
-              {upgradeableBlocker.adminAckCommand ? (
+              {adminAck ? (
+                <div className="mt-2 space-y-1.5">
+                  <div className="text-xs text-slate-500">These admin gates are not acknowledged:</div>
+                  {adminAck}
+                </div>
+              ) : upgradeableBlocker.adminAckCommand ? (
                 <div className="mt-2">
                   <div className="text-xs text-slate-500 mb-1">Unblock by running the acknowledgment command from the message above:</div>
                   <pre className="text-xs font-mono bg-slate-950 border border-slate-800 rounded-sm p-2 overflow-x-auto text-slate-300">{upgradeableBlocker.adminAckCommand}</pre>
