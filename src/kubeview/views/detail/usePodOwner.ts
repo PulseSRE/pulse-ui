@@ -37,9 +37,9 @@ function plural(kind: string): string {
 export function ownerPaths(kind: string, namespace: string, name: string): { apiPath: string; path: string } {
   const group = GROUP_OF[kind];
   const p = plural(kind);
-  return group
-    ? { apiPath: `/apis/${group}/v1/namespaces/${namespace}/${p}/${name}`, path: `/r/${group}~v1~${p}/${namespace}/${name}` }
-    : { apiPath: `/api/v1/namespaces/${namespace}/${p}/${name}`, path: `/r/v1~${p}/${namespace}/${name}` };
+  const gvr = group ? `${group}~v1~${p}` : `v1~${p}`;
+  const apiPath = group ? `/apis/${group}/v1/namespaces/${namespace}/${p}/${name}` : `/api/v1/namespaces/${namespace}/${p}/${name}`;
+  return { apiPath, path: `/r/${gvr}/${namespace}/${name}` };
 }
 
 export function usePodOwner(pod: K8sResource): { owner: PodOwner | null; isLoading: boolean } {

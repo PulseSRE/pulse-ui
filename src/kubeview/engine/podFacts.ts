@@ -122,7 +122,8 @@ export function containerRefs(pod: PodLike, container: Container): ResourceRef[]
     const key = `${kind}/${name}`;
     if (seen.has(key)) return;
     seen.add(key);
-    refs.push({ kind, name, use, path: `/r/v1~${PLURAL[kind]}/${ns}/${name}` });
+    const gvr = `v1~${PLURAL[kind]}`;
+    refs.push({ kind, name, use, path: `/r/${gvr}/${ns}/${name}` });
   };
   const spec = (pod.spec ?? {}) as Pod['spec'] & { imagePullSecrets?: Array<{ name?: string }>; volumes?: VolumeLike[] };
   for (const s of spec.imagePullSecrets ?? []) add('Secret', s.name, 'pull secret');
