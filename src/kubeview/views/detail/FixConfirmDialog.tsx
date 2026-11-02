@@ -4,8 +4,10 @@
  * dialog was opened on.
  *
  * The dry run (`dryRun=All`) sends the same request the apply will send, so
- * admission, validation, quota and RBAC answer before anything changes; Apply
- * stays disabled until it passes. A failed apply stays in the dialog.
+ * RBAC, validation and admission for that object answer before anything
+ * changes; Apply stays disabled until it passes. It does not create pods, so
+ * a ResourceQuota that would refuse the new pods is not checked by it — the
+ * quota line is computed separately. A failed apply stays in the dialog.
  */
 import React from 'react';
 import { Loader2 } from 'lucide-react';

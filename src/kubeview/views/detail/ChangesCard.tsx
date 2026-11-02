@@ -14,6 +14,8 @@ import { useQuery } from '@tanstack/react-query';
 import { History, Loader2 } from 'lucide-react';
 import { agentFetch, AgentHttpError } from '../../engine/safeQuery';
 import { LoadError } from '../../components/primitives/LoadError';
+import { useFleetStore } from '../../store/fleetStore';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 
 export const CHANGES_WINDOW_MS = 6 * 60 * 60 * 1000;
 
@@ -64,21 +66,27 @@ function hhmm(iso: string): string {
 }
 
 export function ChangesCard({ namespace, kind, name, until, since }: { namespace: string; kind: string; name: string; until?: number; since?: number }) {
+  // The agent correlates changes on the cluster it runs on; a remote
+  // cluster's resource of the same name is a different object.
+  const clusterId = useFleetStore((s) => s.activeClusterId);
+  const remote = clusterId !== LOCAL_CLUSTER_ID;
   // Rounded to the minute so the query key stays stable between renders.
   const end = until ?? Math.ceil(Date.now() / 60_000) * 60_000;
   const start = since ?? end - CHANGES_WINDOW_MS;
   const q = useQuery({
-    queryKey: ['agent-changes', namespace, kind, name, start, end],
+    queryKey: ['agent-changes', clusterId, namespace, kind, name, start, end],
     queryFn: () => fetchChanges({ namespace, kind, name, since: new Date(start), until: new Date(end) }),
     retry: false,
     staleTime: 60_000,
+    enabled: !remote,
   });
   return (
     <section aria-labelledby="chg-h" className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
       <h2 id="chg-h" className="flex items-center gap-2 text-[15px] font-semibold text-slate-100">
         <History className="h-4 w-4 text-slate-400" aria-hidden /> What changed before this
       </h2>
-      {q.isLoading && <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Loading changes…</p>}
+      {remote && <p className="text-xs text-slate-500" data-testid="changes-unavailable">Change history comes from the Pulse agent, which watches the local cluster only.</p>}
+      {!remote && q.isLoading && <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Loading changes…</p>}
       {q.isError && <LoadError title="Changes could not be loaded" error={q.error} onRetry={() => q.refetch()} />}
       {q.data?.state === 'unavailable' && <p className="text-xs text-slate-500" data-testid="changes-unavailable">{UNAVAILABLE[q.data.reason]}</p>}
       {q.data?.state === 'ok' && (

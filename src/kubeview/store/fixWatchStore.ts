@@ -107,10 +107,13 @@ interface FixWatchState {
 const timers = new Map<string, ReturnType<typeof setInterval>>();
 
 function selectorPath(owner: K8sResource): string | null {
-  const labels = (owner.spec as { selector?: { matchLabels?: Record<string, string> } } | undefined)?.selector?.matchLabels;
-  if (!labels || !owner.metadata.namespace) return null;
-  const sel = Object.entries(labels).map(([k, v]) => `${k}=${v}`).join(',');
-  return `/api/v1/namespaces/${owner.metadata.namespace}/pods?labelSelector=${encodeURIComponent(sel)}`;
+  const sel = (owner.spec as { selector?: { matchLabels?: Record<string, string>; matchExpressions?: unknown[] } } | undefined)?.selector;
+  const labels = sel?.matchLabels;
+  // matchExpressions cannot be expressed exactly here; listing by matchLabels
+  // alone could miss pods, so such a watch cannot say "held".
+  if (!labels || Object.keys(labels).length === 0 || (sel?.matchExpressions?.length ?? 0) > 0 || !owner.metadata.namespace) return null;
+  const query = Object.entries(labels).map(([k, v]) => `${k}=${v}`).join(',');
+  return `/api/v1/namespaces/${owner.metadata.namespace}/pods?labelSelector=${encodeURIComponent(query)}`;
 }
 
 export const useFixWatchStore = create<FixWatchState>()((set, get) => ({
@@ -133,9 +136,13 @@ export const useFixWatchStore = create<FixWatchState>()((set, get) => ({
     try {
       const owner = await k8sGet<K8sResource>(w.apiPath, w.clusterId);
       const path = selectorPath(owner);
-      const pods = path ? await k8sList<K8sResource>(path, undefined, w.clusterId) : [];
-      const a = assessWatch(w, owner, pods, now);
-      next = { ...a, checkError: undefined, checksOk: w.checksOk + 1 };
+      if (!path) {
+        next = { status: 'unknown', detail: `Unknown: ${w.kind} ${w.name} has no label selector Pulse can list its pods by (matchLabels only), so restarts cannot be checked.` };
+      } else {
+        const pods = await k8sList<K8sResource>(path, undefined, w.clusterId);
+        const a = assessWatch(w, owner, pods, now);
+        next = { ...a, checkError: undefined, checksOk: w.checksOk + 1 };
+      }
     } catch (e) {
       const reason = errorReason(e);
       next = now >= w.until

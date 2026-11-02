@@ -82,4 +82,14 @@ describe('useFixWatchStore', () => {
     await runFor(WATCH_MS);
     expect(useFixWatchStore.getState().watches[key]).toMatchObject({ status: 'unknown', detail: 'Unknown: the rollout could not be read (Permission denied (403)).' });
   });
+
+  it('an owner selected by matchExpressions ends unknown, never held', async () => {
+    const expr = { ...done, spec: { replicas: 3, selector: { matchLabels: { app: 'api' }, matchExpressions: [{ key: 'tier', operator: 'In', values: ['web'] }] } } };
+    k8sGet.mockResolvedValue(expr);
+    useFixWatchStore.getState().start(input);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(useFixWatchStore.getState().watches[key].status).toBe('unknown');
+    expect(useFixWatchStore.getState().watches[key].detail).toMatch(/no label selector Pulse can list its pods by/);
+    expect(k8sList).not.toHaveBeenCalled();
+  });
 });

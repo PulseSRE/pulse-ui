@@ -23,7 +23,8 @@ import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { useCanI } from '../../hooks/useCanI';
 import { useFleetStore } from '../../store/fleetStore';
 import { useFixWatchStore } from '../../store/fixWatchStore';
-import { getActiveClusterId } from '../../engine/clusterConnection';
+import { k8sFetch } from '../../engine/query';
+import { errorReason, type ReadResult } from '../../engine/readResult';
 import { askPulse } from '../../engine/askPulse';
 import { TONE_CLASSES } from '../../engine/statusColors';
 import { LoadError } from '../../components/primitives/LoadError';
@@ -47,6 +48,28 @@ interface FixCardProps {
   /** On the pod page, the owner's page, for "follow the rollout there". */
   ownerPage?: { path: string; label: string };
   go: Go;
+}
+
+const PULL_SECRET_TYPES = ['kubernetes.io/dockerconfigjson', 'kubernetes.io/dockercfg'];
+const METADATA_ONLY = 'application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1';
+
+/**
+ * Names of the namespace's registry credentials, read as metadata only
+ * (PartialObjectMetadataList), so no secret data reaches the browser.
+ */
+export async function listPullSecretNames(ns: string, clusterId: string): Promise<ReadResult<string[]>> {
+  const names: string[] = [];
+  try {
+    for (const type of PULL_SECRET_TYPES) {
+      const res = await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/secrets?fieldSelector=${encodeURIComponent(`type=${type}`)}`, { headers: { Accept: METADATA_ONLY } });
+      if (!res.ok) return { state: 'error', reason: errorReason({ status: res.status }) };
+      const body = (await res.json()) as { items?: Array<{ metadata?: { name?: string } }> };
+      for (const i of body.items ?? []) if (i.metadata?.name) names.push(i.metadata.name);
+    }
+  } catch (e) {
+    return { state: 'error', reason: errorReason(e) };
+  }
+  return { state: 'ok', data: names };
 }
 
 function needsPullSecret(pod: K8sResource | null): boolean {
@@ -75,10 +98,10 @@ export function FixCard({ pod, ownerApiPath, ownerObject, usage, usageLoading, e
   const wantSecrets = needsPullSecret(pod);
   const secrets = useQuery({
     queryKey: ['fix-pull-secrets', clusterId, ns],
-    queryFn: () => listK8s<K8sResource>(`/api/v1/namespaces/${ns}/secrets?fieldSelector=${encodeURIComponent('type=kubernetes.io/dockerconfigjson')}`, clusterId),
+    queryFn: () => listPullSecretNames(ns, clusterId),
     enabled: wantSecrets && !!ns,
   });
-  const pullSecrets = secrets.data?.state === 'ok' ? secrets.data.data.map((s) => s.metadata.name) : [];
+  const pullSecrets = secrets.data?.state === 'ok' ? secrets.data.data : [];
 
   const fixes = React.useMemo(
     () => (pod && !usageLoading ? proposeFixes({ pod, owner, usage, revisions, events, pullSecrets }) : []),
@@ -108,9 +131,29 @@ export function FixCard({ pod, ownerApiPath, ownerObject, usage, usageLoading, e
   const watchKey = ownerTarget ? `${clusterId}|${ownerTarget.apiPath}` : '';
   const watch = useFixWatchStore((s) => (watchKey ? s.watches[watchKey] : undefined));
 
-  async function openReview(fix: GuidedFix) {
+  async function openReview(chosen: GuidedFix) {
     setReviewError(null);
-    const pinned = getActiveClusterId();
+    // Pinned to the cluster the owner was read from (this page's); the dialog
+    // refuses if the active cluster has changed since.
+    const pinned = clusterId;
+    let fix = chosen;
+    let fresh: K8sResource | null = owner;
+    // Build the fix again from the owner as it is now, so the diff, the
+    // resourceVersion test and the values describe the object being patched.
+    if (ownerTarget) {
+      const r = await readK8s<K8sResource>(ownerTarget.apiPath, pinned);
+      if (r.state !== 'ok') {
+        setReviewError(`${ownerTarget.kind} ${ownerTarget.name} could not be read again: ${r.state === 'absent' ? 'it no longer exists' : r.reason}`);
+        return;
+      }
+      fresh = r.data;
+      const again = pod ? proposeFixes({ pod, owner: fresh, usage, revisions, events, pullSecrets }).find((f) => f.id === chosen.id) : undefined;
+      if (!again) {
+        setReviewError(`${ownerTarget.kind} ${ownerTarget.name} changed since this page loaded it, and this fix no longer applies. Reload to see what does.`);
+        return;
+      }
+      fix = again;
+    }
     if (fix.target.kind === 'ServiceAccount') {
       const sa = await readK8s<K8sResource>(fix.target.apiPath, pinned);
       if (sa.state !== 'ok') {
@@ -120,7 +163,7 @@ export function FixCard({ pod, ownerApiPath, ownerObject, usage, usageLoading, e
       setReview({ fix: withServiceAccount(fix, sa.data), target: sa.data, clusterId: pinned });
       return;
     }
-    setReview({ fix, target: owner, clusterId: pinned });
+    setReview({ fix, target: fresh, clusterId: pinned });
   }
 
   function onApplied(fix: GuidedFix, pinned: string, result: unknown) {
@@ -156,7 +199,7 @@ export function FixCard({ pod, ownerApiPath, ownerObject, usage, usageLoading, e
         <span className="text-xs text-slate-400">Applied to the owner, so it survives the next rollout</span>
       </div>
 
-      {watch && <WatchStatus watch={watch} />}
+      {watch && <WatchStatus watch={watch} onDismiss={() => useFixWatchStore.getState().dismiss(watch.key)} />}
       {applied && !watch && <p role="status" className="text-sm text-emerald-300">Applied: {applied}.</p>}
       {applied && ownerPage && watch?.status === 'watching' && (
         <p className="text-xs text-slate-400">
@@ -271,7 +314,7 @@ export function FixCard({ pod, ownerApiPath, ownerObject, usage, usageLoading, e
   );
 }
 
-function WatchStatus({ watch }: { watch: { status: string; detail: string; title: string; checkError?: string } }) {
+function WatchStatus({ watch, onDismiss }: { watch: { status: string; detail: string; title: string; checkError?: string }; onDismiss: () => void }) {
   const icon = watch.status === 'held' ? <CheckCircle2 className="h-4 w-4 text-emerald-400" />
     : watch.status === 'not-held' ? <XCircle className="h-4 w-4 text-red-400" />
       : watch.status === 'unknown' ? <HelpCircle className="h-4 w-4 text-slate-400" />
@@ -287,6 +330,9 @@ function WatchStatus({ watch }: { watch: { status: string; detail: string; title
         <div>{watch.detail}</div>
         {watch.status === 'watching' && watch.checkError && <div className="text-xs text-amber-300">Last check failed: {watch.checkError}</div>}
       </div>
+      <button type="button" onClick={onDismiss} className="ml-auto shrink-0 rounded-sm px-1.5 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200">
+        {watch.status === 'watching' ? 'Stop watching' : 'Dismiss'}
+      </button>
     </div>
   );
 }

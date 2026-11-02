@@ -82,64 +82,102 @@ describe('no finding', () => {
     expect(screen.queryByText(/No open monitor finding/)).toBeNull();
   });
 
-  it('Diagnose creates an item for the pod, starts the investigation and shows the report when it lands', async () => {
+  const emptyInbox: [RegExp, string, Reply] = [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [], groups: [], stats: {}, total: 0 } }];
+  const created: [RegExp, string, Reply] = [/\/api\/agent\/inbox$/, 'POST', { status: 201, body: { id: 'it-1', item_type: 'task', status: 'new' } }];
+  const report = { id: 'r', summary: 's', suspected_cause: 'Memory limit too low for the new cache size.', recommended_fix: '', confidence: 0.8, evidence: ['heap at limit'], alternatives_considered: ['DNS'] };
+
+  it('creates an item for the pod, starts the investigation, shows queued then running, then the report, and stops polling', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    let polls = 0;
+    const seq: Reply[] = [{ status: 200, body: { status: 'running' } }, { status: 200, body: { status: 'done', ...report } }];
     routes = [
-      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [], groups: [], stats: {}, total: 0 } }],
-      [/\/api\/agent\/inbox$/, 'POST', { status: 201, body: { id: 'it-1', item_type: 'task', status: 'new' } }],
-      [/inbox\/it-1\/investigate$/, 'POST', { status: 200, body: { ok: true } }],
-      [/inbox\/it-1\/investigation$/, 'GET', () => (++polls < 2 ? { status: 404, body: { detail: 'No investigation linked' } } : { status: 200, body: { id: 'r', summary: 's', suspected_cause: 'Memory limit too low for the new cache size.', recommended_fix: '', confidence: 0.8, evidence: ['heap at limit'], alternatives_considered: ['DNS'] } })],
-      [/inbox\/it-1$/, 'GET', { status: 200, body: { id: 'it-1', status: 'claimed', resources: [] } }],
+      emptyInbox, created,
+      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'queued' } }],
+      [/inbox\/it-1\/investigation$/, 'GET', () => seq.shift() ?? { status: 200, body: { status: 'done', ...report } }],
     ];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
-    await screen.findByText(/Investigating/);
+    expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Queued for investigation/);
     const [, init] = calls('POST', /\/api\/agent\/inbox$/)[0];
     expect(JSON.parse(String(init!.body))).toMatchObject({ namespace: 'payments', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }] });
-    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS * 2); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    await waitFor(() => expect(screen.getByTestId('diagnose-run').textContent).toMatch(/^Investigating/));
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
     expect(await screen.findByText('Memory limit too low for the new cache size.')).toBeDefined();
     expect(screen.getByRole('heading', { name: 'Pulse found the cause' })).toBeDefined();
     expect(screen.getByText('Confidence 0.80')).toBeDefined();
+    const polls = calls('GET', /investigation$/).length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS * 3); });
+    expect(calls('GET', /investigation$/).length).toBe(polls);
   });
 
-  it('reuses an open inbox item for the same pod and shows its existing report without a new item', async () => {
+  it.each([[409, 'cooldown: this resource was investigated 4 minutes ago'], [429, 'daily investigation budget reached']])('a %s refusal shows the agent\'s reason', async (status, reason) => {
+    routes = [emptyInbox, created, [/inbox\/it-1\/investigate$/, 'POST', { status, body: { detail: reason } }]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(`The agent did not start an investigation: ${reason}`);
+    expect(calls('GET', /investigation$/)).toHaveLength(0);
+  });
+
+  it('a failed investigation stops polling and shows why', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes = [emptyInbox, created,
+      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'running' } }],
+      [/inbox\/it-1\/investigation$/, 'GET', { status: 200, body: { status: 'failed', error: 'timed out after 300s' } }]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    await screen.findByTestId('diagnose-run');
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    expect((await screen.findByRole('alert')).textContent).toBe('Diagnose failed: timed out after 300s');
+    const polls = calls('GET', /investigation$/).length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS * 3); });
+    expect(calls('GET', /investigation$/).length).toBe(polls);
+  });
+
+  it('reuses an open item that already has an investigation and says when it was made', async () => {
+    const at = Date.now() - 3 * 3600_000;
     routes = [
-      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'old', status: 'triaged', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: { investigation_id: 'inv' } }], groups: [], stats: {}, total: 1 } }],
-      [/inbox\/old\/investigation$/, 'GET', { status: 200, body: { id: 'inv', summary: 'Earlier finding: bad config.', suspected_cause: '', recommended_fix: '', confidence: 0.7, evidence: [], alternatives_considered: [] } }],
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'old', status: 'triaged', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: { investigation_id: 'inv' } }], groups: [], stats: {}, total: 1 } }],
+      [/inbox\/old\/investigation$/, 'GET', { status: 200, body: { status: 'done', id: 'inv', summary: 'Earlier finding: bad config.', suspected_cause: '', recommended_fix: '', confidence: 0.7, evidence: [], alternatives_considered: [], timestamp: Math.floor(at / 1000) } }],
     ];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     expect(await screen.findByText('Earlier finding: bad config.')).toBeDefined();
+    expect(screen.getByTestId('diagnose-reused').textContent).toMatch(/investigated 3h ago/);
     expect(calls('POST', /\/api\/agent\/inbox$/)).toHaveLength(0);
     expect(calls('POST', /investigate$/)).toHaveLength(0);
   });
 
-  it('agent_review_failed is shown as a failed diagnosis', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+  it('does not reuse an item someone else has claimed without an investigation', async () => {
     routes = [
-      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [], groups: [], stats: {}, total: 0 } }],
-      [/\/api\/agent\/inbox$/, 'POST', { status: 201, body: { id: 'it-2' } }],
-      [/inbox\/it-2\/investigate$/, 'POST', { status: 200, body: {} }],
-      [/inbox\/it-2\/investigation$/, 'GET', { status: 404, body: {} }],
-      [/inbox\/it-2$/, 'GET', { status: 200, body: { id: 'it-2', status: 'agent_review_failed' } }],
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'theirs', status: 'claimed', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: {} }], groups: [], stats: {}, total: 1 } }],
+      created,
+      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'queued' } }],
     ];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
-    await screen.findByText(/Investigating/);
-    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
-    expect((await screen.findByRole('alert')).textContent).toMatch(/could not \(agent_review_failed\)/);
+    await screen.findByTestId('diagnose-run');
+    expect(calls('POST', /\/api\/agent\/inbox$/)).toHaveLength(1);
+    expect(calls('POST', /theirs\/investigate$/)).toHaveLength(0);
   });
 
   it.each([[403, /You do not have permission to do this/], [500, /Request failed \(500\)/]])('a %s creating the item is shown as an error', async (status, text) => {
-    routes = [
-      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [], groups: [], stats: {}, total: 0 } }],
-      [/\/api\/agent\/inbox$/, 'POST', { status, body: { detail: 'nope' } }],
-    ];
+    routes = [emptyInbox, [/\/api\/agent\/inbox$/, 'POST', { status, body: { detail: 'nope' } }]];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     expect((await screen.findByRole('alert')).textContent).toMatch(text);
     expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
+  });
+
+  it('a 500 while polling ends in an error, not a silent wait', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes = [emptyInbox, created,
+      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'queued' } }],
+      [/inbox\/it-1\/investigation$/, 'GET', { status: 500, body: {} }]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    await screen.findByTestId('diagnose-run');
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Request failed \(500\)/);
   });
 
   it('agent unreachable (network error) says nothing was investigated', async () => {
@@ -147,5 +185,11 @@ describe('no finding', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     await waitFor(() => expect(screen.getByTestId('diagnose-unreachable').textContent).toContain('unreachable (Failed to fetch)'));
+  });
+
+  it('a finding in another namespace with the same pod name does not match', () => {
+    useMonitorStore.setState({ findings: [finding({ resources: [{ kind: 'Pod', name: 'api-x', namespace: 'other' }] }), finding({ id: 'f3', resources: [{ kind: 'Pod', name: 'api-x' }] })] as never });
+    renderCard();
+    expect(screen.getByText('No open monitor finding for this pod.')).toBeDefined();
   });
 });

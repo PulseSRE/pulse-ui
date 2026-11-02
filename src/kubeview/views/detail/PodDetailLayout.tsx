@@ -51,7 +51,6 @@ export function PodDetailLayout({
       .filter((rs) => rs.metadata.ownerReferences?.some((o) => o.kind === 'Deployment' && o.name === owner.name))
       .map((rs) => ({ revision: rs.metadata.annotations?.['deployment.kubernetes.io/revision'] ?? '?', at: rs.metadata.creationTimestamp }))
     : undefined), [owner?.kind, owner?.name, rsList.data]);
-  const changesOf = owner && owner.kind !== 'ReplicaSet' ? { kind: owner.kind, name: owner.name } : { kind: 'Pod', name: resource.metadata.name };
 
   return (
     <div className="space-y-5">
@@ -77,7 +76,8 @@ export function PodDetailLayout({
           <IncidentContext resource={resource} managedPods={[]} events={events} namespace={namespace} go={go} />
         </div>
         <aside className="flex min-w-0 flex-[1_1_360px] flex-col gap-5">
-          <ChangesCard namespace={namespace} kind={changesOf.kind} name={changesOf.name} />
+          {/* kind=Pod: the agent walks the owner chain itself. */}
+          <ChangesCard namespace={namespace} kind="Pod" name={resource.metadata.name} />
           <MemoryCard pod={resource} revisions={revisions} />
           <CrashLogCard pod={resource} go={go} />
           <AskPulseCard context={context} placeholder="Why does this pod keep restarting?" />

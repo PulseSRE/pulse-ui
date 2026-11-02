@@ -33,7 +33,7 @@ describe('proposeFixes', () => {
       ],
     });
     expect(fix.impact).toBe('Rolling restart of 3 pods (maxUnavailable 1, maxSurge 25%)');
-    expect(fix.undo).toMatch(/^Roll back to revision 14/);
+    expect(fix.undo).toMatch(/^Roll back to the revision before this change \(revision 14\)/);
     expect(fix.memoryDelta).toEqual({ requests: 320 * MiB, limits: 320 * MiB, replicas: 3 });
   });
 
@@ -93,5 +93,50 @@ describe('proposeFixes', () => {
 
   it('describes Recreate as downtime', () => {
     expect(rolloutImpact(F.deployment({}, { spec: { replicas: 2, strategy: { type: 'Recreate' }, template: {} } }) as never)).toMatch(/down meanwhile/);
+  });
+
+  it('a container that ran 4h and then hung gets no startup-probe fix', () => {
+    const hung = F.pod({
+      state: { waiting: { reason: 'CrashLoopBackOff' } },
+      lastState: { terminated: { reason: 'Error', exitCode: 137, startedAt: '2026-11-02T10:00:00Z', finishedAt: '2026-11-02T14:00:00Z' } },
+    });
+    const events = [{ reason: 'Unhealthy', message: 'Liveness probe failed: timeout', involvedObject: { name: 'api-7f9c4d-x2k8q' } }];
+    expect(proposeFixes({ pod: hung as never, owner: F.livenessOwner() as never, events: events as never }).find((f) => f.kind === 'startup-probe')).toBeUndefined();
+  });
+
+  it('caps the proposed start budget at 10 minutes and says so', () => {
+    const slow = F.pod({
+      state: { waiting: { reason: 'CrashLoopBackOff' } },
+      lastState: { terminated: { reason: 'Error', exitCode: 137, startedAt: '2026-11-02T14:00:00Z', finishedAt: '2026-11-02T14:06:00Z' } },
+    });
+    const owner = F.deployment({ livenessProbe: { httpGet: { path: '/h', port: 8080 }, initialDelaySeconds: 60, periodSeconds: 30, failureThreshold: 5 } });
+    const killed = [{ reason: 'Unhealthy', message: 'Liveness probe failed: connection refused', involvedObject: { name: 'api-7f9c4d-x2k8q' } }] as never;
+    const [fix] = proposeFixes({ pod: slow as never, owner: owner as never, events: killed });
+    expect(fix.kind).toBe('startup-probe');
+    expect((fix.request.body as Array<{ value?: { failureThreshold?: number } }>)[2].value?.failureThreshold).toBe(60);
+    expect(fix.basis).toMatch(/capped at 10 minutes \(twice the observed run would be longer\)/);
+    const withStartup = F.deployment({ livenessProbe: { httpGet: { path: '/h', port: 8080 }, initialDelaySeconds: 60, periodSeconds: 30, failureThreshold: 5 }, startupProbe: { httpGet: { path: '/h', port: 8080 }, periodSeconds: 10, failureThreshold: 40 } });
+    const [f2] = proposeFixes({ pod: slow as never, owner: withStartup as never, events: killed });
+    expect((f2.request.body as Array<{ value?: number }>)[2].value).toBe(60);
+  });
+
+  it('when the template lists imagePullSecrets, the secret goes into the template, not the ServiceAccount', () => {
+    const owner = F.deployment({}, {});
+    (owner.spec.template.spec as Record<string, unknown>).imagePullSecrets = [{ name: 'old-creds' }];
+    const [fix] = proposeFixes({ pod: F.pullPod() as never, owner: owner as never, pullSecrets: ['acme-quay'] });
+    expect(fix.target.kind).toBe('Deployment');
+    expect(fix.request.body).toEqual([
+      { op: 'test', path: '/metadata/resourceVersion', value: '777' },
+      { op: 'add', path: '/spec/template/spec/imagePullSecrets/-', value: { name: 'acme-quay' } },
+    ]);
+    expect(fix.watchable).toBe(true);
+    expect(fix.basis).toMatch(/ServiceAccount ones are not applied/);
+  });
+
+  it('an OnDelete StatefulSet fix is not watchable and says pods must be deleted', () => {
+    const sts = { ...F.oomOwner(), kind: 'StatefulSet', spec: { ...F.oomOwner().spec, updateStrategy: { type: 'OnDelete' } } };
+    const [fix] = proposeFixes({ pod: F.oomPod() as never, owner: sts as never, usage: F.oomUsage });
+    expect(fix.watchable).toBe(false);
+    expect(fix.impact).toMatch(/only when you delete it/);
   });
 });

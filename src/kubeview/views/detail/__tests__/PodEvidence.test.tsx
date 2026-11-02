@@ -12,6 +12,7 @@ vi.mock('../../../components/metrics/MetricsChart', () => ({ MetricsChart: ({ th
 import { ChangesCard } from '../ChangesCard';
 import { MemoryCard } from '../PodEvidenceCards';
 import { useUIStore } from '../../../store/uiStore';
+import { useFleetStore } from '../../../store/fleetStore';
 
 const wrap = (ui: React.ReactNode) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>);
 
@@ -19,7 +20,7 @@ function changesReply(status: number, body: unknown) {
   global.fetch = vi.fn().mockResolvedValue({ ok: status < 300, status, json: async () => body }) as never;
 }
 
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); useFleetStore.setState({ activeClusterId: 'local' }); });
 
 describe('ChangesCard', () => {
   const card = () => wrap(<ChangesCard namespace="payments" kind="Deployment" name="api" until={Date.parse('2026-11-02T15:00:00Z')} />);
@@ -67,6 +68,14 @@ describe('ChangesCard', () => {
     expect(alert.textContent).toContain(text);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
     expect(screen.queryByText(/No changes recorded/)).toBeNull();
+  });
+
+  it('on a remote cluster it is a muted note and nothing is requested', () => {
+    useFleetStore.setState({ activeClusterId: 'prod-east' });
+    changesReply(200, { available: true, changes: [] });
+    card();
+    expect(screen.getByTestId('changes-unavailable').textContent).toContain('local cluster only');
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('an empty window says so', async () => {

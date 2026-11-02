@@ -19,6 +19,8 @@ import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import type { Finding, InvestigationReport as MonitorReport, EvidenceItem } from '../../engine/monitorClient';
 import type { InvestigationReport as InboxReport } from '../../engine/inboxApi';
 import { useDiagnose, type DiagnoseTarget } from './useDiagnose';
+import { resolveKind } from '../../engine/kindRegistry';
+import { formatRelative } from '../../engine/format';
 
 const SEVERITY_RANK: Record<string, number> = { critical: 3, warning: 2, info: 1 };
 
@@ -36,7 +38,9 @@ export interface CauseMatch {
 export function findingFor(findings: Finding[], dismissed: string[], m: CauseMatch): Finding | null {
   const pods = new Set(m.podNames ?? []);
   const hit = findings.filter((f) => !dismissed.includes(f.id) && f.category !== 'degraded' && f.resources.some((r) => {
-    if (r.namespace && r.namespace !== m.namespace) return false;
+    // Namespaced kinds must be in this namespace (a missing namespace is not a match).
+    const namespaced = resolveKind(r.kind).namespaced ?? true;
+    if (namespaced && r.namespace !== m.namespace) return false;
     if (r.kind === m.kind && r.name === m.name) return true;
     if (m.owner && r.kind === m.owner.kind && r.name === m.owner.name) return true;
     if (m.owner && r.ownerKind === m.owner.kind && r.ownerName === m.owner.name) return true;
@@ -190,11 +194,28 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
       {state.phase === 'waiting' && (
         <p className="flex items-center gap-2 text-sm text-slate-300" role="status">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Investigating{state.reused ? ' (using the open inbox item for this resource)' : ''}… The report appears here when it is ready.
-          {state.note && <span className="text-amber-300"> {state.note}</span>}
+          <span data-testid="diagnose-run">
+            {state.run === 'running' ? 'Investigating' : 'Queued for investigation'}
+            {state.reused ? ' (the open inbox item for this resource)' : ''}… The report appears here when it is ready.
+          </span>
         </p>
       )}
-      {state.phase === 'done' && <Report view={fromInbox(state.report)} />}
+      {state.phase === 'done' && (
+        <>
+          {state.reused && (
+            <p className="text-xs text-slate-400" data-testid="diagnose-reused">
+              From the open inbox item for this resource · investigated {state.at ? formatRelative(state.at) : 'at an unrecorded time'}
+            </p>
+          )}
+          <Report view={fromInbox(state.report)} />
+        </>
+      )}
+      {state.phase === 'refused' && (
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-amber-300">The agent did not start an investigation: {state.reason}</p>
+          {diagnoseButton('Try again')}
+        </div>
+      )}
       {state.phase === 'failed' && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-red-300">Diagnose failed: {state.reason}</p>
@@ -203,7 +224,7 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
       )}
       {state.phase === 'timeout' && (
         <p className="text-sm text-slate-300">
-          No report after 10 minutes. The agent works its inbox queue in order; the item stays open in the{' '}
+          No report after 10 minutes; the investigation may still finish. The item stays open in the{' '}
           <Link to="/inbox" className="text-blue-400 hover:underline">Inbox</Link> (Diagnose {match.kind} {match.namespace}/{match.name}).
         </p>
       )}

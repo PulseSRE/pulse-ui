@@ -72,6 +72,10 @@ export function workloadTarget(owner: K8sResource): FixTarget | null {
   return { kind: owner.kind, name: owner.metadata.name, namespace: ns, apiPath: `/apis/apps/v1/namespaces/${ns}/${plural}/${owner.metadata.name}`, group: 'apps', plural };
 }
 
+/** A startup budget longer than this hides hangs; a fix never proposes more. */
+export const MAX_STARTUP_SECONDS = 600;
+const STARTUP_KILL_FACTOR = 3;
+
 const Mi = 1024 * 1024;
 const Gi = 1024 * Mi;
 
@@ -136,7 +140,7 @@ export function rolloutImpact(owner: K8sResource): string {
     return `Rolling restart of ${pods} (maxUnavailable ${ru?.maxUnavailable ?? '25%'}, maxSurge ${ru?.maxSurge ?? '25%'})`;
   }
   if (owner.kind === 'StatefulSet') {
-    if (spec.updateStrategy?.type === 'OnDelete') return `Nothing restarts by itself (updateStrategy OnDelete): each of the ${pods} picks it up when deleted`;
+    if (spec.updateStrategy?.type === 'OnDelete') return `Nothing restarts by itself (updateStrategy OnDelete): each of the ${pods} picks the change up only when you delete it, so Pulse cannot watch whether it held`;
     return `Rolling restart of ${pods}, one at a time from the highest ordinal`;
   }
   return `Rolling restart of ${pods}, one per node (maxUnavailable ${spec.updateStrategy?.rollingUpdate?.maxUnavailable ?? 1})`;
@@ -145,8 +149,13 @@ export function rolloutImpact(owner: K8sResource): string {
 function undoText(owner: K8sResource): string {
   const rev = owner.metadata.annotations?.['deployment.kubernetes.io/revision'];
   return owner.kind === 'Deployment' && rev
-    ? `Roll back to revision ${rev} (Rollout History on ${owner.kind} ${owner.metadata.name})`
-    : `Roll back to the current revision (Rollout History on ${owner.kind} ${owner.metadata.name})`;
+    ? `Roll back to the revision before this change (revision ${rev}) in Rollout History on ${owner.kind} ${owner.metadata.name}`
+    : `Roll back to the revision before this change in Rollout History on ${owner.kind} ${owner.metadata.name}`;
+}
+
+/** OnDelete StatefulSets roll nothing out: a template fix only reaches pods that are deleted. */
+function rollsOut(owner: K8sResource): boolean {
+  return !(owner.kind === 'StatefulSet' && (owner.spec as { updateStrategy?: { type?: string } } | undefined)?.updateStrategy?.type === 'OnDelete');
 }
 
 function rvTest(obj: K8sResource): Array<Record<string, unknown>> {
@@ -217,7 +226,7 @@ function memoryFix(inp: FixInputs, owner: K8sResource, target: FixTarget): Guide
     undo: undoText(owner),
     basis: `Container ${oom.name} was OOMKilled at its ${curLimitQ} limit. ${newLimitQ} is ${basis}.`,
     restarts: replicas,
-    watchable: true,
+    watchable: rollsOut(owner),
     memoryDelta: { requests: reqDelta, limits: limit - curLimit, replicas },
   };
 }
@@ -247,7 +256,7 @@ function cpuFix(inp: FixInputs, owner: K8sResource, target: FixTarget): GuidedFi
       undo: undoText(owner),
       basis: `Container ${s.name} used ${Math.round(p95 * 1000)}m CPU at p95 over 6h against a ${limQ} limit, so it is throttled; ${newQ} is 1.5× p95, rounded up.`,
       restarts: replicasOf(owner),
-      watchable: true,
+      watchable: rollsOut(owner),
     };
   }
   return null;
@@ -273,10 +282,17 @@ function startupProbeFix(inp: FixInputs, owner: K8sResource, target: FixTarget):
     const live = c.livenessProbe;
     if (!live) continue;
     const ranS = term.ranForMs !== null ? term.ranForMs / 1000 : null;
-    const killedEarly = ranS !== null && ranS <= probeBudgetSeconds(live) + 15;
-    if (!livenessKilled(inp, s.name) && !killedEarly) continue;
+    // Only a container killed while starting: one that ran far longer than
+    // the liveness budget (say 4h, then hung) started fine, and a startup
+    // probe would only delay noticing the hang.
+    const budget = probeBudgetSeconds(live);
+    const killedEarly = ranS !== null && ranS <= STARTUP_KILL_FACTOR * budget + 15;
+    if (!killedEarly) continue;
+    if (!livenessKilled(inp, s.name) && ranS > budget + 15) continue;
     const base = `/spec/template/spec/containers/${i}`;
-    const needed = Math.max(30, Math.ceil(((ranS ?? 60) * 2) / 10));
+    const wantS = Math.min(MAX_STARTUP_SECONDS, Math.max(300, ranS * 2));
+    const capped = ranS * 2 > MAX_STARTUP_SECONDS;
+    const needed = Math.ceil(wantS / 10);
     const ops: Array<Record<string, unknown>> = [...rvTest(owner), { op: 'test', path: `${base}/name`, value: c.name }];
     let diff: DiffLine[];
     let title: string;
@@ -284,7 +300,8 @@ function startupProbeFix(inp: FixInputs, owner: K8sResource, target: FixTarget):
     if (sp) {
       const period = sp.periodSeconds ?? PROBE_DEFAULTS.periodSeconds;
       const cur = sp.failureThreshold ?? PROBE_DEFAULTS.failureThreshold;
-      const next = Math.max(cur * 2, Math.ceil(((ranS ?? 60) * 2) / period));
+      const next = Math.min(Math.floor(MAX_STARTUP_SECONDS / period), Math.max(cur * 2, Math.ceil((ranS * 2) / period)));
+      if (next <= cur) continue; // Already at the 10-minute cap.
       ops.push({ op: 'add', path: `${base}/startupProbe/failureThreshold`, value: next });
       diff = [{ field: 'startupProbe.failureThreshold', before: String(cur), after: `${next} (${next * period}s to start)` }];
       title = `Give ${s.name} ${next * period}s to start (startupProbe) on ${owner.kind} ${owner.metadata.name}`;
@@ -306,9 +323,9 @@ function startupProbeFix(inp: FixInputs, owner: K8sResource, target: FixTarget):
       request: { method: 'PATCH', path: target.apiPath, patchType: JSON_PATCH, body: ops },
       impact: rolloutImpact(owner),
       undo: undoText(owner),
-      basis: `The liveness probe (${probeBudgetSeconds(live)}s budget) killed ${s.name}${ranS !== null ? ` after it ran ${Math.round(ranS)}s` : ''}; a startup probe holds liveness off until the app has started.`,
+      basis: `The liveness probe (${budget}s budget) killed ${s.name} after it ran ${Math.round(ranS)}s; a startup probe holds liveness off until the app has started. The start budget is capped at 10 minutes${capped ? ' (twice the observed run would be longer)' : ''}, so a real hang is still caught.`,
       restarts: replicasOf(owner),
-      watchable: true,
+      watchable: rollsOut(owner),
     };
   }
   return null;
@@ -325,7 +342,35 @@ function pullSecretFixes(inp: FixInputs): GuidedFix[] {
   const spec = pod.spec as Pod['spec'] & { imagePullSecrets?: Array<{ name: string }> };
   const sa = spec?.serviceAccountName || 'default';
   const attached = new Set((spec?.imagePullSecrets ?? []).map((s) => s.name));
-  return (inp.pullSecrets ?? []).filter((n) => !attached.has(n)).slice(0, 3).map((secret) => ({
+  const why = (secret: string) => `Pulling the image of ${failing.name} is refused by the registry (${(failing.state?.waiting?.message || '').slice(0, 120)}); ${secret} is a registry credential in ${ns} that the pod does not use.`;
+  const candidates = (inp.pullSecrets ?? []).filter((n) => !attached.has(n)).slice(0, 3);
+
+  // A pod that lists imagePullSecrets itself never gets its ServiceAccount's
+  // (the admission plugin only fills them in when the pod has none), so the
+  // secret has to go into the owner's template.
+  const owner = inp.owner;
+  const target = owner ? workloadTarget(owner) : null;
+  const tplSecrets = (templateOf(owner ?? ({} as K8sResource))?.spec as { imagePullSecrets?: Array<{ name: string }> } | undefined)?.imagePullSecrets;
+  if (owner && target && tplSecrets && tplSecrets.length > 0) {
+    const current = tplSecrets.map((s) => s.name);
+    return candidates.map((secret) => ({
+      id: `pull-secret:${secret}`,
+      kind: 'pull-secret' as const,
+      title: `Add pull secret ${secret} to ${owner.kind} ${owner.metadata.name}`,
+      question: `Add pull secret ${secret} to ${owner.kind} ${owner.metadata.name}?`,
+      target,
+      diffHeader: `${owner.kind} ${owner.metadata.name} · spec.template.spec.imagePullSecrets`,
+      diff: [{ field: 'imagePullSecrets', before: current.join(', '), after: [...current, secret].join(', ') }],
+      request: { method: 'PATCH', path: target.apiPath, patchType: JSON_PATCH, body: [...rvTest(owner), { op: 'add', path: '/spec/template/spec/imagePullSecrets/-', value: { name: secret } }] },
+      impact: rolloutImpact(owner),
+      undo: undoText(owner),
+      basis: `${why(secret)} The template already lists imagePullSecrets, so ServiceAccount ones are not applied to these pods.`,
+      restarts: replicasOf(owner),
+      watchable: rollsOut(owner),
+    }));
+  }
+
+  return candidates.map((secret) => ({
     id: `pull-secret:${secret}`,
     kind: 'pull-secret' as const,
     title: `Attach pull secret ${secret} to ServiceAccount ${sa}`,
@@ -337,7 +382,7 @@ function pullSecretFixes(inp: FixInputs): GuidedFix[] {
     request: { method: 'PATCH', path: `/api/v1/namespaces/${ns}/serviceaccounts/${sa}`, patchType: JSON_PATCH, body: [] },
     impact: 'No pod restarts by itself: pods get the secret when they are created, so restart the workload afterwards',
     undo: `Remove ${secret} from ServiceAccount ${sa}'s imagePullSecrets`,
-    basis: `Pulling the image of ${failing.name} is refused by the registry (${(failing.state?.waiting?.message || '').slice(0, 120)}); ${secret} is a registry credential in ${ns} that the pod does not use.`,
+    basis: why(secret),
     restarts: 0,
     watchable: false,
   }));
@@ -382,7 +427,7 @@ function rollbackFix(inp: FixInputs, owner: K8sResource, target: FixTarget): Gui
     diff: changes.map((c) => ({ field: c, before: '', after: '' })),
     request: { method: 'PATCH', path: target.apiPath, patchType: JSON_PATCH, body: ops },
     impact: rolloutImpact(owner),
-    undo: `Roll back to revision ${current.revision} (Rollout History on Deployment ${owner.metadata.name})`,
+    undo: `Roll back to the revision before this change (revision ${current.revision}) in Rollout History on Deployment ${owner.metadata.name}`,
     basis: `Pods of revision ${current.revision} are failing; revision ${prev.revision}${prev.replicas ? ` last had ${prev.replicas.ready} ready` : ''} is the one before it.`,
     restarts: replicasOf(owner),
     watchable: true,
