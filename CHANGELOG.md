@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Added
+- **Update readiness on Admin › Updates (Wave 14).** One readiness panel above the update action replaces the pre-update checklist and the separate Removed APIs panel: an overall verdict (Ready / Not ready / Could not check) with counts, when it was checked, Recheck and Ask Pulse (the result goes to chat as context), and Blocker / Unknown / Passed rows with their fix: removed APIs still called ("See callers" opens the caller table), admin acknowledgement (Acknowledge), Upgradeable=False, PodDisruptionBudgets with 0 disruptions covering a pod on a node that will drain (paused pools excluded; Edit PDB), critical alerts (link to Alerts filtered to critical), pending CSRs, the earliest control-plane certificate expiry, etcd operator and member pod health, the latest EtcdBackup (Take backup now creates an EtcdBackup when that API is served and a PVC exists in openshift-etcd), nodes ready, platform operators healthy and the channel. A failed read is Unknown with its reason, never a pass, and passed rows collapse into one line. Below it, the update action has the target picker, "Pause worker pools first" and "Start update…", which stays enabled with blockers, says what is likely to go wrong, and lists the open blockers in its confirmation.
+
 ### Changed
 - **One entry point per thing.** Software › Operators (it only redirected to /operators) is gone; old `/software?tab=operators&q=…` and `/create/v1~pods?tab=operators…` links still land on /operators with their search. Identity & Access › Impersonation is gone: Impersonate stays on each user and service-account row, the Shell banner shows who is impersonated with Stop, and an old `?tab=impersonation` link opens Users (the per-browser "Recently impersonated" list is dropped; the user menu's "Impersonate User" and "Stop impersonating" entries are unchanged). Security no longer lists cluster-admin holders a second time; its audit row stays and links, with a "Cluster-admin holders → Identity & Access" line, to Identity › RBAC, which lists them with Revoke. Admin › Operators (ClusterOperators) is now "Platform operators" on its tab, the Overview card and the links to it, so it is not confused with OLM's /operators catalog; `/admin?tab=operators` still opens it.
 
@@ -549,7 +552,6 @@ Major release matching Agent v2.0.0.
 ### Stats
 - **1,934 tests** across 162 test files
 - **111 tools** (75 native + 36 MCP), **4 skills**, **19 component types**
-- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -571,7 +573,6 @@ Major release matching Agent v2.0.0.
 
 ### Stats
 - **1,934 tests** across 162 test files (+52 new tests)
-- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -598,7 +599,6 @@ Major release matching Agent v2.0.0.
 
 ### Stats
 - **1687 tests** across 125 test files (+81 new tests)
-- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -627,7 +627,6 @@ Major release matching Agent v2.0.0.
 - **1472 tests** across 97 test files
 - **17 views**, 45+ routes
 - **54 agent tools** with dynamic selection harness
-- **0 package CVEs**, all Red Hat UBI images
 - **13-check integration test** for deployment verification
 
 ---
@@ -653,10 +652,7 @@ Major release matching Agent v2.0.0.
 - **Build log 404s** — Build view was fetching pod logs for build names; now uses correct Build API endpoint
 
 ### Stats
-- **1472 tests** across 97 test files
-- **17 views**, 45+ routes
 - **54 agent tools** with 4 returning rich UI component specs
-- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -700,10 +696,7 @@ Major release matching Agent v2.0.0.
 - README updated with AI Agent comparison row, 17 views, 54 tools
 
 ### Stats
-- **1472 tests** across 97 test files
-- **17 views**, 45+ routes
 - **54 agent tools** (39 read + 9 write + 6 audit)
-- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -734,7 +727,6 @@ Major release matching Agent v2.0.0.
 ### Stats
 - **1438 tests** across 94 test files
 - **16+ views**, 40+ routes
-- **0 package CVEs**, all Red Hat UBI images
 - **6 custom agents**, 4 automated hooks
 
 ---
@@ -806,8 +798,6 @@ Major release matching Agent v2.0.0.
 
 ### Stats
 - **1308 tests** across 76 test files (up from 1162/63 in v4.1.0)
-- **77 health checks** (31 cluster + 46 domain)
-- **15 views**, 35 routes
 - **0 package CVEs**
 
 ---
