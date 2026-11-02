@@ -3,6 +3,7 @@ import {
   checkControlPlaneCerts, checkEtcdBackup, checkChannel, nodesThatWillDrain, readinessVerdict, toLoadable,
   NO_BACKUP_API_DETAIL, type ReadinessCheck,
 } from '../upgradeReadiness';
+import { appendUpdateLog, parseUpdateLog, logEntryFor, estimateFromHistory, UPDATE_LOG_MAX } from '../upgradeLog';
 import type { ClusterVersion, MachineConfigPool, Node } from '../types';
 
 const NOW = Date.parse('2026-11-02T12:00:00Z');
@@ -66,5 +67,27 @@ describe('nodesThatWillDrain', () => {
     const nodes = [node('m1', 'master'), node('w1', 'worker')];
     expect(nodesThatWillDrain(nodes, [pool('master', false), pool('worker', true)])).toEqual(['m1']);
     expect(nodesThatWillDrain(nodes, null)).toEqual(['m1', 'w1']);
+  });
+});
+
+describe('update log', () => {
+  const e = (version: string, startedAt: string) => ({ version, startedAt, by: 'a', reason: 'r' });
+  it('appends and keeps the last 50; invalid JSON is reported and replaced', () => {
+    const many = JSON.stringify(Array.from({ length: UPDATE_LOG_MAX }, (_, i) => e(`4.1.${i}`, '2026-01-01T00:00:00Z')));
+    const out = JSON.parse(appendUpdateLog(many, e('4.2.0', '2026-02-01T00:00:00Z')));
+    expect(out).toHaveLength(UPDATE_LOG_MAX);
+    expect(out[UPDATE_LOG_MAX - 1].version).toBe('4.2.0');
+    expect(parseUpdateLog('{nope')).toEqual({ entries: [], valid: false });
+    expect(parseUpdateLog('[{"version":1}]').entries).toEqual([]);
+  });
+  it('matches a history row to the latest entry for its version that started before it finished', () => {
+    const log = [e('4.16.3', '2026-09-01T09:00:00Z'), e('4.16.3', '2026-09-02T09:00:00Z')];
+    expect(logEntryFor(log, { version: '4.16.3', completionTime: '2026-09-01T12:00:00Z' })?.startedAt).toBe('2026-09-01T09:00:00Z');
+    expect(logEntryFor(log, { version: '4.15.0' })).toBeNull();
+  });
+  it('estimates from up to three completed updates, leaving out the installation', () => {
+    const h = (m: number, i: number) => ({ state: 'Completed', version: `4.16.${i}`, startedTime: '2026-01-01T00:00:00Z', completionTime: new Date(Date.parse('2026-01-01T00:00:00Z') + m * 60000).toISOString() });
+    expect(estimateFromHistory([h(90, 3), h(120, 2), h(100, 1), h(30, 0)])?.text).toBe('1h 30m–2h based on the last 3 updates');
+    expect(estimateFromHistory([h(30, 0)])).toBeNull();
   });
 });

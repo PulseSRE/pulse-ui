@@ -1,12 +1,12 @@
 /**
  * The reads behind the update readiness panel that the Admin page does not
  * already hold: pending CSRs, control-plane certificates, etcd member pods,
- * and etcd backups. Each query answers a ReadResult
+ * etcd backups and the signed-in username. Each query answers a ReadResult
  * (never throws), so a 403 stays a reason and a 404 stays "absent".
  */
 import { useQuery } from '@tanstack/react-query';
 import { useFleetStore } from '../../store/fleetStore';
-import { listK8s, type ReadResult } from '../../engine/readResult';
+import { listK8s, readK8s, type ReadResult } from '../../engine/readResult';
 import { CSR_LIST_PATH, type CertificateSigningRequest } from '../../engine/csr';
 import type { TlsSecretLike } from '../../engine/certExpiry';
 import type { PersistentVolumeClaim, Pod } from '../../engine/types';
@@ -17,6 +17,7 @@ import {
 
 export const ETCD_PODS_PATH = '/api/v1/namespaces/openshift-etcd/pods?labelSelector=app%3Detcd';
 export const ETCD_PVCS_PATH = '/api/v1/namespaces/openshift-etcd/persistentvolumeclaims';
+export const WHOAMI_PATH = '/apis/user.openshift.io/v1/users/~';
 
 /** TLS secrets of every control-plane namespace; one failed namespace makes the whole read an error. */
 async function listControlPlaneCerts(clusterId: string): Promise<ReadResult<TlsSecretLike[]>> {
@@ -52,8 +53,16 @@ export function useUpgradeReadinessReads({ enabled }: { enabled: boolean }) {
     ...opts,
     enabled: enabled && backupApiServed,
   });
+  const whoami = useQuery({
+    queryKey: ['upgrade-readiness', clusterId, 'whoami'],
+    queryFn: () => readK8s<{ metadata?: { name?: string } }>(WHOAMI_PATH, clusterId),
+    ...opts,
+    staleTime: 300_000,
+  });
+
   const all = [csrs, certs, etcdPods, backups, schedules];
   const checkedAt = Math.max(0, ...all.map((q) => q.dataUpdatedAt || 0));
+  const username = whoami.data?.state === 'ok' ? (whoami.data.data.metadata?.name || null) : null;
 
   return {
     clusterId,
@@ -64,8 +73,10 @@ export function useUpgradeReadinessReads({ enabled }: { enabled: boolean }) {
     schedules: asLoadable(schedules.data),
     pvcs: asLoadable(pvcs.data),
     backupApiServed,
+    username,
+    usernameLoading: whoami.isLoading,
     checkedAt: checkedAt || null,
-    refetchAll: () => { for (const q of [...all, ...(backupApiServed ? [pvcs] : [])]) void q.refetch(); },
+    refetchAll: () => { for (const q of [...all, whoami, ...(backupApiServed ? [pvcs] : [])]) void q.refetch(); },
     refetchBackups: () => { void backups.refetch(); if (backupApiServed) void pvcs.refetch(); },
   };
 }

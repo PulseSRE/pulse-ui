@@ -178,6 +178,16 @@ export function UpgradeProgressPanel({
                 <div className="text-xs">
                   <ObjectLink path={`/r/policy~v1~poddisruptionbudgets/${pdb.namespace}/${pdb.name}`} title={pdb.name} go={go} className="font-mono text-red-300">{pdb.namespace}/{pdb.name}</ObjectLink>
                   <span className="text-slate-400 ml-2">allows 0 disruptions {'\u2014'} blocks draining {pdb.blockedNodeNames.join(', ')}</span>
+                  <ul className="mt-1 space-y-0.5" aria-label={`Pods ${pdb.namespace}/${pdb.name} keeps from being evicted`}>
+                    {pdb.blockedPods.slice(0, 5).map((p) => (
+                      <li key={`${p.namespace}/${p.name}`} className="text-slate-400">
+                        Can&apos;t evict pod{' '}
+                        <ObjectLink path={`/r/v1~pods/${p.namespace}/${p.name}`} title={p.name} go={go} className="font-mono text-slate-200">{p.namespace}/{p.name}</ObjectLink>
+                        {' '}on {p.nodeName}
+                      </li>
+                    ))}
+                    {pdb.blockedPods.length > 5 && <li className="text-slate-500">+{pdb.blockedPods.length - 5} more pods</li>}
+                  </ul>
                 </div>
               </div>
             ))}

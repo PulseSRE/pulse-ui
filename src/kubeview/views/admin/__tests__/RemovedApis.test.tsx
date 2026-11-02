@@ -291,6 +291,9 @@ describe('Removed APIs panel: agent-aligned rules', () => {
     expect(within(dialog).queryByText(/Removed APIs in use/)).toBeNull();
     release();
     await waitFor(() => expect(within(dialog).getByTestId('start-update-blockers').textContent).toMatch(/Removed APIs in use:.*called 120 times/));
+    // A blocker that appeared after opening still needs the explicit "update anyway".
+    fireEvent.change(within(dialog).getByLabelText(/Reason/), { target: { value: 'planned' } });
+    expect((within(dialog).getByRole('button', { name: 'Start update to 4.19.2' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('truncates very long usernames and user agents to ~120 characters, keeping the full text in the tooltip', async () => {
