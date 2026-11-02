@@ -87,7 +87,7 @@ describe('OverviewTab', () => {
     // (total - degraded - progressing) / total counted an operator that was both twice.
     render(<OverviewTab {...makeProps({ operators: Array.from({ length: 30 }, (_, i) => ({ metadata: { name: `op${i}` } })) as any[], opDegraded: 2, opProgressing: 1, opSteady: 28 })} />);
     expect(screen.queryByTestId('info-card-Cluster Health')).toBeNull();
-    const card = screen.getByTestId('info-card-Cluster Operators');
+    const card = screen.getByTestId('info-card-Platform operators');
     // 2 degraded, 1 progressing, one of them both: 28 steady, not 27.
     expect(card.textContent).toContain('28/30');
     expect(card.textContent).toContain('2 degraded · 1 updating');
@@ -96,7 +96,7 @@ describe('OverviewTab', () => {
 
   it('says alerts are unknown on the operators card when Prometheus could not be read', () => {
     render(<OverviewTab {...makeProps({ alertsUnavailable: true })} />);
-    expect(screen.getByTestId('info-card-Cluster Operators').textContent).toContain('alerts unknown');
+    expect(screen.getByTestId('info-card-Platform operators').textContent).toContain('alerts unknown');
   });
 
   it('shows loading skeleton when loading', () => {
@@ -139,11 +139,11 @@ describe('OverviewTab', () => {
   });
 
   describe('each fact once, linked to where it lives', () => {
-    it('counts operators only on the Cluster Operators card, which opens the Operators tab', () => {
+    it('counts operators only on the Platform operators card, which opens the Platform operators tab', () => {
       const props = makeProps();
       render(<OverviewTab {...props} />);
       expect(screen.queryByText(/^ClusterOperators \(/)).toBeNull();
-      fireEvent.click(screen.getByTestId('info-card-Cluster Operators'));
+      fireEvent.click(screen.getByTestId('info-card-Platform operators'));
       expect(props.setActiveTab).toHaveBeenCalledWith('operators');
       expect(props.go).not.toHaveBeenCalledWith('/readiness', expect.anything());
     });

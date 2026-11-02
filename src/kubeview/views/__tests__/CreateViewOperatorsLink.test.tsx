@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * The Create page embedded the whole OperatorHub catalog as its "Operators"
- * tab, a second copy of /operators. It now opens /operators, and old
- * `?tab=operators&q=…` links land there with their search.
+ * The Software hub once embedded the OperatorHub catalog as an "Operators"
+ * tab, then made that tab a redirect to /operators. The tab is gone; old
+ * `?tab=operators` links are redirected at the route (SoftwareRoutes.test).
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
@@ -36,17 +36,13 @@ function renderAt(path: string) {
 beforeEach(() => { global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }) as never; });
 afterEach(cleanup);
 
-describe('Create › Operators', () => {
-  it('the Operators tab opens /operators instead of embedding a second catalog', async () => {
+describe('Software › Operators', () => {
+  it('has no Operators tab', async () => {
     renderAt('/software');
-    fireEvent.click(screen.getByRole('tab', { name: /Operators/ }));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/operators'));
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(
+      ['Installed', 'Quick Deploy', 'Helm Charts', 'Templates', 'Import YAML'],
+    );
+    expect(screen.queryByRole('tab', { name: /Operators/ })).toBeNull();
     expect(screen.queryByTestId('embedded-catalog')).toBeNull();
-  });
-
-  it('an old ?tab=operators&q= link lands on /operators with the search', async () => {
-    renderAt('/software?tab=operators&q=cluster-logging');
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/operators?q=cluster-logging'));
-    expect(screen.getByText('operators page')).toBeDefined();
   });
 });

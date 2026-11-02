@@ -45,7 +45,7 @@ export function OperatorsTab({ operators, isLoading, error, onRetry, go }: Opera
   return (
     <div className="space-y-4">
       <p className="text-xs text-slate-500">
-        Platform ClusterOperators, managed by the cluster version operator. Add-on operators installed through OLM are in the{' '}
+        Platform operators (ClusterOperators), managed by the cluster version operator. Add-on operators installed through OLM are in the{' '}
         <button onClick={() => go('/operators?view=installed', 'Operators')} className="text-blue-400 hover:text-blue-300">
           Operator catalog (installed) →
         </button>

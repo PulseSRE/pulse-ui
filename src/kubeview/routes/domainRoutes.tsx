@@ -1,4 +1,4 @@
-import { Route, Navigate, useParams } from 'react-router-dom';
+import { Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import React, { Suspense, lazy } from 'react';
 import { LoadingFallback } from '../components/LoadingFallback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -45,6 +45,22 @@ function FleetResourceRoute() {
   return <FleetResourceView gvrKey={gvrKey} />;
 }
 
+/**
+ * The Software hub used to have an Operators tab that only redirected to the
+ * operator catalog. The tab is gone; old `/software?tab=operators&q=…` links
+ * (and `/create/v1~pods?tab=operators…`, which come through here) still land
+ * on /operators with their search.
+ */
+function SoftwareRoute() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (params.get('tab') === 'operators') {
+    const q = params.get('q');
+    return <Navigate to={`/operators${q ? `?q=${encodeURIComponent(q)}` : ''}`} replace />;
+  }
+  return <Lazy fallbackTitle="Software"><CreateView /></Lazy>;
+}
+
 export function domainRoutes() {
   return (
     <>
@@ -76,7 +92,7 @@ export function domainRoutes() {
       <Route path={DOMAIN_ROUTES.project} element={<Lazy fallbackTitle="Project"><ProjectDashboard /></Lazy>} />
       <Route path={DOMAIN_ROUTES.timeline} element={<Lazy fallbackTitle="Timeline"><TimelineView /></Lazy>} />
       {/* Software hub: installed software, Quick Deploy, Helm, templates, Import YAML. */}
-      <Route path={DOMAIN_ROUTES.software} element={<Lazy fallbackTitle="Software"><CreateView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.software} element={<SoftwareRoute />} />
     </>
   );
 }

@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
-import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Package, FileText,
-  AlertCircle, Box, Upload, Puzzle, Ship, ShieldCheck, CheckCircle, XCircle,
+  AlertCircle, Box, Upload, Ship, ShieldCheck, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
@@ -92,8 +92,10 @@ interface CreateViewProps {
   gvrKey?: string;
 }
 
-type CreateTab = 'installed' | 'operators' | 'deploy' | 'helm' | 'templates' | 'yaml';
-const CREATE_TABS: CreateTab[] = ['installed', 'operators', 'deploy', 'helm', 'templates', 'yaml'];
+// The operator catalog is one page, /operators; the route sends old
+// `/software?tab=operators` links there (routes/domainRoutes.tsx).
+type CreateTab = 'installed' | 'deploy' | 'helm' | 'templates' | 'yaml';
+const CREATE_TABS: CreateTab[] = ['installed', 'deploy', 'helm', 'templates', 'yaml'];
 
 interface CreateResult {
   label: string;
@@ -369,7 +371,6 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   // Picker mode
   const tabs: Array<{ id: CreateTab; label: string; icon: React.ReactNode }> = [
     { id: 'installed', label: 'Installed', icon: <Package className="w-3.5 h-3.5" /> },
-    { id: 'operators', label: 'Operators', icon: <Puzzle className="w-3.5 h-3.5" /> },
     { id: 'deploy', label: 'Quick Deploy', icon: <Box className="w-3.5 h-3.5" /> },
     { id: 'helm', label: 'Helm Charts', icon: <Ship className="w-3.5 h-3.5" /> },
     { id: 'templates', label: 'Templates', icon: <FileText className="w-3.5 h-3.5" /> },
@@ -388,8 +389,8 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
         </div>
 
         {/* Tabs — the tab lives in ?tab= and is read on every render, so links
-            within the page (Installed → "Browse operators", `?tab=operators&q=…`)
-            switch tabs. Changing tab drops the catalog's `q`. */}
+            within the page (Installed → Helm Charts, `?tab=helm`) switch
+            tabs. Changing tab drops `q`. */}
         <Tabs defaultValue="installed" urlSync={{ values: CREATE_TABS, clear: ['q'] }} className="space-y-6">
           <TabsList aria-label="Software tabs" className="flex">
             {tabs.map((t) => (
@@ -398,11 +399,6 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
           </TabsList>
 
           <TabsContent value="installed"><InstalledTab /></TabsContent>
-          {/* The operator catalog is one page, /operators. The Operators tab and
-              old `?tab=operators&q=…` links land there with their search. */}
-          <TabsContent value="operators">
-            <Navigate to={`/operators${searchParams.get('q') ? `?q=${encodeURIComponent(searchParams.get('q')!)}` : ''}`} replace />
-          </TabsContent>
           <TabsContent value="deploy"><QuickDeployTab /></TabsContent>
           <TabsContent value="helm"><HelmTab /></TabsContent>
           <TabsContent value="templates">

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 /**
  * Impersonate is offered once per subject: on user rows (Users) and service
- * account rows (Groups & Service Accounts). The Impersonation tab shows the
- * current impersonation and recent targets, not another user list.
+ * account rows (Groups & Service Accounts). There is no Impersonation tab:
+ * the Shell's banner shows who is impersonated and has Stop, and an old
+ * `?tab=impersonation` link opens the default (Users) tab.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -35,19 +36,14 @@ function r() {
 const tab = (name: RegExp) => fireEvent.click(screen.getByRole('tab', { name }));
 
 beforeEach(() => { localStorage.clear(); ui.impersonateUser = null; vi.clearAllMocks(); });
-afterEach(cleanup);
+afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); });
 
 describe('Identity impersonation', () => {
-  it('users are impersonated from the Users tab; the Impersonation tab has no second user list', () => {
+  it('users are impersonated from their row on the Users tab', () => {
     r();
     fireEvent.click(screen.getByRole('button', { name: 'Impersonate alice' }));
     expect(ui.setImpersonation).toHaveBeenCalledWith('alice');
-    tab(/Impersonation/);
-    expect(screen.queryByRole('button', { name: 'Impersonate bob' })).toBeNull();
-    // alice is a recent target, listed once with the action.
-    const recent = screen.getByLabelText('Recently impersonated');
-    expect(within(recent).getByText('alice')).toBeDefined();
-    expect(within(recent).getAllByRole('button', { name: /Impersonat/ })).toHaveLength(1);
+    expect(ui.addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Impersonating alice' }));
   });
 
   it('service accounts are impersonated from their row on Groups & Service Accounts', () => {
@@ -57,34 +53,29 @@ describe('Identity impersonation', () => {
     expect(ui.setImpersonation).toHaveBeenCalledWith('system:serviceaccount:shop:builder');
   });
 
+  it('the subject being impersonated shows as Impersonating, disabled', () => {
+    ui.impersonateUser = 'alice';
+    r();
+    expect(screen.getByRole('button', { name: 'Impersonating alice' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Impersonate bob' })).toHaveProperty('disabled', false);
+  });
+
   it('every subject has exactly one Impersonate action across the tabs', () => {
     r();
     const seen: string[] = [];
-    for (const t of [/^Users$/, /Groups & Service Accounts/, /RBAC/, /Impersonation/]) {
+    for (const t of [/^Users$/, /Groups & Service Accounts/, /RBAC/]) {
       tab(t);
       seen.push(...screen.queryAllByRole('button', { name: /^Impersonate / }).map((b) => b.getAttribute('aria-label')!));
     }
     expect(seen.sort()).toEqual(['Impersonate alice', 'Impersonate bob', 'Impersonate shop/builder']);
   });
 
-  it('shows who is being impersonated with Stop, and recent targets re-impersonate', () => {
-    localStorage.setItem('pulse-recent-impersonation:local', JSON.stringify(['system:serviceaccount:shop:builder', 'alice']));
-    ui.impersonateUser = 'alice';
+  it('has no Impersonation tab, and an old ?tab=impersonation link opens Users', () => {
+    window.history.replaceState(null, '', '/identity?tab=impersonation');
     r();
-    tab(/Impersonation/);
-    expect(screen.getByText('Currently impersonating')).toBeDefined();
-    const recent = screen.getByLabelText('Recently impersonated');
-    expect(within(recent).getByRole('button', { name: 'Impersonating alice' })).toHaveProperty('disabled', true);
-    fireEvent.click(within(recent).getByRole('button', { name: 'Impersonate system:serviceaccount:shop:builder' }));
-    expect(ui.setImpersonation).toHaveBeenCalledWith('system:serviceaccount:shop:builder');
-    fireEvent.click(screen.getByRole('button', { name: 'Stop Impersonating' }));
-    expect(ui.clearImpersonation).toHaveBeenCalled();
-  });
-
-  it('an unreadable recent list is treated as empty', () => {
-    localStorage.setItem('pulse-recent-impersonation:local', '{not json');
-    r();
-    tab(/Impersonation/);
-    expect(screen.getByText('No recent impersonation')).toBeDefined();
+    expect(screen.queryByRole('tab', { name: /Impersonation/ })).toBeNull();
+    expect(screen.getByRole('tab', { name: /^Users$/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Impersonate alice' })).toBeDefined();
+    expect(screen.queryByText('Recently impersonated')).toBeNull();
   });
 });

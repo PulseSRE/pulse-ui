@@ -22,7 +22,6 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Card } from '../components/primitives/Card';
 import { askPulse } from '../engine/askPulse';
 import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from '../engine/clusterAdmins';
-import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
 import { createTemplateUrl } from '../engine/createTemplates';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 
@@ -109,7 +108,6 @@ export default function SecurityView() {
 
   // Shared with Identity: one definition of who has cluster-admin and how many is too many.
   const clusterAdmins = useMemo(() => clusterAdminSubjects(clusterRoleBindings as ClusterRoleBinding[]), [clusterRoleBindings]);
-  const crbByName = useMemo(() => new Map((clusterRoleBindings as ClusterRoleBinding[]).map((b) => [b.metadata?.name || '', b])), [clusterRoleBindings]);
 
   const userNamespaces = useMemo(() =>
     namespaces.filter((ns) => {
@@ -373,48 +371,12 @@ export default function SecurityView() {
           </div>
         </Card>
 
-        {/* Cluster-admin subjects, with the action to remove a binding. The
-            count is in the audit row above, not repeated in this title. */}
-        <Card>
-          <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              <Key className="w-4 h-4 text-red-400" />
-              Cluster-Admin Access
-            </h2>
-            <button onClick={() => go('/identity?tab=rbac', 'Identity & Access')}
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-              Manage <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
-          {crbError ? (
-            <LoadError className="m-3" title="ClusterRoleBindings could not be loaded" />
-          ) : crbLoading ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
-          ) : clusterAdmins.length === 0 ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-500">No non-system cluster-admin bindings found</div>
-          ) : (
-            <div className="divide-y divide-slate-800">
-              {clusterAdmins.map((admin, i) => (
-                <div key={i} className="px-4 py-2.5 flex items-center gap-3">
-                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', admin.kind === 'User' ? 'bg-blue-900/50 text-blue-300' : admin.kind === 'Group' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-800 text-slate-400')}>
-                    {admin.kind}
-                  </span>
-                  <span className="text-sm text-slate-200 font-mono">{admin.name}</span>
-                  <span className="text-xs text-slate-500 ml-auto">via {admin.binding}</span>
-                  {crbByName.get(admin.binding) && (
-                    <RevokeBindingButton label="Remove binding" binding={{
-                      kind: 'ClusterRoleBinding',
-                      name: admin.binding,
-                      uid: crbByName.get(admin.binding)!.metadata?.uid,
-                      roleRef: { kind: 'ClusterRole', name: 'cluster-admin' },
-                      subjects: crbByName.get(admin.binding)!.subjects || [],
-                    }} />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        {/* Who holds cluster-admin, with Revoke, is listed once: Identity &
+            Access › RBAC. The audit row above is the check; this is the way there. */}
+        <button onClick={() => go('/identity?tab=rbac', 'Identity & Access')}
+          className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1">
+          <Key className="w-4 h-4 text-red-400" /> Cluster-admin holders → Identity &amp; Access
+        </button>
 
         {/* SCCs */}
         {sccsError ? (
