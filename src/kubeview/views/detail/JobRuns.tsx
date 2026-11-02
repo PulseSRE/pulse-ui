@@ -20,18 +20,36 @@ import { PodLogTail } from './PodLogTail';
 
 type Go = (path: string, title: string) => void;
 
-function podOutcome(pod: K8sResource): { label: string; tone: StatusTone; detail?: string } {
+export function podOutcome(pod: K8sResource): { label: string; tone: StatusTone; detail?: string } {
   const st = pod.status as Pod['status'] | undefined;
   const cs = st?.containerStatuses ?? [];
-  const term = cs.map((c) => c.state?.terminated ?? c.lastState?.terminated).find((t) => t && (t.exitCode ?? 0) !== 0);
+  const nowFailed = cs.map((c) => c.state?.terminated).find((t) => t && (t.exitCode ?? 0) !== 0);
+  const before = cs.map((c) => c.lastState?.terminated).find((t) => t && (t.exitCode ?? 0) !== 0);
   const waiting = cs.map((c) => c.state?.waiting?.reason).find(Boolean);
   if (st?.phase === 'Succeeded') return { label: 'Succeeded', tone: 'success' };
-  if (st?.phase === 'Failed' || term) {
+  // Running is checked before lastState: a retried container (OnFailure) that
+  // is running again is not a failed attempt.
+  if (st?.phase === 'Running' && !nowFailed && !waiting) {
+    return before
+      ? { label: 'Running', tone: 'progress', detail: `retried after exit ${before.exitCode ?? '—'}${before.reason ? ` (${before.reason})` : ''}` }
+      : { label: 'Running', tone: 'progress' };
+  }
+  const term = nowFailed ?? before;
+  if (st?.phase === 'Failed' || nowFailed) {
     return { label: 'Failed', tone: 'danger', detail: term ? `${term.reason || 'Error'} · exit ${term.exitCode ?? '—'}` : st?.reason };
   }
-  if (waiting) return { label: waiting, tone: 'warning' };
-  if (st?.phase === 'Running') return { label: 'Running', tone: 'progress' };
+  if (waiting) return { label: waiting, tone: before ? 'danger' : 'warning', detail: before ? `last exit ${before.exitCode ?? '—'}${before.reason ? ` (${before.reason})` : ''}` : undefined };
   return { label: st?.phase || 'Pending', tone: 'neutral' };
+}
+
+/** Which instance's log tells why: the previous one when the current has not ended and the container restarted. */
+export function logInstance(pod: K8sResource): { container?: string; previous: boolean } {
+  const cs = (pod.status as Pod['status'] | undefined)?.containerStatuses ?? [];
+  const failing = cs.find((c) => c.state?.terminated && (c.state.terminated.exitCode ?? 0) !== 0)
+    ?? cs.find((c) => (c.restartCount ?? 0) > 0)
+    ?? cs[0];
+  const container = failing?.name ?? (pod.spec as Pod['spec'] | undefined)?.containers?.[0]?.name;
+  return { container, previous: !!failing && !failing.state?.terminated && (failing.restartCount ?? 0) > 0 };
 }
 
 export function jobOutcome(job: K8sResource): { label: string; tone: StatusTone; detail?: string } {
@@ -55,26 +73,27 @@ function Chip({ label, tone }: { label: string; tone: StatusTone }) {
 function PodAttempt({ pod, go, open, onToggle }: { pod: K8sResource; go: Go; open: boolean; onToggle: () => void }) {
   const o = podOutcome(pod);
   const st = pod.status as Pod['status'] | undefined;
-  const container = (pod.spec as Pod['spec'] | undefined)?.containers?.[0]?.name;
+  const { container, previous } = logInstance(pod);
   const ns = pod.metadata.namespace || '';
   return (
     <li className="py-2">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <button type="button" onClick={onToggle} aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} log of ${pod.metadata.name}`} className="text-slate-500 hover:text-slate-300">
-          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {open ? <ChevronDown className="h-4 w-4" aria-hidden /> : <ChevronRight className="h-4 w-4" aria-hidden />}
         </button>
         <button type="button" onClick={() => go(`/r/v1~pods/${ns}/${pod.metadata.name}`, pod.metadata.name)} className="font-mono text-xs text-blue-400 hover:text-blue-300">
           {pod.metadata.name}
         </button>
         <Chip label={o.label} tone={o.tone} />
-        {o.detail && <span className="text-xs text-red-300">{o.detail}</span>}
+        {o.detail && <span className={cn('text-xs', o.tone === 'danger' ? 'text-red-300' : 'text-slate-400')}>{o.detail}</span>}
         <span className="ml-auto text-xs text-slate-500">
           {formatRelative(pod.metadata.creationTimestamp)}{st?.startTime ? ` · ran ${formatDurationBetween(st.startTime, (st.containerStatuses?.[0]?.state?.terminated?.finishedAt) || undefined)}` : ''}
         </span>
       </div>
       {open && (
         <div className="mt-2 pl-6">
-          <PodLogTail namespace={ns} pod={pod.metadata.name} container={container} lines={60} />
+          {previous && <p className="mb-1 text-xs text-slate-500">Previous instance of {container} (the one that exited)</p>}
+          <PodLogTail namespace={ns} pod={pod.metadata.name} container={container} previous={previous} lines={60} />
         </div>
       )}
     </li>
@@ -138,13 +157,13 @@ export function JobRuns({ resource, managedPods, go }: { resource: K8sResource; 
                 <li key={j.metadata.uid ?? j.metadata.name} className="py-2">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <button type="button" onClick={() => setOpenRun(open ? null : j.metadata.name)} aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} pods of ${j.metadata.name}`} className="text-slate-500 hover:text-slate-300">
-                      {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      {open ? <ChevronDown className="h-4 w-4" aria-hidden /> : <ChevronRight className="h-4 w-4" aria-hidden />}
                     </button>
                     <button type="button" onClick={() => go(`/r/batch~v1~jobs/${ns}/${j.metadata.name}`, j.metadata.name)} className="font-mono text-xs text-blue-400 hover:text-blue-300">
                       {j.metadata.name}
                     </button>
                     <Chip label={o.label} tone={o.tone} />
-                    {o.detail && <span className="text-xs text-red-300">{o.detail}</span>}
+                    {o.detail && <span className={cn('text-xs', o.tone === 'danger' ? 'text-red-300' : 'text-slate-400')}>{o.detail}</span>}
                     <span className="ml-auto text-xs text-slate-500">
                       {formatRelative(st.startTime || j.metadata.creationTimestamp)}{st.startTime ? ` · ${formatDurationBetween(st.startTime, st.completionTime || undefined)}` : ''}
                     </span>

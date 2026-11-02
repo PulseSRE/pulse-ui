@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DockAgentPanel } from '../DockAgentPanel';
+import { useFleetStore } from '../../../store/fleetStore';
 
 // Stub scrollIntoView for jsdom
 Element.prototype.scrollIntoView = vi.fn();
@@ -118,7 +119,7 @@ function ask(text: string) {
 
 describe('DockAgentPanel page context', () => {
   beforeEach(() => { sendMessage.mockClear(); pageContext = null; });
-  afterEach(() => cleanup());
+  afterEach(() => { cleanup(); useFleetStore.setState({ activeClusterId: 'local' }); });
 
   it('sends the page resource as context and names it above the input', () => {
     pageContext = { kind: 'Pod', name: 'web-1', namespace: 'shop', gvr: 'v1/pods' };
@@ -140,5 +141,14 @@ describe('DockAgentPanel page context', () => {
     renderPanel('/custom/my-view');
     ask('add a chart');
     expect(sendMessage).toHaveBeenCalledWith('add a chart', { kind: 'custom_view', name: '', viewId: 'my-view' });
+  });
+
+  it('on a remote cluster the page context is not attached or shown', () => {
+    useFleetStore.setState({ activeClusterId: 'prod-east' });
+    pageContext = { kind: 'Pod', name: 'web-1', namespace: 'shop' };
+    renderPanel();
+    expect(screen.queryByTestId('dock-page-context')).toBeNull();
+    ask('why?');
+    expect(sendMessage).toHaveBeenCalledWith('why?', undefined);
   });
 });

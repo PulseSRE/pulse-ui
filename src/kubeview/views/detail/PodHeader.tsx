@@ -10,8 +10,8 @@ import type { Pod } from '../../engine/types';
 import { StatCard } from '../../components/primitives/StatCard';
 import { TONE_CLASSES } from '../../engine/statusColors';
 import { formatBytes } from '../../engine/format';
-import { parseMem } from '../../engine/formatting';
-import { primaryContainer, lastTermination } from '../../engine/podFacts';
+import { parseResourceValue } from '../../engine/formatting';
+import { primaryContainer, lastTermination, podRestarts, containerSpec } from '../../engine/podFacts';
 import type { PodOwner } from './usePodOwner';
 import type { UsageResult } from './usePodUsage';
 
@@ -33,11 +33,12 @@ export function PodHeader({ pod, owner, usage, usageLoading, go }: PodHeaderProp
   const ns = pod.metadata.namespace || '';
   const primary = primaryContainer(pod as never);
   const term = lastTermination(primary?.status);
-  const restarts = (status?.containerStatuses ?? []).reduce((n, c) => n + (c.restartCount || 0), 0);
+  const restarts = podRestarts(pod as never);
   const node = spec?.nodeName;
-  const container = spec?.containers?.find((c) => c.name === primary?.name);
+  const container = containerSpec(pod as never, primary?.name);
   const limit = container?.resources?.limits?.memory;
-  const multi = (spec?.containers?.length ?? 0) > 1;
+  const multi = (spec?.containers?.length ?? 0) + (spec?.initContainers?.length ?? 0) > 1;
+  const which = primary ? `${primary.init ? 'init container' : 'container'} ${primary.name}` : '';
 
   let memValue: React.ReactNode = '—';
   let memSub: React.ReactNode = undefined;
@@ -47,15 +48,18 @@ export function PodHeader({ pod, owner, usage, usageLoading, go }: PodHeaderProp
     memSub = `Unknown: ${usage && usage.state === 'unknown' ? usage.reason : 'not measured'}`;
   } else if (primary && usage.memory[primary.name] !== undefined) {
     const p95 = usage.memory[primary.name];
-    const over = !!limit && p95 >= parseMem(limit) * 0.9;
+    // parseResourceValue reads decimal suffixes too (500M, 1G), and both
+    // sides go through the same formatter so they compare at a glance.
+    const limitBytes = limit ? parseResourceValue(limit) : 0;
+    const over = limitBytes > 0 && p95 >= limitBytes * 0.9;
     memValue = (
       <span>
-        {formatBytes(p95)} / <span className={cn(over && TONE_CLASSES.danger.text)}>{limit ? limit : 'no limit'}</span>
+        {formatBytes(p95)} / <span className={cn(over && TONE_CLASSES.danger.text)}>{limitBytes > 0 ? formatBytes(limitBytes) : 'no limit'}</span>
       </span>
     );
-    memSub = `p95 over 6h${multi ? ` · container ${primary.name}` : ''}`;
+    memSub = `p95 over 6h${multi ? ` · ${which}` : ''}`;
   } else {
-    memSub = `Unknown: no samples for container ${primary?.name ?? ''}`;
+    memSub = `Unknown: no samples for ${which}`;
   }
 
   return (
@@ -82,7 +86,7 @@ export function PodHeader({ pod, owner, usage, usageLoading, go }: PodHeaderProp
           label="Last exit"
           value={term ? `${term.reason} · ${term.exitCode ?? '—'}` : 'None'}
           tone={term && (term.exitCode ?? 0) !== 0 ? 'danger' : undefined}
-          subtitle={term ? (multi ? `container ${primary?.name}` : term.finishedAt ? new Date(term.finishedAt).toLocaleTimeString() : undefined) : 'no previous instance'}
+          subtitle={term ? (multi ? which : term.finishedAt ? new Date(term.finishedAt).toLocaleTimeString() : undefined) : 'it has not ended'}
         />
         <StatCard
           className="min-w-[150px]"

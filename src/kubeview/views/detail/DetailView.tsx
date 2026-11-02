@@ -17,7 +17,6 @@ import { getActiveClusterId, LOCAL_CLUSTER_ID } from '../../engine/clusterConnec
 import type { K8sResource } from '../../engine/renderers';
 import type { Deployment, Pod, Event, Condition } from '../../engine/types';
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
-import { kindToPlural } from '../../engine/renderers/index';
 import { buildApiPath } from '../../hooks/useResourceUrl';
 import { useUIStore } from '../../store/uiStore';
 import { useClusterStore } from '../../store/clusterStore';
@@ -36,6 +35,7 @@ import { PodDetailLayout } from './PodDetailLayout';
 import { GenericDetailLayout } from './GenericDetailLayout';
 import { DeleteConfirmModal, DeleteProgressModal } from './DetailViewModals';
 import { isWorkloadKind } from './workloadKinds';
+import { ownerLink } from '../../engine/ownerRef';
 import type { MetadataTarget } from './MetadataSections';
 
 interface DetailViewProps {
@@ -183,25 +183,8 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     const related: Array<{ type: string; name: string; path: string }> = [];
     const ownerRefs = resource.metadata.ownerReferences || [];
     for (const owner of ownerRefs) {
-      const [ownerGroup, ownerVersion] = owner.apiVersion.includes('/')
-        ? owner.apiVersion.split('/')
-        : ['', owner.apiVersion];
-      const ownerPlural = kindToPlural(owner.kind);
-      const ownerGvr = ownerGroup
-        ? `${ownerGroup}~${ownerVersion}~${ownerPlural}`
-        : `${ownerVersion}~${ownerPlural}`;
-      const ownerGvrKey = ownerGroup
-        ? `${ownerGroup}/${ownerVersion}/${ownerPlural}`
-        : `${ownerVersion}/${ownerPlural}`;
-      const ownerType = resourceRegistry?.get(ownerGvrKey)
-        ?? (ownerGvrKey.split('/').length === 2 ? resourceRegistry?.get(`core/${ownerGvrKey}`) : undefined);
-      const ownerNamespaced = ownerType?.namespaced ?? true;
-      const ns = ownerNamespaced ? (namespace || '_') : '_';
-      related.push({
-        type: owner.kind,
-        name: owner.name,
-        path: `/r/${ownerGvr}/${ns}/${owner.name}`,
-      });
+      const link = ownerLink(owner, namespace || '');
+      related.push({ type: owner.kind, name: owner.name, path: link.path });
     }
     return related;
   }, [resource, namespace, resourceRegistry]);
