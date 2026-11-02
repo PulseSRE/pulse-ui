@@ -395,7 +395,7 @@ export function OverviewTab({
               )}
             </div>
           </div>
-          <button onClick={() => go('/r/config.openshift.io~v1~clusteroperators', 'ClusterOperators')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">View all operators <ArrowRight className="w-3 h-3" /></button>
+          <button onClick={() => go('/r/config.openshift.io~v1~clusteroperators', 'Platform operators')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">View all platform operators <ArrowRight className="w-3 h-3" /></button>
         </Panel>
 
         {/* Nodes */}
