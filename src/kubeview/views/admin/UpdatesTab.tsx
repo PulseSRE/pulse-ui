@@ -23,6 +23,8 @@ import { isPlatformNamespace } from '../../engine/platformNamespaces';
 import { useCanI } from '../../hooks/useCanI';
 import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
 import { errorReason } from '../../engine/readResult';
+import { RemovedApisPanel, AdminGateActions, useApiRemovalReads, VERDICT_LABEL } from './RemovedApisPanel';
+import { computeApiRemovalVerdict, defaultTargetMinor, parseMinor, targetMinorOptions, targetMinorLabel, currentClusterVersion, type ApiRemovalVerdict } from '../../engine/upgradeApiRemovals';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -96,10 +98,42 @@ export function UpdatesTab({
   const [confirmDialog, setConfirmDialog] = React.useState<{
     title: string; description: string; confirmLabel: string;
     variant: 'danger' | 'warning'; onConfirm: () => void;
+    /** Update target whose removed-API warning is shown; computed at render so a verdict that arrives later still appears. */
+    warningVersion?: string;
   } | null>(null);
   // A conditional target is confirmed only after its risks are explicitly accepted.
   const [riskDialog, setRiskDialog] = React.useState<{ target: UpgradeTarget; clusterId: string } | null>(null);
   const [risksAccepted, setRisksAccepted] = React.useState(false);
+
+  // Removed-API go/no-go for the next minor (or a picked target).
+  const removal = useApiRemovalReads();
+  const removalOptions = React.useMemo(() => targetMinorOptions(clusterVersion), [clusterVersion]);
+  const [pickedRemovalTarget, setPickedRemovalTarget] = React.useState<string | undefined>();
+  const removalTarget = pickedRemovalTarget && removalOptions.includes(pickedRemovalTarget)
+    ? pickedRemovalTarget
+    : defaultTargetMinor(clusterVersion) ?? removalOptions[0];
+  const verdictFor = React.useCallback((targetVersion?: string): ApiRemovalVerdict | null => (
+    removal.reads ? computeApiRemovalVerdict({ clusterVersion, ...removal.reads, targetVersion }) : null
+  ), [removal.reads, clusterVersion]);
+  const removalVerdict = React.useMemo(() => verdictFor(removalTarget), [verdictFor, removalTarget]);
+  // Gates evaluated on the current minor are what an Upgradeable=False admin-ack condition is about.
+  const nextMinorVerdict = React.useMemo(() => verdictFor(undefined), [verdictFor]);
+  const pendingCurrentGates = (nextMinorVerdict?.gates ?? []).filter((g) => g.acknowledged === false);
+
+  /** For a minor update: a warning when the removed-API check is not a go. Patch updates get none. */
+  const removalWarningFor = (version: string): React.ReactNode => {
+    const cur = parseMinor(currentClusterVersion(clusterVersion));
+    const tgt = parseMinor(version);
+    if (!cur || !tgt || tgt.major !== cur.major || tgt.minor <= cur.minor) return null;
+    const v = verdictFor(version);
+    if (v?.status === 'go') return null;
+    return (
+      <div role="note" data-testid="removed-apis-update-warning" className={cn('rounded-sm border px-3 py-2 text-xs', v?.status === 'no_go' ? 'border-red-900 bg-red-950/30 text-red-200' : 'border-slate-700 bg-slate-900/60 text-slate-300')}>
+        <span className="font-medium">Removed APIs: {v ? VERDICT_LABEL[v.status] : 'Checking\u2026'}.</span>{' '}
+        {v ? v.reason : 'The removed-API check has not finished.'}{v?.status === 'no_go' ? ' You can still update; see the Removed APIs panel for the callers.' : ''}
+      </div>
+    );
+  };
 
   const model = React.useMemo(() => buildUpgradeModel({
     clusterVersion,
@@ -155,6 +189,7 @@ export function UpdatesTab({
       description: `This will rolling-restart all nodes in the cluster. The update process cannot be easily reversed. Make sure you have a recent etcd backup before proceeding.`,
       confirmLabel: 'Start Update',
       variant: 'warning',
+      warningVersion: version,
       onConfirm: () => {
         setConfirmDialog(null);
         void applyUpdate({ version, image, state: 'recommended', risks: [] }, clusterId);
@@ -211,6 +246,22 @@ export function UpdatesTab({
         availableUpdates={availableUpdates}
         onReapplyUpdate={handleStartUpdate}
         go={go}
+        adminAck={pendingCurrentGates.length > 0
+          ? <AdminGateActions gates={pendingCurrentGates} clusterId={removal.clusterId} onAcked={removal.refetchAcks} />
+          : undefined}
+      />
+
+      {/* Removed APIs still in use and admin gates, before the update action */}
+      <RemovedApisPanel
+        verdict={removalVerdict}
+        targetOptions={removalOptions}
+        selectedTarget={removalTarget}
+        onTargetChange={setPickedRemovalTarget}
+        targetLabel={(m) => targetMinorLabel(clusterVersion, m)}
+        clusterId={removal.clusterId}
+        onRetry={removal.refetchAll}
+        onAcked={removal.refetchAcks}
+        go={go}
       />
 
       {/* Update graph: installed path, targets, progress and history */}
@@ -223,6 +274,7 @@ export function UpdatesTab({
           hiddenBlockerTypes={['upgradeable']}
           updatesUnknownReason={updatesUnknownReason}
           renderPoolAction={poolAction}
+          updateWarning={(t) => removalWarningFor(t.version)}
         />
       </Panel>
 
@@ -327,6 +379,12 @@ export function UpdatesTab({
                   ? { pass: null, detail: 'Checking\u2026' }
                   : { pass: pdbCoverage, detail: userDeploys.length === 0 ? 'No multi-replica user deployments' : `${deploysWithPDB.length}/${userDeploys.length} multi-replica deployments have PDBs` };
 
+              const removedApisCheck: { pass: boolean | null; detail: string } = !removalVerdict
+                ? { pass: null, detail: 'Checking\u2026' }
+                : removalVerdict.status === 'unknown'
+                  ? { pass: null, detail: removalVerdict.reason }
+                  : { pass: removalVerdict.status === 'go', detail: `${removalVerdict.target ? `${removalVerdict.target.ocp}: ` : ''}${removalVerdict.reason}` };
+
               const checks: Array<{ label: string; pass: boolean | null; detail: string }> = [
                 nodesError
                   ? { label: 'All nodes ready', pass: null, detail: `Could not check: ${errorReason(nodesError)}` }
@@ -341,6 +399,7 @@ export function UpdatesTab({
                 { label: 'Stable update channel', pass: channelStable, detail: channelStable ? `Channel: ${cvChannel}` : `Channel "${cvChannel}" \u2014 consider switching to stable for production` },
                 { label: 'Etcd backup', ...backupCheck },
                 { label: 'PodDisruptionBudgets', ...pdbCheck },
+                { label: 'Removed APIs', ...removedApisCheck },
               ];
 
               return checks.map((check, i) => (
@@ -414,7 +473,9 @@ export function UpdatesTab({
           description={confirmDialog.description}
           confirmLabel={confirmDialog.confirmLabel}
           variant={confirmDialog.variant}
-        />
+        >
+          {confirmDialog.warningVersion && removalWarningFor(confirmDialog.warningVersion) && <div className="mt-3">{removalWarningFor(confirmDialog.warningVersion)}</div>}
+        </ConfirmDialog>
       )}
 
       {riskDialog && (
@@ -432,6 +493,7 @@ export function UpdatesTab({
           variant="danger"
           confirmDisabled={!risksAccepted}
         >
+          {removalWarningFor(riskDialog.target.version) && <div className="mt-3">{removalWarningFor(riskDialog.target.version)}</div>}
           <ul className="mt-3 space-y-1.5 max-h-48 overflow-auto" aria-label="Risks to accept">
             {riskDialog.target.risks.map((r) => (
               <li key={r.name} className="text-xs rounded-sm bg-slate-900/60 border border-slate-700 p-2">

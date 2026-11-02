@@ -52,6 +52,8 @@ export interface UpgradeGraphProps {
   updatesUnknownReason?: string;
   /** Actions on a MachineConfigPool row of the progress section (e.g. pause). Omit for read-only. */
   renderPoolAction?: (poolName: string) => React.ReactNode;
+  /** A warning shown beside a target's update button (e.g. removed APIs still in use); the button stays enabled. */
+  updateWarning?: (target: UpgradeTarget) => React.ReactNode;
 }
 
 interface Placed {
@@ -147,7 +149,7 @@ function LinkButton({ path, title, onNavigate, children }: { path?: string; titl
   );
 }
 
-export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason, onNavigate, readOnlyHint, hiddenBlockerTypes, updatesUnknownReason, renderPoolAction }: UpgradeGraphProps) {
+export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason, onNavigate, readOnlyHint, hiddenBlockerTypes, updatesUnknownReason, renderPoolAction, updateWarning }: UpgradeGraphProps) {
   const model = React.useMemo(() => (hiddenBlockerTypes?.length
     ? { ...fullModel, blockers: fullModel.blockers.filter((b) => !hiddenBlockerTypes.includes(b.type)) }
     : fullModel), [fullModel, hiddenBlockerTypes]);
@@ -305,6 +307,7 @@ export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason,
           onUpdate={onUpdate}
           updateDisabledReason={updateDisabledReason}
           readOnlyHint={readOnlyHint}
+          warning={onUpdate ? updateWarning?.(selectedTarget) : undefined}
         />
       )}
 
@@ -320,10 +323,11 @@ export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason,
   );
 }
 
-function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, updateDisabledReason, readOnlyHint }: {
+function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, updateDisabledReason, readOnlyHint, warning }: {
   target: UpgradeTarget; current: string; blockerMessage?: string;
   lastDuration: { version: string; minutes: number } | null;
   onUpdate?: (t: UpgradeTarget) => void; updateDisabledReason?: string; readOnlyHint?: React.ReactNode;
+  warning?: React.ReactNode;
 }) {
   const st = STATE_STYLE[target.state];
   const minorJump = parseInt(target.version.split('.')[1] || '0', 10) - parseInt(current.split('.')[1] || '0', 10);
@@ -369,6 +373,8 @@ function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, 
           ? <>Estimated duration: ~{lastDuration.minutes} min <span className="text-slate-600">(based on the last completed update, to {lastDuration.version})</span></>
           : <>Estimated duration: unknown <span className="text-slate-600">(no completed update with recorded times to base it on)</span></>}
       </p>
+
+      {warning}
 
       {onUpdate ? (
         <div className="flex items-center gap-3">
