@@ -222,6 +222,50 @@ describe('Removed APIs panel verdicts', () => {
   });
 });
 
+describe('Removed APIs panel: agent-aligned rules', () => {
+  it('404 on admin-gates is "Could not check", not "no gates"', async () => {
+    mockFetchRoutes(routes({ '/configmaps/admin-gates': { status: 404, body: { kind: 'Status', code: 404 } } }));
+    renderTab();
+    expect((await verdict()).dataset.status).toBe('unknown');
+    expect(screen.getByTestId('removed-apis-reason').textContent).toMatch(/admin-gates ConfigMap .* was not found/);
+    expect(checklistRow().dataset.status).toBe('unknown');
+  });
+
+  it('Upgradeable=False for a reason other than admin-ack is No-go with the CVO reason', async () => {
+    mockFetchRoutes(routes());
+    const cv = clusterVersion();
+    cv.status!.conditions = [...(cv.status!.conditions ?? []), { type: 'Upgradeable', status: 'False', reason: 'ClusterOperatorsNotUpgradeable', message: 'storage should not be upgraded' }];
+    renderTab({ clusterVersion: cv });
+    expect((await verdict()).dataset.status).toBe('no_go');
+    expect(screen.getByTestId('removed-apis-reason').textContent).toMatch(/Upgradeable=False \(ClusterOperatorsNotUpgradeable\)/);
+  });
+
+  it('no newer minor offered: checks current minor + 1, labelled as not yet offered on the channel', async () => {
+    mockFetchRoutes(routes());
+    const cv = clusterVersion();
+    cv.status!.availableUpdates = [{ version: '4.18.11', image: 'quay.io/x@sha256:2' }];
+    renderTab({ clusterVersion: cv });
+    await verdict();
+    expect(screen.getByTestId('removed-apis-target-not-offered').textContent).toMatch(/4\.19: next minor \(not yet offered on your channel\)/);
+    const option = within(screen.getByRole('combobox', { name: 'Target minor' })).getByRole('option') as HTMLOptionElement;
+    expect(option.value).toBe('4.19');
+    expect(option.textContent).toMatch(/next minor \(not yet offered on your channel\)/);
+  });
+
+  it('truncates very long usernames and user agents to ~120 characters, keeping the full text in the tooltip', async () => {
+    const longUser = `u-${'x'.repeat(300)}`;
+    const longAgent = `agent/${'y'.repeat(300)}`;
+    mockFetchRoutes(routes({ '/apis/apiserver.openshift.io/v1/apirequestcounts': { body: arcList([{ name: FLOWSCHEMA, removed: '1.32', count: 5, users: [[longUser, longAgent, 5]] }]) } }));
+    renderTab();
+    await verdict();
+    const user = screen.getByTitle(longUser);
+    const agent = screen.getByTitle(longAgent);
+    expect(user.textContent!.length).toBeLessThanOrEqual(120);
+    expect(user.textContent!.endsWith('\u2026')).toBe(true);
+    expect(agent.textContent!.length).toBeLessThanOrEqual(120);
+  });
+});
+
 describe('Acknowledge an admin gate', () => {
   function ackRoutes(patchStatus = 200) {
     let acked = false;

@@ -24,7 +24,7 @@ import { useCanI } from '../../hooks/useCanI';
 import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
 import { errorReason } from '../../engine/readResult';
 import { RemovedApisPanel, AdminGateActions, useApiRemovalReads, VERDICT_LABEL } from './RemovedApisPanel';
-import { computeApiRemovalVerdict, parseMinor, targetMinorOptions, currentClusterVersion, type ApiRemovalVerdict } from '../../engine/upgradeApiRemovals';
+import { computeApiRemovalVerdict, parseMinor, targetMinorOptions, targetMinorLabel, currentClusterVersion, type ApiRemovalVerdict } from '../../engine/upgradeApiRemovals';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -253,6 +253,7 @@ export function UpdatesTab({
         targetOptions={removalOptions}
         selectedTarget={removalTarget}
         onTargetChange={setPickedRemovalTarget}
+        targetLabel={(m) => targetMinorLabel(clusterVersion, m)}
         clusterId={removal.clusterId}
         onRetry={removal.refetchAll}
         onAcked={removal.refetchAcks}

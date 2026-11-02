@@ -15,7 +15,7 @@
  * on APIRequestCount means the API does not exist here (not OpenShift), which
  * is unknown as well. Pure: no fetching, so every case is unit-testable.
  */
-import type { ClusterVersion, ConfigMap } from './types';
+import type { ClusterVersion, ConfigMap, Condition } from './types';
 import type { ReadResult } from './readResult';
 
 export interface APIRequestCountUser {
@@ -99,6 +99,10 @@ export interface ApiRemovalVerdict {
   gates: AdminGate[];
   /** What could not be read (empty when every read succeeded). */
   failures: string[];
+  /** ClusterVersion Upgradeable=False: CVO refuses minor updates until it clears. */
+  upgradeableBlocker: { reason: string; message: string; adminAck: boolean } | null;
+  /** The target is current+1 but no update to that minor is offered on the channel yet. */
+  targetNotOffered: boolean;
 }
 
 export interface ApiRemovalInputs {
@@ -132,14 +136,11 @@ export function currentClusterVersion(cv: ClusterVersion | null | undefined): st
   return completed || cv?.status?.desired?.version || null;
 }
 
-/**
- * Minors a removal check can be run for: the next minor after current, plus any
- * newer minor listed in available or conditional updates. Ascending.
- */
-export function targetMinorOptions(cv: ClusterVersion | null | undefined): string[] {
+/** Newer minors that the channel offers, from available and conditional updates. Ascending. */
+export function offeredMinors(cv: ClusterVersion | null | undefined): string[] {
   const cur = parseMinor(currentClusterVersion(cv));
   if (!cur) return [];
-  const minors = new Set<string>([fmt({ major: cur.major, minor: cur.minor + 1 })]);
+  const minors = new Set<string>();
   const versions = [
     ...(cv?.status?.availableUpdates ?? []).map((u) => u.version),
     ...(cv?.status?.conditionalUpdates ?? []).map((u) => u.release?.version),
@@ -149,6 +150,31 @@ export function targetMinorOptions(cv: ClusterVersion | null | undefined): strin
     if (m && m.major === cur.major && m.minor > cur.minor) minors.add(fmt(m));
   }
   return [...minors].sort((a, b) => (parseMinor(a)!.minor - parseMinor(b)!.minor));
+}
+
+/**
+ * Minors a removal check can be run for: the next minor after current (even
+ * when the channel does not offer it yet, which is normal on stable-4.N), plus
+ * any newer minor listed in available or conditional updates. Ascending.
+ */
+export function targetMinorOptions(cv: ClusterVersion | null | undefined): string[] {
+  const cur = parseMinor(currentClusterVersion(cv));
+  if (!cur) return [];
+  const minors = new Set<string>([fmt({ major: cur.major, minor: cur.minor + 1 }), ...offeredMinors(cv)]);
+  return [...minors].sort((a, b) => (parseMinor(a)!.minor - parseMinor(b)!.minor));
+}
+
+/** "next minor (not yet offered on your channel)" when the minor is current+1 and not offered. */
+export function targetMinorLabel(cv: ClusterVersion | null | undefined, minor: string): string {
+  return offeredMinors(cv).includes(minor) ? minor : `${minor} \u2014 next minor (not yet offered on your channel)`;
+}
+
+/** ClusterVersion Upgradeable=False, which makes CVO refuse a minor update. */
+export function upgradeableBlockerOf(cv: ClusterVersion | null | undefined): ApiRemovalVerdict['upgradeableBlocker'] {
+  const c = ((cv?.status?.conditions ?? []) as Condition[]).find((x) => x.type === 'Upgradeable');
+  if (!c || c.status !== 'False') return null;
+  const reason = c.reason || 'Unknown';
+  return { reason, message: c.message || '', adminAck: reason === 'AdminAckRequired' };
 }
 
 export function parseApiRequestCountName(name: string): { resource: string; version: string; group: string } {
@@ -206,9 +232,12 @@ export function classifyRemovedApis(counts: APIRequestCount[], targetKube: strin
 
 /**
  * Gates that apply to an update from `current` to `target`. A gate key starts
- * `ack-<ocp minor>-` naming the minor it is evaluated on (e.g.
- * `ack-4.18-kube-1.32-api-removals-in-4.19` gates leaving 4.18), so a gate
- * applies when that minor is the current one or one crossed on the way.
+ * `ack-<ocp minor>-` naming the minor it is evaluated on and usually ends
+ * `-in-<ocp minor>` naming the release it protects (e.g.
+ * `ack-4.18-kube-1.32-api-removals-in-4.19`). A gate applies when its prefix
+ * is the current minor or one crossed on the way, or its `-in-` suffix is a
+ * minor crossed up to the target. A key matching neither pattern is kept in
+ * scope (conservative): an unrecognised gate is never dropped.
  */
 export function applicableGates(gates: ConfigMap | null, acks: ConfigMap | null | 'unknown', current: string, target: string): AdminGate[] {
   const cur = parseMinor(current);
@@ -217,11 +246,18 @@ export function applicableGates(gates: ConfigMap | null, acks: ConfigMap | null 
   const out: AdminGate[] = [];
   for (const [key, description] of Object.entries(gates?.data ?? {})) {
     const from = parseMinor(/^ack-(\d+\.\d+)-/.exec(key)?.[1]);
-    if (!from || from.major !== cur.major) continue;
-    if (from.minor < cur.minor || from.minor >= tgt.minor) continue;
+    const into = parseMinor(/-in-(\d+\.\d+)$/.exec(key)?.[1]);
+    const fromMatches = !!from && from.major === cur.major && from.minor >= cur.minor && from.minor < tgt.minor;
+    const intoMatches = !!into && into.major === cur.major && into.minor > cur.minor && into.minor <= tgt.minor;
+    const recognised = !!from || !!into;
+    if (recognised && !fromMatches && !intoMatches) continue;
     out.push({ key, description, acknowledged: acks === 'unknown' ? null : acks?.data?.[key] === 'true' });
   }
   return out.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function plural(n: number, one: string, many = `${one}s`) {
@@ -231,7 +267,8 @@ function plural(n: number, one: string, many = `${one}s`) {
 export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVerdict {
   const { clusterVersion, apiRequestCounts, adminGates, adminAcks, targetVersion } = inputs;
   const current = currentClusterVersion(clusterVersion);
-  const base: ApiRemovalVerdict = { status: 'unknown', reason: '', current, target: null, inUse: [], unused: [], gates: [], failures: [] };
+  const upgradeableBlocker = upgradeableBlockerOf(clusterVersion);
+  const base: ApiRemovalVerdict = { status: 'unknown', reason: '', current, target: null, inUse: [], unused: [], gates: [], failures: [], upgradeableBlocker, targetNotOffered: false };
 
   if (!clusterVersion) return { ...base, reason: 'Could not check: the ClusterVersion could not be read, so the current version and target are unknown.' };
   const cur = parseMinor(current);
@@ -245,6 +282,7 @@ export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVe
   const kube = kubeMinorForOcp(ocp);
   if (!kube) return { ...base, reason: `Could not check: the Kubernetes version shipped with ${ocp} is not known.` };
   const target = { ocp, kube };
+  const targetNotOffered = !offeredMinors(clusterVersion).includes(ocp);
 
   const failures: string[] = [];
   let inUse: RemovedApi[] = [];
@@ -257,33 +295,45 @@ export function computeApiRemovalVerdict(inputs: ApiRemovalInputs): ApiRemovalVe
     failures.push(`APIRequestCounts could not be read (${apiRequestCounts.reason})`);
   }
 
-  // A missing ConfigMap is an answer (no gates defined / nothing acknowledged); a failed read is not.
+  // admin-gates always exists on OpenShift, so a 404 is not "no gates": it is unknown.
+  // A missing admin-acks ConfigMap does mean nothing has been acknowledged.
   if (adminGates.state === 'error') failures.push(`the admin-gates ConfigMap could not be read (${adminGates.reason})`);
+  if (adminGates.state === 'absent') failures.push('the admin-gates ConfigMap (openshift-config-managed/admin-gates) was not found');
   if (adminAcks.state === 'error') failures.push(`the admin-acks ConfigMap could not be read (${adminAcks.reason})`);
-  const gates = adminGates.state === 'error'
+  const gates = adminGates.state !== 'ok'
     ? []
-    : applicableGates(adminGates.state === 'ok' ? adminGates.data : null, adminAcks.state === 'ok' ? adminAcks.data : adminAcks.state === 'error' ? 'unknown' : null, fmt(cur), ocp);
+    : applicableGates(adminGates.data, adminAcks.state === 'ok' ? adminAcks.data : adminAcks.state === 'error' ? 'unknown' : null, fmt(cur), ocp);
   const pendingGates = gates.filter((g) => g.acknowledged === false);
 
-  const result = { ...base, target, inUse, unused, gates, failures };
+  const result = { ...base, target, targetNotOffered, inUse, unused, gates, failures };
   const blockers: string[] = [];
+  // CVO itself refuses a minor update while Upgradeable=False, whatever else could be read.
+  if (upgradeableBlocker) {
+    blockers.push(upgradeableBlocker.adminAck
+      ? `the cluster requires an administrator acknowledgement (Upgradeable=False, AdminAckRequired)${upgradeableBlocker.message ? `: ${upgradeableBlocker.message.replace(/\.\s*$/, '')}` : ''}`
+      : `the cluster reports Upgradeable=False (${upgradeableBlocker.reason})${upgradeableBlocker.message ? `: ${upgradeableBlocker.message.replace(/\.\s*$/, '')}` : ''}, so minor updates are refused`);
+  }
   if (inUse.length) {
     const requests = inUse.reduce((n, a) => n + a.requestCount, 0);
     blockers.push(`${plural(inUse.length, 'API')} removed in Kubernetes ${kube} ${inUse.length === 1 ? 'was' : 'were'} called ${plural(requests, 'time')} in the last 24h`);
   }
   if (pendingGates.length) blockers.push(`${plural(pendingGates.length, 'admin acknowledgement')} for ${ocp} ${pendingGates.length === 1 ? 'is' : 'are'} not given`);
 
+  if (upgradeableBlocker) {
+    const unread = failures.length ? ` Also could not check: ${failures.join('; ')}.` : '';
+    return { ...result, status: 'no_go', reason: `${capitalize(blockers.join('; '))}.${unread}` };
+  }
   if (failures.length) {
     const known = blockers.length ? ` Found so far: ${blockers.join('; ')}.` : '';
     return { ...result, status: 'unknown', reason: `Could not check: ${failures.join('; ')}.${known}` };
   }
   if (blockers.length) {
-    return { ...result, status: 'no_go', reason: `${blockers.join('; ')}.` };
+    return { ...result, status: 'no_go', reason: `${capitalize(blockers.join('; '))}.` };
   }
   const gateNote = gates.length ? ` and ${plural(gates.length, 'admin gate')} for ${ocp} ${gates.length === 1 ? 'is' : 'are'} acknowledged` : ' and no admin acknowledgement is required';
   return {
     ...result,
     status: 'go',
-    reason: `No API removed in Kubernetes ${kube} (OpenShift ${ocp}) was called in the last 24h${gateNote}.`,
+    reason: `No API removed in Kubernetes ${kube} (OpenShift ${ocp}) was called in the last 24h${gateNote}. Callers that run less often than daily (weekly jobs, quarterly tools) will not appear in this window.`,
   };
 }

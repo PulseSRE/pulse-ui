@@ -70,6 +70,12 @@ export function VerdictBadge({ status }: { status: ApiRemovalVerdict['status'] }
   );
 }
 
+const MAX_CALLER_CHARS = 120;
+/** Usernames and user agents are client-controlled: cap what is rendered, keep the full text in the tooltip. */
+export function truncateCaller(s: string): string {
+  return s.length > MAX_CALLER_CHARS ? `${s.slice(0, MAX_CALLER_CHARS - 1)}\u2026` : s;
+}
+
 function apiVersionLabel(api: RemovedApi) {
   return api.group ? `${api.group}/${api.version}` : api.version;
 }
@@ -181,6 +187,8 @@ export interface RemovedApisPanelProps {
   targetOptions: string[];
   selectedTarget: string | undefined;
   onTargetChange: (minor: string) => void;
+  /** Option label for a minor (e.g. "4.19 — next minor (not yet offered on your channel)"). */
+  targetLabel?: (minor: string) => string;
   clusterId: string;
   onRetry: () => void;
   onAcked: () => Promise<unknown> | void;
@@ -193,7 +201,7 @@ export interface RemovedApisPanelProps {
  * Shown before the update action; it never blocks the update (that is the
  * admin's call) but says plainly when updating will break callers.
  */
-export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTargetChange, clusterId, onRetry, onAcked, go }: RemovedApisPanelProps) {
+export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTargetChange, targetLabel, clusterId, onRetry, onAcked, go }: RemovedApisPanelProps) {
   const [showUnused, setShowUnused] = React.useState(false);
   const listPath = useResourceListPath(clusterId);
 
@@ -213,12 +221,18 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
                 onChange={(e) => onTargetChange(e.target.value)}
                 className="px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded-sm text-slate-200 font-mono"
               >
-                {targetOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+                {targetOptions.map((m) => <option key={m} value={m}>{targetLabel ? targetLabel(m) : m}</option>)}
               </select>
             </label>
           )}
           {verdict?.target && <span className="text-xs text-slate-500 font-mono">Kubernetes {verdict.target.kube}</span>}
         </div>
+
+        {verdict?.targetNotOffered && verdict.target && (
+          <p className="text-xs text-slate-500" data-testid="removed-apis-target-not-offered">
+            Checking {verdict.target.ocp}: next minor (not yet offered on your channel).
+          </p>
+        )}
 
         {verdict && <p className="text-xs text-slate-300" data-testid="removed-apis-reason">{verdict.reason}</p>}
 
@@ -228,7 +242,7 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
 
         {verdict?.status === 'no_go' && (
           <div role="status" className="rounded-sm border border-red-900 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-            Updating is still possible {'—'} it is your call {'—'} but clients calling these APIs will fail once the cluster runs Kubernetes {verdict.target?.kube}, and the cluster will not update to {verdict.target?.ocp} until every admin gate is acknowledged.
+            Updating is still possible {'—'} it is your call {'—'} but clients calling these APIs will fail once the cluster runs Kubernetes {verdict.target?.kube}, and while the cluster reports Upgradeable=False or an admin gate is unacknowledged, it will not update to {verdict.target?.ocp}.
           </div>
         )}
 
@@ -262,9 +276,9 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
                           <ul className="space-y-0.5">
                             {api.callers.slice(0, 3).map((c) => (
                               <li key={`${c.username}|${c.userAgent}`} className="flex flex-wrap items-center gap-1.5">
-                                <span className="font-mono text-slate-200 break-all">{c.username}</span>
+                                <span className="font-mono text-slate-200 break-all" title={c.username}>{truncateCaller(c.username)}</span>
                                 {c.platform && <span className={cn('px-1 rounded-sm text-[10px]', TONE_CLASSES.info.chip)} title="A system: user, usually a cluster component that is updated with the cluster">Platform</span>}
-                                <span className="text-slate-500 break-all">{c.userAgent || 'no user agent'}</span>
+                                <span className="text-slate-500 break-all" title={c.userAgent || undefined}>{c.userAgent ? truncateCaller(c.userAgent) : 'no user agent'}</span>
                                 <span className="font-mono text-slate-400">({c.requestCount.toLocaleString()})</span>
                               </li>
                             ))}

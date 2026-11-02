@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeApiRemovalVerdict, kubeMinorForOcp, targetMinorOptions, classifyRemovedApis,
-  applicableGates, currentClusterVersion, parseApiRequestCountName,
+  applicableGates, currentClusterVersion, parseApiRequestCountName, targetMinorLabel, upgradeableBlockerOf,
   type APIRequestCount, type ApiRemovalInputs,
 } from '../upgradeApiRemovals';
 import type { ClusterVersion, ConfigMap } from '../types';
@@ -113,14 +113,26 @@ describe('classifyRemovedApis', () => {
 });
 
 describe('applicableGates', () => {
-  const gates = cm('admin-gates', { [GATE]: 'd1', 'ack-4.19-kube-1.33-api-removals-in-4.20': 'd2', 'ack-4.17-kube-1.31-api-removals-in-4.18': 'old', 'not-a-gate': 'x' });
+  const gates = cm('admin-gates', { [GATE]: 'd1', 'ack-4.19-kube-1.33-api-removals-in-4.20': 'd2', 'ack-4.17-kube-1.31-api-removals-in-4.18': 'old' });
   it('applies gates evaluated on the current minor and every minor crossed to the target', () => {
     expect(applicableGates(gates, null, '4.18.3', '4.19').map((g) => g.key)).toEqual([GATE]);
     expect(applicableGates(gates, null, '4.18.3', '4.20').map((g) => g.key)).toEqual([GATE, 'ack-4.19-kube-1.33-api-removals-in-4.20']);
   });
+  it('matches by the ack-<current>- prefix or the -in-<target> suffix, and keeps unrecognised keys in scope', () => {
+    const g = cm('admin-gates', {
+      'ack-4.18-custom-gate': 'prefix only',
+      'ack-vendor-thing-in-4.19': 'suffix only',
+      'ack-4.16-kube-1.29-api-removals-in-4.17': 'stale',
+      'custom-unrecognised-key': 'neither',
+    });
+    expect(applicableGates(g, null, '4.18.3', '4.19').map((x) => x.key)).toEqual(['ack-4.18-custom-gate', 'ack-vendor-thing-in-4.19', 'custom-unrecognised-key']);
+  });
   it('marks a gate acknowledged only when admin-acks has it set to "true", and unknown when admin-acks could not be read', () => {
     expect(applicableGates(gates, cm('admin-acks', { [GATE]: 'true' }), '4.18', '4.19')[0].acknowledged).toBe(true);
     expect(applicableGates(gates, cm('admin-acks', { [GATE]: 'false' }), '4.18', '4.19')[0].acknowledged).toBe(false);
+    for (const v of ['True', 'TRUE', 'yes', ' true', '1']) {
+      expect(applicableGates(gates, cm('admin-acks', { [GATE]: v }), '4.18', '4.19')[0].acknowledged, v).toBe(false);
+    }
     expect(applicableGates(gates, null, '4.18', '4.19')[0].acknowledged).toBe(false);
     expect(applicableGates(gates, 'unknown', '4.18', '4.19')[0].acknowledged).toBeNull();
   });
@@ -133,6 +145,7 @@ describe('computeApiRemovalVerdict', () => {
     expect(v.target).toEqual({ ocp: '4.19', kube: '1.32' });
     expect(v.unused.map((a) => a.name)).toEqual(['flowschemas.v1beta3.flowcontrol.apiserver.k8s.io']);
     expect(v.reason).toMatch(/No API removed in Kubernetes 1\.32/);
+    expect(v.reason).toMatch(/less often than daily/);
   });
 
   it('is go with no gates at all', () => {
@@ -153,6 +166,12 @@ describe('computeApiRemovalVerdict', () => {
     expect(v.status).toBe('no_go');
     expect(v.gates).toEqual([{ key: GATE, description: 'Kubernetes 1.32 removes v1beta3 FlowSchema.', acknowledged: false }]);
     expect(v.reason).toMatch(/admin acknowledgement for 4\.19 is not given/);
+  });
+
+  it('is unknown when the admin-gates ConfigMap is missing (404)', () => {
+    const v = computeApiRemovalVerdict(inputs({ adminGates: { state: 'absent' } }));
+    expect(v.status).toBe('unknown');
+    expect(v.reason).toMatch(/admin-gates ConfigMap .* was not found/);
   });
 
   it('treats a missing admin-acks ConfigMap as nothing acknowledged', () => {
@@ -212,5 +231,40 @@ describe('computeApiRemovalVerdict', () => {
 
   it('handles an empty APIRequestCount list as go when no gate is pending', () => {
     expect(computeApiRemovalVerdict(inputs({ apiRequestCounts: ok([]) })).status).toBe('go');
+  });
+
+  it('Upgradeable=False AdminAckRequired is no_go with the CVO message, even with no gates or removed APIs', () => {
+    const c = cv('4.18.5', { conditions: [{ type: 'Upgradeable', status: 'False', reason: 'AdminAckRequired', message: 'Kubernetes 1.32 removes APIs; see the admin-acks ConfigMap.' }] } as Partial<NonNullable<ClusterVersion['status']>>);
+    const v = computeApiRemovalVerdict(inputs({ clusterVersion: c, adminGates: ok(cm('admin-gates', {})) }));
+    expect(v.status).toBe('no_go');
+    expect(v.upgradeableBlocker).toEqual({ reason: 'AdminAckRequired', message: 'Kubernetes 1.32 removes APIs; see the admin-acks ConfigMap.', adminAck: true });
+    expect(v.reason).toMatch(/administrator acknowledgement .*Kubernetes 1\.32 removes APIs; see the admin-acks ConfigMap/);
+  });
+
+  it('any other Upgradeable=False is no_go for a minor update, naming the CVO reason', () => {
+    const c = cv('4.18.5', { conditions: [{ type: 'Upgradeable', status: 'False', reason: 'ClusterOperatorsNotUpgradeable', message: 'Cluster operator storage should not be upgraded.' }] } as Partial<NonNullable<ClusterVersion['status']>>);
+    const v = computeApiRemovalVerdict(inputs({ clusterVersion: c }));
+    expect(v.status).toBe('no_go');
+    expect(v.reason).toMatch(/Upgradeable=False \(ClusterOperatorsNotUpgradeable\).*minor updates are refused/);
+    expect(upgradeableBlockerOf(cv())).toBeNull();
+  });
+
+  it('Upgradeable=False stays no_go (not unknown) when another read failed, and says what could not be checked', () => {
+    const c = cv('4.18.5', { conditions: [{ type: 'Upgradeable', status: 'False', reason: 'AdminAckRequired', message: 'ack needed' }] } as Partial<NonNullable<ClusterVersion['status']>>);
+    const v = computeApiRemovalVerdict(inputs({ clusterVersion: c, apiRequestCounts: { state: 'error', reason: 'Permission denied (403)' } }));
+    expect(v.status).toBe('no_go');
+    expect(v.reason).toMatch(/Also could not check: APIRequestCounts could not be read/);
+  });
+
+  it('defaults to current minor + 1 when the channel offers no newer minor, and labels it as not yet offered', () => {
+    const c = cv('4.18.5', { availableUpdates: [{ version: '4.18.7' }] } as Partial<NonNullable<ClusterVersion['status']>>);
+    expect(targetMinorOptions(c)).toEqual(['4.19']);
+    const v = computeApiRemovalVerdict(inputs({ clusterVersion: c }));
+    expect(v.target?.ocp).toBe('4.19');
+    expect(v.targetNotOffered).toBe(true);
+    expect(targetMinorLabel(c, '4.19')).toBe('4.19 \u2014 next minor (not yet offered on your channel)');
+    const offered = cv('4.18.5', { availableUpdates: [{ version: '4.19.1' }] } as Partial<NonNullable<ClusterVersion['status']>>);
+    expect(targetMinorLabel(offered, '4.19')).toBe('4.19');
+    expect(computeApiRemovalVerdict(inputs({ clusterVersion: offered })).targetNotOffered).toBe(false);
   });
 });
