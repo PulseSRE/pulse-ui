@@ -165,7 +165,7 @@ export default function AdminView() {
   });
   const { data: operators = [], isLoading: opsLoading, isError: opsError } = operatorsQuery;
 
-  const { data: firingAlertsData, error: firingAlertsError } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
+  const { data: firingAlertsData, error: firingAlertsError, dataUpdatedAt: firingAlertsAt, errorUpdatedAt: firingAlertsErrAt } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
     queryKey: ['admin', 'firing-alerts', clusterId],
     queryFn: async () => {
       const res = await promFetch('/api/v1/alerts', clusterId);
@@ -264,7 +264,7 @@ export default function AdminView() {
   });
 
   // The readiness drain check needs PDBs, pods and nodes; a failed read makes it unknown.
-  const { data: pdbs = [], error: pdbsError, isLoading: pdbsLoading } = useQuery<PodDisruptionBudget[]>({
+  const { data: pdbs = [], error: pdbsError, isLoading: pdbsLoading, dataUpdatedAt: pdbsAt, errorUpdatedAt: pdbsErrAt } = useQuery<PodDisruptionBudget[]>({
     queryKey: ['k8s', 'list', '/apis/policy/v1/poddisruptionbudgets', undefined, clusterId],
     queryFn: () => k8sList<PodDisruptionBudget>('/apis/policy/v1/poddisruptionbudgets', undefined, clusterId),
     staleTime: 60000,
@@ -578,6 +578,8 @@ export default function AdminView() {
             podsLoading={podsLoading}
             firingAlerts={firingAlertsData}
             firingAlertsError={firingAlertsError ?? undefined}
+            clusterVersionLoading={cvLoading}
+            readsUpdatedAt={[Math.max(firingAlertsAt, firingAlertsErrAt), Math.max(pdbsAt, pdbsErrAt)]}
             go={go}
           />
         )}

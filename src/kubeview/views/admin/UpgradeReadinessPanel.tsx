@@ -24,6 +24,8 @@ export interface UpgradeReadinessPanelProps {
   checkedAt: number | null;
   onRecheck: () => void;
   onAsk: () => void;
+  /** Why Ask Pulse can't be used here (e.g. a remote cluster is active). */
+  askDisabledReason?: string;
   /** The fix for a row: a button or link shown at the row's end. */
   actions?: Partial<Record<ReadinessCheckId, React.ReactNode>>;
   /** Detail a row can expand into, with the toggle's label (e.g. "See callers"). */
@@ -63,7 +65,7 @@ function Row({ check, action, expansion }: { check: ReadinessCheck; action?: Rea
  * rows, each with its fix. Unknown never counts as passed; passed rows
  * collapse into one line.
  */
-export function UpgradeReadinessPanel({ targetLabel, checks, checkedAt, onRecheck, onAsk, actions = {}, expansions = {} }: UpgradeReadinessPanelProps) {
+export function UpgradeReadinessPanel({ targetLabel, checks, checkedAt, onRecheck, onAsk, askDisabledReason, actions = {}, expansions = {} }: UpgradeReadinessPanelProps) {
   const verdict = readinessVerdict(checks);
   const sorted = sortChecks(checks);
   const open = sorted.filter((c) => c.status !== 'passed');
@@ -95,11 +97,12 @@ export function UpgradeReadinessPanel({ targetLabel, checks, checkedAt, onRechec
           <button type="button" onClick={onRecheck} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 min-h-9">
             <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />Recheck
           </button>
-          <button type="button" onClick={onAsk} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 min-h-9">
+          <button type="button" onClick={onAsk} disabled={!!askDisabledReason} title={askDisabledReason} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-9">
             <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />Ask Pulse
           </button>
         </div>
       </div>
+      {askDisabledReason && <p className="px-4 py-2 text-xs text-amber-300 border-b border-slate-800" data-testid="readiness-ask-disabled">{askDisabledReason}</p>}
       <ul aria-label="Readiness checks">
         {open.map((c) => <Row key={c.id} check={c} action={actions[c.id]} expansion={expansions[c.id]} />)}
         {passed.length > 0 && (

@@ -6,6 +6,7 @@ import { k8sPatch } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
 import type { ClusterVersion, ClusterOperator, Node, Condition, MachineConfigPool, Pod } from '../../engine/types';
 import { useUIStore } from '../../store/uiStore';
+import { useFleetStore } from '../../store/fleetStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { Panel } from '../../components/primitives/Panel';
@@ -86,6 +87,10 @@ export interface UpdatesTabProps {
   /** Firing alerts (Prometheus /api/v1/alerts); undefined while loading. */
   firingAlerts?: FiringAlert[];
   firingAlertsError?: unknown;
+  /** ClusterVersion is still being read: checks that need it are "Checking…". */
+  clusterVersionLoading?: boolean;
+  /** When reads this tab gets from the page (alerts, PDBs) last answered, for "checked N ago". */
+  readsUpdatedAt?: number[];
   go: (path: string, title: string) => void;
 }
 
@@ -103,7 +108,7 @@ export function UpdatesTab({
   operators, nodes, pdbs, pdbsError, pdbsLoading,
   nodesError, nodesLoading, operatorsError, operatorsLoading,
   isHyperShift, machineConfigPools, machineConfigPoolsError,
-  pods, podsError, podsLoading, firingAlerts, firingAlertsError, go,
+  pods, podsError, podsLoading, firingAlerts, firingAlertsError, clusterVersionLoading, readsUpdatedAt, go,
 }: UpdatesTabProps) {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
@@ -169,9 +174,11 @@ export function UpdatesTab({
   const pools = machineConfigPoolsError ? null : machineConfigPools;
   const checks: ReadinessCheck[] = [
     !selected && !removalTarget
-      ? { id: 'removed-apis', label: 'Removed APIs in use', status: 'unknown', detail: 'Could not check: the current version or the target is unknown' } as ReadinessCheck
+      ? (clusterVersionLoading
+        ? { id: 'removed-apis', label: 'Removed APIs in use', status: 'checking', detail: 'Checking\u2026' }
+        : { id: 'removed-apis', label: 'Removed APIs in use', status: 'unknown', detail: 'Could not check: the current version or the target is unknown' }) as ReadinessCheck
       : checkRemovedApis(removal.reads, removalVerdict, removalTarget, selected?.version),
-    ...(removalTarget ? [checkAdminAck(removal.reads, removalVerdict), checkUpgradeable(clusterVersion)].filter((c): c is ReadinessCheck => !!c) : []),
+    ...(removalTarget ? [checkAdminAck(removal.reads, removalVerdict, clusterVersion), checkUpgradeable(clusterVersion, clusterVersionLoading)].filter((c): c is ReadinessCheck => !!c) : []),
     checkDrainPdbs(pdbsL, podsL, nodesL, pools),
     checkCriticalAlerts(alertsL),
     checkPendingCsrs(readiness.csrs),
@@ -180,11 +187,17 @@ export function UpdatesTab({
     checkEtcdBackup(readiness.backups, readiness.schedules, isHyperShift),
     checkNodes(nodesL),
     checkOperators(opsL),
-    checkChannel(clusterVersion),
+    checkChannel(clusterVersion, clusterVersionLoading),
   ];
   const verdict = readinessVerdict(checks);
   const blockers = checks.filter((c) => c.status === 'blocker');
   const readinessTargetLabel = selected ? selected.version : removalTarget ? targetMinorLabel(clusterVersion, removalTarget) : null;
+
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
+  // Same reason the agent dock gives: the agent runs on the local cluster only.
+  const askDisabledReason = activeClusterId !== 'local' ? 'This agent runs on Local Cluster. Remote resource-context actions are unavailable.' : undefined;
+  const readTimes = [readiness.checkedAt ?? 0, removal.updatedAt, ...(readsUpdatedAt ?? [])];
+  const checkedAt = readTimes.every((t) => t > 0) ? Math.min(...readTimes) : null;
 
   const recheck = () => {
     readiness.refetchAll();
@@ -428,9 +441,10 @@ export function UpdatesTab({
           <UpgradeReadinessPanel
             targetLabel={readinessTargetLabel}
             checks={checks}
-            checkedAt={readiness.checkedAt}
+            checkedAt={checkedAt}
             onRecheck={recheck}
             onAsk={askAboutReadiness}
+            askDisabledReason={askDisabledReason}
             actions={actions}
             expansions={expansions}
           />
@@ -610,7 +624,8 @@ export function UpdatesTab({
           variant={confirmDialog.variant}
         >
           {confirmDialog.body}
-          {confirmDialog.warningVersion && blockersNote}
+          {/* Readiness is judged for the picked target; another target's confirm does not borrow its blockers. */}
+          {confirmDialog.warningVersion && confirmDialog.warningVersion === selected?.version && blockersNote}
         </ConfirmDialog>
       )}
 
@@ -629,7 +644,7 @@ export function UpdatesTab({
           variant="danger"
           confirmDisabled={!risksAccepted}
         >
-          {blockersNote}
+          {riskDialog.target.version === selected?.version && blockersNote}
           <ul className="mt-3 space-y-1.5 max-h-48 overflow-auto" aria-label="Risks to accept">
             {riskDialog.target.risks.map((r) => (
               <li key={r.name} className="text-xs rounded-sm bg-slate-900/60 border border-slate-700 p-2">

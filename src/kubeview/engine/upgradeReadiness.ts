@@ -16,7 +16,7 @@ import { isNotFound, errorReason, type ReadResult } from './readResult';
 import { getBlockingPdbs, type BlockingPdb, type PdbLike } from './upgradeHealth';
 import { parseCertExpiry, type TlsSecretLike } from './certExpiry';
 import { isPending, type CertificateSigningRequest } from './csr';
-import type { APIRequestCount, ApiRemovalVerdict, RemovedApi } from './upgradeApiRemovals';
+import { upgradeableBlockerOf, type APIRequestCount, type ApiRemovalVerdict, type RemovedApi } from './upgradeApiRemovals';
 import { formatDurationMs } from './format';
 
 export type Loadable<T> = ReadResult<T> | { state: 'loading' };
@@ -103,8 +103,9 @@ export function checkOperators(operators: Loadable<ClusterOperator[]>): Readines
   };
 }
 
-export function checkChannel(clusterVersion: ClusterVersion | null | undefined): ReadinessCheck {
+export function checkChannel(clusterVersion: ClusterVersion | null | undefined, loading = false): ReadinessCheck {
   const label = 'Update channel';
+  if (!clusterVersion && loading) return { id: 'channel', label, status: 'checking', detail: 'Checking\u2026' };
   if (!clusterVersion) return { id: 'channel', label, status: 'unknown', detail: 'Could not check: the ClusterVersion could not be read' };
   const channel = clusterVersion.spec?.channel || '';
   if (!channel) return { id: 'channel', label, status: 'blocker', detail: 'No update channel is set, so the cluster is offered no updates' };
@@ -129,7 +130,8 @@ export function checkCriticalAlerts(alerts: Loadable<FiringAlert[]>): ReadinessC
   const names = [...new Set(critical.map((a) => a.labels.alertname || 'unnamed'))];
   return {
     id: 'alerts', label, status: 'blocker',
-    detail: `${plural(critical.length, 'critical alert')} firing: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}`,
+    // Read from Prometheus, which does not know about Alertmanager silences.
+    detail: `${plural(critical.length, 'critical alert')} firing: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}. Silenced alerts are counted too.`,
   };
 }
 
@@ -308,9 +310,15 @@ export function checkDrainPdbs(pdbs: Loadable<PdbLike[]>, pods: Loadable<Pod[]>,
   }
   const draining = nodesThatWillDrain(nodes.data, pools).map((name) => ({ name }));
   const blocking = getBlockingPdbs(pdbs.data, pods.data as never, draining);
-  const poolNote = pools ? '' : ' MachineConfigPools could not be read, so every node is assumed to drain.';
+  const paused = (pools || []).filter((p) => p.spec?.paused).map((p) => p.metadata.name);
+  const poolNote = !pools ? ' MachineConfigPools could not be read, so every node is assumed to drain.'
+    : paused.length ? ` Nodes in paused pool${paused.length === 1 ? '' : 's'} ${paused.join(', ')} are not counted: their nodes will drain when unpaused.` : '';
   if (blocking.length === 0) {
-    return { id, label, status: 'passed', detail: `No PodDisruptionBudget with 0 disruptions allowed covers a pod on a node that will drain.${poolNote}`, summary: 'no PDB blocks a node drain' };
+    return {
+      id, label, status: 'passed',
+      detail: `No PodDisruptionBudget with 0 disruptions allowed covers a pod on a node that will drain now.${poolNote}`,
+      summary: paused.length ? `no PDB blocks a drain now (${paused.join(', ')} paused)` : 'no PDB blocks a node drain',
+    };
   }
   const first = blocking[0];
   const pod = first.blockedPods[0];
@@ -364,9 +372,16 @@ export function checkRemovedApis(reads: RemovalReads | null, verdict: ApiRemoval
   };
 }
 
-export function checkAdminAck(reads: RemovalReads | null, verdict: ApiRemovalVerdict | null): ReadinessCheck {
+export function checkAdminAck(reads: RemovalReads | null, verdict: ApiRemovalVerdict | null, clusterVersion?: ClusterVersion | null): ReadinessCheck {
   const id = 'admin-ack';
   const label = 'Admin acknowledgement';
+  // The cluster itself says an acknowledgement is missing: that is a blocker
+  // whatever admin-gates/admin-acks say or whether they could be read (the
+  // removed-API verdict is no_go for the same reason).
+  const cvo = upgradeableBlockerOf(clusterVersion ?? null);
+  if (cvo?.adminAck) {
+    return { id, label, status: 'blocker', detail: `The cluster reports Upgradeable=False (AdminAckRequired)${cvo.message ? `: ${cvo.message}` : ''}. It will not take a minor update until the acknowledgement is given.` };
+  }
   if (!reads || !verdict) return { id, label, status: 'checking', detail: 'Checking…' };
   if (!verdict.target) return { id, label, status: 'unknown', detail: verdict.reason };
   const g = reads.adminGates;
@@ -384,7 +399,12 @@ export function checkAdminAck(reads: RemovalReads | null, verdict: ApiRemovalVer
 }
 
 /** CVO refuses a minor update while Upgradeable=False; AdminAckRequired is the admin-ack row's job. */
-export function checkUpgradeable(clusterVersion: ClusterVersion | null | undefined): ReadinessCheck | null {
+export function checkUpgradeable(clusterVersion: ClusterVersion | null | undefined, loading = false): ReadinessCheck | null {
+  if (!clusterVersion) {
+    return loading
+      ? { id: 'upgradeable', label: 'Cluster upgradeable', status: 'checking', detail: 'Checking\u2026' }
+      : { id: 'upgradeable', label: 'Cluster upgradeable', status: 'unknown', detail: 'Could not check: the ClusterVersion could not be read' };
+  }
   const c = cond(clusterVersion?.status?.conditions as Condition[] | undefined, 'Upgradeable');
   if (c?.status === 'False' && c.reason === 'AdminAckRequired') return null;
   if (c?.status === 'False') {

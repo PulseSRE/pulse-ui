@@ -7,12 +7,13 @@
 import React from 'react';
 import { Pause, Database } from 'lucide-react';
 import { useCanI } from '../../hooks/useCanI';
-import { useActionDialog } from '../../components/ActionDialog';
+import { useActionDialog, describeWriteError } from '../../components/ActionDialog';
 import { k8sCreate } from '../../engine/query';
 import { sendWrite, setMcpPaused } from '../../engine/workloadActions';
 import type { MachineConfigPool, PersistentVolumeClaim } from '../../engine/types';
 import { ETCD_BACKUPS_PATH, type Loadable } from '../../engine/upgradeReadiness';
 
+const CONTROL_PLANE_POOLS = new Set(['master', 'arbiter']);
 const DNS1123 = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/;
 
 export function etcdBackupManifest(name: string, pvcName: string) {
@@ -96,7 +97,8 @@ export function TakeEtcdBackupAction({ pvcs, onDone }: { pvcs: Loadable<Persiste
 export function PauseWorkerPoolsButton({ pools }: { pools: MachineConfigPool[] }) {
   const { allowed, isLoading } = useCanI('patch', 'machineconfiguration.openshift.io', 'machineconfigpools');
   const { open, dialog } = useActionDialog();
-  const workers = pools.filter((p) => p.metadata.name !== 'master');
+  // Control-plane pools (master, arbiter) update with the control plane and are not "worker pools".
+  const workers = pools.filter((p) => !CONTROL_PLANE_POOLS.has(p.metadata.name));
   const toPause = workers.filter((p) => !p.spec?.paused);
   if (workers.length === 0) return null;
   if (toPause.length === 0) return <span className="text-xs text-slate-400" data-testid="worker-pools-paused">Worker pools paused: {workers.map((p) => p.metadata.name).join(', ')}</span>;
@@ -116,9 +118,19 @@ export function PauseWorkerPoolsButton({ pools }: { pools: MachineConfigPool[] }
           what: 'Pausing the worker pools',
           body: <p className="mt-3 text-xs text-slate-400">Merge patch <code className="font-mono text-slate-300">{'{"spec":{"paused":true}}'}</code> on {names.join(', ')}, conditional on the version shown (dry run first). Undo: unpause each pool.</p>,
           run: async (cid) => {
-            const reqs = toPause.map((p) => setMcpPaused(p, true));
-            for (const r of reqs) await sendWrite({ ...r, path: `${r.path}?dryRun=All` }, cid);
-            for (const r of reqs) await sendWrite(r, cid);
+            const reqs = toPause.map((p) => ({ name: p.metadata.name, req: setMcpPaused(p, true) }));
+            for (const { req } of reqs) await sendWrite({ ...req, path: `${req.path}?dryRun=All` }, cid);
+            const done: string[] = [];
+            for (const { name, req } of reqs) {
+              try {
+                await sendWrite(req, cid);
+                done.push(name);
+              } catch (err) {
+                // Say which pools are already paused, so a partial result is not mistaken for nothing.
+                const why = describeWriteError(err);
+                throw new Error(done.length ? `${name}: ${why} (already paused: ${done.join(', ')}; unpause them if you are not going ahead)` : `${name}: ${why}`);
+              }
+            }
           },
           success: `Paused ${names.join(', ')}`,
         })}

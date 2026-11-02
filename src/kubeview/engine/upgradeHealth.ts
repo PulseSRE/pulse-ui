@@ -109,15 +109,56 @@ export function getDrainBlockingNodes(nodes: Node[]): NodeRolloutStatus[] {
 
 // ---- PodDisruptionBudgets that could block node draining ----
 
+export interface LabelSelectorLike {
+  matchLabels?: Record<string, string>;
+  matchExpressions?: Array<{ key: string; operator: string; values?: string[] }>;
+}
+
 export interface PdbLike {
   metadata: { name: string; namespace?: string; uid?: string };
-  spec?: { selector?: { matchLabels?: Record<string, string> }; minAvailable?: number | string; maxUnavailable?: number | string };
+  spec?: { selector?: LabelSelectorLike | null; minAvailable?: number | string; maxUnavailable?: number | string };
   status?: { disruptionsAllowed?: number; currentHealthy?: number; desiredHealthy?: number; expectedPods?: number };
 }
 
 export interface PodLike {
-  metadata: { name: string; namespace?: string; labels?: Record<string, string> };
+  metadata: {
+    name: string; namespace?: string; labels?: Record<string, string>;
+    annotations?: Record<string, string>;
+    ownerReferences?: Array<{ kind: string; controller?: boolean }>;
+  };
   spec?: { nodeName?: string };
+  status?: { phase?: string };
+}
+
+/**
+ * A label selector against a pod's labels. policy/v1 semantics: a missing
+ * (null) selector selects nothing; an empty one ({}) selects every pod in the
+ * namespace. An unknown operator matches nothing.
+ */
+export function labelSelectorMatches(selector: LabelSelectorLike | null | undefined, labels: Record<string, string> = {}): boolean {
+  if (!selector) return false;
+  for (const [k, v] of Object.entries(selector.matchLabels ?? {})) if (labels[k] !== v) return false;
+  for (const e of selector.matchExpressions ?? []) {
+    const has = Object.prototype.hasOwnProperty.call(labels, e.key);
+    const values = e.values ?? [];
+    if (e.operator === 'In') { if (!has || !values.includes(labels[e.key])) return false; }
+    else if (e.operator === 'NotIn') { if (has && values.includes(labels[e.key])) return false; }
+    else if (e.operator === 'Exists') { if (!has) return false; }
+    else if (e.operator === 'DoesNotExist') { if (has) return false; }
+    else return false;
+  }
+  return true;
+}
+
+/**
+ * Pods a drain does not evict, so no PDB can block them on their account:
+ * finished or not yet running pods, DaemonSet pods and mirror (static) pods.
+ */
+export function drainSkipsPod(pod: PodLike): boolean {
+  const phase = pod.status?.phase;
+  if (phase === 'Pending' || phase === 'Succeeded' || phase === 'Failed') return true;
+  if (pod.metadata.annotations?.['kubernetes.io/config.mirror']) return true;
+  return (pod.metadata.ownerReferences ?? []).some((o) => o.kind === 'DaemonSet' && o.controller !== false);
 }
 
 export interface BlockingPdb {
@@ -136,11 +177,11 @@ export interface BlockingPdb {
 
 /**
  * PDBs with zero remaining disruptions allowed, where a pod they cover is
- * currently scheduled on a node that's mid-rollout — i.e. `oc adm drain`
- * would be refused for that pod today, which can stall the whole pool.
- * PDBs with an empty selector are skipped rather than guessed at, since an
- * empty matchLabels technically matches every pod and would produce noisy
- * false positives.
+ * scheduled on a node that is (or will be) drained — i.e. `oc adm drain`
+ * would be refused for that pod, which can stall the whole pool. Selectors
+ * follow policy/v1 (matchLabels and matchExpressions; `{}` covers every pod
+ * in the namespace, a missing selector none), and pods a drain does not evict
+ * are left out.
  */
 export function getBlockingPdbs(pdbs: PdbLike[], pods: PodLike[], nodesInRollout: Array<Pick<NodeRolloutStatus, 'name'>>): BlockingPdb[] {
   const rolloutNodeNames = new Set(nodesInRollout.map((n) => n.name));
@@ -152,8 +193,8 @@ export function getBlockingPdbs(pdbs: PdbLike[], pods: PodLike[], nodesInRollout
     if (disruptionsAllowed === undefined || disruptionsAllowed > 0) continue;
 
     const namespace = pdb.metadata.namespace || '';
-    const selectorEntries = Object.entries(pdb.spec?.selector?.matchLabels || {});
-    if (selectorEntries.length === 0) continue;
+    const selector = pdb.spec?.selector;
+    if (!selector) continue;
 
     const blockedNodeNames = new Set<string>();
     const blockedPods: BlockingPdb['blockedPods'] = [];
@@ -161,9 +202,8 @@ export function getBlockingPdbs(pdbs: PdbLike[], pods: PodLike[], nodesInRollout
       if ((pod.metadata.namespace || '') !== namespace) continue;
       const nodeName = pod.spec?.nodeName;
       if (!nodeName || !rolloutNodeNames.has(nodeName)) continue;
-      const podLabels = pod.metadata.labels || {};
-      const matchesSelector = selectorEntries.every(([key, value]) => podLabels[key] === value);
-      if (matchesSelector) {
+      if (drainSkipsPod(pod)) continue;
+      if (labelSelectorMatches(selector, pod.metadata.labels || {})) {
         blockedNodeNames.add(nodeName);
         blockedPods.push({ name: pod.metadata.name, namespace, nodeName });
       }
