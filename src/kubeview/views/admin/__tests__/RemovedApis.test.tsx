@@ -85,9 +85,8 @@ function renderTab(props: Partial<UpdatesTabProps> = {}) {
     isUpdating: false,
     operators: [],
     nodes: [],
-    deployments: [],
     pdbs: [],
-    etcdBackupExists: true,
+    firingAlerts: [],
     isHyperShift: false,
     machineConfigPools: [],
     pods: [],
@@ -98,11 +97,14 @@ function renderTab(props: Partial<UpdatesTabProps> = {}) {
 }
 
 const panel = () => screen.getByRole('region', { name: 'Removed APIs check' });
+/** The removed-API detail lives in the readiness row's "See callers" expansion: open it, then wait for the verdict. */
 const verdict = async () => {
+  const toggle = await screen.findByRole('button', { name: /See callers|next minor/ });
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle);
   await waitFor(() => expect(screen.getByTestId('removed-apis-verdict')).toBeTruthy());
   return screen.getByTestId('removed-apis-verdict');
 };
-const checklistRow = () => screen.getByTestId('precheck-Removed APIs');
+const checklistRow = () => screen.getByTestId('readiness-removed-apis');
 /** The panel's Acknowledge button, once the permission check has answered. */
 async function ackButton() {
   const btn = within(screen.getByTestId(`admin-gate-${GATE}`)).getByRole('button', { name: 'Acknowledge' }) as HTMLButtonElement;
@@ -130,6 +132,7 @@ describe('Removed APIs panel: failed reads are "Could not check", never Go', () 
     expect(within(panel()).getByRole('alert').textContent).toMatch(re);
     expect(within(panel()).queryByText('Go')).toBeNull();
     expect(checklistRow().dataset.status).toBe('unknown');
+    expect(checklistRow().textContent).toMatch(re);
     expectNoAllClear(panel());
   });
 
@@ -162,7 +165,7 @@ describe('Removed APIs panel verdicts', () => {
     expect(screen.queryByRole('list', { name: 'Removed APIs not in use' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /1 removed but not called/ }));
     expect(within(screen.getByRole('list', { name: 'Removed APIs not in use' })).getByText('flowschemas')).toBeTruthy();
-    expect(checklistRow().dataset.status).toBe('pass');
+    expect(checklistRow().dataset.status).toBe('passed');
   });
 
   it('No-go: a removed API in use is listed with callers (platform caller tagged), the update stays enabled with a warning, checklist fails', async () => {
@@ -182,17 +185,15 @@ describe('Removed APIs panel verdicts', () => {
     expect(callers[0].textContent).toContain('helm/v3.14');
     expect(callers[1].textContent).toContain('system:serviceaccount:openshift-monitoring:prometheus');
     expect(within(callers[1]).getByText('Platform')).toBeTruthy();
-    expect(checklistRow().dataset.status).toBe('warn');
+    expect(checklistRow().dataset.status).toBe('blocker');
+    expect(checklistRow().textContent).toMatch(/flowschemas\.v1beta3\.flowcontrol\.apiserver\.k8s\.io is removed in Kubernetes 1\.32 and was called 120 times in 24h by ci-deployer/);
 
-    // The update action is not blocked, but warns.
-    fireEvent.click(screen.getByRole('button', { name: /^4\.19\.2 — / }));
-    const target = screen.getByRole('region', { name: 'Update target 4.19.2' });
-    const btn = within(target).getByRole('button', { name: 'Update to 4.19.2' }) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    expect(within(target).getByTestId('removed-apis-update-warning').textContent).toMatch(/No-go/);
-    fireEvent.click(btn);
+    // The update action is not blocked: the start dialog lists the blocker and asks to confirm anyway.
+    const start = screen.getByRole('button', { name: /Start update/ }) as HTMLButtonElement;
+    await waitFor(() => expect(start.disabled).toBe(false));
+    fireEvent.click(start);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByTestId('removed-apis-update-warning').textContent).toMatch(/was called 120 times/);
+    expect(within(dialog).getByTestId('start-update-blockers').textContent).toMatch(/Removed APIs in use:.*called 120 times/);
   });
 
   it('links an API to its resource list page when discovery serves it', async () => {
@@ -228,7 +229,9 @@ describe('Removed APIs panel: agent-aligned rules', () => {
     renderTab();
     expect((await verdict()).dataset.status).toBe('unknown');
     expect(screen.getByTestId('removed-apis-reason').textContent).toMatch(/admin-gates ConfigMap .* was not found/);
-    expect(checklistRow().dataset.status).toBe('unknown');
+    // The API usage itself was read, so that row passes; the acknowledgement row is unknown.
+    expect(checklistRow().dataset.status).toBe('passed');
+    expect(screen.getByTestId('readiness-admin-ack').dataset.status).toBe('unknown');
   });
 
   it('Upgradeable=False for a reason other than admin-ack is No-go with the CVO reason', async () => {
@@ -238,6 +241,9 @@ describe('Removed APIs panel: agent-aligned rules', () => {
     renderTab({ clusterVersion: cv });
     expect((await verdict()).dataset.status).toBe('no_go');
     expect(screen.getByTestId('removed-apis-reason').textContent).toMatch(/Upgradeable=False \(ClusterOperatorsNotUpgradeable\)/);
+    const row = screen.getByTestId('readiness-upgradeable');
+    expect(row.dataset.status).toBe('blocker');
+    expect(row.textContent).toMatch(/storage should not be upgraded/);
   });
 
   it('no newer minor offered: checks current minor + 1, labelled as not yet offered on the channel', async () => {
@@ -268,7 +274,7 @@ describe('Removed APIs panel: agent-aligned rules', () => {
     await waitFor(() => expect(acksReads).toBeGreaterThan(before));
   });
 
-  it('Start Update dialog opened while the check is still running shows the verdict once it arrives', async () => {
+  it('Start update dialog opened while the check is still running lists the blocker once it arrives', async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => { release = r; });
     const inner = mockFetchRoutes(routes({ '/apis/apiserver.openshift.io/v1/apirequestcounts': { body: IN_USE } }));
@@ -277,15 +283,14 @@ describe('Removed APIs panel: agent-aligned rules', () => {
       return inner(input, init);
     });
     renderTab();
-    fireEvent.click(screen.getByRole('button', { name: /^4\.19\.2 — / }));
-    const target = screen.getByRole('region', { name: 'Update target 4.19.2' });
-    const btn = within(target).getByRole('button', { name: 'Update to 4.19.2' }) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    fireEvent.click(btn);
+    const start = screen.getByRole('button', { name: /Start update/ }) as HTMLButtonElement;
+    await waitFor(() => expect(start.disabled).toBe(false));
+    expect(checklistRow().dataset.status).toBe('checking');
+    fireEvent.click(start);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByTestId('removed-apis-update-warning').textContent).toMatch(/Checking/);
+    expect(within(dialog).queryByText(/Removed APIs in use/)).toBeNull();
     release();
-    await waitFor(() => expect(within(dialog).getByTestId('removed-apis-update-warning').textContent).toMatch(/No-go.*was called 120 times/));
+    await waitFor(() => expect(within(dialog).getByTestId('start-update-blockers').textContent).toMatch(/Removed APIs in use:.*called 120 times/));
   });
 
   it('truncates very long usernames and user agents to ~120 characters, keeping the full text in the tooltip', async () => {
@@ -421,8 +426,20 @@ describe('Acknowledge an admin gate', () => {
     await verdict();
     await waitFor(() => expect(screen.getByText('These admin gates are not acknowledged:')).toBeTruthy());
     expect(document.body.textContent).not.toMatch(/run\s*oc adm upgrade/);
-    // One button in the banner, one in the panel.
+    // One button in the banner, one in the readiness acknowledgement row.
     expect(screen.getAllByRole('button', { name: 'Acknowledge' })).toHaveLength(2);
+  });
+
+  it('Upgradeable=False (AdminAckRequired) keeps the acknowledgement row a Blocker quoting the cluster, even when gates are unreadable or all acknowledged', async () => {
+    mockFetchRoutes(routes({ '/configmaps/admin-gates': { status: 500, body: {} } }));
+    const { unmount } = renderTab({ clusterVersion: clusterVersion(true) });
+    await waitFor(() => expect(screen.getByTestId('readiness-admin-ack').dataset.status).toBe('blocker'));
+    expect(screen.getByTestId('readiness-admin-ack').textContent).toMatch(/Upgradeable=False \(AdminAckRequired\): Kubernetes 1\.32 and therefore OpenShift 4\.19 remove several APIs/);
+    unmount();
+    mockFetchRoutes(routes());
+    renderTab({ clusterVersion: clusterVersion(true) });
+    expect((await verdict()).dataset.status).toBe('no_go');
+    expect(screen.getByTestId('readiness-admin-ack').dataset.status).toBe('blocker');
   });
 
   it('Upgradeable=False when gates cannot be read: the command fallback stays', async () => {

@@ -74,67 +74,93 @@ describe('Admin › Quotas happy path', () => {
   });
 });
 
-describe.each([[403, 'Permission denied (403)'], [500, 'Request failed (500)']] as const)('Admin › Updates pre-update checklist with PDB/backup reads failing (%i)', (status, reason) => {
-  it('says "Could not check", not "No multi-replica user deployments" / "No automated backup configured"', async () => {
+describe.each([[403, 'Permission denied (403)'], [500, 'Request failed (500)']] as const)('Admin › Updates readiness with its reads failing (%i)', (status, reason) => {
+  it('says "Could not check" with the reason, never a pass or "Ready"', async () => {
     renderWithFailedRequests(<AdminView />, {
       status,
       route: '/admin?tab=updates',
       routes: { '/apis/config.openshift.io/v1/clusterversions': list([clusterVersion]) },
     });
-    const pdb = await screen.findByTestId('precheck-PodDisruptionBudgets');
-    await waitFor(() => expect(pdb.getAttribute('data-status')).toBe('unknown'));
-    expect(pdb.textContent).toContain(`Could not check: ${reason}`);
-    const backup = screen.getByTestId('precheck-Etcd backup');
-    await waitFor(() => expect(backup.getAttribute('data-status')).toBe('unknown'));
-    expect(backup.textContent).toContain(`Could not check: ${reason}`);
-    // Nodes and ClusterOperators failed too: not "0/0 ready" / "0 operators healthy".
-    for (const label of ['All nodes ready', 'No degraded operators']) {
-      const row = screen.getByTestId(`precheck-${label}`);
-      expect(row.getAttribute('data-status'), label).toBe('unknown');
-      expect(row.textContent, label).toContain(`Could not check: ${reason}`);
+    const pdb = await screen.findByTestId('readiness-pdbs');
+    for (const id of ['pdbs', 'etcd-backup', 'nodes', 'operators', 'csrs', 'cp-certs', 'etcd-health']) {
+      await waitFor(() => expect(screen.getByTestId(`readiness-${id}`).getAttribute('data-status'), id).toBe('unknown'));
+      expect(screen.getByTestId(`readiness-${id}`).textContent, id).toMatch(new RegExp(`Could not check: (.*: )?${reason.replace(/[()]/g, '\\$&')}`));
     }
-    expect(document.body.textContent).not.toMatch(/No multi-replica user deployments|No automated backup configured|Backup schedule configured|0\/0 ready|operators healthy/);
-    // Only the channel check, read from the ClusterVersion that did load, may pass.
-    const passing = [...document.querySelectorAll('[data-testid^="precheck-"][data-status="pass"]')].map((e) => e.getAttribute('data-testid'));
-    expect(passing).toEqual(['precheck-Stable update channel']);
+    expect(pdb.textContent).toContain(`PodDisruptionBudgets: ${reason}`);
+    await waitFor(() => expect(screen.getByTestId('readiness-alerts').getAttribute('data-status')).toBe('unknown'));
+    expect(screen.getByTestId('upgrade-readiness').getAttribute('data-verdict')).toBe('unknown');
+    expect(document.body.textContent).not.toMatch(/Ready to update|0\/0|operators 0\/0/);
+    // Only what follows from the ClusterVersion that did load may pass: its channel, and that a z-stream removes no API.
+    const passing = [...document.querySelectorAll('[data-testid^="readiness-"][data-status="passed"]')].map((e) => e.getAttribute('data-testid'));
+    expect(passing.sort()).toEqual(['readiness-channel', 'readiness-removed-apis']);
+    expectNoAllClear();
   });
 });
 
-describe('Admin › Updates pre-update checklist while reads are in flight', () => {
-  it('shows "Checking…", not a pass, for every check', async () => {
-    mockFetchRoutes({
-      '/apis/config.openshift.io/v1/clusterversions': list([clusterVersion]),
-      '/api/v1/nodes': () => { throw new Error('unused'); },
-    });
+describe('Admin › Updates readiness while reads are in flight', () => {
+  it('shows "Checking…", not a pass, for every check that needs a read', async () => {
+    mockFetchRoutes({ '/apis/config.openshift.io/v1/clusterversions': list([clusterVersion]) });
     // Everything but ClusterVersion hangs.
     const base = globalThis.fetch as unknown as (u: RequestInfo | URL, i?: RequestInit) => Promise<Response>;
     vi.stubGlobal('fetch', vi.fn((u: RequestInfo | URL, i?: RequestInit) => String(u).includes('/clusterversions') ? base(u, i) : new Promise(() => {})));
     renderWithClient(<AdminView />, { route: '/admin?tab=updates' });
-    const pdb = await screen.findByTestId('precheck-PodDisruptionBudgets');
-    for (const label of ['All nodes ready', 'No degraded operators', 'PodDisruptionBudgets', 'Etcd backup']) {
-      const row = screen.getByTestId(`precheck-${label}`);
-      expect(row.getAttribute('data-status'), label).toBe('unknown');
-      expect(row.textContent, label).toContain('Checking');
+    await screen.findByTestId('readiness-pdbs');
+    for (const id of ['nodes', 'operators', 'pdbs', 'etcd-backup', 'csrs', 'cp-certs', 'alerts']) {
+      const row = screen.getByTestId(`readiness-${id}`);
+      expect(row.getAttribute('data-status'), id).toBe('checking');
+      expect(row.textContent, id).toContain('Checking');
     }
-    expect(pdb.textContent).not.toMatch(/No multi-replica/);
+    expect(screen.getByTestId('upgrade-readiness').getAttribute('data-verdict')).toBe('checking');
   });
 });
 
-describe('Admin › Updates pre-update checklist happy path', () => {
-  it('a 404 on Backups is "no automated backup", and empty lists are a real answer', async () => {
+describe('Admin › Updates readiness happy path', () => {
+  it('a 404 on the backup APIs is "no Backup resource", unknown; empty lists are a real answer', async () => {
     mockFetchRoutes({
       '/apis/config.openshift.io/v1/clusterversions': list([clusterVersion]),
+      '/apis/operator.openshift.io/v1alpha1/etcdbackups': { status: 404, body: { kind: 'Status', code: 404 } },
       '/apis/config.openshift.io/v1alpha1/backups': { status: 404, body: { kind: 'Status', code: 404 } },
       '/apis/policy/v1/poddisruptionbudgets': list([]),
-      '/apis/apps/v1/deployments': list([]),
+      '/api/v1/pods': list([]),
+      '/api/v1/nodes': list([{ metadata: { name: 'm1', uid: 'm1' }, status: { conditions: [{ type: 'Ready', status: 'True' }] } }]),
+      '/apis/machineconfiguration.openshift.io/v1/machineconfigpools': list([]),
     });
     renderWithClient(<AdminView />, { route: '/admin?tab=updates' });
-    const pdb = await screen.findByTestId('precheck-PodDisruptionBudgets');
-    await waitFor(() => expect(pdb.textContent).toContain('No multi-replica user deployments'));
-    expect(pdb.getAttribute('data-status')).toBe('pass');
-    const backup = screen.getByTestId('precheck-Etcd backup');
-    await waitFor(() => expect(backup.textContent).toContain('No automated backup configured'));
-    expect(backup.getAttribute('data-status')).toBe('warn');
+    // A row moves into the "passed" list when it passes, so it is looked up again each time.
+    const pdb = () => screen.getByTestId('readiness-pdbs');
+    await waitFor(() => expect(pdb().getAttribute('data-status')).toBe('passed'));
+    expect(pdb().textContent).toContain('No PodDisruptionBudget with 0 disruptions allowed covers a pod on a node that will drain');
+    await waitFor(() => expect(screen.getByTestId('readiness-etcd-backup').getAttribute('data-status')).toBe('unknown'));
+    expect(screen.getByTestId('readiness-etcd-backup').textContent).toContain("No Backup resource (API not enabled); a cluster-backup.sh CronJob can't be detected here");
+    expect(screen.queryByRole('button', { name: 'Take backup now' })).toBeNull();
+  });
+});
+
+describe('Admin › Updates Recheck', () => {
+  it('re-reads every readiness read: alerts, PDBs, pods, CSRs, certificates, etcd, backups and the removed-API reads', async () => {
+    const fetchMock = mockFetchRoutes({
+      '/apis/config.openshift.io/v1/clusterversions': list([clusterVersion]),
+      '/api/v1/alerts': { body: { data: { alerts: [] } } },
+      '/apis/policy/v1/poddisruptionbudgets': list([]),
+      '/api/v1/pods': list([]),
+      '/api/v1/nodes': list([]),
+      '/certificatesigningrequests': list([]),
+      '/secrets?fieldSelector': list([]),
+      'openshift-etcd/pods': list([]),
+      '/etcdbackups': list([]),
+      '/v1alpha1/backups': list([]),
+      '/apirequestcounts': list([]),
+      '/configmaps/admin-gates': { body: { data: {} } },
+      '/configmaps/admin-acks': { body: { data: {} } },
+    });
+    renderWithClient(<AdminView />, { route: '/admin?tab=updates' });
+    const keys = ['/api/v1/alerts', '/apis/policy/v1/poddisruptionbudgets', '/api/kubernetes/api/v1/pods', '/certificatesigningrequests', 'secrets?fieldSelector', 'openshift-etcd/pods', '/etcdbackups', '/v1alpha1/backups', '/apirequestcounts', 'admin-gates', 'admin-acks'];
+    const count = (k: string) => fetchMock.mock.calls.filter(([u]) => String(u).includes(k)).length;
+    await waitFor(() => { for (const k of keys) expect(count(k), k).toBeGreaterThan(0); });
+    await waitFor(() => expect(screen.getByTestId('readiness-counts').textContent).toMatch(/checked/));
+    const before = Object.fromEntries(keys.map((k) => [k, count(k)]));
+    fireEvent.click(screen.getByRole('button', { name: 'Recheck' }));
+    await waitFor(() => { for (const k of keys) expect(count(k), k).toBeGreaterThan(before[k]); });
   });
 });
 

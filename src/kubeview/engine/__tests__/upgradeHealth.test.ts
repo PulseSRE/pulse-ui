@@ -235,10 +235,39 @@ describe('getBlockingPdbs', () => {
     expect(getBlockingPdbs(pdbs, pods, rolloutNodes)).toHaveLength(0);
   });
 
-  it('skips PDBs with an empty selector rather than guessing at a match', () => {
-    const pdbs = [{ metadata: { name: 'no-selector-pdb', namespace: 'my-app' }, spec: { selector: { matchLabels: {} } }, status: { disruptionsAllowed: 0 } }];
+  it('an empty selector ({}) covers every pod in the namespace (policy/v1); a missing selector covers none', () => {
     const pods = [{ metadata: { name: 'my-app-1', namespace: 'my-app', labels: { app: 'my-app' } }, spec: { nodeName: 'worker-1' } }];
+    const empty = [{ metadata: { name: 'all', namespace: 'my-app' }, spec: { selector: {} }, status: { disruptionsAllowed: 0 } }];
+    expect(getBlockingPdbs(empty, pods, rolloutNodes).map((p) => p.name)).toEqual(['all']);
+    const emptyLabels = [{ metadata: { name: 'all', namespace: 'my-app' }, spec: { selector: { matchLabels: {} } }, status: { disruptionsAllowed: 0 } }];
+    expect(getBlockingPdbs(emptyLabels, pods, rolloutNodes)).toHaveLength(1);
+    const missing = [{ metadata: { name: 'none', namespace: 'my-app' }, spec: {}, status: { disruptionsAllowed: 0 } }];
+    expect(getBlockingPdbs(missing, pods, rolloutNodes)).toHaveLength(0);
+  });
+
+  it('evaluates matchExpressions (In, NotIn, Exists, DoesNotExist)', () => {
+    const pod = (name: string, labels: Record<string, string>) => ({ metadata: { name, namespace: 'ns', labels }, spec: { nodeName: 'worker-1' } });
+    const pods = [pod('a', { tier: 'db' }), pod('b', { tier: 'web' }), pod('c', {})];
+    const pdb = (matchExpressions: Array<{ key: string; operator: string; values?: string[] }>) => [{ metadata: { name: 'p', namespace: 'ns' }, spec: { selector: { matchExpressions } }, status: { disruptionsAllowed: 0 } }];
+    const names = (r: ReturnType<typeof getBlockingPdbs>) => r.flatMap((x) => x.blockedPods.map((p) => p.name));
+    expect(names(getBlockingPdbs(pdb([{ key: 'tier', operator: 'In', values: ['db'] }]), pods, rolloutNodes))).toEqual(['a']);
+    expect(names(getBlockingPdbs(pdb([{ key: 'tier', operator: 'NotIn', values: ['db'] }]), pods, rolloutNodes))).toEqual(['b', 'c']);
+    expect(names(getBlockingPdbs(pdb([{ key: 'tier', operator: 'Exists' }]), pods, rolloutNodes))).toEqual(['a', 'b']);
+    expect(names(getBlockingPdbs(pdb([{ key: 'tier', operator: 'DoesNotExist' }]), pods, rolloutNodes))).toEqual(['c']);
+  });
+
+  it('ignores pods a drain does not evict: finished or pending, DaemonSet and mirror pods', () => {
+    const base = { namespace: 'ns', labels: { app: 'x' } };
+    const pods = [
+      { metadata: { name: 'done', ...base }, spec: { nodeName: 'worker-1' }, status: { phase: 'Succeeded' } },
+      { metadata: { name: 'pending', ...base }, spec: { nodeName: 'worker-1' }, status: { phase: 'Pending' } },
+      { metadata: { name: 'ds', ...base, ownerReferences: [{ kind: 'DaemonSet', controller: true }] }, spec: { nodeName: 'worker-1' } },
+      { metadata: { name: 'static', ...base, annotations: { 'kubernetes.io/config.mirror': 'abc' } }, spec: { nodeName: 'worker-1' } },
+    ];
+    const pdbs = [{ metadata: { name: 'p', namespace: 'ns' }, spec: { selector: { matchLabels: { app: 'x' } } }, status: { disruptionsAllowed: 0 } }];
     expect(getBlockingPdbs(pdbs, pods, rolloutNodes)).toHaveLength(0);
+    const running = [...pods, { metadata: { name: 'live', ...base }, spec: { nodeName: 'worker-1' }, status: { phase: 'Running' } }];
+    expect(getBlockingPdbs(pdbs, running, rolloutNodes)[0].blockedPods.map((p) => p.name)).toEqual(['live']);
   });
 
   it('returns nothing when no nodes are mid-rollout', () => {

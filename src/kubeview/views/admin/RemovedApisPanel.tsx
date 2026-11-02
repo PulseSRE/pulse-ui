@@ -44,9 +44,12 @@ export function useApiRemovalReads() {
     adminGates: gates.data as ReadResult<ConfigMap>,
     adminAcks: acks.data as ReadResult<ConfigMap>,
   };
+  const times = [arcs.dataUpdatedAt, gates.dataUpdatedAt, acks.dataUpdatedAt];
   return {
     clusterId,
     reads,
+    /** When the oldest of the three reads answered; 0 until all have. */
+    updatedAt: times.every((t) => t > 0) ? Math.min(...times) : 0,
     refetchAll: () => { void arcs.refetch(); void gates.refetch(); void acks.refetch(); },
     refetchAcks: () => acks.refetch(),
   };
@@ -202,6 +205,8 @@ export interface RemovedApisPanelProps {
   onRetry: () => void;
   onAcked: () => Promise<unknown> | void;
   go?: (path: string, title: string) => void;
+  /** The admin gates are shown elsewhere (the readiness panel's acknowledgement row). */
+  hideGates?: boolean;
 }
 
 /**
@@ -210,7 +215,7 @@ export interface RemovedApisPanelProps {
  * Shown before the update action; it never blocks the update (that is the
  * admin's call) but says plainly when updating will break callers.
  */
-export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTargetChange, targetLabel, clusterId, onRetry, onAcked, go }: RemovedApisPanelProps) {
+export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTargetChange, targetLabel, clusterId, onRetry, onAcked, go, hideGates }: RemovedApisPanelProps) {
   const [showUnused, setShowUnused] = React.useState(false);
   const listPath = useResourceListPath(clusterId);
 
@@ -331,7 +336,7 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
           </div>
         )}
 
-        {verdict && verdict.gates.length > 0 && (
+        {!hideGates && verdict && verdict.gates.length > 0 && (
           <div className="space-y-1.5">
             <div className="text-xs font-medium text-slate-300">Admin acknowledgements for {verdict.target?.ocp}</div>
             <AdminGateActions gates={verdict.gates} clusterId={clusterId} onAcked={onAcked} />

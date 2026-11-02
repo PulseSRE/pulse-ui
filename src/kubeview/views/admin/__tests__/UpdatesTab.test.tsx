@@ -20,10 +20,16 @@ vi.mock('../../../store/uiStore', () => ({
 
 vi.mock('../../../engine/query', () => ({
   k8sPatch: vi.fn().mockResolvedValue({}),
+  k8sCreate: vi.fn().mockResolvedValue({}),
+  // Readiness reads answer empty lists.
+  k8sList: vi.fn().mockResolvedValue([]),
+  k8sGet: vi.fn().mockResolvedValue({ metadata: { name: 'alice' } }),
 }));
 
 let canPatch = true;
 vi.mock('../../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: canPatch, isLoading: false }) }));
+
+vi.mock('../../../engine/askPulse', () => ({ askPulse: vi.fn() }));
 
 vi.mock('../../../engine/errorToast', () => ({
   showErrorToast: vi.fn(),
@@ -31,6 +37,7 @@ vi.mock('../../../engine/errorToast', () => ({
 
 import { UpdatesTab } from '../UpdatesTab';
 import { k8sPatch } from '../../../engine/query';
+import { askPulse } from '../../../engine/askPulse';
 import { showErrorToast } from '../../../engine/errorToast';
 import { PulseError } from '../../../engine/errors';
 import { registerCluster, setActiveClusterId, unregisterCluster } from '../../../engine/clusterConnection';
@@ -54,9 +61,8 @@ function renderTab(props: Partial<UpdatesTabProps> = {}) {
     isUpdating: false,
     operators: [],
     nodes: [],
-    deployments: [],
     pdbs: [],
-    etcdBackupExists: false,
+    firingAlerts: [],
     isHyperShift: false,
     machineConfigPools: [],
     pods: [],
@@ -142,46 +148,169 @@ describe('UpdatesTab', () => {
     expect(screen.getByText(/could not retrieve available updates: VersionNotFound/)).toBeDefined();
   });
 
-  it('shows pre-update checklist when updates are available', () => {
-    const nodes = [makeNode('node-1'), makeNode('node-2')];
-    const operators = [makeOperator('console'), makeOperator('dns')];
+  const row = (id: string) => screen.getByTestId(`readiness-${id}`);
 
+  it('readiness: nodes, operators and channel pass from the lists, in a "N passed" line', async () => {
     renderTab({
-      availableUpdates: [{ version: '4.15.5' }],
-      nodes: nodes as any,
-      operators: operators as any,
-      cvChannel: 'stable-4.15',
-      etcdBackupExists: true,
+      clusterVersion: makeClusterVersion(),
+      availableUpdates: [{ version: '4.15.5', image: 'quay.io/x@sha256:1' }],
+      nodes: [makeNode('node-1'), makeNode('node-2')] as any,
+      operators: [makeOperator('console'), makeOperator('dns')] as any,
     });
-
-    expect(screen.getByText('Pre-Update Checklist')).toBeDefined();
-    expect(screen.getByText('All nodes ready')).toBeDefined();
-    expect(screen.getByText('No degraded operators')).toBeDefined();
-    expect(screen.getByText('Stable update channel')).toBeDefined();
-    expect(screen.getByText('Etcd backup')).toBeDefined();
-    expect(screen.getByText('PodDisruptionBudgets')).toBeDefined();
+    expect(screen.getByRole('heading', { name: /to 4\.15\.5$/ })).toBeDefined();
+    expect(row('nodes').dataset.status).toBe('passed');
+    expect(row('nodes').textContent).toContain('2/2 nodes are Ready');
+    expect(row('operators').textContent).toContain('2/2 platform operators');
+    expect(row('channel').dataset.status).toBe('passed');
+    expect(screen.getByText(/checks? passed: .*nodes ready 2\/2 .*platform operators 2\/2 healthy/)).toBeDefined();
+    // A z-stream removes no API.
+    expect(row('removed-apis').dataset.status).toBe('passed');
+    expect(row('removed-apis').textContent).toMatch(/4\.15\.5 is a z-stream update/);
   });
 
-  it('shows checklist failures for degraded operators', () => {
-    const operators = [makeOperator('etcd', true)];
-
+  it('readiness: a degraded operator and an unready node are blockers; the verdict counts them', () => {
     renderTab({
-      availableUpdates: [{ version: '4.15.5' }],
-      operators: operators as any,
+      clusterVersion: makeClusterVersion(),
+      availableUpdates: [{ version: '4.15.5', image: 'quay.io/x@sha256:1' }],
+      operators: [makeOperator('etcd', true), makeOperator('dns')] as any,
+      nodes: [makeNode('node-1', true), makeNode('node-2', false)] as any,
     });
-
-    expect(screen.getByText(/1 degraded: etcd/)).toBeDefined();
+    expect(row('operators').dataset.status).toBe('blocker');
+    expect(row('operators').textContent).toMatch(/1\/2 platform operators healthy\. etcd \(Degraded\)/);
+    expect(row('nodes').dataset.status).toBe('blocker');
+    expect(row('nodes').textContent).toMatch(/1\/2 nodes are Ready\. Not ready: node-2/);
+    expect(screen.getByTestId('upgrade-readiness').dataset.verdict).toBe('not_ready');
+    expect(screen.getByRole('heading', { name: 'Not ready to update to 4.15.5' })).toBeDefined();
+    expect(screen.getByTestId('readiness-counts').textContent).toMatch(/^\d+ blockers/);
+    // The action stays enabled and states the risk.
+    expect(screen.getByTestId('update-action-risk').textContent).toMatch(/The update is your call\. With \d+ blockers open/);
+    expect((screen.getByRole('button', { name: /Start update/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('shows checklist failures for unready nodes', () => {
-    const nodes = [makeNode('node-1', true), makeNode('node-2', false)];
-
+  it('readiness: failed reads are Unknown with the reason, never a pass', () => {
+    const forbidden = Object.assign(new Error('forbidden'), { status: 403 });
     renderTab({
-      availableUpdates: [{ version: '4.15.5' }],
-      nodes: nodes as any,
+      clusterVersion: makeClusterVersion(),
+      availableUpdates: [{ version: '4.15.5', image: 'quay.io/x@sha256:1' }],
+      nodesError: forbidden, operatorsError: forbidden, pdbsError: forbidden,
+      firingAlerts: undefined, firingAlertsError: new Error('Prometheus returned 500 Internal Server Error'),
     });
+    for (const id of ['nodes', 'operators', 'pdbs']) {
+      expect(row(id).dataset.status, id).toBe('unknown');
+      expect(row(id).textContent, id).toMatch(/Could not check: .*Permission denied \(403\)/);
+    }
+    expect(row('alerts').dataset.status).toBe('unknown');
+    expect(row('alerts').textContent).toMatch(/Prometheus returned 500/);
+    expect(row('etcd-health').dataset.status).toBe('unknown');
+    expect(screen.getByTestId('upgrade-readiness').dataset.verdict).not.toBe('ready');
+    expect(document.body.textContent).not.toMatch(/Ready to update/);
+  });
 
-    expect(screen.getByText(/1\/2 ready/)).toBeDefined();
+  it('readiness: a PDB with 0 disruptions covering a pod on a node that will drain is a blocker with Edit PDB', () => {
+    const go = vi.fn();
+    const node = { ...makeNode('worker-1'), metadata: { ...makeNode('worker-1').metadata, labels: { 'node-role.kubernetes.io/worker': '' } } };
+    renderTab({
+      go,
+      clusterVersion: makeClusterVersion(),
+      availableUpdates: [{ version: '4.15.5', image: 'quay.io/x@sha256:1' }],
+      nodes: [node] as any,
+      pods: [{ apiVersion: 'v1', kind: 'Pod', metadata: { name: 'db-0', namespace: 'payments', uid: 'p', creationTimestamp: '', labels: { app: 'db' } }, spec: { containers: [], nodeName: 'worker-1' } }] as Pod[],
+      pdbs: [{ apiVersion: 'policy/v1', kind: 'PodDisruptionBudget', metadata: { name: 'db', namespace: 'payments', uid: 'pdb' }, spec: { selector: { matchLabels: { app: 'db' } }, minAvailable: 2 }, status: { disruptionsAllowed: 0, currentHealthy: 2 } }],
+    });
+    expect(row('pdbs').dataset.status).toBe('blocker');
+    expect(row('pdbs').textContent).toMatch(/payments\/db requires 2 available \(2 healthy\), so pod db-0 on worker-1 cannot be evicted/);
+    fireEvent.click(within(row('pdbs')).getByRole('button', { name: 'Edit PDB' }));
+    expect(go).toHaveBeenCalledWith('/yaml/policy~v1~poddisruptionbudgets/payments/db', 'db (YAML)');
+  });
+
+  it('readiness: a node only in a paused pool will not drain, so its PDB does not block', () => {
+    const node = { ...makeNode('worker-1'), metadata: { ...makeNode('worker-1').metadata, labels: { 'node-role.kubernetes.io/worker': '' } } };
+    renderTab({
+      clusterVersion: makeClusterVersion(),
+      availableUpdates: [{ version: '4.15.5', image: 'quay.io/x@sha256:1' }],
+      nodes: [node] as any,
+      machineConfigPools: [{ apiVersion: 'machineconfiguration.openshift.io/v1', kind: 'MachineConfigPool', metadata: { name: 'worker', uid: 'w', creationTimestamp: '' }, spec: { paused: true, nodeSelector: { matchLabels: { 'node-role.kubernetes.io/worker': '' } } } }] as MachineConfigPool[],
+      pods: [{ apiVersion: 'v1', kind: 'Pod', metadata: { name: 'db-0', namespace: 'payments', uid: 'p', creationTimestamp: '', labels: { app: 'db' } }, spec: { containers: [], nodeName: 'worker-1' } }] as Pod[],
+      pdbs: [{ apiVersion: 'policy/v1', kind: 'PodDisruptionBudget', metadata: { name: 'db', namespace: 'payments', uid: 'pdb' }, spec: { selector: { matchLabels: { app: 'db' } } }, status: { disruptionsAllowed: 0 } }],
+    });
+    expect(row('pdbs').dataset.status).toBe('passed');
+    expect(row('pdbs').textContent).toMatch(/Nodes in paused pool worker are not counted: their nodes will drain when unpaused/);
+    expect(screen.getByTestId('worker-pools-paused').textContent).toContain('worker');
+  });
+
+  it('readiness: critical alerts are a blocker that links to Alerts filtered to critical', () => {
+    const go = vi.fn();
+    renderTab({
+      go,
+      clusterVersion: makeClusterVersion(),
+      firingAlerts: [
+        { labels: { alertname: 'KubeAPIDown', severity: 'critical' }, state: 'firing' },
+        { labels: { alertname: 'Watchdog', severity: 'none' }, state: 'firing' },
+      ],
+    });
+    expect(row('alerts').dataset.status).toBe('blocker');
+    expect(row('alerts').textContent).toMatch(/1 critical alert firing: KubeAPIDown/);
+    fireEvent.click(within(row('alerts')).getByRole('button', { name: 'View critical alerts' }));
+    expect(go).toHaveBeenCalledWith('/alerts?severity=critical', 'Alerts');
+  });
+
+  it('readiness: HyperShift etcd and control-plane certificates are managed by the hosting provider', () => {
+    renderTab({ clusterVersion: makeClusterVersion(), isHyperShift: true, operators: [makeOperator('dns')] as any });
+    expect(row('etcd-backup').textContent).toContain('managed by the hosting provider');
+    expect(row('etcd-health').textContent).toContain('managed by the hosting provider');
+    expect(row('cp-certs').textContent).toContain('managed by the hosting provider');
+  });
+
+  it('Ask Pulse sends the readiness result as chat context', () => {
+    renderTab({ clusterVersion: makeClusterVersion(), availableUpdates: [{ version: '4.15.5', image: 'quay.io/x@sha256:1' }], nodes: [makeNode('node-1', false)] as any });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse' }));
+    expect(askPulse).toHaveBeenCalledWith(expect.stringMatching(/Not ready to update to 4\.15\.5[\s\S]*- Blocker: Nodes ready: 0\/1 nodes are Ready/), { kind: 'ClusterVersion', name: 'version' });
+  });
+
+  it('Ask Pulse is disabled on a remote cluster, with the agent dock\'s reason', async () => {
+    const { useFleetStore } = await import('../../../store/fleetStore');
+    useFleetStore.setState({ activeClusterId: 'east' });
+    try {
+      renderTab({ clusterVersion: makeClusterVersion() });
+      const ask = screen.getByRole('button', { name: 'Ask Pulse' }) as HTMLButtonElement;
+      expect(ask.disabled).toBe(true);
+      expect(ask.title).toBe('This agent runs on Local Cluster. Remote resource-context actions are unavailable.');
+      expect(screen.getByTestId('readiness-ask-disabled').textContent).toMatch(/runs on Local Cluster/);
+      fireEvent.click(ask);
+      expect(askPulse).not.toHaveBeenCalled();
+    } finally {
+      useFleetStore.setState({ activeClusterId: 'local' });
+    }
+  });
+
+  it('while the ClusterVersion is loading, its checks say Checking…, not Passed or Unknown', () => {
+    renderTab({ clusterVersion: null, clusterVersionLoading: true });
+    expect(row('channel').dataset.status).toBe('checking');
+    expect(row('removed-apis').dataset.status).toBe('checking');
+    expect(screen.getByTestId('upgrade-readiness').dataset.verdict).not.toBe('ready');
+  });
+
+  it('the stuck-update Re-apply confirm does not list the readiness blockers of a different target', async () => {
+    const cv = makeClusterVersion({
+      spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/x@sha256:old' } },
+      status: {
+        desired: { version: '4.21.27', image: 'quay.io/x@sha256:old' },
+        conditions: [{ type: 'Progressing', status: 'False', lastTransitionTime: new Date(Date.now() - 10 * 60000).toISOString() }],
+        history: [],
+      },
+    });
+    renderTab({
+      clusterVersion: cv,
+      nodes: [makeNode('node-1', false)] as any,
+      availableUpdates: [{ version: '4.21.28', image: 'quay.io/x@sha256:new' }, { version: '4.21.30', image: 'quay.io/x@sha256:newer' }],
+    });
+    // Readiness is for the picked target, 4.21.30.
+    expect(screen.getByRole('heading', { name: 'Not ready to update to 4.21.30' })).toBeDefined();
+    fireEvent.click(screen.getByText('Re-apply update to 4.21.28'));
+    expect(within(screen.getByRole('dialog')).queryByTestId('start-update-blockers')).toBeNull();
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: /Start update/ }));
+    expect(within(screen.getByRole('dialog')).getByTestId('start-update-blockers').textContent).toMatch(/Nodes ready: 0\/1/);
   });
 
   it('shows operator update progress when isUpdating is true', () => {
@@ -200,20 +329,6 @@ describe('UpdatesTab', () => {
   it('does not show operator progress when isUpdating is false', () => {
     renderTab({ isUpdating: false, operators: [makeOperator('console')] as any });
     expect(screen.queryByText('Operator Update Progress')).toBeNull();
-  });
-
-  it('hides pre-update checklist when no updates are available', () => {
-    renderTab({ availableUpdates: [] });
-    expect(screen.queryByText('Pre-Update Checklist')).toBeNull();
-  });
-
-  it('shows etcd backup managed by hosting provider for HyperShift', () => {
-    renderTab({
-      availableUpdates: [{ version: '4.15.5' }],
-      isHyperShift: true,
-    });
-
-    expect(screen.getByText('Managed by hosting provider')).toBeDefined();
   });
 
   it('shows the actual Degraded condition message on operators, not just a badge, and links to the operator detail page', () => {
@@ -472,7 +587,8 @@ describe('UpdatesTab', () => {
       renderGraph();
       fireEvent.click(screen.getByRole('button', { name: '4.16.8 — Recommended' }));
       expect((screen.getByRole('button', { name: 'Update to 4.16.8' }) as HTMLButtonElement).disabled).toBe(true);
-      expect(screen.getByText('You do not have permission to patch the ClusterVersion.')).toBeDefined();
+      expect((screen.getByRole('button', { name: /Start update/ }) as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getAllByText('You do not have permission to patch the ClusterVersion.').length).toBe(2);
       expect(screen.queryByText('Change')).toBeNull();
     });
 
@@ -631,7 +747,8 @@ describe('UpdatesTab', () => {
     renderTab({ clusterVersion: makeClusterVersion({ status: { conditions: [{ type: 'RetrievedUpdates', status: 'True' }], history: [] } as never }), availableUpdates: [{ version: '4.15.5' }] });
     fireEvent.click(screen.getByRole('button', { name: '4.15.5 — Recommended' }));
     expect((screen.getByRole('button', { name: 'Update to 4.15.5' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText('The update service gave no release image for this version.')).toBeDefined();
+    expect((screen.getByRole('button', { name: /Start update/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText('The update service gave no release image for this version.').length).toBe(2);
   });
 
 });

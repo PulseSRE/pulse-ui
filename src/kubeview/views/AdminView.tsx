@@ -16,7 +16,7 @@ import { safeQuery } from '../engine/safeQuery';
 import { isNotFound } from '../engine/readResult';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import type { K8sResource } from '../engine/renderers';
-import type { ClusterVersion, ClusterOperator, Node, Deployment, Condition, Namespace, MachineConfigPool, Pod } from '../engine/types';
+import type { ClusterVersion, ClusterOperator, Node, Condition, Namespace, MachineConfigPool, Pod } from '../engine/types';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useClusterStore } from '../store/clusterStore';
 import ClusterConfig from '../components/ClusterConfig';
@@ -165,7 +165,7 @@ export default function AdminView() {
   });
   const { data: operators = [], isLoading: opsLoading, isError: opsError } = operatorsQuery;
 
-  const { data: firingAlerts = [], error: firingAlertsError } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
+  const { data: firingAlertsData, error: firingAlertsError, dataUpdatedAt: firingAlertsAt, errorUpdatedAt: firingAlertsErrAt } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
     queryKey: ['admin', 'firing-alerts', clusterId],
     queryFn: async () => {
       const res = await promFetch('/api/v1/alerts', clusterId);
@@ -178,6 +178,8 @@ export default function AdminView() {
     },
     refetchInterval: 30000,
   });
+
+  const firingAlerts = React.useMemo(() => firingAlertsData ?? [], [firingAlertsData]);
 
   // A failed read is an error, not "no events" / "no expiring certificates":
   // the Overview shows it instead of hiding the panel.
@@ -261,43 +263,27 @@ export default function AdminView() {
     staleTime: 300000,
   });
 
-  // The pre-update PDB check needs both lists; if either cannot be read the
-  // check is "Could not check", never "No multi-replica user deployments".
-  const { data: pdbs = [], error: pdbsError, isLoading: pdbsLoading } = useQuery<PodDisruptionBudget[]>({
+  // The readiness drain check needs PDBs, pods and nodes; a failed read makes it unknown.
+  const { data: pdbs = [], error: pdbsError, isLoading: pdbsLoading, dataUpdatedAt: pdbsAt, errorUpdatedAt: pdbsErrAt } = useQuery<PodDisruptionBudget[]>({
     queryKey: ['k8s', 'list', '/apis/policy/v1/poddisruptionbudgets', undefined, clusterId],
     queryFn: () => k8sList<PodDisruptionBudget>('/apis/policy/v1/poddisruptionbudgets', undefined, clusterId),
     staleTime: 60000,
   });
 
-  const { data: deployments = [], error: deploymentsError, isLoading: deploymentsLoading } = useQuery<Deployment[]>({
-    queryKey: ['k8s', 'list', '/apis/apps/v1/deployments', undefined, clusterId],
-    queryFn: () => k8sList<Deployment>('/apis/apps/v1/deployments', undefined, clusterId),
-    staleTime: 60000,
-  });
-
   // Per-pool node rollout progress (updatedMachineCount/machineCount,
   // Degraded/Updating), watched so the bars move during an upgrade.
-  const { data: machineConfigPools = [] } = useK8sListWatch<MachineConfigPool>({
+  const { data: machineConfigPools = [], error: machineConfigPoolsError } = useK8sListWatch<MachineConfigPool>({
     apiPath: '/apis/machineconfiguration.openshift.io/v1/machineconfigpools',
     clusterId,
   });
 
-  // Pods are only needed to correlate PodDisruptionBudgets against nodes
-  // that are actually draining right now — skip the cluster-wide fetch
-  // entirely unless an update is actively progressing.
-  const { data: pods = [] } = useK8sListWatch<Pod>({
+  // Pods correlate PodDisruptionBudgets with nodes that will drain (the
+  // readiness check on Updates) or are draining now (during an update); the
+  // cluster-wide list is skipped everywhere else.
+  const { data: pods = [], error: podsError, isLoading: podsLoading } = useK8sListWatch<Pod>({
     apiPath: '/api/v1/pods',
-    enabled: (clusterVersion?.status?.conditions || []).some((c: Condition) => c.type === 'Progressing' && c.status === 'True'),
-  });
-
-  const { data: etcdBackupExists, error: etcdBackupError } = useQuery({
-    queryKey: ['admin', 'etcd-backup', clusterId],
-    // Backup is served at config.openshift.io/v1alpha1 (feature-gated by
-    // AutomatedEtcdBackup), not v1 — v1 has never existed for this resource.
-    // A 404 (API not served) means no automated backup; a 403 or 500 is an
-    // error and the checklist says it could not check.
-    queryFn: async () => { const items = await safeQuery(() => k8sList('/apis/config.openshift.io/v1alpha1/backups', undefined, clusterId)); return items ? items.length > 0 : false; },
-    staleTime: 60000,
+    clusterId,
+    enabled: activeTab === 'updates' || (clusterVersion?.status?.conditions || []).some((c: Condition) => c.type === 'Progressing' && c.status === 'True'),
   });
 
 
@@ -577,19 +563,23 @@ export default function AdminView() {
             isUpdating={isUpdating}
             operators={operators}
             nodes={nodes}
-            deployments={deployments}
             pdbs={pdbs}
-            pdbCheckError={pdbsError ?? deploymentsError ?? undefined}
-            pdbCheckLoading={pdbsLoading || deploymentsLoading}
+            pdbsError={pdbsError ?? undefined}
+            pdbsLoading={pdbsLoading}
             nodesError={nodesError ? (nodesErr ?? new Error('Nodes could not be read')) : undefined}
             nodesLoading={nodesLoading}
             operatorsError={opsError ? (operatorsQuery.error ?? new Error('ClusterOperators could not be read')) : undefined}
             operatorsLoading={opsLoading}
-            etcdBackupExists={etcdBackupExists}
-            etcdBackupError={etcdBackupError ?? undefined}
             isHyperShift={isHyperShift}
             machineConfigPools={machineConfigPools}
+            machineConfigPoolsError={machineConfigPoolsError ?? undefined}
             pods={pods}
+            podsError={podsError ?? undefined}
+            podsLoading={podsLoading}
+            firingAlerts={firingAlertsData}
+            firingAlertsError={firingAlertsError ?? undefined}
+            clusterVersionLoading={cvLoading}
+            readsUpdatedAt={[Math.max(firingAlertsAt, firingAlertsErrAt), Math.max(pdbsAt, pdbsErrAt)]}
             go={go}
           />
         )}
