@@ -2,8 +2,13 @@ import React from 'react';
 import type { K8sResource } from '../../engine/renderers';
 import type { Event } from '../../engine/types';
 import { PodSummary } from './PodSummary';
+import { PodHeader } from './PodHeader';
+import { ContainerFacts } from './ContainerFacts';
 import { IncidentContext } from './IncidentContext';
-import { LabelsSection, AnnotationsSection, DetailSection } from './MetadataSections';
+import { AskPulseCard, usePageChatContext } from './AskPulseCard';
+import { usePodOwner } from './usePodOwner';
+import { usePodUsage } from './usePodUsage';
+import { LabelsSection, AnnotationsSection } from './MetadataSections';
 import type { MetadataTarget } from './MetadataSections';
 import type { RelatedResource } from './types';
 
@@ -16,40 +21,39 @@ interface PodDetailLayoutProps {
   go: (path: string, title: string) => void;
 }
 
+/**
+ * The pod page, laid out to fix it where you find it: state and the numbers
+ * that explain a crash at the top, then each container's facts; the right
+ * column holds what to ask Pulse and the pod's metadata.
+ */
 export function PodDetailLayout({
   resource,
   namespace,
   events,
-  relatedResources,
   metaTarget,
   go,
 }: PodDetailLayoutProps) {
-  return (
-    <div className="space-y-6">
-      <PodSummary resource={resource} go={go} />
+  const { owner } = usePodOwner(resource);
+  const podNames = React.useMemo(() => [resource.metadata.name], [resource.metadata.name]);
+  const { usage, isLoading: usageLoading } = usePodUsage(namespace, podNames);
+  const context = { kind: 'Pod', name: resource.metadata.name, namespace, gvr: 'v1/pods' };
+  usePageChatContext(context);
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
+  return (
+    <div className="space-y-5">
+      <PodHeader pod={resource} owner={owner} usage={usage} usageLoading={usageLoading} go={go} />
+
+      <div className="flex flex-wrap items-start gap-5">
+        <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
+          <ContainerFacts pod={resource} go={go} />
+          <PodSummary resource={resource} go={go} />
           <IncidentContext resource={resource} managedPods={[]} events={events} namespace={namespace} go={go} />
         </div>
-        <div className="space-y-6">
+        <aside className="flex min-w-0 flex-[1_1_360px] flex-col gap-5">
+          <AskPulseCard context={context} placeholder="Why does this pod keep restarting?" />
           <LabelsSection resource={resource} target={metaTarget} />
           <AnnotationsSection resource={resource} target={metaTarget} />
-          {/* Owner */}
-          {relatedResources.length > 0 && (
-            <DetailSection title="Owner">
-              <div className="space-y-1">
-                {relatedResources.map((related, idx) => (
-                  <button key={idx} onClick={() => go(related.path, related.name)}
-                    className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300">
-                    <span className="text-xs text-slate-500">{related.type}</span>
-                    {related.name}
-                  </button>
-                ))}
-              </div>
-            </DetailSection>
-          )}
-        </div>
+        </aside>
       </div>
     </div>
   );

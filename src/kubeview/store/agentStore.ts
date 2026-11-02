@@ -52,6 +52,13 @@ interface AgentState {
   pendingViewSpec: import('../engine/agentComponents').ViewSpec | null;
   /** True when background health polling found an unread insight */
   hasUnreadInsight: boolean;
+  /**
+   * The resource the page on screen is about (a Pod or Deployment detail page).
+   * Typed questions in the dock are sent with it as context. Not persisted:
+   * it belongs to the page, which clears it when it unmounts.
+   */
+  pageContext: ResourceContext | null;
+  setPageContext: (context: ResourceContext | null) => void;
 
   connect: () => void;
   disconnect: () => void;
@@ -140,8 +147,10 @@ export const useAgentStore = create<AgentState>()(
       feedbackToast: null,
       pendingViewSpec: null,
       hasUnreadInsight: false,
+      pageContext: null,
 
       setUnreadInsight: (value) => set({ hasUnreadInsight: value }),
+      setPageContext: (context) => set({ pageContext: context }),
 
       connectAndSend: (content, context) => {
         const state = get();

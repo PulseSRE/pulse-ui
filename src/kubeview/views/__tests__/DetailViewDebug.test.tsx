@@ -18,6 +18,7 @@ vi.mock('../../components/metrics/prometheus', () => ({
   queryInstant: vi.fn().mockResolvedValue([]),
   queryRange: vi.fn().mockResolvedValue([]),
   getTimeRange: vi.fn().mockReturnValue([0, 1]),
+  metricsAvailableFor: () => true,
 }));
 vi.mock('../../components/metrics/Sparkline', () => ({
   MetricCard: ({ title }: { title: string }) => <div>{title}</div>,

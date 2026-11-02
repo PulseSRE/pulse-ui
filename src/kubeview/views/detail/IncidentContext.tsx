@@ -11,6 +11,7 @@ import type { Pod, Event, Container, ContainerStatus } from '../../engine/types'
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { Card } from '../../components/primitives/Card';
 import { useFleetStore } from '../../store/fleetStore';
+import { isWorkloadKind } from './workloadKinds';
 
 export function IncidentContext({ resource, managedPods, events, namespace, go }: {
   resource: K8sResource;
@@ -20,7 +21,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
   go: (path: string, title: string) => void;
 }) {
   const isPod = resource.kind === 'Pod';
-  const isWorkload = resource.kind === 'Deployment' || resource.kind === 'StatefulSet' || resource.kind === 'DaemonSet';
+  const isWorkload = isWorkloadKind(resource.kind);
 
   const worstPod = React.useMemo(() => {
     if (isPod) return resource;
