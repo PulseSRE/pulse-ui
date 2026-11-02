@@ -7,6 +7,7 @@ import { RolloutHistory } from './RolloutHistory';
 import { WorkloadAudit } from './WorkloadAudit';
 import { LabelsSection, AnnotationsSection } from './MetadataSections';
 import type { MetadataTarget } from './MetadataSections';
+import { AskPulseCard, usePageChatContext } from './AskPulseCard';
 
 interface DeploymentDetailLayoutProps {
   resource: K8sResource;
@@ -25,6 +26,8 @@ export function DeploymentDetailLayout({
   metaTarget,
   go,
 }: DeploymentDetailLayoutProps) {
+  const context = { kind: 'Deployment', name: resource.metadata.name, namespace, gvr: 'apps/v1/deployments' };
+  usePageChatContext(context);
   React.useEffect(() => {
     if (window.location.hash === '#rollback') {
       document.getElementById('rollback')?.scrollIntoView?.({ block: 'start' });
@@ -44,6 +47,7 @@ export function DeploymentDetailLayout({
           </div>
         </div>
         <div className="space-y-6">
+          <AskPulseCard context={context} placeholder="Why is this Deployment not available?" />
           <WorkloadAudit resource={resource} go={go} />
           <LabelsSection resource={resource} target={metaTarget} />
           <AnnotationsSection resource={resource} target={metaTarget} />

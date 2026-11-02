@@ -1,13 +1,8 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
 import { formatRelative } from '../../engine/format';
-import {
-  CheckCircle, XCircle, AlertCircle, Clock, Globe,
-  Server, Shield, Cpu, MemoryStick, Image,
-  ChevronDown, ChevronRight, HardDrive, Play, Pause, Square,
-} from 'lucide-react';
+import { Clock, Globe, Server, HardDrive } from 'lucide-react';
 import type { K8sResource } from '../../engine/renderers';
-import type { Pod, Container, ContainerPort, ContainerStatus, VolumeMount, Probe } from '../../engine/types';
+import type { Pod } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 
 interface PodSummaryProps {
@@ -15,290 +10,32 @@ interface PodSummaryProps {
   go: (path: string, title: string) => void;
 }
 
-function ProbeTag({ label, probe }: { label: string; probe: Probe | undefined }) {
-  if (!probe) return <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-600 rounded-sm">{label}: none</span>;
-  const type = probe.httpGet ? 'HTTP' : probe.tcpSocket ? 'TCP' : probe.exec ? 'Exec' : 'gRPC';
-  const detail = probe.httpGet ? `:${probe.httpGet.port}${probe.httpGet.path || '/'}` :
-    probe.tcpSocket ? `:${probe.tcpSocket.port}` : '';
-  return (
-    <span className="text-xs px-1.5 py-0.5 bg-green-900/30 text-green-400 rounded-sm" title={`${type}${detail}`}>
-      {label}: {type}{detail}
-    </span>
-  );
-}
-
-function StateIcon({ state }: { state: ContainerStatus['state'] }) {
-  if (!state) return <Square className="w-3.5 h-3.5 text-slate-500" />;
-  if (state.running) return <Play className="w-3.5 h-3.5 text-green-500" />;
-  if (state.waiting) return <Pause className="w-3.5 h-3.5 text-yellow-500" />;
-  if (state.terminated) return <Square className="w-3.5 h-3.5 text-slate-400" />;
-  return <Square className="w-3.5 h-3.5 text-slate-500" />;
-}
-
-export function PodSummary({ resource, go }: PodSummaryProps) {
+export function PodSummary({ resource }: PodSummaryProps) {
   const spec = resource.spec as Pod['spec'];
   const status = resource.status as Pod['status'] | undefined;
-  const ns = resource.metadata.namespace || '';
-  const name = resource.metadata.name;
-  const [expandedContainers, setExpandedContainers] = React.useState<Set<string>>(new Set());
-
-  const toggleContainer = (cname: string) => {
-    setExpandedContainers(prev => {
-      const next = new Set(prev);
-      if (next.has(cname)) next.delete(cname); else next.add(cname);
-      return next;
-    });
-  };
-
-  const phase = status?.phase || 'Unknown';
   const podIP = status?.podIP || '—';
   const hostIP = status?.hostIP || '';
-  const nodeName = spec?.nodeName || '—';
   const qosClass = status?.qosClass || '—';
   const serviceAccount = spec?.serviceAccountName || spec?.serviceAccount || '—';
   const restartPolicy = spec?.restartPolicy || 'Always';
-  const containers: Container[] = spec?.containers || [];
-  const initContainers: Container[] = spec?.initContainers || [];
   const volumes = spec?.volumes || [];
-  const containerStatuses: ContainerStatus[] = status?.containerStatuses || [];
-  const initContainerStatuses: ContainerStatus[] = status?.initContainerStatuses || [];
-  const totalRestarts = containerStatuses.reduce((sum, cs) => sum + (cs.restartCount || 0), 0);
-  const readyCount = containerStatuses.filter((cs) => cs.ready).length;
   const age = formatRelative(resource.metadata.creationTimestamp);
-
-  const phaseColor = phase === 'Running' ? 'text-green-400' :
-    phase === 'Succeeded' ? 'text-blue-400' :
-    phase === 'Failed' ? 'text-red-400' : 'text-yellow-400';
-  const phaseBorder = phase === 'Running' && readyCount === containers.length ? 'border-green-800/50' :
-    phase === 'Failed' ? 'border-red-800/50' : 'border-slate-800';
 
 
   return (
     <div className="space-y-4">
-      {/* Status cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className={cn('bg-slate-900 rounded-lg border p-3', phaseBorder)}>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-slate-400">Status</span>
-            {phase === 'Running' && readyCount === containers.length
-              ? <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-              : phase === 'Failed' ? <XCircle className="w-3.5 h-3.5 text-red-500" />
-              : <AlertCircle className="w-3.5 h-3.5 text-yellow-500" />}
-          </div>
-          <div className={cn('text-xl font-bold', phaseColor)}>{phase}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{readyCount}/{containers.length} ready</div>
-        </div>
-
-        <Card className="p-3">
-          <div className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Globe className="w-3 h-3" />Pod IP</div>
-          <div className="text-sm font-mono font-bold text-slate-100 truncate">{podIP}</div>
-          {hostIP && <div className="text-xs text-slate-500 mt-0.5">Host: {hostIP}</div>}
-        </Card>
-
-        <Card className="p-3">
-          <div className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Server className="w-3 h-3" />Node</div>
-          <button onClick={() => nodeName !== '—' ? go(`/r/v1~nodes/_/${nodeName}`, nodeName) : undefined}
-            className={cn('text-sm font-bold truncate block', nodeName !== '—' ? 'text-blue-400 hover:text-blue-300' : 'text-slate-100')}>
-            {nodeName}
-          </button>
-          <div className="text-xs text-slate-500 mt-0.5">{qosClass}</div>
-        </Card>
-
-        <Card className="p-3">
-          <div className="text-xs text-slate-400 mb-1">Service Account</div>
-          <div className="text-sm font-bold text-slate-100 truncate">{serviceAccount}</div>
-          <div className="text-xs text-slate-500 mt-0.5">restart: {restartPolicy}</div>
-        </Card>
-
-        <Card className="p-3">
-          <div className="text-xs text-slate-400 mb-1 flex items-center gap-1"><Clock className="w-3 h-3" />Age</div>
-          <div className="text-lg font-bold text-slate-100">{age}</div>
-          <div className="text-xs text-slate-500 mt-0.5">
-            {resource.metadata.creationTimestamp ? new Date(resource.metadata.creationTimestamp).toLocaleDateString() : ''}
-          </div>
-        </Card>
-
-        <div className={cn('bg-slate-900 rounded-lg border p-3', totalRestarts > 10 ? 'border-red-800/50' : totalRestarts > 0 ? 'border-yellow-800/50' : 'border-slate-800')}>
-          <div className="text-xs text-slate-400 mb-1">Restarts</div>
-          <div className={cn('text-lg font-bold', totalRestarts > 10 ? 'text-red-400' : totalRestarts > 0 ? 'text-amber-400' : 'text-green-400')}>{totalRestarts}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{containers.length} container{containers.length !== 1 ? 's' : ''}</div>
-        </div>
-      </div>
+      {/* Placement and identity. State, restarts and the last exit are in the
+          pod header; per-container facts in the container cards. */}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm md:grid-cols-3 lg:grid-cols-6" aria-label="Pod facts">
+        <div><dt className="text-xs text-slate-500 flex items-center gap-1"><Globe className="w-3 h-3" />Pod IP</dt><dd className="font-mono text-slate-200 truncate">{podIP}</dd></div>
+        <div><dt className="text-xs text-slate-500 flex items-center gap-1"><Server className="w-3 h-3" />Host IP</dt><dd className="font-mono text-slate-200 truncate">{hostIP || '—'}</dd></div>
+        <div><dt className="text-xs text-slate-500">QoS class</dt><dd className="text-slate-200">{qosClass}</dd></div>
+        <div><dt className="text-xs text-slate-500">Service account</dt><dd className="text-slate-200 truncate">{serviceAccount}</dd></div>
+        <div><dt className="text-xs text-slate-500">Restart policy</dt><dd className="text-slate-200">{restartPolicy}</dd></div>
+        <div><dt className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" />Age</dt><dd className="text-slate-200" title={resource.metadata.creationTimestamp}>{age}</dd></div>
+      </dl>
 
       {/* Pod CPU and memory sparklines are in the incident context panel (once). */}
-
-      {/* Init containers */}
-      {initContainers.length > 0 && (
-        <Card>
-          <div className="px-4 py-2.5 border-b border-slate-800">
-            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Init Containers ({initContainers.length})</h3>
-          </div>
-          <div className="divide-y divide-slate-800">
-            {initContainers.map((c, idx) => {
-              const cs = initContainerStatuses.find((s) => s.name === c.name);
-              const isReady = cs?.ready === true;
-              const state = cs?.state;
-              const stateLabel = state?.running ? 'Running' : state?.waiting ? (state.waiting.reason || 'Waiting') :
-                state?.terminated ? (state.terminated.reason || 'Completed') : 'Pending';
-              const terminated = state?.terminated;
-              return (
-                <div key={c.name} className="px-4 py-2.5 flex items-center gap-3">
-                  <div className={cn('w-2 h-2 rounded-full shrink-0',
-                    terminated?.exitCode === 0 ? 'bg-green-500' : isReady ? 'bg-blue-500' : state?.waiting ? 'bg-yellow-500' : 'bg-slate-500'
-                  )} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-200">{c.name}</span>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
-                        terminated?.exitCode === 0 ? 'bg-green-900/50 text-green-300' :
-                        state?.waiting ? 'bg-yellow-900/50 text-yellow-300' : 'bg-slate-800 text-slate-400'
-                      )}>{stateLabel}</span>
-                    </div>
-                    <div className="text-xs text-slate-400 font-mono truncate mt-0.5">{c.image}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
-
-      {/* Containers — rich detail cards */}
-      <Card>
-        <div className="px-4 py-2.5 border-b border-slate-800">
-          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Containers ({containers.length})</h3>
-        </div>
-        <div className="divide-y divide-slate-800">
-          {containers.map((c) => {
-            const cs = containerStatuses.find((s) => s.name === c.name);
-            const isReady = cs?.ready === true;
-            const restarts = cs?.restartCount ?? 0;
-            const state = cs?.state;
-            const stateLabel = state?.running ? 'Running' : state?.waiting ? (state.waiting.reason || 'Waiting') :
-              state?.terminated ? (state.terminated.reason || 'Terminated') : 'Unknown';
-            const started = state?.running?.startedAt;
-            const hasLimits = c.resources?.limits?.cpu || c.resources?.limits?.memory;
-            const hasRequests = c.resources?.requests?.cpu || c.resources?.requests?.memory;
-            const envCount = (c.env?.length || 0) + (c.envFrom?.length || 0);
-            const mountCount = c.volumeMounts?.length || 0;
-            const isExpanded = expandedContainers.has(c.name);
-
-            return (
-              <div key={c.name}>
-                <button onClick={() => toggleContainer(c.name)}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800/30 transition-colors text-left">
-                  <StateIcon state={state} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-slate-200">{c.name}</span>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
-                        isReady ? 'bg-green-900/50 text-green-300' :
-                        state?.waiting ? 'bg-yellow-900/50 text-yellow-300' :
-                        state?.terminated ? 'bg-slate-800 text-slate-400' : 'bg-yellow-900/50 text-yellow-300'
-                      )}>{stateLabel}</span>
-                      {restarts > 0 && (
-                        <span className={cn('text-xs', restarts > 5 ? 'text-red-400' : 'text-orange-400')}>{restarts} restart{restarts !== 1 ? 's' : ''}</span>
-                      )}
-                      {c.ports && (
-                        <span className="text-xs text-slate-500">
-                          :{(c.ports as ContainerPort[]).map(p => p.containerPort).join(', ')}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-slate-400 font-mono truncate mt-0.5">{c.image}</div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {hasLimits ? (
-                      <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm flex items-center gap-1">
-                        <Cpu className="w-3 h-3" /> {c.resources?.limits?.cpu || '—'}
-                        <MemoryStick className="w-3 h-3 ml-1" /> {c.resources?.limits?.memory || '—'}
-                      </span>
-                    ) : (
-                      <span className="text-xs px-1.5 py-0.5 bg-yellow-900/30 text-yellow-400 rounded-sm">no limits</span>
-                    )}
-                    {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                  </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="px-4 pb-3 pl-10 space-y-3">
-                    {/* Resources */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Requests</div>
-                        {hasRequests ? (
-                          <div className="text-xs text-slate-300 font-mono space-y-0.5">
-                            {c.resources?.requests?.cpu && <div>CPU: {c.resources.requests.cpu}</div>}
-                            {c.resources?.requests?.memory && <div>Memory: {c.resources.requests.memory}</div>}
-                          </div>
-                        ) : <div className="text-xs text-slate-600">none</div>}
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Limits</div>
-                        {hasLimits ? (
-                          <div className="text-xs text-slate-300 font-mono space-y-0.5">
-                            {c.resources?.limits?.cpu && <div>CPU: {c.resources.limits.cpu}</div>}
-                            {c.resources?.limits?.memory && <div>Memory: {c.resources.limits.memory}</div>}
-                          </div>
-                        ) : <div className="text-xs text-slate-600">none</div>}
-                      </div>
-                    </div>
-
-                    {/* Probes */}
-                    <div>
-                      <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Probes</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <ProbeTag label="liveness" probe={c.livenessProbe} />
-                        <ProbeTag label="readiness" probe={c.readinessProbe} />
-                        {c.startupProbe && <ProbeTag label="startup" probe={c.startupProbe} />}
-                      </div>
-                    </div>
-
-                    {/* State details */}
-                    {started && (
-                      <div className="text-xs text-slate-500">
-                        Started: {new Date(started).toLocaleString()}
-                      </div>
-                    )}
-                    {state?.waiting?.message && (
-                      <div className="text-xs text-yellow-400 bg-yellow-900/20 px-2 py-1 rounded-sm">{state.waiting.message}</div>
-                    )}
-                    {state?.terminated && (
-                      <div className="text-xs text-slate-400 space-y-0.5">
-                        <div>Exit code: <span className={cn('font-mono', state.terminated.exitCode === 0 ? 'text-green-400' : 'text-red-400')}>{state.terminated.exitCode}</span></div>
-                        {state.terminated.reason && <div>Reason: {state.terminated.reason}</div>}
-                        {state.terminated.finishedAt && <div>Finished: {new Date(state.terminated.finishedAt).toLocaleString()}</div>}
-                      </div>
-                    )}
-
-                    {/* Volume Mounts */}
-                    {mountCount > 0 && (
-                      <div>
-                        <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Volume Mounts ({mountCount})</div>
-                        <div className="space-y-0.5">
-                          {(c.volumeMounts as VolumeMount[]).map((vm) => (
-                            <div key={vm.mountPath} className="flex items-center gap-2 text-xs">
-                              <HardDrive className="w-3 h-3 text-slate-500" />
-                              <span className="text-slate-300 font-mono">{vm.mountPath}</span>
-                              <span className="text-slate-500">{vm.name}</span>
-                              {vm.readOnly && <span className="text-xs text-slate-600">(ro)</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Env summary */}
-                    {envCount > 0 && (
-                      <div className="text-xs text-slate-500">{envCount} environment variable{envCount !== 1 ? 's' : ''}</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Card>
 
       {/* Volumes */}
       {volumes.length > 0 && (

@@ -17,6 +17,9 @@ import { useFleetStore } from '../../store/fleetStore';
 import { useCanI } from '../../hooks/useCanI';
 import { jsonToYaml } from '../../engine/yamlUtils';
 import type { RelatedResource } from './types';
+import { isReplicatedWorkload } from './workloadKinds';
+import { JobRuns } from './JobRuns';
+import { usePageChatContext } from './AskPulseCard';
 
 const AmbientInsight = lazy(() => import('../../components/agent/AmbientInsight').then(m => ({ default: m.AmbientInsight })));
 
@@ -52,6 +55,8 @@ export function GenericDetailLayout({
   const { allowed: canEditData } = useCanI('update', '', resource.kind === 'Secret' ? 'secrets' : 'configmaps', namespace);
   const status = (resource.status as Record<string, unknown>) || {};
   const spec = (resource.spec as Record<string, unknown>) || {};
+  // Questions typed into the Pulse AI dock on a workload page are about it.
+  usePageChatContext(isWorkload && namespace ? { kind: resource.kind, name: resource.metadata.name, namespace, gvr: gvrKey } : null);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -131,8 +136,13 @@ export function GenericDetailLayout({
           </Card>
         )}
 
+        {/* A Job's attempts / a CronJob's runs, with the failed pod's log inline */}
+        {(resource.kind === 'Job' || resource.kind === 'CronJob') && namespace && (
+          <JobRuns resource={resource} managedPods={managedPods} go={go} />
+        )}
+
         {/* Managed Pods (workloads only) */}
-        {isWorkload && managedPods.length > 0 && (
+        {isWorkload && managedPods.length > 0 && resource.kind !== 'Job' && resource.kind !== 'CronJob' && (
           <ManagedPodsCard pods={managedPods} go={go} />
         )}
 
@@ -146,8 +156,8 @@ export function GenericDetailLayout({
           <RolloutHistory resource={resource} namespace={namespace} />
         )}
 
-        {/* Workload Health Audit */}
-        {isWorkload && resource && <WorkloadAudit resource={resource} go={go} />}
+        {/* Workload Health Audit (replicas, strategy, probes: not a Job's concerns) */}
+        {isReplicatedWorkload(resource.kind) && <WorkloadAudit resource={resource} go={go} />}
 
         {/* AI Insight + Inline Agent for pods and workloads */}
         {(resource.kind === 'Pod' || isWorkload) && namespace && (
