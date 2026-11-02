@@ -297,7 +297,7 @@ export function DockAgentPanel() {
     connected, mode, messages, streaming, streamingText, thinkingText,
     activeTools, activeSkills, completedTools, completedSkills,
     streamingComponents, pendingConfirm, error, feedbackToast,
-    connect, sendMessage, confirmAction, cancelQuery, clearChat,
+    connect, sendMessage, confirmAction, cancelQuery, clearChat, pageContext,
   } = useAgentStore(useShallow((s) => ({
     connected: s.connected, mode: s.mode, messages: s.messages,
     streaming: s.streaming, streamingText: s.streamingText, thinkingText: s.thinkingText,
@@ -306,7 +306,7 @@ export function DockAgentPanel() {
     streamingComponents: s.streamingComponents,
     pendingConfirm: s.pendingConfirm, error: s.error, feedbackToast: s.feedbackToast,
     connect: s.connect, sendMessage: s.sendMessage, confirmAction: s.confirmAction,
-    cancelQuery: s.cancelQuery, clearChat: s.clearChat,
+    cancelQuery: s.cancelQuery, clearChat: s.clearChat, pageContext: s.pageContext,
   })));
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
@@ -434,7 +434,9 @@ export function DockAgentPanel() {
 
     useActionPlanStore.getState().clearAwaitingCompletion();
 
-    const ctx = currentViewId ? { kind: 'custom_view', name: '', viewId: currentViewId } : undefined;
+    // A custom view, or the resource the page on screen is about (Pod and
+    // Deployment pages set it), goes with the question as context.
+    const ctx = currentViewId ? { kind: 'custom_view', name: '', viewId: currentViewId } : (pageContext ?? undefined);
     sendMessage(text, ctx);
     setInput('');
     if (inputRef.current) inputRef.current.style.height = 'auto';
@@ -562,6 +564,11 @@ export function DockAgentPanel() {
         </div>
       )}
 
+      {pageContext && !currentViewId && (
+        <div className="border-t border-slate-700 px-3 pt-1.5 text-xs text-slate-400" data-testid="dock-page-context">
+          Asking about {pageContext.kind} <span className="font-mono text-slate-300">{pageContext.namespace ? `${pageContext.namespace}/` : ''}{pageContext.name}</span>
+        </div>
+      )}
       {/* Input */}
       <div className="border-t border-slate-700 px-3 py-2 flex items-end gap-2">
         <div className={cn(

@@ -35,6 +35,7 @@ import { DeploymentDetailLayout } from './DeploymentDetailLayout';
 import { PodDetailLayout } from './PodDetailLayout';
 import { GenericDetailLayout } from './GenericDetailLayout';
 import { DeleteConfirmModal, DeleteProgressModal } from './DetailViewModals';
+import { isWorkloadKind } from './workloadKinds';
 import type { MetadataTarget } from './MetadataSections';
 
 interface DetailViewProps {
@@ -89,18 +90,41 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
     refetchInterval: 30000,
   });
 
-  // Fetch managed pods for workloads
-  const isWorkload = resource?.kind === 'Deployment' || resource?.kind === 'StatefulSet' || resource?.kind === 'DaemonSet';
+  // Fetch managed pods for workloads. Jobs and CronJobs are workloads too, so
+  // their pods, logs and events show here like a Deployment's.
+  const isWorkload = isWorkloadKind(resource?.kind);
+  const isCronJob = resource?.kind === 'CronJob';
   const selectorLabels = (resource?.spec as Deployment['spec'])?.selector?.matchLabels as Record<string, string> | undefined;
+  // A CronJob has no selector: its pods are those of the Jobs it created.
+  const { data: namespaceJobs } = useK8sListWatch<K8sResource>({
+    apiPath: '/apis/batch/v1/jobs',
+    namespace,
+    enabled: !!resource && isCronJob && !!namespace,
+  });
+  const ownedJobNames = React.useMemo(() => {
+    if (!isCronJob || !namespaceJobs || !resource) return [] as string[];
+    return namespaceJobs
+      .filter((j) => j.metadata.ownerReferences?.some((o) => o.kind === 'CronJob' && (resource.metadata.uid ? o.uid === resource.metadata.uid : o.name === name)))
+      .map((j) => j.metadata.name)
+      .sort();
+  }, [isCronJob, namespaceJobs, resource, name]);
+  const ownedJobKey = ownedJobNames.join(',');
   const podsApiPath = React.useMemo(() => {
-    if (!selectorLabels || !namespace) return '';
-    const labelSelector = Object.entries(selectorLabels).map(([k, v]) => `${k}=${v}`).join(',');
+    if (!namespace) return '';
+    let labelSelector = '';
+    if (isCronJob) {
+      if (!ownedJobKey) return '';
+      labelSelector = `job-name in (${ownedJobKey})`;
+    } else {
+      if (!selectorLabels) return '';
+      labelSelector = Object.entries(selectorLabels).map(([k, v]) => `${k}=${v}`).join(',');
+    }
     return `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(labelSelector)}`;
-  }, [selectorLabels, namespace]);
+  }, [selectorLabels, namespace, isCronJob, ownedJobKey]);
 
   const { data: managedPods = [] } = useK8sListWatch<K8sResource>({
     apiPath: podsApiPath,
-    enabled: !!resource && isWorkload && !!selectorLabels && !!namespace && !!podsApiPath,
+    enabled: !!resource && isWorkload && !!namespace && !!podsApiPath,
   });
 
   // Set dock context for logs tab
@@ -133,6 +157,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
   // Filter and sort events
   const sortedEvents = React.useMemo(() => {
     const managedPodNames = new Set(managedPods.map(p => p.metadata.name));
+    const jobNames = new Set(ownedJobNames);
     const filtered = isWorkload
       ? rawEvents.filter((ev) => {
           const objName = ev.involvedObject?.name || '';
@@ -140,6 +165,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           if (objName === name) return true;
           if (objKind === 'Pod' && managedPodNames.has(objName)) return true;
           if (objKind === 'ReplicaSet' && objName.startsWith(`${name}-`)) return true;
+          if (objKind === 'Job' && jobNames.has(objName)) return true;
           return false;
         })
       : rawEvents;
@@ -148,7 +174,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
       const bTime = b.lastTimestamp || b.firstTimestamp || '';
       return new Date(bTime).getTime() - new Date(aTime).getTime();
     });
-  }, [rawEvents, name, isWorkload, managedPods]);
+  }, [rawEvents, name, isWorkload, managedPods, ownedJobNames]);
 
   // Find related resources
   const resourceRegistry = useClusterStore((s) => s.resourceRegistry);
@@ -209,7 +235,15 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
   const handleViewLogs = () => {
     if (!namespace) return;
-    if (isWorkload) {
+    if (isCronJob) {
+      // No selector of its own: open the newest run's pod.
+      const newest = [...managedPods].sort((a, b) => new Date(b.metadata.creationTimestamp || 0).getTime() - new Date(a.metadata.creationTimestamp || 0).getTime())[0];
+      if (!newest) {
+        addToast({ type: 'warning', title: 'No pods to show logs for', detail: 'This CronJob has no runs with pods left. Pods are removed with their Job.' });
+        return;
+      }
+      go(`/logs/${namespace}/${newest.metadata.name}`, `${newest.metadata.name} (Logs)`);
+    } else if (isWorkload) {
       const selector = selectorLabels ? Object.entries(selectorLabels).map(([k, v]) => `${k}=${v}`).join(',') : `app=${name}`;
       go(`/logs/${namespace}/${name}?selector=${encodeURIComponent(selector)}&kind=${resource?.kind}`, `${name} (Logs)`);
     } else {

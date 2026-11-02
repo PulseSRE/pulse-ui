@@ -68,6 +68,7 @@ vi.mock('../../components/metrics/prometheus', () => ({
   queryInstant: vi.fn().mockResolvedValue([]),
   queryRange: vi.fn().mockResolvedValue([]),
   getTimeRange: vi.fn().mockReturnValue([0, 1]),
+  metricsAvailableFor: () => true,
 }));
 
 vi.mock('../../components/metrics/Sparkline', () => ({
@@ -417,13 +418,13 @@ describe('DetailView', () => {
     });
   });
 
-  it('shows containers section for pods in overview tab', async () => {
+  it('shows a section per container for pods in overview tab', async () => {
     mockK8sGet.mockResolvedValue(makePod());
 
     renderDetailView({ gvrKey: 'v1/pods', namespace: 'default', name: 'my-pod' });
 
     await waitFor(() => {
-      expect(screen.getByText('Containers (1)')).toBeDefined();
+      expect(screen.getByRole('region', { name: 'Container main' })).toBeDefined();
       expect(screen.getAllByText('main').length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText('nginx:latest').length).toBeGreaterThanOrEqual(1);
     });
@@ -597,5 +598,45 @@ describe('DetailView', () => {
 
       expect(mockK8sPatch).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('DetailView — Jobs as workloads', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockK8sList.mockResolvedValue([]);
+  });
+  afterEach(() => cleanup());
+
+  it('a Job page lists its pods by its selector and shows them as attempts', async () => {
+    mockK8sGet.mockResolvedValue({
+      apiVersion: 'batch/v1', kind: 'Job',
+      metadata: { name: 'report-28', namespace: 'ops', uid: 'j1', creationTimestamp: '2026-11-02T10:00:00Z' },
+      spec: { selector: { matchLabels: { 'controller-uid': 'j1' } }, template: { spec: { containers: [{ name: 'main', image: 'x' }] } } },
+      status: {},
+    });
+    renderDetailView({ gvrKey: 'batch/v1/jobs', namespace: 'ops', name: 'report-28' });
+    await waitFor(() => expect(mockK8sList).toHaveBeenCalledWith(
+      `/api/v1/namespaces/ops/pods?labelSelector=${encodeURIComponent('controller-uid=j1')}`, undefined, 'local',
+    ));
+    expect(await screen.findByRole('region', { name: 'Attempts' })).toBeDefined();
+    // Not a replicated workload: no HA/strategy audit.
+    expect(screen.queryByText('High Availability')).toBeNull();
+  });
+
+  it('a CronJob page finds its pods through the Jobs it created', async () => {
+    mockK8sGet.mockResolvedValue({
+      apiVersion: 'batch/v1', kind: 'CronJob',
+      metadata: { name: 'report', namespace: 'ops', uid: 'c1', creationTimestamp: '2026-11-01T10:00:00Z' },
+      spec: { schedule: '0 * * * *', jobTemplate: { spec: { template: { spec: { containers: [{ name: 'main', image: 'x' }] } } } } },
+    });
+    mockK8sList.mockImplementation(async (path: string) => (path === '/apis/batch/v1/jobs'
+      ? [{ apiVersion: 'batch/v1', kind: 'Job', metadata: { name: 'report-28', namespace: 'ops', uid: 'j1', ownerReferences: [{ kind: 'CronJob', name: 'report', uid: 'c1' }] }, status: {} }]
+      : []));
+    renderDetailView({ gvrKey: 'batch/v1/cronjobs', namespace: 'ops', name: 'report' });
+    await waitFor(() => expect(mockK8sList).toHaveBeenCalledWith(
+      `/api/v1/namespaces/ops/pods?labelSelector=${encodeURIComponent('job-name in (report-28)')}`, undefined, 'local',
+    ));
+    expect(await screen.findByRole('region', { name: 'Runs' })).toBeDefined();
   });
 });
