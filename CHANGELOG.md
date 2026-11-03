@@ -4,6 +4,10 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+## v2.37.0 (2026-11-03)
+
+Paired with pulse-agent v2.37.0; runs with pulse-operator v0.13.0. Pull requests #159–#187. Needs pulse-agent v2.37.0 for the readiness gate waivers (`GET`/`PUT`/`DELETE /readiness/waivers`, agent migration 042), the update graph and rollout history components (`get_cluster_updates`, `get_rollout_history`), the removed-API go/no-go (`check_upgrade_api_removals`) and the Pod page's "what changed?" (`GET /changes`). On an older agent the readiness view falls back to browser storage and the rest degrade to their previous behaviour.
+
 ### Added
 - **Update readiness on Admin › Updates (Wave 14).** One readiness panel above the update action replaces the pre-update checklist and the separate Removed APIs panel: an overall verdict (Ready / Not ready / Could not check) with counts, when it was checked, Recheck and Ask Pulse (the result goes to chat as context), and Blocker / Unknown / Passed rows with their fix: removed APIs still called ("See callers" opens the caller table), admin acknowledgement (Acknowledge), Upgradeable=False, PodDisruptionBudgets with 0 disruptions covering a pod on a node that will drain (paused pools excluded; Edit PDB), critical alerts (link to Alerts filtered to critical), pending CSRs, the earliest control-plane certificate expiry, etcd operator and member pod health, the latest EtcdBackup (Take backup now creates an EtcdBackup when that API is served and a PVC exists in openshift-etcd), nodes ready, platform operators healthy and the channel. A failed read is Unknown with its reason, never a pass, and passed rows collapse into one line. Below it, the update action has the target picker, "Pause worker pools first" and "Start update…", which stays enabled with blockers, says what is likely to go wrong, and lists the open blockers in its confirmation.
 
