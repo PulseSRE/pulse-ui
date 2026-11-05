@@ -54,6 +54,8 @@ export interface UpgradeGraphProps {
   renderPoolAction?: (poolName: string) => React.ReactNode;
   /** A warning shown beside a target's update button (e.g. removed APIs still in use); the button stays enabled. */
   updateWarning?: (target: UpgradeTarget) => React.ReactNode;
+  /** The page shows its own history table (Admin › Updates). */
+  hideHistory?: boolean;
 }
 
 interface Placed {
@@ -149,7 +151,7 @@ function LinkButton({ path, title, onNavigate, children }: { path?: string; titl
   );
 }
 
-export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason, onNavigate, readOnlyHint, hiddenBlockerTypes, updatesUnknownReason, renderPoolAction, updateWarning }: UpgradeGraphProps) {
+export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason, onNavigate, readOnlyHint, hiddenBlockerTypes, updatesUnknownReason, renderPoolAction, updateWarning, hideHistory }: UpgradeGraphProps) {
   const model = React.useMemo(() => (hiddenBlockerTypes?.length
     ? { ...fullModel, blockers: fullModel.blockers.filter((b) => !hiddenBlockerTypes.includes(b.type)) }
     : fullModel), [fullModel, hiddenBlockerTypes]);
@@ -318,7 +320,7 @@ export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason,
       {model.progress.phase === 'idle' && model.blockers.length > 0 && <Blockers model={model} onNavigate={onNavigate} />}
 
       {/* History */}
-      {model.history.length > 0 && <HistoryTimeline model={model} />}
+      {!hideHistory && model.history.length > 0 && <HistoryTimeline model={model} />}
     </div>
   );
 }
