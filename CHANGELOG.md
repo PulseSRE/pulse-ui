@@ -4,6 +4,12 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Added
+- **Subject access pages, "Remove access" and "Who can" (Wave 16).** Users, groups and service accounts now open a page (`/identity/users/:name`, `/identity/groups/:name`, `/identity/serviceaccounts/:namespace/:name`) listing every binding that grants them access, directly or through a group, as subject → group → binding → role, and their effective permissions per namespace computed by impersonating them with a read-only SelfSubjectRulesReview (once as the user and once per group, combined; an incomplete review is "Could not check"; without impersonate permission it says so). "Remove access…" lists every RoleBinding, ClusterRoleBinding and Group membership plus the User, Identity and OAuth tokens; per binding you choose "remove this subject only" (a JSON patch that `test`s the exact subject at its index before removing it, so a concurrent change is refused) or "delete binding"; each object is permission-checked, everything is dry-run first, the cluster is pinned, results are per object, previous versions can be downloaded, and removing your own last cluster-admin path needs a typed phrase. "Who can" on Access review lists every subject from OpenShift's ResourceAccessReview with the binding → role chain behind it (CSV export, ask in chat with the namespace attached); on a cluster that does not serve that API it says "not available" instead of guessing.
+
+### Changed
+- The RBAC tab is labelled Access review (`?tab=rbac` still works) and starts with "Who can"; the single-subject SubjectAccessReview check is now "Check one subject". User, group, service-account and cluster-admin names open the subject page.
+
 ## v2.37.0 (2026-11-03)
 
 Paired with pulse-agent v2.37.0; runs with pulse-operator v0.13.0. Pull requests #159–#187. Needs pulse-agent v2.37.0 for the readiness gate waivers (`GET`/`PUT`/`DELETE /readiness/waivers`, agent migration 042), the update graph and rollout history components (`get_cluster_updates`, `get_rollout_history`), the removed-API go/no-go (`check_upgrade_api_removals`) and the Pod page's "what changed?" (`GET /changes`). On an older agent the readiness view falls back to browser storage and the rest degrade to their previous behaviour.
