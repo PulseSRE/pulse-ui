@@ -395,7 +395,7 @@ describe('the live-updates toggle', () => {
   });
 });
 
-describe('Needs Attention "Ask AI"', () => {
+describe('What needs attention: Investigate', () => {
   afterEach(cleanup);
 
   it('is visible without hovering and asks Pulse AI about the item', () => {
@@ -407,9 +407,9 @@ describe('Needs Attention "Ask AI"', () => {
       '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('kube-apiserver', true)], isLoading: false },
     });
     renderPulse();
-    const ask = screen.getAllByRole('button', { name: /^Ask AI to diagnose/ })[0];
+    const ask = screen.getAllByRole('button', { name: 'Investigate' })[0];
     expect(ask.className).not.toContain('opacity-0');
     fireEvent.click(ask);
-    expect(askPulseMock).toHaveBeenCalledWith(expect.stringMatching(/^Diagnose: /));
+    expect(askPulseMock).toHaveBeenCalledWith(expect.stringMatching(/^Investigate: Operator kube-apiserver degraded/));
   });
 });

@@ -18,10 +18,27 @@ import { createTemplateUrl } from '../engine/createTemplates';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
 import type { PrometheusAlert } from '../engine/types/incident';
-import { k8sGet } from '../engine/query';
+import { k8sGet, k8sList } from '../engine/query';
 import { promFetch, METRICS_CLUSTER_ID } from '../components/metrics/prometheus';
 import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { useMetricsAvailable } from '../hooks/useClusterBase';
+import { askPulse } from '../engine/askPulse';
+import type { Node } from '../engine/types';
+import { suggestSilences, minutesToCover, describeMinutes, type AlertForSilence, type SilenceSuggestion } from '../engine/silences';
+import { SilenceConfirmDialog, type SilenceProposal } from './alerts/SilenceConfirmDialog';
+import { NamespaceUnhealthyPods, SilenceSuggestionBanner, TriageChip, nodeItem, useAlertTriage, type TriageState } from './alerts/AlertTriage';
+
+const DISMISSED_SUGGESTIONS_KEY = 'pulse-alerts-dismissed-silence-suggestions';
+
+function readDismissed(): string[] {
+  try {
+    const raw = localStorage.getItem(DISMISSED_SUGGESTIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 interface AlertGroup {
   name: string;
@@ -177,6 +194,64 @@ function LocalAlertsView() {
     refetchInterval: 60000,
     retry: 1,
   });
+
+  // Every firing and pending alert, before any namespace filter: what a
+  // silence would hide is cluster-wide, and so is the Inbox lookup.
+  const everyAlert = useMemo((): AlertForSilence[] => {
+    const out: AlertForSilence[] = [];
+    for (const group of alertGroups) {
+      for (const rule of group.rules) {
+        if (rule.type !== 'alerting') continue;
+        for (const alert of rule.alerts || []) {
+          if (alert.state === 'firing' || alert.state === 'pending') out.push({ labels: alert.labels, state: alert.state, activeAt: alert.activeAt });
+        }
+      }
+    }
+    return out;
+  }, [alertGroups]);
+  const triage = useAlertTriage(everyAlert, METRICS_CLUSTER_ID, !alertsError);
+
+  // Cordoned nodes, for "Pulse suggests a silence". A failed read means no
+  // suggestion, which is only the absence of a hint.
+  const { data: nodes = [] } = useQuery<Node[]>({
+    queryKey: ['k8s', 'list', 'nodes', METRICS_CLUSTER_ID, 'silence-suggestions'],
+    queryFn: () => k8sList<Node>('/api/v1/nodes', undefined, METRICS_CLUSTER_ID),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<string[]>(readDismissed);
+  const suggestions = useMemo(
+    () => suggestSilences(everyAlert, nodes).filter((x) => !dismissedSuggestions.includes(x.key)),
+    [everyAlert, nodes, dismissedSuggestions],
+  );
+  const dismissSuggestion = (key: string) => {
+    const next = [...dismissedSuggestions, key];
+    setDismissedSuggestions(next);
+    try { localStorage.setItem(DISMISSED_SUGGESTIONS_KEY, JSON.stringify(next.slice(-50))); } catch { /* per-viewer convenience only */ }
+  };
+  const [silenceProposal, setSilenceProposal] = useState<SilenceProposal | null>(null);
+  const proposalFor = (sg: SilenceSuggestion): SilenceProposal => {
+    const item = nodeItem(triage, everyAlert, sg.node);
+    const minutes = minutesToCover(item?.dueDate);
+    const due = item?.dueDate ? new Date(item.dueDate * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+    const cordoned = sg.cordonedAt ? ` Node cordoned ${new Date(sg.cordonedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : '';
+    return {
+      target: sg.node,
+      matchers: sg.matchers,
+      minutes,
+      minutesReason: due ? `covers the ${due} due time` : 'a default; shorten or lengthen to the work',
+      comment: item ? `${item.title} on ${sg.node} (Inbox: ${item.title}).${cordoned}` : `Planned maintenance on ${sg.node}.${cordoned}`,
+      owner: item?.claimedBy ?? null,
+      targetLabels: { node: sg.node },
+    };
+  };
+  const suggestionByAlert = (labels: Record<string, string>): SilenceSuggestion | undefined =>
+    suggestions.find((sg) => labels.node === sg.node && sg.alertnames.includes(labels.alertname));
+  const proposeMinutesFor = (labels: Record<string, string>): number => {
+    const sg = suggestionByAlert(labels);
+    return sg ? minutesToCover(nodeItem(triage, everyAlert, sg.node)?.dueDate) : 120;
+  };
+  const [unhealthyNs, setUnhealthyNs] = useState<{ namespace: string; alert: string } | null>(null);
 
   // Prometheus (alerts, rules) and Alertmanager (silences) fail separately:
   // a broken Alertmanager must not hide the firing list.
@@ -449,7 +524,7 @@ function LocalAlertsView() {
               <Bell className="w-6 h-6 text-red-500" />
               Alerts
             </h1>
-            <p className="text-sm text-slate-400 mt-1">Prometheus alerts, rules, and silences</p>
+            <p className="text-sm text-slate-400 mt-1">Reference list from Prometheus and Alertmanager. Triage happens in the Inbox; each firing row links to it.</p>
           </div>
           {backendUnavailable ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-red-900/30 border border-red-800 rounded-lg">
@@ -576,9 +651,27 @@ function LocalAlertsView() {
           )}
         </div>
 
+        {activeTab === 'firing' && !backendUnavailable && suggestions.slice(0, 1).map((sg) => (
+          <SilenceSuggestionBanner
+            key={sg.key}
+            suggestion={sg}
+            alerts={everyAlert}
+            item={nodeItem(triage, everyAlert, sg.node)}
+            onReview={() => setSilenceProposal(proposalFor(sg))}
+            onDismiss={() => dismissSuggestion(sg.key)}
+            onAsk={() => askPulse(`Should I silence ${sg.alertnames.join(' and ')} on node ${sg.node}? It is cordoned. Use propose_silence for node ${sg.node} and explain what it would hide.`)}
+          />
+        ))}
+
         {/* Firing alerts */}
         {activeTab === 'firing' && (
           <div className="space-y-2">
+            {triage.unsupported && (
+              <p className="text-xs text-slate-500" data-testid="triage-unavailable">Triage links are not available on this Pulse agent; it needs a newer agent version.</p>
+            )}
+            {unhealthyNs && (
+              <NamespaceUnhealthyPods namespace={unhealthyNs.namespace} fromAlert={unhealthyNs.alert} clusterId={METRICS_CLUSTER_ID} onClose={() => setUnhealthyNs(null)} go={go} />
+            )}
             {stateFilter !== 'all' && (
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 Showing {stateFilter === 'pending' ? 'pending alerts only' : 'silenced alerts only'}
@@ -628,7 +721,7 @@ function LocalAlertsView() {
                     <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{alerts.length}</span>
                   </div>
                   <div className="divide-y divide-slate-800">
-                    {alerts.map((item, idx) => <AlertRow key={idx} item={item} go={go} onSilence={openSilenceFormForAlert} />)}
+                    {alerts.map((item, idx) => <AlertRow key={idx} item={item} go={go} onSilence={openSilenceFormForAlert} triage={triage} suggestion={suggestionByAlert(item.alert.labels)} proposeMinutes={proposeMinutesFor(item.alert.labels)} onPropose={(sg) => setSilenceProposal(proposalFor(sg))} onOpenNamespace={(ns, alert) => setUnhealthyNs({ namespace: ns, alert })} />)}
                   </div>
                 </Card>
               ))
@@ -636,7 +729,7 @@ function LocalAlertsView() {
               // Flat view
               filteredAlerts.map((item, idx) => (
                 <Card key={idx}>
-                  <AlertRow item={item} go={go} onSilence={openSilenceFormForAlert} />
+                  <AlertRow item={item} go={go} onSilence={openSilenceFormForAlert} triage={triage} suggestion={suggestionByAlert(item.alert.labels)} proposeMinutes={proposeMinutesFor(item.alert.labels)} onPropose={(sg) => setSilenceProposal(proposalFor(sg))} onOpenNamespace={(ns, alert) => setUnhealthyNs({ namespace: ns, alert })} />
                 </Card>
               ))
             )}
@@ -939,6 +1032,18 @@ function LocalAlertsView() {
           {saveSilence.error && <LoadError className="mt-3" title="The silence was not saved" error={saveSilence.error} />}
         </ConfirmDialog>
 
+        {silenceProposal && (
+          <SilenceConfirmDialog
+            open
+            onClose={() => setSilenceProposal(null)}
+            proposal={silenceProposal}
+            alerts={everyAlert}
+            currentUser={currentUser}
+            clusterId={METRICS_CLUSTER_ID}
+            onCreated={() => { queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] }); }}
+          />
+        )}
+
         {selectedRule && (
           <RuleDetailDrawer rule={selectedRule} onClose={() => setSelectedRule(null)} go={go} onSilence={openSilenceFormForAlert} />
         )}
@@ -949,10 +1054,15 @@ function LocalAlertsView() {
 
 // ===== Alert Row Component =====
 
-function AlertRow({ item, go, onSilence }: {
+function AlertRow({ item, go, onSilence, triage, suggestion, proposeMinutes, onPropose, onOpenNamespace }: {
   item: { rule: string; group: string; alert: PrometheusAlert; severity: string; description: string; runbookUrl: string; firingDuration: string; isSilenced: boolean; namespace: string };
   go: (path: string, title: string) => void;
   onSilence: (labels: Record<string, string>) => void;
+  triage: TriageState;
+  suggestion?: SilenceSuggestion;
+  proposeMinutes: number;
+  onPropose: (sg: SilenceSuggestion) => void;
+  onOpenNamespace: (namespace: string, alert: string) => void;
 }) {
   const labels = item.alert.labels;
   const resource = alertResource(labels);
@@ -979,12 +1089,16 @@ function AlertRow({ item, go, onSilence }: {
           </button>
         )}
         {!resource && item.namespace && (
-          <button onClick={() => { useUIStore.getState().setSelectedNamespace(item.namespace); go('/r/v1~pods', 'Pods'); }} className="text-xs text-blue-400 hover:text-blue-300 mb-1 block">
-            {item.namespace} →
+          <button onClick={() => onOpenNamespace(item.namespace, item.alert.labels.alertname || item.rule)} className="text-xs text-blue-400 hover:text-blue-300 mb-1 block">
+            namespace {item.namespace} · unhealthy pods →
           </button>
         )}
 
         {item.description && <p className="text-xs text-slate-400 line-clamp-2">{item.description}</p>}
+
+        <div className="mt-1.5">
+          <TriageChip labels={item.alert.labels} state={item.alert.state} triage={triage} go={go} />
+        </div>
 
         <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
           <span>{item.group}</span>
@@ -996,6 +1110,16 @@ function AlertRow({ item, go, onSilence }: {
         </div>
       </div>
 
+      {suggestion && !item.isSilenced ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onPropose(suggestion); }}
+          className="px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 shrink-0 bg-violet-700 hover:bg-violet-600 text-white"
+          title="Review the silence Pulse proposes for this node"
+        >
+          <VolumeX className="w-3.5 h-3.5" />
+          Pulse proposes {describeMinutes(proposeMinutes)}
+        </button>
+      ) : (
       <button
         onClick={(e) => { e.stopPropagation(); onSilence(item.alert.labels); }}
         className={cn('px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 shrink-0 transition-colors',
@@ -1005,6 +1129,7 @@ function AlertRow({ item, go, onSilence }: {
         <VolumeX className="w-3.5 h-3.5" />
         {item.isSilenced ? 'Silenced' : 'Silence'}
       </button>
+      )}
     </div>
   );
 }

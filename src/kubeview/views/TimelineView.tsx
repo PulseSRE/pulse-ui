@@ -225,6 +225,10 @@ export default function TimelineView() {
           </p>
         )}
 
+        {timeline.configChangesNote && (
+          <p role="note" data-testid="timeline-config-note" className="text-xs text-slate-400">{timeline.configChangesNote}</p>
+        )}
+
         {timeline.eventsCapped && (
           <p role="status" className="text-xs text-amber-300/80">
             Events are capped at {CLUSTER_EVENTS_CAP} cluster-wide, so some in this range may be missing. Select a namespace to see all of its events.

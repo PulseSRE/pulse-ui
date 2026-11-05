@@ -18,7 +18,11 @@ import {
   correlateEntries,
   filterByTimeRange,
   resolvedAlertsToTimeline,
+  agentChangesToTimeline,
 } from '../engine/timeline';
+import { fetchChanges } from '../engine/changesApi';
+import { isAgentFeatureUnavailable } from '../engine/agentFeature';
+import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 import { useUIStore } from '../store/uiStore';
 import { useActiveClusterId } from './useClusterBase';
 import { promFetch, metricsAvailableFor, queryRange } from '../components/metrics/prometheus';
@@ -120,6 +124,28 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   });
   const { data: operators = [], isLoading: opsLoading, isError: opsError } = opsQuery;
 
+  // Workload and ConfigMap changes, with who made them, from the agent's
+  // GET /changes. The agent reads the cluster it runs on, so local only; and
+  // it lists a namespace's changes, so a namespace must be selected.
+  const changesEnabled = (categories?.has('config') ?? false) && clusterId === LOCAL_CLUSTER_ID && !!namespace;
+  const changesQuery = useQuery({
+    queryKey: ['timeline', 'agent-changes', clusterId, namespace ?? '', timeRange],
+    queryFn: () => {
+      const until = new Date();
+      return fetchChanges({ namespace, since: new Date(until.getTime() - TIME_RANGE_MS[timeRange]).toISOString(), until: until.toISOString() });
+    },
+    enabled: changesEnabled,
+    refetchInterval: 60000,
+    retry: false,
+  });
+  const changesUnsupported = isAgentFeatureUnavailable(changesQuery.error);
+  /** Why workload/ConfigMap changes are not in the config lane, when they are not. */
+  const configChangesNote = !(categories?.has('config') ?? false) ? null
+    : clusterId !== LOCAL_CLUSTER_ID ? 'Workload and ConfigMap changes come from the Pulse agent, which reads the local cluster only.'
+      : !namespace ? 'Select a namespace to add its workload and ConfigMap changes (with who made them) to the config lane.'
+        : changesUnsupported ? 'Workload and ConfigMap changes are not available on this Pulse agent; it needs a newer agent version.'
+          : null;
+
   const isLoading = eventsLoading || alertsLoading || rsLoading || deploysLoading || cvLoading || opsLoading;
 
   /** Sources that were asked for and could not be read. */
@@ -128,6 +154,9 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     categories?.has('event') && eventsError ? 'events' : '',
     categories?.has('rollout') && rsError ? 'rollouts' : '',
     categories?.has('config') && (cvError || opsError) ? 'config changes' : '',
+    changesEnabled && changesQuery.isError && !changesUnsupported ? 'workload and ConfigMap changes (Pulse agent)' : '',
+    changesEnabled && changesQuery.data && !changesQuery.data.available ? 'workload and ConfigMap changes (cluster unreachable)' : '',
+    ...(changesEnabled && changesQuery.data?.unreadable?.length ? [`part of the change history (${changesQuery.data.unreadable.join('; ')})`] : []),
   ].filter(Boolean);
 
   /**
@@ -160,6 +189,7 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     }
     if (categories?.has('config')) {
       all = all.concat(configChangesToTimeline(clusterVersion || null, operators || []));
+      if (changesQuery.data) all = all.concat(agentChangesToTimeline(changesQuery.data.changes));
     }
 
     // Filter by namespace
@@ -181,7 +211,7 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     const groups = correlateEntries(all);
 
     return { entries: all, correlationGroups: groups, counts };
-  }, [rawEvents, alertGroups, resolvedQuery.data, replicaSets, deployments, clusterVersion, operators, namespace, timeRange, categoriesKey]);
+  }, [rawEvents, alertGroups, resolvedQuery.data, replicaSets, deployments, clusterVersion, operators, changesQuery.data, namespace, timeRange, categoriesKey]);
 
   const entries = result?.entries || [];
   const correlationGroups = result?.correlationGroups || [];
@@ -190,7 +220,7 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   /** Number of categories asked for; with failedSources tells "incomplete" from "nothing could be read". */
   const requestedSources = categories instanceof Set ? categories.size : 0;
   const refetch = () => {
-    for (const q of [eventsQuery, alertsQuery, resolvedQuery, rsQuery, cvQuery, opsQuery]) {
+    for (const q of [eventsQuery, alertsQuery, resolvedQuery, rsQuery, cvQuery, opsQuery, changesQuery]) {
       if (q.isError) void q.refetch();
     }
   };
@@ -198,5 +228,5 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   /** Cluster-wide events hit the cap: older or unrelated events may be missing. */
   const eventsCapped = !namespace && (categories?.has('event') ?? false) && rawEvents.length >= CLUSTER_EVENTS_CAP;
 
-  return { entries, correlationGroups, counts, isLoading, failedSources, unavailableSources, requestedSources, refetch, eventsCapped };
+  return { entries, correlationGroups, counts, isLoading, failedSources, unavailableSources, requestedSources, refetch, eventsCapped, configChangesNote };
 }

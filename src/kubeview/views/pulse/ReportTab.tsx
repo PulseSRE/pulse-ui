@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Shield, AlertTriangle, AlertOctagon, Server,
   HeartPulse, ArrowRight, CheckCircle, Lock,
-  ChevronRight, ChevronDown, Info, FileText,
+  ChevronRight, Info, FileText,
   Activity, Database, Gauge, Calendar,
   ArrowUpCircle, Clock, Eye,
 } from 'lucide-react';
@@ -20,7 +20,7 @@ import { queryInstant } from '../../components/metrics/prometheus';
 import { MetricCard } from '../../components/metrics/Sparkline';
 import { CHART_COLORS } from '../../engine/colors';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
-import { diagnoseResource, type Diagnosis } from '../../engine/diagnosis';
+import { diagnoseResource } from '../../engine/diagnosis';
 import { resourceDetailUrl } from '../../engine/gvr';
 import type { K8sResource } from '../../engine/renderers';
 import type { Node, Pod, ClusterOperator, ClusterVersion, Condition, Event, Secret, PersistentVolumeClaim } from '../../engine/types';
@@ -32,6 +32,7 @@ import { Card } from '../../components/primitives/Card';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotice';
 import { metricsAvailableFor } from '../../components/metrics/prometheus';
+import { AttentionList, useAttentionModel } from './AttentionList';
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -40,15 +41,6 @@ interface ResourceQuota extends K8sResource {
 
 import { isSystemNamespace } from '../../engine/namespace';
 import { formatRelative } from '../../engine/format';
-
-interface AttentionItem {
-  severity: 'critical' | 'warning';
-  title: string;
-  detail: string;
-  path: string;
-  pathTitle: string;
-  steps?: string[];
-}
 
 const ZEN_MESSAGES = [
   'Your cluster is healthy. Nothing needs your attention right now.',
@@ -238,20 +230,12 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const clusterId = useActiveClusterId();
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [zenDismissed, setZenDismissed] = useState(() => sessionStorage.getItem('pulse-zen-dismissed') === 'true');
   /** Open AI sidebar in chat mode with a prompt */
   const askAgent = useCallback((prompt: string) => {
     askPulse(prompt);
   }, []);
 
-  const toggleExpanded = (key: string) => {
-    setExpandedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
 
   // === Queries ===
   const { data: tlsSecrets = [], isError: tlsSecretsError } = useQuery<Secret[]>({
@@ -338,17 +322,11 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const degradedOperators = useMemo(() => operators.filter((co) =>
     (co.status?.conditions || []).some((c) => c.type === 'Degraded' && c.status === 'True')
   ), [operators]);
-  const failedPods = useMemo(() => allPods.filter((p) => {
-    if (isSystemNamespace(p.metadata?.namespace)) return false;
-    const owners = p.metadata?.ownerReferences || [];
-    if (owners.some((o) => o.kind === 'Job')) return false;
-    const name = p.metadata?.name || '';
-    if (name.startsWith('installer-') || name.startsWith('revision-pruner-')) return false;
-    const statuses = p.status?.containerStatuses || [];
-    if (statuses.some((cs) => { const w = cs.state?.waiting?.reason; return w === 'CrashLoopBackOff' || w === 'ImagePullBackOff' || w === 'ErrImagePull'; })) return true;
-    if (p.status?.phase === 'Failed') { return !(statuses.length > 0 && statuses.every((cs) => cs.state?.terminated)); }
-    return false;
-  }), [allPods]);
+  // Pods the diagnosis engine flags (critical or warning), for the risk score
+  // and the suggested prompts. The list of problems itself is the monitor's
+  // (see AttentionList); this replaced a narrower filter of Home's own.
+  const problemPods = useMemo(() => userPods.filter((p) => p.status?.phase !== 'Succeeded'
+    && diagnoseResource({ ...p, kind: 'Pod' } as unknown as K8sResource).some((d) => d.severity === 'critical' || d.severity === 'warning')), [userPods]);
 
   const criticalAlerts = useMemo(() => alertIncidents.filter(a => a.severity === 'critical'), [alertIncidents]);
   const warningAlerts = useMemo(() => alertIncidents.filter(a => a.severity === 'warning'), [alertIncidents]);
@@ -356,8 +334,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const { certs: certInfos, unreadable: unreadableCerts } = useMemo(() => summarizeTlsSecrets(tlsSecrets), [tlsSecrets]);
   const certsExpiringSoon7 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry < 7), [certInfos]);
   const certsExpiringSoon30 = useMemo(() => certInfos.filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry >= 7 && c.daysUntilExpiry < 30), [certInfos]);
-  // Zone 1 lists 7–30 days; under 7 days is an Attention item in Zone 3.
-  const urgentCerts = useMemo(() => [...certInfos].filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry >= 7 && c.daysUntilExpiry < 30).sort((a, b) => (a.daysUntilExpiry ?? 9999) - (b.daysUntilExpiry ?? 9999)).slice(0, 5), [certInfos]);
+  // Zone 1 lists everything under 30 days, soonest first (under 7 days used to
+  // be a separate Attention row; the attention list is now the monitor's).
+  const urgentCerts = useMemo(() => [...certInfos].filter(c => c.daysUntilExpiry !== null && c.daysUntilExpiry < 30).sort((a, b) => (a.daysUntilExpiry ?? 9999) - (b.daysUntilExpiry ?? 9999)).slice(0, 5), [certInfos]);
 
   const readyNodes = useMemo(() => nodes.filter((n) => (n.status?.conditions || []).some((c) => c.type === 'Ready' && c.status === 'True')), [nodes]);
   const runningPods = useMemo(() => userPods.filter((p) => p.status?.phase === 'Running'), [userPods]);
@@ -389,18 +368,6 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     }
     return overages;
   }, [resourceQuotas]);
-
-  // Top restarting pods
-  const topRestartingPods = useMemo(() => {
-    return userPods
-      .map((p) => {
-        const restarts = (p.status?.containerStatuses || []).reduce((sum: number, cs) => sum + (cs.restartCount || 0), 0);
-        return { pod: p, restarts };
-      })
-      .filter(r => r.restarts > 5)
-      .sort((a, b) => b.restarts - a.restarts)
-      .slice(0, 5);
-  }, [userPods]);
 
   // Cluster version update
   const updateAvailable = useMemo(() => {
@@ -468,20 +435,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     });
   }, [operators, isHyperShift]);
 
-  // Diagnosed resources (for Zone 3 issues)
-  const _diagnosedResources = useMemo(() => {
-    const all = [...userPods, ...deployments, ...nodes, ...pvcs];
-    const results: { resource: K8sResource; diagnoses: Diagnosis[]; maxSeverity: 'critical' | 'warning' | 'info' }[] = [];
-    for (const resource of all) {
-      const diagnoses = diagnoseResource(resource);
-      if (diagnoses.length > 0) {
-        const hasCritical = diagnoses.some(d => d.severity === 'critical');
-        const hasWarning = diagnoses.some(d => d.severity === 'warning');
-        results.push({ resource, diagnoses, maxSeverity: hasCritical ? 'critical' : hasWarning ? 'warning' : 'info' });
-      }
-    }
-    return results.sort((a, b) => ({ critical: 0, warning: 1, info: 2 }[a.maxSeverity] - { critical: 0, warning: 1, info: 2 }[b.maxSeverity]));
-  }, [userPods, deployments, nodes, pvcs]);
+  const attention = useAttentionModel(useMemo(() => ({ pods: allPods, deployments, nodes, pvcs, operators }), [allPods, deployments, nodes, pvcs, operators]), clusterId);
 
   // Risk score
   const factors = useMemo(() => [
@@ -496,8 +450,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     // as "+915" against "max 100" in the breakdown.
     { label: 'Certs expiring <7d', count: certsExpiringSoon7.length, points: 15, max: 30 as number | null, score: Math.min(30, certsExpiringSoon7.length * 15) },
     { label: 'Certs expiring <30d', count: certsExpiringSoon30.length, points: 5, max: 15 as number | null, score: Math.min(15, certsExpiringSoon30.length * 5) },
-    { label: 'Failed pods', count: failedPods.length, points: 3, max: 15 as number | null, score: Math.min(15, failedPods.length * 3) },
-  ], [criticalAlerts, warningAlerts, unhealthyNodes, degradedOperators, certsExpiringSoon7, certsExpiringSoon30, failedPods]);
+    { label: 'Pods with problems', count: problemPods.length, points: 3, max: 15 as number | null, score: Math.min(15, problemPods.length * 3) },
+  ], [criticalAlerts, warningAlerts, unhealthyNodes, degradedOperators, certsExpiringSoon7, certsExpiringSoon30, problemPods]);
 
   const riskScore = useMemo(() => Math.min(100, factors.reduce((s, f) => s + f.score, 0)), [factors]);
 
@@ -506,38 +460,8 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     sessionStorage.setItem('pulse-zen-dismissed', 'true');
   }, []);
 
-  // Attention items (Zone 3)
-  const attentionItems = useMemo(() => {
-    const items: AttentionItem[] = [];
-    for (const co of degradedOperators) items.push({ severity: 'critical', title: `Operator ${co.metadata.name} degraded`, detail: 'Cluster operator not functioning', path: '/admin?tab=operators', pathTitle: 'Platform operators' });
-    for (const n of unhealthyNodes) items.push({ severity: 'critical', title: `Node ${n.metadata.name} NotReady`, detail: 'Not accepting workloads', path: `/r/v1~nodes/_/${n.metadata.name}`, pathTitle: n.metadata.name,
-      steps: ['Check kubelet status on the node', 'Review node conditions (DiskPressure, MemoryPressure)', 'Check network connectivity to control plane', 'Review system logs (journalctl -u kubelet)'] });
-    for (const a of criticalAlerts) items.push({ severity: 'critical', title: a.title || 'Critical alert', detail: a.namespace ? `in ${a.namespace}` : 'cluster-scoped', path: '/alerts', pathTitle: 'Alerts' });
-    for (const p of failedPods.slice(0, 5)) {
-      const reason = p.status?.containerStatuses?.find((cs) => cs.state?.waiting)?.state?.waiting?.reason || 'Error';
-      const steps = reason === 'CrashLoopBackOff'
-        ? ['Check pod logs for error messages', 'Verify image exists and is pullable', 'Check resource limits (OOM kills)', 'Review liveness probe configuration']
-        : reason === 'ImagePullBackOff' || reason === 'ErrImagePull'
-        ? ['Verify image name and tag are correct', 'Check registry credentials (imagePullSecrets)', 'Verify network connectivity to registry']
-        : ['Check pod events for details', 'Review pod logs', 'Verify configuration'];
-      items.push({ severity: 'warning', title: `${p.metadata.name} — ${reason}`, detail: p.metadata.namespace || '', path: `/r/v1~pods/${p.metadata.namespace}/${p.metadata.name}`, pathTitle: p.metadata.name, steps });
-    }
-    for (const c of certsExpiringSoon7) items.push({ severity: 'critical', title: `Cert ${c.name} expires in ${c.daysUntilExpiry}d`, detail: c.namespace, path: `/r/v1~secrets/${c.namespace}/${c.name}`, pathTitle: c.name });
-    // ArgoCD drift
-    const argoApps = argoApplications;
-    const outOfSync = argoApps.filter(a => a.status?.sync?.status === 'OutOfSync');
-    if (outOfSync.length > 0) {
-      items.push({ severity: 'warning', title: `${outOfSync.length} ArgoCD app${outOfSync.length > 1 ? 's' : ''} out of sync`, detail: outOfSync.map(a => a.metadata.name).slice(0, 3).join(', '), path: '/gitops', pathTitle: 'GitOps' });
-    }
-    const seen = new Set<string>();
-    return items.filter((item) => {
-      if (seen.has(item.title)) return false;
-      seen.add(item.title);
-      return true;
-    });
-  }, [degradedOperators, unhealthyNodes, criticalAlerts, failedPods, certsExpiringSoon7, argoApplications]);
-
-  const pendingPods = useMemo(() => userPods.filter((p) => p.status?.phase === 'Pending'), [userPods]);
+  // Argo CD drift is not a monitor finding; it stays a line of its own.
+  const outOfSync = useMemo(() => argoApplications.filter(a => a.status?.sync?.status === 'OutOfSync'), [argoApplications]);
 
   // Zen state: cluster is healthy, no issues
   const isZenState = riskScore <= 5
@@ -547,11 +471,12 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     && !postureIssues
     && warningAlerts.length === 0
     && (nodes.length > 0 || allPods.length > 0) // must have actual data loaded
-    && attentionItems.length === 0
+    && attention.source !== 'checking'
+    && attention.rows.length === 0
+    && attention.couldNotCheck.length === 0
+    && outOfSync.length === 0
     && criticalAlerts.length === 0
-    && pendingPods.length === 0
-    && topRestartingPods.length === 0
-    && failedPods.length === 0
+    && problemPods.length === 0
     && unhealthyNodes.length === 0
     && degradedOperators.length === 0;
 
@@ -716,7 +641,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
             {(degradedOperators.length > 0 || certsExpiringSoon7.length > 0) && (
               <a href="#pulse-attention" onClick={(e) => { e.preventDefault(); document.getElementById('pulse-attention')?.scrollIntoView?.({ behavior: 'smooth' }); }}
                 className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-1 text-xs text-red-300 hover:text-red-200">
-                {[degradedOperators.length > 0 && 'Degraded operators', certsExpiringSoon7.length > 0 && 'certificates expiring within 7 days'].filter(Boolean).join(' and ')} are listed under Needs Attention <ArrowRight className="w-3 h-3" />
+                {[degradedOperators.length > 0 && 'Degraded operators', certsExpiringSoon7.length > 0 && 'certificates expiring within 7 days'].filter(Boolean).join(' and ')}: see What needs attention <ArrowRight className="w-3 h-3" />
               </a>
             )}
           </Card>
@@ -744,7 +669,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
             <div className="flex items-center gap-2 text-slate-400 text-xs font-medium uppercase tracking-wider">
               <HeartPulse className="w-3.5 h-3.5" />Pods
             </div>
-            <div className={cn('text-2xl font-bold mt-1', failedPods.length > 0 ? 'text-amber-400' : 'text-green-400')}>
+            <div className={cn('text-2xl font-bold mt-1', problemPods.length > 0 ? 'text-amber-400' : 'text-green-400')}>
               {runningPods.length} / {userPods.length}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">user namespaces</div>
@@ -826,106 +751,15 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
       <div className="space-y-3" id="pulse-attention">
         <ZoneHeader number={3} title="Fire Alarm" subtitle="What's broken right now?" icon={<AlertOctagon className="w-4 h-4 text-red-400" />} />
 
-        {attentionItems.length > 0 && (
-          <div className="bg-slate-900 rounded-lg border border-red-900/30">
-            <div className="px-4 py-2.5 border-b border-slate-800 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span className="text-sm font-semibold text-slate-200">Needs Attention</span>
-              <span className="text-xs text-slate-500 ml-auto">{attentionItems.length} item{attentionItems.length !== 1 ? 's' : ''}</span>
-            </div>
-            <div className="divide-y divide-slate-800/50">
-              {attentionItems.map((item, i) => {
-                const key = `attention-${i}`;
-                const isExpanded = expandedItems.has(key);
-                return (
-                  <div key={i} className="relative group">
-                    <button onClick={() => item.steps ? toggleExpanded(key) : go(item.path, item.pathTitle)}
-                      className="w-full flex items-center gap-3 pl-4 pr-32 py-2.5 hover:bg-slate-800/50 transition-colors text-left">
-                      {item.severity === 'critical'
-                        ? <AlertOctagon className="w-4 h-4 text-red-400 shrink-0" />
-                        : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm text-slate-200">{item.title}</span>
-                        <span className="text-xs text-slate-500 ml-2">{item.detail}</span>
-                      </div>
-                      {item.steps
-                        ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-600 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />)
-                        : <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 shrink-0" />}
-                    </button>
-                    {/* Ask AI button: always visible (opacity-0 until hover hid it
-                        from keyboard and touch users). */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        askAgent(`Diagnose: ${item.title}. ${item.detail}`);
-                      }}
-                      aria-label={`Ask AI to diagnose ${item.title}`}
-                      className={cn(
-                        'absolute right-12 top-2.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity',
-                        AI_ACCENT.bg, AI_ACCENT.text, AI_ACCENT.border, 'border',
-                      )}
-                      title="Ask Pulse Agent to diagnose"
-                    >
-                      <AIIconStatic size={10} /> Ask AI
-                    </button>
-                    {isExpanded && item.steps && (
-                      <div className="px-4 pb-3 pl-11">
-                        <ol className="space-y-1 mb-2">
-                          {item.steps.map((step, si) => (
-                            <li key={si} className="flex items-start gap-2 text-xs text-slate-400">
-                              <span className="w-4 h-4 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{si + 1}</span>
-                              {step}
-                            </li>
-                          ))}
-                        </ol>
-                        <button onClick={() => go(item.path, item.pathTitle)}
-                          className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-                          Investigate <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <AttentionList model={attention} clusterId={clusterId} go={go} />
 
-        {pendingPods.length > 0 && (
-          <Card className="px-4 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-medium text-slate-200">{pendingPods.length} Pending Pod{pendingPods.length !== 1 ? 's' : ''}</span>
-            </div>
-            <div className="space-y-1">
-              {pendingPods.slice(0, 3).map((p) => (
-                <button key={p.metadata.uid} onClick={() => go(`/r/v1~pods/${p.metadata.namespace}/${p.metadata.name}`, p.metadata.name)}
-                  className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded-sm transition-colors">
-                  <span className="text-slate-300">{p.metadata.name}</span>
-                  <span className="text-slate-500">{p.metadata.namespace}</span>
-                </button>
-              ))}
-              {pendingPods.length > 3 && <div className="text-xs text-slate-500 px-2">+{pendingPods.length - 3} more</div>}
-            </div>
-          </Card>
-        )}
-
-        {topRestartingPods.length > 0 && (
-          <Card className="px-4 py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-medium text-slate-200">Top Restarting Pods</span>
-            </div>
-            <div className="space-y-1">
-              {topRestartingPods.map(({ pod, restarts }) => (
-                <button key={pod.metadata.uid} onClick={() => go(`/r/v1~pods/${pod.metadata.namespace}/${pod.metadata.name}`, pod.metadata.name)}
-                  className="w-full flex items-center justify-between text-xs text-left hover:bg-slate-800/50 px-2 py-1 rounded-sm transition-colors">
-                  <span className="text-slate-300">{pod.metadata.name}</span>
-                  <span className="text-amber-400 font-mono">{restarts} restarts</span>
-                </button>
-              ))}
-            </div>
-          </Card>
+        {outOfSync.length > 0 && (
+          <button type="button" onClick={() => go('/gitops', 'GitOps')} className="w-full flex items-center gap-2 text-xs text-left bg-slate-900 rounded-lg border border-slate-800 px-3 py-2 hover:border-slate-600">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-slate-200">{outOfSync.length} ArgoCD app{outOfSync.length > 1 ? 's' : ''} out of sync</span>
+            <span className="text-slate-500">{outOfSync.map(a => a.metadata.name).slice(0, 3).join(', ')}</span>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-600 ml-auto" />
+          </button>
         )}
 
         {/* All clear in Zone 3 */}
@@ -938,7 +772,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
         {/* No all-clear while alerts could not be read: zero is then unknown. */}
         {/* Also silent while the posture bar above counts open findings or
             alerts: one page, one verdict. Not a link — there is nothing to open. */}
-        {unavailable.length === 0 && !alertsError && !postureIssues && attentionItems.length === 0 && pendingPods.length === 0 && topRestartingPods.length === 0 && (
+        {unavailable.length === 0 && !alertsError && !postureIssues && attention.source === 'monitor' && attention.rows.length === 0 && attention.couldNotCheck.length === 0 && outOfSync.length === 0 && (
           <div role="status" className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
             <div className="text-sm font-medium text-slate-200">All clear</div>
@@ -1041,7 +875,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           </div>
           <div className="flex flex-wrap gap-2">
             {generateSmartPrompts({
-              failedPods: failedPods.map(p => {
+              failedPods: problemPods.map(p => {
                 const reason = p.status?.containerStatuses?.find((cs) => cs.state?.waiting)?.state?.waiting?.reason || p.status?.phase || 'Failed';
                 return { name: p.metadata.name, namespace: p.metadata.namespace || '', status: reason };
               }),
