@@ -239,11 +239,6 @@ See [Component Specs](#component-specs) for all `spec.kind` values.
 | `tool` | `string` | Tool name requiring confirmation |
 | `input` | `object` | Tool input parameters (shown to user) |
 | `nonce` | `string` | JIT nonce for replay prevention — client must echo this back |
-| `preview` | `object?` | Optional. What the write will do, computed by the agent as the caller (`create_silence`: exact matchers, `endsAt`, `createdBy`, `comment`, `hides` — or `hides: null` with `hidesError` — and `valid`/`error`; `expire_silence`: the silence it ends). The card shows it; `valid: false` disables Approve and auto-approve. Absent from older agents and most tools. Defined in pulse-agent API_CONTRACT.md |
-
-#### Alert triage — `POST /api/agent/inbox/by-alert`
-
-Used by Alerts › Firing & pending for the Triage chip on each firing row. Body `{"alerts": [{"labels": {...}}]}` (firing alerts only, ≤200), answer `{"results": [...]}` in the same order, each `{alertname, correlationKey, resource, item, related, episode}` where `item`/`related[]`/`episode.causeItem` are `{id, title, status, severity, namespace, claimedBy, dueDate, findingId, correlationKey, investigation: {id, summary, suspectedCause, recommendedFix, confidence} | null, fixReady}`. Contract defined in pulse-agent API_CONTRACT.md ("Alert triage"). 404/405 (an agent without the route) hides the chips with "not available on this agent"; another error or no answer in 5 s is "Could not check" with Retry on each row.
 
 Home's "What needs attention" and the Timeline config lane read `GET /api/agent/changes` (pulse-agent contract). A route-missing 404 (no `code`) means "not available on this agent".
 

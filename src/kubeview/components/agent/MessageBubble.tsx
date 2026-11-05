@@ -36,10 +36,6 @@ export function describeToolAction(tool: string, input: Record<string, unknown>)
       return `Rollback deployment ${input.namespace}/${input.name} to revision ${input.revision || 'previous'}`;
     case 'drain_node':
       return `Drain node ${input.node_name} (cordon + evict all pods, respecting PDBs)`;
-    case 'create_silence':
-      return `Create an Alertmanager silence for ${input.duration_minutes} minutes: ${input.matchers}`;
-    case 'expire_silence':
-      return `Expire Alertmanager silence ${input.silence_id}; its alerts notify again`;
     default:
       return `Execute ${tool}`;
   }
@@ -59,8 +55,6 @@ export function riskLevel(tool: string, input: Record<string, unknown>): { level
   if (tool === 'create_network_policy') return { level: 'MEDIUM', color: 'text-amber-400' };
   if (tool === 'rollback_deployment') return { level: 'HIGH', color: 'text-red-400' };
   if (tool === 'drain_node') return { level: 'HIGH', color: 'text-red-400' };
-  // A silence hides alerts from the on-call: never approved by a keystroke.
-  if (tool === 'create_silence') return { level: 'HIGH', color: 'text-red-400' };
   // Default to MEDIUM for unknown tools — safer than LOW
   return { level: 'MEDIUM', color: 'text-amber-400' };
 }

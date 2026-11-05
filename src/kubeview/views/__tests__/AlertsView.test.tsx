@@ -157,7 +157,7 @@ describe('AlertsView', () => {
 
   it('shows subtitle text', () => {
     renderAlerts();
-    expect(screen.getByText('Reference list from Prometheus and Alertmanager. Triage happens in the Inbox; each firing row links to it.')).toBeDefined();
+    expect(screen.getByText('Prometheus alerts, rules, and silences')).toBeDefined();
   });
 
   it('shows "No alerts firing" in the firing tab content when empty', async () => {

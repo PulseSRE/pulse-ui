@@ -16,7 +16,6 @@ interface AccessReviewSpec {
   resource: string;   // "pods", "deployments" etc
   namespace?: string; // optional — omit for cluster-scoped check
   subresource?: string; // e.g. "approval" for certificatesigningrequests/approval
-  name?: string;      // one object, for roles scoped by resourceNames
 }
 
 const WRITE_VERBS = new Set(['create', 'update', 'patch', 'delete', 'deletecollection']);
@@ -40,7 +39,6 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
           resource: spec.resource,
           ...(spec.namespace ? { namespace: spec.namespace } : {}),
           ...(spec.subresource ? { subresource: spec.subresource } : {}),
-          ...(spec.name ? { name: spec.name } : {}),
         },
       },
     };
@@ -62,7 +60,7 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
   }
 }
 
-export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string, opts: { enabled?: boolean; name?: string } = {}) {
+export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string, opts: { enabled?: boolean } = {}) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
   // The answer is about whoever the request runs as, so impersonation is part
   // of the cache key: an admin's "allowed" must not be reused after they start
@@ -74,8 +72,8 @@ export function useCanI(verb: string, group: string, resource: string, namespace
   const failOpen = !WRITE_VERBS.has(verb);
   const enabled = opts.enabled ?? true;
   const { data: allowed = failOpen, isLoading } = useQuery({
-    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, subresource, clusterId, impersonateUser ?? '', impersonateGroups, ...(opts.name ? [opts.name] : [])],
-    queryFn: () => checkAccess({ verb, group, resource, namespace, subresource, name: opts.name }, clusterId),
+    queryKey: ['rbac', 'can-i', verb, group, resource, namespace, subresource, clusterId, impersonateUser ?? '', impersonateGroups],
+    queryFn: () => checkAccess({ verb, group, resource, namespace, subresource }, clusterId),
     enabled,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     gcTime: 10 * 60 * 1000,

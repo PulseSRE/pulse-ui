@@ -8,9 +8,6 @@ import { cn } from '@/lib/utils';
 import { useFleetStore } from '../../store/fleetStore';
 import { clusterDisplayName } from '../../engine/pendingCluster';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
-import { SilencePreview, silencePreviewInvalid } from './SilencePreview';
-
-const SILENCE_TOOLS = new Set(['create_silence', 'expire_silence']);
 
 /** Tools that can be easily rolled back */
 const ROLLBACK_INFO: Record<string, string> = {
@@ -19,7 +16,6 @@ const ROLLBACK_INFO: Record<string, string> = {
   uncordon_node: 'Cordon the node again',
   restart_deployment: 'No rollback needed — pods restart with the same image',
   rollback_deployment: 'Roll forward to the version you just rolled back from',
-  expire_silence: 'Create the silence again with the same matchers',
 };
 
 /** Estimate what will happen for each tool */
@@ -41,10 +37,6 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
       return `The deployment will revert to revision ${input.revision || 'previous'}, triggering a rolling update.`;
     case 'restart_deployment':
       return 'A rolling restart will cycle all pods with the current spec.';
-    case 'create_silence':
-      return 'Alerts matching these matchers stop notifying until the silence ends. They still show in Alerts as silenced.';
-    case 'expire_silence':
-      return 'The silence ends now and the alerts it muted notify again.';
     default:
       return null;
   }
@@ -61,9 +53,6 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const description = describeToolAction(confirm.tool, confirm.input);
   const impact = impactDescription(confirm.tool, confirm.input);
   const rollback = ROLLBACK_INFO[confirm.tool];
-  const isSilence = SILENCE_TOOLS.has(confirm.tool);
-  // The agent already said the tool will refuse: approving would only run a refusal.
-  const refused = isSilence ? silencePreviewInvalid(confirm.preview) : null;
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
   const shouldAutoApprove = useTrustStore((s) => s.shouldAutoApprove);
@@ -80,7 +69,6 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const autoApprovedRef = useRef(false);
   useEffect(() => {
     if (autoApprovedRef.current) return;
-    if (refused) return;
     if (shouldAutoApprove(confirm.tool, risk.level)) {
       autoApprovedRef.current = true;
       recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
@@ -95,10 +83,10 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   }, [confirm.tool]);
 
   const handleApprove = useCallback(() => {
-    if (trustLevel === 0 || refused) return;
+    if (trustLevel === 0) return;
     recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
     onConfirm(true);
-  }, [trustLevel, refused, confirm.tool, risk.level, recordConfirmation, onConfirm]);
+  }, [trustLevel, confirm.tool, risk.level, recordConfirmation, onConfirm]);
 
   const handleDeny = useCallback(() => {
     recordConfirmation({ tool: confirm.tool, approved: false, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
@@ -119,7 +107,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   }, [risk.level, trustLevel, handleApprove, handleDeny]);
 
   // Don't render if auto-approved
-  if (shouldAutoApprove(confirm.tool, risk.level) && !refused) return null;
+  if (shouldAutoApprove(confirm.tool, risk.level)) return null;
 
   // Trust Level 0 (Observe) — auto-deny, don't show action buttons
   const isObserveMode = trustLevel === 0;
@@ -169,8 +157,6 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
             </div>
           )}
 
-          {isSilence && <SilencePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
-
           {/* Rollback info */}
           {rollback && (
             <div className="rounded-sm bg-slate-900/50 border border-slate-700 px-3 py-2">
@@ -212,8 +198,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
                 </button>
                 <button
                   onClick={handleApprove}
-                  disabled={!!refused}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded-sm transition-colors"
                   aria-label="Approve high-risk operation"
                 >
                   <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -224,8 +209,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
               <>
                 <button
                   onClick={handleApprove}
-                  disabled={!!refused}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded-sm transition-colors"
                   aria-label="Approve operation (Y)"
                 >
                   <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />

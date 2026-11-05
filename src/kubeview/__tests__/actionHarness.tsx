@@ -73,11 +73,8 @@ export function createHarness() {
     resetConnections();
   }
 
-  /**
-   * Requests that change something (not GET), in order. The Alerts page's
-   * Inbox lookup is a POST that only reads, so it is not one.
-   */
-  const writes = () => state.requests.filter((r) => r.method !== 'GET' && !r.url.endsWith('/api/agent/inbox/by-alert'));
+  /** Requests that change something (not GET), in order. */
+  const writes = () => state.requests.filter((r) => r.method !== 'GET');
 
   function setActive(id: string) {
     act(() => { useFleetStore.getState().setActiveCluster(id); });
