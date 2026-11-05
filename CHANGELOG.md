@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Added
+- **Who started an update, and why (Wave 14).** The start-update confirmation lists the open readiness blockers with a required "I understand and want to update anyway", asks for a required reason, shows the worker pools' state, whether the update can be undone, and an estimate from the last completed updates; it sends a dry run first. The same merge patch that sets `spec.desiredUpdate` appends `{version, startedAt, by, reason}` to the `pulse.openshift.io/update-log` annotation on ClusterVersion `version` (last 50 kept). Update history is a paged table of every entry with "Started by" and "Reason" ("not recorded" for older ones). During an update, a stuck ClusterOperator opens its related namespaces, their pods and each pod's logs, and drain blockers name the pod that can't be evicted. Inbox items for a cluster update open Admin › Updates (from the item's `metadata.ui_link` when it is an in-app path, else from its generator), as does a ClusterVersion `version` resource.
+
 ## v2.37.0 (2026-11-03)
 
 Paired with pulse-agent v2.37.0; runs with pulse-operator v0.13.0. Pull requests #159–#187. Needs pulse-agent v2.37.0 for the readiness gate waivers (`GET`/`PUT`/`DELETE /readiness/waivers`, agent migration 042), the update graph and rollout history components (`get_cluster_updates`, `get_rollout_history`), the removed-API go/no-go (`check_upgrade_api_removals`) and the Pod page's "what changed?" (`GET /changes`). On an older agent the readiness view falls back to browser storage and the rest degrade to their previous behaviour.
