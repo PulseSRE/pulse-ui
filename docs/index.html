@@ -14,7 +14,7 @@
 <body>
 <header class="wrap"><nav class="sites" aria-label="Pulse projects">
 <a class="mark" href="https://github.com/PulseSRE"><svg viewBox="0 0 68 36" aria-hidden="true"><path d="M0 20 H18 L22 24 L28 3 L34 32 L38 20 H50 L54 15 L58 20 H68" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/></svg><span>Pulse</span></a>
-<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.36.0</span>
+<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.37.0</span>
 </nav></header>
 <main>
 <section class="hero wrap" aria-labelledby="title">
@@ -127,6 +127,14 @@
 <div class="wrap">
 <h2 id="new">What's new</h2>
 <div class="release">
+<p class="when"><strong>v2.37.0</strong>3 November 2026<br>Pairs with agent v2.37.0 and operator v0.13.0</p>
+<ul>
+<li style="--c:var(--ok)"><b>Update readiness before you upgrade.</b> <span>One panel on Admin › Updates gives a Ready / Not ready / Could not check verdict, with each blocker and its fix: removed APIs still being called, admin acknowledgements, disruption budgets, certificate expiry, etcd health. A read that failed is shown as unknown, never as a pass.</span></li>
+<li style="--c:var(--trace)"><b>What changed around this pod.</b> <span>The Pod page answers "what changed?" from the resource, its owners, the ConfigMaps and Secrets it uses, Argo CD syncs and cluster upgrades — and each container's last termination says why it died, not just <code>CrashLoopBackOff</code>.</span></li>
+<li style="--c:var(--ask)"><b>Waivers are shared, not stuck in your browser.</b> <span>Waiving a readiness gate is recorded by the agent for the whole cluster, with who waived it and why, instead of living in one person's localStorage.</span></li>
+</ul>
+</div>
+<div class="release">
 <p class="when"><strong>v2.36.0</strong>30 October 2026<br>Pairs with agent v2.36.0 and operator v0.11.0</p>
 <ul>
 <li style="--c:var(--ok)"><b>Evidence names its tool call.</b> <span>Each piece of evidence shows the call it came from with its arguments, like <code>get_pod_logs(namespace=shop, pod_name=api-7f)</code>, and says plainly when a cited source was never read.</span></li>
@@ -165,7 +173,7 @@ pnpm verify     <span class="c"># type-check, lint, tests and build</span></code
 </section>
 </main>
 <footer><div class="wrap">
-<span>Pulse UI v2.36.0. MIT licensed.</span>
+<span>Pulse UI v2.37.0. MIT licensed.</span>
 <span><a href="https://github.com/PulseSRE/pulse-ui">Source</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/releases">Releases</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/blob/main/CHANGELOG.md">Changelog</a></span>
 </div></footer>
 </body>
