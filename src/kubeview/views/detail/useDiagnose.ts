@@ -5,12 +5,19 @@
  *   1. Reuse an open inbox item for the same resource — only one nobody has
  *      claimed, or one that already has an investigation (shown with when it
  *      was made) — else create one (POST /api/agent/inbox).
- *   2. POST /api/agent/inbox/{id}/investigate. The agent runs it (202, queued
- *      or running; idempotent) or refuses with a reason (409/429: budget,
- *      cooldown, concurrency), which is shown as is.
- *   3. Poll GET /api/agent/inbox/{id}/investigation, which reports
- *      queued/running/done/failed, until done or failed (polling stops) or 10
- *      minutes pass. A 404 means nothing has been recorded yet.
+ *   2. POST /api/agent/inbox/{id}/investigate (pulse-agent#233). 202 with
+ *      `{status|state: "queued"|"running", item_id, source, requested_by,
+ *      queued_at, started_at, finished_at, error, report_id}`; a call while a
+ *      run is in progress returns that run. 409 (closed item) and 429 (daily
+ *      budget, cost budget, circuit breaker, cooldown, concurrency) carry
+ *      `detail: {reason, message, retry_after}`, shown as is. 401: no
+ *      forwarded user token.
+ *   3. Poll GET /api/agent/inbox/{id}/investigation until its `state` is done
+ *      or failed (polling stops) or 10 minutes pass. Before a report exists
+ *      the body is `{item_id, state, run, error}`; with one it is the report
+ *      row (its own `status` is the report's, completed/failed) plus `state`
+ *      and `run`. `state` is what is read: a linked older report can sit
+ *      beside a new run that is still queued. 404: nothing recorded yet.
  *
  * Every outcome is said: the report, the refusal or failure reason, "no
  * report yet" after the window, or the agent being unreachable.
@@ -65,25 +72,51 @@ export type InvestigationRead =
   | { status: 'done'; report: InvestigationReport; at?: number }
   | { status: 'failed'; reason: string };
 
-/** GET …/investigation, read as the pipeline's status. */
+type Body = Record<string, unknown> | null;
+
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v ? v : undefined;
+}
+
+/** FastAPI's `detail`: a string, or #233's `{reason, message, retry_after}`. */
+function detailText(body: Body): string | undefined {
+  const d = body?.detail;
+  if (typeof d === 'string') return d || undefined;
+  if (d && typeof d === 'object') {
+    const o = d as Record<string, unknown>;
+    const msg = str(o.message) ?? str(o.reason);
+    const after = typeof o.retry_after === 'number' && o.retry_after > 0 ? o.retry_after : undefined;
+    if (msg) return after ? `${msg} (retry in ${after < 120 ? `${after}s` : `${Math.ceil(after / 60)} min`})` : msg;
+  }
+  return undefined;
+}
+
+async function readBody(res: Response): Promise<Body> {
+  try { return (await res.json()) as Body; } catch { return null; }
+}
+
+/** GET …/investigation, read as the pipeline's state. */
 export async function readInvestigation(itemId: string): Promise<InvestigationRead> {
   const res = await agentFetch(`/api/agent/inbox/${encodeURIComponent(itemId)}/investigation`);
   if (res.status === 404) return { status: 'none' };
-  let body: Record<string, unknown> | null = null;
-  try { body = (await res.json()) as Record<string, unknown>; } catch { body = null; }
+  const body = await readBody(res);
   if (!res.ok) {
-    const detail = typeof body?.detail === 'string' ? `: ${body.detail}` : '';
-    throw new AgentHttpError(res.status, `${res.status === 403 ? 'Permission denied (403)' : `Request failed (${res.status})`}${detail}`);
+    const detail = detailText(body);
+    const head = res.status === 401 ? 'Your session has no user token for the agent (401); sign in again'
+      : res.status === 403 ? 'Permission denied (403)' : `Request failed (${res.status})`;
+    throw new AgentHttpError(res.status, `${head}${detail ? `: ${detail}` : ''}`);
   }
-  const status = typeof body?.status === 'string' ? body.status : undefined;
-  if (status === 'queued' || status === 'running') return { status };
-  if (status === 'failed') {
-    const reason = [body?.error, body?.reason, body?.detail].find((x) => typeof x === 'string' && x) as string | undefined;
-    return { status: 'failed', reason: reason ?? 'the investigation failed' };
+  const run = (body?.run && typeof body.run === 'object' ? body.run : null) as Record<string, unknown> | null;
+  const isReport = !!(str(body?.id) || str(body?.summary) || str(body?.suspected_cause));
+  // `state` is the run's; an agent older than #233 has none, so the report's own status decides.
+  const state = str(body?.state) ?? (isReport ? (body?.status === 'failed' ? 'failed' : 'done') : undefined);
+  if (state === 'queued' || state === 'running') return { status: state };
+  if (state === 'failed') {
+    return { status: 'failed', reason: str(run?.error) ?? str(body?.error) ?? 'the investigation failed' };
   }
-  const report = (body?.report && typeof body.report === 'object' ? body.report : body) as InvestigationReport & Record<string, unknown>;
-  if (status === 'done' || report?.summary || report?.suspected_cause) {
-    return { status: 'done', report, at: toMs(report.completed_at ?? report.timestamp ?? report.created_at ?? body?.completed_at) };
+  if (state === 'done' && isReport) {
+    const report = body as unknown as InvestigationReport & Record<string, unknown>;
+    return { status: 'done', report, at: toMs(report.timestamp) ?? toMs(run?.finished_at) };
   }
   return { status: 'none' };
 }
@@ -91,7 +124,11 @@ export async function readInvestigation(itemId: string): Promise<InvestigationRe
 async function findOrCreateItem(t: DiagnoseTarget): Promise<{ itemId: string; reused: boolean; hasInvestigation: boolean }> {
   const list = await fetchInbox({ namespace: t.namespace, limit: 200 });
   const open = (list.items ?? []).filter((i) => !CLOSED.has(i.status) && sameResource(i, t));
-  const withInv = open.find((i) => !!(i.metadata as { investigation_id?: string } | undefined)?.investigation_id);
+  // An investigation report, or a run recorded on the item (#233: metadata.investigation_run).
+  const withInv = open.find((i) => {
+    const md = i.metadata as { investigation_id?: string; investigation_run?: unknown } | undefined;
+    return !!md?.investigation_id || !!md?.investigation_run;
+  });
   const unclaimed = open.find((i) => !i.claimed_by);
   const reuse = withInv ?? unclaimed;
   if (reuse) return { itemId: reuse.id, reused: true, hasInvestigation: reuse === withInv };
@@ -113,17 +150,20 @@ async function findOrCreateItem(t: DiagnoseTarget): Promise<{ itemId: string; re
 /** POST …/investigate: the run's phase, or the agent's reason for refusing. */
 async function requestInvestigation(itemId: string): Promise<{ run: RunPhase } | { refused: string }> {
   const res = await agentFetch(`/api/agent/inbox/${encodeURIComponent(itemId)}/investigate`, { method: 'POST' });
-  let body: Record<string, unknown> | null = null;
-  try { body = (await res.json()) as Record<string, unknown>; } catch { body = null; }
+  const body = await readBody(res);
   if (res.status === 409 || res.status === 429) {
-    const reason = [body?.reason, body?.detail].find((x) => typeof x === 'string' && x) as string | undefined;
-    return { refused: reason ?? (res.status === 429 ? 'the agent is busy or over its investigation budget' : 'the agent refused to start it') };
+    return { refused: detailText(body) ?? (res.status === 429 ? 'the agent is busy or over its investigation budget' : 'the item is closed') };
   }
   if (!res.ok) {
-    const detail = typeof body?.detail === 'string' ? `: ${body.detail}` : '';
-    throw new AgentHttpError(res.status, `${res.status === 403 ? 'You do not have permission to do this' : `Starting the investigation failed (${res.status})`}${detail}`);
+    const detail = detailText(body);
+    const head = res.status === 401 ? 'Your session has no user token for the agent (401); sign in again'
+      : res.status === 403 ? 'You do not have permission to do this'
+      : res.status === 404 ? 'The inbox item no longer exists (404)'
+      : `Starting the investigation failed (${res.status})`;
+    throw new AgentHttpError(res.status, `${head}${detail && res.status !== 404 ? `: ${detail}` : ''}`);
   }
-  return { run: body?.status === 'running' ? 'running' : 'queued' };
+  const phase = str(body?.state) ?? str(body?.status);
+  return { run: phase === 'running' ? 'running' : 'queued' };
 }
 
 export function useDiagnose(target: DiagnoseTarget) {

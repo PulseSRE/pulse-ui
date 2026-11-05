@@ -5,6 +5,12 @@
  * time; without one, Diagnose through the inbox (reusing an open item) with
  * the report in the same card; honest states when the agent is unreachable,
  * forbids the request (403) or fails (500).
+ *
+ * The agent replies are pulse-agent#233's real shapes: POST …/investigate
+ * answers 202 with the run (`state`/`status` queued|running) or 409/429 with
+ * `detail: {reason, message, retry_after}`; GET …/investigation answers
+ * `{item_id, state, run, error}` before a report exists and the report row
+ * plus `state`/`run` after, where `state` (not the row's `status`) decides.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
@@ -84,21 +90,37 @@ describe('no finding', () => {
 
   const emptyInbox: [RegExp, string, Reply] = [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [], groups: [], stats: {}, total: 0 } }];
   const created: [RegExp, string, Reply] = [/\/api\/agent\/inbox$/, 'POST', { status: 201, body: { id: 'it-1', item_type: 'task', status: 'new' } }];
-  const report = { id: 'r', summary: 's', suspected_cause: 'Memory limit too low for the new cache size.', recommended_fix: '', confidence: 0.8, evidence: ['heap at limit'], alternatives_considered: ['DNS'] };
+
+  // pulse-agent#233's shapes. The run, as POST …/investigate returns it and GET reports it under `run`:
+  const runOf = (state: string, extra: Record<string, unknown> = {}) => ({
+    item_id: 'it-1', state, source: 'request', requested_by: 'alice', queued_at: 1_762_000_000,
+    started_at: state === 'queued' ? null : 1_762_000_005, finished_at: state === 'done' || state === 'failed' ? 1_762_000_100 : null,
+    error: null, report_id: null, ...extra,
+  });
+  // 202 from POST …/investigate: the run plus status (= state) and ok.
+  const started = (state: string) => ({ status: 202, body: { ok: true, ...runOf(state), status: state } });
+  // GET …/investigation before a report exists: {item_id, state, run, error}.
+  const pending = (state: string, error: string | null = null) => ({ status: 200, body: { item_id: 'it-1', state, run: runOf(state, { error }), error } });
+  // GET …/investigation with a report: the investigations row (its status is the report's) plus state and run.
+  const row = { id: 'inv-1', finding_id: 'f', timestamp: 1_762_000_100_000, category: 'task', severity: 'warning', status: 'completed', summary: 's', suspected_cause: 'Memory limit too low for the new cache size.', recommended_fix: '', confidence: 0.8, error: null, resources: [], evidence: ['heap at limit'], alternatives_considered: ['DNS'], evidence_detail: [], security_notes: [] };
+  const withReport = (state: string, extra: Record<string, unknown> = {}) => ({ status: 200, body: { ...row, ...extra, state, run: runOf(state, { report_id: 'inv-1' }) } });
+  const refusal = (status: number, reason: string, message: string, retry_after: number | null) => ({ status, body: { detail: { reason, message, retry_after } } });
 
   it('creates an item for the pod, starts the investigation, shows queued then running, then the report, and stops polling', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    const seq: Reply[] = [{ status: 200, body: { status: 'running' } }, { status: 200, body: { status: 'done', ...report } }];
+    const seq: Reply[] = [pending('queued'), pending('running'), withReport('done')];
     routes = [
       emptyInbox, created,
-      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'queued' } }],
-      [/inbox\/it-1\/investigation$/, 'GET', () => seq.shift() ?? { status: 200, body: { status: 'done', ...report } }],
+      [/inbox\/it-1\/investigate$/, 'POST', started('queued')],
+      [/inbox\/it-1\/investigation$/, 'GET', () => seq.shift() ?? withReport('done')],
     ];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Queued for investigation/);
     const [, init] = calls('POST', /\/api\/agent\/inbox$/)[0];
     expect(JSON.parse(String(init!.body))).toMatchObject({ namespace: 'payments', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }] });
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    expect(screen.getByTestId('diagnose-run').textContent).toMatch(/^Queued for investigation/);
     await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
     await waitFor(() => expect(screen.getByTestId('diagnose-run').textContent).toMatch(/^Investigating/));
     await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
@@ -110,24 +132,55 @@ describe('no finding', () => {
     expect(calls('GET', /investigation$/).length).toBe(polls);
   });
 
-  it.each([[409, 'cooldown: this resource was investigated 4 minutes ago'], [429, 'daily investigation budget reached']])('a %s refusal shows the agent\'s reason', async (status, reason) => {
-    routes = [emptyInbox, created, [/inbox\/it-1\/investigate$/, 'POST', { status, body: { detail: reason } }]];
+  it('a new run beside an older linked report keeps waiting: state, not the report row, decides', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const seq: Reply[] = [withReport('running', { suspected_cause: 'An older cause.' }), withReport('done')];
+    routes = [emptyInbox, created,
+      [/inbox\/it-1\/investigate$/, 'POST', started('running')],
+      [/inbox\/it-1\/investigation$/, 'GET', () => seq.shift() ?? withReport('done')]];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
-    expect((await screen.findByRole('alert')).textContent).toBe(`The agent did not start an investigation: ${reason}`);
+    expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Investigating/);
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    expect(screen.queryByText('An older cause.')).toBeNull();
+    expect(screen.getByTestId('diagnose-run')).toBeDefined();
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    expect(await screen.findByText('Memory limit too low for the new cache size.')).toBeDefined();
+  });
+
+  it.each([
+    [409, refusal(409, 'item_closed', 'The item is resolved; reopen it to investigate it again.', null), 'The item is resolved; reopen it to investigate it again.'],
+    [429, refusal(429, 'cooldown', 'This was investigated 240s ago; it can be investigated again in 60s.', 60), 'This was investigated 240s ago; it can be investigated again in 60s. (retry in 60s)'],
+    [429, refusal(429, 'daily_budget', 'The daily investigation budget is used up (20/20).', 7200), 'The daily investigation budget is used up (20/20). (retry in 120 min)'],
+  ])('a %s refusal shows the agent\'s message and does not poll', async (_status, r, text) => {
+    routes = [emptyInbox, created, [/inbox\/it-1\/investigate$/, 'POST', r]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(`The agent did not start an investigation: ${text}`);
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
     expect(calls('GET', /investigation$/)).toHaveLength(0);
   });
 
-  it('a failed investigation stops polling and shows why', async () => {
+  it('a 401 (no forwarded user token) says to sign in again', async () => {
+    routes = [emptyInbox, created, [/inbox\/it-1\/investigate$/, 'POST', { status: 401, body: { detail: 'User access token required' } }]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/no user token for the agent \(401\); sign in again/);
+  });
+
+  it.each([
+    ['before a report exists', pending('failed', 'Investigation timed out after 300s')],
+    ['with its failed report', { status: 200, body: { ...row, status: 'failed', summary: '', suspected_cause: '', error: 'x', state: 'failed', run: runOf('failed', { error: 'Investigation timed out after 300s', report_id: 'inv-1' }) } }],
+  ])('a failed run (%s) stops polling and shows the run\'s error', async (_label, failed) => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     routes = [emptyInbox, created,
-      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'running' } }],
-      [/inbox\/it-1\/investigation$/, 'GET', { status: 200, body: { status: 'failed', error: 'timed out after 300s' } }]];
+      [/inbox\/it-1\/investigate$/, 'POST', started('running')],
+      [/inbox\/it-1\/investigation$/, 'GET', failed as Reply]];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     await screen.findByTestId('diagnose-run');
     await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
-    expect((await screen.findByRole('alert')).textContent).toBe('Diagnose failed: timed out after 300s');
+    expect((await screen.findByRole('alert')).textContent).toBe('Diagnose failed: Investigation timed out after 300s');
     const polls = calls('GET', /investigation$/).length;
     await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS * 3); });
     expect(calls('GET', /investigation$/).length).toBe(polls);
@@ -137,7 +190,7 @@ describe('no finding', () => {
     const at = Date.now() - 3 * 3600_000;
     routes = [
       [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'old', status: 'triaged', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: { investigation_id: 'inv' } }], groups: [], stats: {}, total: 1 } }],
-      [/inbox\/old\/investigation$/, 'GET', { status: 200, body: { status: 'done', id: 'inv', summary: 'Earlier finding: bad config.', suspected_cause: '', recommended_fix: '', confidence: 0.7, evidence: [], alternatives_considered: [], timestamp: Math.floor(at / 1000) } }],
+      [/inbox\/old\/investigation$/, 'GET', { status: 200, body: { ...row, id: 'inv', summary: 'Earlier finding: bad config.', suspected_cause: '', timestamp: at, state: 'done', run: null } }],
     ];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
@@ -147,11 +200,35 @@ describe('no finding', () => {
     expect(calls('POST', /investigate$/)).toHaveLength(0);
   });
 
+  it('reuses an item whose run is in progress (someone else claimed it) and waits for that run', async () => {
+    routes = [
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'old', status: 'claimed', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: { investigation_run: runOf('running', { item_id: 'old' }) } }], groups: [], stats: {}, total: 1 } }],
+      [/inbox\/old\/investigation$/, 'GET', pending('running')],
+    ];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Investigating \(the open inbox item for this resource\)/);
+    expect(calls('POST', /investigate$/)).toHaveLength(0);
+    expect(calls('POST', /\/api\/agent\/inbox$/)).toHaveLength(0);
+  });
+
+  it('an item whose last run failed is investigated again', async () => {
+    routes = [
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'it-1', status: 'claimed', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: { investigation_run: runOf('failed', { error: 'boom' }) } }], groups: [], stats: {}, total: 1 } }],
+      [/inbox\/it-1\/investigation$/, 'GET', pending('failed', 'boom')],
+      [/inbox\/it-1\/investigate$/, 'POST', started('queued')],
+    ];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Queued for investigation \(the open inbox item/);
+    expect(calls('POST', /it-1\/investigate$/)).toHaveLength(1);
+  });
+
   it('does not reuse an item someone else has claimed without an investigation', async () => {
     routes = [
       [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'theirs', status: 'claimed', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: {} }], groups: [], stats: {}, total: 1 } }],
       created,
-      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'queued' } }],
+      [/inbox\/it-1\/investigate$/, 'POST', started('queued')],
     ];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
@@ -171,7 +248,7 @@ describe('no finding', () => {
   it('a 500 while polling ends in an error, not a silent wait', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     routes = [emptyInbox, created,
-      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { status: 'queued' } }],
+      [/inbox\/it-1\/investigate$/, 'POST', started('queued')],
       [/inbox\/it-1\/investigation$/, 'GET', { status: 500, body: {} }]];
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
