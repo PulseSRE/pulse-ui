@@ -34,6 +34,7 @@ vi.mock('../../engine/query', () => ({
   k8sList: (...a: unknown[]) => k8sList(...a),
   k8sCreate: vi.fn().mockResolvedValue({}),
   k8sGet: vi.fn().mockResolvedValue({}),
+  k8sFetch: vi.fn(async () => new Response(JSON.stringify({ items: [] }), { status: 200 })),
 }));
 
 let rbac: Record<string, boolean> = {};
@@ -170,5 +171,27 @@ describe('node inline actions', () => {
     renderTable('v1/nodes');
     expect(screen.queryByRole('button', { name: 'Drain node' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Cordon node' })).toBeNull();
+  });
+});
+
+describe('deleting a Deployment from the table', () => {
+  beforeEach(() => { watch.data = [deployment, { ...deployment, metadata: { ...deployment.metadata, name: 'api', uid: 'd2' } }]; });
+
+  it('the row trash opens the delete-with-related-objects dialog, not a plain confirm', async () => {
+    renderTable('apps/v1/deployments');
+    fireEvent.click(screen.getAllByTitle('Delete')[0]);
+    expect(await screen.findByRole('heading', { name: 'Delete Deployment api?' })).toBeTruthy();
+    expect(screen.getByLabelText(/to confirm/)).toBeTruthy();
+  });
+
+  it('bulk delete goes through the same dialog, one workload at a time', async () => {
+    renderTable('apps/v1/deployments');
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(await screen.findByTitle('Delete 2 selected'));
+    expect(await screen.findByRole('heading', { name: 'Delete Deployment api?' })).toBeTruthy();
+    expect(screen.getByText('1 of 2 selected')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('heading', { name: 'Delete Deployment web?' })).toBeTruthy();
+    expect(screen.getByText('2 of 2 selected')).toBeTruthy();
   });
 });

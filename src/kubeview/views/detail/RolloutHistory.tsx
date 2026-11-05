@@ -387,7 +387,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
         variant="warning"
         loading={rolling}
       >
-        {helmOwner && <HelmRollbackNote owner={helmOwner} kind={kind} onNavigate={() => setTarget(null)} />}
+        {helmOwner && <HelmRollbackNote resource={resource} kind={kind} onNavigate={() => setTarget(null)} />}
       </ConfirmDialog>
     </section>
   );

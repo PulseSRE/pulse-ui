@@ -71,7 +71,7 @@ const LINK_ACTIONS = new Set(['values', 'rollback', 'uninstall']);
 export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefined; charts: ChartSource[] }) {
   // A link from a Helm-owned resource (`?release=&releaseNs=&action=`) opens
   // this list on that release's namespace and, with an action, its dialog.
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const linkRelease = params.get('release');
   const linkNs = params.get('releaseNs');
   const linkAction = params.get('action');
@@ -88,7 +88,9 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
     handledLink.current = key;
     if (linkAction === 'rollback' && linked.revisions.length < 2) return;
     action.open({ kind: linkAction, release: linked } as ReleaseAction);
-  }, [linked, linkAction, linkNs, linkRelease, action]);
+    // Once open, drop `action` so a reload or back-navigation does not open it again.
+    setParams((p) => { const next = new URLSearchParams(p); next.delete('action'); return next; }, { replace: true });
+  }, [linked, linkAction, linkNs, linkRelease, action, setParams]);
 
   return (
     <Card className="p-4">

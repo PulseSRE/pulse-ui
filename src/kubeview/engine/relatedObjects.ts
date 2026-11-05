@@ -50,8 +50,10 @@ export interface RelatedCandidate {
   note: string;
   /** Deleting it destroys data (PVCs). */
   dataLoss?: boolean;
-  /** The object as read, when it was listed (for a saved copy). */
+  /** The object as read, when it was listed (for a saved copy; metadata only for ConfigMaps/Secrets). */
   resource?: K8sResource;
+  /** Deleted by the workload's own controller (a StatefulSet's PVC retention policy), not by Pulse. */
+  byController?: boolean;
 }
 
 export interface RelatedInputs {
@@ -63,6 +65,15 @@ export interface RelatedInputs {
   lists: Partial<Record<ListedKind, K8sResource[] | null>>;
   /** PV reclaim policy by PV name: a policy, or null when the PV could not be read. */
   reclaimPolicies?: Record<string, string | null>;
+  /**
+   * ConfigMaps and Secrets in the namespace, metadata only (uid, labels,
+   * ownerReferences; never data), or null when they could not be listed.
+   */
+  configMeta?: Partial<Record<'ConfigMap' | 'Secret', K8sResource[] | null>>;
+  /** ServiceAccounts in the namespace (their pull secrets), or null when unreadable. */
+  serviceAccounts?: K8sResource[] | null;
+  /** The Helm release the workload belongs to, if any: objects of another release are kept. */
+  helmRelease?: string;
 }
 
 export interface RelatedResult {
@@ -86,6 +97,23 @@ function sharingNote(others: K8sResource[], incomplete: string[], what: string):
   if (incomplete.length) return { unknown: `Could not check whether ${incomplete.join(', ')} also use it` };
   return {};
 }
+
+function escapeRegExp(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/** Why an object belongs to something else and must be kept, or undefined. */
+function ownedElsewhere(r: K8sResource | undefined, kind: RelatedKind, helmRelease: string | undefined): string | undefined {
+  if (!r) return undefined;
+  const refs = r.metadata.ownerReferences ?? [];
+  const ctrl = refs.find((o) => o.controller);
+  if (ctrl) return `Kept: managed by ${ctrl.kind} ${ctrl.name}`;
+  // A ConfigMap/Secret with any owner is garbage-collected with that owner, or created by it.
+  if ((kind === 'ConfigMap' || kind === 'Secret') && refs.length) return `Kept: owned by ${refs[0].kind} ${refs[0].name}`;
+  const release = r.metadata.labels?.['app.kubernetes.io/managed-by'] === 'Helm' ? r.metadata.annotations?.['meta.helm.sh/release-name'] : undefined;
+  if (release && release !== helmRelease) return `Kept: part of Helm release ${release}`;
+  return undefined;
+}
+
+const OTHER_USERS = 'Deployment, StatefulSet, DaemonSet, DeploymentConfig, CronJob or Job';
 
 function storageOf(pvc: K8sResource): string {
   const st = pvc.status as { capacity?: { storage?: string } } | undefined;
@@ -179,12 +207,31 @@ export function computeRelated(workload: K8sResource, inputs: RelatedInputs): Re
       }
       const users = others.filter((o) => usagesIn(podTemplateOf(o)?.spec, kind, name).length > 0);
       const share = sharingNote(users, incomplete, 'used by');
+      const metaList = inputs.configMeta?.[kind];
+      const meta = metaList?.find((m) => m.metadata.name === name);
+      const sas = kind === 'Secret' && inputs.serviceAccounts
+        ? inputs.serviceAccounts.filter((sa) => {
+          const x = sa as unknown as { imagePullSecrets?: Array<{ name?: string }>; secrets?: Array<{ name?: string }> };
+          return [...(x.imagePullSecrets ?? []), ...(x.secrets ?? [])].some((r) => r.name === name);
+        }).map((sa) => sa.metadata.name)
+        : [];
+      const unknowns = [
+        share.unknown,
+        !metaList ? `Could not check what owns it (${KIND_LABEL[kind]} could not be listed)` : undefined,
+        kind === 'Secret' && inputs.serviceAccounts === null ? 'Could not check whether a ServiceAccount lists it' : undefined,
+      ].filter(Boolean);
+      const kept = share.keptReason
+        ?? (metaList && !meta ? `Not found in ${ns}` : undefined)
+        ?? (sas.length ? `Kept: listed by ServiceAccount ${sas.join(', ')}` : undefined);
       const onlyPull = kind === 'Secret' && pullSecrets.has(name) && usagesIn(spec, 'Secret', name).every((u) => u.how === 'imagePullSecret');
       out.push({
-        kind, name, path,
-        defaultChecked: !share.keptReason && !share.unknown && !onlyPull,
-        keptReason: share.keptReason,
-        note: share.unknown ?? (onlyPull ? 'Image pull secret: service accounts or other pods may use it too, so it is not chosen by default' : 'Used by nothing else'),
+        kind, name, path, resource: meta,
+        // A Secret is never chosen by default: it may hold the only copy of a credential.
+        defaultChecked: kind === 'ConfigMap' && !kept && unknowns.length === 0,
+        keptReason: kept,
+        note: unknowns.length
+          ? unknowns.join('. ')
+          : `No other ${OTHER_USERS} in ${ns} uses it${kind === 'Secret' ? ', and no ServiceAccount lists it' : ''}; other kinds not checked${kind === 'Secret' ? (onlyPull ? '. Image pull secret: not chosen by default' : '. Secrets are not chosen by default') : ''}`,
       });
     }
   }
@@ -192,10 +239,17 @@ export function computeRelated(workload: K8sResource, inputs: RelatedInputs): Re
   // PVCs: mounted by the template, or created from a StatefulSet's claim templates.
   const pvcs = list('PersistentVolumeClaim');
   const claimNames = new Set((spec?.volumes ?? []).map((v) => (v as { persistentVolumeClaim?: { claimName?: string } }).persistentVolumeClaim?.claimName).filter((n): n is string => !!n));
+  const templateClaims = new Set<string>();
+  const stsSpec = workload.spec as { volumeClaimTemplates?: Array<{ metadata?: { name?: string } }>; persistentVolumeClaimRetentionPolicy?: { whenDeleted?: string } } | undefined;
+  // whenDeleted: Delete — the StatefulSet controller deletes its template claims itself.
+  const retentionDeletes = workload.kind === 'StatefulSet' && stsSpec?.persistentVolumeClaimRetentionPolicy?.whenDeleted === 'Delete';
   if (workload.kind === 'StatefulSet') {
-    const tmpls = ((workload.spec as { volumeClaimTemplates?: Array<{ metadata?: { name?: string } }> } | undefined)?.volumeClaimTemplates ?? []).map((t) => t.metadata?.name).filter(Boolean);
+    const tmpls = (stsSpec?.volumeClaimTemplates ?? []).map((t) => t.metadata?.name).filter((t): t is string => !!t);
     for (const p of pvcs) {
-      if (tmpls.some((t) => new RegExp(`^${t}-${workload.metadata.name}-\\d+$`).test(p.metadata.name))) claimNames.add(p.metadata.name);
+      if (tmpls.some((t) => new RegExp(`^${escapeRegExp(t)}-${escapeRegExp(workload.metadata.name)}-\\d+$`).test(p.metadata.name))) {
+        claimNames.add(p.metadata.name);
+        templateClaims.add(p.metadata.name);
+      }
     }
   }
   for (const name of [...claimNames].sort()) {
@@ -214,12 +268,27 @@ export function computeRelated(workload: K8sResource, inputs: RelatedInputs): Re
           : policy
             ? `${size}; the volume's reclaim policy is ${policy}.`
             : `Deleting it may destroy ${size} of data: the volume's reclaim policy could not be checked.`;
+    if (retentionDeletes && templateClaims.has(name)) {
+      out.push({
+        kind: 'PersistentVolumeClaim', name, path: `${RELATED_SOURCES.PersistentVolumeClaim.base(ns)}/${name}`, resource: pvc,
+        defaultChecked: true, dataLoss: true, byController: true,
+        note: `Will be deleted by the StatefulSet's retention policy (persistentVolumeClaimRetentionPolicy.whenDeleted: Delete), whatever is chosen here. ${loss}`,
+      });
+      continue;
+    }
     out.push({
       kind: 'PersistentVolumeClaim', name, path: `${RELATED_SOURCES.PersistentVolumeClaim.base(ns)}/${name}`, resource: pvc,
       defaultChecked: false, dataLoss: true,
       keptReason: share.keptReason,
       note: `Kept by default. ${share.unknown ? `${share.unknown}. ` : ''}${loss}`,
     });
+  }
+
+  // Objects managed by a controller, owned by something, or part of another Helm release are kept.
+  for (const c of out) {
+    if (c.keptReason || c.byController) continue;
+    const why = ownedElsewhere(c.resource, c.kind, inputs.helmRelease);
+    if (why) { c.keptReason = why; c.defaultChecked = false; }
   }
 
   return { candidates: out, notChecked: [...new Set(notChecked)] };

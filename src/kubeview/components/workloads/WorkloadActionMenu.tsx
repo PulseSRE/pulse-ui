@@ -127,11 +127,11 @@ export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOp
           onClose={() => setHelmRollbackOpen(false)}
           onConfirm={() => { setHelmRollbackOpen(false); goToRollback(); }}
           title={`Roll back ${resource.kind} "${resource.metadata.name}"?`}
-          description={`This ${resource.kind} belongs to Helm release ${helmOwner.release}.`}
+          description={`This ${resource.kind} is labelled as part of Helm release ${helmOwner.release}.`}
           confirmLabel={`Roll back the ${resource.kind} anyway`}
           variant="warning"
         >
-          <HelmRollbackNote owner={helmOwner} kind={resource.kind} onNavigate={() => setHelmRollbackOpen(false)} />
+          <HelmRollbackNote resource={resource} kind={resource.kind} onNavigate={() => setHelmRollbackOpen(false)} />
         </ConfirmDialog>
       )}
     </>

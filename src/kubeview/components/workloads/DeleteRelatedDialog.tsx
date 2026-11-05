@@ -24,9 +24,11 @@ import { useCanI } from '../../hooks/useCanI';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { apiPathOf } from '../../engine/workloadActions';
 import { resourceToYaml } from '../../engine/yamlUtils';
-import { helmOwnerOf, helmReleasePath } from '../../engine/helmOwnership';
-import { useHelmRelease } from '../HelmOwnership';
-import { useWorkloadsInNamespace } from '../../views/detail/ConfigConsumers';
+import { helmReleasePath } from '../../engine/helmOwnership';
+import { useHelmOwnership, HelmClaimNote } from '../HelmOwnership';
+import { useArgoSyncInfo } from '../../hooks/useArgoCD';
+import { useArgoCDStore } from '../../store/argoCDStore';
+import { useServiceAccounts, useWorkloadsInNamespace } from '../../views/detail/ConfigConsumers';
 import {
   KIND_LABEL, LISTED_KINDS, RELATED_SOURCES, computeRelated, type ListedKind, type RelatedCandidate, type RelatedKind,
 } from '../../engine/relatedObjects';
@@ -56,23 +58,40 @@ function readFailure(err: unknown, kind: RelatedKind, ns: string): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted }: {
+const PARTIAL_METADATA = 'application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1';
+
+/** List ConfigMaps or Secrets metadata-only: uid, labels, owners — never data. */
+async function listMetadata(path: string, clusterId: string): Promise<K8sResource[]> {
+  const res = await k8sFetch(clusterId, path, { headers: { Accept: PARTIAL_METADATA } });
+  if (!res.ok) throw await parseK8sErrorResponse(res, { operation: 'list', apiPath: path });
+  const data = await res.json() as { items?: K8sResource[] };
+  return data.items ?? [];
+}
+
+export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted, queueNote }: {
   workload: K8sResource;
   /** Group/plural of the workload, for its own delete permission. */
   workloadRbac: { group: string; plural: string };
   onClose: () => void;
   onDeleted?: () => void;
+  /** e.g. "1 of 3" when several workloads are deleted one after another. */
+  queueNote?: string;
 }) {
   const [clusterId] = React.useState(() => getActiveClusterId());
   const go = useNavigateTab();
   const ns = workload.metadata.namespace || '';
   const name = workload.metadata.name;
   const kind = workload.kind;
-  const helmOwner = helmOwnerOf(workload);
-  const helmRelease = useHelmRelease(helmOwner, clusterId);
+  // Helm-owned only if the release lists it; a copied or stale label is said, not obeyed.
+  const helm = useHelmOwnership(workload, clusterId);
+  const helmOwner = helm.owner;
+  const helmRelease = { data: helm.release, isError: !!helm.releaseError };
   // Helm-owned: start on the "uninstall the release instead" step.
-  const [stage, setStage] = React.useState<'helm' | 'choose'>(helmOwner ? 'helm' : 'choose');
+  const [stage, setStage] = React.useState<'helm' | 'choose'>(helm.claimed ? 'helm' : 'choose');
   const onlyWorkload = !!helmOwner;
+  const controller = (workload.metadata.ownerReferences ?? []).find((o) => o.controller);
+  const argoAvailable = useArgoCDStore((st) => st.available);
+  const argo = useArgoSyncInfo(kind, ns, name);
 
   const wl = useWorkloadsInNamespace(ns, clusterId, !onlyWorkload);
   const listed = useQueries({
@@ -91,6 +110,15 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
       retry: false,
     })),
   });
+  const configMeta = useQueries({
+    queries: (['ConfigMap', 'Secret'] as const).map((k) => ({
+      queryKey: ['k8s', 'list', 'delete-related-meta', k, ns, clusterId],
+      queryFn: () => listMetadata(RELATED_SOURCES[k].base(ns), clusterId),
+      enabled: !onlyWorkload && !!ns,
+      retry: false,
+    })),
+  });
+  const sas = useServiceAccounts(ns, clusterId, !onlyWorkload);
   const pvcs = listed[LISTED_KINDS.indexOf('PersistentVolumeClaim')].data ?? [];
   const volumeNames = [...new Set(pvcs.map((p) => (p.spec as { volumeName?: string } | undefined)?.volumeName).filter((v): v is string => !!v))];
   const pvs = useQueries({
@@ -119,9 +147,9 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
     PersistentVolumeClaim: useDeleteAllowed('PersistentVolumeClaim', ns, !onlyWorkload),
   };
 
-  const loading = !onlyWorkload && (wl.loading || listed.some((q) => q.isLoading) || pvs.some((q) => q.isLoading));
+  const loading = !onlyWorkload && (wl.loading || listed.some((q) => q.isLoading) || pvs.some((q) => q.isLoading) || configMeta.some((q) => q.isLoading) || sas.isLoading || helm.loading);
   // One value per read, so the memo below has a fixed number of dependencies.
-  const listedKey = listed.map((q) => `${q.dataUpdatedAt}:${q.errorUpdatedAt}`).join(',');
+  const listedKey = [...listed, ...configMeta, sas].map((q) => `${q.dataUpdatedAt}:${q.errorUpdatedAt}`).join(',');
   const pvKey = pvs.map((q) => `${q.dataUpdatedAt}:${q.errorUpdatedAt}`).join(',');
   const related = React.useMemo(() => {
     if (onlyWorkload || loading) return null;
@@ -134,6 +162,8 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
       workloadsIncomplete: wl.failures.map((f) => `${f.kind}s`),
       lists,
       reclaimPolicies,
+      configMeta: { ConfigMap: configMeta[0].isError ? null : configMeta[0].data ?? [], Secret: configMeta[1].isError ? null : configMeta[1].data ?? [] },
+      serviceAccounts: sas.isError ? null : sas.data ?? [],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onlyWorkload, loading, workload, wl.workloads, wl.failures, listedKey, pvKey]);
@@ -141,12 +171,19 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
 
   const [checked, setChecked] = React.useState<Record<string, boolean>>({});
   const keyOf = (c: RelatedCandidate) => `${c.kind}/${c.name}`;
+  // Defaults only for objects not seen yet: a refetch must not undo the user's choices.
   React.useEffect(() => {
-    if (related) setChecked(Object.fromEntries(related.candidates.map((c) => [keyOf(c), c.defaultChecked && !c.keptReason])));
+    if (!related) return;
+    setChecked((prev) => {
+      const next = { ...prev };
+      for (const c of related.candidates) if (!(keyOf(c) in next)) next[keyOf(c)] = c.defaultChecked && !c.keptReason;
+      return next;
+    });
   }, [related]);
   const deniedReason = (c: RelatedCandidate) => (rbac[c.kind].isLoading ? 'Checking permission…' : !rbac[c.kind].allowed ? `You cannot delete ${KIND_LABEL[c.kind]} in ${ns}` : undefined);
-  const chosen = (related?.candidates ?? []).filter((c) => checked[keyOf(c)] && !c.keptReason && !deniedReason(c));
-  const keptPvcs = (related?.candidates ?? []).filter((c) => c.kind === 'PersistentVolumeClaim' && !checked[keyOf(c)]);
+  const chosen = (related?.candidates ?? []).filter((c) => checked[keyOf(c)] && !c.keptReason && !c.byController && !deniedReason(c));
+  const keptPvcs = (related?.candidates ?? []).filter((c) => c.kind === 'PersistentVolumeClaim' && !c.byController && (!checked[keyOf(c)] || !!c.keptReason));
+  const retainedByPolicy = (related?.candidates ?? []).filter((c) => c.byController);
 
   const [typed, setTyped] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -195,7 +232,8 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
   };
 
   const downloadYaml = () => {
-    const docs = [workload, ...chosen.filter((c) => c.resource).map((c) => ({ ...c.resource!, kind: c.kind }))]
+    // ConfigMaps and Secrets were read metadata-only: there is nothing to restore them from.
+    const docs = [workload, ...chosen.filter((c) => c.resource && c.kind !== 'ConfigMap' && c.kind !== 'Secret').map((c) => ({ ...c.resource!, kind: c.kind }))]
       .map((r) => resourceToYaml(r as unknown as Record<string, unknown>));
     const blob = new Blob([docs.join('---\n')], { type: 'application/yaml' });
     const a = document.createElement('a');
@@ -250,6 +288,14 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
   return (
     <Dialog open onClose={close} dismissible={!busy} size="2xl" title={title} description={`${who}${helmOwner ? '' : ' · not managed by Helm'}`} footer={footer}>
       <div className="space-y-4 text-xs">
+        {queueNote && <p className="text-slate-400">{queueNote}</p>}
+        {helm.claimed && helm.verified === false && <HelmClaimNote claimed={helm.claimed} />}
+        {controller && (
+          <p role="alert" className="text-amber-300">This {kind} is managed by {controller.kind} {controller.name}: its controller will probably create it again. Change or delete the {controller.kind} instead.</p>
+        )}
+        {argoAvailable && argo && (
+          <p role="alert" className="text-amber-300">This {kind} is managed by Argo CD application {argo.appName}: a sync recreates it unless it is removed from Git.</p>
+        )}
         {helmOwner && (
           <p role="alert" className="text-sky-200">Managed by Helm release {helmOwner.release}: only the {kind} is deleted, and the next helm upgrade recreates it. The release&apos;s other objects are left as they are.</p>
         )}
@@ -270,14 +316,14 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
               <ul className="space-y-1.5">
                 {related.candidates.map((c) => {
                   const denied = deniedReason(c);
-                  const disabled = !!c.keptReason || !!denied || busy || !!results;
+                  const disabled = !!c.keptReason || !!c.byController || !!denied || busy || !!results;
                   return (
                     <li key={keyOf(c)} className="flex items-start gap-2">
                       <input
                         id={`rel-${keyOf(c)}`}
                         type="checkbox"
                         className="mt-0.5"
-                        checked={!!checked[keyOf(c)] && !c.keptReason}
+                        checked={c.byController || (!!checked[keyOf(c)] && !c.keptReason)}
                         disabled={disabled}
                         onChange={(e) => setChecked((v) => ({ ...v, [keyOf(c)]: e.target.checked }))}
                         aria-label={`${c.kind} ${c.name}`}
@@ -313,6 +359,7 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
           <dt className="text-slate-500">Will delete</dt>
           <dd className="text-slate-300" data-testid="delete-summary">
             {kind}{chosen.length ? ` + ${chosen.length} related object${chosen.length === 1 ? '' : 's'}` : ' only'}
+            {retainedByPolicy.length ? ` · ${retainedByPolicy.length} PVC${retainedByPolicy.length === 1 ? '' : 's'} deleted by the StatefulSet's retention policy` : ''}
             {keptPvcs.length ? ` · ${keptPvcs.length} PVC${keptPvcs.length === 1 ? '' : 's'} kept` : ''}
           </dd>
           <dt className="text-slate-500">Dry run</dt>

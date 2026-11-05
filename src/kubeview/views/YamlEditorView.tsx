@@ -21,8 +21,8 @@ import { useArgoCDStore } from '../store/argoCDStore';
 import { GitOpsActionDialog } from '../components/GitOpsActionDialog';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
-import { helmOwnerOf, helmReleasePath } from '../engine/helmOwnership';
-import { useHelmRelease, helmOwnerSentence } from '../components/HelmOwnership';
+import { helmReleasePath } from '../engine/helmOwnership';
+import { useHelmOwnership, helmOwnerSentence, HelmClaimNote } from '../components/HelmOwnership';
 import { SavedConsumersOffer } from './detail/ConfigConsumers';
 
 interface YamlEditorViewProps {
@@ -72,8 +72,10 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   // Helm awareness: the release overwrites hand edits on its next upgrade or
   // rollback, so the editor stays read-only until the user chooses to edit
   // here anyway.
-  const helmOwner = helmOwnerOf(resource);
-  const helmRelease = useHelmRelease(helmOwner, clusterId);
+  // Counted as the release's only if the release lists it (labels can be copied or stale).
+  const helm = useHelmOwnership(resource, clusterId);
+  const helmOwner = helm.owner;
+  const helmRelease = { data: helm.release, isError: !!helm.releaseError };
   const [helmEditAnyway, setHelmEditAnyway] = useState(false);
   const helmLocked = !!helmOwner && !helmEditAnyway;
   // Set after a ConfigMap/Secret save: offers restarting the consumers.
@@ -88,7 +90,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   }, [resource]);
 
   const handleSave = useCallback(async () => {
-    if (!hasChanges || saving || readOnly) return;
+    if (!hasChanges || saving || readOnly || helmLocked) return;
     // Read the live registry, not render state: the switch may have happened
     // after this callback was created.
     const active = getActiveClusterId();
@@ -123,7 +125,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
     } finally {
       setSaving(false);
     }
-  }, [clusterId, currentYaml, hasChanges, saving, readOnly, name, apiPath, addToast, queryClient]);
+  }, [clusterId, currentYaml, hasChanges, saving, readOnly, helmLocked, name, apiPath, addToast, queryClient]);
 
   // Every save path — the header button, ⌘S and the diff preview's Apply —
   // goes through here, so an Argo-managed resource always gets the GitOps
@@ -223,6 +225,9 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
         </div>
       )}
 
+      {helm.claimed && helm.verified === false && (
+        <div className="px-4 py-2 border-b border-slate-800"><HelmClaimNote claimed={helm.claimed} /></div>
+      )}
       {helmOwner && (
         <div role="note" aria-label="Helm ownership" className="px-4 py-3 border-b border-sky-900 bg-sky-950/30 text-xs">
           <div className="flex items-start gap-2">

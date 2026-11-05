@@ -17,6 +17,8 @@ import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 import { TableToolbar } from './TableToolbar';
 import { TableBody } from './TableBody';
 import { useTableActions } from './TableActions';
+import { DeleteRelatedDialog } from '../../components/workloads/DeleteRelatedDialog';
+import { DELETE_WITH_RELATED_KINDS } from '../../components/workloads/WorkloadActionMenu';
 import type { K8sResource } from '../../engine/renderers';
 
 interface TableViewProps {
@@ -397,6 +399,17 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     setSelectedRows,
   });
 
+  // Deployments, StatefulSets and DaemonSets delete through the related-objects
+  // dialog, one workload at a time (also for a bulk selection).
+  const [relatedQueue, setRelatedQueue] = React.useState<{ items: K8sResource[]; total: number } | null>(null);
+  const withRelated = (r: K8sResource | undefined) => !!r && DELETE_WITH_RELATED_KINDS.has(r.kind) && !!r.metadata.namespace;
+  const bulkDelete = () => {
+    const picked = sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
+    if (picked.length > 0 && picked.every(withRelated)) setRelatedQueue({ items: picked, total: picked.length });
+    else actions.setShowBulkDeleteConfirm(true);
+  };
+  const nextInQueue = () => setRelatedQueue((q) => (q && q.items.length > 1 ? { ...q, items: q.items.slice(1) } : null));
+
   // --- Error state ---
   if (error) {
     return (
@@ -463,7 +476,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         onToggleColumnPicker={() => setShowColumnPicker(!showColumnPicker)}
         selectedCount={selectedRows.size}
         canDelete={canDelete}
-        onBulkDelete={() => actions.setShowBulkDeleteConfirm(true)}
+        onBulkDelete={bulkDelete}
         canCreate={canCreate}
         onCreate={handleCreate}
         showExport={actions.showExport}
@@ -527,8 +540,28 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         />
       )}
 
+      {/* Delete with related objects (row trash on a Deployment/StatefulSet/DaemonSet) */}
+      {actions.pendingDelete && withRelated(actions.pendingDelete.resource) && (
+        <DeleteRelatedDialog
+          workload={actions.pendingDelete.resource}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          onClose={() => actions.setPendingDelete(null)}
+          onDeleted={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] })}
+        />
+      )}
+      {relatedQueue && (
+        <DeleteRelatedDialog
+          key={relatedQueue.items[0].metadata.uid ?? relatedQueue.items[0].metadata.name}
+          workload={relatedQueue.items[0]}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          queueNote={relatedQueue.total > 1 ? `${relatedQueue.total - relatedQueue.items.length + 1} of ${relatedQueue.total} selected` : undefined}
+          onClose={nextInQueue}
+          onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] }); setSelectedRows(new Set()); }}
+        />
+      )}
+
       {/* Single Delete Confirmation */}
-      {actions.pendingDelete && (
+      {actions.pendingDelete && !withRelated(actions.pendingDelete.resource) && (
         <ConfirmDialog
           open={!!actions.pendingDelete}
           title={`Delete ${actions.pendingDelete.resource.kind}`}

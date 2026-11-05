@@ -7,9 +7,12 @@
  * cancel, and the Helm-owned variant pointing to the release uninstall.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
+import { screen, fireEvent, waitFor, cleanup, within, render, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import { releaseSecret } from '../../../views/create/__tests__/helmTestUtils';
 import { DeleteRelatedDialog } from '../DeleteRelatedDialog';
-import { installFetch, setAllow, respond, writes, json, renderWithProviders } from './actionHarness';
+import { installFetch, setAllow, respond, writes, json, renderWithProviders, calls } from './actionHarness';
 import type { K8sResource } from '../../../engine/renderers';
 
 const NS = '/api/v1/namespaces/shop';
@@ -37,6 +40,10 @@ beforeEach(() => {
     if (c.path === '/apis/route.openshift.io/v1/namespaces/shop/routes') return json({ items: [{ metadata: { name: 'storefront-legacy', uid: 'u-route' }, spec: { host: 'legacy.shop.example.com', to: { kind: 'Service', name: 'storefront-legacy' } } }] });
     if (c.path === '/apis/networking.k8s.io/v1/namespaces/shop/networkpolicies') return json({ kind: 'Status', message: 'networkpolicies is forbidden', code: 403 }, 403);
     if (c.path === `${NS}/persistentvolumeclaims`) return json({ items: [{ metadata: { name: 'uploads', uid: 'u-pvc' }, spec: { volumeName: 'pv-9' }, status: { capacity: { storage: '14Gi' } } }] });
+    if (c.path === `${NS}/configmaps`) return json({ kind: 'PartialObjectMetadataList', items: [{ metadata: { name: 'storefront-legacy-cfg', uid: 'u-cfg' } }, { metadata: { name: 'shop-feature-flags', uid: 'u-ff' } }] });
+    if (c.path.startsWith(`${NS}/secrets?labelSelector=`) && c.path.includes('checkout')) {
+      return json({ items: [releaseSecret('checkout', 'shop', 7, 'deployed', '3.2.1', {}, 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: checkout\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: checkout\n')] });
+    }
     if (c.path === '/api/v1/persistentvolumes/pv-9') return json({ metadata: { name: 'pv-9' }, spec: { persistentVolumeReclaimPolicy: 'Delete' } });
     return undefined;
   });
@@ -94,6 +101,10 @@ describe('DeleteRelatedDialog', () => {
       `${NS}/configmaps/storefront-legacy-cfg`,
     ]);
     expect(writes()[4].body).toMatchObject({ preconditions: { uid: 'u-legacy' }, propagationPolicy: 'Background' });
+    // The ConfigMap, read metadata-only, is deleted with its uid as a precondition.
+    expect(writes()[7].body).toMatchObject({ preconditions: { uid: 'u-cfg' } });
+    const cmList = calls.find((c) => c.method === 'GET' && c.path === `${NS}/configmaps`);
+    expect(cmList).toBeTruthy();
     expect(writes().some((w) => w.path.includes('persistentvolumeclaims'))).toBe(false);
     expect(within(dialog).getAllByText('Deleted')).toHaveLength(4);
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Close' }).at(-1)!);
@@ -154,7 +165,8 @@ describe('DeleteRelatedDialog', () => {
     const helm = { ...legacy, metadata: { ...legacy.metadata, name: 'checkout', labels: { 'app.kubernetes.io/managed-by': 'Helm' }, annotations: { 'meta.helm.sh/release-name': 'checkout', 'meta.helm.sh/release-namespace': 'shop' } } } as unknown as K8sResource;
     renderWithProviders(<DeleteRelatedDialog workload={helm} workloadRbac={RBAC} onClose={() => {}} />);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/Managed by Helm release checkout/)).toBeTruthy();
+    expect(await within(dialog).findByText(/Managed by Helm release checkout \(revision 7\)/)).toBeTruthy();
+    expect(within(dialog).getByText(/the release's 1 other object behind/)).toBeTruthy();
     expect(within(dialog).getByText(/the next helm upgrade recreates it/)).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete only the Deployment…' }));
     expect(within(screen.getByRole('dialog')).queryByRole('region', { name: 'Related objects' })).toBeNull();
@@ -167,10 +179,41 @@ describe('DeleteRelatedDialog', () => {
   });
 
   it('the Helm variant\'s "Uninstall release" opens the release uninstall', async () => {
-    const helm = { ...legacy, metadata: { ...legacy.metadata, labels: { 'app.kubernetes.io/managed-by': 'Helm' }, annotations: { 'meta.helm.sh/release-name': 'checkout' } } } as unknown as K8sResource;
+    const helm = { ...legacy, metadata: { ...legacy.metadata, name: 'checkout', labels: { 'app.kubernetes.io/managed-by': 'Helm' }, annotations: { 'meta.helm.sh/release-name': 'checkout' } } } as unknown as K8sResource;
     renderWithProviders(<DeleteRelatedDialog workload={helm} workloadRbac={RBAC} onClose={() => {}} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Uninstall release checkout…' }));
     expect(screen.getByTestId('location').textContent).toBe('/software?tab=helm&release=checkout&releaseNs=shop&action=uninstall');
     expect(writes()).toEqual([]);
+  });
+
+  it('a Deployment that only claims Helm ownership (the release does not list it) is treated as not Helm-managed', async () => {
+    const forged = { ...legacy, metadata: { ...legacy.metadata, labels: { 'app.kubernetes.io/managed-by': 'Helm' }, annotations: { 'meta.helm.sh/release-name': 'checkout' } } } as unknown as K8sResource;
+    renderWithProviders(<DeleteRelatedDialog workload={forged} workloadRbac={RBAC} onClose={() => {}} />);
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByTestId('helm-claim-note')).toBeTruthy();
+    expect(within(dialog).getByTestId('helm-claim-note').textContent).toMatch(/release checkout in shop does not list it/);
+    expect(await within(dialog).findByRole('checkbox', { name: /^Service storefront-legacy$/ })).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: /Uninstall release/ })).toBeNull();
+  });
+
+  it('warns when a controller owns the workload', async () => {
+    const owned = { ...legacy, metadata: { ...legacy.metadata, ownerReferences: [{ kind: 'AppOperatorCR', name: 'shop', controller: true }] } } as unknown as K8sResource;
+    renderWithProviders(<DeleteRelatedDialog workload={owned} workloadRbac={RBAC} onClose={() => {}} />);
+    expect(await screen.findByText(/managed by AppOperatorCR shop: its controller will probably create it again/)).toBeTruthy();
+  });
+
+  it('a refetch keeps the user\'s choices (regression)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={qc}><MemoryRouter><DeleteRelatedDialog workload={legacy} workloadRbac={RBAC} onClose={() => {}} /></MemoryRouter></QueryClientProvider>);
+    const dialog = await screen.findByRole('dialog');
+    const svc = await within(dialog).findByRole('checkbox', { name: /^Service storefront-legacy$/ }) as HTMLInputElement;
+    fireEvent.click(svc);
+    fireEvent.click(box(dialog, /PersistentVolumeClaim uploads/));
+    expect(svc.checked).toBe(false);
+    const listsBefore = calls.filter((c) => c.path === `${NS}/services`).length;
+    await act(async () => { await qc.invalidateQueries(); });
+    await waitFor(() => expect(calls.filter((c) => c.path === `${NS}/services`).length).toBeGreaterThan(listsBefore));
+    await waitFor(() => expect(box(dialog, /^Service storefront-legacy$/).checked).toBe(false));
+    expect(box(dialog, /PersistentVolumeClaim uploads/).checked).toBe(true);
   });
 });

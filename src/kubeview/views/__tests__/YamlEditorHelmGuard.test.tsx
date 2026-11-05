@@ -28,6 +28,7 @@ vi.mock('../../store/uiStore', () => ({
 }));
 
 import YamlEditorView from '../YamlEditorView';
+import { releaseSecret } from '../create/__tests__/helmTestUtils';
 
 const helmDeployment = {
   apiVersion: 'apps/v1', kind: 'Deployment',
@@ -46,11 +47,13 @@ const user = {
 
 let object: any = helmDeployment;
 let releaseStatus = 200;
+let listed = 'checkout';
 const writes: Array<{ method: string; url: string }> = [];
 
 beforeEach(() => {
   object = helmDeployment;
   releaseStatus = 200;
+  listed = 'checkout';
   writes.length = 0;
   goSpy.mockReset();
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit = {}) => {
@@ -60,7 +63,7 @@ beforeEach(() => {
       return new Response(JSON.stringify(object), { status: 200 });
     }
     if (url.includes('/secrets?labelSelector=')) {
-      return releaseStatus === 200 ? new Response(JSON.stringify({ items: [] }), { status: 200 }) : new Response(JSON.stringify({ message: 'secrets is forbidden' }), { status: releaseStatus });
+      return releaseStatus === 200 ? new Response(JSON.stringify({ items: [releaseSecret('checkout', 'shop', 7, 'deployed', '3.2.1', {}, `apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: ${listed}\n`)] }), { status: 200 }) : new Response(JSON.stringify({ message: 'secrets is forbidden' }), { status: releaseStatus });
     }
     if (url.endsWith('/deployments/checkout') || url.endsWith('/configmaps/api-cfg')) return new Response(JSON.stringify(object), { status: 200 });
     if (url.endsWith('/namespaces/shop/deployments')) return new Response(JSON.stringify({ items: [user] }), { status: 200 });
@@ -82,7 +85,7 @@ describe('Helm ownership guard', () => {
     renderEditor('apps/v1/deployments', 'checkout');
     const banner = await screen.findByRole('note', { name: 'Helm ownership' });
     expect(banner.textContent).toMatch(/Managed by Helm release checkout; hand edits are overwritten on the next upgrade/);
-    expect(banner.textContent).toMatch(/Chart checkout-3\.2\.1 · detected from label app\.kubernetes\.io\/managed-by: Helm/);
+    await waitFor(() => expect(banner.textContent).toMatch(/Chart nginx-3\.2\.1 · revision 7 \(deployed\) · detected from label app\.kubernetes\.io\/managed-by: Helm/));
     expect(editorProps.current.readOnly).toBe(true);
     // Even with a change, Save stays off and Cmd+S writes nothing.
     editorProps.current.onChange(`${editorProps.current.value}\n# x`);
@@ -112,6 +115,14 @@ describe('Helm ownership guard', () => {
     releaseStatus = 403;
     renderEditor('apps/v1/deployments', 'checkout');
     expect(await screen.findByText(/The release record could not be read, so its revision and status are unknown/)).toBeTruthy();
+  });
+
+  it('an object that claims Helm ownership but is not in the release: said, and not locked', async () => {
+    listed = 'something-else';
+    renderEditor('apps/v1/deployments', 'checkout');
+    expect(await screen.findByTestId('helm-claim-note')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('note', { name: 'Helm ownership' })).toBeNull());
+    expect(editorProps.current.readOnly).toBe(false);
   });
 
   it('a resource without Helm ownership has no banner and saves as before', async () => {

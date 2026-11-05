@@ -13,6 +13,7 @@ import { useFleetStore } from '../../../store/fleetStore';
 import { registerCluster, resetConnections } from '../../../engine/clusterConnection';
 import { installFetch, setAllow, respond, writes, json, renderWithProviders, calls } from './actionHarness';
 import type { K8sResource } from '../../../engine/renderers';
+import { releaseSecret } from '../../../views/create/__tests__/helmTestUtils';
 
 const deployment = {
   apiVersion: 'apps/v1', kind: 'Deployment',
@@ -141,11 +142,12 @@ describe('Deployment actions', () => {
 
   it('Roll back on a Helm-owned Deployment offers the release rollback', async () => {
     const helmDep = { ...deployment, metadata: { ...deployment.metadata, labels: { 'app.kubernetes.io/managed-by': 'Helm' }, annotations: { 'meta.helm.sh/release-name': 'checkout', 'meta.helm.sh/release-namespace': 'shop' } } } as unknown as K8sResource;
+    respond((c) => (c.method === 'GET' && c.path.includes('/secrets?labelSelector=') ? json({ items: [releaseSecret('checkout', 'shop', 3, 'deployed', '1.0.0', {}, 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n')] }) : undefined));
     renderWithProviders(<WorkloadActionMenu resource={helmDep} />);
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Deployment web' }));
     fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: /Roll back… \(Helm release\)/ }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByTestId('helm-rollback-note').textContent).toMatch(/managed by Helm release checkout in shop\. A rollback here is reverted/);
+    expect((await within(dialog).findByTestId('helm-rollback-note')).textContent).toMatch(/managed by Helm release checkout in shop\. A rollback here is reverted/);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Roll back the release…' }));
     expect(screen.getByTestId('location').textContent).toBe('/software?tab=helm&release=checkout&releaseNs=shop&action=rollback');
     expect(writes()).toHaveLength(0);
