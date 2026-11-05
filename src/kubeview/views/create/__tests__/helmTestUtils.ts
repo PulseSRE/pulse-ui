@@ -53,6 +53,9 @@ export interface PreviewSim {
   records?: Record<string, unknown>;
   /** Existing objects by API path, for ownership lookups after a 409. */
   existing?: Record<string, unknown>;
+  /** Override the pod list (e.g. a pod that never finishes) or the log response. */
+  pods?: (r: Recorded) => Response;
+  logResponse?: () => Response;
 }
 
 /**
@@ -64,14 +67,14 @@ export function previewHandler(base: Handler, sim: PreviewSim): Handler {
   return (r) => {
     if (r.method === 'GET' && r.path === '/version') return jsonRes({ gitVersion: 'v1.31.4+abc' });
     if (r.method === 'GET' && r.path === '/apis') return jsonRes({ groups: [{ versions: [{ groupVersion: 'apps/v1' }] }] });
-    if (r.method === 'GET' && /\/pods\?labelSelector=job-name%3D/.test(r.path)) return jsonRes({ items: [{ metadata: { name: 'helm-pod-1' }, status: { phase: sim.phase ?? 'Succeeded' } }] });
-    if (r.method === 'GET' && r.path.includes('/pods/helm-pod-1/log')) return new Response(sim.log, { status: 200 });
+    if (r.method === 'GET' && /\/pods\?labelSelector=controller-uid%3D/.test(r.path)) return sim.pods ? sim.pods(r) : jsonRes({ items: [{ metadata: { name: 'helm-pod-1' }, status: { phase: sim.phase ?? 'Succeeded' } }] });
+    if (r.method === 'GET' && r.path.includes('/pods/helm-pod-1/log')) return sim.logResponse ? sim.logResponse() : new Response(sim.log, { status: 200 });
     if (r.method === 'DELETE' && r.path.includes('/jobs/')) return jsonRes({});
     if (r.method === 'POST' && /\/apis\/batch\/v1\/namespaces\/[^/]+\/jobs$/.test(r.path)) {
       const args = r.body.spec.template.spec.containers[0].args;
-      return jsonRes({ metadata: { name: `helm-${args[0]}-${args[1]}-abc12`, uid: 'job-uid-1' } });
+      return jsonRes({ metadata: { name: r.body.metadata.name ?? `helm-${args[0]}-${args[1]}-abc12`, uid: args[0] === 'template' ? 'tpl-uid-1' : 'job-uid-1' } });
     }
-    if (r.method === 'POST' && /\/secrets$/.test(r.path)) return jsonRes({ metadata: { name: `${r.body.metadata.generateName}x1` } });
+    if (r.method === 'POST' && /\/secrets$/.test(r.path)) return jsonRes({ metadata: { name: r.body.metadata.name ?? `${r.body.metadata.generateName}x1` } });
     if (r.path.includes('dryRun=All')) return sim.dryRun?.(r) ?? jsonRes(r.body ?? {});
     const rec = /\/secrets\/(sh\.helm\.release\.[^/?]+)$/.exec(r.path);
     if (r.method === 'GET' && rec && sim.records?.[rec[1]]) return jsonRes(sim.records[rec[1]]);

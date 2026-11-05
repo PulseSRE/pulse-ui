@@ -27,7 +27,7 @@ import { runHelmAction } from './helmRunner';
 import { runnerCanManage } from './helmInstall';
 import { fetchReleaseRecord, previewCounts, runHelmPreview, type HelmPreview } from './helmPreview';
 import { HelmValuesPanel, useChartDefaults, type ValuesMode } from './HelmValuesPanel';
-import { HooksList, PreviewCounts, PreviewNotes, PreviewObjects, PreviewResult, usePreviewDenied, useHelmPreview } from './HelmPreviewPanel';
+import { canSkipPreview, HooksList, PreviewCounts, PreviewNotes, PreviewObjects, PreviewResult, previewDisabledReason, usePreviewPermission, useHelmPreview } from './HelmPreviewPanel';
 import { previewText } from './HelmInstallPanel';
 import type { ChartSource, ReleaseAction } from './HelmReleases';
 
@@ -91,7 +91,8 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
   const defaults = useChartDefaults(kind === 'values'
     ? { from: 'stored', chart: base.storedChart }
     : source && version ? { from: 'repo', repoUrl: source.repoUrl!, chartUrl: source.urls?.[version], chartName: source.name, version } : null);
-  const denied = usePreviewDenied(r.namespace);
+  const perm = usePreviewPermission(r.namespace, pinned);
+  const denied = previewDisabledReason(perm);
 
   /** The values helm renders with: for reuse, the overrides merged over the release's values. */
   const effectiveValues = (): string => {
@@ -110,13 +111,13 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
       return;
     }
     if (kind === 'upgrade' && !source?.repoUrl) { setFormError(`Choose the repository to upgrade ${r.chart ?? 'the chart'} from`); return; }
-    void preview.run(previewKey, async () => {
+    void preview.run(previewKey, async (signal) => {
       assertActiveCluster(pinned, 'The preview');
       const current = await fetchReleaseRecord(pinned, r.namespace, base.secretName);
       const chart = kind === 'values'
         ? { from: 'stored' as const, chartArchive: await buildChartArchive(base.storedChart) }
         : { from: 'repo' as const, chartName: source!.name, repoUrl: source!.repoUrl!, version: version || undefined };
-      return runHelmPreview({ clusterId: pinned, namespace: r.namespace, releaseName: r.name, chart, valuesYaml: values, current });
+      return runHelmPreview({ clusterId: pinned, namespace: r.namespace, releaseName: r.name, chart, valuesYaml: values, current, signal });
     });
   };
 
@@ -169,7 +170,7 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
       footer={step === 'edit' ? (
         <>
           <Button variant="ghost" onClick={action.close}>Cancel</Button>
-          {(cur?.status === 'error' || denied) && <Button variant="secondary" onClick={() => setStep('confirm')}>Continue without a preview</Button>}
+          {canSkipPreview(perm, cur) && <Button variant="secondary" onClick={() => setStep('confirm')}>Continue without a preview</Button>}
           <Button onClick={() => setStep('confirm')} disabled={!done || preview.blockers > 0}
             title={!done ? 'Preview first' : preview.blockers > 0 ? 'Fix what would fail first' : undefined}>
             Review changes
@@ -220,7 +221,8 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
                 <Eye className="h-3.5 w-3.5" /> {done || preview.stale ? 'Preview again' : 'Preview'}
               </Button>
             </div>
-            {denied && <p className="text-xs text-amber-300">{denied}.</p>}
+            {perm.state === 'checking' && <p className="text-xs text-slate-400" role="status">Checking your permissions…</p>}
+            {perm.state === 'denied' && <p className="text-xs text-amber-300">{perm.reason}.</p>}
             <PreviewResult state={preview.state} stale={preview.stale} action="upgrade" />
             {done && (
               <Button variant="ghost" size="sm" disabled={remote} title={remote ? 'Pulse AI answers about the local cluster only' : undefined}

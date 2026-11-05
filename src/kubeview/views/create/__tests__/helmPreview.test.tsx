@@ -10,7 +10,6 @@ import { gzipSync } from 'zlib';
 import { createHarness, clickWhenEnabled, json, k8sStatus, REMOTE } from '../../../__tests__/actionHarness';
 import { HelmTab } from '../HelmTab';
 import { HelmReleases } from '../HelmReleases';
-import { HELM_RUNNER_RULES } from '../helmInstall';
 import { tar } from '../../../engine/helmChartArchive';
 import { jobsBy, previewHandler, releaseSecret, PLAIN_MANIFEST } from './helmTestUtils';
 
@@ -141,22 +140,34 @@ describe('Install preview (HelmInstall)', () => {
     expect(await within(panel).findByTestId('helm-preview')).toBeTruthy();
   });
 
-  it('renders through the same runner Job and Role as install, dry-runs each object, and blocks Install on what would fail', async () => {
+  it('renders in a token-less Job that touches no RBAC, dry-runs each object, and blocks Install on what would fail', async () => {
     const panel = await openInstall();
     await clickWhenEnabled('Preview');
     const preview = await within(panel).findByTestId('helm-preview');
 
-    // The render Job: same image, ServiceAccount and Role as every Helm action; helm template only.
+    // The render Job: the runner image, the namespace's default ServiceAccount with no token, a short TTL.
     const [tpl] = jobsBy(h.writes(), 'template');
     expect(tpl.path).toBe('/apis/batch/v1/namespaces/team-b/jobs');
     const c = tpl.body.spec.template.spec;
-    expect(c.serviceAccountName).toBe('openshiftpulse-helm-installer');
+    expect(c.serviceAccountName).toBe('default');
+    expect(c.automountServiceAccountToken).toBe(false);
+    expect(tpl.body.spec.ttlSecondsAfterFinished).toBe(60);
     expect(c.containers[0].image).toBe(RUNNER);
-    expect(c.containers[0].args).toEqual(['template', 'my-nginx', 'nginx', '--repo', 'https://charts.openshift.io', '--version', '15.3.0', '--namespace', 'team-b', '--kube-version', 'v1.31.4', '--api-versions', 'v1', '--api-versions', 'apps/v1']);
-    const role = h.writes().find((w) => w.path.startsWith('/apis/rbac.authorization.k8s.io/v1/namespaces/team-b/roles/'))!;
-    expect(role.body.rules).toEqual(HELM_RUNNER_RULES.map((r) => ({ ...r, apiGroups: [...r.apiGroups], resources: [...r.resources], verbs: [...r.verbs] })));
-    // The preview Job is removed once its log is read, and nothing is installed.
-    await waitFor(() => expect(h.writes().some((w) => w.method === 'DELETE' && w.path === '/apis/batch/v1/namespaces/team-b/jobs/helm-template-my-nginx-abc12?propagationPolicy=Background')).toBe(true));
+    expect(c.containers[0].command.slice(0, 2)).toEqual(['/bin/sh', '-c']);
+    expect(c.containers[0].args).toEqual(['template', 'my-nginx', 'nginx', '--repo', 'https://charts.openshift.io', '--version', '15.3.0', '--namespace', 'team-b', '-f', '/tmp/values/values.yaml', '--include-crds', '--kube-version', 'v1.31.4', '--api-versions', 'v1', '--api-versions', 'apps/v1']);
+    // No ServiceAccount, Role or RoleBinding is created or changed by a preview.
+    expect(h.writes().filter((w) => /serviceaccounts|rbac\.authorization/.test(w.path))).toEqual([]);
+    // Only the Job and its values Secret (owned by the Job, carrying a salt) are created.
+    const jobName = tpl.body.metadata.name as string;
+    expect(jobName).toMatch(/^helm-template-my-nginx-[a-z0-9]{5}$/);
+    const secrets = h.writes().filter((w) => w.method === 'POST' && w.path === '/api/v1/namespaces/team-b/secrets');
+    expect(secrets).toHaveLength(1);
+    expect(secrets[0].body.metadata.ownerReferences).toEqual([{ apiVersion: 'batch/v1', kind: 'Job', name: jobName, uid: 'tpl-uid-1' }]);
+    expect(Object.keys(secrets[0].body.stringData)).toEqual(['values.yaml', 'salt']);
+    expect(c.volumes).toContainEqual({ name: 'values', secret: { secretName: secrets[0].body.metadata.name } });
+    // The pod is found by the Job's uid; the Job is removed once its log is read, and nothing is installed.
+    expect(h.state.requests.some((r) => r.path.includes('labelSelector=controller-uid%3Dtpl-uid-1'))).toBe(true);
+    await waitFor(() => expect(h.writes().some((w) => w.method === 'DELETE' && w.path === `/apis/batch/v1/namespaces/team-b/jobs/${jobName}?propagationPolicy=Background`)).toBe(true));
     expect(jobsBy(h.writes(), 'install')).toHaveLength(0);
     // Each object was sent with dryRun=All.
     expect(h.writes().filter((w) => w.path.includes('dryRun=All')).map((w) => `${w.method} ${w.path}`).sort()).toEqual([
@@ -193,17 +204,72 @@ describe('Install preview (HelmInstall)', () => {
     expect((within(panel).getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('a failed render shows helm\'s error and offers an install that says it was not previewed', async () => {
+  it('a failed render shows helm\'s error, removes the Job and does not offer installing anyway', async () => {
     h.state.handler = previewHandler(h.state.handler, { phase: 'Failed', log: 'Error: values don\'t meet the specifications of the schema(s) in the following chart(s):\nnginx:\n- replicaCount: Invalid type\n' });
     const panel = await openInstall();
     await clickWhenEnabled('Preview');
     const alert = await within(panel).findByText('The preview could not be made');
     expect(alert.parentElement!.textContent).toMatch(/Error: values don't meet the specifications of the schema/);
-    fireEvent.click(within(panel).getByRole('button', { name: 'Install without a preview' }));
+    // helm itself rejected the chart: installing anyway is not offered, and the Job was removed.
+    expect(within(panel).queryByRole('button', { name: 'Install without a preview' })).toBeNull();
+    expect((within(panel).getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(h.writes().some((w) => w.method === 'DELETE' && w.path.includes('/jobs/helm-template-'))).toBe(true);
+  });
+
+  it('closing the install form mid-preview cancels it and deletes the Job', async () => {
+    h.state.handler = previewHandler(h.state.handler, { log: '', pods: () => json({ items: [{ metadata: { name: 'helm-pod-1' }, status: { phase: 'Running' } }] }) });
+    const panel = await openInstall();
+    await clickWhenEnabled('Preview');
+    await waitFor(() => expect(jobsBy(h.writes(), 'template')).toHaveLength(1));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(h.writes().some((w) => w.method === 'DELETE' && w.path.includes('/jobs/helm-template-my-nginx-'))).toBe(true));
+    expect(jobsBy(h.writes(), 'install')).toHaveLength(0);
+  });
+
+  it('shows rendered Secret values as hidden and dry-runs them with placeholders', async () => {
+    h.state.handler = previewHandler(h.state.handler, { log: `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-nginx
+data:
+  password: "(redacted sha256:0123456789abcdef)"
+` });
+    const panel = await openInstall();
+    await clickWhenEnabled('Preview');
+    const preview = await within(panel).findByTestId('helm-preview');
+    fireEvent.click(within(preview).getByRole('button', { name: 'View Secret/my-nginx' }));
+    expect(within(preview).getByLabelText('Manifest of Secret/my-nginx').textContent).toContain('password: (redacted sha256:0123456789abcdef)');
+    expect(h.writes().find((w) => w.path.includes('/secrets?dryRun=All'))!.body.data).toEqual({ password: 'cmVkYWN0ZWQ=' });
+  });
+
+  it.each([[403, 'jobs.batch is forbidden'], [409, 'jobs.batch "helm-install-my-nginx-abc12" already exists']])('an install Job create answered %s stays in the confirm and starts nothing', async (code, msg) => {
+    const inner = previewHandler(h.state.handler, { log: PLAIN_MANIFEST.replace(/shop/g, 'my-nginx') });
+    h.state.handler = (r) => (r.method === 'POST' && r.path.endsWith('/jobs') && r.body.spec.template.spec.containers[0].args[0] === 'install' ? k8sStatus(code, msg) : inner(r));
+    const panel = await openInstall();
+    await clickWhenEnabled('Preview');
+    await within(panel).findByTestId('helm-preview');
+    await clickWhenEnabled('Install 2 objects');
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByTestId('install-confirm-summary').textContent).toMatch(/Not previewed: the preview could not be made \(Error: values don't meet/);
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Install without a preview' }));
-    await waitFor(() => expect(jobsBy(h.writes(), 'install')).toHaveLength(1));
+    expect(within(dialog).getByTestId('install-who').textContent).toMatch(/^Cluster .+ · acting as /);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Install 2 objects' }));
+    expect(await within(dialog).findByText(msg)).toBeTruthy();
+    expect(within(dialog).getByText('The install was not started')).toBeTruthy();
+  });
+
+  it('while permissions are being checked, Preview says so and no bypass is offered', async () => {
+    const panel = await openInstall();
+    expect(within(panel).queryByRole('button', { name: 'Install without a preview' })).toBeNull();
+    // Without a namespace, neither.
+    fireEvent.change(screen.getByRole('combobox', { name: 'Namespace' }), { target: { value: '' } });
+    expect(within(panel).queryByRole('button', { name: 'Install without a preview' })).toBeNull();
+  });
+
+  it('when Jobs are denied, Preview is off and installing unpreviewed is not offered', async () => {
+    h.state.denied.add('create jobs');
+    const panel = await openInstall();
+    await waitFor(() => expect(panel.textContent).toMatch(/You do not have permission to create Jobs in team-b/));
+    expect(within(panel).queryByRole('button', { name: 'Install without a preview' })).toBeNull();
   });
 
   it('without permission to read pod logs the preview is disabled with the reason', async () => {
@@ -283,8 +349,8 @@ metadata:
     const dialog = await previewUpgrade();
     const [tpl] = jobsBy(h.writes(), 'template');
     expect(tpl.body.spec.template.spec.containers[0].args).toEqual(expect.arrayContaining(['template', 'shop', 'nginx', '--version', '15.3.0', '--is-upgrade']));
-    const valueSecrets = h.writes().filter((w) => w.method === 'POST' && w.body?.metadata?.generateName === 'helm-values-shop-');
-    expect(valueSecrets[0].body.stringData['values.yaml']).toBe("replicaCount: 2\nimage:\n  tag: '1.28'\n");
+    const previewValues = h.writes().find((w) => w.method === 'POST' && /^helm-preview-values-/.test(w.body?.metadata?.name ?? ''))!;
+    expect(previewValues.body.stringData['values.yaml']).toBe("replicaCount: 2\nimage:\n  tag: '1.28'\n");
     // The Deployment that exists in the release is checked with a server-side apply dry run.
     expect(h.writes().some((w) => w.method === 'PATCH' && w.path === '/apis/apps/v1/namespaces/team-a/deployments/shop?dryRun=All&fieldManager=helm&force=true')).toBe(true);
 
@@ -307,8 +373,8 @@ metadata:
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade to 15.3.0' }));
     await waitFor(() => expect(jobsBy(h.writes(), 'upgrade')).toHaveLength(1));
-    expect(jobsBy(h.writes(), 'upgrade')[0].body.spec.template.spec.containers[0].args).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://charts.example.com', '--namespace', 'team-a', '--version', '15.3.0', '--reuse-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
-    // With --reuse-values, only the overrides go to helm; it merges them itself.
+    expect(jobsBy(h.writes(), 'upgrade')[0].body.spec.template.spec.containers[0].args).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://charts.example.com', '--namespace', 'team-a', '--version', '15.3.0', '--reset-then-reuse-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
+    // With --reset-then-reuse-values, only the overrides go to helm; it merges them itself.
     expect(h.writes().filter((w) => w.method === 'POST' && w.body?.metadata?.generateName === 'helm-values-shop-').at(-1)!.body.stringData['values.yaml']).toBe("image:\n  tag: '1.28'\n");
     expect((await screen.findByTestId('job-progress')).textContent).toBe('helm-upgrade-shop-abc12');
   });
@@ -369,8 +435,10 @@ metadata:
     await clickWhenEnabled('Preview');
     await within(dialog).findByTestId('helm-preview');
     const [tpl] = jobsBy(h.writes(), 'template');
-    expect(tpl.body.spec.template.spec.containers[0].args).toEqual(['template', 'shop', '/tmp/chart/chart.tgz', '--namespace', 'team-a', '-f', '/tmp/values/values.yaml', '--is-upgrade', '--kube-version', 'v1.31.4', '--api-versions', 'v1', '--api-versions', 'apps/v1']);
-    expect(tpl.body.spec.template.spec.volumes).toContainEqual({ name: 'chart', secret: { secretName: 'helm-chart-shop-x1' } });
+    expect(tpl.body.spec.template.spec.containers[0].args).toEqual(['template', 'shop', '/tmp/chart/chart.tgz', '--namespace', 'team-a', '-f', '/tmp/values/values.yaml', '--include-crds', '--is-upgrade', '--kube-version', 'v1.31.4', '--api-versions', 'v1', '--api-versions', 'apps/v1']);
+    const chartSecret = h.writes().find((w) => w.method === 'POST' && /^helm-preview-chart-/.test(w.body?.metadata?.name ?? ''))!;
+    expect(chartSecret.body.metadata.ownerReferences[0].uid).toBe('tpl-uid-1');
+    expect(tpl.body.spec.template.spec.volumes).toContainEqual({ name: 'chart', secret: { secretName: chartSecret.body.metadata.name } });
   });
 
   it('without permission to create Jobs, Upgrade is disabled (RBAC)', async () => {
@@ -388,7 +456,7 @@ metadata:
     const dialog = await screen.findByRole('dialog');
     const diff = await within(dialog).findByTestId('rollback-diff');
     await waitFor(() => expect(within(diff).getByTestId('preview-removed-Deployment-shop')).toBeTruthy());
-    expect(diff.textContent).toMatch(/rev 2 \(running\) → rev 1/);
+    expect(diff.textContent).toMatch(/rev 2 \(latest\) → rev 1/);
     expect(diff.textContent).toMatch(/1 object unchanged/);
     expect(diff.textContent).toMatch(/Hooks that will run: none on rollback/);
     expect(jobsBy(h.writes(), 'template')).toHaveLength(0); // no render needed

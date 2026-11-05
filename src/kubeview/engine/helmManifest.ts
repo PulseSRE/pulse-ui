@@ -126,6 +126,8 @@ export interface ObjectChange {
   after?: string;
   /** The object as it will be sent (added/changed/unchanged). */
   doc?: Record<string, Json>;
+  /** Removed, but the chart marks it helm.sh/resource-policy: keep. */
+  keep?: boolean;
 }
 
 export function canonicalYaml(doc: Record<string, Json>): string {
@@ -154,7 +156,10 @@ export function diffObjects(current: RenderedObject[], next: RenderedObject[]): 
     }
   }
   for (const c of cur.values()) {
-    if (!seen.has(c.key)) out.push({ change: 'removed', key: c.key, apiVersion: c.apiVersion, kind: c.kind, name: c.name, namespace: c.namespace, before: canonicalYaml(c.doc) });
+    if (!seen.has(c.key)) {
+      const keep = c.doc?.metadata?.annotations?.['helm.sh/resource-policy'] === 'keep';
+      out.push({ change: 'removed', key: c.key, apiVersion: c.apiVersion, kind: c.kind, name: c.name, namespace: c.namespace, before: canonicalYaml(c.doc), ...(keep ? { keep } : {}) });
+    }
   }
   return out;
 }
@@ -323,9 +328,42 @@ export function schemaHints(schema: Schema | undefined, values: Record<string, u
 
 // --- chart archives ---------------------------------------------------------
 
+/** Largest chart archive Pulse downloads, and the most it decompresses. */
+export const MAX_CHART_ARCHIVE_BYTES = 10 * 1024 * 1024;
+export const MAX_CHART_UNPACKED_BYTES = 50 * 1024 * 1024;
+
+/** Read a stream, failing as soon as it passes `max` bytes. */
+async function readStreamCapped(stream: ReadableStream<Uint8Array>, max: number, what: string): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error(`${what} is larger than ${Math.round(max / 1024 / 1024)} MB`);
+    }
+    parts.push(value);
+  }
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+/** A response body, at most `max` bytes. */
+export async function readCapped(res: Response, max: number): Promise<Uint8Array> {
+  const declared = Number(res.headers.get('content-length') ?? 0);
+  if (declared > max) throw new Error(`The chart archive is larger than ${Math.round(max / 1024 / 1024)} MB`);
+  if (!res.body) return new Uint8Array(await res.arrayBuffer());
+  return readStreamCapped(res.body, max, 'The chart archive');
+}
+
 async function gunzipBytes(bytes: Uint8Array): Promise<Uint8Array> {
   const stream = new Response(bytes as BodyInit).body!.pipeThrough(new DecompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  return readStreamCapped(stream, MAX_CHART_UNPACKED_BYTES, 'The unpacked chart');
 }
 
 /** Files of a (ustar, GNU or PAX) tar archive by path. */
@@ -374,4 +412,69 @@ export async function readChartArchive(bytes: Uint8Array): Promise<ChartDefaults
     try { parsedSchema = JSON.parse(dec.decode(schema)); } catch { parsedSchema = undefined; }
   }
   return { valuesYaml: values ? dec.decode(values) : '', schema: parsedSchema };
+}
+
+// --- Secret redaction ---------------------------------------------------------
+
+async function saltedHash(salt: string, value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + value));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+
+const indentOf = (s: string) => /^ */.exec(s)![0].length;
+
+/**
+ * Replace every Secret `data`/`stringData` value in a multi-document manifest
+ * with "(redacted sha256:<16 hex of salt+value>)". The same line-based rules
+ * as the preview Job's awk program (helmTemplateJob.REDACT_AWK), so a value
+ * that did not change hashes the same on both sides of a diff.
+ */
+export async function redactSecretValues(text: string, salt: string): Promise<string> {
+  const lines = text.split('\n');
+  const trailing = lines[lines.length - 1] === '';
+  if (trailing) lines.pop();
+  const out: string[] = [];
+  let doc: string[] = [];
+  const flush = async () => {
+    if (!doc.some((l) => /^kind:[ \t]*Secret[ \t]*$/.test(l))) { out.push(...doc); doc = []; return; }
+    let sec = false;
+    let keyind = -1;
+    for (let i = 0; i < doc.length; i++) {
+      let l = doc[i];
+      if (/^(data|stringData):[ \t]*$/.test(l)) { sec = true; keyind = -1; out.push(l); continue; }
+      if (/^(data|stringData):[ \t]*\{[ \t]*\}[ \t]*$/.test(l)) { out.push(l); continue; }
+      if (/^(data|stringData):/.test(l)) { out.push(`${l.replace(/:.*/, '')}: {}  # redacted by Pulse: values not shown`); continue; }
+      if (sec && /^[^ ]/.test(l)) sec = false;
+      if (!sec || /^[ \t]*$/.test(l) || /^[ \t]*#/.test(l)) { if (!sec || !/^ /.test(l)) out.push(l); continue; }
+      const ind = indentOf(l);
+      if (keyind < 0) keyind = ind;
+      if (ind !== keyind) continue;
+      const m = l.indexOf(':');
+      if (m < 0) continue;
+      const key = l.slice(0, m);
+      let val = l.slice(m + 1).replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
+      let j = i + 1;
+      for (; j < doc.length && (/^[ \t]*$/.test(doc[j]) || indentOf(doc[j]) > keyind) && !/^[^ ]/.test(doc[j]); j++) {
+        l = doc[j].replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
+        val = `${val}\n${l}`;
+      }
+      i = j - 1;
+      out.push(`${key}: "(redacted sha256:${await saltedHash(salt, val)})"`);
+    }
+    doc = [];
+  };
+  for (const l of lines) {
+    if (/^---[ \t]*$/.test(l)) { await flush(); out.push(l); } else doc.push(l);
+  }
+  await flush();
+  return out.join('\n') + (trailing ? '\n' : '');
+}
+
+export const REDACTED = /^\(redacted sha256:[0-9a-f]{16}\)$/;
+
+/** A copy of a redacted Secret with placeholder values the API server accepts, for the dry run. */
+export function dryRunPlaceholder(doc: Record<string, Json>): Record<string, Json> {
+  if (doc?.kind !== 'Secret') return doc;
+  const fill = (m: unknown, v: string) => (m && typeof m === 'object' ? Object.fromEntries(Object.keys(m).map((k) => [k, v])) : m);
+  return { ...doc, ...(doc.data ? { data: fill(doc.data, 'cmVkYWN0ZWQ=') } : {}), ...(doc.stringData ? { stringData: fill(doc.stringData, 'redacted') } : {}) };
 }

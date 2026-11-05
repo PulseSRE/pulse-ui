@@ -7,7 +7,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { diffHunks, lineDiff, type RenderedObject } from '../../engine/helmManifest';
-import { previewCounts, type HelmPreview, type PreviewEntry } from './helmPreview';
+import { HelmRenderError, previewCounts, type HelmPreview, type PreviewEntry } from './helmPreview';
 import { useCanI } from '../../hooks/useCanI';
 
 const CHANGE_STYLE: Record<string, string> = {
@@ -77,6 +77,7 @@ export function HooksList({ hooks, action }: { hooks: RenderedObject[]; action: 
         ? <span className="text-slate-500">none on {action}</span>
         : <ul className="mt-1 space-y-0.5 text-slate-300">{hooks.map((h) => <li key={h.key} className="font-mono">{hookLine(h)}</li>)}</ul>}
       {hooks.some((h) => h.hook!.events.some((ev) => ev.startsWith('pre-'))) && <p className="mt-1 text-slate-500">If a pre-{action} hook fails, helm stops before changing anything else.</p>}
+      {hooks.length > 0 && <p className="mt-1 text-slate-500">Hooks are not dry-run; only the runner's Role is checked for them.</p>}
     </div>
   );
 }
@@ -119,7 +120,7 @@ export function PreviewObjects({ preview }: { preview: HelmPreview }) {
 export function PreviewNotes({ preview }: { preview: HelmPreview }) {
   return (
     <div className="space-y-1 text-xs text-slate-500">
-      <p>The dry run runs as you; helm runs as the runner ServiceAccount, whose Role is checked separately for every object and hook.</p>
+      <p>The dry run runs as you; helm runs as the runner ServiceAccount, whose Role is checked separately for every object and hook. Secret values are hidden: each shows a salted hash, so a changed value still shows as changed.</p>
       {preview.testHooks.length > 0 && <p>{preview.testHooks.length} test hook{preview.testHooks.length === 1 ? '' : 's'} ({preview.testHooks.map((h) => `${h.kind} ${h.name}`).join(', ')}) run only on helm test.</p>}
       {preview.capabilitiesNote && <p className="text-amber-300">{preview.capabilitiesNote}</p>}
       {preview.warnings.length > 0 && <p className="text-amber-300">helm warned: {preview.warnings.join(' ')}</p>}
@@ -130,30 +131,46 @@ export function PreviewNotes({ preview }: { preview: HelmPreview }) {
 export type PreviewState =
   | { status: 'idle' }
   | { status: 'running'; key: string }
-  | { status: 'error'; key: string; error: string; log?: string }
+  /** render: helm itself rejected the chart or values; infra: the Job, its pod or its log could not be used. */
+  | { status: 'error'; key: string; error: string; log?: string; kind: 'render' | 'infra' }
   | { status: 'done'; key: string; preview: HelmPreview };
 
 /**
  * Run previews and remember which inputs each was made from, so a preview of
  * other values, another version or another cluster is never shown as current.
+ * A new run, a reset or unmounting aborts the one in flight, which deletes
+ * its Job.
  */
 export function useHelmPreview(currentKey: string) {
   const [state, setState] = React.useState<PreviewState>({ status: 'idle' });
   const latest = React.useRef(0);
-  const run = React.useCallback(async (key: string, fn: () => Promise<HelmPreview>) => {
+  const controller = React.useRef<AbortController | null>(null);
+  React.useEffect(() => () => controller.current?.abort(), []);
+  const run = React.useCallback(async (key: string, fn: (signal: AbortSignal) => Promise<HelmPreview>) => {
     const n = ++latest.current;
+    controller.current?.abort();
+    const c = new AbortController();
+    controller.current = c;
     setState({ status: 'running', key });
     try {
-      const preview = await fn();
-      if (n === latest.current) setState({ status: 'done', key, preview });
+      const preview = await fn(c.signal);
+      if (n === latest.current && !c.signal.aborted) setState({ status: 'done', key, preview });
     } catch (e) {
-      if (n === latest.current) setState({ status: 'error', key, error: e instanceof Error ? e.message : String(e), log: (e as { log?: string })?.log });
+      if (c.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return;
+      if (n === latest.current) {
+        setState({ status: 'error', key, error: e instanceof Error ? e.message : String(e), log: (e as { log?: string })?.log, kind: e instanceof HelmRenderError ? 'render' : 'infra' });
+      }
     }
+  }, []);
+  const cancel = React.useCallback(() => {
+    latest.current++;
+    controller.current?.abort();
+    setState({ status: 'idle' });
   }, []);
   const stale = state.status !== 'idle' && state.key !== currentKey;
   const current = stale ? null : state;
   const blockers = current?.status === 'done' ? previewCounts(current.preview).failing : 0;
-  return { state, current, stale, run, blockers, reset: () => setState({ status: 'idle' }) };
+  return { state, current, stale, run, blockers, reset: cancel, cancel };
 }
 
 export function PreviewResult({ state, stale, action }: { state: PreviewState; stale: boolean; action: 'install' | 'upgrade' }) {
@@ -184,14 +201,48 @@ export function PreviewResult({ state, stale, action }: { state: PreviewState; s
   );
 }
 
-/** Why the signed-in user cannot run a preview here, or undefined. The runner needs a Job and a Secret; reading its output needs pods/log. */
-export function usePreviewDenied(namespace: string): string | undefined {
-  const jobs = useCanI('create', 'batch', 'jobs', namespace || undefined, undefined, { enabled: !!namespace });
-  const secrets = useCanI('create', '', 'secrets', namespace || undefined, undefined, { enabled: !!namespace });
-  const logs = useCanI('get', '', 'pods', namespace || undefined, 'log', { enabled: !!namespace });
-  if (!namespace) return 'Choose a namespace first';
-  if (!jobs.allowed) return `You do not have permission to create Jobs in ${namespace}, which the preview runs in`;
-  if (!secrets.allowed) return `You do not have permission to create Secrets in ${namespace}, which carry the values to the preview Job`;
-  if (!logs.allowed) return `You do not have permission to read pod logs in ${namespace}, where the preview's output is`;
-  return undefined;
+export type PreviewPermission =
+  | { state: 'checking' }
+  | { state: 'allowed' }
+  /** logsOnly: everything but reading the output is allowed (the only case where installing unpreviewed is offered). */
+  | { state: 'denied'; reason: string; logsOnly: boolean }
+  | { state: 'no-namespace'; reason: string };
+
+/**
+ * Exactly what Preview does as the user: create the Job and its input
+ * Secrets, list its pod, read the pod's log, delete the Job.
+ */
+export function usePreviewPermission(namespace: string, clusterId?: string): PreviewPermission {
+  const opts = { enabled: !!namespace, clusterId };
+  const ns = namespace || undefined;
+  const checks: Array<[string, { allowed: boolean; isLoading: boolean }]> = [
+    [`create Jobs in ${namespace}, which the preview runs in`, useCanI('create', 'batch', 'jobs', ns, undefined, opts)],
+    [`create Secrets in ${namespace}, which carry the values to the preview Job`, useCanI('create', '', 'secrets', ns, undefined, opts)],
+    [`list pods in ${namespace}, to find the preview's pod`, useCanI('list', '', 'pods', ns, undefined, opts)],
+    [`delete Jobs in ${namespace}, to remove the preview Job`, useCanI('delete', 'batch', 'jobs', ns, undefined, opts)],
+  ];
+  const logs = useCanI('get', '', 'pods', ns, 'log', opts);
+  if (!namespace) return { state: 'no-namespace', reason: 'Choose a namespace first' };
+  if (checks.some(([, c]) => c.isLoading) || logs.isLoading) return { state: 'checking' };
+  const denied = checks.find(([, c]) => !c.allowed);
+  if (denied) return { state: 'denied', reason: `You do not have permission to ${denied[0]}`, logsOnly: false };
+  if (!logs.allowed) return { state: 'denied', reason: `You do not have permission to read pod logs in ${namespace}, where the preview's output is`, logsOnly: true };
+  return { state: 'allowed' };
+}
+
+/** The preview permission as a reason to disable the button, or undefined when it may run. */
+export function previewDisabledReason(p: PreviewPermission): string | undefined {
+  return p.state === 'allowed' ? undefined : p.state === 'checking' ? 'Checking your permissions…' : p.reason;
+}
+
+/**
+ * Whether to offer acting without a preview: only when the preview could not
+ * run for an infrastructure reason, or only reading pod logs is denied. Never
+ * for a render error, while permissions are being checked, without a
+ * namespace, or when Jobs (or anything else) are denied.
+ */
+export function canSkipPreview(perm: PreviewPermission, state: PreviewState | null): boolean {
+  if (perm.state === 'denied') return perm.logsOnly;
+  if (perm.state !== 'allowed') return false;
+  return state?.status === 'error' && state.kind === 'infra';
 }

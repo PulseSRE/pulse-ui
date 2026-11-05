@@ -4,14 +4,14 @@
  * overrides YAML, and hints from values.schema.json when the chart has one.
  * On an upgrade it also offers where values start from: the chart defaults
  * plus these overrides (--reset-values) or the release's current values plus
- * these overrides (--reuse-values).
+ * these overrides (--reset-then-reuse-values).
  */
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dump } from 'js-yaml';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { leafPaths, parseValues, readChartArchive, schemaHints, yamlLinePaths, type ChartDefaults } from '../../engine/helmManifest';
+import { leafPaths, MAX_CHART_ARCHIVE_BYTES, parseValues, readCapped, readChartArchive, schemaHints, yamlLinePaths, type ChartDefaults } from '../../engine/helmManifest';
 import type { StoredChart } from '../../engine/helmChartArchive';
 
 export type DefaultsSource =
@@ -37,9 +37,11 @@ export function useChartDefaults(source: DefaultsSource | null): DefaultsState {
     retry: false,
     queryFn: async () => {
       const url = chartArchiveUrl(repo!.repoUrl, repo!.chartUrl!);
-      const res = await fetch(url);
+      if (!/^https?:$/.test(new URL(url).protocol)) throw new Error(`${url} is not an http(s) URL`);
+      // No cookies or credentials go to a chart repository.
+      const res = await fetch(url, { credentials: 'omit' });
       if (!res.ok) throw new Error(`${url} returned ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`);
-      return readChartArchive(new Uint8Array(await res.arrayBuffer()));
+      return readChartArchive(await readCapped(res, MAX_CHART_ARCHIVE_BYTES));
     },
   });
   if (!source) return { status: 'loading' };
@@ -104,7 +106,7 @@ export function HelmValuesPanel({
             </label>
           </div>
           {reuseUnavailable && <p className="mt-1 text-slate-500">{reuseUnavailable}</p>}
-          {mode === 'reuse' && <p className="mt-1 text-slate-500">Your overrides are merged over the release's current values (helm --reuse-values); values the new chart version adds keep its defaults.</p>}
+          {mode === 'reuse' && <p className="mt-1 text-slate-500">The new chart's defaults, then the release's current values, then your overrides (helm --reset-then-reuse-values). Defaults the new chart version changes take effect unless the release set that value.</p>}
           {mode === 'reset' && <p className="mt-1 text-slate-500">Your overrides replace the release's current values (helm --reset-values); anything not set here falls back to the chart's default.</p>}
         </fieldset>
       )}

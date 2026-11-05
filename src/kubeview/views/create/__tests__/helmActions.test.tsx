@@ -92,7 +92,7 @@ describe('Helm release actions', () => {
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Upgrade to 15.2.0' }));
 
     await waitFor(() => expect(jobArgs()).toBeDefined());
-    const secret = h.writes().find((w) => w.path === '/api/v1/namespaces/team-a/secrets');
+    const secret = h.writes().find((w) => w.path === '/api/v1/namespaces/team-a/secrets' && w.body.metadata.generateName === 'helm-values-shop-');
     expect(secret?.body.stringData).toEqual({ 'values.yaml': 'replicaCount: 4\n' });
     expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://charts.example.com', '--namespace', 'team-a', '--version', '15.2.0', '--reset-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
     const spec = jobsBy(h.writes(), 'upgrade')[0].body.spec.template.spec;
@@ -160,7 +160,7 @@ metadata:
     fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade to 15.0.0' }));
     await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://mirror.example.com', '--namespace', 'team-a', '--version', '15.0.0', '--reset-values', '--atomic', '--wait', '--timeout', '5m']));
     // No values file: --reset-values makes the release use the chart's defaults, as the dialog says, instead of Helm reusing the previous values.
-    expect(h.writes().some((w) => w.path.endsWith('/secrets'))).toBe(false);
+    expect(h.writes().some((w) => w.path.endsWith('/secrets') && w.body.metadata.generateName === 'helm-values-shop-')).toBe(false);
   });
 
   it('without a repository, Upgrade is unavailable and says why; Edit values upgrades with the chart stored in the release', async () => {
@@ -356,14 +356,15 @@ describe('helm runner pieces', () => {
     expect(helmArgs({ action: 'upgrade-stored', releaseName: 'r', chartSecretName: 'cs' }, 'ns'))
       .toEqual(['upgrade', 'r', '/tmp/chart/chart.tgz', '--namespace', 'ns', '--reset-values', '--wait', '--timeout', '5m']);
     expect(helmArgs({ action: 'upgrade', releaseName: 'r', chartName: 'c', repoUrl: 'https://x', valuesMode: 'reuse', atomic: true, valuesSecretName: 's' }, 'ns'))
-      .toEqual(['upgrade', 'r', 'c', '--repo', 'https://x', '--namespace', 'ns', '--reuse-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
+      .toEqual(['upgrade', 'r', 'c', '--repo', 'https://x', '--namespace', 'ns', '--reset-then-reuse-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
   });
 
   it('template args render only: no --wait, the cluster version and API list, the stored chart for a values change', () => {
     expect(helmArgs({ action: 'template', releaseName: 'r', chart: { from: 'repo', chartName: 'c', repoUrl: 'https://x', version: '1.0.0' }, valuesSecretName: 's', kubeVersion: 'v1.31.4', apiVersions: ['v1', 'route.openshift.io/v1'] }, 'ns'))
-      .toEqual(['template', 'r', 'c', '--repo', 'https://x', '--version', '1.0.0', '--namespace', 'ns', '-f', '/tmp/values/values.yaml', '--kube-version', 'v1.31.4', '--api-versions', 'v1', '--api-versions', 'route.openshift.io/v1']);
+      .toEqual(['template', 'r', 'c', '--repo', 'https://x', '--version', '1.0.0', '--namespace', 'ns', '-f', '/tmp/values/values.yaml', '--include-crds', '--kube-version', 'v1.31.4', '--api-versions', 'v1', '--api-versions', 'route.openshift.io/v1']);
     expect(helmArgs({ action: 'template', releaseName: 'r', chart: { from: 'stored', chartSecretName: 'cs' }, isUpgrade: true }, 'ns'))
-      .toEqual(['template', 'r', '/tmp/chart/chart.tgz', '--namespace', 'ns', '--is-upgrade']);
+      .toEqual(['template', 'r', '/tmp/chart/chart.tgz', '--namespace', 'ns', '--include-crds', '--is-upgrade']);
+    expect(() => helmArgs({ action: 'install', releaseName: 'r', chartName: '--post-renderer=x', repoUrl: 'https://x' }, 'ns')).toThrow(/not a valid chart or release name/);
   });
 
   it('install args carry the chosen version and the values file', () => {
@@ -455,7 +456,7 @@ entries:
     fireEvent.click(within(dialog).getByRole('button', { name: 'Install 2 objects' }));
     await waitFor(() => expect(jobsBy(h.writes(), 'install')).toHaveLength(1));
     const job = jobsBy(h.writes(), 'install')[0];
-    expect(job.body.spec.template.spec.containers[0].args).toEqual(['install', 'my-nginx', 'nginx', '--repo', 'https://charts.openshift.io', '--namespace', 'team-b', '--version', '15.2.0', '--wait', '--timeout', '5m']);
+    expect(job.body.spec.template.spec.containers[0].args).toEqual(['install', 'my-nginx', 'nginx', '--repo', 'https://charts.openshift.io', '--namespace', 'team-b', '--version', '15.2.0', '--atomic', '--wait', '--timeout', '5m']);
   });
 
   it('Quick Deploy will not deploy in all-namespaces mode until a namespace is chosen', async () => {

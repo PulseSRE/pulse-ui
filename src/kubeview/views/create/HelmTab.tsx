@@ -18,6 +18,7 @@ import { runHelmAction } from './helmRunner';
 import { HelmReleases } from './HelmReleases';
 import { useInitialNamespace, isNamespaceName } from './NamespacePicker';
 import { usePinnedAction } from '../../hooks/usePinnedAction';
+import { useActingAs } from '../../hooks/useActingAs';
 import { LoadError } from '../../components/primitives/LoadError';
 import { errorReason } from '../../engine/readResult';
 
@@ -141,6 +142,7 @@ export function HelmTab() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   // Releases, repos and installs all belong to the cluster on screen.
   const clusterId = useFleetStore((s) => s.activeClusterId);
+  const [installAtomic, setInstallAtomic] = useState(true);
   const [search, setSearch] = useState('');
   const [releaseName, setReleaseName] = useState('');
   const initialNs = useInitialNamespace();
@@ -279,8 +281,9 @@ export function HelmTab() {
     setFormError(err);
     if (err || !selectedChart) return;
     const chart = selectedChart;
-    void preview.run(previewKey, () => runHelmPreview({
+    void preview.run(previewKey, (signal) => runHelmPreview({
       clusterId,
+      signal,
       namespace: installNs,
       releaseName: releaseName.trim(),
       chart: { from: 'repo', chartName: chart.name, repoUrl: chart.repoUrl || DEFAULT_REPO_URL, version: version || undefined },
@@ -311,6 +314,7 @@ export function HelmTab() {
       chartName: t.chart.name,
       repoUrl: t.chart.repoUrl || DEFAULT_REPO_URL,
       version: t.version || undefined,
+      atomic: installAtomic,
     }, t.values);
     addToast({ type: 'success', title: 'Helm install started', detail: `${t.chart.name} as "${t.releaseName}" in ${t.ns}` });
     setInstalledJob({ name: jobName, ns: t.ns, clusterId: pinnedCluster });
@@ -474,7 +478,7 @@ export function HelmTab() {
           onValues={setInstallValues}
           formError={formError}
           onInstall={requestInstall}
-          onCancel={() => { setSelectedChart(null); setFormError(null); }}
+          onCancel={() => { preview.cancel(); setSelectedChart(null); setFormError(null); }}
           preview={preview}
           previewKey={previewKey}
           onPreview={runPreview}
@@ -494,9 +498,11 @@ export function HelmTab() {
       >
         {install.pending && (
           <div className="mt-3 space-y-1 text-xs text-slate-300" data-testid="install-confirm-summary">
+            <InstallWho clusterId={install.pending.clusterId} />
             {install.pending.target.previewed
-              ? <p>Previewed at {new Date(install.pending.target.previewed.at).toLocaleTimeString()}: {install.pending.target.previewed.objects} objects pass the dry run; {install.pending.target.previewed.hooks ? `${install.pending.target.previewed.hooks} install hook${install.pending.target.previewed.hooks === 1 ? '' : 's'} run` : 'no hooks run on install'}.{install.pending.target.previewed.unknown ? ` ${install.pending.target.previewed.unknown} could not be checked.` : ''}</p>
+              ? <p>Previewed at {new Date(install.pending.target.previewed.at).toLocaleTimeString()}: {install.pending.target.previewed.objects - install.pending.target.previewed.unknown} of {install.pending.target.previewed.objects} objects pass the dry run{install.pending.target.previewed.unknown ? `; ${install.pending.target.previewed.unknown} could not be checked` : ''}; {install.pending.target.previewed.hooks ? `${install.pending.target.previewed.hooks} install hook${install.pending.target.previewed.hooks === 1 ? '' : 's'} run` : 'no hooks run on install'}.</p>
               : <p className="text-amber-300">Not previewed: {install.pending.target.noPreviewReason}. What the chart creates was not checked.</p>}
+            <label className="flex items-center gap-1.5"><input type="checkbox" checked={installAtomic} onChange={(e) => setInstallAtomic(e.target.checked)} /> --atomic (helm uninstalls what it created if the install fails) · timeout 5m</label>
             <p><span className="text-slate-400">Undo:</span> Uninstall the release (Software › Helm), which deletes what it created except objects the chart marks "keep".</p>
           </div>
         )}
@@ -577,4 +583,11 @@ export function HelmTab() {
       )}
     </div>
   );
+}
+
+/** "Cluster X · acting as Y" for the install confirmation. */
+function InstallWho({ clusterId }: { clusterId: string }) {
+  const name = useFleetStore((s) => s.clusters.find((c) => c.id === clusterId)?.name ?? clusterId);
+  const actingAs = useActingAs(clusterId);
+  return <p data-testid="install-who">Cluster {name} · {actingAs}</p>;
 }

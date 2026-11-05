@@ -10,7 +10,7 @@ import { NamespacePicker } from './NamespacePicker';
 import { LoadError } from '../../components/primitives/LoadError';
 import { Button } from '../../components/primitives/Button';
 import { HelmValuesPanel, useChartDefaults } from './HelmValuesPanel';
-import { PreviewResult, usePreviewDenied, type useHelmPreview } from './HelmPreviewPanel';
+import { canSkipPreview, PreviewResult, previewDisabledReason, usePreviewPermission, type useHelmPreview } from './HelmPreviewPanel';
 import { previewCounts } from './helmPreview';
 import { askPulse } from '../../engine/askPulse';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
@@ -44,11 +44,12 @@ export function InstallPanel(props: {
 }) {
   const { chart, preview } = props;
   const defaults = useChartDefaults({ from: 'repo', repoUrl: chart.repoUrl ?? '', chartUrl: chart.urls?.[props.version], chartName: chart.name, version: props.version });
-  const denied = usePreviewDenied(props.ns);
+  const perm = usePreviewPermission(props.ns);
+  const denied = previewDisabledReason(perm);
   const cur = preview.current;
   const running = cur?.status === 'running';
   const clean = cur?.status === 'done' && preview.blockers === 0;
-  const canInstallUnpreviewed = cur?.status === 'error' || !!denied;
+  const canInstallUnpreviewed = canSkipPreview(perm, cur);
   const remote = props.clusterId !== LOCAL_CLUSTER_ID;
   const objects = cur?.status === 'done' ? cur.preview.entries.filter((e) => !e.key.startsWith('hook:')).length : 0;
 
@@ -82,7 +83,8 @@ export function InstallPanel(props: {
             <Eye className="h-3.5 w-3.5" /> {cur?.status === 'done' || preview.stale ? 'Preview again' : 'Preview'}
           </Button>
         </div>
-        {denied && props.ns && <p className="text-xs text-amber-300">{denied}.</p>}
+        {perm.state === 'checking' && <p className="text-xs text-slate-400" role="status">Checking your permissions…</p>}
+        {perm.state === 'denied' && <p className="text-xs text-amber-300">{perm.reason}.</p>}
         <PreviewResult state={preview.state} stale={preview.stale} action="install" />
         {cur?.status === 'done' && (
           <p className="text-xs text-slate-400"><span className="text-slate-500">Undo:</span> uninstall the release, which deletes what it created (objects the chart marks "keep" stay).</p>

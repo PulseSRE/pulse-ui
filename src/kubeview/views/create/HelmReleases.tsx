@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { dump } from 'js-yaml';
 import { Ship, FileText, ArrowUpCircle, RotateCcw, Trash2, Folder, Pencil } from 'lucide-react';
 import { k8sFetch } from '../../engine/query';
-import { summarizeHelmReleases, valuesBaseRevision, type HelmReleaseSummary } from '../../engine/helmRelease';
+import { summarizeHelmReleases, type HelmReleaseSummary } from '../../engine/helmRelease';
 import type { Secret } from '../../engine/types';
 import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
@@ -22,9 +22,9 @@ import { LoadError } from '../../components/primitives/LoadError';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import DeployProgress from '../../components/DeployProgress';
-import { runHelmAction } from './helmRunner';
+import { randomSalt, runHelmAction } from './helmRunner';
 import { runnerCanManage } from './helmInstall';
-import { diffObjects, parseRendered } from '../../engine/helmManifest';
+import { diffObjects, parseRendered, redactSecretValues } from '../../engine/helmManifest';
 import { fetchReleaseRecord, rollbackHooks } from './helmPreview';
 import { HelmUpgradeDialog } from './HelmUpgradeDialog';
 import { HooksList, PreviewObjects } from './HelmPreviewPanel';
@@ -201,7 +201,8 @@ function ReleaseActionDialog({ action, onStarted }: {
   const r = target.release;
   const earlier = r.revisions.filter((rev) => rev.revision !== r.revision);
   const [revision, setRevision] = React.useState<number>(earlier[0]?.revision ?? 0);
-  const deployed = valuesBaseRevision(r.revisions) ?? r;
+  // helm rollback starts from the latest revision (even a failed one), so the diff does too.
+  const latest = r;
   const targetRev = r.revisions.find((rev) => rev.revision === revision);
 
   // The runner's Role only covers some kinds; helm fails part-way on anything else.
@@ -215,15 +216,20 @@ function ReleaseActionDialog({ action, onStarted }: {
 
   // Rollback: what changes, from the two release records (no render needed).
   const rollbackDiff = useQuery({
-    queryKey: ['helm', 'rollback-diff', pinned, r.namespace, deployed.secretName, targetRev?.secretName],
+    queryKey: ['helm', 'rollback-diff', pinned, r.namespace, latest.secretName, targetRev?.secretName],
     enabled: target.kind === 'rollback' && !!targetRev && !runnerBlock,
     retry: false,
     queryFn: async () => {
       const [cur, tgt] = await Promise.all([
-        fetchReleaseRecord(pinned, r.namespace, deployed.secretName),
+        fetchReleaseRecord(pinned, r.namespace, latest.secretName),
         fetchReleaseRecord(pinned, r.namespace, targetRev!.secretName),
       ]);
-      const changes = diffObjects(parseRendered(cur.manifest, r.namespace).objects, parseRendered(tgt.manifest, r.namespace).objects);
+      // Release records hold Secret values in clear; compare salted hashes instead.
+      const salt = randomSalt();
+      const changes = diffObjects(
+        parseRendered(await redactSecretValues(cur.manifest, salt), r.namespace).objects,
+        parseRendered(await redactSecretValues(tgt.manifest, salt), r.namespace).objects,
+      );
       return {
         at: Date.now(), action: 'upgrade' as const, warnings: [], testHooks: [],
         hooks: rollbackHooks(tgt, r.namespace),
@@ -276,11 +282,11 @@ function ReleaseActionDialog({ action, onStarted }: {
       )}
       {target.kind === 'rollback' && !blocked && (
         <div className="mt-3 space-y-2" data-testid="rollback-diff">
-          <div className="text-xs font-medium text-slate-300">What changes, rev {deployed.revision} (running) → rev {revision}</div>
+          <div className="text-xs font-medium text-slate-300">What changes, rev {latest.revision} (latest) → rev {revision}</div>
           {rollbackDiff.error ? <LoadError title="The revisions could not be compared" error={rollbackDiff.error} />
             : !rollbackDiff.data ? <p className="text-xs text-slate-500">Comparing the release records…</p>
               : <><PreviewObjects preview={rollbackDiff.data} /><HooksList hooks={rollbackDiff.data.hooks} action="rollback" /></>}
-          <p className="text-xs text-slate-500">Undo: roll back to rev {deployed.revision} the same way.</p>
+          <p className="text-xs text-slate-500">Undo: roll back to rev {latest.revision} the same way.</p>
         </div>
       )}
       {action.error && <LoadError className="mt-3" title={`The ${target.kind} was not started`} error={action.error} />}

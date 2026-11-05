@@ -1,10 +1,10 @@
 /**
  * Preview a Helm install, upgrade or values change before it runs.
  *
- * 1. Render: `helm template` runs in the same runner Job, image, ServiceAccount
- *    and Role as every other Helm action (runHelmAction). Rendering touches
- *    nothing on the cluster, so the runner needs no permission it does not
- *    already have. The UI reads the rendered manifests from the Job's log.
+ * 1. Render: `helm template` runs in a Job with the runner image but no
+ *    Role, RoleBinding or token (helmTemplateJob.ts): rendering makes no API
+ *    calls. Secret values are redacted to salted hashes inside the Job before
+ *    the manifests reach its log, which the UI then reads.
  * 2. Diff: the render is compared object by object with the release's current
  *    manifest from its release record (empty for an install).
  * 3. Check: every added or changed object is sent to the API server with
@@ -16,10 +16,10 @@ import { decodeHelmRelease } from '../../engine/helmRelease';
 import { resolveKind } from '../../engine/kindRegistry';
 import { errorReason } from '../../engine/readResult';
 import {
-  diffObjects, hooksFor, parseRendered, recordHooks, testHooks,
+  canonicalYaml, diffObjects, dryRunPlaceholder, hooksFor, parseRendered, recordHooks, redactSecretValues, testHooks,
   type ObjectChange, type RenderedObject,
 } from '../../engine/helmManifest';
-import { deleteHelmJob, readHelmJobOutput, runHelmAction, type HelmRequest } from './helmRunner';
+import { deleteHelmJob, randomSalt, readHelmJobOutput, runHelmTemplate, type TemplateRequest } from './helmRunner';
 import { runnerCanManage } from './helmInstall';
 
 export interface ReleaseRecord {
@@ -111,37 +111,94 @@ async function statusMessage(res: Response): Promise<string> {
   return body?.message || errorReason({ status: res.status });
 }
 
-/** Who owns an existing object, per Helm's ownership annotations. */
-async function existingOwner(clusterId: string, e: ObjectChange): Promise<{ release?: string; namespace?: string } | null> {
-  const res = await k8sFetch(clusterId, pathFor(e, e.name));
-  if (!res.ok) return null;
-  const ann = (await res.json())?.metadata?.annotations ?? {};
-  return { release: ann['meta.helm.sh/release-name'], namespace: ann['meta.helm.sh/release-namespace'] };
+type Owner = { release?: string; namespace?: string; managedBy?: string };
+
+/** Who owns an existing object, per Helm's ownership label and annotations; an error when it cannot be read. */
+async function existingOwner(clusterId: string, e: ObjectChange): Promise<Owner | { error: string }> {
+  try {
+    const res = await k8sFetch(clusterId, pathFor(e, e.name));
+    if (!res.ok) return { error: errorReason({ status: res.status }) };
+    const meta = (await res.json())?.metadata ?? {};
+    const ann = meta.annotations ?? {};
+    return { release: ann['meta.helm.sh/release-name'], namespace: ann['meta.helm.sh/release-namespace'], managedBy: meta.labels?.['app.kubernetes.io/managed-by'] };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+const isCrd = (o: { apiVersion: string; kind: string }) => o.kind === 'CustomResourceDefinition' && o.apiVersion.startsWith('apiextensions.k8s.io/');
+
+/**
+ * A chart's CRD (from crds/): helm installs it only on install and only when
+ * it does not exist, and never on upgrade. The namespaced runner cannot
+ * create one, so a missing CRD would fail.
+ */
+export async function checkCrd(clusterId: string, crd: RenderedObject, action: 'install' | 'upgrade', runnerNamespace: string): Promise<ObjectCheck> {
+  try {
+    const res = await k8sFetch(clusterId, `/apis/apiextensions.k8s.io/v1/customresourcedefinitions/${encodeURIComponent(crd.name)}`);
+    if (res.ok) return { status: 'ok', message: action === 'install' ? 'Already exists, so helm skips it.' : 'Exists; helm upgrade leaves CRDs as they are.' };
+    if (res.status === 404) {
+      return {
+        status: 'fail',
+        message: action === 'install'
+          ? `Does not exist, and the Helm runner's Role in ${runnerNamespace} cannot create a CustomResourceDefinition. A cluster admin must install it first.`
+          : 'Does not exist, and helm upgrade does not install CRDs: anything in the chart that uses it would fail. A cluster admin must install it first.',
+      };
+    }
+    return { status: 'unknown', message: `Could not check whether this CRD exists (${errorReason({ status: res.status })})` };
+  } catch (err) {
+    return { status: 'unknown', message: `Could not check whether this CRD exists (${err instanceof Error ? err.message : String(err)})` };
+  }
+}
+
+/** Removed objects: kept by policy, already gone, or an API the cluster no longer serves. */
+async function checkRemoved(clusterId: string, e: ObjectChange): Promise<ObjectCheck> {
+  if (e.keep) return { status: 'ok', message: 'Kept: the chart marks it helm.sh/resource-policy: keep, so helm leaves it on the cluster.' };
+  try {
+    const res = await k8sFetch(clusterId, pathFor(e, e.name));
+    if (res.ok) return { status: 'ok', message: 'Helm deletes it.' };
+    if (res.status === 404) {
+      const body = await res.json().catch(() => null);
+      return body?.details?.name
+        ? { status: 'ok', message: 'Already gone from the cluster.' }
+        : { status: 'ok', message: 'Its API no longer exists on this cluster, so nothing is deleted.' };
+    }
+  } catch { /* fall through */ }
+  return { status: 'ok', message: 'Helm deletes it.' };
 }
 
 /** Dry-run one object as the signed-in user, plus the runner Role check. */
 export async function checkObject(clusterId: string, e: ObjectChange, release: { name: string; namespace: string }): Promise<ObjectCheck> {
+  if (e.namespace && e.namespace !== release.namespace) {
+    return { status: 'fail', message: `It is in namespace ${e.namespace}; the Helm runner's Role covers only ${release.namespace}, so helm would stop here.` };
+  }
   if (!runnerCanManage(e.apiVersion, e.kind)) {
     return { status: 'fail', message: `The Helm runner's Role in ${release.namespace} cannot ${e.change === 'removed' ? 'delete' : 'manage'} ${e.kind}, so helm would stop here.` };
   }
-  if (e.change === 'removed') return { status: 'ok', message: 'Helm deletes it.' };
+  if (e.change === 'removed') return checkRemoved(clusterId, e);
   try {
+    // Secret values are redacted in the preview; the dry run sends placeholders.
+    const body = JSON.stringify(dryRunPlaceholder(e.doc ?? {}));
     const res = e.change === 'added'
-      ? await k8sFetch(clusterId, `${pathFor(e)}?dryRun=All`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(e.doc) })
+      ? await k8sFetch(clusterId, `${pathFor(e)}?dryRun=All`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
       : await k8sFetch(clusterId, `${pathFor(e, e.name)}?dryRun=All&fieldManager=helm&force=true`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/apply-patch+yaml' }, body: JSON.stringify(e.doc),
+        method: 'PATCH', headers: { 'Content-Type': 'application/apply-patch+yaml' }, body,
       });
     if (res.ok) return { status: 'ok' };
     if (res.status === 409 && e.change === 'added') {
       const owner = await existingOwner(clusterId, e);
-      if (owner?.release === release.name && (owner.namespace ?? release.namespace) === release.namespace) {
+      if ('error' in owner) return { status: 'unknown', message: `Could not check: it already exists, and Pulse could not read it to see who owns it (${owner.error}).` };
+      const ours = owner.release === release.name && (owner.namespace ?? '') === release.namespace;
+      if (ours && owner.managedBy === 'Helm') {
         return { status: 'ok', message: 'Already exists and is marked as part of this release; Helm adopts it.' };
       }
       return {
         status: 'fail',
-        message: owner?.release
-          ? `Already exists and belongs to release ${owner.release}${owner.namespace ? ` in ${owner.namespace}` : ''}.`
-          : `Already exists${e.namespace ? ` in ${e.namespace}` : ''} and is not part of this release, so Helm refuses to take it over.`,
+        message: ours
+          ? 'Already exists with this release\'s annotations but without the app.kubernetes.io/managed-by: Helm label, so Helm refuses to adopt it.'
+          : owner.release
+            ? `Already exists and belongs to release ${owner.release}${owner.namespace ? ` in ${owner.namespace}` : ''}.`
+            : `Already exists${e.namespace ? ` in ${e.namespace}` : ''} and is not part of this release, so Helm refuses to take it over.`,
       };
     }
     if (res.status === 403 || res.status === 401) return { status: 'unknown', message: `Could not check: you are not allowed to dry-run ${e.kind} here (${await statusMessage(res)}).` };
@@ -174,11 +231,12 @@ export interface PreviewRequest {
   clusterId: string;
   namespace: string;
   releaseName: string;
-  chart: Extract<HelmRequest, { action: 'template' }>['chart'];
-  /** The values helm renders with (already merged for --reuse-values). */
+  chart: TemplateRequest['chart'];
+  /** The values helm renders with (already merged for reuse). */
   valuesYaml: string;
   /** The current revision's record, for an upgrade or values change. */
   current?: ReleaseRecord;
+  signal?: AbortSignal;
   /** Test seam: how long to wait for the Job. */
   timeoutMs?: number;
   pollMs?: number;
@@ -187,30 +245,40 @@ export interface PreviewRequest {
 export async function runHelmPreview(req: PreviewRequest): Promise<HelmPreview> {
   const action = req.current ? 'upgrade' : 'install';
   const caps = await clusterCapabilities(req.clusterId);
-  const jobName = await runHelmAction(req.clusterId, req.namespace, {
-    action: 'template', releaseName: req.releaseName, chart: req.chart,
+  if (req.signal?.aborted) throw new DOMException('The preview was cancelled', 'AbortError');
+  const salt = randomSalt();
+  const job = await runHelmTemplate(req.clusterId, req.namespace, {
+    releaseName: req.releaseName, chart: req.chart, valuesYaml: req.valuesYaml, salt,
     isUpgrade: !!req.current, kubeVersion: caps.kubeVersion, apiVersions: caps.apiVersions,
-  }, req.valuesYaml);
+  });
   let output;
   try {
-    output = await readHelmJobOutput(req.clusterId, req.namespace, jobName, { timeoutMs: req.timeoutMs, pollMs: req.pollMs });
+    output = await readHelmJobOutput(req.clusterId, req.namespace, job, { timeoutMs: req.timeoutMs, pollMs: req.pollMs, signal: req.signal });
   } finally {
-    await deleteHelmJob(req.clusterId, req.namespace, jobName);
+    // Every path: success, render error, time-out, unreadable log, cancel.
+    await deleteHelmJob(req.clusterId, req.namespace, job.name);
   }
   if (!output.succeeded) throw new HelmRenderError(output.log);
   const rendered = parseRendered(output.log, req.namespace);
-  const current = req.current ? parseRendered(req.current.manifest, req.namespace).objects : [];
-  const changes = diffObjects(current, rendered.objects);
+  // The current manifest holds Secret values in clear; redact them the way the Job did, so the diff compares hashes.
+  const current = req.current ? parseRendered(await redactSecretValues(req.current.manifest, salt), req.namespace).objects : [];
+  const crds = rendered.objects.filter(isCrd);
+  const changes = diffObjects(current.filter((o) => !isCrd(o)), rendered.objects.filter((o) => !isCrd(o)));
   const release = { name: req.releaseName, namespace: req.namespace };
   const checks = await mapLimit(changes, 4, (c) => (c.change === 'unchanged' ? Promise.resolve<ObjectCheck>({ status: 'ok' }) : checkObject(req.clusterId, c, release)));
   const hooks = hooksFor(rendered.objects, action);
-  // A hook the runner cannot create fails the action as surely as an object.
-  const blockedHooks = hooks.filter((h) => !runnerCanManage(h.apiVersion, h.kind));
   const entries: PreviewEntry[] = changes.map((c, i) => ({ ...c, check: checks[i] }));
-  for (const h of blockedHooks) {
+  for (const crd of crds) {
+    entries.push({
+      change: 'added', key: `crd:${crd.key}`, apiVersion: crd.apiVersion, kind: crd.kind, name: crd.name, namespace: '', doc: crd.doc, after: canonicalYaml(crd.doc),
+      check: await checkCrd(req.clusterId, crd, action, req.namespace),
+    });
+  }
+  // A hook the runner cannot create fails the action as surely as an object.
+  for (const h of hooks.filter((x) => !runnerCanManage(x.apiVersion, x.kind) || (x.namespace && x.namespace !== req.namespace))) {
     entries.push({
       change: 'added', key: `hook:${h.key}`, apiVersion: h.apiVersion, kind: h.kind, name: h.name, namespace: h.namespace, doc: h.doc,
-      check: { status: 'fail', message: `This ${h.hook!.events.join(', ')} hook is a ${h.kind}, which the Helm runner's Role in ${req.namespace} cannot create.` },
+      check: { status: 'fail', message: `This ${h.hook!.events.join(', ')} hook is a ${h.kind}${h.namespace !== req.namespace ? ` in ${h.namespace}` : ''}, which the Helm runner's Role in ${req.namespace} cannot create.` },
     });
   }
   return {
@@ -233,7 +301,7 @@ export function rollbackHooks(record: ReleaseRecord, namespace: string): Rendere
 export function previewCounts(p: Pick<HelmPreview, 'entries'>) {
   const c = { added: 0, changed: 0, removed: 0, unchanged: 0, failing: 0, unknown: 0 };
   for (const e of p.entries) {
-    if (!e.key.startsWith('hook:')) c[e.change]++;
+    if (!e.key.startsWith('hook:') && !e.key.startsWith('crd:')) c[e.change]++;
     if (e.check.status === 'fail') c.failing++;
     if (e.check.status === 'unknown') c.unknown++;
   }

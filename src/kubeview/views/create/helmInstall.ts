@@ -17,7 +17,7 @@ interface BuildHelmInstallResourcesInput {
  * path already uses — there is no other backend for Helm.
  */
 export type HelmAction =
-  | { action: 'install'; releaseName: string; chartName: string; repoUrl: string; version?: string; valuesSecretName?: string }
+  | { action: 'install'; releaseName: string; chartName: string; repoUrl: string; version?: string; valuesSecretName?: string; atomic?: boolean }
   | ({ action: 'upgrade'; releaseName: string; chartName: string; repoUrl: string; version?: string; valuesSecretName?: string } & UpgradeOptions)
   /** Values-only upgrade with the chart Helm stored in the release, mounted from a Secret as an archive. */
   | ({ action: 'upgrade-stored'; releaseName: string; chartSecretName: string; valuesSecretName?: string } & UpgradeOptions)
@@ -38,25 +38,31 @@ export type TemplateChart =
 export interface UpgradeOptions {
   /**
    * reset (default): the values given replace the release's user values.
-   * reuse: the values given are merged over the release's current user values.
+   * reuse: --reset-then-reuse-values (Helm 3.14+): the new chart's defaults,
+   *   then the release's current user values, then the values given. Plain
+   *   --reuse-values would keep the old chart's defaults too.
    */
   valuesMode?: 'reset' | 'reuse';
   /** --atomic: Helm rolls the release back itself if the upgrade fails. */
   atomic?: boolean;
 }
 
-const VALUES_MOUNT = '/tmp/values';
-const CHART_MOUNT = '/tmp/chart';
+export const VALUES_MOUNT = '/tmp/values';
+export const CHART_MOUNT = '/tmp/chart';
 /** Key of the chart archive in the chart Secret. */
 export const CHART_ARCHIVE_KEY = 'chart.tgz';
 
 /** `helm` arguments for an action. Values come only from the mounted Secret file. */
 export function helmArgs(a: HelmAction, namespace: string): string[] {
+  // A chart or release name that starts with "-" would be read as a flag.
+  for (const n of [a.releaseName, 'chartName' in a ? a.chartName : a.action === 'template' && a.chart.from === 'repo' ? a.chart.chartName : '']) {
+    if (n.startsWith('-')) throw new Error(`"${n}" is not a valid chart or release name`);
+  }
   const values = (v?: string) => (v ? ['-f', `${VALUES_MOUNT}/values.yaml`] : []);
   switch (a.action) {
     case 'install':
       return ['install', a.releaseName, a.chartName, '--repo', a.repoUrl, '--namespace', namespace,
-        ...(a.version ? ['--version', a.version] : []), ...values(a.valuesSecretName), '--wait', '--timeout', '5m'];
+        ...(a.version ? ['--version', a.version] : []), ...values(a.valuesSecretName), ...(a.atomic ? ['--atomic'] : []), '--wait', '--timeout', '5m'];
     case 'upgrade':
       // --reset-values: the values given (possibly none) replace the release's
       // values. Without it Helm 3 reuses the previous values when none are given.
@@ -70,7 +76,7 @@ export function helmArgs(a: HelmAction, namespace: string): string[] {
         ...(a.chart.from === 'repo'
           ? [a.chart.chartName, '--repo', a.chart.repoUrl, ...(a.chart.version ? ['--version', a.chart.version] : [])]
           : [`${CHART_MOUNT}/${CHART_ARCHIVE_KEY}`]),
-        '--namespace', namespace, ...values(a.valuesSecretName),
+        '--namespace', namespace, ...values(a.valuesSecretName), '--include-crds',
         ...(a.isUpgrade ? ['--is-upgrade'] : []),
         ...(a.kubeVersion ? ['--kube-version', a.kubeVersion] : []),
         ...(a.apiVersions ?? []).flatMap((v) => ['--api-versions', v])];
@@ -82,7 +88,7 @@ export function helmArgs(a: HelmAction, namespace: string): string[] {
 }
 
 function upgradeFlags(a: UpgradeOptions): string[] {
-  return [a.valuesMode === 'reuse' ? '--reuse-values' : '--reset-values', ...(a.atomic ? ['--atomic'] : [])];
+  return [a.valuesMode === 'reuse' ? '--reset-then-reuse-values' : '--reset-values', ...(a.atomic ? ['--atomic'] : [])];
 }
 
 /** The Secret that carries values.yaml to the runner (never a command-line argument). */
@@ -207,7 +213,7 @@ export function runnerCanManage(apiVersion: string, kind: string): boolean {
 
 export const HELM_RUNNER_IMAGE_DIGEST_PATTERN = /^[^\s@]+@sha256:[a-f0-9]{64}$/i;
 
-function assertDigestPinnedImage(image: string): void {
+export function assertDigestPinnedImage(image: string): void {
   if (!HELM_RUNNER_IMAGE_DIGEST_PATTERN.test(image)) {
     throw new Error('Helm runner image must be digest-pinned');
   }
