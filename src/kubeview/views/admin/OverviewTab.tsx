@@ -442,7 +442,7 @@ export function OverviewTab({
               ))}
             </div>
           )}
-          <button onClick={() => go('/admin?tab=config&section=oauth', 'Administration')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
+          <button onClick={() => go('/identity?tab=signin', 'Identity & Access')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
             Manage providers <ArrowRight className="w-3 h-3" />
           </button>
         </Panel>

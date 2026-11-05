@@ -63,7 +63,7 @@ describe('Identity impersonation', () => {
   it('every subject has exactly one Impersonate action across the tabs', () => {
     r();
     const seen: string[] = [];
-    for (const t of [/^Users$/, /Groups & Service Accounts/, /RBAC/]) {
+    for (const t of [/^Users$/, /Groups & Service Accounts/, /RBAC/, /Sign-in/]) {
       tab(t);
       seen.push(...screen.queryAllByRole('button', { name: /^Impersonate / }).map((b) => b.getAttribute('aria-label')!));
     }

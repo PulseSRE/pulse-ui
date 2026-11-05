@@ -164,11 +164,11 @@ describe('OverviewTab', () => {
       expect(props.go).toHaveBeenCalledWith('/timeline?cat=event', 'Timeline');
     });
 
-    it('"Manage providers" opens Cluster Config with OAuth expanded', () => {
+    it('"Manage providers" opens Identity & Access › Sign-in, where the editor now lives', () => {
       const props = makeProps();
       render(<OverviewTab {...props} />);
       fireEvent.click(screen.getByText('Manage providers'));
-      expect(props.go).toHaveBeenCalledWith('/admin?tab=config&section=oauth', 'Administration');
+      expect(props.go).toHaveBeenCalledWith('/identity?tab=signin', 'Identity & Access');
     });
   });
 
