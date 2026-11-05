@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveForm, emptyForm, planObjects, quotaHeadroom, validateForm, type DeployForm } from '../deployApp';
+import { effectiveForm, effectiveResources, emptyForm, planObjects, quotaHeadroom, quotaVerdict, validateForm, type DeployForm } from '../deployApp';
 
 const CAPS = { routes: true, builds: true };
 
@@ -65,5 +65,36 @@ describe('quotaHeadroom', () => {
   it('flags a quota on a resource the form leaves unset', () => {
     const lines = quotaHeadroom(form(), [{ metadata: { name: 'q' }, status: { hard: { 'limits.memory': '8Gi' }, used: {} } }]);
     expect(lines[0].unsetButRequired).toBe(true);
+  });
+});
+
+describe('review follow-ups', () => {
+  it('a limit with no request implies request = limit, and LimitRange defaults fill unset values', () => {
+    expect(effectiveResources(form({ resources: { cpuRequest: '', cpuLimit: '500m', memRequest: '', memLimit: '' } }))).toMatchObject({ cpuRequest: '500m', cpuLimit: '500m', memRequest: '' });
+    const lr = [{ spec: { limits: [{ type: 'Container', default: { cpu: '1', memory: '512Mi' }, defaultRequest: { cpu: '100m' } }] } }];
+    expect(effectiveResources(form(), lr)).toEqual({ cpuRequest: '100m', cpuLimit: '1', memRequest: '512Mi', memLimit: '512Mi' });
+    // With the LimitRange default, a quota on limits.memory is satisfied rather than "unset".
+    const q = [{ metadata: { name: 'q' }, status: { hard: { 'limits.memory': '8Gi' }, used: {} } }];
+    expect(quotaHeadroom(form(), q, lr)[0]).toMatchObject({ after: 512 * 1024 ** 2 });
+    expect(quotaHeadroom(form(), q, lr)[0].unsetButRequired).toBeUndefined();
+  });
+
+  it('respects quota scopes and counts PVCs', () => {
+    const f = form({ resources: { cpuRequest: '100m', cpuLimit: '', memRequest: '', memLimit: '' }, storage: { mode: 'new', claimName: '', size: '1Gi', storageClass: '', accessMode: 'ReadWriteOnce', mountPath: '/d' } });
+    const quotas = [
+      { metadata: { name: 'be' }, spec: { scopes: ['BestEffort'] }, status: { hard: { pods: '5' }, used: {} } },
+      { metadata: { name: 'pc' }, spec: { scopeSelector: { matchExpressions: [{ scopeName: 'PriorityClass' }] } }, status: { hard: { pods: '5' }, used: {} } },
+      { metadata: { name: 'pvc' }, status: { hard: { 'count/persistentvolumeclaims': '1' }, used: { 'count/persistentvolumeclaims': '1' } } },
+    ];
+    const lines = quotaHeadroom(f, quotas);
+    expect(lines.find((l) => l.quota === 'be')).toBeUndefined(); // the pods are not BestEffort
+    expect(lines.find((l) => l.quota === 'pc')?.scopeUnknown).toMatch(/PriorityClass/);
+    expect(lines.find((l) => l.quota === 'pvc')).toMatchObject({ after: 2, hard: 1 });
+    expect(quotaVerdict(lines)).toMatchObject({ blocks: true });
+  });
+
+  it('rejects Git over SSH with the reason', () => {
+    const f = form({ source: { type: 'git', gitUrl: 'git@github.com:acme/api.git', gitRef: '', contextDir: '', builderImage: 'nodejs:20' } });
+    expect(validateForm(f, CAPS)[0]).toMatch(/Git over SSH needs a source secret/);
   });
 });

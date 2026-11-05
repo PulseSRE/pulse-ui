@@ -57,14 +57,15 @@ beforeEach(() => {
       return json({ spec: { host: 'api.apps.example.com', tls: { termination: 'edge' } }, status: { ingress: [{ host: 'api.apps.example.com', conditions: [{ type: 'Admitted', status: 'True' }] }] } });
     }
     if (r.method === 'POST' && r.path.includes('dryRun=All')) return dryRun(r) ?? json(r.body, 201);
-    if (r.method === 'POST') return create(r) ?? json(r.body, 201);
+    if (r.method === 'POST') return create(r) ?? json({ ...r.body, metadata: { ...r.body.metadata, uid: `uid-${r.body.kind}` } }, 201);
     if (r.method === 'DELETE') return json({});
     return json({ items: [] });
   };
 });
 afterEach(() => { cleanup(); h.teardown(); });
 
-const type = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+const field = (label: string) => screen.getByLabelText(new RegExp(`^${label}\\*?$`));
+const type = (label: string, value: string) => fireEvent.change(field(label), { target: { value } });
 
 async function fillBasics(opts: { replicas?: string } = {}) {
   h.renderUi(<QuickDeployTab />);
@@ -86,8 +87,8 @@ async function fillFull() {
   await waitFor(() => expect(within(secretSelect).getByText('api-db')).toBeTruthy());
   fireEvent.change(secretSelect, { target: { value: 'api-db' } });
   fireEvent.change(within(screen.getByTestId('env-1')).getByRole('combobox', { name: 'Use' }), { target: { value: 'key' } });
-  fireEvent.change(within(screen.getByTestId('env-1')).getByLabelText('Key'), { target: { value: 'password' } });
-  fireEvent.change(within(screen.getByTestId('env-1')).getByLabelText('Variable name'), { target: { value: 'DB_PASSWORD' } });
+  fireEvent.change(within(screen.getByTestId('env-1')).getByLabelText(/^Key\*?$/), { target: { value: 'password' } });
+  fireEvent.change(within(screen.getByTestId('env-1')).getByLabelText(/^Variable\ name\*?$/), { target: { value: 'DB_PASSWORD' } });
   fireEvent.click(screen.getByLabelText('New PVC'));
   type('Size', '10Gi');
   type('Mount path', '/data');
@@ -153,6 +154,7 @@ describe('Deploy an app form (DeployApp)', () => {
     type('Container port', '8080');
     expect(screen.getByTestId('deploy-plan').textContent).toMatch(/ImageStream\/api.*BuildConfig\/api.*builds https:\/\/github\.com\/acme\/api\.git with nodejs:20-ubi9.*Deployment\/api/);
     const dialog = await openDryRun();
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
     fireEvent.click(await within(dialog).findByRole('button', { name: /Create 5 objects/ }));
     await waitFor(() => expect(h.writes().filter((w) => !w.path.includes('dryRun')).length).toBe(5));
     const dep = h.writes().find((w) => w.path === '/apis/apps/v1/namespaces/team-a/deployments')!.body;
@@ -210,6 +212,8 @@ describe('Dry run and create (DeployDryRun)', () => {
     expect(checks).toMatch(/Passed No other Route uses api\.apps\.example\.com/);
     expect(dialog.textContent).toMatch(/Undo.*Delete app api: removes these 5 objects; the PVC is kept unless you choose/);
 
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
+
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create 5 objects' }));
     await within(dialog).findByTestId('rollout');
     const created = h.writes().filter((w) => !w.path.includes('dryRun')).map((w) => w.path);
@@ -264,6 +268,7 @@ describe('Dry run and create (DeployDryRun)', () => {
     create = (r) => (r.path.endsWith('/services') ? k8sStatus(403, 'services is forbidden: User "alice" cannot create services') : undefined);
     await fillFull();
     const dialog = await openDryRun();
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create 5 objects' }));
     const failed = await within(dialog).findByTestId('create-failed');
     expect(within(dialog).getByTestId('result-Service').textContent).toMatch(/Failed.*You are not allowed to create Service here: services is forbidden/);
@@ -272,9 +277,10 @@ describe('Dry run and create (DeployDryRun)', () => {
     expect(failed.textContent).toMatch(/Already created: PersistentVolumeClaim\/data-api, Deployment\/api, PodDisruptionBudget\/api/);
     fireEvent.click(within(failed).getByRole('button', { name: 'Delete the 3 created objects' }));
     const cleanupList = await within(dialog).findByTestId('cleanup-results');
-    expect(h.writes().filter((w) => w.method === 'DELETE').map((w) => w.path)).toEqual([
-      '/apis/policy/v1/namespaces/team-a/poddisruptionbudgets/api?propagationPolicy=Background',
-      '/apis/apps/v1/namespaces/team-a/deployments/api?propagationPolicy=Background',
+    // Each delete is conditioned on the uid the create returned, so a same-named replacement is never deleted.
+    expect(h.writes().filter((w) => w.method === 'DELETE').map((w) => [w.path, w.body.preconditions])).toEqual([
+      ['/apis/policy/v1/namespaces/team-a/poddisruptionbudgets/api', { uid: 'uid-PodDisruptionBudget' }],
+      ['/apis/apps/v1/namespaces/team-a/deployments/api', { uid: 'uid-Deployment' }],
     ]);
     expect(cleanupList.textContent).toMatch(/PersistentVolumeClaim\/data-api: kept/);
   });
@@ -283,6 +289,7 @@ describe('Dry run and create (DeployDryRun)', () => {
     create = (r) => (r.path.endsWith('/deployments') ? k8sStatus(409, 'deployments.apps "api" already exists') : undefined);
     await fillBasics({ replicas: '1' });
     const dialog = await openDryRun();
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
     fireEvent.click(within(dialog).getByRole('button', { name: /Create \d objects/ }));
     await within(dialog).findByTestId('create-failed');
     expect(within(dialog).getByTestId('result-Deployment').textContent).toMatch(/Failed.*Deployment api already exists/);
@@ -300,8 +307,134 @@ describe('Dry run and create (DeployDryRun)', () => {
     await fillBasics({ replicas: '1' });
     const dialog = await openDryRun();
     h.setActive(REMOTE);
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
     fireEvent.click(within(dialog).getByRole('button', { name: /Create \d objects/ }));
     expect(await within(dialog).findByText(/was not run/)).toBeTruthy();
     expect(h.writes().filter((w) => !w.path.includes('dryRun'))).toHaveLength(0);
+  });
+});
+
+describe('review follow-ups (DeployDryRun)', () => {
+  it('a cluster switch in the middle of create stops there, still lists what was created, and cleans up by uid once back', async () => {
+    create = (r) => {
+      if (r.path.endsWith('/poddisruptionbudgets')) {
+        // The user switches cluster while the third object is being created.
+        setTimeout(() => h.setActive(REMOTE), 0);
+      }
+      return undefined;
+    };
+    await fillFull();
+    const dialog = await openDryRun();
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
+    // Slow the PDB answer so the switch lands before the Service.
+    const base = h.state.handler;
+    h.state.handler = async (r) => {
+      if (r.method === 'POST' && r.path.endsWith('/poddisruptionbudgets')) {
+        const res = base(r);
+        await new Promise((ok) => setTimeout(ok, 20));
+        return res;
+      }
+      return base(r);
+    };
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create 5 objects' }));
+    const failed = await within(dialog).findByTestId('create-failed');
+    expect(within(dialog).getByText(/was not run: it was prepared on/)).toBeTruthy();
+    expect(failed.textContent).toMatch(/Stopped before Service\/api.*Not attempted: Service\/api, Route\/api/);
+    expect(failed.textContent).toMatch(/Already created: PersistentVolumeClaim\/data-api, Deployment\/api, PodDisruptionBudget\/api/);
+    expect(h.writes().some((w) => w.path === '/api/v1/namespaces/team-a/services')).toBe(false);
+    h.setActive('local');
+    fireEvent.click(within(failed).getByRole('button', { name: 'Delete the 3 created objects' }));
+    await within(dialog).findByTestId('cleanup-results');
+    expect(h.writes().filter((w) => w.method === 'DELETE').map((w) => w.body.preconditions.uid)).toEqual(['uid-PodDisruptionBudget', 'uid-Deployment']);
+  });
+
+  it('an object that could not be dry-run keeps Create off and Step 1 not done', async () => {
+    dryRun = (r) => (r.path.includes('/services?') ? (() => { throw new TypeError('Failed to fetch'); })() : undefined);
+    await fillBasics({ replicas: '1' });
+    const dialog = await openDryRun();
+    expect(within(dialog).getByTestId('result-Service').textContent).toMatch(/Could not check.*Could not check: Failed to fetch/);
+    expect(within(dialog).getByText(/Dry run · \d+ not checked/)).toBeTruthy();
+    expect((within(dialog).getByRole('button', { name: /Create \d objects/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(dialog).getByTestId('create-blocked').textContent).toBe('1 object could not be dry-run.');
+  });
+
+  it('unchecked items need an explicit acknowledgement', async () => {
+    await fillBasics({ replicas: '1' });
+    const dialog = await openDryRun();
+    expect(within(dialog).getByTestId('extra-checks').textContent).toMatch(/Could not check Pod admission \(SCC \/ Pod Security\)/);
+    expect(within(dialog).getByTestId('extra-checks').textContent).toMatch(/Could not check Image pull: quay\.io\/acme\/api:1\.4/);
+    const create = within(dialog).getByRole('button', { name: /Create \d objects/ }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    expect(within(dialog).getByTestId('create-blocked').textContent).toBe('Confirm that you have read what was not checked.');
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
+    await waitFor(() => expect(create.disabled).toBe(false));
+    expect(dialog.textContent).toMatch(/acting as /);
+  });
+
+  it('shows dry-run Warning headers on the object', async () => {
+    dryRun = (r) => (r.path.includes('/deployments?') ? new Response(JSON.stringify(r.body), { status: 201, headers: { 'content-type': 'application/json', Warning: '299 - "would violate PodSecurity \\"restricted:latest\\": allowPrivilegeEscalation != false"' } }) : undefined);
+    await fillBasics({ replicas: '1' });
+    const dialog = await openDryRun();
+    expect(within(dialog).getByTestId('result-Deployment').textContent).toMatch(/Warning: would violate PodSecurity "restricted:latest"/);
+  });
+
+  it('a create with no answer is "may exist", and cleanup deletes it only once it is recognised as Pulse\'s', async () => {
+    create = (r) => (r.path.endsWith('/services') ? (() => { throw new TypeError('Failed to fetch'); })() : undefined);
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.method === 'GET' && r.path === '/api/v1/namespaces/team-a/services/api'
+      ? json({ metadata: { name: 'api', uid: 'uid-svc-maybe', creationTimestamp: new Date().toISOString(), labels: { 'app.kubernetes.io/managed-by': 'openshiftpulse' } } })
+      : base(r));
+    await fillBasics({ replicas: '1' });
+    const dialog = await openDryRun();
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Create \d objects/ }));
+    const failed = await within(dialog).findByTestId('create-failed');
+    expect(within(dialog).getByTestId('result-Service').textContent).toMatch(/No answer from the API server, so it may or may not exist/);
+    expect(failed.textContent).toMatch(/No answer for Service\/api: it may or may not exist/);
+    fireEvent.click(within(failed).getByRole('button', { name: 'Delete the 2 created objects' }));
+    await within(dialog).findByTestId('cleanup-results');
+    expect(h.writes().filter((w) => w.method === 'DELETE').map((w) => [w.path, w.body.preconditions.uid])).toEqual([
+      ['/api/v1/namespaces/team-a/services/api', 'uid-svc-maybe'],
+      ['/apis/apps/v1/namespaces/team-a/deployments/api', 'uid-Deployment'],
+    ]);
+  });
+
+  it('a delete refused because the object was replaced (uid mismatch) is reported, not hidden', async () => {
+    create = (r) => (r.path.endsWith('/services') ? k8sStatus(403, 'services is forbidden') : undefined);
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.method === 'DELETE' ? k8sStatus(409, 'Precondition failed: UID in precondition: uid-Deployment, UID in object meta: other') : base(r));
+    await fillBasics({ replicas: '1' });
+    const dialog = await openDryRun();
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Create \d objects/ }));
+    fireEvent.click(within(await within(dialog).findByTestId('create-failed')).getByRole('button', { name: 'Delete the 1 created object' }));
+    expect((await within(dialog).findByTestId('cleanup-results')).textContent).toBe('Deployment/api: not deleted: the object there now is not the one Pulse created');
+  });
+
+  it('a quota the pods would exceed blocks Create, with the numbers', async () => {
+    quotas = () => json({ items: [{ metadata: { name: 'q' }, status: { hard: { 'requests.cpu': '1', 'requests.memory': '1Gi' }, used: { 'requests.cpu': '900m', 'requests.memory': '0' } } }] });
+    await fillBasics({ replicas: '1' });
+    type('CPU request', '500m');
+    type('Memory request', '128Mi');
+    await waitFor(() => expect(screen.getByTestId('quota-headroom').textContent).toMatch(/Over quota: requests\.cpu/));
+    const dialog = await openDryRun();
+    expect(within(dialog).getByTestId('confirm-quota').textContent).toMatch(/requests\.cpu: 1\.4 of 1 — over quota/);
+    expect(within(dialog).getByTestId('confirm-quota').textContent).toMatch(/requests\.memory: 128 Mi of 1\.0 Gi/);
+    fireEvent.click(within(dialog).getByLabelText(/I have read the \d+ items? Pulse could not check/));
+    expect((within(dialog).getByRole('button', { name: /Create \d objects/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(dialog).getByTestId('create-blocked').textContent).toBe('The pods would not fit the namespace quota.');
+  });
+});
+
+describe('dry run on a cluster that is no longer active', () => {
+  it('shows the dry-run error instead of results', async () => {
+    const { DeployDryRunDialog } = await import('../DeployDryRunDialog');
+    const { emptyForm } = await import('../../../engine/deployApp');
+    const f = { ...emptyForm('team-a'), name: 'api', source: { type: 'image' as const, image: 'quay.io/a/b:1', pullSecret: '' }, port: '8080' };
+    h.renderUi(<DeployDryRunDialog clusterId={REMOTE} form={f} onClose={() => undefined} onEditHostname={() => undefined} />);
+    expect(await screen.findByText('The dry run could not run')).toBeTruthy();
+    expect(screen.getByText(/was not run: it was prepared on/)).toBeTruthy();
+    expect(screen.queryByText('Dry run results, in create order')).toBeNull();
+    expect(h.writes()).toHaveLength(0);
   });
 });

@@ -38,14 +38,15 @@ describe('Quick Deploy', () => {
     useFleetStore.setState({ activeClusterId: 'prod' });
 
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><QuickDeployTab /></MemoryRouter></QueryClientProvider>);
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'web' } });
-    fireEvent.change(screen.getByLabelText('Image'), { target: { value: 'nginx:1' } });
-    fireEvent.change(screen.getByLabelText('Container port'), { target: { value: '8080' } });
+    fireEvent.change(screen.getByLabelText(/^Name\*?$/), { target: { value: 'web' } });
+    fireEvent.change(screen.getByLabelText(/^Image\*?$/), { target: { value: 'nginx:1' } });
+    fireEvent.change(screen.getByLabelText(/^Container\ port\*?$/), { target: { value: '8080' } });
     // All-namespaces mode: the target is chosen, never defaulted.
     fireEvent.change(await screen.findByLabelText('Namespace'), { target: { value: 'shop' } });
     const dryRun = screen.getByRole('button', { name: 'Dry run' });
     await waitFor(() => expect((dryRun as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(dryRun);
+    fireEvent.click(await screen.findByLabelText(/I have read the \d+ items? Pulse could not check/));
     const create = await screen.findByRole('button', { name: /Create \d objects/ });
     await waitFor(() => expect((create as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(create);

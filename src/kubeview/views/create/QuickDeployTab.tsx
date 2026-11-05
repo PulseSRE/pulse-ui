@@ -25,23 +25,15 @@ import { Card } from '../../components/primitives/Card';
 import { Button } from '../../components/primitives/Button';
 import { LoadError } from '../../components/primitives/LoadError';
 import {
-  effectiveForm, emptyForm, planObjects, quotaHeadroom, referencedConfig, replicasOf, validateForm,
-  type DeployForm, type EnvEntry, type ProbeKind, type Quota, type QuotaLine,
+  effectiveForm, emptyForm, planObjects, quotaHeadroom, quotaVerdict, referencedConfig, replicasOf, validateForm,
+  type DeployForm, type EnvEntry, type LimitRange, type ProbeKind, type Quota, type QuotaLine,
 } from '../../engine/deployApp';
 import { METADATA_LIST } from './deployRunner';
 import { NamespacePicker } from './NamespacePicker';
+import { FormField } from './FormField';
 import { DeployDryRunDialog } from './DeployDryRunDialog';
 
 const inputCls = 'mt-1 w-full rounded-sm border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500';
-
-function Field({ label, value, onChange, placeholder, mono, list, required }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; mono?: boolean; list?: string; required?: boolean }) {
-  return (
-    <label className="block text-xs text-slate-400">
-      {label}{required && <span className="ml-0.5 text-red-400">*</span>}
-      <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} list={list} className={cn(inputCls, mono && 'font-mono')} />
-    </label>
-  );
-}
 
 function Section({ n, title, hint, children }: { n: number; title: string; hint: string; children: React.ReactNode }) {
   return (
@@ -90,6 +82,20 @@ function useStorageClasses(clusterId: string) {
 
 const isDefaultClass = (sc: StorageClass) => sc.metadata.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true';
 
+function useLimitRanges(clusterId: string, ns: string) {
+  return useQuery({
+    queryKey: ['deploy-app', 'limitranges', clusterId, ns],
+    enabled: !!ns,
+    staleTime: 30_000,
+    retry: false,
+    queryFn: async () => {
+      const res = await k8sFetch(clusterId, `/api/v1/namespaces/${ns}/limitranges`);
+      if (!res.ok) throw new Error(errorReason({ status: res.status }));
+      return ((await res.json()).items ?? []) as LimitRange[];
+    },
+  });
+}
+
 function useQuotas(clusterId: string, ns: string) {
   return useQuery({
     queryKey: ['deploy-app', 'quotas', clusterId, ns],
@@ -115,9 +121,7 @@ export function QuotaPanel({ ns, lines, error, loading }: { ns: string; lines: Q
   if (loading) return <p className="text-xs text-slate-500">Checking quota in {ns}…</p>;
   if (error) return <p className="text-xs text-amber-300" data-testid="quota-headroom">Quota: Could not check — {error}.</p>;
   if (!lines || lines.length === 0) return <p className="text-xs text-slate-500" data-testid="quota-headroom">No ResourceQuota in {ns} limits this app.</p>;
-  const over = lines.filter((l) => l.after > l.hard);
-  const tight = lines.filter((l) => l.after <= l.hard && l.duringRollout > l.hard);
-  const unset = lines.filter((l) => l.unsetButRequired);
+  const { over, tight, unset, unknown } = quotaVerdict(lines);
   return (
     <div className="space-y-1 text-xs" data-testid="quota-headroom">
       <div className="text-slate-400">Quota headroom in {ns} · {[...new Set(lines.map((l) => l.quota))].join(', ')}</div>
@@ -128,6 +132,7 @@ export function QuotaPanel({ ns, lines, error, loading }: { ns: string; lines: Q
           </li>
         ))}
       </ul>
+      {unknown.length > 0 && <p className="text-amber-300">Not counted: {[...new Set(unknown.map((l) => `${l.quota} (${l.scopeUnknown})`))].join(', ')}.</p>}
       {unset.length > 0 && <p className="text-red-300">The quota limits {unset.map((l) => l.resource).join(', ')}, so every pod must set it: fill in Resources or the pods are rejected.</p>}
       {over.length > 0 && <p className="text-red-300">Over quota: {over.map((l) => l.resource).join(', ')}. The pods beyond the quota will not be created.</p>}
       {!over.length && tight.length > 0 && <p className="text-amber-300">Fits, but the next rollout (one extra pod) would exceed {tight.map((l) => l.resource).join(', ')}.</p>}
@@ -169,12 +174,13 @@ export function QuickDeployTab() {
   const builders = useNames(clusterId, form.source.type === 'git' ? '/apis/image.openshift.io/v1/namespaces/openshift/imagestreams' : null);
   const scs = useStorageClasses(clusterId);
   const quotas = useQuotas(clusterId, ns);
+  const limitRanges = useLimitRanges(clusterId, ns);
   const canCreate = useCanI('create', 'apps', 'deployments', ns || undefined, undefined, { enabled: !!ns });
 
   const applied = effectiveForm(form, { routes });
   const errors = validateForm(applied, { routes, builds });
   const plan = errors.length === 0 ? planObjects(applied) : [];
-  const quotaLines = quotas.data ? quotaHeadroom(applied, quotas.data) : undefined;
+  const quotaLines = quotas.data ? quotaHeadroom(applied, quotas.data, limitRanges.data ?? []) : undefined;
   const refs = referencedConfig(applied);
   const remote = clusterId !== LOCAL_CLUSTER_ID;
   const denied = ns && !canCreate.isLoading && !canCreate.allowed ? `You do not have permission to create Deployments in ${ns}` : undefined;
@@ -209,7 +215,7 @@ export function QuickDeployTab() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {form.source.type === 'image' ? (
             <>
-              <Field label="Image" required mono value={form.source.image} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'image' }>, image: v })} placeholder="quay.io/org/api:1.2" />
+              <FormField label="Image" required mono value={form.source.image} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'image' }>, image: v })} placeholder="quay.io/org/api:1.2" />
               <label className="block text-xs text-slate-400">
                 Pull secret
                 <select aria-label="Pull secret" className={inputCls} value={form.source.pullSecret} onChange={(e) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'image' }>, pullSecret: e.target.value })}>
@@ -221,20 +227,20 @@ export function QuickDeployTab() {
             </>
           ) : (
             <>
-              <Field label="Git repository" required mono value={form.source.gitUrl} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, gitUrl: v })} placeholder="https://github.com/org/api.git" />
-              <Field label="Branch or tag" mono value={form.source.gitRef} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, gitRef: v })} placeholder="main" />
-              <Field label="Context directory" mono value={form.source.contextDir} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, contextDir: v })} placeholder="/" />
+              <FormField label="Git repository" required mono value={form.source.gitUrl} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, gitUrl: v })} placeholder="https://github.com/org/api.git" />
+              <FormField label="Branch or tag" mono value={form.source.gitRef} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, gitRef: v })} placeholder="main" />
+              <FormField label="Context directory" mono value={form.source.contextDir} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, contextDir: v })} placeholder="/" />
               <div>
-                <Field label="Builder image" required mono list="builder-images" value={form.source.builderImage} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, builderImage: v })} placeholder="nodejs:20-ubi9" />
+                <FormField label="Builder image" required mono list="builder-images" value={form.source.builderImage} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, builderImage: v })} placeholder="nodejs:20-ubi9" />
                 <datalist id="builder-images">{builders.names.map((n) => <option key={n} value={`${n}:latest`} />)}</datalist>
                 <span className="mt-1 block text-[11px] text-slate-500">An image stream tag in the openshift namespace.{builders.error ? ` Could not list them (${builders.error}); type one.` : ''}</span>
               </div>
             </>
           )}
-          <Field label="Name" required value={form.name} onChange={(v) => set('name', v)} placeholder="api" />
+          <FormField label="Name" required value={form.name} onChange={(v) => set('name', v)} placeholder="api" />
           <NamespacePicker value={form.namespace} onChange={(v) => set('namespace', v)} />
-          <Field label="Container port" value={form.port} onChange={(v) => set('port', v)} placeholder="8080" />
-          <Field label="Replicas" value={form.replicas} onChange={(v) => set('replicas', v)} placeholder="1" />
+          <FormField label="Container port" value={form.port} onChange={(v) => set('port', v)} placeholder="8080" />
+          <FormField label="Replicas" value={form.replicas} onChange={(v) => set('replicas', v)} placeholder="1" />
         </div>
       </Section>
 
@@ -245,8 +251,8 @@ export function QuickDeployTab() {
             <li key={i} className="flex flex-wrap items-end gap-2 text-xs" data-testid={`env-${i}`}>
               {e.kind === 'value' ? (
                 <>
-                  <Field label="Variable name" mono value={e.name} onChange={(v) => setEnv(i, { ...e, name: v })} placeholder="LOG_LEVEL" />
-                  <Field label="Value" mono value={e.value} onChange={(v) => setEnv(i, { ...e, value: v })} placeholder="info" />
+                  <FormField label="Variable name" mono value={e.name} onChange={(v) => setEnv(i, { ...e, name: v })} placeholder="LOG_LEVEL" />
+                  <FormField label="Value" mono value={e.value} onChange={(v) => setEnv(i, { ...e, value: v })} placeholder="info" />
                 </>
               ) : (
                 <>
@@ -274,8 +280,8 @@ export function QuickDeployTab() {
                   </label>
                   {(e.kind === 'configMapKey' || e.kind === 'secretKey') && (
                     <>
-                      <Field label="Key" mono value={e.key} onChange={(v) => setEnv(i, { ...e, key: v })} placeholder="password" />
-                      <Field label="Variable name" mono value={e.name} onChange={(v) => setEnv(i, { ...e, name: v })} placeholder="DB_PASSWORD" />
+                      <FormField label="Key" mono value={e.key} onChange={(v) => setEnv(i, { ...e, key: v })} placeholder="password" />
+                      <FormField label="Variable name" mono value={e.name} onChange={(v) => setEnv(i, { ...e, name: v })} placeholder="DB_PASSWORD" />
                     </>
                   )}
                   {e.kind.startsWith('secret') && <span className="pb-2 text-slate-500">value hidden</span>}
@@ -308,8 +314,8 @@ export function QuickDeployTab() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
             {form.storage.mode === 'new' ? (
               <>
-                <Field label="Claim name" mono value={form.storage.claimName} onChange={(v) => set('storage', { ...form.storage, claimName: v })} placeholder={`data-${form.name || 'app'}`} />
-                <Field label="Size" value={form.storage.size} onChange={(v) => set('storage', { ...form.storage, size: v })} placeholder="10Gi" />
+                <FormField label="Claim name" mono value={form.storage.claimName} onChange={(v) => set('storage', { ...form.storage, claimName: v })} placeholder={`data-${form.name || 'app'}`} />
+                <FormField label="Size" value={form.storage.size} onChange={(v) => set('storage', { ...form.storage, size: v })} placeholder="10Gi" />
                 <label className="block text-xs text-slate-400">
                   Storage class
                   <select aria-label="Storage class" className={inputCls} value={form.storage.storageClass} onChange={(e) => set('storage', { ...form.storage, storageClass: e.target.value })}>
@@ -336,7 +342,7 @@ export function QuickDeployTab() {
                 {pvcs.error && <span className="mt-1 block text-amber-300">Could not list PVCs in {ns} ({pvcs.error}).</span>}
               </label>
             )}
-            <Field label="Mount path" mono value={form.storage.mountPath} onChange={(v) => set('storage', { ...form.storage, mountPath: v })} placeholder="/data" />
+            <FormField label="Mount path" mono value={form.storage.mountPath} onChange={(v) => set('storage', { ...form.storage, mountPath: v })} placeholder="/data" />
           </div>
         )}
         {form.storage.mode !== 'none' && form.storage.accessMode === 'ReadWriteOnce' && replicasOf(form) > 1 && (
@@ -379,11 +385,12 @@ export function QuickDeployTab() {
 
       <Section n={5} title="Resources" hint="optional · per pod">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Field label="CPU request" value={form.resources.cpuRequest} onChange={(v) => set('resources', { ...form.resources, cpuRequest: v })} placeholder="250m" />
-          <Field label="CPU limit" value={form.resources.cpuLimit} onChange={(v) => set('resources', { ...form.resources, cpuLimit: v })} placeholder="1" />
-          <Field label="Memory request" value={form.resources.memRequest} onChange={(v) => set('resources', { ...form.resources, memRequest: v })} placeholder="256Mi" />
-          <Field label="Memory limit" value={form.resources.memLimit} onChange={(v) => set('resources', { ...form.resources, memLimit: v })} placeholder="512Mi" />
+          <FormField label="CPU request" value={form.resources.cpuRequest} onChange={(v) => set('resources', { ...form.resources, cpuRequest: v })} placeholder="250m" />
+          <FormField label="CPU limit" value={form.resources.cpuLimit} onChange={(v) => set('resources', { ...form.resources, cpuLimit: v })} placeholder="1" />
+          <FormField label="Memory request" value={form.resources.memRequest} onChange={(v) => set('resources', { ...form.resources, memRequest: v })} placeholder="256Mi" />
+          <FormField label="Memory limit" value={form.resources.memLimit} onChange={(v) => set('resources', { ...form.resources, memLimit: v })} placeholder="512Mi" />
         </div>
+        {limitRanges.error && ns && <p className="text-xs text-amber-300">LimitRange defaults in {ns} could not be read, so the headroom below uses only what you set.</p>}
         <QuotaPanel ns={ns} lines={quotaLines} loading={quotas.isLoading && !!ns} error={quotas.error ? (quotas.error instanceof Error ? quotas.error.message : String(quotas.error)) : undefined} />
       </Section>
 
@@ -397,7 +404,7 @@ export function QuickDeployTab() {
         {routeUnavailable && <p className="text-xs text-slate-500">{routeUnavailable}.</p>}
         {form.expose.route && !routeUnavailable && (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Field label="Hostname" mono value={form.expose.hostname} onChange={(v) => set('expose', { ...form.expose, hostname: v })} placeholder="generated from the name and namespace" />
+            <FormField label="Hostname" mono value={form.expose.hostname} onChange={(v) => set('expose', { ...form.expose, hostname: v })} placeholder="generated from the name and namespace" />
             <label className="block text-xs text-slate-400">
               TLS
               <select aria-label="TLS" className={inputCls} value={form.expose.tls} onChange={(e) => set('expose', { ...form.expose, tls: e.target.value as DeployForm['expose']['tls'] })}>
@@ -422,7 +429,7 @@ export function QuickDeployTab() {
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setShowYaml(!showYaml)} disabled={plan.length === 0}><FileCode className="h-3.5 w-3.5" /> {showYaml ? 'Hide YAML' : 'View YAML'}</Button>
-            <Button onClick={() => setDryRunOpen({ clusterId, form: applied })} disabled={errors.length > 0 || !!denied} title={denied ?? (errors.length ? 'Fix the form first' : undefined)}>Dry run</Button>
+            <Button onClick={() => setDryRunOpen({ clusterId, form: applied })} disabled={errors.length > 0 || !!denied || (!!ns && canCreate.isLoading)} title={denied ?? (ns && canCreate.isLoading ? 'Checking your permissions…' : errors.length ? 'Fix the form first' : undefined)}>Dry run</Button>
           </div>
         </div>
         {denied && <p className="text-xs text-amber-300">{denied}.</p>}

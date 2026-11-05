@@ -105,7 +105,9 @@ export function validateForm(f: DeployForm, caps: { routes: boolean; builds: boo
     else if (/\s/.test(f.source.image.trim())) errs.push('Image must not contain spaces.');
   } else {
     if (!caps.builds) errs.push('Git builds are not available on this cluster.');
-    if (!/^(https?:\/\/|git@|ssh:\/\/)\S+$/.test(f.source.gitUrl.trim())) errs.push('Git repository must be an https://, ssh:// or git@ URL.');
+    const url = f.source.gitUrl.trim();
+    if (/^(git@|ssh:\/\/)/.test(url)) errs.push('Git over SSH needs a source secret, which this form cannot set yet: use the repository\'s https:// URL (public), or create the BuildConfig in YAML.');
+    else if (!/^https?:\/\/\S+$/.test(url)) errs.push('Git repository must be an https:// URL.');
     if (!/^[^:\s]+:[^:\s]+$/.test(f.source.builderImage.trim())) errs.push('Builder image must be an image stream tag such as nodejs:20-ubi9.');
   }
   const port = portOf(f);
@@ -316,26 +318,70 @@ export interface QuotaLine {
   after: number;
   /** after + one more pod during the next rollout (maxSurge 25%, at least 1). */
   duringRollout: number;
-  /** The quota limits this resource but the form does not set it, so pods are rejected. */
+  /** The quota limits this resource but neither the form nor a LimitRange default sets it, so pods are rejected. */
   unsetButRequired?: boolean;
+  /** The quota's scope could not be matched to this app's pods, so it is not counted. */
+  scopeUnknown?: string;
 }
 
 export interface Quota {
   metadata: { name: string };
-  spec?: { hard?: Record<string, string> };
+  spec?: { hard?: Record<string, string>; scopes?: string[]; scopeSelector?: { matchExpressions?: Array<{ scopeName: string }> } };
   status?: { hard?: Record<string, string>; used?: Record<string, string> };
 }
 
+export interface LimitRange {
+  spec?: { limits?: Array<{ type?: string; default?: Record<string, string>; defaultRequest?: Record<string, string> }> };
+}
+
+export interface PodResources { cpuRequest: string; cpuLimit: string; memRequest: string; memLimit: string }
+
+/**
+ * What each pod will actually carry once admitted: a LimitRange's Container
+ * defaults fill unset values, and a request left unset takes the limit (as
+ * the API server does).
+ */
+export function effectiveResources(f: DeployForm, limitRanges: LimitRange[] = []): PodResources {
+  const c = limitRanges.flatMap((l) => l.spec?.limits ?? []).find((l) => (l.type ?? 'Container') === 'Container');
+  const pick = (v: string, d?: string) => (v.trim() ? v.trim() : d ?? '');
+  const cpuLimit = pick(f.resources.cpuLimit, c?.default?.cpu);
+  const memLimit = pick(f.resources.memLimit, c?.default?.memory);
+  return {
+    cpuLimit,
+    memLimit,
+    cpuRequest: pick(f.resources.cpuRequest, c?.defaultRequest?.cpu ?? (f.resources.cpuLimit.trim() || c?.default?.cpu)) || cpuLimit,
+    memRequest: pick(f.resources.memRequest, c?.defaultRequest?.memory ?? (f.resources.memLimit.trim() || c?.default?.memory)) || memLimit,
+  };
+}
+
+/** Whether a scoped quota applies to this app's pods; a string when it cannot tell. */
+function scopeApplies(q: Quota, r: PodResources): boolean | string {
+  const scopes = [...(q.spec?.scopes ?? []), ...(q.spec?.scopeSelector?.matchExpressions ?? []).map((m) => m.scopeName)];
+  const bestEffort = !r.cpuRequest && !r.cpuLimit && !r.memRequest && !r.memLimit;
+  for (const sc of scopes) {
+    if (sc === 'BestEffort' && !bestEffort) return false;
+    if (sc === 'NotBestEffort' && bestEffort) return false;
+    if (sc === 'Terminating') return false;
+    if (sc === 'NotTerminating') continue;
+    if (sc === 'BestEffort' || sc === 'NotBestEffort') continue;
+    return `scoped by ${sc}, which Pulse does not evaluate`;
+  }
+  return true;
+}
+
 /** Quota headroom for this app in its namespace. */
-export function quotaHeadroom(f: DeployForm, quotas: Quota[]): QuotaLine[] {
+export function quotaHeadroom(f: DeployForm, quotas: Quota[], limitRanges: LimitRange[] = []): QuotaLine[] {
   const replicas = replicasOf(f);
   const surge = replicas > 0 ? Math.max(1, Math.ceil(replicas * 0.25)) : 0;
+  const r = effectiveResources(f, limitRanges);
   const perPod: Record<string, string> = {
-    'requests.cpu': f.resources.cpuRequest, cpu: f.resources.cpuRequest, 'limits.cpu': f.resources.cpuLimit,
-    'requests.memory': f.resources.memRequest, memory: f.resources.memRequest, 'limits.memory': f.resources.memLimit,
+    'requests.cpu': r.cpuRequest, cpu: r.cpuRequest, 'limits.cpu': r.cpuLimit,
+    'requests.memory': r.memRequest, memory: r.memRequest, 'limits.memory': r.memLimit,
   };
   const lines: QuotaLine[] = [];
   for (const q of quotas) {
+    const applies = scopeApplies(q, r);
+    if (applies === false) continue;
     const hard = q.status?.hard ?? q.spec?.hard ?? {};
     const used = q.status?.used ?? {};
     for (const [res, hv] of Object.entries(hard)) {
@@ -350,11 +396,24 @@ export function quotaHeadroom(f: DeployForm, quotas: Quota[]): QuotaLine[] {
         else { add = parseResourceValue(v) * replicas; rollout = parseResourceValue(v) * surge; }
       } else if (res === 'pods' || res === 'count/pods') { add = replicas; rollout = surge; }
       else if (res === 'requests.storage' && f.storage.mode === 'new') add = parseResourceValue(f.storage.size);
-      else if (res === 'persistentvolumeclaims' && f.storage.mode === 'new') add = 1;
+      else if ((res === 'persistentvolumeclaims' || res === 'count/persistentvolumeclaims') && f.storage.mode === 'new') add = 1;
       else if (res === 'services' || res === 'count/services') add = f.expose.service && portOf(f) ? 1 : 0;
       else continue;
+      if (typeof applies === 'string') {
+        lines.push({ resource: res, quota: q.metadata.name, hard: h, used: u, after: u, duringRollout: u, scopeUnknown: applies });
+        continue;
+      }
       lines.push({ resource: res, quota: q.metadata.name, hard: h, used: u, after: u + add, duringRollout: u + add + rollout, ...(unset ? { unsetButRequired: true } : {}) });
     }
   }
   return lines;
+}
+
+/** A line per quota problem, for the confirm; `blocks` when pods would be rejected. */
+export function quotaVerdict(lines: QuotaLine[]): { blocks: boolean; over: QuotaLine[]; tight: QuotaLine[]; unset: QuotaLine[]; unknown: QuotaLine[] } {
+  const counted = lines.filter((l) => !l.scopeUnknown);
+  const over = counted.filter((l) => !l.unsetButRequired && l.after > l.hard);
+  const unset = counted.filter((l) => l.unsetButRequired);
+  const tight = counted.filter((l) => !l.unsetButRequired && l.after <= l.hard && l.duringRollout > l.hard);
+  return { blocks: over.length > 0 || unset.length > 0, over, tight, unset, unknown: lines.filter((l) => l.scopeUnknown) };
 }

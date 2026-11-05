@@ -180,10 +180,10 @@ describe('CreateView', () => {
 
     // Click the Deploy an app tab (Installed is now default)
     fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
-    expect(screen.getByLabelText('Name')).toBeDefined();
-    expect(screen.getByLabelText('Image')).toBeDefined();
-    expect(screen.getByLabelText('Container port')).toBeDefined();
-    expect(screen.getByLabelText('Replicas')).toBeDefined();
+    expect(screen.getByLabelText(/^Name\*?$/)).toBeDefined();
+    expect(screen.getByLabelText(/^Image\*?$/)).toBeDefined();
+    expect(screen.getByLabelText(/^Container\ port\*?$/)).toBeDefined();
+    expect(screen.getByLabelText(/^Replicas\*?$/)).toBeDefined();
   });
 
   it('has required indicators on name and image fields', () => {
@@ -290,7 +290,7 @@ describe('CreateView', () => {
 
     // Start at Installed (default), switch to Deploy an app
     fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
-    expect(screen.getByLabelText('Image')).toBeDefined();
+    expect(screen.getByLabelText(/^Image\*?$/)).toBeDefined();
 
     // Switch to Helm Charts
     fireEvent.click(screen.getByText('Helm Charts'));
@@ -306,7 +306,7 @@ describe('CreateView', () => {
 
     // Switch back to Deploy an app
     fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
-    expect(screen.getByLabelText('Image')).toBeDefined();
+    expect(screen.getByLabelText(/^Image\*?$/)).toBeDefined();
   });
 
   it('shows Helm chart tab with repo-based catalog', () => {
@@ -342,7 +342,7 @@ describe('CreateView', () => {
     expect(screen.getByText('No environment set.')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Add variable' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add from Secret' }));
-    expect(screen.getAllByLabelText('Variable name')).toHaveLength(1);
+    expect(screen.getAllByLabelText(/^Variable\ name\*?$/)).toHaveLength(1);
     expect(screen.getByLabelText('Secret')).toBeDefined();
     expect(screen.getByText('value hidden')).toBeDefined();
   });

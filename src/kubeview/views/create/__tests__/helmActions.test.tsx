@@ -403,9 +403,9 @@ entries:
 
   it('Deploy an app will not dry-run in all-namespaces mode until a namespace is chosen', async () => {
     h.renderUi(<QuickDeployTab />);
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'web' } });
-    fireEvent.change(screen.getByLabelText('Image'), { target: { value: 'nginx:1' } });
-    fireEvent.change(screen.getByLabelText('Container port'), { target: { value: '8080' } });
+    fireEvent.change(screen.getByLabelText(/^Name\*?$/), { target: { value: 'web' } });
+    fireEvent.change(screen.getByLabelText(/^Image\*?$/), { target: { value: 'nginx:1' } });
+    fireEvent.change(screen.getByLabelText(/^Container\ port\*?$/), { target: { value: '8080' } });
     expect((screen.getByRole('button', { name: 'Dry run' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('form-errors').textContent).toContain('Choose a namespace.');
     fireEvent.change(await screen.findByRole('combobox', { name: 'Namespace' }), { target: { value: 'team-a' } });
