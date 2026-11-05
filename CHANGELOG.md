@@ -5,6 +5,26 @@ Release entries are historical records. Counts, timings, security scans, and fea
 ## Unreleased
 
 ### Added
+- **Pod and Deployment pages: the cause, a guided fix, and whether it held (Wave 11, part B).**
+  - "Pulse found the cause" shows the open monitor finding for the pod, its owner or (on a Deployment) one of its pods. It includes the investigation's cause, evidence with sources, the alternatives it ruled out, confidence and times. A finding that has not been investigated is shown as "a problem", not a cause. Without a finding, Diagnose reuses an open inbox item for the resource (only an unclaimed one, or one that already has an investigation, shown with how long ago it was made) or creates one, then asks the agent to investigate. It shows queued and running and the report in the same card, or the agent's reason for refusing (budget, cooldown, concurrency), a failed investigation, no report after 10 minutes, or the agent being unreachable. A disconnected monitor is said, not shown as "nothing found".
+  - "Proposed fix" renders `engine/diagnosis` (computed before but never shown on these pages). It turns the diagnosis into guided fixes that patch the owner (Deployment/StatefulSet/DaemonSet), or the ServiceAccount for a pull secret:
+    - raise the memory limit (p95 + 25% or 1.5× the limit, rounded up; requests raised to p95), with namespace ResourceQuota headroom ("unknown" if quotas cannot be read);
+    - raise the CPU limit when p95 is at the limit;
+    - add or loosen a startupProbe only when liveness killed the container while it was starting (a run of a few liveness budgets at most), with the start budget capped at 10 minutes;
+    - attach a registry secret on an unauthorized pull: to the ServiceAccount, or to the template when the template already lists imagePullSecrets (the ServiceAccount's are then not applied). Secrets are listed metadata-only, both dockerconfigjson and dockercfg;
+    - roll back to the previous revision.
+  - Review and apply re-reads the owner and builds the fix from it, then opens a confirm with the exact diff, a `dryRun=All` result (Apply stays disabled until it passes), impact (rolling restart, maxUnavailable/maxSurge, or downtime for Recreate), undo, and an optional note recorded as the change cause. It is RBAC-gated, pinned to the cluster it was opened on, and every patch tests the resourceVersion the page read. After applying, the rollout and the new pods' restarts are watched for 10 minutes on the owner's page (and the pod page until it is replaced); a watch can be dismissed, an OnDelete StatefulSet fix is not watched (its pods must be deleted), and a workload selected by matchExpressions ends "Unknown". The result is "Held", "Did not hold" (a restart, a stalled rollout, or not finished) or "Unknown" when the rollout could not be read. "Ask Pulse why" and "Other fixes" are beside it.
+  - Right column: "What changed before this" from `GET /api/agent/changes` (local cluster only; the pod page asks about the Pod and the agent walks the owner chain):
+    - an older agent (404), a resource that no longer exists, `available: false` and sources the user cannot read are muted notes;
+    - 401 uses the session-expired prompt, and `truncated` says "showing the latest 500";
+    - 400/403/5xx show LoadError.
+  - Also in the right column: memory over 6h against the limit with the Deployment's revisions in that window, and "Log of the last crash" (the previous instance; none is said in words, 403/500 show LoadError).
+
+## v2.37.0 (2026-11-03)
+
+Paired with pulse-agent v2.37.0; runs with pulse-operator v0.13.0. Pull requests #159–#187. Needs pulse-agent v2.37.0 for the readiness gate waivers (`GET`/`PUT`/`DELETE /readiness/waivers`, agent migration 042), the update graph and rollout history components (`get_cluster_updates`, `get_rollout_history`), the removed-API go/no-go (`check_upgrade_api_removals`) and the Pod page's "what changed?" (`GET /changes`). On an older agent the readiness view falls back to browser storage and the rest degrade to their previous behaviour.
+
+### Added
 - **Update readiness on Admin › Updates (Wave 14).** One readiness panel above the update action replaces the pre-update checklist and the separate Removed APIs panel: an overall verdict (Ready / Not ready / Could not check) with counts, when it was checked, Recheck and Ask Pulse (the result goes to chat as context), and Blocker / Unknown / Passed rows with their fix: removed APIs still called ("See callers" opens the caller table), admin acknowledgement (Acknowledge), Upgradeable=False, PodDisruptionBudgets with 0 disruptions covering a pod on a node that will drain (paused pools excluded; Edit PDB), critical alerts (link to Alerts filtered to critical), pending CSRs, the earliest control-plane certificate expiry, etcd operator and member pod health, the latest EtcdBackup (Take backup now creates an EtcdBackup when that API is served and a PVC exists in openshift-etcd), nodes ready, platform operators healthy and the channel. A failed read is Unknown with its reason, never a pass, and passed rows collapse into one line. Below it, the update action has the target picker, "Pause worker pools first" and "Start update…", which stays enabled with blockers, says what is likely to go wrong, and lists the open blockers in its confirmation.
 
 ### Changed
@@ -26,20 +46,6 @@ Release entries are historical records. Counts, timings, security scans, and fea
 - `ci.yml` also runs on `merge_group`, so the required checks (`Lint & Type Check`, `Unit Tests`, `Build`, `E2E Tests`, `UI Release Acceptance (isolated)`) report in the merge queue that now guards `main`.
 
 ### Added
-- **Pod and Deployment pages: the cause, a guided fix, and whether it held (Wave 11, part B).**
-  - "Pulse found the cause" shows the open monitor finding for the pod, its owner or (on a Deployment) one of its pods. It includes the investigation's cause, evidence with sources, the alternatives it ruled out, confidence and times. A finding that has not been investigated is shown as "a problem", not a cause. Without a finding, Diagnose reuses an open inbox item for the resource (only an unclaimed one, or one that already has an investigation, shown with how long ago it was made) or creates one, then asks the agent to investigate. It shows queued and running and the report in the same card, or the agent's reason for refusing (budget, cooldown, concurrency), a failed investigation, no report after 10 minutes, or the agent being unreachable. A disconnected monitor is said, not shown as "nothing found".
-  - "Proposed fix" renders `engine/diagnosis` (computed before but never shown on these pages). It turns the diagnosis into guided fixes that patch the owner (Deployment/StatefulSet/DaemonSet), or the ServiceAccount for a pull secret:
-    - raise the memory limit (p95 + 25% or 1.5× the limit, rounded up; requests raised to p95), with namespace ResourceQuota headroom ("unknown" if quotas cannot be read);
-    - raise the CPU limit when p95 is at the limit;
-    - add or loosen a startupProbe only when liveness killed the container while it was starting (a run of a few liveness budgets at most), with the start budget capped at 10 minutes;
-    - attach a registry secret on an unauthorized pull: to the ServiceAccount, or to the template when the template already lists imagePullSecrets (the ServiceAccount's are then not applied). Secrets are listed metadata-only, both dockerconfigjson and dockercfg;
-    - roll back to the previous revision.
-  - Review and apply re-reads the owner and builds the fix from it, then opens a confirm with the exact diff, a `dryRun=All` result (Apply stays disabled until it passes), impact (rolling restart, maxUnavailable/maxSurge, or downtime for Recreate), undo, and an optional note recorded as the change cause. It is RBAC-gated, pinned to the cluster it was opened on, and every patch tests the resourceVersion the page read. After applying, the rollout and the new pods' restarts are watched for 10 minutes on the owner's page (and the pod page until it is replaced); a watch can be dismissed, an OnDelete StatefulSet fix is not watched (its pods must be deleted), and a workload selected by matchExpressions ends "Unknown". The result is "Held", "Did not hold" (a restart, a stalled rollout, or not finished) or "Unknown" when the rollout could not be read. "Ask Pulse why" and "Other fixes" are beside it.
-  - Right column: "What changed before this" from `GET /api/agent/changes` (local cluster only; the pod page asks about the Pod and the agent walks the owner chain):
-    - an older agent (404), a resource that no longer exists, `available: false` and sources the user cannot read are muted notes;
-    - 401 uses the session-expired prompt, and `truncated` says "showing the latest 500";
-    - 400/403/5xx show LoadError.
-  - Also in the right column: memory over 6h against the limit with the Deployment's revisions in that window, and "Log of the last crash" (the previous instance; none is said in words, 403/500 show LoadError).
 - **Pod page: what owns it, how it last ended, and its containers at a glance (Wave 11, part A).** Under the pod's name: the owning workload with the revision the pod runs (a Deployment's, read from its ReplicaSet; "revision unknown" with the reason when that read fails) and the node; tiles for Last exit (reason and exit code from `lastState.terminated`, or the terminated instance itself when it never restarted, e.g. a failed `restartPolicy: Never` pod; init containers included, so an Init:CrashLoopBackOff pod shows its init container), Restarts since the pod started (init containers included), and Memory p95 / limit (both in the same units; decimal limits like 500M read correctly) over 6h from Prometheus ("—" with the reason when metrics are remote-only, the query fails or there are no samples). One card per container, init containers first and marked "init": state now, last termination (reason, exit, time, how long it ran), image, limits/requests, ports, mounts, probe timing (delay, period, timeout, failure threshold, with Kubernetes defaults shown), and links to its pull secrets, PVCs, ConfigMaps and Secrets. Pod and Deployment pages have an "Ask Pulse about this …" box, and a question typed straight into the Pulse AI dock on a Pod, Deployment or other workload page is sent with that resource as context (the dock says which). On a remote cluster no context is attached and the box is disabled: Pulse AI answers about the local cluster only. Owner links are built from the owner's apiVersion and scope, so a static pod links to its Node and a custom-resource owner (VirtualMachineInstance, TaskRun) to its own group. Jobs and CronJobs are workloads: their pods, logs and events show on their pages; a Job lists its attempts and a CronJob its runs, newest first, with the failed pod's log inline (a retried attempt that is running again shows "Running · retried after exit N", and its log is the previous instance's) (a forbidden log or Jobs read shows the error, not an empty list). The Workload Audit (replicas, strategy) no longer runs on Jobs.
 - **Removed APIs go/no-go on Admin › Updates.** Before a minor update, a "Removed APIs" panel shows Go / No-go / Could not check for the next minor (or a minor picked from available and conditional updates): which APIs the target Kubernetes removes were still called in the last 24h (APIRequestCount), with request counts and top callers by user and user agent (`system:` callers tagged Platform, never hidden), a collapsed list of removed-but-unused APIs, and the admin gates for the target. Unacknowledged gates get an Acknowledge action that merge-patches `openshift-config/admin-acks` with the user's own credentials on the cluster the panel was opened on, after a confirm quoting the gate (RBAC-gated; the acknowledged state comes from a re-read). The update button stays enabled on No-go but warns, and the pre-update checklist gains a "Removed APIs" row. ClusterVersion Upgradeable=False makes it No-go with the CVO reason and message. A 403/500 on APIRequestCount or the ConfigMaps, or a 404 on APIRequestCount or admin-gates, is "Could not check", never Go. A missing admin-acks means nothing is acknowledged, and only the exact value "true" counts. When the channel offers no newer minor, the check runs for current minor + 1, labelled "next minor (not yet offered on your channel)". The Upgradeable=False banner offers the same Acknowledge action instead of "run oc adm upgrade" when the gate key is known.
 - Workload, node and storage actions (functionality review, Wave 7a). Every state-changing action asks first, saying what will happen; is disabled with the reason when RBAC does not allow it; is pinned to the cluster that was active when its dialog opened; and shows a failed write in the dialog
@@ -552,6 +558,7 @@ Major release matching Agent v2.0.0.
 ### Stats
 - **1,934 tests** across 162 test files
 - **111 tools** (75 native + 36 MCP), **4 skills**, **19 component types**
+- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -573,6 +580,7 @@ Major release matching Agent v2.0.0.
 
 ### Stats
 - **1,934 tests** across 162 test files (+52 new tests)
+- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -599,6 +607,7 @@ Major release matching Agent v2.0.0.
 
 ### Stats
 - **1687 tests** across 125 test files (+81 new tests)
+- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -627,6 +636,7 @@ Major release matching Agent v2.0.0.
 - **1472 tests** across 97 test files
 - **17 views**, 45+ routes
 - **54 agent tools** with dynamic selection harness
+- **0 package CVEs**, all Red Hat UBI images
 - **13-check integration test** for deployment verification
 
 ---
@@ -652,7 +662,10 @@ Major release matching Agent v2.0.0.
 - **Build log 404s** — Build view was fetching pod logs for build names; now uses correct Build API endpoint
 
 ### Stats
+- **1472 tests** across 97 test files
+- **17 views**, 45+ routes
 - **54 agent tools** with 4 returning rich UI component specs
+- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -696,7 +709,10 @@ Major release matching Agent v2.0.0.
 - README updated with AI Agent comparison row, 17 views, 54 tools
 
 ### Stats
+- **1472 tests** across 97 test files
+- **17 views**, 45+ routes
 - **54 agent tools** (39 read + 9 write + 6 audit)
+- **0 package CVEs**, all Red Hat UBI images
 
 ---
 
@@ -727,6 +743,7 @@ Major release matching Agent v2.0.0.
 ### Stats
 - **1438 tests** across 94 test files
 - **16+ views**, 40+ routes
+- **0 package CVEs**, all Red Hat UBI images
 - **6 custom agents**, 4 automated hooks
 
 ---
@@ -798,6 +815,8 @@ Major release matching Agent v2.0.0.
 
 ### Stats
 - **1308 tests** across 76 test files (up from 1162/63 in v4.1.0)
+- **77 health checks** (31 cluster + 46 domain)
+- **15 views**, 35 routes
 - **0 package CVEs**
 
 ---
