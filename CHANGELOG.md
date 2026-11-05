@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Added
+- **ConfigMap and Secret "Used by" and "Restart consumers" (Wave 13 A).** ConfigMap and Secret pages list every Deployment, StatefulSet, DaemonSet, CronJob and Job in the namespace whose pod template reads the object, how (env keys, envFrom, volume or projected volume with its mount path, image pull secret) and when running pods see a change: env/envFrom and subPath mounts only after a restart; a mounted file in about 60s, with "Could not check if the app reloads it"; CronJobs on the next run. Running pods started before the last edit are counted as on old values. A kind that cannot be listed is "Could not check", never "no consumers"; Secrets show names and key names only. "Restart consumers…" (also offered after a save from the data editor or the YAML editor) opens one confirmation with the exact patch (the `kubectl.kubernetes.io/restartedAt` annotation `oc rollout restart` writes), order (workloads behind a Service last), each workload's strategy and PodDisruptionBudget, the quota for surge pods and a dry run of every patch; it restarts one workload at a time, waits for each rollout, stops at the first failure, and shows progress with "Stop after current". OnDelete StatefulSets/DaemonSets and workloads you cannot patch are named and left out.
+
 ## v2.37.0 (2026-11-03)
 
 Paired with pulse-agent v2.37.0; runs with pulse-operator v0.13.0. Pull requests #159–#187. Needs pulse-agent v2.37.0 for the readiness gate waivers (`GET`/`PUT`/`DELETE /readiness/waivers`, agent migration 042), the update graph and rollout history components (`get_cluster_updates`, `get_rollout_history`), the removed-API go/no-go (`check_upgrade_api_removals`) and the Pod page's "what changed?" (`GET /changes`). On an older agent the readiness view falls back to browser storage and the rest degrade to their previous behaviour.

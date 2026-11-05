@@ -1,7 +1,8 @@
 /**
  * Detail-page sections for kinds whose everyday actions used to need YAML:
  * expanding a PVC (and seeing which pods mount it), editing an HPA's bounds,
- * a Service's endpoints, making a StorageClass the default.
+ * a Service's endpoints, making a StorageClass the default, and which
+ * workloads use a ConfigMap or Secret.
  */
 import { useQuery } from '@tanstack/react-query';
 import { Maximize2, SlidersHorizontal, Star } from 'lucide-react';
@@ -18,11 +19,14 @@ import {
 import type { K8sResource } from '../../engine/renderers';
 import type { Pod } from '../../engine/types';
 import { DetailSection } from './MetadataSections';
+import { ConfigConsumersSection } from './ConfigConsumers';
 
 type Go = (path: string, title: string) => void;
 
-export function KindSections({ resource, go }: { resource: K8sResource; go: Go }) {
+export function KindSections({ resource, go, savedAt }: { resource: K8sResource; go: Go; savedAt?: number }) {
   switch (resource.kind) {
+    case 'ConfigMap':
+    case 'Secret': return resource.metadata.namespace ? <ConfigConsumersSection resource={resource} go={go} savedAt={savedAt} /> : null;
     case 'PersistentVolumeClaim': return <PvcSection pvc={resource} go={go} />;
     case 'HorizontalPodAutoscaler': return <HpaSection hpa={resource} />;
     case 'Service': return <ServiceEndpointsSection svc={resource} go={go} />;

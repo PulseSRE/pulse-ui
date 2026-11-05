@@ -21,6 +21,7 @@ import { useArgoCDStore } from '../store/argoCDStore';
 import { GitOpsActionDialog } from '../components/GitOpsActionDialog';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
+import { SavedConsumersOffer } from './detail/ConfigConsumers';
 
 interface YamlEditorViewProps {
   gvrKey: string;
@@ -65,6 +66,8 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   const actualKindForArgo = resource?.kind || '';
   const syncInfo = useArgoSyncInfo(actualKindForArgo, namespace, name);
   const isArgoManaged = argoCDAvailable && !!syncInfo;
+  // Set after a ConfigMap/Secret save: offers restarting the consumers.
+  const [savedConfig, setSavedConfig] = useState(false);
 
   useEffect(() => {
     if (resource) {
@@ -100,6 +103,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
       setOriginalYaml(newYaml);
       setCurrentYaml(newYaml);
       addToast({ type: 'success', title: `${name} saved` });
+      if (updated?.kind === 'ConfigMap' || updated?.kind === 'Secret') setSavedConfig(true);
       queryClient.invalidateQueries({ queryKey: ['k8s', 'get', apiPath, clusterId] });
       queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
     } catch (err) {
@@ -206,6 +210,10 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
             This YAML was loaded from <strong>{clusterName(clusterId)}</strong>; the active cluster is now <strong>{clusterName(activeClusterId)}</strong>. Saving is disabled until you switch back.
           </span>
         </div>
+      )}
+
+      {savedConfig && namespace && (resource?.kind === 'ConfigMap' || resource?.kind === 'Secret') && (
+        <SavedConsumersOffer kind={resource.kind} namespace={namespace} name={name} clusterId={clusterId} />
       )}
 
       {/* Save error banner */}
