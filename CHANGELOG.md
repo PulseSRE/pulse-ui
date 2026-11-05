@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Added
+- **RBAC change history with "Restore previous" (Wave 16, Identity › Access review).** With pulse-agent#235 the RBAC changes panel lists edits, creations and deletions of Roles, ClusterRoles, bindings, SCCs and admission webhooks from the agent's observed history, each with a line diff against the version before it, the client that wrote it, and the signed-in user when the change was made through Pulse. "Restore previous…" reads the live object, shows the exact change (live → restored), requires a reason, dry-runs, then writes as you conditional on the live resourceVersion (or re-creates a deleted object without ownerReferences) and records the restore in the agent's write ledger; the button is disabled without update/create permission and a refused dry run (including RBAC escalation) changes nothing. The panel says what the history cannot know (who made changes outside Pulse, edits between two observations, anything before the first one, kinds the agent cannot list, objects you cannot read). On an older agent it falls back to the creation-time list, now labelled "New bindings (by creation time)" with a note that edits are not shown; on a remote cluster it says the history is kept for the local cluster only.
+
 ## v2.37.0 (2026-11-03)
 
 Paired with pulse-agent v2.37.0; runs with pulse-operator v0.13.0. Pull requests #159–#187. Needs pulse-agent v2.37.0 for the readiness gate waivers (`GET`/`PUT`/`DELETE /readiness/waivers`, agent migration 042), the update graph and rollout history components (`get_cluster_updates`, `get_rollout_history`), the removed-API go/no-go (`check_upgrade_api_removals`) and the Pod page's "what changed?" (`GET /changes`). On an older agent the readiness view falls back to browser storage and the rest degrade to their previous behaviour.
