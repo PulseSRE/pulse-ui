@@ -15,7 +15,7 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, UserPlus, Shield } from 'lucide-react';
-import { k8sCreate, k8sGet, k8sPatch } from '../../engine/query';
+import { k8sCreate, k8sFetch, k8sGet, k8sPatch } from '../../engine/query';
 import { MERGE_PATCH } from '../../engine/workloadActions';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { useCanI } from '../../hooks/useCanI';
@@ -25,7 +25,7 @@ import { Button } from '../../components/primitives/Button';
 import { LoadError } from '../../components/primitives/LoadError';
 import { PulseError } from '../../engine/errors';
 import {
-  HTPASSWD_KEY, fromBase64, hashPassword, parseHtpasswd, toBase64, upsertHtpasswd, validateHtpasswdUser,
+  HTPASSWD_KEY, fromBase64, hashPassword, parseHtpasswd, toBase64, upsertHtpasswd, validateHtpasswdPassword, validateHtpasswdUser,
 } from '../../engine/htpasswd';
 
 export const OAUTH_PATH = '/apis/config.openshift.io/v1/oauths/cluster';
@@ -43,6 +43,57 @@ export function providersPatch(resourceVersion: string | undefined, providers: I
 }
 
 function withDryRun(path: string) { return `${path}?dryRun=All`; }
+
+export const ANOTHER_WAY_PHRASE = 'I have another way to sign in';
+export type KubeadminState = 'present' | 'absent' | 'unknown';
+
+export interface LockoutRisk {
+  /** Plain-English reasons; empty when removing the provider cannot lock anyone out. */
+  risks: string[];
+  noProvidersLeft: boolean;
+  noKubeadmin: boolean;
+}
+
+/**
+ * What removing `provider` could lock out: (a) no identity provider left,
+ * (b) no kubeadmin to fall back to (or it could not be checked), (c) the
+ * provider is the one the current user signed in through.
+ */
+export function lockoutRisks(provider: string, after: IdentityProvider[], kubeadmin: KubeadminState, myIdentities: string[] | null): LockoutRisk {
+  const risks: string[] = [];
+  const noProvidersLeft = after.length === 0;
+  const noKubeadmin = kubeadmin !== 'present';
+  if (noProvidersLeft) risks.push('No identity provider will be left: nobody can sign in through OAuth.');
+  if (kubeadmin === 'absent') risks.push('The kubeadmin Secret is gone, so there is no kubeadmin login to fall back to.');
+  if (kubeadmin === 'unknown') risks.push('Pulse could not check whether the kubeadmin login still exists; treat it as gone.');
+  if (myIdentities === null) risks.push(`Pulse could not check whether you signed in through ${provider}.`);
+  else if (myIdentities.some((i) => i.split(':')[0] === provider)) risks.push(`You signed in through ${provider}: your next sign-in will fail.`);
+  return { risks, noProvidersLeft, noKubeadmin };
+}
+
+/** Whether the kubeadmin login exists, from a metadata-only read of its Secret (the data is never fetched). */
+async function kubeadminState(clusterId: string): Promise<KubeadminState> {
+  try {
+    const res = await k8sFetch(clusterId, '/api/v1/namespaces/kube-system/secrets/kubeadmin', {
+      headers: { Accept: 'application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1' },
+    });
+    if (res.status === 404) return 'absent';
+    return res.ok ? 'present' : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function myIdentities(clusterId: string): Promise<string[] | null> {
+  try {
+    const res = await k8sFetch(clusterId, '/apis/user.openshift.io/v1/users/~');
+    if (!res.ok) return null;
+    const me = (await res.json()) as { identities?: string[] };
+    return me.identities ?? [];
+  } catch {
+    return null;
+  }
+}
 
 function ProviderDiff({ before, after }: { before: IdentityProvider[]; after: IdentityProvider[] }) {
   return (
@@ -88,6 +139,7 @@ function HtpasswdUserForm({ secretName, onDone }: { secretName: string; onDone: 
   const { allowed: canGet } = useCanI('get', '', 'secrets', CONFIG_NS);
   const { allowed: canPatch } = useCanI('patch', '', 'secrets', CONFIG_NS);
   const userErr = user ? validateHtpasswdUser(user) : null;
+  const pwErr = password ? validateHtpasswdPassword(password) : null;
 
   const review = async () => {
     setReadError(null); setReading(true);
@@ -98,6 +150,9 @@ function HtpasswdUserForm({ secretName, onDone }: { secretName: string; onDone: 
       const replaced = existing.some((e) => e.user === user);
       const rv = secret.metadata.resourceVersion;
       const pw = password;
+      // The password lives only in this dialog's closure from here on: the field is
+      // cleared whether the user confirms, cancels or the write fails.
+      setPassword('');
       open({
         title: replaced ? `Reset the password of ${user}?` : `Add ${user} to ${secretName}?`,
         description: replaced
@@ -118,7 +173,7 @@ function HtpasswdUserForm({ secretName, onDone }: { secretName: string; onDone: 
           return k8sPatch(secretPath(secretName), body, MERGE_PATCH, cid);
         },
         success: replaced ? `Password reset for ${user}` : `${user} added`,
-        onDone: () => { setUser(''); setPassword(''); onDone(); },
+        onDone: () => { setUser(''); onDone(); },
       });
     } catch (e) {
       setReadError(e);
@@ -128,15 +183,16 @@ function HtpasswdUserForm({ secretName, onDone }: { secretName: string; onDone: 
   };
 
   return (
-    <form className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 items-end" onSubmit={(e) => { e.preventDefault(); if (!userErr && user && password) void review(); }}>
+    <form className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 items-end" onSubmit={(e) => { e.preventDefault(); if (!userErr && !pwErr && user && password) void review(); }}>
       <label className="text-xs text-slate-400">Username
         <input aria-label={`Username for ${secretName}`} className={inputCls} value={user} onChange={(e) => setUser(e.target.value.trim())} autoComplete="off" />
         {userErr && <span className="text-red-400">{userErr}</span>}
       </label>
       <label className="text-xs text-slate-400">Password
         <input aria-label={`Password for ${secretName}`} type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+        {pwErr && <span className="text-red-400">{pwErr}</span>}
       </label>
-      <Button size="sm" type="submit" disabled={!user || !password || !!userErr || !canGet || !canPatch} loading={reading}
+      <Button size="sm" type="submit" disabled={!user || !password || !!userErr || !!pwErr || !canGet || !canPatch} loading={reading}
         title={!canGet || !canPatch ? `You do not have permission to read and change Secrets in ${CONFIG_NS}` : undefined}>
         <UserPlus className="w-3.5 h-3.5" /> Review
       </Button>
@@ -173,6 +229,7 @@ function AddProviderForm({ data, onDone }: { data: OAuthConfig; onDone: () => vo
       const err = validateHtpasswdUser(firstUser);
       if (err) problems.push(`First user: ${err}`);
       if (!firstPassword) problems.push('First user: a password is required');
+      else { const e = validateHtpasswdPassword(firstPassword); if (e) problems.push(`First user: ${e}`); }
       if (!canCreateSecret) problems.push(`You do not have permission to create Secrets in ${CONFIG_NS}`);
     }
   } else if (type === 'LDAP') {
@@ -198,6 +255,8 @@ function AddProviderForm({ data, onDone }: { data: OAuthConfig; onDone: () => vo
     const rv = data.metadata.resourceVersion;
     const withSecret = type === 'HTPasswd' && createSecret;
     const user = firstUser; const pw = firstPassword; const sName = secretName.trim();
+    // Kept only in the dialog's closure: cleared on confirm, cancel or failure alike.
+    setFirstPassword('');
     open({
       title: `Add identity provider ${provider.name}?`,
       description: `${withSecret ? `Creates Secret ${CONFIG_NS}/${sName} with user ${user}, then adds` : 'Adds'} the ${type} provider to OAuth cluster. The authentication operator rolls out new oauth-openshift pods; sign-in can be briefly unavailable while it does.`,
@@ -278,6 +337,7 @@ export function IdentityProvidersPanel() {
   const { allowed: canPatch, isLoading: permLoading } = useCanI('patch', 'config.openshift.io', 'oauths');
   const [adding, setAdding] = React.useState(false);
   const [userFormFor, setUserFormFor] = React.useState<string | null>(null);
+  const [checking, setChecking] = React.useState<string | null>(null);
   const { open, dialog } = useActionDialog();
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['signin'] });
@@ -292,17 +352,33 @@ export function IdentityProvidersPanel() {
   const providers = data.spec?.identityProviders ?? [];
   const denied = !permLoading && !canPatch;
 
-  const remove = (p: IdentityProvider) => {
+  const remove = async (p: IdentityProvider) => {
     const after = providers.filter((x) => x.name !== p.name);
     const rv = data.metadata.resourceVersion;
+    setChecking(p.name);
+    const [kubeadmin, mine] = await Promise.all([kubeadminState(clusterId), myIdentities(clusterId)]);
+    setChecking(null);
+    const lock = lockoutRisks(p.name, after, kubeadmin, mine);
+    const severe = lock.noProvidersLeft && lock.noKubeadmin;
+    const inputs = lock.risks.length === 0 ? [] : [
+      { id: 'name', label: `Type ${p.name} to confirm`, initial: '', validate: (v: string) => (v === p.name ? null : `Type ${p.name} exactly`) },
+      ...(severe ? [{ id: 'phrase', label: `Type "${ANOTHER_WAY_PHRASE}"`, initial: '', validate: (v: string) => (v === ANOTHER_WAY_PHRASE ? null : `Type "${ANOTHER_WAY_PHRASE}" exactly`) }] : []),
+    ];
     open({
       title: `Remove identity provider ${p.name}?`,
       description: `Users who sign in through ${p.name} can no longer sign in. Their User and Identity objects and existing sessions are not deleted. The authentication operator rolls out new oauth-openshift pods.`,
       confirmLabel: 'Remove provider',
       variant: 'danger',
       what: 'Removing the identity provider',
+      inputs,
       body: (
         <>
+          {lock.risks.length > 0 && (
+            <div role="alert" data-testid="idp-lockout" className="mt-3 rounded border border-red-800 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+              <p className="font-medium">This can lock people out of the cluster:</p>
+              <ul className="mt-1 list-disc ml-4">{lock.risks.map((r) => <li key={r}>{r}</li>)}</ul>
+            </div>
+          )}
           <ProviderDiff before={providers} after={after} />
           <p className="mt-2 text-xs text-slate-400">Merge patch of <code className="font-mono">spec.identityProviders</code> conditional on resourceVersion {rv ?? '(unknown)'} (dry run first). Undo: add the provider back with the same settings{p.type === 'HTPasswd' ? '; its Secret is not deleted' : ''}.</p>
         </>
@@ -338,7 +414,7 @@ export function IdentityProvidersPanel() {
                 {p.type === 'HTPasswd' && p.htpasswd?.fileData?.name && (
                   <Button size="sm" variant="ghost" onClick={() => setUserFormFor(userFormFor === p.name ? null : p.name)}><UserPlus className="w-3.5 h-3.5" /> Add or reset user</Button>
                 )}
-                <Button size="sm" variant="ghost" disabled={denied} onClick={() => remove(p)} aria-label={`Remove provider ${p.name}`}><Trash2 className="w-3.5 h-3.5" /></Button>
+                <Button size="sm" variant="ghost" disabled={denied || checking !== null} loading={checking === p.name} onClick={() => void remove(p)} aria-label={`Remove provider ${p.name}`}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
             </div>
             {userFormFor === p.name && p.htpasswd?.fileData?.name && <HtpasswdUserForm secretName={p.htpasswd.fileData.name} onDone={refresh} />}

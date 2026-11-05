@@ -22,6 +22,13 @@ export function validateHtpasswdUser(user: string): string | null {
   return null;
 }
 
+/** bcrypt uses only the first 72 bytes; a longer password would be silently cut. */
+export function validateHtpasswdPassword(password: string): string | null {
+  if (!password) return 'A password is required';
+  if (new TextEncoder().encode(password).length > 72) return 'At most 72 bytes: bcrypt ignores everything after that, so a longer password would not be what you typed';
+  return null;
+}
+
 export async function hashPassword(password: string, cost = BCRYPT_COST): Promise<string> {
   const hash = await bcrypt.hash(password, cost);
   return hash.replace(/^\$2[ab]\$/, '$2y$');
@@ -34,12 +41,21 @@ export function parseHtpasswd(text: string): HtpasswdEntry[] {
   });
 }
 
-/** The file with `user` set to `hash`: replaced in place if present, else appended. */
+/**
+ * The file with `user` set to `hash`: that user's line replaced in place, or a
+ * line appended. Every other line — other users, comments, blank or malformed
+ * lines — is passed through untouched.
+ */
 export function upsertHtpasswd(text: string, user: string, hash: string): { text: string; replaced: boolean; users: number } {
-  const entries = parseHtpasswd(text);
-  const replaced = entries.some((e) => e.user === user);
-  const next = replaced ? entries.map((e) => (e.user === user ? { user, hash } : e)) : [...entries, { user, hash }];
-  return { text: `${next.map((e) => `${e.user}:${e.hash}`).join('\n')}\n`, replaced, users: next.length };
+  const lines = text === '' ? [] : text.replace(/\r?\n$/, '').split(/\r?\n/);
+  let replaced = false;
+  const out = lines.map((l) => {
+    const i = l.indexOf(':');
+    if (!l.trimStart().startsWith('#') && i > 0 && l.slice(0, i).trim() === user) { replaced = true; return `${user}:${hash}`; }
+    return l;
+  });
+  if (!replaced) out.push(`${user}:${hash}`);
+  return { text: `${out.join('\n')}\n`, replaced, users: parseHtpasswd(out.join('\n')).length };
 }
 
 export function toBase64(text: string): string {

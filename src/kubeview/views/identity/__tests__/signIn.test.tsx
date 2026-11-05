@@ -7,9 +7,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import bcrypt from 'bcryptjs';
-import { clickWhenEnabled, createHarness, json, k8sStatus, type Recorded } from '../../../__tests__/actionHarness';
-import { SignInTab, OAUTH_PATH } from '../SignInTab';
-import { fromBase64, parseHtpasswd, upsertHtpasswd } from '../../../engine/htpasswd';
+import { clickWhenEnabled, createHarness, json, k8sStatus, REMOTE, type Recorded } from '../../../__tests__/actionHarness';
+import { SignInTab, OAUTH_PATH, ANOTHER_WAY_PHRASE, lockoutRisks } from '../SignInTab';
+import { fromBase64, parseHtpasswd, upsertHtpasswd, validateHtpasswdPassword } from '../../../engine/htpasswd';
 
 const h = createHarness();
 vi.setConfig({ testTimeout: 30000 });
@@ -126,5 +126,137 @@ describe('Sign-in', () => {
     h.renderUi(<SignInTab />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/identity providers are unknown/);
     expect(screen.queryByText(/No identity providers configured/)).toBeNull();
+  });
+
+  it('keeps comment and malformed lines when rewriting a file', () => {
+    expect(upsertHtpasswd('# team\nalice:1\nbroken-line\n\nbob:2\n', 'bob', '3').text).toBe('# team\nalice:1\nbroken-line\n\nbob:3\n');
+  });
+
+  it('refuses passwords longer than 72 bytes, which bcrypt would cut', () => {
+    expect(validateHtpasswdPassword('x'.repeat(72))).toBeNull();
+    expect(validateHtpasswdPassword('é'.repeat(37))).toMatch(/At most 72 bytes/);
+  });
+});
+
+const KUBEADMIN = '/api/v1/namespaces/kube-system/secrets/kubeadmin';
+
+describe('Sign-in lockout guard', () => {
+  it('names each risk', () => {
+    expect(lockoutRisks('local', [], 'absent', []).risks).toEqual([
+      'No identity provider will be left: nobody can sign in through OAuth.',
+      'The kubeadmin Secret is gone, so there is no kubeadmin login to fall back to.',
+    ]);
+    expect(lockoutRisks('corp-ldap', [{ name: 'local', type: 'HTPasswd' }], 'present', ['corp-ldap:alice']).risks).toEqual(['You signed in through corp-ldap: your next sign-in will fail.']);
+    expect(lockoutRisks('corp-ldap', [{ name: 'local', type: 'HTPasswd' }], 'present', ['local:alice']).risks).toEqual([]);
+    expect(lockoutRisks('x', [{ name: 'y', type: 'LDAP' }], 'unknown', null).risks).toHaveLength(2);
+  });
+
+  it('removing the provider you signed in through is red and needs its name typed', async () => {
+    signInCluster((r) => (r.path === '/apis/user.openshift.io/v1/users/~' ? json({ metadata: { name: 'alice' }, identities: ['corp-ldap:alice'] }) : undefined));
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Remove provider corp-ldap');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByTestId('idp-lockout').textContent).toMatch(/You signed in through corp-ldap/);
+    // kubeadmin was read metadata-only
+    expect(h.state.requests.find((r) => r.path === KUBEADMIN)!.headers.Accept).toMatch(/PartialObjectMetadata/);
+    const confirm = within(dialog).getByRole('button', { name: 'Remove provider' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText('Type corp-ldap to confirm'), { target: { value: 'corp-ldap' } });
+    await waitFor(() => expect(confirm.disabled).toBe(false));
+    expect(within(dialog).queryByLabelText(`Type "${ANOTHER_WAY_PHRASE}"`)).toBeNull();
+  });
+
+  it('removing the last provider with no kubeadmin also needs "I have another way to sign in"', async () => {
+    const one = { ...OAUTH, spec: { identityProviders: [OAUTH.spec.identityProviders[0]] } };
+    signInCluster((r) => (r.method === 'GET' && r.path === OAUTH_PATH ? json(one) : r.path === KUBEADMIN ? k8sStatus(404, 'not found') : undefined));
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Remove provider corp-ldap');
+    const dialog = await screen.findByRole('dialog');
+    const text = within(dialog).getByTestId('idp-lockout').textContent!;
+    expect(text).toMatch(/No identity provider will be left/);
+    expect(text).toMatch(/kubeadmin Secret is gone/);
+    const confirm = within(dialog).getByRole('button', { name: 'Remove provider' }) as HTMLButtonElement;
+    fireEvent.change(within(dialog).getByLabelText('Type corp-ldap to confirm'), { target: { value: 'corp-ldap' } });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText(`Type "${ANOTHER_WAY_PHRASE}"`), { target: { value: ANOTHER_WAY_PHRASE } });
+    await waitFor(() => expect(confirm.disabled).toBe(false));
+  });
+
+  it('kubeadmin that could not be checked counts as a risk', async () => {
+    signInCluster((r) => (r.path === KUBEADMIN ? k8sStatus(403, 'forbidden') : undefined));
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Remove provider local');
+    expect((await screen.findByTestId('idp-lockout')).textContent).toMatch(/could not check whether the kubeadmin login still exists/);
+  });
+
+  it('no risk: a plain confirmation, no typing', async () => {
+    signInCluster();
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Remove provider corp-ldap');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByTestId('idp-lockout')).toBeNull();
+    expect((within(dialog).getByRole('button', { name: 'Remove provider' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe('Sign-in failure paths', () => {
+  async function openAddUser() {
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Add or reset user');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Username for htpass-local' }), { target: { value: 'carol' } });
+    fireEvent.change(screen.getByLabelText('Password for htpass-local'), { target: { value: 'pw-carol' } });
+    await clickWhenEnabled('Review');
+    return screen.findByRole('dialog');
+  }
+
+  it('the password field is cleared as soon as the dialog opens, so cancel leaves nothing behind', async () => {
+    signInCluster();
+    const dialog = await openAddUser();
+    expect((screen.getByLabelText('Password for htpass-local') as HTMLInputElement).value).toBe('');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(h.writes()).toHaveLength(0);
+  });
+
+  it('a refused dry run sends no real write and says why', async () => {
+    signInCluster((r) => (r.method === 'PATCH' && r.url.includes('dryRun') ? k8sStatus(422, 'Secret "htpass-local" is invalid') : undefined));
+    const dialog = await openAddUser();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add user' }));
+    expect((await within(dialog).findByRole('alert', {}, { timeout: 10000 })).textContent).toMatch(/is invalid/);
+    expect(h.writes()).toHaveLength(1);
+  });
+
+  it('a 403 on the write stays in the dialog', async () => {
+    signInCluster((r) => (r.method === 'PATCH' && !r.url.includes('dryRun') ? k8sStatus(403, 'secrets "htpass-local" is forbidden') : undefined));
+    const dialog = await openAddUser();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add user' }));
+    expect((await within(dialog).findByRole('alert', {}, { timeout: 10000 })).textContent).toMatch(/Permission denied: secrets "htpass-local" is forbidden/);
+  });
+
+  it('without permission on Secrets in openshift-config the htpasswd form cannot be submitted', async () => {
+    signInCluster();
+    h.state.denied.add('patch secrets');
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Add or reset user');
+    expect(await screen.findByText('You do not have permission to read and change Secrets in openshift-config.')).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Username for htpass-local' }), { target: { value: 'carol' } });
+    fireEvent.change(screen.getByLabelText('Password for htpass-local'), { target: { value: 'pw' } });
+    expect((screen.getByRole('button', { name: /Review/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('switching cluster after opening refuses to send anything', async () => {
+    signInCluster();
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Remove provider corp-ldap');
+    const dialog = await screen.findByRole('dialog');
+    h.setActive(REMOTE);
+    // Either the dialog refuses ("cluster changed") or the page reloads for the new
+    // cluster and the dialog closes with it; in no case is the local OAuth written.
+    const btn = within(dialog).queryByRole('button', { name: 'Remove provider' });
+    if (btn && document.body.contains(btn)) fireEvent.click(btn);
+    await new Promise((r) => setTimeout(r, 100));
+    if (document.body.contains(dialog)) expect(within(dialog).getByRole('alert').textContent).toMatch(/cluster/i);
+    expect(h.writes()).toHaveLength(0);
   });
 });
