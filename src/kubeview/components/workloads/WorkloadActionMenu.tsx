@@ -26,6 +26,10 @@ import {
   setReplicas, setRolloutPaused,
 } from '../../engine/workloadActions';
 import type { K8sResource } from '../../engine/renderers';
+import { helmOwnerOf } from '../../engine/helmOwnership';
+import { HelmRollbackNote } from '../HelmOwnership';
+import { ConfirmDialog } from '../feedback/ConfirmDialog';
+import { DeleteRelatedDialog } from './DeleteRelatedDialog';
 
 /** Kinds whose resource-table rows get the menu (pods keep their own inline Logs/Restart). */
 export const TABLE_ACTION_KINDS = new Set(['Deployment', 'StatefulSet', 'ReplicaSet', 'DaemonSet', 'CronJob', 'Job']);
@@ -74,8 +78,14 @@ function replicaInput(current: number): ActionSpec['inputs'] {
   }];
 }
 
+/** Kinds whose delete offers the objects that exist only for them (Services, Routes, PVCs…). */
+export const DELETE_WITH_RELATED_KINDS = new Set(['Deployment', 'StatefulSet', 'DaemonSet']);
+
 export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOptions = {}): { items: ActionMenuItem[]; dialog: React.ReactNode } {
-  const { open, dialog } = useActionDialog();
+  const { open, dialog: actionDialog } = useActionDialog();
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [helmRollbackOpen, setHelmRollbackOpen] = React.useState(false);
+  const helmOwner = helmOwnerOf(resource);
   const go = useNavigateTab();
   const kind = resource.kind;
   const rbac = KIND_RBAC[kind] ?? { group: '', plural: '' };
@@ -97,6 +107,35 @@ export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOp
     staleTime: 60_000,
   });
   const context = opts.context ?? 'list';
+  const goToRollback = () => {
+    const path = `/r/apps~v1~deployments/${resource.metadata.namespace}/${resource.metadata.name}`;
+    if (window.location.pathname === path) {
+      document.getElementById('rollback')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      go(`${path}#rollback`, resource.metadata.name);
+    }
+  };
+  const dialog = (
+    <>
+      {actionDialog}
+      {deleteOpen && (
+        <DeleteRelatedDialog workload={resource} workloadRbac={rbac} onClose={() => setDeleteOpen(false)} onDeleted={opts.onDeleted} />
+      )}
+      {helmRollbackOpen && helmOwner && (
+        <ConfirmDialog
+          open
+          onClose={() => setHelmRollbackOpen(false)}
+          onConfirm={() => { setHelmRollbackOpen(false); goToRollback(); }}
+          title={`Roll back ${resource.kind} "${resource.metadata.name}"?`}
+          description={`This ${resource.kind} belongs to Helm release ${helmOwner.release}.`}
+          confirmLabel={`Roll back the ${resource.kind} anyway`}
+          variant="warning"
+        >
+          <HelmRollbackNote owner={helmOwner} kind={resource.kind} onNavigate={() => setHelmRollbackOpen(false)} />
+        </ConfirmDialog>
+      )}
+    </>
+  );
   if (!known) return { items: [], dialog: null };
 
   const name = resource.metadata.name;
@@ -141,7 +180,7 @@ export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOp
 
   const deleteItem = (): ActionMenuItem => ({
     icon: icon(Trash2), label: 'Delete', danger: canDelete, ...gate(canDelete),
-    onClick: () => open({
+    onClick: () => DELETE_WITH_RELATED_KINDS.has(kind) ? setDeleteOpen(true) : open({
       title: `Delete ${kind} "${name}"?`,
       description: kind === 'Job'
         ? `${ref(resource)} and its pods will be deleted, including their logs. This cannot be undone.`
@@ -180,15 +219,9 @@ export function useWorkloadActions(resource: K8sResource, opts: WorkloadActionOp
           }),
         });
     items.push({
-      icon: icon(History), label: 'Roll back…',
-      onClick: () => {
-        const path = `/r/apps~v1~deployments/${ns}/${name}`;
-        if (window.location.pathname === path) {
-          document.getElementById('rollback')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-          go(`${path}#rollback`, name);
-        }
-      },
+      icon: icon(History), label: helmOwner ? 'Roll back… (Helm release)' : 'Roll back…',
+      // A Helm-owned Deployment: Helm reverts a workload-level rollback, so offer the release's.
+      onClick: () => (helmOwner ? setHelmRollbackOpen(true) : goToRollback()),
     });
   } else if (kind === 'StatefulSet') {
     items.push(scaleItem(), restartItem());

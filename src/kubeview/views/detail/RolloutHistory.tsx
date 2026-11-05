@@ -36,6 +36,8 @@ import { useMonitorStore } from '../../store/monitorStore';
 import { useInboxStore } from '../../store/inboxStore';
 import { correlateClientSignals, mergeCorrelations, type RevisionCorrelation } from '../../engine/rolloutCorrelations';
 import { RevisionSignalList, RevisionSignalMarker } from './RevisionSignals';
+import { HelmRollbackNote } from '../../components/HelmOwnership';
+import { helmOwnerOf } from '../../engine/helmOwnership';
 
 type WorkloadKind = 'Deployment' | 'StatefulSet' | 'DaemonSet';
 
@@ -203,6 +205,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
   const [selected, setSelected] = useState<number | null>(null);
   const [target, setTarget] = useState<{ rev: RevisionEntry; clusterId: string; resourceVersion?: string } | null>(null);
   const [rolling, setRolling] = useState(false);
+  const helmOwner = helmOwnerOf(resource);
 
   if (!supported) return null;
 
@@ -380,10 +383,12 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
         onConfirm={handleRollback}
         title={`Roll back ${resource.metadata.name} to revision #${target?.rev.revision ?? ''}?`}
         description={target ? templateDiff(currentTemplate, target.rev.template).join('\n') : ''}
-        confirmLabel="Roll back"
+        confirmLabel={helmOwner ? `Roll back the ${kind} anyway` : 'Roll back'}
         variant="warning"
         loading={rolling}
-      />
+      >
+        {helmOwner && <HelmRollbackNote owner={helmOwner} kind={kind} onNavigate={() => setTarget(null)} />}
+      </ConfirmDialog>
     </section>
   );
 }

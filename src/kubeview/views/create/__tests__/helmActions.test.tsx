@@ -411,3 +411,20 @@ entries:
     await waitFor(() => expect(h.writes()[0]?.path).toBe('/apis/apps/v1/namespaces/team-a/deployments'));
   });
 });
+
+describe('Links from a Helm-owned resource', () => {
+  it('?release=&releaseNs=&action=rollback lists that namespace and opens the rollback', async () => {
+    h.renderUi(<HelmReleases nsFilter="other-ns" charts={CHARTS} />, '/software?tab=helm&release=shop&releaseNs=team-a&action=rollback');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Roll back shop?' })).toBeTruthy();
+    expect(h.state.requests.some((r) => r.path.startsWith('/api/v1/namespaces/team-a/secrets'))).toBe(true);
+    expect(screen.getByTestId('helm-release-shop').getAttribute('aria-current')).toBe('true');
+    expect(h.writes()).toEqual([]);
+  });
+
+  it('a linked release that is not found is said', async () => {
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />, '/software?tab=helm&release=gone&releaseNs=team-a&action=uninstall');
+    expect(await screen.findByText('Release gone in team-a was not found among the Helm release records Pulse can read.')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
