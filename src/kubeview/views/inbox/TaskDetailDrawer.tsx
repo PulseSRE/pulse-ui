@@ -4,7 +4,7 @@ import {
   Clock, User, Calendar, Tag, Bot, Loader2,
   ArrowRight, RotateCcw, Archive, Search, CheckCircle2, ShieldCheck,
   ChevronDown, ChevronRight, Play, SkipForward, XCircle, AlertTriangle,
-  MessageSquare, RefreshCw, BookOpen, ShieldAlert, Wrench,
+  MessageSquare, RefreshCw, BookOpen, ShieldAlert, Wrench, ArrowUpCircle,
 } from 'lucide-react';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Badge } from '../../components/primitives/Badge';
@@ -29,6 +29,30 @@ import { EvidenceList } from '../incidents/shared/EvidenceList';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { proposalForItem, useApprovalsStore } from '../../store/approvalsStore';
 import { ProposalActions, type ProposalOutcome } from './ProposedFixes';
+
+/** Where an inbox item's resource opens: the cluster's ClusterVersion is managed on Admin › Updates. */
+function inboxResourceUrl(r: { kind: string; name: string; namespace?: string }): string {
+  if (r.kind === 'ClusterVersion' && r.name === 'version') return '/admin?tab=updates';
+  return resourceDetailUrl({ kind: r.kind, metadata: { name: r.name, namespace: r.namespace } });
+}
+
+const UPDATES_LINK = '/admin?tab=updates';
+const UPDATE_GENERATORS = new Set(['upgrade_available', 'upgrade_api_removals']);
+
+/**
+ * The page an item asks to be opened on. `metadata.ui_link` is item data, so
+ * only a same-app path is followed: it must start with one "/" (not "//" or
+ * "/\\", which browsers treat as another host) and contain no control
+ * characters. Update items created before the agent sent ui_link fall back to
+ * their generator.
+ */
+function itemUiLink(item: Pick<InboxItem, 'metadata'>): { to: string; label: string } | null {
+  const raw = item.metadata?.ui_link;
+  const safe = typeof raw === 'string' && /^\/(?![/\\])/.test(raw) && !/[\u0000-\u001f\u007f]/.test(raw) ? raw : null;
+  const to = safe ?? (UPDATE_GENERATORS.has(String(item.metadata?.generator || '')) ? UPDATES_LINK : null);
+  if (!to) return null;
+  return { to, label: to === UPDATES_LINK || to.startsWith(`${UPDATES_LINK}&`) ? 'Open Updates' : 'Open in Pulse' };
+}
 
 function formatDueDate(ts: number): string {
   const date = new Date(ts * 1000);
@@ -459,10 +483,24 @@ export function TaskDetailDrawer({
     if (ps.execution?.itemId === item.id) ps.clearExecution();
   };
 
+  const uiLink = itemUiLink(item);
+
   return (
     <DrawerShell title={item.title} onClose={onClose}>
       <div className="space-y-4 p-4">
         <InboxLifecycleStepper itemType={item.item_type} status={item.status} />
+
+        {uiLink && (
+          <Link
+            to={uiLink.to}
+            onClick={onClose}
+            className="flex items-center gap-2 w-full rounded-lg border border-blue-800/50 bg-blue-950/30 px-3 py-2.5 text-sm font-medium text-blue-300 hover:bg-blue-900/30 transition-colors"
+          >
+            <ArrowUpCircle className="w-4 h-4" />
+            {uiLink.label}
+            <ArrowRight className="w-4 h-4 ml-auto" />
+          </Link>
+        )}
 
         {item.view_id && (
           <Link
@@ -658,7 +696,7 @@ export function TaskDetailDrawer({
               {item.resources.map((r, i) => (
                 <div key={i} className="text-sm">
                   <Link
-                    to={resourceDetailUrl({ kind: r.kind, metadata: { name: r.name, namespace: r.namespace } })}
+                    to={inboxResourceUrl(r)}
                     onClick={onClose}
                     className="text-blue-400 hover:underline"
                   >

@@ -1,8 +1,6 @@
 import React from 'react';
-import { Settings, GitBranch, Server, ArrowUpCircle, Puzzle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { resourceDetailUrl } from '../../engine/gvr';
-import { k8sPatch } from '../../engine/query';
+import { Settings, GitBranch, Server, ArrowUpCircle } from 'lucide-react';
+import { k8sGet, k8sPatch } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
 import type { ClusterVersion, ClusterOperator, Node, Condition, MachineConfigPool, Pod } from '../../engine/types';
 import { useUIStore } from '../../store/uiStore';
@@ -10,14 +8,16 @@ import { useFleetStore } from '../../store/fleetStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { Panel } from '../../components/primitives/Panel';
+import { describeWriteError } from '../../components/ActionDialog';
 import { UpgradeProgressPanel } from './UpgradeProgressPanel';
 import { UpgradeGraph } from '../../components/updates/UpgradeGraph';
-import { buildUpgradeModel, channelOptions, channelChangeImpact, desiredUpdatePatch, minorOf, type UpgradeTarget } from '../../engine/upgradeGraph';
+import { buildUpgradeModel, channelOptions, channelChangeImpact, minorOf, type UpgradeTarget } from '../../engine/upgradeGraph';
 import { showErrorToast } from '../../engine/errorToast';
 import { getActiveClusterId } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
 import { useCanI } from '../../hooks/useCanI';
 import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
+import { errorReason } from '../../engine/readResult';
 import { askPulse } from '../../engine/askPulse';
 import type { PdbLike } from '../../engine/upgradeHealth';
 import { RemovedApisPanel, AdminGateActions, useApiRemovalReads } from './RemovedApisPanel';
@@ -28,9 +28,13 @@ import {
   checkControlPlaneCerts, checkEtcdHealth, checkEtcdBackup, checkNodes, checkOperators, checkChannel,
   type FiringAlert, type Loadable, type ReadinessCheck,
 } from '../../engine/upgradeReadiness';
+import { updateLogOf, updateLogOverflow, updateStartPatch, UPDATE_REASON_MAX, type UpdateLogEntry } from '../../engine/upgradeLog';
 import { useUpgradeReadinessReads } from './useUpgradeReadinessReads';
 import { UpgradeReadinessPanel, type UpgradeReadinessPanelProps } from './UpgradeReadinessPanel';
+import { StartUpdateDialog } from './StartUpdateDialog';
 import { TakeEtcdBackupAction, PauseWorkerPoolsButton } from './UpdateActions';
+import { UpdateHistoryTable } from './UpdateHistoryTable';
+import { OperatorUpdateProgress } from './OperatorUpdateProgress';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -57,6 +61,16 @@ interface AvailableUpdate {
 
 const CV_PATH = '/apis/config.openshift.io/v1/clusterversions/version';
 const MERGE = 'application/merge-patch+json';
+/** How many times a start-update patch is rebuilt and resent after a 409. */
+export const UPDATE_CONFLICT_ATTEMPTS = 3;
+
+class ConflictExhausted extends Error {}
+
+function isConflict(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { statusCode?: unknown; status?: unknown };
+  return e.statusCode === 409 || e.status === 409;
+}
 
 export interface UpdatesTabProps {
   clusterVersion: ClusterVersion | null | undefined;
@@ -123,13 +137,13 @@ export function UpdatesTab({
   const [confirmDialog, setConfirmDialog] = React.useState<{
     title: string; description: string; confirmLabel: string;
     variant: 'danger' | 'warning'; onConfirm: () => void;
-    /** Update target whose open readiness blockers are listed; computed at render so a late result still appears. */
-    warningVersion?: string;
     body?: React.ReactNode;
   } | null>(null);
   // A conditional target is confirmed only after its risks are explicitly accepted.
   const [riskDialog, setRiskDialog] = React.useState<{ target: UpgradeTarget; clusterId: string } | null>(null);
   const [risksAccepted, setRisksAccepted] = React.useState(false);
+  // The start-update confirmation, pinned to the cluster it was opened on.
+  const [startDialog, setStartDialog] = React.useState<{ target: UpgradeTarget; clusterId: string } | null>(null);
 
   const model = React.useMemo(() => buildUpgradeModel({
     clusterVersion,
@@ -225,13 +239,38 @@ export function UpdatesTab({
   };
 
   // Every update goes through here: pinned to the cluster it was requested on,
-  // version and image always together, acceptRisks only for a conditional target.
-  const applyUpdate = async (target: Pick<UpgradeTarget, 'version' | 'image' | 'state' | 'risks'>, clusterId: string) => {
+  // version and image always together, acceptRisks only for a conditional
+  // target, and the update-log annotation in the same merge patch. A dry run
+  // goes first; a failure is thrown to the dialog, which keeps it on screen.
+  const entryFor = (target: Pick<UpgradeTarget, 'version'>, reason: string): UpdateLogEntry => ({
+    version: target.version, startedAt: new Date().toISOString(), by: readiness.username, reason: reason.slice(0, UPDATE_REASON_MAX),
+    ...(readiness.impersonating ? { impersonated: true } : {}),
+  });
+  // The patch is built from a ClusterVersion read just before sending and is
+  // conditional on its resourceVersion, so an annotation appended meanwhile is
+  // never overwritten. A 409 (it changed in between) re-reads and retries.
+  const applyUpdate = async (target: UpgradeTarget, clusterId: string, reason: string) => {
     setUpdating(true);
     try {
       assertActiveCluster(clusterId, 'The cluster update');
-      const patch = desiredUpdatePatch(target, clusterVersion?.spec?.desiredUpdate?.acceptRisks);
-      const updated = await k8sPatch<ClusterVersion>(CV_PATH, patch, 'application/merge-patch+json', clusterId);
+      const entry = entryFor(target, reason);
+      let patch: { metadata: { annotations: Record<string, string>; resourceVersion?: string }; spec: ReturnType<typeof updateStartPatch>['spec'] };
+      let updated: ClusterVersion;
+      for (let attempt = 1; ; attempt++) {
+        const fresh = await k8sGet<ClusterVersion>(CV_PATH, clusterId);
+        const built = updateStartPatch(target, fresh, entry);
+        patch = { ...built, metadata: { ...built.metadata, resourceVersion: fresh.metadata.resourceVersion } };
+        try {
+          await k8sPatch<ClusterVersion>(`${CV_PATH}?dryRun=All`, patch, MERGE, clusterId);
+          updated = await k8sPatch<ClusterVersion>(CV_PATH, patch, MERGE, clusterId);
+          break;
+        } catch (err) {
+          if (!isConflict(err)) throw err;
+          if (attempt >= UPDATE_CONFLICT_ATTEMPTS) {
+            throw new ConflictExhausted(`ClusterVersion changed while the update was being sent, ${UPDATE_CONFLICT_ATTEMPTS} times in a row (409 Conflict), so nothing was changed. Try again.`);
+          }
+        }
+      }
       let detail = `Updating to ${target.version}`;
       if (patch.spec.desiredUpdate.acceptRisks) {
         // Without the ClusterUpdateAcceptRisks gate the API drops the field; say which happened.
@@ -242,27 +281,18 @@ export function UpdatesTab({
           : ` · this cluster did not record acceptRisks (ClusterUpdateAcceptRisks feature gate is off)`;
       }
       addToast({ type: 'success', title: 'Cluster update started', detail });
+      setStartDialog(null);
       invalidate();
     } catch (err) {
-      showErrorToast(err, 'Update failed');
+      throw new Error(err instanceof ConflictExhausted ? err.message : describeWriteError(err));
+    } finally {
+      setUpdating(false);
     }
-    setUpdating(false);
   };
 
   // Used by the stuck-update banner to re-send a recommended target.
   const handleStartUpdate = (version: string, image: string | undefined) => {
-    const clusterId = getActiveClusterId();
-    setConfirmDialog({
-      title: `Start cluster update to ${version}?`,
-      description: `This will rolling-restart all nodes in the cluster. The update process cannot be easily reversed. Make sure you have a recent etcd backup before proceeding.`,
-      confirmLabel: 'Start Update',
-      variant: 'warning',
-      warningVersion: version,
-      onConfirm: () => {
-        setConfirmDialog(null);
-        void applyUpdate({ version, image, state: 'recommended', risks: [] }, clusterId);
-      },
-    });
+    setStartDialog({ target: { version, image, state: 'recommended', recommended: true, risks: [] }, clusterId: getActiveClusterId() });
   };
 
   const handleSelectUpdate = (target: UpgradeTarget) => {
@@ -273,7 +303,7 @@ export function UpdatesTab({
       setRiskDialog({ target, clusterId });
       return;
     }
-    handleStartUpdate(target.version, target.image);
+    setStartDialog({ target, clusterId });
   };
 
   const applyChannel = async (channel: string, clusterId: string) => {
@@ -357,6 +387,7 @@ export function UpdatesTab({
     : !selected.image ? 'The update service gave no release image for this version.'
     : updateDisabledReason;
 
+  const log = updateLogOf(clusterVersion);
   const pdbCheck = checks.find((c) => c.id === 'pdbs');
   const actions: UpgradeReadinessPanelProps['actions'] = {
     'admin-ack': removalVerdict?.gates.length
@@ -403,14 +434,6 @@ export function UpdatesTab({
       ),
     },
   } : {};
-
-  // The confirm lists the readiness blockers still open; the update stays the admin's call.
-  const blockersNote = blockers.length > 0 ? (
-    <div role="note" data-testid="start-update-blockers" className="mt-3 rounded-sm border border-red-900 bg-red-950/30 px-3 py-2 text-xs text-red-200">
-      <div className="font-medium">{blockers.length} readiness blocker{blockers.length === 1 ? ' is' : 's are'} still open:</div>
-      <ul className="mt-1 list-disc pl-4">{blockers.map((b) => <li key={b.id}>{b.label}: {b.detail}</li>)}</ul>
-    </div>
-  ) : null;
 
   const riskSentence = verdict.blockers > 0
     ? `The update is your call. With ${verdict.blockers} blocker${verdict.blockers === 1 ? '' : 's'} open (${blockers.map((b) => b.label.toLowerCase()).join(', ')}) it is likely to stall or break something.`
@@ -503,6 +526,7 @@ export function UpdatesTab({
           hiddenBlockerTypes={['upgradeable']}
           updatesUnknownReason={updatesUnknownReason}
           renderPoolAction={poolAction}
+          hideHistory
         />
       </Panel>
 
@@ -566,52 +590,12 @@ export function UpdatesTab({
         </div>
       </Panel>
 
-      {/* Operator update status (during upgrade) */}
+      {/* Operator update status (during upgrade); a stuck operator opens its namespaces, pods and logs */}
       {isUpdating && (
-        <Panel title="Operator Update Progress" icon={<Puzzle className="w-4 h-4 text-violet-500" />}>
-          <div className="space-y-1 max-h-64 overflow-auto">
-            {operators.map((op) => {
-              const conds: Condition[] = op.status?.conditions || [];
-              const progressing = conds.find((c) => c.type === 'Progressing');
-              const degraded = conds.find((c) => c.type === 'Degraded');
-              const isProgressing = progressing?.status === 'True';
-              const isDegraded = degraded?.status === 'True';
-              const version = op.status?.versions?.find((v) => v.name === 'operator')?.version || '';
-              // Surface *why* — the actual blocking condition message/reason, not just a badge.
-              const detailMessage = isDegraded ? (degraded?.message || degraded?.reason)
-                : isProgressing ? (progressing?.message || progressing?.reason)
-                : '';
-              return (
-                <button
-                  key={op.metadata.uid}
-                  onClick={() => go(resourceDetailUrl({ apiVersion: 'config.openshift.io/v1', kind: 'ClusterOperator', metadata: { name: op.metadata.name } }), op.metadata.name)}
-                  className="w-full flex items-start justify-between gap-2 py-1.5 px-2 hover:bg-slate-800/30 rounded-sm text-left transition-colors"
-                >
-                  <div className="flex items-start gap-2 min-w-0">
-                    {isDegraded ? <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" /> :
-                     isProgressing ? <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin shrink-0 mt-0.5" /> :
-                     <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
-                    <div className="min-w-0">
-                      <span className="text-sm text-slate-200">{op.metadata.name}</span>
-                      {detailMessage && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{detailMessage}</p>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {version && <span className="text-xs font-mono text-slate-500">{version}</span>}
-                    <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
-                      isDegraded ? 'bg-red-900/50 text-red-300' :
-                      isProgressing ? 'bg-blue-900/50 text-blue-300' :
-                      'bg-green-900/50 text-green-300'
-                    )}>
-                      {isDegraded ? 'Degraded' : isProgressing ? 'Updating' : 'Ready'}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </Panel>
+        <OperatorUpdateProgress operators={operators} pods={pods} podsError={podsError ? errorReason(podsError) : undefined} podsLoading={podsLoading} go={go} />
       )}
+
+      <UpdateHistoryTable history={model.history} log={log.entries} inFlight={model.progress.phase !== 'idle'} />
 
       {confirmDialog && (
         <ConfirmDialog
@@ -624,8 +608,6 @@ export function UpdatesTab({
           variant={confirmDialog.variant}
         >
           {confirmDialog.body}
-          {/* Readiness is judged for the picked target; another target's confirm does not borrow its blockers. */}
-          {confirmDialog.warningVersion && confirmDialog.warningVersion === selected?.version && blockersNote}
         </ConfirmDialog>
       )}
 
@@ -636,7 +618,8 @@ export function UpdatesTab({
           onConfirm={() => {
             const { target, clusterId } = riskDialog;
             setRiskDialog(null);
-            void applyUpdate(target, clusterId);
+            // Accepting the risks leads to the same start-update confirmation (reason, blockers) as any target.
+            setStartDialog({ target, clusterId });
           }}
           title={`Accept ${riskDialog.target.risks.length} risk${riskDialog.target.risks.length === 1 ? '' : 's'} and update to ${riskDialog.target.version}?`}
           description={`${riskDialog.target.version} is not recommended for this cluster. The update rolling-restarts every node and cannot easily be reversed. The accepted risks are sent as spec.desiredUpdate.acceptRisks, which is recorded only where the ClusterUpdateAcceptRisks feature gate is enabled.`}
@@ -644,7 +627,6 @@ export function UpdatesTab({
           variant="danger"
           confirmDisabled={!risksAccepted}
         >
-          {riskDialog.target.version === selected?.version && blockersNote}
           <ul className="mt-3 space-y-1.5 max-h-48 overflow-auto" aria-label="Risks to accept">
             {riskDialog.target.risks.map((r) => (
               <li key={r.name} className="text-xs rounded-sm bg-slate-900/60 border border-slate-700 p-2">
@@ -661,6 +643,29 @@ export function UpdatesTab({
         </ConfirmDialog>
       )}
 
+      {startDialog && (
+        <StartUpdateDialog
+          target={startDialog.target}
+          fromVersion={fromVersion}
+          clusterId={startDialog.clusterId}
+          // Readiness is judged for the picked target; another target (a stuck-update re-apply) does not borrow its blockers.
+          blockers={startDialog.target.version === selected?.version ? blockers : []}
+          unknownCount={startDialog.target.version === selected?.version ? verdict.unknown : 0}
+          readinessFor={selected?.version}
+          pools={pools}
+          history={model.history}
+          username={readiness.username}
+          usernameLoading={readiness.usernameLoading}
+          logState={{ valid: log.valid, unrecognised: log.unrecognised, overflow: updateLogOverflow(log) }}
+          impersonating={readiness.impersonating}
+          patchPreview={(reason) => {
+            const p = updateStartPatch(startDialog.target, clusterVersion, entryFor(startDialog.target, reason));
+            return { ...p, metadata: { ...p.metadata, resourceVersion: '<from a fresh read when sent>' } };
+          }}
+          onConfirm={(reason) => applyUpdate(startDialog.target, startDialog.clusterId, reason)}
+          onClose={() => setStartDialog(null)}
+        />
+      )}
     </div>
   );
 }
