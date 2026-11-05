@@ -11,9 +11,12 @@ import type { UpdatesTabProps } from '../UpdatesTab';
 // --- Mocks ---
 
 const addToastMock = vi.fn();
+const freshCv: { current: import('../../../engine/types').ClusterVersion | null | undefined; rv: string } = vi.hoisted(() => ({ current: null, rv: 'rv-1' }));
+const whoamiFails = vi.hoisted(() => ({ current: false }));
+const impersonation = vi.hoisted(() => ({ user: null as string | null }));
 vi.mock('../../../store/uiStore', () => ({
   useUIStore: (selector: any) => {
-    const state = { addToast: addToastMock };
+    const state = { addToast: addToastMock, impersonateUser: impersonation.user, impersonateGroups: [] };
     return selector(state);
   },
 }));
@@ -21,9 +24,14 @@ vi.mock('../../../store/uiStore', () => ({
 vi.mock('../../../engine/query', () => ({
   k8sPatch: vi.fn().mockResolvedValue({}),
   k8sCreate: vi.fn().mockResolvedValue({}),
-  // Readiness reads answer empty lists.
+  // Readiness reads answer empty lists; the username lookup answers "alice".
   k8sList: vi.fn().mockResolvedValue([]),
-  k8sGet: vi.fn().mockResolvedValue({ metadata: { name: 'alice' } }),
+  k8sGet: vi.fn(async (path: string) => {
+    // The start-update flow re-reads ClusterVersion just before patching.
+    if (path.includes('/clusterversions/version')) return { ...(freshCv.current ?? { metadata: { name: 'version' } }), metadata: { ...(freshCv.current?.metadata ?? { name: 'version' }), resourceVersion: freshCv.rv } };
+    if (path.includes('/users/~') && whoamiFails.current) throw Object.assign(new Error('forbidden'), { status: 403 });
+    return { metadata: { name: 'alice' } };
+  }),
 }));
 
 let canPatch = true;
@@ -38,7 +46,6 @@ vi.mock('../../../engine/errorToast', () => ({
 import { UpdatesTab } from '../UpdatesTab';
 import { k8sPatch } from '../../../engine/query';
 import { askPulse } from '../../../engine/askPulse';
-import { showErrorToast } from '../../../engine/errorToast';
 import { PulseError } from '../../../engine/errors';
 import { registerCluster, setActiveClusterId, unregisterCluster } from '../../../engine/clusterConnection';
 import { idleClusterVersion, inFlightClusterVersion, operatorsMidUpdate, poolsMidUpdate } from '../../../__fixtures__/clusterVersionUpdates';
@@ -52,6 +59,7 @@ function createQueryClient() {
 }
 
 function renderTab(props: Partial<UpdatesTabProps> = {}) {
+  freshCv.current = props.clusterVersion;
   const defaults: UpdatesTabProps = {
     clusterVersion: null,
     cvVersion: '4.15.3',
@@ -116,6 +124,23 @@ function makeOperator(name: string, degraded = false) {
       ],
     },
   };
+}
+
+const CV_PATH = '/apis/config.openshift.io/v1/clusterversions/version';
+
+/** The non-dry-run ClusterVersion patches sent. */
+const cvPatches = () => vi.mocked(k8sPatch).mock.calls.filter(([path]) => path === CV_PATH);
+
+/** Fill the start-update dialog's reason (ticking "update anyway" when blockers are listed) and start. */
+async function confirmStart(version: string, reason = 'Monthly z-stream, CHG-1') {
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/^Reason/), { target: { value: reason } });
+  const anyway = within(dialog).queryByRole('checkbox', { name: 'I understand and want to update anyway' });
+  if (anyway) fireEvent.click(anyway);
+  const start = within(dialog).getByRole('button', { name: `Start update to ${version}` }) as HTMLButtonElement;
+  await vi.waitFor(() => expect(start.disabled).toBe(false));
+  fireEvent.click(start);
+  return dialog;
 }
 
 describe('UpdatesTab', () => {
@@ -308,6 +333,7 @@ describe('UpdatesTab', () => {
     expect(screen.getByRole('heading', { name: 'Not ready to update to 4.21.30' })).toBeDefined();
     fireEvent.click(screen.getByText('Re-apply update to 4.21.28'));
     expect(within(screen.getByRole('dialog')).queryByTestId('start-update-blockers')).toBeNull();
+    expect(within(screen.getByRole('dialog')).getByTestId('start-update-other-target').textContent).toMatch(/checked for 4\.21\.30, not 4\.21\.28/);
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
     fireEvent.click(screen.getByRole('button', { name: /Start update/ }));
     expect(within(screen.getByRole('dialog')).getByTestId('start-update-blockers').textContent).toMatch(/Nodes ready: 0\/1/);
@@ -374,15 +400,9 @@ describe('UpdatesTab', () => {
 
     const { k8sPatch } = await import('../../../engine/query');
     fireEvent.click(screen.getByText('Re-apply update to 4.21.28'));
-    fireEvent.click(screen.getByText('Start Update'));
-    await vi.waitFor(() => {
-      expect(k8sPatch).toHaveBeenCalledWith(
-        '/apis/config.openshift.io/v1/clusterversions/version',
-        { spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:correct-new-image' } } },
-        'application/merge-patch+json',
-        'local',
-      );
-    });
+    await confirmStart('4.21.28');
+    await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+    expect(cvPatches()[0][1]).toMatchObject({ spec: { desiredUpdate: { version: '4.21.28', image: 'quay.io/openshift-release-dev/ocp-release@sha256:correct-new-image' } } });
   });
 
   it('does not show a stuck-update banner while a real update is progressing', () => {
@@ -491,18 +511,19 @@ describe('UpdatesTab', () => {
     // is equal to current target; no change required" and never starts),
     // while the UI still showed a success toast because the PATCH itself
     // succeeded. Confirmed live on a real cluster: exactly this mismatch.
-    it('a recommended target patches version and image together on the cluster it was requested on', async () => {
+    it('a recommended target patches version and image together on the cluster it was requested on, dry run first', async () => {
       renderGraph();
       fireEvent.click(screen.getByRole('button', { name: '4.16.8 — Recommended' }));
       fireEvent.click(screen.getByRole('button', { name: 'Update to 4.16.8' }));
-      fireEvent.click(screen.getByText('Start Update'));
-      await vi.waitFor(() => expect(k8sPatch).toHaveBeenCalledTimes(1));
-      expect(k8sPatch).toHaveBeenCalledWith(
-        '/apis/config.openshift.io/v1/clusterversions/version',
-        { spec: { desiredUpdate: { version: '4.16.8', image: 'quay.io/ocp@sha256:bbb' } } },
-        'application/merge-patch+json',
-        'local',
-      );
+      await confirmStart('4.16.8');
+      await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+      const calls = vi.mocked(k8sPatch).mock.calls;
+      expect(calls[0][0]).toBe(`${CV_PATH}?dryRun=All`);
+      expect(calls[0][1]).toEqual(calls[1][1]);
+      expect(calls[1][0]).toBe(CV_PATH);
+      expect(calls[1][1]).toMatchObject({ spec: { desiredUpdate: { version: '4.16.8', image: 'quay.io/ocp@sha256:bbb' } } });
+      expect(calls[1][2]).toBe('application/merge-patch+json');
+      expect(calls[1][3]).toBe('local');
     });
 
     it('a conditional target needs every risk explicitly accepted, then sends acceptRisks (keeping earlier acceptances)', async () => {
@@ -521,17 +542,14 @@ describe('UpdatesTab', () => {
       fireEvent.click(screen.getByRole('checkbox'));
       expect(confirm.disabled).toBe(false);
       fireEvent.click(confirm);
-      await vi.waitFor(() => expect(k8sPatch).toHaveBeenCalledTimes(1));
-      expect(k8sPatch).toHaveBeenCalledWith(
-        '/apis/config.openshift.io/v1/clusterversions/version',
-        { spec: { desiredUpdate: {
-          version: '4.17.1',
-          image: 'quay.io/ocp@sha256:ccc',
-          acceptRisks: [{ name: 'OlderRisk' }, { name: 'OVNInterconnectMigration' }, { name: 'AROBrokenDNSMasq' }],
-        } } },
-        'application/merge-patch+json',
-        'local',
-      );
+      // Accepting the risks leads to the same start-update confirmation, reason required.
+      await confirmStart('4.17.1');
+      await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+      expect(cvPatches()[0][1]).toMatchObject({ spec: { desiredUpdate: {
+        version: '4.17.1',
+        image: 'quay.io/ocp@sha256:ccc',
+        acceptRisks: [{ name: 'OlderRisk' }, { name: 'OVNInterconnectMigration' }, { name: 'AROBrokenDNSMasq' }],
+      } } });
       // The PATCH response had no acceptRisks (feature gate off): the toast says so rather than claiming it was recorded.
       await vi.waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({
         type: 'success', detail: expect.stringContaining('did not record acceptRisks'),
@@ -539,25 +557,29 @@ describe('UpdatesTab', () => {
     });
 
     it('says the accepted risks were recorded when the cluster kept them', async () => {
-      vi.mocked(k8sPatch).mockResolvedValueOnce({ spec: { desiredUpdate: { acceptRisks: [{ name: 'OVNInterconnectMigration' }, { name: 'AROBrokenDNSMasq' }] } } });
+      vi.mocked(k8sPatch).mockResolvedValueOnce({}).mockResolvedValueOnce({ spec: { desiredUpdate: { acceptRisks: [{ name: 'OVNInterconnectMigration' }, { name: 'AROBrokenDNSMasq' }] } } });
       renderGraph();
       fireEvent.click(screen.getByRole('button', { name: '4.17.1 — Conditional, 2 risks' }));
       fireEvent.click(screen.getByRole('button', { name: 'Review risks and update to 4.17.1' }));
       expect(screen.getByRole('dialog').textContent).toContain('recorded only where the ClusterUpdateAcceptRisks feature gate is enabled');
       fireEvent.click(screen.getByRole('checkbox'));
       fireEvent.click(screen.getByRole('button', { name: 'Accept risks and update' }));
+      await confirmStart('4.17.1');
       await vi.waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({
         type: 'success', detail: 'Updating to 4.17.1 · accepted risks recorded in spec.desiredUpdate.acceptRisks',
       })));
     });
 
-    it('a rejected patch is reported, not shown as started', async () => {
+    it('a rejected dry run is shown in the dialog and nothing is sent', async () => {
       vi.mocked(k8sPatch).mockRejectedValueOnce(Object.assign(new Error('Forbidden'), { status: 403 }));
       renderGraph();
       fireEvent.click(screen.getByRole('button', { name: '4.16.8 — Recommended' }));
       fireEvent.click(screen.getByRole('button', { name: 'Update to 4.16.8' }));
-      fireEvent.click(screen.getByText('Start Update'));
-      await vi.waitFor(() => expect(showErrorToast).toHaveBeenCalledWith(expect.objectContaining({ message: 'Forbidden' }), 'Update failed'));
+      const dialog = await confirmStart('4.16.8');
+      expect(await within(dialog).findByRole('alert')).toBeDefined();
+      expect(within(dialog).getByRole('alert').textContent).toMatch(/Update not started: Forbidden/);
+      expect(cvPatches()).toHaveLength(0);
+      expect(addToastMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
     });
 
     it('does not patch when the active cluster changed after the update was requested', async () => {
@@ -566,11 +588,13 @@ describe('UpdatesTab', () => {
         renderGraph();
         fireEvent.click(screen.getByRole('button', { name: '4.16.8 — Recommended' }));
         fireEvent.click(screen.getByRole('button', { name: 'Update to 4.16.8' }));
+        await screen.findByRole('dialog');
         setActiveClusterId('other');
-        fireEvent.click(screen.getByText('Start Update'));
-        await vi.waitFor(() => expect(showErrorToast).toHaveBeenCalled());
+        const dialog = await confirmStart('4.16.8');
+        expect(await within(dialog).findByRole('alert')).toBeDefined();
         expect(k8sPatch).not.toHaveBeenCalled();
       } finally {
+        setActiveClusterId('local');
         unregisterCluster('other');
       }
     });
@@ -599,14 +623,15 @@ describe('UpdatesTab', () => {
       expect(screen.getByText(/based on the last completed update, to 4.16.3/)).toBeDefined();
     });
 
-    it('history is a timeline with real durations, including 0-minute ones', () => {
+    it('history is a table with real durations, including 0-minute ones', () => {
       const cv = idleClusterVersion();
       cv.status!.history!.push({ state: 'Completed', version: '4.15.19', startedTime: '2026-06-01T10:00:00Z', completionTime: '2026-06-01T10:00:20Z' });
       renderGraph(cv);
-      const history = screen.getByRole('region', { name: 'Update history' });
-      expect(history.textContent).toContain('80 min');
-      expect(history.textContent).toContain('45 min');
-      expect(history.textContent).toContain('0 min');
+      const history = screen.getByRole('table', { name: 'Update history' });
+      expect(history.textContent).toContain('1h 20m');
+      expect(history.textContent).toContain('45m');
+      expect(history.textContent).toContain('0m');
+      expect(history.textContent).toContain('not recorded');
     });
 
     it('in flight: overall bar from CVO, ClusterOperators at target, pool bars with links, targets from the release being installed', () => {

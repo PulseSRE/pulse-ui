@@ -209,3 +209,50 @@ describe('TaskDetailDrawer — durable approvals', () => {
   });
 });
 
+
+describe('TaskDetailDrawer — links for cluster update items', () => {
+  afterEach(cleanup);
+  const openLink = (name: string) => screen.queryByRole('link', { name });
+
+  it('renders "Open Updates" from metadata.ui_link', () => {
+    render(<TaskDetailDrawer item={makeItem({ resources: [{ kind: 'ClusterVersion', name: 'version' }], metadata: { ui_link: '/admin?tab=updates', generator: 'upgrade_available' } })} onClose={vi.fn()} />);
+    expect(openLink('Open Updates')?.getAttribute('href')).toBe('/admin?tab=updates');
+  });
+
+  it.each(['upgrade_available', 'upgrade_api_removals'])('falls back to the %s generator for items made before ui_link existed', (generator) => {
+    render(<TaskDetailDrawer item={makeItem({ metadata: { generator } })} onClose={vi.fn()} />);
+    expect(openLink('Open Updates')?.getAttribute('href')).toBe('/admin?tab=updates');
+  });
+
+  it.each(['https://evil.example/admin', '//evil.example/admin', '/\\evil.example', 'javascript:alert(1)'])('ignores a ui_link that is not a same-app path (%s)', (ui_link) => {
+    render(<TaskDetailDrawer item={makeItem({ metadata: { ui_link } })} onClose={vi.fn()} />);
+    expect(openLink('Open Updates')).toBeNull();
+    expect(openLink('Open in Pulse')).toBeNull();
+    expect(document.querySelector('a[href*="evil"], a[href^="javascript"]')).toBeNull();
+  });
+
+  it.each(['/%2F%2Fevil.example', '/%5Cevil.example', '/%2f%2fevil.example'])('an encoded path (%s) stays an in-app link', (ui_link) => {
+    render(<TaskDetailDrawer item={makeItem({ metadata: { ui_link } })} onClose={vi.fn()} />);
+    const href = openLink('Open in Pulse')?.getAttribute('href') ?? '';
+    expect(href.startsWith('/')).toBe(true);
+    expect(href.startsWith('//')).toBe(false);
+    expect(href.startsWith('/\\')).toBe(false);
+    expect(new URL(href, 'https://pulse.example').host).toBe('pulse.example');
+  });
+
+  it('an unsafe ui_link on an update item still falls back to the Updates tab, not the link', () => {
+    render(<TaskDetailDrawer item={makeItem({ metadata: { ui_link: '//evil.example', generator: 'upgrade_api_removals' } })} onClose={vi.fn()} />);
+    expect(openLink('Open Updates')?.getAttribute('href')).toBe('/admin?tab=updates');
+  });
+
+  it('the ClusterVersion resource links to Admin › Updates, not a generic resource page', () => {
+    render(<TaskDetailDrawer item={makeItem({ resources: [{ kind: 'ClusterVersion', name: 'version' }] })} onClose={vi.fn()} />);
+    expect(screen.getByRole('link', { name: 'ClusterVersion/version' }).getAttribute('href')).toBe('/admin?tab=updates');
+  });
+
+  it('other resources keep their resource page', () => {
+    render(<TaskDetailDrawer item={makeItem()} onClose={vi.fn()} />);
+    expect(screen.getByRole('link', { name: 'Pod/test-pod' }).getAttribute('href')).toContain('/r/v1~pods/default/test-pod');
+    expect(openLink('Open Updates')).toBeNull();
+  });
+});
