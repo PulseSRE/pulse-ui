@@ -264,7 +264,8 @@ describe('CapacityTab', () => {
   it.each(STATUSES)('says a failed Prometheus query is unknown, with the reason (%i)', async (status) => {
     renderWithFailedRequests(<CapacityTab />, { status });
     await waitFor(() => expect(screen.getAllByText('Unknown')).toHaveLength(4));
-    expect(screen.getAllByText(/Prometheus query failed/)).toHaveLength(4);
+    // A 403 reads as forbidden, anything else as a failed query; never doubled.
+    expect(screen.getAllByText(status === 403 ? /Prometheus refused the query \(403 forbidden\)/ : /Prometheus query failed/)).toHaveLength(4);
     expect(document.body.textContent).not.toMatch(/Prometheus query failed: Prometheus query failed/);
     expect(screen.queryByText('Stable')).toBeNull();
     expect(screen.queryByText('No data')).toBeNull();

@@ -98,16 +98,13 @@ export function useIncidentFeed(
       // A failed read is an error, not "no alerts": returning [] here made
       // isError permanently false, so the home page could call a cluster
       // healthy whose alerting it could not see.
+      // promFetch throws a readable PrometheusReadError on a non-2xx or HTML answer.
       let res: Response;
       try {
         res = await promFetch('/api/v1/rules', clusterId);
       } catch (e) {
         useUIStore.getState().addDegradedReason('observability_unavailable');
         throw e;
-      }
-      if (!res.ok) {
-        useUIStore.getState().addDegradedReason('observability_unavailable');
-        throw new Error(`Alert rules could not be read (HTTP ${res.status})`);
       }
       useUIStore.getState().removeDegradedReason('observability_unavailable');
       const json = await res.json();

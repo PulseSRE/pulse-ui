@@ -21,6 +21,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
     - 400/403/5xx show LoadError.
   - Also in the right column: memory over 6h against the limit with the Deployment's revisions in that window, and "Log of the last crash" (the previous instance; none is said in words, 403/500 show LoadError).
 
+### Fixed
+- **A failed Prometheus read says so, in plain words (consistency 2).** `promFetch` and the query helpers throw a typed `PrometheusReadError` for a non-2xx status, an HTML page (proxy error or login page, "Prometheus returned an HTML page (status 502) — the metrics backend may be down or behind a login"), 403, 401, a timeout (30s or a 504) and a network failure, instead of handing `res.json()` an HTML page. Metric cards and sparklines on Workloads, Networking, Compute, Storage, Project, Pulse and incident context show "Checking…", "Could not load metrics: <reason>" with Retry, "No data for this period" only after a successful empty query, or the chart; a failed refresh no longer leaves the last value on screen. Metrics, Project and Pod memory charts use the same wording. `LoadError` maps known errors (parser messages, 401/403/404/5xx, network, timeout) to a sentence and keeps the raw text behind "Details". About no longer shows "undefined skills" when the agent omits a count.
+
 ## v2.37.0 (2026-11-03)
 
 Paired with pulse-agent v2.37.0; runs with pulse-operator v0.13.0. Pull requests #159–#187. Needs pulse-agent v2.37.0 for the readiness gate waivers (`GET`/`PUT`/`DELETE /readiness/waivers`, agent migration 042), the update graph and rollout history components (`get_cluster_updates`, `get_rollout_history`), the removed-API go/no-go (`check_upgrade_api_removals`) and the Pod page's "what changed?" (`GET /changes`). On an older agent the readiness view falls back to browser storage and the rest degrade to their previous behaviour.

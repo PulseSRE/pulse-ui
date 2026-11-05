@@ -77,11 +77,14 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   const alertsQuery = useQuery({
     queryKey: ['timeline', 'alerts', clusterId],
     queryFn: async () => {
-      const res = await promFetch('/api/v1/rules', clusterId);
-      if (!res.ok) {
-        // Throw: an unreachable Prometheus is "alerts unknown", not "no alerts".
+      // promFetch throws on a non-2xx or HTML answer: an unreachable
+      // Prometheus is "alerts unknown", not "no alerts".
+      let res: Response;
+      try {
+        res = await promFetch('/api/v1/rules', clusterId);
+      } catch (e) {
         useUIStore.getState().addDegradedReason('observability_unavailable');
-        throw new Error(`Prometheus returned ${res.status}`);
+        throw e;
       }
       useUIStore.getState().removeDegradedReason('observability_unavailable');
       const json = await res.json();
