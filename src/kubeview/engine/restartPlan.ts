@@ -109,13 +109,13 @@ export function pdbCheck(w: K8sResource, pdbs: K8sResource[] | null, strategy: S
   return { text: parts.join('; '), ok };
 }
 
-/** Sum of the containers' requests of one pod (cpu in cores, memory in bytes). */
-export function podRequests(w: K8sResource): { cpu: number; memory: number } {
-  const containers = (podTemplateOf(w)?.spec as { containers?: Array<{ resources?: { requests?: Record<string, string> } }> } | undefined)?.containers ?? [];
+/** Sum of the containers' requests (or limits) of one pod (cpu in cores, memory in bytes). */
+export function podRequests(w: K8sResource, which: 'requests' | 'limits' = 'requests'): { cpu: number; memory: number } {
+  const containers = (podTemplateOf(w)?.spec as { containers?: Array<{ resources?: Record<string, Record<string, string> | undefined> }> } | undefined)?.containers ?? [];
   let cpu = 0;
   let memory = 0;
   for (const c of containers) {
-    const r = c.resources?.requests ?? {};
+    const r = c.resources?.[which] ?? {};
     if (r.cpu) cpu += quantityToBytes(r.cpu) || 0;
     if (r.memory) memory += quantityToBytes(r.memory) || 0;
   }
@@ -139,13 +139,15 @@ function fmtCpu(c: number): string { return c >= 1 ? `${Number(c.toFixed(2))} co
 export function quotaCheck(items: Array<{ workload: K8sResource; strategy: Strategy }>, quotas: K8sResource[] | null, ns: string): QuotaCheck {
   if (quotas === null) return { text: 'Could not check', ok: null };
   if (quotas.length === 0) return { text: `No ResourceQuota in ${ns}`, ok: true };
-  let needCpu = 0;
-  let needMem = 0;
+  const need = { 'requests.cpu': 0, 'requests.memory': 0, 'limits.cpu': 0, 'limits.memory': 0 };
   let needPods = 0;
   for (const { workload, strategy } of items) {
-    const r = podRequests(workload);
-    needCpu = Math.max(needCpu, r.cpu * strategy.maxSurge);
-    needMem = Math.max(needMem, r.memory * strategy.maxSurge);
+    const r = podRequests(workload, 'requests');
+    const l = podRequests(workload, 'limits');
+    need['requests.cpu'] = Math.max(need['requests.cpu'], r.cpu * strategy.maxSurge);
+    need['requests.memory'] = Math.max(need['requests.memory'], r.memory * strategy.maxSurge);
+    need['limits.cpu'] = Math.max(need['limits.cpu'], l.cpu * strategy.maxSurge);
+    need['limits.memory'] = Math.max(need['limits.memory'], l.memory * strategy.maxSurge);
     needPods = Math.max(needPods, strategy.maxSurge);
   }
   if (needPods === 0) return { text: 'No surge pods: nothing extra is scheduled', ok: true };
@@ -155,11 +157,18 @@ export function quotaCheck(items: Array<{ workload: K8sResource; strategy: Strat
     const hard = q.status?.hard ?? {};
     const used = q.status?.used ?? {};
     const left = (k: string) => (hard[k] !== undefined ? quantityToBytes(hard[k]) - quantityToBytes(used[k] ?? '0') : null);
-    const mem = left('requests.memory') ?? left('memory');
-    const cpu = left('requests.cpu') ?? left('cpu');
+    const checks: Array<[string, number | null, number, (n: number) => string]> = [
+      ['memory requests', left('requests.memory') ?? left('memory'), need['requests.memory'], fmtMem],
+      ['cpu requests', left('requests.cpu') ?? left('cpu'), need['requests.cpu'], fmtCpu],
+      ['memory limits', left('limits.memory'), need['limits.memory'], fmtMem],
+      ['cpu limits', left('limits.cpu'), need['limits.cpu'], fmtCpu],
+    ];
+    for (const [label, room, want, fmt] of checks) {
+      if (room === null || want <= 0) continue;
+      ok = ok && want <= room;
+      parts.push(`${label}: surge needs ${fmt(want)}, ${fmt(Math.max(0, room))} left`);
+    }
     const pods = left('pods');
-    if (mem !== null && needMem > 0) { const f = needMem <= mem; ok = ok && f; parts.push(`memory requests: surge needs ${fmtMem(needMem)}, ${fmtMem(Math.max(0, mem))} left`); }
-    if (cpu !== null && needCpu > 0) { const f = needCpu <= cpu; ok = ok && f; parts.push(`cpu requests: surge needs ${fmtCpu(needCpu)}, ${fmtCpu(Math.max(0, cpu))} left`); }
     if (pods !== null) { const f = needPods <= pods; ok = ok && f; parts.push(`pods: ${needPods} extra, ${Math.max(0, pods)} left`); }
   }
   if (parts.length === 0) return { text: 'The quota does not limit requests or pods', ok: true };
@@ -204,7 +213,11 @@ export function buildRestartPlan(consumers: Consumer[], ns: string, services: K8
       workload: c.workload, kind: c.kind, name: c.name, strategy,
       services: servesTraffic(c.workload, services),
       pdb: pdbCheck(c.workload, pdbs, strategy),
-      skip: strategy.type === 'OnDelete' ? `${c.kind} uses the OnDelete update strategy: a restart annotation replaces no pod. Delete its pods one by one to pick up the change.` : undefined,
+      skip: strategy.type === 'OnDelete'
+        ? `${c.kind} uses the OnDelete update strategy: a restart annotation replaces no pod. Delete its pods one by one to pick up the change.`
+        : c.kind === 'Deployment' && (c.workload.spec as { paused?: boolean } | undefined)?.paused
+          ? 'The Deployment is paused: the restart would not roll out until it is resumed. Resume it, then restart it.'
+          : undefined,
     };
   });
   // Stable: non-serving first, traffic-serving last.
@@ -237,11 +250,16 @@ export function rolloutState(w: K8sResource): RolloutState {
     return { done, failed: null, ready: Math.min(updated, available), desired, text: done ? `Done · ${desired}/${desired} ready on new values` : `Rolling · ${updated}/${desired} updated, ${available} available` };
   }
   if (w.kind === 'StatefulSet') {
-    const desired = (w.spec as { replicas?: number } | undefined)?.replicas ?? 1;
+    const spec = w.spec as { replicas?: number; updateStrategy?: { rollingUpdate?: { partition?: number } } } | undefined;
+    const replicas = spec?.replicas ?? 1;
+    // Pods below the partition ordinal are not updated: the rollout is done
+    // when every pod at or above it is (as `kubectl rollout status` does).
+    const partition = Math.min(replicas, Math.max(0, spec?.updateStrategy?.rollingUpdate?.partition ?? 0));
+    const desired = replicas - partition;
     const updated = (st.updatedReplicas as number | undefined) ?? 0;
     const ready = (st.readyReplicas as number | undefined) ?? 0;
-    const same = st.updateRevision !== undefined && st.updateRevision === st.currentRevision;
-    const done = observed && same && updated >= desired && ready >= desired;
+    const same = partition > 0 || (st.updateRevision !== undefined && st.updateRevision === st.currentRevision);
+    const done = observed && same && updated >= desired && ready >= replicas;
     return { done, failed: null, ready: Math.min(updated, ready), desired, text: done ? `Done · ${desired}/${desired} ready on new values` : `Rolling · ${updated}/${desired} updated, ${ready} ready` };
   }
   const desired = (st.desiredNumberScheduled as number | undefined) ?? 0;
@@ -261,6 +279,8 @@ export interface RunDeps {
   onUpdate: (steps: StepProgress[]) => void;
   /** True when the user asked to stop after the current workload. */
   stopRequested: () => boolean;
+  /** True when nobody is watching any more (the dialog closed): stop now, even mid-rollout. */
+  aborted?: () => boolean;
   /** How long one rollout may take before Pulse calls it failed. */
   timeoutMs?: number;
   pollMs?: number;
@@ -282,6 +302,7 @@ export async function runRestarts(items: PlanItem[], deps: RunDeps): Promise<{ o
   };
   for (let i = 0; i < items.length; i++) {
     if (items[i].skip) continue;
+    if (deps.aborted?.()) { stopRest(i, 'Not restarted: the dialog was closed'); emit(); return { ok: false, steps }; }
     if (deps.stopRequested()) { stopRest(i, 'Not restarted: you stopped the run'); emit(); return { ok: false, steps }; }
     steps[i] = { ...steps[i], status: 'restarting', text: 'Restarting' };
     emit();
@@ -296,6 +317,12 @@ export async function runRestarts(items: PlanItem[], deps: RunDeps): Promise<{ o
     const start = now();
     for (;;) {
       await deps.sleep(poll);
+      if (deps.aborted?.()) {
+        steps[i] = { ...steps[i], status: 'failed', text: 'Pulse stopped watching (the dialog was closed); the rollout continues on its own' };
+        stopRest(i + 1, 'Not restarted: the dialog was closed');
+        emit();
+        return { ok: false, steps };
+      }
       let state: RolloutState;
       try {
         state = rolloutState(await deps.get(items[i]));

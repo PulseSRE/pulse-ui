@@ -23,6 +23,19 @@ import type { K8sResource } from '../../engine/renderers';
 
 const RESTART_ANNOTATION = 'kubectl.kubernetes.io/restartedAt';
 
+// Only one restart confirmation at a time (the "Used by" section and the
+// save offer can both open one): a second would run a parallel restart.
+let openCount = 0;
+const listeners = new Set<() => void>();
+function setOpen(delta: number) { openCount += delta; listeners.forEach((l) => l()); }
+/** True while a restart dialog is open anywhere on the page. */
+export function useRestartDialogOpen(): boolean {
+  return React.useSyncExternalStore(
+    (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
+    () => openCount > 0,
+  );
+}
+
 function useOptionalList(path: string, clusterId: string, key: string) {
   return useQuery({
     queryKey: ['k8s', 'list', 'restart-plan', key, path, clusterId],
@@ -36,7 +49,7 @@ function useCanPatch(kind: ConsumerKind, ns: string, enabled: boolean) {
   return useCanI('patch', src.group, src.plural, ns, undefined, { enabled });
 }
 
-export function RestartConsumersDialog({ configKind, configName, namespace, consumers, incomplete = [], onClose, pollMs }: {
+export function RestartConsumersDialog({ configKind, configName, namespace, consumers, incomplete = [], onClose, onRestarted, pollMs }: {
   configKind: ConfigKind;
   configName: string;
   namespace: string;
@@ -44,11 +57,14 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
   /** Kinds the scan could not read: there may be more consumers. */
   incomplete?: string[];
   onClose: () => void;
+  /** Called after every restart finished. */
+  onRestarted?: () => void;
   /** How often a rollout is polled (tests shorten it). */
   pollMs?: number;
 }) {
   // Pinned when the dialog opens.
   const [clusterId] = React.useState(() => getActiveClusterId());
+  React.useEffect(() => { setOpen(1); return () => setOpen(-1); }, []);
   const services = useOptionalList(`/api/v1/namespaces/${namespace}/services`, clusterId, 'services');
   const pdbs = useOptionalList(`/apis/policy/v1/namespaces/${namespace}/poddisruptionbudgets`, clusterId, 'pdbs');
   const quotas = useOptionalList(`/api/v1/namespaces/${namespace}/resourcequotas`, clusterId, 'quotas');
@@ -107,7 +123,13 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
   const [runError, setRunError] = React.useState<string | null>(null);
   const [finished, setFinished] = React.useState<boolean | null>(null);
   const stopRef = React.useRef(false);
+  // Closing the dialog (or leaving the page) ends the run: nothing restarts
+  // unseen. The rollout already started continues on its own.
+  const abortRef = React.useRef(false);
+  React.useEffect(() => () => { abortRef.current = true; }, []);
   const [stopping, setStopping] = React.useState(false);
+  const risky = !!plan && (plan.quota.ok === false || plan.items.some((i) => !i.skip && i.pdb.ok === false));
+  const [ackRisk, setAckRisk] = React.useState(false);
 
   const confirm = async () => {
     if (!plan) return;
@@ -132,16 +154,20 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
       },
       get: (item: PlanItem) => k8sGet<K8sResource>(apiPathOf(item.workload), clusterId),
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-      onUpdate: setSteps,
+      onUpdate: (s) => { if (!abortRef.current) setSteps(s); },
       stopRequested: () => stopRef.current,
+      aborted: () => abortRef.current,
       pollMs,
     });
+    if (abortRef.current) return;
     setRunning(false);
     setFinished(result.ok);
   };
 
   const userName = user.data;
-  const confirmDisabled = !plan || rbacLoading || runnable.length === 0 || dryRun.state !== 'passed';
+  // After every restart finished, closing also clears the "saved, restart?" offer.
+  const close = () => { onClose(); if (finished === true) onRestarted?.(); };
+  const confirmDisabled = !plan || rbacLoading || runnable.length === 0 || dryRun.state !== 'passed' || (risky && !ackRisk);
   const kinds = [...new Set(runnable.map((i) => i.kind))];
   const confirmLabel = `Restart ${runnable.length} ${kinds.length === 1 ? (runnable.length === 1 ? kinds[0] : `${kinds[0]}s`) : 'workloads'}`;
 
@@ -153,7 +179,7 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
           {stopping ? 'Stopping after the current one…' : 'Stop after current'}
         </button>
       )}
-      {!running && <button type="button" onClick={onClose} className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-600">Close</button>}
+      {!running && <button type="button" onClick={close} className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-600">Close</button>}
     </>
   ) : (
     <>
@@ -168,10 +194,10 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={close}
       dismissible={!running}
       size="2xl"
-      title={`Restart the ${consumers.length} consumer${consumers.length === 1 ? '' : 's'} of ${configName}?`}
+      title={(() => { const n = plan ? runnable.length : consumers.length; return `Restart the ${n} consumer${n === 1 ? '' : 's'} of ${configName}?`; })()}
       description={`${namespace} · cluster ${clusterDisplayName(clusterId)}${userName ? ` · you are acting as ${userName}` : ''}. Their running pods read ${configName} when they started, so they keep the old values until restarted.`}
       footer={footer}
     >
@@ -230,6 +256,17 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
           <dt className="text-slate-500">Undo</dt>
           <dd className="text-slate-300">A restart only replaces pods. To undo the value, edit {configKind === 'Secret' ? 'the Secret' : configName} back and restart again.</dd>
         </dl>
+
+        {risky && !steps && (
+          <label className="flex items-start gap-2 rounded-md border border-amber-800 bg-amber-950/30 p-2 text-amber-200">
+            <input type="checkbox" className="mt-0.5" checked={ackRisk} onChange={(e) => setAckRisk(e.target.checked)} />
+            <span>
+              {plan?.quota.ok === false ? 'The surge pods do not fit the quota, so a rollout can stall with pods that are refused. ' : ''}
+              {plan?.items.some((i) => !i.skip && i.pdb.ok === false) ? 'A rollout can take more pods down than a PodDisruptionBudget allows. ' : ''}
+              I understand and want to restart anyway.
+            </span>
+          </label>
+        )}
 
         {steps && (
           <section aria-label="Restart progress" className="rounded-md border border-slate-700 bg-slate-950 p-3">

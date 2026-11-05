@@ -93,3 +93,44 @@ describe('lastEditTime', () => {
     expect(lastEditTime({ metadata: { name: 'x' } } as K8sResource)).toBeNull();
   });
 });
+
+describe('review follow-ups: consumers the first scan missed', () => {
+  it('a Secret listed in a ServiceAccount\'s imagePullSecrets reaches every workload running as it (default "default")', () => {
+    const sas = [
+      { kind: 'ServiceAccount', metadata: { name: 'default' }, imagePullSecrets: [{ name: 'quay-pull' }] },
+      { kind: 'ServiceAccount', metadata: { name: 'builder' }, imagePullSecrets: [{ name: 'other' }] },
+    ] as unknown as K8sResource[];
+    const asDefault = wl('Deployment', 'web', { containers: [{ name: 'w' }] });
+    const asBuilder = wl('Deployment', 'build', { serviceAccountName: 'builder', containers: [{ name: 'b' }] });
+    const c = findConsumers('Secret', 'quay-pull', [asDefault, asBuilder], sas);
+    expect(c.map((x) => x.name)).toEqual(['web']);
+    expect(c[0].uses).toEqual([{ how: 'serviceAccountPullSecret', keys: [], serviceAccount: 'default' }]);
+    expect(c[0].pickUp).toBe('next-pull');
+    expect(describeUsage(c[0].uses[0], 'Secret')).toBe('image pull secret of its ServiceAccount default');
+  });
+
+  it('volume driver credentials: CSI nodePublishSecretRef, cephfs/rbd secretRef, azureFile secretName', () => {
+    const spec = {
+      containers: [{ name: 'c', volumeMounts: [{ name: 'vault', mountPath: '/mnt/secrets' }] }],
+      volumes: [
+        { name: 'vault', csi: { driver: 'secrets-store.csi.k8s.io', nodePublishSecretRef: { name: 'vault-creds' } } },
+        { name: 'ceph', cephfs: { secretRef: { name: 'ceph-key' } } },
+        { name: 'r', rbd: { secretRef: { name: 'ceph-key' } } },
+        { name: 'az', azureFile: { secretName: 'az-share', shareName: 's' } },
+      ],
+    };
+    const w = wl('Deployment', 'app', spec);
+    const [csi] = findConsumers('Secret', 'vault-creds', [w]);
+    expect(csi.uses[0]).toMatchObject({ how: 'volumeSecretRef', driver: 'csi secrets-store.csi.k8s.io' });
+    expect(csi.pickUp).toBe('mount');
+    expect(describeUsage(csi.uses[0], 'Secret')).toBe('credentials of a csi secrets-store.csi.k8s.io volume mounted at /mnt/secrets');
+    expect(findConsumers('Secret', 'ceph-key', [w])[0].uses.map((u) => u.driver)).toEqual(['cephfs', 'rbd']);
+    expect(findConsumers('Secret', 'az-share', [w])).toHaveLength(1);
+    expect(referencedConfig(spec as never).secrets).toEqual(['az-share', 'ceph-key', 'vault-creds']);
+  });
+
+  it('DeploymentConfigs are scanned like Deployments', () => {
+    const dc = { kind: 'DeploymentConfig', metadata: { name: 'legacy' }, spec: { template: { spec: { containers: [{ name: 'l', envFrom: [{ configMapRef: { name: 'api-cfg' } }] }] } } } } as unknown as K8sResource;
+    expect(findConsumers('ConfigMap', 'api-cfg', [dc])[0]).toMatchObject({ kind: 'DeploymentConfig', pickUp: 'restart' });
+  });
+});

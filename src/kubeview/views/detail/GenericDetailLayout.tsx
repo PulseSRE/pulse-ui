@@ -93,7 +93,7 @@ export function GenericDetailLayout({
           />
         )}
 
-        <KindSections resource={resource} go={go} savedAt={savedAt} />
+        <KindSections resource={resource} go={go} savedAt={savedAt} onRestarted={() => setSavedAt(undefined)} />
 
         <LabelsSection resource={resource} target={metaTarget} />
         <AnnotationsSection resource={resource} target={metaTarget} />

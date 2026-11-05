@@ -23,10 +23,10 @@ import { ConfigConsumersSection } from './ConfigConsumers';
 
 type Go = (path: string, title: string) => void;
 
-export function KindSections({ resource, go, savedAt }: { resource: K8sResource; go: Go; savedAt?: number }) {
+export function KindSections({ resource, go, savedAt, onRestarted }: { resource: K8sResource; go: Go; savedAt?: number; onRestarted?: () => void }) {
   switch (resource.kind) {
     case 'ConfigMap':
-    case 'Secret': return resource.metadata.namespace ? <ConfigConsumersSection resource={resource} go={go} savedAt={savedAt} /> : null;
+    case 'Secret': return resource.metadata.namespace ? <ConfigConsumersSection resource={resource} go={go} savedAt={savedAt} onRestarted={onRestarted} /> : null;
     case 'PersistentVolumeClaim': return <PvcSection pvc={resource} go={go} />;
     case 'HorizontalPodAutoscaler': return <HpaSection hpa={resource} />;
     case 'Service': return <ServiceEndpointsSection svc={resource} go={go} />;
