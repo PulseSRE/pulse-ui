@@ -9,7 +9,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import { createHarness, clickWhenEnabled, json, k8sStatus, REMOTE } from '../../../__tests__/actionHarness';
 import { HelmReleases } from '../HelmReleases';
 import { gunzipSync } from 'zlib';
-import { helmArgs, parseIndexForTest, releaseSecret, PLAIN_MANIFEST, SVC_TEMPLATE } from './helmTestUtils';
+import { helmArgs, jobsBy, parseIndexForTest, previewHandler, releaseSecret, PLAIN_MANIFEST, SVC_TEMPLATE } from './helmTestUtils';
 
 /** Files of a ustar archive by path (prefix + name). */
 function untar(buf: Buffer): Record<string, string> {
@@ -48,9 +48,15 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); h.teardown(); delete (window as unknown as { __OPENSHIFTPULSE_CONFIG__?: unknown }).__OPENSHIFTPULSE_CONFIG__; });
 
+/** Arguments of the action Job (not a preview's helm template Job). */
 function jobArgs() {
-  const job = h.writes().find((w) => w.method === 'POST' && w.path === JOBS);
+  const job = h.writes().find((w) => w.method === 'POST' && w.path === JOBS && w.body.spec.template.spec.containers[0].args[0] !== 'template');
   return job?.body.spec.template.spec.containers[0].args;
+}
+
+/** Without pods/log the preview cannot run; the dialog offers to continue without one. */
+async function continueWithoutPreview(dialog: HTMLElement) {
+  fireEvent.click(await within(dialog).findByRole('button', { name: 'Continue without a preview' }));
 }
 
 describe('Helm release actions', () => {
@@ -72,6 +78,7 @@ describe('Helm release actions', () => {
   });
 
   it('upgrade picks a chart version and passes edited values through a mounted Secret, not the command line', async () => {
+    h.state.handler = previewHandler(h.state.handler, { log: PLAIN_MANIFEST, records: { 'sh.helm.release.v1.shop.v2': ITEMS[1] } });
     h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />);
     await screen.findByTestId('helm-release-shop');
     await clickWhenEnabled('Upgrade shop');
@@ -79,18 +86,21 @@ describe('Helm release actions', () => {
     expect((within(dialog).getByLabelText('Values') as HTMLTextAreaElement).value).toContain('replicaCount: 2');
     fireEvent.change(within(dialog).getByRole('combobox', { name: 'Chart version' }), { target: { value: '15.2.0' } });
     fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: 'replicaCount: 4\n' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
+    await clickWhenEnabled('Preview');
+    await within(dialog).findByTestId('helm-preview');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Review changes' }));
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Upgrade to 15.2.0' }));
 
     await waitFor(() => expect(jobArgs()).toBeDefined());
     const secret = h.writes().find((w) => w.path === '/api/v1/namespaces/team-a/secrets');
     expect(secret?.body.stringData).toEqual({ 'values.yaml': 'replicaCount: 4\n' });
-    expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://charts.example.com', '--namespace', 'team-a', '--version', '15.2.0', '--reset-values', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
-    const spec = h.writes().find((w) => w.path === JOBS)!.body.spec.template.spec;
+    expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://charts.example.com', '--namespace', 'team-a', '--version', '15.2.0', '--reset-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
+    const spec = jobsBy(h.writes(), 'upgrade')[0].body.spec.template.spec;
     expect(spec.volumes).toContainEqual({ name: 'values', secret: { secretName: 'helm-values-shop-x1' } });
     expect(spec.containers[0].image).toBe(RUNNER);
     // The values Secret is owned by the Job, so it is garbage-collected with it.
-    await waitFor(() => expect(h.writes().find((w) => w.method === 'PATCH' && w.path === '/api/v1/namespaces/team-a/secrets/helm-values-shop-x1')?.body)
-      .toEqual({ metadata: { ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'helm-upgrade-shop-abc12', uid: 'job-uid-1' }] } }));
+    await waitFor(() => expect(h.writes().filter((w) => w.method === 'PATCH' && w.path === '/api/v1/namespaces/team-a/secrets/helm-values-shop-x1').map((w) => w.body))
+      .toContainEqual({ metadata: { ownerReferences: [{ apiVersion: 'batch/v1', kind: 'Job', name: 'helm-upgrade-shop-abc12', uid: 'job-uid-1' }] } }));
   });
 
   it('rejects invalid values YAML without sending anything', async () => {
@@ -99,8 +109,10 @@ describe('Helm release actions', () => {
     await clickWhenEnabled('Upgrade shop');
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: 'a: [unclosed' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
-    expect(await within(dialog).findByText('The values are not valid YAML')).toBeTruthy();
+    expect(within(dialog).getByText(/The values are not valid YAML/)).toBeTruthy();
+    await clickWhenEnabled('Preview');
+    expect(await within(dialog).findByText('Cannot preview yet')).toBeTruthy();
+    expect((within(dialog).getByRole('button', { name: 'Review changes' }) as HTMLButtonElement).disabled).toBe(true);
     expect(h.writes()).toHaveLength(0);
   });
 
@@ -128,24 +140,31 @@ metadata:
   });
 
   it('asks which repository when several have a chart of that name, and says empty values reset to defaults', async () => {
+    h.state.handler = previewHandler(h.state.handler, { log: PLAIN_MANIFEST, records: { 'sh.helm.release.v1.shop.v2': ITEMS[1] } });
     const twoRepos = [...CHARTS, { name: 'nginx', repoName: 'mirror', repoUrl: 'https://mirror.example.com', versions: ['15.0.0'] }];
     h.renderUi(<HelmReleases nsFilter={undefined} charts={twoRepos} />);
     await screen.findByTestId('helm-release-shop');
     await clickWhenEnabled('Upgrade shop');
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
+    await clickWhenEnabled('Preview');
     expect(await within(dialog).findByText(/Choose the repository to upgrade nginx from/)).toBeTruthy();
     expect(h.writes()).toHaveLength(0);
     fireEvent.change(within(dialog).getByRole('combobox', { name: 'Repository' }), { target: { value: 'https://mirror.example.com' } });
     fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: '' } });
     expect(within(dialog).getByText(/No values: the release is reset to the chart's defaults/)).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade' }));
-    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://mirror.example.com', '--namespace', 'team-a', '--version', '15.0.0', '--reset-values', '--wait', '--timeout', '5m']));
+    await clickWhenEnabled('Preview');
+    await within(dialog).findByTestId('helm-preview');
+    // The template Job rendered from the chosen repository, with no values file.
+    expect(jobsBy(h.writes(), 'template')[0].body.spec.template.spec.containers[0].args.slice(0, 6)).toEqual(['template', 'shop', 'nginx', '--repo', 'https://mirror.example.com', '--version']);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Review changes' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Upgrade to 15.0.0' }));
+    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', 'nginx', '--repo', 'https://mirror.example.com', '--namespace', 'team-a', '--version', '15.0.0', '--reset-values', '--atomic', '--wait', '--timeout', '5m']));
     // No values file: --reset-values makes the release use the chart's defaults, as the dialog says, instead of Helm reusing the previous values.
     expect(h.writes().some((w) => w.path.endsWith('/secrets'))).toBe(false);
   });
 
   it('without a repository, Upgrade is unavailable and says why; Edit values upgrades with the chart stored in the release', async () => {
+    h.state.denied.add('get pods/log');
     h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
     await screen.findByTestId('helm-release-shop');
     expect(screen.getByTestId('helm-no-repo-shop').textContent).toBe('No chart repository configured for upgrades');
@@ -161,9 +180,10 @@ metadata:
     expect(within(dialog).queryByRole('combobox', { name: 'Chart version' })).toBeNull();
     expect((within(dialog).getByLabelText('Values') as HTMLTextAreaElement).value).toContain('replicaCount: 2');
     fireEvent.change(within(dialog).getByLabelText('Values'), { target: { value: 'replicaCount: 5\n' } });
+    await continueWithoutPreview(dialog);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Apply values' }));
 
-    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', '/tmp/chart/chart.tgz', '--namespace', 'team-a', '--reset-values', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']));
+    await waitFor(() => expect(jobArgs()).toEqual(['upgrade', 'shop', '/tmp/chart/chart.tgz', '--namespace', 'team-a', '--reset-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']));
     const secrets = h.writes().filter((w) => w.method === 'POST' && w.path === '/api/v1/namespaces/team-a/secrets');
     expect(secrets.map((w) => w.body.metadata.generateName)).toEqual(['helm-chart-shop-', 'helm-values-shop-']);
     expect(secrets[1].body.stringData).toEqual({ 'values.yaml': 'replicaCount: 5\n' });
@@ -201,10 +221,13 @@ metadata:
   it('a failed Edit values Job create is shown, and the Secrets made for it are removed', async () => {
     const base = h.state.handler;
     h.state.handler = (r) => (r.method === 'POST' && r.path === JOBS ? k8sStatus(403, 'jobs.batch is forbidden') : base(r));
+    h.state.denied.add('get pods/log');
     h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
     await screen.findByTestId('helm-release-shop');
     await clickWhenEnabled('Edit values of shop');
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Apply values' }));
+    const dialog = await screen.findByRole('dialog');
+    await continueWithoutPreview(dialog);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Apply values' }));
     expect(await screen.findByText('jobs.batch is forbidden')).toBeTruthy();
     expect(screen.getByText('The values upgrade was not started')).toBeTruthy();
     await waitFor(() => expect(h.writes().filter((w) => w.method === 'DELETE').map((w) => w.path).sort())
@@ -242,12 +265,15 @@ metadata:
         releaseSecret('shop', 'team-a', 2, 'failed', '15.2.0', { replicaCount: 9 }),
       ] })
       : base(r));
+    h.state.denied.add('get pods/log');
     h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />);
     await screen.findByTestId('helm-release-shop');
     await clickWhenEnabled('Edit values of shop');
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/chart Helm stored in rev 1 \(nginx 15\.1\.0\).*The latest revision, rev 2, is failed; this starts from rev 1, the deployed one/)).toBeTruthy();
     expect((within(dialog).getByLabelText('Values') as HTMLTextAreaElement).value).toBe('replicaCount: 2\n');
+    await continueWithoutPreview(dialog);
+    expect(within(dialog).getByText(/Undo/).nextSibling?.textContent).toMatch(/Roll back to revision 1 \(nginx 15\.1\.0\)/);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Apply values' }));
     await waitFor(() => expect(jobArgs()).toBeDefined());
     const chart = h.writes().find((w) => w.method === 'POST' && w.body?.metadata?.generateName === 'helm-chart-shop-')!;
@@ -324,11 +350,20 @@ metadata:
 });
 
 describe('helm runner pieces', () => {
-  it('upgrade args always carry --reset-values, so empty values mean chart defaults', () => {
+  it('upgrade args carry --reset-values unless reuse is chosen, so empty values mean chart defaults', () => {
     expect(helmArgs({ action: 'upgrade', releaseName: 'r', chartName: 'c', repoUrl: 'https://x' }, 'ns'))
       .toEqual(['upgrade', 'r', 'c', '--repo', 'https://x', '--namespace', 'ns', '--reset-values', '--wait', '--timeout', '5m']);
     expect(helmArgs({ action: 'upgrade-stored', releaseName: 'r', chartSecretName: 'cs' }, 'ns'))
       .toEqual(['upgrade', 'r', '/tmp/chart/chart.tgz', '--namespace', 'ns', '--reset-values', '--wait', '--timeout', '5m']);
+    expect(helmArgs({ action: 'upgrade', releaseName: 'r', chartName: 'c', repoUrl: 'https://x', valuesMode: 'reuse', atomic: true, valuesSecretName: 's' }, 'ns'))
+      .toEqual(['upgrade', 'r', 'c', '--repo', 'https://x', '--namespace', 'ns', '--reuse-values', '--atomic', '-f', '/tmp/values/values.yaml', '--wait', '--timeout', '5m']);
+  });
+
+  it('template args render only: no --wait, the cluster version and API list, the stored chart for a values change', () => {
+    expect(helmArgs({ action: 'template', releaseName: 'r', chart: { from: 'repo', chartName: 'c', repoUrl: 'https://x', version: '1.0.0' }, valuesSecretName: 's', kubeVersion: 'v1.31.4', apiVersions: ['v1', 'route.openshift.io/v1'] }, 'ns'))
+      .toEqual(['template', 'r', 'c', '--repo', 'https://x', '--version', '1.0.0', '--namespace', 'ns', '-f', '/tmp/values/values.yaml', '--kube-version', 'v1.31.4', '--api-versions', 'v1', '--api-versions', 'route.openshift.io/v1']);
+    expect(helmArgs({ action: 'template', releaseName: 'r', chart: { from: 'stored', chartSecretName: 'cs' }, isUpgrade: true }, 'ns'))
+      .toEqual(['template', 'r', '/tmp/chart/chart.tgz', '--namespace', 'ns', '--is-upgrade']);
   });
 
   it('install args carry the chosen version and the values file', () => {
@@ -361,6 +396,24 @@ generated: "2026-10-01"
       ['redis', '19.0.0', ['19.0.0'], ''],
     ]);
   });
+
+  it('the repo index parser keeps each version\'s archive URL', () => {
+    const charts = parseIndexForTest(`apiVersion: v1
+entries:
+  nginx:
+  - name: nginx
+    urls:
+    - https://charts.example.com/nginx-15.3.0.tgz
+    - https://mirror.example.com/nginx-15.3.0.tgz
+    version: 15.3.0
+  - name: nginx
+    version: 15.2.0
+    urls:
+    - nginx-15.2.0.tgz
+`);
+    expect(charts[0].versions).toEqual(['15.3.0', '15.2.0']);
+    expect(charts[0].urls).toEqual({ '15.3.0': 'https://charts.example.com/nginx-15.3.0.tgz', '15.2.0': 'nginx-15.2.0.tgz' });
+  });
 });
 
 import { HelmTab } from '../HelmTab';
@@ -386,18 +439,22 @@ entries:
   });
 
   it('in all-namespaces mode the user picks the namespace; install runs the chosen version there', async () => {
+    h.state.handler = previewHandler(h.state.handler, { log: PLAIN_MANIFEST });
     h.renderUi(<HelmTab />);
     fireEvent.click(await screen.findByRole('button', { name: /NGINX/ }));
-    const install = screen.getByRole('button', { name: 'Install' });
-    expect((install as HTMLButtonElement).disabled).toBe(true); // no silent `default`
+    expect((screen.getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(true); // no silent `default`, no install before a preview
+    expect((screen.getByRole('button', { name: 'Preview' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(await screen.findByRole('combobox', { name: 'Namespace' }), { target: { value: 'team-b' } });
     fireEvent.change(screen.getByRole('combobox', { name: 'Chart version' }), { target: { value: '15.2.0' } });
-    fireEvent.click(install);
+    await clickWhenEnabled('Preview');
+    await screen.findByTestId('helm-preview');
+    await clickWhenEnabled('Install 2 objects');
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/helm install my-nginx nginx --version 15.2.0.*as a Job in team-b/)).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(h.writes().some((w) => w.path === '/apis/batch/v1/namespaces/team-b/jobs')).toBe(true));
-    const job = h.writes().find((w) => w.path === '/apis/batch/v1/namespaces/team-b/jobs')!;
+    expect(within(dialog).getByTestId('install-confirm-summary').textContent).toMatch(/2 objects pass the dry run; no hooks run on install.*Undo: Uninstall the release/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Install 2 objects' }));
+    await waitFor(() => expect(jobsBy(h.writes(), 'install')).toHaveLength(1));
+    const job = jobsBy(h.writes(), 'install')[0];
     expect(job.body.spec.template.spec.containers[0].args).toEqual(['install', 'my-nginx', 'nginx', '--repo', 'https://charts.openshift.io', '--namespace', 'team-b', '--version', '15.2.0', '--wait', '--timeout', '5m']);
   });
 

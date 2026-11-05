@@ -10,10 +10,13 @@ import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { FormField } from './FormField';
 import { Card } from '../../components/primitives/Card';
 import { showErrorToast } from '../../engine/errorToast';
-import { load } from 'js-yaml';
+import { parseValues } from '../../engine/helmManifest';
+import { InstallPanel } from './HelmInstallPanel';
+import { runHelmPreview, previewCounts } from './helmPreview';
+import { useHelmPreview } from './HelmPreviewPanel';
 import { runHelmAction } from './helmRunner';
 import { HelmReleases } from './HelmReleases';
-import { NamespacePicker, useInitialNamespace, isNamespaceName } from './NamespacePicker';
+import { useInitialNamespace, isNamespaceName } from './NamespacePicker';
 import { usePinnedAction } from '../../hooks/usePinnedAction';
 import { LoadError } from '../../components/primitives/LoadError';
 import { errorReason } from '../../engine/readResult';
@@ -34,7 +37,7 @@ interface HelmChartRepository {
 
 const DEFAULT_REPO_URL = 'https://charts.openshift.io';
 
-interface HelmChart {
+export interface HelmChart {
   name: string;
   version: string;
   /** Every version in the repo index, newest first (as the index lists them). */
@@ -44,6 +47,8 @@ interface HelmChart {
   icon?: string;
   repoName?: string;
   repoUrl?: string;
+  /** Download URL of each version's archive, as the index lists it (may be relative to the repo). */
+  urls?: Record<string, string>;
 }
 
 interface HelmRepo {
@@ -62,6 +67,14 @@ export function parseHelmIndex(text: string, repoName: string, repoUrl: string):
   let entryIndex = -1;
   let entryIndent = -1; // indent of this chart's `- ` list items
   let inEntries = false;
+  let inUrls = false;
+  let entryVersion = '';
+  let entryUrl = '';
+  const flushUrl = () => {
+    if (current && entryVersion && entryUrl) (current.urls ??= {})[entryVersion] = entryUrl;
+    entryVersion = '';
+    entryUrl = '';
+  };
   const finish = () => { if (current?.name) charts.push(current); };
   for (const line of text.split('\n')) {
     if (/^entries:/.test(line)) { inEntries = true; continue; }
@@ -69,6 +82,7 @@ export function parseHelmIndex(text: string, repoName: string, repoUrl: string):
     if (/^\S/.test(line)) { inEntries = false; continue; }
     const top = line.match(/^  ([a-zA-Z0-9_.-]+):\s*$/);
     if (top) {
+      flushUrl();
       finish();
       current = { name: '', version: '', versions: [], appVersion: '', description: '', repoName, repoUrl };
       entryIndex = -1;
@@ -78,15 +92,31 @@ export function parseHelmIndex(text: string, repoName: string, repoUrl: string):
     if (!current) continue;
     const item = line.match(/^( *)- (?:(\w+):\s*(.*))?$/);
     if (item && (entryIndent === -1 || item[1].length === entryIndent)) {
+      flushUrl();
+      inUrls = false;
       entryIndent = item[1].length;
       entryIndex++;
-      if (item[2]) applyField(current, entryIndex, item[2], item[3]);
+      if (item[2] === 'urls' && !item[3].trim()) inUrls = true;
+      else if (item[2]) { applyField(current, entryIndex, item[2], item[3]); if (item[2] === 'version') entryVersion = item[3].replace(/^['"]|['"]$/g, '').trim(); }
       continue;
     }
+    if (inUrls) {
+      const url = line.match(/^ *- (.+)$/);
+      if (url && entryIndent >= 0 && line.indexOf('-') >= entryIndent + 2) {
+        if (!entryUrl) entryUrl = url[1].replace(/^['"]|['"]$/g, '').trim();
+        continue;
+      }
+      inUrls = false;
+    }
+    if (entryIndent >= 0 && new RegExp(`^ {${entryIndent + 2}}urls:\\s*$`).test(line)) { inUrls = true; continue; }
     // Only the entry's own fields (two deeper than its `- `), not nested ones such as maintainers.
     const field = line.match(/^( *)(\w+):\s*(.+)$/);
-    if (field && entryIndent >= 0 && field[1].length === entryIndent + 2) applyField(current, entryIndex, field[2], field[3]);
+    if (field && entryIndent >= 0 && field[1].length === entryIndent + 2) {
+      applyField(current, entryIndex, field[2], field[3]);
+      if (field[2] === 'version') entryVersion = field[3].replace(/^['"]|['"]$/g, '').trim();
+    }
   }
+  flushUrl();
   finish();
   return charts;
 }
@@ -118,7 +148,7 @@ export function HelmTab() {
   const [installVersion, setInstallVersion] = useState('');
   const [installValues, setInstallValues] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
-  const install = usePinnedAction<{ chart: HelmChart; releaseName: string; ns: string; version: string; values: string }>();
+  const install = usePinnedAction<{ chart: HelmChart; releaseName: string; ns: string; version: string; values: string; previewed?: { at: number; objects: number; hooks: number; unknown: number }; noPreviewReason?: string }>();
   const [selectedChart, setSelectedChart] = useState<HelmChart | null>(null);
   const [installedJob, setInstalledJob] = useState<{ name: string; ns: string; clusterId: string } | null>(null);
   const [showAddRepo, setShowAddRepo] = useState(false);
@@ -225,34 +255,53 @@ export function HelmTab() {
     ? chartCatalog.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase()))
     : chartCatalog;
 
-  // Validate the form, then confirm with exactly what will run.
+  /** Why the form cannot be previewed or installed yet, or null. */
+  const validateForm = (): string | null => {
+    if (!selectedChart) return 'Choose a chart';
+    if (!/^[a-z0-9][a-z0-9-]{0,52}$/.test(releaseName.trim())) {
+      return 'Release name must start with a lowercase letter or number, contain only lowercase letters, numbers, and hyphens, and be at most 53 characters.';
+    }
+    if (!isNamespaceName(installNs)) return 'Choose the namespace to install into.';
+    const repoUrl = selectedChart.repoUrl || DEFAULT_REPO_URL;
+    if (!/^https?:\/\/.+/.test(repoUrl)) return 'Repository URL must start with http:// or https://';
+    try { parseValues(installValues); } catch (e) {
+      return `Values are not valid YAML: ${e instanceof Error ? e.message : String(e)}`;
+    }
+    return null;
+  };
+
+  const version = installVersion || selectedChart?.version || '';
+  const previewKey = JSON.stringify([clusterId, selectedChart?.repoUrl, selectedChart?.name, version, releaseName.trim(), installNs, installValues]);
+  const preview = useHelmPreview(previewKey);
+
+  const runPreview = () => {
+    const err = validateForm();
+    setFormError(err);
+    if (err || !selectedChart) return;
+    const chart = selectedChart;
+    void preview.run(previewKey, () => runHelmPreview({
+      clusterId,
+      namespace: installNs,
+      releaseName: releaseName.trim(),
+      chart: { from: 'repo', chartName: chart.name, repoUrl: chart.repoUrl || DEFAULT_REPO_URL, version: version || undefined },
+      valuesYaml: installValues,
+    }));
+  };
+
+  // Validate the form, then confirm with exactly what will run and what the preview found.
   const requestInstall = () => {
     if (!selectedChart) return;
-    const sanitizedName = releaseName.trim();
-    if (!/^[a-z0-9][a-z0-9-]{0,52}$/.test(sanitizedName)) {
-      setFormError('Release name must start with a lowercase letter or number, contain only lowercase letters, numbers, and hyphens, and be at most 53 characters.');
-      return;
-    }
-    if (!isNamespaceName(installNs)) {
-      setFormError('Choose the namespace to install into.');
-      return;
-    }
-    const repoUrl = selectedChart.repoUrl || DEFAULT_REPO_URL;
-    if (!/^https?:\/\/.+/.test(repoUrl)) {
-      setFormError('Repository URL must start with http:// or https://');
-      return;
-    }
-    if (installValues.trim()) {
-      try {
-        const parsed = load(installValues);
-        if (parsed !== null && typeof parsed !== 'object') throw new Error('Values must be a YAML mapping');
-      } catch (e) {
-        setFormError(`Values are not valid YAML: ${e instanceof Error ? e.message : String(e)}`);
-        return;
-      }
-    }
-    setFormError(null);
-    install.open({ chart: selectedChart, releaseName: sanitizedName, ns: installNs, version: installVersion || selectedChart.version, values: installValues });
+    const err = validateForm();
+    setFormError(err);
+    if (err) return;
+    const cur = preview.current;
+    const previewed = cur?.status === 'done'
+      ? { at: cur.preview.at, objects: cur.preview.entries.filter((e) => !e.key.startsWith('hook:')).length, hooks: cur.preview.hooks.length, unknown: previewCounts(cur.preview).unknown }
+      : undefined;
+    install.open({
+      chart: selectedChart, releaseName: releaseName.trim(), ns: installNs, version, values: installValues, previewed,
+      noPreviewReason: cur?.status === 'error' ? `the preview could not be made (${cur.error})` : 'no preview was made',
+    });
   };
 
   const confirmInstall = () => install.run('Installing this chart', async (t, pinnedCluster) => {
@@ -402,7 +451,7 @@ export function HelmTab() {
 
       <HelmReleases
         nsFilter={nsFilter}
-        charts={chartCatalog.map((c) => ({ name: c.name, repoName: c.repoName, repoUrl: c.repoUrl, versions: c.versions }))}
+        charts={chartCatalog.map((c) => ({ name: c.name, repoName: c.repoName, repoUrl: c.repoUrl, versions: c.versions, urls: c.urls }))}
       />
 
       {/* Search */}
@@ -413,46 +462,44 @@ export function HelmTab() {
 
       {/* Install form */}
       {selectedChart && (
-        <div className="bg-blue-950/30 rounded-lg border border-blue-800 p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-blue-200">Install {selectedChart.name}</h3>
-          <p className="text-xs text-slate-400">{selectedChart.description}</p>
-          <div className="text-xs text-slate-500">From: <span className="text-slate-300">{selectedChart.repoName}</span></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <FormField label="Release Name" required value={releaseName} onChange={setReleaseName} placeholder={`my-${selectedChart.name}`} />
-            <NamespacePicker value={installNs} onChange={setInstallNs} />
-            <label className="block text-xs text-slate-400">
-              Chart version
-              <select aria-label="Chart version" value={installVersion || selectedChart.version} onChange={(e) => setInstallVersion(e.target.value)}
-                className="mt-1 w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200">
-                {(selectedChart.versions.length ? selectedChart.versions : [selectedChart.version]).map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </label>
-          </div>
-          <label className="block text-xs text-slate-400">
-            Values (YAML, optional — the chart's defaults apply to anything not set here)
-            <textarea aria-label="Values" value={installValues} onChange={(e) => setInstallValues(e.target.value)} rows={5}
-              className="mt-1 w-full px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
-          </label>
-          {formError && <LoadError title="Cannot install yet" error={formError} />}
-          <div className="flex items-center gap-2">
-            <button onClick={requestInstall} disabled={!releaseName.trim() || !installNs} className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-sm disabled:opacity-50">
-              <Ship className="w-4 h-4" /> Install
-            </button>
-            <button onClick={() => { setSelectedChart(null); setFormError(null); }} className="px-3 py-2 text-sm text-slate-400 hover:text-slate-200">Cancel</button>
-          </div>
-        </div>
+        <InstallPanel
+          chart={selectedChart}
+          releaseName={releaseName}
+          onReleaseName={setReleaseName}
+          ns={installNs}
+          onNs={setInstallNs}
+          version={installVersion || selectedChart.version}
+          onVersion={setInstallVersion}
+          values={installValues}
+          onValues={setInstallValues}
+          formError={formError}
+          onInstall={requestInstall}
+          onCancel={() => { setSelectedChart(null); setFormError(null); }}
+          preview={preview}
+          previewKey={previewKey}
+          onPreview={runPreview}
+          clusterId={clusterId}
+        />
       )}
 
       <ConfirmDialog
         open={!!install.pending}
         onClose={install.close}
         onConfirm={confirmInstall}
-        title={install.pending ? `Install ${install.pending.target.chart.name} in ${install.pending.target.ns}?` : ''}
+        title={install.pending ? `Install ${install.pending.target.chart.name} ${install.pending.target.version} in ${install.pending.target.ns}?` : ''}
         description={install.pending ? `Runs "helm install ${install.pending.target.releaseName} ${install.pending.target.chart.name} --version ${install.pending.target.version}" from ${install.pending.target.chart.repoName ?? install.pending.target.chart.repoUrl} as a Job in ${install.pending.target.ns}${install.pending.target.values.trim() ? ', with your values (stored in a Secret the Job mounts)' : ' with the chart\'s default values'}. The Job's ServiceAccount gets a Role in ${install.pending.target.ns} to create the chart's resources.` : ''}
-        confirmLabel="Install"
+        confirmLabel={install.pending?.target.previewed ? `Install ${install.pending.target.previewed.objects} objects` : 'Install without a preview'}
         variant="warning"
         loading={install.running}
       >
+        {install.pending && (
+          <div className="mt-3 space-y-1 text-xs text-slate-300" data-testid="install-confirm-summary">
+            {install.pending.target.previewed
+              ? <p>Previewed at {new Date(install.pending.target.previewed.at).toLocaleTimeString()}: {install.pending.target.previewed.objects} objects pass the dry run; {install.pending.target.previewed.hooks ? `${install.pending.target.previewed.hooks} install hook${install.pending.target.previewed.hooks === 1 ? '' : 's'} run` : 'no hooks run on install'}.{install.pending.target.previewed.unknown ? ` ${install.pending.target.previewed.unknown} could not be checked.` : ''}</p>
+              : <p className="text-amber-300">Not previewed: {install.pending.target.noPreviewReason}. What the chart creates was not checked.</p>}
+            <p><span className="text-slate-400">Undo:</span> Uninstall the release (Software › Helm), which deletes what it created except objects the chart marks "keep".</p>
+          </div>
+        )}
         {install.error && <LoadError className="mt-3" title="The install was not started" error={install.error} />}
       </ConfirmDialog>
 

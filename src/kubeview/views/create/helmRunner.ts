@@ -5,13 +5,21 @@
  */
 import { k8sFetch } from '../../engine/query';
 import { getHelmInstallRuntimeConfig } from '../../config/runtime';
-import { buildHelmChartSecret, buildHelmInstallResources, buildHelmJob, buildHelmValuesSecret, type HelmAction } from './helmInstall';
+import { buildHelmChartSecret, buildHelmInstallResources, buildHelmJob, buildHelmValuesSecret, type HelmAction, type UpgradeOptions } from './helmInstall';
 import { bytesToB64 } from '../../engine/helmChartArchive';
 
 /** What the caller asks for: a stored-chart upgrade carries the rebuilt archive, the runner makes its Secret. */
 export type HelmRequest =
-  | Exclude<HelmAction, { action: 'upgrade-stored' }>
-  | { action: 'upgrade-stored'; releaseName: string; chartArchive: Uint8Array };
+  | Exclude<HelmAction, { action: 'upgrade-stored' } | { action: 'template' }>
+  | ({ action: 'upgrade-stored'; releaseName: string; chartArchive: Uint8Array } & UpgradeOptions)
+  | {
+    action: 'template';
+    releaseName: string;
+    chart: { from: 'repo'; chartName: string; repoUrl: string; version?: string } | { from: 'stored'; chartArchive: Uint8Array };
+    isUpgrade?: boolean;
+    kubeVersion?: string;
+    apiVersions?: string[];
+  };
 
 async function failure(res: Response): Promise<Error> {
   const err = await res.json().catch(() => ({ message: res.statusText }));
@@ -44,8 +52,8 @@ export async function runHelmAction(clusterId: string, namespace: string, reques
   const rbac = buildHelmInstallResources({
     namespace,
     releaseName: request.releaseName,
-    chartName: 'chartName' in request ? request.chartName : request.releaseName,
-    repoUrl: 'repoUrl' in request ? request.repoUrl : 'https://unused.invalid',
+    chartName: 'chartName' in request ? request.chartName : request.action === 'template' && request.chart.from === 'repo' ? request.chart.chartName : request.releaseName,
+    repoUrl: 'repoUrl' in request ? request.repoUrl : request.action === 'template' && request.chart.from === 'repo' ? request.chart.repoUrl : 'https://unused.invalid',
     runnerImage: runtime.runnerImage,
     serviceAccountName: runtime.serviceAccountName,
   });
@@ -62,14 +70,21 @@ export async function runHelmAction(clusterId: string, namespace: string, reques
 
   let action: HelmAction;
   try {
-    if (request.action === 'upgrade-stored') {
-      const chart = await post<{ metadata: { name: string } }>(clusterId, `/api/v1/namespaces/${namespace}/secrets`, buildHelmChartSecret(namespace, request.releaseName, bytesToB64(request.chartArchive)));
+    const storeChart = async (archive: Uint8Array) => {
+      const chart = await post<{ metadata: { name: string } }>(clusterId, `/api/v1/namespaces/${namespace}/secrets`, buildHelmChartSecret(namespace, request.releaseName, bytesToB64(archive)));
       created.push(chart.metadata.name);
-      action = { action: 'upgrade-stored', releaseName: request.releaseName, chartSecretName: chart.metadata.name };
+      return chart.metadata.name;
+    };
+    if (request.action === 'upgrade-stored') {
+      const { chartArchive, ...rest } = request;
+      action = { ...rest, chartSecretName: await storeChart(chartArchive) };
+    } else if (request.action === 'template') {
+      const chart = request.chart.from === 'stored' ? { from: 'stored' as const, chartSecretName: await storeChart(request.chart.chartArchive) } : request.chart;
+      action = { ...request, chart };
     } else {
       action = request;
     }
-    if (valuesYaml !== undefined && valuesYaml.trim() !== '' && (action.action === 'install' || action.action === 'upgrade' || action.action === 'upgrade-stored')) {
+    if (valuesYaml !== undefined && valuesYaml.trim() !== '' && (action.action === 'install' || action.action === 'upgrade' || action.action === 'upgrade-stored' || action.action === 'template')) {
       const secret = await post<{ metadata: { name: string } }>(clusterId, `/api/v1/namespaces/${namespace}/secrets`, buildHelmValuesSecret(namespace, request.releaseName, valuesYaml));
       created.push(secret.metadata.name);
       action = { ...action, valuesSecretName: secret.metadata.name };
@@ -86,7 +101,7 @@ export async function runHelmAction(clusterId: string, namespace: string, reques
       runnerImage: runtime.runnerImage,
       serviceAccountName: runtime.serviceAccountName,
       helm: action,
-      chartLabel: 'chartName' in action ? action.chartName : undefined,
+      chartLabel: 'chartName' in action ? action.chartName : action.action === 'template' && action.chart.from === 'repo' ? action.chart.chartName : undefined,
     }));
   } catch (e) {
     await removeCreated();
@@ -105,4 +120,47 @@ export async function runHelmAction(clusterId: string, namespace: string, reques
     }
   }
   return job.metadata.name;
+}
+
+export interface HelmJobOutput {
+  /** The Job's pod finished with exit code 0. */
+  succeeded: boolean;
+  /** The helm container's log: the rendered manifests, or helm's error. */
+  log: string;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Wait for a runner Job's pod to finish and read its log (as the user, who
+ * needs "get pods/log" in the namespace). Throws when the pod cannot be read
+ * or does not finish within the timeout; the caller says the preview could
+ * not be made, never that it is empty.
+ */
+export async function readHelmJobOutput(clusterId: string, namespace: string, jobName: string, opts: { timeoutMs?: number; pollMs?: number } = {}): Promise<HelmJobOutput> {
+  const deadline = Date.now() + (opts.timeoutMs ?? 120_000);
+  const pollMs = opts.pollMs ?? 1500;
+  for (;;) {
+    const res = await k8sFetch(clusterId, `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(`job-name=${jobName}`)}`);
+    if (!res.ok) throw new Error(`The preview Job's pod could not be read: ${(await failure(res)).message}`);
+    const pods = ((await res.json()).items ?? []) as Array<{ metadata: { name: string }; status?: { phase?: string; containerStatuses?: Array<{ state?: { waiting?: { reason?: string; message?: string } } }> } }>;
+    const pod = pods[0];
+    const phase = pod?.status?.phase;
+    if (pod && (phase === 'Succeeded' || phase === 'Failed')) {
+      const logRes = await k8sFetch(clusterId, `/api/v1/namespaces/${namespace}/pods/${pod.metadata.name}/log?container=helm`);
+      if (!logRes.ok) throw new Error(`The preview Job finished, but its log could not be read: ${(await failure(logRes)).message}`);
+      return { succeeded: phase === 'Succeeded', log: await logRes.text() };
+    }
+    const waiting = pod?.status?.containerStatuses?.[0]?.state?.waiting;
+    if (waiting?.reason && /ImagePull|ErrImage|CreateContainerConfigError|InvalidImageName/.test(waiting.reason)) {
+      throw new Error(`The Helm runner could not start: ${waiting.reason}${waiting.message ? ` (${waiting.message})` : ''}`);
+    }
+    if (Date.now() > deadline) throw new Error(`The preview Job ${jobName} did not finish within ${Math.round((opts.timeoutMs ?? 120_000) / 1000)}s${phase ? ` (pod ${phase})` : ' (no pod yet)'}`);
+    await sleep(pollMs);
+  }
+}
+
+/** Delete a finished preview Job and its pod (its Secrets go with it). Best effort: the Job's TTL removes it anyway. */
+export async function deleteHelmJob(clusterId: string, namespace: string, jobName: string): Promise<void> {
+  await k8sFetch(clusterId, `/apis/batch/v1/namespaces/${namespace}/jobs/${jobName}?propagationPolicy=Background`, { method: 'DELETE' }).catch(() => undefined);
 }
