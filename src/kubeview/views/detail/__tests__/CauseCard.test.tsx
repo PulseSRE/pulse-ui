@@ -351,6 +351,27 @@ describe('no finding', () => {
     expect(screen.queryByText(/Asking the agent/)).toBeNull();
   });
 
+  it('Try again after a refused Diagnose again starts a new run, not the old report', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let refuse = true;
+    routes = [
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'it-1', status: 'triaged', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: { investigation_id: 'inv' } }], groups: [], stats: {}, total: 1 } }],
+      [/inbox\/it-1\/investigation$/, 'GET', { status: 200, body: { ...row, suspected_cause: 'An old cause.', state: 'done', run: null } }],
+      [/inbox\/it-1\/investigate$/, 'POST', () => (refuse ? refusal(429, 'cooldown', 'Investigated 298s ago.', 2) : started('queued'))],
+    ];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect(await screen.findByText('An old cause.')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose again' }));
+    expect(await screen.findByRole('button', { name: 'Try again in 2s' })).toBeDefined();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+    refuse = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Queued for investigation/);
+    expect(calls('POST', /it-1\/investigate$/)).toHaveLength(2);
+    expect(screen.queryByText('An old cause.')).toBeNull();
+  });
+
   it('a finding in another namespace with the same pod name does not match', () => {
     useMonitorStore.setState({ findings: [finding({ resources: [{ kind: 'Pod', name: 'api-x', namespace: 'other' }] }), finding({ id: 'f3', resources: [{ kind: 'Pod', name: 'api-x' }] })] as never });
     renderCard();

@@ -39,7 +39,8 @@ export type DiagnoseState =
   /** The run finished (`state: done`) but the agent returned no report for it. */
   | { phase: 'empty'; itemId: string }
   /** `retryAt`: epoch ms from the refusal's retry_after, when it gave one. */
-  | { phase: 'refused'; itemId: string; reason: string; retryAt?: number }
+  /** `again`: the refused request was a Diagnose again, so Try again starts a new run too. */
+  | { phase: 'refused'; itemId: string; reason: string; retryAt?: number; again: boolean }
   | { phase: 'failed'; itemId?: string; reason: string }
   | { phase: 'timeout'; itemId: string }
   | { phase: 'unreachable'; reason: string };
@@ -218,7 +219,7 @@ export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) 
       }
       const started = await requestInvestigation(item.itemId);
       if ('refused' in started) {
-        setState({ phase: 'refused', itemId: item.itemId, reason: started.refused, retryAt: started.retryAfter ? Date.now() + started.retryAfter * 1000 : undefined });
+        setState({ phase: 'refused', itemId: item.itemId, reason: started.refused, retryAt: started.retryAfter ? Date.now() + started.retryAfter * 1000 : undefined, again });
         return;
       }
       setState({ phase: 'waiting', itemId: item.itemId, run: started.run, reused: item.reused, since: Date.now() });

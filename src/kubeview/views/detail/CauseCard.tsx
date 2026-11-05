@@ -261,7 +261,7 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
       {state.phase === 'refused' && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-amber-300">The agent did not start an investigation: {state.reason}</p>
-          {diagnoseButton(retryWait > 0 ? `Try again in ${formatWait(retryWait)}` : 'Try again')}
+          {diagnoseButton(retryWait > 0 ? `Try again in ${formatWait(retryWait)}` : 'Try again', state.again)}
         </div>
       )}
       {state.phase === 'failed' && (
