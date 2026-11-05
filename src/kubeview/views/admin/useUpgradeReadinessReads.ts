@@ -6,6 +6,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useFleetStore } from '../../store/fleetStore';
+import { useUIStore } from '../../store/uiStore';
 import { listK8s, readK8s, type ReadResult } from '../../engine/readResult';
 import { CSR_LIST_PATH, type CertificateSigningRequest } from '../../engine/csr';
 import type { TlsSecretLike } from '../../engine/certExpiry';
@@ -53,8 +54,11 @@ export function useUpgradeReadinessReads({ enabled }: { enabled: boolean }) {
     ...opts,
     enabled: enabled && backupApiServed,
   });
+  // users/~ answers for whoever the request runs as, so impersonation is part of the key (as in useCanI).
+  const impersonateUser = useUIStore((s) => s.impersonateUser);
+  const impersonateGroups = useUIStore((s) => (s.impersonateGroups ?? []).join(','));
   const whoami = useQuery({
-    queryKey: ['upgrade-readiness', clusterId, 'whoami'],
+    queryKey: ['upgrade-readiness', clusterId, 'whoami', impersonateUser ?? '', impersonateGroups],
     queryFn: () => readK8s<{ metadata?: { name?: string } }>(WHOAMI_PATH, clusterId),
     ...opts,
     staleTime: 300_000,
@@ -77,6 +81,8 @@ export function useUpgradeReadinessReads({ enabled }: { enabled: boolean }) {
     backupApiServed,
     username,
     usernameLoading: whoami.isLoading,
+    /** The page is impersonating another user: the username is theirs. */
+    impersonating: !!impersonateUser,
     checkedAt: checkedAt || null,
     refetchAll: () => { for (const q of [...all, whoami, ...(backupApiServed ? [pvcs] : [])]) void q.refetch(); },
     refetchBackups: () => { void backups.refetch(); if (backupApiServed) void pvcs.refetch(); },

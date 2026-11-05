@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings, GitBranch, Server, ArrowUpCircle } from 'lucide-react';
-import { k8sPatch } from '../../engine/query';
+import { k8sGet, k8sPatch } from '../../engine/query';
 import type { K8sResource } from '../../engine/renderers';
 import type { ClusterVersion, ClusterOperator, Node, Condition, MachineConfigPool, Pod } from '../../engine/types';
 import { useUIStore } from '../../store/uiStore';
@@ -28,7 +28,7 @@ import {
   checkControlPlaneCerts, checkEtcdHealth, checkEtcdBackup, checkNodes, checkOperators, checkChannel,
   type FiringAlert, type Loadable, type ReadinessCheck,
 } from '../../engine/upgradeReadiness';
-import { updateLogOf, updateStartPatch, type UpdateLogEntry } from '../../engine/upgradeLog';
+import { updateLogOf, updateLogOverflow, updateStartPatch, UPDATE_REASON_MAX, type UpdateLogEntry } from '../../engine/upgradeLog';
 import { useUpgradeReadinessReads } from './useUpgradeReadinessReads';
 import { UpgradeReadinessPanel, type UpgradeReadinessPanelProps } from './UpgradeReadinessPanel';
 import { StartUpdateDialog } from './StartUpdateDialog';
@@ -61,6 +61,16 @@ interface AvailableUpdate {
 
 const CV_PATH = '/apis/config.openshift.io/v1/clusterversions/version';
 const MERGE = 'application/merge-patch+json';
+/** How many times a start-update patch is rebuilt and resent after a 409. */
+export const UPDATE_CONFLICT_ATTEMPTS = 3;
+
+class ConflictExhausted extends Error {}
+
+function isConflict(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as { statusCode?: unknown; status?: unknown };
+  return e.statusCode === 409 || e.status === 409;
+}
 
 export interface UpdatesTabProps {
   clusterVersion: ClusterVersion | null | undefined;
@@ -233,15 +243,34 @@ export function UpdatesTab({
   // target, and the update-log annotation in the same merge patch. A dry run
   // goes first; a failure is thrown to the dialog, which keeps it on screen.
   const entryFor = (target: Pick<UpgradeTarget, 'version'>, reason: string): UpdateLogEntry => ({
-    version: target.version, startedAt: new Date().toISOString(), by: readiness.username, reason,
+    version: target.version, startedAt: new Date().toISOString(), by: readiness.username, reason: reason.slice(0, UPDATE_REASON_MAX),
+    ...(readiness.impersonating ? { impersonated: true } : {}),
   });
+  // The patch is built from a ClusterVersion read just before sending and is
+  // conditional on its resourceVersion, so an annotation appended meanwhile is
+  // never overwritten. A 409 (it changed in between) re-reads and retries.
   const applyUpdate = async (target: UpgradeTarget, clusterId: string, reason: string) => {
     setUpdating(true);
     try {
       assertActiveCluster(clusterId, 'The cluster update');
-      const patch = updateStartPatch(target, clusterVersion, entryFor(target, reason));
-      await k8sPatch<ClusterVersion>(`${CV_PATH}?dryRun=All`, patch, MERGE, clusterId);
-      const updated = await k8sPatch<ClusterVersion>(CV_PATH, patch, MERGE, clusterId);
+      const entry = entryFor(target, reason);
+      let patch: { metadata: { annotations: Record<string, string>; resourceVersion?: string }; spec: ReturnType<typeof updateStartPatch>['spec'] };
+      let updated: ClusterVersion;
+      for (let attempt = 1; ; attempt++) {
+        const fresh = await k8sGet<ClusterVersion>(CV_PATH, clusterId);
+        const built = updateStartPatch(target, fresh, entry);
+        patch = { ...built, metadata: { ...built.metadata, resourceVersion: fresh.metadata.resourceVersion } };
+        try {
+          await k8sPatch<ClusterVersion>(`${CV_PATH}?dryRun=All`, patch, MERGE, clusterId);
+          updated = await k8sPatch<ClusterVersion>(CV_PATH, patch, MERGE, clusterId);
+          break;
+        } catch (err) {
+          if (!isConflict(err)) throw err;
+          if (attempt >= UPDATE_CONFLICT_ATTEMPTS) {
+            throw new ConflictExhausted(`ClusterVersion changed while the update was being sent, ${UPDATE_CONFLICT_ATTEMPTS} times in a row (409 Conflict), so nothing was changed. Try again.`);
+          }
+        }
+      }
       let detail = `Updating to ${target.version}`;
       if (patch.spec.desiredUpdate.acceptRisks) {
         // Without the ClusterUpdateAcceptRisks gate the API drops the field; say which happened.
@@ -255,7 +284,7 @@ export function UpdatesTab({
       setStartDialog(null);
       invalidate();
     } catch (err) {
-      throw new Error(describeWriteError(err));
+      throw new Error(err instanceof ConflictExhausted ? err.message : describeWriteError(err));
     } finally {
       setUpdating(false);
     }
@@ -563,7 +592,7 @@ export function UpdatesTab({
 
       {/* Operator update status (during upgrade); a stuck operator opens its namespaces, pods and logs */}
       {isUpdating && (
-        <OperatorUpdateProgress operators={operators} pods={pods} podsError={podsError ? errorReason(podsError) : undefined} go={go} />
+        <OperatorUpdateProgress operators={operators} pods={pods} podsError={podsError ? errorReason(podsError) : undefined} podsLoading={podsLoading} go={go} />
       )}
 
       <UpdateHistoryTable history={model.history} log={log.entries} inFlight={model.progress.phase !== 'idle'} />
@@ -627,8 +656,12 @@ export function UpdatesTab({
           history={model.history}
           username={readiness.username}
           usernameLoading={readiness.usernameLoading}
-          logValid={log.valid}
-          patchPreview={(reason) => updateStartPatch(startDialog.target, clusterVersion, entryFor(startDialog.target, reason))}
+          logState={{ valid: log.valid, unrecognised: log.unrecognised, overflow: updateLogOverflow(log) }}
+          impersonating={readiness.impersonating}
+          patchPreview={(reason) => {
+            const p = updateStartPatch(startDialog.target, clusterVersion, entryFor(startDialog.target, reason));
+            return { ...p, metadata: { ...p.metadata, resourceVersion: '<from a fresh read when sent>' } };
+          }}
           onConfirm={(reason) => applyUpdate(startDialog.target, startDialog.clusterId, reason)}
           onClose={() => setStartDialog(null)}
         />

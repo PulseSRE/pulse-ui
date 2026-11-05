@@ -4,7 +4,7 @@ import {
   checkAdminAck, checkUpgradeable, checkCriticalAlerts, checkDrainPdbs, checkNodes, checkOperators, checkPendingCsrs, checkEtcdHealth,
   NO_BACKUP_API_DETAIL, type ReadinessCheck, type RemovalReads,
 } from '../upgradeReadiness';
-import { appendUpdateLog, parseUpdateLog, logEntryFor, estimateFromHistory, UPDATE_LOG_MAX } from '../upgradeLog';
+import { appendUpdateLog, parseUpdateLog, logEntryFor, estimateFromHistory, updateLogOverflow, UPDATE_LOG_MAX, UPDATE_REASON_MAX } from '../upgradeLog';
 import type { ApiRemovalVerdict } from '../upgradeApiRemovals';
 import type { ClusterVersion, MachineConfigPool, Node } from '../types';
 
@@ -79,13 +79,34 @@ describe('update log', () => {
     const out = JSON.parse(appendUpdateLog(many, e('4.2.0', '2026-02-01T00:00:00Z')));
     expect(out).toHaveLength(UPDATE_LOG_MAX);
     expect(out[UPDATE_LOG_MAX - 1].version).toBe('4.2.0');
-    expect(parseUpdateLog('{nope')).toEqual({ entries: [], valid: false });
+    expect(parseUpdateLog('{nope')).toMatchObject({ entries: [], items: [], valid: false });
     expect(parseUpdateLog('[{"version":1}]').entries).toEqual([]);
   });
-  it('matches a history row to the latest entry for its version that started before it finished', () => {
-    const log = [e('4.16.3', '2026-09-01T09:00:00Z'), e('4.16.3', '2026-09-02T09:00:00Z')];
-    expect(logEntryFor(log, { version: '4.16.3', completionTime: '2026-09-01T12:00:00Z' })?.startedAt).toBe('2026-09-01T09:00:00Z');
-    expect(logEntryFor(log, { version: '4.15.0' })).toBeNull();
+  it('keeps items it does not understand when appending, counts them, and caps the reason', () => {
+    const raw = JSON.stringify([{ tool: 'x' }, e('4.1.0', '2026-01-01T00:00:00Z')]);
+    const parsed = parseUpdateLog(raw);
+    expect(parsed).toMatchObject({ unrecognised: 1, valid: true });
+    expect(parsed.entries).toHaveLength(1);
+    expect(updateLogOverflow(parsed)).toBe(0);
+    const out = JSON.parse(appendUpdateLog(raw, { ...e('4.2.0', '2026-02-01T00:00:00Z'), reason: 'x'.repeat(UPDATE_REASON_MAX + 50) }));
+    expect(out[0]).toEqual({ tool: 'x' });
+    expect(out[2].reason).toHaveLength(UPDATE_REASON_MAX);
+  });
+  it('matches a history row only to an entry started within [row start − 5 min, row completion], after the update before it', () => {
+    const history = [
+      { version: '4.16.3', startedTime: '2026-09-02T10:00:00Z', completionTime: '2026-09-02T11:00:00Z' },
+      { version: '4.16.3', startedTime: '2026-09-01T10:00:00Z', completionTime: '2026-09-01T11:00:00Z' },
+      { version: '4.16.2' },
+    ];
+    // A stale entry from the earlier attempt at the same version is not borrowed by the later row.
+    const stale = [e('4.16.3', '2026-09-01T09:58:00Z')];
+    expect(logEntryFor(stale, history, 0)).toBeNull();
+    expect(logEntryFor(stale, history, 1)?.startedAt).toBe('2026-09-01T09:58:00Z'); // within 5 min of skew
+    expect(logEntryFor([e('4.16.3', '2026-09-01T09:50:00Z')], history, 1)).toBeNull(); // too early
+    expect(logEntryFor([e('4.16.3', '2026-09-01T12:00:00Z')], history, 1)).toBeNull(); // after it finished
+    expect(logEntryFor([e('4.16.2', '2026-01-01T00:00:00Z')], history, 2)).toBeNull(); // no start time: nothing to match
+    const running = [{ version: '4.17.0', startedTime: '2026-10-01T10:00:00Z' }, ...history];
+    expect(logEntryFor([e('4.17.0', '2026-10-01T09:59:30Z')], running, 0)).not.toBeNull();
   });
   it('estimates from up to three completed updates, leaving out the installation', () => {
     const h = (m: number, i: number) => ({ state: 'Completed', version: `4.16.${i}`, startedTime: '2026-01-01T00:00:00Z', completionTime: new Date(Date.parse('2026-01-01T00:00:00Z') + m * 60000).toISOString() });

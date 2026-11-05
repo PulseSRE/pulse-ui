@@ -13,8 +13,11 @@ import type { ClusterOperator, MachineConfigPool, Node, Pod } from '../../../eng
 import type { UpdatesTabProps } from '../UpdatesTab';
 
 const addToastMock = vi.fn();
+const freshCv: { current: import('../../../engine/types').ClusterVersion | null | undefined; rv: string } = vi.hoisted(() => ({ current: null, rv: 'rv-1' }));
+const whoamiFails = vi.hoisted(() => ({ current: false }));
+const impersonation = vi.hoisted(() => ({ user: null as string | null }));
 vi.mock('../../../store/uiStore', () => ({
-  useUIStore: (selector: (s: unknown) => unknown) => selector({ addToast: addToastMock }),
+  useUIStore: (selector: (s: unknown) => unknown) => selector({ addToast: addToastMock, impersonateUser: impersonation.user, impersonateGroups: [] }),
 }));
 
 const listByPath: Record<string, unknown[] | Error> = {};
@@ -27,7 +30,12 @@ vi.mock('../../../engine/query', () => ({
     if (v instanceof Error) throw v;
     return v;
   }),
-  k8sGet: vi.fn().mockResolvedValue({ metadata: { name: 'alice' } }),
+  k8sGet: vi.fn(async (path: string) => {
+    // The start-update flow re-reads ClusterVersion just before patching.
+    if (path.includes('/clusterversions/version')) return { ...(freshCv.current ?? { metadata: { name: 'version' } }), metadata: { ...(freshCv.current?.metadata ?? { name: 'version' }), resourceVersion: freshCv.rv } };
+    if (path.includes('/users/~') && whoamiFails.current) throw Object.assign(new Error('forbidden'), { status: 403 });
+    return { metadata: { name: 'alice' } };
+  }),
 }));
 
 let canI = true;
@@ -36,7 +44,7 @@ vi.mock('../../../engine/errorToast', () => ({ showErrorToast: vi.fn() }));
 vi.mock('../../../engine/askPulse', () => ({ askPulse: vi.fn() }));
 
 import { UpdatesTab } from '../UpdatesTab';
-import { k8sPatch, k8sCreate } from '../../../engine/query';
+import { k8sPatch, k8sCreate, k8sGet } from '../../../engine/query';
 import { setActiveClusterId } from '../../../engine/clusterConnection';
 import { idleClusterVersion, inFlightClusterVersion } from '../../../__fixtures__/clusterVersionUpdates';
 import { UPDATE_LOG_ANNOTATION } from '../../../engine/upgradeLog';
@@ -46,6 +54,7 @@ const cvPatches = () => vi.mocked(k8sPatch).mock.calls.filter(([p]) => p === CV_
 
 function renderTab(props: Partial<UpdatesTabProps> = {}) {
   const cv = props.clusterVersion ?? idleClusterVersion();
+  freshCv.current = cv;
   const defaults: UpdatesTabProps = {
     clusterVersion: cv, cvVersion: '4.16.3', cvChannel: 'stable-4.16', platform: 'AWS',
     availableUpdates: cv?.status?.availableUpdates ?? [], isUpdating: false,
@@ -73,6 +82,9 @@ async function openStart() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  whoamiFails.current = false;
+  impersonation.user = null;
+  freshCv.rv = 'rv-1';
   canI = true;
   for (const k of Object.keys(listByPath)) delete listByPath[k];
   setActiveClusterId('local');
@@ -153,6 +165,128 @@ describe('Start update dialog', () => {
     fireEvent.click(start);
     expect((await within(dialog).findByRole('alert')).textContent).toMatch(/Update not started: .*forbidden/);
     expect(addToastMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+});
+
+describe('Start update: log annotation edge cases', () => {
+  async function fillAndStart(dialog: HTMLElement, version = '4.17.2') {
+    fireEvent.change(within(dialog).getByLabelText(/^Reason/), { target: { value: 'planned' } });
+    const start = within(dialog).getByRole('button', { name: `Start update to ${version}` }) as HTMLButtonElement;
+    await vi.waitFor(() => expect(start.disabled).toBe(false));
+    fireEvent.click(start);
+  }
+  const lastLog = () => JSON.parse((cvPatches().at(-1)![1] as { metadata: { annotations: Record<string, string> } }).metadata.annotations[UPDATE_LOG_ANNOTATION]);
+
+  it('a malformed annotation: the dialog says it will be replaced, and the new log is just the new entry', async () => {
+    const cv = idleClusterVersion();
+    cv.metadata.annotations = { [UPDATE_LOG_ANNOTATION]: '{not json' };
+    renderTab({ clusterVersion: cv });
+    const dialog = await openStart();
+    expect(dialog.textContent).toMatch(/is not valid JSON and will be replaced/);
+    await fillAndStart(dialog);
+    await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+    expect(lastLog()).toHaveLength(1);
+  });
+
+  it('entries Pulse does not understand are kept and the dialog says so; overflow beyond 50 is stated', async () => {
+    const cv = idleClusterVersion();
+    const known = Array.from({ length: 49 }, (_, i) => ({ version: `4.15.${i}`, startedAt: '2026-01-01T00:00:00Z', by: 'bob', reason: 'r' }));
+    cv.metadata.annotations = { [UPDATE_LOG_ANNOTATION]: JSON.stringify([{ tool: 'other', note: 'x' }, ...known]) };
+    renderTab({ clusterVersion: cv });
+    const dialog = await openStart();
+    expect(dialog.textContent).toMatch(/1 existing log entry Pulse does not understand will be kept unchanged/);
+    expect(dialog.textContent).toMatch(/the oldest entry is removed/);
+    await fillAndStart(dialog);
+    await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+    const log = lastLog();
+    expect(log).toHaveLength(50);
+    expect(log[0]).toEqual(known[0]); // the oldest item (the unrecognised one) went to the cap, by position, not by being unrecognised
+    const cv2 = idleClusterVersion();
+    cv2.metadata.annotations = { [UPDATE_LOG_ANNOTATION]: JSON.stringify([{ tool: 'other' }, known[0]]) };
+    cleanup(); vi.mocked(k8sPatch).mockClear();
+    renderTab({ clusterVersion: cv2 });
+    await fillAndStart(await openStart());
+    await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+    expect(lastLog()[0]).toEqual({ tool: 'other' });
+  });
+
+  it('when the username cannot be read: "an unknown user" and by: null', async () => {
+    whoamiFails.current = true;
+    renderTab();
+    const dialog = await openStart();
+    await vi.waitFor(() => expect(dialog.textContent).toMatch(/Recorded as started by an unknown user \(your username could not be read\)/));
+    await fillAndStart(dialog);
+    await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+    expect(lastLog().at(-1)).toMatchObject({ by: null, reason: 'planned' });
+  });
+
+  it('while impersonating, the entry records impersonated: true', async () => {
+    impersonation.user = 'bob';
+    renderTab();
+    const dialog = await openStart();
+    await vi.waitFor(() => expect(dialog.textContent).toMatch(/impersonating this user/));
+    await fillAndStart(dialog);
+    await vi.waitFor(() => expect(cvPatches()).toHaveLength(1));
+    expect(lastLog().at(-1)).toMatchObject({ impersonated: true });
+  });
+
+  it('starting or stopping impersonation reads the username again (it is part of the query key)', async () => {
+    const whoamiCalls = () => vi.mocked(k8sGet).mock.calls.filter(([p]) => String(p).includes('/users/~')).length;
+    const cv = idleClusterVersion();
+    freshCv.current = cv;
+    const props: UpdatesTabProps = {
+      clusterVersion: cv, cvVersion: '4.16.3', cvChannel: 'stable-4.16', platform: 'AWS',
+      availableUpdates: cv.status?.availableUpdates ?? [], isUpdating: false,
+      operators: [], nodes: [], pdbs: [], isHyperShift: false, machineConfigPools: [], pods: [], firingAlerts: [], go: vi.fn(),
+    };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    const tree = () => <QueryClientProvider client={client}><MemoryRouter><UpdatesTab {...props} /></MemoryRouter></QueryClientProvider>;
+    const { rerender } = render(tree());
+    await vi.waitFor(() => expect(whoamiCalls()).toBe(1));
+    impersonation.user = 'bob';
+    rerender(tree());
+    await vi.waitFor(() => expect(whoamiCalls()).toBe(2));
+  });
+
+  it('builds the patch from a fresh read, conditional on its resourceVersion; a 409 re-reads and retries (dry run each time)', async () => {
+    vi.mocked(k8sPatch)
+      .mockResolvedValueOnce({}) // dry run 1
+      .mockRejectedValueOnce(Object.assign(new Error('Conflict'), { status: 409 })) // real 1
+      .mockResolvedValueOnce({}) // dry run 2
+      .mockResolvedValueOnce({}); // real 2
+    renderTab();
+    const dialog = await openStart();
+    freshCv.rv = 'rv-7';
+    await fillAndStart(dialog);
+    await vi.waitFor(() => expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' })));
+    const calls = vi.mocked(k8sPatch).mock.calls;
+    expect(calls.map(([p]) => p)).toEqual([`${CV_PATH}?dryRun=All`, CV_PATH, `${CV_PATH}?dryRun=All`, CV_PATH]);
+    expect((calls[3][1] as { metadata: { resourceVersion: string } }).metadata.resourceVersion).toBe('rv-7');
+    expect(vi.mocked(k8sGet).mock.calls.filter(([p]) => String(p).includes('/clusterversions/version'))).toHaveLength(2);
+  });
+
+  it('still conflicting after 3 attempts: says so, nothing sent beyond dry runs, no success', async () => {
+    vi.mocked(k8sPatch).mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409 }));
+    try {
+      renderTab();
+      const dialog = await openStart();
+      await fillAndStart(dialog);
+      expect((await within(dialog).findByRole('alert')).textContent).toMatch(/changed while the update was being sent, 3 times in a row \(409 Conflict\), so nothing was changed/);
+      expect(vi.mocked(k8sPatch).mock.calls).toHaveLength(3);
+      expect(addToastMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+    } finally {
+      vi.mocked(k8sPatch).mockReset();
+      vi.mocked(k8sPatch).mockResolvedValue({});
+    }
+  });
+
+  it('a non-409 failure is not retried', async () => {
+    vi.mocked(k8sPatch).mockRejectedValueOnce(Object.assign(new Error('forbidden'), { status: 403 }));
+    renderTab();
+    const dialog = await openStart();
+    await fillAndStart(dialog);
+    expect((await within(dialog).findByRole('alert')).textContent).toMatch(/forbidden/);
+    expect(vi.mocked(k8sPatch).mock.calls).toHaveLength(1);
   });
 });
 
@@ -357,6 +491,27 @@ describe('During an update', () => {
     expect(go).toHaveBeenCalledWith('/r/v1~pods/openshift-ovn-kubernetes/ovnkube-node-a', 'ovnkube-node-a');
     // Readiness is for before an update; it is not shown while one runs.
     expect(screen.queryByTestId('upgrade-readiness')).toBeNull();
+  });
+
+  it('stuck operator: pods unreadable says so, loading says so, and more than 6 namespaces shows "+N more"', () => {
+    const many = Array.from({ length: 8 }, (_, i) => ({ group: '', resource: 'namespaces', name: `ns-${i}` }));
+    const op = {
+      apiVersion: 'config.openshift.io/v1', kind: 'ClusterOperator', metadata: { name: 'dns', uid: 'd', creationTimestamp: '' },
+      status: { conditions: [{ type: 'Degraded', status: 'True' }], relatedObjects: many },
+    } as ClusterOperator;
+    const cv = inFlightClusterVersion();
+    const base = { clusterVersion: cv, cvVersion: '4.16.8', isUpdating: true, availableUpdates: cv.status!.availableUpdates!, operators: [op] };
+    const { unmount } = renderTab({ ...base, podsError: Object.assign(new Error('x'), { status: 403 }) });
+    const detail = screen.getByTestId('stuck-operator-dns');
+    expect(detail.textContent).toContain('+2 more');
+    fireEvent.click(within(detail).getByRole('button', { name: 'ns-0' }));
+    expect(detail.textContent).toMatch(/Pods could not be read \(Permission denied \(403\)\)/);
+    expect(within(detail).queryByRole('button', { name: 'Logs' })).toBeNull();
+    unmount();
+    renderTab({ ...base, podsLoading: true });
+    fireEvent.click(within(screen.getByTestId('stuck-operator-dns')).getByRole('button', { name: 'ns-0' }));
+    expect(screen.getByTestId('stuck-operator-dns').textContent).toMatch(/Loading pods/);
+    expect(screen.getByTestId('stuck-operator-dns').textContent).not.toMatch(/No pods in/);
   });
 
   it('a drain blocker names the pod that cannot be evicted as well as the PDB', () => {

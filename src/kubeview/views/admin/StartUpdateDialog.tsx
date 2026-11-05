@@ -5,7 +5,7 @@ import { parseMinor } from '../../engine/upgradeApiRemovals';
 import type { MachineConfigPool } from '../../engine/types';
 import type { UpgradeHistoryEntry, UpgradeTarget } from '../../engine/upgradeGraph';
 import type { ReadinessCheck } from '../../engine/upgradeReadiness';
-import { estimateFromHistory, UPDATE_REASON_MAX } from '../../engine/upgradeLog';
+import { estimateFromHistory, UPDATE_LOG_MAX, UPDATE_REASON_MAX } from '../../engine/upgradeLog';
 
 export interface StartUpdateDialogProps {
   target: UpgradeTarget;
@@ -23,7 +23,8 @@ export interface StartUpdateDialogProps {
   username: string | null;
   usernameLoading: boolean;
   /** Present and false when the existing update-log annotation is not valid JSON and would be replaced. */
-  logValid: boolean;
+  logState: { valid: boolean; unrecognised: number; overflow: number };
+  impersonating?: boolean;
   /** The merge patch the confirm sends, for display. */
   patchPreview: (reason: string) => unknown;
   /** Sends the patch (dry run first); rejects with the server's error. */
@@ -47,7 +48,7 @@ function poolState(pools: MachineConfigPool[] | null): string {
  * update), what happens to worker pools, and whether it can be undone.
  */
 export function StartUpdateDialog({
-  target, fromVersion, clusterId, blockers, unknownCount, readinessFor, pools, history, username, usernameLoading, logValid,
+  target, fromVersion, clusterId, blockers, unknownCount, readinessFor, pools, history, username, usernameLoading, logState, impersonating,
   patchPreview, onConfirm, onClose,
 }: StartUpdateDialogProps) {
   const [reason, setReason] = React.useState('');
@@ -126,7 +127,10 @@ export function StartUpdateDialog({
           <p className="text-slate-500">
             Recorded as started by{' '}
             {usernameLoading ? 'you (reading your username…)' : username ? <span className="font-mono text-slate-300">{username}</span> : 'an unknown user (your username could not be read)'}.
-            {!logValid && ' The existing update log on ClusterVersion is not valid JSON and will be replaced.'}
+            {impersonating && ' (you are impersonating this user; the entry says so)'}
+            {!logState.valid && ' The existing update log on ClusterVersion is not valid JSON and will be replaced.'}
+            {logState.valid && logState.unrecognised > 0 && ` ${logState.unrecognised === 1 ? '1 existing log entry' : `${logState.unrecognised} existing log entries`} Pulse does not understand will be kept unchanged.`}
+            {logState.overflow > 0 && ` The log keeps the last ${UPDATE_LOG_MAX} entries, so the oldest ${logState.overflow === 1 ? 'entry is' : `${logState.overflow} entries are`} removed.`}
           </p>
         </div>
 

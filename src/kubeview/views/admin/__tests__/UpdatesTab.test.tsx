@@ -11,9 +11,12 @@ import type { UpdatesTabProps } from '../UpdatesTab';
 // --- Mocks ---
 
 const addToastMock = vi.fn();
+const freshCv: { current: import('../../../engine/types').ClusterVersion | null | undefined; rv: string } = vi.hoisted(() => ({ current: null, rv: 'rv-1' }));
+const whoamiFails = vi.hoisted(() => ({ current: false }));
+const impersonation = vi.hoisted(() => ({ user: null as string | null }));
 vi.mock('../../../store/uiStore', () => ({
   useUIStore: (selector: any) => {
-    const state = { addToast: addToastMock };
+    const state = { addToast: addToastMock, impersonateUser: impersonation.user, impersonateGroups: [] };
     return selector(state);
   },
 }));
@@ -23,7 +26,12 @@ vi.mock('../../../engine/query', () => ({
   k8sCreate: vi.fn().mockResolvedValue({}),
   // Readiness reads answer empty lists; the username lookup answers "alice".
   k8sList: vi.fn().mockResolvedValue([]),
-  k8sGet: vi.fn().mockResolvedValue({ metadata: { name: 'alice' } }),
+  k8sGet: vi.fn(async (path: string) => {
+    // The start-update flow re-reads ClusterVersion just before patching.
+    if (path.includes('/clusterversions/version')) return { ...(freshCv.current ?? { metadata: { name: 'version' } }), metadata: { ...(freshCv.current?.metadata ?? { name: 'version' }), resourceVersion: freshCv.rv } };
+    if (path.includes('/users/~') && whoamiFails.current) throw Object.assign(new Error('forbidden'), { status: 403 });
+    return { metadata: { name: 'alice' } };
+  }),
 }));
 
 let canPatch = true;
@@ -51,6 +59,7 @@ function createQueryClient() {
 }
 
 function renderTab(props: Partial<UpdatesTabProps> = {}) {
+  freshCv.current = props.clusterVersion;
   const defaults: UpdatesTabProps = {
     clusterVersion: null,
     cvVersion: '4.15.3',

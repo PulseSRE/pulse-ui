@@ -39,13 +39,13 @@ export function UpdateHistoryTable({ history, log, inFlight }: { history: Upgrad
               const idx = current * HISTORY_PAGE_SIZE + i;
               const running = idx === 0 && h.state === 'Partial' && !h.completionTime && inFlight;
               const mins = durationMinutes(h.startedTime, h.completionTime);
-              const entry = logEntryFor(log, h);
+              const entry = logEntryFor(log, history, idx);
               return (
                 <tr key={`${h.version}-${idx}`} className="align-top">
                   <td className="py-1.5 pr-3 font-mono text-slate-200">{h.version}</td>
                   <td className="py-1.5 pr-3 text-slate-300">{formatTimestamp(h.startedTime)}</td>
                   <td className="py-1.5 pr-3 font-mono text-slate-300">{mins != null ? formatMinutes(mins) : running ? '…' : '—'}</td>
-                  <td className="py-1.5 pr-3 text-slate-200">{entry ? (entry.by ?? <span className="text-slate-400">unknown user</span>) : notRecorded}</td>
+                  <td className="py-1.5 pr-3 text-slate-200">{entry ? <>{entry.by ?? <span className="text-slate-400">unknown user</span>}{entry.impersonated && <span className="text-slate-400"> (impersonated)</span>}</> : notRecorded}</td>
                   <td className="py-1.5 pr-3 text-slate-200 break-words max-w-xs">{entry ? entry.reason : notRecorded}</td>
                   <td className={cn('py-1.5', running ? 'text-blue-300' : h.state === 'Completed' ? 'text-emerald-400' : 'text-amber-400')}>
                     {running ? 'In progress' : h.state}{h.verified === false ? ' · unverified' : ''}

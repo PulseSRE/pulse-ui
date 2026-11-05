@@ -8,7 +8,13 @@
  *
  * The annotation is written by whoever may patch ClusterVersion, so it is a
  * record Pulse kept, not proof; the API server's audit log has the
- * authoritative identity for each patch.
+ * authoritative identity for each patch. `startedAt` comes from the clock of
+ * the browser that started the update, so it can be off by that machine's
+ * clock skew; history rows are matched to it with a tolerance for that.
+ *
+ * Entries Pulse does not understand (written by another tool or a newer
+ * Pulse) are kept as they are when appending; only the history display
+ * leaves them out.
  */
 
 import type { ClusterVersion } from './types';
@@ -24,36 +30,59 @@ export interface UpdateLogEntry {
   /** The username Pulse read for the person who started it; null when it could not be read. */
   by: string | null;
   reason: string;
+  /** Set when the user was impersonating someone; `by` is then the impersonated identity. */
+  impersonated?: boolean;
+}
+
+export interface ParsedUpdateLog {
+  /** Entries Pulse understands, for display. */
+  entries: UpdateLogEntry[];
+  /** Every item in the array, understood or not; appending keeps all of them. */
+  items: unknown[];
+  /** Items in the array Pulse does not understand (kept, not shown). */
+  unrecognised: number;
+  /** False when the annotation is present but not a JSON array; it is then replaced. */
+  valid: boolean;
 }
 
 /** The entries in the annotation; `valid: false` when it is present but not a JSON array. */
-export function parseUpdateLog(raw: string | undefined | null): { entries: UpdateLogEntry[]; valid: boolean } {
-  if (!raw) return { entries: [], valid: true };
+export function parseUpdateLog(raw: string | undefined | null): ParsedUpdateLog {
+  if (!raw) return { entries: [], items: [], unrecognised: 0, valid: true };
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { entries: [], valid: false };
+    return { entries: [], items: [], unrecognised: 0, valid: false };
   }
-  if (!Array.isArray(parsed)) return { entries: [], valid: false };
+  if (!Array.isArray(parsed)) return { entries: [], items: [], unrecognised: 0, valid: false };
   const entries = parsed.filter((e): e is UpdateLogEntry =>
     !!e && typeof e === 'object'
     && typeof (e as UpdateLogEntry).version === 'string'
     && typeof (e as UpdateLogEntry).startedAt === 'string'
     && typeof (e as UpdateLogEntry).reason === 'string'
     && ((e as UpdateLogEntry).by === null || typeof (e as UpdateLogEntry).by === 'string'),
-  ).map((e) => ({ version: e.version, startedAt: e.startedAt, by: e.by, reason: e.reason }));
-  return { entries, valid: true };
+  ).map((e) => ({ version: e.version, startedAt: e.startedAt, by: e.by, reason: e.reason, ...(e.impersonated ? { impersonated: true } : {}) }));
+  return { entries, items: parsed, unrecognised: parsed.length - entries.length, valid: true };
+}
+
+/** How many of the oldest items appending one entry would push out of the log. */
+export function updateLogOverflow(log: ParsedUpdateLog): number {
+  return Math.max(0, log.items.length + 1 - UPDATE_LOG_MAX);
 }
 
 export function updateLogOf(cv: ClusterVersion | null | undefined) {
   return parseUpdateLog(cv?.metadata?.annotations?.[UPDATE_LOG_ANNOTATION]);
 }
 
-/** The annotation value with `entry` appended, keeping the last UPDATE_LOG_MAX entries. */
+/**
+ * The annotation value with `entry` appended to every existing item
+ * (understood or not), keeping the last UPDATE_LOG_MAX. The reason is capped
+ * at UPDATE_REASON_MAX here, whatever the caller's input allowed.
+ */
 export function appendUpdateLog(raw: string | undefined | null, entry: UpdateLogEntry): string {
-  const { entries } = parseUpdateLog(raw);
-  return JSON.stringify([...entries, entry].slice(-UPDATE_LOG_MAX));
+  const { items } = parseUpdateLog(raw);
+  const capped = { ...entry, reason: entry.reason.slice(0, UPDATE_REASON_MAX) };
+  return JSON.stringify([...items, capped].slice(-UPDATE_LOG_MAX));
 }
 
 /**
@@ -73,13 +102,27 @@ export function updateStartPatch(
   };
 }
 
+/** Browser clock skew allowed between an entry's startedAt and the history row's startedTime. */
+export const LOG_MATCH_SKEW_MS = 5 * 60_000;
+
 /**
- * The log entry for a history row: the latest entry for that version that
- * started no later than the row finished (or any time, for a running row).
+ * The log entry for history row `index` (history is newest first): an entry
+ * for the row's version whose startedAt lies in [row start − 5 min, row
+ * completion] (no upper bound while it runs) and after the start of the update
+ * before it. An entry left from an earlier attempt at the same version is not
+ * borrowed. A row without a start time matches nothing.
  */
-export function logEntryFor(entries: UpdateLogEntry[], h: Pick<UpgradeHistoryEntry, 'version' | 'startedTime' | 'completionTime'>): UpdateLogEntry | null {
-  const end = h.completionTime ? new Date(h.completionTime).getTime() : Infinity;
-  const candidates = entries.filter((e) => e.version === h.version && new Date(e.startedAt).getTime() <= end);
+export function logEntryFor(entries: UpdateLogEntry[], history: Array<Pick<UpgradeHistoryEntry, 'version' | 'startedTime' | 'completionTime'>>, index: number): UpdateLogEntry | null {
+  const h = history[index];
+  const start = h?.startedTime ? Date.parse(h.startedTime) : NaN;
+  if (!h || Number.isNaN(start)) return null;
+  const end = h.completionTime ? Date.parse(h.completionTime) : Infinity;
+  const older = history[index + 1]?.startedTime ? Date.parse(history[index + 1].startedTime!) : -Infinity;
+  const lo = Math.max(start - LOG_MATCH_SKEW_MS, older);
+  const candidates = entries.filter((e) => {
+    const t = Date.parse(e.startedAt);
+    return e.version === h.version && !Number.isNaN(t) && t >= lo && t > older && t <= end;
+  });
   return candidates.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
 }
 

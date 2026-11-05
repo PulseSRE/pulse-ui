@@ -8,6 +8,7 @@ import type { ClusterOperator, Condition, Pod } from '../../engine/types';
 
 /** An operator still Progressing after this long, during an update, is treated as stuck. */
 export const STUCK_PROGRESSING_MINUTES = 30;
+const MAX_NAMESPACES = 6;
 
 const cond = (op: ClusterOperator, type: string) => (op.status?.conditions as Condition[] | undefined)?.find((c) => c.type === type);
 
@@ -37,7 +38,7 @@ function podReady(p: Pod): boolean {
   return ((p.status?.conditions || []) as Condition[]).some((c) => c.type === 'Ready' && c.status === 'True');
 }
 
-function StuckDetail({ op, pods, podsError, go }: { op: ClusterOperator; pods: Pod[]; podsError?: string; go: (path: string, title: string) => void }) {
+function StuckDetail({ op, pods, podsError, podsLoading, go }: { op: ClusterOperator; pods: Pod[]; podsError?: string; podsLoading?: boolean; go: (path: string, title: string) => void }) {
   const namespaces = relatedNamespaces(op);
   const [openNs, setOpenNs] = React.useState<string | null>(null);
   if (namespaces.length === 0) return <p className="mt-1 text-xs text-slate-500">The operator lists no related namespaces.</p>;
@@ -46,16 +47,19 @@ function StuckDetail({ op, pods, podsError, go }: { op: ClusterOperator; pods: P
     <div className="mt-1.5 space-y-1.5" data-testid={`stuck-operator-${op.metadata.name}`}>
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         <span className="text-slate-500">Related namespaces:</span>
-        {namespaces.slice(0, 6).map((ns) => (
+        {namespaces.slice(0, MAX_NAMESPACES).map((ns) => (
           <button key={ns} type="button" aria-expanded={openNs === ns} onClick={() => setOpenNs((v) => (v === ns ? null : ns))}
             className={cn('px-1.5 py-0.5 rounded-sm font-mono', openNs === ns ? 'bg-blue-900/60 text-blue-200' : 'bg-slate-800 text-blue-400 hover:text-blue-300')}>
             {ns}
           </button>
         ))}
+        {namespaces.length > MAX_NAMESPACES && <span className="text-slate-500">+{namespaces.length - MAX_NAMESPACES} more</span>}
       </div>
       {openNs && (podsError
         ? <p className="text-xs text-slate-500">Pods could not be read ({podsError}).</p>
-        : nsPods.length === 0
+        : podsLoading
+          ? <p className="text-xs text-slate-500">Loading pods{'\u2026'}</p>
+          : nsPods.length === 0
           ? <p className="text-xs text-slate-500">No pods in {openNs}.</p>
           : (
             <ul className="space-y-1" aria-label={`Pods in ${openNs}`}>
@@ -81,10 +85,11 @@ function StuckDetail({ op, pods, podsError, go }: { op: ClusterOperator; pods: P
  * it. A stuck operator (Degraded, unavailable, or Progressing for too long)
  * opens its related namespaces, their pods, and each pod's logs.
  */
-export function OperatorUpdateProgress({ operators, pods, podsError, go }: {
+export function OperatorUpdateProgress({ operators, pods, podsError, podsLoading, go }: {
   operators: ClusterOperator[];
   pods: Pod[];
   podsError?: string;
+  podsLoading?: boolean;
   go: (path: string, title: string) => void;
 }) {
   return (
@@ -129,7 +134,7 @@ export function OperatorUpdateProgress({ operators, pods, podsError, go }: {
                   </span>
                 </div>
               </div>
-              {stuck && <div className="ml-5"><StuckDetail op={op} pods={pods} podsError={podsError} go={go} /></div>}
+              {stuck && <div className="ml-5"><StuckDetail op={op} pods={pods} podsError={podsError} podsLoading={podsLoading} go={go} /></div>}
             </div>
           );
         })}

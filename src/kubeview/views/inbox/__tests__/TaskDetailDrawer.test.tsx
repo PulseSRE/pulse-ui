@@ -231,6 +231,15 @@ describe('TaskDetailDrawer — links for cluster update items', () => {
     expect(document.querySelector('a[href*="evil"], a[href^="javascript"]')).toBeNull();
   });
 
+  it.each(['/%2F%2Fevil.example', '/%5Cevil.example', '/%2f%2fevil.example'])('an encoded path (%s) stays an in-app link', (ui_link) => {
+    render(<TaskDetailDrawer item={makeItem({ metadata: { ui_link } })} onClose={vi.fn()} />);
+    const href = openLink('Open in Pulse')?.getAttribute('href') ?? '';
+    expect(href.startsWith('/')).toBe(true);
+    expect(href.startsWith('//')).toBe(false);
+    expect(href.startsWith('/\\')).toBe(false);
+    expect(new URL(href, 'https://pulse.example').host).toBe('pulse.example');
+  });
+
   it('an unsafe ui_link on an update item still falls back to the Updates tab, not the link', () => {
     render(<TaskDetailDrawer item={makeItem({ metadata: { ui_link: '//evil.example', generator: 'upgrade_api_removals' } })} onClose={vi.fn()} />);
     expect(openLink('Open Updates')?.getAttribute('href')).toBe('/admin?tab=updates');
