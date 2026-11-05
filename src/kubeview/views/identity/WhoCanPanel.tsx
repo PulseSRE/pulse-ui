@@ -19,6 +19,7 @@ import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { askPulse } from '../../engine/askPulse';
 import { PulseError } from '../../engine/errors';
+import { formatDate, formatTime } from '../../engine/format';
 import { isPlatformNamespace } from '../../engine/platformNamespaces';
 import { Button } from '../../components/primitives/Button';
 import { LoadError } from '../../components/primitives/LoadError';
@@ -129,7 +130,7 @@ export function explain(
 function since(grants: Grant[]): string {
   const ts = grants.map((g) => g.binding.created).filter(Boolean).map((t) => Date.parse(t!)).filter((n) => !Number.isNaN(n));
   if (!ts.length) return '—';
-  return new Date(Math.min(...ts)).toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+  return formatDate(Math.min(...ts));
 }
 
 function toCsv(rows: WhoCanRow[]): string {
@@ -234,7 +235,7 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-100" role="status">
               {visible.length} subject{visible.length === 1 ? '' : 's'} can {asked.verb} {asked.resource} {where(asked)}
-              <span className="ml-2 text-xs text-slate-500">{people.size} {people.size === 1 ? 'person' : 'people'} · checked {resultQ.data.at.toLocaleTimeString()} · RBAC</span>
+              <span className="ml-2 text-xs text-slate-500">{people.size} {people.size === 1 ? 'person' : 'people'} · checked {formatTime(resultQ.data.at)} · RBAC</span>
             </p>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="ghost" onClick={exportCsv}><Download className="w-3.5 h-3.5" /> Export CSV</Button>

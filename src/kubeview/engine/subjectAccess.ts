@@ -63,10 +63,14 @@ export function subjectMatches(s: Subject, ref: SubjectRef, bindingNamespace?: s
   return s.kind === ref.kind && s.name === ref.name;
 }
 
-/** Virtual groups the API server adds; there is no object to remove a subject from. */
-export function virtualGroupsOf(ref: SubjectRef): string[] {
+/**
+ * Virtual groups the API server adds; there is no object to remove a subject from.
+ * `system:authenticated:oauth` is added only to users who sign in through OAuth,
+ * so it is assumed only when the user has an Identity (`oauth`).
+ */
+export function virtualGroupsOf(ref: SubjectRef, opts: { oauth?: boolean } = {}): string[] {
   if (ref.kind === 'ServiceAccount') return ['system:serviceaccounts', `system:serviceaccounts:${ref.namespace}`, 'system:authenticated'];
-  if (ref.kind === 'User') return ['system:authenticated', 'system:authenticated:oauth'];
+  if (ref.kind === 'User') return opts.oauth === false ? ['system:authenticated'] : ['system:authenticated', 'system:authenticated:oauth'];
   return [];
 }
 
@@ -81,7 +85,7 @@ export interface Membership {
 }
 
 /** The groups a subject belongs to: Group objects that list it, then the virtual groups. */
-export function membershipsOf(ref: SubjectRef, groups: GroupLike[]): Membership[] {
+export function membershipsOf(ref: SubjectRef, groups: GroupLike[], opts: { oauth?: boolean } = {}): Membership[] {
   if (ref.kind === 'Group') return [];
   const username = usernameOf(ref);
   const out: Membership[] = [];
@@ -90,7 +94,7 @@ export function membershipsOf(ref: SubjectRef, groups: GroupLike[]): Membership[
     const index = users.indexOf(username);
     if (index >= 0) out.push({ group: g.metadata.name, removable: true, index, members: users, resourceVersion: g.metadata.resourceVersion });
   }
-  for (const v of virtualGroupsOf(ref)) out.push({ group: v, removable: false });
+  for (const v of virtualGroupsOf(ref, opts)) out.push({ group: v, removable: false });
   return out;
 }
 
@@ -142,9 +146,9 @@ function chainsFor(target: SubjectRef, via: Membership | null, crbs: AnyBinding[
  * Every binding that grants this subject something: direct ones first, then
  * through each group it belongs to (Group objects and virtual groups).
  */
-export function accessChains(ref: SubjectRef, crbs: AnyBinding[], rbs: AnyBinding[], groups: GroupLike[]): AccessChain[] {
+export function accessChains(ref: SubjectRef, crbs: AnyBinding[], rbs: AnyBinding[], groups: GroupLike[], opts: { oauth?: boolean } = {}): AccessChain[] {
   const direct = chainsFor(ref, null, crbs, rbs);
-  const viaGroups = membershipsOf(ref, groups).flatMap((m) => chainsFor({ kind: 'Group', name: m.group }, m, crbs, rbs));
+  const viaGroups = membershipsOf(ref, groups, opts).flatMap((m) => chainsFor({ kind: 'Group', name: m.group }, m, crbs, rbs));
   return [...direct, ...viaGroups];
 }
 
@@ -196,7 +200,26 @@ export function bindingKey(b: Pick<BindingSummary, 'kind' | 'name' | 'namespace'
   return `${b.kind}/${b.namespace ?? ''}/${b.name}`;
 }
 
-export function clusterAdminPaths(user: string, userGroups: string[], crbs: AnyBinding[], plan?: RemovalPlan): number {
+/**
+ * ClusterRoles that amount to cluster-admin: cluster-admin itself and any role
+ * with a rule granting every verb on every resource in every API group, or every
+ * verb on every non-resource URL.
+ */
+export function adminClusterRoles(clusterRoles: Array<{ metadata: { name: string }; rules?: PolicyRule[] | null }>): Set<string> {
+  const out = new Set<string>(['cluster-admin']);
+  for (const r of clusterRoles) {
+    const all = (r.rules ?? []).some((rule) => {
+      const v = rule.verbs ?? [];
+      if (!v.includes('*')) return false;
+      const everyResource = (rule.apiGroups ?? []).includes('*') && (rule.resources ?? []).includes('*');
+      return everyResource || (rule.nonResourceURLs ?? []).includes('*');
+    });
+    if (all) out.add(r.metadata.name);
+  }
+  return out;
+}
+
+export function clusterAdminPaths(user: string, userGroups: string[], crbs: AnyBinding[], plan?: RemovalPlan, adminRoles: Set<string> = new Set(['cluster-admin'])): number {
   const me: SubjectRef = { ...refFromUsername(user) };
   // Leaving a group only changes the current user's paths when they are the one removed.
   const isSelf = plan ? plan.subject.kind !== 'Group' && usernameOf(plan.subject) === user : false;
@@ -204,7 +227,7 @@ export function clusterAdminPaths(user: string, userGroups: string[], crbs: AnyB
   if (plan && isSelf) for (const g of plan.leftGroups) groups.delete(g);
   let n = 0;
   for (const b of crbs) {
-    if (b.roleRef?.name !== 'cluster-admin') continue;
+    if (!adminRoles.has(b.roleRef?.name ?? '')) continue;
     const key = bindingKey({ kind: 'ClusterRoleBinding', name: b.metadata.name });
     if (plan?.deletedBindings.has(key)) continue;
     const removed = new Set(plan?.removedSubjects.get(key) ?? []);

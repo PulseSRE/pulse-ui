@@ -21,19 +21,21 @@ import { useCanI } from '../../hooks/useCanI';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { getActiveClusterId } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
-import { k8sDelete, k8sFetch, k8sList, k8sPatch } from '../../engine/query';
+import { k8sDelete, k8sFetch, k8sGet, k8sList, k8sPatch } from '../../engine/query';
+import { recordLedger } from '../../engine/writeLedger';
 import { JSON_PATCH } from '../../engine/workloadActions';
 import { describeWriteError } from '../../components/ActionDialog';
 import { PulseError } from '../../engine/errors';
 import { useUIStore } from '../../store/uiStore';
 import {
-  bindingApiPath, bindingKey, clusterAdminPaths, removeGroupMemberPatch, removeSubjectsPatch,
+  adminClusterRoles, bindingApiPath, bindingKey, clusterAdminPaths, removeGroupMemberPatch, removeSubjectsPatch,
   usernameOf,
   type AccessChain, type Membership, type RemovalPlan, type SubjectRef,
 } from '../../engine/subjectAccess';
 import type { SubjectData } from './SubjectAccessView';
 
 export const SELF_LOCKOUT_PHRASE = 'remove my cluster-admin';
+export const SIGN_OUT_PHRASE = 'sign me out';
 
 type BindingChoice = 'remove-subject' | 'delete-binding' | 'keep';
 
@@ -48,6 +50,8 @@ export interface Change {
   preconditions?: { uid?: string; resourceVersion?: string };
   /** Saved so the result can be undone by hand. */
   before?: unknown;
+  /** For the write ledger: the object's kind, namespace and name. */
+  ledger: { kind: string; namespace?: string; name: string; verb: 'patch' | 'delete' };
 }
 
 type Outcome = { state: 'ok' } | { state: 'failed'; message: string } | { state: 'skipped'; message: string };
@@ -59,10 +63,15 @@ function is404(e: unknown) { return e instanceof PulseError && e.statusCode === 
 
 function withDryRun(path: string) { return `${path}${path.includes('?') ? '&' : '?'}dryRun=All`; }
 
-async function send(c: Change, clusterId: string, dryRun: boolean): Promise<void> {
+/** Send the change; resolves to the resourceVersion it produced (for a delete, the version deleted, if known). */
+async function send(c: Change, clusterId: string, dryRun: boolean): Promise<string> {
   const path = dryRun ? withDryRun(c.path) : c.path;
-  if (c.method === 'PATCH') { await k8sPatch(path, c.body, JSON_PATCH, clusterId); return; }
+  if (c.method === 'PATCH') {
+    const out = await k8sPatch<{ metadata?: { resourceVersion?: string } }>(path, c.body, JSON_PATCH, clusterId);
+    return out?.metadata?.resourceVersion ?? '';
+  }
   await k8sDelete(path, clusterId, c.preconditions);
+  return c.preconditions?.resourceVersion ?? '';
 }
 
 /** One permission-checked row; reports whether the viewer may make its change. */
@@ -146,6 +155,9 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
   const [permOk, setPermOk] = React.useState<Record<string, boolean>>({});
   const onPermission = React.useCallback((id: string, ok: boolean) => setPermOk((p) => (p[id] === ok ? p : { ...p, [id]: ok })), []);
   const [typed, setTyped] = React.useState('');
+  const [reason, setReason] = React.useState('');
+  const [signOutTyped, setSignOutTyped] = React.useState('');
+  const [ledgerNote, setLedgerNote] = React.useState<string | null>(null);
   const [selfTyped, setSelfTyped] = React.useState('');
   const [phase, setPhase] = React.useState<'review' | 'dry-run' | 'applying' | 'done'>('review');
   const [dryResults, setDryResults] = React.useState<Record<string, Outcome>>({});
@@ -175,6 +187,27 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
 
   const identities = React.useMemo(() => userObject?.identities ?? [], [userObject]);
   const tokens = React.useMemo(() => tokensQ.data ?? [], [tokensQ.data]);
+  // Identity uids, so each delete is conditional on the object that was read.
+  const identityUids = useQuery({
+    queryKey: ['subject-access', 'identities', clusterId, identities.join(',')],
+    enabled: identities.length > 0,
+    queryFn: async () => {
+      const out: Record<string, string> = {};
+      for (const i of identities) {
+        try {
+          const o = await k8sGet<{ metadata: { uid?: string } }>(`/apis/user.openshift.io/v1/identities/${encodeURIComponent(i)}`, clusterId);
+          if (o.metadata.uid) out[i] = o.metadata.uid;
+        } catch (e) { if (!is404(e)) throw e; }
+      }
+      return out;
+    },
+  });
+  // Roles that amount to cluster-admin (*/*/*), for the self-lockout check.
+  const rolesQ = useQuery({
+    queryKey: ['subject-access', 'clusterroles', clusterId],
+    queryFn: () => k8sList<{ metadata: { name: string }; rules?: never[] }>('/apis/rbac.authorization.k8s.io/v1/clusterroles', undefined, clusterId),
+  });
+  const adminRoles = React.useMemo(() => adminClusterRoles(rolesQ.data ?? []), [rolesQ.data]);
 
   const changes: Change[] = React.useMemo(() => {
     const out: Change[] = [];
@@ -184,26 +217,29 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
       const b = c.binding;
       const where = b.kind === 'ClusterRoleBinding' ? `ClusterRoleBinding ${b.name}` : `RoleBinding ${b.namespace}/${b.name}`;
       if (choice === 'remove-subject') {
-        out.push({ id, label: `Remove ${subject.name} from ${where}`, detail: 'JSON patch: test then remove the subject at its index', method: 'PATCH', path: bindingApiPath(b), body: removeSubjectsPatch(b.subjects, c.indexes), before: b });
+        out.push({ id, label: `Remove ${subject.name} from ${where}`, detail: 'JSON patch: test then remove the subject at its index', method: 'PATCH', path: bindingApiPath(b), body: removeSubjectsPatch(b.subjects, c.indexes), before: b, ledger: { kind: b.kind, namespace: b.namespace, name: b.name, verb: 'patch' } });
       } else if (choice === 'delete-binding') {
-        out.push({ id, label: `Delete ${where}`, detail: 'Delete, only if unchanged since read', method: 'DELETE', path: bindingApiPath(b), preconditions: { uid: b.uid, resourceVersion: b.resourceVersion }, before: b });
+        out.push({ id, label: `Delete ${where}`, detail: 'Delete, only if unchanged since read', method: 'DELETE', path: bindingApiPath(b), preconditions: { uid: b.uid, resourceVersion: b.resourceVersion }, before: b, ledger: { kind: b.kind, namespace: b.namespace, name: b.name, verb: 'delete' } });
       }
     }
     for (const m of removableGroups) {
       if (!leaveGroups[m.group] || m.index === undefined) continue;
-      out.push({ id: `group/${m.group}`, label: `Remove ${username} from Group ${m.group}`, detail: 'JSON patch: test then remove the member at its index', method: 'PATCH', path: `/apis/user.openshift.io/v1/groups/${encodeURIComponent(m.group)}`, body: removeGroupMemberPatch(username, m.index), before: { group: m.group, users: m.members } });
+      out.push({ id: `group/${m.group}`, label: `Remove ${username} from Group ${m.group}`, detail: 'JSON patch: test then remove the member at its index', method: 'PATCH', path: `/apis/user.openshift.io/v1/groups/${encodeURIComponent(m.group)}`, body: removeGroupMemberPatch(username, m.index), before: { group: m.group, users: m.members }, ledger: { kind: 'Group', name: m.group, verb: 'patch' } });
     }
     if (subject.kind === 'User' && userObject && deleteUser) {
-      out.push({ id: 'user', label: `Delete User ${subject.name}`, detail: 'Delete the User object', method: 'DELETE', path: `/apis/user.openshift.io/v1/users/${encodeURIComponent(subject.name)}`, preconditions: userObject.metadata.uid ? { uid: userObject.metadata.uid } : undefined, before: userObject });
+      out.push({ id: 'user', label: `Delete User ${subject.name}`, detail: 'Delete the User object', method: 'DELETE', path: `/apis/user.openshift.io/v1/users/${encodeURIComponent(subject.name)}`, preconditions: userObject.metadata.uid ? { uid: userObject.metadata.uid } : undefined, before: userObject, ledger: { kind: 'User', name: subject.name, verb: 'delete' } });
     }
     if (subject.kind === 'User' && deleteIdentities) {
-      for (const i of identities) out.push({ id: `identity/${i}`, label: `Delete Identity ${i}`, detail: 'Delete the Identity object', method: 'DELETE', path: `/apis/user.openshift.io/v1/identities/${encodeURIComponent(i)}` });
+      for (const i of identities) {
+        const uid = identityUids.data?.[i];
+        out.push({ id: `identity/${i}`, label: `Delete Identity ${i}`, detail: 'Delete the Identity object, only if it is the one read', method: 'DELETE', path: `/apis/user.openshift.io/v1/identities/${encodeURIComponent(i)}`, preconditions: uid ? { uid } : undefined, ledger: { kind: 'Identity', name: i, verb: 'delete' } });
+      }
     }
     if (subject.kind === 'User' && deleteTokens) {
-      for (const t of tokens) out.push({ id: `token/${t.metadata.name}`, label: `Delete OAuth access token ${t.metadata.name.slice(0, 12)}…`, detail: 'Signs this session out', method: 'DELETE', path: `/apis/oauth.openshift.io/v1/oauthaccesstokens/${encodeURIComponent(t.metadata.name)}`, preconditions: t.metadata.uid ? { uid: t.metadata.uid } : undefined });
+      for (const t of tokens) out.push({ id: `token/${t.metadata.name}`, label: `Delete OAuth access token ${t.metadata.name.slice(0, 12)}…`, detail: 'Signs this session out', method: 'DELETE', path: `/apis/oauth.openshift.io/v1/oauthaccesstokens/${encodeURIComponent(t.metadata.name)}`, preconditions: t.metadata.uid ? { uid: t.metadata.uid } : undefined, ledger: { kind: 'OAuthAccessToken', name: t.metadata.name, verb: 'delete' } });
     }
     return out;
-  }, [chains, choices, removableGroups, leaveGroups, subject, username, userObject, deleteUser, deleteIdentities, deleteTokens, identities, tokens]);
+  }, [chains, choices, removableGroups, leaveGroups, subject, username, userObject, deleteUser, deleteIdentities, deleteTokens, identities, tokens, identityUids.data]);
 
   // Rows report their permission; a change whose row is not (yet) known to be allowed is not sent.
   const rowIdOf = (c: Change) => (c.id.startsWith('identity/') ? 'identities' : c.id.startsWith('token/') ? 'tokens' : c.id);
@@ -218,13 +254,20 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
     leftGroups: new Set(removableGroups.filter((m) => leaveGroups[m.group] && sendable.some((s) => s.id === `group/${m.group}`)).map((m) => m.group)),
   }), [subject, sendable, chains, choices, removableGroups, leaveGroups]);
   const me = meQ.data;
-  const touchesClusterAdmin = chains.some((c) => c.binding.kind === 'ClusterRoleBinding' && c.binding.roleRef.name === 'cluster-admin' && choices[bindingKey(c.binding)] !== 'keep');
-  const selfBefore = me ? clusterAdminPaths(me.metadata.name, me.groups ?? [], data.crbs) : null;
-  const selfAfter = me ? clusterAdminPaths(me.metadata.name, me.groups ?? [], data.crbs, plan) : null;
-  const selfLockout = me ? (selfBefore ?? 0) > 0 && selfAfter === 0 : touchesClusterAdmin;
+  // Any admin-equivalent ClusterRoleBinding (cluster-admin or a */*/* role), or leaving a group that has one.
+  const adminCrbs = data.crbs.filter((b) => adminRoles.has(b.roleRef?.name ?? ''));
+  const touchesClusterAdmin = chains.some((c) => c.binding.kind === 'ClusterRoleBinding' && adminRoles.has(c.binding.roleRef.name) && choices[bindingKey(c.binding)] !== 'keep')
+    || removableGroups.some((m) => leaveGroups[m.group] && adminCrbs.some((b) => (b.subjects ?? []).some((s) => s.kind === 'Group' && s.name === m.group)));
+  const selfBefore = me ? clusterAdminPaths(me.metadata.name, me.groups ?? [], data.crbs, undefined, adminRoles) : null;
+  const selfAfter = me ? clusterAdminPaths(me.metadata.name, me.groups ?? [], data.crbs, plan, adminRoles) : null;
+  // Fail safe: if the roles or your own user could not be read, a change that touches admin access needs the phrase.
+  const selfLockout = me && !rolesQ.isError ? (selfBefore ?? 0) > 0 && selfAfter === 0 : touchesClusterAdmin;
+  // Deleting your own OAuth tokens signs you out of this session.
+  const signsMeOut = subject.kind === 'User' && !!me && me.metadata.name === subject.name && sendable.some((c) => c.id.startsWith('token/'));
 
   const confirmName = subject.name;
-  const ready = sendable.length > 0 && typed === confirmName && (!selfLockout || selfTyped === SELF_LOCKOUT_PHRASE) && phase === 'review';
+  const ready = sendable.length > 0 && typed === confirmName && reason.trim() !== ''
+    && (!selfLockout || selfTyped === SELF_LOCKOUT_PHRASE) && (!signsMeOut || signOutTyped === SIGN_OUT_PHRASE) && phase === 'review';
 
   const run = async () => {
     setError(null);
@@ -245,14 +288,20 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
     }
     setPhase('applying');
     const out: Record<string, Outcome> = {};
+    const recorded: Array<Promise<string>> = [];
     for (const c of sendable) {
       try {
         assertActiveCluster(clusterId, `Removing access for ${subject.name}`);
-        await send(c, clusterId, false);
+        const rv = await send(c, clusterId, false);
         out[c.id] = { state: 'ok' };
+        recorded.push(recordLedger({ ...c.ledger, resource_version: rv, reason: reason.trim(), before: c.before }));
       } catch (e) { out[c.id] = { state: 'failed', message: describeWriteError(e) }; }
       setResults({ ...out });
     }
+    const ledger = await Promise.all(recorded);
+    setLedgerNote(ledger.every((r) => r === 'recorded') ? null
+      : ledger.includes('absent') ? 'This Pulse agent has no write ledger, so these changes and the reason were not recorded there.'
+        : `${ledger.filter((r) => r !== 'recorded').length} of ${ledger.length} changes could not be recorded in the Pulse write ledger.`);
     setPhase('done');
     queryClient.invalidateQueries({ queryKey: ['subject-access'] });
     queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
@@ -392,12 +441,23 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
                 <input aria-label="Type the phrase to remove your own cluster-admin" value={selfTyped} onChange={(e) => setSelfTyped(e.target.value)} className="mt-1 w-full px-2 py-1 bg-slate-900 border border-red-800 rounded-sm text-slate-200" />
               </div>
             )}
+            {signsMeOut && (
+              <div role="alert" data-testid="signs-me-out" className="rounded border border-red-800 bg-red-950/40 px-3 py-2 text-red-200">
+                <p className="flex items-center gap-1.5 font-medium"><AlertTriangle className="w-3.5 h-3.5" /> This signs you out: it deletes your own OAuth access tokens, including the one this page is using.</p>
+                <p className="mt-0.5">Type <code className="font-mono">{SIGN_OUT_PHRASE}</code> to go ahead.</p>
+                <input aria-label="Type the phrase to sign yourself out" value={signOutTyped} onChange={(e) => setSignOutTyped(e.target.value)} className="mt-1 w-full px-2 py-1 bg-slate-900 border border-red-800 rounded-sm text-slate-200" />
+              </div>
+            )}
+            <label className="block text-slate-400">Reason (required, saved in the Pulse write ledger)
+              <input aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} className="mt-1 w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
+            </label>
             <label className="block text-slate-400">Type <span className="font-mono text-slate-200">{confirmName}</span> to confirm
               <input aria-label={`Type ${confirmName} to confirm`} value={typed} onChange={(e) => setTyped(e.target.value)} className="mt-1 w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
             </label>
           </section>
         )}
         {error && <LoadError title={error} />}
+        {ledgerNote && <p className="text-amber-300" data-testid="ledger-note">{ledgerNote}</p>}
       </div>
     </Dialog>
   );

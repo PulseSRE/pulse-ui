@@ -24,6 +24,7 @@ import { Button } from '../../components/primitives/Button';
 import { LoadError } from '../../components/primitives/LoadError';
 import { AskPulseCard, usePageChatContext } from '../detail/AskPulseCard';
 import { PulseError } from '../../engine/errors';
+import { formatTime } from '../../engine/format';
 import type { ClusterRoleBinding, RoleBinding } from '../../engine/types';
 import {
   accessChains, membershipsOf, subjectTitle, usernameOf, subjectPagePath, summarizeRules,
@@ -159,7 +160,7 @@ function RulesRow({ ns, review, error, loading, chains }: {
   );
 }
 
-function EffectivePermissions({ subject, chains, groupNames }: { subject: SubjectRef; chains: AccessChain[]; groupNames: string[] }) {
+function EffectivePermissions({ subject, chains, groupNames, oauthAssumed }: { subject: SubjectRef; chains: AccessChain[]; groupNames: string[]; oauthAssumed?: boolean }) {
   const clusterId = useActiveClusterId();
   const username = usernameOf(subject);
   const { allowed: canImpersonate, isLoading: permLoading } = useCanI('impersonate', '', subject.kind === 'ServiceAccount' ? 'serviceaccounts' : 'users', subject.kind === 'ServiceAccount' ? subject.namespace : undefined);
@@ -197,8 +198,11 @@ function EffectivePermissions({ subject, chains, groupNames }: { subject: Subjec
           <p className="text-xs text-slate-400 mt-0.5" data-testid="rules-review-note">
             Computed by impersonating {username}: a read-only SelfSubjectRulesReview in each namespace
             {ranAsGroups.length > 0 ? `, run as ${subject.name} alone and in each of ${ranAsGroups.join(', ')}, combined` : ''}.
-            {q.data && ` Checked ${q.data.at.toLocaleTimeString()}.`} RBAC only; cluster-wide grants appear in every namespace.
+            {q.data && ` Checked ${formatTime(q.data.at)}.`} RBAC only; cluster-wide grants appear in every namespace.
           </p>
+          {oauthAssumed && (
+            <p className="text-xs text-amber-300 mt-1" data-testid="oauth-assumed">May overstate: it includes system:authenticated:oauth, which applies only if {subject.name} signs in through OAuth (their User object could not be read).</p>
+          )}
           {needsGroups && !groupPermLoading && !canImpersonateGroups && (
             <p className="text-xs text-amber-300 mt-1">You may not impersonate groups, so access {subject.name} gets through groups is not included below.</p>
           )}
@@ -302,8 +306,11 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
     },
   });
 
-  const chains = React.useMemo(() => accessChains(subject, data.crbs, data.rbs, data.groups), [subject, data.crbs, data.rbs, data.groups]);
-  const memberships = React.useMemo(() => membershipsOf(subject, data.groups), [subject, data.groups]);
+  // system:authenticated:oauth applies only to OAuth sign-ins: assumed when the user has an Identity
+  // or when that could not be read (then the page says the result may overstate).
+  const oauth = subject.kind === 'User' && userQ.data !== undefined ? (userQ.data?.identities?.length ?? 0) > 0 : undefined;
+  const chains = React.useMemo(() => accessChains(subject, data.crbs, data.rbs, data.groups, { oauth }), [subject, data.crbs, data.rbs, data.groups, oauth]);
+  const memberships = React.useMemo(() => membershipsOf(subject, data.groups, { oauth }), [subject, data.groups, oauth]);
   const group = subject.kind === 'Group' ? data.groups.find((g) => g.metadata.name === subject.name) : undefined;
 
   usePageChatContext(subject.kind === 'ServiceAccount'
@@ -353,7 +360,7 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
         )}
 
         {subject.kind !== 'Group' && !data.loading && (
-          <EffectivePermissions subject={subject} chains={chains} groupNames={memberships.map((m) => m.group)} />
+          <EffectivePermissions subject={subject} chains={chains} groupNames={memberships.map((m) => m.group)} oauthAssumed={subject.kind === 'User' && oauth === undefined} />
         )}
         {subject.kind === 'Group' && (
           <p className="text-xs text-slate-400">Effective permissions are computed per user. Open a member to see theirs.</p>

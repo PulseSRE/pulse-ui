@@ -10,9 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createHarness, json, k8sStatus, REMOTE, type Recorded } from '../../../__tests__/actionHarness';
 import { SubjectAccessPage } from '../SubjectAccessView';
-import { SELF_LOCKOUT_PHRASE } from '../RemoveAccessDialog';
+import { SELF_LOCKOUT_PHRASE, SIGN_OUT_PHRASE } from '../RemoveAccessDialog';
 import {
-  accessChains, clusterAdminPaths, removeSubjectsPatch, removeGroupMemberPatch, ruleAllows, summarizeRules,
+  accessChains, adminClusterRoles, clusterAdminPaths, membershipsOf, removeSubjectsPatch, removeGroupMemberPatch, ruleAllows, summarizeRules,
 } from '../../../engine/subjectAccess';
 import { impersonationsFor } from '../../../engine/rulesReview';
 
@@ -49,6 +49,9 @@ const GROUPS = [
   { metadata: { name: 'oncall', resourceVersion: 'g2' }, users: ['alice'] },
 ];
 
+let CLUSTER_ROLES: unknown[] = [];
+beforeEach(() => { CLUSTER_ROLES = [{ metadata: { name: 'cluster-admin' }, rules: [{ verbs: ['*'], apiGroups: ['*'], resources: ['*'] }] }]; });
+
 function cluster(over: Partial<Record<string, (r: Recorded) => Response | undefined>> = {}) {
   h.state.handler = (r) => {
     for (const [prefix, fn] of Object.entries(over)) if (r.path.startsWith(prefix)) { const res = fn!(r); if (res) return res; }
@@ -58,6 +61,9 @@ function cluster(over: Partial<Record<string, (r: Recorded) => Response | undefi
     if (r.method === 'GET' && r.path === '/apis/user.openshift.io/v1/users/alice') return json({ metadata: { name: 'alice', uid: 'u-alice' }, identities: ['corp-ldap:alice'] });
     if (r.method === 'GET' && r.path === '/apis/user.openshift.io/v1/users/~') return json({ metadata: { name: 'erin' }, groups: [] });
     if (r.method === 'GET' && r.path === '/apis/oauth.openshift.io/v1/oauthaccesstokens') return json({ items: [{ metadata: { name: 'sha256~tok1', uid: 't1' }, userName: 'alice' }, { metadata: { name: 'sha256~other', uid: 't2' }, userName: 'bob' }] });
+    if (r.method === 'GET' && r.path === '/apis/rbac.authorization.k8s.io/v1/clusterroles') return json({ items: CLUSTER_ROLES });
+    if (r.method === 'GET' && r.path === '/apis/user.openshift.io/v1/identities/corp-ldap%3Aalice') return json({ metadata: { name: 'corp-ldap:alice', uid: 'id-uid-1' } });
+    if (r.url.startsWith('/api/agent/rbac/ledger')) return json({ id: 1 });
     if (r.path === '/apis/authorization.k8s.io/v1/selfsubjectrulesreviews') {
       return json({ status: { resourceRules: [{ verbs: ['get', 'list'], apiGroups: [''], resources: ['pods'] }], nonResourceRules: [], incomplete: false } });
     }
@@ -65,7 +71,12 @@ function cluster(over: Partial<Record<string, (r: Recorded) => Response | undefi
   };
 }
 
-const realWrites = () => h.writes().filter((w) => !w.path.includes('reviews'));
+const realWrites = () => h.writes().filter((w) => !w.path.includes('reviews') && !w.url.startsWith('/api/agent'));
+const ledgerPosts = () => h.writes().filter((w) => w.url.startsWith('/api/agent/rbac/ledger'));
+function confirmWith(dialog: HTMLElement, name = 'alice') {
+  fireEvent.change(within(dialog).getByRole('textbox', { name: 'Reason' }), { target: { value: 'offboarding' } });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: `Type ${name} to confirm` }), { target: { value: name } });
+}
 
 describe('access chains and patches', () => {
   it('finds direct bindings, bindings through Group objects and through virtual groups', () => {
@@ -191,7 +202,7 @@ describe('Remove access', () => {
     expect(within(dialog).queryByText(/your own last cluster-admin/)).toBeNull();
     await waitFor(() => expect(confirmButton(dialog).textContent).toBe('Remove access (8 changes)'));
     expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type alice to confirm' }), { target: { value: 'alice' } });
+    confirmWith(dialog);
     await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(confirmButton(dialog));
     await within(dialog).findByText('Results');
@@ -218,7 +229,15 @@ describe('Remove access', () => {
     expect(byPath('/apis/user.openshift.io/v1/groups/payments-devs').body).toEqual([{ op: 'test', path: '/users/1', value: 'alice' }, { op: 'remove', path: '/users/1' }]);
     expect(byPath('/apis/user.openshift.io/v1/groups/oncall').body).toEqual([{ op: 'test', path: '/users/0', value: 'alice' }, { op: 'remove', path: '/users/0' }]);
     expect(byPath('/apis/user.openshift.io/v1/users/alice').method).toBe('DELETE');
-    expect(byPath('/apis/user.openshift.io/v1/identities/corp-ldap%3Aalice').method).toBe('DELETE');
+    expect(byPath('/apis/user.openshift.io/v1/identities/corp-ldap%3Aalice')).toMatchObject({ method: 'DELETE', body: { preconditions: { uid: 'id-uid-1' } } });
+    expect(byPath('/apis/user.openshift.io/v1/users/alice').body.preconditions).toEqual({ uid: 'u-alice' });
+    expect(byPath('/apis/oauth.openshift.io/v1/oauthaccesstokens/sha256~tok1').body.preconditions).toEqual({ uid: 't1' });
+    // Every write is recorded with the reason and the version it produced (deletes: the version deleted).
+    await waitFor(() => expect(ledgerPosts()).toHaveLength(8));
+    const posts = ledgerPosts().map((p) => p.body);
+    expect(posts.every((b) => b.reason === 'offboarding')).toBe(true);
+    expect(posts.find((b) => b.name === 'alice-admin')).toMatchObject({ verb: 'delete', kind: 'RoleBinding', namespace: 'shop', resource_version: 'rv-alice-admin' });
+    expect(posts.find((b) => b.name === 'payments-devs')).toMatchObject({ verb: 'patch', kind: 'Group' });
     expect(byPath('/apis/oauth.openshift.io/v1/oauthaccesstokens/sha256~tok1').method).toBe('DELETE');
     // bob's token is not touched
     expect(writes.some((w) => w.path.includes('sha256~other'))).toBe(false);
@@ -235,7 +254,7 @@ describe('Remove access', () => {
   it('a refused dry run changes nothing and says which object', async () => {
     cluster({ '/apis/user.openshift.io/v1/groups/oncall': (r) => (r.method === 'PATCH' ? k8sStatus(403, 'groups "oncall" is forbidden') : undefined) });
     const dialog = await openRemove();
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type alice to confirm' }), { target: { value: 'alice' } });
+    confirmWith(dialog);
     await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(confirmButton(dialog));
     expect(await within(dialog).findByText(/The dry run refused 1 of 8 changes, so nothing was changed/)).toBeTruthy();
@@ -246,7 +265,7 @@ describe('Remove access', () => {
   it('a concurrent change (failed test op, 422) or 409 is reported per object; the others still apply', async () => {
     cluster({ '/apis/rbac.authorization.k8s.io/v1/namespaces/monitoring/rolebindings/grafana-viewers': (r) => (r.method === 'PATCH' && !r.url.includes('dryRun') ? k8sStatus(422, 'the server rejected our request: test operation failed') : undefined) });
     const dialog = await openRemove();
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type alice to confirm' }), { target: { value: 'alice' } });
+    confirmWith(dialog);
     await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(confirmButton(dialog));
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Download previous versions' })).toBeTruthy());
@@ -262,7 +281,7 @@ describe('Remove access', () => {
     const dialog = await openRemove();
     expect(within(dialog).getAllByText("You can't change rolebindings in shop; this one is left unchanged.").length).toBe(1);
     await waitFor(() => expect(confirmButton(dialog).textContent).toBe('Remove access (6 changes)'));
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type alice to confirm' }), { target: { value: 'alice' } });
+    confirmWith(dialog);
     await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(confirmButton(dialog));
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Download previous versions' })).toBeTruthy());
@@ -272,11 +291,13 @@ describe('Remove access', () => {
   it("removing the viewer's own last cluster-admin path needs the extra phrase", async () => {
     cluster({ '/apis/user.openshift.io/v1/users/~': () => json({ metadata: { name: 'alice' }, groups: ['payments-devs', 'oncall'] }) });
     const dialog = await openRemove();
-    expect((await within(dialog).findByRole('alert')).textContent).toMatch(/This removes your own last cluster-admin access/);
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type alice to confirm' }), { target: { value: 'alice' } });
+    expect(await within(dialog).findByText(/This removes your own last cluster-admin access/)).toBeTruthy();
+    confirmWith(dialog);
     await new Promise((r) => setTimeout(r, 50));
     expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type the phrase to remove your own cluster-admin' }), { target: { value: SELF_LOCKOUT_PHRASE } });
+    // alice is also deleting her own tokens here, which signs her out
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type the phrase to sign yourself out' }), { target: { value: SIGN_OUT_PHRASE } });
     await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
     // Leaving erin-admin unchanged keeps the path, and the warning goes away.
     fireEvent.click(within(within(dialog).getByTestId('row-ClusterRoleBinding//erin-admin')).getByRole('radio', { name: 'Leave unchanged' }));
@@ -286,10 +307,69 @@ describe('Remove access', () => {
   it('switching cluster after opening refuses to send anything', async () => {
     cluster();
     const dialog = await openRemove();
-    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type alice to confirm' }), { target: { value: 'alice' } });
+    confirmWith(dialog);
     h.setActive(REMOTE);
     expect(await within(dialog).findByText(/The active cluster changed since this dialog opened/)).toBeTruthy();
     expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(true);
     expect(realWrites()).toHaveLength(0);
+  });
+
+  it('an agent without the write ledger (404) still removes access and says it was not recorded', async () => {
+    cluster({ '/api/agent/rbac/ledger': () => k8sStatus(404, 'Not Found') });
+    const dialog = await openRemove();
+    confirmWith(dialog);
+    await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(confirmButton(dialog));
+    expect((await within(dialog).findByTestId('ledger-note', {}, { timeout: 10000 })).textContent).toMatch(/has no write ledger/);
+    expect(realWrites().filter((w) => !w.url.includes('dryRun=All'))).toHaveLength(8);
+  });
+
+  it('the reason is required', async () => {
+    cluster();
+    const dialog = await openRemove();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type alice to confirm' }), { target: { value: 'alice' } });
+    await new Promise((r) => setTimeout(r, 50));
+    expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a */*/* ClusterRole held through a group counts as cluster-admin for the self-lockout check', async () => {
+    CLUSTER_ROLES = [...CLUSTER_ROLES, { metadata: { name: 'super-ops' }, rules: [{ verbs: ['*'], apiGroups: ['*'], resources: ['*'] }] }];
+    const crbs = [...CRBS.filter((b) => b.metadata.name !== 'erin-admin'), crb('oncall-super', 'super-ops', [{ kind: 'Group', apiGroup: RBAC, name: 'oncall' }])];
+    cluster({
+      '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings': (r) => (r.method === 'GET' ? json({ items: crbs }) : undefined),
+      '/apis/user.openshift.io/v1/users/~': () => json({ metadata: { name: 'alice' }, groups: ['oncall'] }),
+    });
+    const dialog = await openRemove();
+    // alice (acting) leaves oncall, her only path to an admin-equivalent role
+    expect(await within(dialog).findByText(/This removes your own last cluster-admin access/)).toBeTruthy();
+    // keeping the membership removes the warning
+    fireEvent.click(within(within(dialog).getByTestId('row-group/oncall')).getByRole('checkbox'));
+    await waitFor(() => expect(within(dialog).queryByText(/your own last cluster-admin/)).toBeNull());
+    expect(adminClusterRoles([{ metadata: { name: 'x' }, rules: [{ verbs: ['*'], nonResourceURLs: ['*'] }] }, { metadata: { name: 'y' }, rules: [{ verbs: ['*'], apiGroups: [''], resources: ['*'] }] }])).toEqual(new Set(['cluster-admin', 'x']));
+  });
+
+  it('deleting your own OAuth tokens warns that it signs you out and needs the phrase', async () => {
+    cluster({ '/apis/user.openshift.io/v1/users/~': () => json({ metadata: { name: 'alice' }, groups: [] }) });
+    const dialog = await openRemove();
+    expect((await within(dialog).findByTestId('signs-me-out')).textContent).toMatch(/This signs you out/);
+    confirmWith(dialog);
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type the phrase to remove your own cluster-admin' }), { target: { value: SELF_LOCKOUT_PHRASE } });
+    await new Promise((r) => setTimeout(r, 50));
+    expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type the phrase to sign yourself out' }), { target: { value: SIGN_OUT_PHRASE } });
+    await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
+  });
+});
+
+describe('OAuth group', () => {
+  it('system:authenticated:oauth is assumed only for users who sign in through OAuth', () => {
+    expect(membershipsOf({ kind: 'User', name: 'svc' }, [], { oauth: false }).map((m) => m.group)).toEqual(['system:authenticated']);
+    expect(membershipsOf({ kind: 'User', name: 'a' }, [], { oauth: true }).map((m) => m.group)).toEqual(['system:authenticated', 'system:authenticated:oauth']);
+  });
+
+  it('when the User cannot be read the page says the result may overstate', async () => {
+    cluster({ '/apis/user.openshift.io/v1/users/alice': () => k8sStatus(403, 'forbidden') });
+    h.renderUi(<SubjectAccessPage subject={{ kind: 'User', name: 'alice' }} />);
+    expect((await screen.findByTestId('oauth-assumed')).textContent).toMatch(/^May overstate/);
   });
 });
