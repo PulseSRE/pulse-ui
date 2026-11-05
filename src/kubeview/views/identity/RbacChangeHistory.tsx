@@ -28,10 +28,10 @@ import { Button } from '../../components/primitives/Button';
 import { LoadError } from '../../components/primitives/LoadError';
 import { k8sFetch } from '../../engine/query';
 import { parseK8sErrorResponse, PulseError } from '../../engine/errors';
-import { formatAge } from '../../engine/dateUtils';
+import { formatRelative, formatTimestamp } from '../../engine/format';
 import { cn } from '@/lib/utils';
 import {
-  RBAC_KINDS, compactDiff, comparable, fetchRbacHistory, lineDiff, objectPath, recordLedger, restoreRequest,
+  RBAC_KINDS, compactDiff, comparable, escalationOnRestore, fetchRbacHistory, lineDiff, objectPath, recordLedger, restoreRequest,
   type RbacChange,
 } from '../../engine/rbacHistory';
 
@@ -61,7 +61,8 @@ function Diff({ before, after, label }: { before: unknown; after: unknown; label
 }
 
 function who(c: RbacChange): string {
-  if (c.actor) return `by ${c.actor.name} via Pulse${c.actor.source === 'agent' ? ' (agent)' : ''}`;
+  // The agent credits a Pulse write only when its resourceVersion is this version's.
+  if (c.actor) return `by ${c.actor.name} via Pulse${c.actor.source === 'agent' ? ' (agent)' : ''}${c.actor.verified === false ? ' (identity from the login proxy, not verified)' : ''}`;
   return c.manager ? `by client ${c.manager} (person unknown)` : 'by an unknown client';
 }
 
@@ -83,23 +84,32 @@ function ChangeRow({ change, onRestored }: { change: RbacChange; onRestored: () 
     try {
       let live: Record<string, unknown> | null = null;
       try { live = await sendJson(clusterId, 'GET', objectPath(change.kind, change.namespace, change.name)); } catch (e) { if (!(e instanceof PulseError && e.statusCode === 404)) throw e; }
-      const req = restoreRequest(change, live as { metadata?: { resourceVersion?: string } } | null);
+      const req = restoreRequest(change, live);
+      const adds = escalationOnRestore(change.kind, live, req.body);
       if (req.method === 'PUT' ? !canUpdate : !canCreate) {
         setReadError(`You do not have permission to ${req.method === 'PUT' ? 'update' : 'create'} ${k.plural}${ns ? ` in ${ns}` : ''}.`);
         return;
       }
-      const at = new Date(change.observed_at);
       openDialog({
-        title: `Restore ${where} to the version before ${at.toLocaleString()}?`,
+        title: `Restore ${where} to the version before ${formatTimestamp(change.observed_at)}?`,
         description: live
           ? `Replaces the current ${change.kind} with the version Pulse observed before this change. Anything changed since is replaced too; the diff below is the exact change.`
           : `${where} no longer exists. Re-creates it from the version Pulse observed before it was deleted (without ownerReferences, which may name an owner that is gone).`,
         confirmLabel: 'Restore',
         variant: 'danger',
         what: `Restoring ${where}`,
-        inputs: [{ id: 'reason', label: 'Reason (saved in the Pulse write ledger)', initial: '', validate: (v) => (v.trim() ? null : 'A reason is required') }],
+        inputs: [
+          { id: 'reason', label: 'Reason (saved in the Pulse write ledger)', initial: '', validate: (v) => (v.trim() ? null : 'A reason is required') },
+          ...(adds.length ? [{ id: 'confirm', label: `Type ${change.name} to grant this`, initial: '', validate: (v: string) => (v === change.name ? null : `Type ${change.name} exactly`) }] : []),
+        ],
         body: (
           <>
+            {adds.length > 0 && (
+              <div role="alert" data-testid="restore-escalation" className="mt-3 rounded border border-red-800 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+                <p className="font-medium">This restore grants more than the current version:</p>
+                <ul className="mt-1 list-disc ml-4">{adds.map((a) => <li key={a}>{a}</li>)}</ul>
+              </div>
+            )}
             <Diff before={comparable(live)} after={comparable(req.body)} label="Change on restore" />
             <p className="mt-2 text-xs text-slate-400">
               {req.method === 'PUT' ? 'PUT, conditional on the current resourceVersion (refused if it changes before you confirm)' : 'POST'} as you, dry run first.
@@ -111,7 +121,8 @@ function ChangeRow({ change, onRestored }: { change: RbacChange; onRestored: () 
         run: async (cid, values) => {
           await sendJson(cid, req.method, `${req.path}?dryRun=All`, req.body);
           const out = await sendJson(cid, req.method, req.path, req.body);
-          const recorded = await recordLedger({ verb: req.method === 'PUT' ? 'update' : 'create', kind: change.kind, namespace: change.namespace, name: change.name, reason: values.reason.trim(), before: comparable(live), after: comparable(req.body) });
+          const rv = String((out.metadata as { resourceVersion?: string } | undefined)?.resourceVersion ?? '');
+          const recorded = await recordLedger({ verb: req.method === 'PUT' ? 'update' : 'create', kind: change.kind, namespace: change.namespace, name: change.name, resource_version: rv, reason: values.reason.trim(), before: comparable(live), after: comparable(req.body) });
           if (recorded !== 'recorded') setReadError(recorded === 'absent' ? 'Restored. This Pulse agent has no write ledger, so the restore was not recorded there.' : 'Restored, but recording it in the Pulse write ledger failed.');
           return out;
         },
@@ -129,7 +140,7 @@ function ChangeRow({ change, onRestored }: { change: RbacChange; onRestored: () 
     <li className="px-4 py-3 text-xs" data-testid={`rbac-change-${change.id}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-slate-500 w-20 shrink-0" title={change.observed_at}>{formatAge(new Date(change.observed_at))}</span>
+          <span className="text-slate-500 w-20 shrink-0" title={change.observed_at}>{formatRelative(change.observed_at)}</span>
           <span className="font-mono text-slate-200">{where}</span>
           <span className={cn('px-1.5 py-0.5 rounded-sm', change.change === 'deleted' ? 'bg-red-900/50 text-red-300' : change.change === 'created' ? 'bg-blue-900/50 text-blue-300' : 'bg-amber-900/50 text-amber-300')}>{change.change}</span>
           <span className="text-slate-400">{who(change)}</span>
@@ -186,13 +197,17 @@ export function RbacChangeHistory({ fallback }: { fallback: React.ReactNode }) {
   return (
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2"><History className="w-4 h-4 text-violet-400" /> RBAC changes
+        <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2"><History className="w-4 h-4 text-slate-400" /> RBAC changes
           <span className="text-xs font-normal text-slate-500">last 7 days · roles, bindings, SCCs, webhooks</span>
         </h2>
         <label className="flex items-center gap-1.5 text-xs text-slate-400"><input type="checkbox" checked={includeSystem} onChange={(e) => setIncludeSystem(e.target.checked)} /> Include platform objects{!includeSystem && data.system_hidden > 0 ? ` (${data.system_hidden} hidden)` : ''}</label>
       </div>
       {data.changes.length === 0 ? (
-        <p className="p-4 text-xs text-slate-400">No changes observed in the last 7 days{!includeSystem ? ' outside platform objects' : ''}.</p>
+        <p className="p-4 text-xs text-slate-400" data-testid="rbac-history-empty">
+          {!h.since || !h.last_observed_at ? 'Not observed yet: the agent records RBAC changes on its audit scans and has not completed one.'
+            : h.last_error ? `Could not check: the last observation failed (${h.last_error}).`
+              : `No changes observed in the last 7 days${!includeSystem ? ' outside platform objects' : ''}.`}
+        </p>
       ) : (
         <ul className="divide-y divide-slate-800" aria-label="RBAC changes">
           {data.changes.map((c) => <ChangeRow key={c.id} change={c} onRestored={() => { void queryClient.invalidateQueries({ queryKey: ['rbac-history'] }); }} />)}
@@ -200,7 +215,7 @@ export function RbacChangeHistory({ fallback }: { fallback: React.ReactNode }) {
       )}
       <div className="px-4 py-3 border-t border-slate-800 space-y-1 text-xs text-slate-500" data-testid="rbac-history-coverage">
         <p className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />
-          Observed by the Pulse agent{h.since ? ` since ${new Date(h.since).toLocaleString()}` : ''}{h.last_observed_at ? `, last checked ${formatAge(new Date(h.last_observed_at))}` : ''}: several edits between two checks show as one, and nothing before the first check is known.
+          Observed by the Pulse agent{h.since ? ` since ${formatTimestamp(h.since)}` : ''}{h.last_observed_at ? `, last checked ${formatRelative(h.last_observed_at)}` : ''}: several edits between two checks show as one, and nothing before the first check is known.
           Who made a change is known only for changes made through Pulse; otherwise the client name is shown. Pulse does not read the API server audit log.
         </p>
         {h.last_error && <p className="text-amber-300">The last observation failed: {h.last_error}. Recent changes may be missing.</p>}

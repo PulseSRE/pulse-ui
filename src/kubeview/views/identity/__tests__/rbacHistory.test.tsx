@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { clickWhenEnabled, createHarness, json, k8sStatus, REMOTE, type Recorded } from '../../../__tests__/actionHarness';
 import { RbacChangeHistory } from '../RbacChangeHistory';
-import { compactDiff, lineDiff, restoreRequest, type RbacChange, type RbacHistory } from '../../../engine/rbacHistory';
+import { compactDiff, escalationOnRestore, lineDiff, restoreRequest, type RbacChange, type RbacHistory } from '../../../engine/rbacHistory';
 
 const h = createHarness();
 vi.setConfig({ testTimeout: 30000 });
@@ -109,7 +109,7 @@ describe('RBAC change history', () => {
     expect(real).toMatchObject({ method: 'PUT', path: ROLE_PATH });
     expect(real.body.metadata.resourceVersion).toBe('77');
     expect(real.body.rules).toEqual(before.rules);
-    expect(ledgerPosts()[0].body).toMatchObject({ verb: 'update', kind: 'Role', namespace: 'payments', name: 'secret-manager', reason: 'outside change window' });
+    expect(ledgerPosts()[0].body).toMatchObject({ verb: 'update', kind: 'Role', namespace: 'payments', name: 'secret-manager', reason: 'outside change window', resource_version: '77' });
     expect(ledgerPosts()[0].body.after.rules).toEqual(before.rules);
   });
 
@@ -120,6 +120,9 @@ describe('RBAC change history', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/no longer exists\. Re-creates it/)).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText('Reason (saved in the Pulse write ledger)'), { target: { value: 'deleted by mistake' } });
+    // Re-creating a Role that reads Secrets is a grant, so it needs the name typed.
+    expect(within(dialog).getByTestId('restore-escalation').textContent).toMatch(/read Secrets/);
+    fireEvent.change(within(dialog).getByLabelText('Type secret-manager to grant this'), { target: { value: 'secret-manager' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
     await waitFor(() => expect(k8sWrites()).toHaveLength(2));
     expect(k8sWrites()[1]).toMatchObject({ method: 'POST', path: '/apis/rbac.authorization.k8s.io/v1/namespaces/payments/roles' });
@@ -184,5 +187,81 @@ describe('RBAC change history', () => {
     h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
     expect((await screen.findByTestId('rbac-history-local-only')).textContent).toMatch(/local cluster only/);
     expect(h.state.requests.some((r) => r.url.startsWith('/api/agent'))).toBe(false);
+  });
+
+  it('a restore that grants more than the current version lists it and needs the name typed', async () => {
+    const wide = { ...before, rules: [{ apiGroups: [''], resources: ['secrets'], verbs: ['get', 'list'] }, { apiGroups: ['rbac.authorization.k8s.io'], resources: ['roles'], verbs: ['escalate', 'bind'] }] };
+    const liveNarrow = { ...before, rules: [{ apiGroups: [''], resources: ['pods'], verbs: ['get'] }], metadata: { ...before.metadata, resourceVersion: '77' } };
+    cluster(history([change({ before: wide })]), json(liveNarrow));
+    h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
+    await clickWhenEnabled(/Restore previous/);
+    const dialog = await screen.findByRole('dialog');
+    const alert = within(dialog).getByTestId('restore-escalation').textContent!;
+    expect(alert).toMatch(/read Secrets \(get,list\)/);
+    expect(alert).toMatch(/escalate on roles/);
+    expect(alert).toMatch(/bind on roles/);
+    fireEvent.change(within(dialog).getByLabelText('Reason (saved in the Pulse write ledger)'), { target: { value: 'x' } });
+    const confirm = within(dialog).getByRole('button', { name: 'Restore' }) as HTMLButtonElement;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText('Type secret-manager to grant this'), { target: { value: 'secret-manager' } });
+    await waitFor(() => expect(confirm.disabled).toBe(false));
+  });
+
+  it('a write 403 stays in the dialog and nothing is recorded', async () => {
+    cluster(history([change()]), undefined, (r) => (r.method === 'PUT' && !r.url.includes('dryRun') ? k8sStatus(403, 'roles.rbac.authorization.k8s.io "secret-manager" is forbidden') : undefined));
+    h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
+    await clickWhenEnabled(/Restore previous/);
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Reason (saved in the Pulse write ledger)'), { target: { value: 'x' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Restore' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toMatch(/Permission denied: .*is forbidden/);
+    expect(ledgerPosts()).toHaveLength(0);
+  });
+
+  it('switching cluster after opening sends nothing', async () => {
+    cluster(history([change()]));
+    h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
+    await clickWhenEnabled(/Restore previous/);
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Reason (saved in the Pulse write ledger)'), { target: { value: 'x' } });
+    h.setActive(REMOTE);
+    const btn = within(dialog).queryByRole('button', { name: 'Restore' });
+    if (btn && document.body.contains(btn)) fireEvent.click(btn);
+    await new Promise((r) => setTimeout(r, 100));
+    if (document.body.contains(dialog)) expect(within(dialog).getByRole('alert').textContent).toMatch(/cluster/i);
+    expect(k8sWrites()).toHaveLength(0);
+  });
+
+  it('says "Not observed yet" or "Could not check" rather than "No changes observed"', async () => {
+    cluster(history([], { history: { ...history([]).history, since: null, last_observed_at: null } }));
+    h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
+    expect((await screen.findByTestId('rbac-history-empty')).textContent).toMatch(/^Not observed yet/);
+    cleanup();
+    cluster(history([], { history: { ...history([]).history, last_error: 'db down' } }));
+    h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
+    expect((await screen.findByTestId('rbac-history-empty')).textContent).toMatch(/^Could not check: the last observation failed \(db down\)/);
+  });
+
+  it('an unverified actor is labelled as such', async () => {
+    cluster(history([change({ actor: { name: 'erin', verified: false, source: 'ui', at: '', ledger_id: 1, reason: '' } })]));
+    h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
+    expect((await screen.findByTestId('rbac-change-7')).textContent).toContain('by erin via Pulse (identity from the login proxy, not verified)');
+  });
+});
+
+describe('restore keeps what the live object must keep', () => {
+  it('keeps live ownerReferences on update and the live caBundle of each webhook', () => {
+    const req = restoreRequest({ kind: 'Role', namespace: 'payments', name: 'secret-manager', before }, { metadata: { resourceVersion: '9', ownerReferences: [{ uid: 'live-owner' }] } });
+    expect((req.body.metadata as Record<string, unknown>).ownerReferences).toEqual([{ uid: 'live-owner' }]);
+    const hookBefore = { metadata: { name: 'gk' }, webhooks: [{ name: 'a', clientConfig: { caBundle: 'OLD', service: { name: 's' } }, rules: [] }] };
+    const hookLive = { metadata: { resourceVersion: '3' }, webhooks: [{ name: 'a', clientConfig: { caBundle: 'NEW' } }] };
+    const w = restoreRequest({ kind: 'ValidatingWebhookConfiguration', namespace: '', name: 'gk', before: hookBefore }, hookLive);
+    expect(w.body.webhooks).toEqual([{ name: 'a', clientConfig: { caBundle: 'NEW', service: { name: 's' } }, rules: [] }]);
+  });
+
+  it('flags only what the restore adds', () => {
+    expect(escalationOnRestore('ClusterRoleBinding', { roleRef: { name: 'view' }, subjects: [] }, { roleRef: { name: 'cluster-admin' }, subjects: [{ kind: 'User', name: 'bob' }] })).toEqual(['binds cluster-admin to User bob']);
+    expect(escalationOnRestore('Role', { rules: [{ verbs: ['*'], apiGroups: ['*'], resources: ['*'] }] }, { rules: [{ verbs: ['*'], apiGroups: ['*'], resources: ['*'] }] })).toEqual([]);
   });
 });
