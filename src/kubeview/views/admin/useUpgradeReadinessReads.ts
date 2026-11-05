@@ -1,12 +1,13 @@
 /**
  * The reads behind the update readiness panel that the Admin page does not
  * already hold: pending CSRs, control-plane certificates, etcd member pods,
- * and etcd backups. Each query answers a ReadResult
+ * etcd backups and the signed-in username. Each query answers a ReadResult
  * (never throws), so a 403 stays a reason and a 404 stays "absent".
  */
 import { useQuery } from '@tanstack/react-query';
 import { useFleetStore } from '../../store/fleetStore';
-import { listK8s, type ReadResult } from '../../engine/readResult';
+import { useUIStore } from '../../store/uiStore';
+import { listK8s, readK8s, type ReadResult } from '../../engine/readResult';
 import { CSR_LIST_PATH, type CertificateSigningRequest } from '../../engine/csr';
 import type { TlsSecretLike } from '../../engine/certExpiry';
 import type { PersistentVolumeClaim, Pod } from '../../engine/types';
@@ -17,6 +18,7 @@ import {
 
 export const ETCD_PODS_PATH = '/api/v1/namespaces/openshift-etcd/pods?labelSelector=app%3Detcd';
 export const ETCD_PVCS_PATH = '/api/v1/namespaces/openshift-etcd/persistentvolumeclaims';
+export const WHOAMI_PATH = '/apis/user.openshift.io/v1/users/~';
 
 /** TLS secrets of every control-plane namespace; one failed namespace makes the whole read an error. */
 async function listControlPlaneCerts(clusterId: string): Promise<ReadResult<TlsSecretLike[]>> {
@@ -52,10 +54,21 @@ export function useUpgradeReadinessReads({ enabled }: { enabled: boolean }) {
     ...opts,
     enabled: enabled && backupApiServed,
   });
+  // users/~ answers for whoever the request runs as, so impersonation is part of the key (as in useCanI).
+  const impersonateUser = useUIStore((s) => s.impersonateUser);
+  const impersonateGroups = useUIStore((s) => (s.impersonateGroups ?? []).join(','));
+  const whoami = useQuery({
+    queryKey: ['upgrade-readiness', clusterId, 'whoami', impersonateUser ?? '', impersonateGroups],
+    queryFn: () => readK8s<{ metadata?: { name?: string } }>(WHOAMI_PATH, clusterId),
+    ...opts,
+    staleTime: 300_000,
+  });
+
   const all = [csrs, certs, etcdPods, backups, schedules];
   // "Checked N ago" is as old as the oldest read; null until every read has answered.
   const times = all.map((q) => q.dataUpdatedAt || 0);
   const checkedAt = times.every((t) => t > 0) ? Math.min(...times) : 0;
+  const username = whoami.data?.state === 'ok' ? (whoami.data.data.metadata?.name || null) : null;
 
   return {
     clusterId,
@@ -66,8 +79,12 @@ export function useUpgradeReadinessReads({ enabled }: { enabled: boolean }) {
     schedules: asLoadable(schedules.data),
     pvcs: asLoadable(pvcs.data),
     backupApiServed,
+    username,
+    usernameLoading: whoami.isLoading,
+    /** The page is impersonating another user: the username is theirs. */
+    impersonating: !!impersonateUser,
     checkedAt: checkedAt || null,
-    refetchAll: () => { for (const q of [...all, ...(backupApiServed ? [pvcs] : [])]) void q.refetch(); },
+    refetchAll: () => { for (const q of [...all, whoami, ...(backupApiServed ? [pvcs] : [])]) void q.refetch(); },
     refetchBackups: () => { void backups.refetch(); if (backupApiServed) void pvcs.refetch(); },
   };
 }
