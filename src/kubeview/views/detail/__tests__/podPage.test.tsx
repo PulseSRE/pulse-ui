@@ -6,7 +6,7 @@
  * never a number.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -237,5 +237,13 @@ describe('review fixes (#186)', () => {
     expect(screen.getByTestId('ask-pulse-note').textContent).toBe('Pulse AI answers about the local cluster only.');
     expect((screen.getByLabelText('Question for Pulse') as HTMLInputElement).disabled).toBe(true);
     expect(askPulse).not.toHaveBeenCalled();
+  });
+});
+
+describe('changes on the pod page', () => {
+  it('asks the agent about the Pod itself (it walks the owner chain)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ available: true, changes: [] }) }) as never;
+    renderPage();
+    await waitFor(() => expect((global.fetch as unknown as { mock: { calls: string[][] } }).mock.calls.some((c) => String(c[0]).includes('/api/agent/changes?namespace=payments&kind=Pod&name=api-7f9c4d-x2k8q'))).toBe(true));
   });
 });
