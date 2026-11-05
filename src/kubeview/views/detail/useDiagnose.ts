@@ -36,14 +36,26 @@ export type DiagnoseState =
   | { phase: 'starting' }
   | { phase: 'waiting'; itemId: string; run: RunPhase; reused: boolean; since: number }
   | { phase: 'done'; itemId: string; report: InvestigationReport; reused: boolean; at?: number }
-  | { phase: 'refused'; itemId: string; reason: string }
+  /** The run finished (`state: done`) but the agent returned no report for it. */
+  | { phase: 'empty'; itemId: string }
+  /** `retryAt`: epoch ms from the refusal's retry_after, when it gave one. */
+  | { phase: 'refused'; itemId: string; reason: string; retryAt?: number }
   | { phase: 'failed'; itemId?: string; reason: string }
   | { phase: 'timeout'; itemId: string }
   | { phase: 'unreachable'; reason: string };
 
 export interface DiagnoseTarget { kind: string; name: string; namespace: string }
 
-const CLOSED = new Set(['resolved', 'archived', 'agent_cleared']);
+// What POST …/investigate refuses as item_closed (pulse-agent#233); an
+// agent_cleared item can still be investigated, so it can be reused.
+const CLOSED = new Set(['resolved', 'archived']);
+
+export const SIGN_IN = 'Your session has no user token for the agent (401); sign in again';
+
+function signInNeeded(e: unknown): boolean {
+  if (e instanceof AgentHttpError) return e.status === 401;
+  return e instanceof Error && /Inbox API error: 401\b/.test(e.message);
+}
 
 function sameResource(item: InboxItem, t: DiagnoseTarget): boolean {
   return (item.resources ?? []).some((r) => r.kind === t.kind && r.name === t.name && (r.namespace ?? '') === t.namespace);
@@ -70,6 +82,7 @@ export type InvestigationRead =
   | { status: 'none' }
   | { status: RunPhase }
   | { status: 'done'; report: InvestigationReport; at?: number }
+  | { status: 'empty' }
   | { status: 'failed'; reason: string };
 
 type Body = Record<string, unknown> | null;
@@ -102,7 +115,7 @@ export async function readInvestigation(itemId: string): Promise<InvestigationRe
   const body = await readBody(res);
   if (!res.ok) {
     const detail = detailText(body);
-    const head = res.status === 401 ? 'Your session has no user token for the agent (401); sign in again'
+    const head = res.status === 401 ? SIGN_IN
       : res.status === 403 ? 'Permission denied (403)' : `Request failed (${res.status})`;
     throw new AgentHttpError(res.status, `${head}${detail ? `: ${detail}` : ''}`);
   }
@@ -114,7 +127,8 @@ export async function readInvestigation(itemId: string): Promise<InvestigationRe
   if (state === 'failed') {
     return { status: 'failed', reason: str(run?.error) ?? str(body?.error) ?? 'the investigation failed' };
   }
-  if (state === 'done' && isReport) {
+  if (state === 'done') {
+    if (!isReport) return { status: 'empty' };
     const report = body as unknown as InvestigationReport & Record<string, unknown>;
     return { status: 'done', report, at: toMs(report.timestamp) ?? toMs(run?.finished_at) };
   }
@@ -147,16 +161,27 @@ async function findOrCreateItem(t: DiagnoseTarget): Promise<{ itemId: string; re
   return { itemId: created.id, reused: false, hasInvestigation: false };
 }
 
+/** retry_after from a refusal's detail, else the Retry-After header, in seconds. */
+function retryAfterSeconds(res: Response, body: Body): number | undefined {
+  const d = body?.detail as Record<string, unknown> | undefined;
+  if (d && typeof d === 'object' && typeof d.retry_after === 'number' && d.retry_after > 0) return d.retry_after;
+  const h = Number(res.headers?.get?.('Retry-After'));
+  return Number.isFinite(h) && h > 0 ? h : undefined;
+}
+
 /** POST …/investigate: the run's phase, or the agent's reason for refusing. */
-async function requestInvestigation(itemId: string): Promise<{ run: RunPhase } | { refused: string }> {
+async function requestInvestigation(itemId: string): Promise<{ run: RunPhase } | { refused: string; retryAfter?: number }> {
   const res = await agentFetch(`/api/agent/inbox/${encodeURIComponent(itemId)}/investigate`, { method: 'POST' });
   const body = await readBody(res);
   if (res.status === 409 || res.status === 429) {
-    return { refused: detailText(body) ?? (res.status === 429 ? 'the agent is busy or over its investigation budget' : 'the item is closed') };
+    return {
+      refused: detailText(body) ?? (res.status === 429 ? 'the agent is busy or over its investigation budget' : 'the item is closed'),
+      retryAfter: retryAfterSeconds(res, body),
+    };
   }
   if (!res.ok) {
     const detail = detailText(body);
-    const head = res.status === 401 ? 'Your session has no user token for the agent (401); sign in again'
+    const head = res.status === 401 ? SIGN_IN
       : res.status === 403 ? 'You do not have permission to do this'
       : res.status === 404 ? 'The inbox item no longer exists (404)'
       : `Starting the investigation failed (${res.status})`;
@@ -166,16 +191,24 @@ async function requestInvestigation(itemId: string): Promise<{ run: RunPhase } |
   return { run: phase === 'running' ? 'running' : 'queued' };
 }
 
-export function useDiagnose(target: DiagnoseTarget) {
+export interface DiagnoseOptions {
+  /** The page shows a remote cluster: the agent investigates its own cluster only, so nothing is sent. */
+  remote?: boolean;
+}
+
+export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) {
   const [state, setState] = React.useState<DiagnoseState>({ phase: 'idle' });
   const key = `${target.kind}/${target.namespace}/${target.name}`;
-  React.useEffect(() => { setState({ phase: 'idle' }); }, [key]);
+  const remote = !!opts.remote;
+  React.useEffect(() => { setState({ phase: 'idle' }); }, [key, remote]);
 
-  const run = React.useCallback(async () => {
+  /** `again`: start a new run even when the item already has a report (Diagnose again). */
+  const run = React.useCallback(async (again = false) => {
+    if (remote) return;
     setState({ phase: 'starting' });
     try {
       const item = await findOrCreateItem(target);
-      if (item.hasInvestigation) {
+      if (item.hasInvestigation && !again) {
         const inv = await readInvestigation(item.itemId);
         if (inv.status === 'done') { setState({ phase: 'done', itemId: item.itemId, report: inv.report, reused: true, at: inv.at }); return; }
         if (inv.status === 'queued' || inv.status === 'running') {
@@ -184,14 +217,18 @@ export function useDiagnose(target: DiagnoseTarget) {
         }
       }
       const started = await requestInvestigation(item.itemId);
-      if ('refused' in started) { setState({ phase: 'refused', itemId: item.itemId, reason: started.refused }); return; }
+      if ('refused' in started) {
+        setState({ phase: 'refused', itemId: item.itemId, reason: started.refused, retryAt: started.retryAfter ? Date.now() + started.retryAfter * 1000 : undefined });
+        return;
+      }
       setState({ phase: 'waiting', itemId: item.itemId, run: started.run, reused: item.reused, since: Date.now() });
     } catch (e) {
       const down = unreachable(e);
-      setState(down ? { phase: 'unreachable', reason: down } : { phase: 'failed', reason: e instanceof Error ? e.message : String(e) });
+      setState(down ? { phase: 'unreachable', reason: down }
+        : { phase: 'failed', reason: signInNeeded(e) ? SIGN_IN : e instanceof Error ? e.message : String(e) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, remote]);
 
   // Poll while waiting; done and failed end it.
   const waiting = state.phase === 'waiting' ? state : null;
@@ -206,6 +243,7 @@ export function useDiagnose(target: DiagnoseTarget) {
         if (stop) return;
         if (inv.status === 'done') { stop = true; setState({ phase: 'done', itemId, report: inv.report, reused, at: inv.at }); return; }
         if (inv.status === 'failed') { stop = true; setState({ phase: 'failed', itemId, reason: inv.reason }); return; }
+        if (inv.status === 'empty') { stop = true; setState({ phase: 'empty', itemId }); return; }
         if ((inv.status === 'queued' || inv.status === 'running') && inv.status !== waiting.run) {
           setState({ ...waiting, run: inv.status });
           return;
@@ -213,7 +251,8 @@ export function useDiagnose(target: DiagnoseTarget) {
       } catch (e) {
         stop = true;
         const down = unreachable(e);
-        setState(down ? { phase: 'unreachable', reason: down } : { phase: 'failed', itemId, reason: e instanceof Error ? e.message : String(e) });
+        setState(down ? { phase: 'unreachable', reason: down }
+          : { phase: 'failed', itemId, reason: signInNeeded(e) ? SIGN_IN : e instanceof Error ? e.message : String(e) });
         return;
       }
       if (Date.now() - since >= DIAGNOSE_WINDOW_MS) { stop = true; setState({ phase: 'timeout', itemId }); }

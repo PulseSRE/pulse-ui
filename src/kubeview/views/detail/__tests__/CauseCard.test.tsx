@@ -17,6 +17,7 @@ import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-libra
 import { MemoryRouter } from 'react-router-dom';
 import { CauseCard } from '../CauseCard';
 import { useMonitorStore } from '../../../store/monitorStore';
+import { useFleetStore } from '../../../store/fleetStore';
 import { DIAGNOSE_POLL_MS } from '../useDiagnose';
 
 const match = { kind: 'Pod', name: 'api-x', namespace: 'payments', owner: { kind: 'Deployment', name: 'api' } };
@@ -48,7 +49,7 @@ beforeEach(() => {
     return reply(r);
   }) as never;
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); useFleetStore.setState({ activeClusterId: 'local' }); });
 
 const renderCard = () => render(<MemoryRouter><CauseCard match={match} noun="pod" /></MemoryRouter>);
 const calls = (method: string, re: RegExp) => (global.fetch as unknown as { mock: { calls: Array<[string, RequestInit?]> } }).mock.calls.filter(([u, i]) => (i?.method ?? 'GET') === method && re.test(u));
@@ -157,8 +158,57 @@ describe('no finding', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     expect((await screen.findByRole('alert')).textContent).toBe(`The agent did not start an investigation: ${text}`);
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeDefined();
+    const retry = r.body.detail.retry_after;
+    const btn = screen.getByRole('button', { name: retry ? /^Try again in / : 'Try again' }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(!!retry);
     expect(calls('GET', /investigation$/)).toHaveLength(0);
+  });
+
+  it('Try again is disabled until retry_after passes, with a countdown', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes = [emptyInbox, created, [/inbox\/it-1\/investigate$/, 'POST', refusal(429, 'cooldown', 'Investigated 280s ago.', 3)]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    const btn = (await screen.findByRole('button', { name: 'Try again in 3s' })) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
+    const ready = screen.getByRole('button', { name: 'Try again' }) as HTMLButtonElement;
+    expect(ready.disabled).toBe(false);
+  });
+
+  it('a done run with no report says it finished without one and stops polling', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    routes = [emptyInbox, created,
+      [/inbox\/it-1\/investigate$/, 'POST', started('running')],
+      [/inbox\/it-1\/investigation$/, 'GET', pending('done')]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    await screen.findByTestId('diagnose-run');
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    expect((await screen.findByTestId('diagnose-empty')).textContent).toBe('The investigation finished without a report.');
+    const polls = calls('GET', /investigation$/).length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS * 3); });
+    expect(calls('GET', /investigation$/).length).toBe(polls);
+    expect(screen.getByRole('button', { name: 'Diagnose again' })).toBeDefined();
+  });
+
+  it('a 401 listing the inbox says to sign in again', async () => {
+    routes = [[/\/api\/agent\/inbox\?/, 'GET', { status: 401, body: {} }]];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/no user token for the agent \(401\); sign in again/);
+  });
+
+  it('an agent_cleared item is reused: the agent can still investigate it', async () => {
+    routes = [
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'cleared', status: 'agent_cleared', claimed_by: null, resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: {} }], groups: [], stats: {}, total: 1 } }],
+      [/inbox\/cleared\/investigate$/, 'POST', started('queued')],
+    ];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    await screen.findByTestId('diagnose-run');
+    expect(calls('POST', /cleared\/investigate$/)).toHaveLength(1);
+    expect(calls('POST', /\/api\/agent\/inbox$/)).toHaveLength(0);
   });
 
   it('a 401 (no forwarded user token) says to sign in again', async () => {
@@ -195,9 +245,34 @@ describe('no finding', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     expect(await screen.findByText('Earlier finding: bad config.')).toBeDefined();
+    // No suspected_cause: not "found the cause"; the summary is the context.
+    expect(screen.getByRole('heading', { name: 'No cause identified' })).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Pulse found the cause' })).toBeNull();
+    expect(screen.getByTestId('no-cause').textContent).toBe('The investigation did not identify a cause.');
     expect(screen.getByTestId('diagnose-reused').textContent).toMatch(/investigated 3h ago/);
     expect(calls('POST', /\/api\/agent\/inbox$/)).toHaveLength(0);
     expect(calls('POST', /investigate$/)).toHaveLength(0);
+  });
+
+  it('Diagnose again on a reused report starts a new run and shows the new report', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const at = Date.now() - 2 * 86400_000;
+    let posted = false;
+    routes = [
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [{ id: 'it-1', status: 'triaged', claimed_by: 'bob', resources: [{ kind: 'Pod', name: 'api-x', namespace: 'payments' }], metadata: { investigation_id: 'inv' } }], groups: [], stats: {}, total: 1 } }],
+      [/inbox\/it-1\/investigation$/, 'GET', () => (posted ? withReport('done', { suspected_cause: 'A fresh cause.', timestamp: Date.now() }) : { status: 200, body: { ...row, suspected_cause: 'An old cause.', timestamp: at, state: 'done', run: null } })],
+      [/inbox\/it-1\/investigate$/, 'POST', () => { posted = true; return started('queued'); }],
+    ];
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    expect(await screen.findByText('An old cause.')).toBeDefined();
+    expect(screen.getByTestId('diagnose-reused').textContent).toMatch(/investigated 2d ago/);
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose again' }));
+    expect((await screen.findByTestId('diagnose-run')).textContent).toMatch(/^Queued for investigation/);
+    expect(calls('POST', /it-1\/investigate$/)).toHaveLength(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(DIAGNOSE_POLL_MS); });
+    expect(await screen.findByText('A fresh cause.')).toBeDefined();
+    expect(screen.queryByText('An old cause.')).toBeNull();
   });
 
   it('reuses an item whose run is in progress (someone else claimed it) and waits for that run', async () => {
@@ -262,6 +337,18 @@ describe('no finding', () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
     await waitFor(() => expect(screen.getByTestId('diagnose-unreachable').textContent).toContain('unreachable (Failed to fetch)'));
+  });
+
+  it('on a remote cluster Diagnose is disabled, says why, and sends nothing', async () => {
+    useFleetStore.setState({ activeClusterId: 'prod-east' });
+    renderCard();
+    expect(screen.getByTestId('cause-remote').textContent).toBe('Pulse AI answers about the local cluster only.');
+    const btn = screen.getByRole('button', { name: 'Diagnose' }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    fireEvent.click(btn);
+    await act(async () => { await Promise.resolve(); });
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Asking the agent/)).toBeNull();
   });
 
   it('a finding in another namespace with the same pod name does not match', () => {

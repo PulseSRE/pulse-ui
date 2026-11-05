@@ -63,19 +63,23 @@ function evidenceLines(detail: EvidenceItem[] | undefined, plain: string[] | und
 }
 
 interface ReportView {
+  /** The suspected cause; empty when the investigation named none. */
   cause: string;
+  /** The investigation's summary, shown as context. */
+  summary: string;
   evidence: Array<{ text: string; source?: string; unverified?: boolean }>;
   alternatives: string[];
   confidence?: number;
 }
 
 function fromMonitor(r: MonitorReport): ReportView {
-  return { cause: r.suspectedCause || r.summary, evidence: evidenceLines(r.evidenceDetail, r.evidence), alternatives: r.alternativesConsidered ?? [], confidence: r.confidence };
+  return { cause: (r.suspectedCause || '').trim(), summary: r.summary || '', evidence: evidenceLines(r.evidenceDetail, r.evidence), alternatives: r.alternativesConsidered ?? [], confidence: r.confidence };
 }
 
 function fromInbox(r: InboxReport): ReportView {
   return {
-    cause: r.suspected_cause || r.suspectedCause || r.summary,
+    cause: (r.suspected_cause || r.suspectedCause || '').trim(),
+    summary: r.summary || '',
     evidence: evidenceLines(r.evidence_detail, r.evidence),
     alternatives: r.alternatives_considered ?? r.alternativesConsidered ?? [],
     confidence: r.confidence,
@@ -85,7 +89,12 @@ function fromInbox(r: InboxReport): ReportView {
 function Report({ view }: { view: ReportView }) {
   return (
     <>
-      <p className="text-[15px] leading-relaxed text-slate-100">{view.cause}</p>
+      {view.cause ? (
+        <p className="text-[15px] leading-relaxed text-slate-100">{view.cause}</p>
+      ) : (
+        <p className="text-[15px] leading-relaxed text-slate-300" data-testid="no-cause">The investigation did not identify a cause.</p>
+      )}
+      {view.summary && view.summary !== view.cause && <p className="text-[13px] text-slate-400">{view.summary}</p>}
       {view.evidence.length > 0 && (
         <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-snug text-slate-300" aria-label="Evidence">
           {view.evidence.map((e, i) => (
@@ -112,6 +121,27 @@ function Confidence({ value }: { value?: number }) {
   return <span className="ml-auto rounded-full bg-blue-950 px-2.5 py-0.5 text-xs text-blue-200">Confidence {value.toFixed(2)}</span>;
 }
 
+/** Seconds left until `until` (epoch ms), re-rendering each second; 0 when passed or unset. */
+function useCountdown(until: number | undefined): number {
+  const [, setTick] = React.useState(0);
+  const secs = until ? Math.max(0, Math.ceil((until - Date.now()) / 1000)) : 0;
+  React.useEffect(() => {
+    if (!until) return undefined;
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+      if (Date.now() >= until) clearInterval(id);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [until]);
+  return secs;
+}
+
+function formatWait(secs: number): string {
+  if (secs < 120) return `${secs}s`;
+  const m = Math.ceil(secs / 60);
+  return m < 120 ? `${m} min` : `${Math.ceil(m / 60)} h`;
+}
+
 export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const connected = useMonitorStore((s) => s.connected);
@@ -120,9 +150,8 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
   const dismissed = useMonitorStore((s) => s.dismissedFindingIds);
   const investigations = useMonitorStore((s) => s.investigations);
   const target: DiagnoseTarget = { kind: match.kind, name: match.name, namespace: match.namespace };
-  const { state, run } = useDiagnose(target);
-
   const remote = clusterId !== LOCAL_CLUSTER_ID;
+  const { state, run } = useDiagnose(target, { remote });
   const podKey = (match.podNames ?? []).join(',');
   const finding = React.useMemo(
     () => (remote ? null : findingFor(findings, dismissed, match)),
@@ -135,13 +164,19 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
   );
 
   const found = !!investigation && investigation.status === 'completed' && !!(investigation.suspectedCause || investigation.summary);
-  const title = found || state.phase === 'done' ? 'Pulse found the cause' : finding ? 'Pulse found a problem' : 'Cause';
+  const monitorView = found ? fromMonitor(investigation!) : null;
+  const inboxView = state.phase === 'done' ? fromInbox(state.report) : null;
+  const shown = monitorView ?? inboxView;
+  // "found the cause" only when a cause was named; a report without one says so.
+  const title = shown ? (shown.cause ? 'Pulse found the cause' : 'No cause identified') : finding ? 'Pulse found a problem' : 'Cause';
+  const retryWait = useCountdown(state.phase === 'refused' ? state.retryAt : undefined);
 
-  const diagnoseButton = (label = 'Diagnose') => (
+  const diagnoseButton = (label = 'Diagnose', again = false) => (
     <button
       type="button"
-      onClick={() => void run()}
-      disabled={state.phase === 'starting' || state.phase === 'waiting'}
+      onClick={() => void run(again)}
+      disabled={remote || state.phase === 'starting' || state.phase === 'waiting' || (state.phase === 'refused' && retryWait > 0)}
+      title={remote ? 'Pulse AI answers about the local cluster only.' : undefined}
       className="min-h-[40px] self-start rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
     >
       {label}
@@ -149,7 +184,7 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
   );
 
   return (
-    <section aria-labelledby="cause-h" className={cn('flex flex-col gap-3.5 rounded-xl border bg-slate-900 p-5', found || state.phase === 'done' ? 'border-blue-800' : 'border-slate-800')}>
+    <section aria-labelledby="cause-h" className={cn('flex flex-col gap-3.5 rounded-xl border bg-slate-900 p-5', shown?.cause ? 'border-blue-800' : 'border-slate-800')}>
       <div className="flex flex-wrap items-center gap-2.5">
         <Stethoscope className="h-[18px] w-[18px] text-blue-300" aria-hidden />
         <h2 id="cause-h" className="text-base font-semibold text-slate-100">{title}</h2>
@@ -163,9 +198,14 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
         {!finding && state.phase === 'done' && <Confidence value={state.report.confidence} />}
       </div>
 
-      {remote && <p className="text-sm text-slate-400">Pulse monitors the cluster it is deployed on only, so it has no findings for this cluster.</p>}
+      {remote && (
+        <>
+          <p className="text-sm text-slate-400" data-testid="cause-remote">Pulse AI answers about the local cluster only.</p>
+          {diagnoseButton()}
+        </>
+      )}
 
-      {!remote && finding && found && <Report view={fromMonitor(investigation!)} />}
+      {!remote && finding && monitorView && <Report view={monitorView} />}
       {!remote && finding && !found && (
         <>
           <p className="text-[15px] leading-relaxed text-slate-100">{finding.title}</p>
@@ -207,13 +247,21 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
               From the open inbox item for this resource · investigated {state.at ? formatRelative(state.at) : 'at an unrecorded time'}
             </p>
           )}
-          <Report view={fromInbox(state.report)} />
+          {!state.reused && state.at && <p className="text-xs text-slate-400">Investigated {formatRelative(state.at)}</p>}
+          <Report view={inboxView!} />
+          {diagnoseButton('Diagnose again', true)}
         </>
+      )}
+      {state.phase === 'empty' && (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-300" data-testid="diagnose-empty">The investigation finished without a report.</p>
+          {diagnoseButton('Diagnose again', true)}
+        </div>
       )}
       {state.phase === 'refused' && (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-amber-300">The agent did not start an investigation: {state.reason}</p>
-          {diagnoseButton('Try again')}
+          {diagnoseButton(retryWait > 0 ? `Try again in ${formatWait(retryWait)}` : 'Try again')}
         </div>
       )}
       {state.phase === 'failed' && (
