@@ -38,6 +38,8 @@ function lists(over: (r: Recorded) => Response | undefined = () => undefined) {
   h.state.handler = (r) => {
     const o = over(r);
     if (o) return o;
+    // Not an OpenShift cluster: DeploymentConfigs are not served.
+    if (r.method === 'GET' && r.path.endsWith('/deploymentconfigs')) return k8sStatus(404, 'the server could not find the requested resource');
     if (r.method === 'GET' && r.path === `${NS}/deployments`) return json({ kind: 'DeploymentList', items: [api, worker, sync] });
     if (r.method === 'GET' && r.path === '/api/v1/namespaces/payments/pods') {
       return json({ items: [
@@ -66,7 +68,9 @@ describe('Used by', () => {
     expect(within(row('worker')).getByText(/envFrom: all keys/)).toBeTruthy();
     expect(within(row('pricing-sync')).getByText('File updates in about 60s')).toBeTruthy();
     expect(within(row('pricing-sync')).getByText('Could not check if the app reloads it')).toBeTruthy();
-    expect(screen.getByTestId('consumers-scope').textContent).toMatch(/Scanned 3 pod templates in payments \(Deployments, StatefulSets, DaemonSets, CronJobs, Jobs\)/);
+    // DeploymentConfigs are not served here: not named as scanned, and not a failure.
+    expect(screen.getByTestId('consumers-scope').textContent).toMatch(/Scanned 3 pod templates in payments \(Deployments, StatefulSets, DaemonSets, CronJobs, Jobs\)\. Not checked: bare Pods, ReplicationControllers, Ingress\/Route TLS/);
+    expect(screen.queryByText(/Could not check DeploymentConfigs/)).toBeNull();
     fireEvent.click(within(table).getByRole('button', { name: 'worker' }));
     expect(go).toHaveBeenCalledWith('/r/apps~v1~deployments/payments/worker', 'worker');
   });
@@ -95,6 +99,23 @@ describe('Used by', () => {
     expect(await screen.findByText(/env DB_PASSWORD in api from key password via secretKeyRef/)).toBeTruthy();
     expect(screen.getByText(/values are never read here/)).toBeTruthy();
     expect(container.textContent).not.toMatch(/hunter2|aHVudGVyMg/);
+  });
+
+  it('the empty state names what was and was not checked', async () => {
+    lists((r) => (r.path === `${NS}/deployments` ? json({ items: [] }) : undefined));
+    h.renderUi(<KindSections resource={cm} go={go} />);
+    expect(await screen.findByText(/No Deployments, StatefulSets, DaemonSets, CronJobs, Jobs in payments references this ConfigMap\. Not checked: bare Pods, ReplicationControllers, Ingress\/Route TLS, custom resources and operators, other namespaces\./)).toBeTruthy();
+  });
+
+  it('a Secret: a ServiceAccount pull secret makes its workloads consumers; an unreadable ServiceAccount list is "Could not check"', async () => {
+    const secret = { apiVersion: 'v1', kind: 'Secret', metadata: { name: 'quay-pull', namespace: 'payments' } } as unknown as K8sResource;
+    lists((r) => (r.path === '/api/v1/namespaces/payments/serviceaccounts' ? json({ items: [{ metadata: { name: 'default' }, imagePullSecrets: [{ name: 'quay-pull' }] }] }) : undefined));
+    h.renderUi(<KindSections resource={secret} go={go} />);
+    expect((await screen.findAllByText('image pull secret of its ServiceAccount default')).length).toBe(3);
+    cleanup();
+    lists((r) => (r.path === '/api/v1/namespaces/payments/serviceaccounts' ? k8sStatus(403, 'serviceaccounts is forbidden') : undefined));
+    h.renderUi(<KindSections resource={secret} go={go} />);
+    expect(await screen.findByText(/Could not check ServiceAccounts \(their image pull secrets\): this list may be incomplete/)).toBeTruthy();
   });
 
   it('opens the restart confirm with only the consumers that need a restart', async () => {
@@ -182,6 +203,33 @@ describe('Restart consumers', () => {
     fireEvent.click(btn);
     expect(await within(dialog).findByText(/was not run: it was prepared on/)).toBeTruthy();
     expect(realWrites()).toEqual([]);
+  });
+
+  it('closing the dialog mid-run stops it: the next workload is not restarted', async () => {
+    // worker's rollout never finishes, so the run is waiting on it when the dialog closes.
+    lists((r) => (r.method === 'GET' && r.path === `${NS}/deployments/worker` ? json({ ...worker, status: { observedGeneration: 3, updatedReplicas: 0, availableReplicas: 1, replicas: 2 } }) : undefined));
+    const { unmount } = renderRestart();
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByTestId('restart-dry-run').textContent).toBe('Passed for all 2'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Restart 2 Deployments' }));
+    await waitFor(() => expect(h.state.requests.some((r) => r.method === 'GET' && r.path === `${NS}/deployments/worker`)).toBe(true));
+    unmount();
+    const gets = h.state.requests.length;
+    await new Promise((r) => setTimeout(r, 100));
+    expect(realWrites().map((w) => w.path)).toEqual([`${NS}/deployments/worker`]);
+    // Polling stopped too.
+    expect(h.state.requests.length - gets).toBeLessThanOrEqual(1);
+  });
+
+  it('a PDB the rollout can break needs an explicit acknowledgement', async () => {
+    lists((r) => (r.path.endsWith('/poddisruptionbudgets') ? json({ items: [{ metadata: { name: 'api-pdb' }, spec: { selector: { matchLabels: { app: 'api' } }, minAvailable: 2 } }] }) : undefined));
+    renderRestart();
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByTestId('restart-dry-run').textContent).toBe('Passed for all 2'));
+    const btn = within(dialog).getByRole('button', { name: 'Restart 2 Deployments' }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /I understand and want to restart anyway/ }));
+    expect(btn.disabled).toBe(false);
   });
 
   it('PDB and quota reads that fail are "Could not check", not a pass', async () => {

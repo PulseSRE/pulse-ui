@@ -138,3 +138,42 @@ describe('runRestarts', () => {
     expect(stopped.steps.map((s) => s.status)).toEqual(['done', 'not-started']);
   });
 });
+
+describe('review follow-ups', () => {
+  it('a StatefulSet with a partition is done once the pods at and above it are updated', () => {
+    const s = { kind: 'StatefulSet', metadata: { name: 'db', generation: 4 }, spec: { replicas: 5, updateStrategy: { rollingUpdate: { partition: 3 } } },
+      status: { observedGeneration: 4, updatedReplicas: 2, readyReplicas: 5, currentRevision: 'a', updateRevision: 'b' } } as unknown as K8sResource;
+    expect(rolloutState(s)).toMatchObject({ done: true, desired: 2 });
+    expect(rolloutState({ ...s, status: { ...(s.status as object), updatedReplicas: 1 } } as K8sResource).done).toBe(false);
+  });
+
+  it('a paused Deployment is left out with the reason', () => {
+    const paused = dep('api', 2, { paused: true });
+    const plan = buildRestartPlan(findConsumers('ConfigMap', 'api-cfg', [paused]), 'payments', [], [], []);
+    expect(plan.items[0].skip).toMatch(/paused/);
+  });
+
+  it('limits.* quotas are counted', () => {
+    const w = dep('api', 4);
+    ((w.spec as any).template.spec.containers[0].resources).limits = { memory: '1Gi' };
+    const q = { metadata: { name: 'q' }, status: { hard: { 'limits.memory': '2Gi' }, used: { 'limits.memory': '1536Mi' } } } as unknown as K8sResource;
+    const res = quotaCheck([{ workload: w, strategy: strategyOf(w) }], [q], 'payments');
+    expect(res.ok).toBe(false);
+    expect(res.text).toMatch(/memory limits: surge needs 1\.0Gi, 512Mi left/);
+  });
+
+  it('aborted (dialog closed) stops mid-rollout and starts nothing else', async () => {
+    let gone = false;
+    const patch = vi.fn(async () => {});
+    const res = await runRestarts([
+      { workload: dep('worker', 1), kind: 'Deployment', name: 'worker' } as unknown as PlanItem,
+      { workload: dep('api', 1), kind: 'Deployment', name: 'api' } as unknown as PlanItem,
+    ], {
+      patch, sleep: async () => { gone = true; }, stopRequested: () => false, aborted: () => gone, onUpdate: () => {},
+      get: async (i) => ({ ...i.workload, status: { observedGeneration: 2 } }) as K8sResource,
+    });
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(res.steps.map((s) => s.status)).toEqual(['failed', 'not-started']);
+    expect(res.steps[0].text).toMatch(/stopped watching/);
+  });
+});

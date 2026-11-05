@@ -11,8 +11,12 @@
  *   kubelet on its sync period (about a minute), except where it is mounted
  *   with subPath, which is never refreshed. Whether the process re-reads the
  *   file is up to the application: Pulse cannot see that.
- * - An image pull secret is used at the next image pull; running containers
- *   are not affected.
+ * - An image pull secret (in the pod template, or on the pod's
+ *   ServiceAccount) is used at the next image pull; running containers are
+ *   not affected.
+ * - A Secret named by a volume driver (CSI nodePublishSecretRef, cephfs/rbd/
+ *   iscsi/flexVolume secretRef, azureFile secretName) is used when the volume
+ *   is next mounted.
  *
  * Secrets: only names and key names are read from pod templates. No value is
  * ever read or shown here.
@@ -21,21 +25,28 @@ import type { K8sResource } from './renderers';
 
 export type ConfigKind = 'ConfigMap' | 'Secret';
 
-export const CONSUMER_KINDS = ['Deployment', 'StatefulSet', 'DaemonSet', 'CronJob', 'Job'] as const;
+export const CONSUMER_KINDS = ['Deployment', 'StatefulSet', 'DaemonSet', 'DeploymentConfig', 'CronJob', 'Job'] as const;
 export type ConsumerKind = typeof CONSUMER_KINDS[number];
 
-export const CONSUMER_SOURCES: Record<ConsumerKind, { group: string; plural: string; path: (ns: string) => string }> = {
+export const CONSUMER_SOURCES: Record<ConsumerKind, { group: string; plural: string; path: (ns: string) => string; version?: string }> = {
   Deployment: { group: 'apps', plural: 'deployments', path: (ns) => `/apis/apps/v1/namespaces/${ns}/deployments` },
   StatefulSet: { group: 'apps', plural: 'statefulsets', path: (ns) => `/apis/apps/v1/namespaces/${ns}/statefulsets` },
   DaemonSet: { group: 'apps', plural: 'daemonsets', path: (ns) => `/apis/apps/v1/namespaces/${ns}/daemonsets` },
+  DeploymentConfig: { group: 'apps.openshift.io', plural: 'deploymentconfigs', path: (ns) => `/apis/apps.openshift.io/v1/namespaces/${ns}/deploymentconfigs` },
   CronJob: { group: 'batch', plural: 'cronjobs', path: (ns) => `/apis/batch/v1/namespaces/${ns}/cronjobs` },
   Job: { group: 'batch', plural: 'jobs', path: (ns) => `/apis/batch/v1/namespaces/${ns}/jobs` },
 };
 
+/** Kinds whose API may not be served (OpenShift only): a 404 means there are none. */
+export const OPTIONAL_KINDS = new Set<string>(['DeploymentConfig']);
+
+/** What the scan does not look at, said wherever its result could be read as complete. */
+export const NOT_SCANNED = 'bare Pods, ReplicationControllers, Ingress/Route TLS, custom resources and operators, other namespaces';
+
 /** Kinds a rollout restart (template annotation patch) applies to. */
 export const RESTARTABLE_KINDS = new Set<string>(['Deployment', 'StatefulSet', 'DaemonSet']);
 
-export type UsageHow = 'env' | 'envFrom' | 'volume' | 'projected' | 'imagePullSecret';
+export type UsageHow = 'env' | 'envFrom' | 'volume' | 'projected' | 'imagePullSecret' | 'serviceAccountPullSecret' | 'volumeSecretRef';
 
 export interface Usage {
   how: UsageHow;
@@ -50,6 +61,10 @@ export interface Usage {
   optional?: boolean;
   /** envFrom prefix. */
   prefix?: string;
+  /** serviceAccountPullSecret: the ServiceAccount that lists it. */
+  serviceAccount?: string;
+  /** volumeSecretRef: the volume type (csi driver name, cephfs, rbd…). */
+  driver?: string;
 }
 
 /** When running pods see a change. */
@@ -63,7 +78,9 @@ export type PickUp =
   /** CronJob: the next run starts with the new values. */
   | 'next-run'
   /** Job: its pods read it at start; only a re-run uses the new values. */
-  | 'rerun';
+  | 'rerun'
+  /** Volume driver credentials: used when the volume is next mounted. */
+  | 'mount';
 
 export interface Consumer {
   workload: K8sResource;
@@ -79,8 +96,15 @@ interface EnvFrom { prefix?: string; configMapRef?: { name?: string; optional?: 
 interface VolumeMount { name: string; mountPath: string; subPath?: string; subPathExpr?: string }
 interface Container { name: string; env?: EnvVar[]; envFrom?: EnvFrom[]; volumeMounts?: VolumeMount[] }
 interface KeyItems { items?: Array<{ key: string }>; optional?: boolean }
+type SecretRef = { name?: string };
 interface Volume {
   name: string;
+  csi?: { driver?: string; nodePublishSecretRef?: SecretRef };
+  cephfs?: { secretRef?: SecretRef };
+  rbd?: { secretRef?: SecretRef };
+  iscsi?: { secretRef?: SecretRef };
+  flexVolume?: { driver?: string; secretRef?: SecretRef };
+  azureFile?: { secretName?: string };
   configMap?: KeyItems & { name?: string };
   secret?: KeyItems & { secretName?: string };
   projected?: { sources?: Array<{ configMap?: KeyItems & { name?: string }; secret?: KeyItems & { name?: string } }> };
@@ -90,6 +114,25 @@ export interface PodSpecLike {
   initContainers?: Container[];
   volumes?: Volume[];
   imagePullSecrets?: Array<{ name?: string }>;
+  serviceAccountName?: string;
+  serviceAccount?: string;
+}
+
+/** Secrets a volume's driver reads (not mounted as files), with the volume type. */
+export function volumeSecretRefs(v: Volume): Array<{ name: string; driver: string }> {
+  const out: Array<{ name: string; driver: string }> = [];
+  if (v.csi?.nodePublishSecretRef?.name) out.push({ name: v.csi.nodePublishSecretRef.name, driver: `csi ${v.csi.driver ?? ''}`.trim() });
+  if (v.cephfs?.secretRef?.name) out.push({ name: v.cephfs.secretRef.name, driver: 'cephfs' });
+  if (v.rbd?.secretRef?.name) out.push({ name: v.rbd.secretRef.name, driver: 'rbd' });
+  if (v.iscsi?.secretRef?.name) out.push({ name: v.iscsi.secretRef.name, driver: 'iscsi' });
+  if (v.flexVolume?.secretRef?.name) out.push({ name: v.flexVolume.secretRef.name, driver: `flexVolume ${v.flexVolume.driver ?? ''}`.trim() });
+  if (v.azureFile?.secretName) out.push({ name: v.azureFile.secretName, driver: 'azureFile' });
+  return out;
+}
+
+/** The ServiceAccount a pod template runs as. */
+export function serviceAccountOf(spec: PodSpecLike | undefined): string {
+  return spec?.serviceAccountName || spec?.serviceAccount || 'default';
 }
 export interface PodTemplateLike { metadata?: { labels?: Record<string, string>; annotations?: Record<string, string> }; spec?: PodSpecLike }
 
@@ -145,6 +188,11 @@ export function usagesIn(spec: PodSpecLike | undefined, kind: ConfigKind, name: 
         out.push({ how: 'projected', keys: (src.items ?? []).map((i) => i.key), mounts: mountsOf(spec, v.name), optional: src.optional || undefined });
       }
     }
+    if (kind === 'Secret') {
+      for (const r of volumeSecretRefs(v)) {
+        if (r.name === name) out.push({ how: 'volumeSecretRef', keys: [], driver: r.driver, mounts: mountsOf(spec, v.name) });
+      }
+    }
   }
   if (kind === 'Secret' && (spec.imagePullSecrets ?? []).some((s) => s.name === name)) {
     out.push({ how: 'imagePullSecret', keys: [] });
@@ -160,6 +208,7 @@ export function pickUpOf(kind: ConsumerKind, uses: Usage[]): PickUp {
     || ((u.how === 'volume' || u.how === 'projected') && (u.mounts ?? []).some((m) => m.subPath)));
   if (needsRestart) return 'restart';
   if (uses.some((u) => u.how === 'volume' || u.how === 'projected')) return 'file';
+  if (uses.some((u) => u.how === 'volumeSecretRef')) return 'mount';
   return 'next-pull';
 }
 
@@ -168,12 +217,23 @@ function ownedByCronJob(w: K8sResource): boolean {
   return (w.metadata.ownerReferences ?? []).some((o) => o.kind === 'CronJob');
 }
 
-export function findConsumers(kind: ConfigKind, name: string, workloads: K8sResource[]): Consumer[] {
+/** ServiceAccounts (by name) whose imagePullSecrets name `secret`. */
+export function serviceAccountsPulling(secret: string, serviceAccounts: K8sResource[] | null | undefined): Set<string> {
+  return new Set((serviceAccounts ?? [])
+    .filter((sa) => ((sa as unknown as { imagePullSecrets?: Array<{ name?: string }> }).imagePullSecrets ?? []).some((s) => s.name === secret))
+    .map((sa) => sa.metadata.name));
+}
+
+export function findConsumers(kind: ConfigKind, name: string, workloads: K8sResource[], serviceAccounts?: K8sResource[] | null): Consumer[] {
   const out: Consumer[] = [];
+  const pullingSas = kind === 'Secret' ? serviceAccountsPulling(name, serviceAccounts) : new Set<string>();
   for (const w of workloads) {
     if (!(CONSUMER_KINDS as readonly string[]).includes(w.kind)) continue;
     if (w.kind === 'Job' && ownedByCronJob(w)) continue;
-    const uses = usagesIn(podTemplateOf(w)?.spec, kind, name);
+    const spec = podTemplateOf(w)?.spec;
+    const uses = usagesIn(spec, kind, name);
+    const sa = serviceAccountOf(spec);
+    if (pullingSas.has(sa)) uses.push({ how: 'serviceAccountPullSecret', keys: [], serviceAccount: sa });
     if (uses.length === 0) continue;
     const k = w.kind as ConsumerKind;
     out.push({ workload: w, kind: k, name: w.metadata.name, uses, pickUp: pickUpOf(k, uses) });
@@ -205,6 +265,7 @@ export function referencedConfig(spec: PodSpecLike | undefined): { configMaps: s
       if (s.secret?.name) secrets.add(s.secret.name);
     }
   }
+  for (const v of spec.volumes ?? []) for (const r of volumeSecretRefs(v)) secrets.add(r.name);
   for (const s of spec.imagePullSecrets ?? []) if (s.name) secrets.add(s.name);
   return { configMaps: [...cms].sort(), secrets: [...secrets].sort() };
 }
@@ -225,6 +286,8 @@ export function describeUsage(u: Usage, kind: ConfigKind): string {
       return `${u.how === 'projected' ? 'projected volume' : 'volume'} mounted at ${where}${items}${opt}`;
     }
     case 'imagePullSecret': return 'image pull secret';
+    case 'serviceAccountPullSecret': return `image pull secret of its ServiceAccount ${u.serviceAccount}`;
+    case 'volumeSecretRef': return `credentials of a ${u.driver} volume${(u.mounts ?? []).length ? ` mounted at ${(u.mounts ?? []).map((m) => m.mountPath).join(', ')}` : ''}`;
   }
 }
 
@@ -235,6 +298,7 @@ export function describePickUp(p: PickUp): { label: string; note?: string } {
     case 'next-pull': return { label: 'At the next image pull', note: 'Running pods are not affected' };
     case 'next-run': return { label: 'At the next scheduled run' };
     case 'rerun': return { label: 'Only if the Job is re-run', note: 'Its pods read the values when they started' };
+    case 'mount': return { label: 'When the volume is next mounted', note: 'Mounted volumes keep the credentials they were mounted with' };
   }
 }
 

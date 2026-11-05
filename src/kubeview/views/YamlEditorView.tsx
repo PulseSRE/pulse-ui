@@ -252,7 +252,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
       )}
 
       {savedConfig && namespace && (resource?.kind === 'ConfigMap' || resource?.kind === 'Secret') && (
-        <SavedConsumersOffer kind={resource.kind} namespace={namespace} name={name} clusterId={clusterId} />
+        <SavedConsumersOffer kind={resource.kind} namespace={namespace} name={name} clusterId={clusterId} onRestarted={() => setSavedConfig(false)} />
       )}
 
       {/* Save error banner */}
