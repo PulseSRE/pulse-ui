@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createHarness, json, k8sStatus, REMOTE, SSAR } from '../../../__tests__/actionHarness';
 import { useFleetStore } from '../../../store/fleetStore';
+import { useUIStore } from '../../../store/uiStore';
 
 const visited: string[] = [];
 vi.mock('../../../hooks/useNavigateTab', () => ({ useNavigateTab: () => (p: string) => visited.push(p) }));
@@ -78,6 +79,9 @@ beforeEach(() => {
   visited.length = 0;
   askPulse.mockClear();
   try { localStorage.clear(); } catch { /* jsdom */ }
+  // Toasts live in a shared store: one left by an earlier test carries an Undo
+  // bound to a page that is no longer mounted.
+  useUIStore.setState({ toasts: [] } as never);
   ALERTS = [alert(CRASH), alert(MISMATCH), alert(UNREACH), alert(KUBELET), alert(DISK), alert(OTHER_NODE), alert(QUOTA, 'pending'), ...FILLER];
   triageResponse = (body) => json({ results: body.alerts.map((a: { labels: Record<string, string> }) => triageFor(a.labels)) });
   h.state.handler = (r) => {
@@ -287,7 +291,6 @@ describe('Pulse suggests a silence', () => {
   });
 
   it('Undo from the success toast asks before expiring', async () => {
-    const { useUIStore } = await import('../../../store/uiStore');
     const dialog = await openSuggestedSilence();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Edit matchers' }));
     fireEvent.change(within(dialog).getByLabelText('Matchers'), { target: { value: 'node="worker-5", alertname="KubeletDown"' } });
@@ -295,7 +298,9 @@ describe('Pulse suggests a silence', () => {
     await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(confirm);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    const toast = useUIStore.getState().toasts.find((t) => t.title?.startsWith('Silence created'))!;
+    const created = useUIStore.getState().toasts.filter((t) => t.title?.startsWith('Silence created'));
+    expect(created).toHaveLength(1);
+    const toast = created[0];
     act(() => { toast.action!.onClick(); });
     const ask = await screen.findByRole('dialog');
     expect(within(ask).getByText('Expire silence?')).toBeTruthy();
