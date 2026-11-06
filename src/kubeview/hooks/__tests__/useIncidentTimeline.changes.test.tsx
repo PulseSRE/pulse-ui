@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../useK8sListWatch', () => ({ useK8sListWatch: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }) }));
@@ -25,15 +25,37 @@ vi.mock('../../engine/query', () => ({ k8sGet: vi.fn(async () => null) }));
 
 import { useIncidentTimeline } from '../useIncidentTimeline';
 
+// One client per test, not per render: a client made inside the wrapper is
+// replaced on every re-render, and each replacement starts its queries again.
+let client: QueryClient;
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>;
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 const res = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const fetchMock = vi.fn();
 const at = new Date(Date.now() - 10 * 60_000).toISOString();
 
-beforeEach(() => { cluster = 'local'; fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock); });
-afterEach(() => { vi.unstubAllGlobals(); });
+beforeEach(() => {
+  cluster = 'local';
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  fetchMock.mockReset();
+  vi.stubGlobal('fetch', fetchMock);
+});
+// Vitest runs without globals, so Testing Library does not unmount by itself.
+// Hooks left mounted kept rendering after the last test, outside act(); a
+// commit just before the jsdom environment was torn down queued React's
+// passive-effect flush, which then read `window` after it was gone
+// ("ReferenceError: window is not defined" on CI). Unmount inside act, stop
+// the client's queries and let in-flight reads settle before the next test.
+afterEach(async () => {
+  cleanup();
+  await act(async () => {
+    await client.cancelQueries();
+    client.clear();
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  vi.unstubAllGlobals();
+});
 
 describe('config lane from /changes', () => {
   it('adds the namespace\'s changes with their actor, and skips ClusterVersion (already in the lane)', async () => {
