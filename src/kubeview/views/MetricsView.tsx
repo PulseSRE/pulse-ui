@@ -167,16 +167,16 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
         <span className="text-xs text-slate-500">{mq.yAxisLabel}</span>
       </div>
       {isLoading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="kv-skeleton w-full h-full rounded-sm" />
+        <div className="h-48 flex items-center justify-center text-sm text-slate-400" role="status">
+          Checking…
         </div>
       ) : error ? (
         <div className="h-48 flex flex-col justify-center">
-          <LoadError title="Failed to fetch metrics" error={error} onRetry={() => { void refetch(); }} />
+          <LoadError title="Could not load metrics" error={error} onRetry={() => { void refetch(); }} />
         </div>
       ) : series.length === 0 ? (
-        <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
-          No data available
+        <div className="h-48 flex items-center justify-center text-slate-400 text-sm" role="status">
+          No data for this period
         </div>
       ) : (
         <MetricsChart

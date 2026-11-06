@@ -89,12 +89,12 @@ describe('MetricCard', () => {
     });
   });
 
-  it('shows "No data" instead of a broken chart when every sample is non-finite', async () => {
+  it('shows "No data for this period" instead of a broken chart when every sample is non-finite', async () => {
     mockRangeResponse([[1000, 'NaN'], [1060, 'NaN'], [1120, '+Inf']]);
 
     const { findByText } = renderWithClient(<MetricCard title="CPU" query="up" />);
 
-    expect(await findByText('No data')).toBeTruthy();
+    expect(await findByText('No data for this period')).toBeTruthy();
   });
 
   it('keeps its own color when a lower-is-worse value is healthy', async () => {

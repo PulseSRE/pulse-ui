@@ -5,6 +5,7 @@ import { ScrollText, Loader2 } from 'lucide-react';
 import { k8sLogs, sanitizePromQL } from '../../engine/query';
 import { pickDefaultContainer } from '../../components/logs/pickDefaultContainer';
 import { MetricCard } from '../../components/metrics/Sparkline';
+import { MetricsScope } from '../../components/metrics/MetricsScope';
 import { CHART_COLORS } from '../../engine/colors';
 import type { K8sResource } from '../../engine/renderers';
 import type { Pod, Event, Container, ContainerStatus } from '../../engine/types';
@@ -213,6 +214,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
             <div className="text-xs font-medium text-slate-400 mb-2">
               Resource Usage{!isPod && <span className="text-slate-500 font-normal"> · {podCount} pod{podCount === 1 ? '' : 's'} of this {resource.kind}</span>}
             </div>
+            <MetricsScope>
             <div className="grid grid-cols-2 gap-3">
               <MetricCard
                 title="CPU"
@@ -227,6 +229,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
                 color={CHART_COLORS.violet}
               />
             </div>
+            </MetricsScope>
           </div>
         )}
       </div>
