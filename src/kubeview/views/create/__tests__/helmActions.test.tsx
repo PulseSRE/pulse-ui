@@ -300,6 +300,19 @@ metadata:
     expect(h.writes()).toHaveLength(0);
   });
 
+  it.each([
+    ['values', 'create secrets', 'You do not have permission to create Secrets in team-a, so Pulse cannot edit the values of shop.'],
+    ['values', 'create jobs', 'You do not have permission to create Jobs in team-a, so Pulse cannot edit the values of shop.'],
+    ['rollback', 'create jobs', 'You do not have permission to create Jobs in team-a, so Pulse cannot roll back shop.'],
+    ['uninstall', 'create jobs', 'You do not have permission to create Jobs in team-a, so Pulse cannot uninstall shop.'],
+  ])('a link with action=%s does not open the dialog when %s is denied, and says why', async (linkAction, denied, reason) => {
+    h.state.denied.add(denied);
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />, `/software?tab=helm&release=shop&releaseNs=team-a&action=${linkAction}`);
+    expect((await screen.findByTestId('helm-link-denied')).textContent).toBe(reason);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(h.writes()).toHaveLength(0);
+  });
+
   it('labels Upgrade with the newest version the repository offers', async () => {
     h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />);
     await screen.findByTestId('helm-release-shop');

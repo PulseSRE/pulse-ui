@@ -428,6 +428,10 @@ const isComment = (s: string) => /^[ \t]*#/.test(s);
 const TOP_KIND = /^kind:[ \t]*["']?[A-Za-z0-9.]+["']?[ \t]*(#.*)?$/;
 const TOP_SECRET = /^kind:[ \t]*["']?Secret["']?[ \t]*(#.*)?$/;
 const ANY_SECRET = /kind["']?[ \t]*:[ \t]*["']?Secret(["' \t,}#]|$)/;
+/** A YAML anchor or alias at the start of a token. */
+const ANCHOR = /(^|[ \t[{,])[&*][^\] \t[{},]/;
+/** The only top-level keys a Secret may have to be shown (literal, unquoted). */
+const SECRET_TOP_KEYS = /^(apiVersion|kind|metadata|type|immutable|data|stringData)[ \t]*:/;
 
 /** Kind of the marker document that replaces a withheld one. */
 export const WITHHELD_KIND = 'PulsePreviewWithheld';
@@ -471,14 +475,23 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
     if (nested) { withhold('it contains a Secret inside a list or another object'); return; }
     if (!top) { withhold('its kind could not be determined'); return; }
     if (!secret) { out.push(...doc); doc = []; return; }
+    // A Secret is printed only through an allow-list; anything else withholds it.
+    for (const l of doc) {
+      if (isComment(l)) continue;
+      if (ANCHOR.test(l) || /<<[ \t]*:/.test(l)) { withhold('it uses YAML anchors, aliases or merge keys'); return; }
+    }
     let sec = 0;
     let keyind = -1;
+    let cur = '';
+    let bad = '';
+    const ob: string[] = [];
     for (let i = 0; i < doc.length; i++) {
       let l = doc[i];
-      if (sec && /^[^ \t#]/.test(l) && !(sec === 2 && /^[\]}]/.test(l))) sec = 0;
+      if (isComment(l)) { if (/^# Source: /.test(l)) ob.push(l); continue; }
+      if (sec && /^[^ \t]/.test(l) && !(sec === 2 && /^[\]}]/.test(l))) sec = 0;
       if (sec === 2) continue;
+      if (isBlank(l)) { if (!sec) ob.push(l); continue; }
       if (sec === 1) {
-        if (isBlank(l) || isComment(l)) continue;
         const ind = indentOf(l);
         if (keyind < 0) keyind = ind;
         if (ind !== keyind) continue;
@@ -492,21 +505,29 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
           val = `${val}\n${l}`;
         }
         i = j - 1;
-        out.push(`${key}: "(redacted sha256:${await saltedHash(salt, val)})"`);
+        ob.push(`${key}: "(redacted sha256:${await saltedHash(salt, val)})"`);
         continue;
       }
-      if (/^["']?(data|stringData)["']?[ \t]*:/.test(l)) {
+      if (/^[^ \t]/.test(l)) {
+        if (!SECRET_TOP_KEYS.test(l)) { bad = 'it has a top-level key Pulse does not show'; break; }
         const m = l.indexOf(':');
-        const k = l.slice(0, m).replace(/["' \t]/g, '');
+        cur = l.slice(0, m).replace(/[ \t]+$/, '');
         const rest = l.slice(m + 1);
-        if (/^[ \t]*(#.*)?$/.test(rest)) { sec = 1; keyind = -1; out.push(`${k}:`); continue; }
-        if (/^[ \t]*\{[ \t]*\}[ \t]*(#.*)?$/.test(rest)) { out.push(`${k}: {}`); continue; }
-        sec = 2;
-        out.push(`${k}: {}  # redacted by Pulse: values not shown`);
+        if (cur === 'data' || cur === 'stringData') {
+          if (/^[ \t]*(#.*)?$/.test(rest)) { sec = 1; keyind = -1; ob.push(`${cur}:`); continue; }
+          if (/^[ \t]*\{[ \t]*\}[ \t]*(#.*)?$/.test(rest)) { ob.push(`${cur}: {}`); continue; }
+          sec = 2;
+          ob.push(`${cur}: {}  # redacted by Pulse: values not shown`);
+          continue;
+        }
+        ob.push(l);
         continue;
       }
-      out.push(l);
+      if (cur !== 'metadata') { bad = `it has nested content under ${cur}`; break; }
+      ob.push(l);
     }
+    if (bad) { withhold(bad); return; }
+    out.push(...ob);
     doc = [];
   };
   for (const l of lines) {

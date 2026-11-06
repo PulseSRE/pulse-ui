@@ -87,15 +87,24 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
   const action = usePinnedAction<ReleaseAction>();
   const handledLink = React.useRef<string | null>(null);
   const linked = linkRelease ? releases.find((r) => r.name === linkRelease && (!linkNs || r.namespace === linkNs)) : undefined;
+  // The same gates as the row's buttons: a link must not open what the button would not.
+  const linkCanJobs = useCanI('create', 'batch', 'jobs', linked?.namespace, undefined, { enabled: !!linked && !!linkAction });
+  const linkCanSecrets = useCanI('create', '', 'secrets', linked?.namespace, undefined, { enabled: !!linked && linkAction === 'values' });
+  const linkChecking = !!linked && !!linkAction && (linkCanJobs.isLoading || (linkAction === 'values' && linkCanSecrets.isLoading));
+  const linkDenied = !linked || !linkAction || linkChecking ? undefined
+    : !linkCanJobs.allowed ? `You do not have permission to create Jobs in ${linked.namespace}, so Pulse cannot ${linkAction === 'values' ? 'edit the values of' : linkAction === 'rollback' ? 'roll back' : 'uninstall'} ${linked.name}.`
+      : linkAction === 'values' && !linkCanSecrets.allowed ? `You do not have permission to create Secrets in ${linked.namespace}, so Pulse cannot edit the values of ${linked.name}.`
+        : undefined;
   React.useEffect(() => {
     const key = `${linkNs}/${linkRelease}/${linkAction}`;
-    if (!linked || !linkAction || !LINK_ACTIONS.has(linkAction) || handledLink.current === key) return;
+    if (!linked || !linkAction || !LINK_ACTIONS.has(linkAction) || handledLink.current === key || linkChecking) return;
     handledLink.current = key;
     if (linkAction === 'rollback' && linked.revisions.length < 2) return;
+    if (linkDenied) return;
     action.open({ kind: linkAction, release: linked } as ReleaseAction);
     // Once open, drop `action` so a reload or back-navigation does not open it again.
     setParams((p) => { const next = new URLSearchParams(p); next.delete('action'); return next; }, { replace: true });
-  }, [linked, linkAction, linkNs, linkRelease, action, setParams]);
+  }, [linked, linkAction, linkNs, linkRelease, action, setParams, linkChecking, linkDenied]);
 
   return (
     <Card className="p-4">
@@ -107,6 +116,8 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       {linkRelease && !isLoading && !error && !linked && (
         <p role="alert" className="mb-3 text-xs text-amber-300">Release {linkRelease}{linkNs ? ` in ${linkNs}` : ''} was not found among the Helm release records Pulse can read.</p>
       )}
+      {linkChecking && LINK_ACTIONS.has(linkAction ?? '') && <p role="status" className="mb-3 text-xs text-slate-400">Checking your permissions…</p>}
+      {linkDenied && LINK_ACTIONS.has(linkAction ?? '') && <p role="alert" className="mb-3 text-xs text-amber-300" data-testid="helm-link-denied">{linkDenied}</p>}
       {linked && linkAction === 'rollback' && linked.revisions.length < 2 && (
         <p role="alert" className="mb-3 text-xs text-amber-300">Release {linked.name} has only revision {linked.revision}: there is no earlier revision to roll back to.</p>
       )}

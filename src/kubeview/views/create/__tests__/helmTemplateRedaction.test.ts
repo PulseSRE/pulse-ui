@@ -69,11 +69,26 @@ const CASES: Array<{ name: string; secret: string; render: string; withheld?: bo
   { name: 'quoted "kind" key', secret: 'quoted-key-pass', withheld: true, render: `---\napiVersion: v1\n"kind": Secret\nstringData:\n  p: quoted-key-pass\n` },
   { name: 'content after a document separator', secret: 'sep-pass', withheld: true, render: `--- {kind: Secret, stringData: {p: sep-pass}}\n` },
   { name: 'multi-line flow data', secret: 'multi-flow-pass', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\ndata: {\n  p: multi-flow-pass\n}\ntype: Opaque\n` },
-  { name: 'quoted data key', secret: 'quoted-data-pass', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n"stringData":\n  p: quoted-data-pass\n` },
+  { name: 'quoted data key', secret: 'quoted-data-pass', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n"stringData":\n  p: quoted-data-pass\n` },
+  // Round 3: shapes an allow-list closes.
+  { name: 'flow mapping continued at column 0', secret: 'LEAK-flow-col0', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData: {a: x,\npassword: LEAK-flow-col0}\n` },
+  { name: 'escaped key', secret: 'LEAK-escaped', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n"d\\x61ta":\n  p: LEAK-escaped\n` },
+  { name: 'anchor in metadata, alias as stringData', secret: 'LEAK-anchor', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n  annotations: &x {password: LEAK-anchor}\nstringData: *x\n` },
+  { name: 'alias value', secret: 'LEAK-alias', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n  labels: {l: &pw LEAK-alias}\nstringData:\n  password: *pw\n` },
+  { name: 'merge key', secret: 'LEAK-merge', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n  annotations: &m {password: LEAK-merge}\nstringData: {<<: *m}\n` },
+  { name: 'block scalar followed by a column-0 key', secret: 'LEAK-proc-type', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData:\n  key.pem: |\n    -----BEGIN RSA PRIVATE KEY-----\nProc-Type: LEAK-proc-type\n` },
+  { name: 'comment carrying a value', secret: 'LEAK-comment', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n# password was LEAK-comment\nstringData:\n  p: x\n` },
+  { name: 'nested content under type', secret: 'LEAK-under-type', withheld: true, render: `---\napiVersion: v1\nkind: Secret\ntype: |\n  LEAK-under-type\nstringData:\n  p: x\n` },
+];
+
+/** Valid Secrets that must still be shown (not withheld), with values redacted. */
+const SHOWN: Array<{ name: string; secret: string; render: string }> = [
+  { name: 'ampersand inside a value', secret: 'a=1&b=2', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n  annotations:\n    note: "see https://x.example/?a=1&b=2"\ntype: Opaque\nimmutable: true\nstringData:\n  url: https://x.example/?a=1&b=2\n` },
 ];
 
 let dir = '';
 const SALT = '00112233445566778899aabbccddeeff';
+const PULSE_WITHHELD = 'PulsePreviewWithheld';
 const hasTools = spawnSync('sh', ['-c', 'command -v awk && command -v sha256sum']).status === 0;
 const SH = execFileSync('sh', ['-c', 'command -v sh'], { encoding: 'utf8' }).trim();
 
@@ -103,6 +118,14 @@ describe('TS redaction (browser copy)', () => {
     const objs = parseRendered(out, 'ns').objects;
     if (withheld) expect(objs.map((o) => o.kind)).toEqual([WITHHELD_KIND]);
     else expect(objs.some((o) => o.kind === 'Secret')).toBe(true);
+  });
+
+  it.each(SHOWN)('$name: still shown, value redacted', async ({ render, secret }) => {
+    const out = await redactSecretValues(render, SALT);
+    const objs = parseRendered(out, 'ns').objects;
+    expect(objs.map((o) => o.kind)).toEqual(['Secret']);
+    expect(out.split('stringData:')[1]).not.toContain(secret);
+    expect(out).toMatch(/url: "\(redacted sha256:[0-9a-f]{16}\)"/);
   });
 
   it('keeps non-secret values and redacts the documented shape', async () => {
@@ -148,6 +171,13 @@ describe.skipIf(!hasTools)('preview Job redaction (real sh and awk)', () => {
     expect(r.status).toBe(0);
     expect(r.stdout).not.toContain(secret);
     expect(r.stdout).toBe(await redactSecretValues(render, SALT));
+  });
+
+  it.each(SHOWN)('$name: still shown, and awk and TS agree', async ({ render }) => {
+    const r = runScript(render);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe(await redactSecretValues(render, SALT));
+    expect(r.stdout).not.toContain(PULSE_WITHHELD);
   });
 
   it('all cases in one render: same bytes, withheld markers numbered in order', async () => {

@@ -29,12 +29,18 @@ import { assertDigestPinnedImage, CHART_ARCHIVE_KEY, CHART_MOUNT, helmArgs, VALU
  *   flow mapping, a nested object): the document is withheld and replaced by
  *   a PulsePreviewWithheld marker;
  * - no top-level `kind:` line: withheld too (its kind cannot be told);
- * - a top-level Secret: every `data`/`stringData` value is replaced by
- *   "(redacted sha256:<16 hex of salt+value>)". A block starts at
- *   `data:`/`stringData:` (optionally followed by a comment) and ends only at
- *   a column-0 line that is not blank or a comment; comments inside it are
- *   dropped. Any other form (`data: {a: b}`, multi-line flow) is printed as
- *   `data: {}` and its lines are dropped.
+ * - a top-level Secret is printed only through an allow-list. It is withheld
+ *   if any line uses a YAML anchor, alias or merge key (`&x`, `*x`, `<<:`),
+ *   if it has a top-level key other than apiVersion, kind, metadata, type,
+ *   immutable, data and stringData (literal and unquoted, so quoted or
+ *   escaped keys withhold it), or if anything but metadata has nested lines.
+ *   Comments other than `# Source:` are dropped. Every `data`/`stringData`
+ *   value is replaced by "(redacted sha256:<16 hex of salt+value>)": a block
+ *   starts at `data:`/`stringData:` (optionally followed by a comment) and
+ *   ends only at a column-0 line that is not blank or a comment. Any other
+ *   form (`data: {a: b}`, multi-line flow) is printed as `data: {}` and its
+ *   lines are dropped; a column-0 line inside it that is not `}`/`]` must be
+ *   an allowed key, or the document is withheld.
  */
 export const REDACT_AWK = String.raw`
 function hash(v,   f, cmd, line, n) {
@@ -61,7 +67,7 @@ function withhold(reason,   i) {
   print "reason: \"" reason "\""
   nl = 0
 }
-function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, val, m, k, rest) {
+function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, val, m, rest, cur, on, bad) {
   content = 0; top = 0; secret = 0; nested = 0
   for (i = 1; i <= nl; i++) {
     l = doc[i]
@@ -77,13 +83,20 @@ function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, 
   if (nested) { withhold("it contains a Secret inside a list or another object"); return }
   if (!top) { withhold("its kind could not be determined"); return }
   if (!secret) { for (i = 1; i <= nl; i++) print doc[i]; nl = 0; return }
-  sec = 0
+  # A Secret is printed only through an allow-list; anything else withholds it.
   for (i = 1; i <= nl; i++) {
     l = doc[i]
-    if (sec && l ~ /^[^ \t#]/ && !(sec == 2 && l ~ /^[]}]/)) sec = 0
+    if (comment(l)) continue
+    if (l ~ /(^|[ \t[{,])[&*][^] \t[{},]/ || l ~ /<<[ \t]*:/) { withhold("it uses YAML anchors, aliases or merge keys"); return }
+  }
+  sec = 0; cur = ""; on = 0; bad = ""
+  for (i = 1; i <= nl; i++) {
+    l = doc[i]
+    if (comment(l)) { if (l ~ /^# Source: /) ob[++on] = l; continue }
+    if (sec && l ~ /^[^ \t]/ && !(sec == 2 && l ~ /^[]}]/)) sec = 0
     if (sec == 2) continue
+    if (blank(l)) { if (!sec) ob[++on] = l; continue }
     if (sec == 1) {
-      if (blank(l) || comment(l)) continue
       ind = indent(l)
       if (keyind < 0) keyind = ind
       if (ind != keyind) continue
@@ -96,19 +109,27 @@ function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, 
         l = doc[j]; sub(/^[ \t]+/, "", l); sub(/[ \t]+$/, "", l); val = val "\n" l
       }
       i = j - 1
-      print key ": \"(redacted sha256:" hash(val) ")\""
+      ob[++on] = key ": \"(redacted sha256:" hash(val) ")\""
       continue
     }
-    if (l ~ /^["']?(data|stringData)["']?[ \t]*:/) {
+    if (l ~ /^[^ \t]/) {
+      if (l !~ /^(apiVersion|kind|metadata|type|immutable|data|stringData)[ \t]*:/) { bad = "it has a top-level key Pulse does not show"; break }
       m = index(l, ":")
-      k = substr(l, 1, m - 1); gsub(/["' \t]/, "", k)
+      cur = substr(l, 1, m - 1); sub(/[ \t]+$/, "", cur)
       rest = substr(l, m + 1)
-      if (rest ~ /^[ \t]*(#.*)?$/) { sec = 1; keyind = -1; print k ":"; continue }
-      if (rest ~ /^[ \t]*\{[ \t]*\}[ \t]*(#.*)?$/) { print k ": {}"; continue }
-      sec = 2; print k ": {}  # redacted by Pulse: values not shown"; continue
+      if (cur == "data" || cur == "stringData") {
+        if (rest ~ /^[ \t]*(#.*)?$/) { sec = 1; keyind = -1; ob[++on] = cur ":"; continue }
+        if (rest ~ /^[ \t]*\{[ \t]*\}[ \t]*(#.*)?$/) { ob[++on] = cur ": {}"; continue }
+        sec = 2; ob[++on] = cur ": {}  # redacted by Pulse: values not shown"; continue
+      }
+      ob[++on] = l
+      continue
     }
-    print l
+    if (cur != "metadata") { bad = "it has nested content under " cur; break }
+    ob[++on] = l
   }
+  if (bad != "") { withhold(bad); return }
+  for (i = 1; i <= on; i++) print ob[i]
   nl = 0
 }
 /^---/ { flush(); print "---"; r = substr($0, 4); if (r !~ /^[ \t]*(#.*)?$/) doc[++nl] = r; next }
