@@ -36,6 +36,8 @@ import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from 
 import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
 import { CreateGroupButton, GroupMemberControls, type GroupLike } from './identity/GroupActions';
 import { AccessPanel } from './identity/AccessPanel';
+import { WhoCanPanel } from './identity/WhoCanPanel';
+import { subjectPagePath, refFromUsername } from '../engine/subjectAccess';
 
 /** One shared empty list, so a missing list does not change memo inputs every render. */
 const NO_ITEMS: K8sResource[] = [];
@@ -46,10 +48,11 @@ function Count({ n, failed }: { n: number; failed: boolean }) {
   return <>{n}</>;
 }
 
+/** The subject's access page: bindings, effective permissions, remove access. */
 function subjectUrl(s: { kind: string; name: string; namespace?: string }): string {
-  if (s.kind === 'ServiceAccount') return `/r/v1~serviceaccounts/${s.namespace}/${s.name}`;
-  if (s.kind === 'Group') return `/r/user.openshift.io~v1~groups/_/${s.name}`;
-  return `/r/user.openshift.io~v1~users/_/${s.name}`;
+  if (s.kind === 'ServiceAccount') return subjectPagePath({ kind: 'ServiceAccount', name: s.name, namespace: s.namespace });
+  if (s.kind === 'Group') return subjectPagePath({ kind: 'Group', name: s.name });
+  return subjectPagePath(refFromUsername(s.name));
 }
 
 // ---------------------------------------------------------------------------
@@ -72,13 +75,15 @@ type K8sResourceExt = K8sResource & {
 // Impersonation is started from a user or service-account row and announced
 // (with Stop) by the global banner in the Shell; it has no tab of its own.
 // An old `?tab=impersonation` link falls back to Users.
+// `rbac` is labelled "Access review" (who can, bindings, RBAC audit); the id
+// is kept so existing ?tab=rbac links still land there.
 type TabId = 'users' | 'groups-sa' | 'rbac';
 const TAB_IDS: readonly TabId[] = ['users', 'groups-sa', 'rbac'];
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; iconActive: React.ReactNode }[] = [
   { id: 'users', label: 'Users', icon: <User className="w-3.5 h-3.5 text-blue-400" />, iconActive: <User className="w-3.5 h-3.5" /> },
   { id: 'groups-sa', label: 'Groups & Service Accounts', icon: <Key className="w-3.5 h-3.5 text-amber-400" />, iconActive: <Key className="w-3.5 h-3.5" /> },
-  { id: 'rbac', label: 'RBAC', icon: <Shield className="w-3.5 h-3.5 text-red-400" />, iconActive: <Shield className="w-3.5 h-3.5" /> },
+  { id: 'rbac', label: 'Access review', icon: <Shield className="w-3.5 h-3.5 text-red-400" />, iconActive: <Shield className="w-3.5 h-3.5" /> },
 ];
 
 /** The one Impersonate action, on user and service-account rows. */
@@ -366,7 +371,7 @@ export default function IdentityView() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <button onClick={() => go(`/r/user.openshift.io~v1~users/_/${user.metadata.name}`, user.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{user.metadata.name}</button>
+                            <button onClick={() => go(subjectUrl({ kind: 'User', name: user.metadata.name }), user.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{user.metadata.name}</button>
                             {isAdmin && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded-sm">cluster-admin</span>}
                             {user.metadata.name === 'kube:admin' && <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded-sm">built-in</span>}
                           </div>
@@ -430,7 +435,7 @@ export default function IdentityView() {
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <Shield className="w-4 h-4 text-violet-400" />
-                            <button onClick={() => go(`/r/user.openshift.io~v1~groups/_/${group.metadata.name}`, group.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{group.metadata.name}</button>
+                            <button onClick={() => go(subjectUrl({ kind: 'Group', name: group.metadata.name }), group.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{group.metadata.name}</button>
                             <span className="text-xs text-slate-500">{members.length} member{members.length !== 1 ? 's' : ''}</span>
                           </div>
                           {gRoles.length > 0 && (
@@ -467,7 +472,7 @@ export default function IdentityView() {
                         <div className="flex items-center gap-3">
                           <Key className="w-4 h-4 text-slate-500" />
                           <div>
-                            <button onClick={() => go(`/r/v1~serviceaccounts/${sa.metadata.namespace}/${sa.metadata.name}`, sa.metadata.name)} className="text-sm text-blue-400 hover:text-blue-300">{sa.metadata.name}</button>
+                            <button onClick={() => go(subjectUrl({ kind: 'ServiceAccount', name: sa.metadata.name, namespace: sa.metadata.namespace }), sa.metadata.name)} className="text-sm text-blue-400 hover:text-blue-300">{sa.metadata.name}</button>
                             <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm ml-2">{sa.metadata.namespace}</span>
                           </div>
                         </div>
@@ -506,6 +511,11 @@ export default function IdentityView() {
         {/* ==================== RBAC TAB ==================== */}
         {activeTab === 'rbac' && (
           <>
+            {/* Who can: subjects with the binding chain behind each */}
+            <Card className="p-4">
+              <WhoCanPanel namespaces={namespaces as Namespace[]} />
+            </Card>
+
             {/* Stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button onClick={() => go('/r/rbac.authorization.k8s.io~v1~clusterroles', 'ClusterRoles')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">

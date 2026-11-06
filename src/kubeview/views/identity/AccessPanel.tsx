@@ -1,7 +1,7 @@
 /**
  * RBAC actions on the Identity page: grant a role (RoleBinding or
- * ClusterRoleBinding), list and revoke bindings, and check "who can" with a
- * SubjectAccessReview.
+ * ClusterRoleBinding), list and revoke bindings, and check one subject with a
+ * SubjectAccessReview (the full "who can" list is WhoCanPanel).
  */
 import React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -245,7 +245,7 @@ function WhoCan() {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><ShieldQuestion className="w-3.5 h-3.5 text-violet-400" /> Who can…?</h3>
+      <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><ShieldQuestion className="w-3.5 h-3.5 text-violet-400" /> Check one subject</h3>
       <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
         <label className="text-xs text-slate-400">User<input aria-label="Check user" className={inputCls} value={c.user} onChange={(e) => set({ user: e.target.value.trim() })} placeholder="alice" /></label>
         <label className="text-xs text-slate-400">Groups<input aria-label="Check groups" className={inputCls} value={c.groups} onChange={(e) => set({ groups: e.target.value })} placeholder="dev,qa" /></label>
