@@ -240,6 +240,8 @@ See [Component Specs](#component-specs) for all `spec.kind` values.
 | `input` | `object` | Tool input parameters (shown to user) |
 | `nonce` | `string` | JIT nonce for replay prevention — client must echo this back |
 
+Home's "What needs attention" and the Timeline config lane read `GET /api/agent/changes` (pulse-agent contract). A route-missing 404 (no `code`) means "not available on this agent".
+
 #### `done` — Agent turn complete
 
 ```json

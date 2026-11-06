@@ -27,9 +27,9 @@ vi.mock('../../store/uiStore', () => ({
 }));
 
 vi.mock('../../store/clusterStore', () => ({
-  useClusterStore: (selector: any) => {
-    const state = { resourceRegistry: new Map() };
-    return selector(state);
+  useClusterStore: (selector?: any) => {
+    const state = { resourceRegistry: new Map(), discoveryClusterId: 'local', discoveryLoading: false, discoveryError: null, apiGroups: [], runDiscovery: () => undefined };
+    return selector ? selector(state) : state;
   },
 }));
 
@@ -90,10 +90,10 @@ describe('CreateView', () => {
     cleanup();
   });
 
-  it('renders 4 tabs: Quick Deploy, Helm Charts, Templates, Import YAML', () => {
+  it('renders 4 tabs: Deploy an app, Helm Charts, Templates, Import YAML', () => {
     renderCreateView();
 
-    expect(screen.getByText('Quick Deploy')).toBeDefined();
+    expect(screen.getByText('Deploy an app')).toBeDefined();
     expect(screen.getByText('Helm Charts')).toBeDefined();
     expect(screen.getByText('Templates')).toBeDefined();
     expect(screen.getByText('Import YAML')).toBeDefined();
@@ -115,7 +115,7 @@ describe('CreateView', () => {
     renderCreateView({ gvrKey: 'v1/pods' }, '/create/v1~pods');
     expect(screen.getByTestId('yaml-editor')).toBeDefined();
     expect(screen.getByText('Create Pod')).toBeDefined();
-    expect(screen.queryByRole('tab', { name: /Quick Deploy/ })).toBeNull();
+    expect(screen.queryByRole('tab', { name: /Deploy an app/ })).toBeNull();
   });
 
   it.each([
@@ -175,41 +175,40 @@ describe('CreateView', () => {
     historyBackSpy.mockRestore();
   });
 
-  it('shows Quick Deploy form fields', () => {
+  it('shows the Deploy an app form fields', () => {
     renderCreateView();
 
-    // Click Quick Deploy tab (Installed is now default)
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    expect(screen.getByText('Application Name')).toBeDefined();
-    expect(screen.getByText('Container Image')).toBeDefined();
-    expect(screen.getByText('Container Port')).toBeDefined();
-    expect(screen.getByText('Replicas')).toBeDefined();
+    // Click the Deploy an app tab (Installed is now default)
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
+    expect(screen.getByLabelText(/^Name\*?$/)).toBeDefined();
+    expect(screen.getByLabelText(/^Image\*?$/)).toBeDefined();
+    expect(screen.getByLabelText(/^Container\ port\*?$/)).toBeDefined();
+    expect(screen.getByLabelText(/^Replicas\*?$/)).toBeDefined();
   });
 
   it('has required indicators on name and image fields', () => {
     renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
 
-    // Both "Application Name" and "Container Image" have required * markers
+    // Both "Name" and "Image" have required * markers
     const requiredMarkers = document.querySelectorAll('.text-red-400');
     expect(requiredMarkers.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('shows Deploy button in Quick Deploy tab', () => {
+  it('shows the Dry run button, off until the form is complete', () => {
     renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
 
-    expect(screen.getByText('Deploy')).toBeDefined();
+    expect((screen.getByRole('button', { name: 'Dry run' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('shows quick example buttons (nginx, httpd, redis)', () => {
+  it('shows the optional sections below Source', () => {
     renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
 
-    expect(screen.getByText('Quick Examples')).toBeDefined();
-    expect(screen.getByText('nginx')).toBeDefined();
-    expect(screen.getByText('httpd')).toBeDefined();
-    expect(screen.getByText('redis')).toBeDefined();
+    for (const s of ['1 · Source', '2 · Config', '3 · Storage', '4 · Health checks', '5 · Resources', '6 · Expose']) {
+      expect(screen.getByRole('heading', { name: s })).toBeDefined();
+    }
   });
 
   it('shows template categories when Templates tab is selected', () => {
@@ -289,9 +288,9 @@ describe('CreateView', () => {
   it('switches between tabs correctly', () => {
     renderCreateView();
 
-    // Start at Installed (default), switch to Quick Deploy
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    expect(screen.getByText('Application Name')).toBeDefined();
+    // Start at Installed (default), switch to Deploy an app
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
+    expect(screen.getByLabelText(/^Image\*?$/)).toBeDefined();
 
     // Switch to Helm Charts
     fireEvent.click(screen.getByText('Helm Charts'));
@@ -305,24 +304,9 @@ describe('CreateView', () => {
     fireEvent.click(screen.getByText('Import YAML'));
     expect(screen.getByText('Paste from Clipboard')).toBeDefined();
 
-    // Switch back to Quick Deploy
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    expect(screen.getByText('Application Name')).toBeDefined();
-  });
-
-  it('populates form fields when clicking quick example', () => {
-    renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
-
-    // Click nginx example
-    fireEvent.click(screen.getByText(/Nginx web server/));
-
-    // Check that the input fields are populated
-    const nameInput = screen.getByPlaceholderText('my-app') as HTMLInputElement;
-    const imageInput = screen.getByPlaceholderText(/nginx|quay.io/) as HTMLInputElement;
-
-    expect(nameInput.value).toBe('nginx');
-    expect(imageInput.value).toBe('nginxinc/nginx-unprivileged:latest');
+    // Switch back to Deploy an app
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
+    expect(screen.getByLabelText(/^Image\*?$/)).toBeDefined();
   });
 
   it('shows Helm chart tab with repo-based catalog', () => {
@@ -342,58 +326,33 @@ describe('CreateView', () => {
     expect(screen.getByPlaceholderText('Search charts...')).toBeDefined();
   });
 
-  it('shows namespace info in Quick Deploy', () => {
+  it('shows namespace info in Deploy an app', () => {
     renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
 
     // The global selector names the target namespace; nothing falls back to `default` silently.
     expect(screen.getByLabelText('Namespace')).toBeDefined();
   });
 
-  // ===== Quick Deploy: Env Vars =====
+  // ===== Deploy an app: Config =====
 
-  it('shows Add Variable button in Quick Deploy', () => {
+  it('adds variable, ConfigMap and Secret entries', () => {
     renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    expect(screen.getByText('Environment Variables')).toBeDefined();
-    expect(screen.getByText('Add Variable')).toBeDefined();
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
+    expect(screen.getByText('No environment set.')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Add variable' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add from Secret' }));
+    expect(screen.getAllByLabelText(/^Variable\ name\*?$/)).toHaveLength(1);
+    expect(screen.getByLabelText('Secret')).toBeDefined();
+    expect(screen.getByText('value hidden')).toBeDefined();
   });
 
-  it('adds env var row when Add Variable is clicked', () => {
-    renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    fireEvent.click(screen.getByText('Add Variable'));
-    expect(screen.getByPlaceholderText('NAME')).toBeDefined();
-    expect(screen.getByPlaceholderText('value')).toBeDefined();
-  });
+  // ===== Deploy an app: Resources =====
 
-  it('can add multiple env vars', () => {
+  it('shows the resource fields', () => {
     renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    fireEvent.click(screen.getByText('Add Variable'));
-    fireEvent.click(screen.getByText('Add Variable'));
-    const nameInputs = screen.getAllByPlaceholderText('NAME');
-    expect(nameInputs.length).toBe(2);
-  });
-
-  // ===== Quick Deploy: Resource Limits =====
-
-  it('has collapsible Resource Limits section', () => {
-    renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    expect(screen.getByText(/Resource Limits/)).toBeDefined();
-    // Initially collapsed — no CPU/Memory fields visible
-    expect(screen.queryByPlaceholderText('100m')).toBeNull();
-  });
-
-  it('shows resource limit fields when expanded', () => {
-    renderCreateView();
-    fireEvent.click(screen.getByText('Quick Deploy'));
-    fireEvent.click(screen.getByText(/Resource Limits/));
-    expect(screen.getByText('CPU Request')).toBeDefined();
-    expect(screen.getByText('CPU Limit')).toBeDefined();
-    expect(screen.getByText('Memory Request')).toBeDefined();
-    expect(screen.getByText('Memory Limit')).toBeDefined();
+    fireEvent.click(screen.getByRole('tab', { name: /Deploy an app/ }));
+    for (const l of ['CPU request', 'CPU limit', 'Memory request', 'Memory limit']) expect(screen.getByLabelText(l)).toBeDefined();
   });
 
   // ===== Templates: Search + All 23 =====
