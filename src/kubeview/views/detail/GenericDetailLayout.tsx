@@ -55,6 +55,9 @@ export function GenericDetailLayout({
   const { allowed: canEditData } = useCanI('update', '', resource.kind === 'Secret' ? 'secrets' : 'configmaps', namespace);
   const status = (resource.status as Record<string, unknown>) || {};
   const spec = (resource.spec as Record<string, unknown>) || {};
+  // When the data was last saved from this page: the "Used by" section then
+  // offers to restart the consumers that keep the old values.
+  const [savedAt, setSavedAt] = React.useState<number | undefined>(undefined);
   // Questions typed into the Pulse AI dock on a workload page are about it.
   usePageChatContext(isWorkload && namespace ? { kind: resource.kind, name: resource.metadata.name, namespace, gvr: gvrKey } : null);
 
@@ -86,10 +89,11 @@ export function GenericDetailLayout({
             clusterId={clusterId}
             resourceVersion={resource.metadata.resourceVersion}
             readOnly={!isDataObject || !canEditData}
+            onSaved={() => setSavedAt(Date.now())}
           />
         )}
 
-        <KindSections resource={resource} go={go} />
+        <KindSections resource={resource} go={go} savedAt={savedAt} onRestarted={() => setSavedAt(undefined)} />
 
         <LabelsSection resource={resource} target={metaTarget} />
         <AnnotationsSection resource={resource} target={metaTarget} />
