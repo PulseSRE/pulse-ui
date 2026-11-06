@@ -11,6 +11,7 @@ const NetworkingView = lazy(() => import('../views/NetworkingView'));
 const ComputeView = lazy(() => import('../views/ComputeView'));
 const SecurityView = lazy(() => import('../views/SecurityView'));
 const IdentityView = lazy(() => import('../views/IdentityView'));
+const SubjectAccessView = lazy(() => import('../views/identity/SubjectAccessView'));
 const ArgoCDView = lazy(() => import('../views/ArgoCDView'));
 const FleetView = lazy(() => import('../views/FleetView'));
 const FleetComparePage = lazy(() => import('../views/fleet/FleetComparePage'));
@@ -70,6 +71,9 @@ export function domainRoutes() {
       <Route path={DOMAIN_ROUTES.storage} element={<Lazy fallbackTitle="Storage"><StorageView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.security} element={<Lazy fallbackTitle="Security"><SecurityView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.identity} element={<Lazy fallbackTitle="Identity"><IdentityView /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.identityUser} element={<Lazy fallbackTitle="User access"><SubjectAccessView kind="User" /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.identityGroup} element={<Lazy fallbackTitle="Group access"><SubjectAccessView kind="Group" /></Lazy>} />
+      <Route path={DOMAIN_ROUTES.identityServiceAccount} element={<Lazy fallbackTitle="Service account access"><SubjectAccessView kind="ServiceAccount" /></Lazy>} />
       <Route path={DOMAIN_ROUTES.admin} element={<Lazy fallbackTitle="Admin"><AdminView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.alerts} element={<Lazy fallbackTitle="Alerts"><AlertsView /></Lazy>} />
       <Route path={DOMAIN_ROUTES.gitops} element={<Lazy fallbackTitle="GitOps"><ArgoCDView /></Lazy>} />
