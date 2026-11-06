@@ -302,3 +302,32 @@ export function bucketEntries(entries: TimelineEntry[], startMs: number, endMs: 
   }
   return rows;
 }
+
+const CHANGE_API_VERSIONS: Record<string, string> = {
+  Deployment: 'apps/v1', StatefulSet: 'apps/v1', DaemonSet: 'apps/v1', ReplicaSet: 'apps/v1',
+  Job: 'batch/v1', CronJob: 'batch/v1', ConfigMap: 'v1', Secret: 'v1', Pod: 'v1',
+};
+
+/**
+ * Config lane entries from the agent's GET /changes: rollouts, ConfigMap and
+ * Secret edits, workload spec changes and Argo CD syncs, with who made them.
+ * ClusterVersion entries are skipped: the ClusterVersion history already has them.
+ */
+export function agentChangesToTimeline(changes: Array<{ at: string; kind: string; namespace: string; name: string; summary: string; actor: string | null; source: string }>): TimelineEntry[] {
+  return (changes || [])
+    .filter((c) => c.source !== 'clusterversion' && c.at)
+    .map((c) => ({
+      id: `chg-${c.source}-${c.namespace}-${c.kind}-${c.name}-${c.at}`,
+      timestamp: c.at,
+      category: 'config' as const,
+      severity: 'info' as const,
+      title: `${c.kind} ${c.name}: ${c.summary}`,
+      detail: `${c.actor ? `by ${c.actor}` : 'actor not recorded'} · ${c.source}`,
+      namespace: c.namespace || undefined,
+      resource: CHANGE_API_VERSIONS[c.kind]
+        ? { apiVersion: CHANGE_API_VERSIONS[c.kind], kind: c.kind, name: c.name, namespace: c.namespace || undefined }
+        : undefined,
+      correlationKey: `${c.kind}/${c.name}/${c.namespace || '_'}`,
+      source: { type: 'pulse-changes' as const, raw: c },
+    }));
+}

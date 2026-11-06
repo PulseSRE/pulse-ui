@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, User, Shield, Key, ArrowRight, CheckCircle, AlertTriangle,
@@ -18,6 +17,7 @@ import { formatAge } from '../engine/dateUtils';
 import { useUIStore } from '../store/uiStore';
 import { useKubeadminSecret, KUBEADMIN_SECRET_QUERY_KEY, type KubeadminStatus } from '../hooks/useKubeadminSecret';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { useTabParam } from '../components/primitives/Tabs';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { Card } from '../components/primitives/Card';
 import { Panel } from '../components/primitives/Panel';
@@ -113,22 +113,7 @@ export default function IdentityView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
-  const urlTab = new URLSearchParams(window.location.search).get('tab') as TabId | null;
-  const [activeTab, setActiveTabState] = useState<TabId>(
-    urlTab && TAB_IDS.includes(urlTab) ? urlTab : 'users',
-  );
-  const setActiveTab = (tab: TabId) => {
-    setActiveTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'users') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
-  };
-  // A link to another tab of this page (e.g. the IdP audit's "Configure" → Sign-in) changes only the query.
-  const location = useLocation();
-  React.useEffect(() => {
-    const t = new URLSearchParams(location.search).get('tab') as TabId | null;
-    if (t && TAB_IDS.includes(t)) setActiveTabState(t);
-  }, [location.search]);
+  const [activeTab, setActiveTab] = useTabParam<TabId>(TAB_IDS, 'users');
   const [search, setSearch] = useState('');
 
   // ---- Data (useK8sListWatch for real-time updates) ----

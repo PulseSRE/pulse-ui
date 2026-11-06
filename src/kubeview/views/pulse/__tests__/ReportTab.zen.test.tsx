@@ -38,6 +38,8 @@ vi.mock('../../../components/metrics/Sparkline', () => ({
 }));
 
 import { ReportTab } from '../ReportTab';
+import { useMonitorStore } from '../../../store/monitorStore';
+import { useFleetStore } from '../../../store/fleetStore';
 
 const node = { metadata: { name: 'n1', labels: {} }, status: { conditions: [{ type: 'Ready', status: 'True' }] } };
 const pod = { metadata: { name: 'p1', namespace: 'app' }, status: { phase: 'Running', containerStatuses: [] } };
@@ -64,7 +66,7 @@ function mockRules(res: { ok: boolean; status: number; body?: unknown }) {
   })));
 }
 
-async function renderTab(postureIssues?: number) {
+async function renderTab(postureIssues?: number, settle = true) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const r = render(
     <QueryClientProvider client={qc}><MemoryRouter>
@@ -73,22 +75,56 @@ async function renderTab(postureIssues?: number) {
     </MemoryRouter></QueryClientProvider>,
   );
   // Assert only once the alert read has settled, so a pass cannot come from
-  // the moment before the failure lands.
-  await waitFor(() => {
+  // the moment before the failure lands. (A remote cluster never reads alerts.)
+  if (settle) await waitFor(() => {
     const q = qc.getQueryCache().find({ queryKey: ['incidentFeed', 'alerts'], exact: false });
     expect(q?.state.status === 'success' || q?.state.status === 'error').toBe(true);
   });
   return r;
 }
 
-beforeEach(() => { try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ } });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+beforeEach(() => {
+  try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ }
+  // The monitor has scanned and reports nothing open.
+  useMonitorStore.setState({ connected: true, connectionError: null, lastScanTime: Date.now(), findings: [], scanReport: null } as never);
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  useMonitorStore.setState({ connected: false, lastScanTime: 0, findings: [] } as never);
+  useFleetStore.setState({ activeClusterId: 'local' } as never);
+});
 
 describe('ReportTab Zen screen', () => {
   it('shows "All Systems Nominal" when alerts were read, nothing fires and the posture bar is clear', async () => {
     mockRules({ ok: true, status: 200, body: rules([]) });
     await renderTab(0);
     expect(await screen.findByText('All Systems Nominal')).toBeDefined();
+  });
+
+  it('does not show Zen when the monitor is unreachable: the browser\'s own list cannot say healthy', async () => {
+    useMonitorStore.setState({ connected: false, connectionError: 'socket closed', lastScanTime: 0 } as never);
+    mockRules({ ok: true, status: 200, body: rules([]) });
+    await renderTab(0);
+    expect(await screen.findByText('Cluster Risk Score')).toBeDefined();
+    expect(screen.queryByText('All Systems Nominal')).toBeNull();
+    expect(screen.getByTestId('attention-fallback')).toBeDefined();
+  });
+
+  it('does not show Zen before the monitor\'s first scan', async () => {
+    useMonitorStore.setState({ connected: true, lastScanTime: 0 } as never);
+    mockRules({ ok: true, status: 200, body: rules([]) });
+    await renderTab(0);
+    expect(await screen.findByText('Cluster Risk Score')).toBeDefined();
+    expect(screen.queryByText('All Systems Nominal')).toBeNull();
+  });
+
+  it('does not show Zen on a remote cluster, which the monitor does not watch', async () => {
+    useFleetStore.setState({ activeClusterId: 'prod-east' } as never);
+    mockRules({ ok: true, status: 200, body: rules([]) });
+    await renderTab(0, false);
+    expect((await screen.findByTestId('attention-fallback')).textContent).toMatch(/local cluster only/);
+    expect(screen.queryByText('All Systems Nominal')).toBeNull();
   });
 
   it('does not show Zen under a posture bar that counts open issues', async () => {
