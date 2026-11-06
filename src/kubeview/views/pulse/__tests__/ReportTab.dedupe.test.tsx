@@ -33,6 +33,7 @@ vi.mock('../../../components/metrics/Sparkline', () => ({
 
 import { ReportTab } from '../ReportTab';
 import { useArgoCDStore } from '../../../store/argoCDStore';
+import { useMonitorStore } from '../../../store/monitorStore';
 
 const go = vi.fn();
 const NODE = { metadata: { name: 'n1', uid: 'n1' }, status: { conditions: [{ type: 'Ready', status: 'True' }] } };
@@ -50,15 +51,18 @@ function renderTab(props: Partial<React.ComponentProps<typeof ReportTab>> = {}) 
 
 const minsAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 
-afterEach(() => { cleanup(); k8sGet.mockReset(); go.mockReset(); useArgoCDStore.setState({ applications: [] }); });
+afterEach(() => { cleanup(); k8sGet.mockReset(); go.mockReset(); useArgoCDStore.setState({ applications: [] }); useMonitorStore.setState({ connected: false, lastScanTime: 0, findings: [] }); });
 
 describe('ReportTab shows each fact once', () => {
-  it('lists degraded operators in Needs Attention only; Zone 1 links there', async () => {
+  it('lists a degraded operator once, in What needs attention; Zone 1 links there', async () => {
     k8sGet.mockResolvedValue(null);
+    // Monitor unreachable: the browser's own list, labelled as such.
     renderTab({ operators: [DEGRADED] as never, postureIssues: 0 });
     expect(await screen.findByText('Operator ingress degraded')).toBeDefined();
+    expect(screen.getAllByText('Operator ingress degraded')).toHaveLength(1);
+    expect(screen.getByTestId('attention-fallback').textContent).toMatch(/monitor is unreachable/);
     expect(screen.queryByText(/1 degraded operator/)).toBeNull();
-    expect(screen.getByText(/Degraded operators are listed under Needs Attention/).closest('a')?.getAttribute('href')).toBe('#pulse-attention');
+    expect(screen.getByText(/Degraded operators: see What needs attention/).closest('a')?.getAttribute('href')).toBe('#pulse-attention');
   });
 
   it('"Rollouts & config changes" lists real changes from the watched events, not pod noise', async () => {
@@ -82,12 +86,21 @@ describe('ReportTab shows each fact once', () => {
   it('says "All clear" only when the posture bar has nothing open, and it is not a /readiness link', async () => {
     k8sGet.mockResolvedValue(null);
     sessionStorage.setItem('pulse-zen-dismissed', 'true'); // show the report, not the Zen screen
+    useMonitorStore.setState({ connected: true, lastScanTime: Date.now(), findings: [] });
     renderTab({ postureIssues: 0 });
     const clear = await screen.findByText('All clear');
     expect(clear.closest('button')).toBeNull();
     cleanup();
     renderTab({ postureIssues: 3 });
     await screen.findByText('Rollouts & config changes (1h)');
+    expect(screen.queryByText('All clear')).toBeNull();
+  });
+
+  it('never says "All clear" from the browser\'s own list: the monitor is the source', async () => {
+    k8sGet.mockResolvedValue(null);
+    sessionStorage.setItem('pulse-zen-dismissed', 'true');
+    renderTab({ postureIssues: 0 });
+    await screen.findByTestId('attention-fallback');
     expect(screen.queryByText('All clear')).toBeNull();
   });
 });

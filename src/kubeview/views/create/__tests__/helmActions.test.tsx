@@ -459,13 +459,15 @@ entries:
     expect(job.body.spec.template.spec.containers[0].args).toEqual(['install', 'my-nginx', 'nginx', '--repo', 'https://charts.openshift.io', '--namespace', 'team-b', '--version', '15.2.0', '--atomic', '--wait', '--timeout', '5m']);
   });
 
-  it('Quick Deploy will not deploy in all-namespaces mode until a namespace is chosen', async () => {
+  it('Deploy an app will not dry-run in all-namespaces mode until a namespace is chosen', async () => {
     h.renderUi(<QuickDeployTab />);
-    fireEvent.change(screen.getByPlaceholderText('my-app'), { target: { value: 'web' } });
-    fireEvent.change(screen.getByPlaceholderText('nginx:latest or quay.io/org/image:tag'), { target: { value: 'nginx:1' } });
-    expect((screen.getByRole('button', { name: /Deploy/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/^Name\*?$/), { target: { value: 'web' } });
+    fireEvent.change(screen.getByLabelText(/^Image\*?$/), { target: { value: 'nginx:1' } });
+    fireEvent.change(screen.getByLabelText(/^Container\ port\*?$/), { target: { value: '8080' } });
+    expect((screen.getByRole('button', { name: 'Dry run' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('form-errors').textContent).toContain('Choose a namespace.');
     fireEvent.change(await screen.findByRole('combobox', { name: 'Namespace' }), { target: { value: 'team-a' } });
-    fireEvent.click(screen.getByRole('button', { name: /Deploy/ }));
-    await waitFor(() => expect(h.writes()[0]?.path).toBe('/apis/apps/v1/namespaces/team-a/deployments'));
+    await clickWhenEnabled('Dry run');
+    await waitFor(() => expect(h.writes()[0]?.path).toBe('/apis/apps/v1/namespaces/team-a/deployments?dryRun=All'));
   });
 });
