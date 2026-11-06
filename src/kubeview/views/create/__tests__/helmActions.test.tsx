@@ -291,6 +291,15 @@ metadata:
     expect(edit.title).toBe('You do not have permission to create Secrets in team-a');
   });
 
+  it('a link with action=values (from a Helm-owned resource) opens the Edit values dialog with chart defaults and Preview', async () => {
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={[]} />, '/software?tab=helm&release=shop&releaseNs=team-a&action=values');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Edit values of shop' })).toBeTruthy();
+    expect(within(dialog).getByTestId('chart-defaults')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Preview' })).toBeTruthy();
+    expect(h.writes()).toHaveLength(0);
+  });
+
   it('labels Upgrade with the newest version the repository offers', async () => {
     h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />);
     await screen.findByTestId('helm-release-shop');
