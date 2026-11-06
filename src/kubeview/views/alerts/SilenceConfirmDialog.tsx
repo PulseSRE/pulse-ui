@@ -115,12 +115,12 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
 
   const proposed = useMemo(() => new Set(proposal.matchers.map(formatMatcher)), [proposal.matchers]);
   const commentMissing = !comment.trim();
-  // The signed-in user when known; typed in only when the lookup failed.
   // The signed-in user only: when the lookup failed nobody can be named, so nothing is created.
   const creator = currentUser;
   const creatorMissing = !creator;
-  const firing = useMemo(() => alerts.filter((a) => a.state === 'firing'), [alerts]);
-  const tooMuch = useMemo(() => (parsed.error ? null : hiddenProblem(hides.filter((a) => a.state === 'firing'), firing)), [parsed.error, hides, firing]);
+  // Firing and not already silenced: what the agent's limits count.
+  const firing = useMemo(() => alerts.filter((a) => a.state === 'firing' && !a.silenced), [alerts]);
+  const tooMuch = useMemo(() => (parsed.error ? null : hiddenProblem(hides.filter((a) => a.state === 'firing' && !a.silenced), firing)), [parsed.error, hides, firing]);
   const edited = matcherText !== formatMatchers(proposal.matchers);
   const blocked = !!parsed.error || !!tooMuch || commentMissing || creatorMissing || rbacLoading || !allowed;
 

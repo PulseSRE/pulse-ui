@@ -26,7 +26,7 @@ import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { useMetricsAvailable } from '../hooks/useClusterBase';
 import { askPulse } from '../engine/askPulse';
 import type { Node } from '../engine/types';
-import { suggestSilences, minutesToCover, describeMinutes, type AlertForSilence, type SilenceSuggestion } from '../engine/silences';
+import { suggestSilences, minutesToCover, describeMinutes, labelsMatch, type AlertForSilence, type SilenceSuggestion } from '../engine/silences';
 import { SilenceConfirmDialog, type SilenceProposal } from './alerts/SilenceConfirmDialog';
 import { NamespaceUnhealthyPods, SilenceSuggestionBanner, TriageChip, nodeItem, useAlertTriage, type TriageState } from './alerts/AlertTriage';
 
@@ -252,6 +252,12 @@ function LocalAlertsView() {
   const activeSilences = useMemo(() => {
     return silences.filter((s) => s.status.state === 'active');
   }, [silences]);
+
+  // The same alerts, marked when an active silence already mutes them.
+  const everyAlertForPreview = useMemo((): AlertForSilence[] => everyAlert.map((a) => ({
+    ...a,
+    silenced: activeSilences.some((sil) => labelsMatch(a.labels, sil.matchers.map((m) => ({ name: m.name, value: m.value, isRegex: m.isRegex, isEqual: m.isEqual !== false })))),
+  })), [everyAlert, activeSilences]);
 
   const shownSilences = useMemo(() => silences.filter((x) => x.status.state === silenceStateFilter), [silences, silenceStateFilter]);
 
@@ -1013,7 +1019,7 @@ function LocalAlertsView() {
             open
             onClose={() => setSilenceProposal(null)}
             proposal={silenceProposal}
-            alerts={everyAlert}
+            alerts={everyAlertForPreview}
             currentUser={currentUser}
             clusterId={METRICS_CLUSTER_ID}
             onCreated={() => { queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] }); }}

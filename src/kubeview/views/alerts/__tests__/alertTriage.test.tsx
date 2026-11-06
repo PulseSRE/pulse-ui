@@ -290,6 +290,19 @@ describe('Pulse suggests a silence', () => {
     expect(within(dialog).getByRole('heading', { level: 2 }).textContent).not.toContain('on worker-5');
   });
 
+  it('alerts an active silence already mutes do not count toward the share a new silence may hide', async () => {
+    const base = h.state.handler;
+    const muted = { id: 'old', status: { state: 'active' }, matchers: [{ name: 'alertname', value: 'TargetDown', isRegex: false }], startsAt: iso(-60_000), endsAt: iso(3600_000), createdBy: 'ops', comment: 'known' };
+    h.state.handler = (r) => (r.url.endsWith('/api/alertmanager/api/v2/silences') && r.method === 'GET' ? json([muted]) : base(r));
+    const dialog = await openSuggestedSilence();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Edit matchers' }));
+    await waitFor(() => expect(screen.getAllByText(/silenced/).length).toBeGreaterThan(0));
+    fireEvent.change(within(dialog).getByLabelText('Matchers'), { target: { value: 'alertname="TargetDown"' } });
+    // All 10 are already silenced, so none counts: no "would hide 10 of the 16".
+    expect(within(dialog).queryByText(/would hide 10 of the/)).toBeNull();
+    await waitFor(() => expect((within(dialog).getByRole('button', { name: /Create silence/ }) as HTMLButtonElement).disabled).toBe(false));
+  });
+
   it('Undo from the success toast asks before expiring', async () => {
     const dialog = await openSuggestedSilence();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Edit matchers' }));

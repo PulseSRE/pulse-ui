@@ -58,7 +58,12 @@ export function parseMatchers(text: string): Matcher[] {
 const MAX_REGEX_LEN = 200;
 const MAX_MATCH_VALUE_LEN = 1024;
 /** A group containing a quantifier, itself quantified: (a+)+, (x*)*. */
-const NESTED_QUANTIFIER = /\((?:[^()\\]|\\.)*[*+}](?:[^()\\]|\\.)*\)\s*[*+{]/;
+/**
+ * Any repeated group: (a+)+, and overlapping alternations such as (a|a)*b or
+ * (\w|\w)*Z, which backtrack exponentially with no nested quantifier. Same rule
+ * as the agent's _QUANTIFIED_GROUP_RE.
+ */
+const QUANTIFIED_GROUP = /\)\s*[*+?{]/;
 const ANCHOR_LABELS = new Set(['alertname', 'node', 'pod', 'deployment', 'statefulset', 'daemonset', 'job_name', 'persistentvolumeclaim']);
 const PLATFORM_NS = /^(openshift|kube)(-.*)?$/;
 /** Watchdog's label set on OpenShift's platform Prometheus. */
@@ -70,7 +75,7 @@ export const SILENCE_LIMITS = { maxHidden: 10, maxFraction: 0.25, fractionMinAle
 
 export function regexProblem(pattern: string): string | null {
   if (pattern.length > MAX_REGEX_LEN) return `is longer than ${MAX_REGEX_LEN} characters`;
-  if (NESTED_QUANTIFIER.test(pattern)) return 'has a nested quantifier such as (a+)+';
+  if (QUANTIFIED_GROUP.test(pattern)) return 'repeats a group, such as (a|a)* or (a+)+, which can take exponential time to match; list the values instead';
   try { new RegExp(pattern); } catch { return 'does not compile'; }
   return null;
 }
@@ -192,6 +197,8 @@ export interface AlertForSilence {
   labels: Record<string, string>;
   state: string;
   activeAt?: string;
+  /** Already muted by an active silence: not counted in the share a new silence may hide (as the agent counts). */
+  silenced?: boolean;
 }
 
 export interface SilenceSuggestion {

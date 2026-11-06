@@ -18,14 +18,14 @@ describe('silence matchers', () => {
     // The agent review's bypasses: none names one alert or one resource.
     'prometheus="openshift-monitoring/k8s"', 'namespace="openshift-monitoring"', 'severity="critical"',
     'severity=~"critical|warning|info|none"', 'namespace=~"[a-z].*"', 'alertname=~"[A-V].*"', 'pod=~"api-.*"',
-    'node="w", pod=~"(a+)+"', `node="w", pod=~"${'a'.repeat(201)}"`,
+    'node="w", pod=~"(a+)+"', 'node="w", pod=~"(a|a)*b"', 'node="w", pod=~"(a|aa)*c"', 'node="w", pod=~"(\\w|\\w)*Z"', `node="w", pod=~"${'a'.repeat(201)}"`,
   ])(
     'refuses %s', (text) => {
       expect(matcherProblem(text ? parseMatchers(text) : [])).not.toBeNull();
     },
   );
 
-  it.each(['node="worker-5"', 'alertname="KubeletDown"', 'namespace="payments", severity="critical"', 'namespace="openshift-monitoring", alertname="KubeQuotaAlmostFull"'])(
+  it.each(['node="w5", alertname=~"KubeletDown|KubeNodeUnreachable"', 'node="w5", pod=~"(api|web)-.*"', 'node="worker-5"', 'alertname="KubeletDown"', 'namespace="payments", severity="critical"', 'namespace="openshift-monitoring", alertname="KubeQuotaAlmostFull"'])(
     'accepts %s', (text) => { expect(matcherProblem(parseMatchers(text))).toBeNull(); },
   );
 
