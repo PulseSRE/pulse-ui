@@ -50,6 +50,13 @@ describe('config lane from /changes', () => {
     expect(result.current.configChangesNote).toBeNull();
   });
 
+  it('a truncated list is said, and unreadable sources are a failed part', async () => {
+    fetchMock.mockResolvedValue(res({ available: true, truncated: true, unreadable: ['argo: forbidden'], changes: [] }));
+    const { result } = renderHook(() => useIncidentTimeline({ timeRange: '1h', namespace: 'payments', categories: new Set(['config']) }), { wrapper });
+    await waitFor(() => expect(result.current.configChangesNote).toMatch(/truncated/));
+    expect(result.current.failedSources).toContain('part of the change history (argo: forbidden)');
+  });
+
   it('a refused read is a failed source, not an empty lane', async () => {
     fetchMock.mockResolvedValue(res({ detail: 'configmaps is forbidden' }, 403));
     const { result } = renderHook(() => useIncidentTimeline({ timeRange: '1h', namespace: 'payments', categories: new Set(['config']) }), { wrapper });

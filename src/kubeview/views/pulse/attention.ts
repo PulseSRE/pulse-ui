@@ -44,6 +44,8 @@ export interface AttentionRow {
   fixReady: boolean;
   noisy: boolean;
   path?: string;
+  /** Firing alerts about the same resource, folded into this row. */
+  alsoAlerts?: string[];
 }
 
 export interface CouldNotCheck {
@@ -108,12 +110,49 @@ export function diagnosisText(d: Diagnosis): string {
   return d.detail ? `${d.title}: ${d.detail}` : d.title;
 }
 
-function inboxFor(f: Finding, items: InboxItem[]): InboxItem | undefined {
+/**
+ * The finding's own Inbox item: by finding id, else an item of the same
+ * category on the same resource (the bridge keys items "<category>:<ns>:<Kind>/<name>").
+ * Never another category's item that happens to name the same pod.
+ */
+export function inboxFor(f: Finding, items: InboxItem[]): InboxItem | undefined {
   const byFinding = items.find((i) => i.finding_id === f.id);
   if (byFinding) return byFinding;
   const r = f.resources?.[0];
   if (!r) return undefined;
-  return items.find((i) => (i.resources || []).some((x) => x.kind === r.kind && x.name === r.name && (x.namespace || '') === (r.namespace || '')));
+  return items.find((i) =>
+    (i.correlation_key || '').startsWith(`${f.category}:`)
+    && (i.resources || []).some((x) => x.kind === r.kind && x.name === r.name && (x.namespace || '') === (r.namespace || '')));
+}
+
+function resourceKey(r?: { kind: string; name: string; namespace?: string }): string | null {
+  return r && r.kind !== 'Alert' ? `${r.kind}/${r.namespace || ''}/${r.name}` : null;
+}
+
+/**
+ * One row per resource: a firing-alert finding about a resource that already
+ * has a row is folded into it as "Also in: alert X", so a crashlooping pod
+ * and its KubePodCrashLooping alert are one problem, not two.
+ */
+export function foldAlerts(rows: AttentionRow[], findings: Finding[]): AttentionRow[] {
+  const alertIds = new Set(findings.filter((f) => f.category === 'alerts').map((f) => f.id));
+  const byResource = new Map<string, AttentionRow>();
+  for (const r of rows) {
+    const k = resourceKey(r.resource);
+    if (k && r.findingId && !alertIds.has(r.findingId) && !byResource.has(k)) byResource.set(k, r);
+  }
+  const out: AttentionRow[] = [];
+  for (const r of rows) {
+    const k = resourceKey(r.resource);
+    const host = k && r.findingId && alertIds.has(r.findingId) ? byResource.get(k) : undefined;
+    if (host) {
+      host.alsoAlerts = [...(host.alsoAlerts || []), r.problem.split(' · ').pop() || r.problem];
+      if (r.severity === 'critical') host.severity = 'critical';
+      continue;
+    }
+    out.push(r);
+  }
+  return out;
 }
 
 export function rowsFromFindings(
@@ -161,7 +200,7 @@ export function rowsFromFindings(
     };
     (row.noisy ? noisy : rows).push(row);
   }
-  return { rows: sortRows(rows), noisy: sortRows(noisy), degraded };
+  return { rows: sortRows(foldAlerts(rows, findings)), noisy: sortRows(noisy), degraded };
 }
 
 export function sortRows(rows: AttentionRow[]): AttentionRow[] {

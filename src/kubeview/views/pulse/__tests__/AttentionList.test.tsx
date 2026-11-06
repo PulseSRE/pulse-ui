@@ -164,6 +164,60 @@ describe('from the monitor', () => {
   });
 });
 
+describe('review follow-ups', () => {
+  it('folds a firing alert about the same pod into its row instead of a second row', async () => {
+    const alertF = finding({ id: 'f-alert', severity: 'critical', category: 'alerts', title: 'KubePodCrashLooping', resources: [{ kind: 'Pod', name: 'api-7f9c4d-x2k8q', namespace: 'payments' }] });
+    connect([OOM, alertF]);
+    h.renderUi(<View live={EMPTY} />);
+    await waitFor(() => expect(screen.getAllByTestId('attention-row')).toHaveLength(1));
+    expect(screen.getAllByTestId('attention-row')[0].textContent).toContain('Also in: alert KubePodCrashLooping');
+    // The stat tile counts the problem once.
+    expect(screen.getAllByText('Critical')[0].nextElementSibling?.textContent).toBe('1');
+  });
+
+  it('owner is "Checking…" while the Inbox loads and "Unknown" when it failed; the owner filters are off meanwhile', async () => {
+    connect([PENDING]);
+    let release: (r: Response) => void = () => {};
+    h.state.handler = (r) => (r.url.startsWith('/api/agent/inbox') ? new Promise<Response>((res) => { release = res; }) : json({ available: true, changes: [] }));
+    h.renderUi(<View live={EMPTY} />);
+    const row = (await screen.findAllByTestId('attention-row'))[0];
+    expect(within(row).getByText('Checking…', { selector: 'td:nth-child(6) span' })).toBeTruthy();
+    const owner = screen.getByLabelText('Owner') as HTMLSelectElement;
+    expect((within(owner).getByRole('option', { name: 'Unowned' }) as HTMLOptionElement).disabled).toBe(true);
+    release(json({ detail: 'boom' }, 500));
+    expect(await within(row).findByText('Unknown')).toBeTruthy();
+    expect((within(owner).getByRole('option', { name: 'Mine' }) as HTMLOptionElement).disabled).toBe(true);
+  });
+
+  it('an Inbox item of another category for the same pod is not this finding\'s item', async () => {
+    const other = { ...INBOX.items[0], id: 'inb-crash', finding_id: 'f-other', correlation_key: 'crashloop:payments:Pod/api', claimed_by: 'zed', metadata: {} };
+    h.state.handler = (r) => (r.url.startsWith('/api/agent/inbox') ? json({ ...INBOX, items: [other] }) : json({ available: true, changes: [] }));
+    connect([OOM]);
+    h.renderUi(<View live={EMPTY} />);
+    const row = (await screen.findAllByTestId('attention-row'))[0];
+    expect(await within(row).findByText('No Inbox item')).toBeTruthy();
+    expect(row.textContent).not.toContain('zed');
+  });
+
+  it('honours /changes unreadable and truncated, and says when the resource was deleted', async () => {
+    connect([OOM]);
+    changesFor = () => json({ available: true, changes: [], unreadable: ['secrets: forbidden'] });
+    h.renderUi(<View live={EMPTY} />);
+    let row = (await screen.findAllByTestId('attention-row'))[0];
+    expect(await within(row).findByText('No change found (could not read: secrets: forbidden)')).toBeTruthy();
+    cleanup();
+    changesFor = () => json({ available: true, changes: [], truncated: true });
+    h.renderUi(<View live={EMPTY} />);
+    row = (await screen.findAllByTestId('attention-row'))[0];
+    expect(await within(row).findByText('No change found in 24h (partial list)')).toBeTruthy();
+    cleanup();
+    changesFor = () => json({ detail: 'pod not found', code: 'resource_not_found' }, 404);
+    h.renderUi(<View live={EMPTY} />);
+    row = (await screen.findAllByTestId('attention-row'))[0];
+    expect(await within(row).findByText('The pod was deleted')).toBeTruthy();
+  });
+});
+
 describe('without the monitor', () => {
   const OOM_JOB_POD = { metadata: { name: 'export-1', namespace: 'billing', ownerReferences: [{ kind: 'Job', name: 'export' }], creationTimestamp: new Date(NOW - 3600_000).toISOString() }, spec: { containers: [{ name: 'x' }] }, status: { phase: 'Running', containerStatuses: [{ name: 'x', ready: false, restartCount: 2, state: { running: {} }, lastState: { terminated: { reason: 'OOMKilled' } } }] } };
   const SYS_POD = { metadata: { name: 'router-1', namespace: 'openshift-ingress', creationTimestamp: new Date(NOW).toISOString() }, spec: { containers: [{ name: 'r' }] }, status: { phase: 'Running', containerStatuses: [{ name: 'r', ready: false, restartCount: 0, state: { waiting: { reason: 'CrashLoopBackOff' } } }] } };

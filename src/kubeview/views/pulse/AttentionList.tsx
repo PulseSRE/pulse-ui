@@ -19,7 +19,7 @@ import { LoadError } from '../../components/primitives/LoadError';
 import { useMonitorStore } from '../../store/monitorStore';
 import { fetchInbox } from '../../engine/inboxApi';
 import { fetchChanges, CHANGE_KINDS, type ChangeEntry } from '../../engine/changesApi';
-import { isAgentFeatureUnavailable } from '../../engine/agentFeature';
+import { AgentRequestError, isAgentFeatureUnavailable } from '../../engine/agentFeature';
 import { askPulse } from '../../engine/askPulse';
 import { formatRelative } from '../../engine/format';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
@@ -32,7 +32,7 @@ import {
 const CHANGE_LOOKUPS = 15;
 const CHANGE_WINDOW_MS = 24 * 3600_000;
 
-export function useAttentionModel(live: LiveObjects, clusterId: string): AttentionModel & { inboxError: unknown; currentUser?: string } {
+export function useAttentionModel(live: LiveObjects, clusterId: string): AttentionModel & { inboxError: unknown; inboxState: 'loading' | 'error' | 'ok'; currentUser?: string } {
   const isLocal = clusterId === LOCAL_CLUSTER_ID;
   const { connected, connectionError, findings, investigations, lastScanTime, scanReport, pendingActions, dismissed } = useMonitorStore(useShallow((s) => ({
     connected: s.connected,
@@ -54,7 +54,8 @@ export function useAttentionModel(live: LiveObjects, clusterId: string): Attenti
   });
 
   return useMemo(() => {
-    const base = { inboxError: inboxQ.error, currentUser: inboxQ.data?.current_user };
+    const inboxState = inboxQ.isError ? 'error' as const : inboxQ.data ? 'ok' as const : 'loading' as const;
+    const base = { inboxError: inboxQ.error, inboxState, currentUser: inboxQ.data?.current_user };
     if (!isLocal) {
       return { ...base, source: 'client' as const, fallbackReason: "Pulse's monitor watches the local cluster only, so this list was computed in your browser from this cluster's objects.", rows: rowsFromClient(live), noisy: [], couldNotCheck: [], lastScanTime: 0 };
     }
@@ -69,7 +70,7 @@ export function useAttentionModel(live: LiveObjects, clusterId: string): Attenti
     const { rows, noisy, degraded } = rowsFromFindings(open, investigations, inboxQ.data?.items ?? [], live, pendingFix);
     const cnc = couldNotCheckFrom(degraded, scanReport);
     return { ...base, source: 'monitor' as const, rows, noisy, couldNotCheck: cnc.items, scanners: cnc.scanners, lastScanTime };
-  }, [isLocal, connected, connectionError, lastScanTime, findings, dismissed, pendingActions, investigations, inboxQ.data, inboxQ.error, scanReport, live]);
+  }, [isLocal, connected, connectionError, lastScanTime, findings, dismissed, pendingActions, investigations, inboxQ.data, inboxQ.error, inboxQ.isError, scanReport, live]);
 }
 
 function ConfidenceCell({ row }: { row: AttentionRow }) {
@@ -111,20 +112,32 @@ export function PrecedingChange({ row, enabled }: { row: AttentionRow; enabled: 
   if (q.isPending) return <span className="text-slate-500">Checking…</span>;
   if (q.isError) {
     if (isAgentFeatureUnavailable(q.error)) return <span className="text-slate-500" title={q.error.message}>Not available on this agent</span>;
+    if (q.error instanceof AgentRequestError && q.error.status === 404) return <span className="text-slate-500">The {r!.kind.toLowerCase()} was deleted</span>;
     return <span className="text-amber-300" title={q.error instanceof Error ? q.error.message : ''}>Could not check</span>;
   }
   if (q.data && !q.data.available) return <span className="text-amber-300">Could not check (cluster unreachable)</span>;
-  if (!before) return <span className="text-slate-500">No change found in 24h</span>;
+  const unreadable = q.data?.unreadable?.length ? q.data.unreadable.join('; ') : '';
+  const partial = q.data?.truncated ? ' The change list was truncated, so older changes may be missing.' : '';
+  if (!before) {
+    return unreadable
+      ? <span className="text-amber-300" title={partial || undefined}>No change found (could not read: {unreadable})</span>
+      : <span className="text-slate-500" title={partial || undefined}>No change found in 24h{partial ? ' (partial list)' : ''}</span>;
+  }
   return (
     <span>
       <span className="text-slate-200">{before.kind} {before.name} {before.summary}{before.actor ? ` by ${before.actor}` : ''}</span>
       <span className="block text-slate-500">{new Date(before.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {minutesBefore(before, row.startedAt)}</span>
+      {(unreadable || partial) && <span className="block text-amber-300/80">{unreadable ? `Could not read: ${unreadable}.` : ''}{partial}</span>}
     </span>
   );
 }
 
-function OwnerCell({ row }: { row: AttentionRow }) {
-  if (!row.inboxItem) return <span className="text-slate-500">No Inbox item</span>;
+function OwnerCell({ row, inboxState }: { row: AttentionRow; inboxState: 'loading' | 'error' | 'ok' }) {
+  if (!row.inboxItem) {
+    if (inboxState === 'loading') return <span className="text-slate-500">Checking…</span>;
+    if (inboxState === 'error') return <span className="text-amber-300">Unknown</span>;
+    return <span className="text-slate-500">No Inbox item</span>;
+  }
   return row.inboxItem.claimed_by
     ? <span className="text-slate-200">claimed by {row.inboxItem.claimed_by}</span>
     : <span className="text-slate-400">unclaimed</span>;
@@ -163,11 +176,13 @@ export function AttentionList({ model, clusterId, go }: {
   const [showSystem, setShowSystem] = useState(false);
   const [showNoisy, setShowNoisy] = useState(false);
 
+  const ownerUnknown = model.inboxState !== 'ok';
+  const effectiveOwner: OwnerFilter = ownerUnknown ? 'anyone' : owner;
   const all = useMemo(() => (showNoisy ? [...model.rows, ...model.noisy] : model.rows), [model.rows, model.noisy, showNoisy]);
   const filtered = all.filter((r) =>
     (sev === 'all' || r.severity === sev)
     && (ns === 'all' || r.namespace === ns)
-    && (owner === 'anyone' || (owner === 'mine' ? !!model.currentUser && r.inboxItem?.claimed_by === model.currentUser : !r.inboxItem?.claimed_by)));
+    && (effectiveOwner === 'anyone' || (effectiveOwner === 'mine' ? !!model.currentUser && r.inboxItem?.claimed_by === model.currentUser : !r.inboxItem?.claimed_by)));
   const user = filtered.filter((r) => !r.system);
   const system = filtered.filter((r) => r.system);
   const namespaces = [...new Set(all.filter((r) => !r.system && r.namespace).map((r) => r.namespace))].sort();
@@ -240,7 +255,10 @@ export function AttentionList({ model, clusterId, go }: {
           </select>
           {model.source === 'monitor' && (
             <select aria-label="Owner" value={owner} onChange={(e) => setOwner(e.target.value as OwnerFilter)} className="bg-slate-900 border border-slate-700 rounded-sm px-2 py-1 text-slate-200">
-              <option value="anyone">Anyone</option><option value="mine">Mine</option><option value="unowned">Unowned</option>
+              <option value="anyone">Anyone</option>
+              {/* Ownership is unknown until the Inbox answers: filtering on it would hide or show the wrong rows. */}
+              <option value="mine" disabled={ownerUnknown}>Mine</option>
+              <option value="unowned" disabled={ownerUnknown}>Unowned</option>
             </select>
           )}
         </div>
@@ -279,13 +297,14 @@ export function AttentionList({ model, clusterId, go }: {
                       ? <button type="button" className="text-slate-100 hover:text-blue-300 text-left" onClick={() => go(r.path!, r.resource?.name || r.problem)}>{r.problem}</button>
                       : <span className="text-slate-100">{r.problem}</span>}
                     <div className="text-slate-400 mt-0.5">{r.cause}</div>
+                    {r.alsoAlerts && r.alsoAlerts.length > 0 && <div className="text-slate-500 mt-0.5">Also in: {r.alsoAlerts.map((a) => `alert ${a}`).join(', ')}</div>}
                     {r.inboxItem && <div className="text-slate-500 mt-0.5">Also in: <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(`/inbox?task=${encodeURIComponent(r.inboxItem!.id)}`, 'Inbox')}>Inbox item</button></div>}
                     {r.noisy && <div className="text-slate-500 mt-0.5">Noisy: shown because you asked</div>}
                   </td>
                   <td className="px-3 py-2"><PrecedingChange row={r} enabled={model.source === 'monitor' && lookups.has(r.key)} /></td>
                   <td className="px-3 py-2"><ConfidenceCell row={r} /></td>
                   <td className="px-3 py-2 text-slate-300 whitespace-nowrap">{formatRelative(r.startedAt).replace(' ago', '')}</td>
-                  <td className="px-3 py-2"><OwnerCell row={r} /></td>
+                  <td className="px-3 py-2"><OwnerCell row={r} inboxState={model.inboxState} /></td>
                   <td className="px-3 py-2"><PrimaryAction row={r} go={go} canAsk={isLocal} /></td>
                 </tr>
               ))}

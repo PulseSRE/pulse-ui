@@ -213,8 +213,14 @@ describe('PulseView', () => {
       '/apis/config.openshift.io/v1/clusteroperators': { data: [makeOperator('auth', false)], isLoading: false },
     });
 
-    renderPulse();
-    expect(screen.getByText('All Systems Nominal')).toBeDefined();
+    // Healthy is the monitor's answer: it has scanned and reports nothing open.
+    useMonitorStore.setState({ connected: true, lastScanTime: Date.now(), findings: [] } as never);
+    try {
+      renderPulse();
+      expect(screen.getByText('All Systems Nominal')).toBeDefined();
+    } finally {
+      useMonitorStore.setState({ connected: false, lastScanTime: 0, findings: [] } as never);
+    }
   });
 
   // Regression: a pods list that failed to load (e.g. RBAC) arrived as [] and

@@ -471,7 +471,9 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
     && !postureIssues
     && warningAlerts.length === 0
     && (nodes.length > 0 || allPods.length > 0) // must have actual data loaded
-    && attention.source !== 'checking'
+    // Only the monitor's answer can say healthy: not the browser's own list
+    // (monitor unreachable, or a remote cluster), not before its first scan.
+    && attention.source === 'monitor'
     && attention.rows.length === 0
     && attention.couldNotCheck.length === 0
     && outOfSync.length === 0

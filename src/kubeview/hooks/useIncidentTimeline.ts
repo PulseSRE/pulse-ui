@@ -144,7 +144,8 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
     : clusterId !== LOCAL_CLUSTER_ID ? 'Workload and ConfigMap changes come from the Pulse agent, which reads the local cluster only.'
       : !namespace ? 'Select a namespace to add its workload and ConfigMap changes (with who made them) to the config lane.'
         : changesUnsupported ? 'Workload and ConfigMap changes are not available on this Pulse agent; it needs a newer agent version.'
-          : null;
+          : changesEnabled && changesQuery.data?.truncated ? 'The workload and ConfigMap change list was truncated by the agent; older changes in this range may be missing.'
+            : null;
 
   const isLoading = eventsLoading || alertsLoading || rsLoading || deploysLoading || cvLoading || opsLoading;
 
