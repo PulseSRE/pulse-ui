@@ -12,6 +12,63 @@ export interface Tab {
   path: string; // e.g., "/r/apps~v1~deployments/production" or "/pulse"
   pinned: boolean;
   closable: boolean;
+  /** When the tab was last active; the least recent unpinned tab is closed first. */
+  lastActive?: number;
+}
+
+/**
+ * Query params that name a different object rather than a view of the same
+ * page, so they stay in the tab key: a list or create form per namespace, and
+ * a workload's logs per kind (a Deployment and a StatefulSet can share a name).
+ */
+const IDENTITY_PARAMS: ReadonlyArray<[RegExp, readonly string[]]> = [
+  [/^\/r\/[^/]+$/, ['ns', 'namespace']],
+  [/^\/create(\/|$)/, ['ns', 'namespace']],
+  [/^\/logs\//, ['kind']],
+];
+
+/**
+ * One shell tab per page: tabs are keyed on the path without its query or
+ * hash, so `/workloads` and `/workloads?tab=builds` share a tab, except for
+ * the identity params above. The tab's `path` keeps the last full URL seen,
+ * so returning to it restores the page's tab and filters.
+ */
+export function tabKey(path: string): string {
+  const end = path.search(/[?#]/);
+  let pathname = end === -1 ? path : path.slice(0, end);
+  if (pathname.length > 1 && pathname.endsWith('/')) pathname = pathname.slice(0, -1);
+  const names = IDENTITY_PARAMS.find(([re]) => re.test(pathname))?.[1];
+  if (!names || end === -1) return pathname;
+  const query = path.slice(end).split('#')[0].replace(/^\?/, '');
+  const params = new URLSearchParams(query);
+  const kept = names.filter((n) => params.get(n)).map((n) => `${n}=${encodeURIComponent(params.get(n)!)}`);
+  return kept.length ? `${pathname}?${kept.join('&')}` : pathname;
+}
+
+/** Unpinned tabs kept open; opening one more closes the least recently used. */
+export const MAX_UNPINNED_TABS = 12;
+
+let activationSeq = 0;
+/** A strictly increasing activation stamp that survives reloads (based on the clock). */
+function nextActivation(): number {
+  activationSeq = Math.max(Date.now(), activationSeq + 1);
+  return activationSeq;
+}
+
+/** Close the least recently used unpinned tabs above the cap. The active tab is never closed. */
+export function capTabs(tabs: Tab[], activeTabId: string, max = MAX_UNPINNED_TABS): Tab[] {
+  const evictable = tabs.filter((t) => !t.pinned && t.closable);
+  if (evictable.length <= max) return tabs;
+  const victims = new Set(
+    evictable
+      .filter((t) => t.id !== activeTabId)
+      // Never-stamped tabs (restored from older storage) go first, in bar order.
+      .map((t, i) => ({ t, i }))
+      .sort((a, b) => (a.t.lastActive ?? 0) - (b.t.lastActive ?? 0) || a.i - b.i)
+      .slice(0, evictable.length - max)
+      .map(({ t }) => t.id),
+  );
+  return tabs.filter((t) => !victims.has(t.id));
 }
 
 export interface ToastData {
@@ -180,30 +237,32 @@ export const useUIStore = create<UIState>()(
         // Normalize path: strip trailing slash (except root)
         const normalizedPath = tab.path.length > 1 && tab.path.endsWith('/') ? tab.path.slice(0, -1) : tab.path;
         // Ensure title is never empty
-        const raw = tab.title?.trim() || normalizedPath.split('/').filter(Boolean).pop() || 'Untitled';
+        const raw = tab.title?.trim() || tabKey(normalizedPath).split('/').filter(Boolean).pop() || 'Untitled';
         const title = raw.charAt(0).toUpperCase() + raw.slice(1);
         tab = { ...tab, path: normalizedPath, title };
+        const stamp = nextActivation();
 
-        // Reuse existing tab with same path
+        // Reuse the page's tab: same path, whatever the query
         const { tabs } = get();
-        const existing = tabs.find((t) => t.path === normalizedPath);
+        const key = tabKey(normalizedPath);
+        const existing = tabs.find((t) => tabKey(t.path) === key);
         if (existing) {
-          // Update title if different, and activate
-          if (existing.title !== tab.title) {
-            set((state) => ({
-              tabs: state.tabs.map((t) => t.id === existing.id ? { ...t, title: tab.title } : t),
-              activeTabId: existing.id,
-            }));
-          } else {
-            set({ activeTabId: existing.id });
-          }
+          // The caller named this view, so its title wins; the tab remembers
+          // the new URL (a pinned tab keeps the URL it was pinned with).
+          const updates: Partial<Tab> = existing.pinned
+            ? { lastActive: stamp }
+            : { title: tab.title, path: normalizedPath, lastActive: stamp };
+          set((state) => ({
+            tabs: state.tabs.map((t) => t.id === existing.id ? { ...t, ...updates } : t),
+            activeTabId: existing.id,
+          }));
           return existing.id;
         }
 
         const id = `tab-${++tabIdCounter}`;
-        const newTab: Tab = { ...tab, id };
+        const newTab: Tab = { ...tab, id, lastActive: stamp };
         set((state) => ({
-          tabs: [...state.tabs, newTab],
+          tabs: capTabs([...state.tabs, newTab], id),
           activeTabId: id,
         }));
         return id;
@@ -233,7 +292,8 @@ export const useUIStore = create<UIState>()(
       setActiveTab: (id) => {
         const { tabs } = get();
         if (tabs.find((t) => t.id === id)) {
-          set({ activeTabId: id });
+          const stamp = nextActivation();
+          set({ activeTabId: id, tabs: tabs.map((t) => (t.id === id ? { ...t, lastActive: stamp } : t)) });
         }
       },
 
@@ -439,12 +499,17 @@ export const useUIStore = create<UIState>()(
         if (persisted == null) return current;
         const persistedState = persisted as Partial<Pick<UIState, 'tabs' | 'activeTabId'>>;
 
-        // Re-assign unique IDs to persisted tabs to avoid key collisions
+        // Re-assign unique IDs to persisted tabs to avoid key collisions.
+        // When two stored tabs are the same page, the pinned one is kept.
         const seen = new Set<string>();
-        const tabs = (persistedState.tabs || current.tabs).map((tab: Tab) => {
-          // Deduplicate by path
-          if (seen.has(tab.path)) return null;
-          seen.add(tab.path);
+        const stored = persistedState.tabs || current.tabs;
+        const pinnedKeys = new Set(stored.filter((t) => t.pinned).map((t) => tabKey(t.path)));
+        const tabs = stored.map((tab: Tab) => {
+          if (!tab.pinned && pinnedKeys.has(tabKey(tab.path))) return null;
+          // One tab per page (older storage could hold /x and /x?tab=y)
+          const key = tabKey(tab.path);
+          if (seen.has(key)) return null;
+          seen.add(key);
           if (tab.path === '/') return null;
           // A tab for a route that no longer exists (e.g. /welcome, /incidents)
           // would restore onto the Not Found page under its old title.
@@ -462,13 +527,18 @@ export const useUIStore = create<UIState>()(
         }
 
         // Find active tab in the cleaned list
-        const activeTab = tabs.find((t: Tab) => t.path === (persistedState.tabs || []).find((pt: Tab) => pt.id === persistedState.activeTabId)?.path);
+        const storedActive = (persistedState.tabs || []).find((pt: Tab) => pt.id === persistedState.activeTabId);
+        const activeTab = storedActive && tabs.find((t: Tab) => tabKey(t.path) === tabKey(storedActive.path));
 
+        const activeTabId = activeTab?.id || 'pulse';
+        // The restored active tab counts as just used, so the cap never closes it later.
+        const stamp = nextActivation();
+        const stamped = tabs.map((t) => (t.id === activeTabId ? { ...t, lastActive: stamp } : t));
         return {
           ...current,
           ...persistedState,
-          tabs,
-          activeTabId: activeTab?.id || 'pulse',
+          tabs: capTabs(stamped, activeTabId),
+          activeTabId,
         };
       },
     }

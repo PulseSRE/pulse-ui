@@ -18,7 +18,7 @@ import { SectionHeader } from '../components/primitives/SectionHeader';
 import { StatCard } from '../components/primitives/StatCard';
 import { LoadError } from '../components/primitives/LoadError';
 import { Button } from '../components/primitives/Button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent, useTabParam } from '../components/primitives/Tabs';
 import { useGitOpsConfig } from '../hooks/useGitOpsConfig';
 import { useGitOpsSetupStore } from '../store/gitopsSetupStore';
 import { GitOpsSetupWizard } from './argocd/GitOpsSetupWizard';
@@ -29,6 +29,7 @@ import { ProjectsTab } from './argocd/ProjectsTab';
 import { RolloutsTab } from './argocd/RolloutsTab';
 
 type Tab = 'applications' | 'history' | 'drift' | 'projects' | 'rollouts';
+const ARGO_TABS: readonly Tab[] = ['applications', 'history', 'drift', 'projects', 'rollouts'];
 
 export default function ArgoCDView() {
   const go = useNavigateTab();
@@ -49,16 +50,7 @@ export default function ArgoCDView() {
   useEffect(() => {
     detectCompletedSteps();
   }, [available]);
-  const urlTab = new URLSearchParams(window.location.search).get('tab') as Tab | null;
-  const [activeTab, setActiveTabState] = React.useState<Tab>(
-    urlTab && ['applications', 'history', 'drift', 'projects', 'rollouts'].includes(urlTab) ? urlTab : 'applications',
-  );
-  const setActiveTab = (tab: Tab) => {
-    setActiveTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'applications') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
-  };
+  const [activeTab, setActiveTab] = useTabParam<Tab>(ARGO_TABS, 'applications');
   const [syncing, setSyncing] = React.useState<string | null>(null);
   // A sync confirmation remembers the cluster whose application it names.
   const [confirmSync, setConfirmSync] = React.useState<{ name: string; ns: string; clusterId: string } | null>(null);

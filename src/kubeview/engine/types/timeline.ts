@@ -23,7 +23,7 @@ export interface TimelineEntry {
   };
   correlationKey?: string;       // Links related entries (e.g., "Deployment/my-app/default")
   source: {
-    type: 'prometheus' | 'k8s-event' | 'replicaset' | 'clusterversion' | 'clusteroperator';
+    type: 'prometheus' | 'k8s-event' | 'replicaset' | 'clusterversion' | 'clusteroperator' | 'pulse-changes';
     raw?: unknown;
   };
 }

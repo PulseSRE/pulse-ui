@@ -1,5 +1,5 @@
-import React, { createContext, useCallback, useContext, useId, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { createContext, useCallback, useContext, useEffect, useId, useState } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '@/lib/utils';
 
@@ -12,10 +12,16 @@ import { cn } from '@/lib/utils';
  *
  *   <Tabs urlSync={{ values: ['a', 'b'] }} defaultValue="a"> … </Tabs>
  *
- * keeps the active tab in `?tab=` (or `urlSync.param`). The default tab is not
- * written to the URL, an unknown or missing value falls back to the default,
- * and changes replace the history entry so Back leaves the page instead of
+ * keeps the active tab in `?tab=` (or `urlSync.param`). The URL is the only
+ * state: links and Back/Forward to another `?tab=` switch the tab, even on the
+ * same page. The default tab is not written to the URL, an unknown or missing
+ * value falls back to the default (an unknown one is removed from the URL),
+ * and tab clicks replace the history entry so Back leaves the page instead of
  * stepping through tabs.
+ *
+ * Pages that render their own tab bar use `useTabParam` directly; never keep
+ * the tab in `useState` or write it with `window.history`, which the router
+ * does not see.
  *
  * Many tabs can be grouped inside one TabsList:
  *
@@ -26,32 +32,77 @@ import { cn } from '@/lib/utils';
  * groups and the tab ids (and `?tab=` links) do not change.
  */
 
+/* ── Search-param writer shared by the URL hooks ── */
+
+/**
+ * The search a write in this handler has already produced, keyed by the
+ * location it was made from. React Router's functional `setSearchParams`
+ * hands every call the params of the render, so two writes in one handler
+ * (switch tab and reset a filter) would drop the first; this composes them.
+ */
+let pendingSearch: { key: string; search: string } | null = null;
+
+/**
+ * `update(mutate)` edits the current search params and writes them through
+ * the router, replacing the history entry. Writes in the same handler build
+ * on each other. The location's hash and history state are not kept.
+ */
+export function useSearchParamUpdater(): (mutate: (next: URLSearchParams) => void) => void {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { key } = useLocation();
+  return useCallback(
+    (mutate: (next: URLSearchParams) => void) => {
+      const base = pendingSearch?.key === key ? pendingSearch.search : searchParams.toString();
+      const next = new URLSearchParams(base);
+      mutate(next);
+      if (next.toString() === base) return;
+      const entry = { key, search: next.toString() };
+      pendingSearch = entry;
+      // Only writes made in the same synchronous run (one handler, one commit's
+      // effects) compose; afterwards the router's own location is the base.
+      queueMicrotask(() => { if (pendingSearch === entry) pendingSearch = null; });
+      setSearchParams(next, { replace: true });
+    },
+    [key, searchParams, setSearchParams],
+  );
+}
+
 /* ── URL sync hook (usable on its own for pages that render panels themselves) ── */
+/**
+ * `[active, setActive] = useTabParam(values, default, param?, clear?)` reads
+ * one search param through the router. The default is not written, an
+ * unknown value shows the default and is removed from the URL, and setting
+ * it replaces the history entry (hash and history state are not kept).
+ */
 export function useTabParam<T extends string>(
   values: readonly T[],
   defaultTab: T,
   param = 'tab',
   clear: readonly string[] = [],
 ): [T, (tab: T) => void] {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const update = useSearchParamUpdater();
   const raw = searchParams.get(param);
-  const active = raw !== null && (values as readonly string[]).includes(raw) ? (raw as T) : defaultTab;
+  const valid = raw !== null && (values as readonly string[]).includes(raw);
+  const active = valid ? (raw as T) : defaultTab;
+
+  // An unknown value (an old link, a typo) shows the default tab; take it out
+  // of the URL too, replacing the entry, so the address bar matches the page.
+  const invalid = raw !== null && !valid;
+  useEffect(() => {
+    if (invalid) update((next) => next.delete(param));
+  }, [invalid, param, update]);
 
   const setActive = useCallback(
     (tab: T) => {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          if (tab === defaultTab) next.delete(param);
-          else next.set(param, tab);
-          for (const p of clear) next.delete(p);
-          return next;
-        },
-        { replace: true },
-      );
+      update((next) => {
+        if (tab === defaultTab) next.delete(param);
+        else next.set(param, tab);
+        for (const p of clear) next.delete(p);
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `clear` is compared by content
-    [setSearchParams, defaultTab, param, clear.join('\0')],
+    [update, defaultTab, param, clear.join('\0')],
   );
 
   return [active, setActive];

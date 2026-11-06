@@ -19,6 +19,7 @@ import { getNodeStatus } from '../engine/renderers/statusUtils';
 import { parseResourceValue, formatBytes, formatCpu } from '../engine/formatting';
 import { formatAge } from '../engine/format';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { useTabParam } from '../components/primitives/Tabs';
 import { PendingCsrNotice } from './admin/CsrTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useClusterStore } from '../store/clusterStore';
@@ -38,18 +39,13 @@ import type { MachineReads, ReadFailure } from './compute/MachineManagement';
 /** Stable empty list, so memos over an unread list do not recompute every render. */
 const NONE: never[] = [];
 
+const COMPUTE_TABS = ['overview', 'capacity'] as const;
+
 export default function ComputeView() {
   const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const { actions: nodeMapActions, dialogs: nodeMapDialogs } = useNodeMapActions();
-  const urlTab = new URLSearchParams(window.location.search).get('tab');
-  const [computeTab, setComputeTabState] = React.useState<'overview' | 'capacity'>(urlTab === 'capacity' ? 'capacity' : 'overview');
-  const setComputeTab = (tab: 'overview' | 'capacity') => {
-    setComputeTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
-  };
+  const [computeTab, setComputeTab] = useTabParam(COMPUTE_TABS, 'overview');
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const platform = useClusterStore((s) => s.platform);
   const clusterVersion = useClusterStore((s) => s.clusterVersion);

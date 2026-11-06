@@ -15,7 +15,9 @@ import { QuickDeployTab } from '../QuickDeployTab';
 import { registerCluster, resetConnections, setActiveClusterId } from '../../../engine/clusterConnection';
 import { useFleetStore } from '../../../store/fleetStore';
 
-const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 201 })));
+const fetchMock = vi.fn((url: string) => Promise.resolve(url.endsWith('/selfsubjectaccessreviews')
+  ? new Response(JSON.stringify({ status: { allowed: true } }), { status: 201 })
+  : new Response('{}', { status: 201 })));
 
 describe('Quick Deploy', () => {
   beforeEach(() => {
@@ -36,14 +38,22 @@ describe('Quick Deploy', () => {
     useFleetStore.setState({ activeClusterId: 'prod' });
 
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><QuickDeployTab /></MemoryRouter></QueryClientProvider>);
-    fireEvent.change(screen.getByPlaceholderText('my-app'), { target: { value: 'web' } });
-    fireEvent.change(screen.getByPlaceholderText('nginx:latest or quay.io/org/image:tag'), { target: { value: 'nginx:1' } });
+    fireEvent.change(screen.getByLabelText(/^Name\*?$/), { target: { value: 'web' } });
+    fireEvent.change(screen.getByLabelText(/^Image\*?$/), { target: { value: 'nginx:1' } });
+    fireEvent.change(screen.getByLabelText(/^Container\ port\*?$/), { target: { value: '8080' } });
     // All-namespaces mode: the target is chosen, never defaulted.
     fireEvent.change(await screen.findByLabelText('Namespace'), { target: { value: 'shop' } });
-    fireEvent.click(screen.getByText('Deploy'));
+    const dryRun = screen.getByRole('button', { name: 'Dry run' });
+    await waitFor(() => expect((dryRun as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(dryRun);
+    fireEvent.click(await screen.findByLabelText(/I have read the \d+ items? Pulse could not check/));
+    const create = await screen.findByRole('button', { name: /Create \d objects/ });
+    await waitFor(() => expect((create as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(create);
 
-    await waitFor(() => expect(fetchMock.mock.calls.some((c) => (c as unknown as [string, RequestInit])[1]?.method === 'POST')).toBe(true));
-    const [url, init] = fetchMock.mock.calls.find((c) => (c as unknown as [string, RequestInit])[1]?.method === 'POST') as unknown as [string, RequestInit];
+    const isCreate = (c: unknown) => { const [u, i] = c as [string, RequestInit]; return i?.method === 'POST' && !u.includes('dryRun') && !u.endsWith('/selfsubjectaccessreviews'); };
+    await waitFor(() => expect(fetchMock.mock.calls.some(isCreate)).toBe(true));
+    const [url, init] = fetchMock.mock.calls.find(isCreate) as unknown as [string, RequestInit];
     expect(url).toContain('/managedclusters/prod/proxy/apis/apps/v1/namespaces/');
     expect(url).toMatch(/\/deployments$/);
     expect(init.method).toBe('POST');
