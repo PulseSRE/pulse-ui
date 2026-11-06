@@ -30,7 +30,12 @@ const storefront = { metadata: { name: 'storefront', namespace: 'shop' }, spec: 
 
 const ALLOW = Object.fromEntries(['deployments', 'services', 'routes', 'horizontalpodautoscalers', 'poddisruptionbudgets', 'networkpolicies', 'configmaps', 'secrets', 'persistentvolumeclaims'].map((r) => [`delete/${r}`, true]));
 
+// The ConfigMap list and single-object read answers (tests override these).
+let cmList = 200;
+let cmGet = 200;
 beforeEach(() => {
+  cmList = 200;
+  cmGet = 200;
   installFetch();
   setAllow(ALLOW);
   respond((c) => {
@@ -40,6 +45,10 @@ beforeEach(() => {
     if (c.path === '/apis/route.openshift.io/v1/namespaces/shop/routes') return json({ items: [{ metadata: { name: 'storefront-legacy', uid: 'u-route' }, spec: { host: 'legacy.shop.example.com', to: { kind: 'Service', name: 'storefront-legacy' } } }] });
     if (c.path === '/apis/networking.k8s.io/v1/namespaces/shop/networkpolicies') return json({ kind: 'Status', message: 'networkpolicies is forbidden', code: 403 }, 403);
     if (c.path === `${NS}/persistentvolumeclaims`) return json({ items: [{ metadata: { name: 'uploads', uid: 'u-pvc' }, spec: { volumeName: 'pv-9' }, status: { capacity: { storage: '14Gi' } } }] });
+    if (c.path === `${NS}/configmaps` && cmList !== 200) return json({ kind: 'Status', message: 'configmaps is forbidden', code: cmList }, cmList);
+    if (c.path === `${NS}/configmaps/storefront-legacy-cfg`) {
+      return cmGet === 200 ? json({ kind: 'PartialObjectMetadata', metadata: { name: 'storefront-legacy-cfg', uid: 'u-cfg-get' } }) : json({ kind: 'Status', message: 'forbidden', code: cmGet }, cmGet);
+    }
     if (c.path === `${NS}/configmaps`) return json({ kind: 'PartialObjectMetadataList', items: [{ metadata: { name: 'storefront-legacy-cfg', uid: 'u-cfg' } }, { metadata: { name: 'shop-feature-flags', uid: 'u-ff' } }] });
     if (c.path.startsWith(`${NS}/secrets?labelSelector=`) && c.path.includes('checkout')) {
       return json({ items: [releaseSecret('checkout', 'shop', 7, 'deployed', '3.2.1', {}, 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: checkout\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: checkout\n')] });
@@ -215,5 +224,40 @@ describe('DeleteRelatedDialog', () => {
     await waitFor(() => expect(calls.filter((c) => c.path === `${NS}/services`).length).toBeGreaterThan(listsBefore));
     await waitFor(() => expect(box(dialog, /^Service storefront-legacy$/).checked).toBe(false));
     expect(box(dialog, /PersistentVolumeClaim uploads/).checked).toBe(true);
+  });
+
+  it('a ConfigMap whose list was forbidden: its uid is read first, and the delete carries it', async () => {
+    cmList = 403;
+    // Forbidden list: nothing is chosen by default; choose it by hand.
+    const dialog = await open();
+    const cfg = box(dialog, /^ConfigMap storefront-legacy-cfg$/);
+    await waitFor(() => expect(cfg.disabled).toBe(false));
+    fireEvent.click(cfg);
+    await typeAndConfirm(dialog, /Delete 4 objects/);
+    await within(dialog).findByRole('region', { name: 'Delete results' });
+    const cmDeletes = writes().filter((w) => w.path.startsWith(`${NS}/configmaps/storefront-legacy-cfg`));
+    expect(cmDeletes).toHaveLength(2);
+    for (const w of cmDeletes) expect(w.body).toMatchObject({ preconditions: { uid: 'u-cfg-get' } });
+  });
+
+  it('when that single read fails too, the row is "Could not check" and never deleted', async () => {
+    cmList = 403;
+    cmGet = 403;
+    const dialog = await open();
+    const cfg = box(dialog, /^ConfigMap storefront-legacy-cfg$/);
+    await waitFor(() => expect(cfg.disabled).toBe(true));
+    expect(within(dialog).getAllByText(/Could not check: its uid could not be read/).length).toBeGreaterThan(0);
+    await typeAndConfirm(dialog, /Delete 3 objects/);
+    await within(dialog).findByRole('region', { name: 'Delete results' });
+    expect(writes().some((w) => w.path.includes('/configmaps/'))).toBe(false);
+    expect(writes().every((w) => w.body?.preconditions?.uid)).toBe(true);
+  });
+
+  it('Cancel calls onCancel (not onClose) when given', async () => {
+    const onClose = vi.fn(); const onCancel = vi.fn();
+    renderWithProviders(<DeleteRelatedDialog workload={legacy} workloadRbac={RBAC} onClose={onClose} onCancel={onCancel} />);
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    expect(onCancel).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

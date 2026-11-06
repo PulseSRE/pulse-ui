@@ -190,8 +190,19 @@ describe('deleting a Deployment from the table', () => {
     fireEvent.click(await screen.findByTitle('Delete 2 selected'));
     expect(await screen.findByRole('heading', { name: 'Delete Deployment api?' })).toBeTruthy();
     expect(screen.getByText('1 of 2 selected')).toBeTruthy();
+    // Cancel stops the whole queue; it does not move on to the next workload.
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(await screen.findByRole('heading', { name: 'Delete Deployment web?' })).toBeTruthy();
-    expect(screen.getByText('2 of 2 selected')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('heading', { name: 'Delete Deployment web?' })).toBeNull();
+    expect(addToastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Deleted 0 of 2 selected workloads (stopped)' }));
+  });
+
+  it('Escape also stops the queue', async () => {
+    renderTable('apps/v1/deployments');
+    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(await screen.findByTitle('Delete 2 selected'));
+    await screen.findByRole('heading', { name: 'Delete Deployment api?' });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 });

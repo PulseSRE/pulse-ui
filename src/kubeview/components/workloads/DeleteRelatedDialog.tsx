@@ -68,11 +68,14 @@ async function listMetadata(path: string, clusterId: string): Promise<K8sResourc
   return data.items ?? [];
 }
 
-export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted, queueNote }: {
+export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onCancel, onDeleted, queueNote }: {
   workload: K8sResource;
   /** Group/plural of the workload, for its own delete permission. */
   workloadRbac: { group: string; plural: string };
+  /** Called when the dialog closes after it ran (or with nothing run, when no onCancel is given). */
   onClose: () => void;
+  /** Cancel, Escape or X before anything ran (default: onClose). */
+  onCancel?: () => void;
   onDeleted?: () => void;
   /** e.g. "1 of 3" when several workloads are deleted one after another. */
   queueNote?: string;
@@ -180,8 +183,36 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
       return next;
     });
   }, [related]);
-  const deniedReason = (c: RelatedCandidate) => (rbac[c.kind].isLoading ? 'Checking permission…' : !rbac[c.kind].allowed ? `You cannot delete ${KIND_LABEL[c.kind]} in ${ns}` : undefined);
-  const chosen = (related?.candidates ?? []).filter((c) => checked[keyOf(c)] && !c.keptReason && !c.byController && !deniedReason(c));
+  // Every delete carries a uid precondition. An object whose list could not
+  // be read has no uid yet: read that one object's metadata first; if that
+  // fails too, it cannot be chosen.
+  const needUid = (related?.candidates ?? []).filter((c) => !c.keptReason && !c.byController && !c.resource?.metadata.uid);
+  const uidReads = useQueries({
+    queries: needUid.map((c) => ({
+      queryKey: ['k8s', 'get', 'delete-related-uid', c.path, clusterId],
+      queryFn: async () => {
+        const res = await k8sFetch(clusterId, c.path, { headers: { Accept: 'application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1' } });
+        if (!res.ok) throw await parseK8sErrorResponse(res, { operation: 'get', apiPath: c.path });
+        const m = await res.json() as { metadata?: { uid?: string } };
+        if (!m.metadata?.uid) throw new Error('no uid returned');
+        return m.metadata.uid;
+      },
+      retry: false,
+    })),
+  });
+  const uidOf = (c: RelatedCandidate): string | undefined => {
+    if (c.resource?.metadata.uid) return c.resource.metadata.uid;
+    const i = needUid.findIndex((x) => keyOf(x) === keyOf(c));
+    return i >= 0 ? uidReads[i]?.data : undefined;
+  };
+  const uidReason = (c: RelatedCandidate): string | undefined => {
+    if (uidOf(c)) return undefined;
+    const i = needUid.findIndex((x) => keyOf(x) === keyOf(c));
+    if (i >= 0 && uidReads[i]?.isLoading) return 'Checking…';
+    return 'Could not check: its uid could not be read, so Pulse will not delete it';
+  };
+  const deniedReason = (c: RelatedCandidate) => (rbac[c.kind].isLoading ? 'Checking permission…' : !rbac[c.kind].allowed ? `You cannot delete ${KIND_LABEL[c.kind]} in ${ns}` : (c.keptReason || c.byController ? undefined : uidReason(c)));
+  const chosen = (related?.candidates ?? []).filter((c) => checked[keyOf(c)] && !c.keptReason && !c.byController && !deniedReason(c) && !!uidOf(c));
   const keptPvcs = (related?.candidates ?? []).filter((c) => c.kind === 'PersistentVolumeClaim' && !c.byController && (!checked[keyOf(c)] || !!c.keptReason));
   const retainedByPolicy = (related?.candidates ?? []).filter((c) => c.byController);
 
@@ -191,6 +222,7 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
   const [results, setResults] = React.useState<Result[] | null>(null);
 
   const workloadPath = apiPathOf(workload);
+  const cancel = onCancel ?? onClose;
   const confirm = async () => {
     setBusy(true);
     setError(null);
@@ -198,7 +230,8 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
       assertActiveCluster(clusterId, `Deleting ${kind} "${name}"`);
       // Dry run everything first: nothing is deleted unless all of it would be.
       const failures: string[] = [];
-      for (const [label, path, uid] of [[`${kind} ${name}`, workloadPath, workload.metadata.uid], ...chosen.map((c) => [`${c.kind} ${c.name}`, c.path, c.resource?.metadata.uid])] as Array<[string, string, string | undefined]>) {
+      for (const [label, path, uid] of [[`${kind} ${name}`, workloadPath, workload.metadata.uid], ...chosen.map((c) => [`${c.kind} ${c.name}`, c.path, uidOf(c)])] as Array<[string, string, string | undefined]>) {
+        if (!uid) { failures.push(`${label}: its uid is unknown`); continue; }
         try { await deleteObject(path, clusterId, { uid, dryRun: true }); } catch (err) { failures.push(`${label}: ${describeWriteError(err)}`); }
       }
       if (failures.length) throw new Error(`The dry run failed, so nothing was deleted. ${failures.join('; ')}`);
@@ -216,7 +249,7 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
       }
       for (const c of chosen) {
         try {
-          const r = await deleteObject(c.path, clusterId, { uid: c.resource?.metadata.uid });
+          const r = await deleteObject(c.path, clusterId, { uid: uidOf(c)! });
           out.push({ label: `${c.kind} ${c.name}`, status: r });
         } catch (err) {
           out.push({ label: `${c.kind} ${c.name}`, status: 'failed', message: describeWriteError(err) });
@@ -249,11 +282,11 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
   if (stage === 'helm' && helmOwner) {
     const others = helmRelease.data?.resources ? helmRelease.data.resources.filter((r) => !(r.kind === kind && r.name === name)).length : null;
     return (
-      <Dialog open onClose={onClose} size="xl" title={title} description={who} footer={(
+      <Dialog open onClose={cancel} size="xl" title={title} description={who} footer={(
         <>
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
+          <button type="button" onClick={cancel} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
           <button type="button" onClick={() => setStage('choose')} className="rounded-lg px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-950/40">Delete only the {kind}…</button>
-          <button type="button" onClick={() => { onClose(); go(helmReleasePath(helmOwner, 'uninstall'), `Helm ${helmOwner.release}`); }}
+          <button type="button" onClick={() => { cancel(); go(helmReleasePath(helmOwner, 'uninstall'), `Helm ${helmOwner.release}`); }}
             className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600">Uninstall release {helmOwner.release}…</button>
         </>
       )}>
@@ -272,12 +305,13 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
 
   const confirmDisabled = busy || typed !== name || canDeleteWorkload.isLoading || !canDeleteWorkload.allowed || loading;
   const workloadGone = !!results && (results[0]?.status === 'deleted' || results[0]?.status === 'gone');
-  const close = () => { onClose(); if (workloadGone) onDeleted?.(); };
+  // onDeleted first: a queue counts this workload before it moves on.
+  const close = () => { if (workloadGone) onDeleted?.(); onClose(); };
   const footer = results ? (
     <button type="button" onClick={close} className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-600">Close</button>
   ) : (
     <>
-      <button type="button" onClick={onClose} disabled={busy} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-50">Cancel</button>
+      <button type="button" onClick={cancel} disabled={busy} className="rounded-lg px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-50">Cancel</button>
       <button type="button" onClick={() => void confirm()} disabled={confirmDisabled}
         className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50">
         {busy ? 'Deleting…' : `Delete ${1 + chosen.length} object${chosen.length ? 's' : ''}`}
@@ -286,7 +320,7 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onDeleted
   );
 
   return (
-    <Dialog open onClose={close} dismissible={!busy} size="2xl" title={title} description={`${who}${helmOwner ? '' : ' · not managed by Helm'}`} footer={footer}>
+    <Dialog open onClose={results ? close : cancel} dismissible={!busy} size="2xl" title={title} description={`${who}${helmOwner ? '' : ' · not managed by Helm'}`} footer={footer}>
       <div className="space-y-4 text-xs">
         {queueNote && <p className="text-slate-400">{queueNote}</p>}
         {helm.claimed && helm.verified === false && <HelmClaimNote claimed={helm.claimed} />}

@@ -402,13 +402,36 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   // Deployments, StatefulSets and DaemonSets delete through the related-objects
   // dialog, one workload at a time (also for a bulk selection).
   const [relatedQueue, setRelatedQueue] = React.useState<{ items: K8sResource[]; total: number } | null>(null);
+  const queueDeleted = React.useRef<string[]>([]);
+  const addToast = useUIStore((s) => s.addToast);
   const withRelated = (r: K8sResource | undefined) => !!r && DELETE_WITH_RELATED_KINDS.has(r.kind) && !!r.metadata.namespace;
   const bulkDelete = () => {
     const picked = sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
-    if (picked.length > 0 && picked.every(withRelated)) setRelatedQueue({ items: picked, total: picked.length });
+    if (picked.length > 0 && picked.every(withRelated)) { queueDeleted.current = []; setRelatedQueue({ items: picked, total: picked.length }); }
     else actions.setShowBulkDeleteConfirm(true);
   };
-  const nextInQueue = () => setRelatedQueue((q) => (q && q.items.length > 1 ? { ...q, items: q.items.slice(1) } : null));
+  const queueSummary = (total: number, stopped: boolean) => {
+    const done = queueDeleted.current;
+    if (total < 2) return;
+    addToast({
+      type: done.length ? 'success' : 'warning',
+      title: `Deleted ${done.length} of ${total} selected workload${total === 1 ? '' : 's'}${stopped ? ' (stopped)' : ''}`,
+      detail: done.length ? done.join(', ') : undefined,
+    });
+  };
+  // After a dialog ran: on to the next selected workload, or a summary at the end.
+  const nextInQueue = () => {
+    const q = relatedQueue;
+    if (!q) return;
+    if (q.items.length > 1) setRelatedQueue({ ...q, items: q.items.slice(1) });
+    else { setRelatedQueue(null); queueSummary(q.total, false); }
+  };
+  // Cancel, Escape or X: stop the whole queue.
+  const cancelQueue = () => {
+    const q = relatedQueue;
+    setRelatedQueue(null);
+    if (q) queueSummary(q.total, true);
+  };
 
   // --- Error state ---
   if (error) {
@@ -556,7 +579,12 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
           workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
           queueNote={relatedQueue.total > 1 ? `${relatedQueue.total - relatedQueue.items.length + 1} of ${relatedQueue.total} selected` : undefined}
           onClose={nextInQueue}
-          onDeleted={() => { queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] }); setSelectedRows(new Set()); }}
+          onCancel={cancelQueue}
+          onDeleted={() => {
+            queueDeleted.current.push(relatedQueue.items[0].metadata.name);
+            queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+            setSelectedRows(new Set());
+          }}
         />
       )}
 
