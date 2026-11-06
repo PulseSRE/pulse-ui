@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { dump, load } from 'js-yaml';
 import { Ship, FileText, ArrowUpCircle, RotateCcw, Trash2, Folder, Pencil } from 'lucide-react';
 import { k8sFetch } from '../../engine/query';
@@ -65,19 +66,45 @@ function statusVariant(status: string): 'success' | 'warning' | 'error' | 'info'
   return 'warning';
 }
 
+const LINK_ACTIONS = new Set(['values', 'rollback', 'uninstall']);
+
 export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefined; charts: ChartSource[] }) {
-  const { data: releases = [], error, isLoading, refetch } = useHelmReleases(nsFilter);
+  // A link from a Helm-owned resource (`?release=&releaseNs=&action=`) opens
+  // this list on that release's namespace and, with an action, its dialog.
+  const [params, setParams] = useSearchParams();
+  const linkRelease = params.get('release');
+  const linkNs = params.get('releaseNs');
+  const linkAction = params.get('action');
+  const listNs = linkRelease && linkNs ? linkNs : nsFilter;
+  const { data: releases = [], error, isLoading, refetch } = useHelmReleases(listNs);
   const [valuesFor, setValuesFor] = React.useState<HelmReleaseSummary | null>(null);
   const [job, setJob] = React.useState<{ name: string; ns: string; clusterId: string } | null>(null);
   const action = usePinnedAction<ReleaseAction>();
+  const handledLink = React.useRef<string | null>(null);
+  const linked = linkRelease ? releases.find((r) => r.name === linkRelease && (!linkNs || r.namespace === linkNs)) : undefined;
+  React.useEffect(() => {
+    const key = `${linkNs}/${linkRelease}/${linkAction}`;
+    if (!linked || !linkAction || !LINK_ACTIONS.has(linkAction) || handledLink.current === key) return;
+    handledLink.current = key;
+    if (linkAction === 'rollback' && linked.revisions.length < 2) return;
+    action.open({ kind: linkAction, release: linked } as ReleaseAction);
+    // Once open, drop `action` so a reload or back-navigation does not open it again.
+    setParams((p) => { const next = new URLSearchParams(p); next.delete('action'); return next; }, { replace: true });
+  }, [linked, linkAction, linkNs, linkRelease, action, setParams]);
 
   return (
     <Card className="p-4">
       <h3 className="text-sm font-semibold text-slate-100 mb-3 flex items-center gap-2">
         <Ship className="w-4 h-4 text-blue-400" />
         Helm releases ({releases.length})
-        {nsFilter && <span className="text-xs font-normal text-slate-500">in {nsFilter}</span>}
+        {listNs && <span className="text-xs font-normal text-slate-500">in {listNs}</span>}
       </h3>
+      {linkRelease && !isLoading && !error && !linked && (
+        <p role="alert" className="mb-3 text-xs text-amber-300">Release {linkRelease}{linkNs ? ` in ${linkNs}` : ''} was not found among the Helm release records Pulse can read.</p>
+      )}
+      {linked && linkAction === 'rollback' && linked.revisions.length < 2 && (
+        <p role="alert" className="mb-3 text-xs text-amber-300">Release {linked.name} has only revision {linked.revision}: there is no earlier revision to roll back to.</p>
+      )}
 
       {job && (
         <div className="mb-3">
@@ -90,11 +117,11 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       ) : isLoading ? (
         <p className="text-xs text-slate-500 py-4 text-center">Loading Helm releases…</p>
       ) : releases.length === 0 ? (
-        <p className="text-xs text-slate-500 text-center py-4">No Helm releases installed{nsFilter ? ` in ${nsFilter}` : ''}</p>
+        <p className="text-xs text-slate-500 text-center py-4">No Helm releases installed{listNs ? ` in ${listNs}` : ''}</p>
       ) : (
         <div className="divide-y divide-slate-800">
           {releases.map((r) => (
-            <ReleaseRow key={`${r.namespace}/${r.name}`} release={r} charts={charts}
+            <ReleaseRow key={`${r.namespace}/${r.name}`} release={r} charts={charts} highlighted={r === linked}
               onValues={() => setValuesFor(r)}
               onAction={(kind) => action.open({ kind, release: r } as ReleaseAction)} />
           ))}
@@ -130,8 +157,9 @@ function repoCandidates(charts: ChartSource[], release: HelmReleaseSummary): Cha
   return charts.filter((c) => c.name === release.chart && !!c.repoUrl);
 }
 
-function ReleaseRow({ release, charts, onValues, onAction }: {
+function ReleaseRow({ release, charts, onValues, onAction, highlighted }: {
   release: HelmReleaseSummary;
+  highlighted?: boolean;
   charts: ChartSource[];
   onValues: () => void;
   onAction: (kind: ReleaseAction['kind']) => void;
@@ -148,7 +176,7 @@ function ReleaseRow({ release, charts, onValues, onAction }: {
   const newest = candidates.length === 1 ? candidates[0].versions[0] : undefined;
   const upgradeLabel = newest && newest !== release.chartVersion ? `Upgrade to ${newest}` : 'Upgrade';
   return (
-    <div className="py-3 flex flex-wrap items-center gap-3" data-testid={`helm-release-${release.name}`}>
+    <div className={`py-3 flex flex-wrap items-center gap-3${highlighted ? ' bg-sky-950/30 -mx-2 px-2 rounded-sm' : ''}`} data-testid={`helm-release-${release.name}`} aria-current={highlighted ? 'true' : undefined}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-100">{release.name}</span>

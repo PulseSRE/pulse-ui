@@ -35,6 +35,8 @@ import { PodDetailLayout } from './PodDetailLayout';
 import { GenericDetailLayout } from './GenericDetailLayout';
 import { DeleteConfirmModal, DeleteProgressModal } from './DetailViewModals';
 import { isWorkloadKind } from './workloadKinds';
+import { DeleteRelatedDialog } from '../../components/workloads/DeleteRelatedDialog';
+import { DELETE_WITH_RELATED_KINDS } from '../../components/workloads/WorkloadActionMenu';
 import { ownerLink } from '../../engine/ownerRef';
 import type { MetadataTarget } from './MetadataSections';
 
@@ -531,7 +533,16 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
 
     {actionDialog}
 
-    {showDeleteConfirm && resource && (
+    {showDeleteConfirm && resource && DELETE_WITH_RELATED_KINDS.has(resource.kind) && namespace && (
+      <DeleteRelatedDialog
+        workload={resource}
+        workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+        onClose={() => setShowDeleteConfirm(false)}
+        onDeleted={() => go(`/r/${gvrUrl}`, resourcePlural)}
+      />
+    )}
+
+    {showDeleteConfirm && resource && !(DELETE_WITH_RELATED_KINDS.has(resource.kind) && namespace) && (
       <DeleteConfirmModal
         open={showDeleteConfirm}
         resource={resource}

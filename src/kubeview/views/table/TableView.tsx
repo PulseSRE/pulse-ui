@@ -18,6 +18,8 @@ import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 import { TableToolbar } from './TableToolbar';
 import { TableBody } from './TableBody';
 import { useTableActions } from './TableActions';
+import { DeleteRelatedDialog } from '../../components/workloads/DeleteRelatedDialog';
+import { DELETE_WITH_RELATED_KINDS } from '../../components/workloads/WorkloadActionMenu';
 import type { K8sResource } from '../../engine/renderers';
 
 interface TableViewProps {
@@ -393,6 +395,40 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     setSelectedRows,
   });
 
+  // Deployments, StatefulSets and DaemonSets delete through the related-objects
+  // dialog, one workload at a time (also for a bulk selection).
+  const [relatedQueue, setRelatedQueue] = React.useState<{ items: K8sResource[]; total: number } | null>(null);
+  const queueDeleted = React.useRef<string[]>([]);
+  const addToast = useUIStore((s) => s.addToast);
+  const withRelated = (r: K8sResource | undefined) => !!r && DELETE_WITH_RELATED_KINDS.has(r.kind) && !!r.metadata.namespace;
+  const bulkDelete = () => {
+    const picked = sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
+    if (picked.length > 0 && picked.every(withRelated)) { queueDeleted.current = []; setRelatedQueue({ items: picked, total: picked.length }); }
+    else actions.setShowBulkDeleteConfirm(true);
+  };
+  const queueSummary = (total: number, stopped: boolean) => {
+    const done = queueDeleted.current;
+    if (total < 2) return;
+    addToast({
+      type: done.length ? 'success' : 'warning',
+      title: `Deleted ${done.length} of ${total} selected workload${total === 1 ? '' : 's'}${stopped ? ' (stopped)' : ''}`,
+      detail: done.length ? done.join(', ') : undefined,
+    });
+  };
+  // After a dialog ran: on to the next selected workload, or a summary at the end.
+  const nextInQueue = () => {
+    const q = relatedQueue;
+    if (!q) return;
+    if (q.items.length > 1) setRelatedQueue({ ...q, items: q.items.slice(1) });
+    else { setRelatedQueue(null); queueSummary(q.total, false); }
+  };
+  // Cancel, Escape or X: stop the whole queue.
+  const cancelQueue = () => {
+    const q = relatedQueue;
+    setRelatedQueue(null);
+    if (q) queueSummary(q.total, true);
+  };
+
   // --- Error state ---
   if (error) {
     return (
@@ -459,7 +495,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         onToggleColumnPicker={() => setShowColumnPicker(!showColumnPicker)}
         selectedCount={selectedRows.size}
         canDelete={canDelete}
-        onBulkDelete={() => actions.setShowBulkDeleteConfirm(true)}
+        onBulkDelete={bulkDelete}
         canCreate={canCreate}
         onCreate={handleCreate}
         showExport={actions.showExport}
@@ -523,8 +559,33 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         />
       )}
 
+      {/* Delete with related objects (row trash on a Deployment/StatefulSet/DaemonSet) */}
+      {actions.pendingDelete && withRelated(actions.pendingDelete.resource) && (
+        <DeleteRelatedDialog
+          workload={actions.pendingDelete.resource}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          onClose={() => actions.setPendingDelete(null)}
+          onDeleted={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] })}
+        />
+      )}
+      {relatedQueue && (
+        <DeleteRelatedDialog
+          key={relatedQueue.items[0].metadata.uid ?? relatedQueue.items[0].metadata.name}
+          workload={relatedQueue.items[0]}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          queueNote={relatedQueue.total > 1 ? `${relatedQueue.total - relatedQueue.items.length + 1} of ${relatedQueue.total} selected` : undefined}
+          onClose={nextInQueue}
+          onCancel={cancelQueue}
+          onDeleted={() => {
+            queueDeleted.current.push(relatedQueue.items[0].metadata.name);
+            queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+            setSelectedRows(new Set());
+          }}
+        />
+      )}
+
       {/* Single Delete Confirmation */}
-      {actions.pendingDelete && (
+      {actions.pendingDelete && !withRelated(actions.pendingDelete.resource) && (
         <ConfirmDialog
           open={!!actions.pendingDelete}
           title={`Delete ${actions.pendingDelete.resource.kind}`}
