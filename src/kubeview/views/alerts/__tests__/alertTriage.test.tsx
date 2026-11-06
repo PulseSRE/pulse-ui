@@ -132,6 +132,23 @@ describe('Triage chip', () => {
   });
 });
 
+describe('stat tiles', () => {
+  it.each(['rules', 'silences'])('from %s, clicking the critical count opens Firing filtered to critical (tab and severity in one step)', async (tab) => {
+    renderAt(`/alerts?tab=${tab}`);
+    const tile = await screen.findByTestId('firing-tile');
+    expect(screen.getByRole('tab', { name: 'Firing & pending' }).getAttribute('aria-selected')).toBe('false');
+    fireEvent.click(await within(tile).findByRole('button', { name: /^1 critical$/ }));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Firing & pending' }).getAttribute('aria-selected')).toBe('true'));
+    // Only the critical alert (the crashlooping pod) is listed; every warning row is filtered out.
+    expect(await screen.findByRole('button', { name: 'Triage: cause found' })).toBeTruthy();
+    expect(screen.queryAllByText('Not in the Inbox')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'critical' }).className).toContain('bg-red-600');
+    // And back to every severity from the tile itself.
+    fireEvent.click(within(tile).getByRole('button', { name: /^Firing/ }));
+    expect((await screen.findAllByText('Not in the Inbox')).length).toBeGreaterThan(0);
+  });
+});
+
 describe('triage batches', () => {
   it('sends at most 200 alerts per request; a failed batch marks only its own rows', async () => {
     ALERTS = Array.from({ length: 201 }, (_, i) => alert({ alertname: 'TargetDown', namespace: `ns-${i}`, job: `j${i}`, severity: 'warning' }));

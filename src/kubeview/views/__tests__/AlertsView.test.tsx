@@ -421,7 +421,7 @@ describe('an unreachable alerting backend is not zero alerts', () => {
     // error state itself, which would paint "unknown" as "firing".
     renderAlerts();
     await waitFor(() => expect(screen.getByText(/Could not reach the alerting backend/i)).toBeDefined(), { timeout: 5000 });
-    const tile = screen.getByText('Firing').closest('button');
+    const tile = screen.getByTestId('firing-tile');
     expect(tile?.className).not.toMatch(/border-red/);
   });
 
@@ -527,7 +527,7 @@ describe('alert counts appear once', () => {
   it('"Firing" counts firing alerts only, with the severity split beside it, and nowhere else', async () => {
     renderAlerts();
     await waitFor(() => expect(screen.getByText('Firing').parentElement?.textContent).toContain('2'));
-    const firing = screen.getByText('Firing').parentElement!;
+    const firing = screen.getByTestId('firing-tile');
     expect(firing.textContent).toContain('1 critical');
     expect(firing.textContent).toContain('1 warning');
     expect(screen.getByText('Pending').parentElement?.textContent).toContain('1');

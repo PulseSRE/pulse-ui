@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useUIStore } from '../uiStore';
+import { useUIStore, tabKey, capTabs, MAX_UNPINNED_TABS, type Tab } from '../uiStore';
 
 // Reset store between tests
 function resetStore() {
@@ -415,5 +415,149 @@ describe('persisted tab restore', () => {
     const current = useUIStore.getState();
     const merged = merge({ tabs: [tab('t1', '/welcome')], activeTabId: 't1' }, current) as ReturnType<typeof useUIStore.getState>;
     expect(merged.tabs.map((t) => t.id)).toEqual(['pulse']);
+  });
+});
+
+describe('one shell tab per page', () => {
+  beforeEach(resetStore);
+  const add = (path: string, title = path) =>
+    useUIStore.getState().addTab({ title, path, pinned: false, closable: true });
+
+  it('tabKey drops the query, hash and trailing slash', () => {
+    expect(tabKey('/workloads?tab=builds')).toBe('/workloads');
+    expect(tabKey('/r/v1~pods/ns/p#logs')).toBe('/r/v1~pods/ns/p');
+    expect(tabKey('/admin/')).toBe('/admin');
+    expect(tabKey('/')).toBe('/');
+  });
+
+  it('tabKey keeps the params that name another object', () => {
+    expect(tabKey('/r/v1~pods?ns=team-a&q=web')).toBe('/r/v1~pods?ns=team-a');
+    expect(tabKey('/r/v1~pods?q=web')).toBe('/r/v1~pods');
+    expect(tabKey('/create/v1~resourcequotas?namespace=shop')).toBe('/create/v1~resourcequotas?namespace=shop');
+    expect(tabKey('/logs/shop/db?kind=Deployment&selector=app%3Ddb')).toBe('/logs/shop/db?kind=Deployment');
+    // A detail page's ?ns= is not identity (its path names the namespace).
+    expect(tabKey('/r/v1~pods/shop/web?ns=x')).toBe('/r/v1~pods/shop/web');
+  });
+
+  it('pods in two namespaces, and logs of two kinds with one name, are separate tabs', () => {
+    const a = add('/r/v1~pods?ns=team-a', 'Pods (team-a)');
+    const b = add('/r/v1~pods?ns=team-b', 'Pods (team-b)');
+    expect(a).not.toBe(b);
+    const d = add('/logs/shop/db?kind=Deployment', 'db (Logs)');
+    const st = add('/logs/shop/db?kind=StatefulSet', 'db (Logs)');
+    expect(d).not.toBe(st);
+    expect(add('/logs/shop/db?kind=Deployment&selector=app%3Ddb', 'db (Logs)')).toBe(d);
+  });
+
+  it('opening the same page with another query reuses its tab and remembers the URL', () => {
+    const first = add('/workloads', 'Workloads');
+    const second = add('/workloads?tab=builds', 'Builds');
+    const { tabs, activeTabId } = useUIStore.getState();
+    expect(second).toBe(first);
+    expect(tabs.filter((t) => tabKey(t.path) === '/workloads')).toHaveLength(1);
+    const tab = tabs.find((t) => t.id === first)!;
+    expect(tab.path).toBe('/workloads?tab=builds');
+    // The caller named the view it opened, so the tab says "Builds".
+    expect(tab.title).toBe('Builds');
+    expect(activeTabId).toBe(first);
+  });
+
+  it('the palette Builds entry opened before the page still leaves one tab', () => {
+    add('/workloads?tab=builds', 'Builds');
+    add('/workloads', 'Workloads');
+    expect(useUIStore.getState().tabs.filter((t) => tabKey(t.path) === '/workloads')).toHaveLength(1);
+  });
+
+  it('a pinned tab is reused but keeps the URL it was pinned with', () => {
+    useUIStore.setState({
+      tabs: [...useUIStore.getState().tabs, { id: 'inbox', title: 'Inbox', path: '/inbox', pinned: true, closable: true }],
+    });
+    const id = add('/inbox?task=42', 'Inbox');
+    expect(id).toBe('inbox');
+    expect(useUIStore.getState().tabs.find((t) => t.id === 'inbox')!.path).toBe('/inbox');
+  });
+
+  it('restoring older storage merges /x and /x?tab=y into one tab', () => {
+    const merge = useUIStore.persist.getOptions().merge!;
+    const merged = merge({
+      tabs: [
+        { id: 'pulse', title: 'Pulse', path: '/pulse', pinned: true, closable: false },
+        { id: 'a', title: 'Builds', path: '/workloads?tab=builds', pinned: false, closable: true },
+        { id: 'b', title: 'Workloads', path: '/workloads', pinned: false, closable: true },
+      ],
+      activeTabId: 'a',
+    }, useUIStore.getState()) as ReturnType<typeof useUIStore.getState>;
+    expect(merged.tabs.map((t) => t.path)).toEqual(['/pulse', '/workloads?tab=builds']);
+  });
+});
+
+describe('tab cap', () => {
+  beforeEach(resetStore);
+  const add = (path: string) => useUIStore.getState().addTab({ title: path, path, pinned: false, closable: true });
+  const unpinned = () => useUIStore.getState().tabs.filter((t) => !t.pinned);
+
+  it(`keeps at most ${MAX_UNPINNED_TABS} unpinned tabs, closing the least recently used`, () => {
+    const paths = Array.from({ length: MAX_UNPINNED_TABS }, (_, i) => `/r/v1~pods/ns/p${i}`);
+    for (const p of paths) add(p);
+    // Revisit the oldest one, so the second-oldest becomes least recent.
+    add(paths[0]);
+    add('/r/v1~pods/ns/new');
+    const open = unpinned().map((t) => t.path);
+    expect(open).toHaveLength(MAX_UNPINNED_TABS);
+    expect(open).toContain(paths[0]);
+    expect(open).not.toContain(paths[1]);
+    expect(open).toContain('/r/v1~pods/ns/new');
+    expect(useUIStore.getState().tabs.find((t) => t.id === 'pulse')).toBeDefined();
+  });
+
+  it('activating a tab by clicking it also counts as use', () => {
+    const ids = Array.from({ length: MAX_UNPINNED_TABS }, (_, i) => add(`/r/v1~pods/ns/p${i}`));
+    useUIStore.getState().setActiveTab(ids[0]);
+    add('/r/v1~pods/ns/new');
+    const open = useUIStore.getState().tabs.map((t) => t.id);
+    expect(open).toContain(ids[0]);
+    expect(open).not.toContain(ids[1]);
+  });
+
+  it('never closes pinned tabs, and pinned tabs do not count toward the cap', () => {
+    const ids = Array.from({ length: MAX_UNPINNED_TABS }, (_, i) => add(`/r/v1~pods/ns/p${i}`));
+    useUIStore.getState().pinTab(ids[0]);
+    add('/r/v1~pods/ns/extra');
+    expect(unpinned()).toHaveLength(MAX_UNPINNED_TABS);
+    // Pinning freed a slot, so nothing was closed.
+    expect(useUIStore.getState().tabs.map((t) => t.id)).toEqual(expect.arrayContaining(ids));
+  });
+
+  it('never closes the active tab, even when it is the least recently used', () => {
+    const tabs: Tab[] = Array.from({ length: 4 }, (_, i) => ({
+      id: `t${i}`, title: `t${i}`, path: `/x${i}`, pinned: false, closable: true, lastActive: i,
+    }));
+    const kept = capTabs(tabs, 't0', 2).map((t) => t.id);
+    expect(kept).toEqual(['t0', 't3']);
+  });
+
+  it('restoring prefers the pinned copy of a page and finds the active tab by page', () => {
+    const merge = useUIStore.persist.getOptions().merge!;
+    const merged = merge({
+      tabs: [
+        { id: 'pulse', title: 'Pulse', path: '/pulse', pinned: true, closable: false },
+        { id: 'a', title: 'Inbox task', path: '/inbox?task=1', pinned: false, closable: true },
+        { id: 'b', title: 'Inbox', path: '/inbox', pinned: true, closable: true },
+      ],
+      activeTabId: 'a',
+    }, useUIStore.getState()) as ReturnType<typeof useUIStore.getState>;
+    expect(merged.tabs.map((t) => [t.path, t.pinned])).toEqual([['/pulse', true], ['/inbox', true]]);
+    const active = merged.tabs.find((t) => t.id === merged.activeTabId)!;
+    expect(active.path).toBe('/inbox');
+    expect(active.lastActive).toBeGreaterThan(0);
+  });
+
+  it('caps a restored bar of 31 tabs, keeping the active one', () => {
+    const merge = useUIStore.persist.getOptions().merge!;
+    const restored = Array.from({ length: 31 }, (_, i) => ({ id: `t${i}`, title: `p${i}`, path: `/r/v1~pods/ns/p${i}`, pinned: false, closable: true }));
+    const merged = merge({ tabs: restored, activeTabId: 't0' }, useUIStore.getState()) as ReturnType<typeof useUIStore.getState>;
+    const open = merged.tabs.filter((t) => !t.pinned);
+    expect(open).toHaveLength(MAX_UNPINNED_TABS);
+    expect(merged.tabs.find((t) => t.id === merged.activeTabId)!.path).toBe('/r/v1~pods/ns/p0');
   });
 });

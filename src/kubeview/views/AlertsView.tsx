@@ -545,17 +545,20 @@ function LocalAlertsView() {
             presented as absence of problems. */}
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <button onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('all'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', firingAlerts.length > 0 ? 'border-red-800' : 'border-slate-800')}>
-            <div className="text-xs text-slate-400 mb-1">Firing</div>
-            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : firingAlerts.length}</div>
+          {/* The tile and its severity split are separate buttons: the split opens Firing filtered to that severity. */}
+          <div data-testid="firing-tile" className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', firingAlerts.length > 0 ? 'border-red-800' : 'border-slate-800')}>
+            <button type="button" onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('all'); }} className="block w-full text-left">
+              <div className="text-xs text-slate-400 mb-1">Firing</div>
+              <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : firingAlerts.length}</div>
+            </button>
             {!backendUnavailable && (criticalCount > 0 || warningCount > 0) && (
               <div className="text-xs mt-0.5">
-                {criticalCount > 0 && <span className="text-red-400">{criticalCount} critical</span>}
+                {criticalCount > 0 && <button type="button" onClick={() => { setActiveTab('firing'); setStateFilter('all'); setSeverityFilter('critical'); }} className="text-red-400 hover:underline">{criticalCount} critical</button>}
                 {criticalCount > 0 && warningCount > 0 && <span className="text-slate-600"> · </span>}
-                {warningCount > 0 && <span className="text-amber-400">{warningCount} warning</span>}
+                {warningCount > 0 && <button type="button" onClick={() => { setActiveTab('firing'); setStateFilter('all'); setSeverityFilter('warning'); }} className="text-amber-400 hover:underline">{warningCount} warning</button>}
               </div>
             )}
-          </button>
+          </div>
           <button aria-pressed={stateFilter === 'pending'} onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('pending'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Pending</div>
             <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : pendingAlerts.length}</div>

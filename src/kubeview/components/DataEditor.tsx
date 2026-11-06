@@ -16,6 +16,8 @@ interface DataEditorProps {
   clusterId?: string;
   /** The version the data was read at; the save is refused (409) if it changed since. */
   resourceVersion?: string;
+  /** Called after a save succeeded (e.g. to offer restarting the consumers). */
+  onSaved?: () => void;
 }
 
 interface Entry {
@@ -97,7 +99,7 @@ export function buildDataPatch(entries: Entry[], original: Record<string, string
   };
 }
 
-export default function DataEditor({ resourcePath, data, kind, readOnly, clusterId, resourceVersion }: DataEditorProps) {
+export default function DataEditor({ resourcePath, data, kind, readOnly, clusterId, resourceVersion, onSaved }: DataEditorProps) {
   const addToast = useUIStore((s) => s.addToast);
   const queryClient = useQueryClient();
   // What the editor was loaded from; replaced after a save or a reload.
@@ -153,6 +155,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
       setEntries(entriesFrom(nextData, kind));
       addToast({ type: 'success', title: `${kind} updated` });
       queryClient.invalidateQueries({ queryKey: ['detail'] });
+      onSaved?.();
     } catch (err) {
       if ((err as { statusCode?: number } | null)?.statusCode === 409) {
         // Someone else changed it since it was loaded; nothing was written.
@@ -163,7 +166,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
     } finally {
       setSaving(false);
     }
-  }, [entries, base, kind, resourcePath, clusterId, addToast, queryClient]);
+  }, [entries, base, kind, resourcePath, clusterId, addToast, queryClient, onSaved]);
 
   const hasChanges = Object.keys(buildDataPatch(entries, base.data, kind).data).length > 0;
 

@@ -246,6 +246,8 @@ See [Component Specs](#component-specs) for all `spec.kind` values.
 Used by Alerts › Firing & pending for the Triage chip on each firing row. Body `{"alerts": [{"labels": {...}}]}` (firing alerts only, ≤200), answer `{"results": [...]}` in the same order, each `{alertname, correlationKey, resource, item, related, episode}` where `item`/`related[]`/`episode.causeItem` are `{id, title, status, severity, namespace, claimedBy, dueDate, findingId, correlationKey, investigation: {id, summary, suspectedCause, recommendedFix, confidence} | null, fixReady}`. Contract defined in pulse-agent API_CONTRACT.md ("Alert triage"). 404/405 (an agent without the route) hides the chips with "not available on this agent"; another error or no answer in 5 s is "Could not check" with Retry on each row.
 
 
+Home's "What needs attention" and the Timeline config lane read `GET /api/agent/changes` (pulse-agent contract). A route-missing 404 (no `code`) means "not available on this agent".
+
 #### `done` — Agent turn complete
 
 ```json

@@ -62,8 +62,10 @@ async function checkAccess(spec: AccessReviewSpec, clusterId: string): Promise<b
   }
 }
 
-export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string, opts: { enabled?: boolean; name?: string } = {}) {
-  const clusterId = useFleetStore((s) => s.activeClusterId);
+export function useCanI(verb: string, group: string, resource: string, namespace?: string, subresource?: string, opts: { enabled?: boolean; clusterId?: string; name?: string } = {}) {
+  // A pinned dialog asks about the cluster it was opened on, not whichever is active now.
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
+  const clusterId = opts.clusterId ?? activeClusterId;
   // The answer is about whoever the request runs as, so impersonation is part
   // of the cache key: an admin's "allowed" must not be reused after they start
   // impersonating someone else.
