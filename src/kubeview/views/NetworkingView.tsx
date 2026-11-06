@@ -16,6 +16,7 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { MetricsScope } from '../components/metrics/MetricsScope';
 import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
@@ -283,6 +284,7 @@ export default function NetworkingView() {
         </div>
 
         {/* Metrics */}
+        <MetricsScope>
         <MetricGrid>
           <MetricCard
             title="Network Receive"
@@ -310,6 +312,7 @@ export default function NetworkingView() {
             thresholds={{ warning: 1, critical: 10 }}
           />
         </MetricGrid>
+        </MetricsScope>
 
         {/* Networking Health Audit */}
         <div id="networking-audit" />

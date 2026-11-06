@@ -18,6 +18,7 @@ import { generateSmartPrompts } from '../../engine/smartPrompts';
 import { parseResourceValue } from '../../engine/formatting';
 import { queryInstant } from '../../components/metrics/prometheus';
 import { MetricCard } from '../../components/metrics/Sparkline';
+import { MetricsScope } from '../../components/metrics/MetricsScope';
 import { CHART_COLORS } from '../../engine/colors';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { diagnoseResource } from '../../engine/diagnosis';
@@ -655,6 +656,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
         <ZoneHeader number={2} title="Bottleneck" subtitle="Do I need to scale?" icon={<Gauge className="w-4 h-4 text-amber-400" />} />
 
         {/* Vitals row */}
+        <MetricsScope>
         <MetricGrid>
           <MetricCard title="CPU" query="sum(rate(node_cpu_seconds_total{mode!='idle'}[5m])) / sum(machine_cpu_cores) * 100" unit="%" color={CHART_COLORS.blue} thresholds={{ warning: 70, critical: 90 }} onClick={() => go('/compute', 'Compute')} />
           <MetricCard title="Memory" query="(1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes)) * 100" unit="%" color={CHART_COLORS.violet} thresholds={{ warning: 75, critical: 90 }} onClick={() => go('/compute', 'Compute')} />
@@ -683,6 +685,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           <MetricCard title="Network In" query="sum(rate(node_network_receive_bytes_total{device!~'lo|veth.*|br.*'}[5m])) / 1024 / 1024" unit=" MB/s" color={CHART_COLORS.cyan} onClick={() => go('/networking', 'Networking')} />
           <MetricCard title="Disk I/O" query="sum(rate(node_disk_read_bytes_total[5m]) + rate(node_disk_written_bytes_total[5m])) / 1024 / 1024" unit=" MB/s" color={CHART_COLORS.amber} onClick={() => go('/storage', 'Storage')} />
         </div>
+        </MetricsScope>
 
         {/* Pressure / PV / Quota warnings */}
         {(pressuredNodes.length > 0 || pvOverloaded.length > 0 || quotaOverages.length > 0) && (

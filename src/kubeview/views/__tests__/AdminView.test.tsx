@@ -34,6 +34,7 @@ vi.mock('../../engine/query', () => ({
   k8sList: vi.fn().mockResolvedValue([]),
   k8sGet: vi.fn().mockResolvedValue(null),
   k8sPatch: vi.fn().mockResolvedValue({}),
+  getImpersonationHeaders: () => ({}),
 }));
 
 // Mock the ClusterConfig sub-component to keep tests focused
@@ -229,5 +230,27 @@ describe('AdminView', () => {
       const card = screen.getAllByText('Platform operators').find((el) => !el.closest('[role="tab"]'))!.parentElement!;
       expect(card.textContent).toContain('1/2');
     });
+  });
+
+  // Behavioural guard for the firing-alerts query: a Prometheus answer that is
+  // not data (here a login page served with 200) must read as "unavailable",
+  // never as "no alerts firing".
+  it('an HTML page from Prometheus makes alert status unavailable, not all clear', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/prometheus')) {
+        return new Response('<!DOCTYPE html><html>Log in</html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      }
+      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      renderAdmin();
+      expect(await screen.findByText(/Alert status unavailable — could not reach Prometheus/)).toBeDefined();
+      expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/api/prometheus/api/v1/alerts'))).toBe(true);
+      expect(screen.queryByText(/no firing alerts|all systems go/i)).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

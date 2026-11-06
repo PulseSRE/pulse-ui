@@ -1,4 +1,5 @@
 import { useUIStore } from '../store/uiStore';
+import { PrometheusReadError } from './readError';
 
 /**
  * Check for session expiry on any API response.
@@ -39,13 +40,18 @@ export async function agentFetch(url: string, init?: RequestInit): Promise<Respo
 }
 
 /**
- * Safe query wrapper — returns null for 404 (resource doesn't exist),
- * throws for 500/network errors so React Query shows error banners.
+ * Safe query wrapper — returns null for a Kubernetes 404 (resource doesn't
+ * exist), throws for 500/network errors and for every Prometheus failure so
+ * React Query shows error banners.
  */
 export async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
     return await fn();
   } catch (e) {
+    // A Prometheus 404 is a broken proxy or route, never "resource doesn't
+    // exist": treating it as null turned an unreachable Prometheus into empty
+    // data on Compute, the capacity cards and the Pulse report.
+    if (e instanceof PrometheusReadError) throw e;
     // 404 = resource legitimately doesn't exist
     if (e instanceof Response && e.status === 404) return null;
     // Check for fetch Response-like objects, and the PulseError that k8sGet /

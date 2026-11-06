@@ -40,7 +40,9 @@ export interface ReadErrorDescription {
   detail?: string;
 }
 
-const PARSER_MESSAGE = /Unexpected token|is not valid JSON|JSON\.parse|Unexpected end of JSON|Unexpected non-whitespace/i;
+// An HTML page parsed as JSON: only a fetched body produces this, never a
+// user's own JSON or YAML (whose parse errors must reach them unchanged).
+const HTML_AS_JSON = /Unexpected token '?<'?|"<!DOCTYPE|<html/i;
 const NETWORK_MESSAGE = /Failed to fetch|NetworkError|Load failed|ECONNREFUSED|network request failed/i;
 
 function statusOf(e: unknown): number | undefined {
@@ -69,18 +71,19 @@ export function describeReadError(e: unknown): ReadErrorDescription {
   if (e instanceof PrometheusReadError) return withDetail(e.message, '', e.detail);
   // DOMException is not an Error subclass in every runtime: match on the name.
   const name = typeof e === 'object' && e !== null ? (e as { name?: unknown }).name : undefined;
-  if (name === 'AbortError' || name === 'TimeoutError') {
-    return withDetail('The request timed out', raw);
-  }
-  if (e instanceof SyntaxError || PARSER_MESSAGE.test(raw)) {
-    return withDetail('The server answered with something that is not data — the backend may be down or behind a login page', raw);
+  if (name === 'TimeoutError') return withDetail('The request timed out', raw);
+  // A cancel (the user navigated away, a newer request replaced it) is not a timeout.
+  if (name === 'AbortError') return withDetail('The request was cancelled', raw);
+  if (HTML_AS_JSON.test(raw)) {
+    return withDetail('The server answered with a web page instead of data — the backend may be down or behind a login page', raw);
   }
   if (e instanceof TypeError && NETWORK_MESSAGE.test(raw)) {
     return withDetail('Could not reach the server — check the connection', raw);
   }
   const status = statusOf(e);
   if (status === 401) return withDetail('Your session has expired — sign in again', raw);
-  if (status === 403) return withDetail('You do not have permission to read this', raw);
+  // Keep the server's text in view: Kubernetes says exactly what was forbidden.
+  if (status === 403) return { reason: raw ? `Permission denied: ${raw}` : 'You do not have permission to read this' };
   if (status === 404) return withDetail('Not found — it may have been deleted', raw);
   if (status !== undefined && status >= 500) return withDetail(`The server returned an error (status ${status})`, raw);
   return { reason: raw };

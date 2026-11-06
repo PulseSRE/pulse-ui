@@ -271,6 +271,22 @@ describe('CapacityTab', () => {
     expect(screen.queryByText('No data')).toBeNull();
   });
 
+  it('an HTML 404 from Prometheus is a failed read, not "no usage series"', async () => {
+    // safeQuery turns a Kubernetes 404 into "absent"; a Prometheus 404 is a
+    // broken route and must stay an error (failed: true → "Unknown", role=alert).
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<!DOCTYPE html><html>Not Found</html>', {
+      status: 404,
+      headers: { 'Content-Type': 'text/html' },
+    })));
+    renderWithClient(<CapacityTab />);
+    await waitFor(() => expect(screen.getAllByText('Unknown')).toHaveLength(4));
+    const reasons = screen.getAllByText(/Prometheus returned an HTML page \(status 404\)/);
+    expect(reasons).toHaveLength(4);
+    reasons.forEach((r) => expect(r.getAttribute('role')).toBe('alert'));
+    expect(screen.queryByText('No data')).toBeNull();
+    expect(screen.queryByText('Prometheus returned no usage series')).toBeNull();
+  });
+
   it('says why there is no data when Prometheus answers with no series', async () => {
     mockFetchRoutes({ '/api/prometheus': { body: { status: 'success', data: { resultType: 'vector', result: [] } } } });
     renderWithClient(<CapacityTab />);

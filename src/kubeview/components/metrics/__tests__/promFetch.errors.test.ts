@@ -103,11 +103,68 @@ describe('Prometheus reads that fail', () => {
     await expect(p).rejects.toMatchObject({ name: 'AbortError' });
   });
 
-  it('a query Prometheus rejects keeps its own reason', async () => {
-    mockFetch.mockResolvedValueOnce(json({ status: 'error', errorType: 'bad_data', error: 'parse error at char 3' }));
+  it('a query Prometheus rejects (400) keeps its own reason', async () => {
+    mockFetch.mockResolvedValueOnce(json({ status: 'error', errorType: 'bad_data', error: 'parse error at char 3' }, 400));
     const e = await failure(queryRange('up{', 0, 100));
     expect(e.kind).toBe('query');
     expect(e.message).toBe('Prometheus error: parse error at char 3');
+  });
+
+  it('a 5xx with a JSON body keeps Prometheus\'s reason next to the status', async () => {
+    mockFetch.mockResolvedValueOnce(json({ status: 'error', errorType: 'internal', error: 'query processing would load too many samples' }, 500));
+    const e = await failure(queryRange('up', 0, 100));
+    expect(e.kind).toBe('http');
+    expect(e.message).toMatch(/^Prometheus query failed: 500/);
+    expect(e.message).toContain('query processing would load too many samples');
+  });
+
+  it('errorType "timeout" is a timeout, whatever the status', async () => {
+    mockFetch.mockResolvedValueOnce(json({ status: 'error', errorType: 'timeout', error: 'query timed out in expression evaluation' }, 503));
+    const e = await failure(queryRange('up', 0, 100));
+    expect(e.kind).toBe('timeout');
+    expect(e.message).toContain('query timed out in expression evaluation');
+  });
+
+  it('a 403 keeps the server text as detail', async () => {
+    mockFetch.mockResolvedValueOnce(json({ status: 'error', error: 'user "dev" cannot get prometheus' }, 403));
+    const e = await failure(queryInstant('up'));
+    expect(e.kind).toBe('forbidden');
+    expect(e.detail).toBe('user "dev" cannot get prometheus');
+  });
+
+  it('the timeout also covers reading the body', async () => {
+    vi.useFakeTimers();
+    mockFetch.mockImplementationOnce((_url: string, init: RequestInit) => Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers({ 'content-type': 'application/json' }),
+      // Headers arrive at once; the body never finishes until aborted.
+      json: () => new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }),
+    } as unknown as Response));
+    const pending = failure(queryRange('up', 0, 100));
+    await vi.advanceTimersByTimeAsync(PROM_TIMEOUT_MS + 1);
+    expect((await pending).kind).toBe('timeout');
+  });
+
+  it('passes a caller signal through queryRange and queryInstant', async () => {
+    mockFetch.mockImplementation(() => Promise.resolve(json({ status: 'success', data: { result: [] } })));
+    const outer = new AbortController();
+    await queryRange('up', 0, 100, undefined, undefined, outer.signal);
+    await queryInstant('up', undefined, undefined, outer.signal);
+    for (const [, init] of mockFetch.mock.calls) {
+      const inner = (init as RequestInit).signal!;
+      expect(inner.aborted).toBe(false);
+    }
+    // Aborting the caller's signal aborts an in-flight read.
+    mockFetch.mockImplementationOnce((_url: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+    }));
+    const p = queryRange('up', 0, 100, undefined, undefined, outer.signal);
+    outer.abort();
+    await expect(p).rejects.toMatchObject({ name: 'AbortError' });
   });
 });
 

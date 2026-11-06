@@ -21,7 +21,7 @@ import {
   type PrometheusAlert,
 } from '../engine/types/incident';
 import type { TimelineEntry } from '../engine/types/timeline';
-import { promFetch, metricsAvailableFor } from '../components/metrics/prometheus';
+import { promJson, metricsAvailableFor } from '../components/metrics/prometheus';
 import { useActiveClusterId } from './useClusterBase';
 
 export type { IncidentItem, IncidentSeverity, IncidentSource };
@@ -94,21 +94,21 @@ export function useIncidentFeed(
     PrometheusAlertGroup[]
   >({
     queryKey: ['incidentFeed', 'alerts', clusterId],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       // A failed read is an error, not "no alerts": returning [] here made
       // isError permanently false, so the home page could call a cluster
       // healthy whose alerting it could not see.
-      // promFetch throws a readable PrometheusReadError on a non-2xx or HTML answer.
-      let res: Response;
+      // promJson throws a readable PrometheusReadError on a non-2xx, HTML or
+      // unparseable answer; the degraded reason clears only after a good parse.
+      let data: { groups?: PrometheusAlertGroup[] } | undefined;
       try {
-        res = await promFetch('/api/v1/rules', clusterId);
+        data = await promJson<{ groups?: PrometheusAlertGroup[] }>('/api/v1/rules', clusterId, signal);
       } catch (e) {
         useUIStore.getState().addDegradedReason('observability_unavailable');
         throw e;
       }
       useUIStore.getState().removeDegradedReason('observability_unavailable');
-      const json = await res.json();
-      return json.data?.groups ?? [];
+      return data?.groups ?? [];
     },
     refetchInterval: 60000,
     // Prometheus is reachable for the local cluster only; a remote cluster's

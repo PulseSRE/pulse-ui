@@ -25,7 +25,7 @@ import { isAgentFeatureUnavailable } from '../engine/agentFeature';
 import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 import { useUIStore } from '../store/uiStore';
 import { useActiveClusterId } from './useClusterBase';
-import { promFetch, metricsAvailableFor, queryRange } from '../components/metrics/prometheus';
+import { promJson, metricsAvailableFor, queryRange } from '../components/metrics/prometheus';
 
 export type TimeRange = '15m' | '1h' | '6h' | '24h' | '3d' | '7d';
 
@@ -80,19 +80,20 @@ export function useIncidentTimeline({ timeRange, namespace, categories }: UseInc
   // Alerts from Prometheus
   const alertsQuery = useQuery({
     queryKey: ['timeline', 'alerts', clusterId],
-    queryFn: async () => {
-      // promFetch throws on a non-2xx or HTML answer: an unreachable
-      // Prometheus is "alerts unknown", not "no alerts".
-      let res: Response;
+    queryFn: async ({ signal }) => {
+      // promJson throws on a non-2xx, HTML or unparseable answer: an
+      // unreachable Prometheus is "alerts unknown", not "no alerts". The
+      // degraded reason clears only after a good parse.
+      type AlertGroup = Parameters<typeof alertsToTimeline>[0][number];
+      let data: { groups?: AlertGroup[] } | undefined;
       try {
-        res = await promFetch('/api/v1/rules', clusterId);
+        data = await promJson<{ groups?: AlertGroup[] }>('/api/v1/rules', clusterId, signal);
       } catch (e) {
         useUIStore.getState().addDegradedReason('observability_unavailable');
         throw e;
       }
       useUIStore.getState().removeDegradedReason('observability_unavailable');
-      const json = await res.json();
-      return json.data?.groups || [];
+      return data?.groups || [];
     },
     refetchInterval: 30000,
     // Local cluster only: see components/metrics/prometheus.ts.

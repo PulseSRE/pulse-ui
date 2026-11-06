@@ -12,6 +12,7 @@ import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { MetricsScope } from '../components/metrics/MetricsScope';
 import { MetricsChart } from '../components/metrics/MetricsChart';
 import { getMetricsForResource, resolveQuery, formatYAxisValue } from '../components/metrics/AutoMetrics';
 import { CHART_COLOR_SEQUENCE, CHART_COLORS } from '../engine/colors';
@@ -117,6 +118,7 @@ export default function ProjectDashboard() {
         </div>
 
         {/* Metrics */}
+        <MetricsScope>
         <MetricGrid>
           <MetricCard
             title="Pod CPU Usage"
@@ -146,6 +148,7 @@ export default function ProjectDashboard() {
             color={CHART_COLORS.cyan}
           />
         </MetricGrid>
+        </MetricsScope>
 
         {/* Time-series metrics */}
         <NamespaceCharts namespace={ns} />

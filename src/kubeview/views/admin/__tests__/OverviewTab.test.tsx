@@ -309,16 +309,9 @@ describe('the alert query surfaces its failure instead of swallowing it', () => 
    * Mutation-tested: restoring `if (!res.ok) return []` passed every
    * prop-driven test in this file. This is the assertion that catches it.
    */
-  it('throws on a non-ok response rather than returning an empty list', async () => {
-    const { readFileSync } = await import('node:fs');
-    const { resolve } = await import('node:path');
-    const src = readFileSync(resolve(__dirname, '../../AdminView.tsx'), 'utf8');
-    const start = src.indexOf("queryKey: ['admin', 'firing-alerts', clusterId]");
-    expect(start, "the firing-alerts query should still exist").toBeGreaterThan(-1);
-    const block = src.slice(start, start + 700);
-    expect(block).toMatch(/if \(!res\.ok\) throw new Error/);
-    expect(block).not.toMatch(/if \(!res\.ok\) return \[\]/);
-  });
+  // That the queryFn throws on a non-ok or HTML answer is now asserted by
+  // behaviour, in views/__tests__/AdminView.test.tsx ("an HTML page from
+  // Prometheus makes alert status unavailable"), where the real query runs.
 
   it('passes the failure down to the Overview', async () => {
     const { readFileSync } = await import('node:fs');
