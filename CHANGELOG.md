@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### CI
+- **Release builds the Helm runner image.** `build-push.yml` builds `Dockerfile.helm-runner` on `v*` tags and manual runs, checks inside it that `helm`, `awk` and `sha256sum` exist and `helm version` runs, and only then pushes `quay.io/amobrem/openshiftpulse-helm-runner:<tag>` and `:latest` (linux/amd64), recording the digest in the run summary. The UI accepts the runner only digest-pinned, so pulse-operator has to pin the new digest before clusters use it.
+
 ### Fixed
 - **Page tabs follow the URL; one shell tab per page, at most 12 (consistency 1/12).** Workloads, Compute, Alerts, Identity and GitOps keep their tab in `?tab=` through the router (`useTabParam`), so a link to another tab of the same page, Back/Forward and deep links switch the tab, and an unknown `?tab=` opens the default and is removed from the URL. Alerts' severity and group-by filters, Timeline's range and categories, and resource lists' search, sort and page are written through the router too, so a tab click no longer drops them. The shell keeps one tab per page: `/workloads?tab=builds` reuses the Workloads tab, which returns to the page's last URL and takes its title from it. A list opened for a namespace (`?ns=`) and a workload's logs per kind (`?kind=`) are separate tabs. Opening a 13th unpinned tab closes the least recently used one (never the active or a pinned tab). In the command palette an exact page name ranks first, so "Builds" opens Builds, not Workloads.
 

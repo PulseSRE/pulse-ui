@@ -75,3 +75,46 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-render:${{ steps.tag.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-render:latest
           platforms: linux/amd64
+
+      # The image the Helm install/upgrade/rollback/uninstall Jobs run (helmInstall.ts).
+      # The UI only accepts it digest-pinned, so pulse-operator must pin the
+      # digest this step prints before a cluster can use a new build.
+      # Built and loaded locally first, checked, and only then pushed, so a
+      # broken image never reaches the registry.
+      - name: Build helm runner
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.helm-runner
+          load: true
+          push: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:latest
+          platforms: linux/amd64
+
+      # The preview Job pipes `helm template` through awk and sha256sum.
+      - name: Smoke-test helm runner
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint /bin/sh "$IMAGE" -c 'set -e; command -v helm awk sha256sum; helm version'
+
+      - name: Push helm runner
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:latest"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$TAG")"
+          echo "Helm runner: $digest"
+          {
+            echo "### Helm runner image"
+            echo ""
+            echo "\`$IMAGE:$TAG\` = \`$digest\`"
+            echo ""
+            echo "Pin this digest in pulse-operator for clusters to run it."
+          } >> "$GITHUB_STEP_SUMMARY"
