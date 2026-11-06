@@ -10,6 +10,9 @@ import type { ResourceEnhancer } from '../../engine/enhancers';
 import { WorkloadActionMenu, TABLE_ACTION_KINDS } from '../../components/workloads/WorkloadActionMenu';
 import { actionsColumnWidth, buildColumnTemplate } from './columnTemplate';
 
+/** The actions column stays in view on the right while the table scrolls sideways. */
+const STICKY_ACTIONS = 'sticky right-0 z-[1] border-l border-slate-800/60';
+
 interface SortState {
   column: string;
   direction: 'asc' | 'desc';
@@ -96,12 +99,18 @@ export function TableBody({
   const visibleInlineActions = (enhancer?.inlineActions ?? [])
     .filter((action) => !action.requires || (action.requires === 'update' ? canUpdate : canDelete));
   const showsWorkloadMenu = paginatedResources.some((r) => TABLE_ACTION_KINDS.has(r.kind));
-  const [measuredActions, setMeasuredActions] = useState(0);
+  // The widest actions content measured for this kind and set of controls. It
+  // only widens while they stay the same (capped, so it cannot loop) and starts
+  // over when the kind, its permitted actions or the workload menu change.
+  const actionsKey = `${gvrKey}|${visibleInlineActions.map((a) => a.id).join(',')}|${showsWorkloadMenu}`;
+  const [measured, setMeasured] = useState({ key: actionsKey, width: 0 });
+  const measuredActions = measured.key === actionsKey ? measured.width : 0;
   const measureActions = useCallback((el: HTMLDivElement | null) => {
-    // Only ever widens, and is capped, so it cannot loop.
     const w = el ? Math.min(el.offsetWidth, 480) : 0;
-    if (w > 0) setMeasuredActions((prev) => (w > prev ? w : prev));
-  }, []);
+    if (w > 0) {
+      setMeasured((prev) => (prev.key !== actionsKey ? { key: actionsKey, width: w } : w > prev.width ? { key: actionsKey, width: w } : prev));
+    }
+  }, [actionsKey]);
   const { template, minWidth } = useMemo(() => buildColumnTemplate(
     visibleColumns,
     actionsColumnWidth(visibleInlineActions.length + (showsWorkloadMenu ? 1 : 0) + 2, measuredActions),
@@ -230,7 +239,7 @@ export function TableBody({
               </div>
             );
           })}
-          <div role="columnheader" className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
+          <div role="columnheader" className={cn(STICKY_ACTIONS, 'self-stretch flex items-center bg-slate-900 px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide')}>
             Actions
           </div>
         </div>
@@ -250,14 +259,14 @@ export function TableBody({
                 />
               </div>
             ))}
-            <div role="cell" className="px-4 py-1" />
+            <div role="cell" className={cn(STICKY_ACTIONS, 'bg-slate-900 px-4 py-1 self-stretch')} />
           </div>
         )}
       </div>
 
       {/* Empty filtered state */}
       {paginatedResources.length === 0 && (
-        <div role="rowgroup" style={rowgroupWidth}><div role="row" aria-rowindex={headerRowCount + 1}><div role="cell" className="px-4 py-12 text-center">
+        <div role="rowgroup" style={rowgroupWidth}><div role="row" aria-rowindex={headerRowCount + 1}><div role="cell" aria-colspan={visibleColumns.length + 2} className="px-4 py-12 text-center">
           <p className="text-slate-400 text-sm">
             0 of {stampedResources.length} {resourceKind.toLowerCase()} match your filters
           </p>
@@ -310,9 +319,9 @@ export function TableBody({
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
                 className={cn(
-                  'focus:outline-hidden border-b border-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer',
+                  'group focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 border-b border-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer',
                   isSelected && 'bg-slate-900/70',
-                  isFocused && 'ring-1 ring-inset ring-blue-500/50 bg-blue-950/20'
+                  isFocused && 'ring-2 ring-inset ring-blue-500 bg-blue-950/20'
                 )}
                 style={{
                   position: 'absolute',
@@ -341,7 +350,18 @@ export function TableBody({
                     </div>
                   );
                 })}
-                <div role="cell" className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <div
+                  role="cell"
+                  className={cn(
+                    STICKY_ACTIONS,
+                    'self-stretch flex items-center px-4 py-3 bg-slate-950 group-hover:bg-slate-900 group-focus-visible:shadow-[var(--row-focus-ring)]',
+                    isSelected && 'bg-slate-900',
+                    // The opaque sticky cell would hide the row's ring on the right; continue it here.
+                    isFocused && 'shadow-[var(--row-focus-ring)]',
+                  )}
+                  style={{ '--row-focus-ring': 'inset 0 2px 0 0 var(--color-blue-500), inset 0 -2px 0 0 var(--color-blue-500), inset -2px 0 0 0 var(--color-blue-500)' } as React.CSSProperties}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <div ref={measureActions} className="inline-flex items-center gap-1">
                     {enhancer?.inlineActions
                       ?.filter((action) => !action.requires || (action.requires === 'update' ? canUpdate : canDelete))

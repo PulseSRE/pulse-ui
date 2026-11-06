@@ -248,6 +248,74 @@ describe('resource list table: selection', () => {
   });
 });
 
+describe('resource list table: select all is page-only', () => {
+  const selectAll = () => screen.getByRole('checkbox', { name: 'Select all' }) as HTMLInputElement;
+
+  it('across two pages: selects and clears this page, keeps the other page', () => {
+    watch.data = Array.from({ length: 30 }, (_, i) => pod(`pod-${String(i).padStart(2, '0')}`));
+    renderTable();
+
+    fireEvent.click(selectAll());
+    expect(screen.getByText('Delete 25')).toBeDefined();
+    expect(selectAll().checked).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(rowNames()[0]).toBe('pod-25');
+    expect(selectAll().checked).toBe(false);
+    expect(selectAll().indeterminate).toBe(false);
+
+    fireEvent.click(selectAll());
+    expect(screen.getByText('Delete 30')).toBeDefined();
+    expect(selectAll().checked).toBe(true);
+
+    fireEvent.click(selectAll());
+    expect(screen.getByText('Delete 25')).toBeDefined();
+    expect(selectAll().checked).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(selectAll().checked).toBe(true);
+    expect((screen.getByRole('checkbox', { name: 'Select pod-00' }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('after a search: acts on the matching rows only and keeps a row the search hides', () => {
+    vi.useFakeTimers();
+    try {
+      watch.data = [pod('alpha-1'), pod('alpha-2'), pod('beta')];
+      renderTable();
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Select beta' }));
+      expect(screen.getByText('Delete 1')).toBeDefined();
+
+      fireEvent.change(screen.getByRole('textbox', { name: 'Search pods' }), { target: { value: 'alpha' } });
+      act(() => { vi.advanceTimersByTime(250); });
+      expect(rowNames()).toEqual(['alpha-1', 'alpha-2']);
+      expect(selectAll().checked).toBe(false);
+
+      fireEvent.click(selectAll());
+      expect(screen.getByText('Delete 3')).toBeDefined();
+      expect(selectAll().checked).toBe(true);
+
+      fireEvent.click(selectAll());
+      expect(screen.getByText('Delete 1')).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('resource list table: actions column', () => {
+  it('is sticky on the right in the header, the filter row and every row', () => {
+    watch.data = [pod('alpha'), pod('beta')];
+    renderTable();
+    fireEvent.click(screen.getByTitle('Column filters'));
+    const lastOf = (row: HTMLElement) => [...row.children].pop() as HTMLElement;
+    for (const row of screen.getAllByRole('row')) {
+      expect(lastOf(row).className).toMatch(/\bsticky\b/);
+      expect(lastOf(row).className).toMatch(/\bright-0\b/);
+      expect(lastOf(row).className).toMatch(/\bbg-slate-(900|950)\b/);
+    }
+  });
+});
+
 describe('resource list table: keyboard', () => {
   it('j/k move focus to the row, x selects it, Enter opens it', () => {
     watch.data = [pod('alpha'), pod('beta')];
@@ -257,6 +325,7 @@ describe('resource list table: keyboard', () => {
     expect(document.activeElement).toBe(bodyRows()[0]);
     expect(bodyRows()[0].tabIndex).toBe(0);
     expect(bodyRows()[1].tabIndex).toBe(-1);
+    expect(bodyRows()[0].className).toMatch(/\bring-2\b/);
 
     act(() => { fireEvent.keyDown(document.activeElement!, { key: 'j' }); });
     expect(document.activeElement).toBe(bodyRows()[1]);
@@ -334,7 +403,8 @@ describe('resource list table: loading, empty, error and no-match states', () =>
       act(() => { vi.advanceTimersByTime(250); });
       const table = screen.getByRole('table');
       expect(within(table).getAllByRole('columnheader').length).toBeGreaterThan(3);
-      expect(within(table).getByRole('cell', { name: /0 of 2 pods match your filters/ })).toBeDefined();
+      const empty = within(table).getByRole('cell', { name: /0 of 2 pods match your filters/ });
+      expect(empty.getAttribute('aria-colspan')).toBe(String(headerTexts().length));
       expect(within(table).getByRole('button', { name: 'Clear all filters' })).toBeDefined();
     } finally {
       vi.useRealTimers();

@@ -98,7 +98,7 @@ const API_GROUPS = {
 // /api/v1/namespaces/{ns}/{plural}[/{name}[/{subresource}]] and the /apis/{group}/{version} form
 const NS_PATH_RE = /^(\/apis?\/[^/]+(?:\/[^/]+)?)\/namespaces\/([^/]+)\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/;
 // /api/v1/{plural}/{name} and /apis/{group}/{version}/{plural}/{name} (cluster-scoped single object)
-const CLUSTER_OBJECT_RE = /^(\/apis?\/[^/]+(?:\/[^/]+)?)\/([^/]+)\/([^/]+)$/;
+const CLUSTER_OBJECT_RE = /^(\/api\/v1|\/apis\/[^/]+\/[^/]+)\/([^/]+)\/([^/]+)$/;
 
 function notFound(plural, name) {
   return { kind: 'Status', apiVersion: 'v1', status: 'Failure', reason: 'NotFound', code: 404, message: `${plural} "${name}" not found` };
@@ -124,19 +124,16 @@ function resolve(routePath) {
       return [200, list ? { ...list, items: list.items.filter((i) => i.metadata.namespace === namespace) } : EMPTY_LIST];
     }
     if (sub === 'log') return [200, '2026-03-01T10:00:00Z started\n', 'text/plain'];
-    if (!list) return [200, EMPTY_LIST];
-    const item = list.items.find((i) => i.metadata.name === name && i.metadata.namespace === namespace);
+    const item = list?.items.find((i) => i.metadata.name === name && i.metadata.namespace === namespace);
     return item ? [200, item] : [404, notFound(plural, name)];
   }
 
   const one = routePath.match(CLUSTER_OBJECT_RE);
   if (one) {
     const [, base, plural, name] = one;
-    const list = ROUTES[`${base}/${plural}`];
-    if (list) {
-      const item = list.items.find((i) => i.metadata.name === name && !i.metadata.namespace);
-      return item ? [200, item] : [404, notFound(plural, name)];
-    }
+    // A kind this mock does not list has no objects to return: 404, as the API server would.
+    const item = ROUTES[`${base}/${plural}`]?.items?.find((i) => i.metadata.name === name && !i.metadata.namespace);
+    return item ? [200, item] : [404, notFound(plural, name)];
   }
 
   // Unknown paths: empty list (graceful degradation)

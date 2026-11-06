@@ -363,12 +363,19 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     });
   };
 
+  // "Select all" acts on the rows on this page only, matching what its checkbox
+  // shows: every row here selected -> unselect them; otherwise select them.
+  // Selections on other pages are kept either way.
   const handleSelectAll = () => {
-    if (selectedRows.size === paginatedResources.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(paginatedResources.map((r) => r.metadata.uid || '')));
-    }
+    const pageUids = paginatedResources.map((r) => r.metadata.uid || '');
+    setSelectedRows((prev) => {
+      const allOnPage = pageUids.length > 0 && pageUids.every((uid) => prev.has(uid));
+      const next = new Set(prev);
+      for (const uid of pageUids) {
+        if (allOnPage) next.delete(uid); else next.add(uid);
+      }
+      return next;
+    });
   };
 
   const handleRowClick = React.useCallback((resource: K8sResource, e: React.MouseEvent) => {
