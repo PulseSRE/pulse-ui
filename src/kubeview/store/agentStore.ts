@@ -264,7 +264,7 @@ export const useAgentStore = create<AgentState>()(
               break;
             case 'confirm_request':
               // The agent writes to the cluster it runs on, whatever the UI shows.
-              set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce, clusterId: LOCAL_CLUSTER_ID, requestedOnClusterId: getActiveClusterId() } });
+              set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce, preview: event.preview, clusterId: LOCAL_CLUSTER_ID, requestedOnClusterId: getActiveClusterId() } });
               break;
             case 'done': {
               // Flush any remaining deltas then reset accumulators
