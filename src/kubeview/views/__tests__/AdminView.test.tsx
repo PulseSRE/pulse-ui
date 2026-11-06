@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -16,18 +16,22 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-vi.mock('../../store/uiStore', () => ({
-  useUIStore: (selector: any) => {
-    const state = {
-      addTab: addTabMock,
-      addToast: addToastMock,
-      setSelectedNamespace: vi.fn(),
-      setLastSyncTime: vi.fn(),
-      removeDegradedReason: vi.fn(),
-    };
-    return selector(state);
-  },
-}));
+vi.mock('../../store/uiStore', () => {
+  // Built on first use: vi.mock is hoisted above the mock fns it refers to.
+  let state: Record<string, unknown> | undefined;
+  const getState = () => (state ??= {
+    addTab: addTabMock,
+    addToast: addToastMock,
+    setSelectedNamespace: vi.fn(),
+    setLastSyncTime: vi.fn(),
+    addDegradedReason: vi.fn(),
+    removeDegradedReason: vi.fn(),
+  });
+  // getState is what checkAuth (inside promFetch) calls; without it every
+  // Prometheus read threw and the alert tests below could not fail.
+  const useUIStore = Object.assign((selector: any) => selector(getState()), { getState });
+  return { useUIStore };
+});
 
 // Mock the query module so no real fetch calls happen
 vi.mock('../../engine/query', () => ({
@@ -249,6 +253,24 @@ describe('AdminView', () => {
       expect(await screen.findByText(/Alert status unavailable — could not reach Prometheus/)).toBeDefined();
       expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/api/prometheus/api/v1/alerts'))).toBe(true);
       expect(screen.queryByText(/no firing alerts|all systems go/i)).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('a healthy empty answer from Prometheus does not say alert status is unavailable', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const body = url.includes('/api/prometheus') ? { status: 'success', data: { alerts: [] } } : {};
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      renderAdmin();
+      await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/api/prometheus/api/v1/alerts'))).toBe(true));
+      // Let the read settle, then make sure no failure was shown.
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByText(/Alert status unavailable/)).toBeNull();
     } finally {
       vi.unstubAllGlobals();
     }

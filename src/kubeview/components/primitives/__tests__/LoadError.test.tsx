@@ -41,6 +41,11 @@ describe('LoadError', () => {
     expect(screen.queryByText('Details')).toBeNull();
   });
 
+  it('does not double the prefix when the 403 message is already a permission sentence', () => {
+    const e = Object.assign(new Error('You do not have permission to do this'), { status: 403 });
+    expect(describeReadError(e).reason).toBe('You do not have permission to do this');
+  });
+
   it('maps a 401 to an expired session', () => {
     render(<LoadError title="x" error={Object.assign(new Error('Unauthorized'), { status: 401 })} />);
     expect(reasonOf()).toBe('Your session has expired — sign in again');

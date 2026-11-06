@@ -83,7 +83,10 @@ export function describeReadError(e: unknown): ReadErrorDescription {
   const status = statusOf(e);
   if (status === 401) return withDetail('Your session has expired — sign in again', raw);
   // Keep the server's text in view: Kubernetes says exactly what was forbidden.
-  if (status === 403) return { reason: raw ? `Permission denied: ${raw}` : 'You do not have permission to read this' };
+  if (status === 403) {
+    if (!raw) return { reason: 'You do not have permission to read this' };
+    return { reason: /^(Permission denied|You do not have permission)/i.test(raw) ? raw : `Permission denied: ${raw}` };
+  }
   if (status === 404) return withDetail('Not found — it may have been deleted', raw);
   if (status !== undefined && status >= 500) return withDetail(`The server returned an error (status ${status})`, raw);
   return { reason: raw };
