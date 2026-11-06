@@ -345,7 +345,11 @@ describe('Remove access', () => {
     // keeping the membership removes the warning
     fireEvent.click(within(within(dialog).getByTestId('row-group/oncall')).getByRole('checkbox'));
     await waitFor(() => expect(within(dialog).queryByText(/your own last cluster-admin/)).toBeNull());
-    expect(adminClusterRoles([{ metadata: { name: 'x' }, rules: [{ verbs: ['*'], nonResourceURLs: ['*'] }] }, { metadata: { name: 'y' }, rules: [{ verbs: ['*'], apiGroups: [''], resources: ['*'] }] }])).toEqual(new Set(['cluster-admin', 'x']));
+    expect(adminClusterRoles([
+      { metadata: { name: 'x' }, rules: [{ verbs: ['*'], nonResourceURLs: ['*'] }] },
+      { metadata: { name: 'y' }, rules: [{ verbs: ['*'], apiGroups: [''], resources: ['*'] }] },
+      { metadata: { name: 'z' }, rules: [{ verbs: ['*'], apiGroups: ['*'], resources: ['*'] }] },
+    ])).toEqual(new Set(['cluster-admin', 'z']));
   });
 
   it('deleting your own OAuth tokens warns that it signs you out and needs the phrase', async () => {
@@ -371,5 +375,45 @@ describe('OAuth group', () => {
     cluster({ '/apis/user.openshift.io/v1/users/alice': () => k8sStatus(403, 'forbidden') });
     h.renderUi(<SubjectAccessPage subject={{ kind: 'User', name: 'alice' }} />);
     expect((await screen.findByTestId('oauth-assumed')).textContent).toMatch(/^May overstate/);
+  });
+
+  it('Remove stays disabled while the ClusterRoles are loading', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    cluster({ '/apis/rbac.authorization.k8s.io/v1/clusterroles': () => undefined });
+    const base = h.state.handler;
+    h.state.handler = async (r) => {
+      if (r.method === 'GET' && r.path === '/apis/rbac.authorization.k8s.io/v1/clusterroles') { await gate; return json({ items: CLUSTER_ROLES }); }
+      return base(r);
+    };
+    const dialog = await openRemove();
+    confirmWith(dialog);
+    await new Promise((r) => setTimeout(r, 50));
+    expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(dialog).getByText('Checking roles and identities…')).toBeTruthy();
+    release();
+    await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
+  });
+
+  it('Identities whose uid could not be read are not deleted', async () => {
+    cluster({ '/apis/user.openshift.io/v1/identities/corp-ldap%3Aalice': (r) => (r.method === 'GET' ? k8sStatus(403, 'forbidden') : undefined) });
+    const dialog = await openRemove();
+    expect(await within(dialog).findByText(/Identity objects could not be read, so they are not deleted/)).toBeTruthy();
+    await waitFor(() => expect(confirmButton(dialog).textContent).toBe('Remove access (7 changes)'));
+  });
+
+  it('removing your own access deletes your tokens last, after the other writes and their ledger entries', async () => {
+    cluster({ '/apis/user.openshift.io/v1/users/~': () => json({ metadata: { name: 'alice' }, groups: [] }) });
+    const dialog = await openRemove();
+    confirmWith(dialog);
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type the phrase to remove your own cluster-admin' }), { target: { value: SELF_LOCKOUT_PHRASE } });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Type the phrase to sign yourself out' }), { target: { value: SIGN_OUT_PHRASE } });
+    await waitFor(() => expect((confirmButton(dialog) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(confirmButton(dialog));
+    await waitFor(() => expect(ledgerPosts()).toHaveLength(8), { timeout: 10000 });
+    const order = h.writes().filter((w) => !w.url.includes('dryRun=All') && !w.path.includes('reviews')).map((w) => (w.url.startsWith('/api/agent') ? `ledger:${w.body.name}` : w.path));
+    const tokenAt = order.findIndex((x) => x.includes('oauthaccesstokens'));
+    expect(tokenAt).toBe(order.length - 2);
+    expect(order.slice(0, tokenAt).filter((x) => x.startsWith('ledger:'))).toHaveLength(7);
   });
 });

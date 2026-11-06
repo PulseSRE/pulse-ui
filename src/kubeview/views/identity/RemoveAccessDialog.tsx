@@ -243,8 +243,12 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
 
   // Rows report their permission; a change whose row is not (yet) known to be allowed is not sent.
   const rowIdOf = (c: Change) => (c.id.startsWith('identity/') ? 'identities' : c.id.startsWith('token/') ? 'tokens' : c.id);
-  const blocked = changes.filter((c) => permOk[rowIdOf(c)] !== true);
-  const sendable = changes.filter((c) => permOk[rowIdOf(c)] === true);
+  // An Identity delete waits for its uid (so it is conditional on the object read); if the
+  // uids could not be read, Identities are left alone rather than deleted unconditionally.
+  const identitiesReady = identities.length === 0 || identityUids.isSuccess;
+  const allowedNow = (c: Change) => permOk[rowIdOf(c)] === true && (!c.id.startsWith('identity/') || identitiesReady);
+  const blocked = changes.filter((c) => !allowedNow(c));
+  const sendable = changes.filter(allowedNow);
 
   // Self-lockout: does this take away the viewer's last cluster-admin path?
   const plan: RemovalPlan = React.useMemo(() => ({
@@ -261,12 +265,14 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
   const selfBefore = me ? clusterAdminPaths(me.metadata.name, me.groups ?? [], data.crbs, undefined, adminRoles) : null;
   const selfAfter = me ? clusterAdminPaths(me.metadata.name, me.groups ?? [], data.crbs, plan, adminRoles) : null;
   // Fail safe: if the roles or your own user could not be read, a change that touches admin access needs the phrase.
-  const selfLockout = me && !rolesQ.isError ? (selfBefore ?? 0) > 0 && selfAfter === 0 : touchesClusterAdmin;
+  const selfLockout = me && rolesQ.isSuccess ? (selfBefore ?? 0) > 0 && selfAfter === 0 : touchesClusterAdmin;
   // Deleting your own OAuth tokens signs you out of this session.
   const signsMeOut = subject.kind === 'User' && !!me && me.metadata.name === subject.name && sendable.some((c) => c.id.startsWith('token/'));
 
   const confirmName = subject.name;
-  const ready = sendable.length > 0 && typed === confirmName && reason.trim() !== ''
+  // Nothing is sent until the admin-equivalent roles are known (fail safe), and Identities' uids are loaded.
+  const checksLoading = rolesQ.isLoading || (identities.length > 0 && identityUids.isLoading);
+  const ready = sendable.length > 0 && !checksLoading && typed === confirmName && reason.trim() !== ''
     && (!selfLockout || selfTyped === SELF_LOCKOUT_PHRASE) && (!signsMeOut || signOutTyped === SIGN_OUT_PHRASE) && phase === 'review';
 
   const run = async () => {
@@ -288,17 +294,24 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
     }
     setPhase('applying');
     const out: Record<string, Outcome> = {};
-    const recorded: Array<Promise<string>> = [];
-    for (const c of sendable) {
-      try {
-        assertActiveCluster(clusterId, `Removing access for ${subject.name}`);
-        const rv = await send(c, clusterId, false);
-        out[c.id] = { state: 'ok' };
-        recorded.push(recordLedger({ ...c.ledger, resource_version: rv, reason: reason.trim(), before: c.before }));
-      } catch (e) { out[c.id] = { state: 'failed', message: describeWriteError(e) }; }
-      setResults({ ...out });
+    const ledger: string[] = [];
+    // When you remove your own access, your OAuth tokens go last: deleting the one this page
+    // uses signs you out, so every other change and its ledger entry must be done first.
+    const isToken = (c: Change) => c.id.startsWith('token/');
+    const batches = signsMeOut ? [sendable.filter((c) => !isToken(c)), sendable.filter(isToken)] : [sendable];
+    for (const batch of batches) {
+      const recorded: Array<Promise<string>> = [];
+      for (const c of batch) {
+        try {
+          assertActiveCluster(clusterId, `Removing access for ${subject.name}`);
+          const rv = await send(c, clusterId, false);
+          out[c.id] = { state: 'ok' };
+          recorded.push(recordLedger({ ...c.ledger, resource_version: rv, reason: reason.trim(), before: c.before }));
+        } catch (e) { out[c.id] = { state: 'failed', message: describeWriteError(e) }; }
+        setResults({ ...out });
+      }
+      ledger.push(...await Promise.all(recorded));
     }
-    const ledger = await Promise.all(recorded);
     setLedgerNote(ledger.every((r) => r === 'recorded') ? null
       : ledger.includes('absent') ? 'This Pulse agent has no write ledger, so these changes and the reason were not recorded there.'
         : `${ledger.filter((r) => r !== 'recorded').length} of ${ledger.length} changes could not be recorded in the Pulse write ledger.`);
@@ -402,6 +415,10 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
           {meQ.isError && touchesClusterAdmin && <p className="text-amber-300">Could not read your own user, so Pulse cannot tell whether this removes your own cluster-admin access.</p>}
         </section>
 
+        {identities.length > 0 && identityUids.isError && (
+          <p className="text-amber-300">The Identity objects could not be read, so they are not deleted (a delete must be conditional on the object read).</p>
+        )}
+        {checksLoading && phase === 'review' && <p className="text-slate-400">Checking roles and identities…</p>}
         {blocked.length > 0 && phase === 'review' && (
           <p className="text-slate-400">{blocked.length} change{blocked.length === 1 ? ' is' : 's are'} not sent: permission still checking or denied.</p>
         )}

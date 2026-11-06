@@ -202,8 +202,7 @@ export function bindingKey(b: Pick<BindingSummary, 'kind' | 'name' | 'namespace'
 
 /**
  * ClusterRoles that amount to cluster-admin: cluster-admin itself and any role
- * with a rule granting every verb on every resource in every API group, or every
- * verb on every non-resource URL.
+ * with a rule granting every verb on every resource in every API group.
  */
 export function adminClusterRoles(clusterRoles: Array<{ metadata: { name: string }; rules?: PolicyRule[] | null }>): Set<string> {
   const out = new Set<string>(['cluster-admin']);
@@ -211,8 +210,9 @@ export function adminClusterRoles(clusterRoles: Array<{ metadata: { name: string
     const all = (r.rules ?? []).some((rule) => {
       const v = rule.verbs ?? [];
       if (!v.includes('*')) return false;
-      const everyResource = (rule.apiGroups ?? []).includes('*') && (rule.resources ?? []).includes('*');
-      return everyResource || (rule.nonResourceURLs ?? []).includes('*');
+      // Every resource in every group. A role with only nonResourceURLs "*" reaches
+      // endpoints such as /healthz and /metrics, not objects, so it is not admin.
+      return (rule.apiGroups ?? []).includes('*') && (rule.resources ?? []).includes('*');
     });
     if (all) out.add(r.metadata.name);
   }
