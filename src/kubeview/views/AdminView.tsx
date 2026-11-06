@@ -30,7 +30,7 @@ import { UpdatesTab } from './admin/UpdatesTab';
 import { SnapshotsTab } from './admin/SnapshotsTab';
 import { loadSnapshots } from '../engine/snapshot';
 import { GitOpsConfig } from '../components/GitOpsConfig';
-import { SectionHeader } from '../components/primitives/SectionHeader';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { promFetch, MetricsUnavailableError } from '../components/metrics/prometheus';
 import { isPlatformNamespace } from '../engine/platformNamespaces';
 
@@ -438,7 +438,7 @@ export default function AdminView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        <SectionHeader
+        <PageHeader
           icon={<Settings className="w-6 h-6 text-slate-400" />}
           title="Administration"
           subtitle="Cluster configuration, updates, and snapshots"

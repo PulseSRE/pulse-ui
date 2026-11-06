@@ -19,7 +19,7 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { CHART_COLORS } from '../engine/colors';
 import { Panel } from '../components/primitives/Panel';
 import { sanitizePromQL } from '../engine/query';
-import { SectionHeader } from '../components/primitives/SectionHeader';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
 import { readsState, type AuditCheck } from '../components/audit/types';
@@ -180,7 +180,7 @@ export default function WorkloadsView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          <SectionHeader
+          <PageHeader
             icon={<Package className="w-6 h-6 text-blue-500" />}
             title="Workloads"
             subtitle={<>Deployments, StatefulSets, DaemonSets, Jobs, Pods, and Builds{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
@@ -205,7 +205,7 @@ export default function WorkloadsView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <SectionHeader
+        <PageHeader
           icon={<Package className="w-6 h-6 text-blue-500" />}
           title="Workloads"
           subtitle={<>Deployments, StatefulSets, DaemonSets, Jobs, Pods, and Builds{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}

@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { PageHeader } from '../../components/primitives/PageHeader';
 import { Loader2, Globe, Box, Layers, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fleetList } from '../../engine/fleet';
@@ -136,15 +137,11 @@ export default function FleetWorkloadsView() {
       <div className="max-w-7xl mx-auto space-y-6">
         <FleetSubNav />
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Globe className="w-5 h-5 text-blue-500" />
-            Fleet Workloads
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Aggregated workload overview across {summaries.length - failedClusters.length} of {summaries.length} cluster{summaries.length !== 1 ? 's' : ''}
-          </p>
-        </div>
+        <PageHeader
+          icon={<Globe className="w-6 h-6 text-blue-500" />}
+          title="Fleet Workloads"
+          subtitle={<>Aggregated workload overview across {summaries.length - failedClusters.length} of {summaries.length} cluster{summaries.length !== 1 ? 's' : ''}</>}
+        />
 
         {failedClusters.length > 0 && (
           <LoadError

@@ -1,4 +1,5 @@
 import { inUserNamespaces, isPlatformNamespace } from '../engine/platformNamespaces';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { createTemplateUrl } from '../engine/createTemplates';
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -189,17 +190,11 @@ export default function NetworkingView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Globe className="w-6 h-6 text-cyan-500" /> Networking
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Services, Routes, Ingresses, and Network Policies
-              {nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          icon={<Globe className="w-6 h-6 text-cyan-500" />}
+          title="Networking"
+          subtitle={<>Services, Routes, Ingresses, and Network Policies{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
+          actions={<>
             {([
               ['Service', 'v1~services', canCreateSvc],
               ['Route', 'route.openshift.io~v1~routes', canCreateRoute],
@@ -216,8 +211,8 @@ export default function NetworkingView() {
                 <Plus className="w-3.5 h-3.5" /> {label}
               </Button>
             ))}
-          </div>
-        </div>
+          </>}
+        />
 
         {(svcLoading || ingLoading) && services.length === 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

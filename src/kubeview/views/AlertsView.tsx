@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, AlertTriangle, XCircle, CheckCircle, Clock, Search, VolumeX, ArrowRight, Plus, Trash2, X, ExternalLink, Filter, Activity, BookOpen, BellOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -514,15 +515,11 @@ function LocalAlertsView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Bell className="w-6 h-6 text-red-500" />
-              Alerts
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">Reference list from Prometheus and Alertmanager. Triage happens in the Inbox; each firing row links to it.</p>
-          </div>
-          {backendUnavailable ? null /* said once, below the stats, with the reason and Retry */ : alertsPending ? (
+        <PageHeader
+          icon={<Bell className="w-6 h-6 text-red-500" />}
+          title="Alerts"
+          subtitle="Reference list from Prometheus and Alertmanager. Triage happens in the Inbox; each firing row links to it."
+          actions={backendUnavailable ? null /* said once, below the stats, with the reason and Retry */ : alertsPending ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/60 border border-slate-700 rounded-lg">
               <span className="text-sm text-slate-300">Checking alerts…</span>
             </div>
@@ -532,7 +529,7 @@ function LocalAlertsView() {
               <span className="text-sm font-medium text-green-300">No alerts firing</span>
             </div>
           ) : null /* Counts live in the stat row below, once. */}
-        </div>
+        />
 
         {/* A count is a claim. When the backend is unreachable we have no
             counts, and rendering "0 Firing" in the same bold numeral as a real

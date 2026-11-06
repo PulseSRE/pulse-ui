@@ -115,12 +115,7 @@ export function SLOTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-slate-500">
-            Service Level Objectives with live burn rate monitoring. Define targets and track error budget depletion.
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <button
           onClick={() => setShowAdd(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-md"

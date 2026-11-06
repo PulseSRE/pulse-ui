@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { PageHeader } from '../../components/primitives/PageHeader';
 import {
   Shield, RefreshCw, Loader2, CheckCircle, XCircle,
   Lock, Users, AlertTriangle,
@@ -263,24 +264,19 @@ export default function ComplianceView() {
       <div className="max-w-7xl mx-auto space-y-6">
         <FleetSubNav />
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Shield className="w-6 h-6 text-blue-500" /> Fleet Compliance
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Security posture across {clusters.length} cluster{clusters.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <button
+        <PageHeader
+          icon={<Shield className="w-6 h-6 text-blue-500" />}
+          title="Fleet Compliance"
+          subtitle={<>Security posture across {clusters.length} cluster{clusters.length !== 1 ? 's' : ''}</>}
+          actions={<button
             onClick={runFullScan}
             disabled={loading}
             className="px-3 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             {loading ? 'Scanning...' : 'Re-scan'}
-          </button>
-        </div>
+          </button>}
+        />
 
         {scanErrors.length > 0 && (
           <LoadError

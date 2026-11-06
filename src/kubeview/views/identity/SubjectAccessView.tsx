@@ -11,6 +11,7 @@
  * A list that could not be read is an error, never "no access".
  */
 import React from 'react';
+import { PageHeader } from '../../components/primitives/PageHeader';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { User, Users, Key, UserCheck, UserMinus, KeyRound, ArrowRight, RefreshCw, HelpCircle, History } from 'lucide-react';
@@ -325,25 +326,24 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-5">
-        <nav className="text-xs text-slate-500" aria-label="Breadcrumb">
-          <button type="button" className="hover:text-slate-300" onClick={() => go(subject.kind === 'User' ? '/identity' : '/identity?tab=groups-sa', 'Identity & Access')}>{subject.kind === 'User' ? 'Users' : subject.kind === 'Group' ? 'Groups' : 'Service accounts'}</button>
-          {' / '}<span className="text-slate-300">{subject.kind === 'ServiceAccount' ? `${subject.namespace}/${subject.name}` : subject.name}</span>
-        </nav>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2"><KindIcon kind={subject.kind} className="w-6 h-6" />{subject.name}
-              <span className="text-xs font-normal px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-400">{subject.kind === 'ServiceAccount' ? `ServiceAccount in ${subject.namespace}` : subject.kind}</span>
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              {subject.kind === 'User' && (userQ.isError ? 'User object could not be read'
-                : userQ.data === null ? 'No User object (has not signed in through OAuth, or was deleted)'
-                  : userQ.data?.identities?.length ? `Identity ${userQ.data.identities.join(', ')}` : null)}
-              {subject.kind !== 'Group' && realGroups.length > 0 && ` · groups ${realGroups.join(', ')}`}
-              {subject.kind === 'Group' && (group ? `${group.users?.length ?? 0} members${group.users?.length ? `: ${group.users.join(', ')}` : ''}` : data.failed.some((f) => f.what === 'Groups') ? 'Members could not be read' : 'No Group object (bindings may still name it)')}
-              {' · '}<button type="button" className="text-violet-400 hover:text-violet-300" onClick={() => go(objectPath, subject.name)}>Open the object</button>
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          breadcrumb={[
+            { label: 'Identity & Access', onClick: () => go('/identity', 'Identity & Access') },
+            { label: subject.kind === 'User' ? 'Users' : subject.kind === 'Group' ? 'Groups' : 'Service accounts', onClick: () => go(subject.kind === 'User' ? '/identity' : '/identity?tab=groups-sa', 'Identity & Access') },
+            { label: subject.kind === 'ServiceAccount' ? `${subject.namespace}/${subject.name}` : subject.name },
+          ]}
+          icon={<KindIcon kind={subject.kind} className="w-6 h-6" />}
+          title={subject.name}
+          meta={<span className="px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-400">{subject.kind === 'ServiceAccount' ? `ServiceAccount in ${subject.namespace}` : subject.kind}</span>}
+          subtitle={<>
+            {subject.kind === 'User' && (userQ.isError ? 'User object could not be read'
+              : userQ.data === null ? 'No User object (has not signed in through OAuth, or was deleted)'
+                : userQ.data?.identities?.length ? `Identity ${userQ.data.identities.join(', ')}` : null)}
+            {subject.kind !== 'Group' && realGroups.length > 0 && ` · groups ${realGroups.join(', ')}`}
+            {subject.kind === 'Group' && (group ? `${group.users?.length ?? 0} members${group.users?.length ? `: ${group.users.join(', ')}` : ''}` : data.failed.some((f) => f.what === 'Groups') ? 'Members could not be read' : 'No Group object (bindings may still name it)')}
+            {' · '}<button type="button" className="text-violet-400 hover:text-violet-300" onClick={() => go(objectPath, subject.name)}>Open the object</button>
+          </>}
+          actions={<>
             {subject.kind !== 'Group' && (
               <Button size="sm" variant="secondary" disabled={impersonateUser === username}
                 onClick={() => { setImpersonation(username); addToast({ type: 'warning', title: `Impersonating ${username}`, detail: 'All API requests now use this identity' }); }}>
@@ -352,8 +352,8 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
             )}
             <Button size="sm" variant="secondary" onClick={() => go('/identity?tab=rbac', 'Identity & Access')}><KeyRound className="w-3.5 h-3.5" /> Grant access</Button>
             <Button size="sm" variant="danger" onClick={() => setRemoving(true)} disabled={data.loading}><UserMinus className="w-3.5 h-3.5" /> Remove access…</Button>
-          </div>
-        </div>
+          </>}
+        />
 
         {data.failed.length > 0 && (
           <LoadError title={`Could not read ${data.failed.map((f) => f.what).join(', ')} — the access shown below is incomplete`} error={data.failed[0].error} onRetry={data.refetch} />

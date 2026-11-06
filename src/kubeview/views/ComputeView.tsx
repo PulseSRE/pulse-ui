@@ -1,4 +1,5 @@
 import React from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useQuery } from '@tanstack/react-query';
 import { Server } from 'lucide-react';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
@@ -269,16 +270,17 @@ export default function ComputeView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Server className="w-6 h-6 text-blue-500" /> Compute
+        <PageHeader
+          icon={<Server className="w-6 h-6 text-blue-500" />}
+          title="Compute"
+          meta={<>
             <Badge variant={isHyperShift ? 'info' : 'outline'} size="sm">
               {isHyperShift ? 'Hosted' : 'Self-Managed'}
             </Badge>
-            {platform && <span className="text-sm font-normal text-slate-500">{platform}</span>}
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Cluster capacity, node health, and resource utilization</p>
-        </div>
+            {platform && <span className="text-sm text-slate-500">{platform}</span>}
+          </>}
+          subtitle="Cluster capacity, node health, and resource utilization"
+        />
 
         <PendingCsrNotice go={go} />
 
