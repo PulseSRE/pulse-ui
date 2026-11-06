@@ -9,6 +9,10 @@ on:
         description: 'Image tag (default: git sha)'
         required: false
 
+# Images go to Quay with its own credentials; the job only reads the repo.
+permissions:
+  contents: read
+
 env:
   REGISTRY: quay.io
   IMAGE_NAME: amobrem/openshiftpulse
@@ -36,14 +40,54 @@ jobs:
 
       - name: Set image tag
         id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          elif [[ -n "${{ inputs.tag }}" ]]; then
-            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+          elif [[ -n "$INPUT_TAG" ]]; then
+            tag="$INPUT_TAG"
           else
-            echo "tag=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+            tag="sha-${GITHUB_SHA::8}"
           fi
+          if [[ ! "$tag" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
+            echo "::error::invalid image tag (allowed: A-Z a-z 0-9 . _ -, 1-128 chars)"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      # The image the Helm install/upgrade/rollback/uninstall/preview Jobs run
+      # (helmInstall.ts). Built and checked before the registry login, so a
+      # failed check publishes nothing at all. Pushed at the end of the job.
+      - name: Build helm runner
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.helm-runner
+          load: true
+          push: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:latest
+          platforms: linux/amd64
+
+      # Each command must exist and work: the preview Job pipes `helm template`
+      # through awk and sha256sum. (`command -v a b c` succeeds if any one is
+      # found, so each is checked on its own.)
+      - name: Smoke-test helm runner
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint /bin/sh "$IMAGE" -c '
+            set -eu
+            for c in helm awk sha256sum; do command -v "$c" >/dev/null || { echo "missing $c" >&2; exit 1; }; done
+            printf "a b\n" | awk "{print \$2}" | grep -qx b
+            printf x | sha256sum | grep -q "^2d711642"
+            helm version
+          '
 
       - name: Log in to Quay.io
         uses: docker/login-action@v4
@@ -76,31 +120,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-render:latest
           platforms: linux/amd64
 
-      # The image the Helm install/upgrade/rollback/uninstall Jobs run (helmInstall.ts).
-      # The UI only accepts it digest-pinned, so pulse-operator must pin the
-      # digest this step prints before a cluster can use a new build.
-      # Built and loaded locally first, checked, and only then pushed, so a
-      # broken image never reaches the registry.
-      - name: Build helm runner
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile.helm-runner
-          load: true
-          push: false
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:${{ steps.tag.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:latest
-          platforms: linux/amd64
-
-      # The preview Job pipes `helm template` through awk and sha256sum.
-      - name: Smoke-test helm runner
-        env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner:${{ steps.tag.outputs.tag }}
-        run: |
-          set -euo pipefail
-          docker run --rm --entrypoint /bin/sh "$IMAGE" -c 'set -e; command -v helm awk sha256sum; helm version'
-
+      # Built and smoke-tested above, before the login.
       - name: Push helm runner
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-helm-runner
@@ -116,5 +136,5 @@ jobs:
             echo ""
             echo "\`$IMAGE:$TAG\` = \`$digest\`"
             echo ""
-            echo "Pin this digest in pulse-operator for clusters to run it."
+            echo "Clusters run it only once pulse-operator pins this digest (it has no setting for the runner yet)."
           } >> "$GITHUB_STEP_SUMMARY"
