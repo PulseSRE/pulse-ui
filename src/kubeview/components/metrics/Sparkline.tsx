@@ -74,7 +74,7 @@ export function Sparkline({
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         {label && <span className="text-xs text-slate-500">{label}</span>}
-        <div className="text-xs text-slate-400" style={{ width, height }} role="status">
+        <div className="text-xs text-slate-400" style={{ width, height }}>
           <span className="flex items-center justify-center h-full">{text}</span>
         </div>
       </div>
@@ -229,7 +229,7 @@ export function MetricCard({
           <path d={linePath} fill="none" stroke={displayColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ) : (
-        <div className="flex items-center justify-center text-xs text-slate-400" style={{ height: h }} role="status">
+        <div className="flex items-center justify-center text-xs text-slate-400" style={{ height: h }}>
           {!available ? 'Metrics are available for the local cluster only' : isPending ? 'Checking…' : 'No data for this period'}
         </div>
       )}
