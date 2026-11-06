@@ -95,44 +95,60 @@ const API_GROUPS = {
   ],
 };
 
-// Pre-compiled regex for namespace-scoped path matching
-const NS_PATH_RE = /^(\/api[s]?\/[^/]+(?:\/[^/]+)?)\/namespaces\/[^/]+\/(.+)$/;
+// /api/v1/namespaces/{ns}/{plural}[/{name}[/{subresource}]] and the /apis/{group}/{version} form
+const NS_PATH_RE = /^(\/apis?\/[^/]+(?:\/[^/]+)?)\/namespaces\/([^/]+)\/([^/]+)(?:\/([^/]+))?(?:\/([^/]+))?$/;
+// /api/v1/{plural}/{name} and /apis/{group}/{version}/{plural}/{name} (cluster-scoped single object)
+const CLUSTER_OBJECT_RE = /^(\/apis?\/[^/]+(?:\/[^/]+)?)\/([^/]+)\/([^/]+)$/;
 
-const server = createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const path = url.pathname;
+function notFound(plural, name) {
+  return { kind: 'Status', apiVersion: 'v1', status: 'Failure', reason: 'NotFound', code: 404, message: `${plural} "${name}" not found` };
+}
 
-  // Strip query params for route matching, but allow fieldSelector etc.
-  const routePath = path.replace(/\/$/, '') || '/';
+/**
+ * Resolve a GET the way the API server would. Single-object reads return the
+ * object (or a 404 Status), not a list: detail pages read `metadata`/`spec`
+ * off the response and crashed on the empty list this mock used to return.
+ * Returns [status, body], or [status, body, 'text/plain'] for logs.
+ */
+function resolve(routePath) {
+  if (ROUTES[routePath]) return [200, ROUTES[routePath]];
+  if (routePath === '/apis') return [200, API_GROUPS];
+  if (routePath === '/api/v1') return [200, { kind: 'APIResourceList', groupVersion: 'v1', resources: [] }];
 
-  // Handle namespace-scoped list paths by stripping namespace
-  let response = ROUTES[routePath];
+  const ns = routePath.match(NS_PATH_RE);
+  if (ns) {
+    const [, base, namespace, plural, name, sub] = ns;
+    const list = ROUTES[`${base}/${plural}`];
+    if (!name) {
+      // A namespaced list holds only that namespace's objects.
+      return [200, list ? { ...list, items: list.items.filter((i) => i.metadata.namespace === namespace) } : EMPTY_LIST];
+    }
+    if (sub === 'log') return [200, '2026-03-01T10:00:00Z started\n', 'text/plain'];
+    if (!list) return [200, EMPTY_LIST];
+    const item = list.items.find((i) => i.metadata.name === name && i.metadata.namespace === namespace);
+    return item ? [200, item] : [404, notFound(plural, name)];
+  }
 
-  if (!response) {
-    // Try matching namespace-scoped paths: /api/v1/namespaces/{ns}/pods
-    const nsMatch = routePath.match(NS_PATH_RE);
-    if (nsMatch) {
-      const basePath = `${nsMatch[1]}/${nsMatch[2]}`;
-      response = ROUTES[basePath];
+  const one = routePath.match(CLUSTER_OBJECT_RE);
+  if (one) {
+    const [, base, plural, name] = one;
+    const list = ROUTES[`${base}/${plural}`];
+    if (list) {
+      const item = list.items.find((i) => i.metadata.name === name && !i.metadata.namespace);
+      return item ? [200, item] : [404, notFound(plural, name)];
     }
   }
 
-  if (!response && routePath === '/apis') {
-    response = API_GROUPS;
-  }
+  // Unknown paths: empty list (graceful degradation)
+  return [200, EMPTY_LIST];
+}
 
-  if (!response && routePath === '/api/v1') {
-    response = { kind: 'APIResourceList', groupVersion: 'v1', resources: [] };
-  }
-
-  if (response) {
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify(response));
-  } else {
-    // Return empty list for unknown paths (graceful degradation)
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify(EMPTY_LIST));
-  }
+const server = createServer((req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const routePath = url.pathname.replace(/\/$/, '') || '/';
+  const [status, body, contentType = 'application/json'] = resolve(routePath);
+  res.writeHead(status, { 'Content-Type': contentType, 'Access-Control-Allow-Origin': '*' });
+  res.end(contentType === 'application/json' ? JSON.stringify(body) : body);
 });
 
 const PORT = parseInt(process.env.PORT || '8001', 10);

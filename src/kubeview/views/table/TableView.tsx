@@ -279,7 +279,11 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   // --- Keyboard navigation ---
   React.useEffect(() => {
     function handler(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      // Keys typed into a field, or Enter/Space on a focused button or link,
+      // belong to that control, not to row navigation.
+      const target = e.target as HTMLElement;
+      if (target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      if ((e.key === 'Enter' || e.key === ' ') && target.closest?.('button, a')) return;
 
       const maxRow = paginatedResources.length - 1;
 
@@ -599,8 +603,9 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       {sortedResources.length > 0 && (
         <div className="border-t border-slate-800 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Rows per page:</span>
+            <label htmlFor="resource-table-per-page" className="text-xs text-slate-500">Rows per page:</label>
             <select
+              id="resource-table-per-page"
               value={perPage}
               onChange={(e) => {
                 setPerPage(Number(e.target.value));

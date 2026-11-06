@@ -366,10 +366,9 @@ describe('TableView', () => {
     fireEvent.change(searchInput, { target: { value: 'nonexistent' } });
 
     // Wait for debounce — use the direct setter (search happens after 200ms)
-    // The table headers should still be visible (th elements)
-    // The table element should still exist
-    expect(document.querySelector('table')).not.toBeNull();
-    expect(document.querySelector('thead')).not.toBeNull();
+    // The table and its column headers should still exist
+    expect(screen.getByRole('table')).toBeDefined();
+    expect(screen.getAllByRole('columnheader').length).toBeGreaterThan(0);
   });
 
   it('shows "No matching" message inside table body when filter has no results', () => {
@@ -387,7 +386,7 @@ describe('TableView', () => {
 
     // Fast-forward debounce — the filteredResources will be empty but table stays
     // Since debounce is 200ms, we check that the table structure remains
-    expect(document.querySelector('table')).not.toBeNull();
+    expect(screen.queryByRole('table')).not.toBeNull();
   });
 
   it('shows empty state only when no resources exist and no filters active', () => {
@@ -401,7 +400,7 @@ describe('TableView', () => {
 
     // No resources, no search — should show the full empty state (no table)
     expect(screen.getByText(/No pods found/)).toBeDefined();
-    expect(document.querySelector('table')).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
   });
 
   it('shows EmptyState with create button when no resources exist', () => {
@@ -495,7 +494,7 @@ describe('TableView', () => {
 
     // After search filters out everything, "Clear all filters" appears in table body
     // Since debounce is async, verify the table persists structurally
-    expect(document.querySelector('table')).not.toBeNull();
+    expect(screen.queryByRole('table')).not.toBeNull();
   });
 
   it('shows total count and search term when search filters out all results', () => {
@@ -609,9 +608,10 @@ describe('TableView', () => {
 
       // The Namespace column header should have a sort indicator (ChevronDown for desc)
       const namespaceHeader = screen.getByText('Namespace');
-      const headerCell = namespaceHeader.closest('th');
+      const headerCell = namespaceHeader.closest('[role="columnheader"]');
       // ChevronDown icon should be present for desc sort
       expect(headerCell?.querySelector('svg')).not.toBeNull();
+      expect(headerCell?.getAttribute('aria-sort')).toBe('descending');
     });
 
     it('reads page number from URL on mount', () => {
