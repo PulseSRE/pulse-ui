@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const listWatchCalls: Array<Record<string, unknown>> = [];
@@ -25,27 +25,12 @@ vi.mock('../../engine/query', () => ({ k8sGet: vi.fn(async () => null) }));
 
 import { useIncidentTimeline } from '../useIncidentTimeline';
 
-// One client per test, not per render (see useIncidentTimeline.changes.test.tsx).
-let client: QueryClient;
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>;
 }
 
 describe('useIncidentTimeline scoping', () => {
-  beforeEach(() => {
-    listWatchCalls.length = 0;
-    queryRangeMock.mockReset();
-    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  });
-  // Unmount and settle before teardown, so no React work runs after jsdom is gone.
-  afterEach(async () => {
-    cleanup();
-    await act(async () => {
-      await client.cancelQueries();
-      client.clear();
-      await new Promise((r) => setTimeout(r, 0));
-    });
-  });
+  beforeEach(() => { listWatchCalls.length = 0; queryRangeMock.mockReset(); });
 
   it('lists events for the selected namespace with no 500 cap, and includes alerts resolved within the range', async () => {
     const nowSec = Math.floor(Date.now() / 1000);
