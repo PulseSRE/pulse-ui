@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../useK8sListWatch', () => ({ useK8sListWatch: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }) }));
@@ -25,15 +25,26 @@ vi.mock('../../engine/query', () => ({ k8sGet: vi.fn(async () => null) }));
 
 import { useIncidentTimeline } from '../useIncidentTimeline';
 
+// Vitest runs without globals here, so Testing Library's automatic cleanup does
+// not run: unmount every hook and drop its queries after each test, or a
+// render scheduled by a late query result runs after jsdom is torn down
+// ("window is not defined" as an unhandled error).
+const clients: QueryClient[] = [];
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(client);
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 const res = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const fetchMock = vi.fn();
 const at = new Date(Date.now() - 10 * 60_000).toISOString();
 
 beforeEach(() => { cluster = 'local'; fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock); });
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(async () => {
+  cleanup();
+  for (const c of clients.splice(0)) { await c.cancelQueries(); c.clear(); }
+  vi.unstubAllGlobals();
+});
 
 describe('config lane from /changes', () => {
   it('adds the namespace\'s changes with their actor, and skips ClusterVersion (already in the lane)', async () => {
