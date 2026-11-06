@@ -15,7 +15,8 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, UserPlus, Shield } from 'lucide-react';
-import { k8sCreate, k8sFetch, k8sGet, k8sPatch } from '../../engine/query';
+import { k8sCreate, k8sGet, k8sPatch } from '../../engine/query';
+import { getClusterBase } from '../../engine/clusterConnection';
 import { MERGE_PATCH } from '../../engine/workloadActions';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { useCanI } from '../../hooks/useCanI';
@@ -71,10 +72,18 @@ export function lockoutRisks(provider: string, after: IdentityProvider[], kubead
   return { risks, noProvidersLeft, noKubeadmin };
 }
 
+/**
+ * A GET as the signed-in user, never as whoever the impersonation banner names:
+ * the lock-out checks are about the person who will try to sign in next.
+ */
+function fetchAsMe(clusterId: string, path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${getClusterBase(clusterId)}${path}`, init);
+}
+
 /** Whether the kubeadmin login exists, from a metadata-only read of its Secret (the data is never fetched). */
 async function kubeadminState(clusterId: string): Promise<KubeadminState> {
   try {
-    const res = await k8sFetch(clusterId, '/api/v1/namespaces/kube-system/secrets/kubeadmin', {
+    const res = await fetchAsMe(clusterId, '/api/v1/namespaces/kube-system/secrets/kubeadmin', {
       headers: { Accept: 'application/json;as=PartialObjectMetadata;g=meta.k8s.io;v=v1' },
     });
     if (res.status === 404) return 'absent';
@@ -86,7 +95,7 @@ async function kubeadminState(clusterId: string): Promise<KubeadminState> {
 
 async function myIdentities(clusterId: string): Promise<string[] | null> {
   try {
-    const res = await k8sFetch(clusterId, '/apis/user.openshift.io/v1/users/~');
+    const res = await fetchAsMe(clusterId, '/apis/user.openshift.io/v1/users/~');
     if (!res.ok) return null;
     const me = (await res.json()) as { identities?: string[] };
     return me.identities ?? [];
@@ -143,16 +152,15 @@ function HtpasswdUserForm({ secretName, onDone }: { secretName: string; onDone: 
 
   const review = async () => {
     setReadError(null); setReading(true);
+    // Taken out of the field before anything can fail: it lives only in this closure from here.
+    const pw = password;
+    setPassword('');
     try {
       const secret = await k8sGet<{ metadata: { resourceVersion?: string }; data?: Record<string, string> }>(secretPath(secretName), clusterId);
       const current = secret.data?.[HTPASSWD_KEY] ? fromBase64(secret.data[HTPASSWD_KEY]) : '';
       const existing = parseHtpasswd(current);
       const replaced = existing.some((e) => e.user === user);
       const rv = secret.metadata.resourceVersion;
-      const pw = password;
-      // The password lives only in this dialog's closure from here on: the field is
-      // cleared whether the user confirms, cancels or the write fails.
-      setPassword('');
       open({
         title: replaced ? `Reset the password of ${user}?` : `Add ${user} to ${secretName}?`,
         description: replaced

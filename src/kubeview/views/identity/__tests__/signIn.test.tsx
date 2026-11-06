@@ -9,6 +9,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import bcrypt from 'bcryptjs';
 import { clickWhenEnabled, createHarness, json, k8sStatus, REMOTE, type Recorded } from '../../../__tests__/actionHarness';
 import { SignInTab, OAUTH_PATH, ANOTHER_WAY_PHRASE, lockoutRisks } from '../SignInTab';
+import { useUIStore } from '../../../store/uiStore';
 import { fromBase64, parseHtpasswd, upsertHtpasswd, validateHtpasswdPassword } from '../../../engine/htpasswd';
 
 const h = createHarness();
@@ -258,5 +259,28 @@ describe('Sign-in failure paths', () => {
     await new Promise((r) => setTimeout(r, 100));
     if (document.body.contains(dialog)) expect(within(dialog).getByRole('alert').textContent).toMatch(/cluster/i);
     expect(h.writes()).toHaveLength(0);
+  });
+
+  it('the lock-out checks are sent as you, not as the impersonated user', async () => {
+    useUIStore.setState({ impersonateUser: 'bob', impersonateGroups: [] } as never);
+    signInCluster();
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Remove provider corp-ldap');
+    await screen.findByRole('dialog');
+    for (const p of [KUBEADMIN, '/apis/user.openshift.io/v1/users/~']) {
+      const req = h.state.requests.find((r) => r.path === p)!;
+      expect(req.headers['Impersonate-User']).toBeUndefined();
+    }
+  });
+
+  it('a failed Secret read leaves no password in the field', async () => {
+    signInCluster((r) => (r.method === 'GET' && r.path.endsWith('/secrets/htpass-local') ? k8sStatus(403, 'forbidden') : undefined));
+    h.renderUi(<SignInTab />);
+    await clickWhenEnabled('Add or reset user');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Username for htpass-local' }), { target: { value: 'carol' } });
+    fireEvent.change(screen.getByLabelText('Password for htpass-local'), { target: { value: 'pw-carol' } });
+    await clickWhenEnabled('Review');
+    expect(await screen.findByText(/could not be read/)).toBeTruthy();
+    expect((screen.getByLabelText('Password for htpass-local') as HTMLInputElement).value).toBe('');
   });
 });
