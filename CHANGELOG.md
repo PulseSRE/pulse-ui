@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Fixed
+- **Page tabs follow the URL; one shell tab per page, at most 12 (consistency 1/12).** Workloads, Compute, Alerts, Identity and GitOps keep their tab in `?tab=` through the router (`useTabParam`), so a link to another tab of the same page, Back/Forward and deep links switch the tab, and an unknown `?tab=` opens the default and is removed from the URL. The shell keeps one tab per page path: `/workloads?tab=builds` reuses the Workloads tab and the tab returns to the page's last URL. Opening a 13th unpinned tab closes the least recently used one (never the active or a pinned tab). In the command palette an exact page name ranks first, so "Builds" opens Builds, not Workloads.
+
 ### Added
 - **Who started an update, and why (Wave 14).** The start-update confirmation lists the open readiness blockers with a required "I understand and want to update anyway", asks for a required reason, shows the worker pools' state, whether the update can be undone, and an estimate from the last completed updates; it sends a dry run first. The same merge patch that sets `spec.desiredUpdate` appends `{version, startedAt, by, reason}` to the `pulse.openshift.io/update-log` annotation on ClusterVersion `version` (last 50 kept). Update history is a paged table of every entry with "Started by" and "Reason" ("not recorded" for older ones). During an update, a stuck ClusterOperator opens its related namespaces, their pods and each pod's logs, and drain blockers name the pod that can't be evicted. Inbox items for a cluster update open Admin › Updates (from the item's `metadata.ui_link` when it is an in-app path, else from its generator), as does a ClusterVersion `version` resource.
 - **Pod and Deployment pages: the cause, a guided fix, and whether it held (Wave 11, part B).**

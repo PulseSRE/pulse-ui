@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useId, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '@/lib/utils';
@@ -12,10 +12,16 @@ import { cn } from '@/lib/utils';
  *
  *   <Tabs urlSync={{ values: ['a', 'b'] }} defaultValue="a"> … </Tabs>
  *
- * keeps the active tab in `?tab=` (or `urlSync.param`). The default tab is not
- * written to the URL, an unknown or missing value falls back to the default,
- * and changes replace the history entry so Back leaves the page instead of
+ * keeps the active tab in `?tab=` (or `urlSync.param`). The URL is the only
+ * state: links and Back/Forward to another `?tab=` switch the tab, even on the
+ * same page. The default tab is not written to the URL, an unknown or missing
+ * value falls back to the default (an unknown one is removed from the URL),
+ * and tab clicks replace the history entry so Back leaves the page instead of
  * stepping through tabs.
+ *
+ * Pages that render their own tab bar use `useTabParam` directly; never keep
+ * the tab in `useState` or write it with `window.history`, which the router
+ * does not see.
  *
  * Many tabs can be grouped inside one TabsList:
  *
@@ -35,7 +41,23 @@ export function useTabParam<T extends string>(
 ): [T, (tab: T) => void] {
   const [searchParams, setSearchParams] = useSearchParams();
   const raw = searchParams.get(param);
-  const active = raw !== null && (values as readonly string[]).includes(raw) ? (raw as T) : defaultTab;
+  const valid = raw !== null && (values as readonly string[]).includes(raw);
+  const active = valid ? (raw as T) : defaultTab;
+
+  // An unknown value (an old link, a typo) shows the default tab; take it out
+  // of the URL too, replacing the entry, so the address bar matches the page.
+  const invalid = raw !== null && !valid;
+  useEffect(() => {
+    if (!invalid) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete(param);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [invalid, param, setSearchParams]);
 
   const setActive = useCallback(
     (tab: T) => {

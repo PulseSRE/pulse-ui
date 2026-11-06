@@ -387,4 +387,20 @@ describe('OpenShift Pulse CommandPalette', () => {
       expect(screen.queryByText('Impact Analysis')).toBeNull();
     });
   });
+  it('ranks an exact page name above pages that only list it as a keyword', () => {
+    renderPalette();
+    fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: 'Builds' } });
+    // Enter opens the first result.
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(addTabMock).toHaveBeenCalledTimes(1);
+    expect(addTabMock.mock.calls[0][0]).toMatchObject({ title: 'Builds', path: '/workloads?tab=builds' });
+    expect(navigateMock).toHaveBeenCalledWith('/workloads?tab=builds');
+  });
+
+  it('ranks the Workloads page first for "workloads"', () => {
+    renderPalette();
+    fireEvent.change(screen.getByPlaceholderText(/Search resources/), { target: { value: 'workloads' } });
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(addTabMock.mock.calls[0][0]).toMatchObject({ path: '/workloads' });
+  });
 });

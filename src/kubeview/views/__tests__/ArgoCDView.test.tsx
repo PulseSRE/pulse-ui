@@ -35,6 +35,7 @@ vi.mock('../../store/uiStore', () => ({
 }));
 
 import ArgoCDView from '../ArgoCDView';
+import { renderRouted } from '../../__tests__/helpers/routerTabs';
 
 function renderView() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -122,5 +123,20 @@ describe('ArgoCDView', () => {
     mockUseArgoCD.mockReturnValue({ available: true, detecting: false, applications: [], applicationsLoading: false, namespace: 'openshift-gitops' });
     renderView();
     expect(screen.getAllByText(/No ArgoCD Applications found/).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('ArgoCDView tab in the URL', () => {
+  afterEach(cleanup);
+  const selected = (name: RegExp | string) => screen.getByRole('tab', { name }).getAttribute('aria-selected');
+
+  it('switches on a same-page ?tab= link and on Back', async () => {
+    mockUseArgoCD.mockReturnValue({ available: true, detecting: false, applications: [], applicationsLoading: false, namespace: 'openshift-gitops' });
+    const page = renderRouted(<ArgoCDView />, '/gitops?tab=drift');
+    expect(selected('Drift')).toBe('true');
+    await page.go('/gitops?tab=history');
+    expect(selected('Sync History')).toBe('true');
+    await page.back();
+    expect(selected('Drift')).toBe('true');
   });
 });

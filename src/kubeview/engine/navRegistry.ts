@@ -97,9 +97,28 @@ export function matchesNavQuery(item: NavItem, query: string): boolean {
   );
 }
 
-/** Look up a nav item by path */
+/**
+ * How well a nav item matches a palette query; lower ranks first, -1 is no
+ * match. The label decides before subtitle and keywords, so typing "Builds"
+ * puts the Builds page above Workloads (which lists "builds" as a keyword).
+ */
+export function navMatchRank(item: NavItem, query: string): number {
+  if (!query) return 0;
+  const q = query.toLowerCase().trim();
+  const label = item.label.toLowerCase();
+  if (label === q) return 0;
+  if (label.startsWith(q)) return 1;
+  if (label.includes(q)) return 2;
+  if (item.keywords?.some((k) => k === q)) return 3;
+  if (matchesNavQuery(item, q)) return 4;
+  return -1;
+}
+
+/** Look up a nav item by path (its query, e.g. `?tab=builds`, is ignored) */
 export function getNavByPath(path: string): NavItem | undefined {
-  return NAV_ITEMS.find((item) => item.path === path);
+  const end = path.search(/[?#]/);
+  const pathname = end === -1 ? path : path.slice(0, end);
+  return NAV_ITEMS.find((item) => item.path === pathname);
 }
 
 /** Route-to-icon lookup (used by TabBar for auto-created tabs) */

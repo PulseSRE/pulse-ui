@@ -4,6 +4,7 @@ import { Bell, AlertTriangle, XCircle, CheckCircle, Clock, Search, VolumeX, Arro
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { useTabParam } from '../components/primitives/Tabs';
 import { resourceDetailUrl } from '../engine/gvr';
 import { alertResource } from '../engine/alertResource';
 import { Card, CardHeader, CardBody } from '../components/primitives/Card';
@@ -50,6 +51,7 @@ interface Silence {
 }
 
 type Tab = 'firing' | 'rules' | 'silences';
+const ALERT_TABS: readonly Tab[] = ['firing', 'rules', 'silences'];
 
 interface SilenceMatcher {
   name: string;
@@ -115,14 +117,7 @@ function LocalAlertsView() {
     },
     staleTime: 300000,
   });
-  const urlTab = new URLSearchParams(window.location.search).get('tab') as Tab;
-  const [activeTab, setActiveTabState] = useState<Tab>(urlTab || 'firing');
-  const setActiveTab = (tab: Tab) => {
-    setActiveTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'firing') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
-  };
+  const [activeTab, setActiveTab] = useTabParam<Tab>(ALERT_TABS, 'firing');
   const urlParams = new URLSearchParams(window.location.search);
   const [searchQuery, setSearchQuery] = useState(urlParams.get('q') || '');
   const [severityFilter, setSeverityFilterState] = useState<'all' | 'critical' | 'warning' | 'info'>((urlParams.get('severity') as 'all' | 'critical' | 'warning' | 'info') || 'all');

@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { X, Plus, Pin, PinOff } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { useUIStore } from '../store/uiStore';
+import { useUIStore, tabKey } from '../store/uiStore';
 import { useCustomViewStore } from '../store/customViewStore';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
@@ -68,7 +68,7 @@ export function TabBar() {
 
   const {
     tabs, activeTabId, setActiveTab, closeTab, reorderTabs,
-    pinTab, unpinTab, openCommandPalette, addTab,
+    pinTab, unpinTab, openCommandPalette, addTab, updateTab,
     _pendingNavigate: pendingNavigate,
   } = useUIStore(useShallow((s) => ({
     tabs: s.tabs,
@@ -80,6 +80,7 @@ export function TabBar() {
     unpinTab: s.unpinTab,
     openCommandPalette: s.openCommandPalette,
     addTab: s.addTab,
+    updateTab: s.updateTab,
     _pendingNavigate: s._pendingNavigate,
   })));
 
@@ -93,7 +94,7 @@ export function TabBar() {
   }, [pendingNavigate, navigate]);
 
   useEffect(() => {
-    if (pendingNavigate && location.pathname === pendingNavigate) {
+    if (pendingNavigate && location.pathname === tabKey(pendingNavigate)) {
       useUIStore.setState({ _pendingNavigate: null });
     }
   }, [location.pathname, pendingNavigate]);
@@ -118,18 +119,23 @@ export function TabBar() {
     }
   };
 
-  // Sync active tab with current route
+  // Sync active tab with current route. A page has one tab whatever its
+  // query; the tab remembers the page's latest URL (e.g. its `?tab=`).
   useEffect(() => {
     // Don't create tabs while a close-triggered navigation is pending
     if (pendingNavigate) return;
 
     const currentPath = location.pathname;
-    const matchingTab = tabs.find((t) => t.path === currentPath);
+    const currentUrl = currentPath + location.search;
+    const matchingTab = tabs.find((t) => tabKey(t.path) === tabKey(currentPath));
 
     if (matchingTab) {
-      // Activate existing tab if it matches current path
       if (activeTabId !== matchingTab.id) {
         setActiveTab(matchingTab.id);
+      }
+      // A pinned tab keeps the URL it was pinned with.
+      if (!matchingTab.pinned && matchingTab.path !== currentUrl) {
+        updateTab(matchingTab.id, { path: currentUrl });
       }
     } else if (currentPath !== '/' && isKnownRoute(currentPath)) {
       // Unknown paths show the Not Found page; they get no tab.
@@ -139,12 +145,12 @@ export function TabBar() {
       addTab({
         title,
         icon: getRouteIcon(currentPath),
-        path: currentPath,
+        path: currentUrl,
         pinned: false,
         closable: true,
       });
     }
-  }, [location.pathname, pendingNavigate]);
+  }, [location.pathname, location.search, pendingNavigate]);
 
   // Navigate when user clicks a tab (not on store rehydration or URL-driven changes)
   const userClickedTab = useRef(false);
@@ -152,7 +158,7 @@ export function TabBar() {
     if (!userClickedTab.current) return;
     userClickedTab.current = false;
     const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (activeTab && location.pathname !== activeTab.path) {
+    if (activeTab && location.pathname + location.search !== activeTab.path) {
       navigate(activeTab.path);
     }
   }, [activeTabId]);
