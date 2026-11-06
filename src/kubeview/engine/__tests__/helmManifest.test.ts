@@ -68,8 +68,8 @@ describe('line diff', () => {
 });
 
 describe('values', () => {
-  it('merges like --reuse-values: maps merge, lists and scalars replace, null deletes', () => {
-    expect(mergeValues({ a: { b: 1, c: 2 }, l: [1, 2], gone: 1 }, { a: { c: 3 }, l: [9], gone: null })).toEqual({ a: { b: 1, c: 3 }, l: [9] });
+  it('merges like helm: maps merge, lists and scalars replace, null is kept so helm deletes the key', () => {
+    expect(mergeValues({ a: { b: 1, c: 2 }, l: [1, 2], gone: 1 }, { a: { c: 3 }, l: [9], gone: null })).toEqual({ a: { b: 1, c: 3 }, l: [9], gone: null });
   });
 
   it('parses only a mapping', () => {

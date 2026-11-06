@@ -166,7 +166,7 @@ describe('Install preview (HelmInstall)', () => {
     expect(Object.keys(secrets[0].body.stringData)).toEqual(['values.yaml', 'salt']);
     expect(c.volumes).toContainEqual({ name: 'values', secret: { secretName: secrets[0].body.metadata.name } });
     // The pod is found by the Job's uid; the Job is removed once its log is read, and nothing is installed.
-    expect(h.state.requests.some((r) => r.path.includes('labelSelector=controller-uid%3Dtpl-uid-1'))).toBe(true);
+    expect(h.state.requests.some((r) => r.path.includes('labelSelector=batch.kubernetes.io%2Fcontroller-uid%3Dtpl-uid-1'))).toBe(true);
     await waitFor(() => expect(h.writes().some((w) => w.method === 'DELETE' && w.path === `/apis/batch/v1/namespaces/team-b/jobs/${jobName}?propagationPolicy=Background`)).toBe(true));
     expect(jobsBy(h.writes(), 'install')).toHaveLength(0);
     // Each object was sent with dryRun=All.
@@ -214,6 +214,33 @@ describe('Install preview (HelmInstall)', () => {
     expect(within(panel).queryByRole('button', { name: 'Install without a preview' })).toBeNull();
     expect((within(panel).getByRole('button', { name: 'Install' }) as HTMLButtonElement).disabled).toBe(true);
     expect(h.writes().some((w) => w.method === 'DELETE' && w.path.includes('/jobs/helm-template-'))).toBe(true);
+  });
+
+  it('an old runner image (no awk) is an infrastructure failure: it says to update Pulse and offers installing without a preview', async () => {
+    h.state.handler = previewHandler(h.state.handler, { phase: 'Failed', log: 'PULSE_RUNNER_TOO_OLD: awk is missing from the Helm runner image\n' });
+    const panel = await openInstall();
+    await clickWhenEnabled('Preview');
+    const alert = await within(panel).findByText('The preview could not be made');
+    expect(alert.parentElement!.textContent).toMatch(/The Helm runner image is too old for previews; update Pulse/);
+    expect(within(panel).getByRole('button', { name: 'Install without a preview' })).toBeTruthy();
+  });
+
+  it('a document withheld by the redaction is listed as not checked, never shown', async () => {
+    h.state.handler = previewHandler(h.state.handler, { log: `---
+# Source: nginx/templates/list.yaml
+# Pulse withheld this document from the preview: it contains a Secret inside a list or another object.
+apiVersion: v1
+kind: PulsePreviewWithheld
+metadata:
+  name: withheld-1
+reason: "it contains a Secret inside a list or another object"
+${PLAIN_MANIFEST.replace(/shop/g, 'my-nginx')}` });
+    const panel = await openInstall();
+    await clickWhenEnabled('Preview');
+    const preview = await within(panel).findByTestId('helm-preview');
+    expect(within(preview).getByTestId('preview-counts').textContent).toBe('2added0changed0removed0would fail1could not check');
+    expect(preview.textContent).toMatch(/Document\/nginx\/templates\/list\.yaml.*Not shown and not checked: Pulse withheld it because it contains a Secret inside a list/);
+    expect(h.writes().some((w) => w.path.includes('dryRun=All') && JSON.stringify(w.body).includes('PulsePreviewWithheld'))).toBe(false);
   });
 
   it('closing the install form mid-preview cancels it and deletes the Job', async () => {

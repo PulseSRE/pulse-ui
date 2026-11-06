@@ -227,12 +227,13 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && typeo
 
 /**
  * Helm's --reuse-values: the new values merged over the release's current
- * user values (maps merge, everything else is replaced; null deletes).
+ * user values (maps merge, everything else is replaced; null is kept so helm deletes the key).
  */
 export function mergeValues(base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...base };
   for (const [k, v] of Object.entries(over)) {
-    if (v === null) delete out[k];
+    // null stays: helm deletes that key from the chart's defaults when it renders.
+    if (v === null) out[k] = null;
     else if (isPlainObject(v) && isPlainObject(out[k])) out[k] = mergeValues(out[k] as Record<string, unknown>, v);
     else out[k] = v;
   }
@@ -422,12 +423,22 @@ async function saltedHash(salt: string, value: string): Promise<string> {
 }
 
 const indentOf = (s: string) => /^ */.exec(s)![0].length;
+const isBlank = (s: string) => /^[ \t]*$/.test(s);
+const isComment = (s: string) => /^[ \t]*#/.test(s);
+const TOP_KIND = /^kind:[ \t]*["']?[A-Za-z0-9.]+["']?[ \t]*(#.*)?$/;
+const TOP_SECRET = /^kind:[ \t]*["']?Secret["']?[ \t]*(#.*)?$/;
+const ANY_SECRET = /kind["']?[ \t]*:[ \t]*["']?Secret(["' \t,}#]|$)/;
+
+/** Kind of the marker document that replaces a withheld one. */
+export const WITHHELD_KIND = 'PulsePreviewWithheld';
 
 /**
  * Replace every Secret `data`/`stringData` value in a multi-document manifest
- * with "(redacted sha256:<16 hex of salt+value>)". The same line-based rules
- * as the preview Job's awk program (helmTemplateJob.REDACT_AWK), so a value
- * that did not change hashes the same on both sides of a diff.
+ * with "(redacted sha256:<16 hex of salt+value>)", failing closed: a Secret
+ * that is not a plain top-level document, or a document whose kind cannot be
+ * told, is withheld and replaced by a PulsePreviewWithheld marker. The same
+ * rules, line for line, as the preview Job's awk program
+ * (helmTemplateJob.REDACT_AWK), so both produce the same text.
  */
 export async function redactSecretValues(text: string, salt: string): Promise<string> {
   const lines = text.split('\n');
@@ -435,36 +446,76 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
   if (trailing) lines.pop();
   const out: string[] = [];
   let doc: string[] = [];
+  let withheldCount = 0;
+  const withhold = (reason: string) => {
+    for (const l of doc) if (/^# Source: /.test(l)) out.push(l);
+    withheldCount++;
+    out.push(`# Pulse withheld this document from the preview: ${reason}.`, 'apiVersion: v1', `kind: ${WITHHELD_KIND}`, 'metadata:', `  name: withheld-${withheldCount}`, `reason: "${reason}"`);
+    doc = [];
+  };
   const flush = async () => {
-    if (!doc.some((l) => /^kind:[ \t]*Secret[ \t]*$/.test(l))) { out.push(...doc); doc = []; return; }
-    let sec = false;
+    let content = false;
+    let top = false;
+    let secret = false;
+    let nested = false;
+    for (const l of doc) {
+      if (isBlank(l) || isComment(l)) continue;
+      content = true;
+      if (TOP_KIND.test(l)) {
+        top = true;
+        if (TOP_SECRET.test(l)) { secret = true; continue; }
+      }
+      if (ANY_SECRET.test(l)) nested = true;
+    }
+    if (!content) { out.push(...doc); doc = []; return; }
+    if (nested) { withhold('it contains a Secret inside a list or another object'); return; }
+    if (!top) { withhold('its kind could not be determined'); return; }
+    if (!secret) { out.push(...doc); doc = []; return; }
+    let sec = 0;
     let keyind = -1;
     for (let i = 0; i < doc.length; i++) {
       let l = doc[i];
-      if (/^(data|stringData):[ \t]*$/.test(l)) { sec = true; keyind = -1; out.push(l); continue; }
-      if (/^(data|stringData):[ \t]*\{[ \t]*\}[ \t]*$/.test(l)) { out.push(l); continue; }
-      if (/^(data|stringData):/.test(l)) { out.push(`${l.replace(/:.*/, '')}: {}  # redacted by Pulse: values not shown`); continue; }
-      if (sec && /^[^ ]/.test(l)) sec = false;
-      if (!sec || /^[ \t]*$/.test(l) || /^[ \t]*#/.test(l)) { if (!sec || !/^ /.test(l)) out.push(l); continue; }
-      const ind = indentOf(l);
-      if (keyind < 0) keyind = ind;
-      if (ind !== keyind) continue;
-      const m = l.indexOf(':');
-      if (m < 0) continue;
-      const key = l.slice(0, m);
-      let val = l.slice(m + 1).replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
-      let j = i + 1;
-      for (; j < doc.length && (/^[ \t]*$/.test(doc[j]) || indentOf(doc[j]) > keyind) && !/^[^ ]/.test(doc[j]); j++) {
-        l = doc[j].replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
-        val = `${val}\n${l}`;
+      if (sec && /^[^ \t#]/.test(l) && !(sec === 2 && /^[\]}]/.test(l))) sec = 0;
+      if (sec === 2) continue;
+      if (sec === 1) {
+        if (isBlank(l) || isComment(l)) continue;
+        const ind = indentOf(l);
+        if (keyind < 0) keyind = ind;
+        if (ind !== keyind) continue;
+        const m = l.indexOf(':');
+        if (m < 0) continue;
+        const key = l.slice(0, m);
+        let val = l.slice(m + 1).replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
+        let j = i + 1;
+        for (; j < doc.length && (isBlank(doc[j]) || indentOf(doc[j]) > keyind); j++) {
+          l = doc[j].replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
+          val = `${val}\n${l}`;
+        }
+        i = j - 1;
+        out.push(`${key}: "(redacted sha256:${await saltedHash(salt, val)})"`);
+        continue;
       }
-      i = j - 1;
-      out.push(`${key}: "(redacted sha256:${await saltedHash(salt, val)})"`);
+      if (/^["']?(data|stringData)["']?[ \t]*:/.test(l)) {
+        const m = l.indexOf(':');
+        const k = l.slice(0, m).replace(/["' \t]/g, '');
+        const rest = l.slice(m + 1);
+        if (/^[ \t]*(#.*)?$/.test(rest)) { sec = 1; keyind = -1; out.push(`${k}:`); continue; }
+        if (/^[ \t]*\{[ \t]*\}[ \t]*(#.*)?$/.test(rest)) { out.push(`${k}: {}`); continue; }
+        sec = 2;
+        out.push(`${k}: {}  # redacted by Pulse: values not shown`);
+        continue;
+      }
+      out.push(l);
     }
     doc = [];
   };
   for (const l of lines) {
-    if (/^---[ \t]*$/.test(l)) { await flush(); out.push(l); } else doc.push(l);
+    if (l.startsWith('---')) {
+      await flush();
+      out.push('---');
+      const r = l.slice(3);
+      if (!/^[ \t]*(#.*)?$/.test(r)) doc.push(r);
+    } else doc.push(l);
   }
   await flush();
   return out.join('\n') + (trailing ? '\n' : '');

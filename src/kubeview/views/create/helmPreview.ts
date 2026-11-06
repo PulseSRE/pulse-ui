@@ -16,9 +16,10 @@ import { decodeHelmRelease } from '../../engine/helmRelease';
 import { resolveKind } from '../../engine/kindRegistry';
 import { errorReason } from '../../engine/readResult';
 import {
-  canonicalYaml, diffObjects, dryRunPlaceholder, hooksFor, parseRendered, recordHooks, redactSecretValues, testHooks,
+  WITHHELD_KIND, canonicalYaml, diffObjects, dryRunPlaceholder, hooksFor, parseRendered, recordHooks, redactSecretValues, testHooks,
   type ObjectChange, type RenderedObject,
 } from '../../engine/helmManifest';
+import { RUNNER_TOO_OLD_MARKER } from './helmTemplateJob';
 import { deleteHelmJob, randomSalt, readHelmJobOutput, runHelmTemplate, type TemplateRequest } from './helmRunner';
 import { runnerCanManage } from './helmInstall';
 
@@ -258,12 +259,18 @@ export async function runHelmPreview(req: PreviewRequest): Promise<HelmPreview> 
     // Every path: success, render error, time-out, unreadable log, cancel.
     await deleteHelmJob(req.clusterId, req.namespace, job.name);
   }
-  if (!output.succeeded) throw new HelmRenderError(output.log);
+  if (!output.succeeded) {
+    // An old runner image without awk/sha256sum cannot redact: that is Pulse's problem, not the chart's.
+    if (output.log.includes(RUNNER_TOO_OLD_MARKER)) throw new Error('The Helm runner image is too old for previews; update Pulse. (It lacks the tools that hide Secret values in the preview.)');
+    throw new HelmRenderError(output.log);
+  }
   const rendered = parseRendered(output.log, req.namespace);
   // The current manifest holds Secret values in clear; redact them the way the Job did, so the diff compares hashes.
   const current = req.current ? parseRendered(await redactSecretValues(req.current.manifest, salt), req.namespace).objects : [];
   const crds = rendered.objects.filter(isCrd);
-  const changes = diffObjects(current.filter((o) => !isCrd(o)), rendered.objects.filter((o) => !isCrd(o)));
+  const withheld = rendered.objects.filter((o) => o.kind === WITHHELD_KIND);
+  const plain = (o: RenderedObject) => !isCrd(o) && o.kind !== WITHHELD_KIND;
+  const changes = diffObjects(current.filter(plain), rendered.objects.filter(plain));
   const release = { name: req.releaseName, namespace: req.namespace };
   const checks = await mapLimit(changes, 4, (c) => (c.change === 'unchanged' ? Promise.resolve<ObjectCheck>({ status: 'ok' }) : checkObject(req.clusterId, c, release)));
   const hooks = hooksFor(rendered.objects, action);
@@ -272,6 +279,12 @@ export async function runHelmPreview(req: PreviewRequest): Promise<HelmPreview> 
     entries.push({
       change: 'added', key: `crd:${crd.key}`, apiVersion: crd.apiVersion, kind: crd.kind, name: crd.name, namespace: '', doc: crd.doc, after: canonicalYaml(crd.doc),
       check: await checkCrd(req.clusterId, crd, action, req.namespace),
+    });
+  }
+  for (const w of withheld) {
+    entries.push({
+      change: 'added', key: `withheld:${w.key}`, apiVersion: w.apiVersion, kind: 'Document', name: w.source ?? w.name, namespace: '',
+      check: { status: 'unknown', message: `Not shown and not checked: Pulse withheld it because ${String(w.doc.reason ?? 'it could not be redacted safely')}.` },
     });
   }
   // A hook the runner cannot create fails the action as surely as an object.
@@ -301,7 +314,7 @@ export function rollbackHooks(record: ReleaseRecord, namespace: string): Rendere
 export function previewCounts(p: Pick<HelmPreview, 'entries'>) {
   const c = { added: 0, changed: 0, removed: 0, unchanged: 0, failing: 0, unknown: 0 };
   for (const e of p.entries) {
-    if (!e.key.startsWith('hook:') && !e.key.startsWith('crd:')) c[e.change]++;
+    if (!e.key.startsWith('hook:') && !e.key.startsWith('crd:') && !e.key.startsWith('withheld:')) c[e.change]++;
     if (e.check.status === 'fail') c.failing++;
     if (e.check.status === 'unknown') c.unknown++;
   }

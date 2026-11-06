@@ -67,7 +67,7 @@ export function previewHandler(base: Handler, sim: PreviewSim): Handler {
   return (r) => {
     if (r.method === 'GET' && r.path === '/version') return jsonRes({ gitVersion: 'v1.31.4+abc' });
     if (r.method === 'GET' && r.path === '/apis') return jsonRes({ groups: [{ versions: [{ groupVersion: 'apps/v1' }] }] });
-    if (r.method === 'GET' && /\/pods\?labelSelector=controller-uid%3D/.test(r.path)) return sim.pods ? sim.pods(r) : jsonRes({ items: [{ metadata: { name: 'helm-pod-1' }, status: { phase: sim.phase ?? 'Succeeded' } }] });
+    if (r.method === 'GET' && /\/pods\?labelSelector=(batch\.kubernetes\.io%2F)?controller-uid%3D/.test(r.path)) return sim.pods ? sim.pods(r) : jsonRes({ items: [{ metadata: { name: 'helm-pod-1' }, status: { phase: sim.phase ?? 'Succeeded' } }] });
     if (r.method === 'GET' && r.path.includes('/pods/helm-pod-1/log')) return sim.logResponse ? sim.logResponse() : new Response(sim.log, { status: 200 });
     if (r.method === 'DELETE' && r.path.includes('/jobs/')) return jsonRes({});
     if (r.method === 'POST' && /\/apis\/batch\/v1\/namespaces\/[^/]+\/jobs$/.test(r.path)) {

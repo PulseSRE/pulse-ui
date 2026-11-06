@@ -198,9 +198,14 @@ export async function readHelmJobOutput(clusterId: string, namespace: string, jo
   const pollMs = opts.pollMs ?? 1500;
   for (;;) {
     if (opts.signal?.aborted) throw abortError();
-    const res = await k8sFetch(clusterId, `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(`controller-uid=${job.uid}`)}`, { signal: opts.signal });
-    if (!res.ok) throw new Error(`The preview Job's pod could not be read: ${(await failure(res)).message}`);
-    const pods = ((await res.json()).items ?? []) as Array<{ metadata: { name: string }; status?: { phase?: string; containerStatuses?: Array<{ state?: { waiting?: { reason?: string; message?: string } } }> } }>;
+    // Kubernetes 1.27+ labels Job pods batch.kubernetes.io/controller-uid; older clusters only controller-uid.
+    let pods: Array<{ metadata: { name: string }; status?: { phase?: string; containerStatuses?: Array<{ state?: { waiting?: { reason?: string; message?: string } } }> } }> = [];
+    for (const label of ['batch.kubernetes.io/controller-uid', 'controller-uid']) {
+      const res = await k8sFetch(clusterId, `/api/v1/namespaces/${namespace}/pods?labelSelector=${encodeURIComponent(`${label}=${job.uid}`)}`, { signal: opts.signal });
+      if (!res.ok) throw new Error(`The preview Job's pod could not be read: ${(await failure(res)).message}`);
+      pods = (await res.json()).items ?? [];
+      if (pods.length) break;
+    }
     const pod = pods[0];
     const phase = pod?.status?.phase;
     if (pod && (phase === 'Succeeded' || phase === 'Failed')) {

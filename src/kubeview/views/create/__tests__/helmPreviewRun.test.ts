@@ -34,6 +34,22 @@ describe('preview Job cleanup', () => {
     expect(deletedJobs()).toHaveLength(1);
   });
 
+  it('finds the pod by batch.kubernetes.io/controller-uid, falling back to controller-uid on older clusters', async () => {
+    const inner = previewHandler(base, { log: PLAIN_MANIFEST });
+    h.state.handler = (r) => (r.path.includes('labelSelector=batch.kubernetes.io%2Fcontroller-uid') ? json({ items: [] }) : inner(r));
+    await runHelmPreview(req());
+    const lookups = h.state.requests.filter((r) => r.path.includes('/pods?labelSelector='));
+    expect(lookups.map((r) => decodeURIComponent(r.path.split('labelSelector=')[1]))).toEqual(['batch.kubernetes.io/controller-uid=tpl-uid-1', 'controller-uid=tpl-uid-1']);
+  });
+
+  it('an old runner image is not a render error, and the Job is still deleted', async () => {
+    h.state.handler = previewHandler(base, { log: 'PULSE_RUNNER_TOO_OLD: sha256sum is missing from the Helm runner image', phase: 'Failed' });
+    const err = await runHelmPreview(req()).catch((e) => e);
+    expect(err).not.toBeInstanceOf(HelmRenderError);
+    expect(err.message).toMatch(/too old for previews; update Pulse/);
+    expect(deletedJobs()).toHaveLength(1);
+  });
+
   it('deletes the Job when helm fails to render', async () => {
     h.state.handler = previewHandler(base, { log: 'Error: template: nginx/templates/x.yaml:3: bad', phase: 'Failed' });
     await expect(runHelmPreview(req())).rejects.toBeInstanceOf(HelmRenderError);
