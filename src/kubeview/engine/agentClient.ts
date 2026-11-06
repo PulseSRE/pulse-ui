@@ -48,6 +48,12 @@ export interface ConfirmRequest {
   tool: string;
   input: Record<string, unknown>;
   nonce: string;
+  /**
+   * What the write will do, computed by the agent as the caller before you
+   * decide (API_CONTRACT `confirm_request.preview`). Optional: older agents
+   * and most tools send none.
+   */
+  preview?: Record<string, unknown>;
 }
 
 export interface SkillConflict {
@@ -69,7 +75,7 @@ export type AgentEvent =
   | { type: 'thinking_delta'; thinking: string }
   | { type: 'tool_use'; tool: string }
   | { type: 'component'; spec: ComponentSpec; tool: string }
-  | { type: 'confirm_request'; tool: string; input: Record<string, unknown>; nonce: string }
+  | { type: 'confirm_request'; tool: string; input: Record<string, unknown>; nonce: string; preview?: Record<string, unknown> }
   | { type: 'done'; full_response: string; skill_name?: string; tool_count?: number; duration_ms?: number; input_tokens?: number; output_tokens?: number; multi_skill?: MultiSkillMeta }
   | { type: 'error'; message: string }
   | { type: 'multi_skill_start'; skills: string[] }

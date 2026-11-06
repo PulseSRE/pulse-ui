@@ -47,7 +47,7 @@ type SessionAction =
   | { type: 'thinking_delta'; thinking: string }
   | { type: 'tool_use'; tool: string }
   | { type: 'component'; spec: ComponentSpec }
-  | { type: 'confirm_request'; tool: string; input: Record<string, unknown>; nonce: string }
+  | { type: 'confirm_request'; tool: string; input: Record<string, unknown>; nonce: string; preview?: Record<string, unknown> }
   | { type: 'done'; full_response: string; components: ComponentSpec[] }
   | { type: 'error'; message: string }
   | { type: 'clear' };
@@ -71,7 +71,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
     case 'component':
       return { ...state, streamingComponents: [...state.streamingComponents, action.spec] };
     case 'confirm_request':
-      return { ...state, pendingConfirm: { tool: action.tool, input: action.input, nonce: action.nonce } };
+      return { ...state, pendingConfirm: { tool: action.tool, input: action.input, nonce: action.nonce, preview: action.preview } };
     case 'done': {
       const assistantMsg: AgentMessage = {
         id: `msg-${Date.now()}`,
@@ -171,7 +171,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): AgentSess
           dispatch({ type: 'component', spec: event.spec });
           break;
         case 'confirm_request':
-          dispatch({ type: 'confirm_request', tool: event.tool, input: event.input, nonce: event.nonce });
+          dispatch({ type: 'confirm_request', tool: event.tool, input: event.input, nonce: event.nonce, preview: event.preview });
           break;
         case 'done':
           // Flush any remaining deltas
