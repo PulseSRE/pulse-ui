@@ -34,6 +34,7 @@ vi.mock('../../components/metrics/prometheus', () => ({ queryInstant: vi.fn().mo
 vi.mock('@/lib/utils', () => ({ cn: (...args: any[]) => args.filter(Boolean).join(' ') }));
 
 import WorkloadsView from '../WorkloadsView';
+import { renderRouted } from '../../__tests__/helpers/routerTabs';
 
 function renderView() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -145,5 +146,27 @@ describe('WorkloadsView', () => {
       expect(screen.queryByText('api')).toBeNull();
       expect(screen.getAllByText('web').length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('WorkloadsView tab in the URL', () => {
+  afterEach(cleanup);
+  const selected = (name: RegExp | string) => screen.getByRole('tab', { name }).getAttribute('aria-selected');
+
+  it('opens Builds from a deep link, follows a same-page link and Back', async () => {
+    const page = renderRouted(<WorkloadsView />, '/workloads?tab=builds');
+    expect(selected('Builds')).toBe('true');
+    await page.go('/workloads');
+    expect(selected('Workloads')).toBe('true');
+    await page.go('/workloads?tab=builds');
+    expect(selected('Builds')).toBe('true');
+    await page.back();
+    expect(selected('Workloads')).toBe('true');
+  });
+
+  it('an unknown ?tab= shows Overview and is removed from the URL', () => {
+    const page = renderRouted(<WorkloadsView />, '/workloads?tab=nope');
+    expect(selected('Workloads')).toBe('true');
+    expect(page.url()).toBe('/workloads');
   });
 });
