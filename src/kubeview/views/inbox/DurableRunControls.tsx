@@ -9,38 +9,77 @@ import {
   type InboxPlan,
 } from '../../engine/durableRunsApi';
 import { useTrustStore } from '../../store/trustStore';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
+import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { OBSERVE_MODE_APPROVE, WriteConfirmDialog } from '../../components/primitives/WriteConfirmDialog';
+
+type WaitingRun = Pick<AwaitingRun, 'workflow_id' | 'phase_id' | 'memo'>;
+
+/**
+ * Approve a waiting phase in the shared write-confirm dialog. The phase runs
+ * inside the agent with Pulse's service account; the agent offers no dry run
+ * of a phase, and the dialog says so.
+ */
+export function ApprovePhaseDialog({ run, onClose, onApproved }: { run: WaitingRun; onClose: () => void; onApproved: () => void }) {
+  const m = run.memo ?? {};
+  const target = m.resource_name ? `${m.resource_kind ? `${m.resource_kind} ` : ''}${m.resource_name}` : '';
+  return (
+    <WriteConfirmDialog
+      title={`Approve phase ${run.phase_id}${target ? ` on ${target}` : ''}?`}
+      where={{ namespace: m.resource_namespace, clusterId: LOCAL_CLUSTER_ID, actingAs: 'pulse-sa' }}
+      change={{
+        params: {
+          action: `${m.incident_type ? `${m.incident_type} plan` : 'plan'} · phase ${run.phase_id}`,
+          input: { workflow_id: run.workflow_id, phase_id: run.phase_id, ...(target ? { target } : {}) },
+        },
+      }}
+      impact={`${describeAwaiting(run)} runs and may change the cluster, within the server's trust level. The run then continues on its own.`}
+      undo="Depends on what the phase does; the run's report records each change"
+      confirmLabel={`Approve phase ${run.phase_id}`}
+      what="This approval"
+      onConfirm={async () => {
+        await answerApproval(run.workflow_id, run.phase_id, true);
+        onApproved();
+      }}
+      onClose={onClose}
+    />
+  );
+}
 
 /**
  * Approve or deny a durable run's waiting phase, wherever the question shows up.
  *
- * Approving asks first: an approved phase is allowed to change the cluster,
- * and the person should see which phase and which target before saying yes.
+ * Approving opens the write-confirm dialog: an approved phase is allowed to
+ * change the cluster, and the person should see which phase and which target
+ * before saying yes. Denying asks once, since the phase is then not run.
  */
 export function ApprovalButtons({
   run,
   onAnswered,
 }: {
-  run: Pick<AwaitingRun, 'workflow_id' | 'phase_id' | 'memo'>;
+  run: WaitingRun;
   onAnswered?: (approved: boolean) => void;
 }) {
   const observeMode = useTrustStore((s) => s.trustLevel === 0);
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState<'approve' | 'deny' | null>(null);
   const [answered, setAnswered] = useState<boolean | null>(null);
   const [error, setError] = useState('');
 
-  const answer = async (approved: boolean) => {
-    const what = describeAwaiting(run);
-    const prompt = approved
-      ? `Approve ${what}?\n\nAn approved phase may change the cluster. It runs under Pulse's service account, within the server's trust level.`
-      : `Deny ${what}?\n\nThe phase will not run and is recorded as needs_escalation.`;
-    if (!window.confirm(prompt)) return;
+  const done = (approved: boolean) => {
+    setAsking(null);
+    setAnswered(approved);
+    onAnswered?.(approved);
+  };
+
+  const deny = async () => {
     setBusy(true);
     setError('');
     try {
-      await answerApproval(run.workflow_id, run.phase_id, approved);
-      setAnswered(approved);
-      onAnswered?.(approved);
+      await answerApproval(run.workflow_id, run.phase_id, false);
+      done(false);
     } catch (e) {
+      setAsking(null);
       setError(e instanceof Error ? e.message : 'Could not deliver the verdict');
     } finally {
       setBusy(false);
@@ -59,25 +98,36 @@ export function ApprovalButtons({
     <div className="flex flex-col items-end gap-1">
       <div className="flex gap-1">
         <button
-          onClick={() => answer(true)}
+          onClick={() => { setError(''); setAsking('approve'); }}
           disabled={busy || observeMode}
-          title={observeMode ? 'Observe mode — switch trust level to approve' : undefined}
+          title={observeMode ? OBSERVE_MODE_APPROVE : undefined}
           className="px-2 py-0.5 text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 disabled:opacity-40 text-emerald-300 rounded-sm border border-emerald-800/30 flex items-center gap-1 transition-colors"
         >
-          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+          <Check className="w-3 h-3" />
           Approve
         </button>
         <button
-          onClick={() => answer(false)}
+          onClick={() => { setError(''); setAsking('deny'); }}
           disabled={busy}
           className="px-2 py-0.5 text-[11px] bg-red-600/20 hover:bg-red-600/40 disabled:opacity-40 text-red-300 rounded-sm border border-red-800/30 flex items-center gap-1 transition-colors"
         >
-          <X className="w-3 h-3" />
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
           Deny
         </button>
       </div>
-      {observeMode && <span className="text-[10px] text-slate-500">Observe mode — switch trust level to approve</span>}
-      {error && <span className="text-[10px] text-amber-300">{error}</span>}
+      {observeMode && <span className="text-[10px] text-slate-500">{OBSERVE_MODE_APPROVE}</span>}
+      {error && <span role="alert" className="text-[10px] text-amber-300">{error}</span>}
+      {asking === 'approve' && <ApprovePhaseDialog run={run} onClose={() => setAsking(null)} onApproved={() => done(true)} />}
+      <ConfirmDialog
+        open={asking === 'deny'}
+        onClose={() => setAsking(null)}
+        onConfirm={deny}
+        title={`Deny ${describeAwaiting(run)}?`}
+        description="The phase will not run and is recorded as needs_escalation."
+        confirmLabel="Deny phase"
+        variant="warning"
+        loading={busy}
+      />
     </div>
   );
 }

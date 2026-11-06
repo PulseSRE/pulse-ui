@@ -5,8 +5,9 @@ import { describeToolAction, riskLevel } from './MessageBubble';
 import { useTrustStore, TRUST_LABELS } from '../../store/trustStore';
 import { useUIStore } from '../../store/uiStore';
 import { cn } from '@/lib/utils';
+import { WriteChange, WriteFacts, WriteWhere } from '../primitives/WriteConfirmDialog';
+import { useCanI } from '../../hooks/useCanI';
 import { useFleetStore } from '../../store/fleetStore';
-import { clusterDisplayName } from '../../engine/pendingCluster';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 
 /** Tools that can be easily rolled back */
@@ -42,6 +43,23 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
   }
 }
 
+/**
+ * The access review for a chat write the agent runs with the person's
+ * forwarded token. Only tools whose single Kubernetes call is known are
+ * checked; anything else is left to the API server, which refuses it itself.
+ */
+function accessFor(tool: string, input: Record<string, unknown>): { verb: string; group: string; resource: string; namespace?: string; subresource?: string } | null {
+  const ns = typeof input.namespace === 'string' ? input.namespace : undefined;
+  switch (tool) {
+    case 'scale_deployment': return ns ? { verb: 'patch', group: 'apps', resource: 'deployments', namespace: ns, subresource: 'scale' } : null;
+    case 'restart_deployment': return ns ? { verb: 'patch', group: 'apps', resource: 'deployments', namespace: ns } : null;
+    case 'delete_pod': return ns ? { verb: 'delete', group: '', resource: 'pods', namespace: ns } : null;
+    case 'cordon_node':
+    case 'uncordon_node': return { verb: 'patch', group: '', resource: 'nodes' };
+    default: return null;
+  }
+}
+
 interface ConfirmationCardProps {
   /** `clusterId`: where the write lands (the agent's cluster). */
   confirm: ConfirmRequest & { clusterId?: string };
@@ -60,6 +78,13 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const addToast = useUIStore((s) => s.addToast);
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const targetClusterId = confirm.clusterId ?? LOCAL_CLUSTER_ID;
+  // The person's own permission, asked of the cluster the write lands on (when that is the one shown).
+  const access = accessFor(confirm.tool, confirm.input);
+  const can = useCanI(access?.verb ?? 'patch', access?.group ?? '', access?.resource ?? '', access?.namespace, access?.subresource, { enabled: !!access && activeClusterId === targetClusterId });
+  const rbacBlock = !access || activeClusterId !== targetClusterId ? null
+    : can.isLoading ? 'Checking your permission…'
+    : can.allowed ? null
+    : `You do not have permission to ${access.verb} ${access.resource}${access.subresource ? `/${access.subresource}` : ''}${access.namespace ? ` in ${access.namespace}` : ''}. Approving would ask the agent to do what you are not allowed to do.`;
 
   const RiskIcon = risk.level === 'HIGH' ? ShieldAlert : risk.level === 'MEDIUM' ? Shield : ShieldCheck;
   const riskBg = risk.level === 'HIGH' ? 'bg-red-950/40' : risk.level === 'MEDIUM' ? 'bg-amber-950/30' : 'bg-slate-800';
@@ -99,12 +124,12 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
       const active = document.activeElement;
       if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
       if (risk.level === 'HIGH') return; // HIGH risk: no keyboard shortcuts
-      if (trustLevel !== 0 && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleApprove(); }
+      if (trustLevel !== 0 && !rbacBlock && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleApprove(); }
       if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { e.preventDefault(); handleDeny(); }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [risk.level, trustLevel, handleApprove, handleDeny]);
+  }, [risk.level, trustLevel, rbacBlock, handleApprove, handleDeny]);
 
   // Don't render if auto-approved
   if (shouldAutoApprove(confirm.tool, risk.level)) return null;
@@ -139,44 +164,22 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
             </span>
           </div>
 
-          {/* Where it lands */}
+          {/* Where it lands, as the write-confirm dialog says it */}
           <p className="text-xs text-slate-300">
-            Target cluster: <strong>{clusterDisplayName(targetClusterId)}</strong>
-            {activeClusterId !== targetClusterId && (
-              <span className="block text-amber-300">
-                You are viewing {clusterDisplayName(activeClusterId)}; this change applies to {clusterDisplayName(targetClusterId)}, where the agent runs.
-              </span>
-            )}
+            <WriteWhere namespace={typeof confirm.input.namespace === 'string' ? confirm.input.namespace : undefined} clusterId={targetClusterId} actingAs="agent-user" />
           </p>
 
-          {/* What will happen */}
-          {impact && (
-            <div className="rounded-sm bg-slate-900/50 border border-slate-700 px-3 py-2">
-              <h4 className="text-xs font-medium text-slate-400 mb-1">What will happen</h4>
-              <p className="text-xs text-slate-300">{impact}</p>
-            </div>
-          )}
+          {/* What will change: the agent sends no diff, so the tool and its parameters */}
+          <WriteChange params={{ action: confirm.tool, input: confirm.input }} collapsed />
 
           {/* Rollback info */}
-          {rollback && (
-            <div className="rounded-sm bg-slate-900/50 border border-slate-700 px-3 py-2">
-              <h4 className="text-xs font-medium text-slate-400 mb-1">Rollback</h4>
-              <p className="text-xs text-slate-300">{rollback}</p>
-            </div>
-          )}
-
-          {/* Raw parameters */}
-          <details>
-            <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-300">Show raw parameters</summary>
-            <pre className="text-xs text-slate-400 bg-slate-900 rounded-sm p-2 mt-1 overflow-auto max-h-32">
-              {JSON.stringify(confirm.input, null, 2)}
-            </pre>
-          </details>
+          {/* Impact, dry run and undo (rollback), as the write-confirm dialog shows them */}
+          <WriteFacts impact={impact ?? undefined} dryRun={{ state: 'unavailable' }} undo={rollback} />
 
           {/* Action buttons */}
-          {isObserveMode ? (
+          {isObserveMode || rbacBlock ? (
             <div className="flex items-center gap-2">
-              <p className="text-xs text-slate-400">Observe mode — write operations are blocked. Change trust level to enable actions.</p>
+              <p className="text-xs text-slate-400">{isObserveMode ? 'Observe mode — write operations are blocked. Change trust level to enable actions.' : rbacBlock}</p>
               <button
                 onClick={handleDeny}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 text-slate-300 rounded-sm transition-colors"

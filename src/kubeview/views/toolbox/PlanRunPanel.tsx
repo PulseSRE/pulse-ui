@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play, Loader2, CheckCircle2, XCircle, UserCheck, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { agentFetch, agentJson } from '../../engine/safeQuery';
+import { agentFetch } from '../../engine/safeQuery';
+import { ApprovalButtons } from '../inbox/DurableRunControls';
 
 interface RunProgress {
   current_phase: string;
@@ -32,6 +33,8 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
   // What the run investigates. Without a target the plan was started with an
   // empty incident and investigated nothing in particular.
   const [target, setTarget] = useState({ title: '', namespace: '', kind: 'Deployment', name: '' });
+  // The target as it was when the run started, for the approval dialog (the form may be edited since).
+  const [runTarget, setRunTarget] = useState(target);
 
   const { data: run } = useQuery<RunState>({
     queryKey: ['workflow-run', workflowId],
@@ -57,6 +60,7 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setWorkflowId(data.workflow_id);
+        setRunTarget(target);
       } else {
         // 503 carries the "set PULSE_AGENT_TEMPORAL_HOST" explanation; 400
         // names the unsupported plan features. Both are worth showing verbatim.
@@ -66,22 +70,6 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
       setError('Network error — could not reach agent');
     } finally {
       setStarting(false);
-    }
-  };
-
-  const approve = async (phaseId: string, approved: boolean) => {
-    setError('');
-    try {
-      await agentJson(`/api/agent/workflow-runs/${encodeURIComponent(workflowId!)}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase_id: phaseId, approved }),
-      });
-      queryClient.invalidateQueries({ queryKey: ['workflow-run', workflowId] });
-    } catch (e) {
-      // A refused verdict (403, 409) is not "surfaced by the next poll": the
-      // poll shows the gate still waiting, which reads as the click not taking.
-      setError(`${approved ? 'Approval' : 'Denial'} was not recorded: ${e instanceof Error ? e.message : 'request failed'}`);
     }
   };
 
@@ -162,10 +150,20 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
                 <UserCheck className="w-3 h-3" />
                 Phase “{awaiting}” is waiting for your approval
               </span>
-              <div className="flex gap-1">
-                <button onClick={() => approve(awaiting, true)} className="px-1.5 py-0.5 text-[10px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 rounded-sm border border-emerald-800/30">Approve</button>
-                <button onClick={() => approve(awaiting, false)} className="px-1.5 py-0.5 text-[10px] bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-sm border border-red-800/30">Deny</button>
-              </div>
+              {/* The same confirm as every other approval: dialog, observe-mode gate, cluster pin. */}
+              <ApprovalButtons
+                key={awaiting}
+                run={{
+                  workflow_id: workflowId!,
+                  phase_id: awaiting,
+                  memo: {
+                    incident_type: incidentType,
+                    ...(runTarget.name.trim() ? { resource_kind: runTarget.kind, resource_name: runTarget.name.trim() } : {}),
+                    ...(runTarget.namespace.trim() ? { resource_namespace: runTarget.namespace.trim() } : {}),
+                  },
+                }}
+                onAnswered={() => queryClient.invalidateQueries({ queryKey: ['workflow-run', workflowId] })}
+              />
             </div>
           )}
         </div>

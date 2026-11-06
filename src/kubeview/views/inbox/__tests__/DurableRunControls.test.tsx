@@ -61,21 +61,21 @@ describe('approving a waiting phase', () => {
   beforeEach(() => mockFetch.mockReset());
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-  it('names the phase and target and says it may change the cluster before sending', () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('names the phase and target and says it may change the cluster before sending', async () => {
     const calls = route({});
     render(<ApprovalButtons run={waiting} />);
     fireEvent.click(screen.getByText('Approve'));
-    expect(confirmSpy.mock.calls[0][0]).toContain("'remediate' of the crashloop plan on web-0 in shop");
-    expect(confirmSpy.mock.calls[0][0]).toContain('may change the cluster');
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toContain("'remediate' of the crashloop plan on web-0 in shop");
+    expect(dialog.textContent).toContain('may change the cluster');
     expect(calls).toHaveLength(0);
   });
 
   it('sends an explicit verdict for the right run and phase', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const calls = route({ '/approve': () => ({ body: { status: 'signalled' } }) });
     render(<ApprovalButtons run={waiting} />);
     fireEvent.click(screen.getByText('Deny'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Deny phase' }));
     await waitFor(() => expect(screen.getByText(/Denied/)).toBeTruthy());
     const post = calls.find((c) => c.method === 'POST')!;
     expect(post.url).toContain('/workflow-runs/plan-crashloop-abc/approve');
@@ -83,19 +83,19 @@ describe('approving a waiting phase', () => {
   });
 
   it("shows the agent's reason when the verdict cannot be delivered", async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     route({ '/approve': () => ({ status: 403, body: { detail: 'Administrator access required' } }) });
     render(<ApprovalButtons run={waiting} />);
     fireEvent.click(screen.getByText('Approve'));
-    await waitFor(() => expect(screen.getByText('Administrator access required')).toBeTruthy());
-    expect(screen.getByText('Approve')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve phase remediate' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Administrator access required');
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('the inbox panel answers the run named in the item', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const calls = route({ '/approve': () => ({ body: {} }) });
     render(<DurableApprovalPanel workflowId="plan-x" phaseId="fix" />);
     fireEvent.click(screen.getByText('Approve'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve phase fix' }));
     await waitFor(() => expect(calls.some((c) => c.url.includes('/workflow-runs/plan-x/approve'))).toBe(true));
   });
 });

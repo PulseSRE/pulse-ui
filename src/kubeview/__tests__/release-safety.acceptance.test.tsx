@@ -20,10 +20,17 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const confirm = { tool: 'scale_deployment', input: { name: 'web', namespace: 'prod', replicas: 4 }, nonce: 'request-123' };
 
+/** The card asks the cluster whether the person may make the write; the cluster says yes. */
+function renderCard(ui: React.ReactElement) {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ status: { allowed: true } }) }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
+
 describe('release approval acceptance with the real trust policy', () => {
   it('Observe never approves through a button or keyboard shortcut', () => {
     const sendConfirmation = vi.fn();
-    render(<ConfirmationCard confirm={confirm} onConfirm={sendConfirmation} />);
+    renderCard(<ConfirmationCard confirm={confirm} onConfirm={sendConfirmation} />);
     expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
     fireEvent.keyDown(window, { key: 'y' });
     expect(sendConfirmation).not.toHaveBeenCalled();
@@ -32,12 +39,12 @@ describe('release approval acceptance with the real trust policy', () => {
     expect(sendConfirmation).toHaveBeenCalledExactlyOnceWith(false);
   });
 
-  it('Bounded requires explicit approval when the request has no verified category', () => {
+  it('Bounded requires explicit approval when the request has no verified category', async () => {
     useTrustStore.setState({ trustLevel: 3, autoFixCategories: ['workloads'] });
     const sendConfirmation = vi.fn();
-    render(<ConfirmationCard confirm={confirm} onConfirm={sendConfirmation} />);
+    renderCard(<ConfirmationCard confirm={confirm} onConfirm={sendConfirmation} />);
     expect(sendConfirmation).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve operation (Y)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve operation (Y)' }));
     expect(sendConfirmation).toHaveBeenCalledExactlyOnceWith(true);
     expect(useTrustStore.getState().history).toHaveLength(1);
     expect(useTrustStore.getState().history[0].approved).toBe(true);
