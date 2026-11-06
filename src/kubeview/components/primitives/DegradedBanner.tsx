@@ -9,11 +9,14 @@ interface DegradedBannerProps {
   onRetry?: () => void;
   className?: string;
   collapsible?: boolean;
+  /** Override the reason's stock wording with what this page could not read. */
+  title?: string;
+  description?: string;
 }
 
-export function DegradedBanner({ reason, onRetry, className, collapsible = false }: DegradedBannerProps) {
+export function DegradedBanner({ reason, onRetry, className, collapsible = false, title, description }: DegradedBannerProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const info = DEGRADED_MESSAGES[reason];
+  const info = { title: title ?? DEGRADED_MESSAGES[reason].title, description: description ?? DEGRADED_MESSAGES[reason].description };
 
   return (
     <div
@@ -41,6 +44,7 @@ export function DegradedBanner({ reason, onRetry, className, collapsible = false
       </div>
       {onRetry && (
         <button
+          type="button"
           onClick={onRetry}
           className="shrink-0 flex items-center gap-1 rounded-sm px-2 py-1 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/20"
         >

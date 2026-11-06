@@ -121,6 +121,16 @@ describe('AboutView', () => {
     await waitFor(() => expect(screen.getByText(/Protocol v2 · 105 tools · 8 skills/)).toBeDefined());
   });
 
+  it('leaves out what the agent did not report, never "undefined skills"', async () => {
+    vi.mocked(agentFetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ protocol: 2, agent: 'v2.22.1', tools: 105 }),
+    } as unknown as Response);
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Protocol v2 · 105 tools')).toBeDefined());
+    expect(document.body.textContent).not.toMatch(/undefined/);
+  });
+
   it('survives a cluster that will not answer', async () => {
     vi.mocked(k8sList).mockRejectedValue(new Error('forbidden'));
     vi.mocked(agentFetch).mockRejectedValue(new Error('agent offline'));
