@@ -17,6 +17,7 @@ import { formatAge } from '../engine/dateUtils';
 import { useUIStore } from '../store/uiStore';
 import { useKubeadminSecret, KUBEADMIN_SECRET_QUERY_KEY, type KubeadminStatus } from '../hooks/useKubeadminSecret';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { useTabParam } from '../components/primitives/Tabs';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { Card } from '../components/primitives/Card';
 import { Panel } from '../components/primitives/Panel';
@@ -109,16 +110,7 @@ export default function IdentityView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
-  const urlTab = new URLSearchParams(window.location.search).get('tab') as TabId | null;
-  const [activeTab, setActiveTabState] = useState<TabId>(
-    urlTab && TAB_IDS.includes(urlTab) ? urlTab : 'users',
-  );
-  const setActiveTab = (tab: TabId) => {
-    setActiveTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'users') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
-  };
+  const [activeTab, setActiveTab] = useTabParam<TabId>(TAB_IDS, 'users');
   const [search, setSearch] = useState('');
 
   // ---- Data (useK8sListWatch for real-time updates) ----

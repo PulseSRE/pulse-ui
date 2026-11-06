@@ -12,6 +12,7 @@ import type { Condition, Container, ContainerStatus, LabelSelector, ObjectMeta }
 import { getDeploymentStatus, getPodStatus } from '../engine/renderers/statusUtils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
+import { useTabParam } from '../components/primitives/Tabs';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
 import { MetricGrid } from '../components/primitives/MetricGrid';
@@ -29,6 +30,7 @@ import { timeAgo } from '../engine/dateUtils';
 const BuildsView = lazy(() => import('./BuildsView'));
 
 type Tab = 'overview' | 'builds';
+const TABS: readonly Tab[] = ['overview', 'builds'];
 
 /** Local PDB type — not yet in engine/types */
 interface PodDisruptionBudget extends K8sResource {
@@ -55,11 +57,7 @@ export default function WorkloadsView() {
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const safeNs = nsFilter ? sanitizePromQL(nsFilter) : '';
 
-  const initialTab = (() => {
-    const params = new URLSearchParams(window.location.search);
-    return (params.get('tab') as Tab) || 'overview';
-  })();
-  const [activeTab, setActiveTab] = React.useState<Tab>(initialTab);
+  const [activeTab, switchTab] = useTabParam<Tab>(TABS, 'overview');
   const [deployFilter, setDeployFilter] = React.useState<string | null>(null);
   const [stsFilter, setStsFilter] = React.useState<string | null>(null);
   const [dsFilter, setDsFilter] = React.useState<string | null>(null);
@@ -70,13 +68,6 @@ export default function WorkloadsView() {
   const showList = (id: string, apply: () => void) => {
     apply();
     requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
-  };
-
-  const switchTab = (tab: Tab) => {
-    const url = new URL(window.location.href);
-    if (tab === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
-    setActiveTab(tab);
   };
 
   const deploysQ = useK8sListWatch<Deployment>({ apiPath: '/apis/apps/v1/deployments', namespace: nsFilter });

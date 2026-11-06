@@ -68,3 +68,17 @@ describe('getTabTitle', () => {
     expect(getTabTitle('/')).toBe('Untitled');
   });
 });
+
+describe('getTabTitle with a query', () => {
+  it('names the namespace of a list opened for one', () => {
+    expect(getTabTitle('/r/v1~pods?ns=team-a')).toBe('Pods (team-a)');
+    expect(getTabTitle('/r/v1~pods?ns=*')).toBe('Pods');
+  });
+  it('names the kind of a workload logs tab', () => {
+    expect(getTabTitle('/logs/shop/db?kind=StatefulSet')).toBe('db (StatefulSet logs)');
+    expect(getTabTitle('/logs/shop/db')).toBe('db (Logs)');
+  });
+  it('ignores other params', () => {
+    expect(getTabTitle('/r/v1~pods/shop/web?tab=events')).toBe('web (Pod)');
+  });
+});

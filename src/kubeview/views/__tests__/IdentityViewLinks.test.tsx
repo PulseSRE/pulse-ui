@@ -29,10 +29,9 @@ describe('IdentityView RBAC audit links', () => {
   afterEach(() => { cleanup(); goMock.mockReset(); window.history.replaceState(null, '', '/'); });
 
   it('opens the ServiceAccount, not a RoleBinding YAML of the same name', () => {
-    window.history.replaceState(null, '', '/identity?tab=rbac');
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MemoryRouter><IdentityView /></MemoryRouter>
+        <MemoryRouter initialEntries={['/identity?tab=rbac']}><IdentityView /></MemoryRouter>
       </QueryClientProvider>,
     );
     fireEvent.click(screen.getByText('ServiceAccount Token Automount').closest('button')!);
