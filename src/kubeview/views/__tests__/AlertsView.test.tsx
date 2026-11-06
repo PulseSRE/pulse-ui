@@ -393,7 +393,7 @@ describe('an unreachable alerting backend is not zero alerts', () => {
 
   it('does not report zero firing alerts when it cannot see any', async () => {
     renderAlerts();
-    await waitFor(() => expect(screen.getByText(/Backend unavailable/i)).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByText(/Could not reach the alerting backend/i)).toBeDefined(), { timeout: 5000 });
     const firingTile = screen.getByText('Firing').parentElement;
     expect(firingTile?.textContent).not.toMatch(/\b0\b/);
     expect(firingTile?.textContent).toContain('—');
@@ -401,7 +401,11 @@ describe('an unreachable alerting backend is not zero alerts', () => {
 
   it('shows every count as unknown, not just the first', async () => {
     renderAlerts();
-    await waitFor(() => expect(screen.getByText(/Backend unavailable/i)).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByText(/Could not reach the alerting backend/i)).toBeDefined(), { timeout: 5000 });
+    // One honest message with the reason, not a dev-server hint or a red badge.
+    expect(screen.queryByText(/restart the dev server/)).toBeNull();
+    expect(screen.queryByText(/Backend unavailable/)).toBeNull();
+    expect(screen.getByText(/THANOS_URL not configured/)).toBeDefined();
     for (const label of ['Firing', 'Pending', 'Silenced', 'Alert Rules', 'Active Silences']) {
       expect(screen.getByText(label).parentElement?.textContent, label).toContain('—');
     }
@@ -416,7 +420,7 @@ describe('an unreachable alerting backend is not zero alerts', () => {
     // because it guards a different mistake: making the border react to the
     // error state itself, which would paint "unknown" as "firing".
     renderAlerts();
-    await waitFor(() => expect(screen.getByText(/Backend unavailable/i)).toBeDefined(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByText(/Could not reach the alerting backend/i)).toBeDefined(), { timeout: 5000 });
     const tile = screen.getByText('Firing').closest('button');
     expect(tile?.className).not.toMatch(/border-red/);
   });
@@ -469,7 +473,7 @@ describe('alert sources are handled separately', () => {
     await waitFor(() => expect(screen.getAllByText('DiskFilling').length).toBeGreaterThan(0), { timeout: 3000 });
     // The silences query retries once before it errors.
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Silences could not be read from Alertmanager/), { timeout: 4000 });
-    expect(screen.queryByText(/Backend unavailable/i)).toBeNull();
+    expect(screen.queryByText(/Could not reach the alerting backend/i)).toBeNull();
     expect(screen.getByText('Active Silences').parentElement?.textContent).toContain('—');
     expect(screen.getByText('Firing').parentElement?.textContent).toContain('1');
   });

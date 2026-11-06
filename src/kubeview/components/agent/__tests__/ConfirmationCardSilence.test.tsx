@@ -153,4 +153,14 @@ describe('ConfirmationCard for silences', () => {
     expect(onConfirm).not.toHaveBeenCalled();
     expect(screen.getByTestId('silence-preview')).toBeTruthy();
   });
+
+  it.each(['create_silence', 'expire_silence'])('%s is never auto-approved, even when the trust level auto-approves everything', (tool) => {
+    mockTrustState = { ...mockTrustState, trustLevel: 4, shouldAutoApprove: () => true };
+    const onConfirm = vi.fn();
+    const input = tool === 'create_silence' ? createInput : { silence_id: 's' };
+    const preview = tool === 'create_silence' ? goodPreview : { kind: 'silence_expire', valid: true, silenceId: 's', matchers: [], createdBy: 'd', comment: 'c' };
+    render(<ConfirmationCard confirm={{ tool, input, nonce: 'n', preview }} onConfirm={onConfirm} />);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByTestId('silence-preview')).toBeTruthy();
+  });
 });

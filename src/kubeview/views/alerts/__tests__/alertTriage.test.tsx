@@ -36,6 +36,8 @@ const UNREACH = { alertname: 'KubeNodeUnreachable', node: 'worker-5', severity: 
 const KUBELET = { alertname: 'KubeletDown', node: 'worker-5', severity: 'warning' };
 const DISK = { alertname: 'NodeFilesystemSpaceFillingUp', node: 'worker-5', severity: 'warning' };
 const OTHER_NODE = { alertname: 'KubeNodeUnreachable', node: 'worker-6', severity: 'warning' };
+// The rest of a busy cluster, so a node silence hides a small share of what fires.
+const FILLER = Array.from({ length: 10 }, (_, i) => alert({ alertname: 'TargetDown', namespace: `team-${i}`, job: `j${i}`, severity: 'warning' }));
 const QUOTA = { alertname: 'KubeQuotaAlmostFull', namespace: 'payments', severity: 'warning' };
 
 function rules(alerts: ReturnType<typeof alert>[]) {
@@ -76,7 +78,7 @@ beforeEach(() => {
   visited.length = 0;
   askPulse.mockClear();
   try { localStorage.clear(); } catch { /* jsdom */ }
-  ALERTS = [alert(CRASH), alert(MISMATCH), alert(UNREACH), alert(KUBELET), alert(DISK), alert(OTHER_NODE), alert(QUOTA, 'pending')];
+  ALERTS = [alert(CRASH), alert(MISMATCH), alert(UNREACH), alert(KUBELET), alert(DISK), alert(OTHER_NODE), alert(QUOTA, 'pending'), ...FILLER];
   triageResponse = (body) => json({ results: body.alerts.map((a: { labels: Record<string, string> }) => triageFor(a.labels)) });
   h.state.handler = (r) => {
     if (r.url.includes('/api/v1/rules')) return json(rules(ALERTS));
@@ -123,6 +125,19 @@ describe('Triage chip', () => {
     expect(await screen.findByTestId('triage-unavailable')).toBeTruthy();
     expect(screen.queryByText(/Checking Inbox/)).toBeNull();
     expect(screen.queryByTestId('triage-could-not-check')).toBeNull();
+  });
+});
+
+describe('triage batches', () => {
+  it('sends at most 200 alerts per request; a failed batch marks only its own rows', async () => {
+    ALERTS = Array.from({ length: 201 }, (_, i) => alert({ alertname: 'TargetDown', namespace: `ns-${i}`, job: `j${i}`, severity: 'warning' }));
+    triageResponse = (body) => (body.alerts.length === 1 ? json({ detail: 'bad label' }, 400) : json({ results: body.alerts.map((a: { labels: Record<string, string> }) => triageFor(a.labels)) }));
+    renderAt();
+    await waitFor(() => expect(h.state.requests.filter((r) => r.url.endsWith('/api/agent/inbox/by-alert'))).toHaveLength(2));
+    const sizes = h.state.requests.filter((r) => r.url.endsWith('/api/agent/inbox/by-alert')).map((r) => r.body.alerts.length).sort((a, b) => a - b);
+    expect(sizes).toEqual([1, 200]);
+    await waitFor(() => expect(screen.getAllByTestId('triage-could-not-check')).toHaveLength(1));
+    expect(screen.getAllByText('Not in the Inbox')).toHaveLength(200);
   });
 });
 
@@ -229,7 +244,7 @@ describe('Pulse suggests a silence', () => {
     const dialog = await openSuggestedSilence();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Edit matchers' }));
     fireEvent.change(within(dialog).getByLabelText('Matchers'), { target: { value: 'alertname=~".*"' } });
-    expect(within(dialog).getByRole('alert').textContent).toMatch(/every alert/);
+    expect(within(dialog).getByRole('alert').textContent).toMatch(/too broad/);
     expect((within(dialog).getByRole('button', { name: /Create silence/ }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(within(dialog).getByLabelText('Matchers'), { target: { value: 'node="worker-5"' } });
     fireEvent.change(within(dialog).getByLabelText(/Comment/), { target: { value: '  ' } });
@@ -247,18 +262,46 @@ describe('Pulse suggests a silence', () => {
     expect(h.writes()).toHaveLength(0);
   });
 
-  it('when the user lookup fails, the creator must be typed and is what is sent', async () => {
+  it('when the user lookup fails, nothing can be created and it says so (no typed creator)', async () => {
     const base = h.state.handler;
     h.state.handler = (r) => (r.path === '/apis/user.openshift.io/v1/users/~' ? k8sStatus(403, 'forbidden') : base(r));
     const dialog = await openSuggestedSilence();
-    const confirm = within(dialog).getByRole('button', { name: /Create silence/ }) as HTMLButtonElement;
-    await waitFor(() => expect(within(dialog).getByLabelText('Created by')).toBeTruthy());
-    expect(confirm.disabled).toBe(true);
-    fireEvent.change(within(dialog).getByLabelText('Created by'), { target: { value: 'bob' } });
-    await waitFor(() => expect(confirm.disabled).toBe(false));
+    expect((await within(dialog).findByTestId('creator-unknown')).textContent).toContain('Could not confirm who you are; try again.');
+    expect(within(dialog).queryByRole('textbox', { name: /Created by/ })).toBeNull();
+    expect((within(dialog).getByRole('button', { name: /Create silence/ }) as HTMLButtonElement).disabled).toBe(true);
+    // Retry: the lookup answers now.
+    h.state.handler = base;
+    fireEvent.click(within(within(dialog).getByTestId('creator-unknown')).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect((within(dialog).getByRole('button', { name: /Create silence/ }) as HTMLButtonElement).disabled).toBe(false));
+    expect(h.writes()).toHaveLength(0);
+  });
+
+  it('refuses a silence that would hide too many of the firing alerts, with the reason', async () => {
+    const dialog = await openSuggestedSilence();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Edit matchers' }));
+    fireEvent.change(within(dialog).getByLabelText('Matchers'), { target: { value: 'alertname="TargetDown"' } });
+    expect(within(dialog).getAllByRole('alert').map((a) => a.textContent).join(' ')).toMatch(/would hide 10 of the 16 alerts firing now/);
+    expect((within(dialog).getByRole('button', { name: /Create silence/ }) as HTMLButtonElement).disabled).toBe(true);
+    // Edited matchers no longer claim to be "on worker-5".
+    expect(within(dialog).getByRole('heading', { level: 2 }).textContent).not.toContain('on worker-5');
+  });
+
+  it('Undo from the success toast asks before expiring', async () => {
+    const { useUIStore } = await import('../../../store/uiStore');
+    const dialog = await openSuggestedSilence();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Edit matchers' }));
+    fireEvent.change(within(dialog).getByLabelText('Matchers'), { target: { value: 'node="worker-5", alertname="KubeletDown"' } });
+    const confirm = within(dialog).getByRole('button', { name: /Create silence/ });
+    await waitFor(() => expect((confirm as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(confirm);
-    await waitFor(() => expect(h.writes()).toHaveLength(1));
-    expect(h.writes()[0].body.createdBy).toBe('bob');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const toast = useUIStore.getState().toasts.find((t) => t.title?.startsWith('Silence created'))!;
+    act(() => { toast.action!.onClick(); });
+    const ask = await screen.findByRole('dialog');
+    expect(within(ask).getByText('Expire silence?')).toBeTruthy();
+    expect(h.writes().filter((w) => w.method === 'DELETE')).toHaveLength(0);
+    fireEvent.click(within(ask).getByRole('button', { name: 'Expire' }));
+    await waitFor(() => expect(h.writes().some((w) => w.method === 'DELETE' && w.url.endsWith('/silence/sil-1'))).toBe(true));
   });
 
   it('rows on the node propose the silence; Dismiss hides the suggestion', async () => {

@@ -80,7 +80,8 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const autoApprovedRef = useRef(false);
   useEffect(() => {
     if (autoApprovedRef.current) return;
-    if (refused) return;
+    // A silence hides alerts from the on-call: always a person's decision, at every trust level.
+    if (refused || isSilence) return;
     if (shouldAutoApprove(confirm.tool, risk.level)) {
       autoApprovedRef.current = true;
       recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
@@ -119,7 +120,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   }, [risk.level, trustLevel, handleApprove, handleDeny]);
 
   // Don't render if auto-approved
-  if (shouldAutoApprove(confirm.tool, risk.level) && !refused) return null;
+  if (shouldAutoApprove(confirm.tool, risk.level) && !refused && !isSilence) return null;
 
   // Trust Level 0 (Observe) — auto-deny, don't show action buttons
   const isObserveMode = trustLevel === 0;

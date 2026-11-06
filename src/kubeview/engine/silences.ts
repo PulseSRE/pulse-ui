@@ -55,16 +55,38 @@ export function parseMatchers(text: string): Matcher[] {
   return out;
 }
 
+const MAX_REGEX_LEN = 200;
+const MAX_MATCH_VALUE_LEN = 1024;
+/** A group containing a quantifier, itself quantified: (a+)+, (x*)*. */
+const NESTED_QUANTIFIER = /\((?:[^()\\]|\\.)*[*+}](?:[^()\\]|\\.)*\)\s*[*+{]/;
+const ANCHOR_LABELS = new Set(['alertname', 'node', 'pod', 'deployment', 'statefulset', 'daemonset', 'job_name', 'persistentvolumeclaim']);
+const PLATFORM_NS = /^(openshift|kube)(-.*)?$/;
+/** Watchdog's label set on OpenShift's platform Prometheus. */
+export const WATCHDOG_LABELS: Record<string, string> = {
+  alertname: 'Watchdog', namespace: 'openshift-monitoring', severity: 'none', prometheus: 'openshift-monitoring/k8s',
+};
+/** The agent's defaults (silence_max_hidden_alerts / _fraction / fraction_min_alerts). */
+export const SILENCE_LIMITS = { maxHidden: 10, maxFraction: 0.25, fractionMinAlerts: 3 };
+
+export function regexProblem(pattern: string): string | null {
+  if (pattern.length > MAX_REGEX_LEN) return `is longer than ${MAX_REGEX_LEN} characters`;
+  if (NESTED_QUANTIFIER.test(pattern)) return 'has a nested quantifier such as (a+)+';
+  try { new RegExp(pattern); } catch { return 'does not compile'; }
+  return null;
+}
+
 function fullMatch(pattern: string, value: string): boolean | null {
+  if (regexProblem(pattern)) return null;
   try {
-    return new RegExp(`^(?:${pattern})$`).test(value);
+    return new RegExp(`^(?:${pattern})$`).test(value.slice(0, MAX_MATCH_VALUE_LEN));
   } catch {
     return null;
   }
 }
 
 export function matcherMatches(m: Matcher, value: string): boolean {
-  const hit = m.isRegex ? fullMatch(m.value, value) === true : value === m.value;
+  const v = value.slice(0, MAX_MATCH_VALUE_LEN);
+  const hit = m.isRegex ? fullMatch(m.value, v) === true : v === m.value;
   return m.isEqual ? hit : !hit;
 }
 
@@ -73,27 +95,41 @@ export function labelsMatch(labels: Record<string, string>, ms: Matcher[]): bool
   return ms.every((m) => matcherMatches(m, labels[m.name] ?? ''));
 }
 
-const PROBES = ['x', 'pulse-probe-7f3a9c', 'Z9_q.r/s:t'];
-
-function isNarrow(m: Matcher): boolean {
-  if (!m.isEqual) return false;
-  if (!m.isRegex) return m.value !== '';
-  if (fullMatch(m.value, '') !== false) return false;
-  return !PROBES.every((p) => fullMatch(m.value, p) === true);
+/** A positive equality on an alert name, a resource, or an application namespace. */
+function isAnchor(m: Matcher): boolean {
+  if (!m.isEqual || m.isRegex || !m.value) return false;
+  if (ANCHOR_LABELS.has(m.name)) return true;
+  return m.name === 'namespace' && !PLATFORM_NS.test(m.value);
 }
 
-/** Why these matchers may not be used, or null when they are acceptable. */
+/**
+ * Why these matchers may not be used, or null. The same rules as the
+ * agent's sre_agent/silences.py, so the chat path and this dialog agree.
+ */
 export function matcherProblem(ms: Matcher[]): string | null {
   if (ms.length === 0) return 'A silence needs at least one matcher; an empty set would mute every alert.';
   for (const m of ms) {
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(m.name)) return `"${m.name}" is not a valid label name.`;
-    if (m.isRegex && fullMatch(m.value, '') === null) return `The regex for ${m.name} does not compile.`;
+    if (m.isRegex) {
+      const p = regexProblem(m.value);
+      if (p) return `The regex for ${m.name} ${p}.`;
+    }
   }
-  if (!ms.some(isNarrow)) {
-    return 'These matchers would match every alert: at least one must be a positive matcher (= or =~) that names something specific.';
+  if (!ms.some(isAnchor)) {
+    return 'These matchers are too broad: at least one must be an exact (=) match on alertname or on a resource (node, pod, deployment, statefulset, daemonset, job_name, persistentvolumeclaim), or on a namespace outside openshift-*/kube-*. severity, prometheus or a regex alone would mute whole classes of alerts.';
   }
-  if (ms.some((m) => m.name === 'alertname' && m.isEqual && matcherMatches(m, 'Watchdog'))) {
+  if (labelsMatch(WATCHDOG_LABELS, ms)) {
     return 'Watchdog cannot be silenced: it is the always-firing alert that tells the external pager Alertmanager is alive.';
+  }
+  return null;
+}
+
+/** Why a silence hiding these firing alerts is refused (a firing Watchdog, or too many of them), or null. */
+export function hiddenProblem(hidden: AlertForSilence[], firing: AlertForSilence[], limits = SILENCE_LIMITS): string | null {
+  if (hidden.some((a) => a.labels.alertname === 'Watchdog')) return 'Watchdog cannot be silenced, and these matchers would hide the Watchdog firing now.';
+  if (hidden.length > limits.maxHidden) return `These matchers would hide ${hidden.length} alerts firing now, more than the ${limits.maxHidden} a silence may hide. Narrow them.`;
+  if (firing.length && hidden.length >= limits.fractionMinAlerts && hidden.length / firing.length > limits.maxFraction) {
+    return `These matchers would hide ${hidden.length} of the ${firing.length} alerts firing now, more than ${Math.round(limits.maxFraction * 100)}% of them. Narrow them.`;
   }
   return null;
 }

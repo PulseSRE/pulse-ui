@@ -17,8 +17,8 @@ import { useUIStore } from '../../store/uiStore';
 import { assertActiveCluster, clusterDisplayName } from '../../engine/pendingCluster';
 import { getActiveClusterId } from '../../engine/clusterConnection';
 import {
-  buildSilenceBody, createSilence, describeMinutes, expireSilence, formatMatcher, formatMatchers,
-  labelsMatch, matcherProblem, parseMatchers, type AlertForSilence, type Matcher,
+  buildSilenceBody, createSilence, describeMinutes, formatMatcher, formatMatchers,
+  hiddenProblem, labelsMatch, matcherProblem, parseMatchers, type AlertForSilence, type Matcher,
 } from '../../engine/silences';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +47,10 @@ interface Props {
   /** Alerts and silences are the local cluster's only. */
   clusterId: string;
   onCreated?: (id: string) => void;
+  /** Undo from the success toast: asks for confirmation before expiring. */
+  onUndo?: (silence: { id: string; comment: string; matchers: Matcher[] }) => void;
+  /** Retry the "who am I" lookup when it failed. */
+  onRetryUser?: () => void;
 }
 
 const ALT_MINUTES = [60, 240];
@@ -59,20 +63,19 @@ function AlertLine({ a }: { a: AlertForSilence }) {
   const sev = a.labels.severity || 'warning';
   return (
     <li className="flex items-center gap-2 text-xs">
-      <span className={cn('px-1.5 py-0.5 rounded-sm', sev === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{sev}</span>
+      <span className={cn('px-1.5 py-0.5 rounded-sm', sev === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300')}>{sev}</span>
       <span className="text-slate-200">{a.labels.alertname}</span>
       <span className="text-slate-500">· {a.state}</span>
     </li>
   );
 }
 
-export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentUser, clusterId, onCreated }: Props) {
+export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentUser, clusterId, onCreated, onUndo, onRetryUser }: Props) {
   const addToast = useUIStore((s) => s.addToast);
   const [matcherText, setMatcherText] = useState(formatMatchers(proposal.matchers));
   const [editing, setEditing] = useState(false);
   const [minutes, setMinutes] = useState(proposal.minutes);
   const [comment, setComment] = useState(proposal.comment);
-  const [createdBy, setCreatedBy] = useState(currentUser);
   const [running, setRunning] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   // Pinned when the dialog opens: switching clusters meanwhile must not retarget it.
@@ -84,7 +87,6 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
     setEditing(false);
     setMinutes(proposal.minutes);
     setComment(proposal.comment);
-    setCreatedBy(currentUser);
     setWriteError(null);
     pinnedCluster.current = getActiveClusterId();
     // Reset when a new proposal opens, not on every render.
@@ -114,9 +116,13 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
   const proposed = useMemo(() => new Set(proposal.matchers.map(formatMatcher)), [proposal.matchers]);
   const commentMissing = !comment.trim();
   // The signed-in user when known; typed in only when the lookup failed.
-  const creator = currentUser || createdBy.trim();
+  // The signed-in user only: when the lookup failed nobody can be named, so nothing is created.
+  const creator = currentUser;
   const creatorMissing = !creator;
-  const blocked = !!parsed.error || commentMissing || creatorMissing || rbacLoading || !allowed;
+  const firing = useMemo(() => alerts.filter((a) => a.state === 'firing'), [alerts]);
+  const tooMuch = useMemo(() => (parsed.error ? null : hiddenProblem(hides.filter((a) => a.state === 'firing'), firing)), [parsed.error, hides, firing]);
+  const edited = matcherText !== formatMatchers(proposal.matchers);
+  const blocked = !!parsed.error || !!tooMuch || commentMissing || creatorMissing || rbacLoading || !allowed;
 
   const confirm = async () => {
     if (!parsed.matchers || blocked || running) return;
@@ -133,12 +139,7 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
         detail: formatMatchers(matchers),
         action: {
           label: 'Undo',
-          onClick: () => {
-            expireSilence(id).then(
-              () => addToast({ type: 'success', title: 'Silence expired', detail: 'Its alerts notify again.' }),
-              (e: unknown) => addToast({ type: 'error', title: 'The silence was not expired', detail: errorMessage(e) }),
-            );
-          },
+          onClick: () => onUndo?.({ id, comment: comment.trim(), matchers }),
         },
       });
       onCreated?.(id);
@@ -159,7 +160,7 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
       dismissible={!running}
       size="xl"
       icon={<VolumeX className="w-5 h-5 text-slate-300" />}
-      title={`Silence ${hides.length} alert${hides.length === 1 ? '' : 's'} on ${proposal.target} for ${describeMinutes(minutes)}?`}
+      title={`Silence ${hides.length} alert${hides.length === 1 ? '' : 's'}${edited ? '' : ` on ${proposal.target}`} for ${describeMinutes(minutes)}?`}
       description={<>Proposed by Pulse · Alertmanager · cluster {clusterDisplayName(clusterId)} · you are acting as {creator || 'unknown'}</>}
       footer={(
         <>
@@ -202,6 +203,7 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
 
         <section>
           <h3 className="text-xs font-medium text-slate-400 mb-1">What it will hide</h3>
+          {tooMuch && <p role="alert" className="text-xs text-red-300 mb-1">{tooMuch}</p>}
           {parsed.error ? (
             <p className="text-xs text-slate-500">—</p>
           ) : hides.length === 0 ? (
@@ -239,17 +241,14 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
             <div className="text-slate-200">{proposal.owner || 'No Inbox owner'}</div>
           </div>
           <div>
-            <label htmlFor="silence-created-by" className="text-slate-400 font-medium mb-0.5 block">Created by</label>
+            <div className="text-slate-400 font-medium mb-0.5">Created by</div>
             {currentUser ? (
-              <div id="silence-created-by" className="text-slate-200">{currentUser}, on Pulse's proposal</div>
+              <div className="text-slate-200">{currentUser}, on Pulse's proposal</div>
             ) : (
-              <input
-                id="silence-created-by"
-                value={createdBy}
-                placeholder="Your username"
-                onChange={(e) => setCreatedBy(e.target.value)}
-                className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded-sm text-slate-200"
-              />
+              <div role="alert" className="text-amber-300" data-testid="creator-unknown">
+                Could not confirm who you are; try again.{' '}
+                {onRetryUser && <button type="button" className="text-blue-400 hover:text-blue-300" onClick={onRetryUser}>Retry</button>}
+              </div>
             )}
           </div>
         </div>

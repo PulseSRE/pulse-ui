@@ -13,6 +13,8 @@ import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { usePinnedAction } from '../hooks/usePinnedAction';
 import { Button } from '../components/primitives/Button';
+import { useTabParam } from '../components/primitives/Tabs';
+import { useSearchParams } from 'react-router-dom';
 import { RuleDetailDrawer, type RuleDetail } from './alerts/RuleDetailDrawer';
 import { createTemplateUrl } from '../engine/createTemplates';
 import { EmptyState } from '../components/primitives/EmptyState';
@@ -67,6 +69,7 @@ interface Silence {
 }
 
 type Tab = 'firing' | 'rules' | 'silences';
+const ALERT_TABS: readonly Tab[] = ['firing', 'rules', 'silences'];
 
 interface SilenceMatcher {
   name: string;
@@ -119,7 +122,7 @@ function LocalAlertsView() {
   const addToast = useUIStore((s) => s.addToast);
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   // No made-up author: if the lookup fails, the form asks for one.
-  const { data: currentUser = '' } = useQuery({
+  const { data: currentUser = '', refetch: refetchCurrentUser } = useQuery({
     // The silence author on the local Alertmanager is the user of the local cluster.
     queryKey: ['currentUser', METRICS_CLUSTER_ID],
     queryFn: async () => {
@@ -132,25 +135,12 @@ function LocalAlertsView() {
     },
     staleTime: 300000,
   });
-  const urlTab = new URLSearchParams(window.location.search).get('tab') as Tab;
-  const [activeTab, setActiveTabState] = useState<Tab>(urlTab || 'firing');
-  const setActiveTab = (tab: Tab) => {
-    setActiveTabState(tab);
-    const url = new URL(window.location.href);
-    if (tab === 'firing') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab);
-    window.history.replaceState(null, '', url.toString());
-  };
-  const urlParams = new URLSearchParams(window.location.search);
-  const [searchQuery, setSearchQuery] = useState(urlParams.get('q') || '');
-  const [severityFilter, setSeverityFilterState] = useState<'all' | 'critical' | 'warning' | 'info'>((urlParams.get('severity') as 'all' | 'critical' | 'warning' | 'info') || 'all');
-  const [groupBy, setGroupByState] = useState<'none' | 'namespace' | 'alertname'>((urlParams.get('groupBy') as 'none' | 'namespace' | 'alertname') || 'none');
-  const updateUrlParam = (key: string, value: string, defaultValue: string) => {
-    const url = new URL(window.location.href);
-    if (value === defaultValue) url.searchParams.delete(key); else url.searchParams.set(key, value);
-    window.history.replaceState(null, '', url.toString());
-  };
-  const setSeverityFilter = (v: typeof severityFilter) => { setSeverityFilterState(v); updateUrlParam('severity', v, 'all'); };
-  const setGroupBy = (v: typeof groupBy) => { setGroupByState(v); updateUrlParam('groupBy', v, 'none'); };
+  const [activeTab, setActiveTab] = useTabParam<Tab>(ALERT_TABS, 'firing');
+  const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  // Filters live in the URL through the router, like the tab, so links and Back keep them.
+  const [severityFilter, setSeverityFilter] = useTabParam<'all' | 'critical' | 'warning' | 'info'>(['all', 'critical', 'warning', 'info'], 'all', 'severity');
+  const [groupBy, setGroupBy] = useTabParam<'none' | 'namespace' | 'alertname'>(['none', 'namespace', 'alertname'], 'none', 'groupBy');
   const [showSilenceForm, setShowSilenceForm] = useState(false);
   const [silenceForm, setSilenceForm] = useState<SilenceFormData>({
     matchers: [{ name: 'alertname', value: '', isRegex: false, isEqual: true }],
@@ -173,7 +163,7 @@ function LocalAlertsView() {
       const res = await promFetch('/api/v1/rules', METRICS_CLUSTER_ID);
       if (!res.ok) throw new Error(`Prometheus returned ${res.status} ${res.statusText}`);
       const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) throw new Error('Prometheus endpoint returned non-JSON response — is THANOS_URL configured?');
+      if (!ct.includes('application/json')) throw new Error('the Prometheus endpoint did not answer with JSON (the alerting proxy may be missing)');
       const json = await res.json();
       return json.data?.groups || [];
     },
@@ -188,7 +178,7 @@ function LocalAlertsView() {
       const res = await fetch('/api/alertmanager/api/v2/silences');
       if (!res.ok) throw new Error(`Alertmanager returned ${res.status} ${res.statusText}`);
       const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) throw new Error('Alertmanager endpoint returned non-JSON response — is ALERTMANAGER_URL configured?');
+      if (!ct.includes('application/json')) throw new Error('the Alertmanager endpoint did not answer with JSON (the alerting proxy may be missing)');
       return res.json();
     },
     refetchInterval: 60000,
@@ -526,12 +516,7 @@ function LocalAlertsView() {
             </h1>
             <p className="text-sm text-slate-400 mt-1">Reference list from Prometheus and Alertmanager. Triage happens in the Inbox; each firing row links to it.</p>
           </div>
-          {backendUnavailable ? (
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-900/30 border border-red-800 rounded-lg">
-              <XCircle className="w-5 h-5 text-red-400" />
-              <span className="text-sm font-medium text-red-300">Backend unavailable</span>
-            </div>
-          ) : alertsPending ? (
+          {backendUnavailable ? null /* said once, below the stats, with the reason and Retry */ : alertsPending ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/60 border border-slate-700 rounded-lg">
               <span className="text-sm text-slate-300">Checking alerts…</span>
             </div>
@@ -561,11 +546,11 @@ function LocalAlertsView() {
               <div className="text-xs mt-0.5">
                 {criticalCount > 0 && <span className="text-red-400">{criticalCount} critical</span>}
                 {criticalCount > 0 && warningCount > 0 && <span className="text-slate-600"> · </span>}
-                {warningCount > 0 && <span className="text-yellow-400">{warningCount} warning</span>}
+                {warningCount > 0 && <span className="text-amber-400">{warningCount} warning</span>}
               </div>
             )}
           </button>
-          <button aria-pressed={stateFilter === 'pending'} onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('pending'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button aria-pressed={stateFilter === 'pending'} onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('pending'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Pending</div>
             <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : pendingAlerts.length}</div>
             <div className="text-xs text-slate-600 mt-0.5">About to fire</div>
@@ -634,7 +619,7 @@ function LocalAlertsView() {
               <div className="flex bg-slate-900 rounded-lg border border-slate-700 text-xs">
                 {(['all', 'critical', 'warning', 'info'] as const).map((sev) => (
                   <button key={sev} onClick={() => setSeverityFilter(sev)} className={cn('px-2.5 py-1.5 capitalize transition-colors',
-                    severityFilter === sev ? (sev === 'critical' ? 'bg-red-600 text-white rounded-lg' : sev === 'warning' ? 'bg-yellow-600 text-white rounded-lg' : 'bg-blue-600 text-white rounded-lg') : 'text-slate-400 hover:text-slate-200')}>
+                    severityFilter === sev ? (sev === 'critical' ? 'bg-red-600 text-white rounded-lg' : sev === 'warning' ? 'bg-amber-600 text-white rounded-lg' : 'bg-blue-600 text-white rounded-lg') : 'text-slate-400 hover:text-slate-200')}>
                     {sev}
                   </button>
                 ))}
@@ -686,16 +671,7 @@ function LocalAlertsView() {
               />
             )}
             {backendUnavailable ? (
-              <EmptyState
-                icon={<XCircle className="w-8 h-8 text-red-400" />}
-                title="Unable to reach Prometheus"
-                description={
-                  (alertsError?.message || '').includes('configured')
-                    ? 'The Prometheus proxy is not configured. Set THANOS_URL and restart the dev server.'
-                    : `Firing alerts could not be read. ${alertsError?.message || ''}`.trim()
-                }
-                action={{ label: 'Retry', onClick: () => { refetchAlerts(); } }}
-              />
+              <LoadError title="Could not reach the alerting backend" error={alertsError} onRetry={() => { refetchAlerts(); }} />
             ) : alertsPending ? (
               <EmptyState
                 icon={<Bell className="w-8 h-8" />}
@@ -764,11 +740,11 @@ function LocalAlertsView() {
                   className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-800/30"
                   onClick={() => setSelectedRule(rule)}
                 >
-                  {rule.alertCount > 0 ? <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0" /> : <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />}
+                  {rule.alertCount > 0 ? <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" /> : <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-200 font-medium">{rule.name}</span>
-                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', rule.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{rule.severity}</span>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', rule.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300')}>{rule.severity}</span>
                     </div>
                     <div className="text-xs text-slate-500 font-mono mt-0.5 truncate">{rule.query}</div>
                   </div>
@@ -1041,6 +1017,9 @@ function LocalAlertsView() {
             currentUser={currentUser}
             clusterId={METRICS_CLUSTER_ID}
             onCreated={() => { queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] }); }}
+            // Undo from the toast goes through the same "Expire silence?" confirmation as the Silences tab.
+            onUndo={(sil) => expire.open({ id: sil.id, comment: sil.comment, matchers: sil.matchers, status: { state: 'active' }, startsAt: '', endsAt: '', createdBy: currentUser })}
+            onRetryUser={() => { void refetchCurrentUser(); }}
           />
         )}
 
@@ -1069,11 +1048,11 @@ function AlertRow({ item, go, onSilence, triage, suggestion, proposeMinutes, onP
 
   return (
     <div className="px-4 py-3 flex items-start gap-3">
-      {item.severity === 'critical' ? <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /> : <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />}
+      {item.severity === 'critical' ? <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /> : <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-sm font-medium text-slate-200">{item.rule}</span>
-          <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : item.severity === 'warning' ? 'bg-yellow-900/50 text-yellow-300' : 'bg-blue-900/50 text-blue-300')}>{item.severity}</span>
+          <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : item.severity === 'warning' ? 'bg-amber-900/50 text-amber-300' : 'bg-blue-900/50 text-blue-300')}>{item.severity}</span>
           <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', item.alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300')}>{item.alert.state}</span>
           {item.isSilenced && <span className="text-xs px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded-sm flex items-center gap-1"><VolumeX className="w-2.5 h-2.5" /> silenced</span>}
           {item.firingDuration && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {item.firingDuration}</span>}

@@ -7,7 +7,7 @@
  * is "Could not check" with Retry on each row, never "not in the Inbox".
  */
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { ArrowRight, BellOff, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
@@ -27,31 +27,51 @@ export function labelKey(labels: Record<string, string>): string {
 
 export interface TriageState {
   byKey: Map<string, AlertTriage>;
-  isPending: boolean;
-  error: unknown;
+  /** Keys whose batch is still loading. */
+  pendingKeys: Set<string>;
+  /** Keys whose batch failed, with why. One bad batch does not blank the others. */
+  errorByKey: Map<string, unknown>;
   unsupported: boolean;
   refetch: () => void;
 }
 
-/** One request for every firing alert on the page. */
+/** The agent accepts at most this many alerts per request. */
+export const TRIAGE_BATCH = 200;
+
+/** Firing alerts in batches of at most 200 (the agent's limit), one query each. */
 export function useAlertTriage(alerts: AlertForSilence[], clusterId: string, enabled = true): TriageState {
   // The monitor makes Inbox items from firing alerts only.
   const firing = useMemo(() => alerts.filter((a) => a.state === 'firing').map((a) => a.labels), [alerts]);
-  const keys = useMemo(() => firing.map(labelKey), [firing]);
-  const q = useQuery({
-    queryKey: ['alerts', 'triage', clusterId, keys.join('\n')],
-    queryFn: () => fetchAlertTriage(firing),
-    enabled: enabled && firing.length > 0,
-    refetchInterval: 60_000,
-    retry: false,
+  const batches = useMemo(() => {
+    const out: Array<{ labels: Array<Record<string, string>>; keys: string[] }> = [];
+    for (let i = 0; i < firing.length; i += TRIAGE_BATCH) {
+      const labels = firing.slice(i, i + TRIAGE_BATCH);
+      out.push({ labels, keys: labels.map(labelKey) });
+    }
+    return out;
+  }, [firing]);
+  const results = useQueries({
+    queries: batches.map((b) => ({
+      queryKey: ['alerts', 'triage', clusterId, b.keys.join('\n')],
+      queryFn: () => fetchAlertTriage(b.labels),
+      enabled,
+      refetchInterval: 60_000,
+      retry: false,
+    })),
   });
-  const byKey = useMemo(() => {
-    const m = new Map<string, AlertTriage>();
-    (q.data || []).forEach((t, i) => { if (keys[i]) m.set(keys[i], t); });
-    return m;
-  }, [q.data, keys]);
-  const unsupported = isAgentFeatureUnavailable(q.error);
-  return { byKey, isPending: q.isPending && firing.length > 0, error: unsupported ? null : q.error, unsupported, refetch: () => { void q.refetch(); } };
+  const byKey = new Map<string, AlertTriage>();
+  const pendingKeys = new Set<string>();
+  const errorByKey = new Map<string, unknown>();
+  let unsupported = false;
+  results.forEach((q, bi) => {
+    const keys = batches[bi]?.keys ?? [];
+    if (isAgentFeatureUnavailable(q.error)) unsupported = true;
+    else if (q.error) keys.forEach((k) => errorByKey.set(k, q.error));
+    else if (q.isPending) keys.forEach((k) => pendingKeys.add(k));
+    (q.data || []).forEach((t, i) => { if (keys[i]) byKey.set(keys[i], t); });
+  });
+  const refetch = () => { results.forEach((q) => { if (q.isError) void q.refetch(); }); };
+  return { byKey, pendingKeys, errorByKey, unsupported, refetch };
 }
 
 export function inboxPath(id: string): string {
@@ -68,16 +88,18 @@ export function TriageChip({ labels, state, triage, go }: {
   if (state !== 'firing') {
     return <span className="text-xs text-slate-500">Pending alerts are not triaged until they fire</span>;
   }
-  if (triage.error) {
+  const key = labelKey(labels);
+  const error = triage.errorByKey.get(key);
+  if (error) {
     return (
       <span className="text-xs text-amber-300" data-testid="triage-could-not-check">
-        Could not check · {triage.error instanceof Error ? triage.error.message : 'the Inbox did not answer'}{' '}
+        Could not check · {error instanceof Error ? error.message : 'the Inbox did not answer'}{' '}
         <button type="button" className="text-blue-400 hover:text-blue-300" onClick={triage.refetch}>Retry</button>
       </span>
     );
   }
-  const t = triage.byKey.get(labelKey(labels));
-  if (triage.isPending || !t) return <span className="text-xs text-slate-500">Checking Inbox…</span>;
+  const t = triage.byKey.get(key);
+  if (triage.pendingKeys.has(key) || !t) return <span className="text-xs text-slate-500">Checking Inbox…</span>;
   const s = summarizeTriage(t);
   if (!s) return <span className="text-xs text-slate-500">Not in the Inbox</span>;
   return (
@@ -88,7 +110,7 @@ export function TriageChip({ labels, state, triage, go }: {
       className="text-left text-xs group"
       aria-label={`Triage: ${s.label}`}
     >
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-violet-900/40 text-violet-200 border border-violet-800/60 group-hover:border-violet-600">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-900/40 text-sky-200 border border-sky-800/60 group-hover:border-sky-600">
         Triage · {s.label}{s.confidence !== null && <span className="font-mono">{` ${s.confidence.toFixed(2)}`}</span>}
         <ArrowRight className="w-3 h-3" />
       </span>
@@ -103,7 +125,10 @@ export function nodeItem(triage: TriageState, alerts: AlertForSilence[], node: s
     if (a.labels.node !== node) continue;
     const t = triage.byKey.get(labelKey(a.labels));
     if (!t) continue;
-    const maint = t.related.find((r) => r.correlationKey?.endsWith(`:Node/${node}`)) ?? t.related[0] ?? t.item;
+    // Only an item about this node: never an unrelated item the lookup also returned.
+    const aboutNode = [...t.related, ...(t.item ? [t.item] : [])].filter((r) => r.correlationKey?.endsWith(`:Node/${node}`));
+    // Prefer the work item (maintenance, Inbox task) over the alert's own item.
+    const maint = aboutNode.find((r) => !r.correlationKey?.startsWith('alerts:')) ?? aboutNode[0];
     if (maint) return maint;
   }
   return null;
