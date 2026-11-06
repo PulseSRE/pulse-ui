@@ -242,7 +242,7 @@ describe('Prometheus/Alertmanager data is local-cluster only', () => {
   it('metrics: on the local cluster a failed query says it failed instead of "No data"', async () => {
     handler = () => text('upstream down', 503, 'Service Unavailable');
     renderWithClient(<MetricsView gvrKey="apps/v1/deployments" namespace="shop" name="web" />);
-    expect((await screen.findAllByText('Failed to fetch metrics')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Could not load metrics')).length).toBeGreaterThan(0);
     expect(calls()[0].url.startsWith('/api/prometheus/api/v1/query_range?')).toBe(true);
   });
 

@@ -22,7 +22,7 @@ import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
 import type { PrometheusAlert } from '../engine/types/incident';
 import { k8sGet, k8sList } from '../engine/query';
-import { promFetch, METRICS_CLUSTER_ID } from '../components/metrics/prometheus';
+import { promJson, METRICS_CLUSTER_ID } from '../components/metrics/prometheus';
 import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { useMetricsAvailable } from '../hooks/useClusterBase';
 import { askPulse } from '../engine/askPulse';
@@ -160,14 +160,9 @@ function LocalAlertsView() {
   // Fetch alerts from Prometheus
   const { data: alertGroups = [], error: alertsError, refetch: refetchAlerts, isPending: alertsPending } = useQuery<AlertGroup[]>({
     queryKey: ['alerts', 'rules', METRICS_CLUSTER_ID],
-    queryFn: async () => {
-      const res = await promFetch('/api/v1/rules', METRICS_CLUSTER_ID);
-      if (!res.ok) throw new Error(`Prometheus returned ${res.status} ${res.statusText}`);
-      const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) throw new Error('the Prometheus endpoint did not answer with JSON (the alerting proxy may be missing)');
-      const json = await res.json();
-      return json.data?.groups || [];
-    },
+    // promJson throws a readable PrometheusReadError for a non-2xx, an HTML
+    // page (missing or login-walled proxy) or a body that is not JSON.
+    queryFn: async ({ signal }) => (await promJson<{ groups?: AlertGroup[] }>('/api/v1/rules', METRICS_CLUSTER_ID, signal))?.groups || [],
     refetchInterval: 30000,
     retry: 1,
   });

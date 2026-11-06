@@ -128,6 +128,16 @@ function ComponentRow({
   );
 }
 
+/** "Protocol v2 · 120 tools · 30 skills", leaving out what the agent did not report (never "undefined skills"). */
+function agentDetail(info: { protocol?: number; tools?: number; skills?: number }): string | undefined {
+  const parts = [
+    typeof info.protocol === 'number' ? `Protocol v${info.protocol}` : null,
+    typeof info.tools === 'number' ? `${info.tools} tools` : null,
+    typeof info.skills === 'number' ? `${info.skills} skills` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
 export default function AboutView() {
   // Pulse's deployments and operator are on the cluster Pulse runs on.
   const clusterId = LOCAL_CLUSTER_ID;
@@ -242,11 +252,7 @@ export default function AboutView() {
           healthy={status?.agentHealthy}
           image={spec?.agent?.image}
           repo="pulse-agent"
-          detail={
-            agentInfo
-              ? `Protocol v${agentInfo.protocol} · ${agentInfo.tools} tools · ${agentInfo.skills} skills`
-              : undefined
-          }
+          detail={agentInfo ? agentDetail(agentInfo) : undefined}
         />
         <ComponentRow
           icon={<Cog className="w-4 h-4" />}

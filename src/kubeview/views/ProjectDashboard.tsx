@@ -13,6 +13,7 @@ import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { MetricsScope } from '../components/metrics/MetricsScope';
 import { MetricsChart } from '../components/metrics/MetricsChart';
 import { getMetricsForResource, resolveQuery, formatYAxisValue } from '../components/metrics/AutoMetrics';
 import { CHART_COLOR_SEQUENCE, CHART_COLORS } from '../engine/colors';
@@ -114,6 +115,7 @@ export default function ProjectDashboard() {
         </div>
 
         {/* Metrics */}
+        <MetricsScope>
         <MetricGrid>
           <MetricCard
             title="Pod CPU Usage"
@@ -143,6 +145,7 @@ export default function ProjectDashboard() {
             color={CHART_COLORS.cyan}
           />
         </MetricGrid>
+        </MetricsScope>
 
         {/* Time-series metrics */}
         <NamespaceCharts namespace={ns} />
@@ -412,12 +415,20 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
   const [localHover, setLocalHover] = useState<number | null>(null);
 
   if (isLoading) {
-    return <div className="h-48 flex items-center justify-center"><div className="kv-skeleton w-6 h-6 rounded-full" /></div>;
+    return <div className="h-48 flex items-center justify-center text-sm text-slate-400" role="status">Checking…</div>;
   }
   if (isError) {
     return (
       <div className="h-48 flex flex-col justify-center">
-        <LoadError title={`${title}: metrics could not be loaded`} error={error} onRetry={() => { void refetch(); }} />
+        <LoadError title={`${title}: could not load metrics`} error={error} onRetry={() => { void refetch(); }} />
+      </div>
+    );
+  }
+  if (series.length === 0) {
+    return (
+      <div className="h-48 flex flex-col items-center justify-center gap-1 text-sm text-slate-400" role="status">
+        No data for this period
+        <span className="text-[11px] text-slate-500">{title}</span>
       </div>
     );
   }

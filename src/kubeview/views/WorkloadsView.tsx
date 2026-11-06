@@ -15,6 +15,7 @@ import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useTabParam } from '../components/primitives/Tabs';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { MetricsScope } from '../components/metrics/MetricsScope';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { CHART_COLORS } from '../engine/colors';
 import { Panel } from '../components/primitives/Panel';
@@ -296,6 +297,7 @@ export default function WorkloadsView() {
         </div>
 
         {/* Metrics */}
+        <MetricsScope>
         <MetricGrid>
           <MetricCard
             title="Pod CPU Usage"
@@ -351,6 +353,7 @@ export default function WorkloadsView() {
             thresholds={{ warning: 3, critical: 10 }}
           />
         </MetricGrid>
+        </MetricsScope>
 
         {/* Workload Health Audit */}
         <WorkloadHealthAudit deployments={deployments} deploymentsFailed={failed.deployments} pdbsFailed={failed.pdbs} pdbs={pdbs} go={go} />

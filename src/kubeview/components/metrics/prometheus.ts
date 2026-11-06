@@ -14,6 +14,9 @@ import { getImpersonationHeaders } from '../../engine/query';
 import { checkAuth } from '../../engine/safeQuery';
 import { getActiveClusterId, getAllConnections, LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { formatPromRange } from '../../engine/format';
+import { PrometheusReadError } from '../../engine/readError';
+
+export { PrometheusReadError } from '../../engine/readError';
 
 const PROM_BASE = '/api/prometheus';
 
@@ -34,17 +37,158 @@ export function metricsAvailableFor(clusterId?: string): boolean {
   return (clusterId ?? getActiveClusterId()) === METRICS_CLUSTER_ID;
 }
 
+/** How long a Prometheus read may take before it is reported as timed out. */
+export const PROM_TIMEOUT_MS = 30_000;
+
+/** The JSON error envelope Prometheus sends with most failures. */
+interface PromErrorBody { error?: string; errorType?: string }
+
+const HTML_TEXT = /Unexpected token '?<|<!DOCTYPE|<html/i;
+
+function htmlFailure(status: number): PrometheusReadError {
+  return new PrometheusReadError(
+    'html',
+    `Prometheus returned an HTML page (status ${status}) — the metrics backend may be down or behind a login`,
+    status,
+  );
+}
+
+/** A failure Prometheus itself described: keep its reason, and its timeouts as timeouts. */
+function envelopeFailure(status: number, body: PromErrorBody): PrometheusReadError | null {
+  const reason = body.error || body.errorType;
+  if (body.errorType === 'timeout') {
+    return new PrometheusReadError('timeout', `Prometheus timed out${reason ? `: ${reason}` : ''} — try a shorter range`, status);
+  }
+  if (reason && status < 500) return new PrometheusReadError('query', `Prometheus error: ${reason}`, status);
+  return null;
+}
+
+function httpFailure(res: Response, body?: PromErrorBody): PrometheusReadError {
+  const status = res.status;
+  const statusText = res.statusText ? ` ${res.statusText}` : '';
+  const reason = body?.error || body?.errorType;
+  if (status === 401) return new PrometheusReadError('unauthorized', 'Prometheus rejected the session (401) — sign in again', status, reason);
+  if (status === 403) {
+    return new PrometheusReadError('forbidden', 'Prometheus refused the query (403 forbidden) — your account may not have access to metrics', status, reason);
+  }
+  const described = body ? envelopeFailure(status, body) : null;
+  if (described) return described;
+  if (status === 504 || status === 408) {
+    return new PrometheusReadError('timeout', `Prometheus timed out (status ${status}) — try a shorter range`, status, reason);
+  }
+  return new PrometheusReadError('http', `Prometheus query failed: ${status}${statusText}${reason ? ` — ${reason}` : ''}`, status);
+}
+
+function isHtml(res: Response): boolean {
+  const ct = res.headers?.get?.('content-type') ?? '';
+  return /text\/html/i.test(ct);
+}
+
+function isAbort(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && (e as { name?: unknown }).name === 'AbortError';
+}
+
 /**
- * fetch() a Prometheus API path for one cluster, with impersonation headers.
- * Throws MetricsUnavailableError (no request sent) for a non-local cluster.
+ * One Prometheus request, start to finish: the timeout covers reading the
+ * body (`read`), not just the headers, and the caller's signal cancels it.
  */
-export async function promFetch(apiPath: string, clusterId?: string, init: RequestInit = {}): Promise<Response> {
+async function promRequest<R>(
+  apiPath: string,
+  clusterId: string | undefined,
+  init: RequestInit,
+  read: (res: Response) => Promise<R>,
+): Promise<R> {
   const id = clusterId ?? getActiveClusterId();
   if (!metricsAvailableFor(id)) throw new MetricsUnavailableError(id);
   const headers = { ...getImpersonationHeaders(), ...((init.headers as Record<string, string> | undefined) ?? {}) };
-  const res = await fetch(`${PROM_BASE}${apiPath}`, { ...init, headers });
-  checkAuth(res);
-  return res;
+
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, PROM_TIMEOUT_MS);
+  const outer = init.signal;
+  const onOuterAbort = () => controller.abort();
+  if (outer) {
+    if (outer.aborted) controller.abort();
+    else outer.addEventListener('abort', onOuterAbort, { once: true });
+  }
+  const timeoutError = () => new PrometheusReadError('timeout', `Prometheus did not answer within ${PROM_TIMEOUT_MS / 1000}s (timed out)`);
+
+  try {
+    let res: Response;
+    try {
+      res = await fetch(`${PROM_BASE}${apiPath}`, { ...init, headers, signal: controller.signal });
+    } catch (e) {
+      if (timedOut) throw timeoutError();
+      // The caller cancelled (React Query unmount, new key): pass that through untouched.
+      if (outer?.aborted) throw e;
+      throw new PrometheusReadError(
+        'unreachable',
+        'Prometheus could not be reached — check the network or the metrics proxy',
+        undefined,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+    checkAuth(res);
+    if (isHtml(res)) throw htmlFailure(res.status);
+    if (!res.ok) {
+      let body: PromErrorBody | undefined;
+      try {
+        body = await res.json();
+      } catch (e) {
+        if (timedOut) throw timeoutError();
+        if (HTML_TEXT.test(e instanceof Error ? e.message : '')) throw htmlFailure(res.status);
+        // Not JSON: the status line is all there is.
+      }
+      throw httpFailure(res, body);
+    }
+    try {
+      return await read(res);
+    } catch (e) {
+      if (timedOut && isAbort(e)) throw timeoutError();
+      throw e;
+    }
+  } finally {
+    clearTimeout(timer);
+    outer?.removeEventListener('abort', onOuterAbort);
+  }
+}
+
+/**
+ * fetch() a Prometheus API path for one cluster, with impersonation headers.
+ *
+ * Throws instead of handing back an answer that is not Prometheus's:
+ * - MetricsUnavailableError (no request sent) for a non-local cluster;
+ * - PrometheusReadError for a non-2xx status (keeping Prometheus's own
+ *   `error`), an HTML page (a proxy error or login page), a network failure,
+ *   or no answer within PROM_TIMEOUT_MS.
+ * Its message is a sentence a user can read. Prefer promJson, whose timeout
+ * also covers reading the body.
+ */
+export function promFetch(apiPath: string, clusterId?: string, init: RequestInit = {}): Promise<Response> {
+  return promRequest(apiPath, clusterId, init, async (res) => res);
+}
+
+/**
+ * Read a Prometheus API path and unwrap its envelope. A body that is not JSON
+ * (an HTML page served with a 200) and `status: "error"` become
+ * PrometheusReadErrors rather than a raw parser message.
+ */
+export function promJson<T>(apiPath: string, clusterId?: string, signal?: AbortSignal): Promise<T | undefined> {
+  return promRequest(apiPath, clusterId, { signal }, async (res) => {
+    let json: PrometheusResponse<T>;
+    try {
+      json = await res.json();
+    } catch (e) {
+      if (isAbort(e)) throw e;
+      const raw = e instanceof Error ? e.message : String(e);
+      if (HTML_TEXT.test(raw)) throw htmlFailure(res.status);
+      throw new PrometheusReadError('not-json', `Prometheus returned a response that is not JSON (status ${res.status})`, res.status, raw);
+    }
+    if (json?.status === 'error') {
+      throw envelopeFailure(res.status, json) ?? new PrometheusReadError('query', `Prometheus error: ${json.error || json.errorType}`, res.status);
+    }
+    return json?.data;
+  });
 }
 
 export interface PrometheusDataPoint {
@@ -86,6 +230,7 @@ export async function queryRange(
   end: number,
   step?: number,
   clusterId?: string,
+  signal?: AbortSignal,
 ): Promise<PrometheusSeries[]> {
   const calculatedStep = step ?? Math.max(15, Math.floor((end - start) / 200));
 
@@ -96,19 +241,8 @@ export async function queryRange(
     step: calculatedStep.toString(),
   });
 
-  const res = await promFetch(`/api/v1/query_range?${params}`, clusterId);
-
-  if (!res.ok) {
-    throw new Error(`Prometheus query failed: ${res.status} ${res.statusText}`);
-  }
-
-  const json: PrometheusResponse<PrometheusRangeResult> = await res.json();
-
-  if (json.status === 'error') {
-    throw new Error(`Prometheus error: ${json.error || json.errorType}`);
-  }
-
-  return json.data?.result || [];
+  const data = await promJson<PrometheusRangeResult>(`/api/v1/query_range?${params}`, clusterId, signal);
+  return data?.result || [];
 }
 
 /**
@@ -118,25 +252,15 @@ export async function queryInstant(
   query: string,
   time?: number,
   clusterId?: string,
+  signal?: AbortSignal,
 ): Promise<Array<{ metric: Record<string, string>; value: number }>> {
   const params = new URLSearchParams({ query });
   if (time) {
     params.set('time', time.toString());
   }
 
-  const res = await promFetch(`/api/v1/query?${params}`, clusterId);
-
-  if (!res.ok) {
-    throw new Error(`Prometheus query failed: ${res.status} ${res.statusText}`);
-  }
-
-  const json: PrometheusResponse<PrometheusInstantResult> = await res.json();
-
-  if (json.status === 'error') {
-    throw new Error(`Prometheus error: ${json.error || json.errorType}`);
-  }
-
-  return (json.data?.result || []).map((r) => ({
+  const data = await promJson<PrometheusInstantResult>(`/api/v1/query?${params}`, clusterId, signal);
+  return (data?.result || []).map((r) => ({
     metric: r.metric,
     value: parseFloat(r.value[1]),
   }));
@@ -146,19 +270,7 @@ export async function queryInstant(
  * Get all metric names
  */
 export async function getMetricNames(clusterId?: string): Promise<string[]> {
-  const res = await promFetch('/api/v1/label/__name__/values', clusterId);
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch metric names: ${res.status} ${res.statusText}`);
-  }
-
-  const json: PrometheusResponse<string[]> = await res.json();
-
-  if (json.status === 'error') {
-    throw new Error(`Prometheus error: ${json.error || json.errorType}`);
-  }
-
-  return json.data || [];
+  return (await promJson<string[]>('/api/v1/label/__name__/values', clusterId)) || [];
 }
 
 /**
@@ -168,19 +280,7 @@ export async function getLabelValues(labelName: string, clusterId?: string): Pro
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(labelName)) {
     throw new Error(`Invalid Prometheus label name: ${labelName}`);
   }
-  const res = await promFetch(`/api/v1/label/${labelName}/values`, clusterId);
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch label values: ${res.status} ${res.statusText}`);
-  }
-
-  const json: PrometheusResponse<string[]> = await res.json();
-
-  if (json.status === 'error') {
-    throw new Error(`Prometheus error: ${json.error || json.errorType}`);
-  }
-
-  return json.data || [];
+  return (await promJson<string[]>(`/api/v1/label/${labelName}/values`, clusterId)) || [];
 }
 
 /**

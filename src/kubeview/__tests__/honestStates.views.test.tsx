@@ -147,7 +147,7 @@ describe('ProjectDashboard', () => {
       <Routes><Route path="/project/:namespace" element={<ProjectDashboard />} /></Routes>,
       { status: 503, route: '/project/shop' },
     );
-    await waitFor(() => expect(screen.getAllByText(/metrics could not be loaded/).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText(/could not load metrics/).length).toBeGreaterThan(0));
     expectNoAllClear();
   });
 });

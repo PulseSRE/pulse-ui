@@ -10,6 +10,7 @@ import { safeQuery } from '../engine/safeQuery';
 import { queryInstant, metricsAvailableFor } from '../components/metrics/prometheus';
 import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { MetricsScope } from '../components/metrics/MetricsScope';
 import { CHART_COLORS } from '../engine/colors';
 import { NodeHexMap } from './compute/NodeHexMap';
 import { useNodeMapActions } from './compute/useNodeMapActions';
@@ -317,6 +318,7 @@ export default function ComputeView() {
         {!metricsAvailableFor(clusterId) && (
           <RemoteMetricsNotice compact what="Utilization metrics and per-node CPU/memory" />
         )}
+        <MetricsScope>
         <MetricGrid>
           <MetricCard
             title="CPU Utilization"
@@ -351,6 +353,7 @@ export default function ComputeView() {
             thresholds={{ warning: 80, critical: 95 }}
           />
         </MetricGrid>
+        </MetricsScope>
 
         {/* Capacity summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

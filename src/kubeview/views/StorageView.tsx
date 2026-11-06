@@ -13,6 +13,7 @@ import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
+import { MetricsScope } from '../components/metrics/MetricsScope';
 import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
@@ -211,6 +212,7 @@ export default function StorageView() {
         </MetricGrid>
 
         {/* Metrics */}
+        <MetricsScope>
         <MetricGrid>
           <MetricCard
             title="PVC Usage"
@@ -238,6 +240,7 @@ export default function StorageView() {
             color={CHART_COLORS.cyan}
           />
         </MetricGrid>
+        </MetricsScope>
 
         {/* Storage Health Audit */}
         <div id="storage-audit" />
