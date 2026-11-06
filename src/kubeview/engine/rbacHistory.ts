@@ -213,6 +213,10 @@ export function escalationOnRestore(kind: RbacKind, live: Obj | null, restored: 
     for (const [f, label] of SCC_FLAGS) if (r[f] === true && l[f] !== true) out.push(`allows ${label} (${f})`);
     const ru = (x: Record<string, unknown>) => (x.runAsUser as { type?: string } | undefined)?.type;
     if (ru(r) === 'RunAsAny' && ru(l) !== 'RunAsAny') out.push('lets pods run as any user, including root (runAsUser RunAsAny)');
+    const se = (x: Record<string, unknown>) => (x.seLinuxContext as { type?: string } | undefined)?.type;
+    if (se(r) === 'RunAsAny' && se(l) !== 'RunAsAny') out.push('lets pods choose any SELinux context (seLinuxContext RunAsAny)');
+    const restoredDrops = new Set((r.requiredDropCapabilities as string[] | undefined) ?? []);
+    for (const c of (l.requiredDropCapabilities as string[] | undefined) ?? []) if (!restoredDrops.has(c)) out.push(`no longer requires dropping capability ${c}`);
     const liveCaps = new Set((l.allowedCapabilities as string[] | undefined) ?? []);
     for (const c of (r.allowedCapabilities as string[] | undefined) ?? []) if (!liveCaps.has(c)) out.push(`allows capability ${c}`);
     const liveVols = new Set((l.volumes as string[] | undefined) ?? []);
@@ -224,7 +228,8 @@ export function escalationOnRestore(kind: RbacKind, live: Obj | null, restored: 
     return out;
   }
   if (kind === 'ValidatingWebhookConfiguration' || kind === 'MutatingWebhookConfiguration') {
-    type Hook = { name?: string; failurePolicy?: string; sideEffects?: string };
+    type Hook = { name?: string; failurePolicy?: string; sideEffects?: string; rules?: unknown; namespaceSelector?: unknown; objectSelector?: unknown };
+    const same = (a: unknown, b: unknown) => JSON.stringify(sortKeys(a ?? null)) === JSON.stringify(sortKeys(b ?? null));
     const out: string[] = [];
     const lh = (live?.webhooks ?? []) as Hook[];
     const rh = (restored.webhooks ?? []) as Hook[];
@@ -233,6 +238,10 @@ export function escalationOnRestore(kind: RbacKind, live: Obj | null, restored: 
       if (!r) { out.push(`removes webhook ${w.name}`); continue; }
       if ((r.failurePolicy ?? 'Fail') !== (w.failurePolicy ?? 'Fail')) out.push(`changes failurePolicy of ${w.name} from ${w.failurePolicy ?? 'Fail'} to ${r.failurePolicy ?? 'Fail'}`);
       if ((r.sideEffects ?? '') !== (w.sideEffects ?? '')) out.push(`changes sideEffects of ${w.name} from ${w.sideEffects ?? '(unset)'} to ${r.sideEffects ?? '(unset)'}`);
+      // Any change to what the webhook intercepts can narrow it, letting requests skip it.
+      if (!same(r.rules, w.rules)) out.push(`changes which requests ${w.name} intercepts (rules)`);
+      if (!same(r.namespaceSelector, w.namespaceSelector)) out.push(`changes which namespaces ${w.name} applies to (namespaceSelector)`);
+      if (!same(r.objectSelector, w.objectSelector)) out.push(`changes which objects ${w.name} applies to (objectSelector)`);
     }
     return out;
   }

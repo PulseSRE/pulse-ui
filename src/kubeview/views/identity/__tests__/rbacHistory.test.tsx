@@ -299,4 +299,14 @@ describe('history panel extras', () => {
     h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
     expect((await screen.findByTestId('rbac-history-truncated')).textContent).toMatch(/only the newest are listed/);
   });
+
+  it('flags seLinuxContext RunAsAny, dropped required capability drops and narrowed webhook scope', () => {
+    expect(escalationOnRestore('SecurityContextConstraints', { seLinuxContext: { type: 'MustRunAs' }, requiredDropCapabilities: ['KILL', 'MKNOD'] }, { seLinuxContext: { type: 'RunAsAny' }, requiredDropCapabilities: ['KILL'] })).toEqual([
+      'lets pods choose any SELinux context (seLinuxContext RunAsAny)', 'no longer requires dropping capability MKNOD',
+    ]);
+    const live = { webhooks: [{ name: 'a', rules: [{ operations: ['*'], resources: ['*'] }], namespaceSelector: {} }] };
+    expect(escalationOnRestore('ValidatingWebhookConfiguration', live, { webhooks: [{ name: 'a', rules: [{ operations: ['CREATE'], resources: ['pods'] }], namespaceSelector: { matchLabels: { gk: 'on' } } }] })).toEqual([
+      'changes which requests a intercepts (rules)', 'changes which namespaces a applies to (namespaceSelector)',
+    ]);
+  });
 });
