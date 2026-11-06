@@ -85,7 +85,17 @@ function ChangeRow({ change, onRestored }: { change: RbacChange; onRestored: () 
       let live: Record<string, unknown> | null = null;
       try { live = await sendJson(clusterId, 'GET', objectPath(change.kind, change.namespace, change.name)); } catch (e) { if (!(e instanceof PulseError && e.statusCode === 404)) throw e; }
       const req = restoreRequest(change, live);
-      const adds = escalationOnRestore(change.kind, live, req.body);
+      let adminRoles = new Set<string>();
+      if (change.kind === 'RoleBinding' || change.kind === 'ClusterRoleBinding') {
+        // Custom all-powerful roles (*/*/*) count as cluster-admin; unreadable roles: only the built-in names.
+        try {
+          const roles = await sendJson(clusterId, 'GET', '/apis/rbac.authorization.k8s.io/v1/clusterroles');
+          for (const r of (roles.items ?? []) as Array<{ metadata: { name: string }; rules?: Array<{ verbs?: string[]; apiGroups?: string[]; resources?: string[] }> }>) {
+            if ((r.rules ?? []).some((x) => (x.verbs ?? []).includes('*') && (x.apiGroups ?? []).includes('*') && (x.resources ?? []).includes('*'))) adminRoles.add(r.metadata.name);
+          }
+        } catch { adminRoles = new Set(); }
+      }
+      const adds = escalationOnRestore(change.kind, live, req.body, adminRoles);
       if (req.method === 'PUT' ? !canUpdate : !canCreate) {
         setReadError(`You do not have permission to ${req.method === 'PUT' ? 'update' : 'create'} ${k.plural}${ns ? ` in ${ns}` : ''}.`);
         return;
@@ -106,7 +116,7 @@ function ChangeRow({ change, onRestored }: { change: RbacChange; onRestored: () 
           <>
             {adds.length > 0 && (
               <div role="alert" data-testid="restore-escalation" className="mt-3 rounded border border-red-800 bg-red-950/40 px-3 py-2 text-xs text-red-200">
-                <p className="font-medium">This restore grants more than the current version:</p>
+                <p className="font-medium">This restore grants or weakens more than the current version:</p>
                 <ul className="mt-1 list-disc ml-4">{adds.map((a) => <li key={a}>{a}</li>)}</ul>
               </div>
             )}
@@ -220,6 +230,7 @@ export function RbacChangeHistory({ fallback }: { fallback: React.ReactNode }) {
         </p>
         {h.last_error && <p className="text-amber-300">The last observation failed: {h.last_error}. Recent changes may be missing.</p>}
         {h.unwatched.length > 0 && <p className="text-amber-300">Not watched: {h.unwatched.map((u) => `${u.kind} (${u.reason})`).join(', ')}. The agent&apos;s service account cannot list them, so their changes are not recorded.</p>}
+        {data.truncated && <p className="text-amber-300" data-testid="rbac-history-truncated">More changes matched than are shown; only the newest are listed.</p>}
         {data.hidden > 0 && <p>{data.hidden} change{data.hidden === 1 ? ' is' : 's are'} hidden because you cannot read those objects.</p>}
       </div>
     </Card>

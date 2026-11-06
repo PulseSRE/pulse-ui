@@ -261,7 +261,42 @@ describe('restore keeps what the live object must keep', () => {
   });
 
   it('flags only what the restore adds', () => {
-    expect(escalationOnRestore('ClusterRoleBinding', { roleRef: { name: 'view' }, subjects: [] }, { roleRef: { name: 'cluster-admin' }, subjects: [{ kind: 'User', name: 'bob' }] })).toEqual(['binds cluster-admin to User bob']);
+    expect(escalationOnRestore('ClusterRoleBinding', { roleRef: { kind: 'ClusterRole', name: 'view' }, subjects: [] }, { roleRef: { kind: 'ClusterRole', name: 'cluster-admin' }, subjects: [{ kind: 'User', name: 'bob' }] })).toEqual([
+      'changes the role from ClusterRole view to ClusterRole cluster-admin', 'adds User bob', 'binds cluster-admin to User bob',
+    ]);
     expect(escalationOnRestore('Role', { rules: [{ verbs: ['*'], apiGroups: ['*'], resources: ['*'] }] }, { rules: [{ verbs: ['*'], apiGroups: ['*'], resources: ['*'] }] })).toEqual([]);
+  });
+
+  it('flags any added subject, and bindings to edit/admin or a custom */*/* role', () => {
+    const live = { roleRef: { kind: 'ClusterRole', name: 'view' }, subjects: [{ kind: 'User', name: 'a' }] };
+    expect(escalationOnRestore('RoleBinding', live, { ...live, subjects: [{ kind: 'User', name: 'a' }, { kind: 'ServiceAccount', name: 'ci', namespace: 'b' }] })).toEqual(['adds ServiceAccount b/ci']);
+    expect(escalationOnRestore('RoleBinding', { roleRef: { kind: 'ClusterRole', name: 'edit' }, subjects: [] }, { roleRef: { kind: 'ClusterRole', name: 'edit' }, subjects: [{ kind: 'Group', name: 'g' }] })).toEqual(['adds Group g', 'binds edit to Group g']);
+    expect(escalationOnRestore('ClusterRoleBinding', null, { roleRef: { kind: 'ClusterRole', name: 'super-ops' }, subjects: [] }, new Set(['super-ops']))).toEqual(['binds super-ops']);
+    expect(escalationOnRestore('RoleBinding', live, live)).toEqual([]);
+  });
+
+  it('flags SCC privilege fields the restore turns on', () => {
+    const live = { allowPrivilegedContainer: false, runAsUser: { type: 'MustRunAsRange' }, volumes: ['configMap'], users: [] };
+    const restored = { allowPrivilegedContainer: true, allowHostNetwork: true, allowHostPID: true, allowHostPorts: true, allowHostIPC: true, runAsUser: { type: 'RunAsAny' }, allowedCapabilities: ['NET_ADMIN'], volumes: ['configMap', 'hostPath'], users: ['system:serviceaccount:shop:legacy'] };
+    expect(escalationOnRestore('SecurityContextConstraints', live, restored)).toEqual([
+      'allows privileged containers (allowPrivilegedContainer)', 'allows host network (allowHostNetwork)', 'allows host PID namespace (allowHostPID)',
+      'allows host ports (allowHostPorts)', 'allows host IPC namespace (allowHostIPC)', 'lets pods run as any user, including root (runAsUser RunAsAny)',
+      'allows capability NET_ADMIN', 'allows hostPath volumes', 'grants this SCC to system:serviceaccount:shop:legacy',
+    ]);
+  });
+
+  it('flags webhook restores that remove a webhook or change failurePolicy/sideEffects', () => {
+    const live = { webhooks: [{ name: 'a', failurePolicy: 'Fail', sideEffects: 'None' }, { name: 'b' }] };
+    expect(escalationOnRestore('ValidatingWebhookConfiguration', live, { webhooks: [{ name: 'a', failurePolicy: 'Ignore', sideEffects: 'Some' }] })).toEqual([
+      'changes failurePolicy of a from Fail to Ignore', 'changes sideEffects of a from None to Some', 'removes webhook b',
+    ]);
+  });
+});
+
+describe('history panel extras', () => {
+  it('shows the agent truncated flag', async () => {
+    cluster(history([change()], { truncated: true }));
+    h.renderUi(<RbacChangeHistory fallback={FALLBACK} />);
+    expect((await screen.findByTestId('rbac-history-truncated')).textContent).toMatch(/only the newest are listed/);
   });
 });

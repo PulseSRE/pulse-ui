@@ -157,21 +157,86 @@ function ruleGrants(r: Rule): string[] {
   return out;
 }
 
-/** Sensitive grants in `obj`: wildcards, escalate/bind/impersonate, reading Secrets, binding cluster-admin. */
+/** Sensitive grants in a Role/ClusterRole's rules. */
 export function sensitiveGrants(kind: RbacKind, obj: Obj | null | undefined): string[] {
-  if (!obj) return [];
-  if (kind === 'Role' || kind === 'ClusterRole') return [...new Set(((obj.rules ?? []) as Rule[]).flatMap(ruleGrants))];
-  if (kind === 'RoleBinding' || kind === 'ClusterRoleBinding') {
-    const ref = obj.roleRef as { name?: string } | undefined;
-    return ref?.name === 'cluster-admin' ? [`binds cluster-admin to ${((obj.subjects ?? []) as Array<{ kind: string; name: string }>).map((s) => `${s.kind} ${s.name}`).join(', ') || 'no subjects'}`] : [];
-  }
-  return [];
+  if (!obj || (kind !== 'Role' && kind !== 'ClusterRole')) return [];
+  return [...new Set(((obj.rules ?? []) as Rule[]).flatMap(ruleGrants))];
 }
 
-/** Sensitive grants the restore adds that the live object does not have. */
-export function escalationOnRestore(kind: RbacKind, live: Obj | null, restored: Obj): string[] {
-  const now = new Set(sensitiveGrants(kind, live));
-  return sensitiveGrants(kind, restored).filter((g) => !now.has(g));
+type Subject = { kind: string; name: string; namespace?: string };
+const subjectKey = (s: Subject) => `${s.kind}/${s.namespace ?? ''}/${s.name}`;
+const subjectText = (s: Subject) => (s.kind === 'ServiceAccount' ? `ServiceAccount ${s.namespace}/${s.name}` : `${s.kind} ${s.name}`);
+
+/** Roles a binding to which hands over broad control. */
+export const PRIVILEGED_ROLES = new Set(['cluster-admin', 'admin', 'edit']);
+
+const SCC_FLAGS: Array<[string, string]> = [
+  ['allowPrivilegedContainer', 'privileged containers'],
+  ['allowHostNetwork', 'host network'],
+  ['allowHostPID', 'host PID namespace'],
+  ['allowHostPorts', 'host ports'],
+  ['allowHostIPC', 'host IPC namespace'],
+  ['allowPrivilegeEscalation', 'privilege escalation'],
+];
+
+/**
+ * What a restore would grant or weaken that the live object does not: for
+ * Roles, new wildcard/escalate/bind/impersonate/Secret-read rules; for
+ * bindings, every added subject, a changed roleRef, and binding a privileged
+ * role (cluster-admin, admin, edit or a custom all-powerful role in
+ * `adminRoles`); for SCCs, newly allowed privileged settings; for webhooks,
+ * removed webhooks and changed failurePolicy/sideEffects. `live` null means
+ * the object is re-created, so everything in it counts.
+ */
+export function escalationOnRestore(kind: RbacKind, live: Obj | null, restored: Obj, adminRoles: Set<string> = new Set()): string[] {
+  if (kind === 'Role' || kind === 'ClusterRole') {
+    const now = new Set(sensitiveGrants(kind, live));
+    return sensitiveGrants(kind, restored).filter((g) => !now.has(g));
+  }
+  if (kind === 'RoleBinding' || kind === 'ClusterRoleBinding') {
+    const out: string[] = [];
+    const lr = live?.roleRef as { kind?: string; name?: string } | undefined;
+    const rr = restored.roleRef as { kind?: string; name?: string } | undefined;
+    const liveSubs = new Set(((live?.subjects ?? []) as Subject[]).map(subjectKey));
+    const added = ((restored.subjects ?? []) as Subject[]).filter((x) => !liveSubs.has(subjectKey(x)));
+    const roleChanged = !!live && (lr?.name !== rr?.name || lr?.kind !== rr?.kind);
+    if (roleChanged) out.push(`changes the role from ${lr?.kind ?? ''} ${lr?.name ?? '?'} to ${rr?.kind ?? ''} ${rr?.name ?? '?'}`);
+    for (const a of added) out.push(`adds ${subjectText(a)}`);
+    const privileged = rr?.name && (PRIVILEGED_ROLES.has(rr.name) || adminRoles.has(rr.name));
+    if (privileged && (roleChanged || added.length > 0 || !live)) out.push(`binds ${rr!.name}${(restored.subjects as Subject[] | undefined)?.length ? ` to ${(restored.subjects as Subject[]).map(subjectText).join(', ')}` : ''}`);
+    return out;
+  }
+  if (kind === 'SecurityContextConstraints') {
+    const out: string[] = [];
+    const l = (live ?? {}) as Record<string, unknown>;
+    const r = restored as Record<string, unknown>;
+    for (const [f, label] of SCC_FLAGS) if (r[f] === true && l[f] !== true) out.push(`allows ${label} (${f})`);
+    const ru = (x: Record<string, unknown>) => (x.runAsUser as { type?: string } | undefined)?.type;
+    if (ru(r) === 'RunAsAny' && ru(l) !== 'RunAsAny') out.push('lets pods run as any user, including root (runAsUser RunAsAny)');
+    const liveCaps = new Set((l.allowedCapabilities as string[] | undefined) ?? []);
+    for (const c of (r.allowedCapabilities as string[] | undefined) ?? []) if (!liveCaps.has(c)) out.push(`allows capability ${c}`);
+    const liveVols = new Set((l.volumes as string[] | undefined) ?? []);
+    for (const v of (r.volumes as string[] | undefined) ?? []) if (!liveVols.has(v) && (v === 'hostPath' || v === '*')) out.push(`allows ${v === '*' ? 'every volume type, including hostPath' : 'hostPath volumes'}`);
+    const liveUsers = new Set((l.users as string[] | undefined) ?? []);
+    for (const u of (r.users as string[] | undefined) ?? []) if (!liveUsers.has(u)) out.push(`grants this SCC to ${u}`);
+    const liveGroups = new Set((l.groups as string[] | undefined) ?? []);
+    for (const g of (r.groups as string[] | undefined) ?? []) if (!liveGroups.has(g)) out.push(`grants this SCC to group ${g}`);
+    return out;
+  }
+  if (kind === 'ValidatingWebhookConfiguration' || kind === 'MutatingWebhookConfiguration') {
+    type Hook = { name?: string; failurePolicy?: string; sideEffects?: string };
+    const out: string[] = [];
+    const lh = (live?.webhooks ?? []) as Hook[];
+    const rh = (restored.webhooks ?? []) as Hook[];
+    for (const w of lh) {
+      const r = rh.find((x) => x.name === w.name);
+      if (!r) { out.push(`removes webhook ${w.name}`); continue; }
+      if ((r.failurePolicy ?? 'Fail') !== (w.failurePolicy ?? 'Fail')) out.push(`changes failurePolicy of ${w.name} from ${w.failurePolicy ?? 'Fail'} to ${r.failurePolicy ?? 'Fail'}`);
+      if ((r.sideEffects ?? '') !== (w.sideEffects ?? '')) out.push(`changes sideEffects of ${w.name} from ${w.sideEffects ?? '(unset)'} to ${r.sideEffects ?? '(unset)'}`);
+    }
+    return out;
+  }
+  return [];
 }
 
 const SERVER_FIELDS = ['managedFields', 'resourceVersion', 'uid', 'creationTimestamp', 'generation', 'selfLink'];
