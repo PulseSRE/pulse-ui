@@ -1,4 +1,6 @@
 import React from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useSearchParamUpdater } from '../components/primitives/Tabs';
 import {
   Clock, AlertTriangle, CheckCircle, Info, XCircle, Activity, RefreshCw,
   Settings, Bell, ChevronRight, ChevronDown, ArrowRight, Link2,
@@ -42,31 +44,26 @@ export default function TimelineView() {
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
-  // URL-persisted state
-  const urlParams = new URLSearchParams(window.location.search);
-  const [timeRange, setTimeRangeState] = React.useState<TimeRange>((urlParams.get('range') as TimeRange) || '6h');
+  // URL-persisted state, written through the router
+  const [searchParams] = useSearchParams();
+  const updateSearch = useSearchParamUpdater();
+  const [timeRange, setTimeRangeState] = React.useState<TimeRange>((searchParams.get('range') as TimeRange) || '6h');
   const [categories, setCategories] = React.useState<Set<TimelineCategory>>(() => {
-    const cat = urlParams.get('cat');
+    const cat = searchParams.get('cat');
     return cat ? new Set(cat.split(',') as TimelineCategory[]) : new Set<TimelineCategory>(['alert', 'event', 'rollout', 'config']);
   });
   const [selectedCorrelation, setSelectedCorrelation] = React.useState<string | null>(null);
 
   const setTimeRange = (r: TimeRange) => {
     setTimeRangeState(r);
-    const url = new URL(window.location.href);
-    url.searchParams.set('range', r);
-    window.history.replaceState(null, '', url.toString());
+    updateSearch((next) => next.set('range', r));
   };
 
   const toggleCategory = (cat: TimelineCategory) => {
-    setCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
-      const url = new URL(window.location.href);
-      url.searchParams.set('cat', [...next].join(','));
-      window.history.replaceState(null, '', url.toString());
-      return next;
-    });
+    const next = new Set(categories);
+    if (next.has(cat)) next.delete(cat); else next.add(cat);
+    setCategories(next);
+    updateSearch((params) => params.set('cat', [...next].join(',')));
   };
 
   const timeline = useIncidentTimeline({

@@ -4,7 +4,6 @@ import { Bell, AlertTriangle, XCircle, CheckCircle, Clock, Search, VolumeX, Arro
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
-import { useTabParam } from '../components/primitives/Tabs';
 import { resourceDetailUrl } from '../engine/gvr';
 import { alertResource } from '../engine/alertResource';
 import { Card, CardHeader, CardBody } from '../components/primitives/Card';
@@ -14,6 +13,8 @@ import { CHART_COLORS } from '../engine/colors';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { usePinnedAction } from '../hooks/usePinnedAction';
 import { Button } from '../components/primitives/Button';
+import { useTabParam } from '../components/primitives/Tabs';
+import { useSearchParams } from 'react-router-dom';
 import { RuleDetailDrawer, type RuleDetail } from './alerts/RuleDetailDrawer';
 import { createTemplateUrl } from '../engine/createTemplates';
 import { EmptyState } from '../components/primitives/EmptyState';
@@ -118,17 +119,11 @@ function LocalAlertsView() {
     staleTime: 300000,
   });
   const [activeTab, setActiveTab] = useTabParam<Tab>(ALERT_TABS, 'firing');
-  const urlParams = new URLSearchParams(window.location.search);
-  const [searchQuery, setSearchQuery] = useState(urlParams.get('q') || '');
-  const [severityFilter, setSeverityFilterState] = useState<'all' | 'critical' | 'warning' | 'info'>((urlParams.get('severity') as 'all' | 'critical' | 'warning' | 'info') || 'all');
-  const [groupBy, setGroupByState] = useState<'none' | 'namespace' | 'alertname'>((urlParams.get('groupBy') as 'none' | 'namespace' | 'alertname') || 'none');
-  const updateUrlParam = (key: string, value: string, defaultValue: string) => {
-    const url = new URL(window.location.href);
-    if (value === defaultValue) url.searchParams.delete(key); else url.searchParams.set(key, value);
-    window.history.replaceState(null, '', url.toString());
-  };
-  const setSeverityFilter = (v: typeof severityFilter) => { setSeverityFilterState(v); updateUrlParam('severity', v, 'all'); };
-  const setGroupBy = (v: typeof groupBy) => { setGroupByState(v); updateUrlParam('groupBy', v, 'none'); };
+  const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  // Filters live in the URL through the router, like the tab, so links and Back keep them.
+  const [severityFilter, setSeverityFilter] = useTabParam<'all' | 'critical' | 'warning' | 'info'>(['all', 'critical', 'warning', 'info'], 'all', 'severity');
+  const [groupBy, setGroupBy] = useTabParam<'none' | 'namespace' | 'alertname'>(['none', 'namespace', 'alertname'], 'none', 'groupBy');
   const [showSilenceForm, setShowSilenceForm] = useState(false);
   const [silenceForm, setSilenceForm] = useState<SilenceFormData>({
     matchers: [{ name: 'alertname', value: '', isRegex: false, isEqual: true }],

@@ -60,4 +60,20 @@ describe('AlertsView tab in the URL', () => {
     fireEvent.click(screen.getByRole('tab', { name: /^Rules$/ }));
     expect(page.url()).toBe('/alerts?tab=rules');
   });
+  it('a severity or group-by filter survives a tab click and comes back with Back', async () => {
+    const page = renderRouted(<AlertsView />, '/other');
+    await page.go('/alerts?severity=critical&groupBy=namespace');
+    fireEvent.click(screen.getByRole('tab', { name: /^Rules$/ }));
+    expect(page.url()).toBe('/alerts?severity=critical&groupBy=namespace&tab=rules');
+    fireEvent.click(screen.getByRole('tab', { name: /Firing/ }));
+    expect(page.url()).toBe('/alerts?severity=critical&groupBy=namespace');
+  });
+
+  it('the Firing stat card switches tab and resets severity in one step', () => {
+    const page = renderRouted(<AlertsView />, '/alerts?tab=rules&severity=critical');
+    const firingCard = screen.getAllByRole('button').find((b) => /Firing/.test(b.textContent || '') && b.getAttribute('role') !== 'tab')!;
+    fireEvent.click(firingCard);
+    expect(page.url()).toBe('/alerts');
+    expect(selected(/Firing/)).toBe('true');
+  });
 });

@@ -430,6 +430,25 @@ describe('one shell tab per page', () => {
     expect(tabKey('/')).toBe('/');
   });
 
+  it('tabKey keeps the params that name another object', () => {
+    expect(tabKey('/r/v1~pods?ns=team-a&q=web')).toBe('/r/v1~pods?ns=team-a');
+    expect(tabKey('/r/v1~pods?q=web')).toBe('/r/v1~pods');
+    expect(tabKey('/create/v1~resourcequotas?namespace=shop')).toBe('/create/v1~resourcequotas?namespace=shop');
+    expect(tabKey('/logs/shop/db?kind=Deployment&selector=app%3Ddb')).toBe('/logs/shop/db?kind=Deployment');
+    // A detail page's ?ns= is not identity (its path names the namespace).
+    expect(tabKey('/r/v1~pods/shop/web?ns=x')).toBe('/r/v1~pods/shop/web');
+  });
+
+  it('pods in two namespaces, and logs of two kinds with one name, are separate tabs', () => {
+    const a = add('/r/v1~pods?ns=team-a', 'Pods (team-a)');
+    const b = add('/r/v1~pods?ns=team-b', 'Pods (team-b)');
+    expect(a).not.toBe(b);
+    const d = add('/logs/shop/db?kind=Deployment', 'db (Logs)');
+    const st = add('/logs/shop/db?kind=StatefulSet', 'db (Logs)');
+    expect(d).not.toBe(st);
+    expect(add('/logs/shop/db?kind=Deployment&selector=app%3Ddb', 'db (Logs)')).toBe(d);
+  });
+
   it('opening the same page with another query reuses its tab and remembers the URL', () => {
     const first = add('/workloads', 'Workloads');
     const second = add('/workloads?tab=builds', 'Builds');
@@ -438,8 +457,8 @@ describe('one shell tab per page', () => {
     expect(tabs.filter((t) => tabKey(t.path) === '/workloads')).toHaveLength(1);
     const tab = tabs.find((t) => t.id === first)!;
     expect(tab.path).toBe('/workloads?tab=builds');
-    // The page keeps its title; "Builds" is a view of Workloads, not a new page.
-    expect(tab.title).toBe('Workloads');
+    // The caller named the view it opened, so the tab says "Builds".
+    expect(tab.title).toBe('Builds');
     expect(activeTabId).toBe(first);
   });
 
@@ -515,6 +534,22 @@ describe('tab cap', () => {
     }));
     const kept = capTabs(tabs, 't0', 2).map((t) => t.id);
     expect(kept).toEqual(['t0', 't3']);
+  });
+
+  it('restoring prefers the pinned copy of a page and finds the active tab by page', () => {
+    const merge = useUIStore.persist.getOptions().merge!;
+    const merged = merge({
+      tabs: [
+        { id: 'pulse', title: 'Pulse', path: '/pulse', pinned: true, closable: false },
+        { id: 'a', title: 'Inbox task', path: '/inbox?task=1', pinned: false, closable: true },
+        { id: 'b', title: 'Inbox', path: '/inbox', pinned: true, closable: true },
+      ],
+      activeTabId: 'a',
+    }, useUIStore.getState()) as ReturnType<typeof useUIStore.getState>;
+    expect(merged.tabs.map((t) => [t.path, t.pinned])).toEqual([['/pulse', true], ['/inbox', true]]);
+    const active = merged.tabs.find((t) => t.id === merged.activeTabId)!;
+    expect(active.path).toBe('/inbox');
+    expect(active.lastActive).toBeGreaterThan(0);
   });
 
   it('caps a restored bar of 31 tabs, keeping the active one', () => {

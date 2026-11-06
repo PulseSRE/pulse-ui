@@ -13,12 +13,16 @@ const TABS = ['overview', 'builds', 'history'] as const;
 
 function Page() {
   const [tab, setTab] = useTabParam(TABS, 'overview');
+  const [sev, setSev] = useTabParam(['all', 'critical'] as const, 'all', 'severity');
   const loc = useLocation();
   return (
     <div>
       <div data-testid="tab">{tab}</div>
       <div data-testid="url">{loc.pathname + loc.search}</div>
+      <div data-testid="sev">{sev}</div>
       <button onClick={() => setTab('history')}>History</button>
+      <button onClick={() => setSev('critical')}>Critical</button>
+      <button onClick={() => { setTab('builds'); setSev('critical'); }}>Critical builds</button>
       <Link to="/page?tab=builds">See builds</Link>
       <Link to="/page">Overview link</Link>
     </div>
@@ -87,5 +91,19 @@ describe('useTabParam', () => {
     // Replaced, not pushed: one Back returns to the previous page.
     await act(() => router.navigate(-1));
     expect(screen.getByText('other page')).toBeTruthy();
+  });
+  it('a tab click keeps the other params, including another hook\'s', () => {
+    setup(['/page?q=web']);
+    fireEvent.click(screen.getByText('Critical'));
+    fireEvent.click(screen.getByText('History'));
+    expect(url()).toBe('/page?q=web&severity=critical&tab=history');
+  });
+
+  it('two writes in one handler both land', () => {
+    setup(['/page']);
+    fireEvent.click(screen.getByText('Critical builds'));
+    expect(tab()).toBe('builds');
+    expect(screen.getByTestId('sev').textContent).toBe('critical');
+    expect(url()).toBe('/page?tab=builds&severity=critical');
   });
 });
