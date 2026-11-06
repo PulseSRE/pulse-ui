@@ -48,6 +48,27 @@ export function k8sFetch(clusterId: string | undefined, apiPath: string, init: R
   return fetch(`${getClusterBase(clusterId)}${apiPath}`, { ...init, headers });
 }
 
+/**
+ * fetch() as a specific user (and at most one group), for read-only reviews
+ * run on someone else's behalf. Unlike k8sFetch it ignores the global
+ * impersonation, so a review "as alice" is never sent as whoever the
+ * banner is impersonating. One group per request: browsers cannot send the
+ * repeated Impersonate-Group header lines the API server needs for several.
+ */
+export function k8sFetchAs(
+  clusterId: string | undefined,
+  apiPath: string,
+  as: { user: string; group?: string },
+  init: RequestInit = {},
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...((init.headers as Record<string, string> | undefined) ?? {}),
+    'Impersonate-User': sanitizeHeaderValue(as.user),
+  };
+  if (as.group) headers['Impersonate-Group'] = sanitizeHeaderValue(as.group);
+  return fetch(`${getClusterBase(clusterId)}${apiPath}`, { ...init, headers });
+}
+
 interface K8sListResponse<T> {
   apiVersion: string;
   kind: string;
