@@ -371,7 +371,7 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   // Picker mode
   const tabs: Array<{ id: CreateTab; label: string; icon: React.ReactNode }> = [
     { id: 'installed', label: 'Installed', icon: <Package className="w-3.5 h-3.5" /> },
-    { id: 'deploy', label: 'Quick Deploy', icon: <Box className="w-3.5 h-3.5" /> },
+    { id: 'deploy', label: 'Deploy an app', icon: <Box className="w-3.5 h-3.5" /> },
     { id: 'helm', label: 'Helm Charts', icon: <Ship className="w-3.5 h-3.5" /> },
     { id: 'templates', label: 'Templates', icon: <FileText className="w-3.5 h-3.5" /> },
     { id: 'yaml', label: 'Import YAML', icon: <Upload className="w-3.5 h-3.5" /> },

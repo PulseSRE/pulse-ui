@@ -20,7 +20,7 @@ import { usePrefetchOnHover } from '../hooks/usePrefetchOnHover';
 import { useAskPulse } from '../hooks/useAskPulse';
 import { AskPulsePanel } from './AskPulsePanel';
 import { getRecentQueries } from '../engine/askPulseUtils';
-import { ALL_NAV_ITEMS, PALETTE_SHORTCUTS, matchesNavQuery, projectPath } from '../engine/navRegistry';
+import { ALL_NAV_ITEMS, PALETTE_SHORTCUTS, navMatchRank, projectPath } from '../engine/navRegistry';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFleetStore } from '../store/fleetStore';
 
@@ -388,9 +388,13 @@ function getCommandItems(
     }
 
     // Built-in pages — derived from canonical navRegistry
+    // Ranked: exact label, label prefix, label substring, exact keyword, then
+    // any other match; ties keep the registry order (sort is stable).
     const matchingPages: CommandItem[] = [...ALL_NAV_ITEMS, ...PALETTE_SHORTCUTS]
-      .filter((nav) => matchesNavQuery(nav, cleanQuery))
-      .map((nav) => ({
+      .map((nav) => ({ nav, rank: navMatchRank(nav, cleanQuery) }))
+      .filter(({ rank }) => rank >= 0)
+      .sort((a, b) => a.rank - b.rank)
+      .map(({ nav }) => ({
         type: 'nav' as const,
         id: nav.id,
         title: nav.label,

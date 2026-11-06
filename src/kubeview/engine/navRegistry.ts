@@ -41,7 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'slo', label: 'Service Levels', icon: 'Activity', path: '/slo', group: 'operations', subtitle: 'SLO burn rates and service health targets', keywords: ['slo', 'service level', 'burn rate', 'error budget', 'availability'], color: 'text-teal-400' },
 
   // Administration
-  { id: 'software', label: 'Software', icon: 'Package', path: '/software', group: 'administration', subtitle: 'Installed software, Quick Deploy, Helm charts, templates, Import YAML', keywords: ['software', 'create', 'deploy', 'install', 'helm', 'templates', 'import', 'yaml', 'new'], color: 'text-blue-400' },
+  { id: 'software', label: 'Software', icon: 'Package', path: '/software', group: 'administration', subtitle: 'Installed software, Deploy an app, Helm charts, templates, Import YAML', keywords: ['software', 'create', 'deploy', 'install', 'helm', 'templates', 'import', 'yaml', 'new'], color: 'text-blue-400' },
   { id: 'operators', label: 'Operators', icon: 'Puzzle', path: '/operators', group: 'administration', subtitle: 'OperatorHub — browse, install, manage add-on operators', keywords: ['operators', 'operatorhub', 'install', 'olm', 'catalog', 'subscriptions'], color: 'text-purple-400' },
   { id: 'admin', label: 'Administration', icon: 'Settings', path: '/admin', group: 'administration', subtitle: 'Config, updates, snapshots, quotas, certificates', keywords: ['config', 'updates', 'quotas', 'certificates', 'crds'], color: 'text-slate-400' },
   { id: 'identity', label: 'Identity & Access', icon: 'Shield', path: '/identity', group: 'administration', subtitle: 'Users, groups, RBAC, impersonation', keywords: ['users', 'groups', 'service', 'accounts', 'rbac', 'impersonation'], color: 'text-teal-400' },
@@ -97,9 +97,28 @@ export function matchesNavQuery(item: NavItem, query: string): boolean {
   );
 }
 
-/** Look up a nav item by path */
+/**
+ * How well a nav item matches a palette query; lower ranks first, -1 is no
+ * match. The label decides before subtitle and keywords, so typing "Builds"
+ * puts the Builds page above Workloads (which lists "builds" as a keyword).
+ */
+export function navMatchRank(item: NavItem, query: string): number {
+  if (!query) return 0;
+  const q = query.toLowerCase().trim();
+  const label = item.label.toLowerCase();
+  if (label === q) return 0;
+  if (label.startsWith(q)) return 1;
+  if (label.includes(q)) return 2;
+  if (item.keywords?.some((k) => k === q)) return 3;
+  if (matchesNavQuery(item, q)) return 4;
+  return -1;
+}
+
+/** Look up a nav item by path (its query, e.g. `?tab=builds`, is ignored) */
 export function getNavByPath(path: string): NavItem | undefined {
-  return NAV_ITEMS.find((item) => item.path === path);
+  const end = path.search(/[?#]/);
+  const pathname = end === -1 ? path : path.slice(0, end);
+  return NAV_ITEMS.find((item) => item.path === pathname);
 }
 
 /** Route-to-icon lookup (used by TabBar for auto-created tabs) */

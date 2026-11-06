@@ -30,8 +30,8 @@ vi.mock('../../engine/query', () => ({ k8sList: vi.fn().mockResolvedValue([]), k
 
 import IdentityView from '../IdentityView';
 
-function r() {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><IdentityView /></MemoryRouter></QueryClientProvider>);
+function r(url = '/identity') {
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[url]}><IdentityView /></MemoryRouter></QueryClientProvider>);
 }
 const tab = (name: RegExp) => fireEvent.click(screen.getByRole('tab', { name }));
 
@@ -71,8 +71,7 @@ describe('Identity impersonation', () => {
   });
 
   it('has no Impersonation tab, and an old ?tab=impersonation link opens Users', () => {
-    window.history.replaceState(null, '', '/identity?tab=impersonation');
-    r();
+    r('/identity?tab=impersonation');
     expect(screen.queryByRole('tab', { name: /Impersonation/ })).toBeNull();
     expect(screen.getByRole('tab', { name: /^Users$/ }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('button', { name: 'Impersonate alice' })).toBeDefined();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -27,6 +27,7 @@ vi.mock('../../components/metrics/prometheus', async (importOriginal) => ({
 vi.mock('@/lib/utils', () => ({ cn: (...args: any[]) => args.filter(Boolean).join(' ') }));
 
 import ComputeView from '../ComputeView';
+import { renderRouted } from '../../__tests__/helpers/routerTabs';
 
 function renderView() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -161,5 +162,25 @@ describe('ComputeView', () => {
     renderView();
     const ha = screen.getByText('HA Control Plane').closest('button')!;
     expect(ha.textContent).toContain('1 of 1 need attention');
+  });
+});
+
+describe('ComputeView tab in the URL', () => {
+  afterEach(() => { cleanup(); Object.keys(mockData).forEach(k => delete mockData[k]); });
+  const selected = (name: RegExp | string) => screen.getByRole('tab', { name }).getAttribute('aria-selected');
+
+  it('switches on a same-page ?tab= link and on Back', async () => {
+    const page = renderRouted(<ComputeView />, '/compute');
+    expect(selected('Overview')).toBe('true');
+    await page.go('/compute?tab=capacity');
+    expect(selected('Capacity Planning')).toBe('true');
+    await page.back();
+    expect(selected('Overview')).toBe('true');
+  });
+
+  it('a tab click writes ?tab= through the router', () => {
+    const page = renderRouted(<ComputeView />, '/compute');
+    fireEvent.click(screen.getByRole('tab', { name: 'Capacity Planning' }));
+    expect(page.url()).toBe('/compute?tab=capacity');
   });
 });
