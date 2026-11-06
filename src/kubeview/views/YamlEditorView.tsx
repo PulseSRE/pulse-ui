@@ -14,13 +14,15 @@ import { LoadError } from '../components/primitives/LoadError';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
 import { resourceToYaml } from '../engine/yamlUtils';
-import { ArrowLeft, Save, RotateCcw, AlertCircle, ShieldCheck, GitBranch, Lock } from 'lucide-react';
+import { ArrowLeft, Save, RotateCcw, AlertCircle, ShieldCheck, GitBranch, Lock, Ship } from 'lucide-react';
 import { showErrorToast } from '../engine/errorToast';
 import { useArgoSyncInfo } from '../hooks/useArgoCD';
 import { useArgoCDStore } from '../store/argoCDStore';
 import { GitOpsActionDialog } from '../components/GitOpsActionDialog';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
+import { helmReleasePath } from '../engine/helmOwnership';
+import { useHelmOwnership, helmOwnerSentence, HelmClaimNote } from '../components/HelmOwnership';
 import { SavedConsumersOffer } from './detail/ConfigConsumers';
 
 interface YamlEditorViewProps {
@@ -66,6 +68,16 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   const actualKindForArgo = resource?.kind || '';
   const syncInfo = useArgoSyncInfo(actualKindForArgo, namespace, name);
   const isArgoManaged = argoCDAvailable && !!syncInfo;
+
+  // Helm awareness: the release overwrites hand edits on its next upgrade or
+  // rollback, so the editor stays read-only until the user chooses to edit
+  // here anyway.
+  // Counted as the release's only if the release lists it (labels can be copied or stale).
+  const helm = useHelmOwnership(resource, clusterId);
+  const helmOwner = helm.owner;
+  const helmRelease = { data: helm.release, isError: !!helm.releaseError };
+  const [helmEditAnyway, setHelmEditAnyway] = useState(false);
+  const helmLocked = !!helmOwner && !helmEditAnyway;
   // Set after a ConfigMap/Secret save: offers restarting the consumers.
   const [savedConfig, setSavedConfig] = useState(false);
 
@@ -78,7 +90,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   }, [resource]);
 
   const handleSave = useCallback(async () => {
-    if (!hasChanges || saving || readOnly) return;
+    if (!hasChanges || saving || readOnly || helmLocked) return;
     // Read the live registry, not render state: the switch may have happened
     // after this callback was created.
     const active = getActiveClusterId();
@@ -113,16 +125,16 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
     } finally {
       setSaving(false);
     }
-  }, [clusterId, currentYaml, hasChanges, saving, readOnly, name, apiPath, addToast, queryClient]);
+  }, [clusterId, currentYaml, hasChanges, saving, readOnly, helmLocked, name, apiPath, addToast, queryClient]);
 
   // Every save path — the header button, ⌘S and the diff preview's Apply —
   // goes through here, so an Argo-managed resource always gets the GitOps
   // dialog instead of a direct write that Argo would revert.
   const requestSave = useCallback(() => {
-    if (readOnly || !hasChanges) return;
+    if (readOnly || !hasChanges || helmLocked) return;
     if (isArgoManaged) setShowGitOpsDialog(true);
     else void handleSave();
-  }, [readOnly, hasChanges, isArgoManaged, handleSave]);
+  }, [readOnly, hasChanges, helmLocked, isArgoManaged, handleSave]);
 
   const handleDiscard = useCallback(() => {
     setCurrentYaml(originalYaml);
@@ -190,9 +202,10 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
           )}
           <button
             onClick={requestSave}
-            disabled={!hasChanges || saving || clusterChanged}
+            disabled={!hasChanges || saving || clusterChanged || helmLocked}
+            title={helmLocked ? `Managed by Helm release ${helmOwner?.release}: choose "Edit here anyway" first` : undefined}
             className={cn('flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-md font-medium transition-colors',
-              hasChanges && !clusterChanged
+              hasChanges && !clusterChanged && !helmLocked
                 ? isArgoManaged ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             )}
@@ -209,6 +222,37 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
           <span>
             This YAML was loaded from <strong>{clusterName(clusterId)}</strong>; the active cluster is now <strong>{clusterName(activeClusterId)}</strong>. Saving is disabled until you switch back.
           </span>
+        </div>
+      )}
+
+      {helm.claimed && helm.verified === false && (
+        <div className="px-4 py-2 border-b border-slate-800"><HelmClaimNote claimed={helm.claimed} /></div>
+      )}
+      {helmOwner && (
+        <div role="note" aria-label="Helm ownership" className="px-4 py-3 border-b border-sky-900 bg-sky-950/30 text-xs">
+          <div className="flex items-start gap-2">
+            <Ship className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1 space-y-1">
+              <p className="text-sky-100 font-medium">
+                Managed by Helm release {helmOwner.release}{helmOwner.namespace !== namespace ? ` (in ${helmOwner.namespace})` : ''}; hand edits are overwritten on the next upgrade.
+              </p>
+              <p className="text-sky-200/70">
+                {helmOwnerSentence(helmOwner, helmRelease.data)}
+                {helmRelease.isError && ' The release record could not be read, so its revision and status are unknown.'}
+                {' '}A workload-level rollback is reverted by Helm in the same way.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button type="button" onClick={() => go(helmReleasePath(helmOwner, 'values'), `Helm ${helmOwner.release}`)} className="px-2.5 py-1 rounded-sm bg-sky-700 hover:bg-sky-600 text-white">Edit release values</button>
+                <button type="button" onClick={() => go(helmReleasePath(helmOwner, 'rollback'), `Helm ${helmOwner.release}`)} className="px-2.5 py-1 rounded-sm bg-slate-700 hover:bg-slate-600 text-slate-100">Roll back the release…</button>
+                {!readOnly && !helmEditAnyway && (
+                  <button type="button" onClick={() => setHelmEditAnyway(true)} className="px-2.5 py-1 rounded-sm border border-amber-700 text-amber-300 hover:bg-amber-950/40">Edit here anyway</button>
+                )}
+              </div>
+              {!readOnly && (helmEditAnyway
+                ? <p className="text-amber-300" role="alert">Editing here creates drift: the live object no longer matches release {helmOwner.release}, and the next helm upgrade or rollback reverts this edit.</p>
+                : <p className="text-slate-400">Read-only until you choose &quot;Edit here anyway&quot;. Editing here creates drift that the next helm upgrade reverts.</p>)}
+            </div>
+          </div>
         </div>
       )}
 
@@ -231,7 +275,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
           value={currentYaml}
           onChange={setCurrentYaml}
           onSave={requestSave}
-          readOnly={readOnly}
+          readOnly={readOnly || helmLocked}
           hideStatusBarSave
           originalValue={originalYaml}
           showDiff={true}
