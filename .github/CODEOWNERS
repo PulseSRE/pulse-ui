@@ -1,0 +1,4 @@
+# Changes here can change what CI checks and what a release publishes.
+# These entries block a merge only when code owner review is required on main.
+/.github/workflows/ @alimobrem
+/.github/CODEOWNERS @alimobrem
