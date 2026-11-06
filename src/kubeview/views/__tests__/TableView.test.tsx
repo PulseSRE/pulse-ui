@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, createMemoryRouter, RouterProvider } from 'react-router-dom';
 import React from 'react';
 
 // --- Mocks (vi.mock is hoisted before imports) ---
@@ -566,149 +566,67 @@ describe('TableView', () => {
     vi.useRealTimers();
   });
 
-  describe('URL-persisted filters', () => {
-    let replaceStateSpy: ReturnType<typeof vi.spyOn>;
-
-    beforeEach(() => {
-      replaceStateSpy = vi.spyOn(window.history, 'replaceState');
-      // Reset URL to clean state
-      window.history.replaceState(null, '', window.location.pathname);
-    });
-
-    afterEach(() => {
-      replaceStateSpy.mockRestore();
-      window.history.replaceState(null, '', window.location.pathname);
-    });
+  describe('URL-persisted filters (through the router)', () => {
+    function renderTableAt(url: string) {
+      const router = createMemoryRouter([{ path: '*', element: <TableView gvrKey="v1/pods" /> }], { initialEntries: [url] });
+      render(<QueryClientProvider client={createQueryClient()}><RouterProvider router={router} /></QueryClientProvider>);
+      return () => router.state.location.search;
+    }
 
     it('reads search query from URL on mount', () => {
-      window.history.replaceState(null, '', '?q=nginx');
-
-      setMockWatch({
-        data: [makePodResource('nginx'), makePodResource('redis')],
-        isLoading: false,
-        error: null,
-      });
-
-      renderTable('v1/pods');
-
-      const searchInput = screen.getByPlaceholderText('Search...') as HTMLInputElement;
-      expect(searchInput.value).toBe('nginx');
+      setMockWatch({ data: [makePodResource('nginx'), makePodResource('redis')], isLoading: false, error: null });
+      renderTableAt('/r/v1~pods?q=nginx');
+      expect((screen.getByPlaceholderText('Search...') as HTMLInputElement).value).toBe('nginx');
     });
 
     it('reads sort column and direction from URL on mount', () => {
-      window.history.replaceState(null, '', '?sort=namespace&dir=desc');
-
-      setMockWatch({
-        data: [makePodResource('alpha', 'z-ns'), makePodResource('beta', 'a-ns')],
-        isLoading: false,
-        error: null,
-      });
-
-      renderTable('v1/pods');
-
-      // The Namespace column header should have a sort indicator (ChevronDown for desc)
-      const namespaceHeader = screen.getByText('Namespace');
-      const headerCell = namespaceHeader.closest('[role="columnheader"]');
-      // ChevronDown icon should be present for desc sort
+      setMockWatch({ data: [makePodResource('alpha', 'z-ns'), makePodResource('beta', 'a-ns')], isLoading: false, error: null });
+      renderTableAt('/r/v1~pods?sort=namespace&dir=desc');
+      const headerCell = screen.getByText('Namespace').closest('[role="columnheader"]');
       expect(headerCell?.querySelector('svg')).not.toBeNull();
       expect(headerCell?.getAttribute('aria-sort')).toBe('descending');
     });
 
     it('reads page number from URL on mount', () => {
-      window.history.replaceState(null, '', '?page=1');
-
-      // Create enough resources to have multiple pages
       const pods = Array.from({ length: 30 }, (_, i) => makePodResource(`pod-${i}`));
       setMockWatch({ data: pods, isLoading: false, error: null });
-
-      renderTable('v1/pods');
-
-      // Page 1 (second page) should show "26-30 of 30"
+      renderTableAt('/r/v1~pods?page=1');
       expect(screen.getByText(/26-30 of 30/)).toBeDefined();
     });
 
     it('updates URL when search input changes', () => {
       vi.useFakeTimers();
-
-      setMockWatch({
-        data: [makePodResource('nginx')],
-        isLoading: false,
-        error: null,
-      });
-
-      renderTable('v1/pods');
-
-      const searchInput = screen.getByPlaceholderText('Search...');
-      fireEvent.change(searchInput, { target: { value: 'test-query' } });
-
-      // Advance past debounce
+      setMockWatch({ data: [makePodResource('nginx')], isLoading: false, error: null });
+      const search = renderTableAt('/r/v1~pods');
+      fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'test-query' } });
       act(() => { vi.advanceTimersByTime(250); });
-
-      // replaceState should have been called with q=test-query
-      const lastCall = replaceStateSpy.mock.calls[replaceStateSpy.mock.calls.length - 1];
-      expect(lastCall[2]).toContain('q=test-query');
-
+      expect(search()).toContain('q=test-query');
       vi.useRealTimers();
     });
 
-    it('updates URL when sort changes', () => {
-      setMockWatch({
-        data: [makePodResource('alpha'), makePodResource('beta')],
-        isLoading: false,
-        error: null,
-      });
-
-      renderTable('v1/pods');
-
-      // Click on Namespace header to sort
-      const namespaceHeader = screen.getByText('Namespace');
-      fireEvent.click(namespaceHeader);
-
-      const calls = replaceStateSpy.mock.calls;
-      const urlStrings = calls.map(c => String(c[2]));
-      const sortCall = urlStrings.find(u => u.includes('sort=namespace'));
-      expect(sortCall).toBeDefined();
+    it('updates URL when sort changes, keeping the search', () => {
+      setMockWatch({ data: [makePodResource('alpha'), makePodResource('beta')], isLoading: false, error: null });
+      const search = renderTableAt('/r/v1~pods?q=a');
+      fireEvent.click(screen.getByText('Namespace'));
+      expect(search()).toContain('sort=namespace');
+      expect(search()).toContain('q=a');
     });
 
     it('updates URL when page changes', () => {
       const pods = Array.from({ length: 30 }, (_, i) => makePodResource(`pod-${i}`));
       setMockWatch({ data: pods, isLoading: false, error: null });
-
-      renderTable('v1/pods');
-
-      // Click Next button
-      const nextButton = screen.getByText('Next');
-      fireEvent.click(nextButton);
-
-      const calls = replaceStateSpy.mock.calls;
-      const urlStrings = calls.map(c => String(c[2]));
-      const pageCall = urlStrings.find(u => u.includes('page=1'));
-      expect(pageCall).toBeDefined();
+      const search = renderTableAt('/r/v1~pods');
+      fireEvent.click(screen.getByText('Next'));
+      expect(search()).toContain('page=1');
     });
 
     it('removes default values from URL', () => {
       vi.useFakeTimers();
-
-      window.history.replaceState(null, '', '?q=test');
-
-      setMockWatch({
-        data: [makePodResource('nginx')],
-        isLoading: false,
-        error: null,
-      });
-
-      renderTable('v1/pods');
-
-      // Clear the search
-      const searchInput = screen.getByPlaceholderText('Search...');
-      fireEvent.change(searchInput, { target: { value: '' } });
-
+      setMockWatch({ data: [makePodResource('nginx')], isLoading: false, error: null });
+      const search = renderTableAt('/r/v1~pods?q=test');
+      fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: '' } });
       act(() => { vi.advanceTimersByTime(250); });
-
-      // The last replaceState call should not contain q=
-      const lastCall = replaceStateSpy.mock.calls[replaceStateSpy.mock.calls.length - 1];
-      expect(String(lastCall[2])).not.toContain('q=');
-
+      expect(search()).not.toContain('q=');
       vi.useRealTimers();
     });
   });

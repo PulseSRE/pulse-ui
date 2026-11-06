@@ -1,13 +1,13 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useNavigationType } from 'react-router-dom';
 import { X, Plus, Pin, PinOff } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { useUIStore } from '../store/uiStore';
+import { useUIStore, tabKey } from '../store/uiStore';
 import { useCustomViewStore } from '../store/customViewStore';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 import { getResourceIcon } from '../engine/iconRegistry';
-import { getRouteIcon, getRouteColor } from '../engine/navRegistry';
+import { getRouteIcon, getRouteColor, getNavByPath } from '../engine/navRegistry';
 import { pluralToKind } from '../engine/renderers/index';
 import { isKnownRoute } from '../engine/routeTable';
 
@@ -17,7 +17,10 @@ function getIcon(iconName?: string) {
   return getResourceIcon(iconName);
 }
 
-export function getTabTitle(path: string): string {
+export function getTabTitle(url: string): string {
+  const end = url.search(/[?#]/);
+  const path = end === -1 ? url : url.slice(0, end);
+  const params = new URLSearchParams(end === -1 ? '' : url.slice(end).split('#')[0]);
   const parts = path.split('/').filter(Boolean);
 
   // /r/v1~nodes → "Nodes"
@@ -32,7 +35,10 @@ export function getTabTitle(path: string): string {
       const kind = pluralToKind(resource);
       return `${name} (${kind})`;
     }
-    return resource.charAt(0).toUpperCase() + resource.slice(1);
+    const title = resource.charAt(0).toUpperCase() + resource.slice(1);
+    // A list opened for one namespace is its own tab; say which.
+    const ns = params.get('ns') || params.get('namespace');
+    return ns && ns !== '*' ? `${title} (${ns})` : title;
   }
 
   // /yaml/... → "YAML: name"
@@ -42,7 +48,8 @@ export function getTabTitle(path: string): string {
 
   // /logs/ns/name → "name (Logs)"
   if (parts[0] === 'logs' && parts.length >= 3) {
-    return `${parts[parts.length - 1]} (Logs)`;
+    const kind = params.get('kind');
+    return `${parts[parts.length - 1]} (${kind ? `${kind} logs` : 'Logs'})`;
   }
 
   // /metrics/... → "name (Metrics)"
@@ -62,13 +69,21 @@ export function getTabTitle(path: string): string {
   return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
+/** A tab title for a URL the shell reached without a caller naming it. */
+export function titleForUrl(url: string): string {
+  const end = url.search(/[?#]/);
+  const nav = getNavByPath(end === -1 ? url : url.slice(0, end));
+  return nav?.label ?? getTabTitle(url);
+}
+
 export function TabBar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationType = useNavigationType();
 
   const {
     tabs, activeTabId, setActiveTab, closeTab, reorderTabs,
-    pinTab, unpinTab, openCommandPalette, addTab,
+    pinTab, unpinTab, openCommandPalette, addTab, updateTab,
     _pendingNavigate: pendingNavigate,
   } = useUIStore(useShallow((s) => ({
     tabs: s.tabs,
@@ -80,6 +95,7 @@ export function TabBar() {
     unpinTab: s.unpinTab,
     openCommandPalette: s.openCommandPalette,
     addTab: s.addTab,
+    updateTab: s.updateTab,
     _pendingNavigate: s._pendingNavigate,
   })));
 
@@ -93,7 +109,7 @@ export function TabBar() {
   }, [pendingNavigate, navigate]);
 
   useEffect(() => {
-    if (pendingNavigate && location.pathname === pendingNavigate) {
+    if (pendingNavigate && location.pathname === tabKey(pendingNavigate).split('?')[0]) {
       useUIStore.setState({ _pendingNavigate: null });
     }
   }, [location.pathname, pendingNavigate]);
@@ -118,33 +134,42 @@ export function TabBar() {
     }
   };
 
-  // Sync active tab with current route
+  // Sync active tab with current route. A page has one tab whatever its
+  // query; the tab remembers the page's latest URL (e.g. its `?tab=`).
   useEffect(() => {
     // Don't create tabs while a close-triggered navigation is pending
     if (pendingNavigate) return;
 
     const currentPath = location.pathname;
-    const matchingTab = tabs.find((t) => t.path === currentPath);
+    const currentUrl = currentPath + location.search;
+    const matchingTab = tabs.find((t) => tabKey(t.path) === tabKey(currentUrl));
+    const activeTab = tabs.find((t) => t.id === activeTabId);
 
     if (matchingTab) {
-      // Activate existing tab if it matches current path
       if (activeTabId !== matchingTab.id) {
         setActiveTab(matchingTab.id);
       }
+      // A pinned tab keeps the URL it was pinned with; another tab follows
+      // the page's URL and the title that URL describes.
+      if (!matchingTab.pinned && matchingTab.path !== currentUrl) {
+        updateTab(matchingTab.id, { path: currentUrl, title: titleForUrl(currentUrl) });
+      }
+    } else if (navigationType === 'REPLACE' && activeTab && tabKey(activeTab.path).split('?')[0] === currentPath) {
+      // The page rewrote its own URL and dropped a param that named the tab
+      // (a list consumes `?ns=` into the namespace selector). It is still the
+      // same tab, which keeps the URL that opens it.
     } else if (currentPath !== '/' && isKnownRoute(currentPath)) {
       // Unknown paths show the Not Found page; they get no tab.
       // Create a new tab for this path (skip redirects and pinned defaults)
-      const title = getTabTitle(currentPath);
-
       addTab({
-        title,
+        title: titleForUrl(currentUrl),
         icon: getRouteIcon(currentPath),
-        path: currentPath,
+        path: currentUrl,
         pinned: false,
         closable: true,
       });
     }
-  }, [location.pathname, pendingNavigate]);
+  }, [location.pathname, location.search, pendingNavigate]);
 
   // Navigate when user clicks a tab (not on store rehydration or URL-driven changes)
   const userClickedTab = useRef(false);
@@ -152,7 +177,7 @@ export function TabBar() {
     if (!userClickedTab.current) return;
     userClickedTab.current = false;
     const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (activeTab && location.pathname !== activeTab.path) {
+    if (activeTab && location.pathname + location.search !== activeTab.path) {
       navigate(activeTab.path);
     }
   }, [activeTabId]);

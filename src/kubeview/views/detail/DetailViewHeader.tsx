@@ -21,6 +21,7 @@ import { ArgoSyncBadge } from '../../components/ArgoSyncBadge';
 import { useWorkloadActions } from '../../components/workloads/WorkloadActionMenu';
 import { routeUrl } from '../../engine/workloadActions';
 import { NodeHeaderActions } from './NodeHeaderActions';
+import { HelmOwnerBadge } from '../../components/HelmOwnership';
 
 interface DetailViewHeaderProps {
   resource: K8sResource;
@@ -142,6 +143,7 @@ export function DetailViewHeader({
           )}
           <StatusBadge resource={resource} />
           <ArgoSyncBadge kind={resource.kind} namespace={resource.metadata.namespace} name={resource.metadata.name} showLabel />
+          <HelmOwnerBadge resource={resource} />
         </div>
         <p className="text-sm text-slate-400">
           {resource.kind} · {resource.apiVersion}

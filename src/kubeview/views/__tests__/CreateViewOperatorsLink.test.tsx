@@ -40,7 +40,7 @@ describe('Software › Operators', () => {
   it('has no Operators tab', async () => {
     renderAt('/software');
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(
-      ['Installed', 'Quick Deploy', 'Helm Charts', 'Templates', 'Import YAML'],
+      ['Installed', 'Deploy an app', 'Helm Charts', 'Templates', 'Import YAML'],
     );
     expect(screen.queryByRole('tab', { name: /Operators/ })).toBeNull();
     expect(screen.queryByTestId('embedded-catalog')).toBeNull();

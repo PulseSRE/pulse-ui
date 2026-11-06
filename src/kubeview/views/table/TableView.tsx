@@ -2,6 +2,7 @@ import React from 'react';
 import { createPathFor } from '../../engine/routeTable';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParamUpdater } from '../../components/primitives/Tabs';
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
@@ -17,6 +18,8 @@ import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 import { TableToolbar } from './TableToolbar';
 import { TableBody } from './TableBody';
 import { useTableActions } from './TableActions';
+import { DeleteRelatedDialog } from '../../components/workloads/DeleteRelatedDialog';
+import { DELETE_WITH_RELATED_KINDS } from '../../components/workloads/WorkloadActionMenu';
 import type { K8sResource } from '../../engine/renderers';
 
 interface TableViewProps {
@@ -72,18 +75,15 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   // `?ns=<namespace>` (detail breadcrumbs, agent dashboards, resource_counts
   // cards) selects the namespace. It is applied to the global selector, then
   // dropped from the URL so the selector stays the one source afterwards.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const updateSearch = useSearchParamUpdater();
   const rawNsParam = searchParams.get('ns');
   const nsParam = rawNsParam && (rawNsParam === '*' || NAMESPACE_PARAM_RE.test(rawNsParam)) ? rawNsParam : null;
   React.useEffect(() => {
     if (rawNsParam === null) return;
     if (nsParam) setSelectedNamespace(nsParam);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('ns');
-      return next;
-    }, { replace: true });
-  }, [rawNsParam, nsParam, setSelectedNamespace, setSearchParams]);
+    updateSearch((next) => next.delete('ns'));
+  }, [rawNsParam, nsParam, setSelectedNamespace, updateSearch]);
   const effectiveSelectedNamespace = nsParam ?? selectedNamespace;
 
   // --- Resource type detection ---
@@ -148,12 +148,12 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
 
   // --- URL param helpers ---
   const updateUrlParam = React.useCallback((key: string, value: string, defaultValue: string) => {
-    const url = new URL(window.location.href);
-    if (value === defaultValue) url.searchParams.delete(key); else url.searchParams.set(key, value);
-    window.history.replaceState(null, '', url.toString());
-  }, []);
+    updateSearch((next) => { if (value === defaultValue) next.delete(key); else next.set(key, value); });
+  }, [updateSearch]);
 
-  const urlParams = React.useMemo(() => new URLSearchParams(window.location.search), []);
+  // Read once for the initial filter and sort; later changes are written back.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- initial values only
+  const urlParams = React.useMemo(() => new URLSearchParams(searchParams), []);
 
   // --- Filter / search state ---
   const [searchInput, setSearchInput] = React.useState(urlParams.get('q') || '');
@@ -177,17 +177,15 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     direction: (urlParams.get('dir') as SortDirection) || enhancer?.defaultSort?.direction || 'asc',
   });
   const setSortState = React.useCallback((updater: SortState | ((prev: SortState) => SortState)) => {
-    setSortStateInner((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      const defaultCol = enhancer?.defaultSort?.column || 'name';
-      const defaultDir = enhancer?.defaultSort?.direction || 'asc';
-      const url = new URL(window.location.href);
-      if (next.column === defaultCol) url.searchParams.delete('sort'); else url.searchParams.set('sort', next.column);
-      if (next.direction === defaultDir) url.searchParams.delete('dir'); else url.searchParams.set('dir', next.direction);
-      window.history.replaceState(null, '', url.toString());
-      return next;
+    const next = typeof updater === 'function' ? updater(sortState) : updater;
+    setSortStateInner(next);
+    const defaultCol = enhancer?.defaultSort?.column || 'name';
+    const defaultDir = enhancer?.defaultSort?.direction || 'asc';
+    updateSearch((params) => {
+      if (next.column === defaultCol) params.delete('sort'); else params.set('sort', next.column);
+      if (next.direction === defaultDir) params.delete('dir'); else params.set('dir', next.direction);
     });
-  }, [enhancer]);
+  }, [enhancer, sortState, updateSearch]);
 
   // --- Selection state ---
   const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
@@ -401,6 +399,40 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     setSelectedRows,
   });
 
+  // Deployments, StatefulSets and DaemonSets delete through the related-objects
+  // dialog, one workload at a time (also for a bulk selection).
+  const [relatedQueue, setRelatedQueue] = React.useState<{ items: K8sResource[]; total: number } | null>(null);
+  const queueDeleted = React.useRef<string[]>([]);
+  const addToast = useUIStore((s) => s.addToast);
+  const withRelated = (r: K8sResource | undefined) => !!r && DELETE_WITH_RELATED_KINDS.has(r.kind) && !!r.metadata.namespace;
+  const bulkDelete = () => {
+    const picked = sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
+    if (picked.length > 0 && picked.every(withRelated)) { queueDeleted.current = []; setRelatedQueue({ items: picked, total: picked.length }); }
+    else actions.setShowBulkDeleteConfirm(true);
+  };
+  const queueSummary = (total: number, stopped: boolean) => {
+    const done = queueDeleted.current;
+    if (total < 2) return;
+    addToast({
+      type: done.length ? 'success' : 'warning',
+      title: `Deleted ${done.length} of ${total} selected workload${total === 1 ? '' : 's'}${stopped ? ' (stopped)' : ''}`,
+      detail: done.length ? done.join(', ') : undefined,
+    });
+  };
+  // After a dialog ran: on to the next selected workload, or a summary at the end.
+  const nextInQueue = () => {
+    const q = relatedQueue;
+    if (!q) return;
+    if (q.items.length > 1) setRelatedQueue({ ...q, items: q.items.slice(1) });
+    else { setRelatedQueue(null); queueSummary(q.total, false); }
+  };
+  // Cancel, Escape or X: stop the whole queue.
+  const cancelQueue = () => {
+    const q = relatedQueue;
+    setRelatedQueue(null);
+    if (q) queueSummary(q.total, true);
+  };
+
   // --- Error state ---
   if (error) {
     return (
@@ -467,7 +499,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         onToggleColumnPicker={() => setShowColumnPicker(!showColumnPicker)}
         selectedCount={selectedRows.size}
         canDelete={canDelete}
-        onBulkDelete={() => actions.setShowBulkDeleteConfirm(true)}
+        onBulkDelete={bulkDelete}
         canCreate={canCreate}
         onCreate={handleCreate}
         showExport={actions.showExport}
@@ -531,8 +563,33 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         />
       )}
 
+      {/* Delete with related objects (row trash on a Deployment/StatefulSet/DaemonSet) */}
+      {actions.pendingDelete && withRelated(actions.pendingDelete.resource) && (
+        <DeleteRelatedDialog
+          workload={actions.pendingDelete.resource}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          onClose={() => actions.setPendingDelete(null)}
+          onDeleted={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] })}
+        />
+      )}
+      {relatedQueue && (
+        <DeleteRelatedDialog
+          key={relatedQueue.items[0].metadata.uid ?? relatedQueue.items[0].metadata.name}
+          workload={relatedQueue.items[0]}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          queueNote={relatedQueue.total > 1 ? `${relatedQueue.total - relatedQueue.items.length + 1} of ${relatedQueue.total} selected` : undefined}
+          onClose={nextInQueue}
+          onCancel={cancelQueue}
+          onDeleted={() => {
+            queueDeleted.current.push(relatedQueue.items[0].metadata.name);
+            queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+            setSelectedRows(new Set());
+          }}
+        />
+      )}
+
       {/* Single Delete Confirmation */}
-      {actions.pendingDelete && (
+      {actions.pendingDelete && !withRelated(actions.pendingDelete.resource) && (
         <ConfirmDialog
           open={!!actions.pendingDelete}
           title={`Delete ${actions.pendingDelete.resource.kind}`}

@@ -3,7 +3,8 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal@sha256:ae09ecc3d754bc1726cbda3e
 ARG HELM_VERSION=3.15.4
 ARG TARGETARCH=amd64
 
-RUN microdnf install -y ca-certificates gzip tar && microdnf clean all
+# gawk and sha256sum (coreutils) redact Secret values in preview renders before they reach the pod log.
+RUN microdnf install -y ca-certificates gzip tar gawk coreutils-single && microdnf clean all
 RUN cd /tmp \
  && curl -fsSLO "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" \
  && curl -fsSLO "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz.sha256sum" \

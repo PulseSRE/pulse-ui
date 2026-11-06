@@ -401,13 +401,32 @@ entries:
     expect(job.body.spec.template.spec.containers[0].args).toEqual(['install', 'my-nginx', 'nginx', '--repo', 'https://charts.openshift.io', '--namespace', 'team-b', '--version', '15.2.0', '--wait', '--timeout', '5m']);
   });
 
-  it('Quick Deploy will not deploy in all-namespaces mode until a namespace is chosen', async () => {
+  it('Deploy an app will not dry-run in all-namespaces mode until a namespace is chosen', async () => {
     h.renderUi(<QuickDeployTab />);
-    fireEvent.change(screen.getByPlaceholderText('my-app'), { target: { value: 'web' } });
-    fireEvent.change(screen.getByPlaceholderText('nginx:latest or quay.io/org/image:tag'), { target: { value: 'nginx:1' } });
-    expect((screen.getByRole('button', { name: /Deploy/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/^Name\*?$/), { target: { value: 'web' } });
+    fireEvent.change(screen.getByLabelText(/^Image\*?$/), { target: { value: 'nginx:1' } });
+    fireEvent.change(screen.getByLabelText(/^Container\ port\*?$/), { target: { value: '8080' } });
+    expect((screen.getByRole('button', { name: 'Dry run' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('form-errors').textContent).toContain('Choose a namespace.');
     fireEvent.change(await screen.findByRole('combobox', { name: 'Namespace' }), { target: { value: 'team-a' } });
-    fireEvent.click(screen.getByRole('button', { name: /Deploy/ }));
-    await waitFor(() => expect(h.writes()[0]?.path).toBe('/apis/apps/v1/namespaces/team-a/deployments'));
+    await clickWhenEnabled('Dry run');
+    await waitFor(() => expect(h.writes()[0]?.path).toBe('/apis/apps/v1/namespaces/team-a/deployments?dryRun=All'));
+  });
+});
+
+describe('Links from a Helm-owned resource', () => {
+  it('?release=&releaseNs=&action=rollback lists that namespace and opens the rollback', async () => {
+    h.renderUi(<HelmReleases nsFilter="other-ns" charts={CHARTS} />, '/software?tab=helm&release=shop&releaseNs=team-a&action=rollback');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Roll back shop?' })).toBeTruthy();
+    expect(h.state.requests.some((r) => r.path.startsWith('/api/v1/namespaces/team-a/secrets'))).toBe(true);
+    expect(screen.getByTestId('helm-release-shop').getAttribute('aria-current')).toBe('true');
+    expect(h.writes()).toEqual([]);
+  });
+
+  it('a linked release that is not found is said', async () => {
+    h.renderUi(<HelmReleases nsFilter={undefined} charts={CHARTS} />, '/software?tab=helm&release=gone&releaseNs=team-a&action=uninstall');
+    expect(await screen.findByText('Release gone in team-a was not found among the Helm release records Pulse can read.')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

@@ -13,6 +13,7 @@ import { useFleetStore } from '../../../store/fleetStore';
 import { registerCluster, resetConnections } from '../../../engine/clusterConnection';
 import { installFetch, setAllow, respond, writes, json, renderWithProviders, calls } from './actionHarness';
 import type { K8sResource } from '../../../engine/renderers';
+import { releaseSecret } from '../../../views/create/__tests__/helmTestUtils';
 
 const deployment = {
   apiVersion: 'apps/v1', kind: 'Deployment',
@@ -125,12 +126,31 @@ describe('Deployment actions', () => {
     expect(writes()).toHaveLength(0);
   });
 
-  it('Delete sends a uid-guarded DELETE', async () => {
+  it('Delete opens the related-objects delete: type the name, dry run, then a uid-guarded DELETE', async () => {
     renderWithProviders(<WorkloadActionMenu resource={deployment} />);
     const dialog = await openItem(deployment, 'Delete');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(writes()[0]).toMatchObject({ method: 'DELETE', path: '/apis/apps/v1/namespaces/shop/deployments/web', body: { preconditions: { uid: 'u-web' } } });
+    expect(within(dialog).getByRole('heading', { name: 'Delete Deployment web?' })).toBeTruthy();
+    const confirm = within(dialog).getByRole('button', { name: 'Delete 1 object' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText(/to confirm/), { target: { value: 'web' } });
+    await waitFor(() => expect(confirm.disabled).toBe(false));
+    fireEvent.click(confirm);
+    await waitFor(() => expect(writes()).toHaveLength(2));
+    expect(writes().map((w) => w.path)).toEqual(['/apis/apps/v1/namespaces/shop/deployments/web?dryRun=All', '/apis/apps/v1/namespaces/shop/deployments/web']);
+    expect(writes()[1]).toMatchObject({ method: 'DELETE', body: { preconditions: { uid: 'u-web' } } });
+  });
+
+  it('Roll back on a Helm-owned Deployment offers the release rollback', async () => {
+    const helmDep = { ...deployment, metadata: { ...deployment.metadata, labels: { 'app.kubernetes.io/managed-by': 'Helm' }, annotations: { 'meta.helm.sh/release-name': 'checkout', 'meta.helm.sh/release-namespace': 'shop' } } } as unknown as K8sResource;
+    respond((c) => (c.method === 'GET' && c.path.includes('/secrets?labelSelector=') ? json({ items: [releaseSecret('checkout', 'shop', 3, 'deployed', '1.0.0', {}, 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n')] }) : undefined));
+    renderWithProviders(<WorkloadActionMenu resource={helmDep} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Deployment web' }));
+    fireEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: /Roll back… \(Helm release\)/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect((await within(dialog).findByTestId('helm-rollback-note')).textContent).toMatch(/managed by Helm release checkout in shop\. A rollback here is reverted/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Roll back the release…' }));
+    expect(screen.getByTestId('location').textContent).toBe('/software?tab=helm&release=checkout&releaseNs=shop&action=rollback');
+    expect(writes()).toHaveLength(0);
   });
 
   it('a 403 stays on screen in the dialog and nothing claims success', async () => {

@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -47,7 +48,7 @@ vi.mock('../../hooks/useIncidentTimeline', () => ({
 import TimelineView from '../TimelineView';
 
 function renderView() {
-  return render(<TimelineView />);
+  return render(<MemoryRouter><TimelineView /></MemoryRouter>);
 }
 
 describe('TimelineView', () => {
