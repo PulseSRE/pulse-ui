@@ -22,8 +22,9 @@ vi.mock('../../components/primitives/EmptyState', () => ({
   ),
 }));
 
-vi.mock('../../engine/formatters', () => ({
-  formatRelativeTime: (ts: number) => 'just now',
+vi.mock('../../engine/format', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../engine/format')>()),
+  formatRelative: () => 'just now',
 }));
 
 import MemoryView from '../MemoryView';

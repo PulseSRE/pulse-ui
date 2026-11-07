@@ -32,9 +32,6 @@ export function parseResourceValue(val: string | undefined): number {
   return num;
 }
 
-/** @deprecated Import `formatBytes` from `engine/format`. */
-export { formatBytes } from './format';
-
 export function formatCpu(cores: number): string {
   if (cores >= 1) return `${cores.toFixed(1)} cores`;
   return `${Math.round(cores * 1000)}m`;

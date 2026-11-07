@@ -16,6 +16,7 @@ import { agentFetch, AgentHttpError } from '../../engine/safeQuery';
 import { LoadError } from '../../components/primitives/LoadError';
 import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
+import { formatClock } from '../../engine/format';
 
 export const CHANGES_WINDOW_MS = 6 * 60 * 60 * 1000;
 
@@ -61,8 +62,7 @@ const UNAVAILABLE: Record<'old-agent' | 'not-available' | 'gone' | 'session', st
 };
 
 function hhmm(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatClock(iso);
 }
 
 export function ChangesCard({ namespace, kind, name, until, since }: { namespace: string; kind: string; name: string; until?: number; since?: number }) {

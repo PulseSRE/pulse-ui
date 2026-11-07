@@ -14,7 +14,7 @@ import type {
   ClusterRole, ClusterRoleBinding, Role, RoleBinding,
   ServiceAccount, Namespace, Subject,
 } from '../engine/types';
-import { formatAge } from '../engine/dateUtils';
+import { formatRelative } from '../engine/format';
 import { useUIStore } from '../store/uiStore';
 import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useKubeadminSecret, KUBEADMIN_SECRET_QUERY_KEY, type KubeadminStatus } from '../hooks/useKubeadminSecret';
@@ -336,7 +336,7 @@ export default function IdentityView() {
           </div>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
+            <input aria-label="Search users and groups"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -656,12 +656,12 @@ function RecentSessions({ accessTokens, go }: { accessTokens: K8sResource[]; go:
           const clientName = token.clientName || '';
           const redirectURI = token.redirectURI || '';
           const created = token.metadata.creationTimestamp ? new Date(token.metadata.creationTimestamp) : null;
-          const age = created ? formatAge(created) : '—';
+          const age = created ? formatRelative(created) : '—';
           const scopes = token.scopes || [];
           const expiresIn = token.expiresIn || 0;
           const expiresAt = created && expiresIn ? new Date(created.getTime() + expiresIn * 1000) : null;
           const isExpired = expiresAt ? expiresAt.getTime() < Date.now() : false;
-          const timeLeft = expiresAt && !isExpired ? formatAge(new Date(Date.now() - (expiresAt.getTime() - Date.now()))).replace(' ago', '') : null;
+          const timeLeft = expiresAt && !isExpired ? formatRelative(new Date(Date.now() - (expiresAt.getTime() - Date.now()))).replace(' ago', '') : null;
           const isSA = userName.startsWith('system:serviceaccount:');
 
           return (
@@ -680,7 +680,7 @@ function RecentSessions({ accessTokens, go }: { accessTokens: K8sResource[]; go:
                 {expiresAt && (
                   <span>
                     {isExpired
-                      ? <span className="text-red-400">Expired {formatAge(expiresAt)}</span>
+                      ? <span className="text-red-400">Expired {formatRelative(expiresAt)}</span>
                       : <span>Expires in <span className="text-slate-400">{timeLeft}</span></span>}
                   </span>
                 )}
@@ -1353,7 +1353,7 @@ function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
       </div>
       <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
         {recentChanges.map((change) => {
-          const age = formatAge(change.when);
+          const age = formatRelative(change.when);
           const gvr = change.clusterScoped ? 'rbac.authorization.k8s.io~v1~clusterrolebindings' : 'rbac.authorization.k8s.io~v1~rolebindings';
           const path = change.namespace
             ? `/r/${gvr}/${change.namespace}/${change.name}`

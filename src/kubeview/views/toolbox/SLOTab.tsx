@@ -175,7 +175,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
             </div>
             <div>
               <label className="text-[10px] text-slate-500 block mb-1">Type</label>
-              <select
+              <select aria-label="Type"
                 value={newSLO.type}
                 disabled={!!editing}
                 onChange={(e) => setNewSLO({ ...newSLO, type: e.target.value })}
@@ -193,7 +193,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
             </div>
             <div>
               <label className="text-[10px] text-slate-500 block mb-1">Target (%)</label>
-              <input
+              <input aria-label="Target (%)"
                 value={newSLO.target}
                 onChange={(e) => setNewSLO({ ...newSLO, target: e.target.value })}
                 placeholder="99.9"
@@ -202,7 +202,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
             </div>
             <div>
               <label className="text-[10px] text-slate-500 block mb-1">Window (days)</label>
-              <input
+              <input aria-label="Window (days)"
                 value={newSLO.window_days}
                 onChange={(e) => setNewSLO({ ...newSLO, window_days: e.target.value })}
                 placeholder="30"
@@ -212,7 +212,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
           </div>
           <div>
             <label className="text-[10px] text-slate-500 block mb-1">Description (optional)</label>
-            <input
+            <input aria-label="Description (optional)"
               value={newSLO.description}
               onChange={(e) => setNewSLO({ ...newSLO, description: e.target.value })}
               placeholder="e.g., Checkout must be available 99.9% over rolling 30d"

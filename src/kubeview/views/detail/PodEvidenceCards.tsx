@@ -11,7 +11,7 @@ import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotic
 import { LoadError } from '../../components/primitives/LoadError';
 import { sanitizePromQL } from '../../engine/query';
 import { parseMem } from '../../engine/formatting';
-import { formatBytesIEC } from '../../engine/format';
+import { formatBytesIEC, formatClock } from '../../engine/format';
 import { CHART_COLORS } from '../../engine/colors';
 import { useFleetStore } from '../../store/fleetStore';
 import type { K8sResource } from '../../engine/renderers';
@@ -70,7 +70,7 @@ export function MemoryCard({ pod, revisions }: { pod: K8sResource; revisions?: A
       {!remote && !limitQ && <p className="text-xs text-slate-500">Container {primary} has no memory limit.</p>}
       {inWindow.length > 0 && (
         <p className="text-xs text-slate-400" aria-label="Revisions in this window">
-          {inWindow.map((r) => `rev ${r.revision} at ${new Date(r.at!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`).join(' · ')}
+          {inWindow.map((r) => `rev ${r.revision} at ${formatClock(r.at)}`).join(' · ')}
         </p>
       )}
     </section>

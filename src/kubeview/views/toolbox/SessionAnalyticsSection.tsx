@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatDurationSeconds } from '../../engine/format';
+import { formatDurationSeconds, formatCount } from '../../engine/format';
 import { useQuery } from '@tanstack/react-query';
 import {
   Users, Eye, LayoutDashboard, Bot, Timer,
@@ -88,10 +88,10 @@ export function SessionAnalyticsSection() {
 
       {/* Summary stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <StatCard size="sm" label="Sessions" value={summary.total_sessions.toLocaleString()} icon={<Users className="w-4 h-4 text-sky-400" />} />
-        <StatCard size="sm" label="Page Views" value={summary.total_page_views.toLocaleString()} icon={<Eye className="w-4 h-4 text-indigo-400" />} />
+        <StatCard size="sm" label="Sessions" value={formatCount(summary.total_sessions)} icon={<Users className="w-4 h-4 text-sky-400" />} />
+        <StatCard size="sm" label="Page Views" value={formatCount(summary.total_page_views)} icon={<Eye className="w-4 h-4 text-indigo-400" />} />
         <StatCard size="sm" label="Pages Visited" value={String(summary.unique_pages)} icon={<LayoutDashboard className="w-4 h-4 text-violet-400" />} />
-        <StatCard size="sm" label="Agent Queries" value={summary.total_queries.toLocaleString()} icon={<Bot className="w-4 h-4 text-emerald-400" />} />
+        <StatCard size="sm" label="Agent Queries" value={formatCount(summary.total_queries)} icon={<Bot className="w-4 h-4 text-emerald-400" />} />
         <StatCard size="sm" label="Avg Time on Page" value={formatDuration(summary.avg_duration_seconds)} icon={<Timer className="w-4 h-4 text-amber-400" />} />
       </div>
 

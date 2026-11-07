@@ -20,6 +20,7 @@ import type { RelatedResource } from './types';
 import { isReplicatedWorkload } from './workloadKinds';
 import { JobRuns } from './JobRuns';
 import { usePageChatContext } from './AskPulseCard';
+import { formatTimestamp } from '../../engine/format';
 
 const AmbientInsight = lazy(() => import('../../components/agent/AmbientInsight').then(m => ({ default: m.AmbientInsight })));
 
@@ -318,8 +319,8 @@ export function MetadataSummary({ metadata }: { metadata?: K8sResource['metadata
     ['Name', m.name],
     ['Namespace', m.namespace],
     ['UID', m.uid],
-    ['Created', m.creationTimestamp ? new Date(m.creationTimestamp).toLocaleString() : undefined],
-    ['Deleting since', m.deletionTimestamp ? new Date(m.deletionTimestamp).toLocaleString() : undefined],
+    ['Created', m.creationTimestamp ? formatTimestamp(m.creationTimestamp) : undefined],
+    ['Deleting since', m.deletionTimestamp ? formatTimestamp(m.deletionTimestamp) : undefined],
     ['Owners', m.ownerReferences?.length ? m.ownerReferences.map((o) => `${o.kind}/${o.name}`).join(', ') : undefined],
     ['Finalizers', m.finalizers?.length ? m.finalizers.join(', ') : undefined],
     ['Generation', m.generation],

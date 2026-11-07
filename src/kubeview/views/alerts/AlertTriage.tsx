@@ -22,6 +22,7 @@ import type { K8sResource } from '../../engine/renderers';
 import type { Pod } from '../../engine/types';
 import { AskPulseButton } from '../../components/agent/AskPulseButton';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
+import { formatClock } from '../../engine/format';
 
 export function labelKey(labels: Record<string, string>): string {
   return JSON.stringify(Object.keys(labels).sort().map((k) => [k, labels[k]]));
@@ -159,9 +160,9 @@ export function SilenceSuggestionBanner({ suggestion, alerts, item, onReview, on
             and will keep notifying the on-call until the node is back.
           </p>
           <ul className="text-xs text-slate-400 space-y-0.5">
-            <li>Node {suggestion.node} unschedulable{suggestion.cordonedAt ? ` since ${new Date(suggestion.cordonedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''} — from node status</li>
+            <li>Node {suggestion.node} unschedulable{suggestion.cordonedAt ? ` since ${formatClock(suggestion.cordonedAt)}` : ''} — from node status</li>
             {item
-              ? <li>Inbox item “{item.title}”{item.claimedBy ? ` claimed by ${item.claimedBy}` : ', unclaimed'}{item.dueDate ? `, due ${new Date(item.dueDate * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''} — from Inbox</li>
+              ? <li>Inbox item “{item.title}”{item.claimedBy ? ` claimed by ${item.claimedBy}` : ', unclaimed'}{item.dueDate ? `, due ${formatClock(item.dueDate * 1000)}` : ''} — from Inbox</li>
               : <li>No Inbox item found for {suggestion.node} — check the reason before silencing</li>}
             <li>
               {suggestion.alertnames.join(' and ')} carry <span className="font-mono">{formatMatcher(suggestion.matchers[0])}</span>

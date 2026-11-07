@@ -3,7 +3,7 @@ import { History } from 'lucide-react';
 import { SeverityBanner } from '../../components/primitives/SeverityBanner';
 import { fetchOpenEpisodes } from '../../engine/episodeApi';
 import type { Episode } from '../../engine/episodeApi';
-import { formatElapsed } from '../../engine/dateUtils';
+import { formatElapsed } from '../../engine/format';
 import { LoadError } from '../../components/primitives/LoadError';
 
 /**

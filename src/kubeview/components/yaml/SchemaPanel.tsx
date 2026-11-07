@@ -82,7 +82,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
       <div className="px-2 py-1.5 border-b border-slate-800">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
-          <input
+          <input aria-label="Search fields"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

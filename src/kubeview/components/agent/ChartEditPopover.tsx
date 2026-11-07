@@ -95,7 +95,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
       {/* Title */}
       <div>
         <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Title</label>
-        <input
+        <input aria-label="Title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -109,7 +109,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
         <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">PromQL Query</label>
         <div className="mt-1 rounded-md overflow-hidden border border-slate-700 focus-within:border-blue-500">
           <Suspense fallback={
-            <textarea
+            <textarea aria-label="PromQL Query"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full h-24 px-3 py-2 text-sm font-mono bg-slate-800 text-slate-200 resize-none focus:outline-hidden"
@@ -167,7 +167,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
       <div className="flex gap-3">
         <div className="flex-1">
           <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Chart Type</label>
-          <select
+          <select aria-label="Chart Type"
             value={chartType}
             onChange={(e) => setChartType(e.target.value)}
             className="w-full mt-1 px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:border-blue-500"
@@ -202,7 +202,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
       {/* Y-Axis Label */}
       <div>
         <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Y-Axis Label</label>
-        <input
+        <input aria-label="Y-Axis Label"
           type="text"
           value={yAxisLabel}
           onChange={(e) => setYAxisLabel(e.target.value)}

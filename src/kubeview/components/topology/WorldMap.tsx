@@ -347,7 +347,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
           </div>
 
           {searchOpen ? (
-            <input type="text" value={searchQuery} onChange={(e) => search(e.target.value)} onBlur={() => { if (!searchQuery) setSearchOpen(false); }} placeholder="Search..." className="w-32 px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500" autoFocus />
+            <input aria-label="Search map" type="text" value={searchQuery} onChange={(e) => search(e.target.value)} onBlur={() => { if (!searchQuery) setSearchOpen(false); }} placeholder="Search..." className="w-32 px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500" autoFocus />
           ) : (
             <button onClick={() => setSearchOpen(true)} className="p-1 text-slate-500 hover:text-slate-200 transition-colors"><Search className="w-3.5 h-3.5" /></button>
           )}

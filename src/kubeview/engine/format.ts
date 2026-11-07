@@ -4,11 +4,21 @@
  * Before this module there were about ten relative-time implementations, two
  * byte formatters and four duration formatters, each with its own thresholds
  * and units, so the same pod could be "3d" in one table and "72h" in another.
- * engine/formatters.ts, engine/formatting.ts and engine/dateUtils.ts re-export
- * from here under their old names; new code imports from this file.
+ * Every date, time and count in the UI goes through this file; there are no
+ * raw `toLocale*String()` calls outside it.
  *
- * Dates are rendered in a fixed locale so a screenshot, a test and a support
+ * - Lists say how long ago: `formatRelative` ("5m ago"), with the full
+ *   `formatTimestamp` in the `title` (see `primitives/RelativeTime`).
+ * - An absolute point in time is `formatTimestamp` ("Oct 30, 2026, 2:05:09 PM").
+ *   `formatDate` drops the time; `formatTime` drops the date and is only for
+ *   rows already grouped under a day heading or for something that just happened.
+ * - `formatClock` ("2:05 PM") is for chart axes and for times within the next
+ *   or last few hours ("silenced until 3:05 PM").
+ * - `formatCount` groups digits ("12,345").
+ *
+ * Text is rendered in a fixed locale so a screenshot, a test and a support
  * ticket all read the same regardless of the browser's language settings.
+ * The time zone is the browser's: an operator reads times in their own zone.
  */
 
 export const FORMAT_LOCALE = 'en-US';
@@ -189,6 +199,25 @@ export function formatTime(input: TimeInput, fallback = '—'): string {
   const ms = toEpochMs(input);
   if (ms === null) return fallback;
   return new Date(ms).toLocaleTimeString(FORMAT_LOCALE);
+}
+
+/** Hours and minutes in the fixed locale: "2:05 PM". For chart axes and near times. */
+export function formatClock(input: TimeInput, fallback = '—'): string {
+  const ms = toEpochMs(input);
+  if (ms === null) return fallback;
+  return new Date(ms).toLocaleTimeString(FORMAT_LOCALE, { hour: 'numeric', minute: '2-digit' });
+}
+
+/** A count with grouped digits in the fixed locale: "12,345". Rounds to a whole number. */
+export function formatCount(n: number | null | undefined, fallback = '—'): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return fallback;
+  return Math.round(n).toLocaleString(FORMAT_LOCALE);
+}
+
+/** ISO 8601 for a `<time dateTime>` attribute, or undefined when there is no time. */
+export function toIsoString(input: TimeInput): string | undefined {
+  const ms = toEpochMs(input);
+  return ms === null ? undefined : new Date(ms).toISOString();
 }
 
 /** Group key for a date: "Today", "Yesterday", or "October 28, 2026". */

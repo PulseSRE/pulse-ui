@@ -3,6 +3,7 @@ import { AskPulseButton } from '../../../components/agent/AskPulseButton';
 import { cn } from '@/lib/utils';
 import { statusClasses } from '../../../engine/statusColors';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../../../engine/types/timeline';
+import { formatClock } from '../../../engine/format';
 
 const CATEGORY_LABELS: Record<TimelineCategory, string> = {
   alert: 'Alerts',
@@ -111,7 +112,7 @@ export function CorrelationGroupRow({
                 onKeyDown={entry.resource ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEntryClick(entry); } } : undefined}
               >
                 <span className="text-xs text-slate-600 w-16 shrink-0">
-                  {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  {formatClock(entry.timestamp)}
                 </span>
                 <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusClasses(entry.severity).solid)} />
                 <span className="text-slate-300 truncate">{entry.title}</span>

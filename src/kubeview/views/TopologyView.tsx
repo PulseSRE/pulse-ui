@@ -239,7 +239,7 @@ export default function TopologyView() {
           title="Topology"
           subtitle="Resource dependencies, risk overlay, and blast radius"
           actions={<>
-            <select
+            <select aria-label="Namespace"
               value={selectedNamespace}
               onChange={(e) => { setScope(e.target.value || '*'); setSelectedNode(null); }}
               className="px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"

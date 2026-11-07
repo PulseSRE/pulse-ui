@@ -19,7 +19,7 @@ import { getMetricsForResource, resolveQuery, formatYAxisValue } from '../compon
 import { CHART_COLOR_SEQUENCE, CHART_COLORS } from '../engine/colors';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useNavigateTab } from '../hooks/useNavigateTab';
-import { formatRelativeTime } from '../engine/formatters';
+import { formatRelative } from '../engine/format';
 import { sanitizePromQL } from '../engine/query';
 import { queryRange } from '../components/metrics/prometheus';
 import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
@@ -306,7 +306,7 @@ export default function ProjectDashboard() {
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-amber-400 font-medium">{event.reason}</span>
                     <span className="text-slate-500">{event.involvedObject?.kind}/{event.involvedObject?.name}</span>
-                    <span className="ml-auto text-slate-600">{event.lastTimestamp ? formatRelativeTime(new Date(event.lastTimestamp).getTime()) : ''}</span>
+                    <span className="ml-auto text-slate-600">{event.lastTimestamp ? formatRelative(new Date(event.lastTimestamp).getTime()) : ''}</span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{event.message}</p>
                 </div>

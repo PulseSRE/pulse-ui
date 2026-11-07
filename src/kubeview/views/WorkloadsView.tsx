@@ -26,7 +26,7 @@ import { LoadError } from '../components/primitives/LoadError';
 import { readsState, type AuditCheck } from '../components/audit/types';
 import { HealthAuditPanel } from '../components/audit/HealthAuditPanel';
 import { WorkloadListPanel, type RowSummary } from './workloads/WorkloadListPanel';
-import { timeAgo } from '../engine/dateUtils';
+import { formatRelative } from '../engine/format';
 
 const BuildsView = lazy(() => import('./BuildsView'));
 
@@ -513,7 +513,7 @@ export default function WorkloadsView() {
             badges: x.spec?.suspend ? ['suspended'] : undefined,
             detail: <>
               <span className="font-mono text-slate-400">{x.spec?.schedule}</span>
-              <span className="text-slate-500">{x.status?.lastScheduleTime ? `last ${timeAgo(x.status.lastScheduleTime)}` : 'never run'}</span>
+              <span className="text-slate-500">{x.status?.lastScheduleTime ? `last ${formatRelative(x.status.lastScheduleTime)}` : 'never run'}</span>
             </>,
           })}
         />

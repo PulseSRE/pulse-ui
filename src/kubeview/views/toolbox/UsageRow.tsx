@@ -3,10 +3,11 @@ import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ToolUsageEntry } from '../../store/toolUsageStore';
 import { SourceBadge } from './SourceBadge';
+import { formatTimestamp } from '../../engine/format';
 
 export function UsageRow({ entry: e }: { entry: ToolUsageEntry }) {
   const [expanded, setExpanded] = useState(false);
-  const time = new Date(e.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const time = formatTimestamp(e.timestamp);
 
   const handleKeyDown = (ev: React.KeyboardEvent) => {
     if (ev.key === 'Enter' || ev.key === ' ') {

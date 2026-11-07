@@ -483,7 +483,7 @@ export function PlansTab() {
                     {editing ? (
                       <span className="flex items-center gap-1">
                         Timeout:
-                        <input
+                        <input aria-label="Timeout (s)"
                           type="number"
                           value={phase.timeout_seconds}
                           onChange={(e) => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], timeout_seconds: parseInt(e.target.value) || 120 }; setEditPhases(p); }}

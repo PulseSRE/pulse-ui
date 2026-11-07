@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseCpu, parseMem, formatMem, parseResourceValue, formatBytes, formatCpu, formatResourceValue } from '../formatting';
+import { parseCpu, parseMem, formatMem, parseResourceValue, formatCpu, formatResourceValue } from '../formatting';
+import { formatBytes } from '../format';
 
 describe('parseCpu', () => {
   it('parses millicores', () => {

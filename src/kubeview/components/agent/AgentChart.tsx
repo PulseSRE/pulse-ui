@@ -614,7 +614,7 @@ function ChartEditorModal({
             <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Data</div>
             <div>
               <label className={labelClass}>PromQL Query</label>
-              <textarea
+              <textarea aria-label="PromQL Query"
                 value={draft.query}
                 onChange={(e) => update('query', e.target.value)}
                 rows={3}
@@ -649,11 +649,11 @@ function ChartEditorModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Title</label>
-                <input value={draft.title} onChange={(e) => update('title', e.target.value)} className={inputClass} placeholder="Chart title" />
+                <input aria-label="Title" value={draft.title} onChange={(e) => update('title', e.target.value)} className={inputClass} placeholder="Chart title" />
               </div>
               <div>
                 <label className={labelClass}>Chart Type</label>
-                <select
+                <select aria-label="Chart Type"
                   value={draft.chartType}
                   onChange={(e) => update('chartType', e.target.value)}
                   className={inputClass}
@@ -666,11 +666,11 @@ function ChartEditorModal({
             </div>
             <div>
               <label className={labelClass}>Description</label>
-              <input value={draft.description} onChange={(e) => update('description', e.target.value)} className={inputClass} placeholder="Optional subtitle" />
+              <input aria-label="Description" value={draft.description} onChange={(e) => update('description', e.target.value)} className={inputClass} placeholder="Optional subtitle" />
             </div>
             <div>
               <label className={labelClass}>Height (px)</label>
-              <input type="number" value={draft.chartHeight} onChange={(e) => update('chartHeight', Math.max(100, Math.min(800, Number(e.target.value) || 300)))} className={cn(inputClass, 'w-24')} />
+              <input aria-label="Height (px)" type="number" value={draft.chartHeight} onChange={(e) => update('chartHeight', Math.max(100, Math.min(800, Number(e.target.value) || 300)))} className={cn(inputClass, 'w-24')} />
             </div>
           </div>
 
@@ -680,11 +680,11 @@ function ChartEditorModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Y-Axis Label</label>
-                <input value={draft.yAxisLabel} onChange={(e) => update('yAxisLabel', e.target.value)} className={inputClass} placeholder="e.g., CPU cores" />
+                <input aria-label="Y-Axis Label" value={draft.yAxisLabel} onChange={(e) => update('yAxisLabel', e.target.value)} className={inputClass} placeholder="e.g., CPU cores" />
               </div>
               <div>
                 <label className={labelClass}>X-Axis Label</label>
-                <input value={draft.xAxisLabel} onChange={(e) => update('xAxisLabel', e.target.value)} className={inputClass} placeholder="e.g., Time" />
+                <input aria-label="X-Axis Label" value={draft.xAxisLabel} onChange={(e) => update('xAxisLabel', e.target.value)} className={inputClass} placeholder="e.g., Time" />
               </div>
             </div>
           </div>
@@ -697,7 +697,7 @@ function ChartEditorModal({
                 <label className={labelClass}>Warning</label>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                  <input
+                  <input aria-label="Warning threshold"
                     type="number"
                     value={draft.thresholds.warning ?? ''}
                     onChange={(e) => update('thresholds', { ...draft.thresholds, warning: e.target.value ? Number(e.target.value) : undefined })}
@@ -710,7 +710,7 @@ function ChartEditorModal({
                 <label className={labelClass}>Critical</label>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                  <input
+                  <input aria-label="Critical threshold"
                     type="number"
                     value={draft.thresholds.critical ?? ''}
                     onChange={(e) => update('thresholds', { ...draft.thresholds, critical: e.target.value ? Number(e.target.value) : undefined })}

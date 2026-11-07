@@ -87,7 +87,7 @@ export function DashboardMode() {
       {/* Chat input */}
       <div className="border-t border-slate-800 px-3 py-2.5 shrink-0">
         <div className="flex items-end gap-2">
-          <textarea
+          <textarea aria-label="Message Pulse AI"
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}

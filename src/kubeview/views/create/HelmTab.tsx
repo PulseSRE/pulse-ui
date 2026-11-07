@@ -21,6 +21,7 @@ import { usePinnedAction } from '../../hooks/usePinnedAction';
 import { useActingAs } from '../../hooks/useActingAs';
 import { LoadError } from '../../components/primitives/LoadError';
 import { errorReason } from '../../engine/readResult';
+import { formatTime } from '../../engine/format';
 
 /** HelmChartRepository CRD — not yet in engine/types, defined locally. */
 interface HelmChartRepository {
@@ -461,7 +462,7 @@ export function HelmTab() {
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search charts..." className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
+        <input aria-label="Search charts" type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search charts..." className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
       </div>
 
       {/* Install form */}
@@ -500,7 +501,7 @@ export function HelmTab() {
           <div className="mt-3 space-y-1 text-xs text-slate-300" data-testid="install-confirm-summary">
             <InstallWho clusterId={install.pending.clusterId} />
             {install.pending.target.previewed
-              ? <p>Previewed at {new Date(install.pending.target.previewed.at).toLocaleTimeString()}: {install.pending.target.previewed.objects - install.pending.target.previewed.unknown} of {install.pending.target.previewed.objects} objects pass the dry run{install.pending.target.previewed.unknown ? `; ${install.pending.target.previewed.unknown} could not be checked` : ''}; {install.pending.target.previewed.hooks ? `${install.pending.target.previewed.hooks} install hook${install.pending.target.previewed.hooks === 1 ? '' : 's'} run` : 'no hooks run on install'}.</p>
+              ? <p>Previewed at {formatTime(install.pending.target.previewed.at)}: {install.pending.target.previewed.objects - install.pending.target.previewed.unknown} of {install.pending.target.previewed.objects} objects pass the dry run{install.pending.target.previewed.unknown ? `; ${install.pending.target.previewed.unknown} could not be checked` : ''}; {install.pending.target.previewed.hooks ? `${install.pending.target.previewed.hooks} install hook${install.pending.target.previewed.hooks === 1 ? '' : 's'} run` : 'no hooks run on install'}.</p>
               : <p className="text-amber-300">Not previewed: {install.pending.target.noPreviewReason}. What the chart creates was not checked.</p>}
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={installAtomic} onChange={(e) => setInstallAtomic(e.target.checked)} /> --atomic (helm uninstalls what it created if the install fails) · timeout 5m</label>
             <p><span className="text-slate-400">Undo:</span> Uninstall the release (Software › Helm), which deletes what it created except objects the chart marks "keep".</p>

@@ -7,7 +7,7 @@
  * reading of `status.containerStatuses[].lastState` and the probe defaults.
  */
 import type { Container, ContainerStatus, Pod, Probe } from './types';
-import { toEpochMs } from './format';
+import { toEpochMs, formatTimestamp } from './format';
 
 type PodLike = { spec?: Pod['spec']; status?: Pod['status']; metadata?: { namespace?: string } };
 
@@ -86,7 +86,7 @@ export function primaryContainer(pod: PodLike): { name: string; status?: Contain
 export function currentStateText(cs: ContainerStatus | undefined): string {
   const st = cs?.state;
   if (!st) return 'Unknown (no status reported yet)';
-  if (st.running) return `Running${st.running.startedAt ? ` since ${new Date(st.running.startedAt).toLocaleTimeString()}` : ''}${cs?.ready === false ? ' · not ready' : ''}`;
+  if (st.running) return `Running${st.running.startedAt ? ` since ${formatTimestamp(st.running.startedAt)}` : ''}${cs?.ready === false ? ' · not ready' : ''}`;
   if (st.waiting) {
     const msg = st.waiting.message ? ` (${st.waiting.message.length > 80 ? `${st.waiting.message.slice(0, 80)}…` : st.waiting.message})` : '';
     return `Waiting · ${st.waiting.reason || 'Waiting'}${msg}`;

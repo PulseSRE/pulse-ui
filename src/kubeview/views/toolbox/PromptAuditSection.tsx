@@ -4,6 +4,7 @@ import { FileText, Hash, Database, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentFetch } from '../../engine/safeQuery';
 import { StatCard } from '../../components/primitives/StatCard';
+import { formatCount, formatDate } from '../../engine/format';
 
 interface PromptStats {
   avg_tokens: number;
@@ -94,10 +95,10 @@ export function PromptAuditSection() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard size="sm" label="Avg Prompt Tokens" value={promptStats.avg_tokens.toLocaleString()} icon={<Hash className="w-4 h-4 text-cyan-400" />} />
+        <StatCard size="sm" label="Avg Prompt Tokens" value={formatCount(promptStats.avg_tokens)} icon={<Hash className="w-4 h-4 text-cyan-400" />} />
         <StatCard size="sm" label="Cache Hit Rate" value={`${(promptStats.cache_hit_rate * 100).toFixed(1)}%`} icon={<Database className="w-4 h-4 text-emerald-400" />} />
         <StatCard size="sm" label="Static / Dynamic" value={staticDynamic} icon={<BarChart3 className="w-4 h-4 text-violet-400" />} />
-        <StatCard size="sm" label="Prompts Logged" value={promptStats.total_prompts.toLocaleString()} icon={<FileText className="w-4 h-4 text-blue-400" />} />
+        <StatCard size="sm" label="Prompts Logged" value={formatCount(promptStats.total_prompts)} icon={<FileText className="w-4 h-4 text-blue-400" />} />
       </div>
 
       {/* Section Breakdown */}
@@ -108,7 +109,7 @@ export function PromptAuditSection() {
             {sectionEntries.map(([name, avgChars]) => (
               <div key={name} className="flex items-center justify-between text-xs">
                 <span className="text-slate-300 font-mono truncate mr-2">{name}</span>
-                <span className="text-slate-400 whitespace-nowrap">{Math.round(avgChars).toLocaleString()} chars avg</span>
+                <span className="text-slate-400 whitespace-nowrap">{formatCount(avgChars)} chars avg</span>
               </div>
             ))}
           </div>
@@ -174,18 +175,18 @@ export function PromptAuditSection() {
                       {/* Metrics row */}
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
                         <span className="text-slate-300">
-                          {v.avg_tokens.toLocaleString()} tokens avg
+                          {formatCount(v.avg_tokens)} tokens avg
                           {tokenDelta !== 0 && (
                             <span className={cn('ml-1', tokenDelta > 0 ? 'text-amber-400' : 'text-emerald-400')}>
-                              ({tokenDelta > 0 ? '+' : ''}{tokenDelta.toLocaleString()})
+                              ({tokenDelta > 0 ? '+' : ''}{formatCount(tokenDelta)})
                             </span>
                           )}
                         </span>
                         <span className="text-slate-500">
-                          {v.avg_input_tokens.toLocaleString()} in / {v.avg_output_tokens.toLocaleString()} out
+                          {formatCount(v.avg_input_tokens)} in / {formatCount(v.avg_output_tokens)} out
                         </span>
                         {v.avg_cache_read > 0 && (
-                          <span className="text-emerald-500">{v.avg_cache_read.toLocaleString()} cached</span>
+                          <span className="text-emerald-500">{formatCount(v.avg_cache_read)} cached</span>
                         )}
                         {v.total_static_chars != null && (
                           <span className="text-slate-500">
@@ -201,7 +202,7 @@ export function PromptAuditSection() {
 
                       {/* Date range */}
                       <div className="text-[10px] text-slate-600">
-                        {new Date(v.first_seen).toLocaleDateString()} — {new Date(v.last_seen).toLocaleDateString()}
+                        {formatDate(v.first_seen)} — {formatDate(v.last_seen)}
                         <span className="ml-2 font-mono text-slate-700">{v.prompt_hash?.slice(0, 8)}</span>
                       </div>
                     </div>

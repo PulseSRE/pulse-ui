@@ -9,7 +9,7 @@ import { useFleetStore } from '../store/fleetStore';
 import { useMonitorStore } from '../store/monitorStore';
 import { isMultiCluster } from '../engine/clusterConnection';
 import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '../engine/formatters';
+import { formatRelative } from '../engine/format';
 import { getNavByPath } from '../engine/navRegistry';
 import { performLogout } from '../engine/auth';
 
@@ -35,11 +35,11 @@ export function StatusBar() {
   const navigate = useNavigate();
   const pendingReviewCount = useMonitorStore((s) => s.pendingActions.length);
 
-  const [relativeTime, setRelativeTime] = useState(formatRelativeTime(lastSyncTime));
+  const [relativeTime, setRelativeTime] = useState(formatRelative(lastSyncTime));
   const [isStale, setIsStale] = useState(false);
 
   useVisibilityAwareInterval(() => {
-    setRelativeTime(formatRelativeTime(lastSyncTime));
+    setRelativeTime(formatRelative(lastSyncTime));
     setIsStale(Date.now() - lastSyncTime > 5 * 60 * 1000);
   }, 1000);
 
@@ -77,7 +77,7 @@ export function StatusBar() {
           className={isStale ? 'text-amber-400' : undefined}
           title={isStale ? 'Data may be stale — session may be expired or connectivity lost' : undefined}
         >
-          {/* formatRelativeTime already ends in "ago" — appending another
+          {/* formatRelative already ends in "ago" — appending another
               produced "synced 26s ago ago" in the status bar of every page. */}
           synced {relativeTime}
           {isStale && !degradedReasons.has('session_expired') && (

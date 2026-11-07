@@ -1,3 +1,4 @@
+import { formatCount } from '../../engine/format';
 /**
  * Shared value formatting and threshold coloring for metric cards and sparklines.
  */
@@ -16,12 +17,12 @@ export function formatMetricValue(value: number): string {
   const abs = Math.abs(value);
   if (abs === 0) return '0';
   if (Math.abs(value - Math.round(value)) < 1e-9) {
-    return abs >= 1e4 ? Math.round(value).toLocaleString('en-US') : String(Math.round(value));
+    return abs >= 1e4 ? formatCount(value) : String(Math.round(value));
   }
   if (abs < 1) return String(Number(value.toPrecision(2)));
   if (abs < 10) return String(Number(value.toFixed(2)));
   if (abs < 1e4) return String(Number(value.toFixed(1)));
-  return Math.round(value).toLocaleString('en-US');
+  return formatCount(value);
 }
 
 export interface Thresholds {

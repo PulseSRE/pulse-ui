@@ -21,8 +21,7 @@ import { useAgentStore } from '../../store/agentStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { apiVersionOf, resolveKind } from '../../engine/kindRegistry';
-import { formatRelativeTime } from '../../engine/formatters';
-import { getDateKey } from '../../engine/dateUtils';
+import { formatRelative, getDateKey } from '../../engine/format';
 import { fetchLearningFeed } from '../../engine/analyticsApi';
 import { actionCategoryLabel } from '../../engine/fixHistory';
 import { agentFetch } from '../../engine/safeQuery';
@@ -272,7 +271,7 @@ export function ActivityTab() {
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-xs px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm">{event.type}</span>
                         {event.timestamp && (
-                          <span className="text-xs text-slate-500">{formatRelativeTime(event.timestamp)}</span>
+                          <span className="text-xs text-slate-500">{formatRelative(event.timestamp)}</span>
                         )}
                       </div>
                       <p className="text-sm text-slate-300">{event.description}</p>

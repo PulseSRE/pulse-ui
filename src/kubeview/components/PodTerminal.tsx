@@ -5,6 +5,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Loader2, Terminal, Copy, Check, Trash2, Power } from 'lucide-react';
 import { useNodeDebugClose, isNodeDebugTerminal } from './useNodeDebugClose';
 import { cn } from '@/lib/utils';
+import { formatTimestamp } from '../engine/format';
 
 interface PodTerminalProps {
   namespace: string;
@@ -28,7 +29,7 @@ interface TerminalLine {
 
 
 function timestamp() {
-  return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return formatTimestamp(Date.now(), '', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 export default function PodTerminal({ namespace, podName, containerName, containers, clusterId, onClose, isNode, inline }: PodTerminalProps) {
@@ -292,7 +293,7 @@ export default function PodTerminal({ namespace, podName, containerName, contain
         {/* Input */}
         <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-800 bg-(--kv-term-surface)">
           <span className="text-(--kv-term-prompt) font-mono font-bold">$</span>
-          <input
+          <input aria-label="Command"
             ref={inputRef}
             type="text"
             value={command}
@@ -385,7 +386,7 @@ export default function PodTerminal({ namespace, podName, containerName, contain
         {/* Input */}
         <div className="flex items-center gap-2 px-4 py-3 border-t border-slate-800 bg-(--kv-term-surface)">
           <span className="text-(--kv-term-prompt) text-sm font-mono font-bold">$</span>
-          <input
+          <input aria-label="Command"
             ref={inputRef}
             type="text"
             value={command}

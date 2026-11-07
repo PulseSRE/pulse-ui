@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { fetchResolutions, fetchFixHistorySummary } from '../../engine/analyticsApi';
 import { actionCategoryLabel } from '../../engine/fixHistory';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative } from '../../engine/format';
 import { IncidentLifecycleDrawer } from '../incidents/IncidentLifecycleDrawer';
 
 type OutcomeFilter = 'all' | 'verified' | 'still_failing' | 'improved' | 'verified_then_recurred';
@@ -181,7 +181,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                     <p className="text-xs text-slate-500 mb-1 line-clamp-1">{r.evidence}</p>
                   )}
                   <div className="flex items-center gap-3 text-[10px] text-slate-600">
-                    <span>{formatRelativeTime(r.timestamp)}</span>
+                    <span>{formatRelative(r.timestamp)}</span>
                     {r.timeToVerifyMs != null && r.timeToVerifyMs > 0 && (
                       <span>verified in {Math.round(r.timeToVerifyMs / 1000)}s</span>
                     )}

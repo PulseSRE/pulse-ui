@@ -22,7 +22,7 @@ import { PromptPill } from './AIBranding';
 import { ActionPlanTracker } from './ActionPlanTracker';
 import { useActionPlanStore } from '../../store/actionPlanStore';
 import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative, formatTimestamp } from '../../engine/format';
 import { PULSE_AI_LOCAL_ONLY } from '../feedback/localOnlyCopy';
 
 /* ---- Chat History Types ---- */
@@ -260,7 +260,7 @@ function ChatHistoryPanel({
             <div className="flex-1 min-w-0">
               <div className="text-xs text-slate-300 truncate">{session.title || 'Untitled'}</div>
               <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                <span>{formatRelativeTime(new Date(session.updated_at).getTime())}</span>
+                <span>{formatRelative(new Date(session.updated_at).getTime())}</span>
                 <span className="bg-slate-800 px-1.5 py-0.5 rounded-full">{session.message_count} msg{session.message_count !== 1 ? 's' : ''}</span>
               </div>
             </div>
@@ -597,7 +597,7 @@ export function DockAgentPanel() {
           <>
             <button
               onClick={() => {
-                const md = messages.map((m) => `### ${m.role === 'user' ? 'You' : 'Agent'} (${new Date(m.timestamp).toLocaleTimeString()})\n\n${m.content}\n`).join('\n---\n\n');
+                const md = messages.map((m) => `### ${m.role === 'user' ? 'You' : 'Agent'} (${formatTimestamp(m.timestamp)})\n\n${m.content}\n`).join('\n---\n\n');
                 const blob = new Blob([md], { type: 'text/markdown' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
@@ -621,7 +621,7 @@ export function DockAgentPanel() {
           </>
         )}
         <div className="flex-1 relative">
-          <textarea
+          <textarea aria-label="Message Pulse AI"
             ref={inputRef}
             value={input}
             onChange={handleInputChange}

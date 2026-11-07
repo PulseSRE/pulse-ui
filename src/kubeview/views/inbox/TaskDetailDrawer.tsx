@@ -11,7 +11,7 @@ import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { Tooltip } from '../../components/primitives/Tooltip';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative, formatDate } from '../../engine/format';
 import {
   createRunbookFromItem,
   fetchInboxInvestigation,
@@ -58,8 +58,7 @@ function itemUiLink(item: Pick<InboxItem, 'metadata'>): { to: string; label: str
 }
 
 function formatDueDate(ts: number): string {
-  const date = new Date(ts * 1000);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatDate(ts * 1000);
 }
 
 function buildInvestigatePrompt(item: InboxItem): string {
@@ -674,7 +673,7 @@ export function TaskDetailDrawer({
         <div className="space-y-2 text-sm text-slate-500">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
-            <span>Created {formatRelativeTime(item.created_at * 1000)}</span>
+            <span>Created {formatRelative(item.created_at * 1000)}</span>
           </div>
           {item.due_date && (
             <div className="flex items-center gap-2">

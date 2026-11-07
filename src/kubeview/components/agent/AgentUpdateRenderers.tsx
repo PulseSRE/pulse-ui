@@ -21,7 +21,7 @@ import { UpgradeGraph } from '../updates/UpgradeGraph';
 import { RolloutHistory } from '../../views/detail/RolloutHistory';
 import { k8sGet } from '../../engine/query';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
-import { timeAgo } from '../../engine/dateUtils';
+import { formatRelative } from '../../engine/format';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { useFleetStore } from '../../store/fleetStore';
 import type { UpgradeGraphSpec, RolloutHistorySpec } from '../../engine/agentComponents';
@@ -129,7 +129,7 @@ function SnapshotTimeline({ spec, note, correlations }: { spec: RolloutHistorySp
             </span>
             <div className="mt-1 truncate font-mono text-[10px] text-slate-400" title={r.images.join(', ')}>{r.images.map((i) => i.split('/').pop()).join(', ')}</div>
             {r.changeCause && <div className="truncate text-[10px] text-slate-500" title={r.changeCause}>{r.changeCause}</div>}
-            {r.createdAt && <div className="text-[10px] text-slate-600">{timeAgo(r.createdAt)}</div>}
+            {r.createdAt && <div className="text-[10px] text-slate-600">{formatRelative(r.createdAt)}</div>}
             <RevisionSignalMarker revision={r.revision} items={signals.get(r.revision)} />
           </li>
         ))}
