@@ -78,6 +78,7 @@ export function OverviewTab() {
         supportedAutoFixCategories={capQ.data?.supported_auto_fix_categories}
         autofixPaused={healthQ.data?.autofix_paused}
         onPauseChanged={() => healthQ.refetch()}
+        pauseStateError={healthQ.isError && healthQ.data === undefined ? (healthQ.error ?? new Error('Agent health could not be read')) : undefined}
       />
 
       {/* 4. Agent Info Footer */}

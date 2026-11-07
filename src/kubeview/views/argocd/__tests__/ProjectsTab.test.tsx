@@ -23,8 +23,9 @@ vi.mock('../../../store/uiStore', () => ({
 
 import { ProjectsTab } from '../ProjectsTab';
 
+let qc: QueryClient | undefined;
 function renderTab() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <ProjectsTab />
@@ -39,13 +40,28 @@ describe('ProjectsTab', () => {
 
   afterEach(() => {
     cleanup();
+    qc?.clear();
+  });
+
+  it.each([
+    ['403', Object.assign(new Error('appprojects.argoproj.io is forbidden: User "dev" cannot list resource'), { statusCode: 403 }), /Permission denied/],
+    ['500', Object.assign(new Error('etcdserver: request timed out'), { statusCode: 500 }), /server returned an error \(status 500\)/],
+  ])('a %s read shows the reason and Retry, never "No AppProjects"', async (_label, err, reason) => {
+    mockK8sList.mockRejectedValue(err);
+    renderTab();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('AppProjects could not be loaded');
+    expect(alert.textContent).toMatch(reason);
+    expect(within(alert).getByRole('button', { name: 'Retry' })).toBeDefined();
+    expect(screen.queryByText('No AppProjects')).toBeNull();
   });
 
   it('shows empty state when no projects exist', async () => {
     mockK8sList.mockResolvedValue([]);
     renderTab();
     await waitFor(() => {
-      expect(screen.getByText('No AppProjects found')).toBeDefined();
+      expect(screen.getByText('No AppProjects')).toBeDefined();
+      expect(screen.queryByRole('alert')).toBeNull();
     });
   });
 
@@ -115,7 +131,7 @@ describe('ProjectsTab', () => {
     mockK8sList.mockRejectedValue(new Error('Forbidden'));
     renderTab();
     await waitFor(() => {
-      expect(screen.getByText('Failed to load AppProjects')).toBeDefined();
+      expect(screen.getByText('AppProjects could not be loaded')).toBeDefined();
       expect(screen.getByText('Forbidden')).toBeDefined();
     });
   });

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check, Loader2, RefreshCw, FolderOpen } from 'lucide-react';
+import { LoadError } from './primitives/LoadError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUIStore } from '../store/uiStore';
 import { useClusterStore } from '../store/clusterStore';
@@ -125,7 +126,8 @@ export function CommandBar() {
     queryKey: ['toolbar', 'namespaces', activeClusterId],
     queryFn: async () => {
       const res = await k8sFetch(activeClusterId, '/api/v1/namespaces');
-      if (!res.ok) throw new Error(`Failed to fetch namespaces: ${res.status}`);
+      // Keep the status so LoadError can say "permission denied" or "session expired".
+      if (!res.ok) throw Object.assign(new Error(`Namespaces could not be listed (HTTP ${res.status})`), { status: res.status });
       const data = await res.json();
       return (data.items || []).map((i: any) => i.metadata.name).sort() as string[];
     },
@@ -303,7 +305,7 @@ export function CommandBar() {
                   >
                     <Layers className="w-3.5 h-3.5 text-slate-500" />
                     <span className="flex-1">All Namespaces</span>
-                    <span className="text-xs text-slate-500">{namespaces.length} total</span>
+                    <span className="text-xs text-slate-500">{namespacesError ? '—' : namespacesLoading ? '' : `${namespaces.length} total`}</span>
                     {selectedNamespace === '*' && <span className="text-blue-400 text-xs">✓</span>}
                   </button>
                   {selectedNamespace !== '*' && (
@@ -318,22 +320,23 @@ export function CommandBar() {
                   )}
                   <div className="border-t border-slate-700/50 my-1" />
                   {namespacesLoading && (
-                    <div className="px-3 py-4 flex items-center justify-center gap-2 text-xs text-slate-500">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Loading namespaces...
+                    <div role="status" className="px-3 py-4 flex items-center justify-center gap-2 text-xs text-slate-400">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                      Checking namespaces…
                     </div>
                   )}
                   {namespacesError && (
-                    <div className="px-3 py-4 text-center">
-                      <p className="text-xs text-red-400 mb-2">Failed to load namespaces</p>
-                      <button
-                        onClick={() => queryClient.invalidateQueries({ queryKey: ['toolbar', 'namespaces'] })}
-                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mx-auto"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Retry
-                      </button>
+                    <div className="px-2 py-2">
+                      <LoadError
+                        compact
+                        title="Namespaces could not be loaded"
+                        error={namespacesError}
+                        onRetry={() => { void queryClient.invalidateQueries({ queryKey: ['toolbar', 'namespaces'] }); }}
+                      />
                     </div>
+                  )}
+                  {!namespacesLoading && !namespacesError && namespaces.length === 0 && (
+                    <div className="px-3 py-4 text-center text-xs text-slate-400">No namespaces are visible to you. Ask a cluster admin for access to a project.</div>
                   )}
                   {!namespacesLoading && !namespacesError && namespaces
                     .filter((ns) => !nsFilter || ns.toLowerCase().includes(nsFilter.toLowerCase()))

@@ -7,16 +7,17 @@ import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 import { LocalClusterOnlyNotice } from '../components/feedback/LocalClusterOnlyNotice';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, Loader2, RefreshCw, AlertTriangle, Zap, Shield, Clock, X,
+  Network, Loader2, RefreshCw, Zap, Shield, Clock, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { LoadError } from '../components/primitives/LoadError';
 import { useUIStore } from '../store/uiStore';
 import GraphRenderer, {
   type TopoNode, type TopoEdge, getKindColor, layoutGraph,
 } from '../components/topology/GraphRenderer';
-import { agentFetch } from '../engine/safeQuery';
+import { agentFetch, AgentHttpError } from '../engine/safeQuery';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ interface BlastRadiusNode {
 async function fetchTopology(namespace?: string): Promise<TopologyData> {
   const params = namespace ? `?namespace=${encodeURIComponent(namespace)}` : '';
   const res = await agentFetch(`/api/agent/topology${params}`);
-  if (!res.ok) throw new Error(`Topology fetch failed (${res.status})`);
+  if (!res.ok) throw new AgentHttpError(res.status, `Topology fetch failed (${res.status})`);
   return res.json();
 }
 
@@ -53,7 +54,7 @@ async function fetchBlastRadius(nodeId: string): Promise<BlastRadiusNode[]> {
     `/api/agent/topology/blast-radius?node_id=${encodeURIComponent(nodeId)}`
   );
   // A failed lookup is an error, not "no downstream" (a leaf node).
-  if (!res.ok) throw new Error(`Blast radius request failed (${res.status})`);
+  if (!res.ok) throw new AgentHttpError(res.status, `Blast radius request failed (${res.status})`);
   const data = await res.json();
   return data.resources ?? [];
 }
@@ -108,7 +109,7 @@ export default function TopologyView() {
   });
 
   // Blast radius from API (richer than client-side BFS)
-  const { data: blastRadiusData, isError: blastRadiusError, refetch: refetchBlastRadius } = useQuery({
+  const { data: blastRadiusData, isError: blastRadiusError, error: blastRadiusErrorObj, refetch: refetchBlastRadius } = useQuery({
     queryKey: ['topology-blast-radius', selectedNode],
     queryFn: () => fetchBlastRadius(selectedNode!),
     enabled: !!selectedNode && isLocalCluster,
@@ -181,35 +182,27 @@ export default function TopologyView() {
     );
   }
 
+  // The page header stays put while the graph is checked or could not be read.
   if (isLoading) {
     return (
-      <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <div className="max-w-[1400px] mx-auto space-y-4">
+          <PageHeader icon={<Network className="w-6 h-6 text-cyan-400" />} title="Topology" />
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-400" role="status" aria-live="polite">
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            Checking topology…
+          </div>
+        </div>
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="h-full overflow-auto bg-slate-950 p-6 flex flex-col">
-        <div className="max-w-[1400px] w-full mx-auto">
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <div className="max-w-[1400px] mx-auto space-y-4">
           <PageHeader icon={<Network className="w-6 h-6 text-cyan-400" />} title="Topology" />
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md">
-            <div className="mb-4 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-950/50 border border-red-900/50">
-              <AlertTriangle className="w-7 h-7 text-red-400" />
-            </div>
-            <h2 className="text-lg font-semibold text-slate-100 mb-1">Failed to load topology data</h2>
-            <p className="text-sm text-red-400 mb-4">{error instanceof Error ? error.message : 'Unknown error'}</p>
-            <button
-              onClick={() => refetch()}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 font-medium mx-auto"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
+          <LoadError title="Topology could not be loaded" error={error} onRetry={() => { void refetch(); }} />
         </div>
       </div>
     );
@@ -408,12 +401,9 @@ export default function TopologyView() {
                     Downstream
                   </h4>
                   {blastRadiusError ? (
-                    <span role="alert" className="text-xs text-red-400">
-                      Downstream could not be loaded.{' '}
-                      <button type="button" className="underline hover:text-red-300" onClick={() => { void refetchBlastRadius(); }}>Retry</button>
-                    </span>
+                    <LoadError compact title="Downstream could not be loaded" error={blastRadiusErrorObj} onRetry={() => { void refetchBlastRadius(); }} />
                   ) : !blastRadiusData ? (
-                    <Loader2 className="w-4 h-4 text-slate-600 animate-spin" />
+                    <span role="status" className="text-xs text-slate-400">Checking…</span>
                   ) : blastRadiusData.length === 0 ? (
                     <span className="text-xs text-slate-600">None (leaf node)</span>
                   ) : (

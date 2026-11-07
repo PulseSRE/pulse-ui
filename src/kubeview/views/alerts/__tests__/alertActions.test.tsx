@@ -57,6 +57,8 @@ beforeEach(() => {
   h.state.handler = (r) => {
     if (r.url.includes('/api/v1/rules')) return json(RULES);
     if (r.url.endsWith('/api/alertmanager/api/v2/silences') && r.method === 'GET') return json(SILENCES);
+    // Alertmanager answers a POST with the silence's id.
+    if (r.url.endsWith('/api/alertmanager/api/v2/silences') && r.method === 'POST') return json({ silenceID: 'new-1' });
     if (r.path === '/apis/user.openshift.io/v1/users/~') return json({ metadata: { name: 'alice' } });
     if (r.path === '/apis/monitoring.coreos.com/v1/prometheusrules') return json({ items: [{ metadata: { name: 'kube-apps', namespace: 'openshift-monitoring' }, spec: { groups: [{ name: 'kubernetes-apps', rules: [{ alert: 'KubePodCrashLooping' }] }] } }] });
     return json({});
@@ -90,6 +92,28 @@ describe('Silences', () => {
     fireEvent.click(screen.getByRole('tab', { name: /expired \(1\)/ }));
     expect(await screen.findByText('old one')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Expire silence old one/ })).toBeNull();
+  });
+
+  it.each([
+    [403, /Permission denied/],
+    [500, /status 500/],
+  ])('a %s silences read is an error with Retry, not "No active silences"', async (status, reason) => {
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.url.endsWith('/api/alertmanager/api/v2/silences') && r.method === 'GET' ? new Response('denied', { status }) : base(r));
+    renderAt('/alerts?tab=silences');
+    const title = await screen.findByText('Silences could not be read from Alertmanager');
+    expect(title.closest('[role="alert"]')!.textContent).toMatch(reason);
+    expect(screen.queryByText(/No active silences/)).toBeNull();
+  });
+
+  it('a 200 HTML page (missing proxy) is a failed read, not an empty list', async () => {
+    const base = h.state.handler;
+    h.state.handler = (r) => (r.url.endsWith('/api/alertmanager/api/v2/silences') && r.method === 'GET'
+      ? new Response('<!DOCTYPE html><html></html>', { status: 200, headers: { 'content-type': 'text/html' } }) : base(r));
+    renderAt('/alerts?tab=silences');
+    const title = await screen.findByText('Silences could not be read from Alertmanager');
+    expect(title.closest('[role="alert"]')!.textContent).toContain('did not answer with JSON');
+    expect(screen.queryByText(/No active silences/)).toBeNull();
   });
 
   it('editing an active silence POSTs it with its id after a confirmation', async () => {
