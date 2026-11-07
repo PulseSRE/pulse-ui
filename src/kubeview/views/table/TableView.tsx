@@ -7,6 +7,7 @@ import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
 import { useClusterStore } from '../../store/clusterStore';
+import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
 import { useCanI } from '../../hooks/useCanI';
 import { getColumnsForResource, getEnhancer } from '../../engine/enhancers';
@@ -412,6 +413,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   const [relatedQueue, setRelatedQueue] = React.useState<{ items: K8sResource[]; total: number } | null>(null);
   const queueDeleted = React.useRef<string[]>([]);
   const addToast = useUIStore((s) => s.addToast);
+  const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const withRelated = (r: K8sResource | undefined) => !!r && DELETE_WITH_RELATED_KINDS.has(r.kind) && !!r.metadata.namespace;
   // A selection survives a search: split it into the rows on screen and the
   // rows the search now hides, so the confirm can say exactly what goes.
@@ -419,7 +421,10 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   const shownUids = new Set(sortedResources.map((r) => r.metadata.uid ?? ''));
   const selectedHidden = stampedResources.filter((r) => selectedRows.has(r.metadata.uid ?? '') && !shownUids.has(r.metadata.uid ?? ''));
   const startRelatedQueue = (items: K8sResource[]) => { queueDeleted.current = []; setRelatedQueue({ items, total: items.length }); };
+  // The cluster the confirm was opened on: the deletes go there or nowhere.
+  const bulkCluster = React.useRef(activeClusterId);
   const bulkDelete = () => {
+    bulkCluster.current = activeClusterId;
     if (selectedHidden.length === 0 && selectedVisible.length > 0 && selectedVisible.every(withRelated)) startRelatedQueue(selectedVisible);
     else actions.setShowBulkDeleteConfirm(true);
   };
@@ -431,9 +436,22 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       return;
     }
     setBulkDeleting(true);
-    try { await actions.handleBulkDelete(targets); } finally { setBulkDeleting(false); }
+    try { await actions.handleBulkDelete(targets, bulkCluster.current); } finally { setBulkDeleting(false); }
     actions.setShowBulkDeleteConfirm(false);
   };
+
+  // Drop selections whose objects are gone (deleted elsewhere, another
+  // namespace, another cluster), so the toolbar's count and the confirm's
+  // list agree. Only once the list has answered, never mid-load.
+  React.useEffect(() => {
+    if (isLoading || error) return;
+    setSelectedRows((prev) => {
+      if (prev.size === 0) return prev;
+      const present = new Set(stampedResources.map((r) => r.metadata.uid ?? ''));
+      const next = new Set([...prev].filter((uid) => present.has(uid)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [stampedResources, isLoading, error]);
   const queueSummary = (total: number, stopped: boolean) => {
     const done = queueDeleted.current;
     if (total < 2) return;
@@ -605,9 +623,11 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
           onClose={nextInQueue}
           onCancel={cancelQueue}
           onDeleted={() => {
-            queueDeleted.current.push(relatedQueue.items[0].metadata.name);
+            const done = relatedQueue.items[0];
+            queueDeleted.current.push(done.metadata.name);
             queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
-            setSelectedRows(new Set());
+            // Only this workload leaves the selection; rows the user kept stay selected.
+            setSelectedRows((prev) => { const next = new Set(prev); next.delete(done.metadata.uid ?? ''); return next; });
           }}
         />
       )}

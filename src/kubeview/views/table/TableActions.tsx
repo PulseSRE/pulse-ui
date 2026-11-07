@@ -10,6 +10,7 @@ import type { ColumnDef } from '../../engine/renderers';
 import type { DeleteProgressItem } from './DeleteProgress';
 import { scalePatch } from '../../engine/writeGuards';
 import { setNodeSchedulable, scheduleChangeCopy } from '../../engine/nodeActions';
+import { assertActiveCluster } from '../../engine/pendingCluster';
 
 export interface PendingConfirm {
   title: string;
@@ -24,9 +25,11 @@ export interface ActionHandlers {
   /**
    * Delete exactly `targets` — the list the confirm dialog showed. Without
    * targets, only the selected rows the current search/filter shows: a row
-   * hidden by a later search is never deleted unseen.
+   * hidden by a later search is never deleted unseen. `pinnedClusterId` is
+   * the cluster the confirm was opened on: if the active cluster changed
+   * since, nothing is deleted.
    */
-  handleBulkDelete: (targets?: K8sResource[]) => Promise<void>;
+  handleBulkDelete: (targets?: K8sResource[], pinnedClusterId?: string) => Promise<void>;
   executeDelete: () => Promise<void>;
   inlineActionLoading: string | null;
   pendingDelete: { resource: K8sResource; path: string } | null;
@@ -268,9 +271,16 @@ export function useTableActions({
     }
   }, [pendingRestart, clusterId, addToast, queryClient, apiPath]);
 
-  const handleBulkDelete = useCallback(async (targets?: K8sResource[]) => {
+  const handleBulkDelete = useCallback(async (targets?: K8sResource[], pinnedClusterId?: string) => {
     const chosen = targets ?? sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
     if (chosen.length === 0) return;
+    const pinned = pinnedClusterId ?? clusterId;
+    try {
+      assertActiveCluster(pinned, 'Bulk delete');
+    } catch (err) {
+      showErrorToast(err, 'Nothing was deleted');
+      return;
+    }
 
     const items: Array<{ name: string; ns: string; kind: string; uid: string; path: string }> = chosen.map((resource) => ({
       name: resource.metadata.name,
@@ -283,7 +293,7 @@ export function useTableActions({
     setDeleteProgress(items.map(i => ({ name: i.name, ns: i.ns, kind: i.kind, path: i.path, status: 'deleting' as const })));
 
     const results = await Promise.allSettled(
-      items.map((item) => k8sDelete(item.path, clusterId, { uid: item.uid }))
+      items.map((item) => k8sDelete(item.path, pinned, { uid: item.uid }))
     );
     results.forEach((result, idx) => {
       if (result.status === 'fulfilled') {

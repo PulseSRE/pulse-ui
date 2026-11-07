@@ -23,6 +23,8 @@ function renderSummary() {
   );
 }
 const etcdCell = () => screen.getByText('etcd Leader').nextElementSibling as HTMLElement;
+/** The visible value, without the screen-reader-only reason. */
+const shown = () => etcdCell().firstChild?.textContent;
 
 afterEach(() => { cleanup(); qc?.clear(); queryInstant.mockReset(); });
 
@@ -33,18 +35,26 @@ describe('etcd leader', () => {
   ])('a %s read says "Could not check" with the reason, not "No Leader"', async (_l, err) => {
     queryInstant.mockRejectedValue(err);
     renderSummary();
-    await waitFor(() => expect(etcdCell().textContent).toBe('Could not check'));
+    expect(shown()).toBe('Checking…');
+    await waitFor(() => expect(shown()).toBe('Could not check'));
     expect(etcdCell().getAttribute('title')).toBe(err.message);
+    // The reason is announced too, not only a hover tooltip.
+    expect(etcdCell().querySelector('.sr-only')?.textContent).toBe(`: ${err.message}`);
     expect(etcdCell().className).not.toContain('text-red-400');
   });
 
   it('a successful read with no series is "No data"; a leader is "Elected"', async () => {
-    queryInstant.mockResolvedValue([]);
+    let answer!: (v: unknown) => void;
+    queryInstant.mockReturnValue(new Promise((r) => { answer = r; }));
     renderSummary();
-    await waitFor(() => expect(etcdCell().textContent).toBe('No data'));
+    // Not "No data" while the read is still in flight.
+    expect(shown()).toBe('Checking…');
+    answer([]);
+    await waitFor(() => expect(shown()).toBe('No data'));
     cleanup(); qc?.clear();
     queryInstant.mockResolvedValue([{ metric: {}, value: 1 }]);
     renderSummary();
-    await waitFor(() => expect(etcdCell().textContent).toBe('Elected'));
+    expect(shown()).toBe('Checking…');
+    await waitFor(() => expect(shown()).toBe('Elected'));
   });
 });

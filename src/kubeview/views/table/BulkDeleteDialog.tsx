@@ -44,6 +44,10 @@ export function BulkDeleteDialog({ visible, hidden, onConfirm, onClose, loading 
       onConfirm={() => { void onConfirm(targets); }}
       onClose={onClose}
     >
+      {/* Announced when "Also delete the hidden rows" changes the list. */}
+      <p aria-live="polite" className="mb-2 text-xs text-slate-400">
+        {n === 0 ? 'Nothing selected to delete.' : `${n} ${noun} will be deleted.`}
+      </p>
       <ul aria-label="Resources to delete" className="max-h-48 overflow-y-auto rounded border border-slate-700 bg-slate-900/60 px-3 py-2 font-mono text-xs text-slate-200">
         {targets.map((r) => (
           <li key={r.metadata.uid ?? label(r)} className="truncate py-0.5">

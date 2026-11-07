@@ -22,14 +22,15 @@ interface Props {
   platform: string | null;
 }
 
-function KV({ label, value, status, title }: { label: string; value: string; status?: 'ok' | 'warn' | 'error'; title?: string }) {
+/** `reason` (why a value is unknown) is a tooltip for sighted users and read out by screen readers. */
+function KV({ label, value, status, reason, muted }: { label: string; value: string; status?: 'ok' | 'warn' | 'error'; reason?: string; muted?: boolean }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
-      <div title={title} className={cn(
+      <div title={reason} className={cn(
         'text-sm font-semibold',
-        status === 'error' ? 'text-red-400' : status === 'warn' ? 'text-amber-400' : title ? 'text-slate-400' : 'text-slate-100',
-      )}>{value}</div>
+        status === 'error' ? 'text-red-400' : status === 'warn' ? 'text-amber-400' : reason || muted ? 'text-slate-400' : 'text-slate-100',
+      )}>{value}{reason && <span className="sr-only">: {reason}</span>}</div>
     </div>
   );
 }
@@ -79,7 +80,7 @@ function RegularSummary({ nodeDetails, clusterVersion, platform }: {
   const mastersReady = masters.filter(nd => nd.status.ready).length;
   const allReady = mastersReady === masters.length && masters.length > 0;
 
-  const { data: etcdData, isError: etcdFailed, error: etcdError } = useQuery({
+  const { data: etcdData, isPending: etcdPending, isError: etcdFailed, error: etcdError } = useQuery({
     queryKey: ['compute', 'etcd-leader', clusterId],
     queryFn: () => queryInstant('max(etcd_server_has_leader)', undefined, clusterId),
     refetchInterval: 30000,
@@ -101,9 +102,10 @@ function RegularSummary({ nodeDetails, clusterVersion, platform }: {
         {/* A failed read is "Could not check", not "No Leader" or a quiet "Unknown". */}
         <KV
           label="etcd Leader"
-          value={etcdFailed ? 'Could not check' : etcdUnknown ? 'No data' : etcdHasLeader ? 'Elected' : 'No Leader'}
-          title={etcdFailed ? describeReadError(etcdError).reason : undefined}
-          status={etcdFailed || etcdUnknown ? undefined : etcdHasLeader ? 'ok' : 'error'}
+          value={etcdFailed ? 'Could not check' : etcdPending ? 'Checking…' : etcdUnknown ? 'No data' : etcdHasLeader ? 'Elected' : 'No Leader'}
+          reason={etcdFailed ? describeReadError(etcdError).reason : undefined}
+          muted={etcdPending || etcdUnknown}
+          status={etcdFailed || etcdPending || etcdUnknown ? undefined : etcdHasLeader ? 'ok' : 'error'}
         />
       </div>
     </Card>

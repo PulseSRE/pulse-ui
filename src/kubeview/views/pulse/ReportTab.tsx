@@ -589,7 +589,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                   <div className="text-xs text-slate-500">API Latency (p99)</div>
                   {/* No number is not a green number: a failed read says so, an empty one is "No data". */}
                   {apiLatencyFailed ? (
-                    <div className="text-sm font-medium text-slate-400" title={describeReadError(apiLatencyError).reason}>Could not check</div>
+                    <div className="text-sm font-medium text-slate-400" title={describeReadError(apiLatencyError).reason}>Could not check<span className="sr-only">: {describeReadError(apiLatencyError).reason}</span></div>
                   ) : apiLatency === null || apiLatency === undefined ? (
                     <div className="text-sm font-medium text-slate-400">{apiLatency === undefined ? 'Checking…' : 'No data'}</div>
                   ) : (
@@ -604,7 +604,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 <div>
                   <div className="text-xs text-slate-500">Etcd Leader Changes (1h)</div>
                   {etcdChangesFailed ? (
-                    <div className="text-sm font-medium text-slate-400" title={describeReadError(etcdChangesError).reason}>Could not check</div>
+                    <div className="text-sm font-medium text-slate-400" title={describeReadError(etcdChangesError).reason}>Could not check<span className="sr-only">: {describeReadError(etcdChangesError).reason}</span></div>
                   ) : etcdLeaderChanges === null || etcdLeaderChanges === undefined ? (
                     <div className="text-sm font-medium text-slate-400" title={etcdLeaderChanges === null ? 'Prometheus has no etcd series (etcd may run outside this cluster)' : undefined}>{etcdLeaderChanges === undefined ? 'Checking…' : 'No data'}</div>
                   ) : (

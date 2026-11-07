@@ -104,9 +104,12 @@ describe('ReportTab Prometheus reads', () => {
     k8sGet.mockResolvedValue(null);
     queryInstant.mockRejectedValue(err);
     renderTab();
-    await waitFor(() => expect(heartbeat('API Latency (p99)').textContent).toBe('Could not check'));
+    await waitFor(() => expect(heartbeat('API Latency (p99)').firstChild?.textContent).toBe('Could not check'));
     expect(heartbeat('API Latency (p99)').getAttribute('title')).toBe(err.message);
-    await waitFor(() => expect(heartbeat('Etcd Leader Changes (1h)').textContent).toBe('Could not check'));
+    // The reason is read out, not only shown on hover.
+    expect(heartbeat('API Latency (p99)').textContent).toBe(`Could not check: ${err.message}`);
+    await waitFor(() => expect(heartbeat('Etcd Leader Changes (1h)').firstChild?.textContent).toBe('Could not check'));
+    expect(heartbeat('Etcd Leader Changes (1h)').querySelector('.sr-only')?.textContent).toBe(`: ${err.message}`);
     expect(heartbeat('API Latency (p99)').className).not.toContain('green');
     expect((await screen.findByText(/Volume usage could not be checked/)).closest('[role="alert"]')).not.toBeNull();
   });
