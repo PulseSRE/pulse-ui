@@ -12,6 +12,7 @@ import type { K8sResource } from '../engine/renderers';
 import { useCanI } from '../hooks/useCanI';
 import { SubpageHeader } from '../components/primitives/SubpageHeader';
 import { ReadFailure, onCluster } from '../components/primitives/NotFound';
+import { isNotFoundError } from '../engine/readError';
 import { listPath, pluralLabel } from '../engine/subpageLinks';
 import { kindFromPlural } from '../engine/topologyLinks';
 import YamlEditor from '../components/yaml/YamlEditor';
@@ -154,7 +155,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
     ? { group: gvrParts[0], version: gvrParts[1], kind: actualKind }
     : { group: '', version: gvrParts[0], kind: actualKind };
 
-  const header = (actions?: React.ReactNode, meta?: React.ReactNode) => (
+  const header = (actions?: React.ReactNode, meta?: React.ReactNode, missing = false) => (
     <SubpageHeader
       subpage="YAML"
       resource={{ gvrUrl, kind: actualKind, namespace, name }}
@@ -162,6 +163,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
       // The cluster the YAML was loaded from, which a save writes to.
       clusterId={clusterId}
       title={`${readOnly ? 'View' : 'Edit'} YAML: ${name}`}
+      missing={missing}
       meta={meta}
       actions={actions}
     />
@@ -182,7 +184,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
     const kinds = pluralLabel(actualKind);
     return (
       <div className="flex flex-col h-full bg-slate-950">
-        {header()}
+        {header(undefined, undefined, isNotFoundError(error))}
         <div className="p-6">
           <ReadFailure
             error={error}
@@ -248,7 +250,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
         <div role="alert" className="flex items-start gap-2 px-4 py-2 bg-amber-950/40 border-b border-amber-900 text-xs text-amber-200">
           <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
-            This YAML was loaded from <strong>{clusterName(clusterId)}</strong>; the active cluster is now <strong>{clusterName(activeClusterId)}</strong>. Saving is disabled until you switch back.
+            This YAML was loaded from <strong>{clusterName(clusterId)}</strong>; the active cluster is now <strong>{clusterName(activeClusterId)}</strong>. Saving is disabled until you switch back, and the links above open the object on <strong>{clusterName(activeClusterId)}</strong>.
           </span>
         </div>
       )}

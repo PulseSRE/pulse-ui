@@ -14,6 +14,7 @@ import { useFleetStore } from '../store/fleetStore';
 import { LoadError } from '../components/primitives/LoadError';
 import { SubpageHeader } from '../components/primitives/SubpageHeader';
 import { ReadFailure, onCluster } from '../components/primitives/NotFound';
+import { isNotFoundError } from '../engine/readError';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { gvrUrlForKind } from '../engine/gvr';
 import { detailPath, kindInSentence, listPath } from '../engine/subpageLinks';
@@ -226,8 +227,8 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
   const containers = podLogContainers(pod);
   const restarts = ((pod?.status?.containerStatuses || []) as Array<{ restartCount?: number }>).reduce((n, c) => n + (c.restartCount || 0), 0);
 
-  const header = (actions?: React.ReactNode) => (
-    <SubpageHeader subpage="Logs" resource={{ gvrUrl: 'v1~pods', kind: 'Pod', namespace, name: podName }} go={go} clusterId={clusterId} actions={actions} />
+  const header = (actions?: React.ReactNode, missing = false) => (
+    <SubpageHeader subpage="Logs" resource={{ gvrUrl: 'v1~pods', kind: 'Pod', namespace, name: podName }} go={go} clusterId={clusterId} actions={actions} missing={missing} />
   );
 
   if (isLoading) {
@@ -243,7 +244,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
     const pods = listPath('v1~pods', namespace);
     return (
       <div className="h-full flex flex-col">
-        {header()}
+        {header(undefined, isNotFoundError(error))}
         <div className="p-6">
           <ReadFailure
             error={error}

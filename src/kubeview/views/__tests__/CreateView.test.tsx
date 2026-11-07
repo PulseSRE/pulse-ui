@@ -163,6 +163,12 @@ describe('CreateView', () => {
     expect(navigateMock).toHaveBeenCalledWith('/r/apps~v1~deployments');
   });
 
+  it('?namespace= filters the header: namespace badge and list link', () => {
+    renderCreateView({ gvrKey: 'v1/resourcequotas' }, '/create/v1~resourcequotas?namespace=shop');
+    expect(screen.getByTitle('Namespace').textContent).toBe('shop');
+    expect(screen.getByRole('link', { name: 'Back to ResourceQuotas' }).getAttribute('href')).toBe('/r/v1~resourcequotas?ns=shop');
+  });
+
   it('a modified click on the back link is left to the browser', () => {
     renderCreateView({ gvrKey: 'apps/v1/deployments' }, '/create/apps~v1~deployments');
     const back = screen.getByRole('link', { name: 'Back to Deployments' });

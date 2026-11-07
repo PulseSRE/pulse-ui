@@ -6,7 +6,7 @@
  * A read that answers 404 is NotFound; a 403 or 500 stays LoadError.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import type React from 'react';
@@ -27,6 +27,8 @@ vi.mock('../../components/metrics/AutoMetrics', () => ({ getMetricsForResource: 
 import LogsView from '../LogsView';
 import MetricsView from '../MetricsView';
 import YamlEditorView from '../YamlEditorView';
+import { registerCluster, resetConnections } from '../../engine/clusterConnection';
+import { useFleetStore } from '../../store/fleetStore';
 
 let qc: QueryClient;
 let search = '';
@@ -116,6 +118,23 @@ describe('subpage headers', () => {
   });
 });
 
+describe('YAML after a cluster switch mid-edit', () => {
+  afterEach(() => { resetConnections(); useFleetStore.setState({ activeClusterId: 'local' }); });
+
+  it('the badge names the cluster the YAML came from, and the banner says where the links go', async () => {
+    registerCluster({ id: 'east', name: 'prod-east', connectionType: 'acm-proxy', target: 'east' });
+    useFleetStore.setState({ activeClusterId: 'local' });
+    renderAt(<YamlEditorView gvrKey="apps/v1/deployments" namespace="shop" name="web" />);
+    await screen.findByTestId('editor');
+    act(() => { useFleetStore.setState({ activeClusterId: 'east' }); });
+    // Fed the active cluster, this would read prod-east.
+    expect(screen.getByTitle('Cluster').textContent).toBe('Local Cluster');
+    const banner = screen.getByRole('alert');
+    expect(banner.textContent).toContain('This YAML was loaded from Local Cluster');
+    expect(banner.textContent).toContain('the links above open the object on prod-east');
+  });
+});
+
 describe('a failed read on a subpage: NotFound for 404, LoadError otherwise', () => {
   it('YAML 404 → NotFound naming the cluster and namespace, with the list as the way out; the header stays', async () => {
     status = 404;
@@ -126,6 +145,10 @@ describe('a failed read on a subpage: NotFound for 404, LoadError otherwise', ()
     expect(within(nf).getByRole('link', { name: 'Go to Deployments in shop' }).getAttribute('href')).toBe('/r/apps~v1~deployments?ns=shop');
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    // Back and the trail no longer point at the object that is not there.
+    expect(screen.getByRole('link', { name: 'Back to Deployments' }).getAttribute('href')).toBe('/r/apps~v1~deployments?ns=shop');
+    expect(screen.queryByRole('link', { name: 'Back to deployment web' })).toBeNull();
+    expect(crumbs().map(([, href]) => href)).not.toContain('/r/apps~v1~deployments/shop/web');
   });
 
   it.each([403, 500])('YAML %i → LoadError with Retry, not NotFound', async (s) => {
@@ -142,6 +165,8 @@ describe('a failed read on a subpage: NotFound for 404, LoadError otherwise', ()
     const nf = await screen.findByTestId('not-found');
     expect(nf.textContent).toContain('Pod web-1 not found');
     expect(within(nf).getByRole('link', { name: 'Go to pods in shop' }).getAttribute('href')).toBe('/r/v1~pods?ns=shop');
+    expect(screen.getByRole('link', { name: 'Back to Pods' }).getAttribute('href')).toBe('/r/v1~pods?ns=shop');
+    expect(crumbs().map(([, href]) => href)).not.toContain('/r/v1~pods/shop/web-1');
   });
 
   it.each([403, 500])('pod Logs %i → LoadError, not NotFound', async (s) => {

@@ -50,6 +50,15 @@ describe('SubpageHeader', () => {
     expect(go).toHaveBeenCalledWith('/r/networking.k8s.io~v1~networkpolicies', 'NetworkPolicies');
   });
 
+  it('missing: the name is plain text and back goes to the list, not the missing object', () => {
+    render(<SubpageHeader subpage="Logs" resource={{ gvrUrl: 'v1~pods', kind: 'Pod', namespace: 'shop', name: 'web-1' }} go={vi.fn()} missing />);
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(nav).queryByRole('link', { name: 'web-1' })).toBeNull();
+    expect(within(nav).getByText('web-1').tagName).toBe('SPAN');
+    expect(screen.queryByRole('link', { name: 'Back to pod web-1' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Back to Pods' }).getAttribute('href')).toBe('/r/v1~pods?ns=shop');
+  });
+
   it('a kind with no domain page starts at its list', () => {
     render(<SubpageHeader subpage="YAML" resource={{ gvrUrl: 'v1~configmaps', kind: 'ConfigMap', namespace: 'shop', name: 'cfg' }} go={vi.fn()} />);
     const links = within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getAllByRole('link').map((a) => a.textContent || a.getAttribute('aria-label'));

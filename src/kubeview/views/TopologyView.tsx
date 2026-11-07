@@ -252,18 +252,20 @@ export default function TopologyView() {
         />
 
         {focusMissing && focus && (
-          <NotFound
-            variant="inline"
-            what={`${focus.kind} ${focus.name}`}
-            // Not in the graph is not the same as not on the cluster.
-            title={`${focus.kind}/${focus.name} is not in the dependency graph${focus.namespace ? ` for ${focus.namespace}` : ''}`}
-            where={onCluster(activeClusterId)}
-            reason="The graph is rebuilt on each monitor scan, so a resource created in the last few minutes may not be in it yet."
-            actions={[
-              { label: `Open ${focus.kind} ${focus.name}`, href: focusDetail, onClick: () => go(focusDetail, focus.name) },
-              { label: focus.namespace ? `Show all of ${focus.namespace}` : 'Show the whole graph', href: unfocused, onClick: () => setSearchParams(unfocusedParams()) },
-            ]}
-          />
+          <div role="status">
+            <NotFound
+              variant="inline"
+              what={`${focus.kind} ${focus.name}`}
+              // Not in the graph is not the same as not on the cluster.
+              title={`${focus.kind}/${focus.name} is not in the dependency graph${focus.namespace ? ` for ${focus.namespace}` : ''}`}
+              where={onCluster(activeClusterId)}
+              reason="The graph is rebuilt on each monitor scan, so a resource created in the last few minutes may not be in it yet."
+              actions={[
+                { label: `Open ${focus.kind} ${focus.name}`, href: focusDetail, onClick: () => go(focusDetail, focus.name) },
+                { label: focus.namespace ? `Show all of ${focus.namespace}` : 'Show the whole graph', href: unfocused, onClick: () => setSearchParams(unfocusedParams()) },
+              ]}
+            />
+          </div>
         )}
 
         {/* Summary cards */}

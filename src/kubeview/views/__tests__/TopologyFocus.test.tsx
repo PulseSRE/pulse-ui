@@ -99,6 +99,7 @@ describe('/deps redirects to /topology', () => {
   it('the not-in-graph state is the one NotFound, naming the cluster, with real ways out', async () => {
     renderAt('/topology?namespace=shop&focus=Deployment%2Fshop%2Fgone');
     const nf = await screen.findByTestId('not-found');
+    expect(nf.parentElement!.getAttribute('role')).toBe('status');
     expect(nf.textContent).toMatch(/Looked on cluster Local Cluster/);
     expect(screen.getByRole('link', { name: 'Open Deployment gone' }).getAttribute('href')).toBe('/r/apps~v1~deployments/shop/gone');
     const all = screen.getByRole('link', { name: 'Show all of shop' });

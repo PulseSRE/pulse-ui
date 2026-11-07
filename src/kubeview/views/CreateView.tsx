@@ -120,7 +120,8 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   // namespace; without it the global selector decides.
   const location = useLocation();
   const urlNamespace = new URLSearchParams(location.search).get('namespace');
-  const selectedNamespace = urlNamespace && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(urlNamespace) ? urlNamespace : storeNamespace;
+  const validUrlNamespace = urlNamespace && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(urlNamespace) ? urlNamespace : undefined;
+  const selectedNamespace = validUrlNamespace ?? storeNamespace;
   const registry = useClusterStore((s) => s.resourceRegistry);
   // The cluster this screen shows; creates go there, not to whichever is local.
   const clusterId = useFleetStore((s) => s.activeClusterId);
@@ -330,7 +331,7 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
           return (
             <SubpageHeader
               subpage="Create"
-              resource={{ gvrUrl: gvrToUrl(gvrKey), kind: fallbackKind }}
+              resource={{ gvrUrl: gvrToUrl(gvrKey), kind: fallbackKind, namespace: validUrlNamespace }}
               go={go}
               clusterId={clusterId}
               title={`Create ${kind}`}

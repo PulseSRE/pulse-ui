@@ -33,6 +33,11 @@ export interface SubpageHeaderProps {
   /** Replaces the default back (the parent resource, or the kind's list on Create). */
   back?: PageHeaderBack;
   /**
+   * The object could not be found (a 404). Its name stays in the trail as
+   * plain text, and back goes to the kind's list instead of the missing object.
+   */
+  missing?: boolean;
+  /**
    * The cluster this subpage shows. Named in the header when more than one
    * cluster is connected, so the page says which cluster the links open on.
    */
@@ -52,7 +57,7 @@ const BADGE = 'px-2 py-0.5 rounded-sm bg-slate-800 text-slate-300';
  * left to the browser.
  */
 export function SubpageHeader({
-  subpage, resource, go, title, icon, subtitle, meta, actions, back, clusterId, className,
+  subpage, resource, go, title, icon, subtitle, meta, actions, back, missing = false, clusterId, className,
 }: SubpageHeaderProps) {
   const { gvrUrl, kind, namespace, name } = resource;
   const domain = domainForGvrUrl(gvrUrl);
@@ -64,7 +69,10 @@ export function SubpageHeader({
   if (domain) crumbs.push({ label: domain.label, href: domain.path, onClick: () => go(domain.path, domain.label) });
   crumbs.push({ label: kinds, href: listHref, onClick: () => go(listHref, listTitle) });
   let parent: PageHeaderBack;
-  if (name) {
+  if (name && missing) {
+    crumbs.push({ label: name });
+    parent = { label: kinds, href: listHref, onClick: () => go(listHref, listTitle) };
+  } else if (name) {
     const href = detailPath(gvrUrl, namespace, name);
     crumbs.push({ label: name, href, onClick: () => go(href, name) });
     parent = { label: `${kindInSentence(kind)} ${name}`, href, onClick: () => go(href, name) };
