@@ -67,8 +67,14 @@ function withhold(reason,   i) {
   print "reason: \"" reason "\""
   nl = 0
 }
-function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, val, m, rest, cur, on, bad) {
-  content = 0; top = 0; secret = 0; nested = 0
+function unclosed(s,   t, o, c) {
+  if (s !~ /^[ \t]*[[{]/) return 0
+  t = s; o = gsub(/[[{]/, "", t)
+  t = s; c = gsub(/[]}]/, "", t)
+  return o > c
+}
+function flush(   i, j, l, content, top, secret, nested, oddkind, sec, ind, keyind, key, val, m, rest, cur, on, bad) {
+  content = 0; top = 0; secret = 0; nested = 0; oddkind = 0
   for (i = 1; i <= nl; i++) {
     l = doc[i]
     if (blank(l) || comment(l)) continue
@@ -78,9 +84,12 @@ function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, 
       if (l ~ /^kind:[ \t]*["']?Secret["']?[ \t]*(#.*)?$/) { secret = 1; continue }
     }
     if (l ~ /kind["']?[ \t]*:[ \t]*["']?Secret(["' \t,}#]|$)/) nested = 1
+    if (l !~ /^kind[ \t]*:/ && l ~ /^[ \t-]*["']?kind["']?[ \t]*:/ && l !~ /^[ \t-]*kind:[ \t]*["']?[A-Za-z0-9.]+["']?[ \t]*(#.*)?$/) oddkind = 1
+    if (l ~ /[{,][ \t]*["']?kind["']?[ \t]*:/) oddkind = 1
   }
   if (!content) { for (i = 1; i <= nl; i++) print doc[i]; nl = 0; return }
   if (nested) { withhold("it contains a Secret inside a list or another object"); return }
+  if (oddkind) { withhold("it has a nested kind Pulse cannot read"); return }
   if (!top) { withhold("its kind could not be determined"); return }
   if (!secret) { for (i = 1; i <= nl; i++) print doc[i]; nl = 0; return }
   # A Secret is printed only through an allow-list; anything else withholds it.
@@ -109,6 +118,7 @@ function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, 
         l = doc[j]; sub(/^[ \t]+/, "", l); sub(/[ \t]+$/, "", l); val = val "\n" l
       }
       i = j - 1
+      if (unclosed(val)) { bad = "a flow collection in it spans lines"; break }
       ob[++on] = key ": \"(redacted sha256:" hash(val) ")\""
       continue
     }
@@ -120,12 +130,16 @@ function flush(   i, j, l, content, top, secret, nested, sec, ind, keyind, key, 
       if (cur == "data" || cur == "stringData") {
         if (rest ~ /^[ \t]*(#.*)?$/) { sec = 1; keyind = -1; ob[++on] = cur ":"; continue }
         if (rest ~ /^[ \t]*\{[ \t]*\}[ \t]*(#.*)?$/) { ob[++on] = cur ": {}"; continue }
+        if (unclosed(rest)) { bad = "a flow collection in it spans lines"; break }
         sec = 2; ob[++on] = cur ": {}  # redacted by Pulse: values not shown"; continue
       }
+      if (unclosed(rest)) { bad = "a flow collection in it spans lines"; break }
       ob[++on] = l
       continue
     }
     if (cur != "metadata") { bad = "it has nested content under " cur; break }
+    m = index(l, ":")
+    if (m > 0 && unclosed(substr(l, m + 1))) { bad = "a flow collection in it spans lines"; break }
     ob[++on] = l
   }
   if (bad != "") { withhold(bad); return }

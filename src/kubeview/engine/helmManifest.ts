@@ -430,6 +430,11 @@ const TOP_SECRET = /^kind:[ \t]*["']?Secret["']?[ \t]*(#.*)?$/;
 const ANY_SECRET = /kind["']?[ \t]*:[ \t]*["']?Secret(["' \t,}#]|$)/;
 /** A YAML anchor or alias at the start of a token. */
 const ANCHOR = /(^|[ \t[{,])[&*][^\] \t[{},]/;
+/** A nested `kind:` whose value is a plain identifier. */
+const PLAIN_KIND = /^[ \t-]*kind:[ \t]*["']?[A-Za-z0-9.]+["']?[ \t]*(#.*)?$/;
+const SPANS = 'a flow collection in it spans lines';
+/** A value that opens a flow mapping or sequence and does not close it on the same line(s). */
+const unclosed = (v: string) => /^[ \t]*[[{]/.test(v) && (v.match(/[[{]/g) ?? []).length > (v.match(/[\]}]/g) ?? []).length;
 /** The only top-level keys a Secret may have to be shown (literal, unquoted). */
 const SECRET_TOP_KEYS = /^(apiVersion|kind|metadata|type|immutable|data|stringData)[ \t]*:/;
 
@@ -462,6 +467,7 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
     let top = false;
     let secret = false;
     let nested = false;
+    let oddKind = false;
     for (const l of doc) {
       if (isBlank(l) || isComment(l)) continue;
       content = true;
@@ -470,9 +476,13 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
         if (TOP_SECRET.test(l)) { secret = true; continue; }
       }
       if (ANY_SECRET.test(l)) nested = true;
+      // A nested kind that is tagged, folded, quoted oddly or in a flow mapping may hide a Secret.
+      if (!/^kind[ \t]*:/.test(l) && /^[ \t-]*["']?kind["']?[ \t]*:/.test(l) && !PLAIN_KIND.test(l)) oddKind = true;
+      if (/[{,][ \t]*["']?kind["']?[ \t]*:/.test(l)) oddKind = true;
     }
     if (!content) { out.push(...doc); doc = []; return; }
     if (nested) { withhold('it contains a Secret inside a list or another object'); return; }
+    if (oddKind) { withhold('it has a nested kind Pulse cannot read'); return; }
     if (!top) { withhold('its kind could not be determined'); return; }
     if (!secret) { out.push(...doc); doc = []; return; }
     // A Secret is printed only through an allow-list; anything else withholds it.
@@ -505,6 +515,7 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
           val = `${val}\n${l}`;
         }
         i = j - 1;
+        if (unclosed(val)) { bad = SPANS; break; }
         ob.push(`${key}: "(redacted sha256:${await saltedHash(salt, val)})"`);
         continue;
       }
@@ -516,14 +527,18 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
         if (cur === 'data' || cur === 'stringData') {
           if (/^[ \t]*(#.*)?$/.test(rest)) { sec = 1; keyind = -1; ob.push(`${cur}:`); continue; }
           if (/^[ \t]*\{[ \t]*\}[ \t]*(#.*)?$/.test(rest)) { ob.push(`${cur}: {}`); continue; }
+          if (unclosed(rest)) { bad = SPANS; break; }
           sec = 2;
           ob.push(`${cur}: {}  # redacted by Pulse: values not shown`);
           continue;
         }
+        if (unclosed(rest)) { bad = SPANS; break; }
         ob.push(l);
         continue;
       }
       if (cur !== 'metadata') { bad = `it has nested content under ${cur}`; break; }
+      const mm = l.indexOf(':');
+      if (mm >= 0 && unclosed(l.slice(mm + 1))) { bad = SPANS; break; }
       ob.push(l);
     }
     if (bad) { withhold(bad); return; }

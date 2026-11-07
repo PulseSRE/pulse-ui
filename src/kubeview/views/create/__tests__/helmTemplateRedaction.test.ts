@@ -68,7 +68,7 @@ const CASES: Array<{ name: string; secret: string; render: string; withheld?: bo
   { name: 'unknown kind (JSON document)', secret: 'json-pass', withheld: true, render: `---\n{"apiVersion": "v1", "kind": "Secret", "stringData": {"p": "json-pass"}}\n` },
   { name: 'quoted "kind" key', secret: 'quoted-key-pass', withheld: true, render: `---\napiVersion: v1\n"kind": Secret\nstringData:\n  p: quoted-key-pass\n` },
   { name: 'content after a document separator', secret: 'sep-pass', withheld: true, render: `--- {kind: Secret, stringData: {p: sep-pass}}\n` },
-  { name: 'multi-line flow data', secret: 'multi-flow-pass', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\ndata: {\n  p: multi-flow-pass\n}\ntype: Opaque\n` },
+  { name: 'multi-line flow data', secret: 'multi-flow-pass', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\ndata: {\n  p: multi-flow-pass\n}\ntype: Opaque\n` },
   { name: 'quoted data key', secret: 'quoted-data-pass', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n"stringData":\n  p: quoted-data-pass\n` },
   // Round 3: shapes an allow-list closes.
   { name: 'flow mapping continued at column 0', secret: 'LEAK-flow-col0', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData: {a: x,\npassword: LEAK-flow-col0}\n` },
@@ -78,11 +78,22 @@ const CASES: Array<{ name: string; secret: string; render: string; withheld?: bo
   { name: 'merge key', secret: 'LEAK-merge', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n  annotations: &m {password: LEAK-merge}\nstringData: {<<: *m}\n` },
   { name: 'block scalar followed by a column-0 key', secret: 'LEAK-proc-type', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData:\n  key.pem: |\n    -----BEGIN RSA PRIVATE KEY-----\nProc-Type: LEAK-proc-type\n` },
   { name: 'comment carrying a value', secret: 'LEAK-comment', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n# password was LEAK-comment\nstringData:\n  p: x\n` },
+  // Round 4: flow collections spanning lines, and nested kinds that are tagged or folded.
+  { name: 'stringData flow mapping closed by a column-0 type: line', secret: 's3cret-type', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData: {user: admin,\ntype: s3cret-type}\n` },
+  { name: 'stringData flow mapping closed by a column-0 metadata: line', secret: 's3cret-meta', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData: {user: admin,\nmetadata: s3cret-meta}\n` },
+  { name: 'data value flow mapping closed by a column-0 kind: line', secret: 's3cret-kind', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData:\n  a: {x: y,\nkind: s3cret-kind}\n` },
+  { name: 'data value flow sequence left open', secret: 's3cret-seq', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData:\n  a: [x,\ntype: s3cret-seq]\n` },
+  { name: 'metadata flow mapping left open', secret: 's3cret-md', withheld: true, render: `---\napiVersion: v1\nkind: Secret\nmetadata: {name: a,\napiVersion: s3cret-md}\nstringData:\n  p: x\n` },
+  { name: 'tagged kind inside a List', secret: 'tagged-list-pass', withheld: true, render: `---\napiVersion: v1\nkind: List\nitems:\n  - apiVersion: v1\n    kind: !!str Secret\n    stringData:\n      p: tagged-list-pass\n` },
+  { name: 'folded kind inside a List', secret: 'folded-list-pass', withheld: true, render: `---\napiVersion: v1\nkind: List\nitems:\n  - apiVersion: v1\n    kind: >-\n      Secret\n    stringData:\n      p: folded-list-pass\n` },
+  { name: 'folded kind inside a Template', secret: 'folded-tpl-pass', withheld: true, render: `---\napiVersion: template.openshift.io/v1\nkind: Template\nobjects:\n- apiVersion: v1\n  kind: >-\n    Secret\n  stringData:\n    p: folded-tpl-pass\n` },
+  { name: 'tagged kind in a flow mapping inside a List', secret: 'tagged-flow-pass', withheld: true, render: `---\napiVersion: v1\nkind: List\nitems: [{kind: !!str Secret, stringData: {p: tagged-flow-pass}}]\n` },
   { name: 'nested content under type', secret: 'LEAK-under-type', withheld: true, render: `---\napiVersion: v1\nkind: Secret\ntype: |\n  LEAK-under-type\nstringData:\n  p: x\n` },
 ];
 
 /** Valid Secrets that must still be shown (not withheld), with values redacted. */
 const SHOWN: Array<{ name: string; secret: string; render: string }> = [
+  { name: 'flow mapping value that closes on an indented line', secret: 'closed-flow-pass', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData:\n  url: {a: closed-flow-pass,\n    b: c}\n` },
   { name: 'ampersand inside a value', secret: 'a=1&b=2', render: `---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\n  annotations:\n    note: "see https://x.example/?a=1&b=2"\ntype: Opaque\nimmutable: true\nstringData:\n  url: https://x.example/?a=1&b=2\n` },
 ];
 
