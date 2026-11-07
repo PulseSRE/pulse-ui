@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import {
   Globe, RefreshCw, Loader2, Plus, Info, Server,
   CheckCircle, AlertTriangle,
@@ -67,12 +68,7 @@ export default function FleetView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Globe className="w-6 h-6 text-blue-500" /> Fleet
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">Multi-cluster management</p>
-          </div>
+          <PageHeader icon={<Globe className="w-6 h-6 text-blue-500" />} title="Fleet" subtitle="Multi-cluster management" />
 
           <Card className="p-6">
             <h2 className="text-lg font-semibold text-slate-100 mb-4">Connect Your Clusters</h2>
@@ -142,26 +138,23 @@ export default function FleetView() {
       <div className="max-w-7xl mx-auto space-y-6">
         <FleetSubNav />
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Globe className="w-6 h-6 text-blue-500" /> Fleet
-            </h1>
-            {/* One summary: how many of the fleet's clusters Pulse can reach. */}
-            <p className="text-sm text-slate-400 mt-1" data-testid="fleet-reachability">
-              {connectedCount} of {clusters.length} cluster{clusters.length !== 1 ? 's' : ''} reachable
-              {unreachableCount > 0 && <span className="text-red-400 ml-1">· {unreachableCount} unreachable</span>}
-            </p>
-          </div>
-          <button
+        <PageHeader
+          icon={<Globe className="w-6 h-6 text-blue-500" />}
+          title="Fleet"
+          // One summary: how many of the fleet's clusters Pulse can reach.
+          subtitle={<span data-testid="fleet-reachability">
+            {connectedCount} of {clusters.length} cluster{clusters.length !== 1 ? 's' : ''} reachable
+            {unreachableCount > 0 && <span className="text-red-400 ml-1">· {unreachableCount} unreachable</span>}
+          </span>}
+          actions={<button
             onClick={handleRefresh}
             disabled={refreshing}
             className="px-3 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
             Refresh All
-          </button>
-        </div>
+          </button>}
+        />
 
         {/* Fleet summary bar */}
         <div className="flex items-center gap-4 text-xs text-slate-500">

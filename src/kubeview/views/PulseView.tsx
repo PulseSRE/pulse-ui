@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import {
   HeartPulse, Activity,
 } from 'lucide-react';
@@ -306,17 +307,11 @@ export default function PulseView() {
         {alertsUnavailable && <RemoteMetricsNotice compact what="Alerts and metrics" />}
 
         {/* ── Header with inline stats ── */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <HeartPulse className="w-6 h-6 text-blue-500" />
-            <div>
-              <h1 className="text-xl font-bold text-slate-100">Cluster Pulse</h1>
-              <p className="text-xs text-slate-500">
-                Health overview{selectedNamespace !== '*' && <span className="text-blue-400 ml-1">· {selectedNamespace}</span>}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          icon={<HeartPulse className="w-6 h-6 text-blue-500" />}
+          title="Cluster Pulse"
+          subtitle={<>Health overview{selectedNamespace !== '*' && <span className="text-blue-400 ml-1">· {selectedNamespace}</span>}</>}
+          actions={<>
             {/* Node readiness lives in the report's Nodes tile (one place). */}
             <Tooltip
               content={
@@ -378,8 +373,8 @@ export default function PulseView() {
                 {monitorEnabled ? 'Live updates: on' : 'Live updates: paused'}
               </button>
             </Tooltip>
-          </div>
-        </div>
+          </>}
+        />
 
         {/* The skeleton reserves exactly what the map will occupy. It used to
             say 420px against a map that renders at 520, so the whole page

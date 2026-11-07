@@ -1,4 +1,5 @@
 import { isPlatformNamespace } from '../engine/platformNamespaces';
+import { PageHeader } from '../components/primitives/PageHeader';
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -274,13 +275,11 @@ export default function SecurityView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Shield className="w-6 h-6 text-indigo-500" />
-            Security
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Security posture, audit checks, access control, and policy overview</p>
-        </div>
+        <PageHeader
+          icon={<Shield className="w-6 h-6 text-indigo-500" />}
+          title="Security"
+          subtitle="Security posture, audit checks, access control, and policy overview"
+        />
 
         {/* Security questions for Pulse AI (there is no separate security agent). */}
         <AskPulsePrompts

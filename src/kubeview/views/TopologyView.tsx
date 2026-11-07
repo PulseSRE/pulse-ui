@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useSearchParams } from 'react-router-dom';
 import { parseTopologyFocus, topologyNodeMatches } from '../engine/topologyLinks';
 import { useFleetStore } from '../store/fleetStore';
@@ -173,10 +174,7 @@ export default function TopologyView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-[1400px] mx-auto space-y-4">
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Network className="w-6 h-6 text-cyan-400" />
-            Topology
-          </h1>
+          <PageHeader icon={<Network className="w-6 h-6 text-cyan-400" />} title="Topology" />
           <LocalClusterOnlyNotice what="Topology" />
         </div>
       </div>
@@ -193,20 +191,25 @@ export default function TopologyView() {
 
   if (isError) {
     return (
-      <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="mb-4 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-950/50 border border-red-900/50">
-            <AlertTriangle className="w-7 h-7 text-red-400" />
+      <div className="h-full overflow-auto bg-slate-950 p-6 flex flex-col">
+        <div className="max-w-[1400px] w-full mx-auto">
+          <PageHeader icon={<Network className="w-6 h-6 text-cyan-400" />} title="Topology" />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <div className="mb-4 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-950/50 border border-red-900/50">
+              <AlertTriangle className="w-7 h-7 text-red-400" />
+            </div>
+            <h2 className="text-lg font-semibold text-slate-100 mb-1">Failed to load topology data</h2>
+            <p className="text-sm text-red-400 mb-4">{error instanceof Error ? error.message : 'Unknown error'}</p>
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 font-medium mx-auto"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
           </div>
-          <h2 className="text-lg font-semibold text-slate-100 mb-1">Failed to load topology data</h2>
-          <p className="text-sm text-red-400 mb-4">{error instanceof Error ? error.message : 'Unknown error'}</p>
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors flex items-center gap-2 font-medium mx-auto"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Retry
-          </button>
         </div>
       </div>
     );
@@ -218,17 +221,11 @@ export default function TopologyView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-[1400px] mx-auto space-y-4">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Network className="w-6 h-6 text-cyan-400" />
-              Topology
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Resource dependencies, risk overlay, and blast radius
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          icon={<Network className="w-6 h-6 text-cyan-400" />}
+          title="Topology"
+          subtitle="Resource dependencies, risk overlay, and blast radius"
+          actions={<>
             <select
               value={selectedNamespace}
               onChange={(e) => { setSelectedNamespace(e.target.value); setSelectedNode(null); }}
@@ -246,8 +243,8 @@ export default function TopologyView() {
             >
               <RefreshCw className="w-4 h-4" />
             </button>
-          </div>
-        </div>
+          </>}
+        />
 
         {focusMissing && focus && (
           <div role="status" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400">

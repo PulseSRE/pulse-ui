@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useSearchParams } from 'react-router-dom';
 import {
   Bot, List, BarChart3, History, Brain,
@@ -88,10 +89,11 @@ export default function PulseAgentView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <Bot className="w-6 h-6 text-violet-400" />
-          <h1 className="text-lg font-semibold text-slate-100">Pulse Agent</h1>
-        </div>
+        <PageHeader
+          icon={<Bot className="w-6 h-6 text-violet-400" />}
+          title="Pulse Agent"
+          subtitle="Configure and observe the agent: tools, skills, runs, usage and memory"
+        />
 
         <Tabs defaultValue="overview" urlSync={{ values: TAB_IDS }} onValueChange={rememberTab} className="space-y-6">
           <TabsList aria-label="Pulse Agent tabs" className="flex flex-wrap">

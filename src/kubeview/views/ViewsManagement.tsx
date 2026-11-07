@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Trash2, Share2, ExternalLink, Check, Bot, Loader2, History, Undo2, Download, Upload, Copy } from 'lucide-react';
@@ -215,23 +216,18 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
       <div className={embedded ? '' : 'max-w-6xl mx-auto'}>
         {/* Header — hidden when embedded as a tab */}
         {!embedded && (
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <LayoutDashboard className="w-6 h-6 text-violet-500" />
-              Your Views
-            </h1>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-400 mt-1">
-                AI-generated dashboards saved to your account.
-              </p>
-              <button
-                onClick={handleImport}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
-              >
-                <Upload className="w-3.5 h-3.5" /> Import View
-              </button>
-            </div>
-          </div>
+          <PageHeader
+            className="mb-6"
+            icon={<LayoutDashboard className="w-6 h-6 text-violet-500" />}
+            title="Your Views"
+            subtitle="AI-generated dashboards saved to your account."
+            actions={<button
+              onClick={handleImport}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+            >
+              <Upload className="w-3.5 h-3.5" /> Import View
+            </button>}
+          />
         )}
 
         {/* Import button in embedded mode */}

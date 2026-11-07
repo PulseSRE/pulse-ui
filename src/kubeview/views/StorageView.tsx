@@ -19,7 +19,7 @@ import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Panel } from '../components/primitives/Panel';
 import { Card } from '../components/primitives/Card';
 import { LoadError } from '../components/primitives/LoadError';
-import { SectionHeader } from '../components/primitives/SectionHeader';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 import { Button } from '../components/primitives/Button';
 import { useCanI } from '../hooks/useCanI';
@@ -131,7 +131,7 @@ export default function StorageView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <SectionHeader
+        <PageHeader
           icon={<HardDrive className="w-6 h-6 text-orange-500" />}
           title="Storage"
           subtitle={<>Persistent volumes, claims, storage classes, and capacity{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
