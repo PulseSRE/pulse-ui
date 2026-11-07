@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { statusTone, statusClasses, statusHex, riskTone, utilizationTone, isKnownStatus, TONE_CLASSES, type StatusTone } from '../statusColors';
+import { statusTone, statusClasses, statusHex, riskTone, podPhaseTone, podPhaseClasses, utilizationTone, isKnownStatus, TONE_CLASSES, type StatusTone } from '../statusColors';
 
 describe('statusTone', () => {
   const cases: Array<[string, StatusTone]> = [
@@ -104,9 +104,63 @@ describe('status maps that used to be private', () => {
     'components/topology/GraphRenderer.tsx',
     'components/agent/AgentBlastRadius.tsx',
   ];
+  it.each(['components/topology/overlays/PodGrid.tsx', 'engine/enhancers/pods.tsx'])('%s colours pods with podPhaseTone', (file) => {
+    const src = readFileSync(resolve(__dirname, '..', '..', file), 'utf8');
+    expect(src).toMatch(/podPhase(Tone|Classes)\(/);
+  });
+
   it.each(files)('%s uses engine/statusColors and no yellow', (file) => {
     const src = readFileSync(resolve(__dirname, '..', '..', file), 'utf8');
     expect(src).toMatch(/from '(\.\.\/)+engine\/statusColors'/);
     expect(src).not.toMatch(/yellow-\d|#eab308/i);
+  });
+});
+
+describe('podPhaseTone', () => {
+  it('reads a Pending pod as warning, not progress', () => {
+    expect(podPhaseTone('Pending')).toBe('warning');
+    expect(statusTone('Pending')).toBe('progress'); // the generic word stays progress (rollouts, syncs)
+  });
+
+  it('reads normal start-up as progress', () => {
+    expect(podPhaseTone('Pending', { reason: 'ContainerCreating' })).toBe('progress');
+    expect(podPhaseTone('Pending', { reason: 'PodInitializing' })).toBe('progress');
+    expect(podPhaseTone('ContainerCreating')).toBe('progress');
+  });
+
+  it('reads crash, pull and config errors as danger, even while Pending', () => {
+    for (const reason of ['CrashLoopBackOff', 'ImagePullBackOff', 'ErrImagePull', 'CreateContainerConfigError', 'OOMKilled', 'Evicted']) {
+      expect(podPhaseTone('Pending', { reason })).toBe('danger');
+      expect(podPhaseTone('Running', { reason })).toBe('danger');
+    }
+    expect(podPhaseTone('CrashLoopBackOff')).toBe('danger');
+  });
+
+  it('maps the phases', () => {
+    expect(podPhaseTone('Running')).toBe('success');
+    expect(podPhaseTone('Running', { ready: false })).toBe('warning');
+    expect(podPhaseTone('Running', { ready: true })).toBe('success');
+    expect(podPhaseTone('Failed')).toBe('danger');
+    expect(podPhaseTone('Unknown')).toBe('neutral');
+    expect(podPhaseTone('Terminating')).toBe('terminating');
+    expect(podPhaseTone(undefined)).toBe('neutral');
+  });
+
+  it('lets a density grid show Succeeded as neutral, apart from Running', () => {
+    expect(podPhaseTone('Succeeded')).toBe('success');
+    expect(podPhaseTone('Succeeded', { completed: 'neutral' })).toBe('neutral');
+    expect(podPhaseClasses('Succeeded', { completed: 'neutral' }).hex).not.toBe(podPhaseClasses('Running').hex);
+  });
+
+  it('Pending is amber in every pod view', () => {
+    expect(podPhaseClasses('Pending').solid).toBe('bg-amber-500');
+    expect(podPhaseClasses('Pending').hex).toBe(TONE_CLASSES.warning.hex);
+  });
+});
+
+describe('low: severity vs risk', () => {
+  it('a low severity is info; a low risk is success', () => {
+    expect(statusTone('low')).toBe('info');
+    expect(riskTone('low')).toBe('success');
   });
 });

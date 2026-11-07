@@ -13,7 +13,7 @@
  *    become `text-faint`, a token that keeps 4.5:1 on every dark surface the
  *    app uses (see `--text-faint` in styles/index.css). Left alone:
  *      - icons: the className of an element imported from lucide-react, or
- *        named `…Icon` / `Icon` (icons are not text; WCAG 1.4.11 applies, not 1.4.3);
+ *        named `…Icon` / `Icon` / `icon` (e.g. `<cfg.icon>`) (icons are not text; WCAG 1.4.11 applies, not 1.4.3);
  *      - decorative separators: an element with no aria-* attribute whose only
  *        content is one of `›`, `»`, `|`, `·`, `/`, `•` (a lone dash means
  *        "no value", which is content, so it is migrated);
@@ -39,7 +39,10 @@ import ts from 'typescript';
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 // `(variants)text-slate-500` as a whole class token.
-const LOW_CONTRAST = /(^|[\s"'`{])((?:[\w-]+:)*)text-slate-(?:500|600|700)(?=$|[\s"'`}$])/g;
+// One class token: variants (`hover:`, `placeholder:`, `data-[state=open]:`,
+// `[&>p]:`, `aria-selected:` …), an optional `!` before or after (Tailwind 3 and
+// 4 important), an optional opacity (`/60`, `/[.35]`).
+const LOW_CONTRAST = /(^|[\s"'`{])((?:(?:[^\s:"'`{}[\]]|\[[^\]\s]*\])+:)*)(!?)text-slate-(500|600|700)((?:\/(?:\d+|\[[^\]\s]+\]))?)(!?)(?=$|[\s"'`}$])/g;
 // Any Tailwind colour utility in yellow: text-yellow-400, hover:bg-yellow-900/50, border-l-yellow-500 …
 const YELLOW_CLASS = /(^|[^\w-])((?:[\w-]+:)*[a-z]+(?:-[a-z]+)*)-yellow-(\d{2,3})(?=$|[^\w-])/g;
 const YELLOW_HEX = /#eab308\b/gi;
@@ -90,7 +93,7 @@ function classNameOwner(node) {
 
 function isIconElement(owner, lucide) {
   const tag = owner.tagName.getText();
-  return lucide.has(tag) || /(^|\.)(\w*Icon)$/.test(tag);
+  return lucide.has(tag) || /(^|\.)(\w*[Ii]con)$/.test(tag);
 }
 
 function isSeparatorElement(owner) {
@@ -103,7 +106,8 @@ function isSeparatorElement(owner) {
 
 function rewriteLowContrast(text) {
   if (DISABLED_BRANCH.test(text)) return text;
-  return text.replace(LOW_CONTRAST, (m, lead, variants) => (/(^|:)disabled:$/.test(variants) ? m : `${lead}${variants}text-faint`));
+  return text.replace(LOW_CONTRAST, (m, lead, variants, bang, _shade, opacity, bangAfter) =>
+    (/(^|:)disabled:$/.test(variants) ? m : `${lead}${variants}${bang}text-faint${opacity}${bangAfter}`));
 }
 
 function rewriteYellow(text) {

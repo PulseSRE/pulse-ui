@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { MapPod } from '../types';
 import type { HealthScoreResult } from '../../../engine/healthScore';
 import { HEALTH_COLORS } from '../constants';
-import { statusClasses, statusHex } from '../../../engine/statusColors';
+import { podPhaseClasses } from '../../../engine/statusColors';
 
 interface PodGridProps {
   pods: MapPod[];
@@ -11,11 +11,14 @@ interface PodGridProps {
   onNavigateToNode?: (nodeName: string) => void;
 }
 
-// Phase colours come from the one status map (engine/statusColors), so a
-// Succeeded pod is emerald here as on the node map (it used to be indigo).
-const phaseHex = (phase: string) => statusHex(phase);
+// Pod colours come from podPhaseTone (engine/statusColors), the same as the
+// Pods list and the node map: Pending is warning (the sort below already
+// counts it as failing), ContainerCreating is progress. In this density grid
+// Succeeded is neutral so completed Job pods stand apart from Running ones.
+const tone = (phase: string) => podPhaseClasses(phase, { completed: 'neutral' });
+const phaseHex = (phase: string) => tone(phase).hex;
 const phaseCard = (phase: string) => {
-  const t = statusClasses(phase);
+  const t = tone(phase);
   return `${t.bg} ${t.border}`;
 };
 
@@ -187,7 +190,7 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
             </div>
             <div>
               <span className="text-faint block">Phase</span>
-              <span className={statusClasses(hoveredPod.phase).text}>{hoveredPod.phase}</span>
+              <span className={tone(hoveredPod.phase).text}>{hoveredPod.phase}</span>
             </div>
             <div>
               <span className="text-faint block">Restarts</span>
