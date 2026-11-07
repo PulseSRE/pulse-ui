@@ -292,15 +292,15 @@ describe('UpdatesTab', () => {
     expect(askPulse).toHaveBeenCalledWith(expect.stringMatching(/Not ready to update to 4\.15\.5[\s\S]*- Blocker: Nodes ready: 0\/1 nodes are Ready/), { kind: 'ClusterVersion', name: 'version' });
   });
 
-  it('Ask Pulse is disabled on a remote cluster, with the agent dock\'s reason', async () => {
+  it('Ask Pulse is disabled on a remote cluster, with the shared local-only wording', async () => {
     const { useFleetStore } = await import('../../../store/fleetStore');
     useFleetStore.setState({ activeClusterId: 'east' });
     try {
       renderTab({ clusterVersion: makeClusterVersion() });
       const ask = screen.getByRole('button', { name: 'Ask Pulse' }) as HTMLButtonElement;
       expect(ask.disabled).toBe(true);
-      expect(ask.title).toBe('This agent runs on Local Cluster. Remote resource-context actions are unavailable.');
-      expect(screen.getByTestId('readiness-ask-disabled').textContent).toMatch(/runs on Local Cluster/);
+      expect(ask.title).toBe('Pulse AI answers about the local cluster only.');
+      expect(screen.getByTestId('readiness-ask-disabled').textContent).toMatch(/answers about the local cluster only/);
       fireEvent.click(ask);
       expect(askPulse).not.toHaveBeenCalled();
     } finally {

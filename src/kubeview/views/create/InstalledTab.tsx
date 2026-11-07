@@ -114,7 +114,7 @@ export function InstalledTab() {
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-            <Package className="w-4 h-4 text-purple-400" />
+            <Package className="w-4 h-4 text-blue-400" />
             Operators
             <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{subsError ? '\u2014' : filteredSubscriptions.length}</span>
           </h3>

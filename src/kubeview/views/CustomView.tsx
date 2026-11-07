@@ -447,7 +447,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
           <EmptyState
             icon={<Plus className="w-8 h-8 text-slate-600" />}
             title="No widgets yet"
-            description="Ask the agent to add widgets to this dashboard."
+            description="Ask Pulse to add widgets to this dashboard."
             aiPrompts={[
               { label: 'Add a table of pods with high restart counts', onAsk: () => { askPulse('Add a data_table widget showing pods with the most restarts'); } },
               { label: 'Show CPU and memory trends', onAsk: () => { askPulse('Add chart widgets showing CPU utilization and memory usage trends'); } },

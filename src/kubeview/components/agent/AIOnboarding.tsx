@@ -66,7 +66,7 @@ export function AIOnboarding({ compact = false, className }: AIOnboardingProps) 
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-slate-100">Pulse AI Agent</h3>
+              <h3 className="text-lg font-semibold text-slate-100">Pulse AI</h3>
               <AIBadge />
             </div>
             <p className="text-sm text-slate-400">An AI assistant that understands your cluster in real-time</p>

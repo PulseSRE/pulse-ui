@@ -4,7 +4,7 @@ import {
   Clock, User, Calendar, Tag, Bot, Loader2,
   ArrowRight, RotateCcw, Archive, Search, CheckCircle2, ShieldCheck,
   ChevronDown, ChevronRight, Play, SkipForward, XCircle, AlertTriangle,
-  MessageSquare, RefreshCw, BookOpen, ShieldAlert, Wrench, ArrowUpCircle,
+  RefreshCw, BookOpen, ShieldAlert, Wrench, ArrowUpCircle,
 } from 'lucide-react';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Badge } from '../../components/primitives/Badge';
@@ -29,6 +29,9 @@ import { EvidenceList } from '../incidents/shared/EvidenceList';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { proposalForItem, useApprovalsStore } from '../../store/approvalsStore';
 import { ProposalActions, type ProposalOutcome } from './ProposedFixes';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
+import { AI_ACCENT } from '../../components/agent/aiTokens';
+import { cn } from '@/lib/utils';
 
 /** Where an inbox item's resource opens: the cluster's ClusterVersion is managed on Admin › Updates. */
 function inboxResourceUrl(r: { kind: string; name: string; namespace?: string }): string {
@@ -252,15 +255,7 @@ function ActionPlanSection({
                       </Button>
                     </Tooltip>
                   ) : (
-                    <Tooltip content="Ask the agent to help with this step">
-                      <Button
-                        size="sm"
-                        onClick={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)}
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        {isFailed ? 'Retry' : 'Ask Agent'}
-                      </Button>
-                    </Tooltip>
+                    <AskPulseButton onAsk={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)} />
                   )}
                   {!isFailed && (
                     <Tooltip content="Skip this step">
@@ -543,9 +538,9 @@ export function TaskDetailDrawer({
         )}
 
         {item.status === 'agent_reviewing' && (
-          <div className="rounded-lg border border-violet-800/50 bg-violet-950/30 p-3 flex items-center gap-3">
-            <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
-            <span className="text-sm text-violet-300">Agent is investigating this item...</span>
+          <div className={cn('rounded-lg p-3 flex items-center gap-3', AI_ACCENT.panel)}>
+            <Loader2 className={cn('w-4 h-4 animate-spin', AI_ACCENT.text)} />
+            <span className={cn('text-sm', AI_ACCENT.textStrong)}>Agent is investigating this item...</span>
           </div>
         )}
 
@@ -592,8 +587,8 @@ export function TaskDetailDrawer({
             title="AI Triage"
             subtitle="How urgent is this?"
           >
-            <div className="rounded-lg border border-violet-800/50 bg-violet-950/30 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-violet-400">
+            <div className={cn('rounded-lg p-3 space-y-2', AI_ACCENT.panel)}>
+              <div className={cn('flex items-center gap-2 text-xs font-medium', AI_ACCENT.text)}>
                 <Bot className="w-3.5 h-3.5" />
                 AI Triage
               </div>
@@ -712,10 +707,7 @@ export function TaskDetailDrawer({
         {/* Forward buttons — sticky footer so they're always visible */}
         <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-4 -mb-4 z-10">
           {item.status === 'new' && (
-            <Button size="sm" onClick={handleInvestigate}>
-              <Bot className="w-4 h-4 mr-1" />
-              Investigate with AI
-            </Button>
+            <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
           )}
 
           {/* Closure for chronic work: an investigated item can leave the
@@ -747,10 +739,7 @@ export function TaskDetailDrawer({
                 <RefreshCw className="w-4 h-4 mr-1" />
                 Retry Agent Analysis
               </Button>
-              <Button size="sm" variant="ghost" onClick={handleInvestigate}>
-                <MessageSquare className="w-4 h-4 mr-1" />
-                Investigate Manually
-              </Button>
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
               <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                 <Archive className="w-4 h-4 mr-1" />
                 Dismiss
@@ -779,12 +768,7 @@ export function TaskDetailDrawer({
                   Claim
                 </Button>
               </Tooltip>
-              <Tooltip content="Open the agent chat to investigate interactively">
-                <Button size="sm" variant="ghost" onClick={handleInvestigate}>
-                  <Bot className="w-4 h-4 mr-1" />
-                  Deep Dive
-                </Button>
-              </Tooltip>
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
               <Tooltip content="Reset to new — agent will re-triage">
                 <Button size="sm" variant="ghost" onClick={() => handleAdvance('new')}>
                   <RotateCcw className="w-4 h-4 mr-1" />
@@ -802,12 +786,7 @@ export function TaskDetailDrawer({
 
           {item.status === 'claimed' && (
             <>
-              <Tooltip content="Open the agent chat to investigate interactively">
-                <Button size="sm" onClick={handleInvestigate}>
-                  <Bot className="w-4 h-4 mr-1" />
-                  Deep Dive
-                </Button>
-              </Tooltip>
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
               <Tooltip content="Mark as resolved">
                 <Button size="sm" variant="ghost" onClick={handleResolve}>
                   <CheckCircle2 className="w-4 h-4 mr-1" />
@@ -837,12 +816,7 @@ export function TaskDetailDrawer({
                   Resolve
                 </Button>
               </Tooltip>
-              <Tooltip content="Open the agent chat for help">
-                <Button size="sm" variant="ghost" onClick={handleInvestigate}>
-                  <Bot className="w-4 h-4 mr-1" />
-                  Deep Dive
-                </Button>
-              </Tooltip>
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
               <Tooltip content="Reset to new — start over">
                 <Button size="sm" variant="ghost" onClick={() => handleAdvance('new')}>
                   <RotateCcw className="w-4 h-4 mr-1" />

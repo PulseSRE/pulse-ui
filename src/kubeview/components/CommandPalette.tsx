@@ -220,7 +220,7 @@ export function CommandPalette() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={mode === 'query' ? 'Ask Pulse Agent anything...' : 'Search resources, actions, or queries...'}
+              placeholder={mode === 'query' ? 'Ask Pulse anything...' : 'Search resources, actions, or queries...'}
               className="flex-1 bg-transparent text-slate-100 placeholder-slate-500 outline-hidden"
               role="combobox"
               aria-expanded="true"
@@ -503,7 +503,7 @@ function getCommandItems(
         type: 'action' as const,
         id: 'create-dashboard',
         title: 'Create custom dashboard',
-        subtitle: 'Ask AI to generate a new view with charts and metrics',
+        subtitle: 'Ask Pulse to generate a new view with charts and metrics',
         icon: 'LayoutDashboard',
         action: () => {
           const { connectAndSend } = useAgentStore.getState();
@@ -545,7 +545,7 @@ function getCommandItems(
         type: 'ai' as const,
         id: 'custom-query',
         title: cleanQuery,
-        subtitle: 'Ask Pulse Agent',
+        subtitle: 'Ask Pulse',
         icon: 'Sparkles',
       });
     }

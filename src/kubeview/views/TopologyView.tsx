@@ -186,7 +186,7 @@ export default function TopologyView() {
   if (isLoading) {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
       </div>
     );
   }

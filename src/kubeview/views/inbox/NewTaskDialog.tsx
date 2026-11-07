@@ -91,7 +91,7 @@ export function NewTaskDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional details..."
               rows={3}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-violet-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
             />
           </div>
 
@@ -111,7 +111,7 @@ export function NewTaskDialog({
                 value={namespace}
                 onChange={(e) => setNamespace(e.target.value)}
                 disabled={nsQuery.isLoading}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-violet-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
               >
                 <option value="">{nsQuery.isLoading ? 'Loading namespaces…' : 'None (cluster-wide)'}</option>
                 {namespaces.map((n) => (

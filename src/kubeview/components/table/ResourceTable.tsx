@@ -190,7 +190,7 @@ export function ResourceTable({
           <span>{title || 'Table'}</span>
           {description && <span className="text-[10px] text-slate-500">{description}</span>}
           {(search || Object.values(filters).some(Boolean)) && (
-            <span className="text-[10px] text-violet-400">
+            <span className="text-[10px] text-blue-400">
               ({processedRows.length}/{actualTotal})
             </span>
           )}
@@ -203,7 +203,7 @@ export function ResourceTable({
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(0); }}
               placeholder="Search..."
-              className="w-28 pl-5 pr-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 placeholder-slate-600 outline-hidden focus:border-violet-500 focus:w-40 transition-all"
+              className="w-28 pl-5 pr-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 placeholder-slate-600 outline-hidden focus:border-blue-500 focus:w-40 transition-all"
               aria-label="Search table"
             />
           </div>
@@ -218,7 +218,7 @@ export function ResourceTable({
           </div>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={cn('p-0.5 rounded-sm transition-colors', showSettings ? 'text-violet-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
+            className={cn('p-0.5 rounded-sm transition-colors', showSettings ? 'text-blue-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
             title="Table settings"
           >
             <Settings2 className="w-3.5 h-3.5" />
@@ -263,7 +263,7 @@ export function ResourceTable({
                   placeholder={col.header}
                   value={filters[col.id] || ''}
                   onChange={(e) => setFilters((f) => ({ ...f, [col.id]: e.target.value }))}
-                  className="w-24 px-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 placeholder-slate-600 outline-hidden focus:border-violet-500"
+                  className="w-24 px-1.5 py-0.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 placeholder-slate-600 outline-hidden focus:border-blue-500"
                 />
               </div>
             ))}

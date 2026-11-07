@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Shield, ShieldAlert, ShieldCheck, ShieldOff, Lock, Key, Users,
   CheckCircle, XCircle, AlertTriangle, ArrowRight, ChevronDown, ChevronRight,
-  Globe, Server, Eye, FileText, Network, Bot, HelpCircle, Loader2,
+  Globe, Server, Eye, FileText, Network, HelpCircle, Loader2,
 } from 'lucide-react';
 import { LoadError } from '../components/primitives/LoadError';
 import { useKubeadminSecret } from '../hooks/useKubeadminSecret';
@@ -20,10 +20,10 @@ import type { ClusterRoleBinding, Namespace, Subject } from '../engine/types';
 import { useClusterStore } from '../store/clusterStore';
 import { MetricGrid } from '../components/primitives/MetricGrid';
 import { Card } from '../components/primitives/Card';
-import { askPulse } from '../engine/askPulse';
 import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from '../engine/clusterAdmins';
 import { createTemplateUrl } from '../engine/createTemplates';
 import { useActiveClusterId } from '../hooks/useClusterBase';
+import { AskPulsePrompts } from '../components/agent/AskPulseButton';
 
 interface SecurityAuditCheck {
   id: string;
@@ -282,30 +282,11 @@ export default function SecurityView() {
           <p className="text-sm text-slate-400 mt-1">Security posture, audit checks, access control, and policy overview</p>
         </div>
 
-        {/* AI Security Scanner — opens dock panel */}
-        <Card className="px-4 py-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Bot className="w-4 h-4 text-indigo-400" />
-            <span className="text-xs font-semibold text-slate-200">Ask the Security Agent</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              'Run a full security audit',
-              'Scan pods for security issues',
-              'Check RBAC risks',
-              'Find unprotected namespaces',
-              'Audit secret rotation',
-            ].map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => askPulse(prompt)}
-                className="px-2.5 py-1 text-xs rounded-sm bg-slate-800 text-slate-300 hover:bg-indigo-900/40 hover:text-indigo-300 border border-slate-700 hover:border-indigo-700/50 transition-colors"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </Card>
+        {/* Security questions for Pulse AI (there is no separate security agent). */}
+        <AskPulsePrompts
+          suffix="about this cluster's security"
+          prompts={['Run a full security audit', 'Scan pods for security issues', 'Check RBAC risks', 'Find unprotected namespaces', 'Audit secret rotation']}
+        />
 
         {crbLoading && clusterRoleBindings.length === 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">

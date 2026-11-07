@@ -342,7 +342,7 @@ export default function NetworkingView() {
                         <span className="text-sm text-blue-400 font-mono truncate">{ep.host}{ep.path !== '/' ? ep.path : ''}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
-                        <span className={cn('px-1 py-0.5 rounded-sm', ep.type === 'Route' ? 'bg-blue-900/30 text-blue-400' : 'bg-purple-900/30 text-purple-400')}>{ep.type}</span>
+                        <span className={cn('px-1 py-0.5 rounded-sm', ep.type === 'Route' ? 'bg-blue-900/30 text-blue-400' : 'bg-indigo-900/30 text-indigo-400')}>{ep.type}</span>
                         <span>{ep.name}</span>
                         <span className="text-slate-600">{ep.ns}</span>
                       </div>

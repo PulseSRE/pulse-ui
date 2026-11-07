@@ -241,8 +241,9 @@ describe('without the monitor', () => {
     expect((await screen.findByTestId('attention-fallback')).textContent).toMatch(/local cluster only/);
     // The local monitor's finding is not shown as this cluster's.
     expect(screen.queryByText(/api-7f9c4d-x2k8q/)).toBeNull();
-    expect(screen.getByText('Pulse AI answers about the local cluster only')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Investigate' })).toBeNull();
+    expect(screen.getByText('Pulse AI answers about the local cluster only.')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Ask Pulse about this list' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Ask Pulse to investigate' })).toBeNull();
     await waitFor(() => expect(h.state.requests.some((r) => r.url.startsWith('/api/agent/'))).toBe(false));
   });
 });

@@ -6,14 +6,14 @@
  */
 import { Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, Copy, FileCode, VolumeX } from 'lucide-react';
+import { Copy, FileCode, VolumeX } from 'lucide-react';
 import { k8sList } from '../../engine/query';
 import { METRICS_CLUSTER_ID } from '../../components/metrics/prometheus';
-import { askPulse } from '../../engine/askPulse';
 import { copyToClipboard } from '../../engine/clipboard';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { Button } from '../../components/primitives/Button';
 import { Badge } from '../../components/primitives/Badge';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
 
 export interface RuleDetail {
   name: string;
@@ -114,9 +114,7 @@ export function RuleDetailDrawer({ rule, onClose, go, onSilence }: {
         </section>
 
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
-          <Button size="sm" onClick={() => askPulse(`Investigate the alert rule ${rule.name} (group ${rule.group}, severity ${rule.severity}). Expression: ${rule.query}. ${rule.alertCount > 0 ? `It is firing for ${rule.alertCount} series — find the cause.` : 'It is not firing — explain what it watches and whether its threshold is sensible.'}`)}>
-            <Bot className="w-3.5 h-3.5" /> Investigate with Pulse
-          </Button>
+          <AskPulseButton suffix="to investigate" prompt={`Investigate the alert rule ${rule.name} (group ${rule.group}, severity ${rule.severity}). Expression: ${rule.query}. ${rule.alertCount > 0 ? `It is firing for ${rule.alertCount} series — find the cause.` : 'It is not firing — explain what it watches and whether its threshold is sensible.'}`} />
           <Button size="sm" variant="secondary" onClick={() => { onSilence({ alertname: rule.name }); onClose(); }}>
             <VolumeX className="w-3.5 h-3.5" /> Silence this rule
           </Button>

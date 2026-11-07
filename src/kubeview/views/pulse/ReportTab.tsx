@@ -872,11 +872,11 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           </button>
         </div>
 
-        {/* Ask the Agent — smart prompts */}
+        {/* Ask Pulse — smart prompts */}
         <Card className={cn('p-4 border', AI_ACCENT.border)}>
           <div className="flex items-center gap-2 mb-3">
             <AIIconStatic size={14} />
-            <span className={cn('text-xs font-medium', AI_ACCENT.text)}>Ask the Agent</span>
+            <span className={cn('text-xs font-medium', AI_ACCENT.text)}>Ask Pulse</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {generateSmartPrompts({

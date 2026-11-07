@@ -131,10 +131,10 @@ describe('TaskDetailDrawer — no dead-end states', () => {
     expect(screen.getAllByText(/Claim/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('claimed shows Deep Dive button', () => {
+  it('claimed shows Ask Pulse to investigate', () => {
     const item = makeItem({ status: 'claimed', claimed_by: 'user' });
     render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
-    expect(screen.getAllByText(/Deep Dive/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Ask Pulse to investigate/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it('in_progress shows Resolve button', () => {
@@ -150,7 +150,7 @@ describe('TaskDetailDrawer — no dead-end states', () => {
     });
     render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
     expect(screen.getAllByText(/Retry Agent Analysis/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/Investigate Manually/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Ask Pulse to investigate/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Dismiss/i).length).toBeGreaterThanOrEqual(1);
   });
 

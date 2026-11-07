@@ -142,9 +142,9 @@ describe('GateCard', () => {
     expect(screen.queryByText('Waive')).toBeNull();
   });
 
-  it('shows Fix with AI button for failed gates and triggers agent', () => {
+  it('shows Ask Pulse to fix for failed gates and triggers agent', () => {
     render(<GateCard gate={makeGate()} result={makeResult({ status: 'failed', detail: 'Bad config' })} />);
-    fireEvent.click(screen.getByText('Fix with AI'));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse to fix' }));
     expect(mockOpenDock).toHaveBeenCalled();
     // askPulse forwards an optional resource context; none applies here.
     expect(mockConnectAndSend).toHaveBeenCalledWith(expect.stringContaining('TLS Configured'), undefined);

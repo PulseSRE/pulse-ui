@@ -18,7 +18,7 @@ export function ProjectsTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+        <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
       </div>
     );
   }
@@ -64,13 +64,13 @@ export function ProjectsTab() {
         const description = project.spec?.description;
 
         return (
-          <Card key={project.metadata.uid || project.metadata.name} className={cn('p-4', isDefault && 'border-violet-800/50')}>
+          <Card key={project.metadata.uid || project.metadata.name} className={cn('p-4', isDefault && 'border-blue-800/50')}>
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
-                <FolderKanban className={cn('w-4 h-4', isDefault ? 'text-violet-400' : 'text-slate-400')} />
+                <FolderKanban className={cn('w-4 h-4', isDefault ? 'text-blue-400' : 'text-slate-400')} />
                 <span className="text-sm font-medium text-slate-200">{project.metadata.name}</span>
                 {isDefault && (
-                  <span className="text-xs px-1.5 py-0.5 rounded-sm bg-violet-900/50 text-violet-300">default</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-900/50 text-blue-300">default</span>
                 )}
               </div>
               {roles.length > 0 && (

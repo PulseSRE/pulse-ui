@@ -137,7 +137,7 @@ export function DetailViewHeader({
             <Star className={cn('w-3.5 h-3.5', starred && 'fill-current')} />
           </button>
           {resource.metadata.namespace && (
-            <span className="px-2 py-1 text-xs bg-purple-900/50 text-purple-300 rounded-sm border border-purple-700">
+            <span className="px-2 py-1 text-xs bg-slate-800 text-slate-300 rounded-sm border border-slate-600">
               {resource.metadata.namespace}
             </span>
           )}

@@ -50,14 +50,14 @@ describe('AmbientInsight', () => {
     cleanup();
   });
 
-  it('renders "Analyze with AI" button in manual mode', () => {
+  it('renders the "Ask Pulse about this …" button in manual mode', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    expect(screen.getByText('Analyze with AI')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Ask Pulse about this/ })).toBeTruthy();
   });
 
   it('shows loading state when button clicked', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     expect(screen.getByText('Analyzing...')).toBeTruthy();
     expect(screen.getByLabelText('Cancel')).toBeTruthy();
@@ -66,7 +66,7 @@ describe('AmbientInsight', () => {
 
   it('shows result after agent responds', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     // Simulate connected -> send -> done
     act(() => {
@@ -94,7 +94,7 @@ describe('AmbientInsight', () => {
 
   it('shows error state on agent error', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     act(() => {
       mockHandler?.({ type: 'error', message: 'Agent unreachable' });
@@ -107,7 +107,7 @@ describe('AmbientInsight', () => {
 
   it('uses cache on re-render within staleTime', () => {
     const { unmount } = render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     act(() => mockHandler?.({ type: 'connected' }));
     act(() => mockHandler?.({ type: 'done', full_response: 'Cached result.' }));

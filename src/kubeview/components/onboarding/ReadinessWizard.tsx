@@ -59,14 +59,14 @@ export function ReadinessWizard({ score, categories, onWaive, onReVerify, onSwit
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors',
                   isCurrent
-                    ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30'
+                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
                     : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200',
                 )}
               >
                 {allPassed ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 ) : isCurrent ? (
-                  <ArrowRight className="w-4 h-4 text-violet-400 shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-blue-400 shrink-0" />
                 ) : (
                   <Circle className="w-4 h-4 text-slate-600 shrink-0" />
                 )}
@@ -126,7 +126,7 @@ export function ReadinessWizard({ score, categories, onWaive, onReVerify, onSwit
               'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
               activeStep === STEP_ORDER[STEP_ORDER.length - 1]
                 ? 'text-slate-600 cursor-not-allowed'
-                : 'bg-violet-600 hover:bg-violet-500 text-white',
+                : 'bg-blue-600 hover:bg-blue-500 text-white',
             )}
           >
             Next

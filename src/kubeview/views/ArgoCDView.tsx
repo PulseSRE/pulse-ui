@@ -118,7 +118,7 @@ export default function ArgoCDView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto mb-3" />
+          <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-3" />
           <p className="text-sm text-slate-400">Detecting ArgoCD...</p>
         </div>
       </div>
@@ -131,19 +131,19 @@ export default function ArgoCDView() {
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-3xl mx-auto space-y-6">
           <SectionHeader
-            icon={<GitBranch className="w-6 h-6 text-violet-500" />}
+            icon={<GitBranch className="w-6 h-6 text-blue-500" />}
             title="GitOps"
             subtitle="Manage your cluster declaratively via Git"
           />
 
           <Card className="p-8 text-center">
-            <Sparkles className="w-12 h-12 text-violet-400 mx-auto mb-4" />
+            <Sparkles className="w-12 h-12 text-blue-400 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-slate-100 mb-2">Set Up GitOps</h2>
             <p className="text-sm text-slate-400 mb-6 max-w-md mx-auto">
               A guided wizard will install the OpenShift GitOps operator, configure your Git provider,
               and create your first ArgoCD application — all without leaving Pulse.
             </p>
-            <Button onClick={() => openWizard()} size="lg" className="bg-violet-600 hover:bg-violet-500 px-8 py-3">
+            <Button onClick={() => openWizard()} size="lg" className="bg-blue-600 hover:bg-blue-500 px-8 py-3">
               <Sparkles className="w-4 h-4" />
               Start Setup Wizard
             </Button>
@@ -154,7 +154,7 @@ export default function ArgoCDView() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-400">
               <div><span className="text-emerald-400 font-medium">Audit Trail</span> — Every change tracked in Git history</div>
               <div><span className="text-blue-400 font-medium">Rollback</span> — Revert to any previous state with git revert</div>
-              <div><span className="text-violet-400 font-medium">Drift Detection</span> — ArgoCD alerts when cluster diverges from Git</div>
+              <div><span className="text-blue-400 font-medium">Drift Detection</span> — ArgoCD alerts when cluster diverges from Git</div>
             </div>
           </Card>
         </div>
@@ -177,12 +177,12 @@ export default function ArgoCDView() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <SectionHeader
-          icon={<GitBranch className="w-6 h-6 text-violet-500" />}
+          icon={<GitBranch className="w-6 h-6 text-blue-500" />}
           title="GitOps"
-          subtitle={<>ArgoCD Applications, sync status, and drift detection{namespace && <span className="text-violet-400 ml-1">· {namespace}</span>}</>}
+          subtitle={<>ArgoCD Applications, sync status, and drift detection{namespace && <span className="text-blue-400 ml-1">· {namespace}</span>}</>}
           actions={
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => openWizard(isConfigured ? 'select-resources' : undefined)} className="bg-violet-600 hover:bg-violet-500">
+              <Button size="sm" onClick={() => openWizard(isConfigured ? 'select-resources' : undefined)} className="bg-blue-600 hover:bg-blue-500">
                 <Sparkles className="w-3.5 h-3.5" />
                 {isConfigured ? 'Configure GitOps' : 'Set Up GitOps'}
               </Button>
@@ -197,12 +197,12 @@ export default function ArgoCDView() {
         {/* Setup hint when not fully configured */}
         {!isConfigured && (
           <div className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-lg p-4">
-            <Sparkles className="w-5 h-5 text-violet-400 shrink-0" />
+            <Sparkles className="w-5 h-5 text-blue-400 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-slate-200">Continue GitOps Setup</p>
               <p className="text-xs text-slate-400">Configure your Git provider to enable auto-PR and drift tracking</p>
             </div>
-            <Button size="sm" onClick={() => openWizard()} className="bg-violet-600 hover:bg-violet-500">
+            <Button size="sm" onClick={() => openWizard()} className="bg-blue-600 hover:bg-blue-500">
               <Sparkles className="w-3.5 h-3.5" />
               Continue Setup
             </Button>
@@ -236,7 +236,7 @@ export default function ArgoCDView() {
           {/* Loading */}
           {(detecting || applicationsLoading) && applications.length === 0 ? (
             <div className="flex items-center justify-center h-48">
-              <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+              <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
             </div>
           ) : applicationsError && activeTab !== 'projects' && activeTab !== 'rollouts' ? (
             <LoadError className="mt-4" title="ArgoCD Applications could not be loaded" error={applicationsError} onRetry={() => refresh()} />
@@ -266,7 +266,7 @@ export default function ArgoCDView() {
                     <LoadError className="mt-4" title="Argo Rollouts could not be loaded" error={rolloutsError} onRetry={() => void loadRollouts()} />
                   ) : rolloutsLoading && rollouts.length === 0 ? (
                     <div className="flex items-center justify-center h-48">
-                      <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+                      <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
                     </div>
                   ) : (
                     <RolloutsTab rollouts={rollouts || []} go={go} />

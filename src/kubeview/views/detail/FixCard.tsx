@@ -31,6 +31,7 @@ import { LoadError } from '../../components/primitives/LoadError';
 import { parseRevisions } from './RolloutHistory';
 import { DiffBlock, FixConfirmDialog } from './FixConfirmDialog';
 import type { UsageResult } from './usePodUsage';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
 
 type Go = (path: string, title: string) => void;
 
@@ -245,9 +246,7 @@ export function FixCard({ pod, ownerApiPath, ownerObject, usage, usageLoading, e
           >
             Review and apply
           </button>
-          <button type="button" onClick={() => askWhy(primary)} className="min-h-[44px] rounded-lg border border-slate-700 bg-slate-800 px-4 text-sm text-slate-200 hover:bg-slate-700">
-            Ask Pulse why
-          </button>
+          <AskPulseButton size="md" suffix="why" onAsk={() => askWhy(primary)} className="min-h-[44px] rounded-lg px-4" />
           {others.length > 0 && (
             <button type="button" onClick={() => setShowOthers((v) => !v)} aria-expanded={showOthers} className="flex min-h-[44px] items-center gap-1 rounded-lg border border-slate-700 px-4 text-sm text-slate-300 hover:bg-slate-800">
               Other fixes ({others.length}) {showOthers ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}

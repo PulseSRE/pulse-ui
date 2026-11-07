@@ -9,7 +9,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { dump } from 'js-yaml';
-import { Box, FileCode, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { Box, FileCode, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../../store/uiStore';
 import { useFleetStore } from '../../store/fleetStore';
@@ -32,6 +32,8 @@ import { METADATA_LIST } from './deployRunner';
 import { NamespacePicker } from './NamespacePicker';
 import { FormField } from './FormField';
 import { DeployDryRunDialog } from './DeployDryRunDialog';
+import { AI_ACCENT } from '../../components/agent/aiTokens';
+import { PULSE_AI_LOCAL_ONLY } from '../../components/feedback/LocalClusterOnlyNotice';
 
 const inputCls = 'mt-1 w-full rounded-sm border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500';
 
@@ -451,14 +453,14 @@ export function QuickDeployTab() {
       </Card>
 
       <Card className="p-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100"><MessageSquare className="h-4 w-4 text-violet-400" /> Ask Pulse about this deploy</h3>
-        <p className="mt-1 text-xs text-slate-400" data-testid="deploy-ask-note">{remote ? 'Pulse AI answers about the local cluster only.' : 'The form, its objects and the namespace quota are attached as context; the answer opens in the Pulse AI panel.'}</p>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100"><Sparkles className={cn('h-4 w-4', AI_ACCENT.text)} aria-hidden /> Ask Pulse about this deploy</h3>
+        <p className="mt-1 text-xs text-slate-400" data-testid="deploy-ask-note">{remote ? PULSE_AI_LOCAL_ONLY : 'The form, its objects and the namespace quota are attached as context; the answer opens in the Pulse AI panel.'}</p>
         <form onSubmit={ask} className="mt-2 flex gap-2">
           <label htmlFor="deploy-ask" className="sr-only">Question for Pulse</label>
           <input id="deploy-ask" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={remote}
             placeholder="Fill this in: deploy quay.io/acme/api:1.4 on 8080 with 2 replicas and expose it"
             className="min-h-[40px] flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-500" />
-          <button type="submit" disabled={remote || !question.trim()} className="rounded-md bg-violet-600 px-3 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50">Ask</button>
+          <button type="submit" disabled={remote || !question.trim()} data-ai-entry="ask-pulse" className={cn('rounded-md px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50', AI_ACCENT.button)}>Ask</button>
         </form>
       </Card>
 

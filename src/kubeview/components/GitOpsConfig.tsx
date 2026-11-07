@@ -71,7 +71,7 @@ export function GitOpsConfig() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
+        <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
       </div>
     );
   }
@@ -105,7 +105,7 @@ export function GitOpsConfig() {
         </div>
       )}
 
-      <Panel title="GitOps Repository" icon={<GitBranch className="w-4 h-4 text-violet-400" />}>
+      <Panel title="GitOps Repository" icon={<GitBranch className="w-4 h-4 text-blue-400" />}>
         <div className="space-y-4">
           {/* Provider */}
           <div>
@@ -117,7 +117,7 @@ export function GitOpsConfig() {
                   onClick={() => setForm({ ...form, provider: p })}
                   className={cn(
                     'px-3 py-1.5 text-xs rounded-sm transition-colors capitalize',
-                    form.provider === p ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                    form.provider === p ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
                   )}
                 >
                   {p}
@@ -135,7 +135,7 @@ export function GitOpsConfig() {
               value={form.repoUrl}
               onChange={(e) => setForm({ ...form, repoUrl: e.target.value })}
               placeholder={`https://${form.provider}.com/org/gitops-repo`}
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
             />
           </div>
 
@@ -148,7 +148,7 @@ export function GitOpsConfig() {
               value={form.baseBranch}
               onChange={(e) => setForm({ ...form, baseBranch: e.target.value })}
               placeholder="main"
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
             />
           </div>
 
@@ -167,7 +167,7 @@ export function GitOpsConfig() {
                   value={form.token}
                   onChange={(e) => setForm({ ...form, token: e.target.value })}
                   placeholder={form.provider === 'github' ? 'ghp_...' : form.provider === 'gitlab' ? 'glpat-...' : 'username:app-password'}
-                  className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden font-mono pr-10"
+                  className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden font-mono pr-10"
                 />
                 <button
                   onClick={() => setShowToken(!showToken)}
@@ -193,7 +193,7 @@ export function GitOpsConfig() {
               value={form.pathPrefix}
               onChange={(e) => setForm({ ...form, pathPrefix: e.target.value })}
               placeholder="clusters/production/"
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
             />
           </div>
 
@@ -212,7 +212,7 @@ export function GitOpsConfig() {
             <button
               onClick={handleSave}
               disabled={saving || !form.repoUrl || !form.token}
-              className="px-4 py-2 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
               Save Configuration

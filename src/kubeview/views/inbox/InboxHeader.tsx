@@ -4,6 +4,7 @@ import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
 import { useInboxStore } from '../../store/inboxStore';
 import { InboxResetButton } from './InboxResetButton';
+import { AI_ACCENT } from '../../components/agent/aiTokens';
 
 type Preset = 'needs_attention' | 'agent_cleared' | 'my_items' | 'archived' | 'all';
 
@@ -56,7 +57,7 @@ export function InboxHeader({
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold text-slate-200">Inbox</h1>
           {newCount > 0 && (
-            <Badge variant="default" className="bg-violet-600 text-white text-xs">
+            <Badge variant="default" className="bg-blue-600 text-white text-xs">
               {newCount} new
             </Badge>
           )}
@@ -66,10 +67,10 @@ export function InboxHeader({
             <span className="text-xs text-slate-500">{stats.unique_issues} unique issues</span>
           )}
           {(stats.agent_reviewing ?? 0) > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-violet-400">
+            <div className={cn('flex items-center gap-1.5 text-xs', AI_ACCENT.text)}>
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500" />
+                <span className={cn('animate-ping absolute inline-flex h-full w-full rounded-full opacity-75', AI_ACCENT.dot)} />
+                <span className={cn('relative inline-flex rounded-full h-2 w-2', AI_ACCENT.dot)} />
               </span>
               Agent processing {stats.agent_reviewing} item{stats.agent_reviewing !== 1 ? 's' : ''}...
             </div>
@@ -109,7 +110,7 @@ export function InboxHeader({
               className={cn(
                 'px-3 py-1.5 text-xs rounded-full transition-colors inline-flex items-center gap-1.5',
                 isActive
-                  ? 'bg-violet-600 text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-300',
               )}
             >

@@ -470,7 +470,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
             className={cn(
               'px-2.5 py-1.5 rounded-lg text-xs transition-colors border',
               roleFilter === r.key
-                ? 'bg-violet-600/20 text-violet-300 border-violet-700/50'
+                ? 'bg-blue-600/20 text-blue-300 border-blue-700/50'
                 : 'text-slate-500 hover:text-slate-300 border-slate-700/30 hover:border-slate-600',
             )}
           >

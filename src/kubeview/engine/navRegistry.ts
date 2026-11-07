@@ -3,6 +3,8 @@
  * CommandPalette, ResourceBrowser, WelcomeView, and TabBar all derive from this.
  */
 
+import { AI_ACCENT } from '../components/agent/aiTokens';
+
 export interface NavItem {
   id: string;
   label: string;
@@ -32,7 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'storage', label: 'Storage', icon: 'HardDrive', path: '/storage', group: 'cluster', subtitle: 'PVCs, storage classes, CSI drivers', keywords: ['pvs', 'pvcs', 'storageclasses', 'csi', 'persistent', 'volumes'], color: 'text-orange-400' },
 
   // Operations
-  { id: 'inbox', label: 'Inbox', icon: 'Inbox', path: '/inbox', group: 'operations', subtitle: 'Unified SRE worklist — findings, tasks, alerts, assessments', keywords: ['inbox', 'incidents', 'tasks', 'alerts', 'findings', 'queue', 'triage'], color: 'text-violet-400' },
+  { id: 'inbox', label: 'Inbox', icon: 'Inbox', path: '/inbox', group: 'operations', subtitle: 'Unified SRE worklist — findings, tasks, alerts, assessments', keywords: ['inbox', 'incidents', 'tasks', 'alerts', 'findings', 'queue', 'triage'], color: 'text-blue-400' },
   { id: 'alerts', label: 'Alerts', icon: 'Bell', path: '/alerts', group: 'operations', subtitle: 'Firing alerts, alert rules, silences', keywords: ['alerts', 'alertmanager', 'silences', 'rules', 'firing', 'prometheus'], color: 'text-red-400' },
   { id: 'timeline', label: 'Timeline', icon: 'Clock', path: '/timeline', group: 'operations', subtitle: 'Cluster event timeline — correlate changes, alerts, incidents', keywords: ['timeline', 'events', 'history', 'changes', 'audit', 'correlation'], color: 'text-amber-400' },
   { id: 'topology', label: 'Topology', icon: 'Network', path: '/topology', group: 'operations', subtitle: 'Dependency graph and impact (blast radius)', keywords: ['topology', 'graph', 'dependencies', 'blast', 'radius', 'impact'], color: 'text-cyan-400' },
@@ -42,7 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   // Administration
   { id: 'software', label: 'Software', icon: 'Package', path: '/software', group: 'administration', subtitle: 'Installed software, Deploy an app, Helm charts, templates, Import YAML', keywords: ['software', 'create', 'deploy', 'install', 'helm', 'templates', 'import', 'yaml', 'new'], color: 'text-blue-400' },
-  { id: 'operators', label: 'Operators', icon: 'Puzzle', path: '/operators', group: 'administration', subtitle: 'OperatorHub — browse, install, manage add-on operators', keywords: ['operators', 'operatorhub', 'install', 'olm', 'catalog', 'subscriptions'], color: 'text-purple-400' },
+  { id: 'operators', label: 'Operators', icon: 'Puzzle', path: '/operators', group: 'administration', subtitle: 'OperatorHub — browse, install, manage add-on operators', keywords: ['operators', 'operatorhub', 'install', 'olm', 'catalog', 'subscriptions'], color: 'text-indigo-400' },
   { id: 'admin', label: 'Administration', icon: 'Settings', path: '/admin', group: 'administration', subtitle: 'Config, updates, snapshots, quotas, certificates', keywords: ['config', 'updates', 'quotas', 'certificates', 'crds'], color: 'text-slate-400' },
   { id: 'identity', label: 'Identity & Access', icon: 'Shield', path: '/identity', group: 'administration', subtitle: 'Users, groups, RBAC, impersonation', keywords: ['users', 'groups', 'service', 'accounts', 'rbac', 'impersonation'], color: 'text-teal-400' },
   { id: 'security', label: 'Security', icon: 'ShieldCheck', path: '/security', group: 'administration', subtitle: 'Pod security, RBAC analysis, image scanning', keywords: ['security', 'audit', 'sccs', 'rbac', 'network', 'policies', 'access', 'scanning'], color: 'text-red-400' },
@@ -50,7 +52,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'about', label: 'About Pulse', icon: 'Info', path: '/about', group: 'administration', subtitle: 'Versions, images, and links for everything Pulse runs on this cluster', keywords: ['about', 'version', 'release', 'image', 'operator', 'upgrade', 'github'], color: 'text-sky-400' },
 
   // Agent
-  { id: 'agent', label: 'Pulse Agent', icon: 'Bot', path: '/agent', group: 'agent', subtitle: 'Configure, monitor, and understand the AI assistant', keywords: ['agent', 'ai', 'trust', 'skills', 'tools', 'analytics', 'memory', 'mcp'], color: 'text-violet-400' },
+  { id: 'agent', label: 'Pulse Agent', icon: 'Bot', path: '/agent', group: 'agent', subtitle: 'Configure, monitor, and understand the AI assistant', keywords: ['agent', 'ai', 'trust', 'skills', 'tools', 'analytics', 'memory', 'mcp'], color: AI_ACCENT.text },
   { id: 'views', label: 'Custom Views', icon: 'LayoutDashboard', path: '/views', group: 'agent', subtitle: 'AI-generated dashboards — manage, share, version history', keywords: ['views', 'dashboards', 'custom', 'ai', 'generated', 'share'], color: 'text-emerald-400' },
 ];
 
@@ -133,6 +135,6 @@ export function getRouteIcon(path: string): string {
 export function getRouteColor(path: string): string {
   const nav = getNavByPath(path);
   if (nav) return nav.color || '';
-  if (path.startsWith('/custom/')) return 'text-violet-400';
+  if (path.startsWith('/custom/')) return AI_ACCENT.text;
   return '';
 }

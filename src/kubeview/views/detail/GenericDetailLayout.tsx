@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import type { K8sResource } from '../../engine/renderers';
 import type { Event, Container, ContainerPort, ContainerStatus, Pod } from '../../engine/types';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
-import { askPulse } from '../../engine/askPulse';
+import { AskPulsePrompts } from '../../components/agent/AskPulseButton';
 import { Card } from '../../components/primitives/Card';
 import { LabelsSection, AnnotationsSection, DetailSection } from './MetadataSections';
 import type { MetadataTarget } from './MetadataSections';
@@ -187,31 +187,11 @@ export function GenericDetailLayout({
                 another — two conversations about the same resource, each with
                 its own connection state. The suggestions were the useful part;
                 the second input was not. */}
-            <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-              <div className="mb-2 text-xs font-medium text-slate-400">Ask Pulse AI about this {resource.kind}</div>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  `Why is this ${resource.kind} unhealthy?`,
-                  'What changed recently?',
-                  'How can I optimize this?',
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() =>
-                      askPulse(prompt, {
-                        kind: resource.kind,
-                        name: resource.metadata.name,
-                        namespace,
-                        gvr: gvrKey,
-                      })
-                    }
-                    className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 transition-colors hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-200"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <AskPulsePrompts
+              suffix={`about this ${resource.kind.toLowerCase()}`}
+              prompts={[`Why is this ${resource.kind} unhealthy?`, 'What changed recently?', 'How can I optimize this?']}
+              context={{ kind: resource.kind, name: resource.metadata.name, namespace, gvr: gvrKey }}
+            />
           </>
         )}
 

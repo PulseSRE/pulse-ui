@@ -1,5 +1,8 @@
 import React from 'react';
-import { AlertCircle, RefreshCw, Home, Bot, WifiOff } from 'lucide-react';
+import { AlertCircle, RefreshCw, Home, WifiOff } from 'lucide-react';
+// Store-free on purpose (see the lazy require below). The question is about
+// the UI crash, not a cluster, so it is not gated on the active cluster.
+import { AskPulseButtonBase } from './agent/AskPulseButtonBase';
 
 type BoundaryErrorKind = 'network' | 'chunk' | 'render';
 
@@ -137,7 +140,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 <RefreshCw className="w-4 h-4" />
                 Try Again
               </button>
-              <button
+              <AskPulseButtonBase
+                size="md"
                 onClick={() => {
                   // Lazy require, not a top-level import: ErrorBoundary is
                   // imported nearly everywhere, and askPulse pulls in the
@@ -150,11 +154,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                   );
                   this.setState({ hasError: false, error: null });
                 }}
-                className="flex items-center gap-2 px-4 py-2 text-sm bg-violet-700 hover:bg-violet-600 text-white rounded-md transition-colors"
-              >
-                <Bot className="w-4 h-4" />
-                Ask AI
-              </button>
+              />
               <button
                 onClick={() => { window.location.href = '/pulse'; }}
                 className="flex items-center gap-2 px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md transition-colors"
