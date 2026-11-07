@@ -36,6 +36,8 @@ async function listItems<T = any>(ctx: GateContext, path: string): Promise<T[]> 
 }
 
 import { isSystemNamespace as isSystemNs } from '../namespace';
+import { readAlertmanager } from '../silences';
+import { describeReadError } from '../readError';
 
 // ---------------------------------------------------------------------------
 // Gate definitions
@@ -522,9 +524,7 @@ const notificationRouting: ReadinessGate = {
       // HTTPS server." 400 — and even with the scheme prefix, that proxy
       // path does not forward the caller's bearer token to the backend, so
       // Alertmanager's kube-rbac-proxy sidecar then rejects it with 401.
-      const res = await fetch('/api/alertmanager/api/v2/receivers');
-      if (!res.ok) throw new Error(`Alertmanager returned ${res.status} ${res.statusText}`);
-      const receivers = (await res.json()) as any[];
+      const receivers = await readAlertmanager<any[]>('receivers');
       const nonDefault = (receivers || []).filter((r: any) => r.name !== 'Default' && r.name !== 'null' && r.name !== 'watchdog');
       return {
         status: nonDefault.length > 0 ? 'passed' : 'needs_attention',
@@ -532,8 +532,9 @@ const notificationRouting: ReadinessGate = {
         fixGuidance: 'Configure Alertmanager receivers (PagerDuty, Slack, email) to route alerts to your team.',
         action: { label: 'View Alerts', path: '/alerts?tab=silences' },
       };
-    } catch {
-      return { status: 'not_started', detail: 'Alertmanager not reachable', fixGuidance: 'Ensure Alertmanager is running and accessible.' };
+    } catch (err) {
+      // Could not check — say why (forbidden, proxy missing, …), never a verdict.
+      return { status: 'not_started', detail: `Could not check: ${describeReadError(err).reason || 'Alertmanager could not be read'}`, fixGuidance: 'Ensure Alertmanager is running and that your account can read it (monitoring-alertmanager-view in openshift-monitoring).' };
     }
   }),
 };

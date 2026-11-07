@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, act } from '@testing-library/react';
+import { render, screen, cleanup, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
@@ -20,9 +20,10 @@ vi.mock('../../../engine/query', () => ({
   k8sList: vi.fn().mockResolvedValue([]),
   k8sPatch: vi.fn().mockResolvedValue(null),
 }));
+const queryInstant = vi.fn().mockResolvedValue([]);
 vi.mock('../../../components/metrics/prometheus', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  queryInstant: vi.fn().mockResolvedValue([]),
+  queryInstant: (...a: unknown[]) => queryInstant(...a),
   queryRange: vi.fn().mockResolvedValue([]),
   getTimeRange: vi.fn().mockReturnValue([0, 1]),
 }));
@@ -32,10 +33,12 @@ vi.mock('../../../components/metrics/Sparkline', () => ({
 }));
 
 import { ReportTab } from '../ReportTab';
+import { PrometheusReadError } from '../../../engine/readError';
 import { useArgoCDStore } from '../../../store/argoCDStore';
 
+let qc: QueryClient | undefined;
 function renderTab() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(
     <QueryClientProvider client={qc}><MemoryRouter>
       <ReportTab nodes={[]} allPods={[]} deployments={[]} pvcs={[]} operators={[]} go={vi.fn()} />
@@ -43,7 +46,7 @@ function renderTab() {
   );
 }
 
-afterEach(() => { cleanup(); k8sGet.mockReset(); useArgoCDStore.setState({ applications: [] }); });
+afterEach(() => { cleanup(); qc?.clear(); k8sGet.mockReset(); queryInstant.mockReset(); queryInstant.mockResolvedValue([]); useArgoCDStore.setState({ applications: [] }); });
 
 describe('ReportTab cluster updates', () => {
   it('says Unknown, not "Up to date", when ClusterVersion cannot be read', async () => {
@@ -85,5 +88,43 @@ describe('ReportTab Argo drift', () => {
       useArgoCDStore.setState({ applications: [{ metadata: { name: 'web', namespace: 'openshift-gitops' }, status: { sync: { status: 'OutOfSync' } } }] as never });
     });
     expect(await screen.findByText('1 ArgoCD app out of sync')).toBeDefined();
+  });
+});
+
+/** The value shown under a heartbeat label ("API Latency (p99)", "Etcd Leader Changes (1h)"). */
+function heartbeat(label: string): HTMLElement {
+  return screen.getByText(label).nextElementSibling as HTMLElement;
+}
+
+describe('ReportTab Prometheus reads', () => {
+  it.each([
+    ['403', new PrometheusReadError('forbidden', 'Prometheus refused the query (403)', 403)],
+    ['500', new PrometheusReadError('http', 'Prometheus returned an error (status 500)', 500)],
+  ])('a %s shows "Could not check" for API latency and etcd, and flags volume usage, never a green or empty value', async (_l, err) => {
+    k8sGet.mockResolvedValue(null);
+    queryInstant.mockRejectedValue(err);
+    renderTab();
+    await waitFor(() => expect(heartbeat('API Latency (p99)').textContent).toBe('Could not check'));
+    expect(heartbeat('API Latency (p99)').getAttribute('title')).toBe(err.message);
+    await waitFor(() => expect(heartbeat('Etcd Leader Changes (1h)').textContent).toBe('Could not check'));
+    expect(heartbeat('API Latency (p99)').className).not.toContain('green');
+    expect((await screen.findByText(/Volume usage could not be checked/)).closest('[role="alert"]')).not.toBeNull();
+  });
+
+  it('a successful read with no series says "No data", with no error', async () => {
+    k8sGet.mockResolvedValue(null);
+    queryInstant.mockResolvedValue([]);
+    renderTab();
+    await waitFor(() => expect(heartbeat('API Latency (p99)').textContent).toBe('No data'));
+    await waitFor(() => expect(heartbeat('Etcd Leader Changes (1h)').textContent).toBe('No data'));
+    expect(screen.queryByText(/Volume usage could not be checked/)).toBeNull();
+  });
+
+  it('a real value is shown with its colour', async () => {
+    k8sGet.mockResolvedValue(null);
+    queryInstant.mockImplementation(async (q: string) => (q.includes('apiserver_request_duration') ? [{ metric: {}, value: 0.12 }] : []));
+    renderTab();
+    await waitFor(() => expect(heartbeat('API Latency (p99)').textContent).toBe('120ms'));
+    expect(heartbeat('API Latency (p99)').className).toContain('text-green-400');
   });
 });

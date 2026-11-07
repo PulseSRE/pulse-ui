@@ -11,6 +11,7 @@ import { safeQuery } from '../engine/safeQuery';
 import { useUIStore } from '../store/uiStore';
 import { ConfirmDialog } from './feedback/ConfirmDialog';
 import { Card } from './primitives/Card';
+import { LoadError } from './primitives/LoadError';
 import { showErrorToast } from '../engine/errorToast';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 import { assertActiveCluster } from '../engine/pendingCluster';
@@ -68,7 +69,7 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
   onToggle: () => void;
 }) {
   const clusterId = useActiveClusterId();
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin', 'config', section.id, clusterId],
     queryFn: () => safeQuery(() => k8sGet<Record<string, unknown>>(section.apiPath, clusterId)),
     staleTime: 60000,
@@ -87,9 +88,17 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
       </button>
       {expanded && (
         <div className="border-t border-slate-800 p-4">
-          {isLoading && <div className="text-sm text-slate-500 text-center py-4">Loading...</div>}
-          {error && <div className="text-sm text-red-400 text-center py-4">Failed to load configuration</div>}
-          {data && !isLoading && (
+          {isLoading && <div role="status" className="text-sm text-slate-400 text-center py-4">Checking {section.title} configuration…</div>}
+          {isError && (
+            <LoadError compact title={`${section.title} configuration could not be loaded`} error={error} onRetry={() => { void refetch(); }} />
+          )}
+          {/* safeQuery answers a 404 with null: the resource is not on this cluster. */}
+          {!isLoading && !isError && data === null && (
+            <div className="text-sm text-slate-400 text-center py-4">
+              This cluster has no {section.title} configuration resource ({section.apiPath.split('/').slice(-2).join('/')}).
+            </div>
+          )}
+          {data && !isLoading && !isError && (
             <ConfigEditor section={section} data={data} clusterId={clusterId} />
           )}
         </div>

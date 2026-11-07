@@ -120,15 +120,15 @@ export default function ComputeView() {
   // relabeling rule on the node-exporter ServiceMonitor
   // (`__meta_kubernetes_pod_node_name` -> `instance`). The plain by-instance
   // query remains as a defensive fallback in case that relabeling assumption
-  // ever doesn't hold; safeQuery only swallows 404s, so a non-404 failure
-  // (like the 422 above) must still be caught here or the fallback never runs.
+  // ever doesn't hold. If the fallback fails too, the error propagates: a
+  // Prometheus failure is never an empty list.
   const { data: nodeCpuMetrics = [] } = useQuery({
     queryKey: ['compute', 'node-cpu', clusterId],
     queryFn: async () => {
       try {
         return await queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance) * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")', undefined, clusterId);
       } catch {
-        return (await safeQuery(() => queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)', undefined, clusterId))) ?? [];
+        return (await queryInstant('sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)', undefined, clusterId));
       }
     },
     refetchInterval: 30000,
@@ -141,7 +141,7 @@ export default function ComputeView() {
       try {
         return await queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 * on(instance) group_left(node) label_replace(kube_node_info, "instance", "$1", "node", "(.+)")', undefined, clusterId);
       } catch {
-        return (await safeQuery(() => queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100', undefined, clusterId))) ?? [];
+        return (await queryInstant('(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100', undefined, clusterId));
       }
     },
     refetchInterval: 30000,

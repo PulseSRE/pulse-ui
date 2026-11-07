@@ -25,9 +25,11 @@ function Where() {
   return <span data-testid="where">{l.pathname}{l.search}</span>;
 }
 
+let qc: QueryClient | undefined;
 function renderShell(at = '/workloads') {
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[at]}>
         <Routes><Route path="*" element={<><CommandBar /><StatusBar /><Where /></>} /></Routes>
       </MemoryRouter>
@@ -39,7 +41,7 @@ beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }) as never;
   useInboxStore.setState({ stats: {} });
 });
-afterEach(() => { cleanup(); fetchInboxStats.mockReset(); });
+afterEach(() => { cleanup(); qc?.clear(); fetchInboxStats.mockReset(); });
 
 describe('inbox bell', () => {
   it('shows the inbox store count once, fetched from /inbox/stats', async () => {
@@ -95,5 +97,34 @@ describe('namespace picker', () => {
     renderShell();
     fireEvent.click(screen.getByTitle('Switch namespace (⌘N)'));
     expect(screen.queryByText('Open project dashboard')).toBeNull();
+  });
+});
+
+describe('namespace picker read states', () => {
+  const openPicker = () => fireEvent.click(screen.getByTitle('Switch namespace (⌘N)'));
+
+  it.each([
+    [403, /Permission denied/],
+    [500, /status 500/],
+  ])('a %s namespaces read shows the reason and Retry, not an empty list or "0 total"', async (status, reason) => {
+    fetchInboxStats.mockResolvedValue({});
+    global.fetch = vi.fn().mockResolvedValue(new Response('{}', { status })) as never;
+    renderShell();
+    openPicker();
+    const alert = await screen.findByText('Namespaces could not be loaded');
+    const box = alert.closest('[role="alert"]') as HTMLElement;
+    expect(box.textContent).toMatch(reason);
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
+    expect(screen.queryByText('0 total')).toBeNull();
+    expect(screen.queryByText(/No namespaces are visible/)).toBeNull();
+  });
+
+  it('a successful empty read says so and what to do', async () => {
+    fetchInboxStats.mockResolvedValue({});
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200, headers: { 'content-type': 'application/json' } })) as never;
+    renderShell();
+    openPicker();
+    expect(await screen.findByText(/No namespaces are visible to you/)).toBeDefined();
+    expect(screen.getByText('0 total')).toBeDefined();
   });
 });

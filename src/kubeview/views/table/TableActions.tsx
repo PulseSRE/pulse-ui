@@ -21,7 +21,12 @@ export interface PendingConfirm {
 export interface ActionHandlers {
   handleAction: (action: string, payload?: unknown) => Promise<void>;
   handleExport: (format: 'csv' | 'json') => void;
-  handleBulkDelete: () => Promise<void>;
+  /**
+   * Delete exactly `targets` — the list the confirm dialog showed. Without
+   * targets, only the selected rows the current search/filter shows: a row
+   * hidden by a later search is never deleted unseen.
+   */
+  handleBulkDelete: (targets?: K8sResource[]) => Promise<void>;
   executeDelete: () => Promise<void>;
   inlineActionLoading: string | null;
   pendingDelete: { resource: K8sResource; path: string } | null;
@@ -52,7 +57,7 @@ export function useTableActions({
   apiPath,
   gvrKey: _gvrKey,
   sortedResources,
-  stampedResources,
+  stampedResources: _stampedResources,
   visibleColumns,
   resourceKind,
   selectedRows,
@@ -263,17 +268,17 @@ export function useTableActions({
     }
   }, [pendingRestart, clusterId, addToast, queryClient, apiPath]);
 
-  const handleBulkDelete = useCallback(async () => {
-    if (selectedRows.size === 0) return;
+  const handleBulkDelete = useCallback(async (targets?: K8sResource[]) => {
+    const chosen = targets ?? sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
+    if (chosen.length === 0) return;
 
-    const items: Array<{ name: string; ns: string; kind: string; uid: string; path: string }> = [];
-    for (const uid of selectedRows) {
-      const resource = stampedResources.find((r) => r.metadata.uid === uid);
-      if (!resource) continue;
-      const kind = resource.kind || '';
-      const path = buildApiPathFromResource(resource);
-      items.push({ name: resource.metadata.name, ns: resource.metadata.namespace || '', kind, uid, path });
-    }
+    const items: Array<{ name: string; ns: string; kind: string; uid: string; path: string }> = chosen.map((resource) => ({
+      name: resource.metadata.name,
+      ns: resource.metadata.namespace || '',
+      kind: resource.kind || '',
+      uid: resource.metadata.uid ?? '',
+      path: buildApiPathFromResource(resource),
+    }));
 
     setDeleteProgress(items.map(i => ({ name: i.name, ns: i.ns, kind: i.kind, path: i.path, status: 'deleting' as const })));
 
@@ -289,14 +294,16 @@ export function useTableActions({
       }
     });
 
-    setSelectedRows(new Set(items.filter((_, index) => results[index].status === 'rejected').map(i => i.uid)));
+    // Failed deletes stay selected; rows the user chose not to delete (hidden
+    // by the search and left out) keep their selection too.
+    const deletedUids = new Set(items.filter((_, index) => results[index].status === 'fulfilled').map(i => i.uid));
+    setSelectedRows(new Set([...selectedRows].filter((uid) => !deletedUids.has(uid))));
     queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
       if (!old || !Array.isArray(old)) return old;
-      const deletedUids = new Set(items.filter((_, index) => results[index].status === 'fulfilled').map(i => i.uid));
       return old.filter((r: K8sResource) => !deletedUids.has(r.metadata?.uid ?? ''));
     });
     queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
-  }, [selectedRows, stampedResources, queryClient, apiPath, setSelectedRows, clusterId]);
+  }, [selectedRows, sortedResources, queryClient, apiPath, setSelectedRows, clusterId]);
 
   return {
     handleAction,

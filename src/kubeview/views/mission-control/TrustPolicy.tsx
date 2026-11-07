@@ -1,6 +1,7 @@
 import { agentFetch } from '../../engine/safeQuery';
 import { useState } from 'react';
-import { Shield, Eye, MessageSquare, Zap, Activity, AlertTriangle, Info } from 'lucide-react';
+import { Shield, Eye, MessageSquare, Zap, Activity, AlertTriangle, Info, Loader2 } from 'lucide-react';
+import { LoadError } from '../../components/primitives/LoadError';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
@@ -50,6 +51,8 @@ interface TrustPolicyProps {
   supportedAutoFixCategories?: string[];
   autofixPaused?: boolean;
   onPauseChanged?: () => Promise<unknown>;
+  /** The read of the pause state failed: show the reason, not a "checking" kill switch. */
+  pauseStateError?: unknown;
 }
 
 function buildCategoryLabel(id: string): string {
@@ -69,7 +72,7 @@ function resolveCategories(serverCategories?: string[]): AutofixCategory[] {
   );
 }
 
-export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, fixSummary: _fixSummary, supportedAutoFixCategories, autofixPaused, onPauseChanged }: TrustPolicyProps) {
+export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, fixSummary: _fixSummary, supportedAutoFixCategories, autofixPaused, onPauseChanged, pauseStateError }: TrustPolicyProps) {
   const { trustLevel, setTrustLevel, communicationStyle, setCommunicationStyle } =
     useTrustStore(useShallow((s) => ({
       trustLevel: s.trustLevel, setTrustLevel: s.setTrustLevel,
@@ -124,19 +127,36 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
       <div className="p-5 space-y-5">
         {/* Emergency Pause */}
         {(effectiveTrustLevel ?? maxTrustLevel) >= 2 && (
-          <button
-            onClick={togglePause}
-            disabled={autofixPaused === undefined || pausePending}
-            className={cn(
-              'w-full py-2 px-4 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors',
-              autofixPaused
-                ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50 hover:bg-emerald-900/50'
-                : 'bg-red-900/30 text-red-400 border border-red-800/50 hover:bg-red-900/50',
-            )}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {pausePending ? 'Updating monitor…' : autofixPaused === undefined ? 'Checking monitor pause state…' : autofixPaused ? 'Resume Auto-Fix' : 'Pause Auto-Fix (Emergency Kill Switch)'}
-          </button>
+          autofixPaused === undefined ? (
+            // Not yet known: neutral, never the red kill switch.
+            pauseStateError !== undefined ? (
+              <LoadError
+                compact
+                title="Could not check whether auto-fix is paused"
+                error={pauseStateError}
+                onRetry={onPauseChanged ? () => { void onPauseChanged(); } : undefined}
+              />
+            ) : (
+              <div role="status" className="w-full py-2 px-4 rounded-lg text-xs text-slate-400 border border-slate-800 flex items-center justify-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                Checking monitor pause state…
+              </div>
+            )
+          ) : (
+            <button
+              onClick={togglePause}
+              disabled={pausePending}
+              className={cn(
+                'w-full py-2 px-4 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-colors',
+                autofixPaused
+                  ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-800/50 hover:bg-emerald-900/50'
+                  : 'bg-red-900/30 text-red-400 border border-red-800/50 hover:bg-red-900/50',
+              )}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {pausePending ? 'Updating monitor…' : autofixPaused ? 'Resume Auto-Fix' : 'Pause Auto-Fix (Emergency Kill Switch)'}
+            </button>
+          )
         )}
 
         {pauseError && <p role="alert" className="text-xs text-red-400">{pauseError}</p>}

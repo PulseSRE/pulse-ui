@@ -9,7 +9,7 @@ import { Cloud, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import { queryInstant } from '../../components/metrics/prometheus';
-import { safeQuery } from '../../engine/safeQuery';
+import { describeReadError } from '../../engine/readError';
 import type { NodePool, Condition } from '../../engine/types';
 import type { NodeDetail } from './types';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
@@ -22,13 +22,13 @@ interface Props {
   platform: string | null;
 }
 
-function KV({ label, value, status }: { label: string; value: string; status?: 'ok' | 'warn' | 'error' }) {
+function KV({ label, value, status, title }: { label: string; value: string; status?: 'ok' | 'warn' | 'error'; title?: string }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
-      <div className={cn(
+      <div title={title} className={cn(
         'text-sm font-semibold',
-        status === 'error' ? 'text-red-400' : status === 'warn' ? 'text-amber-400' : 'text-slate-100',
+        status === 'error' ? 'text-red-400' : status === 'warn' ? 'text-amber-400' : title ? 'text-slate-400' : 'text-slate-100',
       )}>{value}</div>
     </div>
   );
@@ -79,9 +79,9 @@ function RegularSummary({ nodeDetails, clusterVersion, platform }: {
   const mastersReady = masters.filter(nd => nd.status.ready).length;
   const allReady = mastersReady === masters.length && masters.length > 0;
 
-  const { data: etcdData } = useQuery({
+  const { data: etcdData, isError: etcdFailed, error: etcdError } = useQuery({
     queryKey: ['compute', 'etcd-leader', clusterId],
-    queryFn: async () => (await safeQuery(() => queryInstant('max(etcd_server_has_leader)', undefined, clusterId))) ?? [],
+    queryFn: () => queryInstant('max(etcd_server_has_leader)', undefined, clusterId),
     refetchInterval: 30000,
   });
   const etcdHasLeader = Array.isArray(etcdData) && etcdData.length > 0 && Number(etcdData[0]?.value) === 1;
@@ -98,7 +98,13 @@ function RegularSummary({ nodeDetails, clusterVersion, platform }: {
         <KV label="Platform" value={platform || 'Unknown'} />
         <KV label="Version" value={clusterVersion || '—'} />
         <KV label="Master Nodes" value={masters.length > 0 ? `${mastersReady}/${masters.length} ready` : 'None'} status={!allReady ? 'error' : 'ok'} />
-        <KV label="etcd Leader" value={etcdUnknown ? 'Unknown' : etcdHasLeader ? 'Elected' : 'No Leader'} status={etcdUnknown ? undefined : etcdHasLeader ? 'ok' : 'error'} />
+        {/* A failed read is "Could not check", not "No Leader" or a quiet "Unknown". */}
+        <KV
+          label="etcd Leader"
+          value={etcdFailed ? 'Could not check' : etcdUnknown ? 'No data' : etcdHasLeader ? 'Elected' : 'No Leader'}
+          title={etcdFailed ? describeReadError(etcdError).reason : undefined}
+          status={etcdFailed || etcdUnknown ? undefined : etcdHasLeader ? 'ok' : 'error'}
+        />
       </div>
     </Card>
   );

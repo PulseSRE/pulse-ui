@@ -107,7 +107,20 @@ describe('OverviewTab', () => {
 
   it('shows error banner on error', () => {
     render(<OverviewTab {...makeProps({ overviewError: true })} />);
-    expect(screen.getByText('Failed to load cluster data')).toBeDefined();
+    expect(screen.getByRole('alert').textContent).toContain('Cluster data could not be loaded');
+  });
+
+  it.each([
+    ['403', Object.assign(new Error('nodes is forbidden: User "dev" cannot list resource "nodes"'), { statusCode: 403 }), /Permission denied: nodes is forbidden/],
+    ['500', Object.assign(new Error('etcd timeout'), { statusCode: 500 }), /status 500/],
+  ])('a %s read names what failed, why, and offers Retry', (_l, err, reason) => {
+    const onRetry = vi.fn();
+    render(<OverviewTab {...makeProps({ overviewError: true, overviewErrorWhat: 'Nodes', overviewErrorDetail: err, onRetryOverview: onRetry })} />);
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Nodes could not be loaded — the overview below is incomplete');
+    expect(alert.textContent).toMatch(reason);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it('shows no alerts green banner when no alerts', () => {

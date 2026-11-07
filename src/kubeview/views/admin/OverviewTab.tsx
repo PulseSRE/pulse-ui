@@ -41,6 +41,11 @@ interface IngressConfig extends K8sResource {
 export interface OverviewTabProps {
   overviewLoading: boolean;
   overviewError: boolean;
+  /** The failed read behind `overviewError`, so the reason can be shown. */
+  overviewErrorDetail?: unknown;
+  /** Which reads failed, e.g. "Nodes and ClusterOperators". */
+  overviewErrorWhat?: string;
+  onRetryOverview?: () => void;
   firingAlerts: Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>;
   /** True when the alert query failed — "none firing" is then unknown, not zero. */
   alertsUnavailable?: boolean;
@@ -107,7 +112,7 @@ function getOperatorStatus(op: K8sResource | OperatorResource | null): string {
 }
 
 export function OverviewTab({
-  overviewLoading, overviewError,
+  overviewLoading, overviewError, overviewErrorDetail, overviewErrorWhat, onRetryOverview,
   firingAlerts, alertsUnavailable, alertsUnavailableReason, alertCounts,
   operators, opDegraded, opProgressing, opSteady, degradedOperators,
   nodes, nodeRoles,
@@ -141,13 +146,11 @@ export function OverviewTab({
 
       {/* Error banner */}
       {overviewError && !overviewLoading && (
-        <div className="bg-red-950/30 border border-red-800 rounded-lg px-4 py-3 flex items-center gap-3">
-          <XCircle className="w-5 h-5 text-red-400 shrink-0" />
-          <div className="flex-1">
-            <span className="text-sm font-medium text-red-300">Failed to load cluster data</span>
-            <p className="text-xs text-red-400 mt-0.5">Check your permissions or cluster connectivity. Some data may be unavailable.</p>
-          </div>
-        </div>
+        <LoadError
+          title={`${overviewErrorWhat ?? 'Cluster data'} could not be loaded — the overview below is incomplete`}
+          error={overviewErrorDetail}
+          onRetry={onRetryOverview}
+        />
       )}
 
       {/* Firing alerts banner */}
