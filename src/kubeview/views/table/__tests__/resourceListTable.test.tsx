@@ -86,8 +86,12 @@ function pod(name: string, opts: { namespace?: string; restarts?: number; phase?
   };
 }
 
+// Vitest runs without globals here, so Testing Library's automatic cleanup
+// does not run: unmount and drop each test's queries in afterEach.
+const clients: QueryClient[] = [];
 function renderTable(gvrKey = 'v1/pods') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  clients.push(qc);
   qc.invalidateQueries = invalidateSpy as unknown as typeof qc.invalidateQueries;
   return render(
     <QueryClientProvider client={qc}>
@@ -113,7 +117,10 @@ beforeEach(() => {
   watch.isLoading = false;
   watch.error = null;
 });
-afterEach(() => cleanup());
+afterEach(async () => {
+  cleanup();
+  for (const c of clients.splice(0)) { await c.cancelQueries(); c.clear(); }
+});
 
 describe('column template', () => {
   it('keeps pixel widths fixed and lets percentage and unsized columns grow from a floor', () => {
@@ -250,29 +257,37 @@ describe('resource list table: selection', () => {
 
 describe('resource list table: select all is page-only', () => {
   const selectAll = () => screen.getByRole('checkbox', { name: 'Select all' }) as HTMLInputElement;
+  // A full page is 25 rows (~1,400 elements), and a plain getByText matches
+  // every element in the document against its ignore selector, ~100ms a call
+  // in jsdom. These look only at the element kind that holds the text: the
+  // bulk Delete button, and the pager's "1-25 of 30" range next to its buttons.
+  const deleteButton = (label: string) => screen.getByText(label, { selector: 'button' });
+  const pagerButton = (range: string, name: 'Previous' | 'Next') =>
+    within(screen.getByText(range, { selector: 'span' }).parentElement!).getByRole('button', { name });
 
   it('across two pages: selects and clears this page, keeps the other page', () => {
     watch.data = Array.from({ length: 30 }, (_, i) => pod(`pod-${String(i).padStart(2, '0')}`));
     renderTable();
 
     fireEvent.click(selectAll());
-    expect(screen.getByText('Delete 25')).toBeDefined();
+    expect(deleteButton('Delete 25')).toBeDefined();
     expect(selectAll().checked).toBe(true);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(pagerButton('1-25 of 30', 'Next'));
     expect(rowNames()[0]).toBe('pod-25');
     expect(selectAll().checked).toBe(false);
     expect(selectAll().indeterminate).toBe(false);
 
     fireEvent.click(selectAll());
-    expect(screen.getByText('Delete 30')).toBeDefined();
+    expect(deleteButton('Delete 30')).toBeDefined();
     expect(selectAll().checked).toBe(true);
 
     fireEvent.click(selectAll());
-    expect(screen.getByText('Delete 25')).toBeDefined();
+    expect(deleteButton('Delete 25')).toBeDefined();
     expect(selectAll().checked).toBe(false);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    fireEvent.click(pagerButton('26-30 of 30', 'Previous'));
+    expect(screen.getByText('1-25 of 30', { selector: 'span' })).toBeDefined();
     expect(selectAll().checked).toBe(true);
     expect((screen.getByRole('checkbox', { name: 'Select pod-00' }) as HTMLInputElement).checked).toBe(true);
   });
