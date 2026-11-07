@@ -39,9 +39,11 @@ function Where() {
   return <div data-testid="where">{l.pathname}{l.search}</div>;
 }
 
+let qc: QueryClient | undefined;
 function renderAt(path: string) {
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           {resourceRoutes()}
@@ -60,7 +62,7 @@ beforeEach(() => {
     return json(GRAPH);
   });
 });
-afterEach(() => { cleanup(); agentFetch.mockReset(); });
+afterEach(() => { cleanup(); qc?.clear(); agentFetch.mockReset(); });
 
 describe('/deps redirects to /topology', () => {
   it('opens /topology focused on the resource', async () => {
@@ -91,14 +93,29 @@ describe('/deps redirects to /topology', () => {
 
   it('says when the resource is not in the graph', async () => {
     renderAt('/topology?namespace=shop&focus=Deployment%2Fshop%2Fgone');
-    expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('Deployment/gone is not in the dependency graph for shop'));
+    expect(await screen.findByText(/Deployment\/gone is not in the dependency graph for shop/)).toBeDefined();
   });
 
-  it('a failed graph fetch shows the error with Retry', async () => {
-    agentFetch.mockImplementation(() => json({}, 503));
+  it.each([
+    [503, /The server returned an error \(status 503\)/],
+    [403, /Permission denied/],
+  ])('a %s graph fetch shows the reason with Retry, not an empty graph', async (status, reason) => {
+    agentFetch.mockImplementation(() => json({}, status));
     renderAt('/topology?namespace=shop&focus=Deployment%2Fshop%2Fweb');
-    expect(await screen.findByText('Topology fetch failed (503)')).toBeDefined();
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Topology could not be loaded');
+    expect(alert.textContent).toMatch(reason);
     expect(screen.getByRole('button', { name: /Retry/ })).toBeDefined();
+    expect(screen.queryByText(/No resources/i)).toBeNull();
+  });
+
+  it('a failed blast-radius read is an error, not "None (leaf node)"', async () => {
+    agentFetch.mockImplementation((url: string) => (url.startsWith('/api/agent/topology/blast-radius') ? json({}, 500) : json(GRAPH)));
+    renderAt('/topology?namespace=shop&focus=Deployment%2Fshop%2Fweb');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Downstream could not be loaded');
+    expect(alert.textContent).toMatch(/status 500/);
+    expect(screen.queryByText('None (leaf node)')).toBeNull();
   });
 });
 

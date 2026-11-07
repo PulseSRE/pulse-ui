@@ -388,23 +388,8 @@ export class MonitorClient {
     this.ws.send(JSON.stringify({ type: 'trigger_scan' }));
   }
 
-  /** Approve a proposed action. */
-  approveAction(actionId: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.emit({ type: 'error', message: 'Not connected to monitor' });
-      return;
-    }
-    this.ws.send(JSON.stringify({ type: 'action_response', actionId, approved: true }));
-  }
-
-  /** Reject a proposed action. */
-  rejectAction(actionId: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.emit({ type: 'error', message: 'Not connected to monitor' });
-      return;
-    }
-    this.ws.send(JSON.stringify({ type: 'action_response', actionId, approved: false }));
-  }
+  // No approve/reject over this socket: every approval of an agent write goes
+  // through WriteConfirmDialog (Inbox › Approvals uses POST /fix-history/{id}/approve).
 
   /** Update which scanners are disabled on the server. */
   setDisabledScanners(scannerIds: string[]) {

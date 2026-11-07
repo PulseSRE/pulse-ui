@@ -68,7 +68,7 @@ export interface InboxFilters {
 
 // ---- REST helpers ----
 
-import { agentFetch } from './safeQuery';
+import { agentFetch, AgentHttpError } from './safeQuery';
 import type { EvidenceItem } from './monitorClient';
 
 const AGENT_BASE = '/api/agent';
@@ -76,7 +76,8 @@ const AGENT_BASE = '/api/agent';
 async function _fetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await agentFetch(url, init);
   if (!res.ok) {
-    throw new Error(`Inbox API error: ${res.status} ${res.statusText}`);
+    // Carry the status so LoadError can say "forbidden" or "session expired".
+    throw new AgentHttpError(res.status, `Inbox API error: ${res.status} ${res.statusText}`);
   }
   return res.json();
 }

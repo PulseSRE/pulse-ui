@@ -52,7 +52,8 @@ interface InboxState {
   selectedItemId: string | null;
   currentUser: string | null;
   loading: boolean;
-  error: string | null;
+  /** The failed read (kept whole so LoadError can describe it), or null. */
+  error: unknown;
 
   setFilters: (filters: InboxFilters) => void;
   setPreset: (preset: Preset) => void;
@@ -131,7 +132,7 @@ export const useInboxStore = create<InboxState>((set, get) => ({
       });
     } catch (err) {
       handleAuthError(String(err));
-      set({ error: String(err), loading: false });
+      set({ error: err ?? new Error('Inbox could not be loaded'), loading: false });
     }
   },
 

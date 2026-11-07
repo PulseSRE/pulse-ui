@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import type React from 'react';
 import { TrustPolicy } from '../TrustPolicy';
 import { useTrustStore } from '../../../store/trustStore';
 
@@ -107,5 +108,36 @@ describe('server monitor pause and policy controls', () => {
     fireEvent.click(screen.getByText('Pause Auto-Fix (Emergency Kill Switch)'));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('403'));
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('the auto-fix kill switch while its state is unknown', () => {
+  afterEach(cleanup);
+  const renderWith = (props: Partial<React.ComponentProps<typeof TrustPolicy>>) =>
+    render(<TrustPolicy maxTrustLevel={4} effectiveTrustLevel={2} scannerCount={1} fixSummary={null} {...props} />);
+
+  it('while checking, shows a neutral status, not the red kill-switch button', () => {
+    renderWith({ autofixPaused: undefined });
+    expect(screen.getByRole('status').textContent).toContain('Checking monitor pause state…');
+    expect(screen.queryByRole('button', { name: /Pause Auto-Fix|Checking/ })).toBeNull();
+  });
+
+  it.each([
+    ['403', Object.assign(new Error('forbidden'), { status: 403 }), /Permission denied/],
+    ['500', Object.assign(new Error('boom'), { status: 500 }), /status 500/],
+  ])('a %s health read says it could not check, with the reason and Retry', (_l, err, reason) => {
+    const retry = vi.fn().mockResolvedValue(undefined);
+    renderWith({ autofixPaused: undefined, pauseStateError: err, onPauseChanged: retry });
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('Could not check whether auto-fix is paused');
+    expect(alert.textContent).toMatch(reason);
+    expect(screen.queryByText(/Pause Auto-Fix|Resume Auto-Fix/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('once known, offers the real switch', () => {
+    renderWith({ autofixPaused: false });
+    expect(screen.getByRole('button', { name: 'Pause Auto-Fix (Emergency Kill Switch)' })).toBeDefined();
   });
 });

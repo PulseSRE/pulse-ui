@@ -10,6 +10,13 @@ vi.mock('../../../engine/fixHistory', () => ({
   approveFix: vi.fn(),
 }));
 
+/** Approve on the row opens the write-confirm dialog; confirming there runs the fix. */
+async function approveViaDialog() {
+  await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
+  fireEvent.click(screen.getByText('Approve'));
+  fireEvent.click(await screen.findByRole('button', { name: 'Run fix on Pod api-7f9' }));
+}
+
 const PROPOSAL = {
   id: 'a-1',
   findingId: 'f-1',
@@ -59,8 +66,7 @@ describe('ProposedFixes', () => {
 
   it('approving runs the fix and takes it off the list', async () => {
     render(<ProposedFixes />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
-    fireEvent.click(screen.getByText('Approve'));
+    await approveViaDialog();
     await waitFor(() => expect(approveFix).toHaveBeenCalledWith('a-1'));
     await waitFor(() => expect(screen.getByText(/Ran delete_pod/)).toBeDefined());
     expect(screen.queryByText('Approve')).toBeNull();
@@ -73,8 +79,7 @@ describe('ProposedFixes', () => {
       error: 'api server said no',
     });
     render(<ProposedFixes />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
-    fireEvent.click(screen.getByText('Approve'));
+    await approveViaDialog();
     await waitFor(() => expect(screen.getByText(/Failed: api server said no/)).toBeDefined());
   });
 
@@ -86,8 +91,7 @@ describe('ProposedFixes', () => {
       'pods "klusterlet-646d4fdd8b-4kz56" is forbidden: User "system:serviceaccount:openshiftpulse:pulse-openshift-sre-agent" cannot delete resource "pods" in API group "" in the namespace "open-cluster-management-agent"';
     vi.mocked(approveFix).mockResolvedValue({ ...PROPOSAL, status: 'failed', error: longMessage });
     render(<ProposedFixes />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
-    fireEvent.click(screen.getByText('Approve'));
+    await approveViaDialog();
     const messageEl = await waitFor(() => screen.getByTitle(`Failed: ${longMessage}`));
     expect(messageEl.className).toContain('truncate');
   });
@@ -97,16 +101,14 @@ describe('ProposedFixes', () => {
       new Error('The condition this was proposed for is no longer being reported — nothing to fix'),
     );
     render(<ProposedFixes />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
-    fireEvent.click(screen.getByText('Approve'));
+    await approveViaDialog();
     await waitFor(() => expect(screen.getByText(/no longer being reported/)).toBeDefined());
   });
 
   it('a refusal re-reads the list rather than trusting stale state', async () => {
     vi.mocked(approveFix).mockRejectedValue(new Error('Somebody else just approved this'));
     render(<ProposedFixes />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
-    fireEvent.click(screen.getByText('Approve'));
+    await approveViaDialog();
     await waitFor(() => expect(vi.mocked(fetchFixHistory).mock.calls.length).toBeGreaterThan(1));
   });
 
@@ -164,16 +166,14 @@ describe('ProposedFixes', () => {
       error: 'service account cannot delete pods',
     });
     render(<ProposedFixes />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
-    fireEvent.click(screen.getByText('Approve'));
+    await approveViaDialog();
     await waitFor(() => expect(screen.getByText('Fix failed')).toBeDefined());
     expect(screen.queryByText('Fixes applied')).toBeNull();
   });
 
   it('a fix that succeeded still reads "Fixes applied"', async () => {
     render(<ProposedFixes />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeDefined());
-    fireEvent.click(screen.getByText('Approve'));
+    await approveViaDialog();
     await waitFor(() => expect(screen.getByText('Fixes applied')).toBeDefined());
   });
 

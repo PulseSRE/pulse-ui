@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../store/uiStore', () => ({
   useUIStore: {
-    getState: () => ({ addDegradedReason: vi.fn() }),
+    getState: () => ({ addDegradedReason: vi.fn(), removeDegradedReason: vi.fn() }),
   },
 }));
 
@@ -41,10 +41,9 @@ describe('notification-routing gate', () => {
   });
 
   it('reads receivers through the dedicated /api/alertmanager/ proxy, not the K8s service-proxy subresource', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([{ name: 'Default' }, { name: 'Critical' }]),
-    });
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(JSON.stringify([{ name: 'Default' }, { name: 'Critical' }]), { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
 
     const result = await findGate('notification-routing').evaluate(makeCtx(vi.fn()));
 
@@ -54,22 +53,37 @@ describe('notification-routing gate', () => {
     // because the apiserver defaults to plain HTTP for the unprefixed "web"
     // port name against Alertmanager's TLS listener, and even corrected for
     // scheme, it does not forward the caller's bearer token to the backend.
-    expect(global.fetch).toHaveBeenCalledWith('/api/alertmanager/api/v2/receivers');
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe('/api/alertmanager/api/v2/receivers');
     expect(result.status).toBe('passed');
     expect(result.detail).toBe('1 receiver configured');
   });
 
-  it('reports not_started (not an unhandled rejection) when Alertmanager is unreachable', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      ok: false,
-      status: 502,
-      statusText: 'Bad Gateway',
-    });
+  it('reports "Could not check" with the reason (not a verdict) when Alertmanager fails', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response('upstream down', { status: 502, statusText: 'Bad Gateway' }));
 
     const result = await findGate('notification-routing').evaluate(makeCtx(vi.fn()));
 
     expect(result.status).toBe('not_started');
-    expect(result.detail).toBe('Alertmanager not reachable');
+    expect(result.detail).toMatch(/^Could not check: The server returned an error \(status 502\)/);
+  });
+
+  it('a forbidden read says permission denied, not "only default receiver"', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response('Forbidden (user=alice, verb=get)', { status: 403 }));
+
+    const result = await findGate('notification-routing').evaluate(makeCtx(vi.fn()));
+
+    expect(result.status).toBe('not_started');
+    expect(result.detail).toContain('Could not check: Permission denied');
+    expect(result.detail).not.toContain('Only default receiver');
+  });
+
+  it('an HTML page from a missing proxy is a failed read, not an empty receiver list', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response('<!DOCTYPE html><html></html>', { status: 200, headers: { 'content-type': 'text/html' } }));
+
+    const result = await findGate('notification-routing').evaluate(makeCtx(vi.fn()));
+
+    expect(result.status).toBe('not_started');
+    expect(result.detail).toContain('did not answer with JSON');
   });
 });
 

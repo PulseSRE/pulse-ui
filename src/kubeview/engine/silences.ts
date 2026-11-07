@@ -12,6 +12,7 @@
  * user's token to alertmanager-main's kube-rbac-proxy).
  */
 import type { Node } from './types';
+import { agentFetch } from './safeQuery';
 
 export interface Matcher {
   name: string;
@@ -157,6 +158,34 @@ export function buildSilenceBody(ms: Matcher[], minutes: number, createdBy: stri
   };
 }
 
+/** An Alertmanager read that failed; `status` lets LoadError say "forbidden" or "session expired". */
+export class AlertmanagerReadError extends Error {
+  constructor(public readonly status: number | undefined, message: string) {
+    super(message);
+    this.name = 'AlertmanagerReadError';
+  }
+}
+
+/**
+ * GET an Alertmanager v2 path through the operator's `/api/alertmanager/`
+ * proxy. Throws on a non-2xx answer and on a body that is not JSON (a missing
+ * proxy answers with the console's HTML), so no caller can read a failure as
+ * "no silences" or "no receivers". Goes through `agentFetch` so a 401 raises
+ * the session-expired prompt like every other read.
+ */
+export async function readAlertmanager<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await agentFetch(`/api/alertmanager/api/v2/${path.replace(/^\//, '')}`, { signal });
+  if (!res.ok) {
+    const text = (await res.text().catch(() => '')).trim().slice(0, 300);
+    throw new AlertmanagerReadError(res.status, text ? `Alertmanager returned ${res.status}: ${text}` : `Alertmanager returned ${res.status} ${res.statusText}`.trim());
+  }
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    throw new AlertmanagerReadError(undefined, 'The Alertmanager endpoint did not answer with JSON — the alerting proxy may be missing');
+  }
+  return (await res.json()) as T;
+}
+
 export class SilenceWriteError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -174,7 +203,7 @@ async function failure(res: Response, verb: string): Promise<SilenceWriteError> 
 
 /** POST the silence; returns its id. */
 export async function createSilence(body: SilenceBody): Promise<string> {
-  const res = await fetch('/api/alertmanager/api/v2/silences', {
+  const res = await agentFetch('/api/alertmanager/api/v2/silences', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -187,7 +216,7 @@ export async function createSilence(body: SilenceBody): Promise<string> {
 }
 
 export async function expireSilence(id: string): Promise<void> {
-  const res = await fetch(`/api/alertmanager/api/v2/silence/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const res = await agentFetch(`/api/alertmanager/api/v2/silence/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!res.ok) throw await failure(res, 'expire');
 }
 
