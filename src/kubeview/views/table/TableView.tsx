@@ -82,8 +82,14 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   const isNamespaced = resourceType?.namespaced ?? !likelyClusterScoped;
   // The namespace scope is the URL's `?ns=` (detail breadcrumbs, agent
   // dashboards and resource_counts cards link with it). A cluster-scoped list
-  // shows everything, and the picker says so.
-  const { namespace: scopedNamespace, setNamespace: setScopedNamespace } = useNamespaceScope({ applies: isNamespaced && namespaceProp === undefined });
+  // shows everything, and the picker says so. Until discovery says whether
+  // the kind is namespaced the guess above only picks what to list: the
+  // scope is not synced or written, and the picker is not greyed.
+  const discoveryFailed = useClusterStore((s) => !!s.discoveryError);
+  const { namespace: scopedNamespace, setNamespace: setScopedNamespace } = useNamespaceScope({
+    applies: isNamespaced && namespaceProp === undefined,
+    ready: !!resourceRegistry || discoveryFailed,
+  });
   const activeNamespace = namespaceProp ?? (isNamespaced && scopedNamespace !== '*' ? scopedNamespace : undefined);
 
   // --- API path ---

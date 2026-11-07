@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, Layers, Bell, User, Server, Plus, LogOut, Check, Loader2, RefreshCw, FolderOpen } from 'lucide-react';
 import { LoadError } from './primitives/LoadError';
@@ -63,6 +63,7 @@ export function CommandBar() {
   // The picker writes the page's `?ns=`; on a page that shows every namespace it says so.
   const setSelectedNamespace = useSetNamespaceScope();
   const scopeApplies = useNamespaceScopeApplies();
+  const nsNoteId = useId();
   const openCommandPalette = useUIStore((s) => s.openCommandPalette);
   const addTab = useUIStore((s) => s.addTab);
   const addToast = useUIStore((s) => s.addToast);
@@ -258,30 +259,46 @@ export function CommandBar() {
           )}
         </div>
 
-        {/* Namespace selector — compact inline with keyboard shortcut */}
+        {/* Namespace selector */}
         <div className="relative">
-          <button
-            onClick={() => setShowNsDropdown(!showNsDropdown)}
-            disabled={!scopeApplies}
-            aria-label={scopeApplies ? undefined : 'Namespace: all namespaces on this page'}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors h-7',
-              !scopeApplies
-                ? 'border-slate-800 bg-transparent text-slate-500 cursor-not-allowed'
-                : selectedNamespace === '*'
-                ? 'border-slate-700/50 bg-slate-900/50 text-slate-400 hover:border-slate-600'
-                : 'border-blue-600/50 bg-blue-950/40 text-blue-300 hover:border-blue-500'
-            )}
-            title={scopeApplies
-              ? 'Switch namespace (⌘N)'
-              : `This page shows all namespaces; the namespace scope does not apply here.${selectedNamespace !== '*' ? ` ${selectedNamespace} is kept for other pages.` : ''}`}
-          >
-            <Layers className="w-3 h-3" />
-            <span className="text-xs font-medium max-w-[160px] truncate">
-              {!scopeApplies ? 'All namespaces on this page' : selectedNamespace === '*' ? 'All' : selectedNamespace}
+          {scopeApplies ? (
+            <button
+              onClick={() => setShowNsDropdown(!showNsDropdown)}
+              aria-expanded={showNsDropdown}
+              className={cn(
+                'flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors h-7',
+                selectedNamespace === '*'
+                  ? 'border-slate-700/50 bg-slate-900/50 text-slate-400 hover:border-slate-600'
+                  : 'border-blue-600/50 bg-blue-950/40 text-blue-300 hover:border-blue-500'
+              )}
+              title="Switch namespace"
+            >
+              <Layers className="w-3 h-3" />
+              <span className="text-xs font-medium max-w-[130px] truncate">
+                {selectedNamespace === '*' ? 'All' : selectedNamespace}
+              </span>
+              <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+            </button>
+          ) : (
+            // Not a disabled button: keyboard and screen-reader users can
+            // still reach it and hear why the picker does nothing here.
+            <button
+              type="button"
+              aria-disabled="true"
+              aria-describedby={nsNoteId}
+              title={`This page shows every namespace.${selectedNamespace !== '*' ? ` ${selectedNamespace} is kept for other pages.` : ''}`}
+              onClick={(e) => e.preventDefault()}
+              className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-transparent px-2 py-1 h-7 text-slate-400 cursor-default"
+            >
+              <Layers className="w-3 h-3" aria-hidden="true" />
+              <span className="text-xs font-medium max-w-[180px] truncate">All namespaces on this page</span>
+            </button>
+          )}
+          {!scopeApplies && (
+            <span id={nsNoteId} className="sr-only">
+              {`This page shows every namespace; the namespace scope does not apply here.${selectedNamespace !== '*' ? ` ${selectedNamespace} is kept for other pages.` : ''}`}
             </span>
-            {scopeApplies && <ChevronDown className="h-2.5 w-2.5 opacity-50" />}
-          </button>
+          )}
 
           {showNsDropdown && scopeApplies && (
             <>

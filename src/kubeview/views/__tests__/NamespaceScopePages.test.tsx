@@ -63,7 +63,7 @@ const where = () => screen.getByTestId('where').textContent;
 
 beforeEach(() => {
   resetNamespaceScopeSync();
-  useUIStore.setState({ selectedNamespace: '*', namespaceScopeUsers: 0, namespaceScopeOptOuts: 0 });
+  useUIStore.setState({ selectedNamespace: '*', scopeClusterId: 'local', namespaceScopeUsers: 0, namespaceScopeOptOuts: 0 });
   useFleetStore.setState({ activeClusterId: 'local' });
   agentFetch.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } }), { status: 200 })));
 });
@@ -77,26 +77,31 @@ afterEach(() => {
 describe('namespace picker', () => {
   it('writes ?ns= on a scoped page; the page and status bar follow', async () => {
     renderAt('/workloads?tab=pods');
-    fireEvent.click(screen.getByTitle('Switch namespace (⌘N)'));
+    fireEvent.click(screen.getByTitle('Switch namespace'));
     fireEvent.click(await screen.findByRole('button', { name: 'payments' }));
     expect(where()).toBe('/workloads?tab=pods&ns=payments');
     expect(screen.getByTestId('page-scope').textContent).toBe('payments');
-    expect(screen.getByTitle('Switch namespace (⌘N)').textContent).toBe('payments');
+    expect(screen.getByTitle('Switch namespace').textContent).toBe('payments');
   });
 
   it('a shared link opens the page in its scope and the picker shows it', () => {
     renderAt('/workloads?ns=shop');
     expect(screen.getByTestId('page-scope').textContent).toBe('shop');
-    expect(screen.getByTitle('Switch namespace (⌘N)').textContent).toBe('shop');
+    expect(screen.getByTitle('Switch namespace').textContent).toBe('shop');
   });
 
-  it('on a page that shows every namespace it reads "All namespaces on this page" and cannot be opened', () => {
+  it('on a page that shows every namespace it reads "All namespaces on this page", stays focusable and does not open', () => {
     useUIStore.setState({ selectedNamespace: 'payments' });
     renderAt('/security');
-    const picker = screen.getByRole('button', { name: 'Namespace: all namespaces on this page' });
-    expect(picker).toHaveProperty('disabled', true);
-    expect(picker.textContent).toBe('All namespaces on this page');
-    expect(picker.getAttribute('title')).toMatch(/payments is kept for other pages/);
+    const picker = screen.getByRole('button', { name: 'All namespaces on this page' });
+    // Reachable by keyboard and assistive tech, but does nothing.
+    expect(picker).toHaveProperty('disabled', false);
+    expect(picker.getAttribute('aria-disabled')).toBe('true');
+    picker.focus();
+    expect(document.activeElement).toBe(picker);
+    expect(document.getElementById(picker.getAttribute('aria-describedby')!)?.textContent).toMatch(/payments is kept for other pages/);
+    fireEvent.click(picker);
+    expect(screen.queryByPlaceholderText('Type to filter...')).toBeNull();
     expect(screen.getByText('all namespaces')).toBeDefined();
     // The choice is kept, and the URL is not rewritten.
     expect(useUIStore.getState().selectedNamespace).toBe('payments');
@@ -108,15 +113,36 @@ describe('Topology', () => {
   it('its namespace select is the shared scope, and the graph is fetched for it', async () => {
     renderAt('/topology?ns=payments');
     await waitFor(() => expect(agentFetch).toHaveBeenCalledWith('/api/agent/topology?namespace=payments'));
-    expect(screen.getByTitle('Switch namespace (⌘N)').textContent).toBe('payments');
+    expect(screen.getByTitle('Switch namespace').textContent).toBe('payments');
   });
 
   it('All namespaces in the picker shows the whole graph and leaves no ?ns=', async () => {
     useUIStore.setState({ selectedNamespace: 'payments' });
     renderAt('/topology?ns=payments');
-    fireEvent.click(screen.getByTitle('Switch namespace (⌘N)'));
+    fireEvent.click(screen.getByTitle('Switch namespace'));
     fireEvent.click(await screen.findByRole('button', { name: /All Namespaces/ }));
     expect(where()).toBe('/topology');
     await waitFor(() => expect(agentFetch).toHaveBeenLastCalledWith('/api/agent/topology'));
+  });
+});
+
+describe('Topology without a scope', () => {
+  const big = (n: number) => ({
+    nodes: Array.from({ length: n }, (_, i) => ({ id: `Pod/ns${i % 7}/p${i}`, kind: 'Pod', name: `p${i}`, namespace: `ns${i % 7}`, status: 'healthy' })),
+    edges: [], summary: { nodes: n, edges: 0, kinds: {}, last_refresh: 0 },
+  });
+
+  it('fetches the whole cluster once, and asks for a namespace instead of drawing a huge graph', async () => {
+    agentFetch.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(big(301)), { status: 200 })));
+    renderAt('/topology');
+    expect(await screen.findByText('301 resources — pick a namespace to draw')).toBeDefined();
+    expect(agentFetch.mock.calls.filter(([u]) => u === '/api/agent/topology')).toHaveLength(1);
+  });
+
+  it('a scoped graph is drawn whatever its size', async () => {
+    agentFetch.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(big(301)), { status: 200 })));
+    renderAt('/topology?ns=ns1');
+    await waitFor(() => expect(agentFetch).toHaveBeenCalledWith('/api/agent/topology?namespace=ns1'));
+    expect(screen.queryByText(/pick a namespace to draw/)).toBeNull();
   });
 });

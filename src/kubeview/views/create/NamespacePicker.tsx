@@ -3,18 +3,18 @@
  * picks one; nothing silently lands in `default`.
  */
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
-import { readNamespaceParam } from '../../hooks/useNamespaceScope';
+import { useNamespaceScopeValue } from '../../hooks/useNamespaceScope';
 import { k8sList } from '../../engine/query';
 import { useFleetStore } from '../../store/fleetStore';
-import { useUIStore } from '../../store/uiStore';
 import type { K8sResource } from '../../engine/renderers';
 
-/** The namespace the scope names (`?ns=` first, as on the first render), or '' for all namespaces. */
+/**
+ * The namespace the scope names, or '' for all namespaces. Resolved like
+ * `useNamespaceScope` (the URL first, never another cluster's scope), so it
+ * is right on the first render, which seeds the form.
+ */
 export function useInitialNamespace(): string {
-  const stored = useUIStore((s) => s.selectedNamespace);
-  const [searchParams] = useSearchParams();
-  const selected = readNamespaceParam(searchParams) ?? stored;
+  const selected = useNamespaceScopeValue();
   return selected && selected !== '*' ? selected : '';
 }
 

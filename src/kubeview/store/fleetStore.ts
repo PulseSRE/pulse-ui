@@ -22,6 +22,7 @@ import {
   updateConnectionLocation,
   getClusterBase,
 } from '../engine/clusterConnection';
+import { stripNamespaceScopeFromWindow } from '../engine/namespaceScope';
 
 interface ManagedCluster extends K8sResource {
   status?: {
@@ -177,9 +178,13 @@ export const useFleetStore = create<FleetState>((set, get) => ({
   setActiveCluster: (id) => {
     if (id === getActiveClusterId() || !setActiveClusterId(id)) return;
     // Non-React resource contexts must not survive the keyed view remount.
-    // A namespace scope names a namespace on one cluster; it does not carry over.
     useUIStore.setState({ terminalContext: null, dockContext: null, bottomDockPanel: null,
-      actionPanelOpen: false, actionPanelResource: null, selectedNamespace: '*' });
+      actionPanelOpen: false, actionPanelResource: null });
+    // A namespace scope names a namespace on one cluster; it does not carry
+    // over. Drop it from the store, every tab and the current URL before the
+    // keyed remount, so the new cluster's first render is unscoped.
+    useUIStore.getState?.().resetNamespaceScope?.(id);
+    stripNamespaceScopeFromWindow();
     useClusterStore.setState({ resourceRegistry: null, apiGroups: [], discoveryClusterId: null,
       discoveryLoading: false, discoveryError: null, clusterVersion: null, kubernetesVersion: null,
       platform: null, controlPlaneTopology: null, isHyperShift: false });

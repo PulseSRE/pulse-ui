@@ -10,6 +10,7 @@ import { render, screen, cleanup, act, fireEvent } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, Outlet, useLocation } from 'react-router-dom';
 import { TabBar } from '../TabBar';
 import { useUIStore, MAX_UNPINNED_TABS } from '../../store/uiStore';
+import { resetNamespaceScopeSync } from '../../hooks/useNamespaceScope';
 
 function Layout() {
   const loc = useLocation();
@@ -40,7 +41,7 @@ beforeEach(() => {
     _pendingNavigate: null,
   });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); resetNamespaceScopeSync(); });
 
 describe('TabBar: one tab per page', () => {
   it('a query change on the same page updates its tab instead of adding one', async () => {

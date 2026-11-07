@@ -19,7 +19,9 @@ vi.mock('../../store/uiStore', () => ({
     { getState: () => ({ setSelectedNamespace }) },
   ),
 }));
-vi.mock('../../store/clusterStore', () => ({ useClusterStore: (selector: any) => selector({ resourceRegistry: null }) }));
+// Discovery has loaded (an empty registry: kinds fall back to the name guess).
+const clusterState = { resourceRegistry: new Map() as Map<string, unknown> | null, discoveryError: null };
+vi.mock('../../store/clusterStore', () => ({ useClusterStore: (selector: any) => selector(clusterState) }));
 vi.mock('../../hooks/useK8sListWatch', () => ({
   useK8sListWatch: (opts: { apiPath: string; namespace?: string }) => { watchCalls.push(opts); return { data: [], isLoading: false, error: null }; },
 }));
@@ -27,6 +29,7 @@ vi.mock('../../engine/query', () => ({ k8sPatch: vi.fn(), k8sDelete: vi.fn(), k8
 vi.mock('../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: true, isLoading: false }) }));
 
 import TableView from '../TableView';
+import { resetNamespaceScopeSync } from '../../hooks/useNamespaceScope';
 
 const clients: QueryClient[] = [];
 function newClient() {
@@ -53,7 +56,7 @@ function renderAt(url: string) {
 }
 
 describe('TableView ?ns=', () => {
-  afterEach(() => { cleanup(); clients.splice(0).forEach((c) => c.clear()); watchCalls.length = 0; setSelectedNamespace.mockReset(); });
+  afterEach(() => { cleanup(); clients.splice(0).forEach((c) => c.clear()); watchCalls.length = 0; setSelectedNamespace.mockReset(); clusterState.resourceRegistry = new Map(); resetNamespaceScopeSync(); });
 
   it('lists the namespace named in ?ns= from the first render', () => {
     renderAt('/r/v1~pods?ns=team-a');
@@ -95,5 +98,13 @@ describe('TableView ?ns=', () => {
     renderAt('/r/v1~pods');
     expect(watchCalls[0]).toMatchObject({ namespace: 'default' });
     expect(screen.getByTestId('where').textContent).toBe('/r/v1~pods?ns=default');
+  });
+
+  it('before discovery it lists by the guess but does not touch the URL or the picker', () => {
+    clusterState.resourceRegistry = null;
+    renderAt('/r/v1~pods');
+    expect(watchCalls[0]).toMatchObject({ namespace: 'default' });
+    expect(screen.getByTestId('where').textContent).toBe('/r/v1~pods');
+    expect(setSelectedNamespace).not.toHaveBeenCalled();
   });
 });

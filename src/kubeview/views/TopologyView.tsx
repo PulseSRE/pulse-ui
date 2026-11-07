@@ -74,6 +74,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   error: { label: 'Error', color: 'text-red-400' },
 };
 
+/** Most nodes the unscoped (all namespaces) graph draws. */
+const TOPOLOGY_DRAW_LIMIT = 300;
+
 // ── Component ─────────────────────────────────────────────────────────
 
 export default function TopologyView() {
@@ -98,8 +101,10 @@ export default function TopologyView() {
     enabled: isLocalCluster,
   });
 
+  // The whole-cluster graph lists the namespaces for the select. It is the
+  // same query as the unscoped graph, so all namespaces is fetched once.
   const { data: allData } = useQuery({
-    queryKey: ['topology', activeClusterId, '__all_ns_list__'],
+    queryKey: ['topology', activeClusterId, ''],
     queryFn: () => fetchTopology(),
     staleTime: 300_000,
     refetchOnWindowFocus: false,
@@ -133,6 +138,9 @@ export default function TopologyView() {
     setSelectedNode(focusNode.id);
   }, [focusNode, focusKey]);
   const focusMissing = !!focus && !!data && !focusNode;
+  // Drawing every namespace at once is unreadable (and slow); past this many
+  // nodes the unscoped graph asks for a namespace instead.
+  const tooManyToDraw = !selectedNamespace && (data?.nodes.length ?? 0) > TOPOLOGY_DRAW_LIMIT;
 
   const topology = data ?? { nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } };
 
@@ -299,7 +307,13 @@ export default function TopologyView() {
         )}
 
         {/* Graph + Detail side-by-side */}
-        {topology.nodes.length === 0 ? (
+        {tooManyToDraw ? (
+          <EmptyState
+            icon={<Network className="w-8 h-8 text-slate-500" />}
+            title={`${topology.nodes.length} resources — pick a namespace to draw`}
+            description="A graph of every namespace is too large to read. Choose a namespace above or in the namespace picker."
+          />
+        ) : topology.nodes.length === 0 ? (
           <EmptyState
             icon={<Network className="w-8 h-8 text-slate-500" />}
             title="No topology data"

@@ -9,50 +9,30 @@
  *   sets the scope; the global picker and the store follow it.
  * - A page opened without `?ns=` (a sidebar link, a new tab) inherits the
  *   current scope and writes it into its URL, replacing the history entry.
- * - Back/Forward to an entry without `?ns=` means all namespaces: that entry
- *   was unscoped when it was left.
+ * - Each history entry a scoped page settles on is recorded with its cluster
+ *   and scope (per browser tab, surviving reload). Back/Forward or a reload
+ *   onto a recorded entry restores that scope; an entry without `?ns=` is all
+ *   namespaces. An entry recorded on another cluster names that cluster's
+ *   namespaces: its `?ns=` is ignored from the first render and dropped.
+ * - The scope is resolved during render from the URL and that record, so
+ *   every component on a page agrees, the first render after a cluster
+ *   switch included. The store is only a mirror for readers elsewhere.
  * - A page that does not scope by namespace says so with `applies: false`;
  *   the picker then reads "All namespaces on this page" instead of being
- *   silently ignored, and the scope is kept for the next scoped page.
- * - A scope names a namespace on the active cluster. Switching clusters
- *   resets it (fleetStore) and drops a `?ns=` left over from the old cluster.
+ *   silently ignored, a `?ns=` is dropped, and the choice is kept for the
+ *   next scoped page.
  *
  * Writes go through `useSearchParamUpdater`, so a scope change and a tab
  * change made in the same click compose instead of clobbering each other.
  */
-import { useCallback, useContext, useEffect, useRef } from 'react';
-import { UNSAFE_NavigationContext, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useSearchParamUpdater } from '../components/primitives/Tabs';
 import { useUIStore } from '../store/uiStore';
 import { useFleetStore } from '../store/fleetStore';
+import { ALL_NAMESPACES, NS_ALIAS, NS_PARAM, isScopeValue, readNamespaceParam } from '../engine/namespaceScope';
 
-export const NS_PARAM = 'ns';
-/** The older name used by Topology and Create links; read, then rewritten to `ns`. */
-export const NS_ALIAS = 'namespace';
-export const ALL_NAMESPACES = '*';
-
-const NAMESPACE_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-
-/** `*` or a valid namespace name. */
-export function isScopeValue(value: string): boolean {
-  return value === ALL_NAMESPACES || (value.length <= 63 && NAMESPACE_RE.test(value));
-}
-
-/** The scope named by `?ns=`, else `?namespace=`; null when absent or malformed. */
-export function readNamespaceParam(params: URLSearchParams): string | null {
-  const raw = params.get(NS_PARAM) ?? params.get(NS_ALIAS);
-  return raw !== null && isScopeValue(raw) ? raw : null;
-}
-
-/** `path` with `?ns=<namespace>` set (all namespaces: no param). */
-export function withNamespaceScope(path: string, namespace: string | undefined): string {
-  if (!namespace || namespace === ALL_NAMESPACES) return path;
-  const [base, query = ''] = path.split('?');
-  const params = new URLSearchParams(query);
-  params.delete(NS_ALIAS);
-  params.set(NS_PARAM, namespace);
-  return `${base}?${params.toString()}`;
-}
+export { ALL_NAMESPACES, NS_ALIAS, NS_PARAM, isScopeValue, readNamespaceParam, withNamespaceScope } from '../engine/namespaceScope';
 
 function writeScope(next: URLSearchParams, namespace: string) {
   next.delete(NS_ALIAS);
@@ -60,25 +40,94 @@ function writeScope(next: URLSearchParams, namespace: string) {
   else next.set(NS_PARAM, namespace);
 }
 
-/**
- * The last location a scoped page synced from, the cluster it was on and the
- * router it came from. Module-level so every page shares it; tells
- * Back/Forward within one router from a fresh load, and a `?ns=` left in the
- * URL across a cluster switch (which remounts the router on the same entry)
- * from a new link.
- */
-let lastSynced: { key: string; cluster: string; router: unknown } | null = null;
+/* ── Per-entry records: which cluster and scope each history entry settled on ── */
 
-/** Tests only: forget the last synced location. */
+interface EntryScope { cluster: string; ns: string }
+const ENTRY_STORAGE_KEY = 'openshiftpulse-ns-scope-entries';
+const MAX_ENTRIES = 200;
+let memoryEntries: Record<string, EntryScope> = {};
+
+function readEntries(): Record<string, EntryScope> {
+  try {
+    const raw = window.sessionStorage.getItem(ENTRY_STORAGE_KEY);
+    if (raw) return { ...JSON.parse(raw), ...memoryEntries };
+  } catch {
+    // Storage blocked or corrupt: fall back to this page load's records.
+  }
+  return memoryEntries;
+}
+
+function entryScope(key: string): EntryScope | undefined {
+  return readEntries()[key];
+}
+
+function recordEntry(key: string, scope: EntryScope) {
+  const current = readEntries()[key];
+  if (current && current.cluster === scope.cluster && current.ns === scope.ns) return;
+  const entries = { ...readEntries(), [key]: scope };
+  const keys = Object.keys(entries);
+  for (const old of keys.slice(0, Math.max(0, keys.length - MAX_ENTRIES))) delete entries[old];
+  memoryEntries = entries;
+  try {
+    window.sessionStorage.setItem(ENTRY_STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // Kept in memory for this page load.
+  }
+}
+
+/** Tests only: forget every recorded entry. */
 export function resetNamespaceScopeSync() {
-  lastSynced = null;
+  memoryEntries = {};
+  try { window.sessionStorage.removeItem(ENTRY_STORAGE_KEY); } catch { /* none stored */ }
 }
 
-/** The store's scope now, not as of this render (a bare selector mock has no getState). */
-function storedNow(fallback: string): string {
-  const getState = (useUIStore as { getState?: () => { selectedNamespace?: string } }).getState;
-  return (typeof getState === 'function' ? getState().selectedNamespace : undefined) ?? fallback;
+/* ── Resolution (pure, during render) ── */
+
+export interface ResolvedScope {
+  /** The scope this entry shows on `clusterId`: a namespace or '*'. */
+  namespace: string;
+  /** The URL carries a scope param that must not apply (another cluster's, or malformed). */
+  dropParam: boolean;
 }
+
+export function resolveNamespaceScope(
+  params: URLSearchParams,
+  entryKey: string,
+  clusterId: string,
+  stored: string,
+): ResolvedScope {
+  const hasParam = params.has(NS_PARAM) || params.has(NS_ALIAS);
+  const entry = entryScope(entryKey);
+  if (entry && entry.cluster !== clusterId) return { namespace: ALL_NAMESPACES, dropParam: hasParam };
+  const fromUrl = readNamespaceParam(params);
+  if (fromUrl !== null) return { namespace: fromUrl, dropParam: false };
+  // An entry seen before without a usable param was left unscoped.
+  if (entry) return { namespace: ALL_NAMESPACES, dropParam: hasParam };
+  return { namespace: stored, dropParam: hasParam };
+}
+
+/** The store's scope if it belongs to this cluster, else all namespaces. */
+function useStoredScope(clusterId: string): string {
+  return useUIStore((s) => {
+    const ns = s.selectedNamespace ?? ALL_NAMESPACES;
+    // A selector-only store mock has no cluster: take its namespace as is.
+    return s.scopeClusterId === undefined || s.scopeClusterId === clusterId ? ns : ALL_NAMESPACES;
+  });
+}
+
+/**
+ * The scope for this location, without syncing anything: for components that
+ * only need a starting value (Create's sub-tabs). Same rule as the hook.
+ */
+export function useNamespaceScopeValue(): string {
+  const [searchParams] = useSearchParams();
+  const { key } = useLocation();
+  const clusterId = useFleetStore((s) => s.activeClusterId) ?? '';
+  const stored = useStoredScope(clusterId);
+  return resolveNamespaceScope(searchParams, key, clusterId, stored).namespace;
+}
+
+/* ── Hooks ── */
 
 export interface NamespaceScope {
   /** The scoped namespace, or '*' for all (always '*' when the scope does not apply). */
@@ -112,61 +161,56 @@ export function useNamespaceScopeApplies(): boolean {
   return useUIStore((s) => s.namespaceScopeOptOuts === 0);
 }
 
-export function useNamespaceScope({ applies = true }: { applies?: boolean } = {}): NamespaceScope {
+export interface NamespaceScopeOptions {
+  /** False on a page that shows every namespace. */
+  applies?: boolean;
+  /**
+   * False while the page cannot yet tell whether the scope applies (a list
+   * before API discovery says whether its kind is namespaced). Nothing is
+   * registered, synced or written until it is ready.
+   */
+  ready?: boolean;
+}
+
+export function useNamespaceScope({ applies = true, ready = true }: NamespaceScopeOptions = {}): NamespaceScope {
   const [searchParams] = useSearchParams();
-  const location = useLocation();
-  const navigationType = useNavigationType();
-  const router = useContext(UNSAFE_NavigationContext).navigator;
+  const { key } = useLocation();
   const update = useSearchParamUpdater();
-  const stored = useUIStore((s) => s.selectedNamespace) ?? ALL_NAMESPACES;
+  const clusterId = useFleetStore((s) => s.activeClusterId) ?? '';
+  const stored = useStoredScope(clusterId);
   const setStored = useUIStore((s) => s.setSelectedNamespace);
   const register = useUIStore((s) => s.registerNamespaceScope);
-  const clusterId = useFleetStore((s) => s.activeClusterId) ?? '';
+
+  const resolved = resolveNamespaceScope(searchParams, key, clusterId, stored);
+  const namespace = applies ? resolved.namespace : ALL_NAMESPACES;
+  const rawNs = searchParams.get(NS_PARAM);
+  const rawAlias = searchParams.get(NS_ALIAS);
 
   // The sync below runs when the URL changes, not when the store does: the
-  // picker sets the store a moment before its URL write lands.
+  // picker sets the store a moment before its URL write lands, and reacting
+  // to that would write the old URL value back.
   const storedRef = useRef(stored);
   storedRef.current = stored;
 
-  const fromUrl = readNamespaceParam(searchParams);
-  const rawNs = searchParams.get(NS_PARAM);
-  const rawAlias = searchParams.get(NS_ALIAS);
-  const namespace = applies ? (fromUrl ?? stored) : ALL_NAMESPACES;
-
-  useEffect(() => (register ? register(applies) : undefined), [register, applies]);
+  useEffect(() => (ready && register ? register(applies) : undefined), [register, applies, ready]);
 
   useEffect(() => {
-    if (!applies) return;
-    const prev = lastSynced;
-    lastSynced = { key: location.key, cluster: clusterId, router };
-    // Several components on one page may sync; read the store as it is now.
-    const current = storedNow(storedRef.current);
-
-    // The same entry seen on another cluster: its `?ns=` named the old cluster's namespace.
-    if (prev && prev.key === location.key && prev.cluster !== clusterId && (rawNs !== null || rawAlias !== null)) {
-      if (current !== ALL_NAMESPACES) setStored?.(ALL_NAMESPACES);
-      update((next) => writeScope(next, ALL_NAMESPACES));
+    if (!ready) return;
+    if (!applies) {
+      // This page shows every namespace; a `?ns=` here would claim otherwise.
+      if (rawNs !== null || rawAlias !== null) update((next) => { next.delete(NS_PARAM); next.delete(NS_ALIAS); });
       return;
     }
-
-    if (fromUrl !== null) {
-      if (fromUrl !== current) setStored?.(fromUrl);
-      // Normalize: the old alias becomes `ns`, `ns=*` becomes no param.
-      if (rawAlias !== null || rawNs !== fromUrl || fromUrl === ALL_NAMESPACES) {
-        update((next) => writeScope(next, fromUrl));
-      }
-      return;
+    const scope = resolved.namespace;
+    if (storedRef.current !== scope) setStored?.(scope);
+    // Settle the URL on the canonical form: `?ns=<namespace>`, nothing for all.
+    const wanted = scope === ALL_NAMESPACES ? null : scope;
+    if (resolved.dropParam || rawAlias !== null || rawNs !== wanted) {
+      update((next) => writeScope(next, scope));
+      return; // the rewritten entry is recorded when it lands
     }
-
-    // No usable param. Drop a malformed one so the address bar matches the page.
-    if (rawNs !== null || rawAlias !== null) update((next) => { next.delete(NS_PARAM); next.delete(NS_ALIAS); });
-    const backForward = navigationType === 'POP' && prev !== null && prev.router === router && prev.key !== location.key;
-    if (backForward) {
-      if (current !== ALL_NAMESPACES) setStored?.(ALL_NAMESPACES);
-    } else if (current !== ALL_NAMESPACES) {
-      update((next) => writeScope(next, current));
-    }
-  }, [applies, location.key, clusterId, fromUrl, rawNs, rawAlias, navigationType, router, setStored, update]);
+    recordEntry(key, { cluster: clusterId, ns: scope });
+  }, [ready, applies, key, clusterId, resolved.namespace, resolved.dropParam, rawNs, rawAlias, setStored, update]);
 
   const setNamespace = useCallback(
     (next: string) => {
