@@ -213,7 +213,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
 
   return (
     <div className={embedded ? '' : 'h-full overflow-auto bg-slate-950 p-6'}>
-      <div className={embedded ? '' : 'max-w-6xl mx-auto'}>
+      <div className={embedded ? '' : 'max-w-content mx-auto'}>
         {/* Header — hidden when embedded as a tab */}
         {!embedded && (
           <PageHeader

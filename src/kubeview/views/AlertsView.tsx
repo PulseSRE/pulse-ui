@@ -113,7 +113,7 @@ export default function AlertsView() {
   if (!metricsAvailable) {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-content mx-auto space-y-6">
           <PageHeader icon={<Bell className="w-6 h-6 text-red-500" />} title="Alerts" />
           <RemoteMetricsNotice what="Alerts and silences" />
         </div>
@@ -497,7 +497,7 @@ function LocalAlertsView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-content mx-auto space-y-6">
         {/* Header */}
         <PageHeader
           icon={<Bell className="w-6 h-6 text-red-500" />}

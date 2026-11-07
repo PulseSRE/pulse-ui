@@ -5,6 +5,12 @@ import { persist } from 'zustand/middleware';
 import type { DegradedReason } from '../engine/degradedMode';
 import { isKnownRoute } from '../engine/routeTable';
 import { stripNamespaceScope, stripNamespaceScopeFromWindow } from '../engine/namespaceScope';
+import { PHONE_QUERY } from '../hooks/useIsPhone';
+
+/** On a phone Pulse AI is a modal sheet, so it never starts open (not even from a saved "expanded"). */
+function startsOnPhone(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(PHONE_QUERY).matches;
+}
 
 export interface Tab {
   id: string;
@@ -377,7 +383,7 @@ export const useUIStore = create<UIState>()(
       closeBrowser: () => set({ browserOpen: false }),
 
       // AI Sidebar
-      aiSidebarExpanded: true,
+      aiSidebarExpanded: !startsOnPhone(),
       aiSidebarMode: 'dashboard' as const,
       aiSidebarWidth: 360,
 
@@ -595,6 +601,7 @@ export const useUIStore = create<UIState>()(
         return {
           ...current,
           ...persistedState,
+          ...(startsOnPhone() ? { aiSidebarExpanded: false } : {}),
           selectedNamespace: scopeMatches ? saved.selectedNamespace ?? '*' : '*',
           scopeClusterId: getActiveClusterId(),
           tabs: capTabs(scopeMatches ? stamped : dropTabScopes(stamped, activeTabId), activeTabId),

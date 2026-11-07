@@ -66,15 +66,17 @@ export function StatusBar() {
   const openTabCount = tabs.filter((t) => t.closable).length;
 
   return (
-    <div className="flex h-6 items-center justify-between border-t border-slate-700 bg-slate-800 px-4 text-xs text-slate-500">
+    // One line at any width: the left side truncates and the right side drops
+    // keyboard hints, tab count, namespace and version below `sm`.
+    <div className="flex h-6 items-center justify-between gap-3 overflow-hidden whitespace-nowrap border-t border-slate-700 bg-slate-800 px-4 max-sm:px-2 text-xs text-slate-500">
       {/* Left */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+        <div className="flex shrink-0 items-center gap-1.5">
           <div className={cn('h-1.5 w-1.5 rounded-full', connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'reconnecting' ? 'bg-yellow-500' : 'bg-red-500')} />
           <span>{connectionStatus === 'connected' ? 'Connected' : connectionStatus}</span>
         </div>
         <span
-          className={isStale ? 'text-amber-400' : undefined}
+          className={cn('truncate', isStale && 'text-amber-400')}
           title={isStale ? 'Data may be stale — session may be expired or connectivity lost' : undefined}
         >
           {/* formatRelative already ends in "ago" — appending another
@@ -87,18 +89,18 @@ export function StatusBar() {
         {degradedReasons.has('session_expired') && (
           <button
             onClick={() => performLogout()}
-            className="ml-2 px-2 py-0.5 text-xs rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+            className="ml-2 shrink-0 px-2 py-0.5 text-xs rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
           >
             Session expired — click to log in again
           </button>
         )}
-        {activeOperation && <span className="text-emerald-400">{activeOperation}</span>}
-        {isMultiCluster() && activeCluster && <span className="text-blue-400">· {activeCluster.name}</span>}
-        {pageInfo && <span className="text-slate-400">· {pageInfo}</span>}
+        {isMultiCluster() && activeCluster && <span className="shrink-0 text-blue-400">· {activeCluster.name}</span>}
+        {activeOperation && <span className="truncate text-emerald-400" title={activeOperation}>{activeOperation}</span>}
+        {pageInfo && <span className="truncate text-slate-400" title={pageInfo}>· {pageInfo}</span>}
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3 max-sm:gap-2">
         {/* The inbox count lives in one place: the CommandBar bell. */}
         {pendingReviewCount > 0 && (
           <button
@@ -116,7 +118,7 @@ export function StatusBar() {
             title={Array.from(degradedReasons).map((r) => DEGRADED_MESSAGES[r].title).join(', ')}
           >
             <AlertTriangle className="h-3 w-3" />
-            <span className="text-xs">Degraded</span>
+            <span className="text-xs max-sm:sr-only">Degraded</span>
           </span>
         )}
         <button
@@ -130,12 +132,12 @@ export function StatusBar() {
           <Bot className="h-3 w-3" />
           Agent
         </button>
-        {openTabCount > 0 && <span>{openTabCount} tab{openTabCount !== 1 ? 's' : ''}</span>}
-        <span>{selectedNamespace === '*' ? 'all namespaces' : selectedNamespace}</span>
-        <span>⌘K search · ⌘B browse</span>
+        {openTabCount > 0 && <span className="max-sm:hidden">{openTabCount} tab{openTabCount !== 1 ? 's' : ''}</span>}
+        <span className="max-sm:hidden">{selectedNamespace === '*' ? 'all namespaces' : selectedNamespace}</span>
+        <span className="max-sm:hidden">⌘K search · ⌘B browse</span>
         <button
           onClick={() => navigate('/about')}
-          className="px-1.5 py-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-colors"
+          className="max-sm:hidden px-1.5 py-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-colors"
           title="About OpenShift Pulse — versions, images, links"
         >
           v{__APP_VERSION__}

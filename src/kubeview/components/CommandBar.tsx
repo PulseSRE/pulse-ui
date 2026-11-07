@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils';
 import { k8sFetch } from '../engine/query';
 import { useInboxStore } from '../store/inboxStore';
 import { useVisibilityAwareInterval } from '../hooks/useVisibilityAwareInterval';
+import { MoreHorizontal } from 'lucide-react';
+import { useOverflowPanel } from './useOverflowPanel';
+import { AskPulseButtonBase } from './agent/AskPulseButtonBase';
 import { performLogout } from '../engine/auth';
 import { usePulseUpgrade } from '../hooks/usePulseStatus';
 import { projectPath } from '../engine/navRegistry';
@@ -33,6 +36,13 @@ export function CommandBar() {
   const clusters = useFleetStore((s) => s.clusters);
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const setActiveCluster = useFleetStore((s) => s.setActiveCluster);
+  // Below `sm` the right-hand controls fold into "More" (see useOverflowPanel).
+  const overflow = useOverflowPanel();
+  const openAskPulse = () => {
+    overflow.close(true);
+    useUIStore.getState().setAISidebarMode('chat');
+    useUIStore.getState().expandAISidebar();
+  };
 
   // Close cluster dropdown on click outside
   useEffect(() => {
@@ -115,6 +125,12 @@ export function CommandBar() {
     },
     staleTime: 300000,
   });
+  // The cluster stays visible at phone width while "More" is closed.
+  // Same name and dot as the cluster control in the panel.
+  const activeCluster = clusters.find((c) => c.id === activeClusterId);
+  const multiCluster = isMultiCluster();
+  const clusterName = (multiCluster ? activeCluster?.name : undefined) || clusterInfo?.name || 'cluster';
+  const clusterConnected = multiCluster ? activeCluster?.status === 'connected' : true;
 
   // The inbox needs-attention count: one source (inboxStore.stats), shared
   // with the sidebar and agent dock, kept fresh from here because the
@@ -144,7 +160,7 @@ export function CommandBar() {
   }
 
   return (
-    <div className="flex h-11 items-center justify-between border-b border-slate-700/50 bg-linear-to-r from-slate-800 to-slate-800/95 px-4">
+    <div className="relative flex h-11 items-center justify-between border-b border-slate-700/50 bg-linear-to-r from-slate-800 to-slate-800/95 px-4">
       {/* Left section: Logo + Search */}
       <div className="flex items-center gap-4">
         {/* Logo */}
@@ -173,11 +189,12 @@ export function CommandBar() {
         {/* Search */}
         <button
           onClick={openCommandPalette}
-          className="flex h-7 w-48 md:w-72 items-center gap-2 rounded-md border border-slate-600/50 bg-slate-900/50 px-3 text-sm text-slate-500 transition-all hover:border-slate-500 hover:bg-slate-900 hover:text-slate-400"
+          aria-label="Search resources, views"
+          className="flex h-7 w-8 sm:w-48 md:w-72 items-center justify-center sm:justify-start gap-2 rounded-md border border-slate-600/50 bg-slate-900/50 sm:px-3 text-sm text-slate-500 transition-all hover:border-slate-500 hover:bg-slate-900 hover:text-slate-400"
         >
-          <Search className="h-3.5 w-3.5" />
-          <span className="flex-1 text-left text-xs">Search resources, views...</span>
-          <kbd className="rounded-sm bg-slate-700/70 px-1.5 py-0.5 text-xs font-mono text-slate-400">⌘K</kbd>
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="hidden sm:inline flex-1 text-left text-xs">Search resources, views...</span>
+          <kbd className="hidden sm:inline rounded-sm bg-slate-700/70 px-1.5 py-0.5 text-xs font-mono text-slate-400">⌘K</kbd>
         </button>
 
         {/* Quick create */}
@@ -190,8 +207,19 @@ export function CommandBar() {
         </button>
       </div>
 
-      {/* Right section: Context + Actions */}
-      <div className="flex items-center gap-2">
+      {/* Right section: Context + Actions. Below `sm` it is the "More" panel. */}
+      <div
+        {...overflow.panelProps}
+        role="group"
+        aria-label="Cluster, namespace, AI and account"
+        className={cn(
+          'flex items-center gap-2',
+          'max-sm:absolute max-sm:right-2 max-sm:top-full max-sm:z-50 max-sm:mt-1 max-sm:w-64 max-sm:max-w-[calc(100vw-1rem)] max-sm:flex-col max-sm:items-stretch max-sm:gap-1 max-sm:rounded-lg max-sm:border max-sm:border-slate-600 max-sm:bg-slate-800 max-sm:p-2 max-sm:shadow-2xl',
+          !overflow.open && 'max-sm:hidden',
+        )}
+      >
+        {/* On phones the AI rail is hidden; chat opens from here as a bottom sheet. */}
+        <AskPulseButtonBase className="sm:hidden justify-start" onClick={openAskPulse} />
         {/* Cluster indicator / switcher */}
         <div className="relative" ref={clusterDropdownRef}>
           {isMultiCluster() ? (
@@ -421,7 +449,8 @@ export function CommandBar() {
         {pulseUpgrade.health === 'healthy' && (
           <button
             onClick={() => go('/about', 'About Pulse')}
-            className="flex items-center gap-1.5 px-1.5 py-1 rounded-md text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
+            data-label="Pulse healthy"
+            className="flex items-center gap-1.5 max-sm:gap-2 max-sm:after:content-[attr(data-label)] px-1.5 py-1 rounded-md text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
             title={pulseUpgrade.detail}
             aria-label="Pulse healthy"
           >
@@ -432,7 +461,8 @@ export function CommandBar() {
         {/* Notification bell */}
         <button
           onClick={() => go('/inbox', 'Inbox')}
-          className="relative p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
+          data-label="Inbox"
+          className="relative max-sm:flex max-sm:items-center max-sm:gap-2 max-sm:text-xs max-sm:after:content-[attr(data-label)] p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
           title={issueCount > 0 ? `${issueCount} need attention` : 'Inbox clear'}
           aria-label={issueCount > 0 ? `Inbox: ${issueCount} need attention` : 'Inbox: nothing needs attention'}
         >
@@ -448,7 +478,8 @@ export function CommandBar() {
         <div className="relative">
           <button
             onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-2 p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
+            data-label={clusterInfo?.username || 'Account'}
+            className="flex items-center gap-2 max-sm:w-full max-sm:text-xs max-sm:after:truncate max-sm:after:content-[attr(data-label)] p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
             aria-label="User menu"
           >
             <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center">
@@ -580,6 +611,26 @@ export function CommandBar() {
           )}
         </div>
       </div>
+
+      <span
+        className="sm:hidden ml-auto mr-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-300"
+        title={`Cluster: ${clusterName}`}
+        data-testid="phone-cluster-chip"
+      >
+        <span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', clusterConnected ? 'bg-emerald-500' : 'bg-red-500')} />
+        <span className="max-w-[96px] truncate">{clusterName}</span>
+      </span>
+      <button
+        {...overflow.triggerProps}
+        className={cn(
+          'sm:hidden relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors',
+          overflow.open && 'bg-slate-700/50 text-slate-200',
+        )}
+        aria-label={`More: cluster ${clusterName}, namespace, AI, account${issueCount > 0 ? `. ${issueCount} in the Inbox` : ''}`}
+      >
+        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+        {issueCount > 0 && <span aria-hidden="true" className="absolute top-1.5 right-2.5 h-2 w-2 rounded-full bg-red-500" />}
+      </button>
     </div>
   );
 }
