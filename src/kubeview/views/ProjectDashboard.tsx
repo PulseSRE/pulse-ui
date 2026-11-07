@@ -98,7 +98,7 @@ export default function ProjectDashboard() {
             </h1>
             <p className="text-sm text-slate-400 mt-1">Project overview — all resources at a glance</p>
           </div>
-          <Button size="sm" onClick={() => go(`/create/apps~v1~deployments?namespace=${encodeURIComponent(ns)}`, `Create in ${ns}`)}>
+          <Button size="sm" onClick={() => go(`/create/apps~v1~deployments?ns=${encodeURIComponent(ns)}`, `Create in ${ns}`)}>
             <Plus className="w-3.5 h-3.5" /> Create in {ns}
           </Button>
         </div>

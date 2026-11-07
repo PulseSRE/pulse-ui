@@ -86,17 +86,22 @@ describe('TabBar: one tab per page', () => {
     expect(shellTabs()).toEqual(['Pulse', 'Workloads']);
   });
 
-  it('a list opened for a namespace keeps its tab when the page consumes ?ns=', async () => {
+  it('re-scoping a list in place (the picker) keeps its tab, which follows ?ns=', async () => {
     const router = setup('/r/v1~pods?ns=team-a');
     expect(shellTabs()).toEqual(['Pulse', 'Pods (team-a)']);
-    // TableView applies ?ns= to the selector and drops it with replace.
+    // The picker rewrites the page's ?ns= in place.
+    await act(() => router.navigate('/r/v1~pods?ns=team-b', { replace: true }));
+    expect(shellTabs()).toEqual(['Pulse', 'Pods (team-b)']);
+    // Picking "All namespaces" drops the param; the tab follows that too.
     await act(() => router.navigate('/r/v1~pods', { replace: true }));
-    expect(shellTabs()).toEqual(['Pulse', 'Pods (team-a)']);
-    await act(() => router.navigate('/r/v1~pods?ns=team-b'));
-    expect(shellTabs()).toEqual(['Pulse', 'Pods (team-a)', 'Pods (team-b)']);
-    // Clicking the first tab goes back to team-a.
-    fireEvent.click(screen.getByRole('tab', { name: /team-a/ }));
-    expect(screen.getByTestId('url').textContent).toBe('/r/v1~pods?ns=team-a');
+    expect(shellTabs()).toEqual(['Pulse', 'Pods']);
+    await act(() => router.navigate('/r/v1~pods?ns=team-b', { replace: true }));
+    // A link to another namespace's list is still its own tab.
+    await act(() => router.navigate('/r/v1~pods?ns=team-c'));
+    expect(shellTabs()).toEqual(['Pulse', 'Pods (team-b)', 'Pods (team-c)']);
+    // Clicking the first tab returns to the scope it was left with.
+    fireEvent.click(screen.getByRole('tab', { name: /team-b/ }));
+    expect(screen.getByTestId('url').textContent).toBe('/r/v1~pods?ns=team-b');
   });
 
   it('route-driven navigation past the cap closes the least recently used tab', async () => {

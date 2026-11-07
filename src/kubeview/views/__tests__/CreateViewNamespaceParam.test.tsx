@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** StorageView's "add quota" link passes `?namespace=`; the draft must target it. */
+/** StorageView's "add quota" link passes `?ns=` (older links `?namespace=`); the draft must target it. */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -31,8 +31,13 @@ function renderAt(url: string) {
   );
 }
 
-describe('CreateView ?namespace=', () => {
+describe('CreateView ?ns= and the old ?namespace=', () => {
   afterEach(cleanup);
+
+  it('drafts the resource in the namespace scope from the link', () => {
+    renderAt('/create/v1~resourcequotas?ns=team-b');
+    expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).toMatch(/namespace: team-b/);
+  });
 
   it('drafts the resource in the namespace from the link', () => {
     renderAt('/create/v1~resourcequotas?namespace=team-a');

@@ -3,14 +3,18 @@
  * picks one; nothing silently lands in `default`.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { readNamespaceParam } from '../../hooks/useNamespaceScope';
 import { k8sList } from '../../engine/query';
 import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
 import type { K8sResource } from '../../engine/renderers';
 
-/** The namespace the global selector names, or '' when it is "all namespaces". */
+/** The namespace the scope names (`?ns=` first, as on the first render), or '' for all namespaces. */
 export function useInitialNamespace(): string {
-  const selected = useUIStore((s) => s.selectedNamespace);
+  const stored = useUIStore((s) => s.selectedNamespace);
+  const [searchParams] = useSearchParams();
+  const selected = readNamespaceParam(searchParams) ?? stored;
   return selected && selected !== '*' ? selected : '';
 }
 

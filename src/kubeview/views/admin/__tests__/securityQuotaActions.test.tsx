@@ -42,7 +42,7 @@ describe('SecurityView actions', () => {
   it('offers a prefilled default-deny NetworkPolicy for a namespace without one', async () => {
     h.renderUi(<SecurityView />);
     fireEvent.click(await screen.findByRole('button', { name: 'Create default-deny ingress NetworkPolicy in shop' }));
-    expect(visited).toEqual(['/create/networking.k8s.io~v1~networkpolicies?template=default-deny&namespace=shop']);
+    expect(visited).toEqual(['/create/networking.k8s.io~v1~networkpolicies?template=default-deny&ns=shop']);
   });
 
   // Cluster-admin holders are listed once, with Revoke, on Identity › RBAC.
@@ -85,7 +85,7 @@ describe('Templates', () => {
     expect(renderCreateTemplate('default-deny', 'shop')).toMatch(/Egress is not restricted, so DNS/);
     expect(renderCreateTemplate('default-deny', 'Bad NS')).toBeNull();
     expect(renderCreateTemplate('nope', 'shop')).toBeNull();
-    expect(createTemplateUrl('limit-range', 'shop')).toBe('/create/v1~limitranges?template=limit-range&namespace=shop');
+    expect(createTemplateUrl('limit-range', 'shop')).toBe('/create/v1~limitranges?template=limit-range&ns=shop');
   });
 });
 
@@ -149,8 +149,8 @@ describe('QuotasTab', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Create ResourceQuota in empty' }));
     fireEvent.click(screen.getByRole('button', { name: 'Create LimitRange in empty' }));
     expect(visited).toEqual([
-      '/create/v1~resourcequotas?template=resource-quota&namespace=empty',
-      '/create/v1~limitranges?template=limit-range&namespace=empty',
+      '/create/v1~resourcequotas?template=resource-quota&ns=empty',
+      '/create/v1~limitranges?template=limit-range&ns=empty',
     ]);
   });
 

@@ -38,6 +38,7 @@ import type { ClusterOperator } from '../engine/types/openshift';
 import type { Deployment } from '../engine/types/apps';
 import type { PersistentVolumeClaim } from '../engine/types/core';
 import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useFleetStore } from '../store/fleetStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMonitorStore } from '../store/monitorStore';
@@ -179,7 +180,7 @@ function ClusterPostureBar({
 
 export default function PulseView() {
   const go = useNavigateTab();
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const fleetMode = useFleetStore((s) => s.fleetMode);
   const activeClusterName = useFleetStore((s) => s.clusters?.find((c) => c.id === s.activeClusterId)?.name ?? s.activeClusterId);
 

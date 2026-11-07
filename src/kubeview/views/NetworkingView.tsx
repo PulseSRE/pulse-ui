@@ -11,7 +11,7 @@ import { k8sList } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
 import type { K8sResource } from '../engine/renderers';
 import type { Service, Route, Ingress, NetworkPolicy, Condition } from '../engine/types';
-import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
@@ -52,7 +52,7 @@ const INGRESS_OPERATOR_NS = 'openshift-ingress-operator';
 export default function NetworkingView() {
   const clusterId = useActiveClusterId();
   const go = useNavigateTab();
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // Real-time data
@@ -212,7 +212,7 @@ export default function NetworkingView() {
                 variant="secondary"
                 disabled={!allowed}
                 title={allowed ? undefined : `You do not have permission to create ${label}s here`}
-                onClick={() => go(nsFilter ? `/create/${gvr}?namespace=${encodeURIComponent(nsFilter)}` : `/create/${gvr}`, `Create ${label}`)}
+                onClick={() => go(nsFilter ? `/create/${gvr}?ns=${encodeURIComponent(nsFilter)}` : `/create/${gvr}`, `Create ${label}`)}
               >
                 <Plus className="w-3.5 h-3.5" /> {label}
               </Button>
