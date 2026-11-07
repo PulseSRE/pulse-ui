@@ -201,7 +201,6 @@ describe('the approvals queue', () => {
   };
 
   it('lists proposed fixes and waiting durable runs together, answerable in place', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const calls = route([
       ['POST /api/agent/workflow-runs/plan-crashloop-abc/approve', () => ({ body: {} })],
       ['/workflow-runs/awaiting-approval', () => ({ body: { runs: [run] } })],
@@ -213,6 +212,7 @@ describe('the approvals queue', () => {
 
     const runRow = screen.getByText("'remediate' of the crashloop plan on web-0 in shop").closest('li')!;
     fireEvent.click(within(runRow).getByRole('button', { name: /Approve/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve phase remediate' }));
     await waitFor(() => expect(sent(calls, 'POST', '/workflow-runs/plan-crashloop-abc/approve')).toHaveLength(1));
     expect(sent(calls, 'POST', '/workflow-runs/plan-crashloop-abc/approve')[0].body).toEqual({
       phase_id: 'remediate',
@@ -223,7 +223,6 @@ describe('the approvals queue', () => {
 
   it('observe mode cannot approve a durable run', async () => {
     useTrustStore.setState({ trustLevel: 0 });
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const calls = route([
       ['/workflow-runs/awaiting-approval', () => ({ body: { runs: [run] } })],
       ['GET /api/agent/fix-history', () => ({ body: { actions: [], total: 0, page: 1, pageSize: 20 } })],
@@ -233,7 +232,7 @@ describe('the approvals queue', () => {
     const approve = within(row).getByRole('button', { name: /Approve/ }) as HTMLButtonElement;
     expect(approve.disabled).toBe(true);
     fireEvent.click(approve);
-    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(sent(calls, 'POST', '/approve')).toHaveLength(0);
     expect(within(row).getByText('Observe mode — switch trust level to approve')).toBeTruthy();
   });
@@ -373,6 +372,9 @@ describe('the item drawer', () => {
     inRouter(<TaskDetailDrawer item={item()} onClose={vi.fn()} />);
     expect(screen.getByText('A proposed fix is waiting on you')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    // Nothing is sent until the write-confirm dialog is confirmed.
+    expect(sent(calls, 'POST', '/approve')).toHaveLength(0);
+    fireEvent.click(await screen.findByRole('button', { name: 'Run fix on Deployment api' }));
     await waitFor(() => expect(sent(calls, 'POST', '/fix-history/a-1/approve')).toHaveLength(1));
     expect(await screen.findByText('Ran restart_deployment')).toBeTruthy();
   });
@@ -398,6 +400,7 @@ describe('the item drawer', () => {
     useApprovalsStore.setState({ proposals: [PROPOSAL] });
     inRouter(<TaskDetailDrawer item={item()} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run fix on Deployment api' }));
     expect(await screen.findByText(/no longer being reported/)).toBeTruthy();
     // Re-read: the refused proposal is no longer offered.
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();

@@ -63,6 +63,9 @@ vi.mock('../MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content }: any) => <div>{content}</div>,
 }));
 
+// The card's permission check (useCanI) only covers workload/node tools; silences are not checked.
+vi.mock('../../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: true, isLoading: false }) }));
+
 import { ConfirmationCard } from '../ConfirmationCard';
 
 afterEach(() => cleanup());
@@ -162,5 +165,16 @@ describe('ConfirmationCard for silences', () => {
     render(<ConfirmationCard confirm={{ tool, input, nonce: 'n', preview }} onConfirm={onConfirm} />);
     expect(onConfirm).not.toHaveBeenCalled();
     expect(screen.getByTestId('silence-preview')).toBeTruthy();
+  });
+
+  it("shows the agent's preview as the dry run: passed, failed with the reason, or none from an older agent", () => {
+    render(<ConfirmationCard confirm={{ tool: 'create_silence', input: createInput, nonce: 'n', preview: goodPreview }} onConfirm={vi.fn()} />);
+    expect(screen.getByTestId('write-dry-run').textContent).toBe("Passed · Pulse's preview accepts this silence");
+    cleanup();
+    render(<ConfirmationCard confirm={{ tool: 'create_silence', input: createInput, nonce: 'n', preview: { kind: 'silence_create', valid: false, error: 'matches every alert' } }} onConfirm={vi.fn()} />);
+    expect(screen.getByTestId('write-dry-run').textContent).toBe('Failed · matches every alert');
+    cleanup();
+    render(<ConfirmationCard confirm={{ tool: 'create_silence', input: createInput, nonce: 'n' }} onConfirm={vi.fn()} />);
+    expect(screen.getByTestId('write-dry-run').textContent).toBe('No dry run available for this action');
   });
 });

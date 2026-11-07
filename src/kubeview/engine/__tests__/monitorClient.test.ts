@@ -125,29 +125,6 @@ describe('MonitorClient', () => {
     expect(client.connected).toBe(false);
   });
 
-  it('approveAction sends action_response with approved=true', async () => {
-    client.connect();
-    await vi.advanceTimersByTimeAsync(10);
-    client.approveAction('action-1');
-    const ws = (client as any).ws as MockWebSocket;
-    // sent[0] is subscribe_monitor, sent[1] is action_response
-    const parsed = JSON.parse(ws.sent[1]);
-    expect(parsed.type).toBe('action_response');
-    expect(parsed.actionId).toBe('action-1');
-    expect(parsed.approved).toBe(true);
-  });
-
-  it('rejectAction sends action_response with approved=false', async () => {
-    client.connect();
-    await vi.advanceTimersByTimeAsync(10);
-    client.rejectAction('action-2');
-    const ws = (client as any).ws as MockWebSocket;
-    const parsed = JSON.parse(ws.sent[1]);
-    expect(parsed.type).toBe('action_response');
-    expect(parsed.actionId).toBe('action-2');
-    expect(parsed.approved).toBe(false);
-  });
-
   it('requestFixHistory sends get_fix_history message', async () => {
     client.connect();
     await vi.advanceTimersByTimeAsync(10);
@@ -162,7 +139,7 @@ describe('MonitorClient', () => {
   it('emits error when sending without connection', () => {
     const events: any[] = [];
     client.on((e) => events.push(e));
-    client.approveAction('x');
+    client.triggerScan();
     expect(events).toContainEqual({
       type: 'error',
       message: 'Not connected to monitor',
