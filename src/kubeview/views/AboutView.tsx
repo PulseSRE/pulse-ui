@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useQuery } from '@tanstack/react-query';
 import {
   Info, Bot, Monitor, Cog, Database, Server, ExternalLink, Copy, Check,
@@ -195,16 +196,11 @@ export default function AboutView() {
 
   return (
     <div className="p-4 space-y-4 max-w-4xl">
-      <div className="flex items-center gap-3">
-        <Info className="w-5 h-5 text-sky-400" />
-        <div>
-          <h1 className="text-lg font-semibold text-slate-100">About OpenShift Pulse</h1>
-          <p className="text-xs text-slate-500">
-            What is running on this cluster, read live from the cluster itself
-            {status?.phase ? <> · phase: <span className="text-slate-300">{status.phase}</span></> : null}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Info className="w-6 h-6 text-sky-400" />}
+        title="About OpenShift Pulse"
+        subtitle={<>What is running on this cluster, read live from the cluster itself{status?.phase ? <> · phase: <span className="text-slate-300">{status.phase}</span></> : null}</>}
+      />
 
       {upgrading && (
         <div className="rounded-md border border-blue-700/40 bg-blue-500/10 px-4 py-3">

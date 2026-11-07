@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, User, Shield, Key, ArrowRight, CheckCircle, AlertTriangle,
@@ -36,6 +37,7 @@ import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from 
 import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
 import { CreateGroupButton, GroupMemberControls, type GroupLike } from './identity/GroupActions';
 import { AccessPanel } from './identity/AccessPanel';
+import { RbacChangeHistory } from './identity/RbacChangeHistory';
 import { SignInTab } from './identity/SignInTab';
 import { WhoCanPanel } from './identity/WhoCanPanel';
 import { subjectPagePath, refFromUsername } from '../engine/subjectAccess';
@@ -241,18 +243,11 @@ export default function IdentityView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Fingerprint className="w-6 h-6 text-violet-500" />
-              Identity &amp; Access
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Users, groups, service accounts, and RBAC
-              {nsFilter && <span className="text-violet-400 ml-1">in {nsFilter}</span>}
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={<Fingerprint className="w-6 h-6 text-violet-500" />}
+          title="Identity & Access"
+          subtitle={<>Users, groups, service accounts, and RBAC{nsFilter && <span className="text-violet-400 ml-1">in {nsFilter}</span>}</>}
+        />
 
         {/* Impersonation is announced once, by the global banner in the Shell. */}
 
@@ -568,12 +563,15 @@ export default function IdentityView() {
               onRetryBindings={() => { if (crbQ.isError) void crbQ.refetch(); if (rbQ.isError) void rbQ.refetch(); }}
             />
 
-            {/* Recent RBAC Changes */}
-            <RecentRBACChanges
-              clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
-              roleBindings={roleBindings as RoleBinding[]}
-              go={go}
-            />
+            {/* RBAC changes: the agent's observed history (edits, SCCs, webhooks, with
+                diff and restore); creation times only when the agent has none. */}
+            <RbacChangeHistory fallback={
+              <RecentRBACChanges
+                clusterRoleBindings={clusterRoleBindings as ClusterRoleBinding[]}
+                roleBindings={roleBindings as RoleBinding[]}
+                go={go}
+              />
+            } />
 
             {/* Cluster Admin subjects */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1346,7 +1344,7 @@ function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
           <Clock className="w-4 h-4 text-violet-400" />
-          Recent RBAC Changes (last 7 days)
+          New bindings (last 7 days, by creation time)
         </h2>
         {highSeverity.length > 0 && (
           <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{highSeverity.length} privilege escalation{highSeverity.length !== 1 ? 's' : ''}</span>

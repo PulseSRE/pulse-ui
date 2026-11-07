@@ -1,4 +1,5 @@
-import { Plus } from 'lucide-react';
+import { Inbox, Plus } from 'lucide-react';
+import { PageHeader } from '../../components/primitives/PageHeader';
 import { cn } from '@/lib/utils';
 import { Badge } from '../../components/primitives/Badge';
 import { Button } from '../../components/primitives/Button';
@@ -52,9 +53,12 @@ export function InboxHeader({
 
   return (
     <div className="px-4 py-3 border-b border-slate-800">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-slate-200">Inbox</h1>
+      <PageHeader
+        className="mb-3"
+        icon={<Inbox className="w-6 h-6 text-violet-400" />}
+        title="Inbox"
+        subtitle="Findings, tasks and approvals that need a person"
+        meta={<>
           {newCount > 0 && (
             <Badge variant="default" className="bg-violet-600 text-white text-xs">
               {newCount} new
@@ -87,15 +91,15 @@ export function InboxHeader({
               })}
             </div>
           )}
-        </div>
-        <div className="flex items-center gap-2">
+        </>}
+        actions={<>
           <InboxResetButton />
           <Button size="sm" onClick={onNewTask}>
             <Plus className="w-4 h-4 mr-1" />
             New Task
           </Button>
-        </div>
-      </div>
+        </>}
+      />
 
       <div className="flex items-center gap-2" role="group" aria-label="Quick filters">
         {PRESETS.map((preset) => {
