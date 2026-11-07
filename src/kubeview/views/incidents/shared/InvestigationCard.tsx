@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InvestigationReport } from '../../../engine/monitorClient';
 import { EvidenceList } from './EvidenceList';
+import { RelativeTime } from '../../../components/primitives/RelativeTime';
 
 export function InvestigationCard({
   report,
@@ -48,7 +49,7 @@ export function InvestigationCard({
           <span className="text-red-400">no supporting evidence</span>
         )}
         <span>-</span>
-        <span>{new Date(report.timestamp).toLocaleTimeString()}</span>
+        <RelativeTime value={report.timestamp} />
       </div>
       <div className="text-sm text-slate-200">{report.summary || 'Investigation completed'}</div>
 

@@ -31,7 +31,7 @@ vi.mock('../../../engine/watch', () => ({
   },
 }));
 
-vi.mock('../../../engine/dateUtils', () => ({ timeAgo: () => '2h ago' }));
+vi.mock('../../../engine/format', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../../engine/format')>()), formatRelative: () => '2h ago' }));
 
 let canPatch = true;
 const canICalls: unknown[][] = [];

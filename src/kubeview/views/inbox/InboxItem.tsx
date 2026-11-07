@@ -4,7 +4,7 @@ import {
   User, UserPlus, UserMinus, Pin, Eye, PauseCircle, Trash2, ArrowUpCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative } from '../../engine/format';
 import { Card } from '../../components/primitives/Card';
 import { Badge } from '../../components/primitives/Badge';
 import { Dropdown } from '../../components/primitives/Dropdown';
@@ -199,7 +199,7 @@ export function InboxItem({
             <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
               <span>{getSourceLabel(item.created_by)}</span>
               <span>·</span>
-              <span>{formatRelativeTime(item.created_at * 1000)}</span>
+              <span>{formatRelative(item.created_at * 1000)}</span>
               {item.claimed_by && (
                 <>
                   <span>·</span>

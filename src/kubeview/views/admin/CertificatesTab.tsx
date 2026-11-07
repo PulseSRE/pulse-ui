@@ -56,6 +56,7 @@ function detectIssuer(secret: any): string {
 
 import { isSystemNamespace } from '../../engine/namespace';
 import { parseCertExpiry, fetchTlsSecrets, TLS_SECRETS_PATH, type TlsSecretLike } from '../../engine/certExpiry';
+import { formatDate as formatDateOnly } from '../../engine/format';
 
 /** Expiring within this many days (inclusive) counts as expiring — the same window the Overview counts. */
 export const EXPIRING_WITHIN_DAYS = 30;
@@ -101,8 +102,7 @@ function formatRelative(days: number | null): string {
 }
 
 function formatDate(d: Date | null): string {
-  if (!d) return '\u2014';
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatDateOnly(d);
 }
 
 // --- Component ---
@@ -296,7 +296,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-          <input
+          <input aria-label="Search certificates"
             type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search name, namespace, issuer..."
             className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:border-blue-600"

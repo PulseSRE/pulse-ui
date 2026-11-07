@@ -9,6 +9,7 @@ import { ToolDetailDrawer } from './ToolDetailDrawer';
 import { StatCard } from '../../components/primitives/StatCard';
 import { METRIC_EXPLANATIONS } from '../../engine/analyticsExplanations';
 import { UnusedToolsSection } from './UnusedToolsSection';
+import { formatCount } from '../../engine/format';
 
 interface McpToolInfo extends ToolInfo {
   source: string;
@@ -165,7 +166,7 @@ export function CatalogTab() {
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard size="sm" label="Total Calls" value={stats.total_calls.toLocaleString()} icon={<BarChart3 className="w-4 h-4 text-blue-400" />} explanation={METRIC_EXPLANATIONS.total_calls} />
+            <StatCard size="sm" label="Total Calls" value={formatCount(stats.total_calls)} icon={<BarChart3 className="w-4 h-4 text-blue-400" />} explanation={METRIC_EXPLANATIONS.total_calls} />
             <StatCard size="sm" label="Unique Tools" value={String(stats.unique_tools_used)} icon={<Search className="w-4 h-4 text-fuchsia-400" />} explanation={METRIC_EXPLANATIONS.unique_tools} />
             <StatCard size="sm" label="Error Rate" value={`${(stats.error_rate * 100).toFixed(1)}%`} icon={<BarChart3 className="w-4 h-4 text-red-400" />} explanation={METRIC_EXPLANATIONS.error_rate} />
             <StatCard size="sm" label="Avg Duration" value={`${stats.avg_duration_ms}ms`} icon={<BarChart3 className="w-4 h-4 text-emerald-400" />} explanation={METRIC_EXPLANATIONS.avg_duration} />

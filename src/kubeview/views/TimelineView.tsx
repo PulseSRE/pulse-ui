@@ -20,6 +20,7 @@ import { LoadError } from '../components/primitives/LoadError';
 import { CHART_COLORS } from '../engine/colors';
 import { CorrelationGroupRow } from './incidents/shared/CorrelationGroupRow';
 import { useAgentStore } from '../store/agentStore';
+import { formatTime, getDateKey } from '../engine/format';
 
 /** Ask the agent about a correlated incident (moved here from Inbox › Activity). */
 function investigateGroup(group: CorrelationGroup) {
@@ -346,7 +347,7 @@ function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs text-slate-500">
-              {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {formatTime(entry.timestamp)}
             </span>
             <span className={cn('px-1.5 py-0.5 text-xs rounded-sm', {
               'bg-red-900/50 text-red-300': entry.severity === 'critical',
@@ -378,14 +379,3 @@ function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: 
   );
 }
 
-function getDateKey(date: Date): string {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const eventDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (eventDate.getTime() === today.getTime()) return 'Today';
-  if (eventDate.getTime() === yesterday.getTime()) return 'Yesterday';
-  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-}

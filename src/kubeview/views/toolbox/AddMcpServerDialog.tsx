@@ -72,7 +72,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-[11px] text-slate-400 mb-1">Name</label>
-          <input
+          <input aria-label="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. my-mcp-server"
@@ -81,7 +81,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
         </div>
         <div>
           <label className="block text-[11px] text-slate-400 mb-1">Transport</label>
-          <select
+          <select aria-label="Transport"
             value={transport}
             onChange={(e) => setTransport(e.target.value as 'sse' | 'stdio')}
             className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
@@ -96,7 +96,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
         <label className="block text-[11px] text-slate-400 mb-1">
           {transport === 'sse' ? 'Server URL' : 'Command'}
         </label>
-        <input
+        <input aria-label={transport === 'sse' ? 'Server URL' : 'Command'}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder={transport === 'sse' ? 'http://localhost:8081' : 'npx @modelcontextprotocol/server-everything'}

@@ -29,6 +29,7 @@ import { diffObjects, parseRendered, redactSecretValues } from '../../engine/hel
 import { fetchReleaseRecord, rollbackHooks } from './helmPreview';
 import { HelmUpgradeDialog } from './HelmUpgradeDialog';
 import { HooksList, PreviewObjects } from './HelmPreviewPanel';
+import { formatTimestamp } from '../../engine/format';
 
 export interface ChartSource {
   name: string;
@@ -313,7 +314,7 @@ function ReleaseActionDialog({ action, onStarted }: {
             className="mt-1 w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
             {earlier.map((rev) => (
               <option key={rev.revision} value={rev.revision}>
-                rev {rev.revision} — {rev.status}{rev.chartVersion ? `, chart ${rev.chartVersion}` : ''}{rev.updated ? `, ${new Date(rev.updated).toLocaleString()}` : ''}
+                rev {rev.revision} — {rev.status}{rev.chartVersion ? `, chart ${rev.chartVersion}` : ''}{rev.updated ? `, ${formatTimestamp(rev.updated)}` : ''}
               </option>
             ))}
           </select>

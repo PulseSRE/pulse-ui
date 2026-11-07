@@ -402,7 +402,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
           <label className="text-xs text-slate-400 block mb-1">
             {isAppOfApps ? 'Cluster Name' : 'Application Name'}
           </label>
-          <input
+          <input aria-label={isAppOfApps ? 'Cluster Name' : 'Application Name'}
             type="text"
             value={isAppOfApps ? clusterName : name}
             onChange={(e) => {
@@ -422,7 +422,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
 
         <div>
           <label className="text-xs text-slate-400 block mb-1">Git Repository URL</label>
-          <input
+          <input aria-label="Git Repository URL"
             type="text"
             value={repoURL}
             onChange={(e) => setRepoURL(e.target.value)}
@@ -435,7 +435,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
           <>
             <div>
               <label className="text-xs text-slate-400 block mb-1">Target Revision</label>
-              <input
+              <input aria-label="Target Revision"
                 type="text"
                 value={targetRevision}
                 onChange={(e) => setTargetRevision(e.target.value)}
@@ -464,7 +464,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
                 <label className="text-xs text-slate-400 block mb-1">
                   Path{exportClusterName && ' (from export)'}
                 </label>
-                <input
+                <input aria-label="Path"
                   type="text"
                   value={effectivePath}
                   onChange={(e) => !exportClusterName && setPath(e.target.value)}
@@ -475,7 +475,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
               </div>
               <div>
                 <label className="text-xs text-slate-400 block mb-1">Target Revision</label>
-                <input
+                <input aria-label="Target Revision"
                   type="text"
                   value={targetRevision}
                   onChange={(e) => setTargetRevision(e.target.value)}
@@ -487,7 +487,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
 
             <div>
               <label className="text-xs text-slate-400 block mb-1">Destination Namespace</label>
-              <input
+              <input aria-label="Destination Namespace"
                 type="text"
                 value={destNamespace}
                 onChange={(e) => setDestNamespace(e.target.value)}

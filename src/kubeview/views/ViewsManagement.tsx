@@ -11,7 +11,7 @@ import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
 import { agentJson } from '../engine/safeQuery';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
-import { formatRelativeTime } from '../engine/formatters';
+import { formatRelative } from '../engine/format';
 import type { ViewSpec } from '../engine/agentComponents';
 import { askPulse } from '../engine/askPulse';
 import { GRID_COLS, LEGACY_GRID_COLS, toCurrentGrid } from './grid';
@@ -262,7 +262,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
               value={typeFilter ?? 'all'}
               onChange={(v) => setTypeFilter(!v || v === 'all' ? null : v)}
             />
-            <SearchInput value={search} onChange={setSearch} placeholder="Search views" className="w-56" />
+            <SearchInput label="Search views" value={search} onChange={setSearch} placeholder="Search views" className="w-56" />
           </div>
         )}
 
@@ -341,7 +341,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                       <span>·</span>
                       <span>{kindSummary}</span>
                       <span>·</span>
-                      <span>Updated {formatRelativeTime(view.generatedAt)}</span>
+                      <span>Updated {formatRelative(view.generatedAt)}</span>
                     </div>
                   </div>
 
@@ -423,7 +423,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                 return (
                 <div key={v.version} className="flex items-center justify-between rounded-sm border border-slate-800 bg-slate-950 px-3 py-2">
                   <div>
-                    <div className="text-xs text-slate-300">v{v.version} · {formatRelativeTime(new Date(v.created_at).getTime())}</div>
+                    <div className="text-xs text-slate-300">v{v.version} · {formatRelative(new Date(v.created_at).getTime())}</div>
                     <div className="text-xs text-slate-500">{describeChanges(v, previous)}</div>
                     {v.layout && <div className="text-xs text-slate-600 mt-0.5">{v.layout.length} widget{v.layout.length !== 1 ? 's' : ''} · {v.title}</div>}
                   </div>

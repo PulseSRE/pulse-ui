@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import type { K8sResource } from '../../engine/renderers';
 import type { Container, ContainerStatus, Pod } from '../../engine/types';
 import { TONE_CLASSES } from '../../engine/statusColors';
-import { formatDurationMs } from '../../engine/format';
+import { formatDurationMs, formatTimestamp } from '../../engine/format';
 import { containerRefs, currentStateText, lastTermination, probeTiming } from '../../engine/podFacts';
 
 function Fact({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
@@ -60,7 +60,7 @@ export function ContainerFacts({ pod, go }: { pod: K8sResource; go: (path: strin
                   ? [
                       term.reason,
                       `exit ${term.exitCode ?? '—'}`,
-                      term.finishedAt ? new Date(term.finishedAt).toLocaleTimeString() : 'time unknown',
+                      term.finishedAt ? formatTimestamp(term.finishedAt) : 'time unknown',
                       term.ranForMs !== null ? `ran ${formatDurationMs(term.ranForMs)}` : 'run time unknown',
                     ].join(' · ')
                   : 'None (this container has not restarted)'}

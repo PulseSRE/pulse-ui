@@ -234,7 +234,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
               {/* Key */}
               <div className="w-48 shrink-0">
                 {editingKey === idx || entry.isNew ? (
-                  <input
+                  <input aria-label="Key"
                     type="text"
                     value={entry.key}
                     onChange={(e) => handleUpdateKey(idx, e.target.value)}
@@ -266,7 +266,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
                     {showValues ? entry.value : '••••••••••'}
                   </pre>
                 ) : (
-                  <textarea
+                  <textarea aria-label={`Value of ${entry.key || "new key"}`}
                     value={showValues ? entry.value : '••••••••••'}
                     onChange={(e) => handleUpdateValue(idx, e.target.value)}
                     disabled={!showValues && kind === 'Secret'}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Info, Search, X, Wrench, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative } from '../../engine/format';
 import { ConfirmDialog } from '../feedback/ConfirmDialog';
 import type { Finding } from '../../engine/monitorClient';
 
@@ -77,7 +77,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
             )}
             <span className="ml-auto flex items-center gap-1 text-xs text-slate-500 shrink-0">
               <Clock className="h-3 w-3" aria-hidden="true" />
-              {formatRelativeTime(finding.timestamp)}
+              {formatRelative(finding.timestamp)}
             </span>
           </div>
           <h4 className={cn('font-medium text-slate-100 mt-1', compact ? 'text-xs' : 'text-sm')}>

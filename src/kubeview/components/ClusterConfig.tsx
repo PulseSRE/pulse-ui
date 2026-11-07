@@ -247,8 +247,8 @@ function ImageEditor({ data, apiPath, clusterId }: { data: any; apiPath: string;
         <div className="text-xs text-slate-500">Additional trusted CAs: <span className="text-slate-300 font-mono">{spec.additionalTrustedCA.name}</span></div>
       )}
       <div className="flex items-center gap-2 pt-1">
-        <input type="text" value={newReg} onChange={(e) => setNewReg(e.target.value)} placeholder="registry.example.com" className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-64 focus:outline-hidden focus:ring-1 focus:ring-blue-500" onKeyDown={(e) => e.key === 'Enter' && handleAddRegistry()} />
-        <select value={regType} onChange={(e) => setRegType(e.target.value as 'allowed' | 'blocked' | 'insecure')} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
+        <input aria-label="Registry hostname" type="text" value={newReg} onChange={(e) => setNewReg(e.target.value)} placeholder="registry.example.com" className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-64 focus:outline-hidden focus:ring-1 focus:ring-blue-500" onKeyDown={(e) => e.key === 'Enter' && handleAddRegistry()} />
+        <select aria-label="Registry list" value={regType} onChange={(e) => setRegType(e.target.value as 'allowed' | 'blocked' | 'insecure')} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
           <option value="allowed">Allowed</option>
           <option value="blocked">Blocked</option>
           <option value="insecure">Insecure</option>
@@ -524,7 +524,7 @@ function NetworkEditor({ data, apiPath, clusterId }: { data: any; apiPath: strin
       </div>
       <div>
         <label className="text-xs text-slate-400 block mb-1">Network Type</label>
-        <select value={networkType} onChange={(e) => { setNetworkType(e.target.value); setDirty(true); }}
+        <select aria-label="Network Type" value={networkType} onChange={(e) => { setNetworkType(e.target.value); setDirty(true); }}
           className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500">
           <option value="OVNKubernetes">OVNKubernetes</option>
           <option value="OpenShiftSDN">OpenShiftSDN</option>
@@ -600,7 +600,7 @@ function FeatureGateEditor({ data, apiPath, clusterId }: { data: any; apiPath: s
       )}
       <div>
         <label className="text-xs text-slate-400 block mb-1">Feature Set</label>
-        <select value={featureSet} onChange={(e) => { setFeatureSet(e.target.value); setDirty(true); }}
+        <select aria-label="Feature Set" value={featureSet} onChange={(e) => { setFeatureSet(e.target.value); setDirty(true); }}
           className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500">
           <option value="">Default</option>
           <option value="LatencySensitive">LatencySensitive</option>
@@ -741,9 +741,9 @@ function FieldRow({ label, value, onChange, placeholder, multiline }: {
     <div>
       <label className="text-xs text-slate-400 block mb-1">{label}</label>
       {multiline ? (
-        <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 font-mono resize-none focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
+        <textarea aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={3} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 font-mono resize-none focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
       ) : (
-        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 font-mono focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
+        <input aria-label={label} type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 font-mono focus:outline-hidden focus:ring-1 focus:ring-blue-500" />
       )}
     </div>
   );

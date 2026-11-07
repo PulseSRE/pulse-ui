@@ -90,7 +90,7 @@ export function ImportYamlTab({ onImport }: { onImport: (yaml: string) => void }
       </div>
       <div>
         <label className="text-xs text-slate-400 block mb-1">Or paste YAML here</label>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="apiVersion: v1&#10;kind: ConfigMap&#10;metadata:&#10;  name: my-config&#10;..." rows={12} className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
+        <textarea aria-label="Or paste YAML here" value={text} onChange={(e) => setText(e.target.value)} placeholder="apiVersion: v1&#10;kind: ConfigMap&#10;metadata:&#10;  name: my-config&#10;..." rows={12} className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-600 font-mono resize-none focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
 
         {validation && (
           <div className={cn('mt-2 p-3 rounded-lg border text-xs', validation.valid ? 'bg-green-950/30 border-green-900' : 'bg-red-950/30 border-red-900')}>

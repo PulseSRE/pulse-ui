@@ -73,7 +73,7 @@ export function OperatorsTab({ operators, isLoading, error, onRetry, go }: Opera
           <span className="text-xs text-emerald-300">All {operatorList.length} operators healthy — no degraded or unavailable operators</span>
         </div>
       )}
-      <SearchInput value={search} onChange={setSearch} placeholder="Filter operators..." />
+      <SearchInput label="Filter operators" value={search} onChange={setSearch} placeholder="Filter operators..." />
       <Card>
         <div className="divide-y divide-slate-800">
           {operatorList.filter((op) => !search || op.name.toLowerCase().includes(search.toLowerCase())).map((op) => (

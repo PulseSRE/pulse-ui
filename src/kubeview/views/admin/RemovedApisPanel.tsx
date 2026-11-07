@@ -18,6 +18,7 @@ import {
   API_REQUEST_COUNTS_PATH, ADMIN_GATES_PATH, ADMIN_ACKS_PATH,
   type APIRequestCount, type ApiRemovalVerdict, type AdminGate, type ApiRemovalInputs, type RemovedApi,
 } from '../../engine/upgradeApiRemovals';
+import { formatCount } from '../../engine/format';
 
 /** The reads behind the removed-API check, for the active cluster. Never throws: each read is a ReadResult. */
 export function useApiRemovalReads() {
@@ -288,7 +289,7 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
                       </td>
                       <td className="py-1.5 pr-3 font-mono text-slate-300">{apiVersionLabel(api)}</td>
                       <td className="py-1.5 pr-3 font-mono text-slate-300">{api.removedInRelease}</td>
-                      <td className="py-1.5 pr-3 font-mono text-right text-red-300">{api.requestCount.toLocaleString()}</td>
+                      <td className="py-1.5 pr-3 font-mono text-right text-red-300">{formatCount(api.requestCount)}</td>
                       <td className="py-1.5">
                         {api.callers.length === 0 ? <span className="text-slate-500">No per-user breakdown reported</span> : (
                           <ul className="space-y-0.5">
@@ -297,7 +298,7 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
                                 <span className="font-mono text-slate-200 break-all" title={c.username}>{truncateCaller(c.username)}</span>
                                 {c.platform && <span className={cn('px-1 rounded-sm text-[10px]', TONE_CLASSES.info.chip)} title="A system: user, usually a cluster component that is updated with the cluster">Platform</span>}
                                 <span className="text-slate-500 break-all" title={c.userAgent || undefined}>{c.userAgent ? truncateCaller(c.userAgent) : 'no user agent'}</span>
-                                <span className="font-mono text-slate-400">({c.requestCount.toLocaleString()})</span>
+                                <span className="font-mono text-slate-400">({formatCount(c.requestCount)})</span>
                               </li>
                             ))}
                             {api.callers.length > 3 && <li className="text-slate-500">+{api.callers.length - 3} more</li>}

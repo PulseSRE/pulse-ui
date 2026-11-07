@@ -9,6 +9,7 @@ import { agentFetch } from '../../engine/safeQuery';
 import { DurableDisabledError, fetchAwaitingApprovals, isDurableDisabled, type AwaitingRun } from '../../engine/durableRunsApi';
 import { LoadError } from '../../components/primitives/LoadError';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { formatTimestamp } from '../../engine/format';
 
 interface RunMemo {
   kind?: string;
@@ -243,7 +244,7 @@ function describe(run: WorkflowRun): string {
 function formatWhen(run: WorkflowRun): string {
   const started = run.started_at ? new Date(run.started_at) : null;
   if (!started || Number.isNaN(started.getTime())) return '';
-  return run.closed_at ? `finished ${started.toLocaleString()}` : `started ${started.toLocaleString()}`;
+  return run.closed_at ? `finished ${formatTimestamp(started)}` : `started ${formatTimestamp(started)}`;
 }
 
 function StatusIcon({ status }: { status: string }) {

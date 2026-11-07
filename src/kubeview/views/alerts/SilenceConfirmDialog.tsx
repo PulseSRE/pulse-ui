@@ -21,6 +21,7 @@ import {
   hiddenProblem, labelsMatch, matcherProblem, parseMatchers, type AlertForSilence, type Matcher,
 } from '../../engine/silences';
 import { cn } from '@/lib/utils';
+import { formatClock } from '../../engine/format';
 
 export interface SilenceProposal {
   /** What the silence is about, for the title: "worker-5". */
@@ -56,7 +57,7 @@ interface Props {
 const ALT_MINUTES = [60, 240];
 
 function endTime(minutes: number): string {
-  return new Date(Date.now() + minutes * 60_000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return formatClock(Date.now() + minutes * 60_000);
 }
 
 function AlertLine({ a }: { a: AlertForSilence }) {

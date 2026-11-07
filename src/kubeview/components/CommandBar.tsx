@@ -329,7 +329,7 @@ export function CommandBar() {
                 <div className="p-2 border-b border-slate-700">
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                    <input
+                    <input aria-label="Filter namespaces"
                       type="text"
                       value={nsFilter}
                       onChange={(e) => setNsFilter(e.target.value)}
@@ -536,7 +536,7 @@ export function CommandBar() {
                   </button>
                 ) : showImpersonateInput ? (
                   <div className="px-3 py-2 space-y-1.5">
-                    <input
+                    <input aria-label="User to impersonate"
                       type="text"
                       value={impersonateInput}
                       onChange={(e) => setImpersonateInput(e.target.value)}

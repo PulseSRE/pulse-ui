@@ -7,6 +7,7 @@ import type { Event, ReplicaSet, Deployment, ClusterVersion, ClusterOperator, Co
 import type { TimelineEntry, TimelineSeverity, CorrelationGroup } from './types/timeline';
 import type { PrometheusAlert } from './types/incident';
 import { alertResource } from './alertResource';
+import { formatTimestamp } from './format';
 
 // ── Alert types (from Prometheus API, not K8s resources) ──
 
@@ -151,7 +152,7 @@ export function configChangesToTimeline(
         category: 'config',
         severity: h.state === 'Completed' ? 'info' : h.state === 'Partial' ? 'warning' : 'info',
         title: `Cluster update to ${h.version}`,
-        detail: `State: ${h.state}${h.completionTime ? ` (completed ${new Date(h.completionTime).toLocaleString()})` : ''}`,
+        detail: `State: ${h.state}${h.completionTime ? ` (completed ${formatTimestamp(h.completionTime)})` : ''}`,
         correlationKey: 'cluster/version',
         source: { type: 'clusterversion', raw: h },
       });

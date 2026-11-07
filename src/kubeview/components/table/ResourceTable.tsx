@@ -259,7 +259,7 @@ export function ResourceTable({
             {visibleColumns.slice(0, 5).map((col) => (
               <div key={col.id} className="flex items-center gap-1">
                 <Filter className="w-2.5 h-2.5 text-slate-600" />
-                <input
+                <input aria-label={`Filter by ${col.header}`}
                   placeholder={col.header}
                   value={filters[col.id] || ''}
                   onChange={(e) => setFilters((f) => ({ ...f, [col.id]: e.target.value }))}

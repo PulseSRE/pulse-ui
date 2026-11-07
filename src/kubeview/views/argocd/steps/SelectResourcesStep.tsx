@@ -132,7 +132,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
       {/* Cluster name */}
       <div>
         <label className="text-xs text-slate-400 block mb-1">Cluster Name</label>
-        <input
+        <input aria-label="Cluster Name"
           type="text"
           value={clusterName}
           onChange={(e) => setClusterName(e.target.value)}
@@ -195,7 +195,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
         </div>
         <div className="relative mb-2">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-          <input
+          <input aria-label="Search namespaces"
             type="text"
             value={nsSearch}
             onChange={(e) => setNsSearch(e.target.value)}

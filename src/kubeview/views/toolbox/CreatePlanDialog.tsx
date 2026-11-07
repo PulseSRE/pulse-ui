@@ -120,7 +120,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-[11px] text-slate-400 mb-1">Incident type</label>
-          <input
+          <input aria-label="Incident type"
             value={incidentType}
             onChange={(e) => setIncidentType(e.target.value)}
             placeholder="e.g. disk-pressure"
@@ -134,7 +134,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
         </div>
         <div>
           <label className="block text-[11px] text-slate-400 mb-1">Display name</label>
-          <input
+          <input aria-label="Display name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="defaults from incident type"
@@ -143,7 +143,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
         </div>
         <div>
           <label className="block text-[11px] text-slate-400 mb-1">Max duration (s)</label>
-          <input
+          <input aria-label="Max duration (s)"
             type="number"
             min={60}
             value={maxDuration}
@@ -180,19 +180,19 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <input
+              <input aria-label={`Phase ${idx + 1} id`}
                 value={phase.id}
                 onChange={(e) => patchPhase(idx, { id: e.target.value })}
                 placeholder="phase id (e.g. diagnose)"
                 className={inputCls}
               />
-              <input
+              <input aria-label={`Phase ${idx + 1} skill`}
                 value={phase.skill_name}
                 onChange={(e) => patchPhase(idx, { skill_name: e.target.value })}
                 placeholder="skill (e.g. sre)"
                 className={inputCls}
               />
-              <input
+              <input aria-label={`Phase ${idx + 1} timeout (s)`}
                 type="number"
                 min={10}
                 value={phase.timeout_seconds}
@@ -201,7 +201,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
               />
             </div>
             <div>
-              <input
+              <input aria-label={`Phase ${idx + 1} produces`}
                 value={phase.produces}
                 onChange={(e) => patchPhase(idx, { produces: e.target.value })}
                 placeholder="produces: root_cause, confidence"
@@ -215,7 +215,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
-                <input
+                <input aria-label={`Phase ${idx + 1} depends on`}
                   value={phase.depends_on}
                   onChange={(e) => patchPhase(idx, { depends_on: e.target.value })}
                   placeholder="depends on: triage, logs"
@@ -226,7 +226,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                 </div>
               </div>
               <div>
-                <input
+                <input aria-label={`Phase ${idx + 1} branch on finding`}
                   value={phase.branch_on}
                   onChange={(e) => patchPhase(idx, { branch_on: e.target.value })}
                   placeholder="branch on finding: cause"
@@ -237,7 +237,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                 </div>
               </div>
               <div>
-                <input
+                <input aria-label={`Phase ${idx + 1} sub-plan`}
                   value={phase.subplan}
                   onChange={(e) => patchPhase(idx, { subplan: e.target.value })}
                   placeholder="sub-plan: oom-investigation"
@@ -250,7 +250,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
             </div>
             {phase.branch_on.trim() && (
               <div>
-                <textarea
+                <textarea aria-label={`Phase ${idx + 1} branches`}
                   value={phase.branches}
                   onChange={(e) => patchPhase(idx, { branches: e.target.value })}
                   placeholder={'oom: oom-investigator\nconfig: config-auditor'}

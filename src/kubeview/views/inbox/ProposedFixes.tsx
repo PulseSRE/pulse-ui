@@ -4,7 +4,7 @@ import { Check, ChevronDown, ChevronRight, GitBranch, Wrench, XCircle } from 'lu
 import { Button } from '../../components/primitives/Button';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { type ActionRecord } from '../../engine/fixHistory';
-import { formatElapsed } from '../../engine/dateUtils';
+import { formatElapsed } from '../../engine/format';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { useApprovalsStore } from '../../store/approvalsStore';
 import { useInboxStore } from '../../store/inboxStore';

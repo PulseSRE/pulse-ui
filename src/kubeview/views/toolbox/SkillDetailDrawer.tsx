@@ -337,7 +337,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
         {/* Clone input */}
         {showCloneInput && (
           <div className="mx-5 mt-3 flex items-center gap-2">
-            <input
+            <input aria-label="New skill name"
               ref={cloneInputRef}
               value={cloneName}
               onChange={(e) => setCloneName(e.target.value)}
@@ -536,14 +536,14 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                       ))}
                     </div>
                     {activeFile === 'raw_content' ? (
-                      <textarea
+                      <textarea aria-label="Skill source"
                         value={editContent}
                         onChange={(e) => { setEditContent(e.target.value); setDirty(true); setSaveStatus('idle'); }}
                         className="w-full h-[500px] px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                         spellCheck={false}
                       />
                     ) : (
-                      <textarea
+                      <textarea aria-label={activeFile}
                         readOnly
                         value={detail[activeFile] || ''}
                         className="w-full h-96 px-3 py-2 text-xs font-mono bg-slate-900 border border-slate-800 rounded-lg text-slate-300 resize-y focus:outline-hidden"

@@ -7,6 +7,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { AgentComponentRenderer } from './AgentComponentRenderer';
 import { cn } from '@/lib/utils';
 import { Bot, Shield } from 'lucide-react';
+import { formatClock } from '../../engine/format';
 
 const MODE_ICON: Record<AgentMode, typeof Bot> = {
   sre: Bot,
@@ -176,7 +177,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
     });
   }, [message.content]);
 
-  const timeStr = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const timeStr = formatClock(message.timestamp);
 
   return (
     <div className={cn(

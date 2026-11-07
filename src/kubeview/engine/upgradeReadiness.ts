@@ -17,7 +17,7 @@ import { getBlockingPdbs, type BlockingPdb, type PdbLike } from './upgradeHealth
 import { parseCertExpiry, type TlsSecretLike } from './certExpiry';
 import { isPending, type CertificateSigningRequest } from './csr';
 import { upgradeableBlockerOf, type APIRequestCount, type ApiRemovalVerdict, type RemovedApi } from './upgradeApiRemovals';
-import { formatDurationMs } from './format';
+import { formatDurationMs, formatCount } from './format';
 
 export type Loadable<T> = ReadResult<T> | { state: 'loading' };
 
@@ -368,7 +368,7 @@ export function checkRemovedApis(reads: RemovalReads | null, verdict: ApiRemoval
   const caller = api.callers[0];
   return {
     id, label, status: 'blocker',
-    detail: `${apiName(api)} is removed in Kubernetes ${api.removedInRelease} and was called ${api.requestCount.toLocaleString()} times in 24h${caller ? ` by ${caller.username}` : ''}${inUse.length > 1 ? `; ${inUse.length - 1} more removed API${inUse.length > 2 ? 's are' : ' is'} in use` : ''}`,
+    detail: `${apiName(api)} is removed in Kubernetes ${api.removedInRelease} and was called ${formatCount(api.requestCount)} times in 24h${caller ? ` by ${caller.username}` : ''}${inUse.length > 1 ? `; ${inUse.length - 1} more removed API${inUse.length > 2 ? 's are' : ' is'} in use` : ''}`,
   };
 }
 

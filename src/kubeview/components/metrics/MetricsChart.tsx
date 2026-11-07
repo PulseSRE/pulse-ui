@@ -40,6 +40,7 @@ export interface MetricsChartProps {
 }
 
 import { CHART_COLOR_SEQUENCE } from '../../engine/colors';
+import { formatClock, formatTimestamp } from '../../engine/format';
 
 const _DEFAULT_COLORS = CHART_COLOR_SEQUENCE;
 
@@ -169,13 +170,13 @@ export function MetricsChart({
 
     if (range < 3600) {
       // Less than 1 hour: show minutes
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return formatClock(date);
     } else if (range < 86400) {
       // Less than 1 day: show hours:minutes
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return formatClock(date);
     } else {
       // More than 1 day: show month/day
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return formatTimestamp(date, '—', { month: 'short', day: 'numeric' });
     }
   };
 

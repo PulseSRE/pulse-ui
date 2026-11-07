@@ -12,7 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import { fleetList, type FleetResult } from '../../engine/fleet';
 import { detectResourceStatus } from '../../engine/renderers/statusUtils';
-import { timeAgo } from '../../engine/dateUtils';
+import { formatRelative } from '../../engine/format';
 import { getAllConnections, type ClusterConnection } from '../../engine/clusterConnection';
 import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
@@ -284,7 +284,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-              <input
+              <input aria-label="Search resources"
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -369,7 +369,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
                   <td className="px-4 py-3 text-sm text-slate-200 font-mono">{row.resource.metadata.name}</td>
                   <td className="px-4 py-3 text-sm text-slate-400">{row.resource.metadata.namespace || '-'}</td>
                   <td className="px-4 py-3">{statusBadge(row.resource)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{timeAgo(row.resource.metadata.creationTimestamp || '')}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{formatRelative(row.resource.metadata.creationTimestamp || '')}</td>
                 </tr>
               ))}
             </tbody>

@@ -3,6 +3,7 @@ import { Bell, Activity, RefreshCw, Settings, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { statusClasses } from '../../../engine/statusColors';
 import type { TimelineEntry, TimelineCategory } from '../../../engine/types/timeline';
+import { formatTime } from '../../../engine/format';
 
 export const CATEGORY_CONFIG: Record<TimelineCategory, { label: string; icon: React.ElementType; color: string }> = {
   alert: { label: 'Alerts', icon: Bell, color: 'text-red-400' },
@@ -42,7 +43,7 @@ export function HistoryEntryCard({ entry, onClick, onRollback }: {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs text-slate-500">
-              {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {formatTime(entry.timestamp)}
             </span>
             <span
               className={cn('px-1.5 py-0.5 text-xs rounded-sm', {

@@ -162,7 +162,7 @@ export function GitProviderStep({ onComplete }: Props) {
       <div className="space-y-4">
         <div>
           <label className="text-xs text-slate-400 block mb-1">Repository URL</label>
-          <input
+          <input aria-label="Repository URL"
             type="text"
             value={repoUrl}
             onChange={(e) => setRepoUrl(e.target.value)}
@@ -173,7 +173,7 @@ export function GitProviderStep({ onComplete }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-slate-400 block mb-1">Base Branch</label>
-            <input
+            <input aria-label="Base Branch"
               type="text"
               value={baseBranch}
               onChange={(e) => setBaseBranch(e.target.value)}
@@ -183,7 +183,7 @@ export function GitProviderStep({ onComplete }: Props) {
           </div>
           <div>
             <label className="text-xs text-slate-400 block mb-1">Path Prefix <span className="text-slate-600">(optional)</span></label>
-            <input
+            <input aria-label="Path Prefix"
               type="text"
               value={pathPrefix}
               onChange={(e) => setPathPrefix(e.target.value)}
@@ -198,7 +198,7 @@ export function GitProviderStep({ onComplete }: Props) {
             <span className="text-slate-600 ml-1">(stored in K8s Secret)</span>
           </label>
           <div className="relative">
-            <input
+            <input aria-label="Personal Access Token"
               type={showToken ? 'text' : 'password'}
               autoComplete="off"
               value={token}

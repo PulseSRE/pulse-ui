@@ -3,6 +3,8 @@ import { Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SearchInputProps {
+  /** Accessible name. The placeholder disappears once you type, so it cannot be the label. */
+  label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -11,6 +13,7 @@ interface SearchInputProps {
 }
 
 export function SearchInput({
+  label,
   value,
   onChange,
   placeholder = 'Search...',
@@ -51,6 +54,7 @@ export function SearchInput({
       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       <input
         type="text"
+        aria-label={label}
         value={internalValue}
         onChange={(e) => setInternalValue(e.target.value)}
         placeholder={placeholder}
@@ -61,7 +65,7 @@ export function SearchInput({
         <button
           onClick={handleClear}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-200"
-          aria-label="Clear"
+          aria-label={`Clear ${label.toLowerCase()}`}
         >
           <X className="h-4 w-4" />
         </button>

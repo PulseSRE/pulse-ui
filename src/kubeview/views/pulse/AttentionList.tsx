@@ -21,7 +21,7 @@ import { fetchInbox } from '../../engine/inboxApi';
 import { fetchChanges, CHANGE_KINDS, type ChangeEntry } from '../../engine/changesApi';
 import { AgentRequestError, isAgentFeatureUnavailable } from '../../engine/agentFeature';
 import { askPulse } from '../../engine/askPulse';
-import { formatRelative } from '../../engine/format';
+import { formatRelative, formatClock } from '../../engine/format';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import {
   couldNotCheckFrom, rowsFromClient, rowsFromFindings,
@@ -128,7 +128,7 @@ export function PrecedingChange({ row, enabled }: { row: AttentionRow; enabled: 
   return (
     <span>
       <span className="text-slate-200">{before.kind} {before.name} {before.summary}{before.actor ? ` by ${before.actor}` : ''}</span>
-      <span className="block text-slate-500">{new Date(before.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {minutesBefore(before, row.startedAt)}</span>
+      <span className="block text-slate-500">{formatClock(before.at)} · {minutesBefore(before, row.startedAt)}</span>
       {(unreadable || partial) && <span className="block text-amber-300/80">{unreadable ? `Could not read: ${unreadable}.` : ''}{partial}</span>}
     </span>
   );

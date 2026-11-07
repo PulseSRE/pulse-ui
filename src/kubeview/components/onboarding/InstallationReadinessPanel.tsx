@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchInstallationReadiness } from '../../engine/installationReadiness';
 import { useFleetStore } from '../../store/fleetStore';
+import { RelativeTime } from '../primitives/RelativeTime';
 
 const CHECK_LABELS: Record<string, string> = {
   provider_configuration: 'Model provider configuration',
@@ -36,7 +37,7 @@ export function InstallationReadinessPanel() {
       <p className={`text-sm font-medium ${stale ? 'text-slate-400' : report.status === 'healthy' ? 'text-emerald-300' : report.status === 'degraded' ? 'text-amber-300' : 'text-slate-300'}`}>
         {stale ? 'Previous report — awaiting a successful current check' : SUMMARY_LABELS[report.status]}
       </p>
-      <p className="text-xs text-slate-400">Scope: {report.scope}. Checked {new Date(report.checked_at).toLocaleString()}.</p>
+      <p className="text-xs text-slate-400">Scope: {report.scope}. Checked <RelativeTime value={report.checked_at} />.</p>
       <ul className="divide-y divide-slate-800" aria-label={stale ? 'Previous installation checks' : 'Installation checks'}>
         {report.checks.map(check => <li key={check.id} className="py-3 space-y-1">
           <div className="flex flex-wrap items-center gap-2"><h3 className="text-xs font-medium text-slate-200">{CHECK_LABELS[check.id] ?? check.id.replaceAll('_', ' ')}</h3><span className={`text-xs ${stale ? 'text-slate-500' : check.status === 'healthy' ? 'text-emerald-300' : check.status === 'unhealthy' ? 'text-amber-300' : 'text-slate-400'}`}>{STATUS_LABELS[check.status]}{stale ? ' (previous report)' : ''}</span></div>

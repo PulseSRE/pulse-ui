@@ -5,6 +5,7 @@ import type { ErrorCategory } from '../../engine/errors';
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
 import { AskPulseButton } from '../../components/agent/AskPulseButton';
+import { RelativeTime } from '../../components/primitives/RelativeTime';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string }> = {
   permission: { label: 'Permission', icon: ShieldX, color: 'text-red-400' },
@@ -146,7 +147,7 @@ export function ErrorsTab() {
                   )}
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-xs text-slate-600">
-                      {new Date(error.timestamp).toLocaleTimeString()}
+                      <RelativeTime value={error.timestamp} />
                     </span>
                     {!error.resolved && (
                       <>

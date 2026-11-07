@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { diffHunks, lineDiff, type RenderedObject } from '../../engine/helmManifest';
 import { HelmRenderError, previewCounts, type HelmPreview, type PreviewEntry } from './helmPreview';
 import { useCanI } from '../../hooks/useCanI';
+import { formatTime } from '../../engine/format';
 
 const CHANGE_STYLE: Record<string, string> = {
   added: 'text-emerald-300 bg-emerald-500/10',
@@ -191,7 +192,7 @@ export function PreviewResult({ state, stale, action }: { state: PreviewState; s
     <div className={cn('space-y-3', stale && 'opacity-60')} data-testid="helm-preview">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="text-sm font-semibold text-slate-100">Preview · {p.entries.filter((e) => !e.key.startsWith('hook:')).length} objects</h4>
-        <span className="text-xs text-slate-500">Rendered {new Date(p.at).toLocaleTimeString()}{stale ? ' · out of date: the inputs changed, preview again' : ''}</span>
+        <span className="text-xs text-slate-500">Rendered {formatTime(p.at)}{stale ? ' · out of date: the inputs changed, preview again' : ''}</span>
       </div>
       <PreviewCounts preview={p} />
       <PreviewObjects preview={p} />

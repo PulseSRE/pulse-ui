@@ -435,7 +435,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
       <div className="flex items-center gap-2 mb-4">
         <div className="flex items-center gap-1.5 flex-1 bg-slate-800/50 rounded-lg px-2.5 py-1.5 border border-slate-700/50">
           <Search className="w-3.5 h-3.5 text-slate-500" />
-          <input
+          <input aria-label="Filter nodes"
             type="text"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
