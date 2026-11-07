@@ -157,10 +157,11 @@ export default function AdminView() {
     staleTime: 60000,
   });
 
-  const { data: nodes = [], isLoading: nodesLoading, isError: nodesError, error: nodesErr } = useK8sListWatch<Node>({
+  const nodesList = useK8sListWatch<Node>({
     apiPath: '/api/v1/nodes',
     clusterId,
   });
+  const { data: nodes = [], isLoading: nodesLoading, isError: nodesError, error: nodesErr } = nodesList;
 
   const operatorsQuery = useK8sListWatch<ClusterOperator>({
     apiPath: '/apis/config.openshift.io/v1/clusteroperators',
@@ -294,6 +295,9 @@ export default function AdminView() {
 
   const overviewLoading = cvLoading || nodesLoading || opsLoading;
   const overviewError = cvError || nodesError || opsError;
+  const overviewErrorWhat = [cvError && 'ClusterVersion', nodesError && 'Nodes', opsError && 'ClusterOperators']
+    .filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' and $1');
+  const overviewErrorDetail = cvError ? cvList.error : nodesError ? nodesErr : opsError ? operatorsQuery.error : undefined;
 
   const cvVersion = clusterVersion?.status?.desired?.version || clusterVersion?.status?.history?.[0]?.version || '';
   const cvChannel = clusterVersion?.spec?.channel || '';
@@ -490,6 +494,9 @@ export default function AdminView() {
           <OverviewTab
             overviewLoading={overviewLoading}
             overviewError={overviewError}
+            overviewErrorWhat={overviewErrorWhat || undefined}
+            overviewErrorDetail={overviewErrorDetail}
+            onRetryOverview={() => { if (cvError) void cvList.refetch(); if (nodesError) void nodesList.refetch(); if (opsError) void operatorsQuery.refetch(); }}
             firingAlerts={firingAlerts}
             alertsUnavailable={!!firingAlertsError}
             alertsUnavailableReason={firingAlertsError instanceof MetricsUnavailableError ? 'Alert status is available for the local cluster only — Pulse cannot reach this cluster\'s Prometheus' : undefined}

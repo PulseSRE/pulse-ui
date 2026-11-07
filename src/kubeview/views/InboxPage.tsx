@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Inbox, UserCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { LoadError } from '../components/primitives/LoadError';
 import { useInboxStore } from '../store/inboxStore';
 import { useUIStore } from '../store/uiStore';
 import { InboxHeader } from './inbox/InboxHeader';
@@ -184,15 +185,13 @@ export function InboxPage() {
               </div>
             )}
 
-            {error && (
+            {error != null && (
               <div className="p-4">
-                <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 text-sm text-red-400">
-                  Failed to load inbox. <button onClick={refresh} className="underline ml-1">Retry</button>
-                </div>
+                <LoadError title="Inbox could not be loaded" error={error} onRetry={() => { void refresh(); }} />
               </div>
             )}
 
-            {!loading && !error && !hasItems && !hasFilters && (
+            {!loading && error == null && !hasItems && !hasFilters && (
               <EmptyState
                 icon={<Inbox className="w-8 h-8" />}
                 title={
@@ -212,7 +211,7 @@ export function InboxPage() {
               />
             )}
 
-            {!loading && !error && !hasItems && hasFilters && (
+            {!loading && error == null && !hasItems && hasFilters && (
               <EmptyState
                 icon={<Inbox className="w-8 h-8" />}
                 title="No items match your filters"

@@ -28,8 +28,6 @@ vi.mock('../../engine/monitorClient', () => {
       }
 
       triggerScan = vi.fn();
-      approveAction = vi.fn();
-      rejectAction = vi.fn();
       requestFixHistory = vi.fn();
     },
   };

@@ -239,7 +239,9 @@ describe('Admin › Overview on a cluster without ClusterVersion (404)', () => {
   it('a 403 on ClusterVersion is a load failure', async () => {
     mockFetchRoutes({ '/api/v1/nodes': list([]), '/apis/config.openshift.io/v1/clusteroperators': list([]) }, 403);
     renderWithClient(<AdminView />, { route: '/admin' });
-    await waitFor(() => expect(screen.getByText('Failed to load cluster data')).toBeTruthy());
+    // Names the read that failed, says why, and that the overview is incomplete.
+    const title = await screen.findByText('ClusterVersion could not be loaded — the overview below is incomplete', {}, { timeout: 3000 });
+    expect(title.closest('[role="alert"]')!.textContent).toMatch(/Permission denied|do not have permission/);
   });
 });
 

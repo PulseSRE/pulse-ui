@@ -1,15 +1,17 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FolderKanban, HelpCircle, Loader2, Shield, Globe, Server } from 'lucide-react';
+import { FolderKanban, Loader2, Shield, Globe, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList } from '../../engine/query';
 import type { ArgoAppProject } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
+import { LoadError } from '../../components/primitives/LoadError';
+import { EmptyState } from '../../components/primitives/EmptyState';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 
 export function ProjectsTab() {
   const clusterId = useActiveClusterId();
-  const { data: projects = [], isLoading, error } = useQuery({
+  const { data: projects = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['argocd-appprojects', clusterId],
     queryFn: () => k8sList<ArgoAppProject>('/apis/argoproj.io/v1alpha1/appprojects', undefined, clusterId),
     refetchInterval: 30_000,
@@ -17,33 +19,25 @@ export function ProjectsTab() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-48">
-        <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+      <div className="flex items-center justify-center gap-2 h-48 text-sm text-slate-400" role="status" aria-live="polite">
+        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+        Checking AppProjects…
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-48">
-        <div className="text-center">
-          <HelpCircle className="w-10 h-10 text-red-500 mx-auto mb-2" />
-          <p className="text-sm text-red-400">Failed to load AppProjects</p>
-          <p className="text-xs text-slate-500 mt-1">{error instanceof Error ? error.message : 'Unknown error'}</p>
-        </div>
-      </div>
-    );
+  // A failed or forbidden read is not "no AppProjects".
+  if (isError) {
+    return <LoadError title="AppProjects could not be loaded" error={error} onRetry={() => { void refetch(); }} />;
   }
 
   if (projects.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48">
-        <div className="text-center">
-          <FolderKanban className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-          <p className="text-slate-400 text-sm">No AppProjects found</p>
-          <p className="text-slate-500 text-xs mt-1">ArgoCD uses AppProjects to group applications and enforce access policies</p>
-        </div>
-      </div>
+      <EmptyState
+        icon={<FolderKanban className="w-8 h-8" />}
+        title="No AppProjects"
+        description="Argo CD uses AppProjects to group applications and limit where they deploy. Create one with argocd proj create or an AppProject manifest; apps without one use the default project."
+      />
     );
   }
 

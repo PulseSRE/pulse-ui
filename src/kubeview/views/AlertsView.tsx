@@ -28,7 +28,7 @@ import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { useMetricsAvailable } from '../hooks/useClusterBase';
 import { askPulse } from '../engine/askPulse';
 import type { Node } from '../engine/types';
-import { suggestSilences, minutesToCover, describeMinutes, labelsMatch, type AlertForSilence, type SilenceSuggestion } from '../engine/silences';
+import { suggestSilences, readAlertmanager, createSilence as postSilence, expireSilence as deleteSilence, minutesToCover, describeMinutes, labelsMatch, type AlertForSilence, type SilenceSuggestion } from '../engine/silences';
 import { SilenceConfirmDialog, type SilenceProposal } from './alerts/SilenceConfirmDialog';
 import { NamespaceUnhealthyPods, SilenceSuggestionBanner, TriageChip, nodeItem, useAlertTriage, type TriageState } from './alerts/AlertTriage';
 
@@ -174,13 +174,8 @@ function LocalAlertsView() {
   // Fetch silences from Alertmanager
   const { data: silences = [], error: silencesError, refetch: refetchSilences } = useQuery<Silence[]>({
     queryKey: ['alerts', 'silences'],
-    queryFn: async () => {
-      const res = await fetch('/api/alertmanager/api/v2/silences');
-      if (!res.ok) throw new Error(`Alertmanager returned ${res.status} ${res.statusText}`);
-      const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) throw new Error('the Alertmanager endpoint did not answer with JSON (the alerting proxy may be missing)');
-      return res.json();
-    },
+    // Throws on a non-2xx or non-JSON answer: a failed read is never "no silences".
+    queryFn: ({ signal }) => readAlertmanager<Silence[]>('silences', signal),
     refetchInterval: 60000,
     retry: 1,
   });
@@ -471,26 +466,14 @@ function LocalAlertsView() {
 
   const confirmSaveSilence = () => saveSilence.run('Saving this silence', async (form) => {
     // Alertmanager v2: POST with an id replaces that silence; without one it creates a new silence.
-    const res = await fetch('/api/alertmanager/api/v2/silences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || `Alertmanager returned ${res.status}`);
-    }
+    await postSilence(form);
     addToast({ type: 'success', title: form.id ? 'Silence updated' : 'Silence created', detail: form.comment });
     queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] });
     resetSilenceForm();
   });
 
   const confirmExpireSilence = () => expire.run('Expiring this silence', async (silence) => {
-    const res = await fetch(`/api/alertmanager/api/v2/silence/${encodeURIComponent(silence.id)}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(err || `Alertmanager returned ${res.status}`);
-    }
+    await deleteSilence(silence.id);
     addToast({ type: 'success', title: 'Silence expired', detail: silence.comment });
     queryClient.invalidateQueries({ queryKey: ['alerts', 'silences'] });
   });

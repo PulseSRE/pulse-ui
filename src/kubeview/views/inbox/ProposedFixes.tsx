@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, ChevronDown, ChevronRight, GitBranch, Loader2, Wrench, XCircle } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, GitBranch, Wrench, XCircle } from 'lucide-react';
 import { Button } from '../../components/primitives/Button';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import { type ActionRecord } from '../../engine/fixHistory';
@@ -9,9 +9,8 @@ import { resourceDetailUrl } from '../../engine/gvr';
 import { useApprovalsStore } from '../../store/approvalsStore';
 import { useInboxStore } from '../../store/inboxStore';
 import { useTrustStore } from '../../store/trustStore';
-
-/** Shown in place of Approve in observe mode (trust level 0): nothing is changed from this browser. */
-export const OBSERVE_MODE_APPROVE = 'Observe mode — switch trust level to approve';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
+import { OBSERVE_MODE_APPROVE, WriteConfirmDialog } from '../../components/primitives/WriteConfirmDialog';
 
 /** What happened to a proposal a person just answered, shown in place of it. */
 export interface ProposalOutcome {
@@ -178,6 +177,69 @@ function ProposalDetails({ action }: { action: ActionRecord }) {
   );
 }
 
+/** "Pod api-7f9" — what a proposal acts on, or '' when it names nothing. */
+function proposalTarget(action: ActionRecord): string {
+  const r = action.resources?.[0];
+  return r ? `${r.kind} ${r.name}` : '';
+}
+
+/**
+ * Confirm a proposed fix in the shared write-confirm dialog. The agent
+ * re-plans from the finding when it is approved and runs the fix with its own
+ * service account, so there is no exact diff or dry run to show — the dialog
+ * says so and shows the tool and its input instead.
+ */
+export function ApproveFixDialog({
+  action,
+  onClose,
+  onOutcome,
+}: {
+  action: ActionRecord;
+  onClose: () => void;
+  onOutcome: (outcome: ProposalOutcome) => void;
+}) {
+  const approve = useApprovalsStore((s) => s.approve);
+  const target = proposalTarget(action);
+  const description = str(action.input?.fixDescription);
+  const strategy = str(action.input?.fixStrategy);
+  return (
+    <WriteConfirmDialog
+      title={target ? `Approve the fix for ${target}?` : 'Approve this fix?'}
+      where={{ namespace: action.resources?.[0]?.namespace, clusterId: LOCAL_CLUSTER_ID, actingAs: 'pulse-sa' }}
+      change={{ params: { action: action.tool || strategy || action.category, input: action.input || {} } }}
+      impact={description || action.reasoning || 'Not stated by the agent'}
+      undo={action.rollbackAvailable
+        ? 'Roll back from Activity — Pulse keeps a copy of the object from before the write'
+        : 'No one-click undo; Activity records what ran'}
+      after={<><span className="font-semibold text-slate-100">When you approve,</span> the agent re-plans from the finding as it stands now. If the condition has cleared or someone else answered, it refuses instead of running.</>}
+      confirmLabel={target ? `Run fix on ${target}` : 'Run fix'}
+      what="This approval"
+      onConfirm={async () => {
+        try {
+          const result = await approve(action.id);
+          const ok = result.status === 'completed';
+          onOutcome({ ok, message: ok ? `Ran ${result.tool || 'the fix'}` : `Failed: ${result.error ?? 'unknown error'}` });
+        } catch (e) {
+          // The agent refuses on purpose — the condition cleared, somebody else
+          // answered it, no strategy applies, not an admin (403/409). Reported
+          // as an outcome, not dialog state: the list is re-read after a
+          // refusal and this row (dialog and all) may be gone by then.
+          onOutcome({ ok: false, refused: true, message: e instanceof Error ? e.message : 'Approve failed' });
+        }
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      {action.explainedBy && (
+        <p className="flex items-start gap-1.5 text-sm text-amber-300">
+          <GitBranch className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          Symptom of {action.explainedBy} — this fix treats the symptom, not the cause.
+        </p>
+      )}
+    </WriteConfirmDialog>
+  );
+}
+
 /** Approve / Reject for one proposed fix. Used in the Approvals queue and the item drawer. */
 export function ProposalActions({
   action,
@@ -186,44 +248,27 @@ export function ProposalActions({
   action: ActionRecord;
   onOutcome: (outcome: ProposalOutcome) => void;
 }) {
-  const approve = useApprovalsStore((s) => s.approve);
   const observeMode = useTrustStore((s) => s.trustLevel === 0);
-  const [busy, setBusy] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
-
-  const doApprove = async () => {
-    setBusy(true);
-    try {
-      const result = await approve(action.id);
-      const ok = result.status === 'completed';
-      onOutcome({ ok, message: ok ? `Ran ${result.tool || 'the fix'}` : `Failed: ${result.error ?? 'unknown error'}` });
-    } catch (e) {
-      // The agent refuses on purpose — the condition cleared, somebody else
-      // answered it, no strategy applies. Show what it said. Reported as an
-      // outcome, not row state: the list is re-read after a refusal and the
-      // row (with anything shown in it) may be gone by then.
-      onOutcome({ ok: false, refused: true, message: e instanceof Error ? e.message : 'Approve failed' });
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex gap-1.5">
         <Button
           size="sm"
-          onClick={doApprove}
-          disabled={busy || observeMode}
+          onClick={() => setApproving(true)}
+          disabled={observeMode}
           title={observeMode ? OBSERVE_MODE_APPROVE : undefined}
         >
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" aria-label="Approving" /> : 'Approve'}
+          Approve
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => setRejecting(true)} disabled={busy}>
+        <Button size="sm" variant="secondary" onClick={() => setRejecting(true)}>
           Reject
         </Button>
       </div>
       {observeMode && <span className="text-[11px] text-slate-500">{OBSERVE_MODE_APPROVE}</span>}
+      {approving && <ApproveFixDialog action={action} onClose={() => setApproving(false)} onOutcome={onOutcome} />}
       <RejectFixDialog action={action} open={rejecting} onClose={() => setRejecting(false)} onRejected={onOutcome} />
     </div>
   );

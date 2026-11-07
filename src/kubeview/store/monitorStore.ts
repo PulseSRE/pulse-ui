@@ -80,8 +80,6 @@ interface MonitorState {
   dismissFinding: (id: string) => void;
   acknowledgeFinding: (id: string) => void;
   unacknowledgeFinding: (id: string) => void;
-  approveAction: (actionId: string) => void;
-  rejectAction: (actionId: string) => void;
   setMonitorEnabled: (enabled: boolean) => void;
   loadFixHistory: (page?: number, filters?: FixHistoryFilters) => void;
   markAllRead: () => void;
@@ -407,16 +405,6 @@ export const useMonitorStore = create<MonitorState>()(
         }));
       },
 
-      approveAction: (actionId) => {
-        if (client) client.approveAction(actionId);
-      },
-
-      rejectAction: (actionId) => {
-        if (client) client.rejectAction(actionId);
-        set((s) => ({
-          pendingActions: s.pendingActions.filter((a) => a.id !== actionId),
-        }));
-      },
 
       setMonitorEnabled: (enabled) => {
         set({ monitorEnabled: enabled });
