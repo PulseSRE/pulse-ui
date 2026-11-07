@@ -110,8 +110,9 @@ export function resolveNamespaceScope(
 function useStoredScope(clusterId: string): string {
   return useUIStore((s) => {
     const ns = s.selectedNamespace ?? ALL_NAMESPACES;
-    // A selector-only store mock has no cluster: take its namespace as is.
-    return s.scopeClusterId === undefined || s.scopeClusterId === clusterId ? ns : ALL_NAMESPACES;
+    // No cluster recorded yet ('' before anything was chosen; undefined in a
+    // selector-only mock) is unbound, not another cluster's: take it as is.
+    return !s.scopeClusterId || s.scopeClusterId === clusterId ? ns : ALL_NAMESPACES;
   });
 }
 
