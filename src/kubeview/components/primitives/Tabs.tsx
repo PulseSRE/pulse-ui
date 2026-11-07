@@ -210,7 +210,7 @@ export function TabsGroup({ label, divider = true, children }: {
   return (
     <div role="presentation" className="contents" data-tabs-group={label}>
       {divider && <span aria-hidden="true" className="mx-1 h-5 w-px bg-slate-800" />}
-      <span id={id} aria-hidden="true" className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+      <span id={id} aria-hidden="true" className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-faint">
         {label}
       </span>
       <TabsGroupContext.Provider value={id}>{children}</TabsGroupContext.Provider>

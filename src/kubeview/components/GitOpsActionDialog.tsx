@@ -117,7 +117,7 @@ export function GitOpsActionDialog({
         <p className="text-sm text-slate-400 mb-1">
           <span className="text-slate-200 font-medium">{resourceKind}/{resourceName}</span> is managed by ArgoCD application <span className="text-blue-300">{syncInfo.appName}</span>.
         </p>
-        <p className="text-xs text-slate-500 mb-5">Choose how to save your changes:</p>
+        <p className="text-xs text-faint mb-5">Choose how to save your changes:</p>
 
         {status === 'idle' && (
           <div className="space-y-3">

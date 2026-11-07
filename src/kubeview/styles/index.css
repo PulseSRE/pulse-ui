@@ -10,6 +10,22 @@
   --color-pulse-dark: #1d4ed8;
   --color-pulse-glow: rgba(37, 99, 235, 0.15);
 
+  /* Secondary text (text-muted) and tertiary text (text-faint). Both keep
+     WCAG AA 4.5:1 for normal text on every dark surface the app uses
+     (slate-950, the sunken #0c1220, slate-900 and slate-800); see :root for
+     the measured ratios. Use these instead of text-slate-500/600/700, which
+     fall to 1.9-3.7:1 — eslint pulse/no-low-contrast-text enforces it.
+
+     Naming: the raw values live on :root as --text-muted / --text-faint
+     (outside @theme). Inside @theme they must NOT be declared under those
+     names: --text-* is Tailwind 4's font-size namespace, so @theme
+     { --text-faint: … } would make `text-faint` set font-size. The
+     --text-color-* namespace feeds only the colour utility, which is why
+     `text-faint` here is a colour and nothing else. (--color-text-faint would
+     also work but produces `text-text-faint`.) */
+  --text-color-muted: var(--text-muted);
+  --text-color-faint: var(--text-faint);
+
   /* Page content width: domain pages centre their content at this width
      (`max-w-content`). Tables and graphs use the full width instead. */
   --container-content: 72rem;
@@ -130,8 +146,16 @@
   --kv-surface-hover: #334155; /* slate-700 */
   --kv-border: #334155;       /* slate-700 */
   --kv-text: #f1f5f9;         /* slate-100 */
-  --kv-text-muted: #94a3b8;   /* slate-400 */
-  --kv-text-dim: #64748b;     /* slate-500 */
+  /* Muted and faint text. Contrast (WCAG 2.x), measured:
+       --text-muted #94a3b8: 7.87 on slate-950, 7.29 on #0c1220, 6.96 on slate-900, 5.71 on slate-800
+       --text-faint #8693a9: 6.49 on slate-950, 6.02 on #0c1220, 5.75 on slate-900, 4.71 on slate-800
+     slate-500 (3.07-4.24) and slate-600 (1.93-2.66) fail AA on all of them.
+     Neither token passes on slate-700 (4.04 / 3.33): keep slate-700 for
+     hover and chip fills, not as a surface for muted text. */
+  --text-muted: #94a3b8;      /* slate-400 */
+  --text-faint: #8693a9;      /* between slate-400 and slate-500 */
+  --kv-text-muted: var(--text-muted);
+  --kv-text-dim: var(--text-faint);
   --kv-accent: #3b82f6;       /* blue-500 */
   --kv-accent-hover: #2563eb; /* blue-600 */
   --kv-success: #10b981;      /* emerald-500 */

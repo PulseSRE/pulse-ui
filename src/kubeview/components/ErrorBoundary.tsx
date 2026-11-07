@@ -126,7 +126,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <h2 className="text-xl font-bold text-slate-100 mb-1">
               {this.props.fallbackTitle || 'Something went wrong'}
             </h2>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">
+            <p className="text-xs font-medium text-faint uppercase tracking-wider mb-3">
               {errorSubtitle(category)}
             </p>
             <p className="text-sm text-slate-400 mb-4">
@@ -164,7 +164,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </button>
             </div>
             <details className="mt-6 text-left">
-              <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-400">
+              <summary className="text-xs text-faint cursor-pointer hover:text-slate-400">
                 Error details
               </summary>
               <pre className="mt-2 text-xs text-red-400 font-mono bg-slate-900 p-3 rounded-sm overflow-auto max-h-32">

@@ -76,14 +76,14 @@ export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onS
                     <span className="text-sm font-medium text-slate-200">
                       {cat.label}
                     </span>
-                    <span className="text-xs text-slate-500 ml-2">{cat.description}</span>
+                    <span className="text-xs text-faint ml-2">{cat.description}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Badge variant="success" size="sm">{passed} passed</Badge>
                   {failed > 0 && <Badge variant="error" size="sm">{failed} failed</Badge>}
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-faint">
                     {passed}/{total}
                   </span>
                 </div>

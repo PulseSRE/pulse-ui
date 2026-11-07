@@ -190,7 +190,7 @@ export function CommandBar() {
         <button
           onClick={openCommandPalette}
           aria-label="Search resources, views"
-          className="flex h-7 w-8 sm:w-48 md:w-72 items-center justify-center sm:justify-start gap-2 rounded-md border border-slate-600/50 bg-slate-900/50 sm:px-3 text-sm text-slate-500 transition-all hover:border-slate-500 hover:bg-slate-900 hover:text-slate-400"
+          className="flex h-7 w-8 sm:w-48 md:w-72 items-center justify-center sm:justify-start gap-2 rounded-md border border-slate-600/50 bg-slate-900/50 sm:px-3 text-sm text-faint transition-all hover:border-slate-500 hover:bg-slate-900 hover:text-slate-400"
         >
           <Search className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden sm:inline flex-1 text-left text-xs">Search resources, views...</span>
@@ -248,7 +248,7 @@ export function CommandBar() {
                 {clusterInfo?.name || 'cluster'}
               </span>
               {clusterInfo?.platform && (
-                <span className="text-xs text-slate-500 hidden xl:inline">{clusterInfo.platform}</span>
+                <span className="text-xs text-faint hidden xl:inline">{clusterInfo.platform}</span>
               )}
               {isHyperShift && (
                 <span className="text-xs px-1.5 py-0.5 bg-blue-900/60 text-blue-300 rounded-sm border border-blue-700/50 hidden lg:inline" title="Control plane managed externally. etcd, API server, and scheduler run in a management cluster.">Hosted</span>
@@ -359,7 +359,7 @@ export function CommandBar() {
                   >
                     <Layers className="w-3.5 h-3.5 text-slate-500" />
                     <span className="flex-1">All Namespaces</span>
-                    <span className="text-xs text-slate-500">{namespacesError ? '—' : namespacesLoading ? '' : `${namespaces.length} total`}</span>
+                    <span className="text-xs text-faint">{namespacesError ? '—' : namespacesLoading ? '' : `${namespaces.length} total`}</span>
                     {selectedNamespace === '*' && <span className="text-blue-400 text-xs">✓</span>}
                   </button>
                   {selectedNamespace !== '*' && (
@@ -369,7 +369,7 @@ export function CommandBar() {
                     >
                       <FolderOpen className="w-3.5 h-3.5 text-slate-500" />
                       <span className="flex-1 truncate">Open project dashboard</span>
-                      <span className="text-xs text-slate-500 truncate max-w-[100px]">{selectedNamespace}</span>
+                      <span className="text-xs text-faint truncate max-w-[100px]">{selectedNamespace}</span>
                     </button>
                   )}
                   <div className="border-t border-slate-700/50 my-1" />
@@ -406,7 +406,7 @@ export function CommandBar() {
                       </button>
                     ))}
                   {!namespacesLoading && !namespacesError && nsFilter && namespaces.filter((ns) => ns.toLowerCase().includes(nsFilter.toLowerCase())).length === 0 && (
-                    <div className="px-3 py-4 text-center text-xs text-slate-500">No namespaces match "{nsFilter}"</div>
+                    <div className="px-3 py-4 text-center text-xs text-faint">No namespaces match "{nsFilter}"</div>
                   )}
                 </div>
                 {selectedNamespace !== '*' && (
@@ -450,7 +450,7 @@ export function CommandBar() {
           <button
             onClick={() => go('/about', 'About Pulse')}
             data-label="Pulse healthy"
-            className="flex items-center gap-1.5 max-sm:gap-2 max-sm:after:content-[attr(data-label)] px-1.5 py-1 rounded-md text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
+            className="flex items-center gap-1.5 max-sm:gap-2 max-sm:after:content-[attr(data-label)] px-1.5 py-1 rounded-md text-xs text-faint hover:text-slate-300 hover:bg-slate-700/50 transition-colors"
             title={pulseUpgrade.detail}
             aria-label="Pulse healthy"
           >
@@ -493,7 +493,7 @@ export function CommandBar() {
               <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl py-1">
                 <div className="px-3 py-2 border-b border-slate-700">
                   <div className="text-sm font-medium text-slate-200">{clusterInfo?.username || 'Unknown user'}</div>
-                  {clusterInfo?.role && <div className="text-xs text-slate-500">{clusterInfo.role}</div>}
+                  {clusterInfo?.role && <div className="text-xs text-faint">{clusterInfo.role}</div>}
                 </div>
                 <button
                   onClick={() => { setShowUserMenu(false); go('/readiness', 'Readiness'); }}
@@ -560,7 +560,7 @@ export function CommandBar() {
                       className="w-full px-2 py-1 text-xs bg-slate-900 border border-slate-600 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
                       autoFocus
                     />
-                    <div className="text-xs text-slate-500">Enter to apply, Esc to cancel</div>
+                    <div className="text-xs text-faint">Enter to apply, Esc to cancel</div>
                   </div>
                 ) : (
                   <button

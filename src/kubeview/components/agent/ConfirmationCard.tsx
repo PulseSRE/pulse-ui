@@ -180,7 +180,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
               <RiskIcon className="h-3 w-3" aria-hidden="true" />
               {risk.level} RISK
             </span>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-faint">
               Trust: {TRUST_LABELS[trustLevel]} (L{trustLevel})
             </span>
           </div>

@@ -48,7 +48,7 @@ export const serviceEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-' || value === 'None') {
-          return <span className="text-slate-500">{String(value)}</span>;
+          return <span className="text-faint">{String(value)}</span>;
         }
 
         return <span className="font-mono text-sm text-slate-300">{String(value)}</span>;
@@ -84,7 +84,7 @@ export const serviceEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-') {
-          return <span className="text-slate-500">-</span>;
+          return <span className="text-faint">-</span>;
         }
 
         const ports = String(value);
@@ -115,7 +115,7 @@ export const serviceEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-') {
-          return <span className="text-slate-500">-</span>;
+          return <span className="text-faint">-</span>;
         }
 
         const selector = String(value);

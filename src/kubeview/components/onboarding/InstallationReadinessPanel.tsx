@@ -40,14 +40,14 @@ export function InstallationReadinessPanel() {
       <p className="text-xs text-slate-400">Scope: {report.scope}. Checked <RelativeTime value={report.checked_at} />.</p>
       <ul className="divide-y divide-slate-800" aria-label={stale ? 'Previous installation checks' : 'Installation checks'}>
         {report.checks.map(check => <li key={check.id} className="py-3 space-y-1">
-          <div className="flex flex-wrap items-center gap-2"><h3 className="text-xs font-medium text-slate-200">{CHECK_LABELS[check.id] ?? check.id.replaceAll('_', ' ')}</h3><span className={`text-xs ${stale ? 'text-slate-500' : check.status === 'healthy' ? 'text-emerald-300' : check.status === 'unhealthy' ? 'text-amber-300' : 'text-slate-400'}`}>{STATUS_LABELS[check.status]}{stale ? ' (previous report)' : ''}</span></div>
+          <div className="flex flex-wrap items-center gap-2"><h3 className="text-xs font-medium text-slate-200">{CHECK_LABELS[check.id] ?? check.id.replaceAll('_', ' ')}</h3><span className={`text-xs ${stale ? 'text-faint' : check.status === 'healthy' ? 'text-emerald-300' : check.status === 'unhealthy' ? 'text-amber-300' : 'text-slate-400'}`}>{STATUS_LABELS[check.status]}{stale ? ' (previous report)' : ''}</span></div>
           <p className="text-xs text-slate-300">{check.message}</p>
           {check.remediation && <p className="text-xs text-slate-400">Next step: {check.remediation}</p>}
-          <p className="text-[11px] text-slate-500">Source: {check.source}</p>
+          <p className="text-[11px] text-faint">Source: {check.source}</p>
         </li>)}
       </ul>
       {!!report.limitations.length && <div className="text-xs text-slate-400"><h3 className="font-medium text-slate-300 mb-1">What these checks do not prove</h3><ul className="list-disc pl-4 space-y-1">{report.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul></div>}
     </>}
-    <p className="text-xs text-slate-500">Installation diagnostics do not prove workload recovery or end-to-end model execution. No workload mutation or model request is performed by this check. Agent reports are cached for up to 60 seconds; retries may show the same check timestamp.</p>
+    <p className="text-xs text-faint">Installation diagnostics do not prove workload recovery or end-to-end model execution. No workload mutation or model request is performed by this check. Agent reports are cached for up to 60 seconds; retries may show the same check timestamp.</p>
   </section>;
 }

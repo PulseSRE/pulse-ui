@@ -52,7 +52,7 @@ export function ChartSuspense({ spec, onAddToView, refreshInterval, globalTimeRa
   onSpecChange?: (spec: ComponentSpec) => void;
 }) {
   return (
-    <Suspense fallback={<div className="h-48 flex items-center justify-center text-slate-500 text-xs">Loading chart...</div>}>
+    <Suspense fallback={<div className="h-48 flex items-center justify-center text-faint text-xs">Loading chart...</div>}>
       <LazyAgentChart spec={spec} onAddToView={onAddToView} refreshInterval={refreshInterval} globalTimeRange={globalTimeRange} hoverTimestamp={hoverTimestamp} onHoverTimestamp={onHoverTimestamp} onSpecChange={onSpecChange} />
     </Suspense>
   );
@@ -60,7 +60,7 @@ export function ChartSuspense({ spec, onAddToView, refreshInterval, globalTimeRa
 
 export function NodeMapSuspense({ spec }: { spec: NodeMapSpec }) {
   return (
-    <Suspense fallback={<div className="h-48 flex items-center justify-center text-slate-500 text-xs">Loading node map...</div>}>
+    <Suspense fallback={<div className="h-48 flex items-center justify-center text-faint text-xs">Loading node map...</div>}>
       <LazyAgentNodeMap spec={spec} />
     </Suspense>
   );
@@ -68,7 +68,7 @@ export function NodeMapSuspense({ spec }: { spec: NodeMapSpec }) {
 
 export function TopologySuspense({ spec, onAddToView }: { spec: TopologySpec; onAddToView?: (spec: ComponentSpec) => void }) {
   return (
-    <Suspense fallback={<div className="h-48 flex items-center justify-center text-slate-500 text-xs">Loading topology...</div>}>
+    <Suspense fallback={<div className="h-48 flex items-center justify-center text-faint text-xs">Loading topology...</div>}>
       <LazyAgentTopology spec={spec} onAddToView={onAddToView} />
     </Suspense>
   );
@@ -134,7 +134,7 @@ export function AgentMetricCard({ spec }: { spec: MetricCardSpec }) {
           {spec.value}{spec.unit ? spec.unit : ''}
         </span>
       </div>
-      {spec.description && <div className="text-xs text-slate-500">{spec.description}</div>}
+      {spec.description && <div className="text-xs text-faint">{spec.description}</div>}
     </Tag>
   );
 }
@@ -154,7 +154,7 @@ export function AgentBarList({ spec }: { spec: BarListSpec }) {
       {spec.title && (
         <div className="px-3 py-1.5 bg-slate-800/50 border-b border-slate-700 text-xs font-medium text-slate-300">
           <span>{spec.title}</span>
-          {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
+          {spec.description && <span className="text-[10px] text-faint ml-2">{spec.description}</span>}
         </div>
       )}
       <div className="p-3 space-y-1.5">
@@ -217,7 +217,7 @@ export function AgentProgressList({ spec }: { spec: ProgressListSpec }) {
       {spec.title && (
         <div className="px-3 py-1.5 bg-slate-800/50 border-b border-slate-700 text-xs font-medium text-slate-300">
           <span>{spec.title}</span>
-          {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
+          {spec.description && <span className="text-[10px] text-faint ml-2">{spec.description}</span>}
         </div>
       )}
       <div className="p-3 space-y-2.5">
@@ -228,7 +228,7 @@ export function AgentProgressList({ spec }: { spec: ProgressListSpec }) {
               <div className="flex items-center justify-between text-xs mb-0.5">
                 <div>
                   <span className="text-slate-300">{item.label}</span>
-                  {item.detail && <span className="text-[10px] text-slate-500 ml-1.5">{item.detail}</span>}
+                  {item.detail && <span className="text-[10px] text-faint ml-1.5">{item.detail}</span>}
                 </div>
                 <span className="text-slate-400 tabular-nums">
                   {item.value}/{item.max}{item.unit ? ` ${item.unit}` : ''}
@@ -307,13 +307,13 @@ export function AgentStatCard({ spec }: { spec: StatCardSpec }) {
       <div className={cn('text-2xl font-bold font-mono', stale ? 'text-slate-400' : 'text-slate-100')} data-stale={stale || undefined}>
         {value}{spec.unit && value !== '—' && <span className="text-sm text-slate-400 ml-0.5">{spec.unit}</span>}
       </div>
-      {liveNote && <div className={cn('text-[10px] mt-0.5', stale ? 'text-amber-400' : 'text-slate-500')}>{liveNote}</div>}
+      {liveNote && <div className={cn('text-[10px] mt-0.5', stale ? 'text-amber-400' : 'text-faint')}>{liveNote}</div>}
       {spec.trend && spec.trendValue && (
         <div className={cn('text-xs mt-1 font-medium', trendColor)}>
           {trendArrow} {spec.trendValue}
         </div>
       )}
-      {spec.description && <div className="text-[10px] text-slate-500 mt-1">{spec.description}</div>}
+      {spec.description && <div className="text-[10px] text-faint mt-1">{spec.description}</div>}
     </div>
   );
 }
@@ -415,19 +415,19 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
       <div className="px-3 py-1.5 bg-slate-800/50 border-b border-slate-700 text-xs font-medium text-slate-300 flex items-center justify-between">
         <div className="truncate">
           {spec.title && <span>{spec.title}</span>}
-          {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
+          {spec.description && <span className="text-[10px] text-faint ml-2">{spec.description}</span>}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <div className="flex items-center bg-slate-900 rounded-md border border-slate-700 overflow-hidden">
             <button
               onClick={() => setGrouping('source')}
-              className={cn('px-2.5 py-1 text-[10px] font-medium transition-colors', grouping === 'source' ? 'bg-blue-600/20 text-blue-400 border-r border-slate-700' : 'text-slate-500 hover:text-slate-300 border-r border-slate-700')}
+              className={cn('px-2.5 py-1 text-[10px] font-medium transition-colors', grouping === 'source' ? 'bg-blue-600/20 text-blue-400 border-r border-slate-700' : 'text-faint hover:text-slate-300 border-r border-slate-700')}
             >
               By Source
             </button>
             <button
               onClick={() => setGrouping('severity')}
-              className={cn('px-2.5 py-1 text-[10px] font-medium transition-colors', grouping === 'severity' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-500 hover:text-slate-300')}
+              className={cn('px-2.5 py-1 text-[10px] font-medium transition-colors', grouping === 'severity' ? 'bg-blue-600/20 text-blue-400' : 'text-faint hover:text-slate-300')}
             >
               By Severity
             </button>
@@ -568,7 +568,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
             {hoveredEvent.event.detail && hoveredEvent.event.detail !== hoveredEvent.event.label && (
               <div className="text-[10px] text-slate-400 mt-0.5">{hoveredEvent.event.detail}</div>
             )}
-            <div className="text-[10px] text-slate-500 mt-1">
+            <div className="text-[10px] text-faint mt-1">
               {formatTime(hoveredEvent.event.timestamp)} ({formatRelative(hoveredEvent.event.timestamp)})
               {hoveredEvent.event.endTimestamp && ` — ${formatTime(hoveredEvent.event.endTimestamp)}`}
             </div>
@@ -579,7 +579,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
       {/* Legend */}
       <div className="px-3 pb-2 flex items-center gap-4 text-[10px]">
         <div className="flex items-center gap-3">
-          <span className="text-slate-500 uppercase tracking-wider">Severity:</span>
+          <span className="text-faint uppercase tracking-wider">Severity:</span>
           {Object.entries(SEVERITY_HEX).map(([severity, color]) => (
             <div key={severity} className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
@@ -656,7 +656,7 @@ export function AgentResourceCounts({ spec }: { spec: ResourceCountsSpec }) {
                 <span className="text-base">{icon}</span>
                 <span className="text-xl font-bold text-slate-100">{item.count}</span>
               </div>
-              <div className="text-xs text-slate-500 capitalize">{item.resource}</div>
+              <div className="text-xs text-faint capitalize">{item.resource}</div>
             </button>
           );
         })}
@@ -673,7 +673,7 @@ const LOG_LEVEL_STYLES: Record<string, string> = {
   error: 'text-red-400',
   warn: 'text-amber-400',
   info: 'text-blue-400',
-  debug: 'text-slate-500',
+  debug: 'text-faint',
 };
 
 export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
@@ -754,7 +754,7 @@ export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
       {spec.title && (
         <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
           <span className="text-xs font-medium text-slate-300">{spec.title}</span>
-          <span className="text-xs text-slate-500">{(effectiveLines || []).length} lines</span>
+          <span className="text-xs text-faint">{(effectiveLines || []).length} lines</span>
         </div>
       )}
       <div className="px-3 py-1.5 border-b border-slate-800 flex items-center gap-2">
@@ -769,7 +769,7 @@ export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
           <button
             key={lvl}
             onClick={() => setLevelFilter(levelFilter === lvl ? null : lvl)}
-            className={cn('text-xs px-1.5 py-0.5 rounded-sm', levelFilter === lvl ? 'bg-slate-700 text-slate-200' : 'text-slate-500 hover:text-slate-300')}
+            className={cn('text-xs px-1.5 py-0.5 rounded-sm', levelFilter === lvl ? 'bg-slate-700 text-slate-200' : 'text-faint hover:text-slate-300')}
           >
             {lvl}
           </button>
@@ -778,13 +778,13 @@ export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
       <div className="max-h-[500px] overflow-auto font-mono text-xs">
         {filtered.map((line, i) => (
           <div key={i} className="px-3 py-0.5 hover:bg-slate-900 flex gap-2 border-b border-slate-800/50">
-            {line.timestamp && <span className="text-slate-600 whitespace-nowrap shrink-0">{line.timestamp}</span>}
-            {line.level && <span className={cn('uppercase w-5 shrink-0', LOG_LEVEL_STYLES[line.level] || 'text-slate-500')}>{line.level.charAt(0)}</span>}
+            {line.timestamp && <span className="text-faint whitespace-nowrap shrink-0">{line.timestamp}</span>}
+            {line.level && <span className={cn('uppercase w-5 shrink-0', LOG_LEVEL_STYLES[line.level] || 'text-faint')}>{line.level.charAt(0)}</span>}
             {line.source && <span className="text-violet-400 shrink-0">[{line.source}]</span>}
             <span className={cn('flex-1', line.level === 'error' ? 'text-red-300' : 'text-slate-300')}>{line.message}</span>
           </div>
         ))}
-        {filtered.length === 0 && <div className="px-3 py-4 text-center text-slate-600">No matching log lines</div>}
+        {filtered.length === 0 && <div className="px-3 py-4 text-center text-faint">No matching log lines</div>}
       </div>
     </div>
   );
@@ -809,7 +809,7 @@ export function AgentYamlViewer({ spec }: { spec: YamlViewerSpec }) {
     <div className="rounded-lg border border-slate-800 bg-slate-950 overflow-hidden">
       <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
           <span className="text-xs font-medium text-slate-300">{spec.title || (spec.language === 'json' ? 'JSON' : 'YAML')}</span>
-          <button onClick={handleCopy} className="text-xs text-slate-500 hover:text-slate-300">
+          <button onClick={handleCopy} className="text-xs text-faint hover:text-slate-300">
             {copied ? '✓ Copied' : 'Copy'}
           </button>
         </div>

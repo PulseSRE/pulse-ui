@@ -343,9 +343,9 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onCancel,
           <section aria-label="Related objects">
             <h3 className="mb-1 font-semibold text-slate-300">Related objects · choose what to delete</h3>
             {loading || !related ? (
-              <p className="text-slate-500">Checking related objects…</p>
+              <p className="text-faint">Checking related objects…</p>
             ) : related.candidates.length === 0 && readErrors.length === 0 && wl.failures.length === 0 ? (
-              <p className="text-slate-500">No Service, Route, autoscaler, budget, policy, config or claim exists only for this {kind}.</p>
+              <p className="text-faint">No Service, Route, autoscaler, budget, policy, config or claim exists only for this {kind}.</p>
             ) : (
               <ul className="space-y-1.5">
                 {related.candidates.map((c) => {
@@ -364,7 +364,7 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onCancel,
                         aria-describedby={`rel-${keyOf(c)}-note`}
                       />
                       <label htmlFor={`rel-${keyOf(c)}`} className="flex-1">
-                        <span className="text-slate-500">{c.kind} </span>
+                        <span className="text-faint">{c.kind} </span>
                         <span className="font-mono text-slate-200">{c.name}</span>
                         <span id={`rel-${keyOf(c)}-note`} className={`block ${c.dataLoss ? 'text-amber-300' : 'text-slate-400'}`}>
                           {[c.keptReason, c.note, denied].filter(Boolean).join(' · ')}
@@ -385,26 +385,26 @@ export function DeleteRelatedDialog({ workload, workloadRbac, onClose, onCancel,
                 )}
               </div>
             )}
-            <p className="mt-2 text-slate-500">Found through label selectors, the autoscaler&apos;s target, Route backends and pod template references in {ns}.</p>
+            <p className="mt-2 text-faint">Found through label selectors, the autoscaler&apos;s target, Route backends and pod template references in {ns}.</p>
           </section>
         )}
 
         <dl className="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1.5">
-          <dt className="text-slate-500">Will delete</dt>
+          <dt className="text-faint">Will delete</dt>
           <dd className="text-slate-300" data-testid="delete-summary">
             {kind}{chosen.length ? ` + ${chosen.length} related object${chosen.length === 1 ? '' : 's'}` : ' only'}
             {retainedByPolicy.length ? ` · ${retainedByPolicy.length} PVC${retainedByPolicy.length === 1 ? '' : 's'} deleted by the StatefulSet's retention policy` : ''}
             {keptPvcs.length ? ` · ${keptPvcs.length} PVC${keptPvcs.length === 1 ? '' : 's'} kept` : ''}
           </dd>
-          <dt className="text-slate-500">Dry run</dt>
+          <dt className="text-faint">Dry run</dt>
           <dd className="text-slate-300">Every chosen object is dry-run first; if any would fail, nothing is deleted.</dd>
-          <dt className="text-slate-500">Can it be undone?</dt>
+          <dt className="text-faint">Can it be undone?</dt>
           <dd className="text-slate-300">
             No.{' '}
             <button type="button" onClick={downloadYaml} className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300">
               <Download className="h-3 w-3" aria-hidden="true" /> Download their YAML first
             </button>
-            {chosen.some((c) => c.kind === 'ConfigMap' || c.kind === 'Secret') && <span className="text-slate-500"> (ConfigMaps and Secrets are not included: Pulse did not read their data)</span>}
+            {chosen.some((c) => c.kind === 'ConfigMap' || c.kind === 'Secret') && <span className="text-faint"> (ConfigMaps and Secrets are not included: Pulse did not read their data)</span>}
           </dd>
         </dl>
 

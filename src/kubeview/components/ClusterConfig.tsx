@@ -81,7 +81,7 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
         {section.icon}
         <div className="flex-1 text-left">
           <div className="text-sm font-medium text-slate-200">{section.title}</div>
-          <div className="text-xs text-slate-500">{section.description}</div>
+          <div className="text-xs text-faint">{section.description}</div>
         </div>
         {expanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
       </button>
@@ -173,7 +173,7 @@ function ProxyEditor({ data, apiPath, clusterId }: { data: any; apiPath: string;
       <FieldRow label="HTTPS Proxy" value={httpsProxy} onChange={(v) => { setHttpsProxy(v); setDirty(true); }} placeholder="http://proxy.example.com:3128" />
       <FieldRow label="No Proxy" value={noProxy} onChange={(v) => { setNoProxy(v); setDirty(true); }} placeholder=".cluster.local,169.254.169.254,10.0.0.0/8" multiline />
       {spec.trustedCA?.name && (
-        <div className="text-xs text-slate-500">Trusted CA ConfigMap: <span className="text-slate-300 font-mono">{spec.trustedCA.name}</span></div>
+        <div className="text-xs text-faint">Trusted CA ConfigMap: <span className="text-slate-300 font-mono">{spec.trustedCA.name}</span></div>
       )}
       {dirty && (
         <SaveBar saving={saving} onSave={handleSave} onReset={() => { setHttpProxy(spec.httpProxy || ''); setHttpsProxy(spec.httpsProxy || ''); setNoProxy(spec.noProxy || ''); setDirty(false); }} warning="Changes will affect all cluster components" />
@@ -241,10 +241,10 @@ function ImageEditor({ data, apiPath, clusterId }: { data: any; apiPath: string;
         <RegistryList label="Insecure Registries" items={insecureRegistries} color="yellow" description="HTTP allowed (no TLS)" onRemove={(r) => handleRemoveRegistry('insecure', r)} disabled={saving} />
       )}
       {allowedRegistries.length === 0 && blockedRegistries.length === 0 && insecureRegistries.length === 0 && (
-        <div className="text-sm text-slate-500 py-2">No registry restrictions configured — all registries are allowed</div>
+        <div className="text-sm text-faint py-2">No registry restrictions configured — all registries are allowed</div>
       )}
       {spec.additionalTrustedCA?.name && (
-        <div className="text-xs text-slate-500">Additional trusted CAs: <span className="text-slate-300 font-mono">{spec.additionalTrustedCA.name}</span></div>
+        <div className="text-xs text-faint">Additional trusted CAs: <span className="text-slate-300 font-mono">{spec.additionalTrustedCA.name}</span></div>
       )}
       <div className="flex items-center gap-2 pt-1">
         <input aria-label="Registry hostname" type="text" value={newReg} onChange={(e) => setNewReg(e.target.value)} placeholder="registry.example.com" className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 w-64 focus:outline-hidden focus:ring-1 focus:ring-blue-500" onKeyDown={(e) => e.key === 'Enter' && handleAddRegistry()} />
@@ -265,11 +265,11 @@ function RegistryList({ label, items, color, description, onRemove, disabled }: 
   label: string; items: string[]; color: 'green' | 'red' | 'yellow'; description: string;
   onRemove: (registry: string) => void; disabled: boolean;
 }) {
-  const bgColor = { green: 'bg-green-900/30 border-green-800', red: 'bg-red-900/30 border-red-800', yellow: 'bg-yellow-900/30 border-yellow-800' }[color];
-  const textColor = { green: 'text-green-300', red: 'text-red-300', yellow: 'text-yellow-300' }[color];
+  const bgColor = { green: 'bg-green-900/30 border-green-800', red: 'bg-red-900/30 border-red-800', yellow: 'bg-amber-900/30 border-amber-800' }[color];
+  const textColor = { green: 'text-green-300', red: 'text-red-300', yellow: 'text-amber-300' }[color];
   return (
     <div>
-      <div className="text-xs text-slate-400 mb-1">{label} <span className="text-slate-600">— {description}</span></div>
+      <div className="text-xs text-slate-400 mb-1">{label} <span className="text-faint">— {description}</span></div>
       <div className="flex flex-wrap gap-1.5">
         {items.map((r, i) => (
           <span key={i} className={cn('px-2 py-1 text-xs rounded-sm border font-mono flex items-center gap-1.5', bgColor, textColor)}>
@@ -312,7 +312,7 @@ function IngressEditor({ data, apiPath, clusterId }: { data: any; apiPath: strin
     <div className="space-y-3">
       <FieldRow label="Default Domain" value={domain} onChange={(v) => { setDomain(v); setDirty(true); }} placeholder="apps.cluster.example.com" />
       {data.status?.defaultPlacement && (
-        <div className="text-xs text-slate-500">Placement: <span className="text-slate-300">{data.status.defaultPlacement}</span></div>
+        <div className="text-xs text-faint">Placement: <span className="text-slate-300">{data.status.defaultPlacement}</span></div>
       )}
       {componentRoutes.length > 0 && (
         <div>
@@ -366,7 +366,7 @@ function SchedulerEditor({ data, apiPath, clusterId }: { data: any; apiPath: str
           <input type="radio" name="scheduler-profile" value={p.value} checked={selectedProfile === p.value} onChange={() => setSelectedProfile(p.value)} className="mt-0.5" />
           <div>
             <div className="text-sm font-medium text-slate-200">{p.label}</div>
-            <div className="text-xs text-slate-500">{p.description}</div>
+            <div className="text-xs text-faint">{p.description}</div>
           </div>
         </label>
       ))}
@@ -374,7 +374,7 @@ function SchedulerEditor({ data, apiPath, clusterId }: { data: any; apiPath: str
         <SaveBar saving={saving} onSave={handleSave} onReset={() => setSelectedProfile(profile)} />
       )}
       {spec.defaultNodeSelector && (
-        <div className="text-xs text-slate-500 pt-1">Default node selector: <span className="text-slate-300 font-mono">{spec.defaultNodeSelector}</span></div>
+        <div className="text-xs text-faint pt-1">Default node selector: <span className="text-slate-300 font-mono">{spec.defaultNodeSelector}</span></div>
       )}
     </div>
   );
@@ -420,7 +420,7 @@ function APIServerEditor({ data, apiPath, clusterId }: { data: any; apiPath: str
               <input type="radio" name="tls-profile" value={p.value} checked={selectedTls === p.value} onChange={() => setSelectedTls(p.value)} className="mt-0.5" />
               <div>
                 <div className="text-sm font-medium text-slate-200">{p.label}</div>
-                <div className="text-xs text-slate-500">{p.description}</div>
+                <div className="text-xs text-faint">{p.description}</div>
               </div>
             </label>
           ))}
@@ -432,13 +432,13 @@ function APIServerEditor({ data, apiPath, clusterId }: { data: any; apiPath: str
         )}
       </div>
       {spec.audit?.profile && (
-        <div className="text-xs text-slate-500">Audit profile: <span className="text-slate-300">{spec.audit.profile}</span></div>
+        <div className="text-xs text-faint">Audit profile: <span className="text-slate-300">{spec.audit.profile}</span></div>
       )}
       {spec.encryption?.type && (
-        <div className="text-xs text-slate-500">Encryption: <span className="text-slate-300">{spec.encryption.type}</span></div>
+        <div className="text-xs text-faint">Encryption: <span className="text-slate-300">{spec.encryption.type}</span></div>
       )}
       {spec.clientCA?.name && (
-        <div className="text-xs text-slate-500">Client CA: <span className="text-slate-300 font-mono">{spec.clientCA.name}</span></div>
+        <div className="text-xs text-faint">Client CA: <span className="text-slate-300 font-mono">{spec.clientCA.name}</span></div>
       )}
     </div>
   );
@@ -536,7 +536,7 @@ function NetworkEditor({ data, apiPath, clusterId }: { data: any; apiPath: strin
           {clusterNetwork.map((net: any, i: number) => (
             <div key={i} className="px-2 py-1.5 bg-slate-800/50 rounded-sm border border-slate-700 mb-1">
               <span className="text-sm font-mono text-slate-200">{net.cidr}</span>
-              {net.hostPrefix && <span className="text-xs text-slate-500 ml-2">/{net.hostPrefix}</span>}
+              {net.hostPrefix && <span className="text-xs text-faint ml-2">/{net.hostPrefix}</span>}
             </div>
           ))}
         </div>
@@ -593,7 +593,7 @@ function FeatureGateEditor({ data, apiPath, clusterId }: { data: any; apiPath: s
         </div>
       )}
       {featureSet !== 'TechPreviewNoUpgrade' && spec.featureSet !== 'TechPreviewNoUpgrade' && (
-        <div className="p-3 bg-yellow-900/20 border border-yellow-800 rounded-sm text-xs text-yellow-300 flex items-start gap-2">
+        <div className="p-3 bg-amber-900/20 border border-amber-800 rounded-sm text-xs text-amber-300 flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>Changing the feature set affects cluster behavior and may enable unstable features. Some changes are irreversible.</span>
         </div>
@@ -615,7 +615,7 @@ function FeatureGateEditor({ data, apiPath, clusterId }: { data: any; apiPath: s
             {enabled.slice(0, 15).map((fg: any, i: number) => (
               <span key={i} className="px-2 py-0.5 text-xs bg-green-900/30 border border-green-800 text-green-300 rounded-sm font-mono">{fg.name}</span>
             ))}
-            {enabled.length > 15 && <span className="text-xs text-slate-500">+{enabled.length - 15} more</span>}
+            {enabled.length > 15 && <span className="text-xs text-faint">+{enabled.length - 15} more</span>}
           </div>
         </div>
       )}
@@ -626,7 +626,7 @@ function FeatureGateEditor({ data, apiPath, clusterId }: { data: any; apiPath: s
             {disabled.slice(0, 15).map((fg: any, i: number) => (
               <span key={i} className="px-2 py-0.5 text-xs bg-slate-800/50 border border-slate-700 text-slate-400 rounded-sm font-mono">{fg.name}</span>
             ))}
-            {disabled.length > 15 && <span className="text-xs text-slate-500">+{disabled.length - 15} more</span>}
+            {disabled.length > 15 && <span className="text-xs text-faint">+{disabled.length - 15} more</span>}
           </div>
         </div>
       )}
@@ -691,20 +691,20 @@ function ConsoleEditor({ data, apiPath, clusterId }: { data: any; apiPath: strin
         </div>
       )}
 
-      <div className="border-t border-slate-800 pt-3 text-xs text-slate-500 font-medium">Branding</div>
+      <div className="border-t border-slate-800 pt-3 text-xs text-faint font-medium">Branding</div>
       <FieldRow label="Custom Product Name" value={customProductName} onChange={markDirty(setCustomProductName)} placeholder="My Platform (replaces 'Red Hat OpenShift')" />
       <FieldRow label="Custom Logo ConfigMap" value={logoConfigMap} onChange={markDirty(setLogoConfigMap)} placeholder="ConfigMap name in openshift-config (e.g., custom-logo)" />
       {logoConfigMap && (
         <FieldRow label="Logo Key in ConfigMap" value={logoKey} onChange={markDirty(setLogoKey)} placeholder="logo.png" />
       )}
 
-      <div className="border-t border-slate-800 pt-3 text-xs text-slate-500 font-medium">Custom Route</div>
+      <div className="border-t border-slate-800 pt-3 text-xs text-faint font-medium">Custom Route</div>
       <FieldRow label="Console Hostname" value={routeHostname} onChange={markDirty(setRouteHostname)} placeholder="console.example.com (custom domain for the console)" />
       {routeHostname && (
         <FieldRow label="TLS Secret Name" value={routeSecret} onChange={markDirty(setRouteSecret)} placeholder="Secret in openshift-config with tls.crt + tls.key" />
       )}
 
-      <div className="border-t border-slate-800 pt-3 text-xs text-slate-500 font-medium">Integrations</div>
+      <div className="border-t border-slate-800 pt-3 text-xs text-faint font-medium">Integrations</div>
       <FieldRow label="Statuspage.io Page ID" value={statuspageId} onChange={markDirty(setStatuspageId)} placeholder="abc123 (shows external status incidents in console)" />
 
       {dirty && (
@@ -758,7 +758,7 @@ function SaveBar({ saving, onSave, onReset, warning }: {
         {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
       </button>
       <button onClick={onReset} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Reset</button>
-      {warning && <span className="text-xs text-yellow-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {warning}</span>}
+      {warning && <span className="text-xs text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {warning}</span>}
     </div>
   );
 }

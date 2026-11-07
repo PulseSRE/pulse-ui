@@ -184,10 +184,10 @@ export default function DiffPreview({
                     'flex px-4 py-0.5 border-l-2',
                     line.type === 'added' && 'bg-emerald-950/30 border-emerald-500 text-emerald-400',
                     line.type === 'removed' && 'bg-red-950/30 border-red-500 text-red-400',
-                    line.type === 'unchanged' && 'border-transparent text-slate-500'
+                    line.type === 'unchanged' && 'border-transparent text-faint'
                   )}
                 >
-                  <span className="w-6 shrink-0 text-slate-600 select-none">
+                  <span className="w-6 shrink-0 text-faint select-none">
                     {line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '}
                   </span>
                   <span className="whitespace-pre">{line.content || ' '}</span>

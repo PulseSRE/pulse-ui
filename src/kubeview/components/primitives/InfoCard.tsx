@@ -22,7 +22,7 @@ export function InfoCard({ label, value, sub, onClick, className }: InfoCardProp
     >
       <div className="text-xs text-slate-400 mb-1">{label}</div>
       <div className="text-lg font-bold text-slate-100 wrap-break-word line-clamp-3">{value}</div>
-      {sub && <div className="text-xs text-slate-500 mt-0.5 wrap-break-word line-clamp-2">{sub}</div>}
+      {sub && <div className="text-xs text-faint mt-0.5 wrap-break-word line-clamp-2">{sub}</div>}
     </Wrapper>
   );
 }

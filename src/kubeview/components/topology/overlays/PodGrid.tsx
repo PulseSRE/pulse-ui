@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { MapPod } from '../types';
 import type { HealthScoreResult } from '../../../engine/healthScore';
 import { HEALTH_COLORS } from '../constants';
+import { podPhaseClasses } from '../../../engine/statusColors';
 
 interface PodGridProps {
   pods: MapPod[];
@@ -10,20 +11,15 @@ interface PodGridProps {
   onNavigateToNode?: (nodeName: string) => void;
 }
 
-const PHASE_COLORS: Record<string, string> = {
-  Running: '#10b981',
-  Succeeded: '#6366f1',
-  Pending: '#f59e0b',
-  Failed: '#ef4444',
-  Unknown: '#64748b',
-};
-
-const PHASE_BG: Record<string, string> = {
-  Running: 'bg-emerald-500/15 border-emerald-500/30',
-  Succeeded: 'bg-indigo-500/15 border-indigo-500/30',
-  Pending: 'bg-amber-500/15 border-amber-500/30',
-  Failed: 'bg-red-500/15 border-red-500/30',
-  Unknown: 'bg-slate-500/15 border-slate-500/30',
+// Pod colours come from podPhaseTone (engine/statusColors), the same as the
+// Pods list and the node map: Pending is warning (the sort below already
+// counts it as failing), ContainerCreating is progress. In this density grid
+// Succeeded is neutral so completed Job pods stand apart from Running ones.
+const tone = (phase: string) => podPhaseClasses(phase, { completed: 'neutral' });
+const phaseHex = (phase: string) => tone(phase).hex;
+const phaseCard = (phase: string) => {
+  const t = tone(phase);
+  return `${t.bg} ${t.border}`;
 };
 
 function shortName(name: string): string {
@@ -75,7 +71,7 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: nodeColor }} />
           <h3 className="text-sm font-semibold text-slate-100">{nodeName}</h3>
-          <span className="text-xs text-slate-500">{pods.length} pods</span>
+          <span className="text-xs text-faint">{pods.length} pods</span>
           {onNavigateToNode && (
             <button
               onClick={() => onNavigateToNode(nodeName)}
@@ -90,9 +86,9 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
         <div className="flex items-center gap-1">
           {Object.entries(phaseCounts).map(([phase, count]) => (
             <div key={phase} className="flex items-center gap-1 px-2 py-0.5 rounded-sm bg-slate-800 border border-slate-700">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PHASE_COLORS[phase] || '#64748b' }} />
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: phaseHex(phase) }} />
               <span className="text-xs text-slate-300">{count}</span>
-              <span className="text-xs text-slate-500">{phase}</span>
+              <span className="text-xs text-faint">{phase}</span>
             </div>
           ))}
         </div>
@@ -105,7 +101,7 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
             key={phase}
             style={{
               width: `${(count / pods.length) * 100}%`,
-              backgroundColor: PHASE_COLORS[phase] || '#64748b',
+              backgroundColor: phaseHex(phase),
               opacity: 0.8,
             }}
             title={`${count} ${phase}`}
@@ -119,7 +115,7 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
           <div key={ns}>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-medium text-slate-400">{ns}</span>
-              <span className="text-xs text-slate-600">{nsPods.length} pods</span>
+              <span className="text-xs text-faint">{nsPods.length} pods</span>
             </div>
 
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
@@ -132,8 +128,8 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
                   return b.restarts - a.restarts;
                 })
                 .map(pod => {
-                  const color = PHASE_COLORS[pod.phase] || '#64748b';
-                  const bgClass = PHASE_BG[pod.phase] || PHASE_BG.Unknown;
+                  const color = phaseHex(pod.phase);
+                  const bgClass = phaseCard(pod.phase);
                   const isHovered = hoveredPod?.name === pod.name;
                   const hasIssue = pod.phase === 'Failed' || pod.phase === 'Pending' || pod.restarts > 5;
 
@@ -161,7 +157,7 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
                       </div>
 
                       {/* Phase label */}
-                      <div className="text-xs text-slate-500">{pod.phase}</div>
+                      <div className="text-xs text-faint">{pod.phase}</div>
 
                       {/* Restart badge */}
                       {pod.restarts > 0 && (
@@ -184,24 +180,24 @@ export function PodGrid({ pods, nodeName, nodeHealth, onNavigateToNode }: PodGri
       {hoveredPod && (
         <div className="mt-3 p-3 rounded-lg bg-slate-800 border border-slate-700">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PHASE_COLORS[hoveredPod.phase] || '#64748b' }} />
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: phaseHex(hoveredPod.phase) }} />
             <span className="text-sm font-medium text-slate-100">{hoveredPod.name}</span>
           </div>
           <div className="grid grid-cols-4 gap-3 text-xs text-slate-400 mt-2">
             <div>
-              <span className="text-slate-500 block">Namespace</span>
+              <span className="text-faint block">Namespace</span>
               <span className="text-slate-300">{hoveredPod.namespace}</span>
             </div>
             <div>
-              <span className="text-slate-500 block">Phase</span>
-              <span style={{ color: PHASE_COLORS[hoveredPod.phase] }}>{hoveredPod.phase}</span>
+              <span className="text-faint block">Phase</span>
+              <span className={tone(hoveredPod.phase).text}>{hoveredPod.phase}</span>
             </div>
             <div>
-              <span className="text-slate-500 block">Restarts</span>
+              <span className="text-faint block">Restarts</span>
               <span className={hoveredPod.restarts > 5 ? 'text-red-400' : 'text-slate-300'}>{hoveredPod.restarts}</span>
             </div>
             <div>
-              <span className="text-slate-500 block">Node</span>
+              <span className="text-faint block">Node</span>
               <span className="text-slate-300">{hoveredPod.nodeName}</span>
             </div>
           </div>

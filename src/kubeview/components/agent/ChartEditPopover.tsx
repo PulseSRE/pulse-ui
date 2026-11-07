@@ -94,7 +94,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
     >
       {/* Title */}
       <div>
-        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Title</label>
+        <label className="text-[10px] font-medium text-faint uppercase tracking-wider">Title</label>
         <input aria-label="Title"
           type="text"
           value={title}
@@ -106,7 +106,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
 
       {/* PromQL Query */}
       <div>
-        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">PromQL Query</label>
+        <label className="text-[10px] font-medium text-faint uppercase tracking-wider">PromQL Query</label>
         <div className="mt-1 rounded-md overflow-hidden border border-slate-700 focus-within:border-blue-500">
           <Suspense fallback={
             <textarea aria-label="PromQL Query"
@@ -166,7 +166,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
       {/* Chart Type + Time Range */}
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Chart Type</label>
+          <label className="text-[10px] font-medium text-faint uppercase tracking-wider">Chart Type</label>
           <select aria-label="Chart Type"
             value={chartType}
             onChange={(e) => setChartType(e.target.value)}
@@ -179,7 +179,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
         </div>
 
         <div className="flex-1">
-          <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Time Range</label>
+          <label className="text-[10px] font-medium text-faint uppercase tracking-wider">Time Range</label>
           <div className="flex gap-1 mt-1">
             {TIME_RANGES.map((r) => (
               <button
@@ -201,7 +201,7 @@ export function ChartEditPopover({ spec, viewId, widgetIndex, onClose }: ChartEd
 
       {/* Y-Axis Label */}
       <div>
-        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Y-Axis Label</label>
+        <label className="text-[10px] font-medium text-faint uppercase tracking-wider">Y-Axis Label</label>
         <input aria-label="Y-Axis Label"
           type="text"
           value={yAxisLabel}

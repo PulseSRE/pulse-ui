@@ -98,7 +98,7 @@ export function StatCard({
       >
         {value}
       </div>
-      {subtitle && <div className="text-xs text-slate-500 mt-0.5">{subtitle}</div>}
+      {subtitle && <div className="text-xs text-faint mt-0.5">{subtitle}</div>}
       {bar !== null && bar !== undefined && <UsageBar pct={bar} tone={barTone} className="mt-2" />}
     </>
   );
@@ -129,7 +129,7 @@ export function StatCard({
           <button
             type="button"
             onClick={() => setShowTip((v) => !v)}
-            className="absolute top-3 right-3 text-slate-600 hover:text-slate-400 transition-colors"
+            className="absolute top-3 right-3 text-faint hover:text-slate-400 transition-colors"
             aria-label={`Explain ${label}`}
             aria-expanded={showTip}
           >
@@ -143,7 +143,7 @@ export function StatCard({
               {explanation.actionLink ? (
                 <a href={explanation.actionLink} className="text-blue-400 hover:underline block">{explanation.action}</a>
               ) : (
-                <div className="text-slate-500">{explanation.action}</div>
+                <div className="text-faint">{explanation.action}</div>
               )}
             </div>
           )}

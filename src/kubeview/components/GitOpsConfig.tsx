@@ -90,7 +90,7 @@ export function GitOpsConfig() {
                 This will deploy ArgoCD in the <code className="text-xs bg-slate-800 px-1 py-0.5 rounded-sm font-mono">openshift-gitops</code> namespace
                 and enable application sync, drift detection, and auto-PR on save.
               </p>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-faint mt-2">
                 You can still configure your Git repository below — the settings will be saved and applied
                 once ArgoCD is installed.
               </p>
@@ -156,7 +156,7 @@ export function GitOpsConfig() {
           <div>
             <label htmlFor="gitops-token" className="text-xs text-slate-400 block mb-1">
               Personal Access Token
-              <span className="text-slate-600 ml-1">(stored in K8s Secret, not localStorage)</span>
+              <span className="text-faint ml-1">(stored in K8s Secret, not localStorage)</span>
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -171,13 +171,13 @@ export function GitOpsConfig() {
                 />
                 <button
                   onClick={() => setShowToken(!showToken)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-slate-300"
                 >
                   {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-xs text-faint mt-1">
               Required scopes: GitHub <code>repo</code>, GitLab <code>api</code>, Bitbucket <code>repository:write</code>
             </p>
           </div>
@@ -185,7 +185,7 @@ export function GitOpsConfig() {
           {/* Path Prefix */}
           <div>
             <label htmlFor="gitops-path-prefix" className="text-xs text-slate-400 block mb-1">
-              Path Prefix <span className="text-slate-600">(optional, for monorepos)</span>
+              Path Prefix <span className="text-faint">(optional, for monorepos)</span>
             </label>
             <input
               id="gitops-path-prefix"
@@ -217,13 +217,13 @@ export function GitOpsConfig() {
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
               Save Configuration
             </button>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-faint">
               Use Test Connection to check the token; nothing else validates it before a pull request is created
             </span>
           </div>
 
           {isConfigured && (
-            <div className="text-xs text-slate-600 pt-1">
+            <div className="text-xs text-faint pt-1">
               Currently configured: {config?.provider} · {config?.repoUrl?.split('/').slice(-2).join('/')} · {config?.baseBranch}
             </div>
           )}

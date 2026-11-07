@@ -202,7 +202,7 @@ export function AmbientInsight({
           localData={localData}
           suffix={context.kind ? `about this ${context.kind.toLowerCase()}` : undefined}
         />
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-faint mt-1">
           {context.kind ? `Pulse AI analyses this ${context.kind.toLowerCase()} and answers here.` : 'Pulse AI analyses it and answers here.'}
         </p>
       </div>

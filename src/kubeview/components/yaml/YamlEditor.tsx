@@ -454,7 +454,7 @@ export default function YamlEditor({
             <span>YAML</span>
             {cursorField && <span className="text-blue-400 font-mono">{cursorField}</span>}
             {validationErrors.length > 0 && (
-              <span className="flex items-center gap-1 text-yellow-400">
+              <span className="flex items-center gap-1 text-amber-400">
                 <AlertTriangle className="w-3 h-3" />
                 {validationErrors.length} issue{validationErrors.length !== 1 ? 's' : ''}
               </span>
@@ -541,12 +541,12 @@ export default function YamlEditor({
               }
 
               if (diffs.length === 0) {
-                return <div className="text-center py-8 text-slate-500 text-xs">No changes</div>;
+                return <div className="text-center py-8 text-faint text-xs">No changes</div>;
               }
 
               return (
                 <div className="space-y-1">
-                  <div className="text-xs text-slate-500 mb-2">{diffs.length} change{diffs.length !== 1 ? 's' : ''}</div>
+                  <div className="text-xs text-faint mb-2">{diffs.length} change{diffs.length !== 1 ? 's' : ''}</div>
                   {diffs.map((d, i) => (
                     <div key={i} className="rounded-sm overflow-hidden">
                       {d.old !== undefined && (
@@ -590,7 +590,7 @@ export default function YamlEditor({
                 {/* Context-aware sub-snippets based on current YAML */}
                 {detectedKind && (
                   <>
-                    <div className="px-2 py-1 text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                    <div className="px-2 py-1 text-xs text-faint uppercase tracking-wider font-semibold">
                       Add to {detectedKind}
                     </div>
                     {contextSnippets.map((cs) => (
@@ -601,13 +601,13 @@ export default function YamlEditor({
                       >
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-slate-200">{cs.label}</div>
-                          <div className="text-xs text-slate-500">{cs.description}</div>
+                          <div className="text-xs text-faint">{cs.description}</div>
                         </div>
                         <Copy className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                       </button>
                     ))}
                     <div className="border-t border-slate-700 my-2" />
-                    <div className="px-2 py-1 text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                    <div className="px-2 py-1 text-xs text-faint uppercase tracking-wider font-semibold">
                       Full Resource Templates
                     </div>
                   </>
@@ -620,7 +620,7 @@ export default function YamlEditor({
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-slate-200">{snippet.label}</div>
-                      <div className="text-xs text-slate-500">{snippet.description}</div>
+                      <div className="text-xs text-faint">{snippet.description}</div>
                     </div>
                     {copiedSnippet === snippet.prefix ? (
                       <Check className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
@@ -710,7 +710,7 @@ function CodeExample({ title, code }: { title: string; code: string }) {
         <span className="text-slate-400">{title}</span>
         <button
           onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1000); }}
-          className="text-slate-500 hover:text-slate-300"
+          className="text-faint hover:text-slate-300"
         >
           {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
         </button>

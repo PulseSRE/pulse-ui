@@ -453,14 +453,14 @@ export default function LogStream({
             )}
           >
             {/* Line number */}
-            <div className="w-14 shrink-0 text-right pr-3 text-slate-500 select-none">
+            <div className="w-14 shrink-0 text-right pr-3 text-faint select-none">
               {index + 1}
             </div>
 
             {/* Content */}
             <div className={cn('flex-1 min-w-0', !wordWrap && 'truncate')}>
               {showTimestamps && line.timestamp && (
-                <span className="text-slate-500 mr-2">
+                <span className="text-faint mr-2">
                   {line.timestamp.toISOString().replace('T', ' ').slice(0, 23)}
                 </span>
               )}

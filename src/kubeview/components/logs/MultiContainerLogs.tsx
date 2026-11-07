@@ -108,7 +108,7 @@ export default function MultiContainerLogs({
       case 'running':
         return <div className="w-2 h-2 bg-green-400 rounded-full" />;
       case 'waiting':
-        return <div className="w-2 h-2 bg-yellow-400 rounded-full" />;
+        return <div className="w-2 h-2 bg-amber-400 rounded-full" />;
       case 'terminated':
         return <div className="w-2 h-2 bg-slate-500 rounded-full" />;
     }
@@ -198,7 +198,7 @@ export default function MultiContainerLogs({
                   )}
                 >
                   {/* Line number */}
-                  <div className="w-14 shrink-0 text-right pr-3 text-slate-500 select-none">
+                  <div className="w-14 shrink-0 text-right pr-3 text-faint select-none">
                     {index + 1}
                   </div>
 
@@ -210,7 +210,7 @@ export default function MultiContainerLogs({
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     {line.timestamp && (
-                      <span className="text-slate-500 mr-2">
+                      <span className="text-faint mr-2">
                         {line.timestamp.toISOString().replace('T', ' ').slice(0, 23)}
                       </span>
                     )}

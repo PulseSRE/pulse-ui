@@ -56,7 +56,7 @@ export function ArgoSyncBadge({ kind, namespace, name, showLabel = false }: Argo
         <GitBranch className="w-3 h-3 text-slate-500" />
         <Icon className={cn('w-3 h-3', config.color)} />
         <span className={config.color}>{config.label}</span>
-        {shortSha && <span className="text-slate-500 font-mono">{shortSha}</span>}
+        {shortSha && <span className="text-faint font-mono">{shortSha}</span>}
       </button>
     );
   }

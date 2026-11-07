@@ -450,7 +450,7 @@ export function useMultiSourceTable(
         accessorFn: (r: K8sResource) => (r as Record<string, unknown>)[ds.columnId] ?? 0,
         render: (value: unknown) => {
           const count = Number(value) || 0;
-          const color = count > 0 ? 'text-red-400' : 'text-slate-500';
+          const color = count > 0 ? 'text-red-400' : 'text-faint';
           return <span className={`font-mono text-sm ${color}`}>{count}</span>;
         },
         sortable: true,

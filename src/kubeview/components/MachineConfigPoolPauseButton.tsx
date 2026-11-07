@@ -50,7 +50,7 @@ export function MachineConfigPoolPauseButton({ mcp, variant = 'icon' }: { mcp: K
         title={canPatch ? verb : 'You do not have permission to change MachineConfigPools'}
         aria-label={`${verb} MachineConfigPool ${mcp.metadata.name}`}
         className={cn(
-          'text-slate-500 hover:text-amber-400 disabled:opacity-40 disabled:cursor-not-allowed',
+          'text-faint hover:text-amber-400 disabled:opacity-40 disabled:cursor-not-allowed',
           variant === 'icon' ? 'p-2 mr-2' : 'inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs',
         )}
       >

@@ -199,7 +199,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
           : 'bg-slate-800 border border-slate-700 text-slate-200',
       )}>
         {message.context && (
-          <div className="text-xs text-slate-500 mb-1">
+          <div className="text-xs text-faint mb-1">
             Context: {message.context.kind} {message.context.namespace}/{message.context.name}
           </div>
         )}
@@ -217,15 +217,15 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
                   Conflicting finding: {c.topic}
                 </div>
                 <div className="space-y-1 text-slate-400">
-                  <div><span className="text-slate-500">{c.skill_a}:</span> {c.position_a}</div>
-                  <div><span className="text-slate-500">{c.skill_b}:</span> {c.position_b}</div>
+                  <div><span className="text-faint">{c.skill_a}:</span> {c.position_a}</div>
+                  <div><span className="text-faint">{c.skill_b}:</span> {c.position_b}</div>
                 </div>
               </div>
             ))}
           </div>
         )}
         {message.role === 'assistant' && message.skillName && (
-          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-800/50 text-[11px] text-slate-500">
+          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-800/50 text-[11px] text-faint">
             {message.multiSkill ? (
               <span className="flex items-center gap-1" title="Parallel multi-skill execution">
                 <GitBranch className="w-3 h-3 text-cyan-400" />
@@ -252,7 +252,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
           </div>
         )}
         <div className="flex items-center justify-between mt-1.5 pt-1 border-t border-slate-700/50">
-          <span className="text-xs text-slate-500 flex items-center gap-1">
+          <span className="text-xs text-faint flex items-center gap-1">
             <Clock className="h-2.5 w-2.5" aria-hidden="true" />
             {timeStr}
           </span>
@@ -264,7 +264,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
                   disabled={feedbackGiven !== null}
                   className={cn(
                     'p-1 rounded-sm transition-colors',
-                    feedbackGiven === 'up' ? 'text-green-400 bg-green-950/40' : 'text-slate-500 hover:text-green-400 hover:bg-green-950/30',
+                    feedbackGiven === 'up' ? 'text-green-400 bg-green-950/40' : 'text-faint hover:text-green-400 hover:bg-green-950/30',
                     feedbackGiven === 'down' && 'hidden',
                   )}
                   aria-label="This helped"
@@ -277,7 +277,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
                   disabled={feedbackGiven !== null}
                   className={cn(
                     'p-1 rounded-sm transition-colors',
-                    feedbackGiven === 'down' ? 'text-red-400 bg-red-950/40' : 'text-slate-500 hover:text-red-400 hover:bg-red-950/30',
+                    feedbackGiven === 'down' ? 'text-red-400 bg-red-950/40' : 'text-faint hover:text-red-400 hover:bg-red-950/30',
                     feedbackGiven === 'up' && 'hidden',
                   )}
                   aria-label="This didn't help"
@@ -289,7 +289,7 @@ export const MessageBubble = memo(function MessageBubble({ message, mode, onAddT
             )}
             <button
               onClick={handleCopy}
-              className="text-slate-500 hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+              className="text-faint hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
               aria-label="Copy message"
               title="Copy to clipboard"
             >

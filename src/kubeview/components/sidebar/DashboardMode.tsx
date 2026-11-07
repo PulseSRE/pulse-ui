@@ -64,7 +64,7 @@ export function DashboardMode() {
         {/* Quick Prompts — max 3, deduplicated */}
         {smartPrompts.length > 0 && (
           <div>
-            <h3 className="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-2">Suggestions</h3>
+            <h3 className="text-[10px] text-faint uppercase tracking-wider font-medium mb-2">Suggestions</h3>
             <div className="flex flex-wrap gap-1.5">
               {smartPrompts.slice(0, 3).map((p, i) => (
                 <button

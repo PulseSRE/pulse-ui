@@ -256,17 +256,17 @@ export default function PodTerminal({ namespace, podName, containerName, contain
           <div className="flex items-center gap-2">
             <Terminal className="w-3 h-3 text-slate-500" />
             {containerPicker}
-            <span className="text-slate-600">in</span>
+            <span className="text-faint">in</span>
             <span className="text-slate-400 font-mono">{podName}</span>
-            <span className="px-1 py-0.5 rounded-sm bg-slate-800 text-slate-500 font-mono text-xs">{namespace}</span>
+            <span className="px-1 py-0.5 rounded-sm bg-slate-800 text-faint font-mono text-xs">{namespace}</span>
             {isNode && <span className="px-1 py-0.5 rounded-sm bg-amber-900/30 text-amber-400 text-xs">node</span>}
           </div>
           <div className="flex items-center gap-1">
             {endSessionButton}
-            <button onClick={handleCopyOutput} className="p-1 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300" title="Copy output">
+            <button onClick={handleCopyOutput} className="p-1 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300" title="Copy output">
               {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
             </button>
-            <button onClick={handleClear} className="p-1 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300" title="Clear">
+            <button onClick={handleClear} className="p-1 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300" title="Clear">
               <Trash2 className="w-3 h-3" />
             </button>
           </div>
@@ -277,14 +277,14 @@ export default function PodTerminal({ namespace, podName, containerName, contain
             <div key={i} className={cn(
               line.type === 'input' ? 'text-(--kv-term-prompt) font-medium' :
               line.type === 'error' ? 'text-(--kv-term-error)' :
-              line.type === 'system' ? 'text-slate-600 italic' :
+              line.type === 'system' ? 'text-faint italic' :
               'text-(--kv-term-text)'
             )}>
               {line.text || '\u00A0'}
             </div>
           ))}
           {running && (
-            <div className="flex items-center gap-2 text-slate-600 mt-1">
+            <div className="flex items-center gap-2 text-faint mt-1">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span>Executing...</span>
             </div>
@@ -318,37 +318,37 @@ export default function PodTerminal({ namespace, podName, containerName, contain
           <div className="flex items-center gap-3">
             <div className="flex gap-1.5">
               <button onClick={requestClose} className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-400 transition-colors" title="Close" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <div className="w-3 h-3 rounded-full bg-amber-500" />
               <div className="w-3 h-3 rounded-full bg-green-500" />
             </div>
             <div className="flex items-center gap-2 ml-2">
               <Terminal className="w-3.5 h-3.5 text-slate-500" />
               {containerPicker}
-              <span className="text-xs text-slate-600">in</span>
+              <span className="text-xs text-faint">in</span>
               <span className="text-xs text-slate-400 font-mono">{podName}</span>
-              <span className="text-xs px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-500 font-mono">{namespace}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded-sm bg-slate-800 text-faint font-mono">{namespace}</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
             {endSessionButton}
             {commandCount > 0 && (
-              <span className="text-xs text-slate-600 mr-2">{commandCount} command{commandCount !== 1 ? 's' : ''}</span>
+              <span className="text-xs text-faint mr-2">{commandCount} command{commandCount !== 1 ? 's' : ''}</span>
             )}
             <button
               onClick={handleCopyOutput}
-              className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+              className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300 transition-colors"
               title="Copy output"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={handleClear}
-              className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+              className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300 transition-colors"
               title="Clear (Ctrl+L)"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
-            <button onClick={requestClose} className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors" title="Close">
+            <button onClick={requestClose} className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300 transition-colors" title="Close">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -359,7 +359,7 @@ export default function PodTerminal({ namespace, podName, containerName, contain
           {lines.map((line, i) => (
             <div key={i} className="flex gap-2 group">
               {line.timestamp && (
-                <span className="text-xs text-slate-700 tabular-nums w-16 shrink-0 pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-xs text-faint tabular-nums w-16 shrink-0 pt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   {line.timestamp}
                 </span>
               )}
@@ -367,7 +367,7 @@ export default function PodTerminal({ namespace, podName, containerName, contain
                 'flex-1 min-w-0',
                 line.type === 'input' ? 'text-(--kv-term-prompt) font-medium' :
                 line.type === 'error' ? 'text-(--kv-term-error)' :
-                line.type === 'system' ? 'text-slate-600 italic text-xs' :
+                line.type === 'system' ? 'text-faint italic text-xs' :
                 'text-(--kv-term-text)'
               )}>
                 {line.text || '\u00A0'}
@@ -375,10 +375,10 @@ export default function PodTerminal({ namespace, podName, containerName, contain
             </div>
           ))}
           {running && (
-            <div className="flex items-center gap-2 text-slate-600 mt-1">
+            <div className="flex items-center gap-2 text-faint mt-1">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span className="text-xs">Executing...</span>
-              <span className="text-xs text-slate-700">(Ctrl+C to cancel)</span>
+              <span className="text-xs text-faint">(Ctrl+C to cancel)</span>
             </div>
           )}
         </div>
@@ -398,7 +398,7 @@ export default function PodTerminal({ namespace, podName, containerName, contain
             autoFocus
           />
           {history.length > 0 && !running && (
-            <span className="text-xs text-slate-700 hidden sm:block">
+            <span className="text-xs text-faint hidden sm:block">
               {history.length} in history
             </span>
           )}

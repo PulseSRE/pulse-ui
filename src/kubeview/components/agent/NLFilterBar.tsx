@@ -155,7 +155,7 @@ export function NLFilterBar({ resourceKind, columns, onFiltersApplied }: NLFilte
         {query && (
           <button
             onClick={handleClear}
-            className="text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-faint hover:text-slate-300 transition-colors"
             aria-label="Clear filter"
           >
             <X className="w-3.5 h-3.5" />

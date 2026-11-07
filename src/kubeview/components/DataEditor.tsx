@@ -175,7 +175,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
-          {kind === 'Secret' ? <Lock className="w-4 h-4 text-red-400" /> : <FileText className="w-4 h-4 text-yellow-400" />}
+          {kind === 'Secret' ? <Lock className="w-4 h-4 text-red-400" /> : <FileText className="w-4 h-4 text-amber-400" />}
           <h2 className="text-sm font-semibold text-slate-100">
             Data ({entries.length} {entries.length === 1 ? 'entry' : 'entries'})
           </h2>
@@ -225,7 +225,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
       {/* Entries */}
       <div className="divide-y divide-slate-800">
         {entries.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-slate-500">
+          <div className="px-4 py-8 text-center text-sm text-faint">
             No data entries. {!readOnly && 'Click "Add" to create one.'}
           </div>
         ) : (
@@ -260,7 +260,7 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
                   <pre
                     title={entry.binary ? 'Binary value (not UTF-8 text), shown as base64; kept unchanged on save' : undefined} className={cn(
                     'text-xs font-mono p-2 bg-slate-950 rounded-sm max-h-32 overflow-auto whitespace-pre-wrap break-all',
-                    showValues ? 'text-slate-300' : 'text-slate-600'
+                    showValues ? 'text-slate-300' : 'text-faint'
                   )}>
                     {entry.binary && <span className="mr-1 text-[10px] uppercase text-amber-400">binary · base64</span>}
                     {showValues ? entry.value : '••••••••••'}
@@ -279,11 +279,11 @@ export default function DataEditor({ resourcePath, data, kind, readOnly, cluster
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
-                <button onClick={() => handleCopy(idx)} className="p-1 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-slate-700" title="Copy value">
+                <button onClick={() => handleCopy(idx)} className="p-1 rounded-sm text-faint hover:text-slate-300 hover:bg-slate-700" title="Copy value">
                   {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
                 {!readOnly && (
-                  <button onClick={() => handleRemoveEntry(idx)} className="p-1 rounded-sm text-slate-500 hover:text-red-400 hover:bg-slate-700" title="Remove entry">
+                  <button onClick={() => handleRemoveEntry(idx)} className="p-1 rounded-sm text-faint hover:text-red-400 hover:bg-slate-700" title="Remove entry">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}

@@ -229,7 +229,7 @@ export function statusColor(status: string): string {
     return 'text-green-600';
   }
   if (s === 'warning' || s === 'pending' || s === 'progressing') {
-    return 'text-yellow-600';
+    return 'text-amber-600';
   }
   if (s === 'error' || s === 'failed' || s === 'crashloopbackoff') {
     return 'text-red-600';

@@ -283,7 +283,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
       {(unknownClusters.length > 0 || unknownZones.length > 0) && (
         <div className="absolute bottom-2 left-2 z-10 max-w-[240px] rounded-sm border border-slate-700 bg-slate-900/90 px-2.5 py-2 text-xs" data-testid="unknown-location-tray">
           <div className="font-medium text-slate-300 mb-1">Unknown location ({unknownClusters.length + unknownZones.length})</div>
-          <div className="text-[11px] text-slate-500 mb-1">No region label, so not placed on the map</div>
+          <div className="text-[11px] text-faint mb-1">No region label, so not placed on the map</div>
           <ul className="space-y-0.5 text-slate-400">
             {unknownClusters.map(c => <li key={`c-${c.id}`} className="truncate">{c.name}</li>)}
             {unknownZones.map(z => <li key={`z-${z.id}`} className="truncate">{z.displayName} · {z.nodeCount} node{z.nodeCount !== 1 ? 's' : ''}</li>)}
@@ -311,14 +311,14 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
           <button onClick={() => onNavigate?.('/compute', 'Compute')} className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors">
             <Server className="w-3 h-3" />
             <span className={statColor(stats.totalNodes - stats.readyNodes, 1, 2)}>{stats.readyNodes}</span>
-            <span className="text-slate-600">/ {stats.totalNodes} nodes</span>
+            <span className="text-faint">/ {stats.totalNodes} nodes</span>
           </button>
           <button onClick={() => onNavigate?.('/workloads', 'Workloads')} className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors">
             <Box className="w-3 h-3" />
             <span className="text-emerald-400">{stats.runningPods}</span>
             {stats.failedPods > 0 && <span className="text-red-400">({stats.failedPods} failed)</span>}
             {stats.pendingPods > 0 && <span className="text-amber-400">({stats.pendingPods} pending)</span>}
-            <span className="text-slate-600">pods</span>
+            <span className="text-faint">pods</span>
           </button>
           <button onClick={() => onNavigate?.('/compute', 'Compute')} className="flex items-center gap-1.5 hover:text-slate-200 transition-colors">
             <Cpu className="w-3 h-3 text-slate-400" />
@@ -342,18 +342,18 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
         {/* Controls */}
         <div className="flex items-center gap-1">
           <div className="flex items-center gap-0.5 bg-slate-800/60 rounded-sm p-0.5 mr-1">
-            <button onClick={() => setOverlay(overlay === 'cpu' ? 'none' : 'cpu')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'cpu' ? 'bg-blue-600/30 text-blue-300' : 'text-slate-500 hover:text-slate-300'}`}>CPU</button>
-            <button onClick={() => setOverlay(overlay === 'memory' ? 'none' : 'memory')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'memory' ? 'bg-blue-600/30 text-blue-300' : 'text-slate-500 hover:text-slate-300'}`}>MEM</button>
+            <button onClick={() => setOverlay(overlay === 'cpu' ? 'none' : 'cpu')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'cpu' ? 'bg-blue-600/30 text-blue-300' : 'text-faint hover:text-slate-300'}`}>CPU</button>
+            <button onClick={() => setOverlay(overlay === 'memory' ? 'none' : 'memory')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'memory' ? 'bg-blue-600/30 text-blue-300' : 'text-faint hover:text-slate-300'}`}>MEM</button>
           </div>
 
           {searchOpen ? (
             <input aria-label="Search map" type="text" value={searchQuery} onChange={(e) => search(e.target.value)} onBlur={() => { if (!searchQuery) setSearchOpen(false); }} placeholder="Search..." className="w-32 px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500" autoFocus />
           ) : (
-            <button onClick={() => setSearchOpen(true)} className="p-1 text-slate-500 hover:text-slate-200 transition-colors"><Search className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setSearchOpen(true)} className="p-1 text-faint hover:text-slate-200 transition-colors"><Search className="w-3.5 h-3.5" /></button>
           )}
 
           <div className="relative">
-            <button onClick={() => setFilterOpen(v => !v)} className={`p-1 transition-colors ${healthFilter !== 'all' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-200'}`}><Filter className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setFilterOpen(v => !v)} className={`p-1 transition-colors ${healthFilter !== 'all' ? 'text-blue-400' : 'text-faint hover:text-slate-200'}`}><Filter className="w-3.5 h-3.5" /></button>
             {filterOpen && (
               <div className="absolute right-0 top-7 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-1 z-20">
                 {(['all', 'healthy', 'warning', 'degraded', 'critical'] as HealthFilter[]).map(f => (
@@ -365,7 +365,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
             )}
           </div>
 
-          <button onClick={() => setFullscreen(v => !v)} className="p-1 text-slate-500 hover:text-slate-200 transition-colors" aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen (F)'}>
+          <button onClick={() => setFullscreen(v => !v)} className="p-1 text-faint hover:text-slate-200 transition-colors" aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen (F)'}>
             {fullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
@@ -378,7 +378,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
           <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-0.5">
             <button onClick={() => setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.min(8, b.scale * 1.5) }; })} className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-sm border border-slate-700/50 transition-colors">+</button>
             <button onClick={() => setViewState(p => { const b = p || defaultView; return { ...b, scale: Math.max(0.5, b.scale / 1.5) }; })} className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-sm border border-slate-700/50 transition-colors">−</button>
-            <button onClick={reset} className="w-6 h-6 flex items-center justify-center text-xs text-slate-500 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-sm border border-slate-700/50 transition-colors">↺</button>
+            <button onClick={reset} className="w-6 h-6 flex items-center justify-center text-xs text-faint hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-sm border border-slate-700/50 transition-colors">↺</button>
           </div>
         )}
         {cv.zoom !== 'world' && (
@@ -543,28 +543,28 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
               {[...events, ...(events.length > 3 ? events : [])].map((evt, i) => (
                 <span key={`${evt.id}-${i}`} className="flex items-center gap-1.5 text-xs">
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: EVENT_COLORS[evt.type] || '#64748b' }} />
-                  <span className="text-slate-500">{evt.type}</span>
+                  <span className="text-faint">{evt.type}</span>
                   <span className="text-slate-400">{evt.message.slice(0, 60)}</span>
                 </span>
               ))}
             </div>
           ) : podMovements.length > 0 ? (
-            <div className="flex items-center gap-6 text-xs text-slate-500">
+            <div className="flex items-center gap-6 text-xs text-faint">
               {podMovements.slice(0, 5).map((mv, i) => (
                 <span key={i} className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: MOVEMENT_COLORS[mv.toPhase] || '#64748b' }} />
                   <span>{mv.podName.slice(0, 25)}</span>
-                  <span className="text-slate-600">→ {mv.toPhase}</span>
+                  <span className="text-faint">→ {mv.toPhase}</span>
                 </span>
               ))}
             </div>
           ) : (
-            <span className="text-xs text-slate-600">No recent activity</span>
+            <span className="text-xs text-faint">No recent activity</span>
           )}
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-2 ml-4 shrink-0 text-xs text-slate-600">
+        <div className="flex items-center gap-2 ml-4 shrink-0 text-xs text-faint">
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />OK</span>
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Warn</span>
           <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />Crit</span>

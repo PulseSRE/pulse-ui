@@ -12,7 +12,7 @@ export function RemoteMetricsNotice({ what = 'Metrics', compact, className }: { 
   const name = useFleetStore(s => s.clusters.find(c => c.id === s.activeClusterId)?.name ?? s.activeClusterId);
   const description = `${what} come from the local cluster's Prometheus, which is the only one Pulse can reach. They are hidden for ${name} so they are not mistaken for its own. Switch to Local Cluster to see them.`;
   if (compact) {
-    return <p role="note" className={cn('text-xs text-slate-500', className)}>{what} are available for the local cluster only.</p>;
+    return <p role="note" className={cn('text-xs text-faint', className)}>{what} are available for the local cluster only.</p>;
   }
   return <EmptyState icon={<BarChart3 className="h-8 w-8" />} title={`${what} are available for the local cluster only`} description={description} className={className} />;
 }

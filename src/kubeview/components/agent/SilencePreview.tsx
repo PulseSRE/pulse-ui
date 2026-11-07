@@ -89,14 +89,14 @@ export function SilencePreview({ tool, input, preview }: { tool: string; input: 
               <ul className="space-y-0.5">
                 {hides.map((a, i) => (
                   <li key={i} className="flex items-center gap-2">
-                    <span className={cn('px-1 rounded-sm', a.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-300')}>{a.severity || '?'}</span>
+                    <span className={cn('px-1 rounded-sm', a.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300')}>{a.severity || '?'}</span>
                     <span className="text-slate-200">{a.alertname}</span>
-                    {a.namespace && <span className="text-slate-500">{a.namespace}</span>}
+                    {a.namespace && <span className="text-faint">{a.namespace}</span>}
                   </li>
                 ))}
               </ul>
             )}
-            <p className="text-slate-500 mt-0.5">Also any new alert with these matchers until it ends.</p>
+            <p className="text-faint mt-0.5">Also any new alert with these matchers until it ends.</p>
           </div>
           <div>
             <div className="text-slate-400 font-medium">Undo</div>

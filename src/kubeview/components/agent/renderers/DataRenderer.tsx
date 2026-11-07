@@ -145,20 +145,20 @@ const COLUMN_RENDERERS: Record<string, CellRenderer> = {
   labels: (v) => {
     const str = String(v ?? '');
     const pairs = str.split(',').map(s => s.trim()).filter(Boolean);
-    if (!pairs.length) return <span className="text-slate-600">(none)</span>;
+    if (!pairs.length) return <span className="text-faint">(none)</span>;
     return (
       <div className="flex flex-wrap gap-0.5">
         {pairs.slice(0, 3).map((p, i) => (
           <span key={i} className="px-1 py-0 text-[9px] rounded-sm bg-slate-700 text-slate-300">{p}</span>
         ))}
-        {pairs.length > 3 && <span className="text-[9px] text-slate-500">+{pairs.length - 3}</span>}
+        {pairs.length > 3 && <span className="text-[9px] text-faint">+{pairs.length - 3}</span>}
       </div>
     );
   },
 
   boolean: (v) => {
     const b = v === true || v === 'true' || v === 'True';
-    return b ? <span className="text-emerald-400">✓</span> : <span className="text-slate-500">✗</span>;
+    return b ? <span className="text-emerald-400">✓</span> : <span className="text-faint">✗</span>;
   },
 
   age: (v) => <span className="text-slate-400">{String(v ?? '')}</span>,
@@ -489,7 +489,7 @@ export function AgentStatusList({ spec }: { spec: StatusListSpec }) {
                 <Icon className={cn('h-3 w-3', statusClasses(item.status).text)} />
               </div>
               <span className={cn('text-sm font-medium', clickTarget ? 'text-blue-400 group-hover:text-blue-300' : 'text-slate-200')}>{item.name || item.detail}</span>
-              {item.name && item.detail && <span className="text-xs text-slate-500 truncate ml-auto">{item.detail}</span>}
+              {item.name && item.detail && <span className="text-xs text-faint truncate ml-auto">{item.detail}</span>}
               {clickTarget && <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 shrink-0 ml-1" />}
             </div>
           );

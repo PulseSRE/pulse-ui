@@ -231,9 +231,9 @@ describe('Status Utils', () => {
       expect(statusColor('Ready')).toBe('text-green-600');
     });
 
-    it('returns yellow for warning status', () => {
-      expect(statusColor('warning')).toBe('text-yellow-600');
-      expect(statusColor('Pending')).toBe('text-yellow-600');
+    it('returns amber for warning status', () => {
+      expect(statusColor('warning')).toBe('text-amber-600');
+      expect(statusColor('Pending')).toBe('text-amber-600');
     });
 
     it('returns red for error status', () => {

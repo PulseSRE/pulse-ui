@@ -68,11 +68,11 @@ export function StatusBar() {
   return (
     // One line at any width: the left side truncates and the right side drops
     // keyboard hints, tab count, namespace and version below `sm`.
-    <div className="flex h-6 items-center justify-between gap-3 overflow-hidden whitespace-nowrap border-t border-slate-700 bg-slate-800 px-4 max-sm:px-2 text-xs text-slate-500">
+    <div className="flex h-6 items-center justify-between gap-3 overflow-hidden whitespace-nowrap border-t border-slate-700 bg-slate-800 px-4 max-sm:px-2 text-xs text-faint">
       {/* Left */}
       <div className="flex min-w-0 items-center gap-3 overflow-hidden">
         <div className="flex shrink-0 items-center gap-1.5">
-          <div className={cn('h-1.5 w-1.5 rounded-full', connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'reconnecting' ? 'bg-yellow-500' : 'bg-red-500')} />
+          <div className={cn('h-1.5 w-1.5 rounded-full', connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'reconnecting' ? 'bg-amber-500' : 'bg-red-500')} />
           <span>{connectionStatus === 'connected' ? 'Connected' : connectionStatus}</span>
         </div>
         <span
@@ -125,7 +125,7 @@ export function StatusBar() {
           onClick={toggleAISidebar}
           className={cn(
             'flex items-center gap-1 px-1.5 py-0.5 rounded-sm transition-colors',
-            aiSidebarExpanded ? 'bg-blue-600/30 text-blue-400' : 'text-slate-500 hover:text-slate-300'
+            aiSidebarExpanded ? 'bg-blue-600/30 text-blue-400' : 'text-faint hover:text-slate-300'
           )}
           title="Toggle Agent (Cmd+Shift+A)"
         >
@@ -137,7 +137,7 @@ export function StatusBar() {
         <span className="max-sm:hidden">⌘K search · ⌘B browse</span>
         <button
           onClick={() => navigate('/about')}
-          className="max-sm:hidden px-1.5 py-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-colors"
+          className="max-sm:hidden px-1.5 py-0.5 rounded-sm text-faint hover:text-slate-300 transition-colors"
           title="About OpenShift Pulse — versions, images, links"
         >
           v{__APP_VERSION__}

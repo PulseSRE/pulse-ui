@@ -258,7 +258,7 @@ export function DryRunPanel({ yaml, apiPath, method, onClose, title, clusterId }
                 </div>
               ))}
               {result.defaultsApplied.length > 30 && (
-                <span className="text-xs text-slate-500">... and {result.defaultsApplied.length - 30} more</span>
+                <span className="text-xs text-faint">... and {result.defaultsApplied.length - 30} more</span>
               )}
             </div>
           )}

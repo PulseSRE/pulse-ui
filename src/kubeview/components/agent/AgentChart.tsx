@@ -377,7 +377,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
       <div className="px-3 py-1.5 border-b border-slate-700 flex items-center justify-between">
         <div className="truncate flex items-center gap-2">
           <span className="text-xs font-medium text-slate-300">{chartTitle || 'Chart'}</span>
-          {chartDesc && <span className="text-[10px] text-slate-500">{chartDesc}</span>}
+          {chartDesc && <span className="text-[10px] text-faint">{chartDesc}</span>}
           {isEdited && <span className="text-[10px] text-violet-400">(edited)</span>}
           {/* Live indicator */}
           {spec.query && (
@@ -405,7 +405,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
           )}
           {/* Last updated timestamp */}
           {isLive && lastUpdated && !isFetching && (
-            <span className="text-[10px] text-slate-600">
+            <span className="text-[10px] text-faint">
               {formatUpdatedAgo(lastUpdated)}
             </span>
           )}
@@ -443,7 +443,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
           </div>
           <button
             onClick={() => setEditorOpen(true)}
-            className="p-0.5 text-slate-500 hover:text-violet-400 hover:bg-slate-800 rounded-sm transition-colors"
+            className="p-0.5 text-faint hover:text-violet-400 hover:bg-slate-800 rounded-sm transition-colors"
             title="Edit chart"
           >
             <Settings className="w-3.5 h-3.5" />
@@ -451,7 +451,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
           {onAddToView && (
             <button
               onClick={() => onAddToView({ ...spec, chartType, query: activeQuery || spec.query, title: chartTitle, description: chartDesc, yAxisLabel, xAxisLabel, height: chartHeight })}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors"
+              className="p-0.5 text-faint hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors"
               title="Add to View"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -472,7 +472,7 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
           <span>0 throughout the last {effectiveTimeRange || '1h'}</span>
           <button
             onClick={() => setShowFlatChart(true)}
-            className="ml-auto text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+            className="ml-auto text-[10px] text-faint hover:text-slate-300 transition-colors"
           >
             Show chart
           </button>
@@ -488,19 +488,19 @@ export default function AgentChart({ spec, onAddToView, refreshInterval, globalT
       {placedAnnotations.length > 0 && (
         <ul aria-label="Chart annotations" className="px-3 py-1.5 border-t border-slate-700 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
           {placedAnnotations.map((a, i) => (
-            <li key={i} className={cn('flex items-center gap-1', a.x == null ? 'text-slate-600' : 'text-slate-400')}
+            <li key={i} className={cn('flex items-center gap-1', a.x == null ? 'text-faint' : 'text-slate-400')}
               title={a.x == null ? 'Outside the plotted range' : undefined}>
               <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: ANNOTATION_COLORS[a.kind] }} />
               <span className="uppercase tracking-wide" style={{ color: ANNOTATION_COLORS[a.kind] }}>{a.kind}</span>
               <span>{a.label}</span>
-              {a.time != null && <span className="text-slate-600">{formatTimestamp(a.time)}</span>}
+              {a.time != null && <span className="text-faint">{formatTimestamp(a.time)}</span>}
             </li>
           ))}
         </ul>
       )}
 
       {activeQuery && !flatZero && (
-        <div className="px-3 py-1 border-t border-slate-700 text-[10px] text-slate-500 flex items-center justify-between">
+        <div className="px-3 py-1 border-t border-slate-700 text-[10px] text-faint flex items-center justify-between">
           <span>Range: {timeRange}</span>
           {isEdited && <span className="text-violet-400">edited</span>}
         </div>

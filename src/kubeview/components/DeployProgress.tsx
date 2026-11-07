@@ -224,7 +224,7 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />}
           <div>
             <div className="text-sm font-medium text-slate-200">{name}</div>
-            <div className="text-xs text-slate-500">{phaseLabel} · {namespace ?? 'cluster-scoped'}</div>
+            <div className="text-xs text-faint">{phaseLabel} · {namespace ?? 'cluster-scoped'}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -253,7 +253,7 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
                 ) : (
                   <Clock className="w-4 h-4 text-slate-600" />
                 )}
-                <span className={cn('text-xs', step.done ? 'text-green-400' : step.id === phase ? (isFailed ? 'text-red-400' : 'text-blue-400') : 'text-slate-600')}>
+                <span className={cn('text-xs', step.done ? 'text-green-400' : step.id === phase ? (isFailed ? 'text-red-400' : 'text-blue-400') : 'text-faint')}>
                   {step.label}
                 </span>
               </div>
@@ -274,7 +274,7 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
       {/* Pods */}
       {pods.length > 0 && (
         <div className="px-4 py-2 border-b border-slate-800">
-          <div className="text-xs text-slate-500 mb-2">Pods ({pods.length})</div>
+          <div className="text-xs text-faint mb-2">Pods ({pods.length})</div>
           <div className="space-y-1">
             {pods.map((pod) => {
               const podPhase = pod.status?.phase || 'Pending';
@@ -290,19 +290,19 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
                     <Box className={cn('w-3.5 h-3.5',
                       isTerminating ? 'text-orange-400' :
                       podPhase === 'Running' ? 'text-green-400' :
-                      podPhase === 'Failed' ? 'text-red-400' : 'text-yellow-400'
+                      podPhase === 'Failed' ? 'text-red-400' : 'text-amber-400'
                     )} />
                     <span className="text-xs text-slate-300 font-mono">{pod.metadata.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {waiting && <span className="text-xs text-yellow-400">{waiting.reason}</span>}
-                    <span className={cn('text-xs font-mono', ready === total && total > 0 ? 'text-green-400' : 'text-slate-500')}>{ready}/{total}</span>
+                    {waiting && <span className="text-xs text-amber-400">{waiting.reason}</span>}
+                    <span className={cn('text-xs font-mono', ready === total && total > 0 ? 'text-green-400' : 'text-faint')}>{ready}/{total}</span>
                     <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                       isTerminating ? 'bg-orange-900/50 text-orange-300' :
                       podPhase === 'Running' ? 'bg-green-900/50 text-green-300' :
                       podPhase === 'Failed' ? 'bg-red-900/50 text-red-300' :
                       podPhase === 'Succeeded' ? 'bg-blue-900/50 text-blue-300' :
-                      'bg-yellow-900/50 text-yellow-300'
+                      'bg-amber-900/50 text-amber-300'
                     )}>{isTerminating ? 'Terminating' : podPhase}</span>
                   </div>
                 </div>
@@ -322,9 +322,9 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
           <div className="px-4 pb-3 space-y-1 max-h-40 overflow-auto">
             {events.map((e, i) => (
               <div key={i} className="flex items-start gap-2 py-1">
-                {e.type === 'Warning' ? <AlertTriangle className="w-3 h-3 text-yellow-500 mt-0.5 shrink-0" /> : <CheckCircle className="w-3 h-3 text-slate-600 mt-0.5 shrink-0" />}
+                {e.type === 'Warning' ? <AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" /> : <CheckCircle className="w-3 h-3 text-slate-600 mt-0.5 shrink-0" />}
                 <div className="min-w-0">
-                  <span className={cn('text-xs', e.type === 'Warning' ? 'text-yellow-400' : 'text-slate-500')}>{e.reason} </span>
+                  <span className={cn('text-xs', e.type === 'Warning' ? 'text-amber-400' : 'text-faint')}>{e.reason} </span>
                   <span className="text-xs text-slate-400">{e.message}</span>
                 </div>
               </div>
@@ -344,7 +344,7 @@ export default function DeployProgress({ type, name, namespace, resourcePath, ki
             <PodLogs clusterId={clusterId} namespace={namespace} podName={pods[0].metadata.name} />
           )}
           {showLogs && pods.length === 0 && (
-            <div className="px-4 pb-3 text-xs text-slate-500">Waiting for pods...</div>
+            <div className="px-4 pb-3 text-xs text-faint">Waiting for pods...</div>
           )}
         </div>
       )}
@@ -379,13 +379,13 @@ function PodLogs({ clusterId, namespace, podName }: { clusterId: string; namespa
   return (
     <div ref={logRef} className="px-4 pb-3 max-h-48 overflow-auto font-mono text-[11px] text-slate-400 space-y-0.5">
       {logs.length === 0 ? (
-        <div className="text-slate-600 py-2">No logs yet...</div>
+        <div className="text-faint py-2">No logs yet...</div>
       ) : (
         logs.map((line, i) => {
           const isErr = /error|fatal|panic|exception/i.test(line);
           const isWarn = /warn|warning/i.test(line);
           return (
-            <div key={i} className={cn(isErr ? 'text-red-400' : isWarn ? 'text-yellow-400' : 'text-slate-400')}>
+            <div key={i} className={cn(isErr ? 'text-red-400' : isWarn ? 'text-amber-400' : 'text-slate-400')}>
               {line}
             </div>
           );

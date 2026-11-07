@@ -1,17 +1,18 @@
 import { cn } from '@/lib/utils';
 import type { BlastRadiusSpec } from '../../engine/agentComponents';
+import { statusClasses } from '../../engine/statusColors';
 
-const STATUS_STYLES = {
-  degraded: { text: 'text-red-400', bg: 'bg-red-500/15', border: 'border-red-800' },
-  healthy: { text: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-800' },
-  retrying: { text: 'text-amber-400', bg: 'bg-amber-500/15', border: 'border-amber-800' },
-  paused: { text: 'text-slate-400', bg: 'bg-slate-500/15', border: 'border-slate-700' },
-} as const;
+// degraded → danger, healthy → success, retrying and paused → warning, from
+// the one status map (engine/statusColors).
+function itemStyle(status: string) {
+  const t = statusClasses(status);
+  return { text: t.text, bg: t.bg, border: t.cardBorder };
+}
 
 export function AgentBlastRadius({ spec }: { spec: BlastRadiusSpec }) {
   if (!spec.items || spec.items.length === 0) {
     return (
-      <div className="my-2 border border-slate-700 rounded-lg p-4 text-center text-xs text-slate-500">
+      <div className="my-2 border border-slate-700 rounded-lg p-4 text-center text-xs text-faint">
         No downstream dependencies detected
       </div>
     );
@@ -26,7 +27,7 @@ export function AgentBlastRadius({ spec }: { spec: BlastRadiusSpec }) {
       )}
       <div role="list" className="divide-y divide-slate-800/60">
         {spec.items.map((item, i) => {
-          const style = STATUS_STYLES[item.status] || STATUS_STYLES.healthy;
+          const style = itemStyle(item.status);
           return (
             <div
               key={i}
@@ -44,7 +45,7 @@ export function AgentBlastRadius({ spec }: { spec: BlastRadiusSpec }) {
                     {item.status}
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-500 truncate">{item.relationship}</div>
+                <div className="text-[11px] text-faint truncate">{item.relationship}</div>
               </div>
               <span className="text-xs text-slate-400 shrink-0">{item.status_detail}</span>
             </div>

@@ -167,9 +167,9 @@ export function DrainNodeDialog({ node, clusterId: clusterIdProp, onClose, onDon
               <span className="mt-0.5">{STATUS_ICON[p.status]}</span>
               <div className="min-w-0 flex-1">
                 <div className="text-slate-200 truncate">{p.namespace}/{p.name}</div>
-                {p.reason && <div className={cn('mt-0.5', p.status === 'blocked' ? 'text-amber-400' : p.status === 'failed' ? 'text-red-400' : 'text-slate-500')}>{p.reason}</div>}
+                {p.reason && <div className={cn('mt-0.5', p.status === 'blocked' ? 'text-amber-400' : p.status === 'failed' ? 'text-red-400' : 'text-faint')}>{p.reason}</div>}
               </div>
-              <span className="text-slate-500 shrink-0">{STATUS_LABEL[p.status]}</span>
+              <span className="text-faint shrink-0">{STATUS_LABEL[p.status]}</span>
             </li>
           ))}
         </ul>

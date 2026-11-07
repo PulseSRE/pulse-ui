@@ -48,6 +48,77 @@ tester.run('no-inline-status-colors', plugin.rules['no-inline-status-colors'], {
   ],
 });
 
+tester.run('no-yellow', plugin.rules['no-yellow'], {
+  valid: [
+    "const c = 'text-amber-400 bg-amber-500/10';",
+    "const level: 'green' | 'yellow' | 'red' = 'yellow';",
+    "const label = 'Yellow submarine';",
+    "const hex = '#f59e0b';",
+    "import x from './yellow-500';",
+  ],
+  invalid: [
+    { code: "const c = 'text-yellow-400';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'px-1 hover:bg-yellow-900/50 rounded';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'border-l-yellow-500';", errors: [{ messageId: 'yellow' }] },
+    { code: 'const c = `w-2 ${on ? "x" : ""} bg-yellow-500`;', errors: [{ messageId: 'yellow' }] },
+    { code: "const c = { color: '#EAB308' };", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'rgba(234, 179, 8, 0.15)';", errors: [{ messageId: 'yellow' }] },
+    { code: "const x = <span className='text-yellow-300'>!</span>;", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'bg-yellow-500/50';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'hover:!bg-yellow-500';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'text-yellow-300!';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'data-[state=open]:border-yellow-600';", errors: [{ messageId: 'yellow' }] },
+  ],
+});
+
+tester.run('no-low-contrast-text', plugin.rules['no-low-contrast-text'], {
+  valid: [
+    "const x = <p className='text-xs text-faint'>No data</p>;",
+    "const x = <p className='text-muted'>Hint</p>;",
+    "const x = <span className='text-slate-400'>ok</span>;",
+    "const x = <div className='border-slate-600 bg-slate-700'>a</div>;",
+    // Icons are not text.
+    "import { Info } from 'lucide-react'; const x = <Info className='w-4 h-4 text-slate-600' />;",
+    "import { Info as I } from 'lucide-react'; const x = <I className={cn('w-4', on ? 'text-red-400' : 'text-slate-500')} />;",
+    "const x = <SeverityIcon className='text-slate-600' />;",
+    "const x = <cfg.Icon className='text-slate-600' />;",
+    "const x = <cfg.icon className='text-slate-600' />;",
+    "const c = 'text-slate-6000 notext-slate-600';",
+    // Separator glyphs are decorative.
+    "const x = <span className='text-slate-700 mx-1'>›</span>;",
+    "const x = <span className='text-slate-600'>&middot;</span>;",
+    "const x = <span className='text-slate-600'> · </span>;",
+    // Disabled controls are exempt.
+    "const x = <button className='text-blue-400 disabled:text-slate-500'>Go</button>;",
+    "const c = ok ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed';",
+  ],
+  invalid: [
+    { code: "const x = <p className='text-xs text-slate-600'>All clusters are quiet.</p>;", errors: [{ messageId: 'lowContrast', data: { cls: 'text-slate-600' } }] },
+    { code: "const x = <p className='text-slate-500'>Hint</p>;", errors: [{ messageId: 'lowContrast' }] },
+    { code: "const x = <span className='text-slate-700'>12m ago</span>;", errors: [{ messageId: 'lowContrast' }] },
+    { code: "const x = <input className='placeholder:text-slate-600' />;", errors: [{ messageId: 'lowContrast', data: { cls: 'placeholder:text-slate-600' } }] },
+    { code: "const c = cond ? 'text-slate-300' : 'text-slate-600';", errors: [{ messageId: 'lowContrast' }] },
+    { code: 'const c = `text-xs ${x} text-slate-500`;', errors: [{ messageId: 'lowContrast' }] },
+    // A lone dash means "no value": that is content, not a separator.
+    { code: "const x = <span className='text-slate-600'>-</span>;", errors: [{ messageId: 'lowContrast' }] },
+    // An aria-label makes the glyph meaningful.
+    { code: "const x = <span aria-label='not recorded' className='text-slate-500'>•</span>;", errors: [{ messageId: 'lowContrast' }] },
+    // An enabled button whose disabled look is a variant is still checked.
+    { code: "const x = <button className='p-2 text-slate-500 disabled:cursor-not-allowed'>Edit</button>;", errors: [{ messageId: 'lowContrast' }] },
+    // Opacity, important (either side) and arbitrary/data variants are the same class.
+    { code: "const c = 'text-xs text-slate-600/60';", errors: [{ messageId: 'lowContrast', data: { cls: 'text-slate-600/60' } }] },
+    { code: "const c = 'text-slate-500/[.35]';", errors: [{ messageId: 'lowContrast', data: { cls: 'text-slate-500/[.35]' } }] },
+    { code: "const c = '!text-slate-500';", errors: [{ messageId: 'lowContrast', data: { cls: '!text-slate-500' } }] },
+    { code: "const c = 'text-slate-700!';", errors: [{ messageId: 'lowContrast', data: { cls: 'text-slate-700!' } }] },
+    { code: "const c = 'data-[state=open]:text-slate-500';", errors: [{ messageId: 'lowContrast', data: { cls: 'data-[state=open]:text-slate-500' } }] },
+    { code: "const c = '[&>p]:text-slate-600';", errors: [{ messageId: 'lowContrast', data: { cls: '[&>p]:text-slate-600' } }] },
+    { code: "const c = 'group-data-[x]:hover:text-slate-600';", errors: [{ messageId: 'lowContrast' }] },
+    { code: "const c = 'aria-selected:text-slate-600';", errors: [{ messageId: 'lowContrast' }] },
+    // Text beside an icon is still text.
+    { code: "import { Info } from 'lucide-react'; const x = <span className='text-slate-600'><Info className='w-3' /> Note</span>;", errors: [{ messageId: 'lowContrast' }] },
+  ],
+});
+
 describe('repository ESLint config', () => {
   const root = new URL('..', import.meta.url).pathname;
 
@@ -74,6 +145,47 @@ describe('repository ESLint config', () => {
       'no-restricted-globals',
     ]));
     expect(rules.filter((r) => r === 'no-restricted-properties')).toHaveLength(2);
+  }, 30_000);
+
+  it('bans yellow and low-contrast text everywhere, primitives and engine included', async () => {
+    const code = "export const a = 'text-yellow-400'; export const b = 'text-xs text-slate-600';";
+    for (const file of ['src/kubeview/components/NewPanel.tsx', 'src/kubeview/components/primitives/New.tsx', 'src/kubeview/engine/new.ts']) {
+      expect(await lint(code, file)).toEqual(['pulse/no-yellow', 'pulse/no-low-contrast-text']);
+    }
+  }, 30_000);
+
+  it('allows a commented exception', async () => {
+    const code = [
+      '// eslint-disable-next-line pulse/no-yellow -- a favourite star, not a status',
+      "export const star = 'text-yellow-400';",
+    ].join('\n');
+    expect(await lint(code, 'src/kubeview/components/NewPanel.tsx')).toEqual([]);
+  }, 30_000);
+
+  it('passes the codemod output', async () => {
+    const { transform } = await import('../scripts/codemods/text-tokens.mjs');
+    const before = [
+      "import { Info } from 'lucide-react';",
+      'export const X = () => (',
+      "  <div className='text-xs text-slate-600 hover:text-slate-500'>",
+      "    <Info className='w-3 h-3 text-slate-600' />",
+      "    <span className='text-yellow-400'>warn</span>",
+      "    <span className='text-slate-700'>·</span>",
+      "    <button disabled className='disabled:text-slate-600 bg-yellow-900/50'>x</button>",
+      '  </div>',
+      ');',
+    ].join('\n');
+    const after = transform(before, 'X.tsx');
+    expect(after).toContain("'text-xs text-faint hover:text-faint'");
+    expect(after).toContain("'w-3 h-3 text-slate-600'");
+    expect(after).toContain("'text-amber-400'");
+    expect(after).toContain("'text-slate-700'>·");
+    expect(after).toContain("'disabled:text-slate-600 bg-amber-900/50'");
+    expect(transform(after, 'X.tsx')).toBe(after);
+    const forms = transform("export const c = 'text-slate-600/60 !text-slate-500 text-slate-700! data-[state=open]:text-slate-500 [&>p]:text-slate-600 hover:!bg-yellow-500/50';", 'c.ts');
+    expect(forms).toBe("export const c = 'text-faint/60 !text-faint text-faint! data-[state=open]:text-faint [&>p]:text-faint hover:!bg-amber-500/50';");
+    expect(await lint(after, 'src/kubeview/components/NewPanel.tsx')).toEqual([]);
+    expect(await lint(before, 'src/kubeview/components/NewPanel.tsx')).toEqual(['pulse/no-low-contrast-text', 'pulse/no-yellow', 'pulse/no-yellow']);
   }, 30_000);
 
   it('lets primitives and the engine define them', async () => {

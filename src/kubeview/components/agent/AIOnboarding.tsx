@@ -50,7 +50,7 @@ export function AIOnboarding({ compact = false, className }: AIOnboardingProps) 
         <button onClick={tryIt} className={cn('text-xs font-medium px-3 py-1 rounded-full', AI_ACCENT.text, AI_ACCENT.border, 'border', AI_ACCENT.bgHover)}>
           Try it
         </button>
-        <button onClick={dismissOnboarding} className="text-slate-500 hover:text-slate-300 transition-colors" aria-label="Dismiss">
+        <button onClick={dismissOnboarding} className="text-faint hover:text-slate-300 transition-colors" aria-label="Dismiss">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -72,7 +72,7 @@ export function AIOnboarding({ compact = false, className }: AIOnboardingProps) 
             <p className="text-sm text-slate-400">An AI assistant that understands your cluster in real-time</p>
           </div>
         </div>
-        <button onClick={dismissOnboarding} className="text-slate-500 hover:text-slate-300 transition-colors" aria-label="Dismiss">
+        <button onClick={dismissOnboarding} className="text-faint hover:text-slate-300 transition-colors" aria-label="Dismiss">
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -96,7 +96,7 @@ export function AIOnboarding({ compact = false, className }: AIOnboardingProps) 
         >
           Try it now
         </button>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-faint">
           Start in confirm mode, verify actions in history, then increase trust when ready.
         </span>
       </div>

@@ -28,7 +28,7 @@ export function FilterButtonGroup({ options, value, onChange, colorScheme = 'blu
             'px-2.5 py-1.5 rounded-lg text-xs transition-colors border',
             value === opt.key
               ? SCHEMES[colorScheme]
-              : 'text-slate-500 hover:text-slate-300 border-slate-700/30 hover:border-slate-600',
+              : 'text-faint hover:text-slate-300 border-slate-700/30 hover:border-slate-600',
           )}
         >
           {opt.label}

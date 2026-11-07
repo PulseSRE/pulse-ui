@@ -37,7 +37,7 @@ export function AgentConfidenceBadge({ spec }: { spec: ConfidenceBadgeSpec }) {
             <span className={cn('text-sm font-semibold', color)}>{pct}%</span>
             <span className="text-xs text-slate-400">{verdict}</span>
           </div>
-          <div className="text-[11px] text-slate-500 mt-0.5">{hint}</div>
+          <div className="text-[11px] text-faint mt-0.5">{hint}</div>
         </div>
       </div>
     );
