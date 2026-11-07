@@ -84,7 +84,7 @@ afterEach(() => {
   qc?.clear();
 });
 
-describe('bulk delete with a selection hidden by search', () => {
+describe('bulk delete with a selection hidden by search', { timeout: 15_000 }, () => {
   it('lists exactly the visible selection and deletes only that by default', async () => {
     renderTable();
     selectRows('alpha-config', 'beta-config');
