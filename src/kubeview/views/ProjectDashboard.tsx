@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useMetricsWindow } from '../hooks/useMetricsWindow';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -90,18 +91,14 @@ export default function ProjectDashboard() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Layers className="w-6 h-6 text-blue-500" />
-              {ns}
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">Project overview — all resources at a glance</p>
-          </div>
-          <Button size="sm" onClick={() => go(`/create/apps~v1~deployments?namespace=${encodeURIComponent(ns)}`, `Create in ${ns}`)}>
+        <PageHeader
+          icon={<Layers className="w-6 h-6 text-blue-500" />}
+          title={ns}
+          subtitle="Project overview — all resources at a glance"
+          actions={<Button size="sm" onClick={() => go(`/create/apps~v1~deployments?namespace=${encodeURIComponent(ns)}`, `Create in ${ns}`)}>
             <Plus className="w-3.5 h-3.5" /> Create in {ns}
-          </Button>
-        </div>
+          </Button>}
+        />
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
