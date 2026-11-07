@@ -26,6 +26,10 @@
   --text-color-muted: var(--text-muted);
   --text-color-faint: var(--text-faint);
 
+  /* Page content width: domain pages centre their content at this width
+     (`max-w-content`). Tables and graphs use the full width instead. */
+  --container-content: 72rem;
+
   --animate-slide-in: slide-in 0.3s ease-out;
   --animate-fade-up: fade-up 0.3s ease-out both;
   --animate-scale-in: scale-in 0.2s ease-out both;

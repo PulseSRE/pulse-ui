@@ -318,14 +318,15 @@ describe('resource list table: select all is page-only', () => {
 });
 
 describe('resource list table: actions column', () => {
-  it('is sticky on the right in the header, the filter row and every row', () => {
+  it('is sticky on the right in the header, the filter row and every row (from `sm` up)', () => {
     watch.data = [pod('alpha'), pod('beta')];
     renderTable();
     fireEvent.click(screen.getByTitle('Column filters'));
     const lastOf = (row: HTMLElement) => [...row.children].pop() as HTMLElement;
     for (const row of screen.getAllByRole('row')) {
-      expect(lastOf(row).className).toMatch(/\bsticky\b/);
-      expect(lastOf(row).className).toMatch(/\bright-0\b/);
+      // Not on a phone, where it would cover Status.
+      expect(lastOf(row).className).toMatch(/(^|\s)sm:sticky(\s|$)/);
+      expect(lastOf(row).className).toMatch(/(^|\s)sm:right-0(\s|$)/);
       expect(lastOf(row).className).toMatch(/\bbg-slate-(900|950)\b/);
     }
   });

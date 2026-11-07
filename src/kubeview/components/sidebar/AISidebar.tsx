@@ -7,6 +7,8 @@ import { useMonitorStore } from '../../store/monitorStore';
 import { CollapsedRail } from './CollapsedRail';
 import { DashboardMode } from './DashboardMode';
 import { DegradedBanner } from '../primitives/DegradedBanner';
+import { useIsPhone, PHONE_QUERY } from '../../hooks/useIsPhone';
+import { AIChatSheet } from './AIChatSheet';
 
 const DockAgentPanel = lazy(() => import('../agent/DockAgentPanel').then(m => ({ default: m.DockAgentPanel })));
 
@@ -26,6 +28,16 @@ export function AISidebar() {
 
   const streaming = useAgentStore((s) => s.streaming);
   const activeSkill = useMonitorStore((s) => s.activeSkill);
+  // Phones: no rail (it took 48px of a 390px screen); chat opens as a bottom sheet.
+  const isPhone = useIsPhone();
+  // On a phone the sheet mounts only for an expand that happens after this
+  // component mounted. A stale "expanded" (set before mount, or by a viewport
+  // that just shrank) would otherwise open a modal and take focus on load.
+  const [phoneSheetOpen, setPhoneSheetOpen] = useState(false);
+  useEffect(() => useUIStore.subscribe((s, prev) => {
+    if (s.aiSidebarExpanded && !prev.aiSidebarExpanded) setPhoneSheetOpen(true);
+    else if (!s.aiSidebarExpanded) setPhoneSheetOpen(false);
+  }), []);
 
   // Auto-collapse on small screens
   useEffect(() => {
@@ -68,7 +80,8 @@ export function AISidebar() {
   // Auto-transition to chat when agent starts investigating
   const prevActiveSkill = useRef(activeSkill);
   useEffect(() => {
-    if (activeSkill && !prevActiveSkill.current) {
+    // Not on a phone: there the sheet would cover the page the user is reading.
+    if (activeSkill && !prevActiveSkill.current && !window.matchMedia?.(PHONE_QUERY).matches) {
       useUIStore.getState().expandAISidebar();
       setMode('chat');
     }
@@ -89,6 +102,31 @@ export function AISidebar() {
     }, 300_000);
     return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
   }, [mode, streaming, setMode]);
+
+  const content = mode === 'dashboard' ? (
+    <DashboardMode />
+  ) : (
+    <>
+      <AgentDegradedBanner />
+      <Suspense fallback={<div className="text-sm text-faint p-4">Loading agent...</div>}>
+        <DockAgentPanel />
+      </Suspense>
+    </>
+  );
+
+  if (isPhone) {
+    if (!expanded || !phoneSheetOpen) return null;
+    return (
+      <AIChatSheet
+        onClose={collapseAISidebar}
+        actions={mode === 'chat' ? (
+          <button type="button" onClick={() => setMode('dashboard')} className="px-2 py-1 text-xs text-slate-400 hover:text-slate-200">Dashboard</button>
+        ) : undefined}
+      >
+        {content}
+      </AIChatSheet>
+    );
+  }
 
   if (!expanded) {
     return <CollapsedRail />;
@@ -132,18 +170,7 @@ export function AISidebar() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
-        {mode === 'dashboard' ? (
-          <DashboardMode />
-        ) : (
-          <>
-            <AgentDegradedBanner />
-            <Suspense fallback={<div className="text-sm text-faint p-4">Loading agent...</div>}>
-              <DockAgentPanel />
-            </Suspense>
-          </>
-        )}
-      </div>
+      <div className="flex-1 overflow-hidden">{content}</div>
     </aside>
   );
 }
