@@ -29,8 +29,8 @@ export function DynamicComponent({ spec }: DynamicComponentProps) {
   if (!kindDef) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-        <div className="text-xs text-slate-500">Unknown component: <span className="text-slate-400 font-mono">{kind}</span></div>
-        <pre className="text-[10px] text-slate-600 mt-2 max-h-32 overflow-auto">{JSON.stringify(spec, null, 2)}</pre>
+        <div className="text-xs text-faint">Unknown component: <span className="text-slate-400 font-mono">{kind}</span></div>
+        <pre className="text-[10px] text-faint mt-2 max-h-32 overflow-auto">{JSON.stringify(spec, null, 2)}</pre>
       </div>
     );
   }
@@ -44,7 +44,7 @@ export function DynamicComponent({ spec }: DynamicComponentProps) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
       <div className="text-xs text-slate-400 mb-2">{kindDef.description}</div>
-      <pre className="text-[10px] text-slate-600 max-h-48 overflow-auto">{JSON.stringify(spec, null, 2)}</pre>
+      <pre className="text-[10px] text-faint max-h-48 overflow-auto">{JSON.stringify(spec, null, 2)}</pre>
     </div>
   );
 }
@@ -119,7 +119,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
         >
           <div className={cn('text-xl font-bold', valueColor)}>{value}{unit && <span className="text-sm ml-0.5">{unit}</span>}</div>
           <div className="text-xs text-slate-400 mt-1">{label}</div>
-          {description && <div className="text-[10px] text-slate-500 mt-0.5">{description}</div>}
+          {description && <div className="text-[10px] text-faint mt-0.5">{description}</div>}
         </Tag>
       );
     }
@@ -131,7 +131,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
         : typeof layout.columns === 'number' ? layout.columns : 4;
 
       if (!items || !layout.item_template) {
-        return <div className="text-xs text-slate-500">No items</div>;
+        return <div className="text-xs text-faint">No items</div>;
       }
 
       return (
@@ -149,7 +149,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
 
     case 'bar_list': {
       const items = spec[layout.items || 'items'] as Array<Record<string, unknown>> | undefined;
-      if (!items) return <div className="text-xs text-slate-500">No items</div>;
+      if (!items) return <div className="text-xs text-faint">No items</div>;
 
       const maxValue = Math.max(...items.map((it) => Number(it.value || 0)), 1);
 
@@ -173,7 +173,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
 
     case 'progress_list': {
       const items = spec[layout.items || 'items'] as Array<Record<string, unknown>> | undefined;
-      if (!items) return <div className="text-xs text-slate-500">No items</div>;
+      if (!items) return <div className="text-xs text-faint">No items</div>;
 
       return (
         <div className="space-y-2">
@@ -186,7 +186,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
               <div key={i}>
                 <div className="flex items-center justify-between text-xs mb-0.5">
                   <span className="text-slate-300">{String(item.label || '')}</span>
-                  <span className="text-slate-500">{value}/{max} {String(item.unit || '')}</span>
+                  <span className="text-faint">{value}/{max} {String(item.unit || '')}</span>
                 </div>
                 <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                   <div className={cn('h-full rounded-full', color)} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -200,7 +200,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
 
     case 'key_value': {
       const pairs = normalizeKeyValuePairs(spec.pairs as KeyValueSpec['pairs'] | undefined);
-      if (pairs.length === 0) return <div className="text-xs text-slate-500">No data</div>;
+      if (pairs.length === 0) return <div className="text-xs text-faint">No data</div>;
 
       return (
         <div className="space-y-1">
@@ -216,7 +216,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
 
     case 'status_list': {
       const items = spec.items as Array<{ label: string; status: string; detail?: string }> | undefined;
-      if (!items) return <div className="text-xs text-slate-500">No items</div>;
+      if (!items) return <div className="text-xs text-faint">No items</div>;
 
       return (
         <div className="space-y-1">
@@ -226,7 +226,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
               <div key={i} className="flex items-center gap-2 text-xs">
                 <div className={cn('w-2 h-2 rounded-full', dotColor)} />
                 <span className="text-slate-300">{item.label}</span>
-                {item.detail && <span className="text-slate-500 ml-auto">{item.detail}</span>}
+                {item.detail && <span className="text-faint ml-auto">{item.detail}</span>}
               </div>
             );
           })}
@@ -237,7 +237,7 @@ function LayoutRenderer({ spec, layout }: { spec: Record<string, unknown>; layou
     default:
       return (
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-xs text-slate-500">Unknown layout type: {layout.type}</div>
+          <div className="text-xs text-faint">Unknown layout type: {layout.type}</div>
         </div>
       );
   }

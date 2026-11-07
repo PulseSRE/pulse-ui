@@ -67,7 +67,7 @@ export function Sparkline({
   if (available && isError) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        {label && <span className="text-xs text-slate-500">{label}</span>}
+        {label && <span className="text-xs text-faint">{label}</span>}
         {inScope ? (
           // The scope's banner says why, once for the page.
           <span className="text-xs text-slate-400" style={{ width, height }} title={describeReadError(error).reason}>—</span>
@@ -82,7 +82,7 @@ export function Sparkline({
     const text = !available ? 'Local cluster only' : isPending ? 'Checking…' : 'No data for this period';
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        {label && <span className="text-xs text-slate-500">{label}</span>}
+        {label && <span className="text-xs text-faint">{label}</span>}
         <div className="text-xs text-slate-400" style={{ width, height }}>
           <span className="flex items-center justify-center h-full">{text}</span>
         </div>
@@ -109,7 +109,7 @@ export function Sparkline({
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {label && <span className="text-xs text-slate-500 w-12 shrink-0">{label}</span>}
+      {label && <span className="text-xs text-faint w-12 shrink-0">{label}</span>}
       <svg width={width} height={height} className="shrink-0">
         <path d={areaPath} fill={fill} />
         <path d={linePath} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />

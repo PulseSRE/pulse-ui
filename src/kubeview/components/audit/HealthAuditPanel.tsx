@@ -37,14 +37,14 @@ export function HealthAuditPanel({
         </h2>
         <div className="flex items-center gap-2">
           {score === null ? (
-            <span className="text-sm font-bold text-slate-500" data-unknown={unknownCount > 0 ? '' : undefined}>—</span>
+            <span className="text-sm font-bold text-faint" data-unknown={unknownCount > 0 ? '' : undefined}>—</span>
           ) : (
             <span className={cn('text-sm font-bold',
               score === 100 ? (unknownCount > 0 ? 'text-slate-300' : 'text-green-400') : score >= 60 ? 'text-amber-400' : 'text-red-400')}>
               {score}%
             </span>
           )}
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-faint">
             {scoredCount === 0 ? 'Nothing checked' : `${totalPassing}/${scoredCount} passing`}
             {unknownCount > 0 && <span data-unknown="">{` · ${unknownCount} could not be checked`}</span>}
           </span>
@@ -72,7 +72,7 @@ export function HealthAuditPanel({
                     : <MinusCircle className="w-4 h-4 text-slate-500 shrink-0" aria-label="not applicable" />}
                   <div>
                     <span className="text-sm text-slate-200">{check.title}</span>
-                    <span className="text-xs text-slate-500 ml-2" data-unknown={outcome === 'unknown' ? '' : undefined}>
+                    <span className="text-xs text-faint ml-2" data-unknown={outcome === 'unknown' ? '' : undefined}>
                       {outcome === 'informational'
                         ? 'Informational'
                         : outcome === 'unknown'
@@ -85,7 +85,7 @@ export function HealthAuditPanel({
                     </span>
                   </div>
                 </div>
-                <span className="text-xs text-slate-600">{expanded ? '\u25BE' : '\u25B8'}</span>
+                <span className="text-xs text-faint">{expanded ? '\u25BE' : '\u25B8'}</span>
               </button>
 
               {expanded && (
@@ -119,7 +119,7 @@ export function HealthAuditPanel({
                               <div className="flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                                 <span className="text-xs text-slate-300">{displayName}</span>
-                                {ns && <span className="text-xs text-slate-600">{ns}</span>}
+                                {ns && <span className="text-xs text-faint">{ns}</span>}
                                 {renderItemBadges?.(check, item)}
                               </div>
                               {onNavigateItem && <span className="text-xs text-blue-400">{label} &rarr;</span>}
@@ -127,7 +127,7 @@ export function HealthAuditPanel({
                           );
                         })}
                         {check.failing.length > maxFailingItems && (
-                          <div className="text-xs text-slate-600 px-2">+{check.failing.length - maxFailingItems} more</div>
+                          <div className="text-xs text-faint px-2">+{check.failing.length - maxFailingItems} more</div>
                         )}
                       </div>
                     </div>
@@ -146,7 +146,7 @@ export function HealthAuditPanel({
                           </span>
                         ))}
                         {check.passing.length > 8 && (
-                          <span className="text-xs text-slate-600">+{check.passing.length - 8} more</span>
+                          <span className="text-xs text-faint">+{check.passing.length - 8} more</span>
                         )}
                       </div>
                     </div>
@@ -154,7 +154,7 @@ export function HealthAuditPanel({
 
                   {/* YAML example */}
                   <div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">
+                    <div className="text-xs text-faint font-medium mb-1">
                       {check.fixLabel ?? 'How to fix:'}
                     </div>
                     <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded-sm overflow-x-auto whitespace-pre-wrap">{check.yamlExample}</pre>

@@ -5,13 +5,13 @@ import type { ResolutionTrackerSpec } from '../../engine/agentComponents';
 const STATUS_CONFIG = {
   done: { Icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/15', label: 'completed' },
   running: { Icon: Loader2, color: 'text-blue-400', bg: 'bg-blue-500/15', label: 'in progress' },
-  pending: { Icon: Circle, color: 'text-slate-500', bg: 'bg-slate-500/15', label: 'pending' },
+  pending: { Icon: Circle, color: 'text-faint', bg: 'bg-slate-500/15', label: 'pending' },
 } as const;
 
 export function AgentResolutionTracker({ spec }: { spec: ResolutionTrackerSpec }) {
   if (!spec.steps || spec.steps.length === 0) {
     return (
-      <div className="my-2 border border-slate-700 rounded-lg p-4 text-center text-xs text-slate-500">
+      <div className="my-2 border border-slate-700 rounded-lg p-4 text-center text-xs text-faint">
         No resolution steps yet
       </div>
     );
@@ -40,7 +40,7 @@ export function AgentResolutionTracker({ spec }: { spec: ResolutionTrackerSpec }
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-slate-200">{step.title}</span>
                   {step.timestamp && (
-                    <span className="text-[10px] text-slate-500">{step.timestamp}</span>
+                    <span className="text-[10px] text-faint">{step.timestamp}</span>
                   )}
                 </div>
                 {step.detail && (

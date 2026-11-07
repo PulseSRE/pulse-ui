@@ -78,7 +78,7 @@ export function ReadinessWizard({ score, categories, onWaive, onReVerify, onSwit
 
         <button
           onClick={onSwitchToChecklist}
-          className="w-full text-xs text-slate-500 hover:text-slate-300 transition-colors mt-4"
+          className="w-full text-xs text-faint hover:text-slate-300 transition-colors mt-4"
         >
           Switch to checklist view
         </button>
@@ -113,7 +113,7 @@ export function ReadinessWizard({ score, categories, onWaive, onReVerify, onSwit
           >
             Previous
           </button>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-faint">
             {STEP_ORDER.indexOf(activeStep) + 1} / {STEP_ORDER.length}
           </span>
           <button

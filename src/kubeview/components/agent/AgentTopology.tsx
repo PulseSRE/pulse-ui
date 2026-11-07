@@ -141,7 +141,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
 
   if (spec.nodes.length === 0 && !loading) {
     return (
-      <div className="my-2 border border-slate-700 rounded-lg p-6 text-center text-xs text-slate-500">
+      <div className="my-2 border border-slate-700 rounded-lg p-6 text-center text-xs text-faint">
         No topology data available
       </div>
     );
@@ -154,18 +154,18 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
         <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
           <Network className="w-3.5 h-3.5 text-cyan-400" />
           <span>{spec.title || 'Resource Topology'}</span>
-          {spec.description && <span className="text-[11px] text-slate-500 ml-1">{spec.description}</span>}
+          {spec.description && <span className="text-[11px] text-faint ml-1">{spec.description}</span>}
           {loading && <Loader2 className="w-3 h-3 text-cyan-400 animate-spin" />}
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+        <div className="flex items-center gap-2 text-[11px] text-faint">
           <span>{spec.nodes.length} resources</span>
           <span>{spec.edges.length} relationships</span>
           {healthCounts.error > 0 && <span className="text-red-400">{healthCounts.error} errors</span>}
-          {healthCounts.warning > 0 && <span className="text-yellow-400">{healthCounts.warning} warnings</span>}
+          {healthCounts.warning > 0 && <span className="text-amber-400">{healthCounts.warning} warnings</span>}
           {onAddToView && (
             <button
               onClick={() => onAddToView(spec)}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors"
+              className="p-0.5 text-faint hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors"
               title="Add to View"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -177,7 +177,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
       {/* Legend */}
       <div className="px-3 py-1 border-b border-slate-800 flex flex-wrap items-center gap-x-3 gap-y-0.5">
         {[...new Set(spec.nodes.map(n => n.kind))].sort().map((kind) => (
-          <div key={kind} className="flex items-center gap-1 text-[11px] text-slate-500">
+          <div key={kind} className="flex items-center gap-1 text-[11px] text-faint">
             <span className="w-2 h-2 rounded-xs" style={{ backgroundColor: getKindColor(kind) }} />
             {kind}
           </div>
@@ -186,7 +186,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
 
       {/* Perspective pills */}
       <div className="px-3 py-1.5 border-b border-slate-800 flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] text-slate-600 mr-1">View:</span>
+        <span className="text-[11px] text-faint mr-1">View:</span>
         {activePerspective && (
           <PromptPill onClick={resetToOriginal} className="opacity-60">
             Original
@@ -258,12 +258,12 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
 
               {upstream.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Upstream</div>
+                  <div className="text-[11px] text-faint uppercase tracking-wider mb-1">Upstream</div>
                   {upstream.map((n: any) => (
                     <div key={n.id} className="flex items-center gap-1 text-slate-400 mb-0.5 text-[11px]">
                       <span className="w-1.5 h-1.5 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
                       <span className="truncate">{n.kind}/{n.name}</span>
-                      <span className="text-slate-600 text-[10px]">({n.rel})</span>
+                      <span className="text-faint text-[10px]">({n.rel})</span>
                     </div>
                   ))}
                 </div>
@@ -271,12 +271,12 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
 
               {downstream.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Downstream</div>
+                  <div className="text-[11px] text-faint uppercase tracking-wider mb-1">Downstream</div>
                   {downstream.map((n: any) => (
                     <div key={n.id} className="flex items-center gap-1 text-slate-400 mb-0.5 text-[11px]">
                       <span className="w-1.5 h-1.5 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
                       <span className="truncate">{n.kind}/{n.name}</span>
-                      <span className="text-slate-600 text-[10px]">({n.rel})</span>
+                      <span className="text-faint text-[10px]">({n.rel})</span>
                     </div>
                   ))}
                 </div>
@@ -284,7 +284,7 @@ export default function AgentTopology({ spec: initialSpec, onAddToView }: { spec
 
               <button
                 onClick={() => setSelectedNode(null)}
-                className="mt-3 text-xs text-slate-600 hover:text-slate-400 transition-colors"
+                className="mt-3 text-xs text-faint hover:text-slate-400 transition-colors"
               >
                 Close
               </button>

@@ -35,6 +35,8 @@ export interface ToneClasses {
   solid: string;
   /** Strong border in the tone's mid shade, e.g. a tree node's outline. */
   accentBorder: string;
+  /** Left-edge accent stripe for a list row or card (`border-l-*`). */
+  edge: string;
   /** Soft chip: text + bg + border (the Badge look). */
   chip: string;
   /** Hex for SVG/canvas consumers that cannot take a class. */
@@ -49,6 +51,7 @@ export const TONE_CLASSES: Record<StatusTone, ToneClasses> = {
     cardBorder: 'border-red-800',
     solid: 'bg-red-500',
     accentBorder: 'border-red-500',
+    edge: 'border-l-red-500',
     chip: 'bg-red-500/10 text-red-400 border border-red-500/20',
     hex: '#ef4444',
   },
@@ -59,6 +62,7 @@ export const TONE_CLASSES: Record<StatusTone, ToneClasses> = {
     cardBorder: 'border-amber-800',
     solid: 'bg-amber-500',
     accentBorder: 'border-amber-500',
+    edge: 'border-l-amber-500',
     chip: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
     hex: '#f59e0b',
   },
@@ -69,6 +73,7 @@ export const TONE_CLASSES: Record<StatusTone, ToneClasses> = {
     cardBorder: 'border-blue-800',
     solid: 'bg-blue-500',
     accentBorder: 'border-blue-500',
+    edge: 'border-l-blue-500',
     chip: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
     hex: '#3b82f6',
   },
@@ -79,6 +84,7 @@ export const TONE_CLASSES: Record<StatusTone, ToneClasses> = {
     cardBorder: 'border-emerald-800',
     solid: 'bg-emerald-500',
     accentBorder: 'border-emerald-500',
+    edge: 'border-l-emerald-500',
     chip: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
     hex: '#10b981',
   },
@@ -89,6 +95,7 @@ export const TONE_CLASSES: Record<StatusTone, ToneClasses> = {
     cardBorder: 'border-slate-800',
     solid: 'bg-slate-500',
     accentBorder: 'border-slate-600',
+    edge: 'border-l-slate-600',
     chip: 'bg-slate-800 text-slate-400 border border-slate-700',
     hex: '#64748b',
   },
@@ -99,6 +106,7 @@ export const TONE_CLASSES: Record<StatusTone, ToneClasses> = {
     cardBorder: 'border-sky-800',
     solid: 'bg-sky-500',
     accentBorder: 'border-sky-500',
+    edge: 'border-l-sky-500',
     chip: 'bg-sky-500/10 text-sky-400 border border-sky-500/20',
     hex: '#0ea5e9',
   },
@@ -109,6 +117,7 @@ export const TONE_CLASSES: Record<StatusTone, ToneClasses> = {
     cardBorder: 'border-orange-800',
     solid: 'bg-orange-500',
     accentBorder: 'border-orange-500',
+    edge: 'border-l-orange-500',
     chip: 'bg-orange-500/10 text-orange-400 border border-orange-500/20',
     hex: '#f97316',
   },
@@ -125,7 +134,11 @@ assign('danger', [
   'false', 'degraded', 'unavailable', 'not ready', 'notready', 'unhealthy',
   'down', 'lost', 'missing',
 ]);
-assign('warning', ['warning', 'warn', 'at risk', 'at_risk', 'stale', 'outofsync', 'out of sync', 'suspended']);
+assign('warning', [
+  'warning', 'warn', 'at risk', 'at_risk', 'stale', 'outofsync', 'out of sync', 'suspended',
+  // Held, waiting on a person or a retry (an Argo Rollout paused at a canary step, a retrying dependency).
+  'paused', 'retrying',
+]);
 assign('progress', [
   'pending', 'progressing', 'in progress', 'in_progress', 'running_check',
   'containercreating', 'podinitializing', 'updating', 'syncing', 'rolling',
@@ -150,6 +163,34 @@ export function statusTone(status: string | null | undefined | boolean): StatusT
 /** Whether a status word is one this map knows (as opposed to falling back to neutral). */
 export function isKnownStatus(status: string | null | undefined): boolean {
   return !!status && String(status).trim().toLowerCase() in STATUS_TONE;
+}
+
+/** Hex for a status word, for SVG, canvas and inline styles that cannot take a class. */
+export function statusHex(status: string | null | undefined | boolean): string {
+  return TONE_CLASSES[statusTone(status)].hex;
+}
+
+export type RiskLevel = 'critical' | 'high' | 'medium' | 'low';
+
+/**
+ * Risk is a four-step scale, one more step than the status tones: critical is
+ * danger, high is orange (the terminating family), medium is warning (amber)
+ * and low is success. Anything else reads as neutral.
+ */
+const RISK_TONE: Record<RiskLevel, StatusTone> = { critical: 'danger', high: 'terminating', medium: 'warning', low: 'success' };
+
+export function riskTone(level: string | null | undefined): StatusTone {
+  return RISK_TONE[String(level ?? '').trim().toLowerCase() as RiskLevel] ?? 'neutral';
+}
+
+/**
+ * Tone for a utilisation percentage: at or above `danger` is danger, at or
+ * above `warning` is warning, anything lower is `ok` (success by default).
+ */
+export function utilizationTone(percent: number, { warning = 60, danger = 80, ok = 'success' as StatusTone } = {}): StatusTone {
+  if (percent >= danger) return 'danger';
+  if (percent >= warning) return 'warning';
+  return ok;
 }
 
 /** Classes for a status word. */

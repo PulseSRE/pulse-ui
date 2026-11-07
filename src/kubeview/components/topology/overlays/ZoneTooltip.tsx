@@ -14,7 +14,7 @@ export function ZoneTooltip({ zone }: ZoneTooltipProps) {
       <div className="flex items-center gap-2 mb-2">
         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
         <span className="text-sm font-semibold text-slate-100">{zone.zone}</span>
-        <span className="text-xs text-slate-500 ml-auto">{zone.provider}</span>
+        <span className="text-xs text-faint ml-auto">{zone.provider}</span>
       </div>
 
       <div className="space-y-1.5 text-xs text-slate-400">
@@ -36,7 +36,7 @@ export function ZoneTooltip({ zone }: ZoneTooltipProps) {
         </div>
       </div>
 
-      <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-slate-500">
+      <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-faint">
         Click to see nodes in this zone
       </div>
     </div>

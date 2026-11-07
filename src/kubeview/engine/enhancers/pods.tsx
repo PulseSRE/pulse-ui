@@ -40,7 +40,7 @@ export const podEnhancer: ResourceEnhancer = {
           color = 'yellow';
         }
 
-        const colorMap: Record<string, string> = { green: 'bg-green-500', yellow: 'bg-yellow-500', red: 'bg-red-500', gray: 'bg-slate-500' };
+        const colorMap: Record<string, string> = { green: 'bg-green-500', yellow: 'bg-amber-500', red: 'bg-red-500', gray: 'bg-slate-500' };
         const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${colorMap[color] || 'bg-slate-500'}`;
 
         return (
@@ -67,7 +67,7 @@ export const podEnhancer: ResourceEnhancer = {
       render: (value) => {
         const [ready, total] = String(value).split('/').map(Number);
         const allReady = ready === total && total > 0;
-        const color = allReady ? 'text-green-400' : ready > 0 ? 'text-yellow-400' : 'text-red-400';
+        const color = allReady ? 'text-green-400' : ready > 0 ? 'text-amber-400' : 'text-red-400';
 
         return (
           <span className={`font-mono text-sm ${color} font-semibold`}>
@@ -88,7 +88,7 @@ export const podEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         const restarts = Number(value);
-        const color = restarts > 5 ? 'text-red-400' : restarts > 0 ? 'text-yellow-400' : 'text-slate-500';
+        const color = restarts > 5 ? 'text-red-400' : restarts > 0 ? 'text-amber-400' : 'text-faint';
 
         return (
           <span className={`font-mono text-sm ${color}`}>
@@ -110,7 +110,7 @@ export const podEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-') {
-          return <span className="text-slate-500">-</span>;
+          return <span className="text-faint">-</span>;
         }
 
         const nodeName = String(value);
@@ -137,7 +137,7 @@ export const podEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-') {
-          return <span className="text-slate-500">-</span>;
+          return <span className="text-faint">-</span>;
         }
 
         return (
@@ -163,7 +163,7 @@ export const podEnhancer: ResourceEnhancer = {
         return (
           <Link
             to={`/logs/${namespace}/${name}`}
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-blue-900/50 hover:text-blue-400 transition-colors"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-faint rounded-sm hover:bg-blue-900/50 hover:text-blue-400 transition-colors"
             title="View Logs"
           >
             <ScrollText className="w-3.5 h-3.5" />
@@ -180,7 +180,7 @@ export const podEnhancer: ResourceEnhancer = {
         return (
           <button
             onClick={() => onAction('restart', { resource })}
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-faint rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
             title="Restart Pod (delete to trigger recreation)"
           >
             <RotateCw className="w-3.5 h-3.5" />

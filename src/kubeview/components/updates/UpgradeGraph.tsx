@@ -284,7 +284,7 @@ export function UpgradeGraph({ model: fullModel, onUpdate, updateDisabledReason,
           <span className="flex items-center gap-1.5"><span className="w-3 h-0 border-t-2 border-dashed border-amber-400" /> Conditional (known risks)</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-0 border-t-2 border-dotted border-red-400" /> Blocked</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-slate-500" /> Installed path</span>
-          {model.current.channel && <span className="ml-auto font-mono text-slate-500">{model.current.channel}</span>}
+          {model.current.channel && <span className="ml-auto font-mono text-faint">{model.current.channel}</span>}
         </div>
         {updatesUnknownReason && (
           <div role="status" className="flex items-start gap-2 px-3 py-2 border-t border-slate-800 text-xs text-slate-400">
@@ -343,7 +343,7 @@ function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, 
         <span className="text-sm font-mono text-slate-100">{current} → {target.version}</span>
         <span className="text-[11px] px-1.5 py-0.5 rounded-sm" style={{ color: st.text, background: st.fill, border: `1px solid ${st.stroke}55` }}>{st.label}</span>
         {minorJump > 1 && <span className="text-[11px] px-1.5 py-0.5 rounded-sm bg-amber-900/40 text-amber-300">Skips {minorJump - 1} minor</span>}
-        {target.channels && target.channels.length > 0 && <span className="text-[11px] text-slate-500 font-mono">{target.channels.join(', ')}</span>}
+        {target.channels && target.channels.length > 0 && <span className="text-[11px] text-faint font-mono">{target.channels.join(', ')}</span>}
       </div>
 
       {target.state === 'conditional' && (
@@ -370,11 +370,11 @@ function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, 
         </div>
       )}
 
-      <p className="text-xs text-slate-500 flex items-center gap-1.5">
+      <p className="text-xs text-faint flex items-center gap-1.5">
         <Clock className="w-3.5 h-3.5" />
         {lastDuration
-          ? <>Estimated duration: ~{lastDuration.minutes} min <span className="text-slate-600">(based on the last completed update, to {lastDuration.version})</span></>
-          : <>Estimated duration: unknown <span className="text-slate-600">(no completed update with recorded times to base it on)</span></>}
+          ? <>Estimated duration: ~{lastDuration.minutes} min <span className="text-faint">(based on the last completed update, to {lastDuration.version})</span></>
+          : <>Estimated duration: unknown <span className="text-faint">(no completed update with recorded times to base it on)</span></>}
       </p>
 
       {warning}
@@ -393,7 +393,7 @@ function TargetPanel({ target, current, blockerMessage, lastDuration, onUpdate, 
             <ArrowUpCircle className="w-3.5 h-3.5" />
             {target.state === 'conditional' ? `Review risks and update to ${target.version}` : `Update to ${target.version}`}
           </button>
-          {disabledReason && <span className="text-xs text-slate-500">{disabledReason}</span>}
+          {disabledReason && <span className="text-xs text-faint">{disabledReason}</span>}
         </div>
       ) : readOnlyHint}
     </section>
@@ -443,7 +443,7 @@ function ProgressSection({ model, onNavigate, renderPoolAction }: { model: Upgra
           )}
         </div>
       )}
-      {p.clusterOperators === null && <p className="text-xs text-slate-500">ClusterOperators could not be read.</p>}
+      {p.clusterOperators === null && <p className="text-xs text-faint">ClusterOperators could not be read.</p>}
 
       {p.pools && p.pools.length > 0 && (
         <div className="space-y-2">
@@ -463,11 +463,11 @@ function ProgressSection({ model, onNavigate, renderPoolAction }: { model: Upgra
           ))}
         </div>
       )}
-      {p.pools === null && <p className="text-xs text-slate-500">MachineConfigPools could not be read.</p>}
+      {p.pools === null && <p className="text-xs text-faint">MachineConfigPools could not be read.</p>}
 
       {p.etaMinutes != null && (
         <p className="text-xs text-slate-400 flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5" /> About {p.etaMinutes} min remaining <span className="text-slate-600">(based on the last completed update&apos;s duration)</span>
+          <Clock className="w-3.5 h-3.5" /> About {p.etaMinutes} min remaining <span className="text-faint">(based on the last completed update&apos;s duration)</span>
         </p>
       )}
 
@@ -484,7 +484,7 @@ function Blockers({ model, onNavigate }: { model: UpgradeModel; onNavigate?: Upg
           {b.type === 'upgradeable' ? <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" /> : <Ban className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />}
           <div className="min-w-0">
             <span className="text-slate-300">{b.message}</span>
-            {b.reason && <span className="text-slate-500 ml-1">({b.reason})</span>}
+            {b.reason && <span className="text-faint ml-1">({b.reason})</span>}
             {b.link && onNavigate && (
               <button type="button" onClick={() => onNavigate(b.link!, b.message)} className="ml-2 text-blue-400 hover:text-blue-300">Open</button>
             )}
@@ -518,7 +518,7 @@ function HistoryTimeline({ model }: { model: UpgradeModel }) {
               <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden" aria-hidden>
                 {d != null && <div className={cn('h-full rounded-full', h.state === 'Completed' ? 'bg-emerald-600/70' : 'bg-amber-600/70')} style={{ width: `${Math.max(3, (d / max) * 100)}%` }} />}
               </div>
-              <span className="text-right text-slate-500 font-mono" title={h.startedTime ? formatTimestamp(h.startedTime) : undefined}>
+              <span className="text-right text-faint font-mono" title={h.startedTime ? formatTimestamp(h.startedTime) : undefined}>
                 {d != null ? `${d} min` : running ? '…' : '—'}
               </span>
             </li>

@@ -51,7 +51,7 @@ export const secretEnhancer: ResourceEnhancer = {
         const keys = data ? Object.keys(data) : [];
 
         if (count === 0) {
-          return <span className="text-slate-500">0</span>;
+          return <span className="text-faint">0</span>;
         }
 
         const keyList = keys.slice(0, 3).join(', ');

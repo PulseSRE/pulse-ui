@@ -5,6 +5,12 @@
  *   StatusDot, StatPill or SummaryCard; use components/primitives.
  * - no-inline-status-colors: a page must not define its own status/severity/
  *   phase/health → colour map; use engine/statusColors.
+ * - no-yellow: no Tailwind `*-yellow-N` class or yellow-500 hex. Warning is
+ *   amber (engine/statusColors); yellow-300/400 text washes out on slate.
+ * - no-low-contrast-text: no `text-slate-500/600/700` text, which is 1.9-3.7:1
+ *   on the app's dark surfaces. Use `text-muted` or `text-faint` (both AA).
+ *   Icons, separator glyphs and disabled controls are exempt, matching
+ *   scripts/codemods/text-tokens.mjs, which fixes what this rule reports.
  *
  * Existing copies not yet migrated are listed in eslint.config.js with the
  * wave that owns them, so the list can only shrink.
@@ -89,10 +95,113 @@ const noInlineStatusColors = {
   },
 };
 
+// ── Colour tokens ──────────────────────────────────────────────────────────
+// Keep these patterns in step with scripts/codemods/text-tokens.mjs.
+
+const YELLOW_CLASS = /(^|[^\w-])(?:[\w-]+:)*[a-z]+(?:-[a-z]+)*-yellow-\d{2,3}(?=$|[^\w-])/;
+const YELLOW_HEX = /#eab308\b|rgba?\(\s*234\s*,\s*179\s*,\s*8\s*[,)]/i;
+const LOW_CONTRAST = /(^|[\s"'`{])((?:[\w-]+:)*)text-slate-(500|600|700)(?=$|[\s"'`}$])/g;
+const SEPARATOR_TEXT = /^\s*(?:[›»|·•/]|&middot;)\s*$/;
+const DISABLED_BRANCH = /(^|[\s"'`])cursor-not-allowed(?=$|[\s"'`])/;
+
+function literalText(node) {
+  if (node.type === 'Literal') return typeof node.value === 'string' ? node.value : null;
+  if (node.type === 'TemplateElement') return node.value.raw;
+  return null;
+}
+
+function isModuleSource(node) {
+  const p = node.parent;
+  return !!p && /^(ImportDeclaration|ExportNamedDeclaration|ExportAllDeclaration|ImportExpression)$/.test(p.type) && p.source === node;
+}
+
+/** The JSX opening element whose className this literal is (part of), if any. */
+function classNameOwner(node) {
+  for (let n = node.parent; n; n = n.parent) {
+    if (n.type === 'JSXAttribute') {
+      return n.name.type === 'JSXIdentifier' && n.name.name === 'className' ? n.parent : null;
+    }
+    if (n.type === 'JSXElement' || n.type === 'Program') return null;
+  }
+  return null;
+}
+
+function jsxName(name) {
+  if (name.type === 'JSXIdentifier') return name.name;
+  if (name.type === 'JSXMemberExpression') return name.property.name;
+  return '';
+}
+
+const noYellow = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Warning is amber: no yellow Tailwind classes or yellow hex' },
+    messages: {
+      yellow: 'Yellow is not a status colour here: use amber (statusClasses/TONE_CLASSES from engine/statusColors, or the amber-N shade). Allowlist a non-status use with an eslint-disable comment that says why.',
+    },
+    schema: [],
+  },
+  create(context) {
+    const check = (node) => {
+      const text = literalText(node);
+      if (text && !isModuleSource(node) && (YELLOW_CLASS.test(text) || YELLOW_HEX.test(text))) {
+        context.report({ node, messageId: 'yellow' });
+      }
+    };
+    return { Literal: check, TemplateElement: check };
+  },
+};
+
+const noLowContrastText = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'Muted text must meet WCAG AA: use text-muted / text-faint, not text-slate-500/600/700' },
+    messages: {
+      lowContrast:
+        "'{{cls}}' text is below 4.5:1 on the dark surfaces. Use text-muted (secondary) or text-faint (tertiary); run scripts/codemods/text-tokens.mjs. Icons, separators and disabled controls are exempt.",
+    },
+    schema: [],
+  },
+  create(context) {
+    const icons = new Set();
+    const isIcon = (owner) => {
+      const n = jsxName(owner.name);
+      return icons.has(n) || /Icon$/.test(n);
+    };
+    const isSeparator = (owner) => {
+      if (owner.attributes.some((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && /^aria-/.test(a.name.name))) return false;
+      const el = owner.parent;
+      if (!el || el.type !== 'JSXElement' || !el.children.length) return false;
+      return el.children.every((c) => c.type === 'JSXText' && SEPARATOR_TEXT.test(c.raw ?? c.value));
+    };
+    const check = (node) => {
+      const text = literalText(node);
+      if (!text || isModuleSource(node) || !text.includes('text-slate-') || DISABLED_BRANCH.test(text)) return;
+      const owner = classNameOwner(node);
+      if (owner && (isIcon(owner) || isSeparator(owner))) return;
+      for (const m of text.matchAll(LOW_CONTRAST)) {
+        if (/(^|:)disabled:$/.test(m[2])) continue;
+        context.report({ node, messageId: 'lowContrast', data: { cls: `${m[2]}text-slate-${m[3]}` } });
+        return;
+      }
+    };
+    return {
+      ImportDeclaration(node) {
+        if (node.source.value !== 'lucide-react') return;
+        for (const s of node.specifiers) icons.add(s.local.name);
+      },
+      Literal: check,
+      TemplateElement: check,
+    };
+  },
+};
+
 export default {
   meta: { name: 'pulse-guardrails' },
   rules: {
     'no-private-stat-primitives': noPrivateStatPrimitives,
     'no-inline-status-colors': noInlineStatusColors,
+    'no-yellow': noYellow,
+    'no-low-contrast-text': noLowContrastText,
   },
 };

@@ -100,7 +100,7 @@ export function GuidedTour() {
         {/* Close button */}
         <button
           onClick={dismiss}
-          className="absolute right-3 top-3 rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-300"
+          className="absolute right-3 top-3 rounded-md p-1 text-faint transition-colors hover:bg-slate-800 hover:text-slate-300"
           aria-label="Close tour"
         >
           <X className="h-4 w-4" />
@@ -127,7 +127,7 @@ export function GuidedTour() {
         <div className="flex items-center justify-between border-t border-slate-800 px-5 py-3">
           <button
             onClick={dismiss}
-            className="text-xs text-slate-500 transition-colors hover:text-slate-300"
+            className="text-xs text-faint transition-colors hover:text-slate-300"
           >
             Skip tour
           </button>

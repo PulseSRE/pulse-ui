@@ -63,7 +63,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
         <div className="px-3 py-2 border-b border-slate-700">
           <h3 className="text-sm font-semibold text-slate-200">Schema</h3>
         </div>
-        <div className="flex-1 flex items-center justify-center p-4 text-xs text-slate-500 text-center">
+        <div className="flex-1 flex items-center justify-center p-4 text-xs text-faint text-center">
           Add <code className="text-emerald-400">apiVersion</code> and <code className="text-emerald-400">kind</code> to your YAML to load the schema
         </div>
       </div>
@@ -75,7 +75,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
       {/* Header */}
       <div className="px-3 py-2 border-b border-slate-700">
         <h3 className="text-sm font-semibold text-slate-200">Schema</h3>
-        <p className="text-xs text-slate-500 mt-0.5">{gvk.kind} {gvk.group ? `${gvk.group}/${gvk.version}` : gvk.version}</p>
+        <p className="text-xs text-faint mt-0.5">{gvk.kind} {gvk.group ? `${gvk.group}/${gvk.version}` : gvk.version}</p>
       </div>
 
       {/* Search */}
@@ -99,7 +99,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
         </div>
       )}
       {error && (
-        <div className="p-3 text-xs text-yellow-400 flex items-start gap-2">
+        <div className="p-3 text-xs text-amber-400 flex items-start gap-2">
           <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -109,7 +109,7 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
       {schema && (
         <div className="flex-1 overflow-auto py-1">
           {filteredFields.length === 0 ? (
-            <div className="p-4 text-xs text-slate-500 text-center">No fields match "{searchQuery}"</div>
+            <div className="p-4 text-xs text-faint text-center">No fields match "{searchQuery}"</div>
           ) : (
             filteredFields.map((field) => (
               <FieldTree
@@ -137,21 +137,21 @@ export default function SchemaPanel({ gvk: gvkProp, yamlContent, onInsertField: 
             <p className="text-[11px] text-slate-400 leading-relaxed mb-2">{selectedField.description}</p>
           )}
           {selectedField.default !== undefined && (
-            <div className="text-[11px]"><span className="text-slate-500">Default: </span><code className="text-emerald-400">{String(selectedField.default)}</code></div>
+            <div className="text-[11px]"><span className="text-faint">Default: </span><code className="text-emerald-400">{String(selectedField.default)}</code></div>
           )}
           {selectedField.enum && (
             <div className="mt-1.5">
-              <span className="text-xs text-slate-500">Values: </span>
+              <span className="text-xs text-faint">Values: </span>
               <div className="flex flex-wrap gap-1 mt-0.5">
                 {selectedField.enum.map((v) => <code key={v} className="text-xs px-1 py-0.5 bg-slate-700 rounded-sm text-slate-300">{v}</code>)}
               </div>
             </div>
           )}
           {selectedField.minimum !== undefined && (
-            <div className="text-[11px] mt-1"><span className="text-slate-500">Min: </span><code className="text-emerald-400">{selectedField.minimum}</code></div>
+            <div className="text-[11px] mt-1"><span className="text-faint">Min: </span><code className="text-emerald-400">{selectedField.minimum}</code></div>
           )}
           {selectedField.pattern && (
-            <div className="text-[11px] mt-1"><span className="text-slate-500">Pattern: </span><code className="text-slate-400 text-xs">{selectedField.pattern}</code></div>
+            <div className="text-[11px] mt-1"><span className="text-faint">Pattern: </span><code className="text-slate-400 text-xs">{selectedField.pattern}</code></div>
           )}
         </div>
       )}
@@ -186,7 +186,7 @@ function FieldTree({ field, selectedPath, onSelect, level = 0, searchQuery = '' 
         ) : <span className="w-3 shrink-0" />}
         <span className={cn('font-mono', isActive ? 'text-blue-400' : field.required ? 'text-slate-200' : 'text-slate-400')}>{field.name}</span>
         {field.required && <span className="text-red-400 text-xs">*</span>}
-        <span className="text-xs text-slate-600 ml-auto shrink-0">{field.type}</span>
+        <span className="text-xs text-faint ml-auto shrink-0">{field.type}</span>
       </div>
       {hasChildren && isExpanded && children.map((child) => (
         <FieldTree key={child.path} field={child} selectedPath={selectedPath} onSelect={onSelect} level={level + 1} searchQuery={searchQuery} />

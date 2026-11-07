@@ -40,7 +40,7 @@ export class WidgetErrorBoundary extends React.Component<Props, State> {
             Retry
           </button>
           <details className="mt-2 text-left w-full max-w-md">
-            <summary className="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400">
+            <summary className="text-[10px] text-faint cursor-pointer hover:text-slate-400">
               Error details
             </summary>
             <pre className="mt-1 text-[10px] text-red-400/70 bg-slate-950 rounded-sm p-2 overflow-auto max-h-24 whitespace-pre-wrap">

@@ -63,7 +63,7 @@ export const nodeEnhancer: ResourceEnhancer = {
         if (nodeStatus.pressure.memory) warnings.push('MemoryPressure');
         if (nodeStatus.pressure.pid) warnings.push('PIDPressure');
 
-        const colorMap: Record<string, string> = { green: 'bg-green-500', yellow: 'bg-yellow-500', red: 'bg-red-500', gray: 'bg-slate-500' };
+        const colorMap: Record<string, string> = { green: 'bg-green-500', yellow: 'bg-amber-500', red: 'bg-red-500', gray: 'bg-slate-500' };
         const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${colorMap[color] || 'bg-slate-500'}`;
 
         return (
@@ -122,7 +122,7 @@ export const nodeEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-') {
-          return <span className="text-slate-500">-</span>;
+          return <span className="text-faint">-</span>;
         }
 
         return <span className="font-mono text-xs text-slate-300" title={String(value)}>{String(value)}</span>;
@@ -181,15 +181,15 @@ export const nodeEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         const v = String(value);
-        if (v === 'None') return <span className="text-xs text-slate-600">None</span>;
+        if (v === 'None') return <span className="text-xs text-faint">None</span>;
         const taints = v.split(', ');
         return (
           <div className="flex flex-nowrap items-center gap-1 overflow-hidden" title={v}>
             {taints.map((t, i) => (
               <span key={i} className={`shrink-0 text-xs px-1 py-0.5 rounded font-mono ${
                 t.includes('NoExecute') ? 'bg-red-900/30 text-red-400' :
-                t.includes('NoSchedule') ? 'bg-yellow-900/30 text-yellow-400' :
-                'bg-slate-800 text-slate-500'
+                t.includes('NoSchedule') ? 'bg-amber-900/30 text-amber-400' :
+                'bg-slate-800 text-faint'
               }`}>{t}</span>
             ))}
           </div>
@@ -204,11 +204,11 @@ export const nodeEnhancer: ResourceEnhancer = {
       width: '70px',
       accessorFn: (resource) => resource.metadata.creationTimestamp,
       render: (value) => {
-        if (!value) return <span className="text-xs text-slate-500">-</span>;
+        if (!value) return <span className="text-xs text-faint">-</span>;
         const ms = Date.now() - new Date(String(value)).getTime();
         const days = Math.floor(ms / 86400000);
         const label = days > 0 ? `${days}d` : `${Math.floor(ms / 3600000)}h`;
-        return <span className="text-xs text-slate-500">{label}</span>;
+        return <span className="text-xs text-faint">{label}</span>;
       },
       sortable: true,
       sortType: 'date',
@@ -232,7 +232,7 @@ export const nodeEnhancer: ResourceEnhancer = {
             className={`inline-flex items-center px-1.5 py-1 text-xs rounded transition-colors ${
               unschedulable
                 ? 'text-green-500 hover:bg-green-900/50 hover:text-green-400'
-                : 'text-slate-500 hover:bg-slate-700 hover:text-slate-300'
+                : 'text-faint hover:bg-slate-700 hover:text-slate-300'
             }`}
             title={unschedulable ? 'Uncordon (allow scheduling)' : 'Cordon (prevent scheduling)'}
             aria-label={unschedulable ? 'Uncordon node' : 'Cordon node'}
@@ -252,7 +252,7 @@ export const nodeEnhancer: ResourceEnhancer = {
         return (
           <button
             onClick={() => onAction('drain', { resource })}
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-faint rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
             title="Drain node (cordon, then evict pods)"
             aria-label="Drain node"
           >

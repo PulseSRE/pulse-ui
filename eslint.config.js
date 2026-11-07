@@ -52,6 +52,23 @@ export default [
       ],
     },
   },
+  // Colour tokens (consistency 8/12). Everywhere, primitives and engine
+  // included: warning is amber, never yellow, and muted text uses the
+  // text-muted / text-faint tokens, which meet WCAG AA on the dark surfaces.
+  // scripts/codemods/text-tokens.mjs fixes what these report. There is no
+  // file allowlist: a deliberate exception carries its own
+  // `eslint-disable-next-line pulse/<rule> -- <why>` comment.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    // views/ is migrated by part 2 of this change (the same codemod); remove
+    // 'src/kubeview/views/**' from this list there.
+    ignores: ['src/**/__tests__/**', 'src/**/*.test.*', 'src/kubeview/views/**'],
+    plugins: { pulse },
+    rules: {
+      'pulse/no-yellow': 'error',
+      'pulse/no-low-contrast-text': 'error',
+    },
+  },
   {
     files: [
       'src/kubeview/views/admin/CertificatesTab.tsx', // Wave 7b (admin ops): StatusDot
@@ -62,17 +79,14 @@ export default [
   },
   {
     files: [
-      'src/kubeview/components/agent/AgentBlastRadius.tsx', // Wave 8 (graphs)
-      'src/kubeview/components/topology/overlays/PodGrid.tsx', // Wave 8 (graphs)
-      'src/kubeview/components/topology/GraphRenderer.tsx', // Wave 8 (graphs)
       'src/kubeview/components/topology/constants.ts', // Wave 8 (graphs)
       'src/kubeview/views/TopologyView.tsx', // Wave 8 (graphs)
       'src/kubeview/views/TimelineView.tsx', // Wave 8 (graphs)
-      'src/kubeview/views/argocd/RolloutsTab.tsx', // Wave 7a (workload actions)
-      'src/kubeview/views/compute/NodeHexMap.tsx', // Wave 7a (node actions)
-      'src/kubeview/views/mission-control/ScannerDrawer.tsx', // Wave 6 (dedup/regroup)
-      'src/kubeview/views/inbox/InboxItem.tsx', // Wave 7c (inbox/fix actions)
-      'src/kubeview/views/inbox/InboxGroup.tsx', // Wave 7c (inbox/fix actions)
+      'src/kubeview/views/argocd/RolloutsTab.tsx', // consistency 8/12, part 2
+      'src/kubeview/views/compute/NodeHexMap.tsx', // consistency 8/12, part 2
+      'src/kubeview/views/mission-control/ScannerDrawer.tsx', // consistency 8/12, part 2
+      'src/kubeview/views/inbox/InboxItem.tsx', // consistency 8/12, part 2
+      'src/kubeview/views/inbox/InboxGroup.tsx', // consistency 8/12, part 2
       'src/kubeview/components/agent/FindingCard.tsx', // Wave 7c (inbox/fix actions)
     ],
     rules: { 'pulse/no-inline-status-colors': 'off' },

@@ -20,7 +20,7 @@ export function NodeGrid({ nodes, clusterName, onNodeClick }: NodeGridProps) {
     return (
       <div className="text-center text-slate-400 py-8">
         <p className="text-sm">No nodes found in {clusterName}</p>
-        <p className="text-xs text-slate-500 mt-1">Connect to the cluster to see its nodes</p>
+        <p className="text-xs text-faint mt-1">Connect to the cluster to see its nodes</p>
       </div>
     );
   }
@@ -36,20 +36,20 @@ export function NodeGrid({ nodes, clusterName, onNodeClick }: NodeGridProps) {
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
           <h3 className="text-sm font-semibold text-slate-100">{clusterName}</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Click a node to see its pods</p>
+          <p className="text-xs text-faint mt-0.5">Click a node to see its pods</p>
         </div>
         <div className="flex items-center gap-4 text-xs">
           <div className="text-center">
             <div className="text-slate-100 font-semibold text-lg">{nodes.length}</div>
-            <div className="text-slate-500">Nodes</div>
+            <div className="text-faint">Nodes</div>
           </div>
           <div className="text-center">
             <div className="text-slate-100 font-semibold text-lg">{totalPods}</div>
-            <div className="text-slate-500">Pods</div>
+            <div className="text-faint">Pods</div>
           </div>
           <div className="text-center">
             <div className="font-semibold text-lg" style={{ color: HEALTH_COLORS[avgHealth >= 90 ? 'healthy' : avgHealth >= 70 ? 'warning' : avgHealth >= 50 ? 'degraded' : 'critical'] }}>{avgHealth}%</div>
-            <div className="text-slate-500">Health</div>
+            <div className="text-faint">Health</div>
           </div>
         </div>
       </div>
@@ -93,9 +93,9 @@ export function NodeGrid({ nodes, clusterName, onNodeClick }: NodeGridProps) {
                           {node.name}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-slate-500">{node.podCount} pods</span>
+                          <span className="text-xs text-faint">{node.podCount} pods</span>
                           {node.instanceType && (
-                            <span className="text-xs text-slate-600">{node.instanceType}</span>
+                            <span className="text-xs text-faint">{node.instanceType}</span>
                           )}
                         </div>
                       </div>

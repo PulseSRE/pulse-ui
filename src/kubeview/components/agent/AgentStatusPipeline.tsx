@@ -27,7 +27,7 @@ export function AgentStatusPipeline({ spec }: { spec: StatusPipelineSpec }) {
                   'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors',
                   isDone && 'bg-emerald-500/20 border-emerald-500 text-emerald-400',
                   isActive && 'bg-blue-500/20 border-blue-500 text-blue-400 ring-2 ring-blue-500/30',
-                  !isDone && !isActive && 'bg-slate-800 border-slate-600 text-slate-500',
+                  !isDone && !isActive && 'bg-slate-800 border-slate-600 text-faint',
                 )}
               >
                 {isDone ? <CheckCircle className="w-3.5 h-3.5" /> : i + 1}
@@ -37,7 +37,7 @@ export function AgentStatusPipeline({ spec }: { spec: StatusPipelineSpec }) {
                   'text-[10px] leading-tight text-center max-w-[72px]',
                   isDone && 'text-emerald-400',
                   isActive && 'text-blue-400 font-semibold',
-                  !isDone && !isActive && 'text-slate-500',
+                  !isDone && !isActive && 'text-faint',
                 )}
               >
                 {step}

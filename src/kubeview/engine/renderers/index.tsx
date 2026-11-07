@@ -56,7 +56,7 @@ export function getNestedValue(obj: unknown, path: string): unknown {
 // Static Tailwind color map to avoid dynamic class generation
 const statusDotColors: Record<string, string> = {
   green: 'bg-green-500',
-  yellow: 'bg-yellow-500',
+  yellow: 'bg-amber-500',
   red: 'bg-red-500',
   gray: 'bg-slate-500',
   blue: 'bg-blue-500',
@@ -210,7 +210,7 @@ export function renderLabels(value: unknown): ReactNode {
   const labels = value as Record<string, string>;
   const entries = Object.entries(labels);
 
-  if (entries.length === 0) return <span className="text-slate-500 text-xs">None</span>;
+  if (entries.length === 0) return <span className="text-faint text-xs">None</span>;
 
   // Show first 3 labels, then a count
   const visible = entries.slice(0, 3);
@@ -228,7 +228,7 @@ export function renderLabels(value: unknown): ReactNode {
         </span>
       ))}
       {remaining > 0 && (
-        <span className="inline-block shrink-0 px-1.5 py-0.5 text-xs text-slate-500">
+        <span className="inline-block shrink-0 px-1.5 py-0.5 text-xs text-faint">
           +{remaining}
         </span>
       )}
@@ -244,7 +244,7 @@ export function renderReplicas(value: unknown, resource: K8sResource): ReactNode
   const desired = Number(spec?.replicas ?? 0);
 
   const allReady = ready === desired && desired > 0;
-  const color = allReady ? 'text-green-400' : ready > 0 ? 'text-yellow-400' : 'text-red-400';
+  const color = allReady ? 'text-green-400' : ready > 0 ? 'text-amber-400' : 'text-red-400';
 
   return (
     <span className={`font-mono text-sm ${color} font-semibold`}>
@@ -254,14 +254,14 @@ export function renderReplicas(value: unknown, resource: K8sResource): ReactNode
 }
 
 export function renderContainers(value: unknown): ReactNode {
-  if (!value || !Array.isArray(value)) return <span className="text-slate-500">-</span>;
+  if (!value || !Array.isArray(value)) return <span className="text-faint">-</span>;
 
   const containers = value as Array<Record<string, unknown>>;
   const count = containers.length;
   const ready = containers.filter((c) => c.ready === true).length;
 
   const allReady = ready === count;
-  const color = allReady ? 'text-green-400' : 'text-yellow-400';
+  const color = allReady ? 'text-green-400' : 'text-amber-400';
 
   return (
     <span className={`font-mono text-sm ${color}`}>
@@ -276,12 +276,12 @@ export function renderBoolean(value: unknown): ReactNode {
   return bool ? (
     <span className="text-green-400 font-semibold">✓</span>
   ) : (
-    <span className="text-slate-500">✗</span>
+    <span className="text-faint">✗</span>
   );
 }
 
 export function renderQuantity(value: unknown): ReactNode {
-  if (!value) return <span className="text-slate-500">-</span>;
+  if (!value) return <span className="text-faint">-</span>;
 
   const qty = String(value);
   return (
@@ -309,11 +309,11 @@ export function renderLink(value: unknown): ReactNode {
 
 export function renderDefault(value: unknown): ReactNode {
   if (value === null || value === undefined) {
-    return <span className="text-slate-500">-</span>;
+    return <span className="text-faint">-</span>;
   }
 
   if (typeof value === 'object') {
-    return <span className="text-slate-500 text-xs">Object</span>;
+    return <span className="text-faint text-xs">Object</span>;
   }
 
   return <span className="text-sm text-slate-300">{String(value)}</span>;
@@ -529,7 +529,7 @@ export function autoDetectColumns(resources: K8sResource[]): ColumnDef[] {
               return Object.entries(labels).map(([k, v]) => `${k.split('/').pop()}=${v}`).join(', ');
             },
             render: (value) => {
-              if (!value || value === '-') return React.createElement('span', { className: 'text-slate-500' }, '-');
+              if (!value || value === '-') return React.createElement('span', { className: 'text-faint' }, '-');
               const str = String(value);
               return React.createElement('span', { className: 'text-xs text-slate-300 font-mono truncate block max-w-[200px]', title: str }, str.length > 40 ? str.slice(0, 37) + '...' : str);
             },
@@ -657,7 +657,7 @@ function formatHeader(field: string): string {
 
 function renderAutoValue(value: unknown): ReactNode {
   if (value === null || value === undefined || value === '-') {
-    return React.createElement('span', { className: 'text-slate-500' }, '-');
+    return React.createElement('span', { className: 'text-faint' }, '-');
   }
 
   const str = String(value);
@@ -667,7 +667,7 @@ function renderAutoValue(value: unknown): ReactNode {
     return React.createElement('span', { className: 'text-green-400' }, '✓');
   }
   if (str === 'false') {
-    return React.createElement('span', { className: 'text-slate-500' }, '✗');
+    return React.createElement('span', { className: 'text-faint' }, '✗');
   }
 
   // Phase/status-like values
@@ -680,7 +680,7 @@ function renderAutoValue(value: unknown): ReactNode {
   }
   if (['pending', 'waiting', 'unknown'].includes(lower)) {
     return React.createElement('span', { className: 'inline-flex items-center gap-1.5 text-sm' },
-      React.createElement('span', { className: 'w-2 h-2 rounded-full bg-yellow-500 inline-block' }),
+      React.createElement('span', { className: 'w-2 h-2 rounded-full bg-amber-500 inline-block' }),
       str
     );
   }

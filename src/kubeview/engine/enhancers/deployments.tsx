@@ -35,7 +35,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
           color = 'yellow';
         }
 
-        const colorMap: Record<string, string> = { green: 'bg-green-500', yellow: 'bg-yellow-500', red: 'bg-red-500', gray: 'bg-slate-500' };
+        const colorMap: Record<string, string> = { green: 'bg-green-500', yellow: 'bg-amber-500', red: 'bg-red-500', gray: 'bg-slate-500' };
         const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${colorMap[color] || 'bg-slate-500'}`;
 
         return (
@@ -59,7 +59,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
       render: (value) => {
         const [ready, desired] = String(value).split('/').map(Number);
         const allReady = ready === desired && desired > 0;
-        const color = allReady ? 'text-green-400' : ready > 0 ? 'text-yellow-400' : 'text-red-400';
+        const color = allReady ? 'text-green-400' : ready > 0 ? 'text-amber-400' : 'text-red-400';
 
         return (
           <span className={`font-mono text-sm ${color} font-semibold`}>
@@ -85,7 +85,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-') {
-          return <span className="text-slate-500">-</span>;
+          return <span className="text-faint">-</span>;
         }
 
         const image = String(value);
@@ -113,7 +113,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
       },
       render: (value) => {
         if (!value || value === '-') {
-          return <span className="text-slate-500">-</span>;
+          return <span className="text-faint">-</span>;
         }
 
         return <span className="text-sm text-slate-300">{String(value)}</span>;
@@ -136,7 +136,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
             <button
               onClick={(e) => { e.stopPropagation(); onAction('scale', { resource, delta: -1 }); }}
               disabled={status.desired === 0}
-              className="inline-flex items-center px-1 py-0.5 text-slate-500 rounded-sm hover:bg-slate-700 hover:text-slate-300 transition-colors disabled:opacity-30"
+              className="inline-flex items-center px-1 py-0.5 text-faint rounded-sm hover:bg-slate-700 hover:text-slate-300 transition-colors disabled:opacity-30"
               title="Scale down"
             >
               <Minus className="w-3 h-3" />
@@ -144,7 +144,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
             <span className="w-5 text-center text-xs font-mono text-slate-300">{status.desired}</span>
             <button
               onClick={(e) => { e.stopPropagation(); onAction('scale', { resource, delta: 1 }); }}
-              className="inline-flex items-center px-1 py-0.5 text-slate-500 rounded-sm hover:bg-slate-700 hover:text-slate-300 transition-colors"
+              className="inline-flex items-center px-1 py-0.5 text-faint rounded-sm hover:bg-slate-700 hover:text-slate-300 transition-colors"
               title="Scale up"
             >
               <Plus className="w-3 h-3" />
@@ -163,7 +163,7 @@ export const deploymentEnhancer: ResourceEnhancer = {
           <button
             onClick={() => onAction('restart-rollout', { resource })}
             aria-label="Restart rollout"
-            className="inline-flex items-center px-1.5 py-1 text-xs text-slate-500 rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
+            className="inline-flex items-center px-1.5 py-1 text-xs text-faint rounded-sm hover:bg-orange-900/50 hover:text-orange-400 transition-colors"
             title="Restart Rollout"
           >
             <RotateCw className="w-3.5 h-3.5" />

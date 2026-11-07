@@ -8,6 +8,7 @@
 
 import { useMemo, useRef, type Dispatch, type SetStateAction } from 'react';
 import { Card } from '../primitives/Card';
+import { TONE_CLASSES, riskTone, statusHex, utilizationTone } from '../../engine/statusColors';
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ const KIND_COLORS: Record<string, string> = {
   CronJob: '#1e3a8a',
   Pod: '#22c55e',
   Service: '#06b6d4',
-  ConfigMap: '#eab308',
+  ConfigMap: '#f59e0b',
   Secret: '#ef4444',
   PVC: '#f97316',
   Node: '#64748b',
@@ -66,18 +67,9 @@ const KIND_COLORS: Record<string, string> = {
   Summary: '#475569',
 };
 
-const RISK_BORDER_COLORS: Record<string, string> = {
-  critical: '#ef4444',
-  high: '#f97316',
-  medium: '#eab308',
-  low: '#22c55e',
-};
-
-const STATUS_DOT_COLORS: Record<string, string> = {
-  healthy: '#22c55e',
-  warning: '#eab308',
-  error: '#ef4444',
-};
+// Risk, health and utilisation colours come from the one status map
+// (engine/statusColors); only the per-kind palette above is local.
+const riskHex = (level: string | undefined) => TONE_CLASSES[riskTone(level ?? 'low')].hex;
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
   owns: 'owns',
@@ -484,9 +476,9 @@ export default function GraphRenderer({
 
           const kindColor = getKindColor(node.kind);
           const riskBorder = node.riskLevel
-            ? RISK_BORDER_COLORS[node.riskLevel]
+            ? riskHex(node.riskLevel)
             : undefined;
-          const statusColor = STATUS_DOT_COLORS[node.status ?? 'healthy'];
+          const statusColor = statusHex(node.status ?? 'healthy');
           const borderColor = isSelected
             ? kindColor
             : riskBorder ?? (isHovered ? '#94a3b8' : '#334155');
@@ -531,11 +523,11 @@ export default function GraphRenderer({
               {node.risk != null && node.risk > 0 && (
                 <g transform="translate(130, 22)">
                   <rect x={0} y={0} width={26} height={14} rx={3}
-                    fill={RISK_BORDER_COLORS[node.riskLevel ?? 'low'] + '33'}
-                    stroke={RISK_BORDER_COLORS[node.riskLevel ?? 'low']}
+                    fill={riskHex(node.riskLevel) + '33'}
+                    stroke={riskHex(node.riskLevel)}
                     strokeWidth={0.5}
                   />
-                  <text x={13} y={10} fill={RISK_BORDER_COLORS[node.riskLevel ?? 'low']}
+                  <text x={13} y={10} fill={riskHex(node.riskLevel)}
                     fontSize={8} textAnchor="middle" fontWeight={600}>
                     {node.risk}
                   </text>
@@ -545,8 +537,8 @@ export default function GraphRenderer({
               {includeMetrics && node.metrics && (() => {
                 const m = node.metrics!;
                 const barWidth = 130;
-                const cpuColor = m.cpu_percent >= 80 ? '#ef4444' : m.cpu_percent >= 60 ? '#eab308' : '#3b82f6';
-                const memColor = m.memory_percent >= 80 ? '#ef4444' : m.memory_percent >= 60 ? '#eab308' : '#22c55e';
+                const cpuColor = TONE_CLASSES[utilizationTone(m.cpu_percent, { ok: 'progress' })].hex;
+                const memColor = TONE_CLASSES[utilizationTone(m.memory_percent)].hex;
                 return (
                   <g data-testid="metric-bar">
                     <title>{`CPU: ${m.cpu_usage}/${m.cpu_capacity} (${m.cpu_percent}%) | Memory: ${m.memory_usage}/${m.memory_capacity} (${m.memory_percent}%)`}</title>

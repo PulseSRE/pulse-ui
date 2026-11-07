@@ -199,7 +199,7 @@ export function ActionPlanTracker() {
         <Tooltip content="Dismiss tracker">
           <button
             onClick={clearExecution}
-            className="text-slate-600 hover:text-slate-400 shrink-0 transition-colors"
+            className="text-faint hover:text-slate-400 shrink-0 transition-colors"
             aria-label="Dismiss action plan tracker"
           >
             <X className="w-3 h-3" />

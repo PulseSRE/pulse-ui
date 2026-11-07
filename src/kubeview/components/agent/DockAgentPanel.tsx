@@ -218,7 +218,7 @@ function ChatHistoryPanel({
         <span className="text-xs font-medium text-slate-300">Chat History</span>
         <button
           onClick={onClose}
-          className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+          className="p-1 text-faint hover:text-slate-300 transition-colors"
           aria-label="Close history panel"
         >
           <X className="h-3.5 w-3.5" />
@@ -237,13 +237,13 @@ function ChatHistoryPanel({
       {/* Session list */}
       <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
         {isLoading && (
-          <div className="flex items-center justify-center py-8 text-xs text-slate-500">
+          <div className="flex items-center justify-center py-8 text-xs text-faint">
             <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
             Loading...
           </div>
         )}
         {!isLoading && sessions.length === 0 && (
-          <div className="text-xs text-slate-500 text-center py-8">No saved sessions</div>
+          <div className="text-xs text-faint text-center py-8">No saved sessions</div>
         )}
         {sessions.map((session) => (
           <button
@@ -259,14 +259,14 @@ function ChatHistoryPanel({
             <MessageSquare className="h-3 w-3 mt-0.5 shrink-0 text-slate-500" />
             <div className="flex-1 min-w-0">
               <div className="text-xs text-slate-300 truncate">{session.title || 'Untitled'}</div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+              <div className="flex items-center gap-2 text-xs text-faint mt-0.5">
                 <span>{formatRelative(new Date(session.updated_at).getTime())}</span>
                 <span className="bg-slate-800 px-1.5 py-0.5 rounded-full">{session.message_count} msg{session.message_count !== 1 ? 's' : ''}</span>
               </div>
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); setPendingDeleteId(session.id); }}
-              className="p-0.5 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-all"
+              className="p-0.5 opacity-0 group-hover:opacity-100 text-faint hover:text-red-400 transition-all"
               aria-label={`Delete session ${session.title}`}
             >
               <X className="h-3 w-3" />
@@ -482,7 +482,7 @@ export function DockAgentPanel() {
             ? inboxNeedsAttention > 0
               ? inboxCritical > 0 ? 'text-red-400' : 'text-amber-400'
               : 'text-green-400'
-            : 'text-slate-500',
+            : 'text-faint',
         )}
       >
         <Shield className="h-3 w-3 shrink-0" />
@@ -499,7 +499,7 @@ export function DockAgentPanel() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-3" role="log" aria-label="Agent messages">
         {messages.length === 0 && !streaming && (
           <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-faint">
               <Bot className="h-4 w-4" />
               Ask Pulse…
             </div>
@@ -585,7 +585,7 @@ export function DockAgentPanel() {
           onClick={() => setShowHistory(!showHistory)}
           className={cn(
             'p-1 transition-colors',
-            showHistory ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 hover:text-slate-300',
+            showHistory ? 'text-blue-400 hover:text-blue-300' : 'text-faint hover:text-slate-300',
           )}
           title="Chat history"
           aria-label="Toggle chat history"
@@ -604,7 +604,7 @@ export function DockAgentPanel() {
                 a.download = `pulse-chat-${new Date().toISOString().slice(0, 10)}.md`;
                 a.click();
               }}
-              className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+              className="p-1 text-faint hover:text-slate-300 transition-colors"
               title="Export conversation"
               aria-label="Export agent conversation"
             >
@@ -612,7 +612,7 @@ export function DockAgentPanel() {
             </button>
             <button
               onClick={() => setConfirmClear(true)}
-              className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+              className="p-1 text-faint hover:text-slate-300 transition-colors"
               title="Clear chat"
               aria-label="Clear agent chat"
             >
@@ -630,7 +630,7 @@ export function DockAgentPanel() {
             disabled={streaming || !connected}
             rows={1}
             className={cn(
-              'w-full bg-slate-900 border rounded-sm px-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden resize-none overflow-y-auto',
+              'w-full bg-slate-900 border rounded-sm px-3 py-1.5 text-xs text-slate-200 placeholder:text-faint focus:outline-hidden resize-none overflow-y-auto',
               streaming ? 'border-blue-500/50 opacity-60 cursor-not-allowed' : 'border-slate-700 focus:border-blue-500',
               !connected && 'opacity-40',
             )}

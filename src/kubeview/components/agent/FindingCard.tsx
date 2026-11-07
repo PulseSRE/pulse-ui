@@ -62,7 +62,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
             <span className={cn('inline-flex items-center rounded-sm px-1.5 py-0.5 font-medium', badge.bg, badge.text, compact ? 'text-xs' : 'text-xs')}>
               {badge.label}
             </span>
-            <span className="text-xs text-slate-500">{finding.category}</span>
+            <span className="text-xs text-faint">{finding.category}</span>
             {finding.confidence != null && (
               <span
                 className={cn(
@@ -75,7 +75,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
                 {Math.round(finding.confidence * 100)}%
               </span>
             )}
-            <span className="ml-auto flex items-center gap-1 text-xs text-slate-500 shrink-0">
+            <span className="ml-auto flex items-center gap-1 text-xs text-faint shrink-0">
               <Clock className="h-3 w-3" aria-hidden="true" />
               {formatRelative(finding.timestamp)}
             </span>
@@ -101,7 +101,7 @@ export function FindingCard({ finding, onInvestigate, onDismiss, onAutoFix, comp
                 </span>
               ))}
               {remaining > 0 && (
-                <span className="inline-flex items-center rounded-sm bg-slate-900 px-1.5 py-0.5 text-xs text-slate-500">
+                <span className="inline-flex items-center rounded-sm bg-slate-900 px-1.5 py-0.5 text-xs text-faint">
                   +{remaining} more
                 </span>
               )}

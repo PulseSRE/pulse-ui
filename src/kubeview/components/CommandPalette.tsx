@@ -249,7 +249,7 @@ export function CommandPalette() {
           {/* Results */}
           <div className="max-h-96 overflow-auto p-2" id="command-palette-results" role="listbox">
             {searchAllClusters && fleetLoading && (
-              <div className="py-4 text-center text-sm text-slate-500">
+              <div className="py-4 text-center text-sm text-faint">
                 Searching all clusters...
               </div>
             )}
@@ -267,7 +267,7 @@ export function CommandPalette() {
                       )}
                     </div>
                     {clusterResult.data.length === 0 && clusterResult.status === 'fulfilled' && (
-                      <div className="px-3 py-1 text-xs text-slate-500">No matches</div>
+                      <div className="px-3 py-1 text-xs text-faint">No matches</div>
                     )}
                     {clusterResult.data.map((resource) => (
                       <button
@@ -320,7 +320,7 @@ export function CommandPalette() {
             )}
             {!showAskPulse && (!searchAllClusters || fleetResults.length === 0) && !fleetLoading && (
               items.length === 0 ? (
-                <div className="py-8 text-center text-sm text-slate-500">
+                <div className="py-8 text-center text-sm text-faint">
                   No results found
                 </div>
               ) : (
@@ -332,7 +332,7 @@ export function CommandPalette() {
           </div>
 
           {/* Hints */}
-          <div className="flex items-center justify-between border-t border-slate-700 px-4 py-2 text-xs text-slate-500">
+          <div className="flex items-center justify-between border-t border-slate-700 px-4 py-2 text-xs text-faint">
             <div>
               <span className="font-medium">/</span> browse{' '}
               <span className="mx-2">·</span>
@@ -625,7 +625,7 @@ function renderGroups(
       <div key={groupName} className="mb-2">
         <div className={cn(
           'mb-1 px-2 text-xs font-semibold uppercase tracking-wider',
-          groupName === 'PULSE AI' ? AI_ACCENT.text : 'text-slate-500',
+          groupName === 'PULSE AI' ? AI_ACCENT.text : 'text-faint',
         )}>
           {groupName}
         </div>

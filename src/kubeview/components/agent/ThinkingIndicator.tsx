@@ -89,7 +89,7 @@ export function ThinkingIndicator({
               {activeTools[activeTools.length - 1]}
             </span>
           )}
-          <span className="text-[10px] text-slate-500 tabular-nums ml-auto">{elapsed}s</span>
+          <span className="text-[10px] text-faint tabular-nums ml-auto">{elapsed}s</span>
         </div>
         {streamingText && (
           <pre className="text-sm text-slate-300 whitespace-pre-wrap font-sans">{streamingText}</pre>
@@ -151,7 +151,7 @@ export function ThinkingIndicator({
           </div>
 
           {/* Elapsed timer */}
-          <span className="text-xs text-slate-500 tabular-nums font-mono">{elapsed}s</span>
+          <span className="text-xs text-faint tabular-nums font-mono">{elapsed}s</span>
         </div>
 
         {/* Tool pills — show tools that have been called */}
@@ -211,13 +211,13 @@ export function ThinkingIndicator({
           <div>
             <button
               onClick={() => setShowReasoning(!showReasoning)}
-              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-400 transition-colors"
+              className="flex items-center gap-1 text-[10px] text-faint hover:text-slate-400 transition-colors"
             >
               {showReasoning ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               Agent reasoning
             </button>
             {showReasoning && (
-              <pre className="mt-1 text-[11px] text-slate-500 whitespace-pre-wrap font-mono leading-relaxed max-h-32 overflow-y-auto scrollbar-thin">
+              <pre className="mt-1 text-[11px] text-faint whitespace-pre-wrap font-mono leading-relaxed max-h-32 overflow-y-auto scrollbar-thin">
                 {thinkingText}
               </pre>
             )}

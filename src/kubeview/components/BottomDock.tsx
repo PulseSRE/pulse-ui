@@ -105,11 +105,11 @@ export function BottomDock() {
       <div className="flex-1 overflow-auto">
         {panel === 'logs' && (
           dockContext ? (
-            <Suspense fallback={<div className="text-xs text-slate-500 p-3">Loading logs...</div>}>
+            <Suspense fallback={<div className="text-xs text-faint p-3">Loading logs...</div>}>
               <div className="h-full flex flex-col">
-                <div className="px-3 py-1.5 text-xs text-slate-500 border-b border-slate-800 flex items-center gap-2">
+                <div className="px-3 py-1.5 text-xs text-faint border-b border-slate-800 flex items-center gap-2">
                   <span>{dockContext.namespace}/{dockContext.podName}</span>
-                  {dockContext.containerName && <span className="text-slate-600">({dockContext.containerName})</span>}
+                  {dockContext.containerName && <span className="text-faint">({dockContext.containerName})</span>}
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <LogStream
@@ -123,7 +123,7 @@ export function BottomDock() {
               </div>
             </Suspense>
           ) : (
-            <div className="p-4 font-mono text-xs text-slate-500">
+            <div className="p-4 font-mono text-xs text-faint">
               Navigate to a pod or workload to see logs here
             </div>
           )
@@ -131,7 +131,7 @@ export function BottomDock() {
 
         {panel === 'terminal' && (
           terminalContext ? (
-            <Suspense fallback={<div className="text-xs text-slate-500 p-3">Loading terminal...</div>}>
+            <Suspense fallback={<div className="text-xs text-faint p-3">Loading terminal...</div>}>
               <div className="h-full">
                 <PodTerminal
                   key={`${terminalContext.clusterId ?? ''}/${terminalContext.namespace}/${terminalContext.podName}/${terminalContext.containerName}`}
@@ -148,7 +148,7 @@ export function BottomDock() {
               </div>
             </Suspense>
           ) : (
-            <div className="flex items-center justify-center h-full text-sm text-slate-500">
+            <div className="flex items-center justify-center h-full text-sm text-faint">
               Open a terminal from a pod or node detail view
             </div>
           )
@@ -177,7 +177,7 @@ function EventStream() {
   // Loading and failure are not "no events".
   const status = loadStatus(eventsQuery);
   if (status === 'loading') {
-    return <div className="p-4 text-sm text-slate-500" role="status">Loading events…</div>;
+    return <div className="p-4 text-sm text-faint" role="status">Loading events…</div>;
   }
   if (status === 'error') {
     return (
@@ -187,14 +187,14 @@ function EventStream() {
     );
   }
   if (events.length === 0) {
-    return <div className="p-4 text-sm text-slate-500">No events in the cluster</div>;
+    return <div className="p-4 text-sm text-faint">No events in the cluster</div>;
   }
 
   return (
     <div className="overflow-y-auto h-full">
       <table className="w-full text-xs">
         <thead className="sticky top-0 bg-slate-900 border-b border-slate-800">
-          <tr className="text-left text-slate-500">
+          <tr className="text-left text-faint">
             <th className="px-3 py-1.5 font-medium w-16">Type</th>
             <th className="px-3 py-1.5 font-medium">Reason</th>
             <th className="px-3 py-1.5 font-medium">Object</th>
@@ -224,10 +224,10 @@ function EventStream() {
                 <td className="px-3 py-1.5 font-mono text-slate-300">{reason}</td>
                 <td className="px-3 py-1.5">
                   <span className="text-slate-400">{obj}</span>
-                  {ns && <span className="text-slate-600 ml-1">({ns})</span>}
+                  {ns && <span className="text-faint ml-1">({ns})</span>}
                 </td>
                 <td className="px-3 py-1.5 text-slate-400 truncate max-w-[400px]">{message}</td>
-                <td className="px-3 py-1.5 text-slate-600">{age}</td>
+                <td className="px-3 py-1.5 text-faint">{age}</td>
               </tr>
             );
           })}

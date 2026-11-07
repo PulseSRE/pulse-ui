@@ -31,7 +31,7 @@ const STATUS_CONFIG: Record<GateStatus, {
   color: string;
   label: string;
 }> = {
-  not_started: { icon: <HelpCircle className="w-4 h-4" />, color: 'text-slate-500', label: 'Not Started' },
+  not_started: { icon: <HelpCircle className="w-4 h-4" />, color: 'text-faint', label: 'Not Started' },
   checking:    { icon: <Loader2 className="w-4 h-4 animate-spin" />, color: 'text-blue-400', label: 'Checking' },
   passed:      { icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-emerald-400', label: 'Passed' },
   needs_attention: { icon: <AlertTriangle className="w-4 h-4" />, color: 'text-amber-400', label: 'Needs Attention' },
@@ -78,7 +78,7 @@ export function GateCard({ gate, result, waived, waiverReason, waiver, onReVerif
           <span className={cfg.color}>{cfg.icon}</span>
           <div className="min-w-0">
             <span className="text-sm font-medium text-slate-200 block truncate">{gate.title}</span>
-            <span className="text-xs text-slate-500 block truncate">{gate.whyItMatters}</span>
+            <span className="text-xs text-faint block truncate">{gate.whyItMatters}</span>
           </div>
         </div>
         <span className={cn('text-xs font-medium px-2 py-0.5 rounded-sm', cfg.color, 'bg-slate-800')}>
@@ -110,7 +110,7 @@ export function GateCard({ gate, result, waived, waiverReason, waiver, onReVerif
           )}
 
           {waived && waiverReason && !waiver && (
-            <div className="text-xs text-slate-500 italic">Waived: {waiverReason}</div>
+            <div className="text-xs text-faint italic">Waived: {waiverReason}</div>
           )}
 
           {status === 'passed' && waiver && (

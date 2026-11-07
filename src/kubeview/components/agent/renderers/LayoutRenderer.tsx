@@ -63,7 +63,7 @@ export function AgentGrid({ spec, depth = 0, onAddToView, refreshInterval, globa
         <div className="mb-2 text-xs font-medium text-slate-300 flex items-center justify-between">
           <div className="truncate">
             <span>{spec.title}</span>
-            {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
+            {spec.description && <span className="text-[10px] text-faint ml-2">{spec.description}</span>}
           </div>
         </div>
       )}

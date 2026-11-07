@@ -63,7 +63,7 @@ export function TreeNode({ node, nodes, depth = 0, visited = new Set<string>() }
               </span>
             )}
           </div>
-          {node.detail && <span className="text-[10px] text-slate-500">{node.detail}</span>}
+          {node.detail && <span className="text-[10px] text-faint">{node.detail}</span>}
         </div>
       </div>
       {children.length > 0 && (
@@ -95,10 +95,10 @@ export function AgentRelationshipTree({ spec, onAddToView }: { spec: Relationshi
       <div className="px-3 py-1.5 border-b border-slate-700 flex items-center justify-between">
         <div>
           <span className="text-xs font-medium text-slate-300">{spec.title || 'Resource Relationships'}</span>
-          {spec.description && <span className="text-[10px] text-slate-500 ml-2">{spec.description}</span>}
+          {spec.description && <span className="text-[10px] text-faint ml-2">{spec.description}</span>}
         </div>
         {onAddToView && (
-          <button onClick={() => onAddToView(spec)} className="p-0.5 text-slate-500 hover:text-emerald-400 rounded-sm transition-colors" title="Add to View">
+          <button onClick={() => onAddToView(spec)} className="p-0.5 text-faint hover:text-emerald-400 rounded-sm transition-colors" title="Add to View">
             <Plus className="w-3.5 h-3.5" />
           </button>
         )}
@@ -107,7 +107,7 @@ export function AgentRelationshipTree({ spec, onAddToView }: { spec: Relationshi
         {root ? (
           <TreeNode node={root} nodes={nodeMap} />
         ) : (
-          <span className="text-xs text-slate-500">No root node found</span>
+          <span className="text-xs text-faint">No root node found</span>
         )}
       </div>
     </div>

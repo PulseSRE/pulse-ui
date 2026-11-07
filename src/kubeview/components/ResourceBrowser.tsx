@@ -148,11 +148,11 @@ export function ResourceBrowser() {
           {/* Views section — derived from canonical navRegistry */}
           <div className="border-b border-slate-700 p-3 space-y-3">
             {navSections.length === 0 && (
-              <p className="px-2 py-1 text-xs text-slate-600">No pages match "{searchQuery}"</p>
+              <p className="px-2 py-1 text-xs text-faint">No pages match "{searchQuery}"</p>
             )}
             {navSections.map((section) => (
               <div key={section.group}>
-                <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-faint">
                   {section.label}
                 </div>
                 {section.items.map((page) => {
@@ -179,7 +179,7 @@ export function ResourceBrowser() {
           {/* Custom dashboards */}
           <div className="border-b border-slate-700 p-3">
             <div className="mb-2 flex items-center justify-between px-2">
-              <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-faint">
                 <LayoutDashboard className="h-3 w-3" />
                 Your Views
               </span>
@@ -195,7 +195,7 @@ export function ResourceBrowser() {
               </button>
             </div>
             {customViews.length === 0 ? (
-              <p className="px-2 py-1 text-xs text-slate-600">No views yet. Ask Pulse to create one.</p>
+              <p className="px-2 py-1 text-xs text-faint">No views yet. Ask Pulse to create one.</p>
             ) : (
               customViews.map((v) => (
                 <button
@@ -244,7 +244,7 @@ export function ResourceBrowser() {
                     <span className="flex-1 text-left">
                       {group === 'Core' ? 'Core (v1)' : group}
                     </span>
-                    <span className="text-xs text-slate-500">{filteredResources.length}</span>
+                    <span className="text-xs text-faint">{filteredResources.length}</span>
                   </button>
 
                   {isExpanded && (
@@ -271,7 +271,7 @@ export function ResourceBrowser() {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-700 p-3 text-xs text-slate-500">
+        <div className="border-t border-slate-700 p-3 text-xs text-faint">
           Press <kbd className="rounded-sm bg-slate-700 px-1.5 py-0.5">⌘B</kbd> to close
         </div>
       </div>

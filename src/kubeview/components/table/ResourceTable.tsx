@@ -188,7 +188,7 @@ export function ResourceTable({
       <div className="px-3 py-1.5 bg-slate-800/50 border-b border-slate-700 text-xs font-medium text-slate-300 flex items-center justify-between gap-2">
         <div className="truncate shrink-0 flex items-center gap-2">
           <span>{title || 'Table'}</span>
-          {description && <span className="text-[10px] text-slate-500">{description}</span>}
+          {description && <span className="text-[10px] text-faint">{description}</span>}
           {(search || Object.values(filters).some(Boolean)) && (
             <span className="text-[10px] text-blue-400">
               ({processedRows.length}/{actualTotal})
@@ -208,7 +208,7 @@ export function ResourceTable({
             />
           </div>
           <div className="relative group/export">
-            <button className="p-0.5 text-slate-500 hover:text-slate-300 rounded-sm transition-colors" title="Export">
+            <button className="p-0.5 text-faint hover:text-slate-300 rounded-sm transition-colors" title="Export">
               <Download className="w-3.5 h-3.5" />
             </button>
             <div className="absolute right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-sm shadow-lg hidden group-hover/export:block z-20">
@@ -218,7 +218,7 @@ export function ResourceTable({
           </div>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={cn('p-0.5 rounded-sm transition-colors', showSettings ? 'text-blue-400 bg-slate-700' : 'text-slate-500 hover:text-slate-300')}
+            className={cn('p-0.5 rounded-sm transition-colors', showSettings ? 'text-blue-400 bg-slate-700' : 'text-faint hover:text-slate-300')}
             title="Table settings"
           >
             <Settings2 className="w-3.5 h-3.5" />
@@ -226,7 +226,7 @@ export function ResourceTable({
           {onAddToView && spec && (
             <button
               onClick={() => onAddToView(spec)}
-              className="p-0.5 text-slate-500 hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors shrink-0"
+              className="p-0.5 text-faint hover:text-emerald-400 hover:bg-slate-800 rounded-sm transition-colors shrink-0"
               title="Add to View"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -238,7 +238,7 @@ export function ResourceTable({
       {/* Settings panel */}
       {showSettings && (
         <div className="px-3 py-2 bg-slate-800/80 border-b border-slate-700 space-y-2">
-          <div className="text-[10px] text-slate-500 uppercase tracking-wider">Columns</div>
+          <div className="text-[10px] text-faint uppercase tracking-wider">Columns</div>
           <div className="flex flex-wrap gap-1">
             {columns.map((col) => (
               <button
@@ -246,7 +246,7 @@ export function ResourceTable({
                 onClick={() => toggleCol(col.id)}
                 className={cn(
                   'flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs transition-colors',
-                  hiddenCols.has(col.id) ? 'bg-slate-900 text-slate-600' : 'bg-slate-700 text-slate-300',
+                  hiddenCols.has(col.id) ? 'bg-slate-900 text-faint' : 'bg-slate-700 text-slate-300',
                 )}
               >
                 {hiddenCols.has(col.id) ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
@@ -254,7 +254,7 @@ export function ResourceTable({
               </button>
             ))}
           </div>
-          <div className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">Filters</div>
+          <div className="text-[10px] text-faint uppercase tracking-wider mt-1">Filters</div>
           <div className="flex flex-wrap gap-2">
             {visibleColumns.slice(0, 5).map((col) => (
               <div key={col.id} className="flex items-center gap-1">
@@ -301,7 +301,7 @@ export function ResourceTable({
           <tbody>
             {processedRows.length === 0 && (
               <tr>
-                <td colSpan={visibleColumns.length + (showActions ? 1 : 0)} className="px-4 py-8 text-center text-sm text-slate-500">
+                <td colSpan={visibleColumns.length + (showActions ? 1 : 0)} className="px-4 py-8 text-center text-sm text-faint">
                   {rows.length === 0 ? 'No data available' : 'No rows match your search'}
                 </td>
               </tr>
@@ -332,7 +332,7 @@ export function ResourceTable({
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-1 bg-slate-800/30 border-t border-slate-700 text-[10px] text-slate-500 flex items-center justify-between">
+      <div className="px-3 py-1 bg-slate-800/30 border-t border-slate-700 text-[10px] text-faint flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>
             {processedRows.length > pageSize
@@ -434,7 +434,7 @@ export function deleteTargetCluster(
 
 /** Simple default cell renderer for string/number/boolean values */
 function DefaultCellValue({ value }: { value: unknown }) {
-  if (value == null) return <span className="text-slate-600">-</span>;
+  if (value == null) return <span className="text-faint">-</span>;
   return <>{String(value)}</>;
 }
 
@@ -450,7 +450,7 @@ function RowActions({ row, navigate, onDelete }: {
   if (!gvr || !name) return null;
 
   const isPod = gvr.includes('pods') || gvr === 'v1~pods';
-  const btnClass = 'p-1 text-slate-600 hover:text-slate-300 rounded-sm transition-colors';
+  const btnClass = 'p-1 text-faint hover:text-slate-300 rounded-sm transition-colors';
 
   return (
     <div className="flex items-center gap-0.5">

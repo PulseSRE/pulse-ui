@@ -39,7 +39,7 @@ const updateFallback = <div className="my-2 h-24 rounded-lg border border-slate-
 export function AgentComponentRenderer({ spec: rawSpec, depth = 0, onAddToView, refreshInterval, globalTimeRange, hoverTimestamp, onHoverTimestamp, onSpecChange, viewId }: Props) {
   const spec = useMemo(() => normalizeAgentProps(rawSpec), [rawSpec]);
   if (depth > MAX_DEPTH) {
-    return <div className="text-xs text-slate-500 italic">Content nested too deeply</div>;
+    return <div className="text-xs text-faint italic">Content nested too deeply</div>;
   }
   switch (spec.kind) {
     case 'data_table':

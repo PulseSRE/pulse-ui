@@ -317,7 +317,7 @@ export function TabBar() {
       {tabs.filter((t) => t.closable && !t.pinned).length > 2 && (
         <button
           onClick={handleCloseAll}
-          className="ml-auto flex h-7 items-center gap-1 rounded-sm px-2 text-xs text-slate-500 transition-colors hover:bg-slate-700 hover:text-slate-300"
+          className="ml-auto flex h-7 items-center gap-1 rounded-sm px-2 text-xs text-faint transition-colors hover:bg-slate-700 hover:text-slate-300"
           title="Close all tabs"
         >
           <X className="h-3 w-3" />

@@ -39,5 +39,5 @@ export function useAgentStatus(): AgentStatus {
   if (monitorConnected) {
     return { type: 'connected', text: 'Monitoring · inbox clear', icon: Bot, color: 'text-emerald-400', findingsCount, criticalCount };
   }
-  return { type: 'offline', text: 'Offline', icon: Bot, color: 'text-slate-500', findingsCount, criticalCount };
+  return { type: 'offline', text: 'Offline', icon: Bot, color: 'text-faint', findingsCount, criticalCount };
 }

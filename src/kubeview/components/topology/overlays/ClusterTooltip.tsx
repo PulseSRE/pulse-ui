@@ -46,7 +46,7 @@ export function ClusterTooltip({ cluster }: ClusterTooltipProps) {
         )}
       </div>
 
-      <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-slate-500">
+      <div className="mt-2 pt-2 border-t border-slate-700 text-xs text-faint">
         Click to zoom in and see nodes
       </div>
     </div>

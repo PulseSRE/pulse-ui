@@ -116,14 +116,14 @@ export function AISidebar() {
           {mode === 'chat' && (
             <button
               onClick={() => setMode('dashboard')}
-              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors px-2 py-0.5"
+              className="text-[10px] text-faint hover:text-slate-300 transition-colors px-2 py-0.5"
             >
               Dashboard
             </button>
           )}
           <button
             onClick={collapseAISidebar}
-            className="p-1 text-slate-500 hover:text-slate-300 transition-colors rounded-sm"
+            className="p-1 text-faint hover:text-slate-300 transition-colors rounded-sm"
             title="Collapse sidebar"
           >
             <PanelRightClose className="w-3.5 h-3.5" />
@@ -138,7 +138,7 @@ export function AISidebar() {
         ) : (
           <>
             <AgentDegradedBanner />
-            <Suspense fallback={<div className="text-sm text-slate-500 p-4">Loading agent...</div>}>
+            <Suspense fallback={<div className="text-sm text-faint p-4">Loading agent...</div>}>
               <DockAgentPanel />
             </Suspense>
           </>

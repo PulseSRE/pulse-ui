@@ -46,7 +46,7 @@ export function ReadinessScore({ score, categories, className }: ReadinessScoreP
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={cn('text-3xl font-bold', scoreColor)}>{score}</span>
-          <span className="text-xs text-slate-500">/ 100</span>
+          <span className="text-xs text-faint">/ 100</span>
         </div>
       </div>
 
@@ -61,7 +61,7 @@ export function ReadinessScore({ score, categories, className }: ReadinessScoreP
             <div key={cat.id} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-300">{cat.label}</span>
-                <span className="text-slate-500">
+                <span className="text-faint">
                   {passed}/{total}
                 </span>
               </div>

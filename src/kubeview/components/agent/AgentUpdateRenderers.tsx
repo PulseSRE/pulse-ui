@@ -82,7 +82,7 @@ export function AgentRolloutHistory({ spec }: { spec: RolloutHistorySpec }) {
   });
 
   if (!w || !plural) {
-    return <div className="my-2 text-xs text-slate-500">Rollout history: unsupported workload.</div>;
+    return <div className="my-2 text-xs text-faint">Rollout history: unsupported workload.</div>;
   }
 
   return (
@@ -118,7 +118,7 @@ function SnapshotTimeline({ spec, note, correlations }: { spec: RolloutHistorySp
     <section aria-label="Rollout history snapshot" className="rounded-lg border border-slate-800 bg-slate-950 px-4 py-3">
       <div className="flex items-center gap-2 text-sm text-slate-100 mb-2">
         <History className="h-4 w-4 text-slate-400" /> Rollout History
-        <span className="ml-auto text-xs text-slate-500">{revisions.length} revision{revisions.length !== 1 ? 's' : ''}</span>
+        <span className="ml-auto text-xs text-faint">{revisions.length} revision{revisions.length !== 1 ? 's' : ''}</span>
       </div>
       {note && <p role="status" className="text-xs text-amber-300/80 mb-2">{note}</p>}
       <ol className="flex items-start overflow-x-auto gap-3">
@@ -128,8 +128,8 @@ function SnapshotTimeline({ spec, note, correlations }: { spec: RolloutHistorySp
               #{r.revision}{r.current ? ' current' : ''}
             </span>
             <div className="mt-1 truncate font-mono text-[10px] text-slate-400" title={r.images.join(', ')}>{r.images.map((i) => i.split('/').pop()).join(', ')}</div>
-            {r.changeCause && <div className="truncate text-[10px] text-slate-500" title={r.changeCause}>{r.changeCause}</div>}
-            {r.createdAt && <div className="text-[10px] text-slate-600">{formatRelative(r.createdAt)}</div>}
+            {r.changeCause && <div className="truncate text-[10px] text-faint" title={r.changeCause}>{r.changeCause}</div>}
+            {r.createdAt && <div className="text-[10px] text-faint">{formatRelative(r.createdAt)}</div>}
             <RevisionSignalMarker revision={r.revision} items={signals.get(r.revision)} />
           </li>
         ))}

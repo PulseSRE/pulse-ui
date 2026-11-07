@@ -77,7 +77,7 @@ export function AskPulsePanel({ query, response, isLoading, onSuggestionClick, a
           <div className="flex items-center justify-between px-1">
             <span className={cn(
               'text-[10px] uppercase tracking-wider font-medium',
-              response.fromAgent ? 'text-violet-400/70' : 'text-slate-500',
+              response.fromAgent ? 'text-violet-400/70' : 'text-faint',
             )}>
               {response.fromAgent ? 'Answered by Pulse AI' : 'Not asked yet'}
             </span>
