@@ -9,12 +9,11 @@ interface FilterButtonGroupProps {
   options: FilterOption[];
   value: string | null;
   onChange: (value: string | null) => void;
-  colorScheme?: 'blue' | 'violet' | 'amber';
+  colorScheme?: 'blue' | 'amber';
 }
 
 const SCHEMES = {
   blue: 'bg-blue-600/20 text-blue-300 border-blue-700/50',
-  violet: 'bg-violet-600/20 text-violet-300 border-violet-700/50',
   amber: 'bg-amber-600/20 text-amber-300 border-amber-700/50',
 };
 

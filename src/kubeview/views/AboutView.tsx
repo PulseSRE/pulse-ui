@@ -96,7 +96,7 @@ function ComponentRow({
   const tag = imageTag(image);
   return (
     <div className="flex items-start gap-3 py-3 border-b border-slate-800 last:border-0">
-      <div className="mt-0.5 text-violet-400">{icon}</div>
+      <div className="mt-0.5 text-blue-400">{icon}</div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-100">{name}</span>
@@ -235,7 +235,7 @@ export default function AboutView() {
         </div>
       )}
 
-      <Panel title="Components" icon={<Server className="w-4 h-4 text-violet-400" />}>
+      <Panel title="Components" icon={<Server className="w-4 h-4 text-blue-400" />}>
         <ComponentRow
           icon={<Monitor className="w-4 h-4" />}
           name="Console (this UI)"
@@ -277,7 +277,7 @@ export default function AboutView() {
         />
       </Panel>
 
-      <Panel title="Agent configuration" icon={<Bot className="w-4 h-4 text-violet-400" />}>
+      <Panel title="Agent configuration" icon={<Bot className="w-4 h-4 text-blue-400" />}>
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="flex items-center gap-2">
             {writeOps ? (
@@ -309,7 +309,7 @@ export default function AboutView() {
         </div>
       </Panel>
 
-      <Panel title="Project links" icon={<BookOpen className="w-4 h-4 text-violet-400" />}>
+      <Panel title="Project links" icon={<BookOpen className="w-4 h-4 text-blue-400" />}>
         <div className="grid grid-cols-2 gap-x-6 gap-y-2">
           <LinkOut href="https://pulsesre.github.io/pulse-ui/">Console documentation</LinkOut>
           <LinkOut href="https://pulsesre.github.io/pulse-agent/">Agent documentation</LinkOut>

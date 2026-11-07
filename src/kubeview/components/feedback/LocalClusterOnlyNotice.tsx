@@ -2,6 +2,9 @@ import { Network } from 'lucide-react';
 import { EmptyState } from '../primitives/EmptyState';
 import { useFleetStore } from '../../store/fleetStore';
 
+/** The shared wording for a disabled AI entry point on a remote cluster. */
+export { PULSE_AI_LOCAL_ONLY } from './localOnlyCopy';
+
 /**
  * For pages whose data comes from the Pulse agent, which watches the cluster
  * it runs on (the local cluster) only. With a remote cluster active they

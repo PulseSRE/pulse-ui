@@ -14,6 +14,7 @@ import { InboxLifecycleBadge } from './InboxLifecycle';
 import type { InboxItem as InboxItemType, InboxSeverity } from '../../engine/inboxApi';
 import { useInboxStore } from '../../store/inboxStore';
 import { itemAwaitsApproval, useApprovalsStore } from '../../store/approvalsStore';
+import { AI_ACCENT } from '../../components/agent/aiTokens';
 
 const SEVERITY_ICON: Record<InboxSeverity, typeof XCircle> = {
   critical: XCircle,
@@ -59,7 +60,7 @@ function getSourceLabel(createdBy: string): string {
 function agentStateChip(item: InboxItemType, awaitsApproval = false): { label: string; cls: string; tooltip: string; pulse?: boolean } | null {
   const md = item.metadata || {};
   if (item.status === 'agent_reviewing') {
-    return { label: 'Reviewing…', cls: 'bg-violet-900/40 text-violet-300 border-violet-700/40', tooltip: 'Agent is investigating', pulse: true };
+    return { label: 'Reviewing…', cls: AI_ACCENT.chip, tooltip: 'Agent is investigating', pulse: true };
   }
   if (item.status === 'agent_review_failed') {
     return { label: 'Review failed', cls: 'bg-red-900/40 text-red-300 border-red-700/40', tooltip: String(md.agent_error || 'Agent analysis failed') };
@@ -74,7 +75,7 @@ function agentStateChip(item: InboxItemType, awaitsApproval = false): { label: s
     return { label: 'Archived', cls: 'bg-slate-800 text-slate-400 border-slate-700', tooltip: String(md.archived_reason) };
   }
   if (md.triaged) {
-    return { label: `Triaged · ${String(md.triage_urgency || 'can-wait')}`, cls: 'bg-violet-900/30 text-violet-300 border-violet-800/30', tooltip: `AI: ${String(md.triage_action || 'triaged')}` };
+    return { label: `Triaged · ${String(md.triage_urgency || 'can-wait')}`, cls: AI_ACCENT.chip, tooltip: `AI: ${String(md.triage_action || 'triaged')}` };
   }
   return null;
 }
@@ -150,7 +151,7 @@ export function InboxItem({
         className={cn(
           'border-l-4',
           SEVERITY_COLOR[severity] || 'border-l-slate-600',
-          focused && 'ring-1 ring-violet-500/60',
+          focused && 'ring-1 ring-blue-500/60',
         )}
         onClick={() => setSelectedItem(item.id)}
       >

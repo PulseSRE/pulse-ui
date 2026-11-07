@@ -104,7 +104,7 @@ describe('Who can', () => {
   it('asks the same question in chat with the namespace attached', async () => {
     whoCanCluster();
     const result = await ask();
-    fireEvent.click(within(result).getByRole('button', { name: /Ask in chat/ }));
+    fireEvent.click(within(result).getByRole('button', { name: 'Ask Pulse' }));
     expect(askPulse).toHaveBeenCalledWith('Who can delete secrets in payments?', { kind: 'Namespace', name: 'payments', gvr: 'v1~namespaces' });
   });
 
@@ -113,7 +113,7 @@ describe('Who can', () => {
     h.setActive(REMOTE);
     const result = await ask();
     expect(h.writes().find((w) => w.path.endsWith('localresourceaccessreviews'))!.url).toContain('/prod-east/proxy/');
-    const btn = within(result).getByRole('button', { name: /Ask in chat/ }) as HTMLButtonElement;
+    const btn = within(result).getByRole('button', { name: 'Ask Pulse' }) as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     expect(within(result).getByText('Pulse AI answers about the local cluster only.')).toBeTruthy();
     fireEvent.click(btn);

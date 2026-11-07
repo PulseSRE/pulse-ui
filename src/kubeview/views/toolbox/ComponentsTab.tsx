@@ -58,8 +58,8 @@ export function ComponentsTab() {
                   key={name}
                   onClick={() => setSelected(selected === name ? null : name)}
                   className={cn(
-                    'bg-slate-900/50 border rounded-md px-3 py-2 space-y-1 text-left transition-colors hover:border-violet-700/50',
-                    selected === name ? 'border-violet-600' : 'border-slate-800/50',
+                    'bg-slate-900/50 border rounded-md px-3 py-2 space-y-1 text-left transition-colors hover:border-blue-700/50',
+                    selected === name ? 'border-blue-600' : 'border-slate-800/50',
                   )}
                 >
                   <div className="flex items-center gap-1.5">

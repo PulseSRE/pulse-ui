@@ -68,8 +68,8 @@ export function BottomDock() {
       <div
         onMouseDown={handleMouseDown}
         className={cn(
-          'h-1 cursor-ns-resize transition-colors hover:bg-violet-500/50 shrink-0',
-          isResizing && 'bg-violet-500',
+          'h-1 cursor-ns-resize transition-colors hover:bg-blue-500/50 shrink-0',
+          isResizing && 'bg-blue-500',
         )}
       />
 

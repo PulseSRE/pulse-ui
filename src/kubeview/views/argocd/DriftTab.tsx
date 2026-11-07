@@ -192,7 +192,7 @@ function ResourceRow({ resource, go, showDiff, onToggleDiff }: {
             className={cn(
               'px-1.5 py-0.5 text-xs rounded-sm flex items-center gap-1 transition-colors',
               showDiff
-                ? 'bg-violet-900/50 text-violet-300'
+                ? 'bg-blue-900/50 text-blue-300'
                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
             )}
             title="View live state"

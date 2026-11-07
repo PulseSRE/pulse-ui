@@ -30,7 +30,7 @@ interface ConfigSection {
 const CONFIG_SECTIONS: ConfigSection[] = [
   { id: 'oauth', title: 'OAuth', icon: <Shield className="w-4 h-4 text-teal-500" />, apiPath: `${CONFIG_BASE}/oauths/cluster`, description: 'Identity providers — edited in Identity & Access › Sign-in' },
   { id: 'proxy', title: 'Proxy', icon: <Globe className="w-4 h-4 text-blue-500" />, apiPath: `${CONFIG_BASE}/proxies/cluster`, description: 'Cluster-wide proxy settings' },
-  { id: 'image', title: 'Image', icon: <Image className="w-4 h-4 text-purple-500" />, apiPath: `${CONFIG_BASE}/images/cluster`, description: 'Allowed registries and image policies' },
+  { id: 'image', title: 'Image', icon: <Image className="w-4 h-4 text-blue-500" />, apiPath: `${CONFIG_BASE}/images/cluster`, description: 'Allowed registries and image policies' },
   { id: 'ingress', title: 'Ingress', icon: <Network className="w-4 h-4 text-orange-500" />, apiPath: `${CONFIG_BASE}/ingresses/cluster`, description: 'Default ingress domain and settings' },
   { id: 'scheduler', title: 'Scheduler', icon: <Cpu className="w-4 h-4 text-green-500" />, apiPath: `${CONFIG_BASE}/schedulers/cluster`, description: 'Pod scheduling profiles and policies' },
   { id: 'apiserver', title: 'API Server', icon: <Lock className="w-4 h-4 text-red-500" />, apiPath: `${CONFIG_BASE}/apiservers/cluster`, description: 'TLS, audit policy, encryption' },

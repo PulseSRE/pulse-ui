@@ -1,9 +1,10 @@
 import React from 'react';
-import { AlertCircle, CheckCircle2, Trash2, Bot, ShieldX, WifiOff, ServerCrash, XCircle, Filter } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Trash2, ShieldX, WifiOff, ServerCrash, XCircle, Filter } from 'lucide-react';
 import { useErrorStore, type TrackedError } from '../../store/errorStore';
 import type { ErrorCategory } from '../../engine/errors';
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string }> = {
   permission: { label: 'Permission', icon: ShieldX, color: 'text-red-400' },
@@ -155,13 +156,7 @@ export function ErrorsTab() {
                         >
                           Resolve
                         </button>
-                        <button
-                          onClick={() => handleAskAI(error)}
-                          className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
-                        >
-                          <Bot className="w-3 h-3" />
-                          Ask AI
-                        </button>
+                        <AskPulseButton onAsk={() => handleAskAI(error)} />
                       </>
                     )}
                   </div>

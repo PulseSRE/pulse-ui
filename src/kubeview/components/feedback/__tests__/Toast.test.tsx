@@ -3,6 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ToastContainer } from '../Toast';
 import { useUIStore } from '../../../store/uiStore';
+import { useFleetStore } from '../../../store/fleetStore';
+
+vi.mock('../../../engine/askPulse', () => ({ askPulse: vi.fn() }));
+import { askPulse } from '../../../engine/askPulse';
 
 function resetStore() {
   useUIStore.setState({ toasts: [] });
@@ -76,5 +80,29 @@ describe('ToastContainer', () => {
 
     render(<ToastContainer />);
     expect(screen.getByText('Warning!')).toBeDefined();
+  });
+
+  describe('Ask Pulse on an error toast', () => {
+    afterEach(() => useFleetStore.setState({ activeClusterId: 'local' } as never));
+
+    it('asks about the error on the local cluster', () => {
+      vi.mocked(askPulse).mockClear();
+      useUIStore.getState().addToast({ type: 'error', title: 'Delete failed', detail: 'forbidden' });
+      render(<ToastContainer />);
+      fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse' }));
+      expect(askPulse).toHaveBeenCalledWith(expect.stringContaining('Delete failed'));
+    });
+
+    it('is disabled on a remote cluster, whose error the local agent cannot look into', () => {
+      vi.mocked(askPulse).mockClear();
+      useFleetStore.setState({ activeClusterId: 'prod-east' } as never);
+      useUIStore.getState().addToast({ type: 'error', title: 'Delete failed', detail: 'forbidden' });
+      render(<ToastContainer />);
+      const btn = screen.getByRole('button', { name: 'Ask Pulse' }) as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      expect(btn.title).toBe('Pulse AI answers about the local cluster only.');
+      fireEvent.click(btn);
+      expect(askPulse).not.toHaveBeenCalled();
+    });
   });
 });

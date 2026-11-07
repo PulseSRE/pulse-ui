@@ -9,7 +9,7 @@ export type DegradedReason =
 export const DEGRADED_MESSAGES: Record<DegradedReason, { title: string; description: string }> = {
   agent_unreachable: {
     title: 'Agent Unreachable',
-    description: 'Cannot connect to the Pulse Agent. Monitor and AI features are unavailable.',
+    description: 'Cannot connect to Pulse AI. Monitoring and AI features are unavailable.',
   },
   protocol_mismatch: {
     title: 'Protocol Mismatch',

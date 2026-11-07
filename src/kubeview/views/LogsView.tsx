@@ -115,7 +115,7 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
       <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2 flex-wrap">
         <span className="text-sm text-slate-400">Logs</span>
         <span className="text-sm font-medium">{name}</span>
-        <span className="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded-sm">{kind}</span>
+        <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{kind}</span>
         <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
         <span className="text-xs text-slate-500 ml-auto">{podNames.length} pod{podNames.length !== 1 ? 's' : ''}</span>
       </div>

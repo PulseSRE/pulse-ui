@@ -64,7 +64,7 @@ function HyperShiftSection({ nodePools, failure, go }: { nodePools: NodePool[]; 
         <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             NodePools{failure ? '' : ` (${nodePools.length})`}
-            <span className="text-xs px-2 py-0.5 bg-violet-900/50 text-violet-300 rounded-full">HyperShift</span>
+            <span className="text-xs px-2 py-0.5 bg-blue-900/50 text-blue-300 rounded-full">HyperShift</span>
           </h2>
         </div>
         {failure ? <ReadFailed what="NodePools" failure={failure} /> : nodePools.length === 0 ? (

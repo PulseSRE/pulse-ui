@@ -93,7 +93,7 @@ export function OperatorUpdateProgress({ operators, pods, podsError, podsLoading
   go: (path: string, title: string) => void;
 }) {
   return (
-    <Panel title="Operator Update Progress" icon={<Puzzle className="w-4 h-4 text-violet-500" />}>
+    <Panel title="Operator Update Progress" icon={<Puzzle className="w-4 h-4 text-blue-500" />}>
       <div className="space-y-1 max-h-96 overflow-auto">
         {operators.map((op) => {
           const isProgressing = cond(op, 'Progressing')?.status === 'True';

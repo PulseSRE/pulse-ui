@@ -266,7 +266,7 @@ describe('Suspense + ErrorBoundary wrapping', () => {
 
       // The way to ask about this resource should still be there — it is
       // suggestions into the sidebar now, not an embedded chat.
-      expect(screen.getByText(/Ask Pulse AI about this/)).toBeDefined();
+      expect(screen.getByText(/Ask Pulse about this/)).toBeDefined();
     });
 
     it('renders AmbientInsight successfully when no error', async () => {
@@ -300,7 +300,7 @@ describe('Suspense + ErrorBoundary wrapping', () => {
       // The suggestions that reach the sidebar are still there, and they still
       // name the resource — a question about "a StatefulSet" that does not say
       // which one is much less use than one that does.
-      expect(screen.getByText(/Ask Pulse AI about this/)).toBeDefined();
+      expect(screen.getByText(/Ask Pulse about this/)).toBeDefined();
       fireEvent.click(screen.getByText('What changed recently?'));
       expect(askPulseMock).toHaveBeenCalledWith(
         'What changed recently?',

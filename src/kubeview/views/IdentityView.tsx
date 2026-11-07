@@ -244,9 +244,9 @@ export default function IdentityView() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <PageHeader
-          icon={<Fingerprint className="w-6 h-6 text-violet-500" />}
+          icon={<Fingerprint className="w-6 h-6 text-blue-500" />}
           title="Identity & Access"
-          subtitle={<>Users, groups, service accounts, and RBAC{nsFilter && <span className="text-violet-400 ml-1">in {nsFilter}</span>}</>}
+          subtitle={<>Users, groups, service accounts, and RBAC{nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}</>}
         />
 
         {/* Impersonation is announced once, by the global banner in the Shell. */}
@@ -261,20 +261,20 @@ export default function IdentityView() {
 
         {/* Summary header with counts */}
         <MetricGrid className="md:grid-cols-4">
-          <button onClick={() => setActiveTab('users')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'users' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
+          <button onClick={() => setActiveTab('users')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'users' ? 'border-blue-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">Users</div>
             <div className="text-xl font-bold text-slate-100"><Count n={users.length} failed={usersQ.isError} /></div>
           </button>
-          <button onClick={() => setActiveTab('groups-sa')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'groups-sa' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
+          <button onClick={() => setActiveTab('groups-sa')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'groups-sa' ? 'border-blue-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">Groups</div>
             <div className="text-xl font-bold text-slate-100"><Count n={groups.length} failed={groupsQ.isError} /></div>
           </button>
-          <button onClick={() => setActiveTab('groups-sa')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'groups-sa' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
+          <button onClick={() => setActiveTab('groups-sa')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'groups-sa' ? 'border-blue-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">Service Accounts</div>
             <div className="text-xl font-bold text-slate-100"><Count n={serviceAccounts.length} failed={saQ.isError} /></div>
           </button>
           {/* Roles and bindings are counted on the RBAC tab. */}
-          <button onClick={() => setActiveTab('rbac')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'rbac' ? 'border-violet-600' : 'border-slate-800 hover:border-slate-600')}>
+          <button onClick={() => setActiveTab('rbac')} className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors', activeTab === 'rbac' ? 'border-blue-600' : 'border-slate-800 hover:border-slate-600')}>
             <div className="text-xs text-slate-400 mb-1">RBAC</div>
             <div className="text-sm font-medium text-slate-300 mt-2">Roles &amp; bindings →</div>
           </button>
@@ -324,8 +324,8 @@ export default function IdentityView() {
                 tabIndex={activeTab === tab.id ? 0 : -1}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'px-3 py-1.5 text-xs rounded-md transition-colors flex items-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-500',
-                  activeTab === tab.id ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200',
+                  'px-3 py-1.5 text-xs rounded-md transition-colors flex items-center gap-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500',
+                  activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200',
                 )}
               >
                 {activeTab === tab.id ? tab.iconActive : tab.icon}
@@ -340,7 +340,7 @@ export default function IdentityView() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search..."
-              className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -432,14 +432,14 @@ export default function IdentityView() {
                       <div key={group.metadata.uid} className="px-4 py-3 hover:bg-slate-800/30 transition-colors">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-violet-400" />
+                            <Shield className="w-4 h-4 text-blue-400" />
                             <button onClick={() => go(subjectUrl({ kind: 'Group', name: group.metadata.name }), group.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{group.metadata.name}</button>
                             <span className="text-xs text-slate-500">{members.length} member{members.length !== 1 ? 's' : ''}</span>
                           </div>
                           {gRoles.length > 0 && (
                             <div className="flex gap-1">
                               {gRoles.slice(0, 3).map((r) => (
-                                <span key={r} className="text-xs px-1.5 py-0.5 bg-violet-900/50 text-violet-300 rounded-sm">{r}</span>
+                                <span key={r} className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm">{r}</span>
                               ))}
                             </div>
                           )}
@@ -455,7 +455,7 @@ export default function IdentityView() {
               <Card>
                 <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-slate-100">Service Accounts (application namespaces)</h2>
-                  <button onClick={() => go('/r/v1~serviceaccounts', 'ServiceAccounts')} className="text-xs text-violet-400 hover:text-violet-300">View all →</button>
+                  <button onClick={() => go('/r/v1~serviceaccounts', 'ServiceAccounts')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
                 </div>
                 <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
                   {saQ.isError ? (
@@ -488,14 +488,14 @@ export default function IdentityView() {
             </div>
 
             {/* SA by Namespace breakdown */}
-            {!saQ.isError && <Panel title="Service Accounts by Namespace" icon={<Key className="w-4 h-4 text-violet-500" />}>
+            {!saQ.isError && <Panel title="Service Accounts by Namespace" icon={<Key className="w-4 h-4 text-blue-500" />}>
               <div className="space-y-2">
                 {saByNamespace.map(([ns, count]) => (
                   <div key={ns} className="flex items-center justify-between py-1 px-2">
                     <span className="text-sm text-slate-300">{ns}</span>
                     <div className="flex items-center gap-3">
                       <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-violet-500 rounded-full" style={{ width: `${(count / serviceAccounts.length) * 100}%` }} />
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(count / serviceAccounts.length) * 100}%` }} />
                       </div>
                       <span className="text-xs text-slate-400 font-mono w-6 text-right">{count}</span>
                     </div>
@@ -586,8 +586,8 @@ export default function IdentityView() {
                       <div key={`${s.kind}:${s.namespace || ''}:${s.name}:${s.binding}`} className="flex items-center justify-between py-1.5 px-2 rounded-sm hover:bg-slate-800/50">
                         <div className="flex items-center gap-2">
                           {s.kind === 'ServiceAccount' ? <Key className="w-3.5 h-3.5 text-teal-400" /> :
-                           s.kind === 'User' ? <Users className="w-3.5 h-3.5 text-violet-400" /> :
-                           <Lock className="w-3.5 h-3.5 text-purple-400" />}
+                           s.kind === 'User' ? <Users className="w-3.5 h-3.5 text-blue-400" /> :
+                           <Lock className="w-3.5 h-3.5 text-indigo-400" />}
                           <button onClick={() => go(subjectUrl(s), s.name)} className="text-sm text-blue-400 hover:text-blue-300">{s.name}</button>
                           <span className="text-xs text-slate-500">{s.kind}</span>
                         </div>
@@ -643,9 +643,9 @@ function RecentSessions({ accessTokens, go }: { accessTokens: K8sResource[]; go:
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-violet-400" /> Recent Sessions ({accessTokens.length})
+          <Clock className="w-4 h-4 text-blue-400" /> Recent Sessions ({accessTokens.length})
         </h2>
-        <button onClick={() => go('/r/oauth.openshift.io~v1~oauthaccesstokens', 'OAuthAccessTokens')} className="text-xs text-violet-400 hover:text-violet-300">View all →</button>
+        <button onClick={() => go('/r/oauth.openshift.io~v1~oauthaccesstokens', 'OAuthAccessTokens')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
         {[...(accessTokens as K8sResource[])].sort((a: K8sResourceExt, b: K8sResourceExt) =>
@@ -949,7 +949,7 @@ users:
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-violet-400" /> Identity & Access Audit
+          <Activity className="w-4 h-4 text-blue-400" /> Identity & Access Audit
         </h2>
         <div className="flex items-center gap-2">
           {score === null ? (
@@ -987,8 +987,8 @@ users:
               {expanded && (
                 <div className="px-4 pb-4 space-y-3">
                   <p className="text-xs text-slate-400">{check.description}</p>
-                  <div className="bg-violet-950/20 border border-violet-900/50 rounded-sm p-3">
-                    <div className="text-xs font-medium text-violet-300 mb-1">Why it matters</div>
+                  <div className="bg-blue-950/20 border border-blue-900/50 rounded-sm p-3">
+                    <div className="text-xs font-medium text-blue-300 mb-1">Why it matters</div>
                     <p className="text-xs text-slate-400">{check.why}</p>
                   </div>
                   {check.failing.length > 0 && (
@@ -1033,7 +1033,7 @@ users:
                           }
                         }}
                         className={cn('mt-2 px-3 py-1.5 text-xs rounded-sm flex items-center gap-1.5 transition-colors',
-                          check.action.danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-violet-600 hover:bg-violet-500 text-white')}
+                          check.action.danger ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white')}
                       >
                         {check.action.label} {!check.action.danger && <ArrowRight className="w-3 h-3" />}
                       </button>
@@ -1285,7 +1285,7 @@ spec:
     <HealthAuditPanel
       checks={checks}
       title="RBAC Health Audit"
-      iconColorClass="text-violet-400"
+      iconColorClass="text-blue-400"
       onNavigateItem={handleNavigate}
       navigateLabel={() => 'View'}
       maxFailingItems={15}
@@ -1343,7 +1343,7 @@ function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-violet-400" />
+          <Clock className="w-4 h-4 text-blue-400" />
           New bindings (last 7 days, by creation time)
         </h2>
         {highSeverity.length > 0 && (

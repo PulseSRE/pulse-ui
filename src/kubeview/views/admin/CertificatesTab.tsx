@@ -463,7 +463,7 @@ function StatusDot({ status }: { status: CertInfo['status'] }) {
 
 function IssuerBadge({ issuer }: { issuer: string }) {
   const styles: Record<string, string> = {
-    'cert-manager': 'bg-purple-950/50 text-purple-300 border-purple-800/50',
+    'cert-manager': 'bg-indigo-950/50 text-indigo-300 border-indigo-800/50',
     'service-ca': 'bg-blue-950/50 text-blue-300 border-blue-800/50',
     'platform': 'bg-cyan-950/50 text-cyan-300 border-cyan-800/50',
     'manual': 'bg-slate-800 text-slate-400 border-slate-700',

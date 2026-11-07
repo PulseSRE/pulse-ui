@@ -162,11 +162,11 @@ describe('ErrorsTab', () => {
     expect(mockResolveError).toHaveBeenCalledWith('err-42', 'dismissed');
   });
 
-  it('opens agent dock and sends message when Ask AI is clicked', () => {
+  it('opens agent dock and sends message when Ask Pulse is clicked', () => {
     mockErrors = [makeError({ userMessage: 'Cannot list pods', message: 'forbidden: cannot list pods' })];
     render(<ErrorsTab />);
 
-    fireEvent.click(screen.getByText('Ask AI'));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse' }));
     expect(mockExpandAISidebar).toHaveBeenCalled();
     // askPulse forwards an optional resource context; none applies here.
     expect(mockConnectAndSend).toHaveBeenCalledWith(
@@ -191,12 +191,12 @@ describe('ErrorsTab', () => {
     expect(mockClearResolved).toHaveBeenCalled();
   });
 
-  it('does not show Resolve / Ask AI buttons for resolved errors', () => {
+  it('does not show Resolve / Ask Pulse buttons for resolved errors', () => {
     mockErrors = [makeError({ resolved: true })];
     render(<ErrorsTab />);
 
     expect(screen.queryByText('Resolve')).toBeNull();
-    expect(screen.queryByText('Ask AI')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ask Pulse' })).toBeNull();
   });
 
   it('shows detailed message when it differs from userMessage', () => {

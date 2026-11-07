@@ -159,7 +159,7 @@ export default function CRDsView() {
 
         {/* Grouped CRDs */}
         {grouped.map(([group, groupCRDs]) => (
-          <Panel key={group} title={`${group} (${groupCRDs.length})`} icon={<Layers className="w-4 h-4 text-purple-400" />}>
+          <Panel key={group} title={`${group} (${groupCRDs.length})`} icon={<Layers className="w-4 h-4 text-indigo-400" />}>
             <div className="divide-y divide-slate-800">
               {groupCRDs.map(crd => {
                 const kind = crd.spec?.names?.kind || '';
@@ -183,7 +183,7 @@ export default function CRDsView() {
                             : <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
                           }
                           <span className="text-sm font-medium text-slate-200">{kind}</span>
-                          <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', scope === 'Namespaced' ? 'bg-blue-900/50 text-blue-300' : 'bg-purple-900/50 text-purple-300')}>
+                          <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', scope === 'Namespaced' ? 'bg-blue-900/50 text-blue-300' : 'bg-indigo-900/50 text-indigo-300')}>
                             {scope}
                           </span>
                           {shortNames.length > 0 && (
