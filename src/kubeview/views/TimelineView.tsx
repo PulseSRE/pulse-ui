@@ -1,4 +1,5 @@
 import React from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useSearchParams } from 'react-router-dom';
 import { useSearchParamUpdater } from '../components/primitives/Tabs';
 import {
@@ -107,18 +108,11 @@ export default function TimelineView() {
     <div className="h-full overflow-auto bg-slate-950">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Clock className="w-6 h-6 text-blue-500" />
-              Cluster Timeline
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Alerts, events, rollouts, and config changes — correlated for incident analysis
-              {nsFilter && <span className="text-blue-400 ml-1">· {nsFilter}</span>}
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={<Clock className="w-6 h-6 text-blue-500" />}
+          title="Cluster Timeline"
+          subtitle={<>Alerts, events, rollouts, and config changes — correlated for incident analysis{nsFilter && <span className="text-blue-400 ml-1">· {nsFilter}</span>}</>}
+        />
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-3">

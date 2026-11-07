@@ -14,7 +14,7 @@ import { showErrorToast } from '../engine/errorToast';
 import { getActiveClusterId } from '../engine/clusterConnection';
 import { assertActiveCluster } from '../engine/pendingCluster';
 import { MetricGrid } from '../components/primitives/MetricGrid';
-import { SectionHeader } from '../components/primitives/SectionHeader';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { StatCard } from '../components/primitives/StatCard';
 import { LoadError } from '../components/primitives/LoadError';
 import { Button } from '../components/primitives/Button';
@@ -119,10 +119,13 @@ export default function ArgoCDView() {
   // Show loading while detecting
   if (detecting) {
     return (
-      <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-400">Detecting ArgoCD...</p>
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <PageHeader icon={<GitBranch className="w-6 h-6 text-violet-500" />} title="GitOps" />
+          <div role="status" aria-label="Detecting Argo CD" className="text-center py-16">
+            <Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto mb-3" aria-hidden="true" />
+            <p className="text-sm text-slate-400">Detecting ArgoCD...</p>
+          </div>
         </div>
       </div>
     );
@@ -133,7 +136,7 @@ export default function ArgoCDView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          <SectionHeader
+          <PageHeader
             icon={<GitBranch className="w-6 h-6 text-violet-500" />}
             title="GitOps"
             subtitle="Manage your cluster declaratively via Git"
@@ -179,7 +182,7 @@ export default function ArgoCDView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <SectionHeader
+        <PageHeader
           icon={<GitBranch className="w-6 h-6 text-violet-500" />}
           title="GitOps"
           subtitle={<>ArgoCD Applications, sync status, and drift detection{namespace && <span className="text-violet-400 ml-1">· {namespace}</span>}</>}

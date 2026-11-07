@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
@@ -378,13 +379,11 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Package className="w-6 h-6 text-blue-500" />
-            Software
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">Manage installed software, deploy applications, install operators, and create resources</p>
-        </div>
+        <PageHeader
+          icon={<Package className="w-6 h-6 text-blue-500" />}
+          title="Software"
+          subtitle="Manage installed software, deploy applications, install operators, and create resources"
+        />
 
         {/* Tabs — the tab lives in ?tab= and is read on every render, so links
             within the page (Installed → Helm Charts, `?tab=helm`) switch

@@ -12,6 +12,8 @@
  * /fleet/drift redirects to `?mode=resource`.
  */
 import { useSearchParams } from 'react-router-dom';
+import { PageHeader } from '../../components/primitives/PageHeader';
+import { GitCompare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import CompareView from './CompareView';
 import { FleetConfigMatrix } from './FleetConfigMatrix';
@@ -33,12 +35,11 @@ export default function FleetComparePage() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-7xl mx-auto space-y-4">
         <FleetSubNav />
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100">Compare &amp; Drift</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Compare cluster configuration, or one resource, across connected clusters.
-          </p>
-        </div>
+        <PageHeader
+          icon={<GitCompare className="w-6 h-6 text-blue-500" />}
+          title="Compare & Drift"
+          subtitle="Compare cluster configuration, or one resource, across connected clusters."
+        />
         <div role="radiogroup" aria-label="Compare mode" className="inline-flex gap-1 rounded-lg border border-slate-800 bg-slate-900 p-1">
           {([
             ['config', 'Cluster configuration'],

@@ -210,9 +210,9 @@ export default function BuildsView() {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Hammer className="w-6 h-6 text-orange-500" /> Builds
-          </h1>
+          <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+            <Hammer className="w-5 h-5 text-orange-500" /> Builds
+          </h2>
           <p className="text-sm text-slate-400 mt-1">
             BuildConfigs, Builds, and ImageStreams
             {nsFilter && <span className="text-blue-400 ml-1">in {nsFilter}</span>}
