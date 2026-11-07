@@ -28,7 +28,7 @@ export function CategoryStep({ category, onReVerify, onWaive, waivers, onUnwaive
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-slate-100 flex items-center gap-2">
-          <Icon className="w-5 h-5 text-violet-400" />
+          <Icon className="w-5 h-5 text-blue-400" />
           {category.label}
         </h3>
         <p className="text-sm text-slate-400 mt-1">{category.description}</p>

@@ -57,7 +57,7 @@ export function SyncHistoryTab({ applications, go }: SyncHistoryTabProps) {
 
           return (
             <div key={`${entry.appName}-${entry.id}-${i}`} className="flex items-center gap-3 px-4 py-3">
-              <GitCommit className="w-4 h-4 text-violet-400 shrink-0" />
+              <GitCommit className="w-4 h-4 text-blue-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <button

@@ -6,6 +6,8 @@ import { useClusterStore } from '../store/clusterStore';
 import { useCustomViewStore } from '../store/customViewStore';
 import { getResourceIcon, getResourceIconName } from '../engine/iconRegistry';
 import { getNavItemsByGroup, matchesNavQuery, NAV_ITEMS } from '../engine/navRegistry';
+import { AI_ACCENT } from './agent/aiTokens';
+import { cn } from '@/lib/utils';
 
 interface GroupedResources {
   [groupName: string]: Array<{
@@ -187,13 +189,13 @@ export function ResourceBrowser() {
                   navigate('/views');
                   closeBrowser();
                 }}
-                className="text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                className={cn('text-xs transition-colors', AI_ACCENT.text, AI_ACCENT.textHover)}
               >
                 Manage
               </button>
             </div>
             {customViews.length === 0 ? (
-              <p className="px-2 py-1 text-xs text-slate-600">No views yet. Ask the AI to create one.</p>
+              <p className="px-2 py-1 text-xs text-slate-600">No views yet. Ask Pulse to create one.</p>
             ) : (
               customViews.map((v) => (
                 <button
@@ -205,7 +207,7 @@ export function ResourceBrowser() {
                   }}
                   className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700"
                 >
-                  <LayoutDashboard className="h-4 w-4 text-violet-400" />
+                  <LayoutDashboard className={cn('h-4 w-4', AI_ACCENT.text)} />
                   <span className="truncate">{v.title}</span>
                 </button>
               ))

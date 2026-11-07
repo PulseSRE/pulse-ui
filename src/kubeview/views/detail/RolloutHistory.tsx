@@ -301,7 +301,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
                 const isShown = shown?.revision === rev.revision;
                 return (
                   <li key={rev.name} className="flex items-start shrink-0">
-                    {i > 0 && <div aria-hidden className={cn('mt-3 h-0.5 w-10', changes.length ? 'bg-violet-500/60' : 'bg-slate-700')} />}
+                    {i > 0 && <div aria-hidden className={cn('mt-3 h-0.5 w-10', changes.length ? 'bg-blue-500/60' : 'bg-slate-700')} />}
                     <button
                       type="button"
                       onClick={() => setSelected(rev.revision)}
@@ -319,7 +319,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
                       <span className="mt-1 font-mono text-xs text-slate-200">#{rev.revision}</span>
                       <span className="text-[10px] text-slate-500" title={rev.createdAt}>{rev.createdAt ? timeAgo(rev.createdAt) : '—'}</span>
                       {changes.length > 0 && (
-                        <span className="mt-1 max-w-full truncate rounded-sm bg-violet-500/10 px-1 text-[10px] text-violet-300" title={changes.join('\n')}>
+                        <span className="mt-1 max-w-full truncate rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-300" title={changes.join('\n')}>
                           {changes[0]}{changes.length > 1 ? ` +${changes.length - 1}` : ''}
                         </span>
                       )}

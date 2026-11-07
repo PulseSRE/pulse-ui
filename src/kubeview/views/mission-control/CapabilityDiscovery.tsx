@@ -70,7 +70,7 @@ export function CapabilityDiscovery({ recommendations }: CapabilityDiscoveryProp
                   onClick={() => askPulse(rec.action.prompt!)}
                   className="text-xs text-violet-400 hover:text-violet-300 font-medium"
                 >
-                  Try in chat &rarr;
+                  Ask Pulse &rarr;
                 </button>
               )}
             </div>

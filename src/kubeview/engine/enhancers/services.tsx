@@ -24,7 +24,7 @@ export const serviceEnhancer: ResourceEnhancer = {
         if (type === 'LoadBalancer') {
           color = 'bg-green-900 text-green-300';
         } else if (type === 'NodePort') {
-          color = 'bg-purple-900 text-purple-300';
+          color = 'bg-indigo-900 text-indigo-300';
         } else if (type === 'ExternalName') {
           color = 'bg-orange-900 text-orange-300';
         }

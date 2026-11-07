@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle, HelpCircle, Loader2, RefreshCw, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle, HelpCircle, Loader2, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TONE_CLASSES } from '../../engine/statusColors';
 import { formatRelative } from '../../engine/format';
@@ -7,6 +7,7 @@ import {
   readinessVerdict, sortChecks,
   type ReadinessCheck, type ReadinessCheckId, type ReadinessStatus,
 } from '../../engine/upgradeReadiness';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
 
 const BADGE: Record<ReadinessStatus, { label: string; tone: keyof typeof TONE_CLASSES }> = {
   blocker: { label: 'Blocker', tone: 'danger' },
@@ -97,9 +98,7 @@ export function UpgradeReadinessPanel({ targetLabel, checks, checkedAt, onRechec
           <button type="button" onClick={onRecheck} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 min-h-9">
             <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />Recheck
           </button>
-          <button type="button" onClick={onAsk} disabled={!!askDisabledReason} title={askDisabledReason} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-9">
-            <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />Ask Pulse
-          </button>
+          <AskPulseButton onAsk={onAsk} disabledReason={askDisabledReason} className="min-h-9" />
         </div>
       </div>
       {askDisabledReason && <p className="px-4 py-2 text-xs text-amber-300 border-b border-slate-800" data-testid="readiness-ask-disabled">{askDisabledReason}</p>}

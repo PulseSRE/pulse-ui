@@ -23,6 +23,7 @@ import { ActionPlanTracker } from './ActionPlanTracker';
 import { useActionPlanStore } from '../../store/actionPlanStore';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '../../engine/formatters';
+import { PULSE_AI_LOCAL_ONLY } from '../feedback/localOnlyCopy';
 
 /* ---- Chat History Types ---- */
 interface ChatSession {
@@ -461,7 +462,7 @@ export function DockAgentPanel() {
 
   return (
     <div className="flex flex-col h-full relative">
-      {activeClusterId !== 'local' && <p className="px-3 py-2 text-xs text-amber-300">This agent runs on Local Cluster. Remote resource-context actions are unavailable.</p>}
+      {activeClusterId !== 'local' && <p className="px-3 py-2 text-xs text-amber-300">{PULSE_AI_LOCAL_ONLY}</p>}
       {/* Chat history panel */}
       {showHistory && (
         <ChatHistoryPanel
@@ -500,7 +501,7 @@ export function DockAgentPanel() {
           <div className="flex flex-col items-center justify-center h-full gap-4">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <Bot className="h-4 w-4" />
-              Ask the {mode} agent...
+              Ask Pulse…
             </div>
             {smartPrompts.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2 px-2">
@@ -625,7 +626,7 @@ export function DockAgentPanel() {
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={streaming ? 'Agent is thinking... press Stop to interrupt' : connected ? 'Ask the agent...' : 'Connecting...'}
+            placeholder={streaming ? 'Pulse is thinking... press Stop to interrupt' : connected ? 'Ask Pulse…' : 'Connecting...'}
             disabled={streaming || !connected}
             rows={1}
             className={cn(

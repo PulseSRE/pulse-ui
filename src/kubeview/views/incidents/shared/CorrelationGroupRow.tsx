@@ -1,4 +1,5 @@
-import { ChevronRight, ChevronDown, Bot } from 'lucide-react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
+import { AskPulseButton } from '../../../components/agent/AskPulseButton';
 import { cn } from '@/lib/utils';
 import { statusClasses } from '../../../engine/statusColors';
 import type { TimelineEntry, TimelineCategory, CorrelationGroup } from '../../../engine/types/timeline';
@@ -92,13 +93,10 @@ export function CorrelationGroupRow({
       </button>
       {expanded && (
         <div className="px-4 pb-3 ml-7">
-          <button
-            onClick={(e) => { e.stopPropagation(); onInvestigate(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 mb-3 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-md transition-colors"
-          >
-            <Bot className="w-3.5 h-3.5" />
-            Investigate with AI
-          </button>
+          {/* Stops the click reaching the row toggle. */}
+          <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+            <AskPulseButton suffix="to investigate" onAsk={onInvestigate} />
+          </div>
           <div className="space-y-1">
             {group.entries.map((entry) => (
               <div

@@ -316,7 +316,7 @@ describe('EpisodePanel investigation and dismissal', () => {
     // was correct but incomplete — a genuine race, and it made this test fail
     // roughly one full-suite run in several.
     await screen.findByText(/6 times/);
-    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    fireEvent.click(await screen.findByRole("button", { name: "Ask Pulse to fix" }));
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
     const prompt = connectAndSend.mock.calls[0][0] as string;
     expect(prompt).toContain(EPISODE.cause_title);
@@ -510,7 +510,7 @@ describe('an episode card offers a way to act on the cause', () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />, { wrapper: MemoryRouter });
-    expect(await screen.findByText(/How do I fix this\?/)).toBeDefined();
+    expect(await screen.findByRole("button", { name: "Ask Pulse to fix" })).toBeDefined();
   });
 
   it('sends the question to the one chat surface, not a second one', async () => {
@@ -520,7 +520,7 @@ describe('an episode card offers a way to act on the cause', () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />, { wrapper: MemoryRouter });
-    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    fireEvent.click(await screen.findByRole("button", { name: "Ask Pulse to fix" }));
 
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
     expect(expandAISidebar).toHaveBeenCalled();
@@ -533,7 +533,7 @@ describe('an episode card offers a way to act on the cause', () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />, { wrapper: MemoryRouter });
-    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    fireEvent.click(await screen.findByRole("button", { name: "Ask Pulse to fix" }));
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
     expect(connectAndSend.mock.calls[0][0]).toContain('ControlPlaneNodeMemoryHigh');
   });
@@ -542,7 +542,7 @@ describe('an episode card offers a way to act on the cause', () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />, { wrapper: MemoryRouter });
-    fireEvent.click(await screen.findByText(/How do I fix this\?/));
+    fireEvent.click(await screen.findByRole("button", { name: "Ask Pulse to fix" }));
     await waitFor(() => expect(connectAndSend).toHaveBeenCalled());
     expect(connectAndSend.mock.calls[0][1]).toMatchObject({ kind: 'Episode', name: EMPTY_EP.id });
   });
@@ -551,7 +551,7 @@ describe('an episode card offers a way to act on the cause', () => {
     fetchOpenEpisodes.mockResolvedValue([EMPTY_EP]);
     fetchEpisode.mockResolvedValue({ episode: EMPTY_EP, symptoms: [] });
     render(<EpisodePanel />, { wrapper: MemoryRouter });
-    await screen.findByText(/How do I fix this\?/);
+    await screen.findByRole("button", { name: "Ask Pulse to fix" });
     expect(connectAndSend).not.toHaveBeenCalled();
   });
 
@@ -563,7 +563,7 @@ describe('an episode card offers a way to act on the cause', () => {
       investigation: { summary: 'etcd is thrashing', failed: false, recommended_fix: 'add memory' },
     });
     render(<EpisodePanel />, { wrapper: MemoryRouter });
-    await screen.findByText(/How do I fix this\?/);
+    await screen.findByRole("button", { name: "Ask Pulse to fix" });
     expect(screen.queryByTestId('inline-agent')).toBeNull();
   });
 });

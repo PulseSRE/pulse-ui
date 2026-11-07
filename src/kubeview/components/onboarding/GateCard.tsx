@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   CheckCircle2, XCircle, AlertTriangle, HelpCircle, ShieldOff,
-  Loader2, RefreshCw, ShieldCheck, Bot, ArrowRight,
+  Loader2, RefreshCw, ShieldCheck, ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import type { GateStatus, ReadinessGate, GateResult, Waiver } from '../../engine/readiness/types';
-import { askPulse } from '../../engine/askPulse';
+import { AskPulseButton } from '../agent/AskPulseButton';
 
 interface GateCardProps {
   gate: ReadinessGate;
@@ -95,13 +95,13 @@ export function GateCard({ gate, result, waived, waiverReason, waiver, onReVerif
           )}
 
           {result?.fixGuidance && (status === 'failed' || status === 'needs_attention') && (
-            <div className="text-xs bg-violet-950/30 border border-violet-900/40 rounded-md p-3">
-              <div className="font-medium text-violet-300 mb-1 flex items-center gap-1.5">
+            <div className="text-xs bg-blue-950/30 border border-blue-900/40 rounded-md p-3">
+              <div className="font-medium text-blue-300 mb-1 flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5" /> Remediation
               </div>
-              <p className="text-violet-300/80">{result.fixGuidance}</p>
+              <p className="text-blue-300/80">{result.fixGuidance}</p>
               {result.fixLink && (
-                <a href={result.fixLink} className="text-violet-400 hover:text-violet-300 underline mt-1 block">
+                <a href={result.fixLink} className="text-blue-400 hover:text-blue-300 underline mt-1 block">
                   Go to fix →
                 </a>
               )}
@@ -148,16 +148,12 @@ export function GateCard({ gate, result, waived, waiverReason, waiver, onReVerif
 
           <div className="flex items-center gap-2 pt-1">
             {(status === 'failed' || status === 'needs_attention') && (
-              <button
-                onClick={() => {
-                  askPulse(
-                    `Fix this production readiness issue:\n\n"${gate.title}": ${result?.detail || gate.whyItMatters}\n\n${result?.fixGuidance || ''}\n\nPlease fix this or generate the required YAML configuration.`
-                  );
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-violet-600 hover:bg-violet-500 rounded-md transition-colors"
-              >
-                <Bot className="w-3 h-3" /> Fix with AI
-              </button>
+              <AskPulseButton
+                suffix="to fix"
+                prompt={() => (
+                  `Fix this production readiness issue:\n\n"${gate.title}": ${result?.detail || gate.whyItMatters}\n\n${result?.fixGuidance || ''}\n\nPlease fix this or generate the required YAML configuration.`
+                )}
+              />
             )}
             {result?.action && (
               <button

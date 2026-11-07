@@ -11,9 +11,9 @@ import { CapabilityDiscovery } from '../CapabilityDiscovery';
 afterEach(() => { cleanup(); askPulse.mockReset(); localStorage.clear(); });
 
 describe('CapabilityDiscovery', () => {
-  it('Try in chat sends the recommendation prompt to Pulse AI', () => {
+  it('Ask Pulse sends the recommendation prompt to Pulse AI', () => {
     render(<CapabilityDiscovery recommendations={[{ type: 'capability', title: 'Capacity planning', description: 'Ask about headroom', action: { kind: 'chat_prompt', prompt: 'How much headroom do my nodes have?' } }]} />);
-    fireEvent.click(screen.getByRole('button', { name: /Try in chat/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse/ }));
     expect(askPulse).toHaveBeenCalledWith('How much headroom do my nodes have?');
   });
 

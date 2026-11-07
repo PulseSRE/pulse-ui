@@ -24,7 +24,7 @@ export const secretEnhancer: ResourceEnhancer = {
         } else if (type.includes('token') || type.includes('service-account')) {
           color = 'bg-blue-900 text-blue-300';
         } else if (type.includes('dockercfg') || type.includes('dockerconfigjson')) {
-          color = 'bg-purple-900 text-purple-300';
+          color = 'bg-indigo-900 text-indigo-300';
         }
 
         return (

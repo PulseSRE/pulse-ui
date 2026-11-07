@@ -13,7 +13,7 @@ import { UpgradeProgressPanel } from './UpgradeProgressPanel';
 import { UpgradeGraph } from '../../components/updates/UpgradeGraph';
 import { buildUpgradeModel, channelOptions, channelChangeImpact, minorOf, type UpgradeTarget } from '../../engine/upgradeGraph';
 import { showErrorToast } from '../../engine/errorToast';
-import { getActiveClusterId } from '../../engine/clusterConnection';
+import { getActiveClusterId, LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { assertActiveCluster } from '../../engine/pendingCluster';
 import { useCanI } from '../../hooks/useCanI';
 import { MachineConfigPoolPauseButton, isMcpPaused } from '../../components/MachineConfigPoolPauseButton';
@@ -35,6 +35,7 @@ import { StartUpdateDialog } from './StartUpdateDialog';
 import { TakeEtcdBackupAction, PauseWorkerPoolsButton } from './UpdateActions';
 import { UpdateHistoryTable } from './UpdateHistoryTable';
 import { OperatorUpdateProgress } from './OperatorUpdateProgress';
+import { PULSE_AI_LOCAL_ONLY } from '../../components/feedback/LocalClusterOnlyNotice';
 
 /** PDB resource */
 interface PodDisruptionBudget extends K8sResource {
@@ -208,8 +209,9 @@ export function UpdatesTab({
   const readinessTargetLabel = selected ? selected.version : removalTarget ? targetMinorLabel(clusterVersion, removalTarget) : null;
 
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
-  // Same reason the agent dock gives: the agent runs on the local cluster only.
-  const askDisabledReason = activeClusterId !== 'local' ? 'This agent runs on Local Cluster. Remote resource-context actions are unavailable.' : undefined;
+  // AskPulseButton disables itself on a remote cluster with the shared
+  // wording; this keeps the panel's visible note in step with it.
+  const askDisabledReason = activeClusterId !== LOCAL_CLUSTER_ID ? PULSE_AI_LOCAL_ONLY : undefined;
   const readTimes = [readiness.checkedAt ?? 0, removal.updatedAt, ...(readsUpdatedAt ?? [])];
   const checkedAt = readTimes.every((t) => t > 0) ? Math.min(...readTimes) : null;
 

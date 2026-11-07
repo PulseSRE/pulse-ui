@@ -77,7 +77,7 @@ export function useSubjectData(): SubjectData {
 }
 
 function KindIcon({ kind, className = 'w-4 h-4' }: { kind: SubjectKind; className?: string }) {
-  if (kind === 'Group') return <Users className={`${className} text-violet-400`} aria-hidden />;
+  if (kind === 'Group') return <Users className={`${className} text-blue-400`} aria-hidden />;
   if (kind === 'ServiceAccount') return <Key className={`${className} text-teal-400`} aria-hidden />;
   return <User className={`${className} text-blue-400`} aria-hidden />;
 }
@@ -137,7 +137,7 @@ function RulesRow({ ns, review, error, loading, chains }: {
       <>
         {summarizeRules(review.resourceRules)}
         {review.resourceRules.length > 0 && (
-          <button type="button" onClick={() => setOpen(!open)} className="ml-2 text-violet-400 hover:text-violet-300" aria-expanded={open}>
+          <button type="button" onClick={() => setOpen(!open)} className="ml-2 text-blue-400 hover:text-blue-300" aria-expanded={open}>
             {open ? 'Hide rules' : `All ${review.resourceRules.length} rules`}
           </button>
         )}
@@ -271,8 +271,8 @@ function Chains({ subject, chains, groups }: { subject: SubjectRef; chains: Acce
                   <span className="font-medium text-slate-200">{subject.name}</span><ArrowRight className="w-3 h-3 text-slate-600" aria-hidden />
                   {c.via && (<>
                     {c.via.removable
-                      ? <button type="button" className="text-violet-300 hover:text-violet-200" onClick={() => go(subjectPagePath({ kind: 'Group', name: c.via!.group }), c.via!.group)}>Group {c.via.group}</button>
-                      : <span className="text-violet-300">Group {c.via.group}</span>}
+                      ? <button type="button" className="text-blue-300 hover:text-blue-200" onClick={() => go(subjectPagePath({ kind: 'Group', name: c.via!.group }), c.via!.group)}>Group {c.via.group}</button>
+                      : <span className="text-blue-300">Group {c.via.group}</span>}
                     <ArrowRight className="w-3 h-3 text-slate-600" aria-hidden />
                   </>)}
                   <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(bindingPath, c.binding.name)}>{bindingLabel(c)}</button>
@@ -350,7 +350,7 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
           meta={<span className="px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-400">{subject.kind === 'ServiceAccount' ? `ServiceAccount in ${subject.namespace}` : subject.kind}</span>}
           subtitle={<>
             {subjectFacts.map((fact) => <React.Fragment key={fact}>{fact}{' · '}</React.Fragment>)}
-            <button type="button" className="text-violet-400 hover:text-violet-300" onClick={() => go(objectPath, subject.name)}>Open the object</button>
+            <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(objectPath, subject.name)}>Open the object</button>
           </>}
           actions={<>
             {subject.kind !== 'Group' && (

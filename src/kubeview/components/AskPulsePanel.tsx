@@ -79,7 +79,7 @@ export function AskPulsePanel({ query, response, isLoading, onSuggestionClick, a
               'text-[10px] uppercase tracking-wider font-medium',
               response.fromAgent ? 'text-violet-400/70' : 'text-slate-500',
             )}>
-              {response.fromAgent ? 'Powered by Pulse Agent' : 'Not asked yet'}
+              {response.fromAgent ? 'Answered by Pulse AI' : 'Not asked yet'}
             </span>
             {onOpenInAgent && (
               <button

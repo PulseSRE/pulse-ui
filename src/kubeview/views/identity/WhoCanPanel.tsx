@@ -11,13 +11,10 @@
  */
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShieldQuestion, Download, MessageSquare, ArrowRight } from 'lucide-react';
+import { ShieldQuestion, Download, ArrowRight } from 'lucide-react';
 import { k8sCreate, k8sGet, k8sList } from '../../engine/query';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
-import { useFleetStore } from '../../store/fleetStore';
-import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
-import { askPulse } from '../../engine/askPulse';
 import { PulseError } from '../../engine/errors';
 import { formatDate, formatTime } from '../../engine/format';
 import { isPlatformNamespace } from '../../engine/platformNamespaces';
@@ -27,6 +24,7 @@ import type { ClusterRole, ClusterRoleBinding, Role, RoleBinding, Namespace } fr
 import {
   refFromUsername, ruleAllows, subjectMatches, subjectPagePath, type GroupLike, type SubjectRef,
 } from '../../engine/subjectAccess';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
 
 const AUTHZ = '/apis/authorization.openshift.io/v1';
 const RBAC = '/apis/rbac.authorization.k8s.io/v1';
@@ -147,7 +145,6 @@ function toCsv(rows: WhoCanRow[]): string {
 export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
   const clusterId = useActiveClusterId();
   const go = useNavigateTab();
-  const remote = useFleetStore((s) => s.activeClusterId) !== LOCAL_CLUSTER_ID;
   const [q, setQ] = React.useState<WhoCanQuery>({ verb: 'delete', resource: 'secrets', namespace: '' });
   const [asked, setAsked] = React.useState<WhoCanQuery | null>(null);
   const [showSystem, setShowSystem] = React.useState(false);
@@ -196,7 +193,7 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
 
   return (
     <section aria-labelledby="who-can-h" className="space-y-3">
-      <h3 id="who-can-h" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><ShieldQuestion className="w-3.5 h-3.5 text-violet-400" /> Who can</h3>
+      <h3 id="who-can-h" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><ShieldQuestion className="w-3.5 h-3.5 text-blue-400" /> Who can</h3>
       <form className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end" onSubmit={(e) => {
         e.preventDefault();
         const next = { ...q, resource: q.resource.trim() };
@@ -239,13 +236,9 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
             </p>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="ghost" onClick={exportCsv}><Download className="w-3.5 h-3.5" /> Export CSV</Button>
-              <Button size="sm" variant="secondary" disabled={remote} title={remote ? 'Pulse AI answers about the local cluster only.' : undefined}
-                onClick={() => askPulse(`Who can ${asked.verb} ${asked.resource} ${where(asked)}?`, asked.namespace ? { kind: 'Namespace', name: asked.namespace, gvr: 'v1~namespaces' } : undefined)}>
-                <MessageSquare className="w-3.5 h-3.5" /> Ask in chat
-              </Button>
+              <AskPulseButton prompt={`Who can ${asked.verb} ${asked.resource} ${where(asked)}?`} context={asked.namespace ? { kind: 'Namespace', name: asked.namespace, gvr: 'v1~namespaces' } : undefined} showReason />
             </div>
           </div>
-          {remote && <p className="text-xs text-slate-500">Pulse AI answers about the local cluster only.</p>}
           {resultQ.data.evaluationError && (
             <p className="text-xs text-amber-300">The review could not evaluate everything ({resultQ.data.evaluationError}); more subjects may be able to.</p>
           )}
@@ -268,7 +261,7 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
                       {r.grants.length === 0 ? <span className="text-slate-500">Allowed, but no binding Pulse can read explains it (a group the API server adds, or another authorizer).</span>
                         : r.grants.map((g) => (
                           <div key={`${g.binding.kind}/${g.binding.namespace ?? ''}/${g.binding.name}/${g.viaGroup ?? ''}`} className="flex flex-wrap items-center gap-1">
-                            {g.viaGroup && <><span className="text-violet-300">Group {g.viaGroup}</span><ArrowRight className="w-3 h-3 text-slate-600" /></>}
+                            {g.viaGroup && <><span className="text-blue-300">Group {g.viaGroup}</span><ArrowRight className="w-3 h-3 text-slate-600" /></>}
                             <span>{g.binding.kind} {g.binding.namespace ? `${g.binding.namespace}/` : ''}{g.binding.name}</span><ArrowRight className="w-3 h-3 text-slate-600" />
                             <span>{g.role.kind} {g.role.name}</span>{g.binding.kind === 'ClusterRoleBinding' && <span className="text-slate-500">· cluster-wide</span>}
                           </div>

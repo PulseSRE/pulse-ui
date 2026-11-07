@@ -89,7 +89,7 @@ function GrantAccess({ clusterRoles, roles, namespaces }: { clusterRoles: Cluste
   const fullControl = t ? grantsFullControl(t) : false;
   return (
     <div className="space-y-3">
-      <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><KeyRound className="w-3.5 h-3.5 text-violet-400" /> Grant access</h3>
+      <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><KeyRound className="w-3.5 h-3.5 text-blue-400" /> Grant access</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <label className="text-xs text-slate-400">Scope
           <select aria-label="Scope" className={inputCls} value={g.scope} onChange={(e) => set({ scope: e.target.value as GrantRequest['scope'], roleKind: 'ClusterRole' })}>
@@ -245,7 +245,7 @@ function WhoCan() {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><ShieldQuestion className="w-3.5 h-3.5 text-violet-400" /> Check one subject</h3>
+      <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"><ShieldQuestion className="w-3.5 h-3.5 text-blue-400" /> Check one subject</h3>
       <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
         <label className="text-xs text-slate-400">User<input aria-label="Check user" className={inputCls} value={c.user} onChange={(e) => set({ user: e.target.value.trim() })} placeholder="alice" /></label>
         <label className="text-xs text-slate-400">Groups<input aria-label="Check groups" className={inputCls} value={c.groups} onChange={(e) => set({ groups: e.target.value })} placeholder="dev,qa" /></label>

@@ -3,6 +3,7 @@ import { render, screen, act, fireEvent, cleanup } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AmbientInsight, clearInsightCache } from '../AmbientInsight';
 import type { AgentEvent } from '../../../engine/agentClient';
+import { useFleetStore } from '../../../store/fleetStore';
 
 /* ---- Mock AgentClient ---- */
 
@@ -50,14 +51,14 @@ describe('AmbientInsight', () => {
     cleanup();
   });
 
-  it('renders "Analyze with AI" button in manual mode', () => {
+  it('renders the "Ask Pulse about this …" button in manual mode', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    expect(screen.getByText('Analyze with AI')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Ask Pulse about this/ })).toBeTruthy();
   });
 
   it('shows loading state when button clicked', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     expect(screen.getByText('Analyzing...')).toBeTruthy();
     expect(screen.getByLabelText('Cancel')).toBeTruthy();
@@ -66,7 +67,7 @@ describe('AmbientInsight', () => {
 
   it('shows result after agent responds', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     // Simulate connected -> send -> done
     act(() => {
@@ -94,7 +95,7 @@ describe('AmbientInsight', () => {
 
   it('shows error state on agent error', () => {
     render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     act(() => {
       mockHandler?.({ type: 'error', message: 'Agent unreachable' });
@@ -107,7 +108,7 @@ describe('AmbientInsight', () => {
 
   it('uses cache on re-render within staleTime', () => {
     const { unmount } = render(<AmbientInsight context={baseContext} prompt={prompt} />);
-    fireEvent.click(screen.getByText('Analyze with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
 
     act(() => mockHandler?.({ type: 'connected' }));
     act(() => mockHandler?.({ type: 'done', full_response: 'Cached result.' }));
@@ -131,5 +132,34 @@ describe('AmbientInsight', () => {
     // Should immediately start connecting without user interaction
     expect(mockConnect).toHaveBeenCalled();
     expect(screen.getByText('Analyzing...')).toBeTruthy();
+  });
+
+  describe('on a remote cluster', () => {
+    afterEach(() => useFleetStore.setState({ activeClusterId: 'local' } as never));
+
+    it('does not auto-run, and the ask is disabled with the shared wording', () => {
+      useFleetStore.setState({ activeClusterId: 'prod-east' } as never);
+      render(<AmbientInsight context={baseContext} prompt={prompt} trigger="auto" />);
+      expect(mockConnect).not.toHaveBeenCalled();
+      const btn = screen.getByRole('button', { name: /Ask Pulse about this/ }) as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      expect(btn.title).toBe('Pulse AI answers about the local cluster only.');
+    });
+
+    it('still runs with localData (a question built from no remote data)', () => {
+      useFleetStore.setState({ activeClusterId: 'prod-east' } as never);
+      render(<AmbientInsight context={{ kind: 'Fleet', name: 'all-clusters' }} prompt="fleet" trigger="auto" localData />);
+      expect(mockConnect).toHaveBeenCalled();
+    });
+
+    it('disables Retry after a failure once a remote cluster is selected', () => {
+      const { rerender } = render(<AmbientInsight context={baseContext} prompt={prompt} />);
+      fireEvent.click(screen.getByRole('button', { name: /Ask Pulse about this/ }));
+      act(() => { mockHandler?.({ type: 'error', message: 'boom' } as AgentEvent); });
+      act(() => { useFleetStore.setState({ activeClusterId: 'prod-east' } as never); });
+      rerender(<AmbientInsight context={baseContext} prompt={prompt} />);
+      const retry = screen.getByRole('button', { name: /Retry/ }) as HTMLButtonElement;
+      expect(retry.disabled).toBe(true);
+    });
   });
 });

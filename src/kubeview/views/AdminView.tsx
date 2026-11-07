@@ -429,7 +429,7 @@ export default function AdminView() {
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; activeIcon: React.ReactNode }> = [
     { id: 'overview', label: 'Overview', icon: <Settings className="w-3.5 h-3.5 text-slate-400" />, activeIcon: <Settings className="w-3.5 h-3.5" /> },
-    { id: 'operators', label: 'Platform operators', icon: <Puzzle className="w-3.5 h-3.5 text-purple-400" />, activeIcon: <Puzzle className="w-3.5 h-3.5" /> },
+    { id: 'operators', label: 'Platform operators', icon: <Puzzle className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <Puzzle className="w-3.5 h-3.5" /> },
     { id: 'config', label: 'Cluster Config', icon: <Database className="w-3.5 h-3.5 text-cyan-400" />, activeIcon: <Database className="w-3.5 h-3.5" /> },
     { id: 'updates', label: `Updates${availableUpdates.length > 0 ? ` (${availableUpdates.length})` : ''}`, icon: <ArrowUpCircle className="w-3.5 h-3.5 text-green-400" />, activeIcon: <ArrowUpCircle className="w-3.5 h-3.5" /> },
     { id: 'snapshots', label: `Snapshots (${savedSnapshots.length})`, icon: <GitCompare className="w-3.5 h-3.5 text-blue-400" />, activeIcon: <GitCompare className="w-3.5 h-3.5" /> },

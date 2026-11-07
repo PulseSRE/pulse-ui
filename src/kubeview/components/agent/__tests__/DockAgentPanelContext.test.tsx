@@ -112,7 +112,7 @@ function renderPanel(path = '/r/v1~pods/shop/web-1') {
 }
 
 function ask(text: string) {
-  const box = screen.getByPlaceholderText('Ask the agent...');
+  const box = screen.getByPlaceholderText('Ask Pulse…');
   fireEvent.change(box, { target: { value: text } });
   fireEvent.keyDown(box, { key: 'Enter' });
 }

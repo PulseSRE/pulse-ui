@@ -74,7 +74,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => setShowYaml(!showYaml)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Create Application
               </button>
@@ -183,7 +183,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                         {sync?.status || 'Unknown'}
                       </span>
                       {automated && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-violet-900/50 text-violet-300">Auto</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-900/50 text-blue-300">Auto</span>
                       )}
                       {syncInProgress && (
                         <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-900/50 text-blue-300 flex items-center gap-1">

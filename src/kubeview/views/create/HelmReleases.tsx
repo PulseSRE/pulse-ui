@@ -7,10 +7,10 @@
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { dump, load } from 'js-yaml';
+import { dump } from 'js-yaml';
 import { Ship, FileText, ArrowUpCircle, RotateCcw, Trash2, Folder, Pencil } from 'lucide-react';
 import { k8sFetch } from '../../engine/query';
-import { summarizeHelmReleases, valuesBaseRevision, type HelmReleaseSummary } from '../../engine/helmRelease';
+import { summarizeHelmReleases, type HelmReleaseSummary } from '../../engine/helmRelease';
 import type { Secret } from '../../engine/types';
 import { useFleetStore } from '../../store/fleetStore';
 import { useUIStore } from '../../store/uiStore';
@@ -23,9 +23,12 @@ import { LoadError } from '../../components/primitives/LoadError';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
 import DeployProgress from '../../components/DeployProgress';
-import { runHelmAction } from './helmRunner';
+import { randomSalt, runHelmAction } from './helmRunner';
 import { runnerCanManage } from './helmInstall';
-import { buildChartArchive, storedChartBlocker } from '../../engine/helmChartArchive';
+import { diffObjects, parseRendered, redactSecretValues } from '../../engine/helmManifest';
+import { fetchReleaseRecord, rollbackHooks } from './helmPreview';
+import { HelmUpgradeDialog } from './HelmUpgradeDialog';
+import { HooksList, PreviewObjects } from './HelmPreviewPanel';
 
 export interface ChartSource {
   name: string;
@@ -33,9 +36,11 @@ export interface ChartSource {
   repoUrl?: string;
   /** Versions available in the repo, newest first. */
   versions: string[];
+  /** Archive URL per version, from the repo index (for the chart's defaults). */
+  urls?: Record<string, string>;
 }
 
-type ReleaseAction =
+export type ReleaseAction =
   | { kind: 'values'; release: HelmReleaseSummary }
   | { kind: 'upgrade'; release: HelmReleaseSummary }
   | { kind: 'rollback'; release: HelmReleaseSummary }
@@ -82,15 +87,24 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
   const action = usePinnedAction<ReleaseAction>();
   const handledLink = React.useRef<string | null>(null);
   const linked = linkRelease ? releases.find((r) => r.name === linkRelease && (!linkNs || r.namespace === linkNs)) : undefined;
+  // The same gates as the row's buttons: a link must not open what the button would not.
+  const linkCanJobs = useCanI('create', 'batch', 'jobs', linked?.namespace, undefined, { enabled: !!linked && !!linkAction });
+  const linkCanSecrets = useCanI('create', '', 'secrets', linked?.namespace, undefined, { enabled: !!linked && linkAction === 'values' });
+  const linkChecking = !!linked && !!linkAction && (linkCanJobs.isLoading || (linkAction === 'values' && linkCanSecrets.isLoading));
+  const linkDenied = !linked || !linkAction || linkChecking ? undefined
+    : !linkCanJobs.allowed ? `You do not have permission to create Jobs in ${linked.namespace}, so Pulse cannot ${linkAction === 'values' ? 'edit the values of' : linkAction === 'rollback' ? 'roll back' : 'uninstall'} ${linked.name}.`
+      : linkAction === 'values' && !linkCanSecrets.allowed ? `You do not have permission to create Secrets in ${linked.namespace}, so Pulse cannot edit the values of ${linked.name}.`
+        : undefined;
   React.useEffect(() => {
     const key = `${linkNs}/${linkRelease}/${linkAction}`;
-    if (!linked || !linkAction || !LINK_ACTIONS.has(linkAction) || handledLink.current === key) return;
+    if (!linked || !linkAction || !LINK_ACTIONS.has(linkAction) || handledLink.current === key || linkChecking) return;
     handledLink.current = key;
     if (linkAction === 'rollback' && linked.revisions.length < 2) return;
+    if (linkDenied) return;
     action.open({ kind: linkAction, release: linked } as ReleaseAction);
     // Once open, drop `action` so a reload or back-navigation does not open it again.
     setParams((p) => { const next = new URLSearchParams(p); next.delete('action'); return next; }, { replace: true });
-  }, [linked, linkAction, linkNs, linkRelease, action, setParams]);
+  }, [linked, linkAction, linkNs, linkRelease, action, setParams, linkChecking, linkDenied]);
 
   return (
     <Card className="p-4">
@@ -102,6 +116,8 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       {linkRelease && !isLoading && !error && !linked && (
         <p role="alert" className="mb-3 text-xs text-amber-300">Release {linkRelease}{linkNs ? ` in ${linkNs}` : ''} was not found among the Helm release records Pulse can read.</p>
       )}
+      {linkChecking && LINK_ACTIONS.has(linkAction ?? '') && <p role="status" className="mb-3 text-xs text-slate-400">Checking your permissions…</p>}
+      {linkDenied && LINK_ACTIONS.has(linkAction ?? '') && <p role="alert" className="mb-3 text-xs text-amber-300" data-testid="helm-link-denied">{linkDenied}</p>}
       {linked && linkAction === 'rollback' && linked.revisions.length < 2 && (
         <p role="alert" className="mb-3 text-xs text-amber-300">Release {linked.name} has only revision {linked.revision}: there is no earlier revision to roll back to.</p>
       )}
@@ -140,11 +156,20 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
         </DrawerShell>
       )}
 
-      {action.pending && (
+      {action.pending && (action.pending.target.kind === 'values' || action.pending.target.kind === 'upgrade') && (
+        <HelmUpgradeDialog
+          key={`${action.pending.target.kind}-${action.pending.target.release.name}`}
+          kind={action.pending.target.kind}
+          release={action.pending.target.release}
+          action={action}
+          charts={charts}
+          onStarted={(j) => setJob(j)}
+        />
+      )}
+      {action.pending && (action.pending.target.kind === 'rollback' || action.pending.target.kind === 'uninstall') && (
         <ReleaseActionDialog
           key={`${action.pending.target.kind}-${action.pending.target.release.name}`}
           action={action}
-          charts={charts}
           onStarted={(j) => setJob(j)}
         />
       )}
@@ -204,39 +229,23 @@ function ReleaseRow({ release, charts, onValues, onAction, highlighted }: {
   );
 }
 
-function ReleaseActionDialog({ action, charts, onStarted }: {
+function ReleaseActionDialog({ action, onStarted }: {
   action: ReturnType<typeof usePinnedAction<ReleaseAction>>;
-  charts: ChartSource[];
   onStarted: (job: { name: string; ns: string; clusterId: string }) => void;
 }) {
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
   const target = action.pending!.target;
+  const pinned = action.pending!.clusterId;
   const r = target.release;
-  // The release record names the chart but not its repository: offer every
-  // configured repository that has a chart of that name, and make the user
-  // pick when there is more than one, rather than guessing by name.
-  const candidates = repoCandidates(charts, r);
-  const [repoUrl, setRepoUrl] = React.useState(candidates.length === 1 ? candidates[0].repoUrl! : '');
-  const source = candidates.find((c) => c.repoUrl === repoUrl);
-  const [version, setVersion] = React.useState(source?.versions[0] ?? '');
-  React.useEffect(() => { setVersion(source?.versions[0] ?? ''); }, [repoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Edit values starts from the deployed revision (after a failed upgrade, the
-  // one still running), not necessarily the latest.
-  const base = target.kind === 'values' ? (valuesBaseRevision(r.revisions) ?? r) : r;
-  const [valuesText, setValuesText] = React.useState(base.values && Object.keys(base.values).length > 0 ? dump(base.values) : '');
-  const [valuesError, setValuesError] = React.useState<string | null>(null);
   const earlier = r.revisions.filter((rev) => rev.revision !== r.revision);
   const [revision, setRevision] = React.useState<number>(earlier[0]?.revision ?? 0);
+  // helm rollback starts from the latest revision (even a failed one), so the diff does too.
+  const latest = r;
+  const targetRev = r.revisions.find((rev) => rev.revision === revision);
 
   // The runner's Role only covers some kinds; helm fails part-way on anything else.
-  const editsValues = target.kind === 'upgrade' || target.kind === 'values';
-  const storedBlock = target.kind === 'values' ? storedChartBlocker(base.storedChart) : null;
-  const affected = target.kind === 'rollback'
-    ? r.revisions.find((rev) => rev.revision === revision)?.resources
-    : target.kind === 'values' && base !== r
-      ? (base.resources && r.resources ? [...base.resources, ...r.resources] : undefined)
-      : r.resources;
+  const affected = target.kind === 'rollback' ? targetRev?.resources : r.resources;
   const uncovered = affected?.filter((x) => !runnerCanManage(x.apiVersion, x.kind)) ?? [];
   const runnerBlock = affected === undefined
     ? `The release record could not be read, so Pulse cannot check that the Helm runner may manage its resources.`
@@ -244,56 +253,46 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
       ? `This release contains ${[...new Set(uncovered.map((x) => x.kind))].join(', ')}, which the Helm runner's Role in ${r.namespace} cannot manage, so the Job would fail part-way. Run this ${target.kind} with helm and sufficient permissions instead.`
       : null;
 
-  const confirm = () => {
-    if (editsValues) {
-      try {
-        const parsed = valuesText.trim() ? load(valuesText) : {};
-        if (parsed !== null && typeof parsed !== 'object') throw new Error('Values must be a YAML mapping');
-        setValuesError(null);
-      } catch (e) {
-        setValuesError(e instanceof Error ? e.message : String(e));
-        return;
-      }
-    }
-    return action.run(`${target.kind} of ${r.name}`, async (t, clusterId) => {
-      const rel = t.release;
-      let jobName: string;
-      if (t.kind === 'values') {
-        const chartArchive = await buildChartArchive(base.storedChart);
-        jobName = await runHelmAction(clusterId, rel.namespace, { action: 'upgrade-stored', releaseName: rel.name, chartArchive }, valuesText);
-      } else if (t.kind === 'upgrade') {
-        if (!source?.repoUrl) throw new Error(`Choose the repository to upgrade ${rel.chart ?? 'the chart'} from`);
-        jobName = await runHelmAction(clusterId, rel.namespace, { action: 'upgrade', releaseName: rel.name, chartName: source.name, repoUrl: source.repoUrl, version: version || undefined }, valuesText);
-      } else if (t.kind === 'rollback') {
-        jobName = await runHelmAction(clusterId, rel.namespace, { action: 'rollback', releaseName: rel.name, revision });
-      } else {
-        jobName = await runHelmAction(clusterId, rel.namespace, { action: 'uninstall', releaseName: rel.name });
-      }
-      addToast({ type: 'success', title: `Helm ${t.kind === 'values' ? 'upgrade (values only)' : t.kind} started`, detail: `${rel.name} in ${rel.namespace} (Job ${jobName})` });
-      onStarted({ name: jobName, ns: rel.namespace, clusterId });
-      queryClient.invalidateQueries({ queryKey: ['helm'] });
-    });
-  };
+  // Rollback: what changes, from the two release records (no render needed).
+  const rollbackDiff = useQuery({
+    queryKey: ['helm', 'rollback-diff', pinned, r.namespace, latest.secretName, targetRev?.secretName],
+    enabled: target.kind === 'rollback' && !!targetRev && !runnerBlock,
+    retry: false,
+    queryFn: async () => {
+      const [cur, tgt] = await Promise.all([
+        fetchReleaseRecord(pinned, r.namespace, latest.secretName),
+        fetchReleaseRecord(pinned, r.namespace, targetRev!.secretName),
+      ]);
+      // Release records hold Secret values in clear; compare salted hashes instead.
+      const salt = randomSalt();
+      const changes = diffObjects(
+        parseRendered(await redactSecretValues(cur.manifest, salt), r.namespace).objects,
+        parseRendered(await redactSecretValues(tgt.manifest, salt), r.namespace).objects,
+      );
+      return {
+        at: Date.now(), action: 'upgrade' as const, warnings: [], testHooks: [],
+        hooks: rollbackHooks(tgt, r.namespace),
+        entries: changes.map((c) => ({ ...c, check: { status: 'ok' as const, message: '' } })),
+      };
+    },
+  });
 
-  const upgradeBlocked = target.kind === 'upgrade' && candidates.length === 0;
-  const blocked = upgradeBlocked || !!storedBlock || !!runnerBlock;
+  const confirm = () => action.run(`${target.kind} of ${r.name}`, async (t, clusterId) => {
+    const rel = t.release;
+    const jobName = t.kind === 'rollback'
+      ? await runHelmAction(clusterId, rel.namespace, { action: 'rollback', releaseName: rel.name, revision })
+      : await runHelmAction(clusterId, rel.namespace, { action: 'uninstall', releaseName: rel.name });
+    addToast({ type: 'success', title: `Helm ${t.kind} started`, detail: `${rel.name} in ${rel.namespace} (Job ${jobName})` });
+    onStarted({ name: jobName, ns: rel.namespace, clusterId });
+    queryClient.invalidateQueries({ queryKey: ['helm'] });
+  });
+
+  const blocked = !!runnerBlock;
   const resourceSummary = affected?.length ? `${affected.length} object${affected.length === 1 ? '' : 's'}: ${[...new Set(affected.map((x) => x.kind))].join(', ')}` : 'no objects';
-  const title = target.kind === 'values' ? `Edit values of ${r.name}?` : target.kind === 'upgrade' ? `Upgrade ${r.name}?` : target.kind === 'rollback' ? `Roll back ${r.name}?` : `Uninstall ${r.name}?`;
-  const chartName = `${base.chart ?? 'chart'}${base.chartVersion ? ` ${base.chartVersion}` : ''}`;
-  const notLatest = target.kind === 'values' && base.revision !== r.revision
-    ? ` The latest revision, rev ${r.revision}, is ${r.status}; this starts from rev ${base.revision}, the deployed one, and its chart and values.`
-    : '';
-  const description = target.kind === 'values'
-    ? storedBlock
-      ? `Pulse cannot edit this release's values: ${storedBlock}${candidates.length ? ' Use Upgrade, which fetches the chart from its repository.' : ' Add the chart\'s repository under Chart Repositories and use Upgrade instead.'}`
-      : `Runs "helm upgrade ${r.name}" in ${r.namespace} as a Job with the chart Helm stored in rev ${base.revision} (${chartName}), so no chart repository is needed and the running chart version does not change. The values below replace rev ${base.revision}'s user values; previous values are not reused, so anything removed here falls back to the chart's default. The release moves to rev ${r.revision + 1}.${notLatest}`
-    : target.kind === 'upgrade'
-    ? upgradeBlocked
-      ? `The chart ${r.chart ?? '(unknown)'} is not in any configured chart repository, so Pulse cannot fetch a version to upgrade to. Add its repository under Chart Repositories first.`
-      : `Runs "helm upgrade ${r.name} ${r.chart}${version ? ` --version ${version}` : ''}" from ${source ? (source.repoName ?? source.repoUrl) : 'the repository you choose'} in ${r.namespace} as a Job. The values below replace rev ${r.revision}'s user values; previous values are not reused, so anything removed here falls back to the chart's default. The release moves to rev ${r.revision + 1}. A newer chart may add kinds the runner cannot manage.`
-    : target.kind === 'rollback'
-      ? `Runs "helm rollback ${r.name} ${revision}" in ${r.namespace} as a Job. The release returns to rev ${revision}'s chart and values as a new revision (rev ${r.revision + 1}).`
-      : `Runs "helm uninstall ${r.name}" in ${r.namespace} as a Job. Helm deletes the objects it recorded for rev ${r.revision} (${resourceSummary}) — except any the chart marks "keep" — and removes the release history.`;
+  const title = target.kind === 'rollback' ? `Roll back ${r.name}?` : `Uninstall ${r.name}?`;
+  const description = target.kind === 'rollback'
+    ? `Runs "helm rollback ${r.name} ${revision}" in ${r.namespace} as a Job. The release returns to rev ${revision}'s chart and values as a new revision (rev ${r.revision + 1}).`
+    : `Runs "helm uninstall ${r.name}" in ${r.namespace} as a Job. Helm deletes the objects it recorded for rev ${r.revision} (${resourceSummary}) — except any the chart marks "keep" — and removes the release history.`;
 
   return (
     <ConfirmDialog
@@ -302,39 +301,11 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
       onConfirm={() => { if (blocked) action.close(); else void confirm(); }}
       title={title}
       description={description}
-      confirmLabel={blocked ? 'Close' : target.kind === 'values' ? 'Apply values' : target.kind === 'upgrade' ? 'Upgrade' : target.kind === 'rollback' ? 'Roll back' : 'Uninstall'}
+      confirmLabel={blocked ? 'Close' : target.kind === 'rollback' ? 'Roll back' : 'Uninstall'}
       variant={target.kind === 'uninstall' ? 'danger' : 'warning'}
       loading={action.running}
     >
-      {runnerBlock && !upgradeBlocked && !storedBlock && <LoadError className="mt-3" title={`The ${target.kind} cannot run from Pulse`} error={runnerBlock} />}
-      {editsValues && !blocked && (
-        <div className="mt-3 space-y-2">
-          {target.kind === 'upgrade' && candidates.length > 1 && (
-            <label className="block text-xs text-slate-400">
-              Repository ({candidates.length} have a chart named {r.chart})
-              <select aria-label="Repository" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)}
-                className="mt-1 w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
-                <option value="">Choose the repository this release came from…</option>
-                {candidates.map((c) => <option key={c.repoUrl} value={c.repoUrl}>{c.repoName} — {c.repoUrl}</option>)}
-              </select>
-            </label>
-          )}
-          {target.kind === 'upgrade' && <label className="block text-xs text-slate-400">
-            Chart version
-            <select aria-label="Chart version" value={version} onChange={(e) => setVersion(e.target.value)}
-              className="mt-1 w-full px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
-              {(source?.versions ?? []).map((v) => <option key={v} value={v}>{v}{v === r.chartVersion ? ' (installed)' : ''}</option>)}
-            </select>
-          </label>}
-          <label className="block text-xs text-slate-400">
-            Values (YAML)
-            <textarea aria-label="Values" value={valuesText} onChange={(e) => setValuesText(e.target.value)} rows={8}
-              className="mt-1 w-full px-2 py-1.5 text-xs font-mono bg-slate-900 border border-slate-600 rounded-sm text-slate-200" />
-          </label>
-          {!valuesText.trim() && <p className="text-xs text-amber-300">No values: the release is reset to the chart's defaults.</p>}
-          {valuesError && <LoadError title="The values are not valid YAML" error={valuesError} />}
-        </div>
-      )}
+      {runnerBlock && <LoadError className="mt-3" title={`The ${target.kind} cannot run from Pulse`} error={runnerBlock} />}
       {target.kind === 'rollback' && earlier.length > 0 && (
         <label className="mt-3 block text-xs text-slate-400">
           Revision
@@ -348,7 +319,16 @@ function ReleaseActionDialog({ action, charts, onStarted }: {
           </select>
         </label>
       )}
-      {action.error && <LoadError className="mt-3" title={`The ${target.kind === 'values' ? 'values upgrade' : target.kind} was not started`} error={action.error} />}
+      {target.kind === 'rollback' && !blocked && (
+        <div className="mt-3 space-y-2" data-testid="rollback-diff">
+          <div className="text-xs font-medium text-slate-300">What changes, rev {latest.revision} (latest) → rev {revision}</div>
+          {rollbackDiff.error ? <LoadError title="The revisions could not be compared" error={rollbackDiff.error} />
+            : !rollbackDiff.data ? <p className="text-xs text-slate-500">Comparing the release records…</p>
+              : <><PreviewObjects preview={rollbackDiff.data} /><HooksList hooks={rollbackDiff.data.hooks} action="rollback" /></>}
+          <p className="text-xs text-slate-500">Undo: roll back to rev {latest.revision} the same way.</p>
+        </div>
+      )}
+      {action.error && <LoadError className="mt-3" title={`The ${target.kind} was not started`} error={action.error} />}
     </ConfirmDialog>
   );
 }

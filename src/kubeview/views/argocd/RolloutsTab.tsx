@@ -28,7 +28,7 @@ function getStrategyType(rollout: Rollout): string {
 }
 
 const STRATEGY_COLORS: Record<string, string> = {
-  Canary: 'bg-violet-900/50 text-violet-300',
+  Canary: 'bg-indigo-900/50 text-indigo-300',
   BlueGreen: 'bg-cyan-900/50 text-cyan-300',
   Unknown: 'bg-slate-800 text-slate-400',
 };

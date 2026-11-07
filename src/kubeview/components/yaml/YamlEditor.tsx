@@ -464,7 +464,7 @@ export default function YamlEditor({
             {originalValue && (
               <button
                 onClick={() => setShowDiffMode(!showDiffMode)}
-                className={cn('flex items-center gap-1 px-2 py-0.5 rounded-sm transition-colors', showDiffMode ? 'bg-purple-600 text-white' : 'hover:bg-slate-800')}
+                className={cn('flex items-center gap-1 px-2 py-0.5 rounded-sm transition-colors', showDiffMode ? 'bg-blue-600 text-white' : 'hover:bg-slate-800')}
                 title="Show diff against original"
               >
                 <GitCompare className="w-3 h-3" />

@@ -61,9 +61,9 @@ function FilterSelect({
         aria-label={label}
         className={cn(
           'appearance-none pl-3 pr-7 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer',
-          'border focus:outline-hidden focus:ring-1 focus:ring-violet-500',
+          'border focus:outline-hidden focus:ring-1 focus:ring-blue-500',
           active
-            ? 'bg-violet-600/20 text-violet-300 border-violet-700/50'
+            ? 'bg-blue-600/20 text-blue-300 border-blue-700/50'
             : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600 hover:text-slate-300',
         )}
       >

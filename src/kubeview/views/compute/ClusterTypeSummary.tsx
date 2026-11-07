@@ -57,7 +57,7 @@ function HyperShiftSummary({ nodePools, clusterVersion, platform, nodeDetails }:
   return (
     <Card className="p-4">
       <div className="flex items-center gap-2 mb-3">
-        <Cloud className="w-4 h-4 text-violet-400" />
+        <Cloud className="w-4 h-4 text-blue-400" />
         <span className="text-sm font-semibold text-slate-100">Hosted Control Plane</span>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

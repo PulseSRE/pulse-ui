@@ -238,7 +238,7 @@ export function DryRunPanel({ yaml, apiPath, method, onClose, title, clusterId }
             className="flex items-center gap-2 text-xs font-medium text-slate-300 hover:text-slate-100 transition-colors mb-2"
           >
             {showDiff ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
             Server-applied defaults ({result.defaultsApplied.length})
           </button>
           {showDiff && (

@@ -122,7 +122,7 @@ export function GitProviderStep({ onComplete }: Props) {
             onClick={() => setProvider(p)}
             className={cn(
               'px-4 py-2 text-sm rounded-lg transition-colors capitalize',
-              provider === p ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200',
+              provider === p ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200',
             )}
           >
             {p}
@@ -167,7 +167,7 @@ export function GitProviderStep({ onComplete }: Props) {
             value={repoUrl}
             onChange={(e) => setRepoUrl(e.target.value)}
             placeholder={`https://${provider}.com/org/gitops-repo`}
-            className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+            className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -178,7 +178,7 @@ export function GitProviderStep({ onComplete }: Props) {
               value={baseBranch}
               onChange={(e) => setBaseBranch(e.target.value)}
               placeholder="main"
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
             />
           </div>
           <div>
@@ -188,7 +188,7 @@ export function GitProviderStep({ onComplete }: Props) {
               value={pathPrefix}
               onChange={(e) => setPathPrefix(e.target.value)}
               placeholder="clusters/production/"
-              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+              className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
             />
           </div>
         </div>
@@ -204,7 +204,7 @@ export function GitProviderStep({ onComplete }: Props) {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder={guide.placeholder}
-              className="w-full px-3 py-2 pr-10 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden font-mono"
+              className="w-full px-3 py-2 pr-10 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden font-mono"
             />
             <button
               onClick={() => setShowToken(!showToken)}
@@ -240,7 +240,7 @@ export function GitProviderStep({ onComplete }: Props) {
         <button
           onClick={handleSave}
           disabled={saving || !repoUrl || !token}
-          className="px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitBranch className="w-4 h-4" />}
           Save & Continue

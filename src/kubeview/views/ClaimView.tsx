@@ -68,7 +68,7 @@ export default function ClaimView() {
 
   return (
     <div className="h-full flex flex-col items-center justify-center bg-slate-950 gap-4" role="status">
-      <Loader2 className="w-8 h-8 text-violet-500 animate-spin" aria-hidden="true" />
+      <Loader2 className="w-8 h-8 text-blue-500 animate-spin" aria-hidden="true" />
       <p className="text-slate-400">Cloning dashboard to your account...</p>
     </div>
   );

@@ -43,7 +43,7 @@ describe('PreviewView', () => {
     expect(getByText('Production overview')).toBeTruthy();
     expect(container.querySelector('[data-preview-status="ready"]')?.className).toContain('openshiftpulse');
     expect(queryByTitle('Delete view')).toBeNull();
-    expect(queryByTitle('Edit with AI')).toBeNull();
+    expect(queryByTitle('Ask Pulse to edit this view')).toBeNull();
     expect(loadViews).not.toHaveBeenCalled();
     expect(useCustomViewStore.getState().views[0].id).toBe(PREVIEW_VIEW_ID);
   });

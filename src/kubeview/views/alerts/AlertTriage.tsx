@@ -20,6 +20,8 @@ import { isAgentFeatureUnavailable } from '../../engine/agentFeature';
 import { formatMatcher, type AlertForSilence, type SilenceSuggestion } from '../../engine/silences';
 import type { K8sResource } from '../../engine/renderers';
 import type { Pod } from '../../engine/types';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
+import { AI_ACCENT } from '../../components/agent/aiTokens';
 
 export function labelKey(labels: Record<string, string>): string {
   return JSON.stringify(Object.keys(labels).sort().map((k) => [k, labels[k]]));
@@ -147,9 +149,9 @@ export function SilenceSuggestionBanner({ suggestion, alerts, item, onReview, on
   const otherNodes = new Set(alerts.filter((a) => suggestion.alertnames.includes(a.labels.alertname) && a.labels.node && a.labels.node !== suggestion.node).map((a) => a.labels.node));
   return (
     <section data-testid="silence-suggestion">
-    <Card className="p-4 border border-violet-800/60">
+    <Card className={cn('p-4', AI_ACCENT.card)}>
       <div className="flex items-start gap-3">
-        <Sparkles className="w-4 h-4 text-violet-300 mt-0.5 shrink-0" />
+        <Sparkles className={cn('w-4 h-4 mt-0.5 shrink-0', AI_ACCENT.textStrong)} />
         <div className="flex-1 min-w-0 space-y-2">
           <div className="text-sm font-medium text-slate-100">Pulse suggests a silence for {suggestion.node}</div>
           <p className="text-xs text-slate-300">
@@ -169,7 +171,7 @@ export function SilenceSuggestionBanner({ suggestion, alerts, item, onReview, on
           </ul>
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={onReview}><BellOff className="w-3.5 h-3.5" /> Review silence</Button>
-            <Button size="sm" variant="secondary" onClick={onAsk}>Ask Pulse why</Button>
+            <AskPulseButton suffix="why" onAsk={onAsk} />
             <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
           </div>
         </div>
