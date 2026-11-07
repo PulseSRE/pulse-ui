@@ -70,7 +70,7 @@ describe('YamlEditorView', () => {
     canUpdate = false;
     renderEditor();
     await screen.findByTestId('editor');
-    expect(screen.getByText('View app')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('View YAML: app');
     expect(screen.getByText('Read-only')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Save/ })).toBeNull();
     expect(editorProps.current.readOnly).toBe(true);
