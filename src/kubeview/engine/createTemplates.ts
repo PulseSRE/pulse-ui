@@ -1,5 +1,5 @@
 /**
- * Prefilled manifests for the YAML create flow (`/create/<gvr>?template=<id>&namespace=<ns>`).
+ * Prefilled manifests for the YAML create flow (`/create/<gvr>?template=<id>&ns=<ns>`).
  *
  * Screens that find a gap — a namespace with no NetworkPolicy, no quota, an
  * alert rule to write — link here so the user starts from a reviewed,
@@ -178,5 +178,5 @@ export function renderCreateTemplate(id: string | null, namespace: string): stri
 /** `/create/...` link for a template in a namespace. */
 export function createTemplateUrl(id: keyof typeof CREATE_TEMPLATES | string, namespace: string): string {
   const t = CREATE_TEMPLATES[id];
-  return `/create/${t.gvr.replace(/\//g, '~')}?template=${encodeURIComponent(id)}&namespace=${encodeURIComponent(namespace)}`;
+  return `/create/${t.gvr.replace(/\//g, '~')}?template=${encodeURIComponent(id)}&ns=${encodeURIComponent(namespace)}`;
 }

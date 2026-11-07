@@ -158,9 +158,10 @@ describe('CreateView', () => {
     renderCreateView({ gvrKey: 'apps/v1/deployments' }, '/create/apps~v1~deployments');
     expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Create Deployment']);
     const back = screen.getByRole('link', { name: 'Back to Deployments' });
-    expect(back.getAttribute('href')).toBe('/r/apps~v1~deployments');
+    // The namespace scope (`default` here) carries to the list.
+    expect(back.getAttribute('href')).toBe('/r/apps~v1~deployments?ns=default');
     expect(fireEvent.click(back)).toBe(false);
-    expect(navigateMock).toHaveBeenCalledWith('/r/apps~v1~deployments');
+    expect(navigateMock).toHaveBeenCalledWith('/r/apps~v1~deployments?ns=default');
   });
 
   it('?namespace= filters the header: namespace badge and list link', () => {

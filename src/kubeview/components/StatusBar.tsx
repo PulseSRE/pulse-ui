@@ -21,7 +21,8 @@ export function StatusBar() {
   } = useUIStore(useShallow((s) => ({
     connectionStatus: s.connectionStatus,
     lastSyncTime: s.lastSyncTime,
-    selectedNamespace: s.selectedNamespace,
+    // On a page that shows every namespace the scope does not apply.
+    selectedNamespace: s.namespaceScopeOptOuts > 0 ? '*' : s.selectedNamespace,
     activeOperation: s.activeOperation,
     tabs: s.tabs,
     aiSidebarExpanded: s.aiSidebarExpanded,

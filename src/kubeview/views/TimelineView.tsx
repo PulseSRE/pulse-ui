@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { resourceDetailUrl } from '../engine/gvr';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useIncidentTimeline, TIME_RANGE_MS, CLUSTER_EVENTS_CAP, type TimeRange } from '../hooks/useIncidentTimeline';
 import { bucketEntries } from '../engine/timeline';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -43,7 +44,7 @@ const CATEGORY_CONFIG: Record<TimelineCategory, { label: string; icon: React.Ele
 
 export default function TimelineView() {
   const go = useNavigateTab();
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   // URL-persisted state, written through the router

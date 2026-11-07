@@ -68,7 +68,7 @@ describe('/deps redirects to /topology', () => {
   it('opens /topology focused on the resource', async () => {
     renderAt('/deps/apps~v1~deployments/shop/web');
     await waitFor(() => expect(screen.getByTestId('where').textContent)
-      .toBe('/topology?namespace=shop&focus=Deployment%2Fshop%2Fweb'));
+      .toBe('/topology?ns=shop&focus=Deployment%2Fshop%2Fweb'));
     expect(await screen.findByRole('heading', { name: 'Topology' })).toBeDefined();
   });
 
@@ -103,7 +103,8 @@ describe('/deps redirects to /topology', () => {
     expect(nf.textContent).toMatch(/Looked on cluster Local Cluster/);
     expect(screen.getByRole('link', { name: 'Open Deployment gone' }).getAttribute('href')).toBe('/r/apps~v1~deployments/shop/gone');
     const all = screen.getByRole('link', { name: 'Show all of shop' });
-    expect(all.getAttribute('href')).toBe('/topology?namespace=shop');
+    // Dropping the focus keeps the namespace scope.
+    expect(all.getAttribute('href')).toBe('/topology?ns=shop');
     fireEvent.click(all);
     await waitFor(() => expect(screen.queryByTestId('not-found')).toBeNull());
   });

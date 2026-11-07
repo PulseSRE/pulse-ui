@@ -15,6 +15,7 @@ import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
 import { LoadError } from '../../components/primitives/LoadError';
 import { useUIStore } from '../../store/uiStore';
+import { useNamespaceScope } from '../../hooks/useNamespaceScope';
 import { useMonitorStore } from '../../store/monitorStore';
 import { useAgentStore } from '../../store/agentStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
@@ -42,7 +43,7 @@ async function fetchPostmortems(): Promise<{ postmortems: Postmortem[]; total: n
 
 export function ActivityTab() {
   const go = useNavigateTab();
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   const [searchQuery, setSearchQuery] = useState('');

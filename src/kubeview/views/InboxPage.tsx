@@ -20,6 +20,7 @@ import { TaskDetailDrawer } from './inbox/TaskDetailDrawer';
 import { ActivityTab } from './incidents/ActivityTab';
 import type { InboxItem as InboxItemType } from '../engine/inboxApi';
 import { fetchInboxItem } from '../engine/inboxApi';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 
 export function InboxPage() {
   const [newTaskOpen, setNewTaskOpen] = useState(false);
@@ -27,6 +28,8 @@ export function InboxPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const didRestoreRef = useRef(false);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'inbox');
+  // The inbox and approvals list every namespace; only Activity is scoped.
+  useNamespaceScope({ applies: activeTab === 'activity' });
 
   const items = useInboxStore((s) => s.items);
   const groups = useInboxStore((s) => s.groups);
@@ -157,9 +160,9 @@ export function InboxPage() {
         <TabsContent value="inbox" className="flex-1 flex flex-col overflow-hidden">
           {/* What Pulse cannot currently see, before the queue of what it can. */}
           <CapabilityBanner className="mx-4 mt-3" />
+          <InboxPresets className="px-4 pt-3" />
           {/* Open episodes sit above the queue: a cause with its symptoms
               folded under it, so the list is not read cause-last. */}
-          <InboxPresets className="px-4 pt-3" />
           <EpisodePanel />
           {collapsedIntoEpisodes > 0 && (
             <p className="px-4 pt-2 text-xs text-slate-500">

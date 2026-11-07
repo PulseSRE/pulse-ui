@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DegradedReason } from '../engine/degradedMode';
 import { isKnownRoute } from '../engine/routeTable';
+import { stripNamespaceScope, stripNamespaceScopeFromWindow } from '../engine/namespaceScope';
 
 export interface Tab {
   id: string;
@@ -170,9 +171,19 @@ interface UIState {
   setLastSyncTime: (time: number) => void;
   setActiveWatches: (count: number) => void;
 
-  // Namespace
+  // Namespace scope. The URL's `?ns=` is the source (see useNamespaceScope);
+  // this mirrors it for readers outside the page and across navigation.
   selectedNamespace: string;
+  /** The cluster `selectedNamespace` (and any `?ns=` in tab paths) belongs to. */
+  scopeClusterId: string;
   setSelectedNamespace: (ns: string) => void;
+  /** A cluster switch: all namespaces, and no tab keeps the old cluster's `?ns=`. */
+  resetNamespaceScope: (clusterId: string) => void;
+  /** Mounted pages that scope by namespace / that show all namespaces whatever the picker says. */
+  namespaceScopeUsers: number;
+  namespaceScopeOptOuts: number;
+  /** Count one page as scoped (`applies`) or not; returns the release. */
+  registerNamespaceScope: (applies: boolean) => () => void;
 
   // Status bar operation
   activeOperation: string | null;
@@ -220,12 +231,36 @@ const MAX_VISIBLE_TOASTS = 3;
 const SYSTEM_TOAST_COOLDOWN = 300_000; // 5min cooldown for system-tier toasts
 const _systemToastHistory = new Map<string, { count: number; lastShown: number }>();
 
+/**
+ * Tabs without the namespace scope, which names a namespace on one cluster.
+ * A title that named the scope ("Pods (payments)") loses it; tabs that become
+ * the same page collapse into one (the active or pinned one is kept).
+ */
+export function dropTabScopes(tabs: Tab[], activeTabId: string): Tab[] {
+  const stripped = tabs.map((tab) => {
+    const path = stripNamespaceScope(tab.path);
+    if (path === tab.path) return tab;
+    const ns = new URLSearchParams(tab.path.split(/[?#]/)[1] ?? '').get('ns') ?? new URLSearchParams(tab.path.split(/[?#]/)[1] ?? '').get('namespace');
+    const suffix = ns ? ` (${ns})` : '';
+    const title = suffix && tab.title.endsWith(suffix) ? tab.title.slice(0, -suffix.length) : tab.title;
+    return { ...tab, path, title };
+  });
+  const keep = new Map<string, Tab>();
+  for (const tab of stripped) {
+    const key = tabKey(tab.path);
+    const held = keep.get(key);
+    if (!held || (!held.pinned && (tab.pinned || tab.id === activeTabId))) keep.set(key, tab);
+  }
+  const kept = new Set([...keep.values()].map((t) => t.id));
+  return stripped.filter((t) => kept.has(t.id));
+}
+
 export const useUIStore = create<UIState>()(
   persist<
     UIState,
     [],
     [],
-    Pick<UIState, 'tabs' | 'activeTabId' | 'selectedNamespace' | 'aiSidebarExpanded' | 'aiSidebarWidth' | 'bottomDockHeight'>
+    Pick<UIState, 'tabs' | 'activeTabId' | 'selectedNamespace' | 'scopeClusterId' | 'aiSidebarExpanded' | 'aiSidebarWidth' | 'bottomDockHeight'>
   >(
     (set, get) => ({
       // Tabs - default state
@@ -450,7 +485,23 @@ export const useUIStore = create<UIState>()(
 
       // Namespace
       selectedNamespace: '*',
-      setSelectedNamespace: (ns) => set({ selectedNamespace: ns }),
+      // Set when a namespace is chosen (and on load); the initial scope is all
+      // namespaces, which needs no cluster. Not read at import time, so the
+      // store does not depend on the connection registry being ready.
+      scopeClusterId: '',
+      setSelectedNamespace: (ns) => set({ selectedNamespace: ns, scopeClusterId: getActiveClusterId() }),
+      resetNamespaceScope: (clusterId) => set((state) => ({
+        selectedNamespace: '*',
+        scopeClusterId: clusterId,
+        tabs: dropTabScopes(state.tabs, state.activeTabId),
+      })),
+      namespaceScopeUsers: 0,
+      namespaceScopeOptOuts: 0,
+      registerNamespaceScope: (applies) => {
+        const field = applies ? 'namespaceScopeUsers' : 'namespaceScopeOptOuts';
+        set((state) => ({ [field]: state[field] + 1 }));
+        return () => set((state) => ({ [field]: Math.max(0, state[field] - 1) }));
+      },
 
       // Status bar operation
       activeOperation: null,
@@ -491,6 +542,7 @@ export const useUIStore = create<UIState>()(
         tabs: state.tabs,
         activeTabId: state.activeTabId,
         selectedNamespace: state.selectedNamespace,
+        scopeClusterId: state.scopeClusterId,
         aiSidebarExpanded: state.aiSidebarExpanded,
         aiSidebarWidth: state.aiSidebarWidth,
         bottomDockHeight: state.bottomDockHeight,
@@ -534,10 +586,18 @@ export const useUIStore = create<UIState>()(
         // The restored active tab counts as just used, so the cap never closes it later.
         const stamp = nextActivation();
         const stamped = tabs.map((t) => (t.id === activeTabId ? { ...t, lastActive: stamp } : t));
+        // A reload starts on the local cluster. A scope saved on another
+        // cluster (or by a version that did not record one) names that
+        // cluster's namespaces: drop it, from the tabs and the URL too.
+        const saved = persisted as Partial<Pick<UIState, 'selectedNamespace' | 'scopeClusterId'>>;
+        const scopeMatches = saved.scopeClusterId === getActiveClusterId();
+        if (!scopeMatches) stripNamespaceScopeFromWindow();
         return {
           ...current,
           ...persistedState,
-          tabs: capTabs(stamped, activeTabId),
+          selectedNamespace: scopeMatches ? saved.selectedNamespace ?? '*' : '*',
+          scopeClusterId: getActiveClusterId(),
+          tabs: capTabs(scopeMatches ? stamped : dropTabScopes(stamped, activeTabId), activeTabId),
           activeTabId,
         };
       },

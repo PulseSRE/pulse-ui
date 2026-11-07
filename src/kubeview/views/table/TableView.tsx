@@ -3,6 +3,7 @@ import { createPathFor } from '../../engine/routeTable';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSearchParamUpdater } from '../../components/primitives/Tabs';
+import { useNamespaceScope } from '../../hooks/useNamespaceScope';
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 import { useK8sListWatch } from '../../hooks/useK8sListWatch';
@@ -64,29 +65,14 @@ export function compareValues(aValue: unknown, bValue: unknown, sortType?: 'stri
   return String(aValue).localeCompare(String(bValue));
 }
 
-const NAMESPACE_PARAM_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-
 export default function TableView({ gvrKey, namespace: namespaceProp }: TableViewProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const resourceRegistry = useClusterStore((s) => s.resourceRegistry);
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
-  const setSelectedNamespace = useUIStore((s) => s.setSelectedNamespace);
   const addTab = useUIStore((s) => s.addTab);
 
-  // `?ns=<namespace>` (detail breadcrumbs, agent dashboards, resource_counts
-  // cards) selects the namespace. It is applied to the global selector, then
-  // dropped from the URL so the selector stays the one source afterwards.
   const [searchParams] = useSearchParams();
   const updateSearch = useSearchParamUpdater();
-  const rawNsParam = searchParams.get('ns');
-  const nsParam = rawNsParam && (rawNsParam === '*' || NAMESPACE_PARAM_RE.test(rawNsParam)) ? rawNsParam : null;
-  React.useEffect(() => {
-    if (rawNsParam === null) return;
-    if (nsParam) setSelectedNamespace(nsParam);
-    updateSearch((next) => next.delete('ns'));
-  }, [rawNsParam, nsParam, setSelectedNamespace, updateSearch]);
-  const effectiveSelectedNamespace = nsParam ?? selectedNamespace;
 
   // --- Resource type detection ---
   const resourceType = resourceRegistry?.get(gvrKey)
@@ -94,7 +80,17 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   const resourceName = gvrKey.split('/').pop() || '';
   const likelyClusterScoped = resourceName.startsWith('cluster') || resourceName === 'nodes' || resourceName === 'namespaces' || resourceName === 'persistentvolumes' || resourceName.includes('customresourcedefinition');
   const isNamespaced = resourceType?.namespaced ?? !likelyClusterScoped;
-  const activeNamespace = namespaceProp ?? (isNamespaced && effectiveSelectedNamespace !== '*' ? effectiveSelectedNamespace : undefined);
+  // The namespace scope is the URL's `?ns=` (detail breadcrumbs, agent
+  // dashboards and resource_counts cards link with it). A cluster-scoped list
+  // shows everything, and the picker says so. Until discovery says whether
+  // the kind is namespaced the guess above only picks what to list: the
+  // scope is not synced or written, and the picker is not greyed.
+  const discoveryFailed = useClusterStore((s) => !!s.discoveryError);
+  const { namespace: scopedNamespace, setNamespace: setScopedNamespace } = useNamespaceScope({
+    applies: isNamespaced && namespaceProp === undefined,
+    ready: !!resourceRegistry || discoveryFailed,
+  });
+  const activeNamespace = namespaceProp ?? (isNamespaced && scopedNamespace !== '*' ? scopedNamespace : undefined);
 
   // --- API path ---
   const apiPath = React.useMemo(() => {
@@ -548,8 +544,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         onToggleExport={() => actions.setShowExport(!actions.showExport)}
         onExport={(format) => { actions.handleExport(format); actions.setShowExport(false); }}
         onToggleNamespace={() => {
-          const next = activeNamespace ? '*' : 'default';
-          useUIStore.getState().setSelectedNamespace(next);
+          setScopedNamespace(activeNamespace ? '*' : 'default');
         }}
       />
 

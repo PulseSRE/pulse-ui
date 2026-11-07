@@ -38,6 +38,7 @@ import type { NodeDetail, PrometheusResult } from './compute/types';
 import { useActiveClusterId } from '../hooks/useClusterBase';
 import { LoadError } from '../components/primitives/LoadError';
 import type { MachineReads, ReadFailure } from './compute/MachineManagement';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 
 /** Stable empty list, so memos over an unread list do not recompute every render. */
 const NONE: never[] = [];
@@ -45,6 +46,8 @@ const NONE: never[] = [];
 const COMPUTE_TABS = ['overview', 'capacity'] as const;
 
 export default function ComputeView() {
+  // Not scoped by namespace: the picker says "All namespaces on this page".
+  useNamespaceScope({ applies: false });
   const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const { actions: nodeMapActions, dialogs: nodeMapDialogs } = useNodeMapActions();

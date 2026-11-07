@@ -24,6 +24,7 @@ import { Card } from '../components/primitives/Card';
 import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from '../engine/clusterAdmins';
 import { createTemplateUrl } from '../engine/createTemplates';
 import { useActiveClusterId } from '../hooks/useClusterBase';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { AskPulsePrompts } from '../components/agent/AskPulseButton';
 
 interface SecurityAuditCheck {
@@ -41,6 +42,8 @@ interface SecurityAuditCheck {
 
 
 export default function SecurityView() {
+  // Not scoped by namespace: the picker says "All namespaces on this page".
+  useNamespaceScope({ applies: false });
   const clusterId = useActiveClusterId();
   const go = useNavigateTab();
   const isHyperShift = useClusterStore((s) => s.isHyperShift);

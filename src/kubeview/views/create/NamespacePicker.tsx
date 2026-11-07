@@ -3,14 +3,18 @@
  * picks one; nothing silently lands in `default`.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useNamespaceScopeValue } from '../../hooks/useNamespaceScope';
 import { k8sList } from '../../engine/query';
 import { useFleetStore } from '../../store/fleetStore';
-import { useUIStore } from '../../store/uiStore';
 import type { K8sResource } from '../../engine/renderers';
 
-/** The namespace the global selector names, or '' when it is "all namespaces". */
+/**
+ * The namespace the scope names, or '' for all namespaces. Resolved like
+ * `useNamespaceScope` (the URL first, never another cluster's scope), so it
+ * is right on the first render, which seeds the form.
+ */
 export function useInitialNamespace(): string {
-  const selected = useUIStore((s) => s.selectedNamespace);
+  const selected = useNamespaceScopeValue();
   return selected && selected !== '*' ? selected : '';
 }
 

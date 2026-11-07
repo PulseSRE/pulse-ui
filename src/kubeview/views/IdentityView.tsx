@@ -16,6 +16,7 @@ import type {
 } from '../engine/types';
 import { formatRelative } from '../engine/format';
 import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useKubeadminSecret, KUBEADMIN_SECRET_QUERY_KEY, type KubeadminStatus } from '../hooks/useKubeadminSecret';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useTabParam } from '../components/primitives/Tabs';
@@ -117,7 +118,7 @@ export default function IdentityView() {
   const addToast = useUIStore((s) => s.addToast);
   const impersonateUser = useUIStore((s) => s.impersonateUser);
   const setImpersonation = useUIStore((s) => s.setImpersonation);
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
 
   const [activeTab, setActiveTab] = useTabParam<TabId>(TAB_IDS, 'users');
@@ -335,7 +336,7 @@ export default function IdentityView() {
           </div>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input aria-label="Search"
+            <input aria-label="Search users and groups"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

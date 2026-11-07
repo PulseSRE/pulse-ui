@@ -27,11 +27,14 @@ import { SyncHistoryTab } from './argocd/SyncHistoryTab';
 import { DriftTab } from './argocd/DriftTab';
 import { ProjectsTab } from './argocd/ProjectsTab';
 import { RolloutsTab } from './argocd/RolloutsTab';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 
 type Tab = 'applications' | 'history' | 'drift' | 'projects' | 'rollouts';
 const ARGO_TABS: readonly Tab[] = ['applications', 'history', 'drift', 'projects', 'rollouts'];
 
 export default function ArgoCDView() {
+  // Not scoped by namespace: the picker says "All namespaces on this page".
+  useNamespaceScope({ applies: false });
   const go = useNavigateTab();
   const addToast = useUIStore((s) => s.addToast);
   const { available, detecting, applications, applicationsLoading, namespace } = useArgoCD();
