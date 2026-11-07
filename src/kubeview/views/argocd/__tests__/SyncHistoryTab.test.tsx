@@ -13,8 +13,9 @@ vi.mock('../../../engine/gitUtils', () => ({
   buildCommitUrl: (repoURL: string, revision: string) => `${repoURL}/commit/${revision}`,
 }));
 
-vi.mock('../../../engine/dateUtils', () => ({
-  timeAgo: () => '5m ago',
+vi.mock('../../../engine/format', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../engine/format')>()),
+  formatRelative: () => '5m ago',
 }));
 
 import { SyncHistoryTab } from '../SyncHistoryTab';

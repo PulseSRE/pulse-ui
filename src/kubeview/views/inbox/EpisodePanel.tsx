@@ -4,7 +4,7 @@ import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, U
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
 import { showErrorToast } from '../../engine/errorToast';
-import { formatElapsed, formatShortDuration } from '../../engine/dateUtils';
+import { formatElapsed, formatShortDuration } from '../../engine/format';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { useInboxStore } from '../../store/inboxStore';
 import { LoadError } from '../../components/primitives/LoadError';

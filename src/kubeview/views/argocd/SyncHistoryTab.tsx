@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import type { ArgoApplication, ArgoSyncHistoryEntry } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { buildCommitUrl } from '../../engine/gitUtils';
-import { timeAgo } from '../../engine/dateUtils';
+import { formatRelative, formatTimestamp } from '../../engine/format';
 
 interface SyncHistoryTabProps {
   applications: ArgoApplication[];
@@ -50,7 +50,7 @@ export function SyncHistoryTab({ applications, go }: SyncHistoryTabProps) {
         {allHistory.slice(0, 50).map((entry, i) => {
           const shortSha = entry.revision?.slice(0, 7);
           const deployedAt = new Date(entry.deployedAt);
-          const ago = timeAgo(entry.deployedAt);
+          const ago = formatRelative(entry.deployedAt);
           const commitUrl = entry.repoURL && entry.revision
             ? buildCommitUrl(entry.repoURL, entry.revision)
             : null;
@@ -82,7 +82,7 @@ export function SyncHistoryTab({ applications, go }: SyncHistoryTabProps) {
               </div>
               <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
                 <Clock className="w-3 h-3" />
-                <span title={deployedAt.toLocaleString()}>{ago}</span>
+                <span title={formatTimestamp(deployedAt)}>{ago}</span>
               </div>
             </div>
           );

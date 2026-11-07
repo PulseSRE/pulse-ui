@@ -6,6 +6,7 @@
 import type { K8sResource } from './renderers/index';
 import type { PersistentVolumeClaim } from './types';
 import { checkAuth } from './safeQuery';
+import { formatDate } from './format';
 
 export interface Diagnosis {
   severity: 'critical' | 'warning' | 'info';
@@ -400,7 +401,7 @@ function diagnoseCertificate(resource: K8sResource): Diagnosis[] {
       diagnoses.push({
         severity: 'critical',
         title: 'Certificate has expired',
-        detail: `Certificate expired on ${expiryDate.toLocaleDateString()}`,
+        detail: `Certificate expired on ${formatDate(expiryDate)}`,
         suggestion: 'Renew the certificate immediately to restore functionality.',
       });
     } else if (daysUntilExpiry < 7) {

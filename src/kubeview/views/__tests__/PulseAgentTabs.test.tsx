@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 /**
  * Pulse Agent tab routing with the panels stubbed: every `?tab=` id lands on
- * its tab, the session's last tab is reopened, and a `?drawer=` link opens
- * Overview rather than the remembered tab.
+ * its tab, a bare `/agent` opens Overview (so a shared link is the same for
+ * everyone) with the session's last tab offered as a "Resume" chip, and a
+ * `?drawer=` link opens Overview with no chip.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 
 const { panel } = vi.hoisted(() => ({
@@ -54,11 +55,25 @@ describe('Pulse Agent tabs', () => {
     expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true');
   });
 
-  it('reopens the session\'s last tab when the URL names none, writing it to the URL', async () => {
+  it('a bare /agent opens Overview, and offers the session\'s last tab instead of jumping to it', async () => {
     sessionStorage.setItem('agent-tab', 'mcp');
     renderAt('/agent');
+    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('where').textContent).toBe('/agent');
+    fireEvent.click(screen.getByRole('button', { name: 'Resume MCP' }));
     await waitFor(() => expect(screen.getByRole('tab', { name: 'MCP' }).getAttribute('aria-selected')).toBe('true'));
     expect(screen.getByTestId('where').textContent).toBe('/agent?tab=mcp');
+    expect(screen.queryByRole('button', { name: /^Resume/ })).toBeNull();
+  });
+
+  it('offers no Resume chip when the last tab was Overview or the URL names a tab', () => {
+    sessionStorage.setItem('agent-tab', 'overview');
+    renderAt('/agent');
+    expect(screen.queryByRole('button', { name: /^Resume/ })).toBeNull();
+    cleanup();
+    sessionStorage.setItem('agent-tab', 'usage');
+    renderAt('/agent?tab=skills');
+    expect(screen.queryByRole('button', { name: /^Resume/ })).toBeNull();
   });
 
   it('a ?drawer= link opens Overview, not the tab remembered from this session', async () => {
@@ -67,5 +82,6 @@ describe('Pulse Agent tabs', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByTestId('where').textContent).toBe('/agent?drawer=scanners');
+    expect(screen.queryByRole('button', { name: /^Resume/ })).toBeNull();
   });
 });

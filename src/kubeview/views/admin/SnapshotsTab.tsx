@@ -12,6 +12,7 @@ import { Panel } from '../../components/primitives/Panel';
 import { Card } from '../../components/primitives/Card';
 import { type ClusterSnapshot, type DiffRow, loadSnapshots, saveSnapshots, captureSnapshot, compareSnapshots } from '../../engine/snapshot';
 import { showErrorToast } from '../../engine/errorToast';
+import { formatTimestamp } from '../../engine/format';
 
 export function SnapshotsTab() {
   const addToast = useUIStore((s) => s.addToast);
@@ -164,9 +165,9 @@ export function SnapshotsTab() {
               <div key={snap.id} className="flex items-center gap-3 p-2 rounded-sm hover:bg-slate-800/50">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-200 font-medium">{snap.label}</div>
-                  <div className="text-xs text-slate-500">{new Date(snap.timestamp).toLocaleString()} \u00b7 v{snap.clusterVersion} \u00b7 {snap.unavailable?.includes('nodes') ? '? nodes' : `${snap.nodes.count} nodes`} \u00b7 {snap.unavailable?.includes('crds') ? '? CRDs' : `${snap.crds.length} CRDs`}{snap.unavailable?.length ? ` \u00b7 ${snap.unavailable.length} source${snap.unavailable.length !== 1 ? 's' : ''} unreadable` : ''}</div>
+                  <div className="text-xs text-slate-500">{formatTimestamp(snap.timestamp)} \u00b7 v{snap.clusterVersion} \u00b7 {snap.unavailable?.includes('nodes') ? '? nodes' : `${snap.nodes.count} nodes`} \u00b7 {snap.unavailable?.includes('crds') ? '? CRDs' : `${snap.crds.length} CRDs`}{snap.unavailable?.length ? ` \u00b7 ${snap.unavailable.length} source${snap.unavailable.length !== 1 ? 's' : ''} unreadable` : ''}</div>
                 </div>
-                <select value={compareLeft === snap.id ? 'left' : compareRight === snap.id ? 'right' : ''} onChange={(e) => {
+                <select aria-label={`Compare ${snap.label} as`} value={compareLeft === snap.id ? 'left' : compareRight === snap.id ? 'right' : ''} onChange={(e) => {
                   if (e.target.value === 'left') { setCompareLeft(snap.id); if (compareRight === snap.id) setCompareRight(''); }
                   else if (e.target.value === 'right') { setCompareRight(snap.id); if (compareLeft === snap.id) setCompareLeft(''); }
                   else { if (compareLeft === snap.id) setCompareLeft(''); if (compareRight === snap.id) setCompareRight(''); }

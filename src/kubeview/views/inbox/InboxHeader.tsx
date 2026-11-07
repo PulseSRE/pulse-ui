@@ -7,35 +7,11 @@ import { useInboxStore } from '../../store/inboxStore';
 import { InboxResetButton } from './InboxResetButton';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
 
-type Preset = 'needs_attention' | 'agent_cleared' | 'my_items' | 'archived' | 'all';
-
-const PRESETS: Array<{ id: Preset; label: string; countKey: string }> = [
-  { id: 'needs_attention', label: 'Needs Attention', countKey: 'needs_attention' },
-  { id: 'agent_cleared', label: 'Agent Cleared', countKey: 'agent_cleared' },
-  { id: 'my_items', label: 'My Items', countKey: 'claimed' },
-  { id: 'archived', label: 'Archived', countKey: 'archived' },
-  { id: 'all', label: 'All', countKey: 'total' },
-];
-
 const SEVERITY_BADGES: Array<{ key: string; label: string; color: string }> = [
   { key: 'critical', label: 'Critical', color: 'bg-red-500/15 text-red-400' },
   { key: 'warning', label: 'Warning', color: 'bg-yellow-500/15 text-yellow-400' },
   { key: 'info', label: 'Info', color: 'bg-blue-500/15 text-blue-400' },
 ];
-
-/**
- * The agent falls back to `user-<16 hex>` when it cannot resolve a real name —
- * a stable, unforgeable identity, and exactly the right thing to key data on.
- * It is not a thing to show a person. Observed live: the filter pill read
- * "My Items (user-5451b787f74974ba)", which tells the reader nothing they did
- * not already know and costs half the pill's width to say it.
- */
-const OPAQUE_IDENTITY = /^user-[0-9a-f]{16}$/;
-
-function myItemsLabel(currentUser: string | null | undefined): string {
-  if (!currentUser || OPAQUE_IDENTITY.test(currentUser)) return 'My Items';
-  return `My Items (${currentUser})`;
-}
 
 export function InboxHeader({
   onNewTask,
@@ -43,9 +19,6 @@ export function InboxHeader({
   onNewTask: () => void;
 }) {
   const stats = useInboxStore((s) => s.stats);
-  const activePreset = useInboxStore((s) => s.activePreset);
-  const setPreset = useInboxStore((s) => s.setPreset);
-  const currentUser = useInboxStore((s) => s.currentUser);
 
   const newCount = stats.new ?? 0;
   const totalOpen = stats.needs_attention ?? 0;
@@ -55,7 +28,6 @@ export function InboxHeader({
   return (
     <div className="px-4 py-3 border-b border-slate-800">
       <PageHeader
-        className="mb-3"
         icon={<Inbox className="w-6 h-6 text-blue-400" />}
         title="Inbox"
         subtitle="Findings, tasks and approvals that need a person"
@@ -65,8 +37,8 @@ export function InboxHeader({
               {newCount} new
             </Badge>
           )}
-          {/* The needs-attention count is the "Needs Attention" filter below;
-              only the deduplicated figure, which says something new, is here. */}
+          {/* The needs-attention count is on the "Needs Attention" filter in the
+              Inbox tab; only the deduplicated figure, which says something new, is here. */}
           {(stats.unique_issues ?? 0) > 0 && (stats.unique_issues ?? 0) < totalOpen && (
             <span className="text-xs text-slate-500">{stats.unique_issues} unique issues</span>
           )}
@@ -101,36 +73,6 @@ export function InboxHeader({
           </Button>
         </>}
       />
-
-      <div className="flex items-center gap-2" role="group" aria-label="Quick filters">
-        {PRESETS.map((preset) => {
-          const count = stats[preset.countKey] ?? 0;
-          const isActive = activePreset === preset.id;
-          return (
-            <button
-              key={preset.id}
-              onClick={() => setPreset(isActive ? null : preset.id)}
-              aria-pressed={isActive}
-              className={cn(
-                'px-3 py-1.5 text-xs rounded-full transition-colors inline-flex items-center gap-1.5',
-                isActive
-                  ? 'bg-blue-600/20 text-blue-200'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-300',
-              )}
-            >
-              {preset.id === 'my_items' ? myItemsLabel(currentUser) : preset.label}
-              {count > 0 && (
-                <span className={cn(
-                  'px-1.5 py-0.5 rounded-full text-[10px] font-semibold leading-none',
-                  isActive ? 'bg-white/20' : 'bg-slate-700 text-slate-300',
-                )}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }

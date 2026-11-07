@@ -52,7 +52,7 @@ import { RemoteMetricsNotice } from '../components/metrics/RemoteMetricsNotice';
 import { OpenEpisodeBanner } from './pulse/OpenEpisodeBanner';
 import { ReportTab } from './pulse/ReportTab';
 import { FleetReportTab } from './pulse/FleetReportTab';
-import { formatRelativeTime } from '../engine/formatters';
+import { formatRelative } from '../engine/format';
 
 const ClusterResourceMap = lazy(() => import('../components/topology/TopologyMap'));
 import { MAP_HEIGHT } from '../components/topology/WorldMap';
@@ -129,7 +129,7 @@ function ClusterPostureBar({
   else if (!lastScanTime || alertsUnknown) level = 'unknown';
 
   const scanLabel = lastScanTime
-    ? `Last scan: ${formatRelativeTime(lastScanTime)}`
+    ? `Last scan: ${formatRelative(lastScanTime)}`
     : 'No scan yet';
 
   // Geometry, icon sizing and the Investigate affordance come from

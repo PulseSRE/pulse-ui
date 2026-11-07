@@ -5,7 +5,7 @@ import { useUIStore } from '../store/uiStore';
 import { LoadError } from './primitives/LoadError';
 import { loadStatus } from './primitives/QueryState';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
-import { formatAge } from '../engine/dateUtils';
+import { formatRelative } from '../engine/format';
 import type { Event } from '../engine/types';
 import { useNodeDebugClose } from './useNodeDebugClose';
 
@@ -210,7 +210,7 @@ function EventStream() {
             const ns = evt.involvedObject?.namespace || evt.metadata?.namespace || '';
             const message = (evt.message || '').slice(0, 120);
             const ts = evt.lastTimestamp || evt.metadata?.creationTimestamp;
-            const age = ts ? formatAge(new Date(ts)) : '';
+            const age = ts ? formatRelative(new Date(ts)) : '';
             const isWarning = type === 'Warning';
 
             return (

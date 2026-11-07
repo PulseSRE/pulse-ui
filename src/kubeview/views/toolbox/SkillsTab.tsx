@@ -197,7 +197,7 @@ export function SkillsTab() {
           Test Routing
         </h3>
         <div className="flex gap-2">
-          <input
+          <input aria-label="Test query"
             value={testQuery}
             onChange={(e) => setTestQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && testRouting()}

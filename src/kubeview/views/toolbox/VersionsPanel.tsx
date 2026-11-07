@@ -1,5 +1,6 @@
 import { History, GitCompareArrows } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatTimestamp } from '../../engine/format';
 
 export interface VersionEntry {
   version: number;
@@ -33,7 +34,7 @@ export function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; 
               {v.current && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-400 rounded-sm">current</span>}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
-              {new Date(v.timestamp).toLocaleString()}
+              {formatTimestamp(v.timestamp)}
             </div>
           </div>
           {!v.current && i > 0 && (

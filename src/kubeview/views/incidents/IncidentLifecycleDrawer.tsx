@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative } from '../../engine/format';
 import { fetchConfidenceCalibration } from '../../engine/analyticsApi';
 import { verificationStatusLabel } from '../../engine/fixHistory';
 import { actionExecutionStatus, incidentOutcome, recoveryStageStatus, type LifecycleStageStatus } from './incidentOutcome';
@@ -99,7 +99,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 </div>
                 <p className="text-xs text-slate-300">{lifecycle.detection.title}</p>
                 <p className="text-xs text-slate-500">{lifecycle.detection.summary}</p>
-                <span className="text-xs text-slate-600">{formatRelativeTime(lifecycle.detection.timestamp)}</span>
+                <span className="text-xs text-slate-600">{formatRelative(lifecycle.detection.timestamp)}</span>
               </div>
             )}
           </Stage>
@@ -273,7 +273,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   </span>
                 </div>
                 {outcome.evidence ? <p className="text-xs text-slate-400">{outcome.evidence}</p> : <p className="text-xs text-slate-500">No recovery evidence reported for this action.</p>}
-                {outcome.timestamp != null && <p className="text-xs text-slate-500">Checked {formatRelativeTime(outcome.timestamp)}</p>}
+                {outcome.timestamp != null && <p className="text-xs text-slate-500">Checked {formatRelative(outcome.timestamp)}</p>}
                 {lifecycle.learning?.confidence_delta && (
                   <div className="text-xs text-slate-400">
                     Confidence: {Math.round(lifecycle.learning.confidence_delta.before * 100)}%

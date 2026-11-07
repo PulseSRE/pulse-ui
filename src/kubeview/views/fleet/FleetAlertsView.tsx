@@ -13,7 +13,7 @@ import { getAllConnections } from '../../engine/clusterConnection';
 import { getClusterBase } from '../../engine/clusterConnection';
 import { useFleetStore } from '../../store/fleetStore';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
-import { formatDuration } from '../../engine/dateUtils';
+import { formatDurationBetween } from '../../engine/format';
 import { CardHeader, CardBody } from '../../components/primitives/Card';
 import type { FleetAlert } from '../../engine/types/incident';
 import { FleetSubNav } from './FleetSubNav';
@@ -271,7 +271,7 @@ export default function FleetAlertsView() {
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-              <input
+              <input aria-label="Search alerts"
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
@@ -332,7 +332,7 @@ export default function FleetAlertsView() {
                   </td>
                   <td className="px-4 py-3">{sevBadge(alert.severity)}</td>
                   <td className="px-4 py-3 text-sm text-slate-400">{alert.namespace || '-'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{alert.activeAt ? formatDuration(alert.activeAt) : '-'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{alert.activeAt ? formatDurationBetween(alert.activeAt) : '-'}</td>
                   <td className="px-4 py-3">
                     <span className={cn(
                       'text-xs px-1.5 py-0.5 rounded-sm',

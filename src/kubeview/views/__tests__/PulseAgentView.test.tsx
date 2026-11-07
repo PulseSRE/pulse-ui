@@ -101,11 +101,12 @@ describe('PulseAgentView', () => {
     expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('false');
   });
 
-  it('reopens the tab last used in this session when the URL names none', async () => {
+  it('opens Overview when the URL names no tab, even after another tab was used', async () => {
     sessionStorage.setItem('agent-tab', 'components');
     try {
       await renderView('/agent');
-      await waitFor(() => expect(screen.getByRole('tab', { name: 'Components' }).getAttribute('aria-selected')).toBe('true'));
+      expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true');
+      expect(screen.getByRole('button', { name: 'Resume Components' })).toBeTruthy();
     } finally {
       sessionStorage.removeItem('agent-tab');
     }

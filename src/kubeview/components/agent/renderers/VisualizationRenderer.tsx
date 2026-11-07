@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { AgentLink, useAgentLink } from '../AgentLink';
 import { isKnownRoute } from '../../../engine/routeTable';
-import { formatRelativeTime } from '../../../engine/formatters';
+import { formatRelative, formatClock } from '../../../engine/format';
 import { MetricCard as SparklineMetricCard } from '../../metrics/Sparkline';
 import { pickDefaultContainer } from '../../logs/pickDefaultContainer';
 import { k8sFetch } from '../../../engine/query';
@@ -395,7 +395,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
   const timeSpan = timeRange.end - timeRange.start || 1;
   const timeToX = useCallback((ts: number) => LABEL_WIDTH + 10 + ((ts - timeRange.start) / timeSpan) * chartWidth, [timeRange, timeSpan, chartWidth]);
 
-  const formatTime = (ts: number) => new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (ts: number) => formatClock(ts);
 
   const timeMarkers = useMemo(() => {
     const count = Math.min(Math.floor(chartWidth / 100), 8);
@@ -569,7 +569,7 @@ export function AgentTimeline({ spec }: { spec: TimelineSpec }) {
               <div className="text-[10px] text-slate-400 mt-0.5">{hoveredEvent.event.detail}</div>
             )}
             <div className="text-[10px] text-slate-500 mt-1">
-              {formatTime(hoveredEvent.event.timestamp)} ({formatRelativeTime(hoveredEvent.event.timestamp)})
+              {formatTime(hoveredEvent.event.timestamp)} ({formatRelative(hoveredEvent.event.timestamp)})
               {hoveredEvent.event.endTimestamp && ` — ${formatTime(hoveredEvent.event.endTimestamp)}`}
             </div>
           </div>
@@ -758,7 +758,7 @@ export function AgentLogViewer({ spec }: { spec: LogViewerSpec }) {
         </div>
       )}
       <div className="px-3 py-1.5 border-b border-slate-800 flex items-center gap-2">
-        <input
+        <input aria-label="Search logs"
           type="text"
           placeholder="Search logs..."
           value={search}

@@ -23,6 +23,7 @@ import {
   compareVersions, durationMinutes, lastCompletedDuration, minorOf,
   type UpgradeModel, type UpgradeTarget,
 } from '../../engine/upgradeGraph';
+import { formatTimestamp } from '../../engine/format';
 
 const NODE_W = 112;
 const NODE_H = 34;
@@ -517,7 +518,7 @@ function HistoryTimeline({ model }: { model: UpgradeModel }) {
               <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden" aria-hidden>
                 {d != null && <div className={cn('h-full rounded-full', h.state === 'Completed' ? 'bg-emerald-600/70' : 'bg-amber-600/70')} style={{ width: `${Math.max(3, (d / max) * 100)}%` }} />}
               </div>
-              <span className="text-right text-slate-500 font-mono" title={h.startedTime ? new Date(h.startedTime).toLocaleString() : undefined}>
+              <span className="text-right text-slate-500 font-mono" title={h.startedTime ? formatTimestamp(h.startedTime) : undefined}>
                 {d != null ? `${d} min` : running ? '…' : '—'}
               </span>
             </li>

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useNavigateTab } from '../../hooks/useNavigateTab';
 import type { GateStatus, ReadinessGate, GateResult, Waiver } from '../../engine/readiness/types';
 import { AskPulseButton } from '../agent/AskPulseButton';
+import { formatDate as formatDateOnly } from '../../engine/format';
 
 interface GateCardProps {
   gate: ReadinessGate;
@@ -22,7 +23,7 @@ interface GateCardProps {
 }
 
 function formatDate(ms: number): string {
-  return new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatDateOnly(ms);
 }
 
 const STATUS_CONFIG: Record<GateStatus, {

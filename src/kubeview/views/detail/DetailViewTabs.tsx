@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import type { Event, Condition } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
 import { TabsList, TabsTrigger } from '../../components/primitives/Tabs';
+import { formatTimestamp } from '../../engine/format';
 
 export const DETAIL_TABS = ['overview', 'conditions', 'events'] as const;
 export type DetailTab = typeof DETAIL_TABS[number];
@@ -69,7 +70,7 @@ export function ConditionsTable({ conditions }: ConditionsTableProps) {
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-400">{cond.reason || '—'}</td>
                     <td className="px-4 py-2.5 text-xs text-slate-500">
-                      {cond.lastTransitionTime ? new Date(cond.lastTransitionTime).toLocaleString() : '—'}
+                      {formatTimestamp(cond.lastTransitionTime)}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-400 max-w-xs truncate" title={cond.message}>
                       {cond.message || '—'}
@@ -110,7 +111,7 @@ export function EventsList({ events }: EventsListProps) {
                 <div className="flex items-start gap-2">
                   {type === 'Warning' ? <AlertCircle className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
                   <div className="flex-1">
-                    <div className="text-xs text-slate-500 mb-0.5">{timestamp ? new Date(timestamp).toLocaleString() : ''}</div>
+                    <div className="text-xs text-slate-500 mb-0.5">{formatTimestamp(timestamp, '')}</div>
                     <div className="text-xs font-medium text-slate-200">{event.reason}</div>
                     <div className="text-xs text-slate-400 mt-0.5">{event.message}</div>
                   </div>

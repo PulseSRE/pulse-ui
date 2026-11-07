@@ -139,7 +139,7 @@ export function NLFilterBar({ resourceKind, columns, onFiltersApplied }: NLFilte
         ) : (
           <AIIconStatic size={16} className="shrink-0" />
         )}
-        <input
+        <input aria-label="Describe what you're looking for"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

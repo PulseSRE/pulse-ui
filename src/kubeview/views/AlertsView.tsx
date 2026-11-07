@@ -31,6 +31,7 @@ import { suggestSilences, readAlertmanager, createSilence as postSilence, expire
 import { SilenceConfirmDialog, type SilenceProposal } from './alerts/SilenceConfirmDialog';
 import { NamespaceUnhealthyPods, SilenceSuggestionBanner, TriageChip, nodeItem, useAlertTriage, type TriageState } from './alerts/AlertTriage';
 import { AI_ACCENT } from '../components/agent/aiTokens';
+import { formatClock, formatTimestamp } from '../engine/format';
 
 const DISMISSED_SUGGESTIONS_KEY = 'pulse-alerts-dismissed-silence-suggestions';
 
@@ -218,8 +219,8 @@ function LocalAlertsView() {
   const proposalFor = (sg: SilenceSuggestion): SilenceProposal => {
     const item = nodeItem(triage, everyAlert, sg.node);
     const minutes = minutesToCover(item?.dueDate);
-    const due = item?.dueDate ? new Date(item.dueDate * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-    const cordoned = sg.cordonedAt ? ` Node cordoned ${new Date(sg.cordonedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : '';
+    const due = item?.dueDate ? formatClock(item.dueDate * 1000) : null;
+    const cordoned = sg.cordonedAt ? ` Node cordoned ${formatClock(sg.cordonedAt)}.` : '';
     return {
       target: sg.node,
       matchers: sg.matchers,
@@ -599,7 +600,7 @@ function LocalAlertsView() {
           </div>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search alerts..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
+            <input aria-label="Search alerts" type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search alerts..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
           </div>
           {activeTab === 'firing' && (
             <>
@@ -778,14 +779,14 @@ function LocalAlertsView() {
                     <div className="space-y-2">
                       {silenceForm.matchers.map((matcher, idx) => (
                         <div key={idx} className="flex items-center gap-2">
-                          <input
+                          <input aria-label={`Matcher ${idx + 1} label name`}
                             type="text"
                             placeholder="Label name"
                             value={matcher.name}
                             onChange={(e) => updateMatcher(idx, 'name', e.target.value)}
                             className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                           />
-                          <input
+                          <input aria-label={`Matcher ${idx + 1} value`}
                             type="text"
                             placeholder="Value"
                             value={matcher.value}
@@ -860,7 +861,7 @@ function LocalAlertsView() {
                     </div>
                     {silenceForm.startsAt && silenceForm.endsAt && (
                       <p className="text-xs text-slate-500 mt-2">
-                        Ends: {new Date(silenceForm.endsAt).toLocaleString()}
+                        Ends: {formatTimestamp(silenceForm.endsAt)}
                       </p>
                     )}
                   </div>
@@ -868,7 +869,7 @@ function LocalAlertsView() {
                   {/* Comment */}
                   <div>
                     <label className="block text-xs text-slate-400 mb-2">Comment (required)</label>
-                    <textarea
+                    <textarea aria-label="Comment"
                       value={silenceForm.comment}
                       onChange={(e) => setSilenceForm((prev) => ({ ...prev, comment: e.target.value }))}
                       placeholder="Explain why this alert is being silenced..."
@@ -948,8 +949,8 @@ function LocalAlertsView() {
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500">
                         <span>By: {silence.createdBy}</span>
-                        {silence.status.state === 'pending' && <span>Starts: {new Date(silence.startsAt).toLocaleString()}</span>}
-                        <span>{silence.status.state === 'expired' ? 'Ended' : 'Ends'}: {new Date(silence.endsAt).toLocaleString()}</span>
+                        {silence.status.state === 'pending' && <span>Starts: {formatTimestamp(silence.startsAt)}</span>}
+                        <span>{silence.status.state === 'expired' ? 'Ended' : 'Ends'}: {formatTimestamp(silence.endsAt)}</span>
                       </div>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
@@ -987,7 +988,7 @@ function LocalAlertsView() {
           open={!!saveSilence.pending}
           onClose={saveSilence.close}
           title={saveSilence.pending?.target.id ? 'Update silence?' : 'Create silence?'}
-          description={saveSilence.pending ? `${saveSilence.pending.target.id ? 'Replaces the existing silence on' : 'Adds a silence to'} Alertmanager that mutes every alert matching ${describeMatchers(saveSilence.pending.target.matchers)} from ${new Date(saveSilence.pending.target.startsAt).toLocaleString()} until ${new Date(saveSilence.pending.target.endsAt).toLocaleString()}.` : ''}
+          description={saveSilence.pending ? `${saveSilence.pending.target.id ? 'Replaces the existing silence on' : 'Adds a silence to'} Alertmanager that mutes every alert matching ${describeMatchers(saveSilence.pending.target.matchers)} from ${formatTimestamp(saveSilence.pending.target.startsAt)} until ${formatTimestamp(saveSilence.pending.target.endsAt)}.` : ''}
           confirmLabel={saveSilence.pending?.target.id ? 'Update' : 'Create'}
           variant="warning"
           loading={saveSilence.running}

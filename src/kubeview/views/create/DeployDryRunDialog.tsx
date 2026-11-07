@@ -21,7 +21,7 @@ import { useCanI } from '../../hooks/useCanI';
 import { k8sFetch } from '../../engine/query';
 import { assertActiveCluster } from '../../engine/pendingCluster';
 import { errorMessage } from '../../hooks/usePinnedAction';
-import { formatBytes } from '../../engine/format';
+import { formatBytes, formatTime } from '../../engine/format';
 
 function fmtQuantity(resource: string, v: number): string {
   if (/memory|storage/.test(resource)) return formatBytes(v);
@@ -188,7 +188,7 @@ export function DeployDryRunDialog({ clusterId, form, storageClassBinding, quota
       dismissible={phase !== 'creating' && !cleaning}
       size="4xl"
       title={`Create app ${name} in ${ns}?`}
-      description={`${dry.data ? `Dry run at ${new Date(dry.data.at).toLocaleTimeString()}` : 'Dry run'} · ${plan.length} objects · cluster ${clusterName} · ${actingAs}`}
+      description={`${dry.data ? `Dry run at ${formatTime(dry.data.at)}` : 'Dry run'} · ${plan.length} objects · cluster ${clusterName} · ${actingAs}`}
       footer={phase === 'dry-run' || phase === 'creating' ? (
         <>
           <Button variant="ghost" onClick={onClose} disabled={phase === 'creating'}>Back to form</Button>

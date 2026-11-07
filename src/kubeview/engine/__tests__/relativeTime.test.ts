@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { formatRelativeTime } from '../formatters';
+import { formatRelative } from '../format';
 
 /**
  * Two things this got wrong, both visible on the landing page.
  *
- * The status bar rendered `synced {formatRelativeTime(t)} ago` while the
+ * The status bar rendered `synced {formatRelative(t)} ago` while the
  * function already ends in "ago" — "synced 26s ago ago", on every page.
  *
  * And the subtraction was unclamped. The timestamp comes from the agent and
@@ -16,10 +16,10 @@ const NOW = 1_787_000_000_000;
 
 function at(msAgo: number) {
   vi.setSystemTime(NOW);
-  return formatRelativeTime(NOW - msAgo);
+  return formatRelative(NOW - msAgo);
 }
 
-describe('formatRelativeTime', () => {
+describe('formatRelative', () => {
   afterEach(() => vi.useRealTimers());
 
   it('never reports the past as the future', () => {
@@ -44,7 +44,7 @@ describe('formatRelativeTime', () => {
   });
 
   it('already carries its own "ago", so callers must not add one', () => {
-    // The bug was `synced ${formatRelativeTime(t)} ago`. Anything appending to
+    // The bug was `synced ${formatRelative(t)} ago`. Anything appending to
     // this needs to know the word is already there.
     vi.useFakeTimers();
     expect(at(30_000).endsWith('ago')).toBe(true);

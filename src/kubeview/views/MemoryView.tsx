@@ -8,7 +8,7 @@ import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { agentJson } from '../engine/safeQuery';
-import { formatRelativeTime } from '../engine/formatters';
+import { formatRelative } from '../engine/format';
 import ClusterKnowledge from './memory/ClusterKnowledge';
 
 const AGENT_BASE = '/api/agent';
@@ -621,7 +621,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
 
                       {inc.timestamp && !isNaN(Number(inc.timestamp)) && Number(inc.timestamp) > 0 && (
                         <div className="text-xs text-slate-500 mb-2">
-                          {formatRelativeTime(Number(inc.timestamp))}
+                          {formatRelative(Number(inc.timestamp))}
                         </div>
                       )}
 

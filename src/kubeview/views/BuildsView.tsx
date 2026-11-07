@@ -11,7 +11,7 @@ import { useCanI } from '../hooks/useCanI';
 import { useFleetStore } from '../store/fleetStore';
 import { k8sCreate, k8sPatch } from '../engine/query';
 import { Panel } from '../components/primitives/Panel';
-import { formatDuration, timeAgo } from '../engine/dateUtils';
+import { formatDurationBetween, formatRelative } from '../engine/format';
 import type { Build, BuildConfig, ImageStream } from '../engine/types';
 import { Card } from '../components/primitives/Card';
 import { showErrorToast } from '../engine/errorToast';
@@ -337,9 +337,9 @@ export default function BuildsView() {
                 const sourceURI = bc.spec?.source?.git?.uri || '';
                 const key = `${ns}/${name}`;
                 const stats = buildConfigStats.get(key);
-                const avgDuration = stats && stats.count > 0 ? formatDuration('2000-01-01T00:00:00Z', new Date(new Date('2000-01-01T00:00:00Z').getTime() + stats.total / stats.count).toISOString()) : '—';
+                const avgDuration = stats && stats.count > 0 ? formatDurationBetween('2000-01-01T00:00:00Z', new Date(new Date('2000-01-01T00:00:00Z').getTime() + stats.total / stats.count).toISOString()) : '—';
                 const lastBuildPhase = buildsFailed ? 'unknown' : stats?.lastStatus || '—';
-                const lastBuildTime = stats?.lastBuild ? timeAgo(stats.lastBuild) : '—';
+                const lastBuildTime = stats?.lastBuild ? formatRelative(stats.lastBuild) : '—';
 
                 return (
                   <div key={bc.metadata?.uid} className="flex items-center gap-3 py-3 px-1 group">
@@ -401,7 +401,7 @@ export default function BuildsView() {
                     </div>
                     <div className="text-xs text-slate-400 flex items-center gap-1">
                       <Timer className="w-3 h-3" />
-                      {start ? formatDuration(start) : '—'}
+                      {start ? formatDurationBetween(start) : '—'}
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); go(`/logs/${ns}/${name}?container=&kind=Build`, `${name} (Logs)`); }}
@@ -444,8 +444,8 @@ export default function BuildsView() {
                       className="text-slate-500 hover:text-blue-400 transition-colors" title="View Build Logs"
                     ><ScrollText className="w-3.5 h-3.5" /></button>
                     <div className="text-xs text-slate-500 shrink-0 flex items-center gap-2">
-                      <span>{start && end ? formatDuration(start, end) : '—'}</span>
-                      <span>{timeAgo(b.metadata?.creationTimestamp || '')}</span>
+                      <span>{start && end ? formatDurationBetween(start, end) : '—'}</span>
+                      <span>{formatRelative(b.metadata?.creationTimestamp || '')}</span>
                     </div>
                   </div>
                 );
@@ -496,8 +496,8 @@ export default function BuildsView() {
                         </td>
                         <td className="py-2 pr-4 text-slate-500">{ns}</td>
                         <td className="py-2 pr-4 text-slate-500">{strategy}</td>
-                        <td className="py-2 pr-4 text-slate-400 font-mono">{start ? formatDuration(start, end || undefined) : '—'}</td>
-                        <td className="py-2 pr-4 text-slate-500">{timeAgo(b.metadata?.creationTimestamp || '')}</td>
+                        <td className="py-2 pr-4 text-slate-400 font-mono">{start ? formatDurationBetween(start, end || undefined) : '—'}</td>
+                        <td className="py-2 pr-4 text-slate-500">{formatRelative(b.metadata?.creationTimestamp || '')}</td>
                         <td className="py-2 pr-4">
                           <button
                             onClick={(e) => { e.stopPropagation(); go(`/logs/${ns}/${name}?container=&kind=Build`, `${name} (Logs)`); }}

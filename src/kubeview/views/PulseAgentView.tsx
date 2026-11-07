@@ -1,9 +1,9 @@
-import React, { lazy, Suspense, useEffect } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { PageHeader } from '../components/primitives/PageHeader';
 import { useSearchParams } from 'react-router-dom';
 import {
   Bot, List, BarChart3, History, Brain,
-  Puzzle, Layers, Cable, Target, Workflow,
+  Puzzle, Layers, Cable, Target, Workflow, Undo2,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsGroup, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { OverviewTab } from './pulse-agent/OverviewTab';
@@ -74,17 +74,22 @@ function rememberTab(tab: string) {
 }
 
 export default function PulseAgentView() {
-  // `?tab=` wins. Without it, reopen the tab last used in this session.
+  // `?tab=` wins; without it the page opens on Overview, so a shared `/agent`
+  // link shows everyone the same tab. The tab last used in this session is
+  // offered as an explicit "Resume" chip rather than reopened silently.
   const [searchParams, setSearchParams] = useSearchParams();
-  useEffect(() => {
-    // A `?drawer=` link (e.g. an Overview card) means Overview, not the last tab.
-    if (searchParams.has('tab') || searchParams.has('drawer')) return;
+  const [resumeTab, setResumeTab] = useState<AgentTab | null>(() => {
+    if (searchParams.has('tab') || searchParams.has('drawer')) return null;
     const last = readLastTab();
-    if (last && last !== 'overview') {
-      setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('tab', last); return next; }, { replace: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on arrival
-  }, []);
+    return last && last !== 'overview' ? last : null;
+  });
+  const resumeLabel = resumeTab ? TAB_GROUPS.flatMap((g) => g.tabs).find((t) => t.id === resumeTab)?.label : undefined;
+  const resume = () => {
+    if (!resumeTab) return;
+    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set('tab', resumeTab); return next; });
+    setResumeTab(null);
+  };
+  const onTabChange = (tab: string) => { rememberTab(tab); setResumeTab(null); };
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
@@ -93,9 +98,19 @@ export default function PulseAgentView() {
           icon={<Bot className="w-6 h-6 text-violet-400" />}
           title="Pulse Agent"
           subtitle="Configure and observe the agent: tools, skills, runs, usage and memory"
+          actions={resumeLabel ? (
+            <button
+              type="button"
+              onClick={resume}
+              className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-slate-100"
+            >
+              <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Resume {resumeLabel}
+            </button>
+          ) : undefined}
         />
 
-        <Tabs defaultValue="overview" urlSync={{ values: TAB_IDS }} onValueChange={rememberTab} className="space-y-6">
+        <Tabs defaultValue="overview" urlSync={{ values: TAB_IDS }} onValueChange={onTabChange} className="space-y-6">
           <TabsList aria-label="Pulse Agent tabs" className="flex flex-wrap">
             {TAB_GROUPS.map((group, gi) => (
               <TabsGroup key={group.label} label={group.label} divider={gi > 0}>

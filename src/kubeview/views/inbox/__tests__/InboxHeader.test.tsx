@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { InboxHeader } from '../InboxHeader';
+import { InboxPresets } from '../InboxPresets';
 
 // Mutable so a test can vary one field (e.g. currentUser) without restating
 // the whole store.
@@ -32,8 +33,13 @@ describe('InboxHeader', () => {
     expect(screen.getByRole('heading', { name: 'Inbox' })).toBeDefined();
   });
 
-  it('renders preset buttons with aria-pressed', () => {
+  it('leaves the quick filters to the Inbox tab', () => {
     render(<InboxHeader onNewTask={onNewTask} />);
+    expect(screen.queryByRole('group', { name: 'Quick filters' })).toBeNull();
+  });
+
+  it('renders preset buttons with aria-pressed', () => {
+    render(<InboxPresets />);
     const btns = screen.getAllByRole('button', { pressed: false });
     const presetLabels = btns.map((b) => b.textContent).filter((t) => t?.includes('Attention') || t?.includes('Cleared'));
     expect(presetLabels.length).toBeGreaterThanOrEqual(2);
@@ -59,7 +65,7 @@ describe('the My Items pill does not print an identity hash at you', () => {
 
   it('names a real user', () => {
     stateOverride = { currentUser: 'kube:admin' };
-    render(<InboxHeader onNewTask={vi.fn()} />);
+    render(<InboxPresets />);
     expect(screen.getByText(/My Items \(kube:admin\)/)).toBeDefined();
   });
 
@@ -67,20 +73,20 @@ describe('the My Items pill does not print an identity hash at you', () => {
     // Observed live: "My Items (user-5451b787f74974ba)". The hash is the right
     // thing to key data on and the wrong thing to show a person.
     stateOverride = { currentUser: 'user-5451b787f74974ba' };
-    render(<InboxHeader onNewTask={vi.fn()} />);
+    render(<InboxPresets />);
     expect(screen.getByText('My Items')).toBeDefined();
     expect(screen.queryByText(/user-5451b/)).toBeNull();
   });
 
   it('says just My Items when there is no user at all', () => {
     stateOverride = { currentUser: null };
-    render(<InboxHeader onNewTask={vi.fn()} />);
+    render(<InboxPresets />);
     expect(screen.getByText('My Items')).toBeDefined();
   });
 
   it('shows the needs-attention count once, on the Needs Attention filter', () => {
     stateOverride = { stats: { needs_attention: 7, unique_issues: 4 } };
-    render(<InboxHeader onNewTask={vi.fn()} />);
+    render(<><InboxHeader onNewTask={vi.fn()} /><InboxPresets /></>);
     expect(screen.queryByText(/7 open/)).toBeNull();
     expect(screen.getAllByText('7')).toHaveLength(1);
     expect(screen.getByRole('button', { name: /Needs Attention/ }).textContent).toContain('7');

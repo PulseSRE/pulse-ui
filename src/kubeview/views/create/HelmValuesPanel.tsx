@@ -13,6 +13,7 @@ import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { leafPaths, MAX_CHART_ARCHIVE_BYTES, parseValues, readCapped, readChartArchive, schemaHints, yamlLinePaths, type ChartDefaults } from '../../engine/helmManifest';
 import type { StoredChart } from '../../engine/helmChartArchive';
+import { formatCount } from '../../engine/format';
 
 export type DefaultsSource =
   | { from: 'repo'; repoUrl: string; chartUrl?: string; chartName: string; version: string }
@@ -116,7 +117,7 @@ export function HelmValuesPanel({
             <div>
               <div className="text-xs font-semibold text-slate-200">Chart defaults <span className="font-mono font-normal text-slate-500">values.yaml</span></div>
               <div className="text-[11px] text-slate-500">
-                {defaults.status === 'ok' ? `read-only · ${lines.length.toLocaleString()} lines · ${defaults.from}${overridden.size ? ' · lines you override are marked' : ''}` : defaults.status === 'loading' ? 'Loading…' : 'Not available'}
+                {defaults.status === 'ok' ? `read-only · ${formatCount(lines.length)} lines · ${defaults.from}${overridden.size ? ' · lines you override are marked' : ''}` : defaults.status === 'loading' ? 'Loading…' : 'Not available'}
               </div>
             </div>
             {defaults.status === 'ok' && (

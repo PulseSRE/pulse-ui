@@ -1,12 +1,10 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
 import {
   formatAge, formatRelative, formatDurationMs, formatDurationSeconds, formatDurationBetween,
   formatShortDuration, formatElapsed, formatMetricSeconds, formatPromRange, formatBytes,
-  formatBytesIEC, formatTimestamp, formatDate, formatTime, getDateKey, toEpochMs,
+  formatBytesIEC, formatTimestamp, formatDate, formatTime, formatClock, formatCount, toIsoString,
+  getDateKey, toEpochMs,
 } from '../format';
-import { formatRelativeTime } from '../formatters';
-import { timeAgo, formatAge as legacyFormatAge, formatDuration as legacyFormatDuration } from '../dateUtils';
-import { formatBytes as legacyFormatBytes } from '../formatting';
 import { formatBytes as metricBytes, formatDuration as metricDuration } from '../../components/metrics/AutoMetrics';
 import { formatDuration as promDuration } from '../../components/metrics/prometheus';
 
@@ -94,16 +92,51 @@ describe('bytes', () => {
   });
 });
 
+// Pin the zone so the absolute-time assertions below do not depend on where
+// the test runs. Node re-reads TZ when it is assigned.
+const ORIGINAL_TZ = process.env.TZ;
+beforeAll(() => { process.env.TZ = 'UTC'; });
+afterAll(() => { if (ORIGINAL_TZ === undefined) delete process.env.TZ; else process.env.TZ = ORIGINAL_TZ; });
+
 describe('timestamps use a fixed locale', () => {
-  it('renders en-US regardless of the browser language', () => {
-    const iso = '2026-10-30T14:05:09Z';
-    const langSpy = vi.spyOn(navigator, 'language', 'get').mockReturnValue('de-DE');
+  const iso = '2026-10-30T14:05:09Z';
+  afterEach(() => vi.restoreAllMocks());
+
+  it('renders one absolute format regardless of the browser language', () => {
+    vi.spyOn(navigator, 'language', 'get').mockReturnValue('de-DE');
+    expect(formatTimestamp(iso)).toBe('Oct 30, 2026, 2:05:09 PM');
+    expect(formatDate(iso)).toBe('Oct 30, 2026');
+    expect(formatTime(iso)).toBe('2:05:09 PM');
+    expect(formatClock(iso)).toBe('2:05 PM');
     expect(formatTimestamp(iso, '—', { timeZone: 'UTC', dateStyle: 'medium', timeStyle: 'short' })).toBe('Oct 30, 2026, 2:05 PM');
-    expect(formatDate(iso)).toMatch(/^Oct 3[01], 2026$/);
-    expect(formatTime(iso)).toMatch(/(AM|PM)$/);
-    expect(formatTimestamp(undefined)).toBe('—');
-    langSpy.mockRestore();
   });
+
+  it('accepts epoch ms, ISO strings and Dates alike', () => {
+    const ms = Date.parse(iso);
+    expect(formatTimestamp(ms)).toBe(formatTimestamp(iso));
+    expect(formatTimestamp(new Date(ms))).toBe(formatTimestamp(iso));
+    expect(toIsoString(ms)).toBe('2026-10-30T14:05:09.000Z');
+  });
+
+  it('falls back for missing or unparseable times', () => {
+    expect(formatTimestamp(undefined)).toBe('—');
+    expect(formatTimestamp('not a date')).toBe('—');
+    expect(formatDate(null, 'never')).toBe('never');
+    expect(formatClock('')).toBe('—');
+    expect(toIsoString(undefined)).toBeUndefined();
+  });
+
+  it('only shifts the hour when the time zone changes, never the shape', () => {
+    process.env.TZ = 'America/Los_Angeles';
+    try {
+      expect(formatTimestamp(iso)).toBe('Oct 30, 2026, 7:05:09 AM');
+      expect(formatClock(iso)).toBe('7:05 AM');
+    } finally {
+      process.env.TZ = 'UTC';
+    }
+    expect(formatTimestamp(iso)).toBe('Oct 30, 2026, 2:05:09 PM');
+  });
+
   it('groups dates as Today / Yesterday / full date', () => {
     const now = new Date(2026, 9, 30, 12);
     expect(getDateKey(new Date(2026, 9, 30, 1), now)).toBe('Today');
@@ -112,17 +145,23 @@ describe('timestamps use a fixed locale', () => {
   });
 });
 
-describe('deprecated names delegate to engine/format', () => {
-  afterEach(() => vi.useRealTimers());
-  it('keeps old imports working with the unified output', () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
-    expect(formatRelativeTime(ago(5 * M))).toBe('5m ago');
-    expect(timeAgo(new Date(ago(3 * H)).toISOString())).toBe('3h ago');
-    expect(timeAgo('')).toBe('—');
-    expect(legacyFormatAge(new Date(ago(2 * D)))).toBe('2d ago');
-    expect(legacyFormatDuration(new Date(ago(90 * S)).toISOString())).toBe('1m 30s');
-    expect(legacyFormatBytes(2048)).toBe('2 Ki');
+describe('formatCount', () => {
+  afterEach(() => vi.restoreAllMocks());
+  it('groups digits the same way in every browser language', () => {
+    vi.spyOn(navigator, 'language', 'get').mockReturnValue('de-DE');
+    expect(formatCount(1234567)).toBe('1,234,567');
+    expect(formatCount(999)).toBe('999');
+    expect(formatCount(-4200)).toBe('-4,200');
+  });
+  it('rounds to a whole number and falls back for missing values', () => {
+    expect(formatCount(1234.6)).toBe('1,235');
+    expect(formatCount(undefined)).toBe('—');
+    expect(formatCount(Number.NaN, '?')).toBe('?');
+  });
+});
+
+describe('metric helpers agree with engine/format', () => {
+  it('keeps metric bytes and durations on the unified output', () => {
     expect(metricBytes(1536)).toBe('1.50 KiB');
     expect(metricDuration(0.25)).toBe('250ms');
     expect(promDuration(300)).toBe('5m');

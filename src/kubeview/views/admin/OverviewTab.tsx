@@ -11,7 +11,7 @@ import { Card } from '../../components/primitives/Card';
 import { MetricGrid } from '../../components/primitives/MetricGrid';
 import { InfoCard } from '../../components/primitives/InfoCard';
 import { formatMem } from '../../engine/formatting';
-import { formatRelative } from '../../engine/format';
+import { formatRelative, formatDate, formatCount } from '../../engine/format';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { ControlPlaneMetrics } from '../../components/metrics/ControlPlaneMetrics';
 import { LoadError } from '../../components/primitives/LoadError';
@@ -234,7 +234,7 @@ export function OverviewTab({
         <InfoCard label="Cluster Version" value={cvVersion || '\u2014'} sub={cvChannel} />
         <InfoCard label="Platform" value={platform || '\u2014'} sub={(() => { try { return apiUrl ? new URL(apiUrl).hostname : ''; } catch { return ''; } })()} />
         <InfoCard label="Control Plane" value={isHyperShift ? 'Hosted (External)' : controlPlaneTopology ? `Self-managed (${controlPlaneTopology})` : '\u2014'} sub={isHyperShift ? 'Managed externally' : ''} />
-        <InfoCard label="Cluster Age" value={clusterAge?.label || '\u2014'} sub={clusterAge?.date ? new Date(clusterAge.date).toLocaleDateString() : ''} />
+        <InfoCard label="Cluster Age" value={clusterAge?.label || '\u2014'} sub={clusterAge?.date ? formatDate(clusterAge.date) : ''} />
                 <InfoCard label="Namespaces" value={String(nsStats.total)} sub={`${nsStats.user} user, ${nsStats.system} system \u2192`} onClick={() => go('/r/v1~namespaces', 'Namespaces')} />
         <InfoCard label="CRDs" value={String(crds.length)} sub={`${crdGroupCount} API groups \u2192`} onClick={() => setActiveTab('crds')} />
       </MetricGrid>
@@ -334,7 +334,7 @@ export function OverviewTab({
           </div>
           <div>
             <div className="text-xs text-slate-400 mb-1">Max Pods</div>
-            <div className="text-lg font-bold text-slate-100">{clusterCapacity.pods.toLocaleString()}</div>
+            <div className="text-lg font-bold text-slate-100">{formatCount(clusterCapacity.pods)}</div>
             <div className="text-xs text-slate-500">across {nodes.length} nodes</div>
           </div>
           <div>
@@ -480,7 +480,7 @@ export function OverviewTab({
                   certExpiry.daysLeft < 30 ? 'bg-red-900/50 text-red-300' :
                   certExpiry.daysLeft < 90 ? 'bg-yellow-900/50 text-yellow-300' :
                   'bg-green-900/50 text-green-300'
-                )}>{certExpiry.daysLeft}d ({certExpiry.date.toLocaleDateString()})</span>
+                )}>{certExpiry.daysLeft}d ({formatDate(certExpiry.date)})</span>
               </div>
             )}
             <div className="flex items-center justify-between">

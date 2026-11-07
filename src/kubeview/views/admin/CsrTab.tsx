@@ -6,7 +6,7 @@ import {
   CSR_LIST_PATH, csrStatus, decideCsr, isKubeletServing, isPending, kubeletServingProblems, parseCsrRequest,
   type CertificateSigningRequest, type CSRStatus,
 } from '../../engine/csr';
-import { formatAge } from '../../engine/dateUtils';
+import { formatRelative } from '../../engine/format';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { useCanI } from '../../hooks/useCanI';
 import { usePinnedAction } from '../../hooks/usePinnedAction';
@@ -171,7 +171,7 @@ export function CsrTab({ go }: { go: (path: string, title: string) => void }) {
                       <td className="py-2 px-3 font-mono text-slate-300">{csr.spec.username || '—'}</td>
                       <td className="py-2 px-3 font-mono text-slate-400">{csr.spec.signerName}</td>
                       <td className="py-2 px-3 text-slate-400">{(csr.spec.usages || []).join(', ') || '—'}</td>
-                      <td className="py-2 px-3 text-slate-500">{csr.metadata.creationTimestamp ? formatAge(new Date(csr.metadata.creationTimestamp)) : '—'}</td>
+                      <td className="py-2 px-3 text-slate-500">{csr.metadata.creationTimestamp ? formatRelative(new Date(csr.metadata.creationTimestamp)) : '—'}</td>
                       <td className="py-2 px-3"><Badge size="sm" variant={STATUS_VARIANT[status]}>{status}</Badge></td>
                       <td className="py-2 px-3">
                         {status === 'Pending' && (

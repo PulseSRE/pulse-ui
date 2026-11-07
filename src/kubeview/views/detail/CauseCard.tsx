@@ -20,7 +20,7 @@ import type { Finding, InvestigationReport as MonitorReport, EvidenceItem } from
 import type { InvestigationReport as InboxReport } from '../../engine/inboxApi';
 import { useDiagnose, type DiagnoseTarget } from './useDiagnose';
 import { resolveKind } from '../../engine/kindRegistry';
-import { formatRelative } from '../../engine/format';
+import { formatRelative, formatClock } from '../../engine/format';
 import { PULSE_AI_LOCAL_ONLY } from '../../components/feedback/LocalClusterOnlyNotice';
 
 const SEVERITY_RANK: Record<string, number> = { critical: 3, warning: 2, info: 1 };
@@ -53,7 +53,7 @@ export function findingFor(findings: Finding[], dismissed: string[], m: CauseMat
 }
 
 function hhmm(ms: number | undefined): string {
-  return ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  return ms ? formatClock(ms) : '—';
 }
 
 function evidenceLines(detail: EvidenceItem[] | undefined, plain: string[] | undefined): Array<{ text: string; source?: string; unverified?: boolean }> {

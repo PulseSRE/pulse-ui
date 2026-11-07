@@ -169,7 +169,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-slate-400">Logs</span>
                 {containers.length > 1 && (
-                  <select
+                  <select aria-label="Container"
                     value={activeContainer}
                     onChange={(e) => setSelectedContainer(e.target.value)}
                     className="text-xs bg-slate-800 border border-slate-700 rounded-sm px-1.5 py-0.5 text-slate-300"

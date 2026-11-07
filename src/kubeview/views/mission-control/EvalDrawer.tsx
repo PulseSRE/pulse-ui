@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { agentFetch } from '../../engine/safeQuery';
 import type { AgentEvalStatus, EvalSuiteSummary } from '../../engine/evalStatus';
+import { formatTimestamp, formatCount } from '../../engine/format';
 
 interface EvalHistoryRun {
   suite: string;
@@ -52,10 +53,7 @@ const PROMPT_SECTION_DESCRIPTIONS: Record<string, string> = {
 };
 
 function formatEvalTimestamp(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-    ', ' +
-    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return formatTimestamp(iso);
 }
 
 export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
@@ -109,7 +107,7 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
               <div key={mode} className="bg-slate-900 rounded-lg border border-slate-800 p-4 mb-3">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-slate-200 capitalize">{mode.replace(/_/g, ' ')}</span>
-                  <span className="text-xs text-slate-500">~{audit.estimated_tokens.toLocaleString()} tokens</span>
+                  <span className="text-xs text-slate-500">~{formatCount(audit.estimated_tokens)} tokens</span>
                 </div>
                 <div className="space-y-1.5">
                   {audit.sections.map((section: { name: string; pct: number }) => (

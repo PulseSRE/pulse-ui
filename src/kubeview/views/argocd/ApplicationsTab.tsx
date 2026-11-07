@@ -7,7 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { ArgoApplication, ArgoSyncStatus, ArgoHealthStatus } from '../../engine/types';
 import { Card } from '../../components/primitives/Card';
-import { timeAgo } from '../../engine/dateUtils';
+import { formatRelative, formatTimestamp } from '../../engine/format';
 
 const SAMPLE_APPLICATION_YAML = `apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -271,7 +271,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                     <div className="flex items-center gap-4 text-xs text-slate-500 mt-3">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        Started: {new Date(opState.startedAt).toLocaleString()}
+                        Started: {formatTimestamp(opState.startedAt)}
                       </span>
                       {opState.finishedAt && (
                         <span>
@@ -333,7 +333,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                               <div className="absolute left-[-15px] top-1 w-2 h-2 rounded-full bg-amber-500/70 border border-slate-800" />
                               <div className="flex items-baseline gap-2">
                                 <span className="text-xs font-medium text-amber-400/80">{cond.type}</span>
-                                {cond.lastTransitionTime && <span className="text-xs text-slate-600">{timeAgo(cond.lastTransitionTime)}</span>}
+                                {cond.lastTransitionTime && <span className="text-xs text-slate-600">{formatRelative(cond.lastTransitionTime)}</span>}
                               </div>
                               <p className="text-xs text-slate-500 mt-0.5 truncate" title={cond.message}>{cond.message}</p>
                             </div>

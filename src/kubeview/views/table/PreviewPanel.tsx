@@ -5,6 +5,7 @@ import { gvrToUrl } from '../../engine/gvr';
 import { jsonToYaml } from '../../engine/yamlUtils';
 import { useUIStore } from '../../store/uiStore';
 import type { K8sResource } from '../../engine/renderers';
+import { formatTimestamp } from '../../engine/format';
 
 interface PreviewPanelProps {
   resource: K8sResource;
@@ -44,7 +45,7 @@ export function PreviewPanel({ resource, gvrKey, onClose }: PreviewPanelProps) {
         )}
         <div>
           <span className="text-slate-500">Created:</span>
-          <span className="ml-2 text-slate-200">{resource.metadata.creationTimestamp ? new Date(resource.metadata.creationTimestamp).toLocaleString() : '\u2014'}</span>
+          <span className="ml-2 text-slate-200">{formatTimestamp(resource.metadata.creationTimestamp)}</span>
         </div>
         {resource.metadata.labels && Object.keys(resource.metadata.labels).length > 0 && (
           <div>

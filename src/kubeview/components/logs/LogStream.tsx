@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { parseLogLine, detectLogFormat, type ParsedLogLine, type LogFormat } from './LogParser';
 import { pickDefaultContainer } from './pickDefaultContainer';
 import { readLogStream, appendCapped, withParam } from './logStreamReader';
+import { formatCount } from '../../engine/format';
 
 interface LogStreamProps {
   namespace: string;
@@ -320,7 +321,7 @@ export default function LogStream({
           {/* Search */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
+            <input aria-label="Search logs"
               type="text"
               placeholder="Search logs... (prefix with - to exclude)"
               value={searchQuery}
@@ -475,7 +476,7 @@ export default function LogStream({
 
         {totalLines >= MAX_LINES && (
           <div className="text-center py-2 text-xs text-amber-400 bg-slate-900/50">
-            Showing last {MAX_LINES.toLocaleString()} lines
+            Showing last {formatCount(MAX_LINES)} lines
           </div>
         )}
       </div>

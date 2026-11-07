@@ -21,7 +21,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { History, RotateCcw, CheckCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sPatch } from '../../engine/query';
-import { timeAgo } from '../../engine/dateUtils';
+import { formatRelative } from '../../engine/format';
 import { useUIStore } from '../../store/uiStore';
 import { useFleetStore } from '../../store/fleetStore';
 import { useCanI } from '../../hooks/useCanI';
@@ -317,7 +317,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
                         {rev.current ? <CheckCircle className="h-3.5 w-3.5" /> : rev.revision}
                       </span>
                       <span className="mt-1 font-mono text-xs text-slate-200">#{rev.revision}</span>
-                      <span className="text-[10px] text-slate-500" title={rev.createdAt}>{rev.createdAt ? timeAgo(rev.createdAt) : '—'}</span>
+                      <span className="text-[10px] text-slate-500" title={rev.createdAt}>{rev.createdAt ? formatRelative(rev.createdAt) : '—'}</span>
                       {changes.length > 0 && (
                         <span className="mt-1 max-w-full truncate rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-300" title={changes.join('\n')}>
                           {changes[0]}{changes.length > 1 ? ` +${changes.length - 1}` : ''}

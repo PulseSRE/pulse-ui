@@ -4,7 +4,7 @@ import {
   Target, Clock, Shield, Activity, Copy, Bot,
 } from 'lucide-react';
 import { Card } from '../../../components/primitives/Card';
-import { formatRelativeTime } from '../../../engine/formatters';
+import { formatRelative } from '../../../engine/format';
 import { useUIStore } from '../../../store/uiStore';
 import type { Postmortem } from '../../../hooks/useIncidentLifecycle';
 
@@ -90,7 +90,7 @@ export function PostmortemCard({
           </p>
           <span className="text-xs text-slate-600 mt-1 inline-block">
             <Clock className="w-3 h-3 inline mr-1" />
-            {formatRelativeTime(postmortem.generated_at)}
+            {formatRelative(postmortem.generated_at)}
           </span>
         </div>
         {expanded ? (

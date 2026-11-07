@@ -14,6 +14,7 @@ import { parseResourceValue } from '../../engine/formatting';
 import { primaryContainer, lastTermination, podRestarts, containerSpec } from '../../engine/podFacts';
 import type { PodOwner } from './usePodOwner';
 import type { UsageResult } from './usePodUsage';
+import { RelativeTime } from '../../components/primitives/RelativeTime';
 
 interface PodHeaderProps {
   pod: K8sResource;
@@ -86,7 +87,7 @@ export function PodHeader({ pod, owner, usage, usageLoading, go }: PodHeaderProp
           label="Last exit"
           value={term ? `${term.reason} · ${term.exitCode ?? '—'}` : 'None'}
           tone={term && (term.exitCode ?? 0) !== 0 ? 'danger' : undefined}
-          subtitle={term ? (multi ? which : term.finishedAt ? new Date(term.finishedAt).toLocaleTimeString() : undefined) : 'it has not ended'}
+          subtitle={term ? (multi ? which : term.finishedAt ? <RelativeTime value={term.finishedAt} /> : undefined) : 'it has not ended'}
         />
         <StatCard
           className="min-w-[150px]"

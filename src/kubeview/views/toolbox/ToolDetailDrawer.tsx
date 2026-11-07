@@ -8,6 +8,7 @@ import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { agentFetch } from '../../engine/safeQuery';
 import type { ToolInfo } from '../../store/toolUsageStore';
 import { SourceBadge } from './SourceBadge';
+import { RelativeTime } from '../../components/primitives/RelativeTime';
 
 interface ToolDetailDrawerProps {
   tool: ToolInfo & { source?: string; mcp_server?: string; skills?: string[] };
@@ -137,7 +138,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
                       <Activity className="w-3 h-3 text-emerald-400 shrink-0" />
                     )}
                     <span className="text-slate-500 shrink-0">
-                      {call.timestamp ? new Date(call.timestamp).toLocaleTimeString() : '—'}
+                      <RelativeTime value={call.timestamp} />
                     </span>
                     <span className="text-slate-400">{call.duration_ms ?? 0}ms</span>
                     {call.error && <span className="text-red-400/70 truncate">{call.error}</span>}

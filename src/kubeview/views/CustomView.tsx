@@ -9,7 +9,7 @@ import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { WidgetErrorBoundary } from '../components/agent/WidgetErrorBoundary';
-import { formatRelativeTime } from '../engine/formatters';
+import { formatRelative } from '../engine/format';
 import { ConfirmDialog } from '../components/feedback/ConfirmDialog';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { ComponentSpec } from '../engine/agentComponents';
@@ -310,7 +310,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
         <div className="flex items-start justify-between">
           <div>
             {editingTitle ? (
-              <input
+              <input aria-label="View title"
                 ref={titleRef}
                 value={titleDraft}
                 onChange={(e) => setTitleDraft(e.target.value)}
@@ -334,7 +334,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
               </h1>
             )}
             {editingDesc ? (
-              <input
+              <input aria-label="View description"
                 ref={descRef}
                 value={descDraft}
                 onChange={(e) => setDescDraft(e.target.value)}
@@ -358,7 +358,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
               </p>
             )}
             <p className="text-xs text-slate-600 mt-1">
-              Created {formatRelativeTime(view.generatedAt)} · {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
+              Created {formatRelative(view.generatedAt)} · {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
             </p>
           </div>
           {!preview && (
@@ -507,7 +507,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                   {editMode && spec.kind !== 'stat_card' && spec.kind !== 'metric_card' && (
                     <>
                       {(spec as any).title && (
-                        <input
+                        <input aria-label="Widget title"
                           defaultValue={(spec as any).title}
                           onBlur={(e) => {
                             if (e.target.value !== (spec as any).title) {
@@ -519,7 +519,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                         />
                       )}
                       {((spec as any).description || (spec as any).title) && (
-                        <input
+                        <input aria-label="Widget description"
                           defaultValue={(spec as any).description || ''}
                           placeholder="Add description..."
                           onBlur={(e) => {

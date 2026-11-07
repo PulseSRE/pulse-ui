@@ -6,7 +6,7 @@ import { Card } from '../../components/primitives/Card';
 import { EmptyState } from '../../components/primitives/EmptyState';
 import { LoadError } from '../../components/primitives/LoadError';
 import { agentJson } from '../../engine/safeQuery';
-import { formatRelativeTime } from '../../engine/formatters';
+import { formatRelative } from '../../engine/format';
 
 const AGENT_BASE = '/api/agent';
 
@@ -242,7 +242,7 @@ export default function ClusterKnowledge() {
                           <div className="text-xs text-slate-300 mt-0.5 break-words">{fact.value}</div>
                           <div className="text-[11px] text-slate-500 mt-1">
                             {fact.source ? `via ${fact.source}` : 'source unknown'}
-                            {fact.updatedAt ? ` · ${formatRelativeTime(fact.updatedAt)}` : ''}
+                            {fact.updatedAt ? ` · ${formatRelative(fact.updatedAt)}` : ''}
                           </div>
                         </div>
                         <button

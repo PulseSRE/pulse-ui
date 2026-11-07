@@ -7,6 +7,7 @@
  * model's input and says what it cannot show.
  */
 import { cn } from '@/lib/utils';
+import { formatTimestamp } from '../../engine/format';
 
 interface PreviewMatcher { text?: string; name?: string; value?: string; isRegex?: boolean; isEqual?: boolean }
 interface PreviewAlert { alertname?: string; severity?: string; namespace?: string }
@@ -64,7 +65,7 @@ export function SilencePreview({ tool, input, preview }: { tool: string; input: 
             <div>
               <div className="text-slate-400 font-medium">Duration</div>
               <div className="text-slate-200">
-                {preview ? `${str(preview.duration)}, until ${new Date(str(preview.endsAt)).toLocaleString()}` : `${str(input.duration_minutes)} minutes`}
+                {preview ? `${str(preview.duration)}, until ${formatTimestamp(str(preview.endsAt))}` : `${str(input.duration_minutes)} minutes`}
               </div>
             </div>
             <div>
