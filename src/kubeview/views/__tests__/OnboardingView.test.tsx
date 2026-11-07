@@ -40,8 +40,8 @@ vi.mock('../../components/onboarding/ReadinessChecklist', () => ({
   ReadinessChecklist: ({ score }: { score: number }) => <div data-testid="readiness-checklist">Checklist score={score}</div>,
 }));
 
-vi.mock('../../components/primitives/SectionHeader', () => ({
-  SectionHeader: ({ title, subtitle, actions }: { title: string; subtitle: string; actions?: React.ReactNode }) => (
+vi.mock('../../components/primitives/PageHeader', () => ({
+  PageHeader: ({ title, subtitle, actions }: { title: string; subtitle: string; actions?: React.ReactNode }) => (
     <div data-testid="section-header">
       <span>{title}</span>
       <span>{subtitle}</span>

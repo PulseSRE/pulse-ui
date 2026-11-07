@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardCheck, Loader2, CloudUpload, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SectionHeader } from '../components/primitives/SectionHeader';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { InstallationReadinessPanel } from '../components/onboarding/InstallationReadinessPanel';
 import { ReadinessWizard } from '../components/onboarding/ReadinessWizard';
 import { ReadinessChecklist } from '../components/onboarding/ReadinessChecklist';
@@ -346,7 +346,7 @@ export default function OnboardingView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        <SectionHeader
+        <PageHeader
           icon={<ClipboardCheck className="w-6 h-6 text-violet-400" />}
           title="Cluster Readiness"
           subtitle="Evaluate production readiness across 6 categories"

@@ -4,7 +4,7 @@
  * search hid them are not deleted unless the user explicitly includes them.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, within, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -24,13 +24,14 @@ const watch: { data: any[]; isLoading: boolean; error: Error | null } = { data: 
 vi.mock('../../hooks/useK8sListWatch', () => ({ useK8sListWatch: () => watch }));
 
 const k8sDelete = vi.fn().mockResolvedValue({});
+const k8sFetch = vi.fn(async (..._a: unknown[]) => new Response(JSON.stringify({ items: [] }), { status: 200 }));
 vi.mock('../../engine/query', () => ({
   k8sPatch: vi.fn().mockResolvedValue({}),
   k8sDelete: (...a: unknown[]) => k8sDelete(...a),
   k8sList: vi.fn().mockResolvedValue([]),
   k8sCreate: vi.fn().mockResolvedValue({}),
   k8sGet: vi.fn().mockResolvedValue({}),
-  k8sFetch: vi.fn(async () => new Response(JSON.stringify({ items: [] }), { status: 200 })),
+  k8sFetch: (...a: unknown[]) => k8sFetch(...a),
 }));
 const showErrorToast = vi.fn();
 vi.mock('../../engine/errorToast', () => ({ showErrorToast: (...a: unknown[]) => showErrorToast(...a) }));
@@ -45,6 +46,7 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 import TableView from '../table/TableView';
 import { useFleetStore } from '../../store/fleetStore';
+import { registerCluster, setActiveClusterId, resetConnections } from '../../engine/clusterConnection';
 import { registerBuiltinEnhancers } from '../../engine/enhancers/register';
 
 registerBuiltinEnhancers();
@@ -80,12 +82,15 @@ async function search(term: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetConnections();
   useFleetStore.setState({ activeClusterId: 'local' });
   watch.data = [cm('alpha-config', 'a1'), cm('beta-config', 'b1')];
 });
 afterEach(() => {
   cleanup();
   qc?.clear();
+  resetConnections();
+  watch.isLoading = false;
 });
 
 describe('bulk delete with a selection hidden by search', { timeout: 15_000 }, () => {
@@ -186,18 +191,43 @@ describe('bulk delete with a selection hidden by search', { timeout: 15_000 }, (
     expect(within(dialog).getByText('Delete 1 resource?')).toBeTruthy();
   });
 
-  it('deletes nothing when the active cluster changed after the dialog opened', async () => {
-    // The list was shown (and the dialog opened) for cluster "east"; the
-    // connection layer's active cluster is "local" by the time Delete is pressed.
-    useFleetStore.setState({ activeClusterId: 'east' });
+  it('pins the cluster when the dialog opens: switching cluster before confirming deletes nothing', async () => {
     renderTable();
     selectRows('alpha-config');
     fireEvent.click(screen.getByRole('button', { name: /Delete 1/ }));
     const dialog = await screen.findByRole('dialog');
+    // Opened on "local"; now the user switches to "east" (store and
+    // connection layer both), with the same rows still on screen.
+    registerCluster({ id: 'east', name: 'east', connectionType: 'direct-proxy', target: 'http://east' });
+    act(() => {
+      setActiveClusterId('east');
+      useFleetStore.setState({ activeClusterId: 'east' });
+    });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete 1 resource' }));
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
     expect(k8sDelete).not.toHaveBeenCalled();
-    expect(String((showErrorToast.mock.calls[0][0] as Error).message)).toMatch(/Bulk delete was not run/);
+    expect(String((showErrorToast.mock.calls[0][0] as Error).message)).toMatch(/Bulk delete was not run: it was prepared on Local Cluster/);
+  });
+
+  it('does not prune the selection while the list is loading', async () => {
+    const view = renderTable();
+    selectRows('alpha-config', 'beta-config');
+    expect(screen.getByRole('button', { name: /Delete 2/ })).toBeTruthy();
+    const rerender = () => view.rerender(
+      <QueryClientProvider client={qc!}>
+        <MemoryRouter><TableView gvrKey="v1/configmaps" /></MemoryRouter>
+      </QueryClientProvider>,
+    );
+    // Mid-load: no data yet. The selection must survive this, not be emptied.
+    const rows = watch.data;
+    watch.data = [];
+    watch.isLoading = true;
+    rerender();
+    watch.data = rows;
+    watch.isLoading = false;
+    rerender();
+    await waitFor(() => expect(screen.getAllByText('alpha-config').length).toBeGreaterThan(0));
+    expect(screen.getByRole('button', { name: /Delete 2/ })).toBeTruthy();
   });
 });
 
@@ -231,5 +261,16 @@ describe('bulk delete of workloads with a hidden selection', { timeout: 15_000 }
     expect(await screen.findByText('Delete Deployment alpha-web?')).toBeTruthy();
     expect(screen.queryByText('Delete Deployment beta-web?')).toBeNull();
     expect(k8sDelete).not.toHaveBeenCalled();
+
+    // Confirm it: type the name, delete, close. onDeleted runs.
+    fireEvent.change(screen.getByLabelText(/Type alpha-web to confirm/), { target: { value: 'alpha-web' } });
+    const go = await screen.findByRole('button', { name: 'Delete 1 object' });
+    await waitFor(() => expect((go as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(go);
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(k8sFetch.mock.calls.some(([, path, init]) => path === '/apis/apps/v1/namespaces/shop/deployments/alpha-web' && (init as RequestInit)?.method === 'DELETE')).toBe(true);
+    // Only alpha-web left the selection: the hidden beta-web is still selected.
+    expect(screen.getByRole('button', { name: /Delete 1/ })).toBeTruthy();
   });
 });

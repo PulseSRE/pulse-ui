@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { PageHeader } from '../../components/primitives/PageHeader';
 import { Loader2, Globe, Box, Layers, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fleetList } from '../../engine/fleet';
@@ -111,23 +112,28 @@ export default function FleetWorkloadsView() {
     go('/workloads', `${clusterName} -- Workloads`);
   };
 
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center bg-slate-950">
-        <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+  // Loading and "no clusters" keep the sub-nav and the page header.
+  const earlyState = (body: React.ReactNode) => (
+    <div className="h-full overflow-auto bg-slate-950 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <FleetSubNav />
+        <PageHeader icon={<Globe className="w-6 h-6 text-blue-500" />} title="Fleet Workloads" />
+        <div className="flex items-center justify-center py-16">{body}</div>
       </div>
-    );
+    </div>
+  );
+
+  if (loading) {
+    return earlyState(<div role="status" aria-label="Loading fleet workloads"><Loader2 className="w-6 h-6 text-blue-400 animate-spin" aria-hidden="true" /></div>);
   }
 
   if (summaries.length === 0) {
-    return (
-      <div className="h-full flex items-center justify-center bg-slate-950">
-        <div className="text-center space-y-2">
-          <Globe className="w-10 h-10 text-slate-700 mx-auto" />
-          <p className="text-slate-400 text-sm">No clusters connected</p>
-          <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to see fleet-wide workloads.</p>
-        </div>
-      </div>
+    return earlyState(
+      <div className="text-center space-y-2">
+        <Globe className="w-10 h-10 text-slate-700 mx-auto" />
+        <p className="text-slate-400 text-sm">No clusters connected</p>
+        <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to see fleet-wide workloads.</p>
+      </div>,
     );
   }
 
@@ -136,15 +142,11 @@ export default function FleetWorkloadsView() {
       <div className="max-w-7xl mx-auto space-y-6">
         <FleetSubNav />
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Globe className="w-5 h-5 text-blue-500" />
-            Fleet Workloads
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Aggregated workload overview across {summaries.length - failedClusters.length} of {summaries.length} cluster{summaries.length !== 1 ? 's' : ''}
-          </p>
-        </div>
+        <PageHeader
+          icon={<Globe className="w-6 h-6 text-blue-500" />}
+          title="Fleet Workloads"
+          subtitle={<>Aggregated workload overview across {summaries.length - failedClusters.length} of {summaries.length} cluster{summaries.length !== 1 ? 's' : ''}</>}
+        />
 
         {failedClusters.length > 0 && (
           <LoadError

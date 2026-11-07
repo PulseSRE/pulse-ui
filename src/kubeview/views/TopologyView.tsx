@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useSearchParams } from 'react-router-dom';
 import { parseTopologyFocus, topologyNodeMatches } from '../engine/topologyLinks';
 import { useFleetStore } from '../store/fleetStore';
@@ -6,7 +7,7 @@ import { LOCAL_CLUSTER_ID } from '../engine/clusterConnection';
 import { LocalClusterOnlyNotice } from '../components/feedback/LocalClusterOnlyNotice';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Network, Loader2, RefreshCw, AlertTriangle, Zap, Shield, Clock, X,
+  Network, Loader2, RefreshCw, Zap, Shield, Clock, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
@@ -174,21 +175,24 @@ export default function TopologyView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-[1400px] mx-auto space-y-4">
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Network className="w-6 h-6 text-cyan-400" />
-            Topology
-          </h1>
+          <PageHeader icon={<Network className="w-6 h-6 text-cyan-400" />} title="Topology" />
           <LocalClusterOnlyNotice what="Topology" />
         </div>
       </div>
     );
   }
 
+  // The page header stays put while the graph is checked or could not be read.
   if (isLoading) {
     return (
-      <div className="h-full overflow-auto bg-slate-950 p-6 flex items-center justify-center gap-2 text-sm text-slate-400" role="status" aria-live="polite">
-        <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-        Checking topology…
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <div className="max-w-[1400px] mx-auto space-y-4">
+          <PageHeader icon={<Network className="w-6 h-6 text-cyan-400" />} title="Topology" />
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-400" role="status" aria-live="polite">
+            <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+            Checking topology…
+          </div>
+        </div>
       </div>
     );
   }
@@ -196,7 +200,8 @@ export default function TopologyView() {
   if (isError) {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
-        <div className="max-w-[1400px] mx-auto">
+        <div className="max-w-[1400px] mx-auto space-y-4">
+          <PageHeader icon={<Network className="w-6 h-6 text-cyan-400" />} title="Topology" />
           <LoadError title="Topology could not be loaded" error={error} onRetry={() => { void refetch(); }} />
         </div>
       </div>
@@ -209,17 +214,11 @@ export default function TopologyView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-[1400px] mx-auto space-y-4">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Network className="w-6 h-6 text-cyan-400" />
-              Topology
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Resource dependencies, risk overlay, and blast radius
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          icon={<Network className="w-6 h-6 text-cyan-400" />}
+          title="Topology"
+          subtitle="Resource dependencies, risk overlay, and blast radius"
+          actions={<>
             <select
               value={selectedNamespace}
               onChange={(e) => { setSelectedNamespace(e.target.value); setSelectedNode(null); }}
@@ -237,8 +236,8 @@ export default function TopologyView() {
             >
               <RefreshCw className="w-4 h-4" />
             </button>
-          </div>
-        </div>
+          </>}
+        />
 
         {focusMissing && focus && (
           <div role="status" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400">

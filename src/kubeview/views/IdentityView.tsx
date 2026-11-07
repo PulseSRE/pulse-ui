@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, User, Shield, Key, ArrowRight, CheckCircle, AlertTriangle,
@@ -242,18 +243,11 @@ export default function IdentityView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Fingerprint className="w-6 h-6 text-violet-500" />
-              Identity &amp; Access
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Users, groups, service accounts, and RBAC
-              {nsFilter && <span className="text-violet-400 ml-1">in {nsFilter}</span>}
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          icon={<Fingerprint className="w-6 h-6 text-violet-500" />}
+          title="Identity & Access"
+          subtitle={<>Users, groups, service accounts, and RBAC{nsFilter && <span className="text-violet-400 ml-1">in {nsFilter}</span>}</>}
+        />
 
         {/* Impersonation is announced once, by the global banner in the Shell. */}
 
