@@ -277,7 +277,11 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   // --- Keyboard navigation ---
   React.useEffect(() => {
     function handler(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      // Keys typed into a field, or Enter/Space on a focused button or link,
+      // belong to that control, not to row navigation.
+      const target = e.target as HTMLElement;
+      if (target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      if ((e.key === 'Enter' || e.key === ' ') && target.closest?.('button, a')) return;
 
       const maxRow = paginatedResources.length - 1;
 
@@ -359,12 +363,19 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     });
   };
 
+  // "Select all" acts on the rows on this page only, matching what its checkbox
+  // shows: every row here selected -> unselect them; otherwise select them.
+  // Selections on other pages are kept either way.
   const handleSelectAll = () => {
-    if (selectedRows.size === paginatedResources.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(paginatedResources.map((r) => r.metadata.uid || '')));
-    }
+    const pageUids = paginatedResources.map((r) => r.metadata.uid || '');
+    setSelectedRows((prev) => {
+      const allOnPage = pageUids.length > 0 && pageUids.every((uid) => prev.has(uid));
+      const next = new Set(prev);
+      for (const uid of pageUids) {
+        if (allOnPage) next.delete(uid); else next.add(uid);
+      }
+      return next;
+    });
   };
 
   const handleRowClick = React.useCallback((resource: K8sResource, e: React.MouseEvent) => {
@@ -656,8 +667,9 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       {sortedResources.length > 0 && (
         <div className="border-t border-slate-800 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Rows per page:</span>
+            <label htmlFor="resource-table-per-page" className="text-xs text-slate-500">Rows per page:</label>
             <select
+              id="resource-table-per-page"
               value={perPage}
               onChange={(e) => {
                 setPerPage(Number(e.target.value));

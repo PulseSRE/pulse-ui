@@ -151,6 +151,7 @@ export function TableToolbar({
                 type="text"
                 value={searchInput}
                 onChange={(e) => onSearchChange(e.target.value)}
+                aria-label={`Search ${resourceKind.toLowerCase()}`}
                 placeholder="Search..."
                 className="pl-9 pr-3 py-1.5 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
               />
