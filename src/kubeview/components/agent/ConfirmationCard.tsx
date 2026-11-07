@@ -5,7 +5,7 @@ import { describeToolAction, riskLevel } from './MessageBubble';
 import { useTrustStore, TRUST_LABELS } from '../../store/trustStore';
 import { useUIStore } from '../../store/uiStore';
 import { cn } from '@/lib/utils';
-import { WriteChange, WriteFacts, WriteWhere } from '../primitives/WriteConfirmDialog';
+import { WriteChange, WriteFacts, WriteWhere, type DryRunState } from '../primitives/WriteConfirmDialog';
 import { useCanI } from '../../hooks/useCanI';
 import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
@@ -82,6 +82,10 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const isSilence = SILENCE_TOOLS.has(confirm.tool);
   // The agent already said the tool will refuse: approving would only run a refusal.
   const refused = isSilence ? silencePreviewInvalid(confirm.preview) : null;
+  // A silence's preview is the agent's check of the exact request: show it as the dry run.
+  const dryRun: DryRunState = !isSilence || !confirm.preview ? { state: 'unavailable' }
+    : refused ? { state: 'failed', message: refused }
+    : { state: 'passed', message: "Passed · Pulse's preview accepts this silence" };
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
   const shouldAutoApprove = useTrustStore((s) => s.shouldAutoApprove);
@@ -131,11 +135,15 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
     onConfirm(false);
   }, [confirm.tool, risk.level, recordConfirmation, onConfirm]);
 
-  // Keyboard shortcuts — only active when no text input is focused
+  // Keyboard shortcuts — only active when no text input is focused, and never
+  // from inside another modal: Y in an open dialog must not approve this write.
+  const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       const active = document.activeElement;
       if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+      const modal = e.target instanceof Element ? e.target.closest('[aria-modal="true"]') : null;
+      if (modal && modal !== cardRef.current) return;
       if (risk.level === 'HIGH') return; // HIGH risk: no keyboard shortcuts
       if (trustLevel !== 0 && !rbacBlock && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleApprove(); }
       if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { e.preventDefault(); handleDeny(); }
@@ -152,7 +160,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
 
   return (
     <div className={cn('rounded-lg border p-4', riskBorder, riskBg, risk.level === 'HIGH' && 'animate-pulse-subtle')}>
-      <div className="flex items-start gap-3" role="alertdialog" aria-modal="true" aria-label="Confirm write operation">
+      <div className="flex items-start gap-3" ref={cardRef} role="alertdialog" aria-modal="true" aria-label="Confirm write operation">
         <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
         <div className="flex-1 space-y-3">
           {/* Title + description */}
@@ -187,9 +195,8 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
 
           {isSilence && <SilencePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
 
-          {/* Rollback info */}
           {/* Impact, dry run and undo (rollback), as the write-confirm dialog shows them */}
-          <WriteFacts impact={impact ?? undefined} dryRun={{ state: 'unavailable' }} undo={rollback} />
+          <WriteFacts impact={impact ?? undefined} dryRun={dryRun} undo={rollback} />
 
           {/* Action buttons */}
           {isObserveMode || rbacBlock ? (

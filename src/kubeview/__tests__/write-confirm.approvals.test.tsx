@@ -2,7 +2,8 @@
 /**
  * Every approval of an agent write goes through one confirm (H1 of the
  * page-consistency review): Inbox → Approve, a durable run's waiting phase,
- * the plan-run panel's waiting phase, and the chat's ConfirmationCard.
+ * the plan-run panel's waiting phase, an agent-authored write button on a
+ * view, and the chat's ConfirmationCard.
  *
  * For each entry point: confirm sends exactly the agent's request (and the
  * chat echoes the backend nonce unchanged), cancel sends nothing, the dialog
@@ -38,6 +39,7 @@ vi.mock('../engine/agentClient', () => ({
 import { ProposedFixes } from '../views/inbox/ProposedFixes';
 import { ApprovalButtons } from '../views/inbox/DurableRunControls';
 import { PlanRunPanel } from '../views/toolbox/PlanRunPanel';
+import { AgentActionButton } from '../components/agent/AgentActionButton';
 import { ConfirmationCard } from '../components/agent/ConfirmationCard';
 import { useAgentStore } from '../store/agentStore';
 import { useTrustStore } from '../store/trustStore';
@@ -67,8 +69,9 @@ const fetchMock = vi.fn((input: RequestInfo | URL, init: RequestInit = {}) => {
 });
 const writes = () => calls.filter((c) => c.method === 'POST' && !c.url.includes(SSAR));
 
+let qc: QueryClient | null = null;
 function mount(ui: React.ReactElement) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<MemoryRouter><QueryClientProvider client={qc}>{ui}</QueryClientProvider></MemoryRouter>);
 }
 const switchCluster = (id: string) => act(() => { useFleetStore.getState().setActiveCluster(id); });
@@ -87,7 +90,7 @@ beforeEach(() => {
   fetchMock.mockClear();
   vi.stubGlobal('fetch', fetchMock);
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); resetConnections(); });
+afterEach(() => { cleanup(); qc?.clear(); qc = null; vi.unstubAllGlobals(); resetConnections(); });
 
 /* ---------------- the three REST approvals ---------------- */
 
@@ -109,7 +112,13 @@ interface Route {
   body: unknown;
   /** Where a refusal is shown: in the dialog, or as the row's outcome (the list is re-read). */
   refusalInDialog: boolean;
+  /** The button on the page that opens the confirm. */
+  rowName: string;
+  /** The where line, stated honestly for whose authority the write runs with. */
+  where: string;
 }
+
+const AGENT_SA = "shop · cluster Local Cluster · acting as Pulse's service account";
 
 const routes: Route[] = [
   {
@@ -126,6 +135,8 @@ const routes: Route[] = [
     approveUrl: '/api/agent/fix-history/a-1/approve',
     body: undefined,
     refusalInDialog: false,
+    rowName: 'Approve',
+    where: AGENT_SA,
   },
   {
     name: 'durable run → Approve a waiting phase',
@@ -137,6 +148,8 @@ const routes: Route[] = [
     approveUrl: '/api/agent/workflow-runs/wf-1/approve',
     body: { phase_id: 'remediate', approved: true },
     refusalInDialog: true,
+    rowName: 'Approve',
+    where: AGENT_SA,
   },
   {
     name: 'plan-run panel → Approve a waiting phase',
@@ -156,39 +169,64 @@ const routes: Route[] = [
     approveUrl: '/api/agent/workflow-runs/wf-1/approve',
     body: { phase_id: 'remediate', approved: true },
     refusalInDialog: true,
+    rowName: 'Approve',
+    where: AGENT_SA,
+  },
+  {
+    name: 'view → agent-authored write button',
+    setup: async (approve) => {
+      replies = [['POST /api/agent/views/v-1/actions', approve]];
+      mount(<AgentActionButton viewId="v-1" spec={{ kind: 'action_button', label: 'Restart api', action: 'restart_deployment', action_input: { namespace: 'shop', name: 'api' }, confirm_text: 'Rolling restart of api', _is_write: true }} />);
+    },
+    confirmLabel: 'Restart api',
+    approveUrl: '/api/agent/views/v-1/actions',
+    body: { action: 'restart_deployment', action_input: { namespace: 'shop', name: 'api' } },
+    refusalInDialog: true,
+    rowName: 'Restart api — restart_deployment',
+    where: "shop · cluster Local Cluster · acting as you, through the agent (Pulse's service account if token forwarding is off)",
   },
 ];
 
-const rowApprove = () => screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement;
+let currentRoute: Route;
+const rowApprove = () => screen.getByRole('button', { name: currentRoute.rowName }) as HTMLButtonElement;
 async function openDialog() {
   fireEvent.click(rowApprove());
   return screen.findByRole('dialog');
 }
+const sentWrites = () => writes().filter((c) => c.url === currentRoute.approveUrl);
 const confirmButton = (label: string) => screen.getByRole('button', { name: label }) as HTMLButtonElement;
 
 describe.each(routes)('$name', (r) => {
+  beforeEach(() => { currentRoute = r; });
+
   it('confirm: one click opens the dialog; only its confirm sends exactly the agent request', async () => {
     await r.setup(() => ({ body: { ...PROPOSAL, status: 'completed' } }));
     const dialog = await openDialog();
-    expect(writes().filter((c) => c.url.includes('/approve'))).toHaveLength(0);
+    expect(sentWrites()).toHaveLength(0);
     // Where, and as whom — stated honestly.
-    expect(within(dialog).getByTestId('write-where').textContent).toBe("shop · cluster Local Cluster · acting as Pulse's service account");
+    expect(within(dialog).getByTestId('write-where').textContent).toBe(r.where);
+    // Focus starts on Cancel, never on the write.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
     expect(within(dialog).getByText('What will change')).toBeTruthy();
     fireEvent.click(confirmButton(r.confirmLabel));
-    await waitFor(() => expect(writes().filter((c) => c.url.includes('/approve'))).toHaveLength(1));
-    const sent = writes().find((c) => c.url.includes('/approve'))!;
+    await waitFor(() => expect(sentWrites()).toHaveLength(1));
+    const sent = sentWrites()[0];
     expect(sent.url).toBe(r.approveUrl);
     // The verdict goes as the endpoint defines it, nothing added.
     expect(sent.body).toEqual(r.body);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('cancel sends nothing', async () => {
+  it.each([
+    ['Cancel', () => fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))],
+    ['Escape', () => fireEvent.keyDown(document, { key: 'Escape' })],
+  ])('%s closes and sends nothing', async (_how, dismiss) => {
     await r.setup(() => ({ body: {} }));
     await openDialog();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    dismiss();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(writes().filter((c) => c.url.includes('/approve'))).toHaveLength(0);
+    await act(async () => { await Promise.resolve(); });
+    expect(sentWrites()).toHaveLength(0);
   });
 
   it('says the agent offers no dry run, and does not hold Approve on one', async () => {
@@ -206,6 +244,7 @@ describe.each(routes)('$name', (r) => {
     await openDialog();
     fireEvent.click(confirmButton(r.confirmLabel));
     if (r.refusalInDialog) {
+      // (the view action's store surfaces `error` from the body)
       expect((await screen.findByRole('alert')).textContent).toContain(message);
       expect(screen.getByRole('dialog')).toBeTruthy();
     } else {
@@ -213,7 +252,7 @@ describe.each(routes)('$name', (r) => {
     }
   });
 
-  it("runs as Pulse's service account: the person's RBAC is not asked or claimed", async () => {
+  it("the person's RBAC is not asked or claimed here: the agent's own authorisation answers", async () => {
     ssarAllowed = false;
     await r.setup(() => ({ body: {} }));
     await openDialog();
@@ -222,12 +261,19 @@ describe.each(routes)('$name', (r) => {
     expect(confirmButton(r.confirmLabel).disabled).toBe(false);
   });
 
-  it('observe mode: the row Approve is disabled, and an open dialog cannot approve by button or keyboard', async () => {
+  it('observe mode: no working Approve, and an open dialog cannot approve by any path', async () => {
     useTrustStore.setState({ trustLevel: 0 });
     await r.setup(() => ({ body: {} }));
-    expect(rowApprove().disabled).toBe(true);
-    fireEvent.click(rowApprove());
-    expect(screen.queryByRole('dialog')).toBeNull();
+    if (r.rowName === 'Approve') {
+      expect(rowApprove().disabled).toBe(true);
+      fireEvent.click(rowApprove());
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } else {
+      // A view's write button opens the confirm, which explains observe mode.
+      await openDialog();
+      expect(confirmButton(r.confirmLabel).disabled).toBe(true);
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    }
 
     // Switched to observe while the dialog is open.
     act(() => { useTrustStore.setState({ trustLevel: 1 }); });
@@ -235,10 +281,16 @@ describe.each(routes)('$name', (r) => {
     act(() => { useTrustStore.setState({ trustLevel: 0 }); });
     expect(confirmButton(r.confirmLabel).disabled).toBe(true);
     expect(screen.getByTestId('write-blocked').textContent).toMatch(/Observe mode/);
+    // Focus is on Cancel, so Enter cannot land on the write.
+    expect(document.activeElement).not.toBe(confirmButton(r.confirmLabel));
     fireEvent.click(confirmButton(r.confirmLabel));
-    fireEvent.keyDown(confirmButton(r.confirmLabel), { key: 'Enter' });
-    fireEvent.keyDown(window, { key: 'y' });
-    expect(writes().filter((c) => c.url.includes('/approve'))).toHaveLength(0);
+    // No shortcut approves from anywhere: Enter/y on the dialog and the window.
+    for (const target of [screen.getByRole('dialog'), document.body]) {
+      fireEvent.keyDown(target, { key: 'Enter' });
+      fireEvent.keyDown(target, { key: 'y' });
+    }
+    await act(async () => { await Promise.resolve(); });
+    expect(sentWrites()).toHaveLength(0);
   });
 
   it('a cluster switch while the dialog is open sends nothing and says why', async () => {
@@ -247,7 +299,7 @@ describe.each(routes)('$name', (r) => {
     switchCluster('prod-east');
     fireEvent.click(confirmButton(r.confirmLabel));
     expect((await screen.findByRole('alert')).textContent).toMatch(/was not run: it was prepared on Local Cluster, but the active cluster is now Prod East/);
-    expect(writes().filter((c) => c.url.includes('/approve'))).toHaveLength(0);
+    expect(sentWrites()).toHaveLength(0);
   });
 });
 

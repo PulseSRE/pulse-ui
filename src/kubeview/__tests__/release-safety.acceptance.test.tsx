@@ -16,15 +16,16 @@ beforeEach(() => {
   useTrustStore.setState({ trustLevel: 0, autoFixCategories: [], history: [] });
   useUIStore.setState({ toasts: [] });
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+let cardClient: QueryClient | null = null;
+afterEach(() => { cleanup(); cardClient?.clear(); cardClient = null; vi.unstubAllGlobals(); });
 
 const confirm = { tool: 'scale_deployment', input: { name: 'web', namespace: 'prod', replicas: 4 }, nonce: 'request-123' };
 
 /** The card asks the cluster whether the person may make the write; the cluster says yes. */
 function renderCard(ui: React.ReactElement) {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ status: { allowed: true } }) }));
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  cardClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={cardClient}>{ui}</QueryClientProvider>);
 }
 
 describe('release approval acceptance with the real trust policy', () => {

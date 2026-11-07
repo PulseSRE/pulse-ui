@@ -211,4 +211,20 @@ describe('ConfirmationCard', () => {
     render(<ConfirmationCard confirm={{ tool: 'apply_yaml', input: { yaml: 'kind: ConfigMap' } }} onConfirm={vi.fn()} />);
     expect(screen.getByRole('button', { name: /^Approve/ })).toBeTruthy();
   });
+
+  it('keys pressed inside another open dialog do not answer this card', () => {
+    const onConfirm = vi.fn();
+    render(
+      <>
+        <ConfirmationCard confirm={scaleConfirm} onConfirm={onConfirm} />
+        <div role="dialog" aria-modal="true"><button type="button">Inside another dialog</button></div>
+      </>,
+    );
+    const inside = screen.getByRole('button', { name: 'Inside another dialog' });
+    for (const key of ['y', 'Y', 'n', 'N', 'Escape']) fireEvent.keyDown(inside, { key });
+    expect(onConfirm).not.toHaveBeenCalled();
+    // From the card itself (or the page), Y still approves.
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'y' });
+    expect(onConfirm).toHaveBeenCalledExactlyOnceWith(true);
+  });
 });

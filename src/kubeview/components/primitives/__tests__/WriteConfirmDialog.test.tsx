@@ -118,10 +118,48 @@ describe('WriteConfirmDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('cancel calls nothing but close', () => {
+  it.each([
+    ['Cancel', () => fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))],
+    ['Escape', () => fireEvent.keyDown(document, { key: 'Escape' })],
+    ['the X', () => fireEvent.click(screen.getByRole('button', { name: 'Close' }))],
+    ['a backdrop mousedown', () => fireEvent.mouseDown(screen.getByRole('dialog').parentElement!)],
+  ])('%s closes and never confirms', async (_how, dismiss) => {
     const { onConfirm, onClose } = open();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(onClose).toHaveBeenCalled();
+    dismiss();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('opens with focus on Cancel, not on the write', () => {
+    const { button } = open();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+    expect(document.activeElement).not.toBe(button());
+  });
+
+  it('two clicks in one tick send the write once', async () => {
+    let finish!: () => void;
+    const onConfirm = vi.fn(() => new Promise<void>((res) => { finish = res; }));
+    const { button } = open({ onConfirm });
+    act(() => { button().click(); button().click(); });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
+  });
+
+  it.each([
+    ['observe mode', () => { useTrustStore.setState({ trustLevel: 0 }); return {}; }],
+    ['RBAC-denied', () => ({ rbac: { allowed: false, deniedMessage: 'no' } })],
+    ['a failed dry run', () => ({ dryRun: () => Promise.reject(new Error('denied')) })],
+    ['a missing required reason', () => ({ reason: { label: 'Reason', required: true } })],
+  ])('%s: the handler itself refuses, not only the disabled attribute', async (_why, arrange) => {
+    const { button, onConfirm } = open(arrange() as Partial<WriteConfirmDialogProps>);
+    await act(async () => { await Promise.resolve(); });
+    expect(button().disabled).toBe(true);
+    // React drops clicks on a disabled button, so call its handler the way a
+    // hidden path (shortcut, another button) would.
+    const propsKey = Object.keys(button()).find((k) => k.startsWith('__reactProps$'))!;
+    const props = (button() as unknown as Record<string, { onClick: () => Promise<void> }>)[propsKey];
+    await act(async () => { await props.onClick(); });
     expect(onConfirm).not.toHaveBeenCalled();
   });
 

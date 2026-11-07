@@ -132,7 +132,8 @@ export function WriteChange({ diff, params, note, collapsed }: WriteChangeProps)
 export type DryRunState =
   | { state: 'unavailable' }
   | { state: 'running' }
-  | { state: 'passed' }
+  /** `message` names who checked it when that is not the API server (e.g. the agent's preview). */
+  | { state: 'passed'; message?: string }
   | { state: 'failed'; message: string };
 
 export interface WriteFact { label: string; value: React.ReactNode; tone?: 'danger' }
@@ -153,7 +154,7 @@ export function DryRunText({ dryRun }: { dryRun: DryRunState }) {
     >
       {dryRun.state === 'unavailable' && 'No dry run available for this action'}
       {dryRun.state === 'running' && <span className="flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Asking the API server…</span>}
-      {dryRun.state === 'passed' && 'Passed · admitted by the API server'}
+      {dryRun.state === 'passed' && (dryRun.message ?? 'Passed · admitted by the API server')}
       {dryRun.state === 'failed' && `Failed · ${dryRun.message}`}
     </dd>
   );
@@ -217,6 +218,10 @@ export function WriteConfirmDialog({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const reasonId = React.useId();
+  // Focus starts on Cancel, never on the write. `inFlight` stops two events in
+  // one tick (before `busy` re-renders) from sending the write twice.
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const inFlight = React.useRef(false);
 
   const denied = rbac && !rbac.loading && !rbac.allowed;
   React.useEffect(() => {
@@ -249,7 +254,8 @@ export function WriteConfirmDialog({
   const disabled = busy || !!blocked || (dryRun ? dry.state !== 'passed' : false) || needsReason;
 
   const confirm = async () => {
-    if (disabled) return;
+    if (disabled || inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -258,6 +264,7 @@ export function WriteConfirmDialog({
     } catch (e) {
       setError(`${failurePrefix ?? `${confirmLabel} failed`}: ${describeWriteError(e)}`);
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -270,12 +277,13 @@ export function WriteConfirmDialog({
       onClose={() => { if (!busy) onClose(); }}
       dismissible={!busy}
       overlayClassName="z-60"
+      initialFocusRef={cancelRef}
       size="2xl"
       title={title}
       description={<WriteWhere {...where} />}
       footer={
         <>
-          <button type="button" onClick={onClose} disabled={busy} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+          <button ref={cancelRef} type="button" onClick={onClose} disabled={busy} className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50">
             Cancel
           </button>
           <button

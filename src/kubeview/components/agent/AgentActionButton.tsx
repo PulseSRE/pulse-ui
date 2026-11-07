@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ConfirmDialog } from '../feedback/ConfirmDialog';
+import { WriteConfirmDialog } from '../primitives/WriteConfirmDialog';
+import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import type { ActionButtonSpec } from '../../engine/agentComponents';
 import { useCustomViewStore } from '../../store/customViewStore';
 
@@ -45,6 +46,16 @@ export function AgentActionButton({ spec, viewId }: Props) {
     }
   }, [viewId, spec, executeAction]);
 
+  /** A write runs only from the confirm dialog; a failure stays in it. */
+  const runWrite = useCallback(async () => {
+    if (!viewId) throw new Error('No view context for action execution');
+    setError(null);
+    setResult(null);
+    const data = await executeAction(viewId, spec.action, spec.action_input);
+    setResult(data.result);
+    setShowConfirm(false);
+  }, [viewId, spec, executeAction]);
+
   const handleClick = useCallback(() => {
     if (isWrite) {
       setShowConfirm(true);
@@ -81,16 +92,23 @@ export function AgentActionButton({ spec, viewId }: Props) {
         </div>
       )}
 
-      {isWrite && (
-        <ConfirmDialog
-          open={showConfirm}
-          onClose={() => setShowConfirm(false)}
-          onConfirm={handleExecute}
-          title={spec.label}
-          description={spec.confirm_text || `This will execute "${spec.action}" — are you sure?`}
+      {/* An agent-authored write: the same confirm as every other approval
+          (parameters, where and as whom, observe-mode gate, cluster pin). The
+          agent runs it on its own cluster with the person's forwarded token. */}
+      {isWrite && showConfirm && (
+        <WriteConfirmDialog
+          title={`${spec.label}?`}
+          where={{
+            clusterId: LOCAL_CLUSTER_ID,
+            actingAs: 'agent-user',
+            namespace: typeof spec.action_input?.namespace === 'string' ? spec.action_input.namespace : undefined,
+          }}
+          change={{ params: { action: spec.action, input: spec.action_input ?? {} } }}
+          impact={spec.confirm_text}
           confirmLabel={spec.label}
-          variant={style === 'danger' ? 'danger' : 'warning'}
-          loading={loading}
+          what={spec.label}
+          onConfirm={runWrite}
+          onClose={() => setShowConfirm(false)}
         />
       )}
     </div>
