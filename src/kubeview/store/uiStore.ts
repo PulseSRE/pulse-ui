@@ -485,7 +485,10 @@ export const useUIStore = create<UIState>()(
 
       // Namespace
       selectedNamespace: '*',
-      scopeClusterId: getActiveClusterId(),
+      // Set when a namespace is chosen (and on load); the initial scope is all
+      // namespaces, which needs no cluster. Not read at import time, so the
+      // store does not depend on the connection registry being ready.
+      scopeClusterId: '',
       setSelectedNamespace: (ns) => set({ selectedNamespace: ns, scopeClusterId: getActiveClusterId() }),
       resetNamespaceScope: (clusterId) => set((state) => ({
         selectedNamespace: '*',
