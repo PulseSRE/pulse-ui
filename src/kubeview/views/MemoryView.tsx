@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Brain, BookOpen, TrendingUp, Search, ChevronDown, ChevronRight, Zap, History, Target, Activity, Award, Download, Upload, Building2, Trash2, PowerOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -241,15 +242,11 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
       <div className={embedded ? 'space-y-6' : 'max-w-5xl mx-auto space-y-6'}>
         {/* Header — hidden when embedded as a tab */}
         {!embedded && (
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Brain className="w-6 h-6 text-blue-500" />
-              Agent Memory
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              The agent learns from every interaction. Give thumbs up on helpful responses to teach it reusable runbooks.
-            </p>
-          </div>
+          <PageHeader
+            icon={<Brain className="w-6 h-6 text-blue-500" />}
+            title="Agent Memory"
+            subtitle="The agent learns from every interaction. Give thumbs up on helpful responses to teach it reusable runbooks."
+          />
         )}
 
         {/* Export / Import */}

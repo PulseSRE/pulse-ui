@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { PageHeader } from '../components/primitives/PageHeader';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   Puzzle, Search, Package, CheckCircle, XCircle, Loader2,
-  ArrowRight, ArrowLeft, Star, Filter, Shield, Globe, Trash2,
+  ArrowRight, Star, Filter, Shield, Globe, Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sDelete, k8sGet } from '../engine/query';
@@ -498,31 +499,29 @@ export default function OperatorCatalogView() {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-4xl mx-auto space-y-6">
-          <button onClick={() => setSelectedOp(null)} className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200">
-            <ArrowLeft className="w-4 h-4" /> Back to catalog
-          </button>
+          <PageHeader
+            back={{
+              label: 'catalog',
+              // The catalog is this URL without ?pkg=, keeping the search and view.
+              href: (() => { const p = new URLSearchParams(searchParams); p.delete('pkg'); const q = p.toString(); return `/operators${q ? `?${q}` : ''}`; })(),
+              onClick: () => setSelectedOp(null),
+            }}
+            icon={desc?.icon?.[0]?.base64data ? (
+              <img src={`data:${desc.icon[0].mediatype};base64,${desc.icon[0].base64data}`} className="w-10 h-10 rounded-lg" alt="" />
+            ) : (
+              <span className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center"><Puzzle className="w-6 h-6 text-slate-600" /></span>
+            )}
+            title={desc?.displayName || selectedOp.metadata.name}
+            meta={isInstalled && <span className="px-2 py-0.5 bg-green-900/50 text-green-300 rounded-sm border border-green-800">Installed</span>}
+            subtitle={<span className="inline-flex flex-wrap items-center gap-3">
+              <span>{desc?.provider?.name || selectedOp.status.provider?.name}</span>
+              <span>v{desc?.version}</span>
+              {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded-sm border', catalogInfo.color)}>{catalogInfo.label}</span>}
+            </span>}
+          />
 
           {installProgressBanner}
           {whatNextPanel}
-
-          <div className="flex items-start gap-4">
-            {desc?.icon?.[0]?.base64data ? (
-              <img src={`data:${desc.icon[0].mediatype};base64,${desc.icon[0].base64data}`} className="w-16 h-16 rounded-lg" alt="" />
-            ) : (
-              <div className="w-16 h-16 rounded-lg bg-slate-800 flex items-center justify-center"><Puzzle className="w-8 h-8 text-slate-600" /></div>
-            )}
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-slate-100">{desc?.displayName || selectedOp.metadata.name}</h1>
-                {isInstalled && <span className="text-xs px-2 py-0.5 bg-green-900/50 text-green-300 rounded-sm border border-green-800">Installed</span>}
-              </div>
-              <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
-                <span>{desc?.provider?.name || selectedOp.status.provider?.name}</span>
-                <span>v{desc?.version}</span>
-                {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded-sm border', catalogInfo.color)}>{catalogInfo.label}</span>}
-              </div>
-            </div>
-          </div>
 
           {/* Description */}
           <Card className="p-4">
@@ -731,15 +730,16 @@ export default function OperatorCatalogView() {
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2"><Puzzle className="w-6 h-6 text-violet-500" /> Operator Catalog</h1>
-          <div className="flex flex-wrap items-center gap-x-2 text-sm text-slate-400 mt-1">
-            <p>{catalogError ? 'Catalog could not be read' : isLoading ? 'Loading catalog…' : `${dedupedPackages.length} operators available from ${catalogs.length} sources`}</p>
+        <PageHeader
+          icon={<Puzzle className="w-6 h-6 text-violet-500" />}
+          title="Operator Catalog"
+          subtitle={<span className="inline-flex flex-wrap items-center gap-x-2">
+            <span>{catalogError ? 'Catalog could not be read' : isLoading ? 'Loading catalog…' : `${dedupedPackages.length} operators available from ${catalogs.length} sources`}</span>
             <button onClick={() => go('/admin?tab=operators', 'Platform operators')} className="text-blue-400 hover:text-blue-300">
               Platform operators →
             </button>
-          </div>
-        </div>
+          </span>}
+        />
 
         {installProgressBanner}
         {whatNextPanel}

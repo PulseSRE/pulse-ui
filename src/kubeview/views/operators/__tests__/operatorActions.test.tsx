@@ -213,7 +213,9 @@ describe('Operator detail is in the URL', () => {
   it('opens the detail from ?pkg= and Back to catalog removes it', async () => {
     h.renderUi(<><OperatorCatalogView /><Where /></>, '/operators?pkg=loki-operator');
     expect(await screen.findByRole('heading', { name: 'Loki Operator' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Back to catalog/ }));
+    const back = screen.getByRole('link', { name: /Back to catalog/ });
+    expect(back.getAttribute('href')).toBe('/operators');
+    fireEvent.click(back);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/operators'));
   });
 

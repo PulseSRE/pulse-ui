@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { PageHeader } from '../../components/primitives/PageHeader';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, ChevronUp, ChevronDown, Globe,
@@ -226,11 +227,17 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
   // Empty state
   if (!loading && results.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-950">
-        <div className="text-center space-y-2">
-          <Globe className="w-10 h-10 text-slate-700 mx-auto" />
-          <p className="text-slate-400 text-sm">No clusters connected</p>
-          <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to browse resources across your fleet.</p>
+      <div className="h-full flex flex-col bg-slate-950">
+        <div className="border-b border-slate-800 px-6 py-4">
+          <FleetSubNav className="mb-3" />
+          <PageHeader icon={<Globe className="w-6 h-6 text-blue-500" />} title={`Fleet ${resourceKind}`} />
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center space-y-2">
+            <Globe className="w-10 h-10 text-slate-700 mx-auto" />
+            <p className="text-slate-400 text-sm">No clusters connected</p>
+            <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to browse resources across your fleet.</p>
+          </div>
         </div>
       </div>
     );
@@ -241,20 +248,17 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
       {/* Header */}
       <div className="border-b border-slate-800 px-6 py-4">
         <FleetSubNav className="mb-3" />
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-              <Globe className="w-5 h-5 text-blue-500" />
-              Fleet {resourceKind}
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {sortedRows.length} resources across {readClusterCount} cluster{readClusterCount !== 1 ? 's' : ''}
-              {unreadClusterCount > 0 && (
-                <span className="text-red-400 ml-1">· could not read {unreadClusterCount} cluster{unreadClusterCount !== 1 ? 's' : ''}</span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <PageHeader
+          className="mb-3"
+          icon={<Globe className="w-6 h-6 text-blue-500" />}
+          title={`Fleet ${resourceKind}`}
+          subtitle={<>
+            {sortedRows.length} resources across {readClusterCount} cluster{readClusterCount !== 1 ? 's' : ''}
+            {unreadClusterCount > 0 && (
+              <span className="text-red-400 ml-1">· could not read {unreadClusterCount} cluster{unreadClusterCount !== 1 ? 's' : ''}</span>
+            )}
+          </>}
+          actions={<>
             {/* Cluster filter */}
             <select
               value={clusterFilter}
@@ -288,8 +292,8 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
                 className="pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 w-48"
               />
             </div>
-          </div>
-        </div>
+          </>}
+        />
 
         {/* Per-cluster summary bar */}
         <div className="flex items-center gap-3 flex-wrap">
