@@ -33,12 +33,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('AI chat on a phone', () => {
-  it('a saved "expanded" does not mount the sheet or take focus on load', () => {
+  it('a saved "expanded" never mounts the sheet or moves focus, not even before the collapse effect runs', () => {
     setViewport(true);
     useUIStore.setState({ aiSidebarExpanded: true });
+    // Checked while it happens, not after: the mount-time collapse would hide a
+    // sheet that had already mounted and focused Close.
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    let dialogSeen = false;
+    const observer = new MutationObserver(() => { if (document.body.querySelector('[role="dialog"]')) dialogSeen = true; });
+    observer.observe(document.body, { childList: true, subtree: true });
     render(<><button>page</button><AISidebar /></>);
+    observer.takeRecords();
+    if (document.body.querySelector('[role="dialog"]')) dialogSeen = true;
+    observer.disconnect();
+    expect(dialogSeen).toBe(false);
+    expect(focus).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(document.activeElement).toBe(document.body);
   });
 
   it('a skill starting does not open the sheet', () => {
