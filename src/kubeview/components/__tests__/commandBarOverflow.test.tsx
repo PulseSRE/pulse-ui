@@ -14,7 +14,9 @@ const fetchInboxStats = vi.fn();
 vi.mock('../../engine/inboxApi', async (orig) => ({ ...(await orig<object>()), fetchInboxStats: () => fetchInboxStats() }));
 vi.mock('../../hooks/usePulseStatus', () => ({ usePulseUpgrade: () => ({ phase: '', upgrading: false, moves: [] }) }));
 
+import React from 'react';
 import { CommandBar } from '../CommandBar';
+import { PHONE_QUERY } from '../../hooks/useIsPhone';
 import { useInboxStore } from '../../store/inboxStore';
 import { useUIStore } from '../../store/uiStore';
 
@@ -35,10 +37,25 @@ function renderBar() {
   );
 }
 
-const trigger = () => screen.getByRole('button', { name: /^More: cluster, namespace, account/ });
-const panel = () => screen.getByRole('group', { name: 'Cluster, namespace and account' });
+const trigger = () => screen.getByRole('button', { name: /^More: cluster / });
+const panel = () => screen.getByRole('group', { name: 'Cluster, namespace, AI and account' });
+
+let phone = true;
+let mqListeners: Array<() => void> = [];
+function setPhone(next: boolean) {
+  phone = next;
+  React.act(() => { for (const l of mqListeners) l(); });
+}
 
 beforeEach(() => {
+  phone = true;
+  mqListeners = [];
+  window.matchMedia = ((query: string) => ({
+    get matches() { return phone && query === PHONE_QUERY; },
+    media: query,
+    addEventListener: (_: string, l: () => void) => { mqListeners.push(l); },
+    removeEventListener: (_: string, l: () => void) => { mqListeners = mqListeners.filter((x) => x !== l); },
+  })) as never;
   global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }) as never;
   fetchInboxStats.mockResolvedValue({});
   useInboxStore.setState({ stats: {} });
@@ -146,7 +163,7 @@ describe('command bar "More" panel', () => {
   it('the trigger names the inbox count so a closed panel does not hide it', async () => {
     fetchInboxStats.mockResolvedValue({ needs_attention: 3 });
     renderBar();
-    expect(await screen.findByRole('button', { name: 'More: cluster, namespace, account. 3 in the Inbox' })).toBeDefined();
+    expect(await screen.findByRole('button', { name: 'More: cluster cluster, namespace, AI, account. 3 in the Inbox' })).toBeDefined();
   });
 
   it('on a page that shows every namespace, keeps the aria-disabled picker in the panel, reachable by arrows', () => {
@@ -161,5 +178,36 @@ describe('command bar "More" panel', () => {
     fireEvent.click(note);
     expect(screen.queryByPlaceholderText('Type to filter...')).toBeNull();
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('shows the cluster in the bar and in the trigger label while the panel is closed', async () => {
+    global.fetch = vi.fn((url: string) => Promise.resolve(
+      String(url).includes('infrastructures/cluster')
+        ? new Response(JSON.stringify({ status: { infrastructureName: 'prod-east-1' } }), { status: 200, headers: { 'content-type': 'application/json' } })
+        : new Response('{}', { status: 500 }),
+    )) as never;
+    renderBar();
+    const chip = await screen.findByTestId('phone-cluster-chip');
+    await within(chip).findByText('prod-east-1');
+    expect(panel().contains(chip)).toBe(false);
+    expect(trigger().getAttribute('aria-expanded')).toBe('false');
+    expect(trigger().getAttribute('aria-label')).toMatch(/^More: cluster prod-east-1,/);
+  });
+
+  it('closes when focus leaves the panel', () => {
+    renderBar();
+    fireEvent.click(trigger());
+    const inside = document.activeElement as HTMLElement;
+    const outside = screen.getByRole('button', { name: 'outside' });
+    fireEvent.blur(inside, { relatedTarget: outside });
+    expect(trigger().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes when the window widens past `sm`', () => {
+    renderBar();
+    fireEvent.click(trigger());
+    expect(trigger().getAttribute('aria-expanded')).toBe('true');
+    setPhone(false);
+    expect(trigger().getAttribute('aria-expanded')).toBe('false');
   });
 });

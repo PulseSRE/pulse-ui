@@ -14,6 +14,7 @@ vi.mock('../CollapsedRail', () => ({ CollapsedRail: () => <div data-testid="rail
 import { AISidebar } from '../AISidebar';
 import { PHONE_QUERY } from '../../../hooks/useIsPhone';
 import { useUIStore } from '../../../store/uiStore';
+import { useMonitorStore } from '../../../store/monitorStore';
 
 function setViewport(phone: boolean) {
   window.matchMedia = vi.fn((query: string) => ({
@@ -27,10 +28,27 @@ function setViewport(phone: boolean) {
 
 beforeEach(() => {
   useUIStore.setState({ aiSidebarExpanded: false, aiSidebarMode: 'dashboard' });
+  useMonitorStore.setState({ activeSkill: null });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('AI chat on a phone', () => {
+  it('a saved "expanded" does not mount the sheet or take focus on load', () => {
+    setViewport(true);
+    useUIStore.setState({ aiSidebarExpanded: true });
+    render(<><button>page</button><AISidebar /></>);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('a skill starting does not open the sheet', () => {
+    setViewport(true);
+    render(<AISidebar />);
+    act(() => { useMonitorStore.setState({ activeSkill: 'sre' }); });
+    expect(useUIStore.getState().aiSidebarExpanded).toBe(false);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('shows no rail while collapsed', () => {
     setViewport(true);
     render(<AISidebar />);
@@ -101,6 +119,14 @@ describe('AI chat on a phone', () => {
 });
 
 describe('AI sidebar on wider screens', () => {
+  it('opens in chat when a skill starts', () => {
+    setViewport(false);
+    render(<AISidebar />);
+    act(() => { useMonitorStore.setState({ activeSkill: 'sre' }); });
+    expect(useUIStore.getState().aiSidebarExpanded).toBe(true);
+    expect(useUIStore.getState().aiSidebarMode).toBe('chat');
+  });
+
   it('keeps the rail when collapsed and a sidebar, not a dialog, when open', () => {
     setViewport(false);
     render(<AISidebar />);

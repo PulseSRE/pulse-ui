@@ -125,6 +125,12 @@ export function CommandBar() {
     },
     staleTime: 300000,
   });
+  // The cluster stays visible at phone width while "More" is closed.
+  // Same name and dot as the cluster control in the panel.
+  const activeCluster = clusters.find((c) => c.id === activeClusterId);
+  const multiCluster = isMultiCluster();
+  const clusterName = (multiCluster ? activeCluster?.name : undefined) || clusterInfo?.name || 'cluster';
+  const clusterConnected = multiCluster ? activeCluster?.status === 'connected' : true;
 
   // The inbox needs-attention count: one source (inboxStore.stats), shared
   // with the sidebar and agent dock, kept fresh from here because the
@@ -205,7 +211,7 @@ export function CommandBar() {
       <div
         {...overflow.panelProps}
         role="group"
-        aria-label="Cluster, namespace and account"
+        aria-label="Cluster, namespace, AI and account"
         className={cn(
           'flex items-center gap-2',
           'max-sm:absolute max-sm:right-2 max-sm:top-full max-sm:z-50 max-sm:mt-1 max-sm:w-64 max-sm:max-w-[calc(100vw-1rem)] max-sm:flex-col max-sm:items-stretch max-sm:gap-1 max-sm:rounded-lg max-sm:border max-sm:border-slate-600 max-sm:bg-slate-800 max-sm:p-2 max-sm:shadow-2xl',
@@ -606,13 +612,21 @@ export function CommandBar() {
         </div>
       </div>
 
+      <span
+        className="sm:hidden ml-auto mr-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-300"
+        title={`Cluster: ${clusterName}`}
+        data-testid="phone-cluster-chip"
+      >
+        <span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', clusterConnected ? 'bg-emerald-500' : 'bg-red-500')} />
+        <span className="max-w-[96px] truncate">{clusterName}</span>
+      </span>
       <button
         {...overflow.triggerProps}
         className={cn(
           'sm:hidden relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors',
           overflow.open && 'bg-slate-700/50 text-slate-200',
         )}
-        aria-label={issueCount > 0 ? `More: cluster, namespace, account. ${issueCount} in the Inbox` : 'More: cluster, namespace, account'}
+        aria-label={`More: cluster ${clusterName}, namespace, AI, account${issueCount > 0 ? `. ${issueCount} in the Inbox` : ''}`}
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
         {issueCount > 0 && <span aria-hidden="true" className="absolute top-1.5 right-2.5 h-2 w-2 rounded-full bg-red-500" />}

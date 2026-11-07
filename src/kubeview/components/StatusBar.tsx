@@ -94,8 +94,8 @@ export function StatusBar() {
             Session expired — click to log in again
           </button>
         )}
+        {isMultiCluster() && activeCluster && <span className="shrink-0 text-blue-400">· {activeCluster.name}</span>}
         {activeOperation && <span className="truncate text-emerald-400" title={activeOperation}>{activeOperation}</span>}
-        {isMultiCluster() && activeCluster && <span className="truncate text-blue-400">· {activeCluster.name}</span>}
         {pageInfo && <span className="truncate text-slate-400" title={pageInfo}>· {pageInfo}</span>}
       </div>
 

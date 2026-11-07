@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useIsPhone } from '../hooks/useIsPhone';
 
 /**
  * The command bar's "More" panel below `sm`. The controls stay where they are
@@ -34,7 +35,9 @@ export function useOverflowPanel() {
   const panelRef = useRef<HTMLDivElement>(null);
   // Open "at" a path: navigating anywhere closes it without an effect.
   const [openAt, setOpenAt] = useState<string | null>(null);
-  const open = openAt !== null && openAt === location.pathname;
+  // Only a phone has the panel: widening the window to `sm` closes it.
+  const isPhone = useIsPhone();
+  const open = isPhone && openAt !== null && openAt === location.pathname;
   const focusFirst = useRef(false);
 
   const close = useCallback((restoreFocus = false) => {

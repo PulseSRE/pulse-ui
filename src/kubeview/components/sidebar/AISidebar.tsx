@@ -30,6 +30,14 @@ export function AISidebar() {
   const activeSkill = useMonitorStore((s) => s.activeSkill);
   // Phones: no rail (it took 48px of a 390px screen); chat opens as a bottom sheet.
   const isPhone = useIsPhone();
+  // On a phone the sheet mounts only for an expand that happens after this
+  // component mounted. A stale "expanded" (set before mount, or by a viewport
+  // that just shrank) would otherwise open a modal and take focus on load.
+  const [phoneSheetOpen, setPhoneSheetOpen] = useState(false);
+  useEffect(() => useUIStore.subscribe((s, prev) => {
+    if (s.aiSidebarExpanded && !prev.aiSidebarExpanded) setPhoneSheetOpen(true);
+    else if (!s.aiSidebarExpanded) setPhoneSheetOpen(false);
+  }), []);
 
   // Auto-collapse on small screens
   useEffect(() => {
@@ -107,7 +115,7 @@ export function AISidebar() {
   );
 
   if (isPhone) {
-    if (!expanded) return null;
+    if (!expanded || !phoneSheetOpen) return null;
     return (
       <AIChatSheet
         onClose={collapseAISidebar}
