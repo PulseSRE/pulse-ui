@@ -41,9 +41,9 @@ describe('CustomView before and after the views load', () => {
     void useCustomViewStore.getState().forceLoadViews();
     render(<MemoryRouter><CustomView viewId="cv-1" /></MemoryRouter>);
     expect(screen.getByText('Loading view…')).toBeTruthy();
-    expect(screen.queryByText('View not found')).toBeNull();
+    expect(screen.queryByText('Custom view not found')).toBeNull();
     release();
-    expect(await screen.findByText('View not found')).toBeTruthy();
+    expect(await screen.findByText('Custom view not found')).toBeTruthy();
   });
 
   it.each([403, 500])('shows an error with Retry, not "View not found", when the list fails with %i', async (status) => {
@@ -52,11 +52,11 @@ describe('CustomView before and after the views load', () => {
     void useCustomViewStore.getState().forceLoadViews();
     render(<MemoryRouter><CustomView viewId="cv-1" /></MemoryRouter>);
     expect(await screen.findByText('Views could not be loaded')).toBeTruthy();
-    expect(screen.queryByText('View not found')).toBeNull();
+    expect(screen.queryByText('Custom view not found')).toBeNull();
 
     answer(200, { views: [{ id: 'cv-1', title: 'My view', layout: [], created_at: new Date().toISOString() }], owner: 'me' }).release();
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     await waitFor(() => expect(screen.queryByText('Views could not be loaded')).toBeNull());
-    expect(screen.queryByText('View not found')).toBeNull();
+    expect(screen.queryByText('Custom view not found')).toBeNull();
   });
 });

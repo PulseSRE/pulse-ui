@@ -2,8 +2,10 @@ import { useState, useMemo } from 'react';
 import { LoadError } from '../components/primitives/LoadError';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigateTab } from '../hooks/useNavigateTab';
+import { SubpageHeader } from '../components/primitives/SubpageHeader';
+import { useClusterStore } from '../store/clusterStore';
+import { kindFromPlural } from '../engine/topologyLinks';
 import { MetricsChart } from '../components/metrics/MetricsChart';
 import { getMetricsForResource, resolveQuery, formatYAxisValue } from '../components/metrics/AutoMetrics';
 import { buildApiPath } from '../hooks/useResourceUrl';
@@ -29,7 +31,9 @@ const TIME_RANGES: Record<TimeRange, number> = {
 };
 
 export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProps) {
-  const navigate = useNavigate();
+  const go = useNavigateTab();
+  const clusterId = useActiveClusterId();
+  const registry = useClusterStore((s) => s.resourceRegistry);
   const [timeRange, setTimeRange] = useState<TimeRange>('6h');
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const metricsAvailable = useMetricsAvailable();
@@ -49,36 +53,26 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
     node: name,
   }), [name, namespace]);
 
-  const backPath = namespace
-    ? `/r/${gvrKey.replace(/\//g, '~')}/${namespace}/${name}`
-    : `/r/${gvrKey.replace(/\//g, '~')}/_/${name}`;
-
+  const gvrUrl = gvrKey.replace(/\//g, '~');
   const gvrParts = gvrKey.split('/');
-  const kind = gvrParts[gvrParts.length - 1];
+  const plural = gvrParts[gvrParts.length - 1];
+  const kind = (registry?.get(gvrKey) ?? registry?.get(`core/${gvrKey}`))?.kind || kindFromPlural(plural);
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(backPath)}
-            className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200"
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <span className="text-sm text-slate-400">Metrics</span>
-          <span className="text-sm font-medium">{name}</span>
-          {namespace && (
-            <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-slate-800 rounded-sm text-xs">
+      <SubpageHeader
+        subpage="Metrics"
+        resource={{ gvrUrl, kind, namespace, name }}
+        go={go}
+        clusterId={clusterId}
+        actions={
+          <div className="flex bg-slate-800 rounded-sm text-xs" role="group" aria-label="Time range">
             {(Object.keys(TIME_RANGES) as TimeRange[]).map((range) => (
               <button
                 key={range}
+                type="button"
                 onClick={() => setTimeRange(range)}
+                aria-pressed={timeRange === range}
                 className={cn(
                   'px-3 py-1.5 rounded-sm transition-colors',
                   timeRange === range
@@ -90,8 +84,8 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
               </button>
             ))}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Charts */}
       <div className="flex-1 p-4 space-y-4 overflow-auto">
@@ -99,7 +93,7 @@ export default function MetricsView({ gvrKey, namespace, name }: MetricsViewProp
           <RemoteMetricsNotice />
         ) : metricQueries.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-slate-400">
-            No metrics available for {kind}
+            No metrics available for {plural}
           </div>
         ) : (
           metricQueries.map((mq) => (

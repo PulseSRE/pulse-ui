@@ -155,12 +155,10 @@ describe('LogsView', () => {
     expect(screen.getByText(/label selector/)).toBeDefined();
   });
 
-  it('shows Back to workload button that navigates back', () => {
+  it('the empty state goes back to the workload by name, not history', () => {
     mockSearchParams = new URLSearchParams({ selector: 'app=nginx', kind: 'Deployment' });
     renderView({ namespace: 'default', podName: 'nginx' });
-    const backButton = screen.getByText('Back to workload');
-    expect(backButton).toBeDefined();
-    fireEvent.click(backButton);
-    expect(mockNavigate).toHaveBeenCalledWith(-1);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to deployment nginx' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/r/apps~v1~deployments/default/nginx');
   });
 });

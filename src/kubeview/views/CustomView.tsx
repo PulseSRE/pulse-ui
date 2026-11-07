@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { Trash2, Plus, LayoutDashboard, Bot, Share2, Check, GripVertical, Pencil, Eye, RefreshCw, Settings2, Clock, Inbox, X } from 'lucide-react';
+import { Trash2, Plus, LayoutDashboard, Bot, Share2, Check, GripVertical, Pencil, Eye, RefreshCw, Settings2, Clock } from 'lucide-react';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { ChartEditPopover } from '../components/agent/ChartEditPopover';
 import { useCustomViewStore } from '../store/customViewStore';
@@ -7,6 +7,7 @@ import { useUIStore } from '../store/uiStore';
 import { AgentComponentRenderer } from '../components/agent/AgentComponentRenderer';
 import { EmptyState } from '../components/primitives/EmptyState';
 import { LoadError } from '../components/primitives/LoadError';
+import { NotFound } from '../components/primitives/NotFound';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { WidgetErrorBoundary } from '../components/agent/WidgetErrorBoundary';
 import { formatRelative } from '../engine/format';
@@ -244,34 +245,26 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
 
   if (!view) {
     const handleCloseTab = () => {
-      go('/inbox', 'Inbox');
+      go('/views', 'Views');
       const tabs = useUIStore.getState().tabs;
       const tab = tabs.find((t) => t.path === `/custom/${viewId}`);
       if (tab) useUIStore.getState().closeTab(tab.id);
     };
     return (
-      <div className="h-full flex items-center justify-center bg-slate-950">
-        <div className="text-center max-w-md">
-          <LayoutDashboard className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-200 text-sm font-medium">View not found</p>
-          <p className="text-slate-500 text-xs mt-2">This custom view may have been deleted.</p>
-          <div className="flex items-center justify-center gap-3 mt-4">
-            <button
-              onClick={() => go('/inbox', 'Inbox')}
-              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors flex items-center gap-1.5"
-            >
-              <Inbox className="w-4 h-4" />
-              Go to Inbox
-            </button>
-            <button
-              onClick={handleCloseTab}
-              className="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md transition-colors flex items-center gap-1.5"
-            >
-              <X className="w-4 h-4" />
-              Close Tab
-            </button>
-          </div>
-        </div>
+      <div className="h-full bg-slate-950">
+        <NotFound
+          headingLevel={1}
+          what="Custom view"
+          where="in your saved views"
+          reason={<>
+            No view with id <code className="rounded-sm bg-slate-800 px-1 text-xs text-slate-300">{viewId}</code> is saved for you.
+            It may have been deleted, or it belongs to someone else: a shared view opens from its share link.
+          </>}
+          actions={[
+            { label: 'Go to Views', href: '/views', onClick: () => go('/views', 'Views') },
+            { label: 'Close tab', onClick: handleCloseTab },
+          ]}
+        />
       </div>
     );
   }

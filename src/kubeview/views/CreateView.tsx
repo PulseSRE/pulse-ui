@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { PageHeader } from '../components/primitives/PageHeader';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { SubpageHeader } from '../components/primitives/SubpageHeader';
+import { gvrToUrl } from '../engine/gvr';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  ArrowLeft, Plus, Package, FileText,
+  Plus, Package, FileText,
   AlertCircle, Box, Upload, Ship, ShieldCheck, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
@@ -112,14 +114,14 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   const hub = gvrProp === undefined;
   const gvrKey = gvrProp ?? '';
   const go = useNavigateTab();
-  const navigate = useNavigate();
   const addToast = useUIStore((s) => s.addToast);
   const storeNamespace = useUIStore((s) => s.selectedNamespace);
   // `?namespace=<ns>` (e.g. StorageView's "add quota" link) names the target
   // namespace; without it the global selector decides.
   const location = useLocation();
   const urlNamespace = new URLSearchParams(location.search).get('namespace');
-  const selectedNamespace = urlNamespace && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(urlNamespace) ? urlNamespace : storeNamespace;
+  const validUrlNamespace = urlNamespace && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(urlNamespace) ? urlNamespace : undefined;
+  const selectedNamespace = validUrlNamespace ?? storeNamespace;
   const registry = useClusterStore((s) => s.resourceRegistry);
   // The cluster this screen shows; creates go there, not to whichever is local.
   const clusterId = useFleetStore((s) => s.activeClusterId);
@@ -297,13 +299,8 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   if (editMode) {
     return (
       <div className="flex flex-col h-full bg-slate-950">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
-          <div className="flex items-center gap-3">
-            <button onClick={() => { if (window.history.length > 1) window.history.back(); else if (hub) setEditMode(false); else navigate('/software'); }} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Back"><ArrowLeft size={16} /></button>
-            <span className="text-sm font-medium text-slate-200">Create {kind}</span>
-            {headerGroupVersion && <span className="text-xs text-slate-500">{headerGroupVersion}</span>}
-          </div>
-          <div className="flex items-center gap-2">
+        {(() => {
+          const actions = <>
             <button
               onClick={() => setShowDryRun(!showDryRun)}
               disabled={!yaml.trim()}
@@ -314,8 +311,35 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
             <button onClick={handleCreate} disabled={creating || !yaml.trim()} className={cn('flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-md font-medium transition-colors', creating || !yaml.trim() ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white')}>
               <Plus size={12} /> {creating ? 'Creating...' : 'Create'}
             </button>
-          </div>
-        </div>
+          </>;
+          const meta = headerGroupVersion ? <span className="text-slate-500">{headerGroupVersion}</span> : undefined;
+          if (hub) {
+            // Opened from a Software tab: the parent is that tab, kept in the URL.
+            const softwareHref = `/software${location.search}`;
+            return (
+              <PageHeader
+                size="subpage"
+                className="px-4 py-3 border-b border-slate-700 shrink-0"
+                breadcrumb={[{ label: 'Software', href: softwareHref, onClick: () => setEditMode(false) }, { label: 'Create' }]}
+                back={{ label: 'Software', href: softwareHref, onClick: () => setEditMode(false) }}
+                title={`Create ${kind}`}
+                meta={meta}
+                actions={actions}
+              />
+            );
+          }
+          return (
+            <SubpageHeader
+              subpage="Create"
+              resource={{ gvrUrl: gvrToUrl(gvrKey), kind: fallbackKind, namespace: validUrlNamespace }}
+              go={go}
+              clusterId={clusterId}
+              title={`Create ${kind}`}
+              meta={meta}
+              actions={actions}
+            />
+          );
+        })()}
         {error && (
           <div className="flex items-start gap-2 px-4 py-2 bg-red-950/50 border-b border-red-900 text-sm">
             <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
