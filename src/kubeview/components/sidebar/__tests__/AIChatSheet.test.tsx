@@ -12,7 +12,6 @@ vi.mock('../../agent/DockAgentPanel', () => ({ DockAgentPanel: () => <div>chat p
 vi.mock('../CollapsedRail', () => ({ CollapsedRail: () => <div data-testid="rail" /> }));
 
 import { AISidebar } from '../AISidebar';
-import { PHONE_QUERY } from '../../../hooks/useIsPhone';
 import { useUIStore } from '../../../store/uiStore';
 import { useMonitorStore } from '../../../store/monitorStore';
 
