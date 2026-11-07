@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** StorageView's "add quota" link passes `?namespace=`; the draft must target it. */
+/** StorageView's "add quota" link passes `?ns=` (older links `?namespace=`); the draft must target it. */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -20,10 +20,23 @@ vi.mock('../../components/yaml/YamlEditor', () => ({
 vi.mock('../../components/DeployProgress', () => ({ default: () => null }));
 
 import CreateView from '../CreateView';
+import { resetNamespaceScopeSync } from '../../hooks/useNamespaceScope';
+
+const clients: QueryClient[] = [];
+function newClient() {
+  const c = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(c);
+  return c;
+}
+function teardown() {
+  cleanup();
+  clients.splice(0).forEach((c) => c.clear());
+  resetNamespaceScopeSync();
+}
 
 function renderAt(url: string) {
   return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={newClient()}>
       <MemoryRouter initialEntries={[url]}>
         <CreateView gvrKey="v1/resourcequotas" />
       </MemoryRouter>
@@ -31,8 +44,13 @@ function renderAt(url: string) {
   );
 }
 
-describe('CreateView ?namespace=', () => {
-  afterEach(cleanup);
+describe('CreateView ?ns= and the old ?namespace=', () => {
+  afterEach(teardown);
+
+  it('drafts the resource in the namespace scope from the link', () => {
+    renderAt('/create/v1~resourcequotas?ns=team-b');
+    expect((screen.getByTestId('yaml-editor') as HTMLTextAreaElement).value).toMatch(/namespace: team-b/);
+  });
 
   it('drafts the resource in the namespace from the link', () => {
     renderAt('/create/v1~resourcequotas?namespace=team-a');
@@ -48,7 +66,7 @@ describe('CreateView ?namespace=', () => {
 });
 
 describe('CreateView ?template=', () => {
-  afterEach(cleanup);
+  afterEach(teardown);
 
   it('opens the editor on the reviewed template, in the linked namespace', () => {
     renderAt('/create/v1~resourcequotas?template=resource-quota&namespace=team-a');

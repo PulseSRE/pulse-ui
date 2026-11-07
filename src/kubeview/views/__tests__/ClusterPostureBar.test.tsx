@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import PulseViewModule from '../PulseView';
 
 /**
@@ -98,7 +99,8 @@ function renderBar(over: Partial<typeof monitorState>, extras: FeedItem[] = []) 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <PulseViewModule />
+      {/* The page reads its namespace scope from the URL. */}
+      <MemoryRouter><PulseViewModule /></MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -190,7 +192,8 @@ describe('the posture bar does not repeat the open-episode banner\'s action', ()
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
     render(
       <QueryClientProvider client={queryClient}>
-        <PulseViewModule />
+        {/* The page reads its namespace scope from the URL. */}
+      <MemoryRouter><PulseViewModule /></MemoryRouter>
       </QueryClientProvider>,
     );
     expect(screen.getByText('1 critical')).toBeDefined();

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, AlertTriangle, XCircle, CheckCircle, Clock, Search, VolumeX, ArrowRight, Plus, Trash2, X, ExternalLink, Filter, Activity, BookOpen, BellOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { resourceDetailUrl } from '../engine/gvr';
 import { alertResource } from '../engine/alertResource';
@@ -125,7 +126,7 @@ function LocalAlertsView() {
   const go = useNavigateTab();
   const queryClient = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   // No made-up author: if the lookup fails, the form asks for one.
   const { data: currentUser = '', refetch: refetchCurrentUser } = useQuery({
     // The silence author on the local Alertmanager is the user of the local cluster.

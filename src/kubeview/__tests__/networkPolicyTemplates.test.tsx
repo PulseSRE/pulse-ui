@@ -92,7 +92,7 @@ describe('default-deny egress template', () => {
   });
 
   it('has its own create link', () => {
-    expect(createTemplateUrl('default-deny-egress', 'shop')).toBe('/create/networking.k8s.io~v1~networkpolicies?template=default-deny-egress&namespace=shop');
+    expect(createTemplateUrl('default-deny-egress', 'shop')).toBe('/create/networking.k8s.io~v1~networkpolicies?template=default-deny-egress&ns=shop');
   });
 });
 
@@ -124,11 +124,11 @@ describe('Networking audit "Create Policy" opens the reviewed templates', () => 
     await waitFor(() => expect(row('Network Policies').dataset.auditOutcome).toBe('fail'));
     fireEvent.click(within(row('Network Policies')).getAllByRole('button')[0]);
     fireEvent.click(await within(row('Network Policies')).findByRole('button', { name: /Create Policy/ }));
-    expect(goSpy).toHaveBeenLastCalledWith('/create/networking.k8s.io~v1~networkpolicies?template=default-deny&namespace=shop', expect.any(String));
+    expect(goSpy).toHaveBeenLastCalledWith('/create/networking.k8s.io~v1~networkpolicies?template=default-deny&ns=shop', expect.any(String));
 
     await waitFor(() => expect(row('Egress Network Policies').dataset.auditOutcome).toBe('fail'));
     fireEvent.click(within(row('Egress Network Policies')).getAllByRole('button')[0]);
     fireEvent.click(await within(row('Egress Network Policies')).findByRole('button', { name: /Create Policy/ }));
-    expect(goSpy).toHaveBeenLastCalledWith('/create/networking.k8s.io~v1~networkpolicies?template=default-deny-egress&namespace=pay', expect.any(String));
+    expect(goSpy).toHaveBeenLastCalledWith('/create/networking.k8s.io~v1~networkpolicies?template=default-deny-egress&ns=pay', expect.any(String));
   });
 });

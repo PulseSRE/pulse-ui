@@ -33,6 +33,7 @@ import { GitOpsConfig } from '../components/GitOpsConfig';
 import { PageHeader } from '../components/primitives/PageHeader';
 import { promJson, MetricsUnavailableError } from '../components/metrics/prometheus';
 import { isPlatformNamespace } from '../engine/platformNamespaces';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 
 /** OpenShift Infrastructure resource (config.openshift.io/v1) */
 interface Infrastructure extends K8sResource {
@@ -121,6 +122,8 @@ type Tab = 'overview' | 'operators' | 'config' | 'updates' | 'snapshots' | 'quot
 const ADMIN_TABS: readonly Tab[] = ['overview', 'operators', 'config', 'updates', 'snapshots', 'quotas', 'certificates', 'csrs', 'crds'];
 
 export default function AdminView() {
+  // Not scoped by namespace: the picker says "All namespaces on this page".
+  useNamespaceScope({ applies: false });
   // The tab follows `?tab=` through the router, so in-page links such as
   // go('/admin?tab=crds') switch tabs instead of only changing the URL.
   const clusterId = useActiveClusterId();

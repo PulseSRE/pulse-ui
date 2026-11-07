@@ -213,6 +213,6 @@ describe('Rule detail', () => {
   it('Create alert rule opens the YAML create flow with the PrometheusRule template', async () => {
     renderAt('/alerts?tab=rules');
     fireEvent.click(await screen.findByRole('button', { name: /Create alert rule/ }));
-    expect(visited).toEqual(['/create/monitoring.coreos.com~v1~prometheusrules?template=prometheus-rule&namespace=default']);
+    expect(visited).toEqual(['/create/monitoring.coreos.com~v1~prometheusrules?template=prometheus-rule&ns=default']);
   });
 });

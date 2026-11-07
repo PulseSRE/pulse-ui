@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -123,7 +124,7 @@ afterEach(() => {
 describe('ActivityTab recurred fixes', () => {
   it('flags a recurred fix in the title and downgrades it to a warning', () => {
     _monitorState.fixHistory = [makeAction({ verificationStatus: 'verified_then_recurred' })];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
     const title = screen.getByText(/verified, then recurred/);
     expect(title.textContent).toContain('completed (verified, then recurred)');
     // The severity chip is the element labeled with the category config label.
@@ -133,7 +134,7 @@ describe('ActivityTab recurred fixes', () => {
 
   it('leaves a plainly verified fix as a normal entry', () => {
     _monitorState.fixHistory = [makeAction({ verificationStatus: 'verified' })];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
     expect(screen.queryByText(/then recurred/)).toBeNull();
     const chip = screen.getByText('Events', { selector: 'span' });
     expect(chip.className).toContain('bg-slate-800');

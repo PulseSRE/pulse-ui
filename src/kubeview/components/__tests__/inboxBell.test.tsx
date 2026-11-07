@@ -86,7 +86,7 @@ describe('namespace picker', () => {
     fetchInboxStats.mockResolvedValue({});
     useUIStore.setState({ selectedNamespace: 'payments' });
     renderShell();
-    fireEvent.click(screen.getByTitle('Switch namespace (⌘N)'));
+    fireEvent.click(screen.getByTitle('Switch namespace'));
     fireEvent.click(screen.getByText('Open project dashboard'));
     expect(screen.getByTestId('where').textContent).toBe('/project/payments');
   });
@@ -95,13 +95,13 @@ describe('namespace picker', () => {
     fetchInboxStats.mockResolvedValue({});
     useUIStore.setState({ selectedNamespace: '*' });
     renderShell();
-    fireEvent.click(screen.getByTitle('Switch namespace (⌘N)'));
+    fireEvent.click(screen.getByTitle('Switch namespace'));
     expect(screen.queryByText('Open project dashboard')).toBeNull();
   });
 });
 
 describe('namespace picker read states', () => {
-  const openPicker = () => fireEvent.click(screen.getByTitle('Switch namespace (⌘N)'));
+  const openPicker = () => fireEvent.click(screen.getByTitle('Switch namespace'));
 
   it.each([
     [403, /Permission denied/],
