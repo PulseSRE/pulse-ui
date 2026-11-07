@@ -154,7 +154,7 @@ export function SnapshotsTab() {
         <Card className="p-12 text-center">
           <GitCompare className="w-12 h-12 text-slate-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-300 mb-2">No Snapshots Yet</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
+          <p className="text-sm text-faint max-w-md mx-auto">
             Capture a snapshot to record your cluster's current state. Take another after maintenance to see what changed.
           </p>
         </Card>
@@ -165,7 +165,7 @@ export function SnapshotsTab() {
               <div key={snap.id} className="flex items-center gap-3 p-2 rounded-sm hover:bg-slate-800/50">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-200 font-medium">{snap.label}</div>
-                  <div className="text-xs text-slate-500">{formatTimestamp(snap.timestamp)} \u00b7 v{snap.clusterVersion} \u00b7 {snap.unavailable?.includes('nodes') ? '? nodes' : `${snap.nodes.count} nodes`} \u00b7 {snap.unavailable?.includes('crds') ? '? CRDs' : `${snap.crds.length} CRDs`}{snap.unavailable?.length ? ` \u00b7 ${snap.unavailable.length} source${snap.unavailable.length !== 1 ? 's' : ''} unreadable` : ''}</div>
+                  <div className="text-xs text-faint">{formatTimestamp(snap.timestamp)} \u00b7 v{snap.clusterVersion} \u00b7 {snap.unavailable?.includes('nodes') ? '? nodes' : `${snap.nodes.count} nodes`} \u00b7 {snap.unavailable?.includes('crds') ? '? CRDs' : `${snap.crds.length} CRDs`}{snap.unavailable?.length ? ` \u00b7 ${snap.unavailable.length} source${snap.unavailable.length !== 1 ? 's' : ''} unreadable` : ''}</div>
                 </div>
                 <select aria-label={`Compare ${snap.label} as`} value={compareLeft === snap.id ? 'left' : compareRight === snap.id ? 'right' : ''} onChange={(e) => {
                   if (e.target.value === 'left') { setCompareLeft(snap.id); if (compareRight === snap.id) setCompareRight(''); }
@@ -176,8 +176,8 @@ export function SnapshotsTab() {
                   <option value="left">Left</option>
                   <option value="right">Right</option>
                 </select>
-                <button onClick={() => handleExportSnapshot(snap)} className="p-1 text-slate-500 hover:text-slate-300" title="Export"><Download className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleDeleteSnapshot(snap.id)} className="p-1 text-slate-500 hover:text-red-400" title="Delete"><XCircle className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleExportSnapshot(snap)} className="p-1 text-faint hover:text-slate-300" title="Export"><Download className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleDeleteSnapshot(snap.id)} className="p-1 text-faint hover:text-red-400" title="Delete"><XCircle className="w-3.5 h-3.5" /></button>
               </div>
             ))}
           </div>
@@ -212,17 +212,17 @@ export function SnapshotsTab() {
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {(displayRows || []).map((row, idx) => (
-                  <tr key={idx} className={row.unavailable ? 'bg-slate-900/60' : row.changed ? 'bg-yellow-950/20' : ''}>
+                  <tr key={idx} className={row.unavailable ? 'bg-slate-900/60' : row.changed ? 'bg-amber-950/20' : ''}>
                     <td className="px-4 py-2">
                       {row.unavailable ? (
                         <HelpCircle className="w-3.5 h-3.5 text-slate-500" aria-label="Not compared" />
                       ) : row.changed ? (
                         row.left && !row.right ? <Minus className="w-3.5 h-3.5 text-red-400" /> :
                         !row.left && row.right ? <CheckCircle className="w-3.5 h-3.5 text-green-400" /> :
-                        <GitCompare className="w-3.5 h-3.5 text-yellow-400" />
+                        <GitCompare className="w-3.5 h-3.5 text-amber-400" />
                       ) : <CheckCircle className="w-3.5 h-3.5 text-slate-600" />}
                     </td>
-                    <td className="px-4 py-2 text-slate-300 font-medium"><span className="text-xs text-slate-500 mr-2">{row.category}</span>{row.field}</td>
+                    <td className="px-4 py-2 text-slate-300 font-medium"><span className="text-xs text-faint mr-2">{row.category}</span>{row.field}</td>
                     <td className={cn('px-4 py-2 font-mono text-xs', row.changed ? 'text-red-300' : 'text-slate-400')}>{row.left || '\u2014'}</td>
                     <td className={cn('px-4 py-2 font-mono text-xs', row.changed ? 'text-green-300' : 'text-slate-400')}>{row.right || '\u2014'}</td>
                   </tr>

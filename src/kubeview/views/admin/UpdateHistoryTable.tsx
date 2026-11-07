@@ -19,13 +19,13 @@ export function UpdateHistoryTable({ history, log, inFlight }: { history: Upgrad
   const current = Math.min(page, pages - 1);
   const rows = history.slice(current * HISTORY_PAGE_SIZE, (current + 1) * HISTORY_PAGE_SIZE);
   if (history.length === 0) return null;
-  const notRecorded = <span className="text-slate-500">not recorded</span>;
+  const notRecorded = <span className="text-faint">not recorded</span>;
   return (
     <Panel title="Update history" icon={<History className="w-4 h-4 text-slate-400" />}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-xs" aria-label="Update history">
           <thead>
-            <tr className="text-left text-slate-500 border-b border-slate-800">
+            <tr className="text-left text-faint border-b border-slate-800">
               <th className="py-1.5 pr-3 font-medium">Version</th>
               <th className="py-1.5 pr-3 font-medium">Started</th>
               <th className="py-1.5 pr-3 font-medium">Took</th>

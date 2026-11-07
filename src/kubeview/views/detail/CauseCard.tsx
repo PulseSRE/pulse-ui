@@ -101,7 +101,7 @@ function Report({ view }: { view: ReportView }) {
           {view.evidence.map((e, i) => (
             <li key={i}>
               {e.text}
-              {e.source && <span className="text-slate-500"> — from {e.source}</span>}
+              {e.source && <span className="text-faint"> — from {e.source}</span>}
               {e.unverified && <span className="text-amber-300"> (source not verified)</span>}
             </li>
           ))}
@@ -118,7 +118,7 @@ function Report({ view }: { view: ReportView }) {
 }
 
 function Confidence({ value }: { value?: number }) {
-  if (value === undefined || value === null) return <span className="ml-auto text-xs text-slate-500">Confidence not reported</span>;
+  if (value === undefined || value === null) return <span className="ml-auto text-xs text-faint">Confidence not reported</span>;
   return <span className="ml-auto rounded-full bg-blue-950 px-2.5 py-0.5 text-xs text-blue-200">Confidence {value.toFixed(2)}</span>;
 }
 

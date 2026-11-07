@@ -170,21 +170,21 @@ export default function NodeLogsView() {
           </TabsTrigger>
         ))}
       </TabsList>
-      <p className="shrink-0 border-b border-slate-800 px-4 py-1.5 text-xs text-slate-500">{source.description}</p>
+      <p className="shrink-0 border-b border-slate-800 px-4 py-1.5 text-xs text-faint">{source.description}</p>
 
       {/* Main content */}
       <TabsContent value={activeSource} className="flex-1 flex overflow-hidden">
         {/* File list sidebar */}
         <div className="w-56 border-r border-slate-800 overflow-auto shrink-0 bg-slate-900">
-          <div className="px-3 py-2 text-xs text-slate-500 uppercase tracking-wider font-semibold">
+          <div className="px-3 py-2 text-xs text-faint uppercase tracking-wider font-semibold">
             Files ({files.length})
           </div>
           {filesError ? (
             <LoadError className="m-2" title="Log files could not be listed" error={filesError} onRetry={() => setFilesReload((n) => n + 1)} />
           ) : filesLoading ? (
-            <div className="px-3 py-4 text-xs text-slate-500 text-center">Loading…</div>
+            <div className="px-3 py-4 text-xs text-faint text-center">Loading…</div>
           ) : files.length === 0 ? (
-            <div className="px-3 py-4 text-xs text-slate-500 text-center">No log files found</div>
+            <div className="px-3 py-4 text-xs text-faint text-center">No log files found</div>
           ) : (
             files.map((file) => (
               <button
@@ -216,7 +216,7 @@ export default function NodeLogsView() {
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
               />
               {searchQuery && (
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-faint">
                   {filteredLines.length} lines
                 </span>
               )}
@@ -226,13 +226,13 @@ export default function NodeLogsView() {
           {/* Log output */}
           <div ref={scrollRef} className="flex-1 overflow-auto font-mono text-[11px] leading-relaxed bg-slate-950">
             {loading ? (
-              <div className="flex items-center justify-center h-full text-slate-500">Loading...</div>
+              <div className="flex items-center justify-center h-full text-faint">Loading...</div>
             ) : !selectedFile ? (
-              <div className="flex items-center justify-center h-full text-slate-500">Select a log file</div>
+              <div className="flex items-center justify-center h-full text-faint">Select a log file</div>
             ) : logError ? (
               <LoadError className="m-3 font-sans" title={`Could not read ${selectedFile}`} error={logError} onRetry={() => setLogReload((n) => n + 1)} />
             ) : filteredLines.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-slate-500">
+              <div className="flex items-center justify-center h-full text-faint">
                 {searchQuery ? `No lines match "${searchQuery}"` : 'Log file is empty'}
               </div>
             ) : (
@@ -243,9 +243,9 @@ export default function NodeLogsView() {
                   return (
                     <div key={i} className={cn(
                       'py-0.5 border-b border-slate-900/30',
-                      isError ? 'text-red-400' : isWarning ? 'text-yellow-400' : 'text-slate-300'
+                      isError ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-slate-300'
                     )}>
-                      <span className="text-slate-600 select-none mr-3">{i + 1}</span>
+                      <span className="text-faint select-none mr-3">{i + 1}</span>
                       {line || '\u00A0'}
                     </div>
                   );

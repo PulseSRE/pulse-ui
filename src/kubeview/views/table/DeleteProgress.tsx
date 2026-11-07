@@ -47,7 +47,7 @@ export function DeleteProgressOverlay({ items, onClose }: DeleteProgressOverlayP
                 <Trash2 className="w-5 h-5 text-slate-400" />
                 <div>
                   <div className="text-sm font-medium text-slate-200">Deleting {items.length} resources</div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-faint">
                     {items.filter(d => d.status === 'done').length} done · {items.filter(d => d.status === 'deleting').length} in progress · {items.filter(d => d.status === 'error').length} failed
                   </div>
                 </div>
@@ -64,7 +64,7 @@ export function DeleteProgressOverlay({ items, onClose }: DeleteProgressOverlayP
                   {item.status === 'error' && <XCircle className="w-4 h-4 text-red-400 shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-slate-200 truncate">{item.name}</div>
-                    <div className="text-xs text-slate-500">{item.kind} · {item.ns || 'cluster-scoped'}</div>
+                    <div className="text-xs text-faint">{item.kind} · {item.ns || 'cluster-scoped'}</div>
                     {item.error && <div className="text-xs text-red-400 mt-0.5">{item.error}</div>}
                   </div>
                   <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',

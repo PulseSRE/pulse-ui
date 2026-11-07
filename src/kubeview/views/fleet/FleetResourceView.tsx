@@ -236,7 +236,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
           <div className="text-center space-y-2">
             <Globe className="w-10 h-10 text-slate-700 mx-auto" />
             <p className="text-slate-400 text-sm">No clusters connected</p>
-            <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to browse resources across your fleet.</p>
+            <p className="text-faint text-xs">Connect clusters in the Fleet view to browse resources across your fleet.</p>
           </div>
         </div>
       </div>
@@ -369,7 +369,7 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
                   <td className="px-4 py-3 text-sm text-slate-200 font-mono">{row.resource.metadata.name}</td>
                   <td className="px-4 py-3 text-sm text-slate-400">{row.resource.metadata.namespace || '-'}</td>
                   <td className="px-4 py-3">{statusBadge(row.resource)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{formatRelative(row.resource.metadata.creationTimestamp || '')}</td>
+                  <td className="px-4 py-3 text-xs text-faint">{formatRelative(row.resource.metadata.creationTimestamp || '')}</td>
                 </tr>
               ))}
             </tbody>

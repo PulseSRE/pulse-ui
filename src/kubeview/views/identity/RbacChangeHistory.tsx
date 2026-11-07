@@ -46,13 +46,13 @@ async function sendJson(clusterId: string, method: 'GET' | 'PUT' | 'POST', path:
 
 function Diff({ before, after, label }: { before: unknown; after: unknown; label: string }) {
   const lines = lineDiff(before, after);
-  if (!lines) return <p className="text-xs text-slate-500">Too large to diff here.</p>;
+  if (!lines) return <p className="text-xs text-faint">Too large to diff here.</p>;
   const shown = compactDiff(lines);
-  if (!lines.some((l) => l.op !== ' ')) return <p className="text-xs text-slate-500">No difference.</p>;
+  if (!lines.some((l) => l.op !== ' ')) return <p className="text-xs text-faint">No difference.</p>;
   return (
     <pre aria-label={label} className="mt-1 max-h-72 overflow-auto rounded bg-slate-950 p-2 text-[11px] leading-4 font-mono">
       {shown.map((l, i) => (
-        <div key={i} className={cn(l.op === '+' ? 'text-emerald-300 bg-emerald-950/30' : l.op === '-' ? 'text-red-300 bg-red-950/30' : l.op === '…' ? 'text-slate-600 italic' : 'text-slate-400')}>
+        <div key={i} className={cn(l.op === '+' ? 'text-emerald-300 bg-emerald-950/30' : l.op === '-' ? 'text-red-300 bg-red-950/30' : l.op === '…' ? 'text-faint italic' : 'text-slate-400')}>
           {l.op === '…' ? `  … ${l.text}` : `${l.op} ${l.text}`}
         </div>
       ))}
@@ -150,11 +150,11 @@ function ChangeRow({ change, onRestored }: { change: RbacChange; onRestored: () 
     <li className="px-4 py-3 text-xs" data-testid={`rbac-change-${change.id}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-slate-500 w-20 shrink-0" title={change.observed_at}>{formatRelative(change.observed_at)}</span>
+          <span className="text-faint w-20 shrink-0" title={change.observed_at}>{formatRelative(change.observed_at)}</span>
           <span className="font-mono text-slate-200">{where}</span>
           <span className={cn('px-1.5 py-0.5 rounded-sm', change.change === 'deleted' ? 'bg-red-900/50 text-red-300' : change.change === 'created' ? 'bg-blue-900/50 text-blue-300' : 'bg-amber-900/50 text-amber-300')}>{change.change}</span>
           <span className="text-slate-400">{who(change)}</span>
-          {change.actor?.reason && <span className="text-slate-500">· “{change.actor.reason}”</span>}
+          {change.actor?.reason && <span className="text-faint">· “{change.actor.reason}”</span>}
         </div>
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? 'Hide diff' : 'Diff'}</Button>
@@ -188,9 +188,9 @@ export function RbacChangeHistory({ fallback }: { fallback: React.ReactNode }) {
   });
 
   if (remote) {
-    return <>{fallback}<p className="text-xs text-slate-500" data-testid="rbac-history-local-only">RBAC change history is kept by the Pulse agent for the local cluster only.</p></>;
+    return <>{fallback}<p className="text-xs text-faint" data-testid="rbac-history-local-only">RBAC change history is kept by the Pulse agent for the local cluster only.</p></>;
   }
-  if (q.isLoading) return <Card className="p-4"><p className="text-xs text-slate-500">Loading RBAC change history…</p></Card>;
+  if (q.isLoading) return <Card className="p-4"><p className="text-xs text-faint">Loading RBAC change history…</p></Card>;
   if (q.isError) return <LoadError title="RBAC change history could not be loaded" error={q.error} onRetry={() => void q.refetch()} />;
   if (!q.data || q.data.state === 'absent') {
     return (
@@ -208,7 +208,7 @@ export function RbacChangeHistory({ fallback }: { fallback: React.ReactNode }) {
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2"><History className="w-4 h-4 text-slate-400" /> RBAC changes
-          <span className="text-xs font-normal text-slate-500">last 7 days · roles, bindings, SCCs, webhooks</span>
+          <span className="text-xs font-normal text-faint">last 7 days · roles, bindings, SCCs, webhooks</span>
         </h2>
         <label className="flex items-center gap-1.5 text-xs text-slate-400"><input type="checkbox" checked={includeSystem} onChange={(e) => setIncludeSystem(e.target.checked)} /> Include platform objects{!includeSystem && data.system_hidden > 0 ? ` (${data.system_hidden} hidden)` : ''}</label>
       </div>
@@ -223,7 +223,7 @@ export function RbacChangeHistory({ fallback }: { fallback: React.ReactNode }) {
           {data.changes.map((c) => <ChangeRow key={c.id} change={c} onRestored={() => { void queryClient.invalidateQueries({ queryKey: ['rbac-history'] }); }} />)}
         </ul>
       )}
-      <div className="px-4 py-3 border-t border-slate-800 space-y-1 text-xs text-slate-500" data-testid="rbac-history-coverage">
+      <div className="px-4 py-3 border-t border-slate-800 space-y-1 text-xs text-faint" data-testid="rbac-history-coverage">
         <p className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />
           Observed by the Pulse agent{h.since ? ` since ${formatTimestamp(h.since)}` : ''}{h.last_observed_at ? `, last checked ${formatRelative(h.last_observed_at)}` : ''}: several edits between two checks show as one, and nothing before the first check is known.
           Who made a change is known only for changes made through Pulse; otherwise the client name is shown. Pulse does not read the API server audit log.

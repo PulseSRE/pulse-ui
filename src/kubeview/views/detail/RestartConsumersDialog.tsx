@@ -211,29 +211,29 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
             {'spec.template.metadata.annotations\n'}
             <span className="text-emerald-400">{`+ ${RESTART_ANNOTATION}: "<time of confirm>"`}</span>
           </pre>
-          <p className="mt-1 text-slate-500">The same patch as <code className="font-mono">oc rollout restart</code>: every pod is replaced following the workload&apos;s update strategy.</p>
+          <p className="mt-1 text-faint">The same patch as <code className="font-mono">oc rollout restart</code>: every pod is replaced following the workload&apos;s update strategy.</p>
         </section>
 
         <section>
           <h3 className="mb-1 font-semibold text-slate-300">Order and impact</h3>
           {!plan ? (
-            <p className="text-slate-500">Checking Services, PodDisruptionBudgets and quota…</p>
+            <p className="text-faint">Checking Services, PodDisruptionBudgets and quota…</p>
           ) : (
             <>
               {plan.orderUnknown && <p className="mb-1 text-amber-300">Could not check which workloads serve traffic (Services could not be listed), so they run in the order listed.</p>}
               <table className="w-full" aria-label="Restart order">
-                <thead><tr className="text-left text-slate-500"><th className="py-1 pr-2 font-normal">#</th><th className="pr-2 font-normal">Workload</th><th className="pr-2 font-normal">Pods and strategy</th><th className="font-normal">PDB</th></tr></thead>
+                <thead><tr className="text-left text-faint"><th className="py-1 pr-2 font-normal">#</th><th className="pr-2 font-normal">Workload</th><th className="pr-2 font-normal">Pods and strategy</th><th className="font-normal">PDB</th></tr></thead>
                 <tbody>
                   {plan.items.map((item, i) => (
                     <tr key={`${item.kind}/${item.name}`} className="border-t border-slate-800 align-top" data-testid={`restart-row-${item.name}`}>
-                      <td className="py-1.5 pr-2 text-slate-500">{item.skip ? '—' : i + 1}</td>
+                      <td className="py-1.5 pr-2 text-faint">{item.skip ? '—' : i + 1}</td>
                       <td className="py-1.5 pr-2 text-slate-200">
-                        <span className="text-slate-500">{item.kind} </span>{item.name}
-                        {item.services && item.services.length > 0 && <span className="text-slate-500"> (serves traffic via {item.services.join(', ')}, last)</span>}
+                        <span className="text-faint">{item.kind} </span>{item.name}
+                        {item.services && item.services.length > 0 && <span className="text-faint"> (serves traffic via {item.services.join(', ')}, last)</span>}
                         {item.skip && <div className="text-amber-300">Not restarted: {item.skip}</div>}
                       </td>
                       <td className="py-1.5 pr-2 text-slate-300">{item.strategy.text}</td>
-                      <td className={cn('py-1.5', item.pdb.ok === false ? 'text-amber-300' : item.pdb.ok === null ? 'text-slate-500' : 'text-slate-300')}>{item.pdb.text}</td>
+                      <td className={cn('py-1.5', item.pdb.ok === false ? 'text-amber-300' : item.pdb.ok === null ? 'text-faint' : 'text-slate-300')}>{item.pdb.text}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -243,17 +243,17 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
         </section>
 
         <dl className="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1.5">
-          <dt className="text-slate-500">Dry run</dt>
+          <dt className="text-faint">Dry run</dt>
           <dd data-testid="restart-dry-run" className={dryRun.state === 'failed' ? 'text-red-300' : dryRun.state === 'passed' ? 'text-emerald-300' : 'text-slate-400'}>
             {runnable.length === 0 && plan ? 'Nothing to restart' : dryRun.state === 'passed' ? `Passed for all ${runnable.length}` : dryRun.state === 'failed'
               ? `Failed: ${dryRun.errors.map((e) => `${e.name}: ${e.error}`).join('; ')}. Nothing will be restarted.`
               : 'Running…'}
           </dd>
-          <dt className="text-slate-500">Quota during rollout</dt>
+          <dt className="text-faint">Quota during rollout</dt>
           <dd className={plan?.quota.ok === false ? 'text-amber-300' : 'text-slate-300'} data-testid="restart-quota">{plan ? plan.quota.text : 'Checking…'}</dd>
-          <dt className="text-slate-500">If one fails</dt>
+          <dt className="text-faint">If one fails</dt>
           <dd className="text-slate-300">Pulse stops; the rest are not restarted.</dd>
-          <dt className="text-slate-500">Undo</dt>
+          <dt className="text-faint">Undo</dt>
           <dd className="text-slate-300">A restart only replaces pods. To undo the value, edit {configKind === 'Secret' ? 'the Secret' : configName} back and restart again.</dd>
         </dl>
 

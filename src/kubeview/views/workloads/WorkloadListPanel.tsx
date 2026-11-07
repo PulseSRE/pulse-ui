@@ -76,7 +76,7 @@ export function WorkloadListPanel<T extends K8sResource>({
         ) : items.length === 0 ? (
           <EmptyState icon={icon} title={emptyText} className="py-6" />
         ) : shown.length === 0 ? (
-          <p className="px-3 py-4 text-sm text-slate-500">No {title.toLowerCase()} match this filter.</p>
+          <p className="px-3 py-4 text-sm text-faint">No {title.toLowerCase()} match this filter.</p>
         ) : (
           <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
             {shown.slice(0, limit).map((item) => {
@@ -91,7 +91,7 @@ export function WorkloadListPanel<T extends K8sResource>({
                     <div className="flex items-center gap-2 min-w-0">
                       <div className={cn('w-2 h-2 rounded-full shrink-0', TONE[s.tone])} />
                       <span className="text-sm text-slate-200 truncate">{item.metadata.name}</span>
-                      <span className="text-xs text-slate-500">{ns}</span>
+                      <span className="text-xs text-faint">{ns}</span>
                       {s.badges?.map((b) => (
                         <span key={b} className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{b}</span>
                       ))}
@@ -109,7 +109,7 @@ export function WorkloadListPanel<T extends K8sResource>({
           <button onClick={() => go(`/r/${gvr}`, title)} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
             {browseLabel} <ArrowRight className="w-3 h-3" />
           </button>
-          {shown.length > limit && <span className="text-xs text-slate-500">Showing {limit} of {shown.length}</span>}
+          {shown.length > limit && <span className="text-xs text-faint">Showing {limit} of {shown.length}</span>}
         </div>
       </Panel>
     </div>

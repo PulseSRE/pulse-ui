@@ -30,26 +30,26 @@ export function PreviewPanel({ resource, gvrKey, onClose }: PreviewPanelProps) {
     <div className="w-80 border-l border-slate-800 bg-slate-900 overflow-auto shrink-0">
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
         <span className="text-sm font-semibold text-slate-200 truncate">{resource.metadata.name}</span>
-        <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X className="w-4 h-4" /></button>
+        <button onClick={onClose} className="text-faint hover:text-slate-300"><X className="w-4 h-4" /></button>
       </div>
       <div className="p-3 space-y-3 text-xs">
         <div>
-          <span className="text-slate-500">Kind:</span>
+          <span className="text-faint">Kind:</span>
           <span className="ml-2 text-slate-200">{resource.kind}</span>
         </div>
         {resource.metadata.namespace && (
           <div>
-            <span className="text-slate-500">Namespace:</span>
+            <span className="text-faint">Namespace:</span>
             <span className="ml-2 text-slate-200">{resource.metadata.namespace}</span>
           </div>
         )}
         <div>
-          <span className="text-slate-500">Created:</span>
+          <span className="text-faint">Created:</span>
           <span className="ml-2 text-slate-200">{formatTimestamp(resource.metadata.creationTimestamp)}</span>
         </div>
         {resource.metadata.labels && Object.keys(resource.metadata.labels).length > 0 && (
           <div>
-            <div className="text-slate-500 mb-1">Labels:</div>
+            <div className="text-faint mb-1">Labels:</div>
             <div className="flex flex-wrap gap-1">
               {Object.entries(resource.metadata.labels).slice(0, 8).map(([k, v]) => (
                 <span key={k} className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded-sm text-xs font-mono">{k.split('/').pop()}={v}</span>
@@ -59,7 +59,7 @@ export function PreviewPanel({ resource, gvrKey, onClose }: PreviewPanelProps) {
         )}
         {Boolean(resource.spec) && (
           <div>
-            <div className="text-slate-500 mb-1">Spec:</div>
+            <div className="text-faint mb-1">Spec:</div>
             <pre className="text-xs text-emerald-400 font-mono bg-slate-950 p-2 rounded-sm overflow-auto max-h-48">{String(jsonToYaml(resource.spec)).slice(0, 500)}</pre>
           </div>
         )}

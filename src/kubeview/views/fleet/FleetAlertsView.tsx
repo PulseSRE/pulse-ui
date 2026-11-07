@@ -209,7 +209,7 @@ export default function FleetAlertsView() {
               <>
                 <XCircle className="w-10 h-10 text-slate-600 mx-auto" />
                 <p className="text-slate-400 text-sm">No reachable clusters</p>
-                <p className="text-slate-600 text-xs">No connected cluster could be asked for alerts. Check cluster connectivity on the Fleet page.</p>
+                <p className="text-faint text-xs">No connected cluster could be asked for alerts. Check cluster connectivity on the Fleet page.</p>
               </>
             ) : readCount > 0 && (
               <>
@@ -217,7 +217,7 @@ export default function FleetAlertsView() {
                 <p className="text-slate-400 text-sm">
                   No firing alerts on {failedClusters.length > 0 ? `the ${readCount} cluster${readCount !== 1 ? 's' : ''} that could be read` : 'any cluster in the fleet'}
                 </p>
-                {failedClusters.length === 0 && <p className="text-slate-600 text-xs">All clusters are quiet.</p>}
+                {failedClusters.length === 0 && <p className="text-faint text-xs">All clusters are quiet.</p>}
               </>
             )}
           </div>
@@ -332,7 +332,7 @@ export default function FleetAlertsView() {
                   </td>
                   <td className="px-4 py-3">{sevBadge(alert.severity)}</td>
                   <td className="px-4 py-3 text-sm text-slate-400">{alert.namespace || '-'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{alert.activeAt ? formatDurationBetween(alert.activeAt) : '-'}</td>
+                  <td className="px-4 py-3 text-xs text-faint">{alert.activeAt ? formatDurationBetween(alert.activeAt) : '-'}</td>
                   <td className="px-4 py-3">
                     <span className={cn(
                       'text-xs px-1.5 py-0.5 rounded-sm',
@@ -347,7 +347,7 @@ export default function FleetAlertsView() {
                     <td colSpan={6} className="px-4 py-3 text-xs space-y-2">
                       {summary && <p className="text-slate-200">{summary}</p>}
                       {description && <p className="text-slate-400 whitespace-pre-wrap">{description}</p>}
-                      {!summary && !description && <p className="text-slate-500 italic">This alert has no summary or description.</p>}
+                      {!summary && !description && <p className="text-faint italic">This alert has no summary or description.</p>}
                       <div className="flex flex-wrap gap-1.5">
                         {Object.entries(alert.labels ?? {}).map(([k, v]) => (
                           <span key={k} className="font-mono px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-300">{k}={v}</span>
@@ -359,7 +359,7 @@ export default function FleetAlertsView() {
                           Open in Alerts
                         </button>
                       ) : (
-                        <p className="text-slate-500">Silencing and alert history are available for the local cluster only.</p>
+                        <p className="text-faint">Silencing and alert history are available for the local cluster only.</p>
                       )}
                     </td>
                   </tr>

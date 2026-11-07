@@ -9,7 +9,7 @@ import { AI_ACCENT } from '../../components/agent/aiTokens';
 
 const SEVERITY_BADGES: Array<{ key: string; label: string; color: string }> = [
   { key: 'critical', label: 'Critical', color: 'bg-red-500/15 text-red-400' },
-  { key: 'warning', label: 'Warning', color: 'bg-yellow-500/15 text-yellow-400' },
+  { key: 'warning', label: 'Warning', color: 'bg-amber-500/15 text-amber-400' },
   { key: 'info', label: 'Info', color: 'bg-blue-500/15 text-blue-400' },
 ];
 
@@ -40,7 +40,7 @@ export function InboxHeader({
           {/* The needs-attention count is on the "Needs Attention" filter in the
               Inbox tab; only the deduplicated figure, which says something new, is here. */}
           {(stats.unique_issues ?? 0) > 0 && (stats.unique_issues ?? 0) < totalOpen && (
-            <span className="text-xs text-slate-500">{stats.unique_issues} unique issues</span>
+            <span className="text-xs text-faint">{stats.unique_issues} unique issues</span>
           )}
           {(stats.agent_reviewing ?? 0) > 0 && (
             <div className={cn('flex items-center gap-1.5 text-xs', AI_ACCENT.text)}>

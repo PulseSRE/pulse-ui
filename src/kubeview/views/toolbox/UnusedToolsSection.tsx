@@ -22,7 +22,7 @@ export function UnusedToolsSection({ tools, usedTools }: { tools: { sre: ToolInf
     <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-medium text-slate-300">Tool Coverage</h3>
-        <span className="text-xs text-slate-500">{usedCount}/{allTools.length} used ({usagePct}%)</span>
+        <span className="text-xs text-faint">{usedCount}/{allTools.length} used ({usagePct}%)</span>
       </div>
 
       <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-4" role="meter" aria-label={`Tool coverage: ${usagePct}%`} aria-valuenow={usagePct} aria-valuemin={0} aria-valuemax={100}>
@@ -39,7 +39,7 @@ export function UnusedToolsSection({ tools, usedTools }: { tools: { sre: ToolInf
               <div className="text-[11px] text-slate-400 mb-1">{cat} ({names.length})</div>
               <div className="flex flex-wrap gap-1">
                 {names.map((n) => (
-                  <span key={n} className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-800 text-slate-500 rounded-sm border border-slate-700">{n}</span>
+                  <span key={n} className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-800 text-faint rounded-sm border border-slate-700">{n}</span>
                 ))}
               </div>
             </div>

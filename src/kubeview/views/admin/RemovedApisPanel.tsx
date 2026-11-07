@@ -165,7 +165,7 @@ export function AdminGateActions({ gates, clusterId, onAcked }: {
               >
                 Acknowledge
               </button>
-              {!canPatch && !rbacLoading && <span className="text-slate-500">{noPermission}</span>}
+              {!canPatch && !rbacLoading && <span className="text-faint">{noPermission}</span>}
             </div>
           )}
           {errors[gate.key] !== undefined && (
@@ -240,11 +240,11 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
               </select>
             </label>
           )}
-          {verdict?.target && <span className="text-xs text-slate-500 font-mono">Kubernetes {verdict.target.kube}</span>}
+          {verdict?.target && <span className="text-xs text-faint font-mono">Kubernetes {verdict.target.kube}</span>}
         </div>
 
         {verdict?.targetNotOffered && verdict.target && (
-          <p className="text-xs text-slate-500" data-testid="removed-apis-target-not-offered">
+          <p className="text-xs text-faint" data-testid="removed-apis-target-not-offered">
             Checking {verdict.target.ocp}: next minor (not yet offered on your channel).
           </p>
         )}
@@ -269,7 +269,7 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
           <div className="overflow-x-auto">
             <table className="w-full text-xs" aria-label="Removed APIs in use">
               <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-800">
+                <tr className="text-left text-faint border-b border-slate-800">
                   <th className="py-1.5 pr-3 font-medium">Resource</th>
                   <th className="py-1.5 pr-3 font-medium">Group/version</th>
                   <th className="py-1.5 pr-3 font-medium">Removed in</th>
@@ -291,17 +291,17 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
                       <td className="py-1.5 pr-3 font-mono text-slate-300">{api.removedInRelease}</td>
                       <td className="py-1.5 pr-3 font-mono text-right text-red-300">{formatCount(api.requestCount)}</td>
                       <td className="py-1.5">
-                        {api.callers.length === 0 ? <span className="text-slate-500">No per-user breakdown reported</span> : (
+                        {api.callers.length === 0 ? <span className="text-faint">No per-user breakdown reported</span> : (
                           <ul className="space-y-0.5">
                             {api.callers.slice(0, 3).map((c) => (
                               <li key={`${c.username}|${c.userAgent}`} className="flex flex-wrap items-center gap-1.5">
                                 <span className="font-mono text-slate-200 break-all" title={c.username}>{truncateCaller(c.username)}</span>
                                 {c.platform && <span className={cn('px-1 rounded-sm text-[10px]', TONE_CLASSES.info.chip)} title="A system: user, usually a cluster component that is updated with the cluster">Platform</span>}
-                                <span className="text-slate-500 break-all" title={c.userAgent || undefined}>{c.userAgent ? truncateCaller(c.userAgent) : 'no user agent'}</span>
+                                <span className="text-faint break-all" title={c.userAgent || undefined}>{c.userAgent ? truncateCaller(c.userAgent) : 'no user agent'}</span>
                                 <span className="font-mono text-slate-400">({formatCount(c.requestCount)})</span>
                               </li>
                             ))}
-                            {api.callers.length > 3 && <li className="text-slate-500">+{api.callers.length - 3} more</li>}
+                            {api.callers.length > 3 && <li className="text-faint">+{api.callers.length - 3} more</li>}
                           </ul>
                         )}
                       </td>
@@ -328,7 +328,7 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
                       {path && go
                         ? <button type="button" onClick={() => go(path, api.resource)} className="text-blue-400 hover:text-blue-300 hover:underline">{api.resource}</button>
                         : api.resource}
-                      {' '}<span className="text-slate-500">{apiVersionLabel(api)} · removed in {api.removedInRelease}</span>
+                      {' '}<span className="text-faint">{apiVersionLabel(api)} · removed in {api.removedInRelease}</span>
                     </li>
                   );
                 })}
@@ -345,7 +345,7 @@ export function RemovedApisPanel({ verdict, targetOptions, selectedTarget, onTar
         )}
 
         {verdict?.target && (
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-faint">
             Based on APIRequestCount (last 24h of requests). A client that runs less often than daily will not show up here.
           </p>
         )}

@@ -302,7 +302,7 @@ export default function ComplianceView() {
             {loading && securityChecks.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
-                <span className="ml-2 text-sm text-slate-500">Running security checks...</span>
+                <span className="ml-2 text-sm text-faint">Running security checks...</span>
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -319,17 +319,17 @@ export default function ComplianceView() {
                     <tr key={check.name} className="border-b border-slate-800">
                       <td className="px-4 py-2">
                         <div className="font-medium text-slate-300">{check.name}</div>
-                        <div className="text-xs text-slate-500">{check.description}</div>
+                        <div className="text-xs text-faint">{check.description}</div>
                       </td>
                       {clusters.map(c => {
                         const result = check.results[c.id];
                         return (
                           <td key={c.id} className="px-4 py-2 text-center">
                             {result === undefined ? (
-                              <span className="text-slate-600">--</span>
+                              <span className="text-faint">--</span>
                             ) : result.state === 'unknown' ? (
                               <span className="text-xs text-slate-400" title={result.reason}>
-                                -- <span className="block text-[11px] text-slate-500">{result.reason}</span>
+                                -- <span className="block text-[11px] text-faint">{result.reason}</span>
                               </span>
                             ) : result.state === 'pass' ? (
                               <CheckCircle className="w-5 h-5 text-emerald-400 inline-block" aria-label="Compliant" />
@@ -357,10 +357,10 @@ export default function ComplianceView() {
             {loading && certificates.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
-                <span className="ml-2 text-sm text-slate-500">Scanning certificates...</span>
+                <span className="ml-2 text-sm text-faint">Scanning certificates...</span>
               </div>
             ) : certificates.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-500">
+              <div className="px-4 py-8 text-center text-sm text-faint">
                 No certificate expiry data found. Certificates with expiry annotations will appear here.
               </div>
             ) : (
@@ -400,10 +400,10 @@ export default function ComplianceView() {
             {loading && clusterAdminBindings.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
-                <span className="ml-2 text-sm text-slate-500">Comparing RBAC...</span>
+                <span className="ml-2 text-sm text-faint">Comparing RBAC...</span>
               </div>
             ) : Object.keys(clusterAdminCounts).length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-4">No cluster-admin bindings found across clusters.</p>
+              <p className="text-sm text-faint text-center py-4">No cluster-admin bindings found across clusters.</p>
             ) : (
               <div className="space-y-4">
                 {/* Summary */}
@@ -424,7 +424,7 @@ export default function ComplianceView() {
                             {info.count}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500">cluster-admin bindings</div>
+                        <div className="text-xs text-faint">cluster-admin bindings</div>
                         {diverges && (
                           <div className="flex items-center gap-1 mt-2 text-xs text-amber-400">
                             <AlertTriangle className="w-3 h-3" />
@@ -440,7 +440,7 @@ export default function ComplianceView() {
 
                 {/* Detail table */}
                 <details className="text-sm">
-                  <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                  <summary className="cursor-pointer text-xs text-faint hover:text-slate-300 transition-colors">
                     Show all cluster-admin subjects
                   </summary>
                   <table className="w-full mt-2 text-sm">

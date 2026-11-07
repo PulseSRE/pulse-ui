@@ -267,7 +267,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
         )}
 
         {views.length > 0 && sortedViews.length === 0 && (
-          <p className="py-6 text-center text-sm text-slate-500">No views match this filter.</p>
+          <p className="py-6 text-center text-sm text-faint">No views match this filter.</p>
         )}
 
         {/* Empty state */}
@@ -333,7 +333,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                     {view.description && (
                       <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{view.description}</p>
                     )}
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-faint">
                       <span className="flex items-center gap-1">
                         <LayoutDashboard className="w-3 h-3" />
                         {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
@@ -349,14 +349,14 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                   <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleExport(view)}
-                      className="p-1.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                      className="p-1.5 rounded-sm text-faint hover:text-slate-200 hover:bg-slate-800 transition-colors"
                       title="Export as JSON"
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleShare(view)}
-                      className="p-1.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                      className="p-1.5 rounded-sm text-faint hover:text-slate-200 hover:bg-slate-800 transition-colors"
                       title={copiedId === view.id ? 'Copied!' : 'Share'}
                       aria-label={`Share ${view.title}`}
                     >
@@ -365,7 +365,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                     <button
                       onClick={() => handleClone(view)}
                       disabled={cloningId === view.id}
-                      className="p-1.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-40"
+                      className="p-1.5 rounded-sm text-faint hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-40"
                       title="Clone"
                       aria-label={`Clone ${view.title}`}
                     >
@@ -373,14 +373,14 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                     </button>
                     <button
                       onClick={() => openHistory(view.id)}
-                      className="p-1.5 rounded-sm text-slate-500 hover:text-violet-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1.5 rounded-sm text-faint hover:text-violet-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
                       title="Version history"
                     >
                       <History className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setDeleteTarget(view)}
-                      className="p-1.5 rounded-sm text-slate-500 hover:text-red-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1.5 rounded-sm text-faint hover:text-red-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
                       title="Delete view"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -416,7 +416,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                 />
               )}
               {!loadingVersions && !historyError && versions.length === 0 && (
-                <p className="text-xs text-slate-500 text-center py-8">No version history yet. Changes are snapshotted automatically when you edit a view.</p>
+                <p className="text-xs text-faint text-center py-8">No version history yet. Changes are snapshotted automatically when you edit a view.</p>
               )}
               {versions.map((v, i) => {
                 const previous = versions[i + 1]; // versions are sorted newest-first
@@ -424,8 +424,8 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
                 <div key={v.version} className="flex items-center justify-between rounded-sm border border-slate-800 bg-slate-950 px-3 py-2">
                   <div>
                     <div className="text-xs text-slate-300">v{v.version} · {formatRelative(new Date(v.created_at).getTime())}</div>
-                    <div className="text-xs text-slate-500">{describeChanges(v, previous)}</div>
-                    {v.layout && <div className="text-xs text-slate-600 mt-0.5">{v.layout.length} widget{v.layout.length !== 1 ? 's' : ''} · {v.title}</div>}
+                    <div className="text-xs text-faint">{describeChanges(v, previous)}</div>
+                    {v.layout && <div className="text-xs text-faint mt-0.5">{v.layout.length} widget{v.layout.length !== 1 ? 's' : ''} · {v.title}</div>}
                   </div>
                   <button
                     onClick={() => restoreVersion(historyViewId, v.version)}

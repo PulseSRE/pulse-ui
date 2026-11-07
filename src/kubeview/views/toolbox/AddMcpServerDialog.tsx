@@ -64,7 +64,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-slate-100">Add MCP Server</h3>
-        <button onClick={onClose} className="text-slate-500 hover:text-slate-300">
+        <button onClick={onClose} className="text-faint hover:text-slate-300">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -76,7 +76,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. my-mcp-server"
-            className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-faint focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
@@ -100,7 +100,7 @@ export function AddMcpServerDialog({ onClose, onAdded }: { onClose: () => void; 
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder={transport === 'sse' ? 'http://localhost:8081' : 'npx @modelcontextprotocol/server-everything'}
-          className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500 font-mono"
+          className="w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-faint focus:outline-hidden focus:ring-1 focus:ring-blue-500 font-mono"
         />
       </div>
 

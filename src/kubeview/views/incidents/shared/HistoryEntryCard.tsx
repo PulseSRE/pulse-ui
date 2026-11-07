@@ -42,7 +42,7 @@ export function HistoryEntryCard({ entry, onClick, onRollback }: {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-faint">
               {formatTime(entry.timestamp)}
             </span>
             <span
@@ -55,12 +55,12 @@ export function HistoryEntryCard({ entry, onClick, onRollback }: {
             >
               {cfg.label}
             </span>
-            {entry.namespace && <span className="text-xs text-slate-600">{entry.namespace}</span>}
+            {entry.namespace && <span className="text-xs text-faint">{entry.namespace}</span>}
           </div>
 
           {entry.resource && (
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs text-slate-500">{entry.resource.kind}</span>
+              <span className="text-xs text-faint">{entry.resource.kind}</span>
               <span className="text-sm font-medium text-blue-400">{entry.resource.name}</span>
             </div>
           )}

@@ -60,9 +60,9 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
         <section aria-label="Incident context and outcome" className="px-6 py-4 space-y-3 border-b border-slate-800">
           <h3 className="text-sm font-medium text-slate-100">{lifecycle.detection?.title ?? 'Incident details unavailable'}</h3>
           <dl className="text-xs text-slate-400 space-y-1">
-            <div><dt className="inline text-slate-500">Incident: </dt><dd className="inline font-mono break-all">{findingId}</dd></div>
-            <div><dt className="inline text-slate-500">Cluster: </dt><dd className="inline">{localName ?? 'Local'} — agent deployment cluster</dd></div>
-            {(lifecycle.detection?.resources ?? []).map((resource, index) => <div key={`${resource.kind}/${resource.namespace}/${resource.name}/${index}`}><dt className="inline text-slate-500">Resource: </dt><dd className="inline font-mono">{resource.kind}/{resource.name} {resource.namespace ? `in namespace ${resource.namespace}` : '(namespace not reported)'}</dd></div>)}
+            <div><dt className="inline text-faint">Incident: </dt><dd className="inline font-mono break-all">{findingId}</dd></div>
+            <div><dt className="inline text-faint">Cluster: </dt><dd className="inline">{localName ?? 'Local'} — agent deployment cluster</dd></div>
+            {(lifecycle.detection?.resources ?? []).map((resource, index) => <div key={`${resource.kind}/${resource.namespace}/${resource.name}/${index}`}><dt className="inline text-faint">Resource: </dt><dd className="inline font-mono">{resource.kind}/{resource.name} {resource.namespace ? `in namespace ${resource.namespace}` : '(namespace not reported)'}</dd></div>)}
             {!lifecycle.detection?.resources?.length && <div>Resource context not reported.</div>}
           </dl>
           {activeClusterId !== 'local' && <p className="text-xs text-amber-300">This monitor incident belongs to the agent deployment cluster, not the selected fleet cluster.</p>}
@@ -92,14 +92,14 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   )}>
                     {lifecycle.detection.severity}
                   </span>
-                  <span className="text-xs text-slate-500">{lifecycle.detection.category}</span>
+                  <span className="text-xs text-faint">{lifecycle.detection.category}</span>
                   {lifecycle.detection.confidence != null && (
                     <span className="text-xs font-mono text-slate-400">{Math.round(lifecycle.detection.confidence * 100)}%</span>
                   )}
                 </div>
                 <p className="text-xs text-slate-300">{lifecycle.detection.title}</p>
-                <p className="text-xs text-slate-500">{lifecycle.detection.summary}</p>
-                <span className="text-xs text-slate-600">{formatRelative(lifecycle.detection.timestamp)}</span>
+                <p className="text-xs text-faint">{lifecycle.detection.summary}</p>
+                <span className="text-xs text-faint">{formatRelative(lifecycle.detection.timestamp)}</span>
               </div>
             )}
           </Stage>
@@ -127,12 +127,12 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   )}>
                     {lifecycle.impact.risk_level} risk
                   </span>
-                  <span className="text-xs text-slate-500">{lifecycle.impact.scope}</span>
-                  <span className="text-xs text-slate-500">{lifecycle.impact.affected_pods} pods affected</span>
+                  <span className="text-xs text-faint">{lifecycle.impact.scope}</span>
+                  <span className="text-xs text-faint">{lifecycle.impact.affected_pods} pods affected</span>
                 </div>
                 {lifecycle.impact.blast_radius.length > 0 && (
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Blast Radius</div>
+                    <div className="text-[10px] text-faint uppercase tracking-wider mb-1">Blast Radius</div>
                     <div className="flex flex-wrap gap-1">
                       {lifecycle.impact.blast_radius.map((r) => (
                         <span key={r.id} className="text-xs font-mono px-1.5 py-0.5 bg-red-900/20 text-red-300 rounded-sm border border-red-800/30">
@@ -144,7 +144,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 )}
                 {lifecycle.impact.upstream_dependencies.length > 0 && (
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Dependencies</div>
+                    <div className="text-[10px] text-faint uppercase tracking-wider mb-1">Dependencies</div>
                     <div className="flex flex-wrap gap-1">
                       {lifecycle.impact.upstream_dependencies.map((r) => (
                         <span key={r.id} className="text-xs font-mono px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">
@@ -166,8 +166,8 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
           >
             {lifecycle.investigation && (
               <div className="space-y-2">
-                <div><div className="text-[10px] text-slate-500 uppercase">Agent assessment</div><p className="text-xs text-slate-400">{lifecycle.investigation.summary}</p></div>
-                {!lifecycle.investigation.evidence?.length && <p className="text-xs text-slate-500">No supporting evidence reported for this hypothesis.</p>}
+                <div><div className="text-[10px] text-faint uppercase">Agent assessment</div><p className="text-xs text-slate-400">{lifecycle.investigation.summary}</p></div>
+                {!lifecycle.investigation.evidence?.length && <p className="text-xs text-faint">No supporting evidence reported for this hypothesis.</p>}
                 {lifecycle.investigation.suspectedCause && (
                   <div className="px-3 py-2 rounded-sm bg-violet-950/40 border border-violet-800/40">
                     <div className="text-[10px] font-medium text-violet-300 mb-0.5">Hypothesis — not a confirmed cause</div>
@@ -176,7 +176,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 )}
                 {lifecycle.investigation.evidence && lifecycle.investigation.evidence.length > 0 && (
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Agent-reported evidence</div>
+                    <div className="text-[10px] text-faint uppercase tracking-wider mb-1">Agent-reported evidence</div>
                     <ul className="space-y-0.5">
                       {lifecycle.investigation.evidence.map((e, i) => (
                         <li key={i} className="text-xs text-slate-300 flex gap-1.5">
@@ -186,7 +186,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     </ul>
                   </div>
                 )}
-                {lifecycle.investigation.recommendedFix && <div><div className="text-[10px] text-slate-500 uppercase">Recommended next step</div><p className="text-xs text-slate-300">{lifecycle.investigation.recommendedFix}</p><p className="text-xs text-slate-500">Recommendation only; no execution is implied.</p></div>}
+                {lifecycle.investigation.recommendedFix && <div><div className="text-[10px] text-faint uppercase">Recommended next step</div><p className="text-xs text-slate-300">{lifecycle.investigation.recommendedFix}</p><p className="text-xs text-faint">Recommendation only; no execution is implied.</p></div>}
                 {!!lifecycle.investigation.alternativesConsidered?.length && <details className="text-xs text-slate-400"><summary>Alternative hypotheses</summary><ul>{lifecycle.investigation.alternativesConsidered.map((alternative, index) => <li key={index}>{alternative}</li>)}</ul></details>}
                 {lifecycle.investigation.error && <p role="alert" className="text-xs text-red-300">Investigation failed: {lifecycle.investigation.error}</p>}
                 {lifecycle.investigation.securityFollowup && (
@@ -223,14 +223,14 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   <span className="text-xs font-mono text-slate-200">{lifecycle.action.tool}</span>
                   <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', {
                     'bg-green-900/50 text-green-300': lifecycle.action.status === 'completed',
-                    'bg-yellow-900/50 text-yellow-300': lifecycle.action.status === 'executing',
+                    'bg-amber-900/50 text-amber-300': lifecycle.action.status === 'executing',
                     'bg-red-900/50 text-red-300': lifecycle.action.status === 'failed',
                     'bg-blue-900/50 text-blue-300': lifecycle.action.status === 'proposed',
                   })}>
                     {lifecycle.action.status}
                   </span>
                 </div>
-                <div className="text-xs text-slate-500">Action ID: <span className="font-mono break-all">{lifecycle.action.id}</span></div>
+                <div className="text-xs text-faint">Action ID: <span className="font-mono break-all">{lifecycle.action.id}</span></div>
                 {lifecycle.action.status === 'proposed' && <p className="text-xs text-blue-300">Awaiting approval; this action has not executed.</p>}
                 {lifecycle.action.status === 'expired' && <p className="text-xs text-slate-400">Approval expired; this proposal did not execute.</p>}
                 {lifecycle.action.status === 'rolled_back' && <p className="text-xs text-amber-300">Action rolled back; recovery needs a subsequent health check.</p>}
@@ -243,7 +243,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                   <p className="text-xs text-slate-400">{lifecycle.action.reasoning}</p>
                 )}
                 {lifecycle.action.fixStrategy && (
-                  <div className="text-xs text-slate-500">Strategy: {lifecycle.action.fixStrategy}</div>
+                  <div className="text-xs text-faint">Strategy: {lifecycle.action.fixStrategy}</div>
                 )}
               </div>
             )}
@@ -272,8 +272,8 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     {verificationStatusLabel(verificationBadge!)}
                   </span>
                 </div>
-                {outcome.evidence ? <p className="text-xs text-slate-400">{outcome.evidence}</p> : <p className="text-xs text-slate-500">No recovery evidence reported for this action.</p>}
-                {outcome.timestamp != null && <p className="text-xs text-slate-500">Checked {formatRelative(outcome.timestamp)}</p>}
+                {outcome.evidence ? <p className="text-xs text-slate-400">{outcome.evidence}</p> : <p className="text-xs text-faint">No recovery evidence reported for this action.</p>}
+                {outcome.timestamp != null && <p className="text-xs text-faint">Checked {formatRelative(outcome.timestamp)}</p>}
                 {lifecycle.learning?.confidence_delta && (
                   <div className="text-xs text-slate-400">
                     Confidence: {Math.round(lifecycle.learning.confidence_delta.before * 100)}%
@@ -285,16 +285,16 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 )}
                 {confidenceStats && confidenceStats.total_predictions > 0 && (
                   <div className="mt-2 px-3 py-2 rounded-sm bg-slate-800/50 border border-slate-700/50">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Agent Confidence Trends (30d)</div>
+                    <div className="text-[10px] text-faint uppercase tracking-wider mb-1.5">Agent Confidence Trends (30d)</div>
                     <div className="flex items-center gap-3 text-xs">
                       <div>
-                        <span className="text-slate-500">Brier: </span>
+                        <span className="text-faint">Brier: </span>
                         <span className={cn('font-mono', confidenceStats.brier_score <= 0.15 ? 'text-emerald-400' : confidenceStats.brier_score <= 0.25 ? 'text-amber-400' : 'text-red-400')}>
                           {confidenceStats.brier_score.toFixed(3)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-500">Accuracy: </span>
+                        <span className="text-faint">Accuracy: </span>
                         <span className="text-slate-300 font-mono">{confidenceStats.accuracy_pct.toFixed(1)}%</span>
                       </div>
                       <span className={cn(
@@ -312,7 +312,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
             )}
           </Stage>
 
-          {!verificationBadge && <p className="text-xs text-slate-500 pl-11 pb-4">No recovery check reported for this action.</p>}
+          {!verificationBadge && <p className="text-xs text-faint pl-11 pb-4">No recovery check reported for this action.</p>}
 
           {/* 6. Postmortem */}
           <Stage
@@ -327,13 +327,13 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 </p>
                 {lifecycle.postmortem.root_cause && (
                   <div className="px-3 py-2 rounded-sm bg-slate-800/50 border border-slate-700/50">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Postmortem cause assessment</div>
+                    <div className="text-[10px] text-faint uppercase tracking-wider mb-0.5">Postmortem cause assessment</div>
                     <p className="text-xs text-slate-300">{lifecycle.postmortem.root_cause}</p>
                   </div>
                 )}
                 {lifecycle.postmortem.prevention.length > 0 && (
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Prevention</div>
+                    <div className="text-[10px] text-faint uppercase tracking-wider mb-1">Prevention</div>
                     <ul className="space-y-0.5">
                       {lifecycle.postmortem.prevention.map((p, i) => (
                         <li key={i} className="text-xs text-slate-400 flex gap-1.5">
@@ -379,7 +379,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm">Runbook</span>
                       <span className="text-xs text-slate-300">{lifecycle.learning.learned_runbook.name}</span>
-                      <span className="text-xs text-slate-500">{lifecycle.learning.learned_runbook.success_count} successes</span>
+                      <span className="text-xs text-faint">{lifecycle.learning.learned_runbook.success_count} successes</span>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {lifecycle.learning.learned_runbook.tool_sequence.map((tool, i) => (
@@ -390,7 +390,7 @@ export function IncidentLifecycleDrawer({ findingId, onClose }: IncidentLifecycl
                 )}
                 {lifecycle.learning.detected_patterns.length > 0 && (
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Detected Patterns</div>
+                    <div className="text-[10px] text-faint uppercase tracking-wider mb-1">Detected Patterns</div>
                     {lifecycle.learning.detected_patterns.map((p, i) => (
                       <div key={i} className="text-xs text-slate-400 mb-0.5">
                         <span className="text-slate-300">{p.type}</span>: {p.description} (freq: {p.frequency})
@@ -448,7 +448,7 @@ function Stage({
             status === 'complete' ? 'text-slate-200' :
             status === 'in-progress' ? 'text-blue-300' :
             status === 'failed' ? 'text-red-300' :
-            'text-slate-500',
+            'text-faint',
           )}>
             {title}
           </span>
@@ -456,7 +456,7 @@ function Stage({
         {children ? (
           <div className="mt-1">{children}</div>
         ) : status === 'pending' ? (
-          <p className="text-xs text-slate-600 mt-1">Not yet reported</p>
+          <p className="text-xs text-faint mt-1">Not yet reported</p>
         ) : null}
       </div>
     </div>

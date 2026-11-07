@@ -11,7 +11,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof AlertCircle;
   permission: { label: 'Permission', icon: ShieldX, color: 'text-red-400' },
   not_found: { label: 'Not Found', icon: XCircle, color: 'text-amber-400' },
   conflict: { label: 'Conflict', icon: AlertCircle, color: 'text-amber-400' },
-  validation: { label: 'Validation', icon: AlertCircle, color: 'text-yellow-400' },
+  validation: { label: 'Validation', icon: AlertCircle, color: 'text-amber-400' },
   server: { label: 'Server', icon: ServerCrash, color: 'text-red-400' },
   network: { label: 'Network', icon: WifiOff, color: 'text-red-400' },
   quota: { label: 'Quota', icon: AlertCircle, color: 'text-orange-400' },
@@ -47,7 +47,7 @@ export function ErrorsTab() {
 
   if (errors.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+      <div className="flex flex-col items-center justify-center py-20 text-faint">
         <CheckCircle2 className="w-12 h-12 mb-4 text-emerald-600" />
         <p className="text-lg font-medium text-slate-300">No errors tracked</p>
         <p className="text-sm mt-1">Errors from K8s API operations will appear here</p>
@@ -122,7 +122,7 @@ export function ErrorsTab() {
                       {cfg.label}
                     </span>
                     {error.statusCode > 0 && (
-                      <span className="text-xs text-slate-500">{error.statusCode}</span>
+                      <span className="text-xs text-faint">{error.statusCode}</span>
                     )}
                     {error.resolved && (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
@@ -132,7 +132,7 @@ export function ErrorsTab() {
                     <p className="text-xs text-slate-400 mt-1 line-clamp-2">{error.message}</p>
                   )}
                   {error.resourceKind && (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-faint mt-1">
                       {error.operation} {error.resourceKind}
                       {error.resourceName ? `/${error.resourceName}` : ''}
                       {error.namespace ? ` in ${error.namespace}` : ''}
@@ -146,7 +146,7 @@ export function ErrorsTab() {
                     </ul>
                   )}
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs text-slate-600">
+                    <span className="text-xs text-faint">
                       <RelativeTime value={error.timestamp} />
                     </span>
                     {!error.resolved && (

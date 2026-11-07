@@ -124,7 +124,7 @@ export function StartUpdateDialog({
             placeholder="Why now, and the change ticket if there is one"
             className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-slate-200 resize-y"
           />
-          <p className="text-slate-500">
+          <p className="text-faint">
             Recorded as started by{' '}
             {usernameLoading ? 'you (reading your username…)' : username ? <span className="font-mono text-slate-300">{username}</span> : 'an unknown user (your username could not be read)'}.
             {impersonating && ' (you are impersonating this user; the entry says so)'}
@@ -136,11 +136,11 @@ export function StartUpdateDialog({
 
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
           <div>
-            <dt className="text-slate-500">Worker pools</dt>
+            <dt className="text-faint">Worker pools</dt>
             <dd className="text-slate-200" data-testid="start-update-pools">{poolState(pools)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Can it be undone?</dt>
+            <dt className="text-faint">Can it be undone?</dt>
             <dd className="text-slate-200" data-testid="start-update-undo">
               {isMinor ? "No. Minor updates can't be rolled back." : 'No. OpenShift does not support rolling back an update.'}
             </dd>

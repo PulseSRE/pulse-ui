@@ -96,11 +96,16 @@ describe('helpers for maps and graphs', () => {
 
 describe('status maps that used to be private', () => {
   // Each of these kept its own status → colour map (yellow warning in the
-  // graph, indigo Succeeded in the pod grid). They now
+  // Inbox, blue or indigo Succeeded on the node map and pod grid). They now
   // read engine/statusColors; the lint rule pulse/no-inline-status-colors
   // stops a new map, and this stops a file quietly dropping the shared one.
   const files = [
+    'views/inbox/InboxItem.tsx',
+    'views/inbox/InboxGroup.tsx',
+    'views/compute/NodeHexMap.tsx',
     'components/topology/overlays/PodGrid.tsx',
+    'views/mission-control/ScannerDrawer.tsx',
+    'views/argocd/RolloutsTab.tsx',
     'components/topology/GraphRenderer.tsx',
     'components/agent/AgentBlastRadius.tsx',
   ];

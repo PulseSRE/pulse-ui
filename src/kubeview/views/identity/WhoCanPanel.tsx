@@ -232,7 +232,7 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-100" role="status">
               {visible.length} subject{visible.length === 1 ? '' : 's'} can {asked.verb} {asked.resource} {where(asked)}
-              <span className="ml-2 text-xs text-slate-500">{people.size} {people.size === 1 ? 'person' : 'people'} · checked {formatTime(resultQ.data.at)} · RBAC</span>
+              <span className="ml-2 text-xs text-faint">{people.size} {people.size === 1 ? 'person' : 'people'} · checked {formatTime(resultQ.data.at)} · RBAC</span>
             </p>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="ghost" onClick={exportCsv}><Download className="w-3.5 h-3.5" /> Export CSV</Button>
@@ -246,7 +246,7 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
             <p className="text-xs text-amber-300">Could not read {resultQ.data.unreadable.join(', ')}, so some &quot;granted through&quot; chains are missing. The list of subjects is still complete.</p>
           )}
           <table className="w-full text-left text-xs">
-            <thead><tr className="text-[11px] uppercase tracking-wide text-slate-500"><th className="pb-1 pr-3 font-medium">Subject</th><th className="pb-1 pr-3 font-medium">Granted through</th><th className="pb-1 font-medium">Since</th></tr></thead>
+            <thead><tr className="text-[11px] uppercase tracking-wide text-faint"><th className="pb-1 pr-3 font-medium">Subject</th><th className="pb-1 pr-3 font-medium">Granted through</th><th className="pb-1 font-medium">Since</th></tr></thead>
             <tbody>
               {visible.map((r) => {
                 const label = r.subject.kind === 'ServiceAccount' ? `${r.subject.namespace}/${r.subject.name}` : r.subject.name;
@@ -254,20 +254,20 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
                   <tr key={`${r.subject.kind}/${r.subject.namespace ?? ''}/${r.subject.name}`} className="border-t border-slate-800 align-top">
                     <td className="py-2 pr-3">
                       <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(subjectPagePath(r.subject), r.subject.name)}>{r.subject.kind} {label}</button>
-                      {r.subject.kind === 'Group' && <div className="text-slate-500">{r.members?.length ? r.members.join(', ') : 'no members listed'}</div>}
-                      {r.subject.kind === 'User' && <div className="text-slate-500">direct</div>}
+                      {r.subject.kind === 'Group' && <div className="text-faint">{r.members?.length ? r.members.join(', ') : 'no members listed'}</div>}
+                      {r.subject.kind === 'User' && <div className="text-faint">direct</div>}
                     </td>
                     <td className="py-2 pr-3 text-slate-300">
-                      {r.grants.length === 0 ? <span className="text-slate-500">Allowed, but no binding Pulse can read explains it (a group the API server adds, or another authorizer).</span>
+                      {r.grants.length === 0 ? <span className="text-faint">Allowed, but no binding Pulse can read explains it (a group the API server adds, or another authorizer).</span>
                         : r.grants.map((g) => (
                           <div key={`${g.binding.kind}/${g.binding.namespace ?? ''}/${g.binding.name}/${g.viaGroup ?? ''}`} className="flex flex-wrap items-center gap-1">
                             {g.viaGroup && <><span className="text-blue-300">Group {g.viaGroup}</span><ArrowRight className="w-3 h-3 text-slate-600" /></>}
                             <span>{g.binding.kind} {g.binding.namespace ? `${g.binding.namespace}/` : ''}{g.binding.name}</span><ArrowRight className="w-3 h-3 text-slate-600" />
-                            <span>{g.role.kind} {g.role.name}</span>{g.binding.kind === 'ClusterRoleBinding' && <span className="text-slate-500">· cluster-wide</span>}
+                            <span>{g.role.kind} {g.role.name}</span>{g.binding.kind === 'ClusterRoleBinding' && <span className="text-faint">· cluster-wide</span>}
                           </div>
                         ))}
                     </td>
-                    <td className="py-2 text-slate-500">{since(r.grants)}</td>
+                    <td className="py-2 text-faint">{since(r.grants)}</td>
                   </tr>
                 );
               })}
@@ -278,7 +278,7 @@ export function WhoCanPanel({ namespaces }: { namespaces: Namespace[] }) {
               {showSystem ? 'Hide system subjects' : `${hidden} system subject${hidden === 1 ? '' : 's'} also can (controllers, operators, platform service accounts) — show`}
             </button>
           )}
-          <p className="text-xs text-slate-500">RBAC only. Anyone who can exec into a pod running as a listed service account can effectively act as it, and a webhook authorizer can allow more than RBAC shows.</p>
+          <p className="text-xs text-faint">RBAC only. Anyone who can exec into a pod running as a listed service account can effectively act as it, and a webhook authorizer can allow more than RBAC shows.</p>
         </div>
       )}
     </section>

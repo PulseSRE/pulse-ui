@@ -125,13 +125,13 @@ function RulesRow({ ns, review, error, loading, chains }: {
   let what: React.ReactNode;
   let level: React.ReactNode = levelFor(ns, chains);
   if (loading) {
-    what = <span className="text-slate-500">Checking…</span>;
+    what = <span className="text-faint">Checking…</span>;
   } else if (error) {
     what = <span className="text-red-300">Could not check: {error instanceof Error ? error.message : String(error)}</span>;
-    level = <span className="text-slate-500" data-unknown>unknown</span>;
+    level = <span className="text-faint" data-unknown>unknown</span>;
   } else if (review?.incomplete) {
     what = <span className="text-amber-300">Could not check — the rules review came back incomplete{review.evaluationError ? `: ${review.evaluationError}` : ''}. The list may be missing permissions.</span>;
-    level = <span className="text-slate-500" data-unknown>unknown</span>;
+    level = <span className="text-faint" data-unknown>unknown</span>;
   } else if (review) {
     what = (
       <>
@@ -156,7 +156,7 @@ function RulesRow({ ns, review, error, loading, chains }: {
       <td className="py-2 pr-3 font-mono text-xs text-slate-200">{ns}</td>
       <td className="py-2 pr-3 text-xs text-slate-300">{level}</td>
       <td className="py-2 pr-3 text-xs text-slate-300">{what}</td>
-      <td className="py-2 text-xs text-slate-500">{grantedBy(ns, chains)}</td>
+      <td className="py-2 text-xs text-faint">{grantedBy(ns, chains)}</td>
     </tr>
   );
 }
@@ -222,7 +222,7 @@ function EffectivePermissions({ subject, chains, groupNames, oauthAssumed }: { s
         ) : (
           <table className="w-full text-left">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-slate-500">
+              <tr className="text-[11px] uppercase tracking-wide text-faint">
                 <th className="pb-1 pr-3 font-medium">Namespace</th><th className="pb-1 pr-3 font-medium">Level</th>
                 <th className="pb-1 pr-3 font-medium">What {subject.name} can do</th><th className="pb-1 font-medium">Granted by</th>
               </tr>
@@ -252,7 +252,7 @@ function Chains({ subject, chains, groups }: { subject: SubjectRef; chains: Acce
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100">Where the access comes from</h2>
-        <span className="text-xs text-slate-500">{chains.length} binding{chains.length === 1 ? '' : 's'}{viaGroups ? ` · ${viaGroups} through groups` : ''}</span>
+        <span className="text-xs text-faint">{chains.length} binding{chains.length === 1 ? '' : 's'}{viaGroups ? ` · ${viaGroups} through groups` : ''}</span>
       </div>
       {chains.length === 0 ? (
         <p className="p-4 text-xs text-slate-400">No RoleBinding or ClusterRoleBinding names {subject.name} or a group it belongs to.</p>
@@ -279,7 +279,7 @@ function Chains({ subject, chains, groups }: { subject: SubjectRef; chains: Acce
                   <ArrowRight className="w-3 h-3 text-slate-600" aria-hidden />
                   <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(rolePath, c.binding.roleRef.name)}>{c.binding.roleRef.kind} {c.binding.roleRef.name}</button>
                 </div>
-                <div className="mt-0.5 text-slate-500">{chainNote(c, subject, groups)}</div>
+                <div className="mt-0.5 text-faint">{chainNote(c, subject, groups)}</div>
               </li>
             );
           })}
@@ -375,7 +375,7 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
           <p className="text-xs text-slate-400">Effective permissions are computed per user. Open a member to see theirs.</p>
         )}
 
-        {data.loading ? <p className="text-xs text-slate-500">Checking bindings…</p>
+        {data.loading ? <p className="text-xs text-faint">Checking bindings…</p>
           : data.failed.some((f) => f.what !== 'Groups') ? null
             : <Chains subject={subject} chains={chains} groups={data.groups} />}
 

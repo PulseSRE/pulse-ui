@@ -24,7 +24,7 @@ export function DiffView({ before, after }: { before: string; after: string }) {
   return (
     <pre className="max-h-72 overflow-auto rounded-sm bg-slate-950 p-2 text-[11px] leading-5 font-mono" aria-label="Diff">
       {hunks.map((h, i) => h.type === 'gap'
-        ? <div key={i} className="text-slate-600">  … {h.skipped} unchanged line{h.skipped === 1 ? '' : 's'}</div>
+        ? <div key={i} className="text-faint">  … {h.skipped} unchanged line{h.skipped === 1 ? '' : 's'}</div>
         : <div key={i} className={cn('whitespace-pre', h.type === 'add' ? 'bg-emerald-500/10 text-emerald-300' : h.type === 'del' ? 'bg-red-500/10 text-red-300' : 'text-slate-400')}>
           {h.type === 'add' ? '+ ' : h.type === 'del' ? '- ' : '  '}{h.text}
         </div>)}
@@ -46,7 +46,7 @@ function EntryRow({ e }: { e: PreviewEntry }) {
       <div className="flex flex-wrap items-start gap-2 text-xs">
         <span className={cn('rounded-sm px-1.5 py-0.5 font-medium', CHANGE_STYLE[failing ? 'fail' : e.change])}>{tag}</span>
         <span className="font-mono text-slate-200">{label(e)}</span>
-        {e.namespace && <span className="text-slate-500">{e.namespace}</span>}
+        {e.namespace && <span className="text-faint">{e.namespace}</span>}
         <span className={cn('min-w-0 flex-1', failing ? 'text-red-300' : e.check.status === 'unknown' ? 'text-amber-300' : 'text-slate-400')}>
           {e.check.status === 'unknown' ? e.check.message : failing ? e.check.message : e.check.message ?? (e.change === 'removed' ? '' : 'Dry run passed')}
         </span>
@@ -75,10 +75,10 @@ export function HooksList({ hooks, action }: { hooks: RenderedObject[]; action: 
     <div className="text-xs" data-testid="preview-hooks">
       <span className="font-medium text-slate-300">Hooks that will run: </span>
       {hooks.length === 0
-        ? <span className="text-slate-500">none on {action}</span>
+        ? <span className="text-faint">none on {action}</span>
         : <ul className="mt-1 space-y-0.5 text-slate-300">{hooks.map((h) => <li key={h.key} className="font-mono">{hookLine(h)}</li>)}</ul>}
-      {hooks.some((h) => h.hook!.events.some((ev) => ev.startsWith('pre-'))) && <p className="mt-1 text-slate-500">If a pre-{action} hook fails, helm stops before changing anything else.</p>}
-      {hooks.length > 0 && <p className="mt-1 text-slate-500">Hooks are not dry-run; only the runner's Role is checked for them.</p>}
+      {hooks.some((h) => h.hook!.events.some((ev) => ev.startsWith('pre-'))) && <p className="mt-1 text-faint">If a pre-{action} hook fails, helm stops before changing anything else.</p>}
+      {hooks.length > 0 && <p className="mt-1 text-faint">Hooks are not dry-run; only the runner's Role is checked for them.</p>}
     </div>
   );
 }
@@ -87,8 +87,8 @@ export function PreviewCounts({ preview }: { preview: HelmPreview }) {
   const c = previewCounts(preview);
   const cell = (n: number, what: string, tone: string) => (
     <div className="rounded-md border border-slate-800 px-3 py-2">
-      <div className={cn('text-lg font-semibold', n ? tone : 'text-slate-500')}>{n}</div>
-      <div className="text-[11px] text-slate-500">{what}</div>
+      <div className={cn('text-lg font-semibold', n ? tone : 'text-faint')}>{n}</div>
+      <div className="text-[11px] text-faint">{what}</div>
     </div>
   );
   return (
@@ -113,14 +113,14 @@ export function PreviewObjects({ preview }: { preview: HelmPreview }) {
       {ordered.length === 0
         ? <p className="text-xs text-slate-400">Nothing changes: the render matches the release's current manifest.</p>
         : <ul className="divide-y divide-slate-800">{ordered.map((e) => <EntryRow key={e.key} e={e} />)}</ul>}
-      {unchanged > 0 && <p className="mt-1 text-xs text-slate-500">{unchanged} object{unchanged === 1 ? '' : 's'} unchanged.</p>}
+      {unchanged > 0 && <p className="mt-1 text-xs text-faint">{unchanged} object{unchanged === 1 ? '' : 's'} unchanged.</p>}
     </div>
   );
 }
 
 export function PreviewNotes({ preview }: { preview: HelmPreview }) {
   return (
-    <div className="space-y-1 text-xs text-slate-500">
+    <div className="space-y-1 text-xs text-faint">
       <p>The dry run runs as you; helm runs as the runner ServiceAccount, whose Role is checked separately for every object and hook. Secret values are hidden: each shows a salted hash, so a changed value still shows as changed.</p>
       {preview.testHooks.length > 0 && <p>{preview.testHooks.length} test hook{preview.testHooks.length === 1 ? '' : 's'} ({preview.testHooks.map((h) => `${h.kind} ${h.name}`).join(', ')}) run only on helm test.</p>}
       {preview.capabilitiesNote && <p className="text-amber-300">{preview.capabilitiesNote}</p>}
@@ -192,7 +192,7 @@ export function PreviewResult({ state, stale, action }: { state: PreviewState; s
     <div className={cn('space-y-3', stale && 'opacity-60')} data-testid="helm-preview">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h4 className="text-sm font-semibold text-slate-100">Preview · {p.entries.filter((e) => !e.key.startsWith('hook:')).length} objects</h4>
-        <span className="text-xs text-slate-500">Rendered {formatTime(p.at)}{stale ? ' · out of date: the inputs changed, preview again' : ''}</span>
+        <span className="text-xs text-faint">Rendered {formatTime(p.at)}{stale ? ' · out of date: the inputs changed, preview again' : ''}</span>
       </div>
       <PreviewCounts preview={p} />
       <PreviewObjects preview={p} />

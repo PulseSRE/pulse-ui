@@ -20,7 +20,7 @@ export function SkillConfigSection({ configurable }: { configurable: Array<Recor
             return (
               <div key={fieldName} className="flex items-center justify-between text-xs border-t border-slate-800 pt-1.5">
                 <span className="text-slate-200 font-mono">{fieldName}</span>
-                <div className="flex items-center gap-2 text-slate-500">
+                <div className="flex items-center gap-2 text-faint">
                   <span>{String(def?.type || 'string')}</span>
                   {def?.default !== undefined && <span>default: {String(def.default)}</span>}
                 </div>

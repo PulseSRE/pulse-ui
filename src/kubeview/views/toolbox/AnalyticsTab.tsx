@@ -71,7 +71,7 @@ export function AnalyticsTab() {
             <FileText className="w-4 h-4 text-green-400" />
             Prompt & Token Efficiency
           </h2>
-          <p className="text-[11px] text-slate-500 mb-4">System prompt performance, token costs, and PromQL query reliability.</p>
+          <p className="text-[11px] text-faint mb-4">System prompt performance, token costs, and PromQL query reliability.</p>
         </div>
       )}
 
@@ -216,12 +216,12 @@ function KpiSection() {
                  kpi.status === 'warn' ? <AlertTriangle className="w-3 h-3 text-amber-400" /> :
                  kpi.status === 'info' ? <Activity className="w-3 h-3 text-slate-500" /> :
                  <XCircle className="w-3 h-3 text-red-400" />}
-                <span className="text-[10px] text-slate-500 truncate">{info?.label ?? kpi.label}</span>
+                <span className="text-[10px] text-faint truncate">{info?.label ?? kpi.label}</span>
               </div>
-              <div className={cn('text-sm font-bold', noData ? 'text-slate-500' : kpi.status === 'pass' ? 'text-emerald-400' : kpi.status === 'warn' ? 'text-amber-400' : kpi.status === 'fail' ? 'text-red-400' : 'text-slate-200')}>
+              <div className={cn('text-sm font-bold', noData ? 'text-faint' : kpi.status === 'pass' ? 'text-emerald-400' : kpi.status === 'warn' ? 'text-amber-400' : kpi.status === 'fail' ? 'text-red-400' : 'text-slate-200')}>
                 {val}
               </div>
-              {noData && <div className="text-[9px] text-slate-600 mt-0.5">No data yet</div>}
+              {noData && <div className="text-[9px] text-faint mt-0.5">No data yet</div>}
               {info && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-sm text-[10px] text-left w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 space-y-0.5">
                   <div className="text-slate-300">{info.explain}</div>
@@ -249,20 +249,20 @@ function CostSection({ costStats }: { costStats: CostStats | null }) {
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
-          <div className="text-[10px] text-slate-500 mb-1">Total Cost</div>
+          <div className="text-[10px] text-faint mb-1">Total Cost</div>
           <div className="text-lg font-bold text-slate-100">${cost.total_usd.toFixed(2)}</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
-          <div className="text-[10px] text-slate-500 mb-1">Per conversation</div>
+          <div className="text-[10px] text-faint mb-1">Per conversation</div>
           <div className="text-lg font-bold text-slate-100">${cost.avg_per_incident_usd.toFixed(3)}</div>
-          <div className="text-[9px] text-slate-600">{total_incidents} conversations</div>
+          <div className="text-[9px] text-faint">{total_incidents} conversations</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
-          <div className="text-[10px] text-slate-500 mb-1">Cache Savings</div>
+          <div className="text-[10px] text-faint mb-1">Cache Savings</div>
           <div className="text-lg font-bold text-emerald-400">${cost.cache_savings_usd.toFixed(2)}</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
-          <div className="text-[10px] text-slate-500 mb-1">I/O Split</div>
+          <div className="text-[10px] text-faint mb-1">I/O Split</div>
           <div className="text-xs text-slate-300">
             <span className="text-blue-400">${cost.input_usd.toFixed(2)}</span> in / <span className="text-amber-400">${cost.output_usd.toFixed(2)}</span> out
           </div>
@@ -271,13 +271,13 @@ function CostSection({ costStats }: { costStats: CostStats | null }) {
 
       {by_mode.length > 0 && (
         <div className="mt-3 bg-slate-900 border border-slate-800 rounded-lg p-3">
-          <div className="text-[10px] text-slate-500 mb-2">Cost by Mode</div>
+          <div className="text-[10px] text-faint mb-2">Cost by Mode</div>
           <div className="space-y-1">
             {by_mode.map((m) => (
               <div key={m.mode} className="flex items-center justify-between text-xs">
                 <span className="text-slate-300 capitalize">{m.mode}</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-slate-500">{m.count} conversations</span>
+                  <span className="text-faint">{m.count} conversations</span>
                   <span className="text-slate-200 font-medium">${(m.cost_usd ?? 0).toFixed(2)}</span>
                 </div>
               </div>

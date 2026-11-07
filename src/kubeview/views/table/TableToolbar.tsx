@@ -87,7 +87,7 @@ export function TableToolbar({
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-100">{resourceKind}</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-faint mt-0.5">
               {groupVersion} · {isNamespaced ? 'namespaced' : 'cluster-scoped'} ·{' '}
               {sortedCount} found
               {isNamespaced && (
@@ -190,7 +190,7 @@ export function TableToolbar({
                 <>
                   <div className="fixed inset-0 z-40" onClick={onToggleColumnPicker} />
                   <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-sm border border-slate-600 bg-slate-800 shadow-xl p-2 space-y-1 max-h-80 overflow-auto">
-                    <div className="text-xs text-slate-500 px-2 py-1 font-semibold">Show/Hide Columns</div>
+                    <div className="text-xs text-faint px-2 py-1 font-semibold">Show/Hide Columns</div>
                     {columns.map((col) => (
                       <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-700 rounded-sm cursor-pointer">
                         <input

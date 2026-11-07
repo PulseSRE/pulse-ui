@@ -76,11 +76,11 @@ export function useAttentionModel(live: LiveObjects, clusterId: string): Attenti
 }
 
 function ConfidenceCell({ row }: { row: AttentionRow }) {
-  if (row.confidence === null) return <span className="text-slate-500">Not investigated yet</span>;
+  if (row.confidence === null) return <span className="text-faint">Not investigated yet</span>;
   return (
     <span>
       <span className="font-mono text-slate-200">{row.confidence.toFixed(2)}</span>
-      <span className="block text-slate-500">{row.confidenceSource === 'investigated' ? 'investigated' : 'scanner'}</span>
+      <span className="block text-faint">{row.confidenceSource === 'investigated' ? 'investigated' : 'scanner'}</span>
     </span>
   );
 }
@@ -109,12 +109,12 @@ export function PrecedingChange({ row, enabled }: { row: AttentionRow; enabled: 
     () => (q.data?.changes || []).filter((c) => Date.parse(c.at) <= row.startedAt + 60_000).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0],
     [q.data, row.startedAt],
   );
-  if (!enabled) return <span className="text-slate-500">Not checked</span>;
-  if (!supported) return <span className="text-slate-500" title="Change history covers workloads, pods, ConfigMaps and Secrets">—</span>;
-  if (q.isPending) return <span className="text-slate-500">Checking…</span>;
+  if (!enabled) return <span className="text-faint">Not checked</span>;
+  if (!supported) return <span className="text-faint" title="Change history covers workloads, pods, ConfigMaps and Secrets">—</span>;
+  if (q.isPending) return <span className="text-faint">Checking…</span>;
   if (q.isError) {
-    if (isAgentFeatureUnavailable(q.error)) return <span className="text-slate-500" title={q.error.message}>Not available on this agent</span>;
-    if (q.error instanceof AgentRequestError && q.error.status === 404) return <span className="text-slate-500">The {r!.kind.toLowerCase()} was deleted</span>;
+    if (isAgentFeatureUnavailable(q.error)) return <span className="text-faint" title={q.error.message}>Not available on this agent</span>;
+    if (q.error instanceof AgentRequestError && q.error.status === 404) return <span className="text-faint">The {r!.kind.toLowerCase()} was deleted</span>;
     return <span className="text-amber-300" title={q.error instanceof Error ? q.error.message : ''}>Could not check</span>;
   }
   if (q.data && !q.data.available) return <span className="text-amber-300">Could not check (cluster unreachable)</span>;
@@ -123,12 +123,12 @@ export function PrecedingChange({ row, enabled }: { row: AttentionRow; enabled: 
   if (!before) {
     return unreadable
       ? <span className="text-amber-300" title={partial || undefined}>No change found (could not read: {unreadable})</span>
-      : <span className="text-slate-500" title={partial || undefined}>No change found in 24h{partial ? ' (partial list)' : ''}</span>;
+      : <span className="text-faint" title={partial || undefined}>No change found in 24h{partial ? ' (partial list)' : ''}</span>;
   }
   return (
     <span>
       <span className="text-slate-200">{before.kind} {before.name} {before.summary}{before.actor ? ` by ${before.actor}` : ''}</span>
-      <span className="block text-slate-500">{formatClock(before.at)} · {minutesBefore(before, row.startedAt)}</span>
+      <span className="block text-faint">{formatClock(before.at)} · {minutesBefore(before, row.startedAt)}</span>
       {(unreadable || partial) && <span className="block text-amber-300/80">{unreadable ? `Could not read: ${unreadable}.` : ''}{partial}</span>}
     </span>
   );
@@ -136,9 +136,9 @@ export function PrecedingChange({ row, enabled }: { row: AttentionRow; enabled: 
 
 function OwnerCell({ row, inboxState }: { row: AttentionRow; inboxState: 'loading' | 'error' | 'ok' }) {
   if (!row.inboxItem) {
-    if (inboxState === 'loading') return <span className="text-slate-500">Checking…</span>;
+    if (inboxState === 'loading') return <span className="text-faint">Checking…</span>;
     if (inboxState === 'error') return <span className="text-amber-300">Unknown</span>;
-    return <span className="text-slate-500">No Inbox item</span>;
+    return <span className="text-faint">No Inbox item</span>;
   }
   return row.inboxItem.claimed_by
     ? <span className="text-slate-200">claimed by {row.inboxItem.claimed_by}</span>
@@ -200,7 +200,7 @@ export function AttentionList({ model, clusterId, go }: {
     <div className="space-y-3" data-testid="attention-list">
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
         <h3 className="text-sm font-semibold text-slate-200">What needs attention</h3>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-faint">
           {model.source === 'monitor'
             ? <>One list from the monitor's findings · worst first · last scan {formatRelative(model.lastScanTime)}</>
             : model.source === 'checking' ? 'Waiting for the monitor\'s first scan…' : 'Computed in your browser'}
@@ -220,7 +220,7 @@ export function AttentionList({ model, clusterId, go }: {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-2"><div className="text-slate-400">Critical</div><div className="text-lg font-bold text-red-300">{critical}</div></div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-2"><div className="text-slate-400">Warning</div><div className="text-lg font-bold text-amber-300">{warning}</div></div>
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-2"><div className="text-slate-400">System namespaces</div><div className="text-lg font-bold text-slate-200">{model.rows.filter((r) => r.system).length} <span className="text-xs font-normal text-slate-500">collapsed</span></div></div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-2"><div className="text-slate-400">System namespaces</div><div className="text-lg font-bold text-slate-200">{model.rows.filter((r) => r.system).length} <span className="text-xs font-normal text-faint">collapsed</span></div></div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-2"><div className="text-slate-400">Could not check</div><div className={cn('text-lg font-bold', model.couldNotCheck.length ? 'text-amber-300' : 'text-slate-200')}>{model.source === 'monitor' ? model.couldNotCheck.length : '—'}</div></div>
         </div>
       )}
@@ -265,14 +265,14 @@ export function AttentionList({ model, clusterId, go }: {
       )}
 
       {model.source === 'checking' ? (
-        <p className="text-xs text-slate-500">Checking… the monitor has not finished its first scan.</p>
+        <p className="text-xs text-faint">Checking… the monitor has not finished its first scan.</p>
       ) : user.length === 0 && system.length === 0 && model.rows.length + model.noisy.length > 0 ? (
-        <p className="text-xs text-slate-500">No problem matches these filters.</p>
+        <p className="text-xs text-faint">No problem matches these filters.</p>
       ) : user.length > 0 ? (
         <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-x-auto">
           <table className="w-full text-xs">
             <caption className="sr-only">Problems, worst first</caption>
-            <thead className="text-slate-500 text-left">
+            <thead className="text-faint text-left">
               <tr>
                 <th className="px-3 py-2 font-medium">Severity</th>
                 <th className="px-3 py-2 font-medium">Problem and cause</th>
@@ -297,9 +297,9 @@ export function AttentionList({ model, clusterId, go }: {
                       ? <button type="button" className="text-slate-100 hover:text-blue-300 text-left" onClick={() => go(r.path!, r.resource?.name || r.problem)}>{r.problem}</button>
                       : <span className="text-slate-100">{r.problem}</span>}
                     <div className="text-slate-400 mt-0.5">{r.cause}</div>
-                    {r.alsoAlerts && r.alsoAlerts.length > 0 && <div className="text-slate-500 mt-0.5">Also in: {r.alsoAlerts.map((a) => `alert ${a}`).join(', ')}</div>}
-                    {r.inboxItem && <div className="text-slate-500 mt-0.5">Also in: <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(`/inbox?task=${encodeURIComponent(r.inboxItem!.id)}`, 'Inbox')}>Inbox item</button></div>}
-                    {r.noisy && <div className="text-slate-500 mt-0.5">Noisy: shown because you asked</div>}
+                    {r.alsoAlerts && r.alsoAlerts.length > 0 && <div className="text-faint mt-0.5">Also in: {r.alsoAlerts.map((a) => `alert ${a}`).join(', ')}</div>}
+                    {r.inboxItem && <div className="text-faint mt-0.5">Also in: <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(`/inbox?task=${encodeURIComponent(r.inboxItem!.id)}`, 'Inbox')}>Inbox item</button></div>}
+                    {r.noisy && <div className="text-faint mt-0.5">Noisy: shown because you asked</div>}
                   </td>
                   <td className="px-3 py-2"><PrecedingChange row={r} enabled={model.source === 'monitor' && lookups.has(r.key)} /></td>
                   <td className="px-3 py-2"><ConfidenceCell row={r} /></td>
@@ -343,11 +343,11 @@ export function AttentionList({ model, clusterId, go }: {
               {c.remedy && <div className="text-slate-400">To fix: {c.remedy}</div>}
             </div>
           ))}
-          {model.scanners && <div className="text-slate-500">{model.scanners.ran} of {model.scanners.total} scanners ran.</div>}
+          {model.scanners && <div className="text-faint">{model.scanners.ran} of {model.scanners.total} scanners ran.</div>}
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 flex-wrap text-xs text-slate-500">
+      <div className="flex items-center justify-between gap-3 flex-wrap text-xs text-faint">
         <span>
           {model.source === 'monitor'
             ? <>Where this list comes from: open monitor findings, the same ones the Inbox and the Alerts Triage chips open.{model.noisy.length > 0 && <> {model.noisy.length} noisy finding{model.noisy.length === 1 ? ' is' : 's are'} hidden by noise learning. <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => setShowNoisy((v) => !v)}>{showNoisy ? 'Hide them' : 'Show them'}</button></>}</>

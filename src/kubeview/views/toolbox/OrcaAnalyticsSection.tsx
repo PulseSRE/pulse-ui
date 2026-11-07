@@ -49,7 +49,7 @@ export function OrcaAnalyticsSection() {
         <Target className="w-4 h-4 text-cyan-400" />
         Agent Intelligence
       </h2>
-      <p className="text-[11px] text-slate-500 -mt-2">
+      <p className="text-[11px] text-faint -mt-2">
         Multi-signal skill selection, investigation plans, fix strategies, and dependency analysis.
       </p>
 
@@ -87,14 +87,14 @@ export function OrcaAnalyticsSection() {
       {learning && learning.events.filter(e => e.type === 'routing_decision').length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
           <h3 className="text-xs font-medium text-slate-300 mb-1">Recent Routing Decisions</h3>
-          <p className="text-[11px] text-slate-500 mb-3">Why each query was routed to a specific skill — shows which channels fired.</p>
+          <p className="text-[11px] text-faint mb-3">Why each query was routed to a specific skill — shows which channels fired.</p>
           <div className="space-y-2">
             {learning.events.filter(e => e.type === 'routing_decision').map((evt, i) => (
               <div key={i} className="flex items-start gap-2 text-xs">
                 <ArrowRight className="w-3 h-3 text-violet-400 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <div className="text-slate-200">{evt.description}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-[10px] text-faint mt-0.5">
                     {(evt.data as Record<string, string>)?.channels || 'low signal'}
                   </div>
                 </div>
@@ -115,12 +115,12 @@ export function OrcaAnalyticsSection() {
       {topology && Object.keys(topology.kinds).length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
           <h3 className="text-xs font-medium text-slate-300 mb-1">Dependency Graph</h3>
-          <p className="text-[11px] text-slate-500 mb-3">Live resource graph used for blast radius analysis and impact prediction.</p>
+          <p className="text-[11px] text-faint mb-3">Live resource graph used for blast radius analysis and impact prediction.</p>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {Object.entries(topology.kinds).sort(([, a], [, b]) => b - a).map(([kind, count]) => (
               <div key={kind} className="text-center">
                 <div className="text-lg font-bold text-slate-200">{count}</div>
-                <div className="text-[10px] text-slate-500">{kind}s</div>
+                <div className="text-[10px] text-faint">{kind}s</div>
               </div>
             ))}
           </div>
@@ -131,7 +131,7 @@ export function OrcaAnalyticsSection() {
       {strategies && strategies.strategies.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
           <h3 className="text-xs font-medium text-slate-300 mb-1">Fix Strategy Effectiveness</h3>
-          <p className="text-[11px] text-slate-500 mb-3">Which remediation strategies work for which incident types (last 30 days).</p>
+          <p className="text-[11px] text-faint mb-3">Which remediation strategies work for which incident types (last 30 days).</p>
           <div className="space-y-2">
             {strategies.strategies.slice(0, 8).map((s) => (
               <div key={`${s.category}:${s.tool}`} className="flex items-center gap-3 text-xs">
@@ -144,7 +144,7 @@ export function OrcaAnalyticsSection() {
                   />
                 </div>
                 <span className="w-12 text-right text-slate-400">{Math.round(s.success_rate * 100)}%</span>
-                <span className="w-8 text-right text-slate-500">{s.total}x</span>
+                <span className="w-8 text-right text-faint">{s.total}x</span>
               </div>
             ))}
           </div>
@@ -155,7 +155,7 @@ export function OrcaAnalyticsSection() {
       {learning && learning.events.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
           <h3 className="text-xs font-medium text-slate-300 mb-1">Agent Learning</h3>
-          <p className="text-[11px] text-slate-500 mb-3">What the agent learned this week — weight updates, scaffolded skills, selection patterns.</p>
+          <p className="text-[11px] text-faint mb-3">What the agent learned this week — weight updates, scaffolded skills, selection patterns.</p>
           <div className="space-y-2">
             {learning.events.map((evt, i) => (
               <div key={i} className="flex items-start gap-2 text-xs">

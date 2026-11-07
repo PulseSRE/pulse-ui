@@ -49,7 +49,7 @@ function CopyableImage({ image }: { image?: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="group flex items-center gap-1.5 text-xs font-mono text-slate-500 hover:text-slate-300 min-w-0"
+      className="group flex items-center gap-1.5 text-xs font-mono text-faint hover:text-slate-300 min-w-0"
       title="Copy image reference"
     >
       <span className="truncate">{image}</span>
@@ -105,7 +105,7 @@ function ComponentRow({
             <Badge variant={healthy ? 'success' : 'error'}>{healthy ? 'Healthy' : 'Unhealthy'}</Badge>
           )}
         </div>
-        {detail && <div className="text-xs text-slate-500 mt-0.5">{detail}</div>}
+        {detail && <div className="text-xs text-faint mt-0.5">{detail}</div>}
         <CopyableImage image={image} />
         {repo && (
           <div className="flex items-center gap-3 mt-1">
@@ -287,21 +287,21 @@ export default function AboutView() {
             )}
             <span className="text-slate-300">
               Write operations {writeOps ? 'enabled' : 'disabled'}
-              <span className="text-slate-500"> — {writeOps ? 'approved fixes execute' : 'diagnose-only'}</span>
+              <span className="text-faint"> — {writeOps ? 'approved fixes execute' : 'diagnose-only'}</span>
             </span>
           </div>
           <div className="text-slate-300">
             Trust level <span className="font-medium">{spec?.agent?.trustLevel ?? '—'}</span>
-            <span className="text-slate-500"> · MCP {spec?.agent?.mcp?.enabled ? 'enabled' : 'disabled'}</span>
-            <span className="text-slate-500"> · monitoring {spec?.monitoring?.enabled ? 'on' : 'off'}</span>
+            <span className="text-faint"> · MCP {spec?.agent?.mcp?.enabled ? 'enabled' : 'disabled'}</span>
+            <span className="text-faint"> · monitoring {spec?.monitoring?.enabled ? 'on' : 'off'}</span>
           </div>
           {spec?.agent?.adminUsers && (
-            <div className="text-slate-500">
+            <div className="text-faint">
               Admins: <span className="text-slate-300">{spec.agent.adminUsers}</span>
             </div>
           )}
           {spec?.vertexAI?.projectId && (
-            <div className="text-slate-500">
+            <div className="text-faint">
               Model backend: <span className="text-slate-300">Vertex AI · {spec.vertexAI.projectId}</span>
               {spec.vertexAI.region ? ` (${spec.vertexAI.region})` : ''}
             </div>

@@ -283,7 +283,7 @@ export default function IdentityView() {
 
         {/* Issues banner */}
         {tooManyClusterAdmins(broadPermissions) && (
-          <div className="flex items-center px-4 py-2.5 rounded-lg border bg-yellow-950/30 border-yellow-900">
+          <div className="flex items-center px-4 py-2.5 rounded-lg border bg-amber-950/30 border-amber-900">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
               <span className="text-sm text-slate-200">{broadPermissions.length} subjects have cluster-admin (more than {CLUSTER_ADMIN_LIMIT}) — review below</span>
@@ -375,11 +375,11 @@ export default function IdentityView() {
                             {user.metadata.name === 'kube:admin' && <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded-sm">built-in</span>}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            {identities.length > 0 && <span className="text-xs text-slate-500">{identities[0]}</span>}
+                            {identities.length > 0 && <span className="text-xs text-faint">{identities[0]}</span>}
                             {uRoles.length > 0 && uRoles.length <= 3 && uRoles.map((r) => (
-                              <span key={r} className="text-xs px-1 py-0.5 bg-slate-800 text-slate-500 rounded-sm">{r}</span>
+                              <span key={r} className="text-xs px-1 py-0.5 bg-slate-800 text-faint rounded-sm">{r}</span>
                             ))}
-                            {uRoles.length > 3 && <span className="text-xs text-slate-600">+{uRoles.length} roles</span>}
+                            {uRoles.length > 3 && <span className="text-xs text-faint">+{uRoles.length} roles</span>}
                           </div>
                         </div>
                       </div>
@@ -435,7 +435,7 @@ export default function IdentityView() {
                           <div className="flex items-center gap-2">
                             <Shield className="w-4 h-4 text-blue-400" />
                             <button onClick={() => go(subjectUrl({ kind: 'Group', name: group.metadata.name }), group.metadata.name)} className="text-sm font-medium text-blue-400 hover:text-blue-300">{group.metadata.name}</button>
-                            <span className="text-xs text-slate-500">{members.length} member{members.length !== 1 ? 's' : ''}</span>
+                            <span className="text-xs text-faint">{members.length} member{members.length !== 1 ? 's' : ''}</span>
                           </div>
                           {gRoles.length > 0 && (
                             <div className="flex gap-1">
@@ -477,7 +477,7 @@ export default function IdentityView() {
                         </div>
                         <div className="flex items-center gap-2">
                           {saRoles.length > 0 && (
-                            <span className="text-xs text-slate-500">{saRoles.length} role{saRoles.length !== 1 ? 's' : ''}</span>
+                            <span className="text-xs text-faint">{saRoles.length} role{saRoles.length !== 1 ? 's' : ''}</span>
                           )}
                           <ImpersonateButton subject={saName} label={`${sa.metadata.namespace}/${sa.metadata.name}`} active={impersonateUser === saName} onImpersonate={handleImpersonate} />
                         </div>
@@ -576,7 +576,7 @@ export default function IdentityView() {
 
             {/* Cluster Admin subjects */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Panel title={`Cluster Admin Subjects (${crbQ.isError ? '—' : broadPermissions.length})`} icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
+              <Panel title={`Cluster Admin Subjects (${crbQ.isError ? '—' : broadPermissions.length})`} icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}>
                 {crbQ.isError ? (
                   <LoadError title="Cluster role bindings could not be read — cluster-admin holders are unknown" error={crbQ.error} onRetry={() => { void crbQ.refetch(); }} />
                 ) : broadPermissions.length === 0 ? (
@@ -590,9 +590,9 @@ export default function IdentityView() {
                            s.kind === 'User' ? <Users className="w-3.5 h-3.5 text-blue-400" /> :
                            <Lock className="w-3.5 h-3.5 text-indigo-400" />}
                           <button onClick={() => go(subjectUrl(s), s.name)} className="text-sm text-blue-400 hover:text-blue-300">{s.name}</button>
-                          <span className="text-xs text-slate-500">{s.kind}</span>
+                          <span className="text-xs text-faint">{s.kind}</span>
                         </div>
-                        <span className="flex items-center gap-1 text-xs text-slate-500">via {s.binding}
+                        <span className="flex items-center gap-1 text-xs text-faint">via {s.binding}
                           {crbByName.get(s.binding) && (
                             <RevokeBindingButton binding={{
                               kind: 'ClusterRoleBinding', name: s.binding, uid: crbByName.get(s.binding)!.metadata.uid,
@@ -615,7 +615,7 @@ export default function IdentityView() {
 
         {/* Quick links */}
         <Card className="p-4">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Related Resources</h3>
+          <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">Related Resources</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[
               { label: 'ClusterRoles', path: '/r/rbac.authorization.k8s.io~v1~clusterroles' },
@@ -673,9 +673,9 @@ function RecentSessions({ accessTokens, go }: { accessTokens: K8sResource[]; go:
                   {isExpired && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded-sm">expired</span>}
                   {!isExpired && expiresAt && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded-sm">active</span>}
                 </div>
-                <span className="text-xs text-slate-500">{age}</span>
+                <span className="text-xs text-faint">{age}</span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500 ml-5.5">
+              <div className="flex items-center gap-3 text-xs text-faint ml-5.5">
                 {clientName && <span>Client: <span className="text-slate-400">{clientName}</span></span>}
                 {expiresAt && (
                   <span>
@@ -688,10 +688,10 @@ function RecentSessions({ accessTokens, go }: { accessTokens: K8sResource[]; go:
               {(scopes.length > 0 || redirectURI) && (
                 <div className="flex items-center gap-2 mt-1 ml-5.5 flex-wrap">
                   {scopes.map((s: string) => (
-                    <span key={s} className="text-xs px-1 py-0.5 bg-slate-800 text-slate-500 rounded-sm">{s}</span>
+                    <span key={s} className="text-xs px-1 py-0.5 bg-slate-800 text-faint rounded-sm">{s}</span>
                   ))}
                   {redirectURI && (
-                    <span className="text-xs text-slate-600 truncate max-w-[200px]" title={redirectURI}>
+                    <span className="text-xs text-faint truncate max-w-[200px]" title={redirectURI}>
                       → {redirectURI.replace(/^https?:\/\//, '').split('/')[0]}
                     </span>
                   )}
@@ -958,7 +958,7 @@ users:
           ) : (
             <span className={cn('text-sm font-bold', score === 100 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400')}>{score}%</span>
           )}
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-faint">
             {totalPassing}/{checks.length} passing{unknownCount > 0 && ` · ${unknownCount} could not be checked`}
           </span>
         </div>
@@ -978,12 +978,12 @@ users:
                     : pass ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />}
                   <div>
                     <span className="text-sm text-slate-200">{check.title}</span>
-                    <span className="text-xs text-slate-500 ml-2">
+                    <span className="text-xs text-faint ml-2">
                       {check.unknown ? `Could not check — ${check.unknown}` : pass ? `${check.passing.length} pass` : `${check.failing.length} need attention`}
                     </span>
                   </div>
                 </div>
-                <span className="text-xs text-slate-600">{expanded ? '▾' : '▸'}</span>
+                <span className="text-xs text-faint">{expanded ? '▾' : '▸'}</span>
               </button>
               {expanded && (
                 <div className="px-4 pb-4 space-y-3">
@@ -1000,7 +1000,7 @@ users:
                           <div key={item.metadata?.uid || idx} className="flex items-center gap-2 py-1 px-2 rounded-sm bg-slate-800/30">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                             <span className="text-xs text-slate-300">{item.metadata?.name}</span>
-                            {item.binding && <span className="text-xs text-slate-600">via {item.binding}</span>}
+                            {item.binding && <span className="text-xs text-faint">via {item.binding}</span>}
                           </div>
                         ))}
                       </div>
@@ -1019,7 +1019,7 @@ users:
                     </div>
                   )}
                   <div>
-                    <div className="text-xs text-slate-500 font-medium mb-1">How to fix:</div>
+                    <div className="text-xs text-faint font-medium mb-1">How to fix:</div>
                     <pre className="text-[11px] text-emerald-400 font-mono bg-slate-950 p-3 rounded-sm overflow-x-auto whitespace-pre-wrap">{check.yamlExample}</pre>
                     {check.action && (
                       <button
@@ -1373,7 +1373,7 @@ function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
                   <span className="text-sm text-slate-200">{change.name}</span>
                   {change.namespace && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{change.namespace}</span>}
                 </div>
-                <span className="text-xs text-slate-500">{age}</span>
+                <span className="text-xs text-faint">{age}</span>
               </div>
               <div className="flex items-center gap-2 ml-5.5 text-xs">
                 <span className={cn('px-1.5 py-0.5 rounded-sm',
@@ -1383,7 +1383,7 @@ function RecentRBACChanges({ clusterRoleBindings, roleBindings, go }: {
                 )}>
                   → {change.role}
                 </span>
-                <span className="text-slate-500 truncate">
+                <span className="text-faint truncate">
                   {change.subjects.slice(0, 2).join(', ')}{change.subjects.length > 2 ? ` +${change.subjects.length - 2}` : ''}
                 </span>
               </div>

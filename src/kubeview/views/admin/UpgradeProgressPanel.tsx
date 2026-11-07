@@ -103,7 +103,7 @@ export function UpgradeProgressPanel({
                     Re-apply update to {matchingAvailableUpdate.version}
                   </button>
                 ) : (
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-faint">
                     {mismatch.requestedVersion} is no longer listed under Available Updates below {'\u2014'} select it again once it reappears, or correct spec.desiredUpdate directly with <code className="mx-1 px-1 bg-slate-800 rounded-sm">oc adm upgrade --to-image=&lt;correct digest&gt;</code>.
                   </span>
                 )}
@@ -123,16 +123,16 @@ export function UpgradeProgressPanel({
               <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap">{upgradeableBlocker.message}</p>
               {adminAck ? (
                 <div className="mt-2 space-y-1.5">
-                  <div className="text-xs text-slate-500">These admin gates are not acknowledged:</div>
+                  <div className="text-xs text-faint">These admin gates are not acknowledged:</div>
                   {adminAck}
                 </div>
               ) : upgradeableBlocker.adminAckCommand ? (
                 <div className="mt-2">
-                  <div className="text-xs text-slate-500 mb-1">Unblock by running the acknowledgment command from the message above:</div>
+                  <div className="text-xs text-faint mb-1">Unblock by running the acknowledgment command from the message above:</div>
                   <pre className="text-xs font-mono bg-slate-950 border border-slate-800 rounded-sm p-2 overflow-x-auto text-slate-300">{upgradeableBlocker.adminAckCommand}</pre>
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 mt-2">
+                <p className="text-xs text-faint mt-2">
                   Boundaries like this commonly require an administrator acknowledgment {'\u2014'} run <code className="mx-1 px-1 bg-slate-800 rounded-sm">oc adm upgrade</code> for the exact <code className="mx-1 px-1 bg-slate-800 rounded-sm">admin-acks</code> ConfigMap key this cluster needs before the update can proceed.
                 </p>
               )}
@@ -186,7 +186,7 @@ export function UpgradeProgressPanel({
                         {' '}on {p.nodeName}
                       </li>
                     ))}
-                    {pdb.blockedPods.length > 5 && <li className="text-slate-500">+{pdb.blockedPods.length - 5} more pods</li>}
+                    {pdb.blockedPods.length > 5 && <li className="text-faint">+{pdb.blockedPods.length - 5} more pods</li>}
                   </ul>
                 </div>
               </div>

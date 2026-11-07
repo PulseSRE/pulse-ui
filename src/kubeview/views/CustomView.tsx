@@ -229,7 +229,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
   if (!view && !preview && (viewsLoading || (!!viewId && loadRequestedFor !== viewId && !viewsLoadError))) {
     return (
       <div className="h-full flex items-center justify-center bg-slate-950" role="status">
-        <p className="text-slate-500 text-sm">Loading view…</p>
+        <p className="text-faint text-sm">Loading view…</p>
       </div>
     );
   }
@@ -350,7 +350,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                 {view.description || 'Click to add description...'}
               </p>
             )}
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-xs text-faint mt-1">
               Created {formatRelative(view.generatedAt)} · {view.layout.length} widget{view.layout.length !== 1 ? 's' : ''}
             </p>
           </div>
@@ -366,7 +366,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                   className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
                     refreshInterval === opt.ms
                       ? 'bg-blue-600 text-white'
-                      : 'text-slate-500 hover:text-slate-300'
+                      : 'text-faint hover:text-slate-300'
                   }`}
                 >
                   {opt.label}
@@ -381,7 +381,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                   key={t}
                   onClick={() => setGlobalTimeRange(t)}
                   className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
-                    globalTimeRange === t ? 'bg-blue-600/20 text-blue-200' : 'text-slate-500 hover:text-slate-300'
+                    globalTimeRange === t ? 'bg-blue-600/20 text-blue-200' : 'text-faint hover:text-slate-300'
                   }`}
                 >
                   {t}
@@ -477,7 +477,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                       {spec.kind === 'chart' && (
                         <button
                           onClick={() => setEditingChart(editingChart === i ? null : i)}
-                          className="p-1 rounded-sm bg-slate-800 text-slate-500 hover:text-blue-400 transition-colors"
+                          className="p-1 rounded-sm bg-slate-800 text-faint hover:text-blue-400 transition-colors"
                           title="Edit chart"
                         >
                           <Settings2 className="w-3 h-3" />
@@ -485,7 +485,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                       )}
                       <button
                         onClick={() => setWidgetToRemove(i)}
-                        className="p-1 rounded-sm bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
+                        className="p-1 rounded-sm bg-slate-800 text-faint hover:text-red-400 transition-colors"
                         title="Remove widget"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -521,7 +521,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                             }
                           }}
                           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                          className="w-full text-[10px] text-slate-500 bg-transparent border-b border-slate-700/50 focus:border-violet-500 outline-hidden mb-1 px-1 py-0.5"
+                          className="w-full text-[10px] text-faint bg-transparent border-b border-slate-700/50 focus:border-violet-500 outline-hidden mb-1 px-1 py-0.5"
                         />
                       )}
                     </>

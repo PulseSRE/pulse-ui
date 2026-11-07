@@ -158,7 +158,7 @@ function MetricPanel({ query: mq, vars, start, end, step, hoverTime, onHover }: 
     <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-slate-200">{mq.title}</h3>
-        <span className="text-xs text-slate-500">{mq.yAxisLabel}</span>
+        <span className="text-xs text-faint">{mq.yAxisLabel}</span>
       </div>
       {isLoading ? (
         <div className="h-48 flex items-center justify-center text-sm text-slate-400" role="status">

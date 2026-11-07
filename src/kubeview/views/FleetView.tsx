@@ -103,7 +103,7 @@ export default function FleetView() {
                       <li>Wait for the operator to become ready (~5 min), then import clusters via the ACM console or <code className="text-blue-400">clusteradm</code> CLI.</li>
                       <li>Click <span className="text-blue-400">Detect ACM</span> above once your clusters are imported.</li>
                     </ol>
-                    <p className="text-slate-500">
+                    <p className="text-faint">
                       Alternatively, use <span className="text-blue-400">Multicluster Engine (MCE)</span> if you only need cluster lifecycle management without governance.
                     </p>
                   </div>
@@ -123,7 +123,7 @@ export default function FleetView() {
               <CheckCircle className="w-4 h-4 text-emerald-400" />
               <span className="text-slate-300">Connected to local cluster</span>
               {clusters[0]?.metadata?.version && (
-                <span className="text-xs text-slate-500 font-mono ml-auto">{clusters[0].metadata.version}</span>
+                <span className="text-xs text-faint font-mono ml-auto">{clusters[0].metadata.version}</span>
               )}
             </div>
           </Card>
@@ -157,11 +157,11 @@ export default function FleetView() {
         />
 
         {/* Fleet summary bar */}
-        <div className="flex items-center gap-4 text-xs text-slate-500">
+        <div className="flex items-center gap-4 text-xs text-faint">
           <span className="flex items-center gap-1.5">
             <Server className="w-3.5 h-3.5" />
             {clusters.reduce((sum, c) => sum + (c.status === 'connected' ? c.metadata?.nodeCount || 0 : 0), 0)} total nodes
-            {uncountedClusters > 0 && <span className="text-slate-600">({uncountedClusters} cluster{uncountedClusters !== 1 ? 's' : ''} not counted)</span>}
+            {uncountedClusters > 0 && <span className="text-faint">({uncountedClusters} cluster{uncountedClusters !== 1 ? 's' : ''} not counted)</span>}
           </span>
           {acmAvailable && (
             <>
@@ -194,9 +194,9 @@ export default function FleetView() {
         )}
 
         {/* Active cluster indicator */}
-        <div className="text-center text-xs text-slate-600">
+        <div className="text-center text-xs text-faint">
           Active: <span className="text-slate-400">{clusters.find(c => c.id === activeClusterId)?.name || 'Local'}</span>
-          <span className="text-slate-700 ml-2">⌘⇧C to switch</span>
+          <span className="text-faint ml-2">⌘⇧C to switch</span>
         </div>
       </div>
     </div>

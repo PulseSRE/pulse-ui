@@ -84,7 +84,7 @@ export function CatalogTab() {
                       <span className="text-[10px] text-fuchsia-400 font-medium">Native</span>
                       <span className="text-xs font-bold text-slate-100">{nativeStats.count} calls</span>
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-3 text-[10px] text-faint">
                       <span>{nativeStats.unique_tools} tools</span>
                       <span>{nativeStats.avg_duration_ms}ms avg</span>
                       <span className={nativeStats.error_rate > 0.05 ? 'text-red-400' : ''}>{(nativeStats.error_rate * 100).toFixed(1)}% err</span>
@@ -97,7 +97,7 @@ export function CatalogTab() {
                       <span className="text-[10px] text-cyan-400 font-medium">MCP</span>
                       <span className="text-xs font-bold text-slate-100">{mcpStats.count} calls</span>
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                    <div className="flex items-center gap-3 text-[10px] text-faint">
                       <span>{mcpStats.unique_tools} tools</span>
                       <span>{mcpStats.avg_duration_ms}ms avg</span>
                       <span className={mcpStats.error_rate > 0.05 ? 'text-red-400' : ''}>{(mcpStats.error_rate * 100).toFixed(1)}% err</span>
@@ -119,7 +119,7 @@ export function CatalogTab() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search tools..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-faint focus:outline-hidden focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <select
@@ -132,7 +132,7 @@ export function CatalogTab() {
           <option value="native">Native ({nativeCount})</option>
           <option value="mcp">MCP ({mcpCount})</option>
         </select>
-        <span className="text-xs text-slate-500">{filtered.length} tools</span>
+        <span className="text-xs text-faint">{filtered.length} tools</span>
       </div>
 
       {/* Tool list by category */}
@@ -206,14 +206,14 @@ export function CatalogTab() {
           {!chainsLoading && chains && chains.bigrams.length > 0 && (
             <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
               <h3 className="text-xs font-medium text-slate-300 mb-1">Tool Chains</h3>
-              <p className="text-[11px] text-slate-500 mb-3">Frequent tool-to-tool sequences.</p>
+              <p className="text-[11px] text-faint mb-3">Frequent tool-to-tool sequences.</p>
               <div className="space-y-1.5">
                 {chains.bigrams.slice(0, 8).map((b, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs">
                     <span className="font-mono text-slate-300">{b.from_tool}</span>
                     <ArrowRight className="w-3 h-3 text-slate-600" />
                     <span className="font-mono text-slate-300">{b.to_tool}</span>
-                    <span className="text-slate-500 ml-auto">{b.frequency}x</span>
+                    <span className="text-faint ml-auto">{b.frequency}x</span>
                     <span className="text-blue-400">{Math.round(b.probability * 100)}%</span>
                   </div>
                 ))}

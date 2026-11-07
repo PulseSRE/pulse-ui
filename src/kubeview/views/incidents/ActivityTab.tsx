@@ -271,7 +271,7 @@ export function ActivityTab() {
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-xs px-1.5 py-0.5 bg-amber-900/40 text-amber-300 rounded-sm">{event.type}</span>
                         {event.timestamp && (
-                          <span className="text-xs text-slate-500">{formatRelative(event.timestamp)}</span>
+                          <span className="text-xs text-faint">{formatRelative(event.timestamp)}</span>
                         )}
                       </div>
                       <p className="text-sm text-slate-300">{event.description}</p>
@@ -285,7 +285,7 @@ export function ActivityTab() {
       )}
 
       {/* Agent actions by date */}
-      <div className="flex items-center gap-4 text-xs text-slate-500">
+      <div className="flex items-center gap-4 text-xs text-faint">
         {/* With fix history unreadable the total is unknown, not the investigations alone. */}
         {fixHistoryError
           ? <span data-unknown>— agent actions</span>

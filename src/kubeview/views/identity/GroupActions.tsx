@@ -105,7 +105,7 @@ export function GroupMemberControls({ group }: { group: GroupLike }) {
             <span key={m} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded-sm">
               {m}
               <button aria-label={`Remove ${m} from ${group.metadata.name}`} disabled={!canUpdate}
-                onClick={() => g.action.open({ kind: 'remove', group, user: m })} className="text-slate-500 hover:text-red-400 disabled:opacity-40">
+                onClick={() => g.action.open({ kind: 'remove', group, user: m })} className="text-faint hover:text-red-400 disabled:opacity-40">
                 <X className="w-3 h-3" />
               </button>
             </span>

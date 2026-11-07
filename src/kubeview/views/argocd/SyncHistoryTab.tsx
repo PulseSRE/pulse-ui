@@ -72,15 +72,15 @@ export function SyncHistoryTab({ applications, go }: SyncHistoryTabProps) {
                         {shortSha} <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     ) : (
-                      <span className="text-xs font-mono text-slate-500">{shortSha}</span>
+                      <span className="text-xs font-mono text-faint">{shortSha}</span>
                     )
                   )}
                 </div>
                 {entry.source?.path && (
-                  <span className="text-xs text-slate-600">{entry.source.path}</span>
+                  <span className="text-xs text-faint">{entry.source.path}</span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs text-faint shrink-0">
                 <Clock className="w-3 h-3" />
                 <span title={formatTimestamp(deployedAt)}>{ago}</span>
               </div>

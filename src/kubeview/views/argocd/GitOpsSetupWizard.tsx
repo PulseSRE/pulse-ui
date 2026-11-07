@@ -95,14 +95,14 @@ export function GitOpsSetupWizard() {
                   </div>
                   <div>
                     <div className="text-sm font-medium">{step.label}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{step.description}</div>
+                    <div className="text-xs text-faint mt-0.5">{step.description}</div>
                   </div>
                 </button>
               );
             })}
           </nav>
 
-          <div className="text-xs text-slate-600 mt-4">
+          <div className="text-xs text-faint mt-4">
             Press Esc to close
           </div>
         </div>

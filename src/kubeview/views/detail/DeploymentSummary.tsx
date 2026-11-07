@@ -64,13 +64,13 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
             <span className="text-xs text-slate-400">Replicas</span>
             {allHealthy ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> :
              isProgressing ? <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" /> :
-             <AlertCircle className="w-3.5 h-3.5 text-yellow-500" />}
+             <AlertCircle className="w-3.5 h-3.5 text-amber-500" />}
           </div>
           <div className="flex items-baseline gap-1">
             <span className={cn('text-2xl font-bold', allHealthy ? 'text-green-400' : 'text-slate-100')}>{readyReplicas}</span>
-            <span className="text-sm text-slate-500">/ {replicas}</span>
+            <span className="text-sm text-faint">/ {replicas}</span>
           </div>
-          <div className="text-xs text-slate-500 mt-1">
+          <div className="text-xs text-faint mt-1">
             {updatedReplicas} updated, {availableReplicas} available
           </div>
         </div>
@@ -80,7 +80,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
           <div className="text-xs text-slate-400 mb-1">Strategy</div>
           <div className="text-lg font-bold text-slate-100">{strategy}</div>
           {strategy === 'RollingUpdate' && (
-            <div className="text-xs text-slate-500 mt-1">
+            <div className="text-xs text-faint mt-1">
               surge {maxSurge}, unavail {maxUnavailable}
             </div>
           )}
@@ -90,7 +90,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">Containers</div>
           <div className="text-lg font-bold text-slate-100">{containers.length}</div>
-          <div className="text-xs text-slate-500 mt-1 truncate">
+          <div className="text-xs text-faint mt-1 truncate">
             {containers.map(c => c.name).join(', ')}
           </div>
         </Card>
@@ -99,7 +99,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">Age</div>
           <div className="text-lg font-bold text-slate-100">{age}</div>
-          <div className="text-xs text-slate-500 mt-1">
+          <div className="text-xs text-faint mt-1">
             Gen {generation}{observedGeneration !== generation ? ` (observed: ${observedGeneration})` : ''}
           </div>
         </Card>
@@ -119,7 +119,7 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-slate-200">{c.name}</span>
                     {c.ports && (
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-faint">
                         :{(c.ports as ContainerPort[]).map(p => p.containerPort).join(', ')}
                       </span>
                     )}
@@ -142,13 +142,13 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
           </h3>
           <div className="flex items-center gap-3 text-xs">
             {podsByPhase.running > 0 && <span className="text-green-400">{podsByPhase.running} running</span>}
-            {podsByPhase.pending > 0 && <span className="text-yellow-400">{podsByPhase.pending} pending</span>}
+            {podsByPhase.pending > 0 && <span className="text-amber-400">{podsByPhase.pending} pending</span>}
             {podsByPhase.failed > 0 && <span className="text-red-400">{podsByPhase.failed} failed</span>}
           </div>
         </div>
         <div className="divide-y divide-slate-800">
           {managedPods.length === 0 ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-500">No pods found</div>
+            <div className="px-4 py-6 text-center text-xs text-faint">No pods found</div>
           ) : (
             managedPods.map((pod) => {
               const podStatus = pod.status as Pod['status'];
@@ -169,21 +169,21 @@ export function DeploymentSummary({ resource, managedPods, go }: DeploymentSumma
                 >
                   <div className={cn('w-2 h-2 rounded-full shrink-0',
                     podPhase === 'Running' && ready === total ? 'bg-green-500' :
-                    podPhase === 'Failed' ? 'bg-red-500' : 'bg-yellow-500'
+                    podPhase === 'Failed' ? 'bg-red-500' : 'bg-amber-500'
                   )} />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm text-slate-200 truncate block">{pod.metadata.name}</span>
-                    {nodeName && <span className="text-xs text-slate-500">{nodeName}</span>}
+                    {nodeName && <span className="text-xs text-faint">{nodeName}</span>}
                   </div>
                   <div className="flex items-center gap-3 shrink-0 text-xs">
-                    {waiting && <span className="text-yellow-400">{waiting.reason}</span>}
-                    {restarts > 0 && <span className="text-slate-500">{restarts} restarts</span>}
-                    <span className="text-slate-500">{podAge}</span>
-                    <span className={cn('font-mono', ready === total ? 'text-green-400' : 'text-yellow-400')}>{ready}/{total}</span>
+                    {waiting && <span className="text-amber-400">{waiting.reason}</span>}
+                    {restarts > 0 && <span className="text-faint">{restarts} restarts</span>}
+                    <span className="text-faint">{podAge}</span>
+                    <span className={cn('font-mono', ready === total ? 'text-green-400' : 'text-amber-400')}>{ready}/{total}</span>
                     <span className={cn('px-1.5 py-0.5 rounded-sm',
                       podPhase === 'Running' ? 'bg-green-900/50 text-green-300' :
                       podPhase === 'Failed' ? 'bg-red-900/50 text-red-300' :
-                      'bg-yellow-900/50 text-yellow-300'
+                      'bg-amber-900/50 text-amber-300'
                     )}>{podPhase}</span>
                     <ArrowRight className="w-3 h-3 text-slate-600" />
                   </div>

@@ -161,7 +161,7 @@ export function ConfigConsumersSection({ resource, go, savedAt, onRestarted }: {
         </Button>
       )}
     >
-      <p className="text-xs text-slate-500 mb-3" data-testid="consumers-scope">
+      <p className="text-xs text-faint mb-3" data-testid="consumers-scope">
         {scan.loading
           ? `Scanning pod templates in ${ns}…`
           : `Scanned ${scan.scanned} pod template${scan.scanned === 1 ? '' : 's'} in ${ns} (${kindsRead.map((k) => PLURAL_LABEL[k]).join(', ') || 'none'}).`}
@@ -183,9 +183,9 @@ export function ConfigConsumersSection({ resource, go, savedAt, onRestarted }: {
         </div>
       )}
       {scan.loading && scan.consumers.length === 0 ? (
-        <p className="text-xs text-slate-500">Checking…</p>
+        <p className="text-xs text-faint">Checking…</p>
       ) : scan.consumers.length === 0 ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-faint">
           {scan.failures.length > 0
             ? `No consumer found among the kinds that could be read. ${scan.failures.map((f) => PLURAL_LABEL[f.kind]).join(', ')} could not be checked.`
             : `No ${kindsRead.map((k) => PLURAL_LABEL[k]).join(', ')} in ${ns} references this ${kind}${kind === 'Secret' ? ', and no ServiceAccount lists it as an image pull secret' : ''}. Not checked: ${NOT_SCANNED}.`}
@@ -194,7 +194,7 @@ export function ConfigConsumersSection({ resource, go, savedAt, onRestarted }: {
         <div className="overflow-x-auto">
           <table className="w-full text-xs" aria-label={`Workloads that use ${name}`}>
             <thead>
-              <tr className="text-left text-slate-500">
+              <tr className="text-left text-faint">
                 <th className="py-1 pr-3 font-normal">Workload</th>
                 <th className="pr-3 font-normal">How it uses {name}</th>
                 <th className="pr-3 font-normal">Picks up changes</th>
@@ -207,7 +207,7 @@ export function ConfigConsumersSection({ resource, go, savedAt, onRestarted }: {
                 return (
                   <tr key={`${c.kind}/${c.name}`} className="border-t border-slate-800 align-top">
                     <td className="py-1.5 pr-3">
-                      <span className="text-slate-500">{c.kind} </span>
+                      <span className="text-faint">{c.kind} </span>
                       <button className="text-blue-400 hover:text-blue-300 font-mono" onClick={() => go(workloadPath(c, ns), c.name)}>{c.name}</button>
                     </td>
                     <td className="py-1.5 pr-3 text-slate-300">
@@ -215,8 +215,8 @@ export function ConfigConsumersSection({ resource, go, savedAt, onRestarted }: {
                     </td>
                     <td className="py-1.5 pr-3">
                       <span className={c.pickUp === 'restart' ? 'text-amber-300' : 'text-slate-300'}>{p.label}</span>
-                      {p.note && <div className="text-slate-500">{p.note}</div>}
-                      {c.pickUp === 'restart' && !RESTARTABLE_KINDS.has(c.kind) && <div className="text-slate-500">Pulse does not restart {c.kind}s: run <code className="font-mono">oc rollout latest dc/{c.name}</code></div>}
+                      {p.note && <div className="text-faint">{p.note}</div>}
+                      {c.pickUp === 'restart' && !RESTARTABLE_KINDS.has(c.kind) && <div className="text-faint">Pulse does not restart {c.kind}s: run <code className="font-mono">oc rollout latest dc/{c.name}</code></div>}
                     </td>
                     <td className="py-1.5 text-slate-400">{podsSummary(c, pods.data, pods.isError, editedAt)}</td>
                   </tr>

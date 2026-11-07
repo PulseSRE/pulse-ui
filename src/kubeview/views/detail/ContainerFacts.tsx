@@ -14,7 +14,7 @@ import { containerRefs, currentStateText, lastTermination, probeTiming } from '.
 function Fact({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-xs text-faint">{label}</div>
       <div className={cn('text-sm text-slate-200 break-words', className)}>{children}</div>
     </div>
   );
@@ -24,7 +24,7 @@ function resourcesText(c: Container): React.ReactNode {
   const r = c.resources;
   const cpu = `${r?.limits?.cpu ?? 'no limit'} / ${r?.requests?.cpu ?? 'no request'}`;
   const mem = `${r?.limits?.memory ?? 'no limit'} / ${r?.requests?.memory ?? 'no request'}`;
-  return <span>cpu {cpu} · memory {mem} <span className="text-xs text-slate-500">(limit / request)</span></span>;
+  return <span>cpu {cpu} · memory {mem} <span className="text-xs text-faint">(limit / request)</span></span>;
 }
 
 export function ContainerFacts({ pod, go }: { pod: K8sResource; go: (path: string, title: string) => void }) {
@@ -67,13 +67,13 @@ export function ContainerFacts({ pod, go }: { pod: K8sResource; go: (path: strin
               </Fact>
               <Fact label="Image" className="font-mono text-xs">{c.image}</Fact>
               <Fact label="Resources">{resourcesText(c)}</Fact>
-              <Fact label="Ports">{ports.length ? ports.join(', ') : <span className="text-slate-500">None</span>}</Fact>
-              <Fact label="Mounts" className="font-mono text-xs">{mounts.length ? mounts.join(' · ') : <span className="font-sans text-sm text-slate-500">None</span>}</Fact>
+              <Fact label="Ports">{ports.length ? ports.join(', ') : <span className="text-faint">None</span>}</Fact>
+              <Fact label="Mounts" className="font-mono text-xs">{mounts.length ? mounts.join(' · ') : <span className="font-sans text-sm text-faint">None</span>}</Fact>
               {probes.map(([label, p]) => (p ? <Fact key={label} label={label}>{probeTiming(p)}</Fact> : null))}
               {!c.livenessProbe && !c.readinessProbe && !c.startupProbe && <Fact label="Probes">None</Fact>}
               <Fact label="Pull secret · volumes · config">
                 {refs.length === 0 ? (
-                  <span className="text-slate-500">None</span>
+                  <span className="text-faint">None</span>
                 ) : (
                   <span className="flex flex-wrap gap-x-2 gap-y-1">
                     {refs.map((r, i) => (

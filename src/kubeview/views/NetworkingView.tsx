@@ -102,7 +102,7 @@ export default function NetworkingView() {
   };
   const count = (isFailed: boolean, n: number) => (isFailed ? '—' : n);
   const unreadNote = (what: string) => (
-    <p className="text-center py-6 text-sm text-slate-500" data-unknown="">{what} could not be read (see above).</p>
+    <p className="text-center py-6 text-sm text-faint" data-unknown="">{what} could not be read (see above).</p>
   );
 
   const { allowed: canCreateSvc } = useCanI('create', '', 'services', nsFilter);
@@ -235,7 +235,7 @@ export default function NetworkingView() {
           <div className="space-y-2">
             {issues.map((issue, i) => (
               <div key={i} className={cn('flex items-center justify-between px-4 py-2.5 rounded-lg border',
-                issue.severity === 'critical' ? 'bg-red-950/30 border-red-900' : 'bg-yellow-950/30 border-yellow-900')}>
+                issue.severity === 'critical' ? 'bg-red-950/30 border-red-900' : 'bg-amber-950/30 border-amber-900')}>
                 <div className="flex items-center gap-2">
                   {issue.severity === 'critical' ? <AlertCircle className="w-4 h-4 text-red-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}
                   <span className="text-sm text-slate-200">{issue.msg}</span>
@@ -255,26 +255,26 @@ export default function NetworkingView() {
           <button onClick={() => go('/r/v1~services', 'Services')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Services</div>
             <div className="text-xl font-bold text-slate-100">{count(failed.services, services.length)}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{failed.services ? 'Could not be read' : svcTypes.map(([t, c]) => `${c} ${t}`).slice(0, 2).join(' · ')}</div>
+            <div className="text-xs text-faint mt-0.5">{failed.services ? 'Could not be read' : svcTypes.map(([t, c]) => `${c} ${t}`).slice(0, 2).join(' · ')}</div>
           </button>
           <button onClick={() => go('/r/route.openshift.io~v1~routes', 'Routes')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Routes</div>
             <div className="text-xl font-bold text-slate-100">{routesAbsent ? 'n/a' : count(failed.routes, routes.length)}</div>
-            {routesAbsent && <div className="text-xs text-slate-500 mt-0.5" data-not-available="">Not available on this cluster</div>}
+            {routesAbsent && <div className="text-xs text-faint mt-0.5" data-not-available="">Not available on this cluster</div>}
           </button>
           <button onClick={() => go('/r/networking.k8s.io~v1~ingresses', 'Ingresses')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Ingresses</div>
             <div className="text-xl font-bold text-slate-100">{count(failed.ingresses, ingresses.length)}</div>
           </button>
-          <button onClick={() => go('/r/networking.k8s.io~v1~networkpolicies', 'NetworkPolicies')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', netpolsLoaded && netpols.length === 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button onClick={() => go('/r/networking.k8s.io~v1~networkpolicies', 'NetworkPolicies')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', netpolsLoaded && netpols.length === 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Network Policies</div>
             <div className="text-xl font-bold text-slate-100">{count(failed.netpols, netpols.length)}</div>
-            <div className="text-xs text-slate-500 mt-0.5">{failed.netpols ? 'Could not be read' : netpols.length === 0 ? 'None configured' : `${namespacesWithPolicies.size} ns covered`}</div>
+            <div className="text-xs text-faint mt-0.5">{failed.netpols ? 'Could not be read' : netpols.length === 0 ? 'None configured' : `${namespacesWithPolicies.size} ns covered`}</div>
           </button>
           <Card className="p-3">
             <div className="text-xs text-slate-400 mb-1">Endpoints</div>
             <div className="text-xl font-bold text-slate-100">{count(failed.routes || failed.ingresses, exposedEndpoints.length)}</div>
-            <div className="text-xs text-slate-500 mt-0.5">Routes and Ingress paths</div>
+            <div className="text-xs text-faint mt-0.5">Routes and Ingress paths</div>
           </Card>
         </div>
 
@@ -325,7 +325,7 @@ export default function NetworkingView() {
           {/* Exposed Endpoints */}
           <Panel title={failed.routes || failed.ingresses ? 'Exposed Endpoints' : `Exposed Endpoints (${exposedEndpoints.length})`} icon={<ExternalLink className="w-4 h-4 text-blue-400" />}>
             {failed.routes && failed.ingresses ? unreadNote('Routes and Ingresses') : exposedEndpoints.length === 0 && (failed.routes || failed.ingresses) ? unreadNote(failed.routes ? 'Routes' : 'Ingresses') : exposedEndpoints.length === 0 ? (
-              <div className="text-center py-6 text-sm text-slate-500">No exposed endpoints</div>
+              <div className="text-center py-6 text-sm text-faint">No exposed endpoints</div>
             ) : (
               <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
                 {exposedEndpoints.map((ep, i) => (
@@ -336,10 +336,10 @@ export default function NetworkingView() {
                         {ep.tls ? <Lock className="w-3 h-3 text-green-400 shrink-0" /> : <Unlock className="w-3 h-3 text-amber-400 shrink-0" />}
                         <span className="text-sm text-blue-400 font-mono truncate">{ep.host}{ep.path !== '/' ? ep.path : ''}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-faint">
                         <span className={cn('px-1 py-0.5 rounded-sm', ep.type === 'Route' ? 'bg-blue-900/30 text-blue-400' : 'bg-indigo-900/30 text-indigo-400')}>{ep.type}</span>
                         <span>{ep.name}</span>
-                        <span className="text-slate-600">{ep.ns}</span>
+                        <span className="text-faint">{ep.ns}</span>
                       </div>
                     </div>
                     <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />
@@ -368,21 +368,21 @@ export default function NetworkingView() {
                   </div>
                 );
               })}
-              {svcTypes.length === 0 && <div className="text-sm text-slate-500 text-center py-4">No services</div>}
+              {svcTypes.length === 0 && <div className="text-sm text-faint text-center py-4">No services</div>}
             </div>
             )}
 
             {/* LoadBalancer + NodePort details */}
             {loadBalancerServices.length > 0 && (
               <div className="mt-4 pt-3 border-t border-slate-800">
-                <div className="text-xs text-slate-500 font-medium mb-2">LoadBalancer Services</div>
+                <div className="text-xs text-faint font-medium mb-2">LoadBalancer Services</div>
                 {loadBalancerServices.map((svc) => {
                   const lbIP = svc.status?.loadBalancer?.ingress?.[0]?.hostname || svc.status?.loadBalancer?.ingress?.[0]?.ip || 'Pending';
                   return (
                     <button key={svc.metadata.uid} onClick={() => go(`/r/v1~services/${svc.metadata.namespace}/${svc.metadata.name}`, svc.metadata.name)}
                       className="flex items-center justify-between w-full py-1.5 px-2 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
                       <span className="text-xs text-slate-300">{svc.metadata.name}</span>
-                      <span className="text-xs font-mono text-slate-500">{lbIP}</span>
+                      <span className="text-xs font-mono text-faint">{lbIP}</span>
                     </button>
                   );
                 })}
@@ -420,9 +420,9 @@ export default function NetworkingView() {
                         <span className="text-sm font-medium text-slate-200">{ic.metadata.name}</span>
                         <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', isAvailable ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300')}>{isAvailable ? 'Available' : 'Degraded'}</span>
                       </div>
-                      {domain && <div className="text-xs text-slate-500 mt-0.5 font-mono">*.{domain}</div>}
+                      {domain && <div className="text-xs text-faint mt-0.5 font-mono">*.{domain}</div>}
                     </div>
-                    <span className="text-xs text-slate-500">{replicas} replicas</span>
+                    <span className="text-xs text-faint">{replicas} replicas</span>
                   </button>
                 );
               })}
@@ -443,7 +443,7 @@ export default function NetworkingView() {
                     <span className="text-sm text-slate-200 truncate">{svc.metadata.name}</span>
                     <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{svc.metadata.namespace}</span>
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-faint">
                     {notReady > 0 ? `${notReady} not ready` : `selector ${Object.entries(svc.spec?.selector ?? {}).map(([k, v]) => `${k}=${v}`).join(',')} matches no pod`}
                   </span>
                 </button>
@@ -455,7 +455,7 @@ export default function NetworkingView() {
         {/* Network Policies summary */}
         <Panel title="Network Policies" icon={<Shield className="w-4 h-4 text-indigo-400" />}>
           {failed.netpols ? unreadNote('NetworkPolicies') : !netpolsLoaded ? (
-            <div className="text-center py-4 text-sm text-slate-500">Loading network policies…</div>
+            <div className="text-center py-4 text-sm text-faint">Loading network policies…</div>
           ) : netpols.length === 0 ? (
             <div className="text-center py-4">
               <Shield className="w-8 h-8 text-slate-700 mx-auto mb-2" />
@@ -480,7 +480,7 @@ export default function NetworkingView() {
                         <span className="text-sm text-slate-200">{np.metadata.name}</span>
                         <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{np.metadata.namespace}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-faint">
                         {policyTypes.includes('Ingress') && <span>{ingressRules} ingress rule{ingressRules !== 1 ? 's' : ''}</span>}
                         {policyTypes.includes('Egress') && <span>{egressRules} egress rule{egressRules !== 1 ? 's' : ''}</span>}
                         {policyTypes.length === 0 && <span>{ingressRules} ingress rule{ingressRules !== 1 ? 's' : ''}</span>}

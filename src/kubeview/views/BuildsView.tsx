@@ -30,12 +30,12 @@ function getBuildStatus(build: Build): { phase: string; color: string; icon: Rea
       return { phase, color: 'text-blue-400', icon: <Loader2 className="w-4 h-4 text-blue-400 animate-spin" /> };
     case 'Pending':
     case 'New':
-      return { phase, color: 'text-yellow-400', icon: <Clock className="w-4 h-4 text-yellow-400" /> };
+      return { phase, color: 'text-amber-400', icon: <Clock className="w-4 h-4 text-amber-400" /> };
     case 'Failed':
     case 'Error':
       return { phase, color: 'text-red-400', icon: <XCircle className="w-4 h-4 text-red-500" /> };
     case 'Cancelled':
-      return { phase, color: 'text-slate-500', icon: <XCircle className="w-4 h-4 text-slate-500" /> };
+      return { phase, color: 'text-faint', icon: <XCircle className="w-4 h-4 text-slate-500" /> };
     default:
       return { phase, color: 'text-slate-400', icon: <AlertTriangle className="w-4 h-4 text-slate-400" /> };
   }
@@ -224,7 +224,7 @@ export default function BuildsView() {
           <div className="space-y-2">
             {issues.map((issue, i) => (
               <div key={i} className={cn('flex items-center px-4 py-2.5 rounded-lg border',
-                issue.severity === 'critical' ? 'bg-red-950/30 border-red-900' : 'bg-yellow-950/30 border-yellow-900')}>
+                issue.severity === 'critical' ? 'bg-red-950/30 border-red-900' : 'bg-amber-950/30 border-amber-900')}>
                 <div className="flex items-center gap-2">
                   {issue.severity === 'critical' ? <XCircle className="w-4 h-4 text-red-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}
                   <span className="text-sm text-slate-200">{issue.msg}</span>
@@ -266,7 +266,7 @@ export default function BuildsView() {
               <div className="text-xl font-bold text-blue-400">
                 {computedMetrics.buildsLastHour}/hr
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">last hour</div>
+              <div className="text-xs text-faint mt-0.5">last hour</div>
             </Card>
             <Card className="p-3">
               <div className="text-xs text-slate-400 mb-1">Avg Duration</div>
@@ -275,7 +275,7 @@ export default function BuildsView() {
                   ? `${computedMetrics.avgDurationMin.toFixed(1)} min`
                   : '—'}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">completed builds</div>
+              <div className="text-xs text-faint mt-0.5">completed builds</div>
             </Card>
             <Card className="p-3">
               <div className="text-xs text-slate-400 mb-1">Success Rate</div>
@@ -289,7 +289,7 @@ export default function BuildsView() {
                   ? `${computedMetrics.successRate.toFixed(1)}%`
                   : '—'}
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-faint mt-0.5">
                 {computedMetrics.complete} of {computedMetrics.finished} finished builds
                 {computedMetrics.cancelled > 0 && ` · ${computedMetrics.cancelled} cancelled, not counted`}
               </div>
@@ -327,7 +327,7 @@ export default function BuildsView() {
         {/* BuildConfigs */}
         <Panel title={bcFailed ? 'BuildConfigs' : `BuildConfigs (${buildConfigs.length})`} icon={<Layers className="w-4 h-4 text-blue-400" />}>
           {bcFailed ? listError(bcQ, 'BuildConfigs') : buildConfigs.length === 0 ? (
-            <div className="text-center py-6 text-sm text-slate-500">No BuildConfigs{nsFilter ? ` in ${nsFilter}` : ''}</div>
+            <div className="text-center py-6 text-sm text-faint">No BuildConfigs{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="divide-y divide-slate-800">
               {(buildConfigs as BuildConfig[]).map((bc) => {
@@ -349,7 +349,7 @@ export default function BuildsView() {
                         className="text-sm font-medium text-blue-400 hover:text-blue-300 truncate block">
                         {name}
                       </button>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-3 text-xs text-faint mt-0.5">
                         <span>{ns}</span>
                         <span>{strategy}</span>
                         {source === 'Git' && <span className="truncate max-w-48">{sourceURI}</span>}
@@ -364,7 +364,7 @@ export default function BuildsView() {
                         <span className={lastBuildPhase === 'Complete' ? 'text-green-400' : lastBuildPhase === 'Failed' ? 'text-red-400' : ''}>
                           {lastBuildPhase}
                         </span>
-                        <span className="text-slate-500">{lastBuildTime}</span>
+                        <span className="text-faint">{lastBuildTime}</span>
                       </div>
                       {/* Always visible: it was opacity-0 until hover, unreachable by keyboard or touch. */}
                       {canStartBuild && (
@@ -398,7 +398,7 @@ export default function BuildsView() {
                     <div className="flex-1 min-w-0">
                       <button onClick={() => go(`/r/build.openshift.io~v1~builds/${ns}/${name}`, name)}
                         className="text-sm font-medium text-blue-400 hover:text-blue-300 truncate block">{name}</button>
-                      <div className="text-xs text-slate-500">{ns}</div>
+                      <div className="text-xs text-faint">{ns}</div>
                     </div>
                     <div className="text-xs text-slate-400 flex items-center gap-1">
                       <Timer className="w-3 h-3" />
@@ -406,12 +406,12 @@ export default function BuildsView() {
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); go(`/logs/${ns}/${name}?container=&kind=Build`, `${name} (Logs)`); }}
-                      className="text-slate-500 hover:text-blue-400 transition-colors" title="View Build Logs"
+                      className="text-faint hover:text-blue-400 transition-colors" title="View Build Logs"
                     ><ScrollText className="w-3.5 h-3.5" /></button>
                     {(phase === 'Running' || phase === 'Pending' || phase === 'New') && (
                       <button
                         onClick={(e) => { e.stopPropagation(); cancelBuild(ns, name); }}
-                        className="text-slate-500 hover:text-red-400 transition-colors" title="Cancel Build"
+                        className="text-faint hover:text-red-400 transition-colors" title="Cancel Build"
                       ><StopCircle className="w-3.5 h-3.5" /></button>
                     )}
                     <span className={cn('text-xs', color)}>{phase}</span>
@@ -442,9 +442,9 @@ export default function BuildsView() {
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); go(`/logs/${ns}/${name}?container=&kind=Build`, `${name} (Logs)`); }}
-                      className="text-slate-500 hover:text-blue-400 transition-colors" title="View Build Logs"
+                      className="text-faint hover:text-blue-400 transition-colors" title="View Build Logs"
                     ><ScrollText className="w-3.5 h-3.5" /></button>
-                    <div className="text-xs text-slate-500 shrink-0 flex items-center gap-2">
+                    <div className="text-xs text-faint shrink-0 flex items-center gap-2">
                       <span>{start && end ? formatDurationBetween(start, end) : '—'}</span>
                       <span>{formatRelative(b.metadata?.creationTimestamp || '')}</span>
                     </div>
@@ -458,14 +458,14 @@ export default function BuildsView() {
         {/* Recent Builds */}
         <Panel title={buildsFailed ? 'Recent Builds' : `Recent Builds (${builds.length})`} icon={<Hammer className="w-4 h-4 text-orange-400" />}>
           {buildsFailed ? (
-            <p className="text-center py-6 text-sm text-slate-500" data-unknown="">{isNotFound(buildsQ.error) ? 'Builds are not available on this cluster.' : 'Builds could not be read (see above).'}</p>
+            <p className="text-center py-6 text-sm text-faint" data-unknown="">{isNotFound(buildsQ.error) ? 'Builds are not available on this cluster.' : 'Builds could not be read (see above).'}</p>
           ) : builds.length === 0 ? (
-            <div className="text-center py-6 text-sm text-slate-500">No builds{nsFilter ? ` in ${nsFilter}` : ''}</div>
+            <div className="text-center py-6 text-sm text-faint">No builds{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500 border-b border-slate-800">
+                  <tr className="text-left text-xs text-faint border-b border-slate-800">
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4">Name</th>
                     <th className="py-2 pr-4">Namespace</th>
@@ -495,14 +495,14 @@ export default function BuildsView() {
                           <button onClick={() => go(`/r/build.openshift.io~v1~builds/${ns}/${name}`, name)}
                             className="text-blue-400 hover:text-blue-300 truncate block max-w-64">{name}</button>
                         </td>
-                        <td className="py-2 pr-4 text-slate-500">{ns}</td>
-                        <td className="py-2 pr-4 text-slate-500">{strategy}</td>
+                        <td className="py-2 pr-4 text-faint">{ns}</td>
+                        <td className="py-2 pr-4 text-faint">{strategy}</td>
                         <td className="py-2 pr-4 text-slate-400 font-mono">{start ? formatDurationBetween(start, end || undefined) : '—'}</td>
-                        <td className="py-2 pr-4 text-slate-500">{formatRelative(b.metadata?.creationTimestamp || '')}</td>
+                        <td className="py-2 pr-4 text-faint">{formatRelative(b.metadata?.creationTimestamp || '')}</td>
                         <td className="py-2 pr-4">
                           <button
                             onClick={(e) => { e.stopPropagation(); go(`/logs/${ns}/${name}?container=&kind=Build`, `${name} (Logs)`); }}
-                            className="text-slate-500 hover:text-blue-400 transition-colors" title="View Build Logs"
+                            className="text-faint hover:text-blue-400 transition-colors" title="View Build Logs"
                           ><ScrollText className="w-3.5 h-3.5" /></button>
                         </td>
                       </tr>
@@ -524,7 +524,7 @@ export default function BuildsView() {
         {/* ImageStreams */}
         <Panel title={isFailed ? 'ImageStreams' : `ImageStreams (${imageStreams.length})`} icon={<Box className="w-4 h-4 text-blue-400" />}>
           {isFailed ? listError(isQ, 'ImageStreams') : imageStreams.length === 0 ? (
-            <div className="text-center py-6 text-sm text-slate-500">No ImageStreams{nsFilter ? ` in ${nsFilter}` : ''}</div>
+            <div className="text-center py-6 text-sm text-faint">No ImageStreams{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
             <div className="divide-y divide-slate-800">
               {(imageStreams as ImageStream[]).slice(0, 25).map((is) => {
@@ -538,13 +538,13 @@ export default function BuildsView() {
                     <div className="flex-1 min-w-0">
                       <button onClick={() => go(`/r/image.openshift.io~v1~imagestreams/${ns}/${name}`, name)}
                         className="text-sm font-medium text-blue-400 hover:text-blue-300 truncate block">{name}</button>
-                      <div className="text-xs text-slate-500 truncate">{dockerRepo || ns}</div>
+                      <div className="text-xs text-faint truncate">{dockerRepo || ns}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {tags.slice(0, 4).map((tag: { tag: string }) => (
                         <span key={tag.tag} className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{tag.tag}</span>
                       ))}
-                      {tags.length > 4 && <span className="text-xs text-slate-500">+{tags.length - 4}</span>}
+                      {tags.length > 4 && <span className="text-xs text-faint">+{tags.length - 4}</span>}
                     </div>
                   </div>
                 );
@@ -567,7 +567,7 @@ export default function BuildsView() {
 /** A list whose API this cluster does not serve (404): not an error, not "none". */
 export function NotAvailable({ what }: { what: string }) {
   return (
-    <p className="text-center py-6 text-sm text-slate-500" data-not-available="">
+    <p className="text-center py-6 text-sm text-faint" data-not-available="">
       {what} are not available on this cluster (the API is not installed).
     </p>
   );

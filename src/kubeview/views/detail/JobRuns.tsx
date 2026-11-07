@@ -78,7 +78,7 @@ function PodAttempt({ pod, go, open, onToggle }: { pod: K8sResource; go: Go; ope
   return (
     <li className="py-2">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <button type="button" onClick={onToggle} aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} log of ${pod.metadata.name}`} className="text-slate-500 hover:text-slate-300">
+        <button type="button" onClick={onToggle} aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} log of ${pod.metadata.name}`} className="text-faint hover:text-slate-300">
           {open ? <ChevronDown className="h-4 w-4" aria-hidden /> : <ChevronRight className="h-4 w-4" aria-hidden />}
         </button>
         <button type="button" onClick={() => go(`/r/v1~pods/${ns}/${pod.metadata.name}`, pod.metadata.name)} className="font-mono text-xs text-blue-400 hover:text-blue-300">
@@ -86,13 +86,13 @@ function PodAttempt({ pod, go, open, onToggle }: { pod: K8sResource; go: Go; ope
         </button>
         <Chip label={o.label} tone={o.tone} />
         {o.detail && <span className={cn('text-xs', o.tone === 'danger' ? 'text-red-300' : 'text-slate-400')}>{o.detail}</span>}
-        <span className="ml-auto text-xs text-slate-500">
+        <span className="ml-auto text-xs text-faint">
           {formatRelative(pod.metadata.creationTimestamp)}{st?.startTime ? ` · ran ${formatDurationBetween(st.startTime, (st.containerStatuses?.[0]?.state?.terminated?.finishedAt) || undefined)}` : ''}
         </span>
       </div>
       {open && (
         <div className="mt-2 pl-6">
-          {previous && <p className="mb-1 text-xs text-slate-500">Previous instance of {container} (the one that exited)</p>}
+          {previous && <p className="mb-1 text-xs text-faint">Previous instance of {container} (the one that exited)</p>}
           <PodLogTail namespace={ns} pod={pod.metadata.name} container={container} previous={previous} lines={60} />
         </div>
       )}
@@ -110,7 +110,7 @@ function AttemptList({ pods, go }: { pods: K8sResource[]; go: Go }) {
     if (next.has(n)) next.delete(n); else next.add(n);
     return next;
   });
-  if (sorted.length === 0) return <p className="py-2 text-sm text-slate-500">No pods: they may have been cleaned up (ttlSecondsAfterFinished) or not created yet.</p>;
+  if (sorted.length === 0) return <p className="py-2 text-sm text-faint">No pods: they may have been cleaned up (ttlSecondsAfterFinished) or not created yet.</p>;
   return (
     <ul className="divide-y divide-slate-800">
       {sorted.map((p) => <PodAttempt key={p.metadata.uid ?? p.metadata.name} pod={p} go={go} open={isOpen(p.metadata.name)} onToggle={() => toggle(p.metadata.name)} />)}
@@ -137,15 +137,15 @@ export function JobRuns({ resource, managedPods, go }: { resource: K8sResource; 
       <header className="flex items-center gap-2 border-b border-slate-800 px-4 py-3 text-sm font-semibold text-slate-100">
         <ListChecks className="h-4 w-4 text-slate-400" aria-hidden />
         {isCron ? 'Runs' : 'Attempts'}
-        <span className="ml-auto text-xs font-normal text-slate-500">
+        <span className="ml-auto text-xs font-normal text-faint">
           {isCron ? (jobs.data ? `${runs.length} job${runs.length === 1 ? '' : 's'}` : '') : `${managedPods.length} pod${managedPods.length === 1 ? '' : 's'}`}
         </span>
       </header>
       <div className="px-4 py-2">
         {!isCron && <AttemptList pods={managedPods} go={go} />}
         {isCron && jobs.isError && <LoadError title="Runs could not be loaded" error={jobs.error} onRetry={() => jobs.refetch()} />}
-        {isCron && jobs.isLoading && <p className="py-2 text-sm text-slate-500">Loading runs…</p>}
-        {isCron && jobs.data && runs.length === 0 && <p className="py-2 text-sm text-slate-500">No runs kept: the CronJob has not run yet, or its history limits removed them.</p>}
+        {isCron && jobs.isLoading && <p className="py-2 text-sm text-faint">Loading runs…</p>}
+        {isCron && jobs.data && runs.length === 0 && <p className="py-2 text-sm text-faint">No runs kept: the CronJob has not run yet, or its history limits removed them.</p>}
         {isCron && runs.length > 0 && (
           <ul className="divide-y divide-slate-800">
             {runs.map((j) => {
@@ -156,7 +156,7 @@ export function JobRuns({ resource, managedPods, go }: { resource: K8sResource; 
               return (
                 <li key={j.metadata.uid ?? j.metadata.name} className="py-2">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <button type="button" onClick={() => setOpenRun(open ? null : j.metadata.name)} aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} pods of ${j.metadata.name}`} className="text-slate-500 hover:text-slate-300">
+                    <button type="button" onClick={() => setOpenRun(open ? null : j.metadata.name)} aria-expanded={open} aria-label={`${open ? 'Hide' : 'Show'} pods of ${j.metadata.name}`} className="text-faint hover:text-slate-300">
                       {open ? <ChevronDown className="h-4 w-4" aria-hidden /> : <ChevronRight className="h-4 w-4" aria-hidden />}
                     </button>
                     <button type="button" onClick={() => go(`/r/batch~v1~jobs/${ns}/${j.metadata.name}`, j.metadata.name)} className="font-mono text-xs text-blue-400 hover:text-blue-300">
@@ -164,7 +164,7 @@ export function JobRuns({ resource, managedPods, go }: { resource: K8sResource; 
                     </button>
                     <Chip label={o.label} tone={o.tone} />
                     {o.detail && <span className={cn('text-xs', o.tone === 'danger' ? 'text-red-300' : 'text-slate-400')}>{o.detail}</span>}
-                    <span className="ml-auto text-xs text-slate-500">
+                    <span className="ml-auto text-xs text-faint">
                       {formatRelative(st.startTime || j.metadata.creationTimestamp)}{st.startTime ? ` · ${formatDurationBetween(st.startTime, st.completionTime || undefined)}` : ''}
                     </span>
                   </div>

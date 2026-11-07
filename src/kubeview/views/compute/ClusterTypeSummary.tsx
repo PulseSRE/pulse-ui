@@ -26,7 +26,7 @@ interface Props {
 function KV({ label, value, status, reason, muted }: { label: string; value: string; status?: 'ok' | 'warn' | 'error'; reason?: string; muted?: boolean }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-faint mb-0.5">{label}</div>
       <div title={reason} className={cn(
         'text-sm font-semibold',
         status === 'error' ? 'text-red-400' : status === 'warn' ? 'text-amber-400' : reason || muted ? 'text-slate-400' : 'text-slate-100',
@@ -67,7 +67,7 @@ function HyperShiftSummary({ nodePools, clusterVersion, platform, nodeDetails }:
         <KV label="NodePools" value={`${nodePools.length}`} status={unhealthy.length > 0 ? 'warn' : 'ok'} />
         <KV label="Workers" value={`${totalReady}/${totalDesired} ready (${workerCount} nodes)`} status={totalReady < totalDesired ? 'warn' : 'ok'} />
       </div>
-      <p className="text-[11px] text-slate-500 mt-3">Control plane runs externally on the management cluster. Only worker nodes are visible.</p>
+      <p className="text-[11px] text-faint mt-3">Control plane runs externally on the management cluster. Only worker nodes are visible.</p>
     </Card>
   );
 }

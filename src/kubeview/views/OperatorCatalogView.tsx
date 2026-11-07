@@ -374,7 +374,7 @@ export default function OperatorCatalogView() {
             return (
               <React.Fragment key={step}>
                 <div className={cn('flex items-center gap-1',
-                  done ? 'text-green-400' : active ? 'text-blue-400' : 'text-slate-600'
+                  done ? 'text-green-400' : active ? 'text-blue-400' : 'text-faint'
                 )}>
                   {done ? <CheckCircle className="w-3 h-3" /> : active ? <Loader2 className="w-3 h-3 animate-spin" /> : <div className="w-3 h-3 rounded-full border border-slate-600" />}
                   <span className="text-xs">{step === 'creating' ? 'Subscribe' : step === 'pending' ? 'Plan' : step === 'installing' ? 'Install' : 'Ready'}</span>
@@ -396,7 +396,7 @@ export default function OperatorCatalogView() {
     <Card className="overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-800">
         <h2 className="text-sm font-semibold text-slate-100">What's Next — Configure {installingOp?.displayName}</h2>
-        <p className="text-xs text-slate-500 mt-0.5">The operator is installed. Complete these steps to finish setup:</p>
+        <p className="text-xs text-faint mt-0.5">The operator is installed. Complete these steps to finish setup:</p>
       </div>
       <div className="divide-y divide-slate-800">
         {postInstallSteps.map((step, i) => (
@@ -404,7 +404,7 @@ export default function OperatorCatalogView() {
             <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-900/50 text-blue-300 text-xs font-bold shrink-0 mt-0.5">{i + 1}</div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-slate-200">{step.title}</div>
-              <div className="text-xs text-slate-500 mt-0.5">{step.description}</div>
+              <div className="text-xs text-faint mt-0.5">{step.description}</div>
             </div>
             <button onClick={() => go(step.path, step.label)} className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm shrink-0">
               {step.label} <ArrowRight className="w-3 h-3" />
@@ -554,14 +554,14 @@ export default function OperatorCatalogView() {
           {isInstalled && !installedCsv && (
             <Card className="p-4 text-center">
               <Loader2 className="w-5 h-5 text-blue-400 animate-spin mx-auto mb-2" />
-              <p className="text-xs text-slate-500">Loading operator details...</p>
+              <p className="text-xs text-faint">Loading operator details...</p>
             </Card>
           )}
           {isInstalled && providedApis.length > 0 && (
             <Card className="overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-800">
                 <h2 className="text-sm font-semibold text-slate-100">Provided APIs ({providedApis.length})</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Custom resources managed by this operator — create instances to configure it</p>
+                <p className="text-xs text-faint mt-0.5">Custom resources managed by this operator — create instances to configure it</p>
               </div>
               <div className="divide-y divide-slate-800">
                 {providedApis.map((crd: any) => {
@@ -571,8 +571,8 @@ export default function OperatorCatalogView() {
                       <Package className="w-4 h-4 text-blue-400 shrink-0 mt-1" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-slate-200">{crd.kind}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{crd.description || crd.name}</div>
-                        <div className="text-xs text-slate-600 font-mono mt-0.5">{crd.name} ({crd.version})</div>
+                        <div className="text-xs text-faint mt-0.5">{crd.description || crd.name}</div>
+                        <div className="text-xs text-faint font-mono mt-0.5">{crd.name} ({crd.version})</div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => go(`/r/${gvrUrl}`, crd.kind)} className="px-2.5 py-1 text-xs text-slate-300 border border-slate-700 rounded-sm hover:border-slate-600 hover:text-slate-200">
@@ -604,14 +604,14 @@ export default function OperatorCatalogView() {
                 </button>
               </div>
               <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                <div><span className="text-slate-500">Channel</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.spec?.channel}</div></div>
-                <div><span className="text-slate-500">Source</span><div className="text-slate-200 mt-0.5">{selectedSub.spec?.source}</div></div>
-                <div><span className="text-slate-500">Approval</span><div className="text-slate-200 mt-0.5">{selectedSub.spec?.installPlanApproval}</div></div>
-                <div><span className="text-slate-500">Namespace</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.metadata?.namespace}</div></div>
-                <div><span className="text-slate-500">CSV</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.status?.installedCSV || '—'}</div></div>
-                <div><span className="text-slate-500">CSV Phase</span><div className={cn('mt-0.5', installedCsv?.status?.phase === 'Succeeded' ? 'text-green-400' : 'text-yellow-400')}>{installedCsv?.status?.phase || '—'}</div></div>
+                <div><span className="text-faint">Channel</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.spec?.channel}</div></div>
+                <div><span className="text-faint">Source</span><div className="text-slate-200 mt-0.5">{selectedSub.spec?.source}</div></div>
+                <div><span className="text-faint">Approval</span><div className="text-slate-200 mt-0.5">{selectedSub.spec?.installPlanApproval}</div></div>
+                <div><span className="text-faint">Namespace</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.metadata?.namespace}</div></div>
+                <div><span className="text-faint">CSV</span><div className="text-slate-200 font-mono mt-0.5">{selectedSub.status?.installedCSV || '—'}</div></div>
+                <div><span className="text-faint">CSV Phase</span><div className={cn('mt-0.5', installedCsv?.status?.phase === 'Succeeded' ? 'text-green-400' : 'text-amber-400')}>{installedCsv?.status?.phase || '—'}</div></div>
                 <div>
-                  <span className="text-slate-500">InstallPlan</span>
+                  <span className="text-faint">InstallPlan</span>
                   <div className="text-slate-200 font-mono mt-0.5">
                     {selectedSub.status?.installPlanRef?.name ? (
                       <button onClick={() => go(`/r/operators.coreos.com~v1alpha1~installplans/${installedCsvNs}/${selectedSub.status.installPlanRef.name}`, 'InstallPlan')} className="text-blue-400 hover:text-blue-300">
@@ -620,7 +620,7 @@ export default function OperatorCatalogView() {
                     ) : '—'}
                   </div>
                 </div>
-                <div><span className="text-slate-500">State</span><div className={cn('mt-0.5', selectedSub.status?.state === 'AtLatestKnown' ? 'text-green-400' : 'text-yellow-400')}>{selectedSub.status?.state || '—'}</div></div>
+                <div><span className="text-faint">State</span><div className={cn('mt-0.5', selectedSub.status?.state === 'AtLatestKnown' ? 'text-green-400' : 'text-amber-400')}>{selectedSub.status?.state || '—'}</div></div>
               </div>
             </Card>
           )}
@@ -639,7 +639,7 @@ export default function OperatorCatalogView() {
             <Card className="overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-800">
                 <h2 className="text-sm font-semibold text-slate-100">Operator Components</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{csvDeploymentNames.length} deployment{csvDeploymentNames.length !== 1 ? 's' : ''}, {operatorPods.length} pod{operatorPods.length !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-faint mt-0.5">{csvDeploymentNames.length} deployment{csvDeploymentNames.length !== 1 ? 's' : ''}, {operatorPods.length} pod{operatorPods.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="divide-y divide-slate-800">
                 {csvDeploymentNames.map((depName: string) => {
@@ -661,12 +661,12 @@ export default function OperatorCatalogView() {
                               <button key={pod.metadata.uid} onClick={() => go(`/r/v1~pods/${installedCsvNs}/${pod.metadata.name}`, pod.metadata.name)}
                                 className="w-full flex items-center justify-between py-1 px-2 rounded-sm hover:bg-slate-800/50 text-left">
                                 <div className="flex items-center gap-2">
-                                  <div className={cn('w-1.5 h-1.5 rounded-full', phase === 'Running' && ready === total ? 'bg-green-500' : 'bg-yellow-500')} />
+                                  <div className={cn('w-1.5 h-1.5 rounded-full', phase === 'Running' && ready === total ? 'bg-green-500' : 'bg-amber-500')} />
                                   <span className="text-xs text-slate-300 font-mono">{pod.metadata.name}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs text-slate-500 font-mono">{ready}/{total}</span>
-                                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', phase === 'Running' ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300')}>{phase}</span>
+                                  <span className="text-xs text-faint font-mono">{ready}/{total}</span>
+                                  <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', phase === 'Running' ? 'bg-green-900/50 text-green-300' : 'bg-amber-900/50 text-amber-300')}>{phase}</span>
                                 </div>
                               </button>
                             );
@@ -692,7 +692,7 @@ export default function OperatorCatalogView() {
                     className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-slate-800/50 text-left">
                     <Shield className="w-3.5 h-3.5 text-indigo-400" />
                     <span className="text-sm text-blue-400 hover:text-blue-300 font-mono">{sa}</span>
-                    <span className="text-xs text-slate-500">{installedCsvNs}</span>
+                    <span className="text-xs text-faint">{installedCsvNs}</span>
                   </button>
                 ))}
               </div>
@@ -704,7 +704,7 @@ export default function OperatorCatalogView() {
             <h3 className="text-xs text-slate-400 mb-2">Install Modes</h3>
             <div className="flex flex-wrap gap-2">
               {desc?.installModes?.map((m: any) => (
-                <span key={m.type} className={cn('text-xs px-2 py-1 rounded-sm border', m.supported ? 'bg-green-900/30 text-green-300 border-green-800' : 'bg-slate-800 text-slate-500 border-slate-700')}>
+                <span key={m.type} className={cn('text-xs px-2 py-1 rounded-sm border', m.supported ? 'bg-green-900/30 text-green-300 border-green-800' : 'bg-slate-800 text-faint border-slate-700')}>
                   {m.type}: {m.supported ? '✓' : '✗'}
                 </span>
               ))}
@@ -775,7 +775,7 @@ export default function OperatorCatalogView() {
                   </button>
                   <button
                     onClick={() => setOrphanedCrds([])}
-                    className="text-xs text-slate-500 hover:text-slate-300"
+                    className="text-xs text-faint hover:text-slate-300"
                   >
                     Keep them
                   </button>
@@ -821,7 +821,7 @@ export default function OperatorCatalogView() {
           />
         )}
         {catalogFilter === 'installed' && subscriptionsErr ? null : isLoading ? (
-          <div className="text-center py-12"><Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto" /><p className="text-sm text-slate-500 mt-3">Loading operator catalog...</p></div>
+          <div className="text-center py-12"><Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto" /><p className="text-sm text-faint mt-3">Loading operator catalog...</p></div>
         ) : catalogError ? (
           <LoadError title="The operator catalog could not be loaded" error={catalogErr} onRetry={() => { void refetchCatalog(); }} />
         ) : filtered.length === 0 ? (
@@ -852,11 +852,11 @@ export default function OperatorCatalogView() {
                       <span className="text-sm font-medium text-slate-200 truncate">{desc?.displayName || pkg.metadata.name}</span>
                       {isInstalled && <CheckCircle className="w-3.5 h-3.5 text-green-400 shrink-0" />}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5 line-clamp-2">{desc?.description?.slice(0, 100) || 'No description'}</div>
+                    <div className="text-xs text-faint mt-0.5 line-clamp-2">{desc?.description?.slice(0, 100) || 'No description'}</div>
                     <div className="flex items-center gap-2 mt-2">
                       {catalogInfo && <span className={cn('text-xs px-1.5 py-0.5 rounded-sm border', catalogInfo.color)}>{catalogInfo.label}</span>}
-                      <span className="text-xs text-slate-500">v{desc?.version}</span>
-                      {isPopular && <Star className="w-3 h-3 text-yellow-500" />}
+                      <span className="text-xs text-faint">v{desc?.version}</span>
+                      {isPopular && <Star className="w-3 h-3 text-amber-500" />}
                     </div>
                   </div>
                 </button>

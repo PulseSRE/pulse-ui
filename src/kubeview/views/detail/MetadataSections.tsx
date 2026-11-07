@@ -103,7 +103,7 @@ function RowActions({ k, canPatch, noun, onEdit, onRemove, copyText }: {
     <div className="flex items-center gap-0.5 shrink-0">
       <button
         onClick={() => copyToClipboard(copyText, `${noun[0].toUpperCase()}${noun.slice(1)} copied`)}
-        className="p-0.5 rounded-sm text-slate-500 hover:text-slate-300"
+        className="p-0.5 rounded-sm text-faint hover:text-slate-300"
         title={`Copy ${noun}`}
         aria-label={`Copy ${noun} ${k}`}
       >
@@ -111,10 +111,10 @@ function RowActions({ k, canPatch, noun, onEdit, onRemove, copyText }: {
       </button>
       {canPatch && (
         <>
-          <button onClick={onEdit} className="p-0.5 rounded-sm text-slate-500 hover:text-blue-300" title={`Edit ${noun}`} aria-label={`Edit ${noun} ${k}`}>
+          <button onClick={onEdit} className="p-0.5 rounded-sm text-faint hover:text-blue-300" title={`Edit ${noun}`} aria-label={`Edit ${noun} ${k}`}>
             <Pencil className="w-3 h-3" />
           </button>
-          <button onClick={onRemove} className="p-0.5 rounded-sm text-slate-500 hover:text-red-400" title={`Remove ${noun}`} aria-label={`Remove ${noun} ${k}`}>
+          <button onClick={onRemove} className="p-0.5 rounded-sm text-faint hover:text-red-400" title={`Remove ${noun}`} aria-label={`Remove ${noun} ${k}`}>
             <X className="w-3 h-3" />
           </button>
         </>
@@ -150,7 +150,7 @@ export function LabelsSection({ resource, target }: SectionProps) {
   return (
     <DetailSection title={`Labels (${entries.length})`}>
       {entries.length === 0 ? (
-        <p className="text-xs text-slate-500">No labels.</p>
+        <p className="text-xs text-faint">No labels.</p>
       ) : (
         <div className="space-y-1.5">
           {entries.map(([key, value]) => (
@@ -177,7 +177,7 @@ export function AnnotationsSection({ resource, target }: SectionProps) {
   return (
     <DetailSection title={`Annotations (${entries.length})`} collapsible>
       {entries.length === 0 ? (
-        <p className="text-xs text-slate-500">No annotations.</p>
+        <p className="text-xs text-faint">No annotations.</p>
       ) : (
         <div className="space-y-2">
           {entries.map(([key, value]) => (

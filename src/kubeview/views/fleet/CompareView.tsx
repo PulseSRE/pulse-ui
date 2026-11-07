@@ -103,7 +103,7 @@ export default function CompareView({ clusterA, clusterB }: CompareViewProps) {
                 ))}
               </select>
             </div>
-            <div className="pt-5 text-slate-500 text-lg font-bold">vs</div>
+            <div className="pt-5 text-faint text-lg font-bold">vs</div>
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-slate-400">Cluster B</label>
               <select

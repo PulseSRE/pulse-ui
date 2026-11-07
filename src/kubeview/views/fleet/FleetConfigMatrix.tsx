@@ -91,9 +91,9 @@ export function FleetConfigMatrix() {
       />
       <CardBody className="p-0">
         {clusters.length === 0 ? (
-          <div className="px-4 py-6 text-center text-sm text-slate-500">No connected clusters.</div>
+          <div className="px-4 py-6 text-center text-sm text-faint">No connected clusters.</div>
         ) : loading && rows.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Reading configuration…</div>
+          <div className="flex items-center justify-center py-8 text-sm text-faint"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Reading configuration…</div>
         ) : (
           <>
             <div className="px-4 py-2 text-xs text-slate-400" data-testid="config-matrix-summary">
@@ -119,7 +119,7 @@ export function FleetConfigMatrix() {
                         return (
                           <td key={c.id} title={cell.reason}
                             className={cn('px-4 py-2 text-center font-mono text-sm',
-                              drift ? 'bg-amber-950/30 text-amber-400' : cell.unavailable ? 'italic text-slate-500' : 'text-slate-400')}>
+                              drift ? 'bg-amber-950/30 text-amber-400' : cell.unavailable ? 'italic text-faint' : 'text-slate-400')}>
                             {cell.value}
                             {drift && <span className="ml-1 text-xs text-amber-500">(drift)</span>}
                           </td>

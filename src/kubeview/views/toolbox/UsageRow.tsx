@@ -55,16 +55,16 @@ export function UsageRow({ entry: e }: { entry: ToolUsageEntry }) {
           )}
         </td>
         <td className="py-1.5 px-3 text-right text-slate-400">{e.duration_ms}ms</td>
-        <td className="py-1.5 px-3 text-right text-slate-500">{e.result_bytes > 0 ? `${(e.result_bytes / 1024).toFixed(1)}KB` : '-'}</td>
+        <td className="py-1.5 px-3 text-right text-faint">{e.result_bytes > 0 ? `${(e.result_bytes / 1024).toFixed(1)}KB` : '-'}</td>
       </tr>
       {expanded && (
         <tr className="border-b border-slate-800/50">
           <td colSpan={7} className="px-3 py-2 bg-slate-900/50">
             <div className="space-y-1 text-[11px]">
-              {e.query_summary && <div><span className="text-slate-500">Query:</span> <span className="text-slate-300">{e.query_summary}</span></div>}
-              {e.input_summary && <div><span className="text-slate-500">Input:</span> <code className="text-slate-400">{JSON.stringify(e.input_summary)}</code></div>}
-              {e.error_message && <div><span className="text-slate-500">Error:</span> <span className="text-red-400">{e.error_message}</span></div>}
-              <div className="text-slate-600">Session: {e.session_id} | Turn: {e.turn_number} | Category: {e.tool_category || 'none'}</div>
+              {e.query_summary && <div><span className="text-faint">Query:</span> <span className="text-slate-300">{e.query_summary}</span></div>}
+              {e.input_summary && <div><span className="text-faint">Input:</span> <code className="text-slate-400">{JSON.stringify(e.input_summary)}</code></div>}
+              {e.error_message && <div><span className="text-faint">Error:</span> <span className="text-red-400">{e.error_message}</span></div>}
+              <div className="text-faint">Session: {e.session_id} | Turn: {e.turn_number} | Category: {e.tool_category || 'none'}</div>
             </div>
           </td>
         </tr>

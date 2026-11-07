@@ -44,7 +44,7 @@ export function OperatorsTab({ operators, isLoading, error, onRetry, go }: Opera
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-faint">
         Platform operators (ClusterOperators), managed by the cluster version operator. Add-on operators installed through OLM are in the{' '}
         <button onClick={() => go('/operators?view=installed', 'Operators')} className="text-blue-400 hover:text-blue-300">
           Operator catalog (installed) →
@@ -62,8 +62,8 @@ export function OperatorsTab({ operators, isLoading, error, onRetry, go }: Opera
           <div className="flex items-center gap-2 text-red-400 mb-1"><XCircle className="w-4 h-4" /><span className="text-xs">Degraded</span></div>
           <div className="text-xl font-bold text-slate-100">{count(degradedOps.length)}</div>
         </div>
-        <div className={cn('bg-slate-900 rounded-lg border p-3', progressingOps.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
-          <div className="flex items-center gap-2 text-yellow-400 mb-1"><RefreshCw className="w-4 h-4" /><span className="text-xs">Progressing</span></div>
+        <div className={cn('bg-slate-900 rounded-lg border p-3', progressingOps.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
+          <div className="flex items-center gap-2 text-amber-400 mb-1"><RefreshCw className="w-4 h-4" /><span className="text-xs">Progressing</span></div>
           <div className="text-xl font-bold text-slate-100">{count(progressingOps.length)}</div>
         </div>
       </div>
@@ -79,13 +79,13 @@ export function OperatorsTab({ operators, isLoading, error, onRetry, go }: Opera
           {operatorList.filter((op) => !search || op.name.toLowerCase().includes(search.toLowerCase())).map((op) => (
             <div key={op.name} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/50 cursor-pointer transition-colors" onClick={() => go(`/r/config.openshift.io~v1~clusteroperators/_/${op.name}`, op.name)}>
               {op.degraded ? <XCircle className="w-4 h-4 text-red-500 shrink-0" /> :
-               op.progressing ? <RefreshCw className="w-4 h-4 text-yellow-500 shrink-0 animate-spin" /> :
+               op.progressing ? <RefreshCw className="w-4 h-4 text-amber-500 shrink-0 animate-spin" /> :
                op.available ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" /> :
                <AlertCircle className="w-4 h-4 text-slate-500 shrink-0" />}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-slate-200">{op.name}</span>
-                  {op.version && <span className="text-xs text-slate-500 font-mono">{op.version}</span>}
+                  {op.version && <span className="text-xs text-faint font-mono">{op.version}</span>}
                 </div>
                 {op.message && <div className="text-xs text-slate-400 mt-0.5 line-clamp-1">{op.message}</div>}
               </div>

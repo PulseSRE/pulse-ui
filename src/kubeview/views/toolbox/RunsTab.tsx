@@ -121,7 +121,7 @@ export function RunsTab() {
         <div className="flex items-center gap-2">
           <Workflow className="w-4 h-4 text-cyan-400" />
           <h2 className="text-sm font-medium text-slate-200">Durable runs</h2>
-          <span className="text-[10px] text-slate-500">
+          <span className="text-[10px] text-faint">
             Executed on Temporal — these survive an agent restart
           </span>
         </div>
@@ -154,7 +154,7 @@ export function RunsTab() {
       )}
 
       {isLoading && (
-        <div className="text-slate-500 text-sm p-4 flex items-center gap-2">
+        <div className="text-faint text-sm p-4 flex items-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading runs…
         </div>
       )}
@@ -172,7 +172,7 @@ export function RunsTab() {
       )}
 
       {!isLoading && !isError && runs.length === 0 && (
-        <div className="px-3 py-6 text-xs text-center rounded-md border bg-slate-900/40 border-slate-800 text-slate-500">
+        <div className="px-3 py-6 text-xs text-center rounded-md border bg-slate-900/40 border-slate-800 text-faint">
           No durable runs yet.
         </div>
       )}
@@ -184,7 +184,7 @@ export function RunsTab() {
               <StatusIcon status={run.status} />
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-slate-200 truncate">{describe(run)}</div>
-                <div className="text-[10px] text-slate-500 truncate">
+                <div className="text-[10px] text-faint truncate">
                   {run.workflow_id} · {formatWhen(run)}
                 </div>
               </div>

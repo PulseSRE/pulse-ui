@@ -126,7 +126,7 @@ export function DriftDetectorView() {
               onChange={e => setNamespace(e.target.value)}
               disabled={clusterScoped}
               placeholder={clusterScoped ? 'cluster-scoped' : 'e.g. default'}
-              className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-faint"
               aria-label="Namespace"
             />
           </div>
@@ -138,7 +138,7 @@ export function DriftDetectorView() {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="my-deployment"
-              className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-sm border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-faint"
               aria-label="Resource name"
             />
           </div>

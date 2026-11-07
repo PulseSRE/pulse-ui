@@ -142,7 +142,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
           <h3 className="text-xs font-medium text-slate-200">{editing ? `Edit SLO — ${editing.service} (${editing.type})` : 'New Service Level Objective'}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-slate-500 block mb-1" htmlFor="slo-service">Deployment</label>
+              <label className="text-[10px] text-faint block mb-1" htmlFor="slo-service">Deployment</label>
               {editing || deploymentsError || deploymentNames.length === 0 ? (
                 <input
                   id="slo-service"
@@ -171,10 +171,10 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
                   {selectedNamespaces.length} namespaces have a Deployment named {newSLO.service} ({selectedNamespaces.join(', ')}). The agent matches by name only, so they are measured together.
                 </p>
               )}
-              {selectedNamespaces.length === 1 && <p className="text-[10px] text-slate-500 mt-1">In namespace {selectedNamespaces[0]}. The agent matches by deployment name only (no namespace).</p>}
+              {selectedNamespaces.length === 1 && <p className="text-[10px] text-faint mt-1">In namespace {selectedNamespaces[0]}. The agent matches by deployment name only (no namespace).</p>}
             </div>
             <div>
-              <label className="text-[10px] text-slate-500 block mb-1">Type</label>
+              <label className="text-[10px] text-faint block mb-1">Type</label>
               <select aria-label="Type"
                 value={newSLO.type}
                 disabled={!!editing}
@@ -186,13 +186,13 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
                 <option value="error_rate">Error Rate (non-5xx)</option>
               </select>
               {newSLO.type !== 'availability' && (
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-faint mt-1">
                   Measured for the API server (kube-apiserver) only. Other services report no data until they expose request metrics.
                 </p>
               )}
             </div>
             <div>
-              <label className="text-[10px] text-slate-500 block mb-1">Target (%)</label>
+              <label className="text-[10px] text-faint block mb-1">Target (%)</label>
               <input aria-label="Target (%)"
                 value={newSLO.target}
                 onChange={(e) => setNewSLO({ ...newSLO, target: e.target.value })}
@@ -201,7 +201,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
               />
             </div>
             <div>
-              <label className="text-[10px] text-slate-500 block mb-1">Window (days)</label>
+              <label className="text-[10px] text-faint block mb-1">Window (days)</label>
               <input aria-label="Window (days)"
                 value={newSLO.window_days}
                 onChange={(e) => setNewSLO({ ...newSLO, window_days: e.target.value })}
@@ -211,7 +211,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-slate-500 block mb-1">Description (optional)</label>
+            <label className="text-[10px] text-faint block mb-1">Description (optional)</label>
             <input aria-label="Description (optional)"
               value={newSLO.description}
               onChange={(e) => setNewSLO({ ...newSLO, description: e.target.value })}
@@ -231,7 +231,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
         <div className="text-center py-12">
           <TrendingUp className="w-8 h-8 text-slate-600 mx-auto mb-3" />
           <p className="text-sm text-slate-400">No SLOs defined yet</p>
-          <p className="text-xs text-slate-500 mt-1">Add a Service Level Objective to track error budget burn rate from live Prometheus data.</p>
+          <p className="text-xs text-faint mt-1">Add a Service Level Objective to track error budget burn rate from live Prometheus data.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -274,7 +274,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
                 <button
                   onClick={() => setConfirmDelete({ service: String(slo.service), type: String(slo.type) })}
                   aria-label={`Delete SLO ${String(slo.service)} ${String(slo.type)}`}
-                  className="absolute top-3 right-3 text-slate-700 hover:text-red-400 transition-colors p-1"
+                  className="absolute top-3 right-3 text-faint hover:text-red-400 transition-colors p-1"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -291,9 +291,9 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
                     <div className="text-sm font-semibold text-slate-100 truncate">{String(slo.service).replace('pulse-openshift-sre-agent', 'agent').replace('openshiftpulse', 'ui')}</div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-medium">{String(slo.type)}</span>
-                      <span className="text-[10px] text-slate-600">{windowDays}d window</span>
+                      <span className="text-[10px] text-faint">{windowDays}d window</span>
                     </div>
-                    {description && <p className="text-[10px] text-slate-500 mt-1 line-clamp-1">{description}</p>}
+                    {description && <p className="text-[10px] text-faint mt-1 line-clamp-1">{description}</p>}
                   </div>
                 </div>
 
@@ -321,7 +321,7 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-lg font-bold text-slate-100 leading-none">{noData ? '—' : `${budgetPct}%`}</span>
-                      <span className="text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">budget</span>
+                      <span className="text-[8px] text-faint uppercase tracking-wider mt-0.5">budget</span>
                     </div>
                     <div
                       className="absolute inset-0 rounded-full -z-10 blur-xl opacity-30"
@@ -331,26 +331,26 @@ export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: bo
 
                   <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-2.5">
                     <div>
-                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Target</div>
+                      <div className="text-[9px] text-faint uppercase tracking-wider">Target</div>
                       <div className="text-sm font-semibold text-slate-200">{(target * 100).toFixed(1)}%</div>
                     </div>
                     <div>
-                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Current</div>
+                      <div className="text-[9px] text-faint uppercase tracking-wider">Current</div>
                       <div className="text-sm font-semibold text-slate-200">
                         {typeof currentVal === 'number' ? `${(currentVal * 100).toFixed(2)}%` : '—'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Burn Rate</div>
+                      <div className="text-[9px] text-faint uppercase tracking-wider">Burn Rate</div>
                       <div className={cn('text-sm font-semibold', burnColor)}>
                         {noData ? '—' : `${burnRate.toFixed(1)}x`}
                       </div>
                       {typeof hoursLeft === 'number' && (
-                        <div className="text-[10px] text-slate-500">{hoursLeft < 48 ? `${Math.round(hoursLeft)}h` : `${Math.round(hoursLeft / 24)}d`} left at this rate</div>
+                        <div className="text-[10px] text-faint">{hoursLeft < 48 ? `${Math.round(hoursLeft)}h` : `${Math.round(hoursLeft / 24)}d`} left at this rate</div>
                       )}
                     </div>
                     <div>
-                      <div className="text-[9px] text-slate-500 uppercase tracking-wider">Status</div>
+                      <div className="text-[9px] text-faint uppercase tracking-wider">Status</div>
                       <div className={cn('text-[10px] font-bold uppercase tracking-wider', burnColor)}>
                         {burnLabel}
                       </div>

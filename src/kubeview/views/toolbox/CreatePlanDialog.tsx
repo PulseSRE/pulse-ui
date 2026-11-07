@@ -106,13 +106,13 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
   };
 
   const inputCls =
-    'w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500';
+    'w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-md text-slate-200 placeholder:text-faint focus:outline-hidden focus:ring-1 focus:ring-blue-500';
 
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-slate-100">New investigation plan</h3>
-        <button onClick={onClose} className="text-slate-500 hover:text-slate-300" aria-label="Close">
+        <button onClick={onClose} className="text-faint hover:text-slate-300" aria-label="Close">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -168,11 +168,11 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
         {phases.map((phase, idx) => (
           <div key={idx} className="bg-slate-950/40 border border-slate-800 rounded-md p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-500">Phase {idx + 1}</span>
+              <span className="text-[10px] text-faint">Phase {idx + 1}</span>
               {phases.length > 1 && (
                 <button
                   onClick={() => setPhases((p) => p.filter((_, i) => i !== idx))}
-                  className="text-slate-600 hover:text-red-400 transition-colors"
+                  className="text-faint hover:text-red-400 transition-colors"
                   aria-label={`Remove phase ${idx + 1}`}
                 >
                   <Trash2 className="w-3 h-3" />
@@ -207,7 +207,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                 placeholder="produces: root_cause, confidence"
                 className={inputCls}
               />
-              <div className="text-[10px] text-slate-600 mt-1">
+              <div className="text-[10px] text-faint mt-1">
                 Comma-separated. The phase is checked against this — a phase that
                 does not return what it declares is marked partial instead of
                 letting the plan advance on it.
@@ -221,7 +221,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                   placeholder="depends on: triage, logs"
                   className={inputCls}
                 />
-                <div className="text-[10px] text-slate-600 mt-1">
+                <div className="text-[10px] text-faint mt-1">
                   Phases with no unmet dependencies run together as one wave.
                 </div>
               </div>
@@ -232,7 +232,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                   placeholder="branch on finding: cause"
                   className={inputCls}
                 />
-                <div className="text-[10px] text-slate-600 mt-1">
+                <div className="text-[10px] text-faint mt-1">
                   A finding key from a dependency; its value picks the skill below.
                 </div>
               </div>
@@ -243,7 +243,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                   placeholder="sub-plan: oom-investigation"
                   className={inputCls}
                 />
-                <div className="text-[10px] text-slate-600 mt-1">
+                <div className="text-[10px] text-faint mt-1">
                   Runs that whole plan as this phase, with its own approvals and history.
                 </div>
               </div>
@@ -257,7 +257,7 @@ export function CreatePlanDialog({ onClose, onCreated }: { onClose: () => void; 
                   rows={2}
                   className={inputCls}
                 />
-                <div className="text-[10px] text-slate-600 mt-1">
+                <div className="text-[10px] text-faint mt-1">
                   One “value: skill” per line. An unmatched value keeps the phase’s own skill.
                 </div>
               </div>

@@ -133,7 +133,7 @@ export default function PulseAgentView() {
           <TabsContent value="usage"><UsageTab /></TabsContent>
           <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
           <TabsContent value="memory">
-            <Suspense fallback={<div className="text-slate-500 text-sm p-4">Loading...</div>}><MemoryView embedded /></Suspense>
+            <Suspense fallback={<div className="text-faint text-sm p-4">Loading...</div>}><MemoryView embedded /></Suspense>
           </TabsContent>
         </Tabs>
       </div>

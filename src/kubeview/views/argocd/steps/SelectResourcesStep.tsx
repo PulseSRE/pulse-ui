@@ -139,7 +139,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
           placeholder="my-cluster"
           className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
         />
-        <p className="text-xs text-slate-500 mt-1">Used as the folder name in your Git repository.</p>
+        <p className="text-xs text-faint mt-1">Used as the folder name in your Git repository.</p>
       </div>
 
       {/* Resource categories */}
@@ -169,7 +169,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
                   <Package className="w-4 h-4 text-slate-400" />
                   <span className="text-sm font-medium text-slate-200">{cat.label}</span>
                 </div>
-                <p className="text-xs text-slate-500 ml-6">
+                <p className="text-xs text-faint ml-6">
                   {cat.description}
                 </p>
               </button>
@@ -188,7 +188,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
             <button onClick={selectAllNamespaces} className="text-xs text-blue-400 hover:text-blue-300">
               Select all
             </button>
-            <button onClick={clearAllNamespaces} className="text-xs text-slate-500 hover:text-slate-400">
+            <button onClick={clearAllNamespaces} className="text-xs text-faint hover:text-slate-400">
               Clear
             </button>
           </div>
@@ -210,7 +210,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
               Loading namespaces...
             </div>
           ) : filteredNamespaces.length === 0 ? (
-            <p className="text-sm text-slate-500 p-2">No namespaces found</p>
+            <p className="text-sm text-faint p-2">No namespaces found</p>
           ) : (
             filteredNamespaces.map((ns) => (
               <label

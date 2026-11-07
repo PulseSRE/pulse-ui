@@ -513,7 +513,7 @@ export function UpdatesTab({
                 </button>
               )}
             </div>
-            {selected && startDisabledReason && <p className="basis-full text-xs text-slate-500">{startDisabledReason}</p>}
+            {selected && startDisabledReason && <p className="basis-full text-xs text-faint">{startDisabledReason}</p>}
           </section>
         </>
       )}
@@ -583,11 +583,11 @@ export function UpdatesTab({
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-400">Cluster ID</span>
-            <span className="text-xs font-mono text-slate-500">{clusterVersion?.spec?.clusterID || '\u2014'}</span>
+            <span className="text-xs font-mono text-faint">{clusterVersion?.spec?.clusterID || '\u2014'}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-400">Platform</span>
-            <span className="text-xs font-mono text-slate-500">{platform || '\u2014'}</span>
+            <span className="text-xs font-mono text-faint">{platform || '\u2014'}</span>
           </div>
         </div>
       </Panel>

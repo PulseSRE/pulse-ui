@@ -264,7 +264,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
       <header className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-100">
         <History className="h-4 w-4 text-slate-400" />
         Rollout History
-        {list.data && <span className="ml-auto text-xs text-slate-500">{revisions.length} revision{revisions.length !== 1 ? 's' : ''}</span>}
+        {list.data && <span className="ml-auto text-xs text-faint">{revisions.length} revision{revisions.length !== 1 ? 's' : ''}</span>}
       </header>
 
       {rollingOut && flight && (
@@ -289,7 +289,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
           <LoadError className="m-3" title="Revisions could not be loaded" error={list.error} onRetry={() => list.refetch()} />
         )}
         {list.data && revisions.length === 0 && (
-          <div className="px-4 py-4 text-sm text-slate-500">No revisions found.</div>
+          <div className="px-4 py-4 text-sm text-faint">No revisions found.</div>
         )}
 
         {revisions.length > 0 && (
@@ -317,7 +317,7 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
                         {rev.current ? <CheckCircle className="h-3.5 w-3.5" /> : rev.revision}
                       </span>
                       <span className="mt-1 font-mono text-xs text-slate-200">#{rev.revision}</span>
-                      <span className="text-[10px] text-slate-500" title={rev.createdAt}>{rev.createdAt ? formatRelative(rev.createdAt) : '—'}</span>
+                      <span className="text-[10px] text-faint" title={rev.createdAt}>{rev.createdAt ? formatRelative(rev.createdAt) : '—'}</span>
                       {changes.length > 0 && (
                         <span className="mt-1 max-w-full truncate rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-300" title={changes.join('\n')}>
                           {changes[0]}{changes.length > 1 ? ` +${changes.length - 1}` : ''}
@@ -336,22 +336,22 @@ export function RolloutHistory({ resource, namespace, clusterId: clusterIdProp, 
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-sm text-slate-100">#{shown.revision}</span>
                   {shown.current && <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-400">Current</span>}
-                  <span className="font-mono text-slate-500">{shown.name}</span>
-                  {shown.replicas && <span className="ml-auto text-slate-500">{shown.replicas.ready}/{shown.replicas.desired} replicas</span>}
+                  <span className="font-mono text-faint">{shown.name}</span>
+                  {shown.replicas && <span className="ml-auto text-faint">{shown.replicas.ready}/{shown.replicas.desired} replicas</span>}
                 </div>
                 <div>
-                  <span className="text-slate-500">Images: </span>
+                  <span className="text-faint">Images: </span>
                   <span className="text-slate-300 font-mono">{shown.images.map((i) => i.image).join(', ') || '—'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500">Change cause: </span>
+                  <span className="text-faint">Change cause: </span>
                   <span className="text-slate-300">{shown.changeCause || 'not recorded'}</span>
                 </div>
                 <RevisionSignalList revision={shown.revision} items={signals.get(shown.revision)} />
                 {!shown.current && (
                   <>
                     <div>
-                      <span className="text-slate-500">Rolling back changes: </span>
+                      <span className="text-faint">Rolling back changes: </span>
                       <ul className="mt-1 space-y-0.5 text-slate-400">
                         {templateDiff(currentTemplate, shown.template).map((d, i) => <li key={i} className="font-mono">{d}</li>)}
                       </ul>

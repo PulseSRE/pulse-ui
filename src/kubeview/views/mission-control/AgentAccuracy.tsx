@@ -61,7 +61,7 @@ export function AgentAccuracy({ accuracy, onOpenMemoryDrawer }: AgentAccuracyPro
                   : '\u2014'}
               </div>
               {accuracy.override_rate.total_proposed > 0 && (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-faint">
                   {accuracy.override_rate.overrides} of {accuracy.override_rate.total_proposed} actions overridden
                 </div>
               )}

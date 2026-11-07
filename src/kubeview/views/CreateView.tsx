@@ -310,7 +310,7 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
               <Plus size={12} /> {creating ? 'Creating...' : 'Create'}
             </button>
           </>;
-          const meta = headerGroupVersion ? <span className="text-slate-500">{headerGroupVersion}</span> : undefined;
+          const meta = headerGroupVersion ? <span className="text-faint">{headerGroupVersion}</span> : undefined;
           if (hub) {
             // Opened from a Software tab: the parent is that tab, kept in the URL.
             const softwareHref = `/software${location.search}`;

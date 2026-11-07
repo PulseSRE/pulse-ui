@@ -128,7 +128,7 @@ export function InboxLifecycleStepper({
                   'text-[10px] mt-1 whitespace-nowrap',
                   isCurrent && 'text-violet-400 font-medium',
                   isPast && 'text-emerald-400',
-                  !isCurrent && !isPast && 'text-slate-600',
+                  !isCurrent && !isPast && 'text-faint',
                 )}
               >
                 {step.label}

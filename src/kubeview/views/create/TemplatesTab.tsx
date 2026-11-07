@@ -14,7 +14,7 @@ const SNIPPET_CATEGORIES: Record<string, { category: string; icon: any; color: s
   svc: { category: 'Networking', icon: Network, color: 'text-green-400', gvr: 'v1/services' },
   ing: { category: 'Networking', icon: Globe, color: 'text-indigo-400', gvr: 'networking.k8s.io/v1/ingresses' },
   np: { category: 'Networking', icon: ShieldCheck, color: 'text-red-400', gvr: 'networking.k8s.io/v1/networkpolicies' },
-  cm: { category: 'Config & Storage', icon: FileText, color: 'text-yellow-400', gvr: 'v1/configmaps' },
+  cm: { category: 'Config & Storage', icon: FileText, color: 'text-amber-400', gvr: 'v1/configmaps' },
   secret: { category: 'Config & Storage', icon: Lock, color: 'text-red-400', gvr: 'v1/secrets' },
   pvc: { category: 'Storage', icon: HardDrive, color: 'text-orange-400', gvr: 'v1/persistentvolumeclaims' },
   'pvc-rwx': { category: 'Storage', icon: HardDrive, color: 'text-orange-400', gvr: 'v1/persistentvolumeclaims' },
@@ -85,11 +85,11 @@ export function TemplatesTab({ onSelectTemplate, onSelectBlank }: {
           className="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-900 border border-slate-700 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500" />
       </div>
 
-      <div className="text-xs text-slate-500">{filteredSnippets.length} of {snippets.length} templates</div>
+      <div className="text-xs text-faint">{filteredSnippets.length} of {snippets.length} templates</div>
 
       {grouped.map(({ category, snippets: catSnippets }) => (
         <div key={category}>
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">{category}</h2>
+          <h2 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">{category}</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {catSnippets.map((snippet) => {
               const meta = SNIPPET_CATEGORIES[snippet.prefix];
@@ -102,7 +102,7 @@ export function TemplatesTab({ onSelectTemplate, onSelectBlank }: {
                   <Icon className={cn('w-5 h-5', color)} />
                   <div>
                     <div className="text-sm font-medium text-slate-200">{snippet.label}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{snippet.description}</div>
+                    <div className="text-xs text-faint mt-0.5">{snippet.description}</div>
                   </div>
                 </button>
               );
@@ -112,17 +112,17 @@ export function TemplatesTab({ onSelectTemplate, onSelectBlank }: {
       ))}
 
       {filteredSnippets.length === 0 && (
-        <div className="text-center py-8 text-slate-500 text-sm">No templates match "{search}"</div>
+        <div className="text-center py-8 text-faint text-sm">No templates match "{search}"</div>
       )}
 
       <div>
-        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Or start from scratch</h2>
+        <h2 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">Or start from scratch</h2>
         <button onClick={() => onSelectBlank()}
           className="flex items-center gap-3 p-4 bg-slate-900 rounded-lg border border-slate-800 hover:border-slate-600 transition-colors">
           <FileText className="w-5 h-5 text-slate-400" />
           <div className="text-left">
             <div className="text-sm font-medium text-slate-200">Blank YAML</div>
-            <div className="text-xs text-slate-500">Start with an empty editor and paste or write any manifest</div>
+            <div className="text-xs text-faint">Start with an empty editor and paste or write any manifest</div>
           </div>
         </button>
       </div>

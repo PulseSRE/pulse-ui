@@ -131,7 +131,7 @@ export function WorkloadAudit({ resource, go }: { resource: K8sResource; go: (pa
           <Shield className="w-4 h-4 text-indigo-400" />
           Workload Health
         </h2>
-        <span className={cn('text-xs font-medium', passCount === checks.length ? 'text-green-400' : 'text-yellow-400')}>
+        <span className={cn('text-xs font-medium', passCount === checks.length ? 'text-green-400' : 'text-amber-400')}>
           {passCount}/{checks.length} passed
         </span>
       </div>
@@ -144,23 +144,23 @@ export function WorkloadAudit({ resource, go }: { resource: K8sResource; go: (pa
             >
               {check.pass
                 ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
-                : <AlertCircle className="w-4 h-4 text-yellow-500 shrink-0" />
+                : <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
               }
               <div className="flex-1 text-left min-w-0">
                 <span className="text-sm text-slate-200">{check.label}</span>
-                <span className={cn('text-xs ml-2', check.pass ? 'text-green-400' : 'text-yellow-400')}>{check.detail}</span>
+                <span className={cn('text-xs ml-2', check.pass ? 'text-green-400' : 'text-amber-400')}>{check.detail}</span>
               </div>
               {check.items && (
-                <span className="text-xs text-slate-500">{expanded === check.label ? '▲' : '▼'}</span>
+                <span className="text-xs text-faint">{expanded === check.label ? '▲' : '▼'}</span>
               )}
             </button>
             {expanded === check.label && check.items && (
               <div className="px-4 pb-3 space-y-1.5 ml-7">
                 {check.items.map((item) => (
                   <div key={item.name} className="flex items-center gap-2 text-xs">
-                    <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', item.pass ? 'bg-green-500' : 'bg-yellow-500')} />
+                    <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', item.pass ? 'bg-green-500' : 'bg-amber-500')} />
                     <span className="text-slate-300 font-mono w-32 truncate shrink-0">{item.name}</span>
-                    <span className="text-slate-500">{item.detail}</span>
+                    <span className="text-faint">{item.detail}</span>
                   </div>
                 ))}
               </div>

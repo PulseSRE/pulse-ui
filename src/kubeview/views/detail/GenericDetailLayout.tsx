@@ -233,11 +233,11 @@ function ContainersSection({ containers, status }: { containers: Container[]; st
 
           return (
             <div key={container.name} className="flex items-start gap-4 py-2 border-b border-slate-800 last:border-b-0">
-              <div className={`w-2 h-2 rounded-full mt-1.5 ${isReady ? 'bg-green-500' : 'bg-yellow-500'}`} />
+              <div className={`w-2 h-2 rounded-full mt-1.5 ${isReady ? 'bg-green-500' : 'bg-amber-500'}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium text-slate-200">{container.name}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded-sm ${isReady ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'}`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-sm ${isReady ? 'bg-green-900 text-green-300' : 'bg-amber-900 text-amber-300'}`}>
                     {stateLabel}
                   </span>
                   {restarts > 0 && (
@@ -246,7 +246,7 @@ function ContainersSection({ containers, status }: { containers: Container[]; st
                 </div>
                 <div className="text-xs text-slate-400 font-mono truncate">{container.image}</div>
                 {container.ports && (
-                  <div className="text-xs text-slate-500 mt-1">
+                  <div className="text-xs text-faint mt-1">
                     Ports: {(container.ports as ContainerPort[]).map((p: ContainerPort) => `${p.containerPort}/${p.protocol || 'TCP'}`).join(', ')}
                   </div>
                 )}
@@ -287,18 +287,18 @@ function ManagedPodsCard({ pods, go }: { pods: K8sResource[]; go: (path: string,
               <div className="flex items-center gap-2 min-w-0">
                 <div className={cn('w-2 h-2 rounded-full shrink-0',
                   podPhase === 'Running' && ready === total ? 'bg-green-500' :
-                  podPhase === 'Failed' ? 'bg-red-500' : 'bg-yellow-500'
+                  podPhase === 'Failed' ? 'bg-red-500' : 'bg-amber-500'
                 )} />
                 <span className="text-sm text-slate-200 truncate">{pod.metadata.name}</span>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                {waiting && <span className="text-xs text-yellow-400">{waiting.reason}</span>}
-                {restarts > 0 && <span className="text-xs text-slate-500">{restarts} restarts</span>}
-                <span className={cn('text-xs font-mono', ready === total ? 'text-green-400' : 'text-yellow-400')}>{ready}/{total}</span>
+                {waiting && <span className="text-xs text-amber-400">{waiting.reason}</span>}
+                {restarts > 0 && <span className="text-xs text-faint">{restarts} restarts</span>}
+                <span className={cn('text-xs font-mono', ready === total ? 'text-green-400' : 'text-amber-400')}>{ready}/{total}</span>
                 <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                   podPhase === 'Running' ? 'bg-green-900/50 text-green-300' :
                   podPhase === 'Failed' ? 'bg-red-900/50 text-red-300' :
-                  'bg-yellow-900/50 text-yellow-300'
+                  'bg-amber-900/50 text-amber-300'
                 )}>{podPhase}</span>
               </div>
             </button>
@@ -330,7 +330,7 @@ export function MetadataSummary({ metadata }: { metadata?: K8sResource['metadata
     <dl className="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-xs" data-testid="metadata-summary">
       {rows.filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => (
         <React.Fragment key={k}>
-          <dt className="text-slate-500">{k}</dt>
+          <dt className="text-faint">{k}</dt>
           <dd className="text-slate-300 font-mono break-all">{v}</dd>
         </React.Fragment>
       ))}

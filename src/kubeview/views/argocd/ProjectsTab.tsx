@@ -68,7 +68,7 @@ export function ProjectsTab() {
                 )}
               </div>
               {roles.length > 0 && (
-                <span className="text-xs text-slate-500 flex items-center gap-1">
+                <span className="text-xs text-faint flex items-center gap-1">
                   <Shield className="w-3 h-3" /> {roles.length} role{roles.length !== 1 ? 's' : ''}
                 </span>
               )}
@@ -81,11 +81,11 @@ export function ProjectsTab() {
             <div className="space-y-2">
               {/* Source repos */}
               <div>
-                <div className="text-xs text-slate-500 mb-1 flex items-center gap-1">
+                <div className="text-xs text-faint mb-1 flex items-center gap-1">
                   <Globe className="w-3 h-3" /> Source Repositories
                 </div>
                 {sourceRepos.length === 0 ? (
-                  <span className="text-xs text-slate-600">None configured</span>
+                  <span className="text-xs text-faint">None configured</span>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {sourceRepos.slice(0, 6).map((repo, i) => (
@@ -94,7 +94,7 @@ export function ProjectsTab() {
                       </span>
                     ))}
                     {sourceRepos.length > 6 && (
-                      <span className="text-xs text-slate-600">+{sourceRepos.length - 6} more</span>
+                      <span className="text-xs text-faint">+{sourceRepos.length - 6} more</span>
                     )}
                   </div>
                 )}
@@ -102,11 +102,11 @@ export function ProjectsTab() {
 
               {/* Destinations */}
               <div>
-                <div className="text-xs text-slate-500 mb-1 flex items-center gap-1">
+                <div className="text-xs text-faint mb-1 flex items-center gap-1">
                   <Server className="w-3 h-3" /> Destinations
                 </div>
                 {destinations.length === 0 ? (
-                  <span className="text-xs text-slate-600">None configured</span>
+                  <span className="text-xs text-faint">None configured</span>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {destinations.slice(0, 8).map((dest, i) => {
@@ -121,7 +121,7 @@ export function ProjectsTab() {
                       );
                     })}
                     {destinations.length > 8 && (
-                      <span className="text-xs text-slate-600">+{destinations.length - 8} more</span>
+                      <span className="text-xs text-faint">+{destinations.length - 8} more</span>
                     )}
                   </div>
                 )}

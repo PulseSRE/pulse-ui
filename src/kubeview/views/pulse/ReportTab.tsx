@@ -87,7 +87,7 @@ function ClusterZen({ nodeCount, podCount, deploymentCount, go, onDismiss }: Clu
       </p>
 
       {/* Quick stats */}
-      <div className="flex items-center gap-2 text-sm text-slate-500 mb-10">
+      <div className="flex items-center gap-2 text-sm text-faint mb-10">
         <button type="button" data-testid="pulse-nodes-link" onClick={() => go('/compute', 'Compute')} className="hover:text-slate-300">
           <span className="text-emerald-400 font-medium">{nodeCount}</span> node{nodeCount !== 1 ? 's' : ''} healthy
         </button>
@@ -125,7 +125,7 @@ function ClusterZen({ nodeCount, podCount, deploymentCount, go, onDismiss }: Clu
       {/* Show full report */}
       <button
         onClick={onDismiss}
-        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+        className="flex items-center gap-1.5 text-xs text-faint hover:text-slate-300 transition-colors"
       >
         <Eye className="w-3.5 h-3.5" />
         Show full report
@@ -146,8 +146,8 @@ function RiskScoreRing({ score, unknownReason }: { score: number; unknownReason?
         </svg>
         <div>
           <div className="text-sm font-semibold text-slate-400">Unknown</div>
-          <div className="text-xs text-slate-500 mt-0.5">Cluster Risk Score</div>
-          <div className="text-xs text-slate-500 mt-0.5 max-w-[10rem]">{unknownReason}</div>
+          <div className="text-xs text-faint mt-0.5">Cluster Risk Score</div>
+          <div className="text-xs text-faint mt-0.5 max-w-[10rem]">{unknownReason}</div>
         </div>
       </div>
     );
@@ -157,9 +157,9 @@ function RiskScoreRing({ score, unknownReason }: { score: number; unknownReason?
   const stroke = 6;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (clamped / 100) * circumference;
-  const color = clamped <= 20 ? '#22c55e' : clamped <= 50 ? '#eab308' : clamped <= 75 ? '#f97316' : '#ef4444';
+  const color = clamped <= 20 ? '#22c55e' : clamped <= 50 ? '#f59e0b' : clamped <= 75 ? '#f97316' : '#ef4444';
   const label = clamped <= 20 ? 'Healthy' : clamped <= 50 ? 'Caution' : clamped <= 75 ? 'At Risk' : 'Critical';
-  const bgColor = clamped <= 20 ? 'text-green-400' : clamped <= 50 ? 'text-yellow-400' : clamped <= 75 ? 'text-orange-400' : 'text-red-400';
+  const bgColor = clamped <= 20 ? 'text-green-400' : clamped <= 50 ? 'text-amber-400' : clamped <= 75 ? 'text-orange-400' : 'text-red-400';
 
   return (
     <div className="flex items-center gap-4">
@@ -173,7 +173,7 @@ function RiskScoreRing({ score, unknownReason }: { score: number; unknownReason?
       </svg>
       <div>
         <div className={cn('text-sm font-semibold', bgColor)}>{label}</div>
-        <div className="text-xs text-slate-500 mt-0.5">Cluster Risk Score</div>
+        <div className="text-xs text-faint mt-0.5">Cluster Risk Score</div>
       </div>
     </div>
   );
@@ -186,7 +186,7 @@ function ZoneHeader({ number, title, subtitle, icon }: { number: number; title: 
       <div className="flex items-center gap-2 flex-1">
         {icon}
         <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
-        <span className="text-xs text-slate-500 italic">{subtitle}</span>
+        <span className="text-xs text-faint italic">{subtitle}</span>
       </div>
     </div>
   );
@@ -505,7 +505,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
 
         {alertsUnavailable && <RemoteMetricsNotice compact what="Alerts and metrics" className="px-1" />}
         {alertsFetchError && (
-          <div className="flex items-center gap-2 text-xs text-yellow-400 bg-yellow-950/30 border border-yellow-800/50 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-950/30 border border-amber-800/50 rounded-lg px-3 py-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             <span>Metrics unavailable — risk score may be incomplete</span>
           </div>
@@ -523,7 +523,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
               }
             />
             <button onClick={() => setShowScoreDetails(!showScoreDetails)}
-              className="mt-2 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              className="mt-2 flex items-center gap-1 text-xs text-faint hover:text-slate-300 transition-colors">
               <Info className="w-3 h-3" />
               Details
             </button>
@@ -533,15 +533,15 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 <div className="absolute top-full left-0 mt-1 z-50 w-80 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-semibold text-slate-200">Score Breakdown</h4>
-                    <span className="text-xs text-slate-500">max 100</span>
+                    <span className="text-xs text-faint">max 100</span>
                   </div>
                   <div className="space-y-1.5 mb-3">
                     {factors.map((f) => (
                       <div key={f.label} className="flex items-center gap-2 text-xs">
                         <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', f.score > 0 ? 'bg-red-500' : 'bg-slate-700')} />
                         <span className="flex-1 text-slate-300">{f.label}</span>
-                        <span className="text-slate-500 tabular-nums">{f.count} x {f.points}{f.max ? ` (cap ${f.max})` : ''}</span>
-                        <span className={cn('w-7 text-right font-mono tabular-nums', f.score > 0 ? 'text-red-400' : 'text-slate-600')}>+{f.score}</span>
+                        <span className="text-faint tabular-nums">{f.count} x {f.points}{f.max ? ` (cap ${f.max})` : ''}</span>
+                        <span className={cn('w-7 text-right font-mono tabular-nums', f.score > 0 ? 'text-red-400' : 'text-faint')}>+{f.score}</span>
                       </div>
                     ))}
                   </div>
@@ -565,7 +565,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
               )}
             </div>
             {isHyperShift && controlPlaneOps.length === 0 ? (
-              <div className="text-xs text-slate-500 italic mb-4">Control plane operators managed externally</div>
+              <div className="text-xs text-faint italic mb-4">Control plane operators managed externally</div>
             ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
               {controlPlaneOps.map(op => (
@@ -581,7 +581,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
               <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-sm hover:bg-slate-800 transition-colors text-left">
                 <Gauge className="w-4 h-4 text-slate-400" />
                 <div>
-                  <div className="text-xs text-slate-500">API Latency (p99)</div>
+                  <div className="text-xs text-faint">API Latency (p99)</div>
                   {/* No number is not a green number: a failed read says so, an empty one is "No data". */}
                   {apiLatencyFailed ? (
                     <div className="text-sm font-medium text-slate-400" title={describeReadError(apiLatencyError).reason}>Could not check<span className="sr-only">: {describeReadError(apiLatencyError).reason}</span></div>
@@ -597,7 +597,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
               <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-sm hover:bg-slate-800 transition-colors text-left">
                 <Database className="w-4 h-4 text-slate-400" />
                 <div>
-                  <div className="text-xs text-slate-500">Etcd Leader Changes (1h)</div>
+                  <div className="text-xs text-faint">Etcd Leader Changes (1h)</div>
                   {etcdChangesFailed ? (
                     <div className="text-sm font-medium text-slate-400" title={describeReadError(etcdChangesError).reason}>Could not check<span className="sr-only">: {describeReadError(etcdChangesError).reason}</span></div>
                   ) : etcdLeaderChanges === null || etcdLeaderChanges === undefined ? (
@@ -633,7 +633,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                       <button key={`${cert.namespace}/${cert.name}`} onClick={() => go(`/r/v1~secrets/${cert.namespace}/${cert.name}`, cert.name)}
                         className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-slate-800/50 rounded-sm transition-colors text-left text-xs group">
                         <span className="text-slate-300 truncate flex-1">{cert.name}</span>
-                        <span className="text-slate-500">{cert.namespace}</span>
+                        <span className="text-faint">{cert.namespace}</span>
                         <span className={cn('font-mono font-medium', color)}>{days}d</span>
                       </button>
                     );
@@ -677,7 +677,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
             <div className={cn('text-2xl font-bold mt-1', unhealthyNodes.length > 0 ? 'text-red-400' : 'text-green-400')}>
               {readyNodes.length} / {nodes.length}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">ready</div>
+            <div className="text-xs text-faint mt-0.5">ready</div>
           </button>
           <button onClick={() => go('/workloads', 'Workloads')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 hover:border-slate-600 transition-colors text-left">
             <div className="flex items-center gap-2 text-slate-400 text-xs font-medium uppercase tracking-wider">
@@ -686,7 +686,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
             <div className={cn('text-2xl font-bold mt-1', problemPods.length > 0 ? 'text-amber-400' : 'text-green-400')}>
               {runningPods.length} / {userPods.length}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">user namespaces</div>
+            <div className="text-xs text-faint mt-0.5">user namespaces</div>
           </button>
         </MetricGrid>
 
@@ -732,7 +732,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 <div className="flex items-center gap-2 mb-2">
                   <Database className="w-3.5 h-3.5 text-amber-400" />
                   <span className="text-xs font-medium text-slate-200">PVs Over 85% Used</span>
-                  <span className="text-xs text-slate-500">{pvOverloaded.length} volume{pvOverloaded.length !== 1 ? 's' : ''}</span>
+                  <span className="text-xs text-faint">{pvOverloaded.length} volume{pvOverloaded.length !== 1 ? 's' : ''}</span>
                   <button onClick={() => go('/storage', 'Storage')} className="text-xs text-blue-400 hover:text-blue-300 ml-auto flex items-center gap-1">View all <ArrowRight className="w-3 h-3" /></button>
                 </div>
                 <div className="space-y-1">
@@ -756,7 +756,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                   {quotaOverages.slice(0, 5).map((q, i) => (
                     <button key={i} onClick={() => go('/admin?tab=quotas', 'Quotas')} className="w-full flex items-center gap-2 text-xs px-2 py-1 hover:bg-slate-800/50 rounded-sm transition-colors text-left">
                       <span className="text-slate-300">{q.namespace}/{q.name}</span>
-                      <span className="text-slate-500">{q.resource}</span>
+                      <span className="text-faint">{q.resource}</span>
                       <span className="text-red-400 font-mono ml-auto">{q.used} / {q.hard}</span>
                     </button>
                   ))}
@@ -777,7 +777,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           <button type="button" onClick={() => go('/gitops', 'GitOps')} className="w-full flex items-center gap-2 text-xs text-left bg-slate-900 rounded-lg border border-slate-800 px-3 py-2 hover:border-slate-600">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
             <span className="text-slate-200">{outOfSync.length} ArgoCD app{outOfSync.length > 1 ? 's' : ''} out of sync</span>
-            <span className="text-slate-500">{outOfSync.map(a => a.metadata.name).slice(0, 3).join(', ')}</span>
+            <span className="text-faint">{outOfSync.map(a => a.metadata.name).slice(0, 3).join(', ')}</span>
             <ChevronRight className="w-3.5 h-3.5 text-slate-600 ml-auto" />
           </button>
         )}
@@ -796,7 +796,7 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           <div role="status" className="w-full bg-slate-900 rounded-lg border border-green-900/30 p-4 text-center">
             <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-1" />
             <div className="text-sm font-medium text-slate-200">All clear</div>
-            <div className="text-xs text-slate-500 mt-0.5">{nodes.length} nodes, {operators.length} operators, {userPods.length} user pods — no issues detected</div>
+            <div className="text-xs text-faint mt-0.5">{nodes.length} nodes, {operators.length} operators, {userPods.length} user pods — no issues detected</div>
           </div>
         )}
       </div>
@@ -822,18 +822,18 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 </button>
               </div>
             ) : clusterVersion?.status?.conditions?.some((c) => c.type === 'RetrievedUpdates' && c.status === 'False') ? (
-              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-faint hover:text-slate-300 transition-colors">
                 Unknown — the cluster could not retrieve available updates
               </button>
             ) : clusterVersionError || (!clusterVersionPending && !clusterVersion) ? (
               // A failed or missing ClusterVersion is not "up to date".
-              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-faint hover:text-slate-300 transition-colors">
                 Unknown — ClusterVersion could not be read
               </button>
             ) : clusterVersionPending ? (
-              <span className="text-xs text-slate-500">Checking…</span>
+              <span className="text-xs text-faint">Checking…</span>
             ) : (
-              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Up to date</button>
+              <button onClick={() => go('/admin?tab=updates', 'Updates')} className="text-xs text-faint hover:text-slate-300 transition-colors">Up to date</button>
             )}
           </Card>
 
@@ -853,20 +853,20 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 {recentChanges.map((ev, i) => (
                   <button key={i} onClick={() => go(ev.path, ev.name)}
                     className="w-full flex items-center gap-2 text-xs text-left hover:bg-slate-800/50 px-2 py-1.5 rounded-sm transition-colors group">
-                    <span className="text-slate-500 w-10 shrink-0 text-right font-mono">{ev.ago}</span>
+                    <span className="text-faint w-10 shrink-0 text-right font-mono">{ev.ago}</span>
                     <span className={cn('px-1 py-0.5 rounded-sm text-xs font-medium shrink-0',
                       ev.reason === 'Unhealthy' || ev.reason === 'BackOff' ? 'bg-red-900/40 text-red-300' :
                       ev.reason === 'Pulled' || ev.reason === 'Created' || ev.reason === 'Started' || ev.reason === 'Scheduled' || ev.reason === 'Killing' ? 'bg-green-900/40 text-green-300' :
                       'bg-slate-800 text-slate-400'
                     )}>{ev.reason}</span>
                     <span className="text-slate-300 truncate">{ev.name}</span>
-                    {ev.source && <span className="text-slate-600 shrink-0 ml-auto">{ev.source}</span>}
+                    {ev.source && <span className="text-faint shrink-0 ml-auto">{ev.source}</span>}
                     <ChevronRight className="w-3 h-3 text-slate-700 group-hover:text-slate-500 shrink-0" />
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-slate-500">No rollouts or config changes in the last hour</div>
+              <div className="text-xs text-faint">No rollouts or config changes in the last hour</div>
             )}
           </Card>
         </div>

@@ -530,7 +530,7 @@ function LocalAlertsView() {
           <div data-testid="firing-tile" className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', firingAlerts.length > 0 ? 'border-red-800' : 'border-slate-800')}>
             <button type="button" onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('all'); }} className="block w-full text-left">
               <div className="text-xs text-slate-400 mb-1">Firing</div>
-              <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : firingAlerts.length}</div>
+              <div className={cn('text-xl font-bold', backendUnavailable ? 'text-faint' : 'text-slate-100')}>{backendUnavailable ? '—' : firingAlerts.length}</div>
             </button>
             {!backendUnavailable && (criticalCount > 0 || warningCount > 0) && (
               <div className="text-xs mt-0.5">
@@ -542,20 +542,20 @@ function LocalAlertsView() {
           </div>
           <button aria-pressed={stateFilter === 'pending'} onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('pending'); }} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', pendingAlerts.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="text-xs text-slate-400 mb-1">Pending</div>
-            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : pendingAlerts.length}</div>
-            <div className="text-xs text-slate-600 mt-0.5">About to fire</div>
+            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-faint' : 'text-slate-100')}>{backendUnavailable ? '—' : pendingAlerts.length}</div>
+            <div className="text-xs text-faint mt-0.5">About to fire</div>
           </button>
           <button aria-pressed={stateFilter === 'silenced'} onClick={() => { setActiveTab('firing'); setSeverityFilter('all'); setStateFilter('silenced'); }} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Silenced</div>
-            <div className={cn('text-xl font-bold', backendUnavailable || silencesUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable || silencesUnavailable ? '—' : allAlerts.filter(a => a.isSilenced).length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable || silencesUnavailable ? 'text-faint' : 'text-slate-100')}>{backendUnavailable || silencesUnavailable ? '—' : allAlerts.filter(a => a.isSilenced).length}</div>
           </button>
           <button onClick={() => setActiveTab('rules')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Alert Rules</div>
-            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-slate-500' : 'text-slate-100')}>{backendUnavailable ? '—' : allRules.length}</div>
+            <div className={cn('text-xl font-bold', backendUnavailable ? 'text-faint' : 'text-slate-100')}>{backendUnavailable ? '—' : allRules.length}</div>
           </button>
           <button onClick={() => setActiveTab('silences')} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-left hover:border-slate-600 transition-colors">
             <div className="text-xs text-slate-400 mb-1">Active Silences</div>
-            <div className={cn('text-xl font-bold', silencesUnavailable ? 'text-slate-500' : 'text-slate-100')}>{silencesUnavailable ? '—' : activeSilences.length}</div>
+            <div className={cn('text-xl font-bold', silencesUnavailable ? 'text-faint' : 'text-slate-100')}>{silencesUnavailable ? '—' : activeSilences.length}</div>
           </button>
         </div>
 
@@ -572,12 +572,12 @@ function LocalAlertsView() {
         {/* Top firing alerts */}
         {topAlertNames.length > 0 && allAlerts.length > 3 && (
           <Card className="p-4">
-            <div className="text-xs text-slate-500 font-medium mb-2">Most frequent alerts</div>
+            <div className="text-xs text-faint font-medium mb-2">Most frequent alerts</div>
             <div className="flex flex-wrap gap-2">
               {topAlertNames.map(([name, count]) => (
                 <button key={name} onClick={() => setSearchQuery(name)} className="flex items-center gap-1.5 px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-sm transition-colors">
                   <span className="font-medium">{name}</span>
-                  <span className="text-slate-500">×{count}</span>
+                  <span className="text-faint">×{count}</span>
                 </button>
               ))}
             </div>
@@ -642,7 +642,7 @@ function LocalAlertsView() {
         {activeTab === 'firing' && (
           <div className="space-y-2">
             {triage.unsupported && (
-              <p className="text-xs text-slate-500" data-testid="triage-unavailable">Triage links are not available on this Pulse agent; it needs a newer agent version.</p>
+              <p className="text-xs text-faint" data-testid="triage-unavailable">Triage links are not available on this Pulse agent; it needs a newer agent version.</p>
             )}
             {unhealthyNs && (
               <NamespaceUnhealthyPods namespace={unhealthyNs.namespace} fromAlert={unhealthyNs.alert} clusterId={METRICS_CLUSTER_ID} onClose={() => setUnhealthyNs(null)} go={go} />
@@ -736,7 +736,7 @@ function LocalAlertsView() {
                       <span className="text-sm text-slate-200 font-medium">{rule.name}</span>
                       <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', rule.severity === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300')}>{rule.severity}</span>
                     </div>
-                    <div className="text-xs text-slate-500 font-mono mt-0.5 truncate">{rule.query}</div>
+                    <div className="text-xs text-faint font-mono mt-0.5 truncate">{rule.query}</div>
                   </div>
                   {rule.alertCount > 0 && <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{rule.alertCount} firing</span>}
                 </button>
@@ -861,7 +861,7 @@ function LocalAlertsView() {
                       ))}
                     </div>
                     {silenceForm.startsAt && silenceForm.endsAt && (
-                      <p className="text-xs text-slate-500 mt-2">
+                      <p className="text-xs text-faint mt-2">
                         Ends: {formatTimestamp(silenceForm.endsAt)}
                       </p>
                     )}
@@ -948,7 +948,7 @@ function LocalAlertsView() {
                           </span>
                         ))}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <div className="flex items-center gap-3 text-xs text-faint">
                         <span>By: {silence.createdBy}</span>
                         {silence.status.state === 'pending' && <span>Starts: {formatTimestamp(silence.startsAt)}</span>}
                         <span>{silence.status.state === 'expired' ? 'Ended' : 'Ends'}: {formatTimestamp(silence.endsAt)}</span>
@@ -1045,7 +1045,7 @@ function AlertRow({ item, go, onSilence, triage, suggestion, proposeMinutes, onP
           <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', item.severity === 'critical' ? 'bg-red-900/50 text-red-300' : item.severity === 'warning' ? 'bg-amber-900/50 text-amber-300' : 'bg-blue-900/50 text-blue-300')}>{item.severity}</span>
           <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', item.alert.state === 'firing' ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300')}>{item.alert.state}</span>
           {item.isSilenced && <span className="text-xs px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded-sm flex items-center gap-1"><VolumeX className="w-2.5 h-2.5" /> silenced</span>}
-          {item.firingDuration && <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {item.firingDuration}</span>}
+          {item.firingDuration && <span className="text-xs text-faint flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {item.firingDuration}</span>}
         </div>
 
         {resource && (
@@ -1069,7 +1069,7 @@ function AlertRow({ item, go, onSilence, triage, suggestion, proposeMinutes, onP
           <TriageChip labels={item.alert.labels} state={item.alert.state} triage={triage} go={go} />
         </div>
 
-        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+        <div className="flex items-center gap-3 mt-2 text-xs text-faint">
           <span>{item.group}</span>
           {item.runbookUrl && (
             <a href={item.runbookUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 text-blue-400 hover:text-blue-300">

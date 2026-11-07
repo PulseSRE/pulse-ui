@@ -106,17 +106,17 @@ export function HelmValuesPanel({
               Reuse values of the current release
             </label>
           </div>
-          {reuseUnavailable && <p className="mt-1 text-slate-500">{reuseUnavailable}</p>}
-          {mode === 'reuse' && <p className="mt-1 text-slate-500">The new chart's defaults, then the release's current values, then your overrides (helm --reset-then-reuse-values). Defaults the new chart version changes take effect unless the release set that value.</p>}
-          {mode === 'reset' && <p className="mt-1 text-slate-500">Your overrides replace the release's current values (helm --reset-values); anything not set here falls back to the chart's default.</p>}
+          {reuseUnavailable && <p className="mt-1 text-faint">{reuseUnavailable}</p>}
+          {mode === 'reuse' && <p className="mt-1 text-faint">The new chart's defaults, then the release's current values, then your overrides (helm --reset-then-reuse-values). Defaults the new chart version changes take effect unless the release set that value.</p>}
+          {mode === 'reset' && <p className="mt-1 text-faint">Your overrides replace the release's current values (helm --reset-values); anything not set here falls back to the chart's default.</p>}
         </fieldset>
       )}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <section aria-label="Chart defaults" className="rounded-md border border-slate-800 bg-slate-950/60">
           <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-3 py-2">
             <div>
-              <div className="text-xs font-semibold text-slate-200">Chart defaults <span className="font-mono font-normal text-slate-500">values.yaml</span></div>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-xs font-semibold text-slate-200">Chart defaults <span className="font-mono font-normal text-faint">values.yaml</span></div>
+              <div className="text-[11px] text-faint">
                 {defaults.status === 'ok' ? `read-only · ${formatCount(lines.length)} lines · ${defaults.from}${overridden.size ? ' · lines you override are marked' : ''}` : defaults.status === 'loading' ? 'Loading…' : 'Not available'}
               </div>
             </div>
@@ -129,7 +129,7 @@ export function HelmValuesPanel({
               </label>
             )}
           </div>
-          {defaults.status === 'loading' && <p className="px-3 py-4 text-xs text-slate-500">Loading the chart's values.yaml…</p>}
+          {defaults.status === 'loading' && <p className="px-3 py-4 text-xs text-faint">Loading the chart's values.yaml…</p>}
           {defaults.status === 'error' && (
             <p role="alert" className="px-3 py-4 text-xs text-amber-300" data-testid="chart-defaults-error">
               Chart defaults could not be loaded: {defaults.error}. The preview still renders with them.
@@ -137,9 +137,9 @@ export function HelmValuesPanel({
           )}
           {defaults.status === 'ok' && (
             <pre className="max-h-80 overflow-auto px-0 py-2 text-[11px] leading-5 font-mono" data-testid="chart-defaults">
-              {lines.length === 0 || (lines.length === 1 && !lines[0].trim()) ? <span className="px-3 text-slate-500">The chart sets no default values.</span> : shown.map((l) => (
-                <div key={l.i} className={cn('flex px-3', l.marked ? 'bg-amber-500/10 text-amber-200' : l.text.trimStart().startsWith('#') ? 'text-slate-500' : 'text-slate-300')} data-overridden={l.marked || undefined}>
-                  <span className="mr-3 w-8 shrink-0 select-none text-right text-slate-600">{l.i + 1}</span>
+              {lines.length === 0 || (lines.length === 1 && !lines[0].trim()) ? <span className="px-3 text-faint">The chart sets no default values.</span> : shown.map((l) => (
+                <div key={l.i} className={cn('flex px-3', l.marked ? 'bg-amber-500/10 text-amber-200' : l.text.trimStart().startsWith('#') ? 'text-faint' : 'text-slate-300')} data-overridden={l.marked || undefined}>
+                  <span className="mr-3 w-8 shrink-0 select-none text-right text-faint">{l.i + 1}</span>
                   <span className="whitespace-pre">{l.text || ' '}</span>
                 </div>
               ))}
@@ -148,16 +148,16 @@ export function HelmValuesPanel({
         </section>
         <section aria-label="Your overrides" className="space-y-2">
           <label className="block text-xs text-slate-400">
-            <span className="font-semibold text-slate-200">Override values (YAML)</span> <span className="text-slate-500">merged on top of the {mode === 'reuse' ? "release's current values" : 'defaults'}</span>
+            <span className="font-semibold text-slate-200">Override values (YAML)</span> <span className="text-faint">merged on top of the {mode === 'reuse' ? "release's current values" : 'defaults'}</span>
             <textarea aria-label="Values" value={overrides} onChange={(e) => onOverridesChange(e.target.value)} rows={14} spellCheck={false}
               className="mt-1 w-full rounded-sm border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-200" />
           </label>
           {parseError && <p role="alert" className="text-xs text-red-300">The values are not valid YAML: {parseError}</p>}
           {defaults.status === 'ok' && defaults.defaults.schema && (
             <div className="rounded-md border border-slate-800 p-2 text-xs" data-testid="schema-hints">
-              <div className="mb-1 font-medium text-slate-300">Schema hints <span className="font-normal text-slate-500">from the chart's values.schema.json</span></div>
+              <div className="mb-1 font-medium text-slate-300">Schema hints <span className="font-normal text-faint">from the chart's values.schema.json</span></div>
               {hints.length === 0
-                ? <p className="text-slate-500">{overridden.size ? 'No problems found in the types, allowed values and keys the schema declares. Helm checks the full schema when it renders.' : 'Set a value to check it against the schema.'}</p>
+                ? <p className="text-faint">{overridden.size ? 'No problems found in the types, allowed values and keys the schema declares. Helm checks the full schema when it renders.' : 'Set a value to check it against the schema.'}</p>
                 : <ul className="space-y-1">{hints.map((h) => (
                   <li key={h.path + h.message} className={h.level === 'error' ? 'text-red-300' : 'text-amber-300'}>
                     <span className="font-mono">{h.path || '(root)'}</span> {h.message}
@@ -165,7 +165,7 @@ export function HelmValuesPanel({
                 ))}</ul>}
             </div>
           )}
-          {defaults.status === 'ok' && !defaults.defaults.schema && <p className="text-xs text-slate-500">This chart ships no values.schema.json, so values are checked only when helm renders them.</p>}
+          {defaults.status === 'ok' && !defaults.defaults.schema && <p className="text-xs text-faint">This chart ships no values.schema.json, so values are checked only when helm renders them.</p>}
         </section>
       </div>
     </div>

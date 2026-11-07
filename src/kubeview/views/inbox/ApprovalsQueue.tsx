@@ -61,7 +61,7 @@ export function ApprovalsQueue() {
               <li key={`${run.workflow_id}:${run.phase_id}`} className="flex items-center gap-3 px-3 py-2">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm text-slate-200">{describeAwaiting(run)}</div>
-                  <div className="truncate text-xs text-slate-500">
+                  <div className="truncate text-xs text-faint">
                     {run.workflow_id}
                     {run.phases && Object.keys(run.phases).length > 0 && (
                       <> · done: {Object.entries(run.phases).map(([id, p]) => `${id} ${p.status ?? ''}`.trim()).join(', ')}</>

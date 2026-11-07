@@ -53,7 +53,7 @@ export function DriftTab({ applications, onSync, onRefresh, syncing, go }: Drift
         <div className="text-center">
           <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
           <p className="text-emerald-300 text-sm font-medium">All applications are in sync</p>
-          <p className="text-slate-500 text-xs mt-1">No drift detected between Git and cluster state</p>
+          <p className="text-faint text-xs mt-1">No drift detected between Git and cluster state</p>
         </div>
       </div>
     );
@@ -78,7 +78,7 @@ export function DriftTab({ applications, onSync, onRefresh, syncing, go }: Drift
                 {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
                 <AlertTriangle className="w-4 h-4 text-amber-400" />
                 <span className="text-sm font-medium text-amber-300">{app.metadata.name}</span>
-                <span className="text-xs text-slate-500">{outOfSyncResources.length} out of sync</span>
+                <span className="text-xs text-faint">{outOfSyncResources.length} out of sync</span>
               </div>
               <div className="flex items-center gap-2">
                 <span
@@ -131,7 +131,7 @@ export function DriftTab({ applications, onSync, onRefresh, syncing, go }: Drift
                 })}
                 {/* Synced resources (dimmed) */}
                 {syncedResources.length > 0 && (
-                  <div className="px-4 py-2 text-xs text-slate-600">
+                  <div className="px-4 py-2 text-xs text-faint">
                     {syncedResources.length} synced resource{syncedResources.length !== 1 ? 's' : ''} (hidden)
                   </div>
                 )}
@@ -164,9 +164,9 @@ function ResourceRow({ resource, go, showDiff, onToggleDiff }: {
         <span className={cn('w-1.5 h-1.5 rounded-full shrink-0',
           resource.status === 'OutOfSync' ? 'bg-amber-500' : 'bg-emerald-500'
         )} />
-        <span className="text-xs text-slate-500">{resource.kind}</span>
+        <span className="text-xs text-faint">{resource.kind}</span>
         <span className="text-sm text-slate-300">{resource.name}</span>
-        {resource.namespace && <span className="text-xs text-slate-600">{resource.namespace}</span>}
+        {resource.namespace && <span className="text-xs text-faint">{resource.namespace}</span>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {resource.requiresPruning && (
@@ -181,7 +181,7 @@ function ResourceRow({ resource, go, showDiff, onToggleDiff }: {
           <span className={cn('text-xs',
             resource.health.status === 'Healthy' ? 'text-emerald-400' :
             resource.health.status === 'Degraded' ? 'text-red-400' :
-            'text-slate-500'
+            'text-faint'
           )}>
             {resource.health.status}
           </span>
@@ -193,7 +193,7 @@ function ResourceRow({ resource, go, showDiff, onToggleDiff }: {
               'px-1.5 py-0.5 text-xs rounded-sm flex items-center gap-1 transition-colors',
               showDiff
                 ? 'bg-blue-900/50 text-blue-300'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                : 'text-faint hover:text-slate-300 hover:bg-slate-800'
             )}
             title="View live state"
           >

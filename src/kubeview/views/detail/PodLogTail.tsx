@@ -36,7 +36,7 @@ export function PodLogTail({ namespace, pod, container, previous = false, lines 
     staleTime: 15_000,
   });
   if (q.isLoading) {
-    return <div className="flex items-center gap-2 py-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Loading log…</div>;
+    return <div className="flex items-center gap-2 py-2 text-xs text-faint"><Loader2 className="h-3 w-3 animate-spin" /> Loading log…</div>;
   }
   if (q.isError) {
     if (previous && noPreviousInstance(q.error)) {

@@ -38,7 +38,7 @@ export function SessionAnalyticsSection() {
           <Users className="w-4 h-4 text-sky-400" />
           User Sessions
         </h2>
-        <div className="text-center py-8 text-sm text-slate-500">
+        <div className="text-center py-8 text-sm text-faint">
           No session data yet. User activity will appear once the SessionTracker records page views.
         </div>
       </div>
@@ -68,7 +68,7 @@ export function SessionAnalyticsSection() {
             <Users className="w-4 h-4 text-sky-400" />
             User Sessions
           </h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">How users navigate, where they ask the agent, and what suggestions they click.</p>
+          <p className="text-[11px] text-faint mt-0.5">How users navigate, where they ask the agent, and what suggestions they click.</p>
         </div>
         <div className="flex gap-1">
           {[7, 14, 30].map((d) => (
@@ -112,7 +112,7 @@ export function SessionAnalyticsSection() {
                     <div className="h-full bg-indigo-600/50 rounded-xs" style={{ width: `${(p.views / maxViews) * 100}%` }} />
                   </div>
                   <span className="w-10 text-right text-slate-400">{p.views}</span>
-                  <span className="w-12 text-right text-slate-500 text-[10px]">{p.sessions} sess</span>
+                  <span className="w-12 text-right text-faint text-[10px]">{p.sessions} sess</span>
                 </div>
               ))}
             </div>
@@ -136,7 +136,7 @@ export function SessionAnalyticsSection() {
                       <div className="h-full bg-amber-600/40 rounded-xs" style={{ width: `${(t.avg_seconds / maxSec) * 100}%` }} />
                     </div>
                     <span className="w-12 text-right text-slate-400">{formatDuration(t.avg_seconds)}</span>
-                    <span className="w-8 text-right text-slate-500 text-[10px]">n={t.samples}</span>
+                    <span className="w-8 text-right text-faint text-[10px]">n={t.samples}</span>
                   </div>
                 );
               })}
@@ -154,7 +154,7 @@ export function SessionAnalyticsSection() {
               <Bot className="w-3.5 h-3.5 text-emerald-400" />
               Agent Queries by Page
             </h3>
-            <p className="text-[10px] text-slate-500 mb-3">Where users ask the agent most.</p>
+            <p className="text-[10px] text-faint mb-3">Where users ask the agent most.</p>
             <div className="space-y-1.5">
               {agent_queries_by_page.slice(0, 8).map((q) => (
                 <div key={q.page} className="flex items-center gap-2 text-xs">
@@ -176,7 +176,7 @@ export function SessionAnalyticsSection() {
               <MousePointerClick className="w-3.5 h-3.5 text-sky-400" />
               Top Suggestion Clicks
             </h3>
-            <p className="text-[10px] text-slate-500 mb-3">Follow-up prompts users click most.</p>
+            <p className="text-[10px] text-faint mb-3">Follow-up prompts users click most.</p>
             <div className="space-y-2">
               {top_suggestions.slice(0, 6).map((s, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs">
@@ -195,7 +195,7 @@ export function SessionAnalyticsSection() {
               <Sparkles className="w-3.5 h-3.5 text-fuchsia-400" />
               Feature Usage
             </h3>
-            <p className="text-[10px] text-slate-500 mb-3">Interactive features users engage with.</p>
+            <p className="text-[10px] text-faint mb-3">Interactive features users engage with.</p>
             <div className="space-y-1.5">
               {feature_usage.slice(0, 8).map((f) => (
                 <div key={f.feature} className="flex items-center justify-between text-xs">

@@ -289,7 +289,7 @@ export default function PulseView() {
 
         {/* In fleet mode the posture bar and map describe one cluster; say which. */}
         {fleetMode === 'multi' && (
-          <p className="text-xs text-slate-500" data-testid="pulse-cluster-scope">
+          <p className="text-xs text-faint" data-testid="pulse-cluster-scope">
             Posture and map below: <span className="text-slate-300 font-medium">{activeClusterName}</span> · fleet summary further down
           </p>
         )}
@@ -369,7 +369,7 @@ export default function PulseView() {
               <button
                 onClick={() => setMonitorEnabled(!monitorEnabled)}
                 aria-pressed={monitorEnabled}
-                className={cn('px-2.5 py-1 rounded-sm text-xs', monitorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500')}
+                className={cn('px-2.5 py-1 rounded-sm text-xs', monitorEnabled ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-faint')}
               >
                 {monitorEnabled ? 'Live updates: on' : 'Live updates: paused'}
               </button>

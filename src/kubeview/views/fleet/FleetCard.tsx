@@ -74,12 +74,12 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
         {health && isReachable ? (
           <div className="flex items-end gap-3 mb-3">
             <div className={cn('text-3xl font-bold tabular-nums', health.color)}>{health.score}</div>
-            <div className="text-xs text-slate-500 pb-1">
+            <div className="text-xs text-faint pb-1">
               {health.factors.length > 0 ? health.factors[0].detail : health.grade}
             </div>
           </div>
         ) : (
-          <div className={cn('mb-3 text-sm font-medium', isReachable ? 'text-slate-300' : cluster.status === 'unknown' ? 'text-slate-500' : 'text-red-400')}>
+          <div className={cn('mb-3 text-sm font-medium', isReachable ? 'text-slate-300' : cluster.status === 'unknown' ? 'text-faint' : 'text-red-400')}>
             {connectionLabel}
           </div>
         )}
@@ -88,13 +88,13 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
         {isReachable && (
           <div className={cn('grid gap-2 text-xs', healthInput ? 'grid-cols-3' : 'grid-cols-2')}>
             <div>
-              <div className="text-slate-500">Nodes</div>
+              <div className="text-faint">Nodes</div>
               <div className="font-mono text-slate-300">
                 {healthInput ? `${healthInput.nodeReadyCount}/${healthInput.nodeCount}` : cluster.metadata?.nodeCount || '—'}
               </div>
             </div>
             <div>
-              <div className="text-slate-500">Version</div>
+              <div className="text-faint">Version</div>
               <div className="font-mono text-slate-300 truncate">
                 {cluster.metadata?.version?.replace('v', '') || '—'}
               </div>
@@ -103,7 +103,7 @@ export function FleetCard({ cluster, healthInput, onClick }: FleetCardProps) {
                 looks like a figure the card failed to fetch. */}
             {healthInput && (
               <div>
-                <div className="text-slate-500">Alerts</div>
+                <div className="text-faint">Alerts</div>
                 <div className={cn('font-mono', healthInput.alertCriticalCount > 0 ? 'text-red-400' : 'text-slate-300')}>
                   {healthInput.alertCriticalCount + healthInput.alertWarningCount}
                 </div>

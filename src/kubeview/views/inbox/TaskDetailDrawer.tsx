@@ -103,7 +103,7 @@ function CollapsibleSection({
           <span className="text-xs font-medium text-slate-300 group-hover:text-slate-100 transition-colors">
             {title}
           </span>
-          <p className="text-[10px] text-slate-600 leading-tight">{subtitle}</p>
+          <p className="text-[10px] text-faint leading-tight">{subtitle}</p>
         </div>
       </button>
       {open && <div className="mt-2 ml-5">{children}</div>}
@@ -196,7 +196,7 @@ function ActionPlanSection({
           <Play className="w-3.5 h-3.5" />
           Action Plan
         </div>
-        <p className="text-[10px] text-slate-600 mt-0.5 ml-5">How to fix it</p>
+        <p className="text-[10px] text-faint mt-0.5 ml-5">How to fix it</p>
       </div>
 
       <ol className="space-y-2">
@@ -221,13 +221,13 @@ function ActionPlanSection({
               }`}
             >
               <div className="flex items-start gap-2">
-                <span className="text-xs font-mono text-slate-600 mt-0.5 shrink-0 w-4 text-right">
+                <span className="text-xs font-mono text-faint mt-0.5 shrink-0 w-4 text-right">
                   {idx + 1}.
                 </span>
                 <StepStatusIcon status={status} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-sm font-medium ${isDone ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+                    <span className={`text-sm font-medium ${isDone ? 'text-faint line-through' : 'text-slate-200'}`}>
                       {step.title}
                     </span>
                     <RiskBadge risk={step.risk} />
@@ -239,7 +239,7 @@ function ActionPlanSection({
                       </Tooltip>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">{step.description}</p>
+                  <p className="text-xs text-faint mt-0.5">{step.description}</p>
                 </div>
               </div>
 
@@ -281,7 +281,7 @@ function ActionPlanSection({
         })}
       </ol>
 
-      <div className="text-[10px] text-slate-600 flex items-center gap-1">
+      <div className="text-[10px] text-faint flex items-center gap-1">
         <span>{steps.filter((_, i) => getStatus(i) === 'complete').length}/{steps.length} steps complete</span>
       </div>
     </div>
@@ -356,7 +356,7 @@ function InvestigationCard({ report, securityNotes = [] }: { report: Investigati
       <div className="flex items-center gap-2 text-xs font-medium text-blue-400">
         <Search className="w-3.5 h-3.5" />
         Investigation Results
-        <span className="ml-auto text-slate-500">{confidencePct}% confidence</span>
+        <span className="ml-auto text-faint">{confidencePct}% confidence</span>
       </div>
       <div className="w-full bg-slate-800 rounded-full h-1.5">
         <div
@@ -370,13 +370,13 @@ function InvestigationCard({ report, securityNotes = [] }: { report: Investigati
       )}
       {(report.suspected_cause || report.suspectedCause) && (
         <div className="text-sm">
-          <span className="text-slate-500">Suspected cause: </span>
+          <span className="text-faint">Suspected cause: </span>
           <span className="text-amber-300">{report.suspected_cause || report.suspectedCause}</span>
         </div>
       )}
       {(report.recommended_fix || report.recommendedFix) && (
         <div className="text-sm">
-          <span className="text-slate-500">Recommended: </span>
+          <span className="text-faint">Recommended: </span>
           <span className="text-emerald-300">{report.recommended_fix || report.recommendedFix}</span>
         </div>
       )}
@@ -384,7 +384,7 @@ function InvestigationCard({ report, securityNotes = [] }: { report: Investigati
         <div>
           <button
             onClick={() => setEvidenceOpen(!evidenceOpen)}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-xs text-faint hover:text-slate-300 transition-colors"
           >
             {evidenceOpen ? 'Hide' : 'Show'} evidence ({report.evidence_detail?.length || report.evidence?.length || 0})
           </button>
@@ -658,7 +658,7 @@ export function TaskDetailDrawer({
                 </ul>
               )}
               {blastRadius.score != null && (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-faint">
                   Impact score: <span className="text-amber-300">{String(blastRadius.score)}</span>
                 </div>
               )}
@@ -670,7 +670,7 @@ export function TaskDetailDrawer({
           <p className="text-sm text-slate-400 leading-relaxed">{item.summary}</p>
         )}
 
-        <div className="space-y-2 text-sm text-slate-500">
+        <div className="space-y-2 text-sm text-faint">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
             <span>Created {formatRelative(item.created_at * 1000)}</span>
@@ -691,7 +691,7 @@ export function TaskDetailDrawer({
 
         {item.resources.length > 0 && (
           <div>
-            <h3 className="text-xs font-medium text-slate-500 uppercase mb-2">Resources</h3>
+            <h3 className="text-xs font-medium text-faint uppercase mb-2">Resources</h3>
             <div className="space-y-1">
               {item.resources.map((r, i) => (
                 <div key={i} className="text-sm">
@@ -702,7 +702,7 @@ export function TaskDetailDrawer({
                   >
                     {r.kind}/{r.name}
                   </Link>
-                  {r.namespace && <span className="text-slate-600 ml-1">({r.namespace})</span>}
+                  {r.namespace && <span className="text-faint ml-1">({r.namespace})</span>}
                 </div>
               ))}
             </div>

@@ -116,7 +116,7 @@ describe('CertificatesTab', () => {
     // Summary values
     expect(screen.getByText('3')).toBeDefined(); // total
     expect(screen.getByText('1', { selector: '.text-red-400' })).toBeDefined(); // critical
-    expect(screen.getByText('1', { selector: '.text-yellow-400' })).toBeDefined(); // warning
+    expect(screen.getByText('1', { selector: '.text-amber-400' })).toBeDefined(); // warning
   });
 
   it('renders certificate rows in the table', async () => {

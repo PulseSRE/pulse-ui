@@ -243,7 +243,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">Total Certificates</div>
           <div className="text-xl font-bold text-slate-100">{counts.total}</div>
-          <div className="text-xs text-slate-500 mt-0.5">
+          <div className="text-xs text-faint mt-0.5">
             {Object.entries(issuerCounts).map(([k, v]) => `${v} ${k}`).join(', ') || 'none'}
           </div>
         </Card>
@@ -256,18 +256,18 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
             {counts.critical > 0 && <XCircle className="w-3.5 h-3.5 text-red-500" />}
           </div>
           <div className={cn('text-xl font-bold', counts.critical > 0 ? 'text-red-400' : 'text-slate-100')}>{counts.critical}</div>
-          <div className="text-xs text-slate-500 mt-0.5">expired or expiring soon</div>
+          <div className="text-xs text-faint mt-0.5">expired or expiring soon</div>
         </button>
         <button onClick={() => setStatusFilter(statusFilter === 'warning' ? 'all' : 'warning')}
           className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors',
-            counts.warning > 0 ? 'border-yellow-800 hover:border-yellow-600' : 'border-slate-800',
-            statusFilter === 'warning' && 'ring-1 ring-yellow-500')}>
+            counts.warning > 0 ? 'border-amber-800 hover:border-amber-600' : 'border-slate-800',
+            statusFilter === 'warning' && 'ring-1 ring-amber-500')}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-slate-400">Warning (&le; 30d)</span>
-            {counts.warning > 0 && <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />}
+            {counts.warning > 0 && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
           </div>
-          <div className={cn('text-xl font-bold', counts.warning > 0 ? 'text-yellow-400' : 'text-slate-100')}>{counts.warning}</div>
-          <div className="text-xs text-slate-500 mt-0.5">needs attention</div>
+          <div className={cn('text-xl font-bold', counts.warning > 0 ? 'text-amber-400' : 'text-slate-100')}>{counts.warning}</div>
+          <div className="text-xs text-faint mt-0.5">needs attention</div>
         </button>
         <button onClick={() => setStatusFilter(statusFilter === 'healthy' ? 'all' : 'healthy')}
           className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors',
@@ -278,7 +278,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
             <CheckCircle className="w-3.5 h-3.5 text-green-500" />
           </div>
           <div className="text-xl font-bold text-green-400">{counts.healthy}</div>
-          <div className="text-xs text-slate-500 mt-0.5">valid for more than 30 days</div>
+          <div className="text-xs text-faint mt-0.5">valid for more than 30 days</div>
         </button>
         <button onClick={() => setStatusFilter(statusFilter === 'unknown' ? 'all' : 'unknown')}
           className={cn('bg-slate-900 rounded-lg border p-3 text-left transition-colors',
@@ -288,7 +288,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
             <span className="text-xs text-slate-400">Unknown expiry</span>
           </div>
           <div className="text-xl font-bold text-slate-300">{counts.unknown}</div>
-          <div className="text-xs text-slate-500 mt-0.5">certificate could not be read</div>
+          <div className="text-xs text-faint mt-0.5">certificate could not be read</div>
         </button>
       </MetricGrid>
 
@@ -299,7 +299,7 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
           <input aria-label="Search certificates"
             type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search name, namespace, issuer..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-md text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:border-blue-600"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-md text-slate-200 placeholder:text-faint focus:outline-hidden focus:border-blue-600"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -326,14 +326,14 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
         {sorted.length === 0 ? (
           <div className="text-center py-8">
             <ShieldCheck className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <div className="text-sm text-slate-500">No certificates match the current filters</div>
-            <p className="text-xs text-slate-600 mt-1">Try adjusting your search or showing system certificates.</p>
+            <div className="text-sm text-faint">No certificates match the current filters</div>
+            <p className="text-xs text-faint mt-1">Try adjusting your search or showing system certificates.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-slate-500 border-b border-slate-800">
+                <tr className="text-faint border-b border-slate-800">
                   <th className="py-2 pl-2 pr-1 w-6"></th>
                   <th className="py-2 px-2 text-left font-normal"><SortHeader field="name">Name</SortHeader></th>
                   <th className="py-2 px-2 text-left font-normal"><SortHeader field="namespace">Namespace</SortHeader></th>
@@ -370,11 +370,11 @@ export function CertificatesTab({ go }: { go: (path: string, title: string) => v
                         <span className={cn('font-medium', statusColor(cert.status))}>
                           {formatRelative(cert.daysLeft)}
                         </span>
-                        <span className="text-slate-600 text-xs">{formatDate(cert.expiresAt)}</span>
+                        <span className="text-faint text-xs">{formatDate(cert.expiresAt)}</span>
                       </div>
                     </td>
                     <td className="py-2 px-2">
-                      <span className="text-slate-500">{formatDate(cert.createdAt)}</span>
+                      <span className="text-faint">{formatDate(cert.createdAt)}</span>
                     </td>
                     <td className="py-2 px-2">
                       <CertActions cert={cert} routes={routesBySecret.get(`${cert.namespace}/${cert.name}`) ?? []} go={go} />
@@ -456,7 +456,7 @@ function CertActions({ cert, routes, go }: {
 
 function StatusDot({ status }: { status: CertInfo['status'] }) {
   const cls = status === 'critical' ? 'bg-red-500' :
-    status === 'warning' ? 'bg-yellow-500' :
+    status === 'warning' ? 'bg-amber-500' :
     status === 'healthy' ? 'bg-green-500' : 'bg-slate-600';
   return <span className={cn('inline-block w-2.5 h-2.5 rounded-full', cls)} />;
 }
@@ -478,7 +478,7 @@ function IssuerBadge({ issuer }: { issuer: string }) {
 function statusColor(status: CertInfo['status']): string {
   switch (status) {
     case 'critical': return 'text-red-400';
-    case 'warning': return 'text-yellow-400';
+    case 'warning': return 'text-amber-400';
     case 'healthy': return 'text-green-400';
     default: return 'text-slate-400';
   }

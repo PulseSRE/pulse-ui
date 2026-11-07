@@ -165,7 +165,7 @@ export function InboxPage() {
               folded under it, so the list is not read cause-last. */}
           <EpisodePanel />
           {collapsedIntoEpisodes > 0 && (
-            <p className="px-4 pt-2 text-xs text-slate-500">
+            <p className="px-4 pt-2 text-xs text-faint">
               {collapsedIntoEpisodes} {collapsedIntoEpisodes === 1 ? 'item is' : 'items are'} explained by an
               open episode above and left out of the list below.
             </p>

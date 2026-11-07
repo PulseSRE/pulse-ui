@@ -28,9 +28,9 @@ export function NodeAlerts({ unreadyNodes, pressureNodes = [], go }: NodeAlertsP
         const pressures = [s.pressure.disk && 'Disk', s.pressure.memory && 'Memory', s.pressure.pid && 'PID'].filter(Boolean).join(', ');
         return (
           <button key={n.metadata.uid} onClick={() => go(`/r/v1~nodes/_/${n.metadata.name}`, n.metadata.name)}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-yellow-950/30 border border-yellow-900 rounded-lg hover:bg-yellow-950/50 text-left">
-            <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0" />
-            <div className="flex-1"><span className="text-sm font-medium text-slate-200">{n.metadata.name}</span><span className="text-xs text-yellow-400 ml-2">{pressures} Pressure</span></div>
+            className="w-full flex items-center gap-3 px-4 py-3 bg-amber-950/30 border border-amber-900 rounded-lg hover:bg-amber-950/50 text-left">
+            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+            <div className="flex-1"><span className="text-sm font-medium text-slate-200">{n.metadata.name}</span><span className="text-xs text-amber-400 ml-2">{pressures} Pressure</span></div>
             <ArrowRight className="w-4 h-4 text-slate-600" />
           </button>
         );
