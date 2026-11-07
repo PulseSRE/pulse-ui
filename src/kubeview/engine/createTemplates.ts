@@ -1,5 +1,5 @@
 /**
- * Prefilled manifests for the YAML create flow (`/create/<gvr>?template=<id>&namespace=<ns>`).
+ * Prefilled manifests for the YAML create flow (`/create/<gvr>?template=<id>&ns=<ns>`).
  *
  * Screens that find a gap — a namespace with no NetworkPolicy, no quota, an
  * alert rule to write — link here so the user starts from a reviewed,

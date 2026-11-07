@@ -151,7 +151,7 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
 
   // /create/<gvr> goes straight to that kind's editor; the hub opens on its tabs.
   useMemo(() => {
-    // `?template=<id>&namespace=<ns>`: a reviewed manifest prefilled for that namespace.
+    // `?template=<id>&ns=<ns>`: a reviewed manifest prefilled for that namespace.
     const templated = renderCreateTemplate(searchParams.get('template'), selectedNamespace);
     if (templated) {
       setYaml(templated);
