@@ -5,7 +5,7 @@
  * blast radius is the agent's own list, so it matches the count shown.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
@@ -94,6 +94,19 @@ describe('/deps redirects to /topology', () => {
   it('says when the resource is not in the graph', async () => {
     renderAt('/topology?namespace=shop&focus=Deployment%2Fshop%2Fgone');
     expect(await screen.findByText(/Deployment\/gone is not in the dependency graph for shop/)).toBeDefined();
+  });
+
+  it('the not-in-graph state is the one NotFound, naming the cluster, with real ways out', async () => {
+    renderAt('/topology?namespace=shop&focus=Deployment%2Fshop%2Fgone');
+    const nf = await screen.findByTestId('not-found');
+    expect(nf.parentElement!.getAttribute('role')).toBe('status');
+    expect(nf.textContent).toMatch(/Looked on cluster Local Cluster/);
+    expect(screen.getByRole('link', { name: 'Open Deployment gone' }).getAttribute('href')).toBe('/r/apps~v1~deployments/shop/gone');
+    const all = screen.getByRole('link', { name: 'Show all of shop' });
+    // Dropping the focus keeps the namespace scope.
+    expect(all.getAttribute('href')).toBe('/topology?ns=shop');
+    fireEvent.click(all);
+    await waitFor(() => expect(screen.queryByTestId('not-found')).toBeNull());
   });
 
   it.each([

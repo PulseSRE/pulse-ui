@@ -45,7 +45,8 @@ export interface ReadErrorDescription {
 const HTML_AS_JSON = /Unexpected token '?<'?|"<!DOCTYPE|<html/i;
 const NETWORK_MESSAGE = /Failed to fetch|NetworkError|Load failed|ECONNREFUSED|network request failed/i;
 
-function statusOf(e: unknown): number | undefined {
+/** The HTTP status a failed read carries (`statusCode` on PulseError, `status` on agent/Prometheus errors). */
+export function readErrorStatus(e: unknown): number | undefined {
   if (typeof e !== 'object' || e === null) return undefined;
   const o = e as { statusCode?: unknown; status?: unknown };
   if (typeof o.statusCode === 'number') return o.statusCode;
@@ -80,7 +81,7 @@ export function describeReadError(e: unknown): ReadErrorDescription {
   if (e instanceof TypeError && NETWORK_MESSAGE.test(raw)) {
     return withDetail('Could not reach the server — check the connection', raw);
   }
-  const status = statusOf(e);
+  const status = readErrorStatus(e);
   if (status === 401) return withDetail('Your session has expired — sign in again', raw);
   // Keep the server's text in view: Kubernetes says exactly what was forbidden.
   if (status === 403) {
@@ -90,4 +91,15 @@ export function describeReadError(e: unknown): ReadErrorDescription {
   if (status === 404) return withDetail('Not found — it may have been deleted', raw);
   if (status !== undefined && status >= 500) return withDetail(`The server returned an error (status ${status})`, raw);
   return { reason: raw };
+}
+
+/**
+ * True when a failed read means "there is no such thing" (404, or 410 Gone),
+ * so the page should say what was not found and offer a way out. Every other
+ * failure (403, 500, network, timeout) is not an answer about existence and
+ * stays a LoadError with Retry.
+ */
+export function isNotFoundError(e: unknown): boolean {
+  const status = readErrorStatus(e);
+  return status === 404 || status === 410;
 }

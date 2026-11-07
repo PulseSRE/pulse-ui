@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { PageHeader } from '../components/primitives/PageHeader';
+import { NotFound, onCluster } from '../components/primitives/NotFound';
+import { useNavigateTab } from '../hooks/useNavigateTab';
+import { resourceDetailUrl } from '../engine/gvr';
 import { useSearchParams } from 'react-router-dom';
 import { parseTopologyFocus, topologyNodeMatches } from '../engine/topologyLinks';
 import { useFleetStore } from '../store/fleetStore';
@@ -87,7 +90,8 @@ export default function TopologyView() {
   // `?ns=` (the shared namespace scope; old links say `?namespace=`) and
   // `?focus=Kind/ns/name` open the graph on one resource (a resource's
   // "Dependencies" action and old /deps links land here).
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const go = useNavigateTab();
   const focus = useMemo(() => parseTopologyFocus(searchParams.get('focus')), [searchParams]);
   const { namespace: scope, setNamespace: setScope } = useNamespaceScope();
   const selectedNamespace = scope === '*' ? '' : scope;
@@ -141,6 +145,15 @@ export default function TopologyView() {
   // Drawing every namespace at once is unreadable (and slow); past this many
   // nodes the unscoped graph asks for a namespace instead.
   const tooManyToDraw = !selectedNamespace && (data?.nodes.length ?? 0) > TOPOLOGY_DRAW_LIMIT;
+  const focusDetail = focus ? resourceDetailUrl({ kind: focus.kind, metadata: { name: focus.name, namespace: focus.namespace || undefined } }) : '';
+  const unfocusedParams = () => {
+    const p = new URLSearchParams(searchParams);
+    p.delete('focus');
+    return p;
+  };
+  const unfocusedQuery = unfocusedParams().toString();
+  // Keeps `?ns=`, so "Show all of <ns>" stays in the scoped namespace.
+  const unfocused = unfocusedQuery ? `/topology?${unfocusedQuery}` : '/topology';
 
   const topology = data ?? { nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } };
 
@@ -247,8 +260,19 @@ export default function TopologyView() {
         />
 
         {focusMissing && focus && (
-          <div role="status" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400">
-            {focus.kind}/{focus.name} is not in the dependency graph{focus.namespace ? ` for ${focus.namespace}` : ''} yet. The graph is rebuilt on each monitor scan.
+          <div role="status">
+            <NotFound
+              variant="inline"
+              what={`${focus.kind} ${focus.name}`}
+              // Not in the graph is not the same as not on the cluster.
+              title={`${focus.kind}/${focus.name} is not in the dependency graph${focus.namespace ? ` for ${focus.namespace}` : ''}`}
+              where={onCluster(activeClusterId)}
+              reason="The graph is rebuilt on each monitor scan, so a resource created in the last few minutes may not be in it yet."
+              actions={[
+                { label: `Open ${focus.kind} ${focus.name}`, href: focusDetail, onClick: () => go(focusDetail, focus.name) },
+                { label: focus.namespace ? `Show all of ${focus.namespace}` : 'Show the whole graph', href: unfocused, onClick: () => setSearchParams(unfocusedParams()) },
+              ]}
+            />
           </div>
         )}
 
