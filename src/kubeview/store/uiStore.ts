@@ -593,16 +593,21 @@ export const useUIStore = create<UIState>()(
         const stamp = nextActivation();
         const stamped = tabs.map((t) => (t.id === activeTabId ? { ...t, lastActive: stamp } : t));
         // A reload starts on the local cluster. A scope saved on another
-        // cluster (or by a version that did not record one) names that
-        // cluster's namespaces: drop it, from the tabs and the URL too.
+        // cluster names that cluster's namespaces: drop it, from the tabs and
+        // the URL too. A profile that never bound a cluster (never picked a
+        // namespace, or saved by a version that did not record one) is not
+        // another cluster's: its ?ns= links and tabs are kept, but a namespace
+        // it saved is dropped, since nothing says which cluster it was for.
         const saved = persisted as Partial<Pick<UIState, 'selectedNamespace' | 'scopeClusterId'>>;
-        const scopeMatches = saved.scopeClusterId === getActiveClusterId();
+        const sameCluster = !!saved.scopeClusterId && saved.scopeClusterId === getActiveClusterId();
+        const unbound = !saved.scopeClusterId;
+        const scopeMatches = unbound || sameCluster;
         if (!scopeMatches) stripNamespaceScopeFromWindow();
         return {
           ...current,
           ...persistedState,
           ...(startsOnPhone() ? { aiSidebarExpanded: false } : {}),
-          selectedNamespace: scopeMatches ? saved.selectedNamespace ?? '*' : '*',
+          selectedNamespace: sameCluster ? saved.selectedNamespace ?? '*' : '*',
           scopeClusterId: getActiveClusterId(),
           tabs: capTabs(scopeMatches ? stamped : dropTabScopes(stamped, activeTabId), activeTabId),
           activeTabId,
