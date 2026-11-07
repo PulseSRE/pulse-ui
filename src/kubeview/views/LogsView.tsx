@@ -1,8 +1,8 @@
 import { useActiveClusterId } from '../hooks/useClusterBase';
 import { k8sFetch, k8sGet } from '../engine/query';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { FileX } from 'lucide-react';
 import LogStream from '../components/logs/LogStream';
@@ -12,6 +12,11 @@ import { EmptyState } from '../components/primitives/EmptyState';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useFleetStore } from '../store/fleetStore';
 import { LoadError } from '../components/primitives/LoadError';
+import { SubpageHeader } from '../components/primitives/SubpageHeader';
+import { ReadFailure, onCluster } from '../components/primitives/NotFound';
+import { useNavigateTab } from '../hooks/useNavigateTab';
+import { gvrUrlForKind } from '../engine/gvr';
+import { detailPath, kindInSentence, listPath } from '../engine/subpageLinks';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { TONE_CLASSES } from '../engine/statusColors';
 
@@ -50,6 +55,7 @@ export default function LogsView({ namespace, podName }: LogsViewProps) {
 // --- Build logs (OpenShift Build API) ---
 function BuildLogsView({ namespace, buildName }: { namespace: string; buildName: string }) {
   const clusterId = useActiveClusterId();
+  const go = useNavigateTab();
   const { data: logText, isLoading, error, refetch } = useQuery({
     queryKey: ['build-log', namespace, buildName, clusterId],
     queryFn: async () => {
@@ -62,12 +68,13 @@ function BuildLogsView({ namespace, buildName }: { namespace: string; buildName:
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2">
-        <span className="text-sm text-slate-400">Build Logs</span>
-        <span className="text-sm font-medium">{buildName}</span>
-        <span className="text-xs px-2 py-0.5 bg-orange-900/50 text-orange-300 rounded-sm">Build</span>
-        <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
-      </div>
+      <SubpageHeader
+        subpage="Logs"
+        resource={{ gvrUrl: 'build.openshift.io~v1~builds', kind: 'Build', namespace, name: buildName }}
+        go={go}
+        clusterId={clusterId}
+        title={`Build logs: ${buildName}`}
+      />
       <div className="flex-1 overflow-auto bg-slate-950 p-4 font-mono text-xs text-slate-300">
         {isLoading && <div className="text-slate-500">Loading build logs...</div>}
         {error && <LoadError title={`Could not load logs for build ${buildName}`} error={error} onRetry={() => { void refetch(); }} className="font-sans" />}
@@ -82,8 +89,10 @@ function BuildLogsView({ namespace, buildName }: { namespace: string; buildName:
 function WorkloadLogsView({ namespace, name, selector, kind }: {
   namespace: string; name: string; selector: string; kind: string;
 }) {
-  const navigate = useNavigate();
+  const go = useNavigateTab();
   const clusterId = useActiveClusterId();
+  const gvrUrl = gvrUrlForKind(kind);
+  const parentPath = detailPath(gvrUrl, namespace, name);
   const [selectedPod, setSelectedPod] = useState<string | null>(null);
 
   // Watch pods by label selector
@@ -93,8 +102,17 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
   });
   const pods = data ?? [];
 
+  const header = (meta?: React.ReactNode) => (
+    <SubpageHeader subpage="Logs" resource={{ gvrUrl, kind, namespace, name }} go={go} clusterId={clusterId} meta={meta} />
+  );
+
   if (isLoading) {
-    return <div className="flex items-center justify-center h-full"><div className="kv-skeleton w-12 h-12 rounded-full" /></div>;
+    return (
+      <div className="h-full flex flex-col">
+        {header()}
+        <div className="flex-1 flex items-center justify-center" role="status" aria-label="Loading pods"><div className="kv-skeleton w-12 h-12 rounded-full" /></div>
+      </div>
+    );
   }
 
   // A failed or forbidden pod list is not "No pods found". Only when there is
@@ -102,8 +120,11 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
   // already shown keeps the logs on screen with the error above them.
   if (isError && !data) {
     return (
-      <div className="p-6">
-        <LoadError title={`Could not list the pods of ${kind} ${name}`} error={error} onRetry={() => { void refetch(); }} />
+      <div className="h-full flex flex-col">
+        {header()}
+        <div className="p-6">
+          <LoadError title={`Could not list the pods of ${kind} ${name}`} error={error} onRetry={() => { void refetch(); }} />
+        </div>
       </div>
     );
   }
@@ -112,13 +133,7 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-slate-400">Logs</span>
-        <span className="text-sm font-medium">{name}</span>
-        <span className="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded-sm">{kind}</span>
-        <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
-        <span className="text-xs text-slate-500 ml-auto">{podNames.length} pod{podNames.length !== 1 ? 's' : ''}</span>
-      </div>
+      {header(<span className="text-slate-400">{podNames.length} pod{podNames.length !== 1 ? 's' : ''}</span>)}
 
       {isError && (
         <LoadError
@@ -164,7 +179,7 @@ function WorkloadLogsView({ namespace, name, selector, kind }: {
               icon={<FileX className="w-8 h-8" />}
               title="No pods found"
               description="No pods match the label selector for this workload. The workload may be scaled to zero, or the label selector may not match any running pods. Check the replica count and selector labels."
-              action={{ label: 'Back to workload', onClick: () => navigate(-1) }}
+              action={{ label: `Back to ${kindInSentence(kind)} ${name}`, onClick: () => go(parentPath, name) }}
               className="h-full"
             />
           )}
@@ -201,6 +216,7 @@ export function podLogContainers(pod: Record<string, any> | undefined): Containe
 
 function PodLogsView({ namespace, podName }: { namespace: string; podName: string }) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
+  const go = useNavigateTab();
   const [previous, setPrevious] = useState(false);
   const { data: pod, isLoading, error, refetch } = useQuery({
     queryKey: ['pod', clusterId, namespace, podName],
@@ -210,16 +226,44 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
   const containers = podLogContainers(pod);
   const restarts = ((pod?.status?.containerStatuses || []) as Array<{ restartCount?: number }>).reduce((n, c) => n + (c.restartCount || 0), 0);
 
+  const header = (actions?: React.ReactNode) => (
+    <SubpageHeader subpage="Logs" resource={{ gvrUrl: 'v1~pods', kind: 'Pod', namespace, name: podName }} go={go} clusterId={clusterId} actions={actions} />
+  );
+
   if (isLoading) {
-    return <div className="flex items-center justify-center h-full"><div className="kv-skeleton w-12 h-12 rounded-full" /></div>;
+    return (
+      <div className="h-full flex flex-col">
+        {header()}
+        <div className="flex-1 flex items-center justify-center" role="status" aria-label={`Loading pod ${podName}`}><div className="kv-skeleton w-12 h-12 rounded-full" /></div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-6"><LoadError title={`Could not load pod ${podName}`} error={error} onRetry={() => refetch()} /></div>;
+    const pods = listPath('v1~pods', namespace);
+    return (
+      <div className="h-full flex flex-col">
+        {header()}
+        <div className="p-6">
+          <ReadFailure
+            error={error}
+            title={`Could not load pod ${podName}`}
+            onRetry={() => { void refetch(); }}
+            notFound={{
+              what: `Pod ${podName}`,
+              where: `${onCluster(clusterId)} in namespace ${namespace}`,
+              reason: 'It may have been deleted, or replaced by a pod with a new name.',
+              variant: 'inline',
+              actions: [{ label: `Go to pods in ${namespace}`, href: pods, onClick: () => go(pods, `Pods (${namespace})`) }],
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   const previousToggle = (
-    <label className="ml-auto flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer" title="Logs from the container instance before its last restart">
+    <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer" title="Logs from the container instance before its last restart">
       <input type="checkbox" checked={previous} onChange={(e) => setPrevious(e.target.checked)} className="rounded-sm border-slate-600" />
       Previous instance{restarts > 0 ? ` (${restarts} restart${restarts === 1 ? '' : 's'})` : ''}
     </label>
@@ -228,12 +272,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
   if (containers.length <= 1) {
     return (
       <div className="h-full flex flex-col">
-        <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2">
-          <span className="text-sm text-slate-400">Logs</span>
-          <span className="text-sm font-medium">{podName}</span>
-          <span className="text-xs px-2 py-0.5 bg-slate-700 rounded-sm text-slate-300">{namespace}</span>
-          {previousToggle}
-        </div>
+        {header(previousToggle)}
         <div className="flex-1 overflow-hidden">
           <LogStream key={String(previous)} namespace={namespace} podName={podName} containerName={containers[0]?.name} previous={previous} clusterId={clusterId} />
         </div>
@@ -243,7 +282,7 @@ function PodLogsView({ namespace, podName }: { namespace: string; podName: strin
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-4 py-1.5 border-b border-slate-700 flex items-center">{previousToggle}</div>
+      {header(previousToggle)}
       <div className="flex-1 overflow-hidden">
         <MultiContainerLogs namespace={namespace} podName={podName} containers={containers} previous={previous} clusterId={clusterId} />
       </div>

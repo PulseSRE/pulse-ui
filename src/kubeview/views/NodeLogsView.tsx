@@ -2,12 +2,13 @@ import { useActiveClusterId } from '../hooks/useClusterBase';
 import { k8sFetch } from '../engine/query';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Search, Download, RefreshCw, FileText, Shield, Server, Box } from 'lucide-react';
+import { Search, Download, RefreshCw, FileText, Shield, Server, Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { LoadError } from '../components/primitives/LoadError';
+import { SubpageHeader } from '../components/primitives/SubpageHeader';
 import { errorReason } from '../engine/readResult';
 
 
@@ -143,25 +144,21 @@ export default function NodeLogsView() {
 
   return (
     <div className="flex flex-col h-full bg-slate-950">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={() => go(`/r/v1~nodes/_/${name}`, name)} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Back to node">
-            <ArrowLeft size={16} />
+      <SubpageHeader
+        subpage="Node logs"
+        resource={{ gvrUrl: 'v1~nodes', kind: 'Node', name }}
+        go={go}
+        clusterId={clusterId}
+        icon={<Server className="w-5 h-5 text-slate-400" />}
+        actions={<>
+          <button onClick={handleRefresh} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" title="Refresh" aria-label="Refresh">
+            <RefreshCw className="w-4 h-4" aria-hidden="true" />
           </button>
-          <Server className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-medium text-slate-200">Node Logs</span>
-          <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{name}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleRefresh} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" title="Refresh">
-            <RefreshCw className="w-4 h-4" />
+          <button onClick={handleDownload} disabled={!logContent || !!logError} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Download" aria-label="Download">
+            <Download className="w-4 h-4" aria-hidden="true" />
           </button>
-          <button onClick={handleDownload} disabled={!logContent || !!logError} className="p-1.5 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Download">
-            <Download className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* Source tabs */}
       <Tabs value={activeSource} onValueChange={(v) => setActiveSource(v as LogSource)} className="flex-1 flex flex-col overflow-hidden">
