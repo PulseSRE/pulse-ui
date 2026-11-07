@@ -63,6 +63,9 @@ vi.mock('../MarkdownRenderer', () => ({
   MarkdownRenderer: ({ content }: any) => <div>{content}</div>,
 }));
 
+// The card's permission check (useCanI) only covers workload/node tools; silences are not checked.
+vi.mock('../../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: true, isLoading: false }) }));
+
 import { ConfirmationCard } from '../ConfirmationCard';
 
 afterEach(() => cleanup());
