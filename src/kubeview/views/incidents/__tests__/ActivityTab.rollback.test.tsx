@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -96,26 +97,26 @@ describe('ActivityTab rollback', () => {
 
   it('shows a Rollback button on completed fixes with rollbackAvailable', () => {
     _monitorState.fixHistory = [makeAction()];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
     expect(screen.getByText('Rollback')).toBeDefined();
   });
 
   it('hides the Rollback button when rollback is not available', () => {
     _monitorState.fixHistory = [makeAction({ rollbackAvailable: false })];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
     expect(screen.queryByText('Rollback')).toBeNull();
   });
 
   it('hides the Rollback button for non-completed actions', () => {
     _monitorState.fixHistory = [makeAction({ status: 'failed' })];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
     expect(screen.queryByText('Rollback')).toBeNull();
   });
 
   it('confirms, calls the rollback endpoint, and refreshes the list', async () => {
     _monitorState.fixHistory = [makeAction()];
     requestRollback.mockResolvedValue(undefined);
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
 
     fireEvent.click(screen.getByText('Rollback'));
     expect(screen.getByText('Roll back this fix?')).toBeDefined();
@@ -136,7 +137,7 @@ describe('ActivityTab rollback', () => {
 
   it('does not call the endpoint when the dialog is cancelled', () => {
     _monitorState.fixHistory = [makeAction()];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
 
     fireEvent.click(screen.getByText('Rollback'));
     fireEvent.click(screen.getByText('Cancel'));
@@ -148,7 +149,7 @@ describe('ActivityTab rollback', () => {
   it('surfaces the agent error in the dialog on failure', async () => {
     _monitorState.fixHistory = [makeAction()];
     requestRollback.mockRejectedValue(new Error('No rollback strategy for delete_pod actions'));
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
 
     fireEvent.click(screen.getByText('Rollback'));
     fireEvent.click(screen.getByText('Roll back'));
@@ -167,7 +168,7 @@ describe('ActivityTab is agent activity only', () => {
 
   it('does not rebuild the event timeline; it links to /timeline', () => {
     _monitorState.fixHistory = [makeAction()];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
     expect(screen.queryByRole('radiogroup', { name: 'View mode' })).toBeNull();
     expect(screen.getByText('1 agent action')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: /are on Timeline/ }));
@@ -176,7 +177,7 @@ describe('ActivityTab is agent activity only', () => {
 
   it('says so when the agent has taken no action', () => {
     _monitorState.fixHistory = [];
-    render(<ActivityTab />);
+    render(<MemoryRouter><ActivityTab /></MemoryRouter>);
     expect(screen.getByText('No agent actions')).toBeDefined();
   });
 });
