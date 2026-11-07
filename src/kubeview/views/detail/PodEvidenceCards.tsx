@@ -54,8 +54,8 @@ export function MemoryCard({ pod, revisions }: { pod: K8sResource; revisions?: A
         <span className="ml-auto text-xs text-slate-400">working set vs limit</span>
       </div>
       {remote && <RemoteMetricsNotice what="Memory metrics" compact />}
-      {!remote && q.isLoading && <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Loading…</p>}
-      {!remote && q.isError && <LoadError title="Memory could not be loaded" error={q.error} onRetry={() => q.refetch()} />}
+      {!remote && q.isLoading && <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</p>}
+      {!remote && q.isError && <LoadError title="Could not load metrics" error={q.error} onRetry={() => q.refetch()} />}
       {!remote && q.data && series.length === 0 && <p className="text-xs text-slate-400">No memory samples for this pod in the last 6h.</p>}
       {!remote && series.length > 0 && (
         <MetricsChart

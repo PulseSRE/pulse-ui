@@ -147,6 +147,20 @@ describe('RolloutHistory', () => {
     expect(k8sPatchMock.mock.calls[0][1][2]).toEqual({ op: 'add', path: '/metadata/annotations/kubernetes.io~1change-cause', value: 'pin to 1.1' });
   });
 
+  it('a Helm-owned Deployment: the rollback confirm says Helm reverts it and offers the release rollback', async () => {
+    k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1')]);
+    const owned = deployment();
+    (owned.metadata as Record<string, unknown>).labels = { 'app.kubernetes.io/managed-by': 'Helm' };
+    (owned.metadata as Record<string, unknown>).annotations = { 'deployment.kubernetes.io/revision': '2', 'meta.helm.sh/release-name': 'api', 'meta.helm.sh/release-namespace': 'prod' };
+    render(<RolloutHistory resource={owned as any} namespace="prod" />, { wrapper });
+    fireEvent.click(await screen.findByRole('button', { name: 'Revision 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back to revision 1' }));
+    expect(screen.getByTestId('helm-rollback-note').textContent).toMatch(/managed by Helm release api in prod\. A rollback here is reverted by Helm/);
+    expect(screen.getByRole('button', { name: 'Roll back the release…' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Roll back the Deployment anyway' })).toBeDefined();
+    expect(k8sPatchMock).not.toHaveBeenCalled();
+  });
+
   it('refuses to roll back a paused Deployment and says why', async () => {
     k8sListMock.mockResolvedValue([rs(2, 'reg/api:1.2'), rs(1, 'reg/api:1.1')]);
     const paused = deployment();

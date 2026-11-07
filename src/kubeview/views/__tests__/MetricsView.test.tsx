@@ -86,20 +86,20 @@ describe('MetricsView', () => {
     expect(screen.getByText('Memory Usage')).toBeDefined();
   });
 
-  it('shows a load error with retry, not "No data available", when Prometheus fails', async () => {
+  it('shows a load error with retry, not "No data for this period", when Prometheus fails', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 503 })));
     mockMetricQueries = [{ id: 'cpu', title: 'CPU Usage', query: 'cpu', yAxisLabel: 'cores', yAxisFormat: 'number' }];
     renderView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'nginx' });
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Failed to fetch metrics'));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Could not load metrics'));
     expect(screen.getByRole('alert').textContent).toMatch(/503/);
-    expect(screen.queryByText('No data available')).toBeNull();
+    expect(screen.queryByText('No data for this period')).toBeNull();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
   });
 
-  it('still says "No data available" for a successful empty result', async () => {
+  it('still says "No data for this period" for a successful empty result', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ status: 'success', data: { result: [] } }), { status: 200 })));
     mockMetricQueries = [{ id: 'cpu', title: 'CPU Usage', query: 'cpu', yAxisLabel: 'cores', yAxisFormat: 'number' }];
     renderView({ gvrKey: 'apps/v1/deployments', namespace: 'default', name: 'nginx' });
-    await waitFor(() => expect(screen.getByText('No data available')).toBeDefined());
+    await waitFor(() => expect(screen.getByText('No data for this period')).toBeDefined());
   });
 });

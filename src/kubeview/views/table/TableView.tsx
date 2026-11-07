@@ -18,6 +18,8 @@ import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 import { TableToolbar } from './TableToolbar';
 import { TableBody } from './TableBody';
 import { useTableActions } from './TableActions';
+import { DeleteRelatedDialog } from '../../components/workloads/DeleteRelatedDialog';
+import { DELETE_WITH_RELATED_KINDS } from '../../components/workloads/WorkloadActionMenu';
 import type { K8sResource } from '../../engine/renderers';
 
 interface TableViewProps {
@@ -275,7 +277,11 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   // --- Keyboard navigation ---
   React.useEffect(() => {
     function handler(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
+      // Keys typed into a field, or Enter/Space on a focused button or link,
+      // belong to that control, not to row navigation.
+      const target = e.target as HTMLElement;
+      if (target.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return;
+      if ((e.key === 'Enter' || e.key === ' ') && target.closest?.('button, a')) return;
 
       const maxRow = paginatedResources.length - 1;
 
@@ -357,12 +363,19 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     });
   };
 
+  // "Select all" acts on the rows on this page only, matching what its checkbox
+  // shows: every row here selected -> unselect them; otherwise select them.
+  // Selections on other pages are kept either way.
   const handleSelectAll = () => {
-    if (selectedRows.size === paginatedResources.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(paginatedResources.map((r) => r.metadata.uid || '')));
-    }
+    const pageUids = paginatedResources.map((r) => r.metadata.uid || '');
+    setSelectedRows((prev) => {
+      const allOnPage = pageUids.length > 0 && pageUids.every((uid) => prev.has(uid));
+      const next = new Set(prev);
+      for (const uid of pageUids) {
+        if (allOnPage) next.delete(uid); else next.add(uid);
+      }
+      return next;
+    });
   };
 
   const handleRowClick = React.useCallback((resource: K8sResource, e: React.MouseEvent) => {
@@ -392,6 +405,40 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
     selectedRows,
     setSelectedRows,
   });
+
+  // Deployments, StatefulSets and DaemonSets delete through the related-objects
+  // dialog, one workload at a time (also for a bulk selection).
+  const [relatedQueue, setRelatedQueue] = React.useState<{ items: K8sResource[]; total: number } | null>(null);
+  const queueDeleted = React.useRef<string[]>([]);
+  const addToast = useUIStore((s) => s.addToast);
+  const withRelated = (r: K8sResource | undefined) => !!r && DELETE_WITH_RELATED_KINDS.has(r.kind) && !!r.metadata.namespace;
+  const bulkDelete = () => {
+    const picked = sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
+    if (picked.length > 0 && picked.every(withRelated)) { queueDeleted.current = []; setRelatedQueue({ items: picked, total: picked.length }); }
+    else actions.setShowBulkDeleteConfirm(true);
+  };
+  const queueSummary = (total: number, stopped: boolean) => {
+    const done = queueDeleted.current;
+    if (total < 2) return;
+    addToast({
+      type: done.length ? 'success' : 'warning',
+      title: `Deleted ${done.length} of ${total} selected workload${total === 1 ? '' : 's'}${stopped ? ' (stopped)' : ''}`,
+      detail: done.length ? done.join(', ') : undefined,
+    });
+  };
+  // After a dialog ran: on to the next selected workload, or a summary at the end.
+  const nextInQueue = () => {
+    const q = relatedQueue;
+    if (!q) return;
+    if (q.items.length > 1) setRelatedQueue({ ...q, items: q.items.slice(1) });
+    else { setRelatedQueue(null); queueSummary(q.total, false); }
+  };
+  // Cancel, Escape or X: stop the whole queue.
+  const cancelQueue = () => {
+    const q = relatedQueue;
+    setRelatedQueue(null);
+    if (q) queueSummary(q.total, true);
+  };
 
   // --- Error state ---
   if (error) {
@@ -459,7 +506,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         onToggleColumnPicker={() => setShowColumnPicker(!showColumnPicker)}
         selectedCount={selectedRows.size}
         canDelete={canDelete}
-        onBulkDelete={() => actions.setShowBulkDeleteConfirm(true)}
+        onBulkDelete={bulkDelete}
         canCreate={canCreate}
         onCreate={handleCreate}
         showExport={actions.showExport}
@@ -523,8 +570,33 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         />
       )}
 
+      {/* Delete with related objects (row trash on a Deployment/StatefulSet/DaemonSet) */}
+      {actions.pendingDelete && withRelated(actions.pendingDelete.resource) && (
+        <DeleteRelatedDialog
+          workload={actions.pendingDelete.resource}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          onClose={() => actions.setPendingDelete(null)}
+          onDeleted={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] })}
+        />
+      )}
+      {relatedQueue && (
+        <DeleteRelatedDialog
+          key={relatedQueue.items[0].metadata.uid ?? relatedQueue.items[0].metadata.name}
+          workload={relatedQueue.items[0]}
+          workloadRbac={{ group: resourceGroup, plural: resourcePlural }}
+          queueNote={relatedQueue.total > 1 ? `${relatedQueue.total - relatedQueue.items.length + 1} of ${relatedQueue.total} selected` : undefined}
+          onClose={nextInQueue}
+          onCancel={cancelQueue}
+          onDeleted={() => {
+            queueDeleted.current.push(relatedQueue.items[0].metadata.name);
+            queryClient.invalidateQueries({ queryKey: ['k8s', 'list'] });
+            setSelectedRows(new Set());
+          }}
+        />
+      )}
+
       {/* Single Delete Confirmation */}
-      {actions.pendingDelete && (
+      {actions.pendingDelete && !withRelated(actions.pendingDelete.resource) && (
         <ConfirmDialog
           open={!!actions.pendingDelete}
           title={`Delete ${actions.pendingDelete.resource.kind}`}
@@ -595,8 +667,9 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       {sortedResources.length > 0 && (
         <div className="border-t border-slate-800 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Rows per page:</span>
+            <label htmlFor="resource-table-per-page" className="text-xs text-slate-500">Rows per page:</label>
             <select
+              id="resource-table-per-page"
               value={perPage}
               onChange={(e) => {
                 setPerPage(Number(e.target.value));

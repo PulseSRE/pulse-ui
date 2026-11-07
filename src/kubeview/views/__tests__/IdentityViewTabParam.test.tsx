@@ -15,16 +15,16 @@ const selected = (name: RegExp) => screen.getByRole('tab', { name }).getAttribut
 describe('IdentityView tab in the URL', () => {
   afterEach(cleanup);
 
-  it('opens RBAC from a deep link', () => {
+  it('opens Access review (?tab=rbac) from a deep link', () => {
     renderRouted(<IdentityView />, '/identity?tab=rbac');
-    expect(selected(/^RBAC$/)).toBe('true');
+    expect(selected(/^Access review$/)).toBe('true');
   });
 
   it('switches on a same-page ?tab= link and on Back', async () => {
     const page = renderRouted(<IdentityView />, '/identity');
     expect(selected(/^Users$/)).toBe('true');
     await page.go('/identity?tab=rbac');
-    expect(selected(/^RBAC$/)).toBe('true');
+    expect(selected(/^Access review$/)).toBe('true');
     await page.back();
     expect(selected(/^Users$/)).toBe('true');
   });
