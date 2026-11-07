@@ -416,6 +416,6 @@ describe('What needs attention: Ask Pulse to investigate', () => {
     const ask = screen.getAllByRole('button', { name: 'Ask Pulse to investigate' })[0];
     expect(ask.className).not.toContain('opacity-0');
     fireEvent.click(ask);
-    expect(askPulseMock).toHaveBeenCalledWith(expect.stringMatching(/^Investigate: Operator kube-apiserver degraded/));
+    expect(askPulseMock).toHaveBeenCalledWith(expect.stringMatching(/^Investigate: Operator kube-apiserver degraded/), { kind: 'ClusterOperator', name: 'kube-apiserver' });
   });
 });
