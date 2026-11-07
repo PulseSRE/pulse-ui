@@ -336,6 +336,47 @@ describe('reload', () => {
   });
 });
 
+describe('reload with a shared ?ns= link', () => {
+  const pulseTab = { id: 'pulse', title: 'Pulse', path: '/pulse', pinned: true, closable: false };
+  /** A new document load: the saved state is rehydrated with the link in the address bar, then the page renders it. */
+  async function loadLink(savedState: Record<string, unknown>) {
+    // Reset the in-memory store first: setState persists, and would overwrite the saved state.
+    useUIStore.setState({ selectedNamespace: '*', scopeClusterId: '' });
+    window.history.replaceState(null, '', '/scoped/pods?ns=default');
+    window.localStorage.setItem('openshiftpulse-ui-storage', JSON.stringify({ state: savedState, version: 0 }));
+    await useUIStore.persist.rehydrate();
+    const kept = window.location.pathname + window.location.search;
+    setup([kept]);
+    return kept;
+  }
+  afterEach(() => {
+    window.localStorage.removeItem('openshiftpulse-ui-storage');
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('a browser that never picked a namespace keeps ?ns=default', async () => {
+    // Another tab opened /r/v1~pods first, so the profile saved an unbound scope.
+    const kept = await loadLink({ selectedNamespace: '*', scopeClusterId: '', activeTabId: 'pulse', tabs: [pulseTab] });
+    expect(kept).toBe('/scoped/pods?ns=default');
+    expect(scope()).toBe('default');
+    expect(url()).toBe('/scoped/pods?ns=default');
+  });
+
+  it('the first load after upgrading (no saved cluster) keeps ?ns=, but not the old saved namespace', async () => {
+    const kept = await loadLink({ selectedNamespace: 'payments', activeTabId: 'pulse', tabs: [pulseTab] });
+    expect(kept).toBe('/scoped/pods?ns=default');
+    expect(scope()).toBe('default');
+    expect(useUIStore.getState().scopeClusterId).toBe('local');
+  });
+
+  it('a scope saved on cluster A is still dropped on cluster B', async () => {
+    const kept = await loadLink({ selectedNamespace: 'payments', scopeClusterId: 'east', activeTabId: 'pulse', tabs: [pulseTab] });
+    expect(kept).toBe('/scoped/pods');
+    expect(scope()).toBe('*');
+    expect(url()).toBe('/scoped/pods');
+  });
+});
+
 describe('applies: false', () => {
   it('shows all namespaces, keeps the choice for other pages and leaves the URL alone', async () => {
     useUIStore.setState({ selectedNamespace: 'payments' });
