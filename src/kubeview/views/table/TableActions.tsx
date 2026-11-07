@@ -10,6 +10,7 @@ import type { ColumnDef } from '../../engine/renderers';
 import type { DeleteProgressItem } from './DeleteProgress';
 import { scalePatch } from '../../engine/writeGuards';
 import { setNodeSchedulable, scheduleChangeCopy } from '../../engine/nodeActions';
+import { assertActiveCluster } from '../../engine/pendingCluster';
 
 export interface PendingConfirm {
   title: string;
@@ -21,7 +22,14 @@ export interface PendingConfirm {
 export interface ActionHandlers {
   handleAction: (action: string, payload?: unknown) => Promise<void>;
   handleExport: (format: 'csv' | 'json') => void;
-  handleBulkDelete: () => Promise<void>;
+  /**
+   * Delete exactly `targets` — the list the confirm dialog showed. Without
+   * targets, only the selected rows the current search/filter shows: a row
+   * hidden by a later search is never deleted unseen. `pinnedClusterId` is
+   * the cluster the confirm was opened on: if the active cluster changed
+   * since, nothing is deleted.
+   */
+  handleBulkDelete: (targets?: K8sResource[], pinnedClusterId?: string) => Promise<void>;
   executeDelete: () => Promise<void>;
   inlineActionLoading: string | null;
   pendingDelete: { resource: K8sResource; path: string } | null;
@@ -52,7 +60,7 @@ export function useTableActions({
   apiPath,
   gvrKey: _gvrKey,
   sortedResources,
-  stampedResources,
+  stampedResources: _stampedResources,
   visibleColumns,
   resourceKind,
   selectedRows,
@@ -263,22 +271,29 @@ export function useTableActions({
     }
   }, [pendingRestart, clusterId, addToast, queryClient, apiPath]);
 
-  const handleBulkDelete = useCallback(async () => {
-    if (selectedRows.size === 0) return;
-
-    const items: Array<{ name: string; ns: string; kind: string; uid: string; path: string }> = [];
-    for (const uid of selectedRows) {
-      const resource = stampedResources.find((r) => r.metadata.uid === uid);
-      if (!resource) continue;
-      const kind = resource.kind || '';
-      const path = buildApiPathFromResource(resource);
-      items.push({ name: resource.metadata.name, ns: resource.metadata.namespace || '', kind, uid, path });
+  const handleBulkDelete = useCallback(async (targets?: K8sResource[], pinnedClusterId?: string) => {
+    const chosen = targets ?? sortedResources.filter((r) => selectedRows.has(r.metadata.uid ?? ''));
+    if (chosen.length === 0) return;
+    const pinned = pinnedClusterId ?? clusterId;
+    try {
+      assertActiveCluster(pinned, 'Bulk delete');
+    } catch (err) {
+      showErrorToast(err, 'Nothing was deleted');
+      return;
     }
+
+    const items: Array<{ name: string; ns: string; kind: string; uid: string; path: string }> = chosen.map((resource) => ({
+      name: resource.metadata.name,
+      ns: resource.metadata.namespace || '',
+      kind: resource.kind || '',
+      uid: resource.metadata.uid ?? '',
+      path: buildApiPathFromResource(resource),
+    }));
 
     setDeleteProgress(items.map(i => ({ name: i.name, ns: i.ns, kind: i.kind, path: i.path, status: 'deleting' as const })));
 
     const results = await Promise.allSettled(
-      items.map((item) => k8sDelete(item.path, clusterId, { uid: item.uid }))
+      items.map((item) => k8sDelete(item.path, pinned, { uid: item.uid }))
     );
     results.forEach((result, idx) => {
       if (result.status === 'fulfilled') {
@@ -289,14 +304,16 @@ export function useTableActions({
       }
     });
 
-    setSelectedRows(new Set(items.filter((_, index) => results[index].status === 'rejected').map(i => i.uid)));
+    // Failed deletes stay selected; rows the user chose not to delete (hidden
+    // by the search and left out) keep their selection too.
+    const deletedUids = new Set(items.filter((_, index) => results[index].status === 'fulfilled').map(i => i.uid));
+    setSelectedRows(new Set([...selectedRows].filter((uid) => !deletedUids.has(uid))));
     queryClient.setQueriesData({ queryKey: ['k8s', 'list'] }, (old: unknown) => {
       if (!old || !Array.isArray(old)) return old;
-      const deletedUids = new Set(items.filter((_, index) => results[index].status === 'fulfilled').map(i => i.uid));
       return old.filter((r: K8sResource) => !deletedUids.has(r.metadata?.uid ?? ''));
     });
     queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] });
-  }, [selectedRows, stampedResources, queryClient, apiPath, setSelectedRows, clusterId]);
+  }, [selectedRows, sortedResources, queryClient, apiPath, setSelectedRows, clusterId]);
 
   return {
     handleAction,

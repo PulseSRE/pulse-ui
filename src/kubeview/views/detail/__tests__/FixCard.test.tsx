@@ -104,7 +104,7 @@ describe.each(scenarios)('$name fix', (s) => {
   it('confirm: dry run first, then the exact request to the owner on the pinned cluster', async () => {
     const dialog = await openReview();
     expect(dialog.textContent).toContain('What will change');
-    await waitFor(() => expect(screen.getByTestId('fix-dry-run').textContent).toBe('Passed · admitted by the API server'));
+    await waitFor(() => expect(screen.getByTestId('write-dry-run').textContent).toBe('Passed · admitted by the API server'));
     expect(dryRuns()[0][0]).toBe(`${s.targetPath}?dryRun=All`);
     expect(dryRuns()[0][3]).toBe('local');
     expect(realPatches()).toHaveLength(0);
@@ -131,7 +131,7 @@ describe.each(scenarios)('$name fix', (s) => {
   it('a failed dry run is shown and Apply stays disabled', async () => {
     k8sPatch.mockRejectedValue(pulseError(422, 'admission webhook "quota" denied the request'));
     await openReview();
-    await waitFor(() => expect(screen.getByTestId('fix-dry-run').textContent).toContain('Failed · admission webhook "quota" denied the request'));
+    await waitFor(() => expect(screen.getByTestId('write-dry-run').textContent).toContain('Failed · admission webhook "quota" denied the request'));
     expect((screen.getByRole('button', { name: /^Apply to / }) as HTMLButtonElement).disabled).toBe(true);
     expect(realPatches()).toHaveLength(0);
   });
@@ -153,7 +153,7 @@ describe.each(scenarios)('$name fix', (s) => {
       throw pulseError(403, 'forbidden: cannot patch');
     });
     await openReview();
-    await waitFor(() => expect(screen.getByTestId('fix-dry-run').textContent).toContain('Passed'));
+    await waitFor(() => expect(screen.getByTestId('write-dry-run').textContent).toContain('Passed'));
     fireEvent.click(screen.getByRole('button', { name: /^Apply to / }));
     expect((await screen.findByRole('alert')).textContent).toMatch(/Apply failed: Permission denied: forbidden: cannot patch/);
     expect(screen.getByRole('dialog')).toBeDefined();
@@ -166,7 +166,7 @@ describe.each(scenarios)('$name fix', (s) => {
       throw pulseError(code, msg);
     });
     await openReview();
-    await waitFor(() => expect(screen.getByTestId('fix-dry-run').textContent).toContain('Passed'));
+    await waitFor(() => expect(screen.getByTestId('write-dry-run').textContent).toContain('Passed'));
     fireEvent.click(screen.getByRole('button', { name: /^Apply to / }));
     expect((await screen.findByRole('alert')).textContent).toBe('Apply failed: The object changed since this page loaded it, so nothing was changed. Reload and try again.');
     expect(Object.keys(useFixWatchStore.getState().watches)).toHaveLength(0);

@@ -32,6 +32,8 @@ import { Card } from '../../components/primitives/Card';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
 import { RemoteMetricsNotice } from '../../components/metrics/RemoteMetricsNotice';
 import { metricsAvailableFor } from '../../components/metrics/prometheus';
+import { LoadError } from '../../components/primitives/LoadError';
+import { describeReadError } from '../../engine/readError';
 import { AttentionList, useAttentionModel } from './AttentionList';
 
 /** ResourceQuota resource */
@@ -263,27 +265,27 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   // A remote cluster's alerts cannot be read: as unknown as a failed fetch.
   const alertsError = alertsFetchError || alertsUnavailable;
 
-  const { data: apiLatency } = useQuery<number | null>({
+  const { data: apiLatency, isError: apiLatencyFailed, error: apiLatencyError } = useQuery<number | null>({
     queryKey: ['prom', 'api-latency', clusterId],
     queryFn: async () => {
-      const result = (await safeQuery(() => queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))', undefined, clusterId))) ?? [];
+      const result = (await queryInstant('histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{verb!~"WATCH|LIST"}[5m])) by (le))', undefined, clusterId));
       return result.length > 0 ? result[0].value * 1000 : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
   });
 
-  const { data: etcdLeaderChanges } = useQuery<number | null>({
+  const { data: etcdLeaderChanges, isError: etcdChangesFailed, error: etcdChangesError } = useQuery<number | null>({
     queryKey: ['prom', 'etcd-leader-changes', clusterId],
     queryFn: async () => {
-      const result = (await safeQuery(() => queryInstant('max(changes(etcd_server_is_leader[1h]))', undefined, clusterId))) ?? [];
+      const result = (await queryInstant('max(changes(etcd_server_is_leader[1h]))', undefined, clusterId));
       return result.length > 0 ? result[0].value : null;
     },
     staleTime: 30_000, refetchInterval: 60_000,
   });
 
-  const { data: pvUsage = [] } = useQuery<PromResult[]>({
+  const { data: pvUsage = [], isError: pvUsageFailed, error: pvUsageError, refetch: refetchPvUsage } = useQuery<PromResult[]>({
     queryKey: ['prom', 'pv-usage', clusterId],
-    queryFn: async () => ((await safeQuery(() => queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100', undefined, clusterId))) ?? []) as PromResult[],
+    queryFn: async () => (await queryInstant('kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes * 100', undefined, clusterId)) as PromResult[],
     staleTime: 60_000, refetchInterval: 120_000,
   });
 
@@ -580,18 +582,31 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
                 <Gauge className="w-4 h-4 text-slate-400" />
                 <div>
                   <div className="text-xs text-slate-500">API Latency (p99)</div>
-                  <div className={cn('text-sm font-mono font-bold', apiLatency !== null && apiLatency !== undefined && apiLatency > 500 ? 'text-red-400' : apiLatency !== null && apiLatency !== undefined && apiLatency > 200 ? 'text-amber-400' : 'text-green-400')}>
-                    {apiLatency !== null && apiLatency !== undefined ? `${apiLatency.toFixed(0)}ms` : '—'}
-                  </div>
+                  {/* No number is not a green number: a failed read says so, an empty one is "No data". */}
+                  {apiLatencyFailed ? (
+                    <div className="text-sm font-medium text-slate-400" title={describeReadError(apiLatencyError).reason}>Could not check<span className="sr-only">: {describeReadError(apiLatencyError).reason}</span></div>
+                  ) : apiLatency === null || apiLatency === undefined ? (
+                    <div className="text-sm font-medium text-slate-400">{apiLatency === undefined ? 'Checking…' : 'No data'}</div>
+                  ) : (
+                    <div className={cn('text-sm font-mono font-bold', apiLatency > 500 ? 'text-red-400' : apiLatency > 200 ? 'text-amber-400' : 'text-green-400')}>
+                      {`${apiLatency.toFixed(0)}ms`}
+                    </div>
+                  )}
                 </div>
               </button>
               <button onClick={() => go('/compute', 'Compute')} className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-sm hover:bg-slate-800 transition-colors text-left">
                 <Database className="w-4 h-4 text-slate-400" />
                 <div>
                   <div className="text-xs text-slate-500">Etcd Leader Changes (1h)</div>
-                  <div className={cn('text-sm font-mono font-bold', etcdLeaderChanges !== null && etcdLeaderChanges !== undefined && etcdLeaderChanges > 2 ? 'text-red-400' : etcdLeaderChanges !== null && etcdLeaderChanges !== undefined && etcdLeaderChanges > 0 ? 'text-amber-400' : etcdLeaderChanges !== null && etcdLeaderChanges !== undefined ? 'text-green-400' : 'text-slate-500')}>
-                    {etcdLeaderChanges !== null && etcdLeaderChanges !== undefined ? etcdLeaderChanges : <span title="Metric unavailable (etcd may run outside this cluster)">N/A</span>}
-                  </div>
+                  {etcdChangesFailed ? (
+                    <div className="text-sm font-medium text-slate-400" title={describeReadError(etcdChangesError).reason}>Could not check<span className="sr-only">: {describeReadError(etcdChangesError).reason}</span></div>
+                  ) : etcdLeaderChanges === null || etcdLeaderChanges === undefined ? (
+                    <div className="text-sm font-medium text-slate-400" title={etcdLeaderChanges === null ? 'Prometheus has no etcd series (etcd may run outside this cluster)' : undefined}>{etcdLeaderChanges === undefined ? 'Checking…' : 'No data'}</div>
+                  ) : (
+                    <div className={cn('text-sm font-mono font-bold', etcdLeaderChanges > 2 ? 'text-red-400' : etcdLeaderChanges > 0 ? 'text-amber-400' : 'text-green-400')}>
+                      {etcdLeaderChanges}
+                    </div>
+                  )}
                 </div>
               </button>
             </div>
@@ -681,6 +696,11 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           <MetricCard title="Disk I/O" query="sum(rate(node_disk_read_bytes_total[5m]) + rate(node_disk_written_bytes_total[5m])) / 1024 / 1024" unit=" MB/s" color={CHART_COLORS.amber} onClick={() => go('/storage', 'Storage')} />
         </div>
         </MetricsScope>
+
+        {/* A failed volume-usage read is not "no full volumes". */}
+        {pvUsageFailed && metricsAvailableFor(clusterId) && (
+          <LoadError compact title="Volume usage could not be checked — full volumes would not be listed below" error={pvUsageError} onRetry={() => { void refetchPvUsage(); }} />
+        )}
 
         {/* Pressure / PV / Quota warnings */}
         {(pressuredNodes.length > 0 || pvOverloaded.length > 0 || quotaOverages.length > 0) && (
