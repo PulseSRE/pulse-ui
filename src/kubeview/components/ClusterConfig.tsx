@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Shield, Globe, Image, Network, Cpu, Lock, ChevronDown, ChevronRight,
@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { k8sGet, k8sPatch } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
 import { useUIStore } from '../store/uiStore';
-import { ConfirmDialog } from './feedback/ConfirmDialog';
 import { Card } from './primitives/Card';
 import { showErrorToast } from '../engine/errorToast';
 import { useActiveClusterId } from '../hooks/useClusterBase';
@@ -28,7 +27,7 @@ interface ConfigSection {
 }
 
 const CONFIG_SECTIONS: ConfigSection[] = [
-  { id: 'oauth', title: 'OAuth', icon: <Shield className="w-4 h-4 text-teal-500" />, apiPath: `${CONFIG_BASE}/oauths/cluster`, description: 'Identity providers and authentication' },
+  { id: 'oauth', title: 'OAuth', icon: <Shield className="w-4 h-4 text-teal-500" />, apiPath: `${CONFIG_BASE}/oauths/cluster`, description: 'Identity providers — edited in Identity & Access › Sign-in' },
   { id: 'proxy', title: 'Proxy', icon: <Globe className="w-4 h-4 text-blue-500" />, apiPath: `${CONFIG_BASE}/proxies/cluster`, description: 'Cluster-wide proxy settings' },
   { id: 'image', title: 'Image', icon: <Image className="w-4 h-4 text-blue-500" />, apiPath: `${CONFIG_BASE}/images/cluster`, description: 'Allowed registries and image policies' },
   { id: 'ingress', title: 'Ingress', icon: <Network className="w-4 h-4 text-orange-500" />, apiPath: `${CONFIG_BASE}/ingresses/cluster`, description: 'Default ingress domain and settings' },
@@ -101,7 +100,7 @@ function ConfigSectionPanel({ section, expanded, onToggle }: {
 /** Editors write back to the cluster their data was read from, and refuse if it is no longer active. */
 function ConfigEditor({ section, data, clusterId }: { section: ConfigSection; data: any; clusterId: string }) {
   switch (section.id) {
-    case 'oauth': return <OAuthEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
+    case 'oauth': return <OAuthMovedNotice data={data} />;
     case 'proxy': return <ProxyEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
     case 'image': return <ImageEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
     case 'ingress': return <IngressEditor data={data} apiPath={section.apiPath} clusterId={clusterId} />;
@@ -116,165 +115,20 @@ function ConfigEditor({ section, data, clusterId }: { section: ConfigSection; da
 }
 
 // ===== OAuth =====
-function OAuthEditor({ data, apiPath, clusterId }: { data: any; apiPath: string; clusterId: string }) {
-  const providers = data.spec?.identityProviders || [];
-  const addToast = useUIStore((s) => s.addToast);
-  const queryClient = useQueryClient();
-  const [adding, setAdding] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [newType, setNewType] = useState('HTPasswd');
-  const [newName, setNewName] = useState('');
-  // Type-specific fields
-  const [secretName, setSecretName] = useState('');
-  const [clientID, setClientID] = useState('');
-  const [issuer, setIssuer] = useState('');
-  const [ldapUrl, setLdapUrl] = useState('');
-  const [orgs, setOrgs] = useState('');
-  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
-
-  const handleRemoveProvider = (name: string) => {
-    setPendingRemove(name);
-  };
-
-  const executeRemoveProvider = async () => {
-    if (!pendingRemove) return;
-    const name = pendingRemove;
-    setPendingRemove(null);
-    setSaving(true);
-    try {
-      const updated = providers.filter((p: any) => p.name !== name);
-      assertActiveCluster(clusterId, 'This configuration change');
-      await k8sPatch(apiPath, { spec: { identityProviders: updated } }, MERGE_PATCH, clusterId);
-      addToast({ type: 'success', title: 'Identity provider removed', detail: name });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'oauth'] });
-      // The Overview's identity-provider list reads ['admin', 'oauth', …].
-      queryClient.invalidateQueries({ queryKey: ['admin', 'oauth'] });
-    } catch (err) {
-      showErrorToast(err, 'Failed to update OAuth');
-    }
-    setSaving(false);
-  };
-
-  const handleAddProvider = async () => {
-    if (!newName.trim()) { addToast({ type: 'error', title: 'Provider name is required' }); return; }
-
-    const provider: any = { name: newName.trim(), mappingMethod: 'claim', type: newType };
-
-    if (newType === 'HTPasswd') {
-      if (!secretName.trim()) { addToast({ type: 'error', title: 'Secret name is required', detail: 'Create a Secret with htpasswd data first, then enter its name here' }); return; }
-      provider.htpasswd = { fileData: { name: secretName.trim() } };
-    } else if (newType === 'LDAP') {
-      if (!ldapUrl.trim()) { addToast({ type: 'error', title: 'LDAP URL is required' }); return; }
-      provider.ldap = { url: ldapUrl.trim(), insecure: ldapUrl.startsWith('ldap://'), attributes: { id: ['dn'], email: ['mail'], name: ['cn'], preferredUsername: ['uid'] } };
-    } else if (newType === 'GitHub') {
-      if (!clientID.trim() || !secretName.trim()) { addToast({ type: 'error', title: 'Client ID and Secret name are required' }); return; }
-      provider.github = { clientID: clientID.trim(), clientSecret: { name: secretName.trim() }, organizations: orgs.trim() ? orgs.split(',').map(s => s.trim()) : [] };
-    } else if (newType === 'Google') {
-      if (!clientID.trim() || !secretName.trim()) { addToast({ type: 'error', title: 'Client ID and Secret name are required' }); return; }
-      provider.google = { clientID: clientID.trim(), clientSecret: { name: secretName.trim() } };
-    } else if (newType === 'OpenID') {
-      if (!clientID.trim() || !secretName.trim() || !issuer.trim()) { addToast({ type: 'error', title: 'Client ID, Secret name, and Issuer URL are required' }); return; }
-      provider.openID = { clientID: clientID.trim(), clientSecret: { name: secretName.trim() }, issuer: issuer.trim(), claims: { email: ['email'], name: ['name'], preferredUsername: ['preferred_username'] } };
-    }
-
-    setSaving(true);
-    try {
-      assertActiveCluster(clusterId, 'This configuration change');
-      await k8sPatch(apiPath, { spec: { identityProviders: [...providers, provider] } }, MERGE_PATCH, clusterId);
-      addToast({ type: 'success', title: 'Identity provider added', detail: `${newName} (${newType})` });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'config', 'oauth'] });
-      // The Overview's identity-provider list reads ['admin', 'oauth', …].
-      queryClient.invalidateQueries({ queryKey: ['admin', 'oauth'] });
-      resetForm();
-    } catch (err) {
-      showErrorToast(err, 'Failed to add provider');
-    }
-    setSaving(false);
-  };
-
-  const resetForm = () => {
-    setAdding(false);
-    setNewName('');
-    setSecretName('');
-    setClientID('');
-    setIssuer('');
-    setLdapUrl('');
-    setOrgs('');
-  };
-
+/**
+ * Identity providers are edited in Identity & Access › Sign-in, next to the
+ * IdP audit and the users they sign in. This section only says where.
+ */
+function OAuthMovedNotice({ data }: { data: any }) {
+  const navigate = useNavigate();
+  const providers: Array<{ name: string; type: string }> = data.spec?.identityProviders || [];
   return (
-    <div className="space-y-3">
-      <div className="text-xs text-slate-400 mb-2">Token max age: {data.spec?.tokenConfig?.accessTokenMaxAgeSeconds ? `${data.spec.tokenConfig.accessTokenMaxAgeSeconds / 3600}h` : 'default (24h)'}</div>
-      {providers.length === 0 ? (
-        <div className="text-sm text-slate-500 py-2">No identity providers configured</div>
-      ) : (
-        providers.map((p: any, i: number) => (
-          <div key={i} className="flex items-center justify-between p-3 rounded-sm bg-slate-800/50 border border-slate-700">
-            <div>
-              <div className="text-sm font-medium text-slate-200">{p.name}</div>
-              <div className="text-xs text-slate-500">{p.type} · mapping: {p.mappingMethod || 'claim'}</div>
-            </div>
-            <button onClick={() => handleRemoveProvider(p.name)} disabled={saving} className="p-1 text-slate-500 hover:text-red-400 disabled:opacity-50" title="Remove">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))
-      )}
-      {adding ? (
-        <div className="p-4 rounded-sm bg-slate-800/50 border border-blue-800 space-y-3">
-          <div className="flex gap-2">
-            <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Provider name" className="flex-1 px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-blue-500" autoFocus />
-            <select value={newType} onChange={(e) => { setNewType(e.target.value); setSecretName(''); setClientID(''); setIssuer(''); setLdapUrl(''); setOrgs(''); }} className="px-2 py-1.5 text-sm bg-slate-900 border border-slate-600 rounded-sm text-slate-200">
-              <option>HTPasswd</option>
-              <option>LDAP</option>
-              <option>GitHub</option>
-              <option>Google</option>
-              <option>OpenID</option>
-            </select>
-          </div>
-
-          {/* Type-specific fields */}
-          {newType === 'HTPasswd' && (
-            <FieldRow label="HTPasswd Secret name" value={secretName} onChange={setSecretName} placeholder="htpass-secret (must exist in openshift-config)" />
-          )}
-          {newType === 'LDAP' && (
-            <FieldRow label="LDAP URL" value={ldapUrl} onChange={setLdapUrl} placeholder="ldap://ldap.example.com/ou=users,dc=example,dc=com?uid" />
-          )}
-          {(newType === 'GitHub' || newType === 'Google' || newType === 'OpenID') && (
-            <>
-              <FieldRow label="Client ID" value={clientID} onChange={setClientID} placeholder="OAuth client ID from provider" />
-              <FieldRow label="Client Secret name" value={secretName} onChange={setSecretName} placeholder="Secret name in openshift-config namespace" />
-            </>
-          )}
-          {newType === 'GitHub' && (
-            <FieldRow label="Organizations (comma-separated, optional)" value={orgs} onChange={setOrgs} placeholder="my-org, other-org" />
-          )}
-          {newType === 'OpenID' && (
-            <FieldRow label="Issuer URL" value={issuer} onChange={setIssuer} placeholder="https://accounts.google.com" />
-          )}
-
-          <div className="flex items-center gap-2 pt-1">
-            <button onClick={handleAddProvider} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-sm hover:bg-blue-500 disabled:opacity-50">
-              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Add Provider
-            </button>
-            <button onClick={resetForm} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Cancel</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setAdding(true)} className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300">
-          <Plus className="w-3 h-3" /> Add identity provider
-        </button>
-      )}
-      <ConfirmDialog
-        open={!!pendingRemove}
-        onClose={() => setPendingRemove(null)}
-        onConfirm={executeRemoveProvider}
-        title={`Remove identity provider "${pendingRemove}"?`}
-        description="Users authenticating through this provider will lose access. This change takes effect immediately."
-        confirmLabel="Remove"
-        variant="danger"
-        loading={saving}
-      />
+    <div className="space-y-2" data-testid="oauth-moved">
+      <p className="text-sm text-slate-300">
+        {providers.length === 0 ? 'No identity providers configured.' : `${providers.length} identity provider${providers.length === 1 ? '' : 's'}: ${providers.map((p) => `${p.name} (${p.type})`).join(', ')}.`}
+      </p>
+      <p className="text-xs text-slate-400">Identity providers and htpasswd users are now edited in Identity &amp; Access › Sign-in.</p>
+      <button onClick={() => navigate('/identity?tab=signin')} className="text-xs text-blue-400 hover:text-blue-300">Open Sign-in →</button>
     </div>
   );
 }

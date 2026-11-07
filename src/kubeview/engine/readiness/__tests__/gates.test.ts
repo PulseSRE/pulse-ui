@@ -229,7 +229,7 @@ describe('gate actions open the page that fixes them', () => {
   }) as unknown as GateContext['fetchJson'];
 
   it.each([
-    ['identity-providers', '/admin?tab=config'],
+    ['identity-providers', '/identity?tab=signin'],
     ['tls-profile', '/admin?tab=config'],
     ['encryption', '/admin?tab=config'],
     ['resource-quotas', '/admin?tab=quotas'],

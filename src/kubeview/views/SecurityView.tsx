@@ -139,7 +139,7 @@ export default function SecurityView() {
         ? `${identityProviders.length} provider${identityProviders.length > 1 ? 's' : ''}: ${identityProviders.map((p: any) => `${p.name} (${p.type})`).join(', ')}`
         : 'No identity provider configured — only kubeadmin can log in',
       severity: identityProviders.length > 0 ? 'info' : 'critical',
-      link: '/admin?tab=config', linkTitle: 'Cluster Config',
+      link: '/identity?tab=signin', linkTitle: 'Identity & Access',
     });
 
     // kubeadmin is the kube-system/kubeadmin Secret, not a User object.
