@@ -55,6 +55,7 @@ import { formatRelativeTime } from '../engine/formatters';
 
 const ClusterResourceMap = lazy(() => import('../components/topology/TopologyMap'));
 import { MAP_HEIGHT } from '../components/topology/WorldMap';
+import { AI_ACCENT } from '../components/agent/aiTokens';
 
 /**
  * `unknown` is not a shade of green.
@@ -346,13 +347,13 @@ export default function PulseView() {
               >
                 <div className={cn('w-1.5 h-1.5 rounded-full', monitorConnected ? 'bg-emerald-400' : 'bg-slate-600')} />
                 Agent &middot; Trust {trustLevel}
-                {activeSkill && <span className="text-violet-400">&middot; {activeSkill}</span>}
+                {activeSkill && <span className={AI_ACCENT.text}>&middot; {activeSkill}</span>}
               </button>
             </Tooltip>
             <button
               onClick={handleScanNow}
               disabled={!monitorConnected || scanning}
-              className="px-2.5 py-1 rounded-sm bg-violet-500/10 text-xs text-violet-400 hover:bg-violet-500/20 disabled:opacity-40 flex items-center gap-1"
+              className={cn('px-2.5 py-1 rounded-sm text-xs disabled:opacity-40 flex items-center gap-1', AI_ACCENT.bg, AI_ACCENT.text, AI_ACCENT.bgHover)}
             >
               {scanning ? <><Activity className="w-3 h-3 animate-spin" />Scanning...</> : 'Scan Now'}
             </button>

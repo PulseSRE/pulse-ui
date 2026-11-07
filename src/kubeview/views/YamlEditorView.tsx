@@ -206,7 +206,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
             title={helmLocked ? `Managed by Helm release ${helmOwner?.release}: choose "Edit here anyway" first` : undefined}
             className={cn('flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-md font-medium transition-colors',
               hasChanges && !clusterChanged && !helmLocked
-                ? isArgoManaged ? 'bg-violet-600 hover:bg-violet-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'
+                ? 'bg-blue-600 hover:bg-blue-500 text-white'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             )}
           >

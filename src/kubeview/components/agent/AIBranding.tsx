@@ -8,27 +8,13 @@
 import { Sparkles, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAgentStore } from '../../store/agentStore';
+import { AI_ACCENT } from './aiTokens';
 
 /* ---------------------------------------------------------------------------
  * Color tokens
  * --------------------------------------------------------------------------- */
 
-export const AI_ACCENT = {
-  text: 'text-violet-400',
-  textHover: 'hover:text-violet-300',
-  bg: 'bg-violet-500/15',
-  bgHover: 'hover:bg-violet-500/25',
-  border: 'border-violet-500/30',
-  borderActive: 'border-violet-500/60',
-  ring: 'ring-violet-500/20',
-  dot: 'bg-violet-400',
-} as const;
-
-/** Glow border class for AI-powered elements */
-export const aiGlowClass = 'ring-1 ring-violet-500/20 shadow-[0_0_12px_rgba(139,92,246,0.15)]';
-
-/** Active accent for dock/tab borders when agent tab is selected */
-export const aiActiveClass = 'border-b-2 border-violet-400 text-violet-400';
+export { AI_ACCENT, aiGlowClass, aiActiveClass } from './aiTokens';
 
 /* ---------------------------------------------------------------------------
  * Components

@@ -11,7 +11,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useShallow } from 'zustand/react/shallow';
-import { AlertOctagon, AlertTriangle, ArrowRight, ChevronDown, ChevronRight, HelpCircle, Sparkles } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, HelpCircle, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '../../components/primitives/Card';
 import { Button } from '../../components/primitives/Button';
@@ -27,6 +27,8 @@ import {
   couldNotCheckFrom, rowsFromClient, rowsFromFindings,
   type AttentionModel, type AttentionRow, type LiveObjects,
 } from './attention';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
+import { AI_ACCENT } from '../../components/agent/aiTokens';
 
 /** Rows whose preceding change is looked up; the rest say "Not checked". */
 const CHANGE_LOOKUPS = 15;
@@ -153,9 +155,7 @@ function PrimaryAction({ row, go, canAsk }: { row: AttentionRow; go: (p: string,
   }
   if (canAsk) {
     return (
-      <Button size="sm" variant="secondary" onClick={() => askPulse(`Investigate: ${row.problem}. ${row.cause}`)}>
-        Investigate
-      </Button>
+      <AskPulseButton suffix="to investigate" prompt={`Investigate: ${row.problem}. ${row.cause}`} context={row.resource} />
     );
   }
   return row.path ? <Button size="sm" variant="secondary" onClick={() => go(row.path!, row.resource?.name || 'Resource')}>Open</Button> : null;
@@ -226,18 +226,18 @@ export function AttentionList({ model, clusterId, go }: {
       )}
 
       {top && (
-        <Card className="p-4 border border-violet-800/60">
+        <Card className={cn('p-4', AI_ACCENT.card)}>
           <div className="flex items-start gap-3">
-            <Sparkles className="w-4 h-4 text-violet-300 mt-0.5 shrink-0" />
+            <Sparkles className={cn('w-4 h-4 mt-0.5 shrink-0', AI_ACCENT.textStrong)} />
             <div className="flex-1 min-w-0">
               <div className="text-sm text-slate-100">
                 Pulse suggests starting with {top.resource?.name ?? top.problem}{top.namespace ? ` in ${top.namespace}` : ''}
-                {top.confidence !== null && <span className="ml-2 text-xs text-violet-300">Confidence {top.confidence.toFixed(2)}</span>}
+                {top.confidence !== null && <span className={cn('ml-2 text-xs', AI_ACCENT.textStrong)}>Confidence {top.confidence.toFixed(2)}</span>}
               </div>
               <p className="text-xs text-slate-400 mt-1">It is the worst open problem with a diagnosis: {top.cause}{top.fixReady ? ' A fix is ready to review.' : ''}</p>
               <div className="flex gap-2 mt-2">
                 {top.inboxItem && <Button size="sm" onClick={() => go(`/inbox?task=${encodeURIComponent(top.inboxItem!.id)}`, 'Inbox')}>{top.fixReady ? 'Review and apply' : 'Open in Inbox'}</Button>}
-                <Button size="sm" variant="secondary" onClick={() => askPulse(`Why should I start with ${top.problem}? ${top.cause}`)}>Ask Pulse why</Button>
+                <AskPulseButton suffix="why" prompt={`Why should I start with ${top.problem}? ${top.cause}`} context={top.resource} />
               </div>
             </div>
           </div>
@@ -353,11 +353,7 @@ export function AttentionList({ model, clusterId, go }: {
             ? <>Where this list comes from: open monitor findings, the same ones the Inbox and the Alerts Triage chips open.{model.noisy.length > 0 && <> {model.noisy.length} noisy finding{model.noisy.length === 1 ? ' is' : 's are'} hidden by noise learning. <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => setShowNoisy((v) => !v)}>{showNoisy ? 'Hide them' : 'Show them'}</button></>}</>
             : 'Where this list comes from: the diagnosis engine run over the nodes, pods, deployments and volume claims this page loaded.'}
         </span>
-        {isLocal ? (
-          <button type="button" onClick={ask} className="text-violet-300 hover:text-violet-200 inline-flex items-center gap-1">Ask Pulse about this list <ArrowRight className="w-3 h-3" /></button>
-        ) : (
-          <span>Pulse AI answers about the local cluster only</span>
-        )}
+        <AskPulseButton suffix="about this list" onAsk={ask} showReason />
       </div>
     </div>
   );

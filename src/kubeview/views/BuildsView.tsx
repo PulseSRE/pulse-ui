@@ -521,7 +521,7 @@ export default function BuildsView() {
         </Panel>
 
         {/* ImageStreams */}
-        <Panel title={isFailed ? 'ImageStreams' : `ImageStreams (${imageStreams.length})`} icon={<Box className="w-4 h-4 text-purple-400" />}>
+        <Panel title={isFailed ? 'ImageStreams' : `ImageStreams (${imageStreams.length})`} icon={<Box className="w-4 h-4 text-blue-400" />}>
           {isFailed ? listError(isQ, 'ImageStreams') : imageStreams.length === 0 ? (
             <div className="text-center py-6 text-sm text-slate-500">No ImageStreams{nsFilter ? ` in ${nsFilter}` : ''}</div>
           ) : (
@@ -533,7 +533,7 @@ export default function BuildsView() {
                 const dockerRepo = is.status?.dockerImageRepository || '';
                 return (
                   <div key={is.metadata?.uid} className="flex items-center gap-3 py-3 px-1">
-                    <Box className="w-4 h-4 text-purple-400 shrink-0" />
+                    <Box className="w-4 h-4 text-blue-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <button onClick={() => go(`/r/image.openshift.io~v1~imagestreams/${ns}/${name}`, name)}
                         className="text-sm font-medium text-blue-400 hover:text-blue-300 truncate block">{name}</button>

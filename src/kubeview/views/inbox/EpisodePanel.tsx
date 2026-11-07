@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Undo2, Wrench } from 'lucide-react';
+import { AlertTriangle, Ban, Check, ChevronDown, ChevronRight, Clock, History, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
 import { showErrorToast } from '../../engine/errorToast';
@@ -16,6 +16,7 @@ import type {
   EpisodeRecurrence,
   EpisodeSymptom,
 } from '../../engine/episodeApi';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
 
 /**
  * Shows open episodes above the inbox: a cause, with the findings it explains
@@ -299,14 +300,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             </div>
           )}
         </div>
-        <button
-          onClick={askAboutThisEpisode}
-          title="Ask Pulse AI what to do about this cause"
-          className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] font-medium text-violet-300 transition-colors hover:bg-violet-500/15 hover:text-violet-200"
-        >
-          <Wrench className="h-3 w-3" />
-          How do I fix this?
-        </button>
+        <AskPulseButton suffix="to fix" onAsk={askAboutThisEpisode} title="Ask Pulse AI what to do about this cause" localData />
         {/* Router navigation: a raw <a href> reloaded the whole app. */}
         <Link
           to={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}

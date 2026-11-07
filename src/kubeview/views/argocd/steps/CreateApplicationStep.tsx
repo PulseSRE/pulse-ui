@@ -59,7 +59,7 @@ interface Props {
 }
 
 const NAME_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-const INPUT_CLASS = 'w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden';
+const INPUT_CLASS = 'w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden';
 
 function buildApplicationYAML(opts: {
   name: string;
@@ -373,8 +373,8 @@ export function CreateApplicationStep({ onComplete }: Props) {
         <p className="text-sm text-slate-400 mt-1">
           {isAppOfApps ? (
             <>
-              Export <span className="text-violet-300 font-medium">{selectedCategories.length}</span> categories
-              across <span className="text-violet-300 font-medium">{namespaces.length}</span> namespace{namespaces.length !== 1 ? 's' : ''} as
+              Export <span className="text-blue-300 font-medium">{selectedCategories.length}</span> categories
+              across <span className="text-blue-300 font-medium">{namespaces.length}</span> namespace{namespaces.length !== 1 ? 's' : ''} as
               an app-of-apps pattern. A root Application manages child apps per category and namespace.
             </>
           ) : (
@@ -384,13 +384,13 @@ export function CreateApplicationStep({ onComplete }: Props) {
       </div>
 
       {isAppOfApps && (
-        <div className="flex items-start gap-3 p-3 bg-violet-950/30 border border-violet-800/40 rounded-lg">
-          <Layers className="w-5 h-5 text-violet-400 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 p-3 bg-blue-950/30 border border-blue-800/40 rounded-lg">
+          <Layers className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
           <div className="text-xs text-slate-300 space-y-1">
-            <p className="font-medium text-violet-200">App-of-Apps Pattern</p>
+            <p className="font-medium text-blue-200">App-of-Apps Pattern</p>
             <p>
               {childApps.length} child application{childApps.length !== 1 ? 's' : ''} will be committed to Git.
-              A root Application pointing to <code className="text-violet-300">clusters/{clusterName}/apps</code> will
+              A root Application pointing to <code className="text-blue-300">clusters/{clusterName}/apps</code> will
               be created in the cluster.
             </p>
           </div>
@@ -411,7 +411,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
             }}
             placeholder={isAppOfApps ? 'my-cluster' : 'my-app'}
             className={cn(
-              'w-full px-3 py-2 text-sm bg-slate-800 border rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden',
+              'w-full px-3 py-2 text-sm bg-slate-800 border rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden',
               (isAppOfApps ? clusterName : name) && !nameValid ? 'border-red-500' : 'border-slate-700',
             )}
           />
@@ -449,7 +449,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
               <div className="bg-slate-800 border border-slate-700 rounded-lg divide-y divide-slate-700 max-h-40 overflow-y-auto">
                 {childApps.map((child) => (
                   <div key={child.name} className="flex items-center gap-2 px-3 py-2 text-xs">
-                    <AppWindow className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                    <AppWindow className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                     <span className="text-slate-200 font-mono truncate">{child.name}</span>
                     <span className="text-slate-500 ml-auto truncate">{child.filePath}</span>
                   </div>
@@ -501,7 +501,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
                 type="checkbox"
                 checked={createNamespace}
                 onChange={(e) => setCreateNamespace(e.target.checked)}
-                className="rounded-sm border-slate-600 bg-slate-800 text-violet-600 focus:ring-violet-500"
+                className="rounded-sm border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
               />
               Create namespace if it doesn't exist
             </label>
@@ -514,7 +514,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
           </div>
           <button onClick={() => setAutoSync(!autoSync)} className="text-slate-300 hover:text-slate-100">
             {autoSync ? (
-              <ToggleRight className="w-8 h-8 text-violet-400" />
+              <ToggleRight className="w-8 h-8 text-blue-400" />
             ) : (
               <ToggleLeft className="w-8 h-8 text-slate-500" />
             )}
@@ -532,7 +532,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
             <FileCode className="w-4 h-4" />
             Preview YAML
           </span>
-          <Code2 className={cn('w-4 h-4 transition-transform', showYAML && 'text-violet-400')} />
+          <Code2 className={cn('w-4 h-4 transition-transform', showYAML && 'text-blue-400')} />
         </button>
         {showYAML && (
           <div className="border-t border-slate-700 bg-slate-950 p-4">
@@ -569,7 +569,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
       <button
         onClick={handleCreate}
         disabled={creating || !formValid || completed}
-        className="px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+        className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
       >
         {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
         {isAppOfApps ? `Create App-of-Apps (${childApps.length} apps)` : 'Create Application'}

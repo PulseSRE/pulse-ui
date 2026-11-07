@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, X, RefreshCw } from 'lucide-react';
 import { AIIconStatic, AI_ACCENT } from './AIBranding';
+import { AskPulseButton, useAskPulseBlockedReason } from './AskPulseButton';
 
 import { AgentClient, type ResourceContext, type AgentEvent } from '../../engine/agentClient';
 import type { ComponentSpec } from '../../engine/agentComponents';
@@ -26,6 +27,8 @@ export interface AmbientInsightProps {
   trigger?: 'auto' | 'manual';
   staleTime?: number;
   className?: string;
+  /** The prompt carries no data read from the active cluster (see AskPulseButton). */
+  localData?: boolean;
 }
 
 /* ---------------------------------------------------------------------------
@@ -71,7 +74,10 @@ export function AmbientInsight({
   trigger = 'manual',
   staleTime = 300_000,
   className,
+  localData,
 }: AmbientInsightProps) {
+  // Pulse AI reads the local cluster only: no auto-run, retry or ask on a remote one.
+  const blocked = useAskPulseBlockedReason(localData);
   const [state, setState] = useState<InsightState>('idle');
   const [result, setResult] = useState('');
   const [components, setComponents] = useState<ComponentSpec[]>([]);
@@ -175,10 +181,10 @@ export function AmbientInsight({
 
   // Auto-trigger on mount
   useEffect(() => {
-    if (trigger === 'auto' && state === 'idle' && !isCacheValid) {
+    if (trigger === 'auto' && state === 'idle' && !isCacheValid && !blocked) {
       runQuery();
     }
-  }, [trigger]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trigger, blocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCancel = useCallback(() => {
     clientRef.current?.disconnect();
@@ -190,15 +196,14 @@ export function AmbientInsight({
   if (state === 'idle') {
     return (
       <div className={cn('rounded-lg border bg-slate-800 p-4', AI_ACCENT.border, className)}>
-        <button
-          onClick={runQuery}
-          className={cn('flex items-center gap-2 text-sm transition-colors', AI_ACCENT.text, AI_ACCENT.textHover)}
-        >
-          <AIIconStatic size={16} />
-          Analyze with AI
-        </button>
+        <AskPulseButton
+          size="md"
+          onAsk={runQuery}
+          localData={localData}
+          suffix={context.kind ? `about this ${context.kind.toLowerCase()}` : undefined}
+        />
         <p className="text-xs text-slate-500 mt-1">
-          {context.kind ? `Get an AI analysis of this ${context.kind.toLowerCase()}` : 'Get an AI-powered analysis'}
+          {context.kind ? `Pulse AI analyses this ${context.kind.toLowerCase()} and answers here.` : 'Pulse AI analyses it and answers here.'}
         </p>
       </div>
     );
@@ -237,7 +242,9 @@ export function AmbientInsight({
         <p className="text-sm text-red-400 mb-2">{error}</p>
         <button
           onClick={runQuery}
-          className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          disabled={!!blocked}
+          title={blocked}
+          className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
         >
           <RefreshCw className="h-4 w-4" />
           Retry

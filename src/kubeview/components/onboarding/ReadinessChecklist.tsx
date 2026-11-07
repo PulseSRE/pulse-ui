@@ -119,7 +119,7 @@ export function ReadinessChecklist({ score, categories, onWaive, onReVerify, onS
           onClick={onSwitchToWizard}
           className={cn(
             'w-full px-4 py-2 text-sm rounded-lg transition-colors',
-            'text-violet-400 bg-violet-600/10 hover:bg-violet-600/20 border border-violet-500/20',
+            'text-blue-400 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20',
           )}
         >
           Open guided wizard

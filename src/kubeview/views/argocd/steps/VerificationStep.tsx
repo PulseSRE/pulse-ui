@@ -75,9 +75,9 @@ export function VerificationStep({ onClose }: Props) {
       </div>
 
       {exportSummary && (
-        <div className="bg-slate-900 border border-violet-800/40 rounded-lg p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-violet-200">
-            <Layers className="w-4 h-4 text-violet-400" />
+        <div className="bg-slate-900 border border-blue-800/40 rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-blue-200">
+            <Layers className="w-4 h-4 text-blue-400" />
             Export Summary
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs">
@@ -104,7 +104,7 @@ export function VerificationStep({ onClose }: Props) {
               href={exportSummary.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs rounded-sm transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-sm transition-colors"
             >
               <GitBranch className="w-3.5 h-3.5" />
               View Pull Request
@@ -120,7 +120,7 @@ export function VerificationStep({ onClose }: Props) {
             onClose();
             go('/gitops', 'GitOps');
           }}
-          className="w-full px-4 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
         >
           Go to GitOps Dashboard
           <ArrowRight className="w-4 h-4" />

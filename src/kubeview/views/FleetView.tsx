@@ -173,7 +173,7 @@ export default function FleetView() {
           {acmAvailable && (
             <>
               <span>·</span>
-              <span className="text-violet-400">ACM managed</span>
+              <span className="text-blue-400">ACM managed</span>
             </>
           )}
         </div>

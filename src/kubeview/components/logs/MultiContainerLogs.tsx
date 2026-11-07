@@ -35,13 +35,11 @@ interface MergedLogLine extends ParsedLogLine {
 const CONTAINER_COLORS = [
   'text-blue-400',
   'text-green-400',
-  'text-purple-400',
   'text-orange-400',
   'text-pink-400',
   'text-cyan-400',
   'text-amber-400',
   'text-emerald-400',
-  'text-violet-400',
   'text-rose-400',
 ];
 

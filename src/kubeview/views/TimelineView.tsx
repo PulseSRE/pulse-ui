@@ -184,7 +184,7 @@ export default function TimelineView() {
           <Card>
             <div className="px-4 py-3 border-b border-slate-800">
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                <Link2 className="w-4 h-4 text-violet-400" />
+                <Link2 className="w-4 h-4 text-blue-400" />
                 Correlated Incidents ({correlationGroups.length})
               </h2>
             </div>

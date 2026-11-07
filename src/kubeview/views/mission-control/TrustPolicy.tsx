@@ -165,7 +165,7 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
                   className={cn(
                     'flex-1 flex flex-col items-center gap-1 rounded-lg px-3 py-3 text-xs transition-all border',
                     active
-                      ? 'bg-violet-500/20 border-violet-500 text-violet-300'
+                      ? 'bg-blue-500/20 border-blue-500 text-blue-200'
                       : disabled
                         ? 'opacity-30 cursor-not-allowed border-slate-800'
                         : 'border-slate-800 hover:border-slate-600 text-slate-400 hover:text-slate-200 cursor-pointer',

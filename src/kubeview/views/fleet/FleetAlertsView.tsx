@@ -321,7 +321,7 @@ export default function FleetAlertsView() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-slate-200">{alert.alertName}</span>
                       {correlationCount > 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-violet-900/50 text-violet-300 border border-violet-800/50">
+                        <span className="text-xs px-1.5 py-0.5 rounded-sm bg-blue-900/50 text-blue-300 border border-blue-800/50">
                           Firing on {correlationCount} clusters
                         </span>
                       )}

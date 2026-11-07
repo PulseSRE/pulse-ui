@@ -147,7 +147,7 @@ export function renderAge(value: unknown): ReactNode {
 const OWNER_KIND_COLORS: Record<string, string> = {
   ReplicaSet: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
   Deployment: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-  StatefulSet: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+  StatefulSet: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
   DaemonSet: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
   Job: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
   CronJob: 'text-pink-400 bg-pink-500/10 border-pink-500/20',

@@ -25,7 +25,7 @@ const ENV_COLORS: Record<string, string> = {
   staging: 'bg-amber-900/50 text-amber-300 border-amber-800/50',
   dev: 'bg-blue-900/50 text-blue-300 border-blue-800/50',
   development: 'bg-blue-900/50 text-blue-300 border-blue-800/50',
-  dr: 'bg-violet-900/50 text-violet-300 border-violet-800/50',
+  dr: 'bg-indigo-900/50 text-indigo-300 border-indigo-800/50',
   edge: 'bg-cyan-900/50 text-cyan-300 border-cyan-800/50',
 };
 

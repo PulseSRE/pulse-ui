@@ -369,7 +369,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
               className={cn(
                 'flex items-center gap-1.5 px-4 py-2 text-sm transition-colors border-b-2 -mb-px',
                 activeTab === tab.id
-                  ? 'text-violet-400 border-violet-500'
+                  ? 'text-blue-400 border-blue-500'
                   : 'text-slate-500 border-transparent hover:text-slate-300',
               )}
             >

@@ -280,7 +280,7 @@ export default function ViewsManagement({ embedded = false }: { embedded?: boole
             <EmptyState
               icon={<Bot className="w-12 h-12 text-slate-600" />}
               title="No views yet"
-              description="Ask the AI to build any dashboard you need."
+              description="Ask Pulse to build any dashboard you need."
               aiPrompts={[
                 { label: 'Node health dashboard', onAsk: () => { askPulse('Create a dashboard showing node health: CPU/memory utilization, pod density, and node conditions'); } },
                 { label: 'Workload overview', onAsk: () => { askPulse('Create a dashboard showing deployment status, pod restart trends, and OOM kills'); } },

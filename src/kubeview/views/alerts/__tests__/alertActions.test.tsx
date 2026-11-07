@@ -176,7 +176,7 @@ describe('Rule detail', () => {
     expect(within(drawer).getByText(/fires after 15m/)).toBeTruthy();
     fireEvent.click(await within(drawer).findByRole('button', { name: /Edit rule YAML/ }));
     expect(visited).toContain('/yaml/monitoring.coreos.com~v1~prometheusrules/openshift-monitoring/kube-apps');
-    fireEvent.click(within(drawer).getByRole('button', { name: /Investigate with Pulse/ }));
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Ask Pulse to investigate' }));
     expect(askPulse.mock.calls[0][0]).toMatch(/Investigate the alert rule KubePodCrashLooping/);
   });
 

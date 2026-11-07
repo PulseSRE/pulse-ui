@@ -137,7 +137,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
           value={clusterName}
           onChange={(e) => setClusterName(e.target.value)}
           placeholder="my-cluster"
-          className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+          className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
         />
         <p className="text-xs text-slate-500 mt-1">Used as the folder name in your Git repository.</p>
       </div>
@@ -155,7 +155,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
                 className={cn(
                   'p-3 rounded-lg border text-left transition-colors',
                   selected
-                    ? 'border-violet-500 bg-violet-500/10'
+                    ? 'border-blue-500 bg-blue-500/10'
                     : 'border-slate-700 bg-slate-800/50 hover:border-slate-600',
                 )}
               >
@@ -164,7 +164,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
                     type="checkbox"
                     checked={selected}
                     readOnly
-                    className="accent-violet-500"
+                    className="accent-blue-500"
                   />
                   <Package className="w-4 h-4 text-slate-400" />
                   <span className="text-sm font-medium text-slate-200">{cat.label}</span>
@@ -200,7 +200,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
             value={nsSearch}
             onChange={(e) => setNsSearch(e.target.value)}
             placeholder="Search namespaces..."
-            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-violet-500 outline-hidden"
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-hidden"
           />
         </div>
         <div className="max-h-40 overflow-y-auto border border-slate-700 rounded-sm bg-slate-800/50 p-1.5 space-y-0.5">
@@ -221,7 +221,7 @@ export function SelectResourcesStep({ onComplete }: Props) {
                   type="checkbox"
                   checked={selectedNamespaces.includes(ns)}
                   onChange={() => toggleNamespace(ns)}
-                  className="accent-violet-500"
+                  className="accent-blue-500"
                 />
                 <span className="text-sm text-slate-300">{ns}</span>
               </label>
@@ -232,14 +232,14 @@ export function SelectResourcesStep({ onComplete }: Props) {
 
       {/* Export mode info */}
       <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-        <GitPullRequest className="w-4 h-4 text-violet-400 shrink-0" />
+        <GitPullRequest className="w-4 h-4 text-blue-400 shrink-0" />
         <span>Resources will be exported to a new branch and a Pull Request will be created for review.</span>
       </div>
 
       <button
         onClick={handleContinue}
         disabled={!canContinue}
-        className="px-6 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+        className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
       >
         <ArrowRight className="w-4 h-4" />
         Continue

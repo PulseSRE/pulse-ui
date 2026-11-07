@@ -160,7 +160,7 @@ describe('TimelineView', () => {
     expect(screen.getByText('1 entries')).toBeDefined();
   });
 
-  it('"Investigate with AI" on a correlated incident asks the agent (moved here from Inbox › Activity)', () => {
+  it('"Ask Pulse to investigate" on a correlated incident asks the agent (moved here from Inbox › Activity)', () => {
     const now = new Date().toISOString();
     _mockTimelineData.correlationGroups = [{
       key: 'Deployment/web/shop', severity: 'critical', timeRange: { start: now, end: now },
@@ -168,7 +168,7 @@ describe('TimelineView', () => {
     }];
     renderView();
     fireEvent.click(screen.getByText(/Deployment/, { selector: 'span' }).closest('button')!);
-    fireEvent.click(screen.getByRole('button', { name: /Investigate with AI/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Pulse to investigate/ }));
     expect(sendMessage).toHaveBeenCalledWith(expect.stringContaining('Investigate Deployment web in namespace shop'));
     expect(uiActions.expandAISidebar).toHaveBeenCalled();
   });

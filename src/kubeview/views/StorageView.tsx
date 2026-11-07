@@ -260,7 +260,7 @@ export default function StorageView() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Storage Classes detail */}
-          <Panel title="Storage Classes" icon={<Database className="w-4 h-4 text-purple-500" />}>
+          <Panel title="Storage Classes" icon={<Database className="w-4 h-4 text-blue-500" />}>
             {scError ? (
               <LoadError title="StorageClasses could not be loaded" error={scErr} onRetry={() => { void refetchSCs(); }} />
             ) : !scLoaded ? (

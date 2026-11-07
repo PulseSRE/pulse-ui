@@ -38,14 +38,14 @@ beforeEach(() => {
 describe('AIOnboarding', () => {
   it('renders full card by default', () => {
     render(<AIOnboarding />);
-    expect(screen.getByText('Pulse AI Agent')).toBeDefined();
+    expect(screen.getByText('Pulse AI')).toBeDefined();
     expect(screen.getByText('Try it now')).toBeDefined();
   });
 
   it('renders compact banner when compact=true', () => {
     render(<AIOnboarding compact />);
     expect(screen.getByText('Try it')).toBeDefined();
-    expect(screen.queryByText('Pulse AI Agent')).toBeNull();
+    expect(screen.queryByText('Pulse AI')).toBeNull();
   });
 
   it('does not render when onboarding already seen', () => {

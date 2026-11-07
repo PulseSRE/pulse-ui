@@ -347,7 +347,7 @@ export default function OnboardingView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <SectionHeader
-          icon={<ClipboardCheck className="w-6 h-6 text-violet-400" />}
+          icon={<ClipboardCheck className="w-6 h-6 text-blue-400" />}
           title="Cluster Readiness"
           subtitle="Evaluate production readiness across 6 categories"
           actions={
@@ -357,7 +357,7 @@ export default function OnboardingView() {
                 className={cn(
                   'px-3 py-1 text-xs rounded-md transition-colors',
                   mode === 'wizard'
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'text-slate-400 hover:text-slate-200',
                 )}
               >
@@ -368,7 +368,7 @@ export default function OnboardingView() {
                 className={cn(
                   'px-3 py-1 text-xs rounded-md transition-colors',
                   mode === 'checklist'
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'text-slate-400 hover:text-slate-200',
                 )}
               >
@@ -403,7 +403,7 @@ export default function OnboardingView() {
         )}
 
         {browserOnly.length > 0 && (
-          <div data-testid="waiver-migration" className="flex flex-col gap-2 rounded-lg border border-violet-900/60 bg-violet-950/20 px-4 py-3 text-sm text-violet-200">
+          <div data-testid="waiver-migration" className="flex flex-col gap-2 rounded-lg border border-blue-900/60 bg-blue-950/20 px-4 py-3 text-sm text-blue-200">
             <div className="flex items-start gap-2">
               <CloudUpload className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="flex-1">
@@ -414,7 +414,7 @@ export default function OnboardingView() {
               <button
                 onClick={handleMigrate}
                 disabled={migration.running}
-                className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white rounded-sm whitespace-nowrap"
+                className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white rounded-sm whitespace-nowrap"
               >
                 {migration.running
                   ? 'Saving…'
@@ -430,14 +430,14 @@ export default function OnboardingView() {
             <span className="text-sm text-red-400">Evaluation failed: {evalError.message}</span>
             <button
               onClick={() => { setReport(null); setRawResults(null); setAttempt((n) => n + 1); }}
-              className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white rounded-sm transition-colors"
+              className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors"
             >
               Retry
             </button>
           </div>
         ) : !report ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+            <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
             <span className="ml-3 text-sm text-slate-400">Evaluating cluster readiness...</span>
           </div>
         ) : mode === 'wizard' ? (
