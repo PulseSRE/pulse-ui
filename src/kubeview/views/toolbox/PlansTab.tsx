@@ -466,7 +466,7 @@ export function PlansTab() {
                       {editing ? (
                         <button
                           onClick={() => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], required: !p[phaseIdx].required }; setEditPhases(p); }}
-                          className={cn('text-[10px] px-1 py-0.5 rounded-sm cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-faint')}
+                          className={cn('text-[10px] px-1 py-0.5 rounded-sm cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-300')}
                         >
                           {phase.required ? 'required' : 'optional'}
                         </button>

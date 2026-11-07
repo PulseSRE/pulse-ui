@@ -11,7 +11,7 @@ import {
   ShieldOff, Shield, Terminal, Trash2, FileText, Copy, X, MoreVertical, ScrollText, ArrowDownToLine,
 } from 'lucide-react';
 import type { NodeDetail } from './types';
-import { TONE_CLASSES, statusClasses, statusHex, type StatusTone } from '../../engine/statusColors';
+import { TONE_CLASSES, podPhaseClasses, type StatusTone } from '../../engine/statusColors';
 import type { NodeMapActions } from './useNodeMapActions';
 
 export interface PodInfo {
@@ -40,13 +40,19 @@ interface Props {
 }
 
 // Node and pod colours come from the one status map (engine/statusColors):
-// a node under pressure is the same amber, and a Succeeded pod the same
-// emerald, as everywhere else (Succeeded used to be blue here and indigo in
-// the topology pod grid).
+// a node under pressure is the same amber as everywhere else, and pods use
+// podPhaseTone like the Pods list and the topology pod grid (Succeeded used
+// to be blue here and indigo in the grid).
 function nodeState(tone: StatusTone, label: string) {
   const color = TONE_CLASSES[tone].hex;
   return { color, glow: `${color}40`, label };
 }
+
+// Pod dots: `status` is the first container's waiting reason or the phase
+// (ComputeView), which podPhaseTone reads either way. Pending is amber, as on
+// the Pods list; Succeeded is neutral in this density map so completed pods
+// stand apart from Running ones.
+const podTone = (status: string) => podPhaseClasses(status, { completed: 'neutral' });
 
 const STATUS = {
   ready: nodeState('success', 'Ready'),
@@ -289,7 +295,7 @@ function HexNode({ nd, pods, podsUnknown, onClick, onOpenDetails, onPodClick, ac
                   className="rounded-xs cursor-pointer hover:scale-150 hover:z-10 transition-transform"
                   style={{
                     width: 7, height: 7,
-                    background: statusHex(pod.status),
+                    background: podTone(pod.status).hex,
                     opacity: 0.9,
                   }}
                   onClick={(e) => { e.stopPropagation(); onPodClick?.(pod.namespace, pod.name); }}
@@ -322,8 +328,8 @@ function HexNode({ nd, pods, podsUnknown, onClick, onOpenDetails, onPodClick, ac
           <div className="text-[10px] text-slate-400 mt-0.5">{hoveredPod.namespace}</div>
           <div className="flex items-center gap-2 mt-1">
             <span className="flex items-center gap-1 text-[10px]">
-              <span className="w-2 h-2 rounded-full" style={{ background: statusHex(hoveredPod.status) }} />
-              <span className={statusClasses(hoveredPod.status).text}>{hoveredPod.status}</span>
+              <span className="w-2 h-2 rounded-full" style={{ background: podTone(hoveredPod.status).hex }} />
+              <span className={podTone(hoveredPod.status).text}>{hoveredPod.status}</span>
             </span>
             {hoveredPod.restarts > 0 && (
               <span className="text-[10px] text-amber-400">{hoveredPod.restarts} restart{hoveredPod.restarts !== 1 ? 's' : ''}</span>
@@ -574,8 +580,8 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                         <td className="px-3 py-1.5 text-slate-400">{pod.namespace}</td>
                         <td className="px-3 py-1.5">
                           <span className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusHex(pod.status) }} />
-                            <span className={statusClasses(pod.status).text}>{pod.status}</span>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: podTone(pod.status).hex }} />
+                            <span className={podTone(pod.status).text}>{pod.status}</span>
                           </span>
                         </td>
                         <td className="px-3 py-1.5">
