@@ -451,7 +451,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
                   <div key={child.name} className="flex items-center gap-2 px-3 py-2 text-xs">
                     <AppWindow className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                     <span className="text-slate-200 font-mono truncate">{child.name}</span>
-                    <span className="text-slate-500 ml-auto truncate">{child.filePath}</span>
+                    <span className="text-faint ml-auto truncate">{child.filePath}</span>
                   </div>
                 ))}
               </div>
@@ -510,7 +510,7 @@ export function CreateApplicationStep({ onComplete }: Props) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-200">Auto Sync</p>
-            <p className="text-xs text-slate-500">Automatically prune and self-heal resources</p>
+            <p className="text-xs text-faint">Automatically prune and self-heal resources</p>
           </div>
           <button onClick={() => setAutoSync(!autoSync)} className="text-slate-300 hover:text-slate-100">
             {autoSync ? (

@@ -45,7 +45,7 @@ export function InboxResetButton() {
           {result.episodes_closed > 0 && `, ${result.episodes_closed} episode${result.episodes_closed === 1 ? '' : 's'} closed`}
           {result.rescanned ? '. Rescanned.' : '. Rescan failed, next cycle will refill.'}
         </span>
-        <button onClick={() => setResult(null)} className="text-slate-500 hover:text-slate-300 underline">
+        <button onClick={() => setResult(null)} className="text-faint hover:text-slate-300 underline">
           Dismiss
         </button>
       </div>
@@ -55,12 +55,12 @@ export function InboxResetButton() {
   if (confirming) {
     return (
       <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-slate-800 border border-slate-700">
-        <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />
+        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
         <div className="text-xs text-slate-300">
           <div>
             Archive {openCount} open item{openCount === 1 ? '' : 's'} and count from now.
           </div>
-          <div className="text-slate-500">
+          <div className="text-faint">
             Nothing is deleted — archived items keep their history. Anything still wrong comes straight back
             on the rescan.
           </div>

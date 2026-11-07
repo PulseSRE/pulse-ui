@@ -33,7 +33,7 @@ export function DiffPanel({
           ))}
         </div>
       ) : (
-        <div className="text-xs text-slate-500">No previous versions to compare. Edit and save the skill to start tracking versions.</div>
+        <div className="text-xs text-faint">No previous versions to compare. Edit and save the skill to start tracking versions.</div>
       )}
 
       {diffResult && (

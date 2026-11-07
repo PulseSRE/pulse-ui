@@ -112,7 +112,7 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       <h3 className="text-sm font-semibold text-slate-100 mb-3 flex items-center gap-2">
         <Ship className="w-4 h-4 text-blue-400" />
         Helm releases ({releases.length})
-        {listNs && <span className="text-xs font-normal text-slate-500">in {listNs}</span>}
+        {listNs && <span className="text-xs font-normal text-faint">in {listNs}</span>}
       </h3>
       {linkRelease && !isLoading && !error && !linked && (
         <p role="alert" className="mb-3 text-xs text-amber-300">Release {linkRelease}{linkNs ? ` in ${linkNs}` : ''} was not found among the Helm release records Pulse can read.</p>
@@ -132,9 +132,9 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       {error ? (
         <LoadError title="Helm releases could not be listed" error={error} onRetry={() => refetch()} />
       ) : isLoading ? (
-        <p className="text-xs text-slate-500 py-4 text-center">Loading Helm releases…</p>
+        <p className="text-xs text-faint py-4 text-center">Loading Helm releases…</p>
       ) : releases.length === 0 ? (
-        <p className="text-xs text-slate-500 text-center py-4">No Helm releases installed{listNs ? ` in ${listNs}` : ''}</p>
+        <p className="text-xs text-faint text-center py-4">No Helm releases installed{listNs ? ` in ${listNs}` : ''}</p>
       ) : (
         <div className="divide-y divide-slate-800">
           {releases.map((r) => (
@@ -212,8 +212,8 @@ function ReleaseRow({ release, charts, onValues, onAction, highlighted }: {
         <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
           <span className="flex items-center gap-1"><Folder className="w-3 h-3" />{release.namespace}</span>
           {release.chart && <span>chart {release.chart}{release.chartVersion ? ` ${release.chartVersion}` : ''}</span>}
-          {release.appVersion && <span className="text-slate-500">app {release.appVersion}</span>}
-          {noRepo && <span className="text-slate-500" data-testid={`helm-no-repo-${release.name}`}>No chart repository configured for upgrades</span>}
+          {release.appVersion && <span className="text-faint">app {release.appVersion}</span>}
+          {noRepo && <span className="text-faint" data-testid={`helm-no-repo-${release.name}`}>No chart repository configured for upgrades</span>}
         </div>
       </div>
       <div className="flex items-center gap-1.5">
@@ -324,9 +324,9 @@ function ReleaseActionDialog({ action, onStarted }: {
         <div className="mt-3 space-y-2" data-testid="rollback-diff">
           <div className="text-xs font-medium text-slate-300">What changes, rev {latest.revision} (latest) → rev {revision}</div>
           {rollbackDiff.error ? <LoadError title="The revisions could not be compared" error={rollbackDiff.error} />
-            : !rollbackDiff.data ? <p className="text-xs text-slate-500">Comparing the release records…</p>
+            : !rollbackDiff.data ? <p className="text-xs text-faint">Comparing the release records…</p>
               : <><PreviewObjects preview={rollbackDiff.data} /><HooksList hooks={rollbackDiff.data.hooks} action="rollback" /></>}
-          <p className="text-xs text-slate-500">Undo: roll back to rev {latest.revision} the same way.</p>
+          <p className="text-xs text-faint">Undo: roll back to rev {latest.revision} the same way.</p>
         </div>
       )}
       {action.error && <LoadError className="mt-3" title={`The ${target.kind} was not started`} error={action.error} />}

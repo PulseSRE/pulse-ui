@@ -145,7 +145,7 @@ export default function CRDsView() {
         </div>
 
         {/* Results count */}
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-faint">
           Showing {filtered.length} of {typedCRDs.length} CRDs
           {(search || scopeFilter !== 'all' || groupFilter !== 'all') && (
             <button onClick={() => { setSearch(''); setScopeFilter('all'); setGroupFilter('all'); }} className="ml-2 text-blue-400 hover:text-blue-300">Clear filters</button>
@@ -154,7 +154,7 @@ export default function CRDsView() {
 
         {/* Loading */}
         {isLoading && (
-          <div className="text-center py-12 text-sm text-slate-500">Loading CRDs...</div>
+          <div className="text-center py-12 text-sm text-faint">Loading CRDs...</div>
         )}
 
         {/* Grouped CRDs */}
@@ -180,18 +180,18 @@ export default function CRDsView() {
                         <div className="flex items-center gap-2 flex-wrap">
                           {isEstablished
                             ? <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                            : <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                            : <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                           }
                           <span className="text-sm font-medium text-slate-200">{kind}</span>
                           <span className={cn('text-xs px-1.5 py-0.5 rounded-sm', scope === 'Namespaced' ? 'bg-blue-900/50 text-blue-300' : 'bg-indigo-900/50 text-indigo-300')}>
                             {scope}
                           </span>
                           {shortNames.length > 0 && (
-                            <span className="text-xs text-slate-500">({shortNames.join(', ')})</span>
+                            <span className="text-xs text-faint">({shortNames.join(', ')})</span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5 font-mono truncate">{crd.metadata.name}</div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                        <div className="text-xs text-faint mt-0.5 font-mono truncate">{crd.metadata.name}</div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-faint">
                           <span>Versions: {servedVersions.map(v => (
                             <span key={v.name} className={cn('mr-1', v.storage ? 'text-blue-400' : '')}>{v.name}{v.storage ? ' (storage)' : ''}</span>
                           ))}</span>
@@ -229,7 +229,7 @@ export default function CRDsView() {
         {!isLoading && !isError && filtered.length === 0 && (
           <div className="text-center py-12">
             <Puzzle className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-            <div className="text-sm text-slate-500">{typedCRDs.length === 0 ? 'No CRDs are installed' : 'No CRDs match your filters'}</div>
+            <div className="text-sm text-faint">{typedCRDs.length === 0 ? 'No CRDs are installed' : 'No CRDs match your filters'}</div>
           </div>
         )}
       </div>

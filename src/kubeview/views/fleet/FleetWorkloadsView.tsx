@@ -132,7 +132,7 @@ export default function FleetWorkloadsView() {
       <div className="text-center space-y-2">
         <Globe className="w-10 h-10 text-slate-700 mx-auto" />
         <p className="text-slate-400 text-sm">No clusters connected</p>
-        <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to see fleet-wide workloads.</p>
+        <p className="text-faint text-xs">Connect clusters in the Fleet view to see fleet-wide workloads.</p>
       </div>,
     );
   }
@@ -159,21 +159,21 @@ export default function FleetWorkloadsView() {
         {/* Summary cards */}
         <MetricGrid>
           <Card className="p-4">
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="flex items-center gap-2 text-xs text-faint mb-1">
               <Layers className="w-3.5 h-3.5" />
               Total Deployments
             </div>
             <div className="text-2xl font-bold text-slate-100 tabular-nums">{totals.deployments}</div>
           </Card>
           <Card className="p-4">
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="flex items-center gap-2 text-xs text-faint mb-1">
               <Box className="w-3.5 h-3.5" />
               Total Pods
             </div>
             <div className="text-2xl font-bold text-slate-100 tabular-nums">{totals.pods}</div>
           </Card>
           <Card className="p-4">
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="flex items-center gap-2 text-xs text-faint mb-1">
               <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
               Failed Pods
             </div>
@@ -182,7 +182,7 @@ export default function FleetWorkloadsView() {
             </div>
           </Card>
           <Card className="p-4">
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="flex items-center gap-2 text-xs text-faint mb-1">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
               Unhealthy Deploys
             </div>

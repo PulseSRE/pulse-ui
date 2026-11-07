@@ -60,9 +60,7 @@ export default [
   // `eslint-disable-next-line pulse/<rule> -- <why>` comment.
   {
     files: ['src/**/*.{ts,tsx}'],
-    // views/ is migrated by part 2 of this change (the same codemod); remove
-    // 'src/kubeview/views/**' from this list there.
-    ignores: ['src/**/__tests__/**', 'src/**/*.test.*', 'src/kubeview/views/**'],
+    ignores: ['src/**/__tests__/**', 'src/**/*.test.*'],
     plugins: { pulse },
     rules: {
       'pulse/no-yellow': 'error',
@@ -82,11 +80,6 @@ export default [
       'src/kubeview/components/topology/constants.ts', // Wave 8 (graphs)
       'src/kubeview/views/TopologyView.tsx', // Wave 8 (graphs)
       'src/kubeview/views/TimelineView.tsx', // Wave 8 (graphs)
-      'src/kubeview/views/argocd/RolloutsTab.tsx', // consistency 8/12, part 2
-      'src/kubeview/views/compute/NodeHexMap.tsx', // consistency 8/12, part 2
-      'src/kubeview/views/mission-control/ScannerDrawer.tsx', // consistency 8/12, part 2
-      'src/kubeview/views/inbox/InboxItem.tsx', // consistency 8/12, part 2
-      'src/kubeview/views/inbox/InboxGroup.tsx', // consistency 8/12, part 2
       'src/kubeview/components/agent/FindingCard.tsx', // Wave 7c (inbox/fix actions)
     ],
     rules: { 'pulse/no-inline-status-colors': 'off' },

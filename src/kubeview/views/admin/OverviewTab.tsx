@@ -183,7 +183,7 @@ export function OverviewTab({
                 <span key={name} className="text-xs px-2 py-0.5 rounded-sm bg-slate-800 text-slate-300">{name}</span>
               ))}
               {new Set(firingAlerts.map(a => a.labels?.alertname)).size > 3 && (
-                <span className="text-xs text-slate-500">+{new Set(firingAlerts.map(a => a.labels?.alertname)).size - 3} more</span>
+                <span className="text-xs text-faint">+{new Set(firingAlerts.map(a => a.labels?.alertname)).size - 3} more</span>
               )}
             </div>
           )}
@@ -278,7 +278,7 @@ export function OverviewTab({
                     )}>{cert.daysLeft <= 0 ? 'Expired' : `${cert.daysLeft}d left`}</span>
                   </div>
                 ))}
-                {expiringCerts.length > 3 && <div className="text-xs text-slate-500">+{expiringCerts.length - 3} more</div>}
+                {expiringCerts.length > 3 && <div className="text-xs text-faint">+{expiringCerts.length - 3} more</div>}
               </div>
               <button onClick={() => go(certsLink, 'Administration')} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-3">
                 View certificates <ArrowRight className="w-3 h-3" />
@@ -325,22 +325,22 @@ export function OverviewTab({
           <div>
             <div className="text-xs text-slate-400 mb-1">CPU (allocatable)</div>
             <div className="text-lg font-bold text-slate-100">{clusterCapacity.cpuAllocatable.toFixed(0)} cores</div>
-            <div className="text-xs text-slate-500">{clusterCapacity.cpuCapacity.toFixed(0)} total capacity</div>
+            <div className="text-xs text-faint">{clusterCapacity.cpuCapacity.toFixed(0)} total capacity</div>
           </div>
           <div>
             <div className="text-xs text-slate-400 mb-1">Memory (allocatable)</div>
             <div className="text-lg font-bold text-slate-100">{formatMem(clusterCapacity.memAllocatable)}</div>
-            <div className="text-xs text-slate-500">{formatMem(clusterCapacity.memCapacity)} total capacity</div>
+            <div className="text-xs text-faint">{formatMem(clusterCapacity.memCapacity)} total capacity</div>
           </div>
           <div>
             <div className="text-xs text-slate-400 mb-1">Max Pods</div>
             <div className="text-lg font-bold text-slate-100">{formatCount(clusterCapacity.pods)}</div>
-            <div className="text-xs text-slate-500">across {nodes.length} nodes</div>
+            <div className="text-xs text-faint">across {nodes.length} nodes</div>
           </div>
           <div>
             <div className="text-xs text-slate-400 mb-1">Per-Node Average</div>
             <div className="text-lg font-bold text-slate-100">{nodes.length > 0 ? (clusterCapacity.cpuAllocatable / nodes.length).toFixed(1) : 0} CPU</div>
-            <div className="text-xs text-slate-500">{nodes.length > 0 ? formatMem(clusterCapacity.memAllocatable / nodes.length) : '\u2014'} memory</div>
+            <div className="text-xs text-faint">{nodes.length > 0 ? formatMem(clusterCapacity.memAllocatable / nodes.length) : '\u2014'} memory</div>
           </div>
         </div>
       </Panel>
@@ -368,7 +368,7 @@ export function OverviewTab({
                      status === 'progressing' ? <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin" /> :
                      <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />}
                     <span className="text-sm text-slate-200">{name}</span>
-                    {detail && <span className="text-xs text-slate-500">{detail}</span>}
+                    {detail && <span className="text-xs text-faint">{detail}</span>}
                   </div>
                   <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                     status === 'healthy' ? 'bg-green-900/50 text-green-300' :
@@ -432,9 +432,9 @@ export function OverviewTab({
           {identityProvidersError ? (
             <div className="text-sm text-slate-400 py-2">Identity providers could not be read</div>
           ) : identityProvidersLoading ? (
-            <div className="text-sm text-slate-500 py-2">{'\u2014'}</div>
+            <div className="text-sm text-faint py-2">{'\u2014'}</div>
           ) : identityProviders.length === 0 ? (
-            <div className="text-sm text-slate-500 py-2">No identity providers configured</div>
+            <div className="text-sm text-faint py-2">No identity providers configured</div>
           ) : (
             <div className="space-y-1">
               {identityProviders.map((idp, i) => (
@@ -460,10 +460,10 @@ export function OverviewTab({
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-300">Default Certificate</span>
               {ingressConfigError || !ingressConfig ? (
-                ingressConfigError ? <CouldNotRead what="The Ingress config" /> : <span className="text-xs text-slate-500">{'\u2014'}</span>
+                ingressConfigError ? <CouldNotRead what="The Ingress config" /> : <span className="text-xs text-faint">{'\u2014'}</span>
               ) : (
                 <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
-                  ingressConfig.spec?.defaultCertificate ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'
+                  ingressConfig.spec?.defaultCertificate ? 'bg-green-900/50 text-green-300' : 'bg-amber-900/50 text-amber-300'
                 )}>{ingressConfig.spec?.defaultCertificate ? 'Custom' : 'Self-signed'}</span>
               )}
             </div>
@@ -478,7 +478,7 @@ export function OverviewTab({
                 <span className="text-sm text-slate-300">Router Cert Expires</span>
                 <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                   certExpiry.daysLeft < 30 ? 'bg-red-900/50 text-red-300' :
-                  certExpiry.daysLeft < 90 ? 'bg-yellow-900/50 text-yellow-300' :
+                  certExpiry.daysLeft < 90 ? 'bg-amber-900/50 text-amber-300' :
                   'bg-green-900/50 text-green-300'
                 )}>{certExpiry.daysLeft}d ({formatDate(certExpiry.date)})</span>
               </div>
@@ -519,9 +519,9 @@ export function OverviewTab({
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-slate-200">{reason}</span>
                       {objectKind && objectName && (
-                        <span className="text-xs text-slate-500">{objectKind}/{objectName}</span>
+                        <span className="text-xs text-faint">{objectKind}/{objectName}</span>
                       )}
-                      {timeAgo && <span className="text-xs text-slate-600 ml-auto shrink-0">{timeAgo}</span>}
+                      {timeAgo && <span className="text-xs text-faint ml-auto shrink-0">{timeAgo}</span>}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{message}</p>
                   </div>

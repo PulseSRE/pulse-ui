@@ -71,7 +71,7 @@ export function AskPulseCard({ context, placeholder }: { context: ResourceContex
           onChange={(e) => setText(e.target.value)}
           disabled={remote}
           placeholder={placeholder ?? `Why is this ${noun} failing?`}
-          className={cn('min-h-[40px] flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none', AI_ACCENT.focusBorder)}
+          className={cn('min-h-[40px] flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-faint focus:outline-none', AI_ACCENT.focusBorder)}
         />
         <button
           type="submit"

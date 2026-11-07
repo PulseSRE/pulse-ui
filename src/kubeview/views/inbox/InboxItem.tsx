@@ -15,6 +15,7 @@ import type { InboxItem as InboxItemType, InboxSeverity } from '../../engine/inb
 import { useInboxStore } from '../../store/inboxStore';
 import { itemAwaitsApproval, useApprovalsStore } from '../../store/approvalsStore';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
+import { statusClasses } from '../../engine/statusColors';
 
 const SEVERITY_ICON: Record<InboxSeverity, typeof XCircle> = {
   critical: XCircle,
@@ -22,17 +23,8 @@ const SEVERITY_ICON: Record<InboxSeverity, typeof XCircle> = {
   info: Info,
 };
 
-const SEVERITY_COLOR: Record<InboxSeverity, string> = {
-  critical: 'border-l-red-500',
-  warning: 'border-l-yellow-500',
-  info: 'border-l-blue-500',
-};
-
-const SEVERITY_ICON_COLOR: Record<InboxSeverity, string> = {
-  critical: 'text-red-500',
-  warning: 'text-yellow-500',
-  info: 'text-blue-500',
-};
+// Severity colours come from the one status map, so a warning here is the
+// same amber as on Pulse and Workloads (it used to be yellow).
 
 const SNOOZE_ITEMS = [
   { id: '4', label: '4 hours', onClick: () => {} },
@@ -150,13 +142,13 @@ export function InboxItem({
       <Card
         className={cn(
           'border-l-4',
-          SEVERITY_COLOR[severity] || 'border-l-slate-600',
+          statusClasses(severity).edge,
           focused && 'ring-1 ring-blue-500/60',
         )}
         onClick={() => setSelectedItem(item.id)}
       >
         <div className="px-4 py-3 flex items-start gap-3">
-          <SeverityIcon className={cn('w-5 h-5 shrink-0 mt-0.5', SEVERITY_ICON_COLOR[severity])} />
+          <SeverityIcon className={cn('w-5 h-5 shrink-0 mt-0.5', statusClasses(severity).text)} />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -192,11 +184,11 @@ export function InboxItem({
                 </Tooltip>
               )}
               {isPinned && (
-                <Pin className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+                <Pin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               )}
             </div>
 
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+            <div className="flex items-center gap-3 mt-1 text-xs text-faint">
               <span>{getSourceLabel(item.created_by)}</span>
               <span>·</span>
               <span>{formatRelative(item.created_at * 1000)}</span>
@@ -236,7 +228,7 @@ export function InboxItem({
               <Tooltip content="Acknowledge">
                 <button
                   onClick={(e) => { e.stopPropagation(); acknowledge(item.id); }}
-                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300 transition-colors"
                   aria-label="Acknowledge"
                 >
                   <Eye className="w-4 h-4" />
@@ -247,7 +239,7 @@ export function InboxItem({
               <Tooltip content="Claim — take ownership">
                 <button
                   onClick={(e) => { e.stopPropagation(); claim(item.id); }}
-                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300 transition-colors"
                   aria-label="Claim"
                 >
                   <UserPlus className="w-4 h-4" />
@@ -258,7 +250,7 @@ export function InboxItem({
               <Tooltip content={`Unclaim — release ${item.claimed_by}'s ownership`}>
                 <button
                   onClick={(e) => { e.stopPropagation(); unclaim(item.id); }}
-                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300 transition-colors"
                   aria-label="Unclaim"
                 >
                   <UserMinus className="w-4 h-4" />
@@ -269,7 +261,7 @@ export function InboxItem({
               <Tooltip content="Escalate — re-open as a new, untriaged task at full priority">
                 <button
                   onClick={(e) => { e.stopPropagation(); setConfirmEscalate(true); }}
-                  className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-amber-300 transition-colors"
+                  className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-amber-300 transition-colors"
                   aria-label="Escalate"
                 >
                   <ArrowUpCircle className="w-4 h-4" />
@@ -280,7 +272,7 @@ export function InboxItem({
               <Dropdown
                 trigger={
                   <button
-                    className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-slate-300 transition-colors"
                     aria-label="Snooze"
                   >
                     <PauseCircle className="w-4 h-4" />
@@ -295,7 +287,7 @@ export function InboxItem({
                 onClick={(e) => { e.stopPropagation(); pin(item.id); }}
                 className={cn(
                   'p-1.5 rounded-sm hover:bg-slate-800 transition-colors',
-                  isPinned ? 'text-yellow-500' : 'text-slate-500 hover:text-slate-300',
+                  isPinned ? 'text-amber-500' : 'text-faint hover:text-slate-300',
                 )}
                 aria-label={isPinned ? 'Unpin' : 'Pin'}
               >
@@ -305,7 +297,7 @@ export function InboxItem({
             <Tooltip content="Dismiss">
               <button
                 onClick={onDismissClick}
-                className="p-1.5 rounded-sm hover:bg-slate-800 text-slate-500 hover:text-red-400 transition-colors"
+                className="p-1.5 rounded-sm hover:bg-slate-800 text-faint hover:text-red-400 transition-colors"
                 aria-label="Dismiss"
               >
                 <Trash2 className="w-4 h-4" />

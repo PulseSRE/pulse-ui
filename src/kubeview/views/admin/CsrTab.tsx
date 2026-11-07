@@ -108,7 +108,7 @@ export function CsrTab({ go }: { go: (path: string, title: string) => void }) {
   return (
     <div className="space-y-4">
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-slate-500">Loading certificate signing requests…</div>
+        <div className="py-12 text-center text-sm text-faint">Loading certificate signing requests…</div>
       ) : error ? (
         <LoadError title="Certificate signing requests could not be loaded" error={error} onRetry={() => refetch()} />
       ) : (<>
@@ -145,7 +145,7 @@ export function CsrTab({ go }: { go: (path: string, title: string) => void }) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-slate-500 border-b border-slate-800 text-left">
+                <tr className="text-faint border-b border-slate-800 text-left">
                   <th className="py-2 px-3 font-normal">Name</th>
                   <th className="py-2 px-3 font-normal">Requester</th>
                   <th className="py-2 px-3 font-normal">Signer</th>
@@ -171,7 +171,7 @@ export function CsrTab({ go }: { go: (path: string, title: string) => void }) {
                       <td className="py-2 px-3 font-mono text-slate-300">{csr.spec.username || '—'}</td>
                       <td className="py-2 px-3 font-mono text-slate-400">{csr.spec.signerName}</td>
                       <td className="py-2 px-3 text-slate-400">{(csr.spec.usages || []).join(', ') || '—'}</td>
-                      <td className="py-2 px-3 text-slate-500">{csr.metadata.creationTimestamp ? formatRelative(new Date(csr.metadata.creationTimestamp)) : '—'}</td>
+                      <td className="py-2 px-3 text-faint">{csr.metadata.creationTimestamp ? formatRelative(new Date(csr.metadata.creationTimestamp)) : '—'}</td>
                       <td className="py-2 px-3"><Badge size="sm" variant={STATUS_VARIANT[status]}>{status}</Badge></td>
                       <td className="py-2 px-3">
                         {status === 'Pending' && (
@@ -258,10 +258,10 @@ function CsrRequestDetails({ csr }: { csr: CertificateSigningRequest }) {
     <div className="mt-3 space-y-2 text-xs">
       {parsed ? (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono text-slate-300" aria-label="Certificate request">
-          <dt className="text-slate-500">Subject CN</dt><dd>{parsed.commonName || '—'}</dd>
-          <dt className="text-slate-500">Subject O</dt><dd>{parsed.organizations.join(', ') || '—'}</dd>
-          <dt className="text-slate-500">DNS names</dt><dd>{parsed.dnsNames.join(', ') || '—'}</dd>
-          <dt className="text-slate-500">IP addresses</dt><dd>{parsed.ipAddresses.join(', ') || '—'}</dd>
+          <dt className="text-faint">Subject CN</dt><dd>{parsed.commonName || '—'}</dd>
+          <dt className="text-faint">Subject O</dt><dd>{parsed.organizations.join(', ') || '—'}</dd>
+          <dt className="text-faint">DNS names</dt><dd>{parsed.dnsNames.join(', ') || '—'}</dd>
+          <dt className="text-faint">IP addresses</dt><dd>{parsed.ipAddresses.join(', ') || '—'}</dd>
         </dl>
       ) : <p className="text-amber-300">The certificate request could not be read; check it before approving.</p>}
       {problems.length > 0 && (

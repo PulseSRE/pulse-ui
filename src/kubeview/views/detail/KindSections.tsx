@@ -106,22 +106,22 @@ function PvcSection({ pvc, go }: { pvc: K8sResource; go: Go }) {
       )}
     >
       <dl className="grid grid-cols-2 gap-2 text-xs mb-3">
-        <dt className="text-slate-500">Requested</dt><dd className="text-slate-200 font-mono">{current || '—'}</dd>
-        <dt className="text-slate-500">StorageClass</dt>
-        <dd>{scName ? <button className="text-blue-400 hover:text-blue-300" onClick={() => go(`/r/storage.k8s.io~v1~storageclasses/_/${scName}`, scName)}>{scName}</button> : <span className="text-slate-500">none</span>}</dd>
+        <dt className="text-faint">Requested</dt><dd className="text-slate-200 font-mono">{current || '—'}</dd>
+        <dt className="text-faint">StorageClass</dt>
+        <dd>{scName ? <button className="text-blue-400 hover:text-blue-300" onClick={() => go(`/r/storage.k8s.io~v1~storageclasses/_/${scName}`, scName)}>{scName}</button> : <span className="text-faint">none</span>}</dd>
         {spec?.volumeName && (<>
-          <dt className="text-slate-500">Volume</dt>
+          <dt className="text-faint">Volume</dt>
           <dd><button className="text-blue-400 hover:text-blue-300" onClick={() => go(`/r/v1~persistentvolumes/_/${spec.volumeName}`, spec.volumeName!)}>{spec.volumeName}</button></dd>
         </>)}
       </dl>
-      {blocker && canPatch && blocker !== 'Checking the StorageClass…' && <p className="text-xs text-slate-500 mb-3">Expand unavailable: {blocker}.</p>}
+      {blocker && canPatch && blocker !== 'Checking the StorageClass…' && <p className="text-xs text-faint mb-3">Expand unavailable: {blocker}.</p>}
       <h3 className="text-xs font-semibold text-slate-300 mb-1.5">Used by</h3>
       {pods.isError ? (
         <LoadError title="Pods could not be listed" error={pods.error} onRetry={() => pods.refetch()} />
       ) : pods.isLoading ? (
-        <p className="text-xs text-slate-500">Loading pods…</p>
+        <p className="text-xs text-faint">Loading pods…</p>
       ) : (pods.data ?? []).length === 0 ? (
-        <p className="text-xs text-slate-500">No pod in {ns} mounts this claim.</p>
+        <p className="text-xs text-faint">No pod in {ns} mounts this claim.</p>
       ) : (
         <ul className="space-y-1">
           {pods.data!.map((p) => (
@@ -129,7 +129,7 @@ function PvcSection({ pvc, go }: { pvc: K8sResource; go: Go }) {
               <button className="text-xs text-blue-400 hover:text-blue-300" onClick={() => go(`/r/v1~pods/${ns}/${p.metadata.name}`, p.metadata.name)}>
                 {p.metadata.name}
               </button>
-              <span className="ml-2 text-xs text-slate-500">{p.status?.phase}{p.spec?.nodeName ? ` · ${p.spec.nodeName}` : ''}</span>
+              <span className="ml-2 text-xs text-faint">{p.status?.phase}{p.spec?.nodeName ? ` · ${p.spec.nodeName}` : ''}</span>
             </li>
           ))}
         </ul>
@@ -216,7 +216,7 @@ function ServiceEndpointsSection({ svc, go }: { svc: K8sResource; go: Go }) {
       {ep.isError ? (
         <LoadError title="Endpoints could not be loaded" error={ep.error} onRetry={() => ep.refetch()} />
       ) : ep.isLoading ? (
-        <p className="text-xs text-slate-500">Loading endpoints…</p>
+        <p className="text-xs text-faint">Loading endpoints…</p>
       ) : ready.length === 0 && notReady.length === 0 ? (
         <p className="text-xs text-amber-300">
           {noSelector
@@ -225,7 +225,7 @@ function ServiceEndpointsSection({ svc, go }: { svc: K8sResource; go: Go }) {
         </p>
       ) : (
         <table className="w-full text-xs">
-          <thead><tr className="text-left text-slate-500"><th className="py-1 font-normal">Address</th><th className="font-normal">Target</th><th className="font-normal">Node</th><th className="font-normal">Ready</th></tr></thead>
+          <thead><tr className="text-left text-faint"><th className="py-1 font-normal">Address</th><th className="font-normal">Target</th><th className="font-normal">Node</th><th className="font-normal">Ready</th></tr></thead>
           <tbody>
             {ready.map(({ a, ports }) => (
               <tr key={`r-${a.ip}`} className="border-t border-slate-800">

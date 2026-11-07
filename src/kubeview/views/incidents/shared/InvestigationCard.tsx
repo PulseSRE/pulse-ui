@@ -27,7 +27,7 @@ export function InvestigationCard({
       tabIndex={clickable ? 0 : undefined}
       onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClickFinding(report.findingId); } } : undefined}
     >
-      <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+      <div className="flex items-center gap-2 text-xs text-faint mb-1">
         <span className={cn('px-1.5 py-0.5 rounded-sm', report.status === 'completed' ? 'bg-green-900/40 text-green-300' : 'bg-red-900/40 text-red-300')}>
           {report.status}
         </span>
@@ -108,8 +108,8 @@ export function InvestigationCard({
         <div className="mt-1 pl-3 border-l-2 border-slate-700">
           <ul className="space-y-0.5">
             {report.alternativesConsidered.map((a, i) => (
-              <li key={i} className="text-xs text-slate-500 flex gap-1.5">
-                <span className="text-slate-600 shrink-0">-</span>
+              <li key={i} className="text-xs text-faint flex gap-1.5">
+                <span className="text-faint shrink-0">-</span>
                 {a}
               </li>
             ))}

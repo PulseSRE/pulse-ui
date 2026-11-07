@@ -182,7 +182,7 @@ export function GitProviderStep({ onComplete }: Props) {
             />
           </div>
           <div>
-            <label className="text-xs text-slate-400 block mb-1">Path Prefix <span className="text-slate-600">(optional)</span></label>
+            <label className="text-xs text-slate-400 block mb-1">Path Prefix <span className="text-faint">(optional)</span></label>
             <input aria-label="Path Prefix"
               type="text"
               value={pathPrefix}
@@ -195,7 +195,7 @@ export function GitProviderStep({ onComplete }: Props) {
         <div>
           <label className="text-xs text-slate-400 block mb-1">
             Personal Access Token
-            <span className="text-slate-600 ml-1">(stored in K8s Secret)</span>
+            <span className="text-faint ml-1">(stored in K8s Secret)</span>
           </label>
           <div className="relative">
             <input aria-label="Personal Access Token"
@@ -208,7 +208,7 @@ export function GitProviderStep({ onComplete }: Props) {
             />
             <button
               onClick={() => setShowToken(!showToken)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-slate-300"
             >
               {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>

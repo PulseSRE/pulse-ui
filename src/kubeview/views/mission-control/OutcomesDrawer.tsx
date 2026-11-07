@@ -79,21 +79,21 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-4 gap-3 mb-3">
                 <div className="text-center">
                   <div className="text-lg font-bold text-slate-200">{summary.total_actions}</div>
-                  <div className="text-[10px] text-slate-500 uppercase">Total</div>
+                  <div className="text-[10px] text-faint uppercase">Total</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-emerald-400">{summary.completed}</div>
-                  <div className="text-[10px] text-slate-500 uppercase">Fixed</div>
+                  <div className="text-[10px] text-faint uppercase">Fixed</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-slate-200">{Math.round(summary.success_rate * 100)}%</div>
-                  <div className="text-[10px] text-slate-500 uppercase">Success</div>
+                  <div className="text-[10px] text-faint uppercase">Success</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-slate-200">
                     {summary.avg_resolution_ms > 0 ? `${(summary.avg_resolution_ms / 60000).toFixed(1)}m` : '--'}
                   </div>
-                  <div className="text-[10px] text-slate-500 uppercase">Avg Time</div>
+                  <div className="text-[10px] text-faint uppercase">Avg Time</div>
                 </div>
               </div>
             )}
@@ -112,7 +112,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                     {summary.verification.recurred} recurred
                   </span>
                 )}
-                <span className="text-slate-500">{summary.verification.pending} pending</span>
+                <span className="text-faint">{summary.verification.pending} pending</span>
               </div>
             )}
 
@@ -137,7 +137,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
           {/* Resolution list */}
           <div className="px-6 py-4 space-y-2">
             {filtered.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-500">
+              <div className="text-center py-8 text-sm text-faint">
                 No {filter === 'all' ? '' : outcomeLabel(filter).toLowerCase() + ' '}outcomes in the last 7 days
               </div>
             ) : (
@@ -178,9 +178,9 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                     <p className="text-xs text-slate-400 mb-1 line-clamp-2">{r.reasoning}</p>
                   )}
                   {r.evidence && (
-                    <p className="text-xs text-slate-500 mb-1 line-clamp-1">{r.evidence}</p>
+                    <p className="text-xs text-faint mb-1 line-clamp-1">{r.evidence}</p>
                   )}
-                  <div className="flex items-center gap-3 text-[10px] text-slate-600">
+                  <div className="flex items-center gap-3 text-[10px] text-faint">
                     <span>{formatRelative(r.timestamp)}</span>
                     {r.timeToVerifyMs != null && r.timeToVerifyMs > 0 && (
                       <span>verified in {Math.round(r.timeToVerifyMs / 1000)}s</span>
@@ -201,7 +201,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                     <span className="text-slate-300">{actionCategoryLabel(cat.category)}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-emerald-400">{cat.success_count}/{cat.count}</span>
-                      {cat.auto_fixed > 0 && <span className="text-slate-500">{cat.auto_fixed} auto</span>}
+                      {cat.auto_fixed > 0 && <span className="text-faint">{cat.auto_fixed} auto</span>}
                     </div>
                   </div>
                 ))}

@@ -367,7 +367,7 @@ export default function DetailView({ gvrKey, namespace, name }: DetailViewProps)
           <p className="text-red-400 text-sm font-medium">
             {isNotFound ? 'Resource not found' : 'Error loading resource'}
           </p>
-          <p className="text-slate-500 text-xs mt-2">{(error as Error).message}</p>
+          <p className="text-faint text-xs mt-2">{(error as Error).message}</p>
           {isNotFound && (
             <p className="text-slate-400 text-xs mt-3">
               This resource may have been deleted or replaced. Pods managed by Deployments are ephemeral and get new names on restart.

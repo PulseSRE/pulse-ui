@@ -493,7 +493,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
           </div>
           <h2 className="text-lg font-semibold text-slate-100 mb-1">Error loading resources</h2>
           <p className="text-sm text-red-400 mb-2">{(error as Error).message}</p>
-          <p className="text-xs text-slate-500 mb-6">Check your cluster connection and ensure you have permission to list {resourceKind.toLowerCase()}.</p>
+          <p className="text-xs text-faint mb-6">Check your cluster connection and ensure you have permission to list {resourceKind.toLowerCase()}.</p>
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'list', apiPath] })}
@@ -715,7 +715,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
       {sortedResources.length > 0 && (
         <div className="border-t border-slate-800 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <label htmlFor="resource-table-per-page" className="text-xs text-slate-500">Rows per page:</label>
+            <label htmlFor="resource-table-per-page" className="text-xs text-faint">Rows per page:</label>
             <select
               id="resource-table-per-page"
               value={perPage}
@@ -731,7 +731,7 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
             </select>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-faint">
               {currentPage * perPage + 1}-{Math.min((currentPage + 1) * perPage, sortedResources.length)} of{' '}
               {sortedResources.length}
             </span>

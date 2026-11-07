@@ -13,7 +13,7 @@ export interface VersionEntry {
 export function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; onDiff: (v1: string, v2: string) => void }) {
   if (versions.length === 0) {
     return (
-      <div className="text-center py-8 text-sm text-slate-500">
+      <div className="text-center py-8 text-sm text-faint">
         <History className="w-8 h-8 mx-auto mb-2 text-slate-600" />
         No version history yet. Edit and save the skill to create versions.
       </div>
@@ -33,7 +33,7 @@ export function VersionsPanel({ versions, onDiff }: { versions: VersionEntry[]; 
               <span className="text-sm font-medium text-slate-100">{v.label}</span>
               {v.current && <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-400 rounded-sm">current</span>}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">
+            <div className="text-xs text-faint mt-0.5">
               {formatTimestamp(v.timestamp)}
             </div>
           </div>

@@ -91,19 +91,19 @@ export function SkillsTab() {
         <div className="grid grid-cols-4 gap-2">
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-slate-100">{totalInvocations}</div>
-            <div className="text-[10px] text-slate-500">Total Invocations</div>
+            <div className="text-[10px] text-faint">Total Invocations</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-slate-100">{skills.length}</div>
-            <div className="text-[10px] text-slate-500">Skills Active</div>
+            <div className="text-[10px] text-faint">Skills Active</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-slate-100">{avgDuration}ms</div>
-            <div className="text-[10px] text-slate-500">Avg Duration</div>
+            <div className="text-[10px] text-faint">Avg Duration</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-slate-100">{totalHandoffs}</div>
-            <div className="text-[10px] text-slate-500">Handoffs</div>
+            <div className="text-[10px] text-faint">Handoffs</div>
           </div>
         </div>
       )}
@@ -141,7 +141,7 @@ export function SkillsTab() {
                   <div className="flex items-center gap-2 min-w-0">
                     <SkillIcon className={cn('w-4 h-4 shrink-0', skill.degraded ? 'text-amber-400' : 'text-violet-400')} />
                     <span className="text-sm font-medium text-slate-100 truncate">{String(skill.display_name || skill.name)}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded-sm text-slate-500 shrink-0">v{Number(skill.version)}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded-sm text-faint shrink-0">v{Number(skill.version)}</span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {Boolean(skill.quarantined) && (
@@ -176,7 +176,7 @@ export function SkillsTab() {
                   </div>
                 </div>
                 <p className="text-xs text-slate-400">{String(skill.description)}</p>
-                <div className="flex items-center gap-3 text-xs text-slate-500">
+                <div className="flex items-center gap-3 text-xs text-faint">
                   <span>{(skill.keywords as string[])?.length || 0} keywords</span>
                   <span>{(skill.categories as string[])?.length || 0} categories</span>
                   <span>{Number(skill.prompt_length)} chars</span>
@@ -215,7 +215,7 @@ export function SkillsTab() {
             <span className={cn('font-medium', testResult.degraded ? 'text-amber-400' : 'text-emerald-400')}>
               {testResult.skill}
             </span>
-            <span className="text-slate-500">{testResult.description}</span>
+            <span className="text-faint">{testResult.description}</span>
           </div>
         )}
       </div>
@@ -242,7 +242,7 @@ export function SkillsTab() {
                     <span className="text-slate-300">{h.from}</span>
                     <ArrowRight className="w-3 h-3 text-slate-600" />
                     <span className="text-slate-300">{h.to}</span>
-                    <span className="text-slate-500 ml-auto">{h.count}x</span>
+                    <span className="text-faint ml-auto">{h.count}x</span>
                   </div>
                 ))}
               </div>
@@ -279,7 +279,7 @@ function SkillStatsCard({ skill, onSelect }: { skill: Record<string, unknown>; o
         <span className="text-sm font-medium text-slate-100">{String(skill.name)}</span>
         <span className="text-lg font-bold text-slate-100">{Number(skill.invocations)}</span>
       </div>
-      <div className="flex items-center gap-3 text-xs text-slate-500">
+      <div className="flex items-center gap-3 text-xs text-faint">
         <span>avg {Number(skill.avg_tools)} tools</span>
         <span>{Number(skill.avg_duration_ms)}ms avg</span>
         {Number(skill.feedback_positive) > 0 && <span className="text-emerald-400">{Number(skill.feedback_positive)} positive</span>}
@@ -301,7 +301,7 @@ function SkillStatsCard({ skill, onSelect }: { skill: Record<string, unknown>; o
       )}
 
       {(skill.top_tools as Array<{ name: string; count: number }>)?.length > 0 && (
-        <div className="text-[10px] text-slate-600">
+        <div className="text-[10px] text-faint">
           Top: {(skill.top_tools as Array<{ name: string; count: number }>).map((t) => t.name).join(', ')}
         </div>
       )}

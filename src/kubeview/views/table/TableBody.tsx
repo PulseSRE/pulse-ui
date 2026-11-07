@@ -278,7 +278,7 @@ export function TableBody({
             0 of {stampedResources.length} {resourceKind.toLowerCase()} match your filters
           </p>
           {(searchTerm || Object.values(columnFilters).some(v => v)) && (
-            <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+            <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-xs text-faint">
               {searchTerm && (
                 <span>
                   Search: &quot;<span className="text-slate-300">{searchTerm}</span>&quot;
@@ -389,7 +389,7 @@ export function TableBody({
                         addTab({ title: `${resource.metadata.name} (YAML)`, path: yamlPath, pinned: false, closable: true });
                         navigate(yamlPath);
                       }}
-                      className="inline-flex items-center px-1.5 py-1 text-xs rounded-sm transition-colors text-slate-500 hover:bg-blue-900/50 hover:text-blue-400"
+                      className="inline-flex items-center px-1.5 py-1 text-xs rounded-sm transition-colors text-faint hover:bg-blue-900/50 hover:text-blue-400"
                       title={canUpdate ? 'Edit YAML' : 'View YAML (read-only)'}
                       aria-label={canUpdate ? 'Edit YAML' : 'View YAML'}
                     >
@@ -399,7 +399,7 @@ export function TableBody({
                       onClick={(e) => { e.stopPropagation(); handleAction('delete-single', { resource }); }}
                       disabled={!canDelete || inlineActionLoading === `${resource.metadata.uid}-delete-single`}
                       className={cn('inline-flex items-center px-1.5 py-1 text-xs rounded-sm transition-colors disabled:opacity-50',
-                        canDelete ? 'text-slate-500 hover:bg-red-900/50 hover:text-red-400' : 'text-slate-700 cursor-not-allowed'
+                        canDelete ? 'text-faint hover:bg-red-900/50 hover:text-red-400' : 'text-slate-700 cursor-not-allowed'
                       )}
                       title={canDelete ? 'Delete' : 'No delete permission'}
                     >

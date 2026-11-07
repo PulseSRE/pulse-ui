@@ -259,7 +259,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             <span
               className={cn(
                 'text-[10px] font-semibold uppercase tracking-wider',
-                explainsNothing ? 'text-slate-500' : 'text-red-400',
+                explainsNothing ? 'text-faint' : 'text-red-400',
               )}
             >
               Cause
@@ -332,7 +332,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
 
       {expanded && changes.length > 0 && (
         <div className="border-t border-red-500/15 px-3 py-2">
-          <p className="mb-1.5 text-[11px] text-slate-500">
+          <p className="mb-1.5 text-[11px] text-faint">
             Changed shortly before it started, closest to what broke first — not necessarily the cause.
           </p>
           <ul className="space-y-0.5">
@@ -348,13 +348,13 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
                   <span
                     className={cn(
                       'shrink-0 rounded-sm px-1 text-[10px]',
-                      isLikelyRelated(c) ? 'bg-amber-500/15 text-amber-300' : 'text-slate-500',
+                      isLikelyRelated(c) ? 'bg-amber-500/15 text-amber-300' : 'text-faint',
                     )}
                   >
                     {c.relevance}
                   </span>
                 )}
-                <span className="shrink-0 truncate text-slate-500">{c.namespace}</span>
+                <span className="shrink-0 truncate text-faint">{c.namespace}</span>
                 <RollBackButton change={c} causeTitle={episode.cause_title} />
               </li>
             ))}
@@ -364,7 +364,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
 
       {expanded && investigation && (
         <div className="border-t border-red-500/15 px-3 py-2">
-          <p className="mb-1.5 text-[11px] text-slate-500">
+          <p className="mb-1.5 text-[11px] text-faint">
             {investigation.failed ? 'The agent tried to investigate and could not' : 'Investigated by the agent'}
           </p>
           {investigation.failed ? (
@@ -376,13 +376,13 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             <div className="space-y-1 text-xs text-slate-300">
               {investigation.suspected_cause && (
                 <p>
-                  <span className="text-slate-500">Suspected cause </span>
+                  <span className="text-faint">Suspected cause </span>
                   {investigation.suspected_cause}
                 </p>
               )}
               {investigation.recommended_fix && (
                 <p>
-                  <span className="text-slate-500">Recommended </span>
+                  <span className="text-faint">Recommended </span>
                   {investigation.recommended_fix}
                 </p>
               )}
@@ -393,20 +393,20 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
 
       {expanded && symptoms.length > 0 && (
         <div className="border-t border-red-500/15 px-3 py-2">
-          <p className="mb-1.5 text-[11px] text-slate-500">
+          <p className="mb-1.5 text-[11px] text-faint">
             Explained by the cause above — not separate problems.
           </p>
           <ul className="space-y-0.5">
             {symptoms.map((s) => (
               <li key={s.correlation_key} className="group flex items-center gap-2 py-0.5 text-xs">
-                <span className="w-24 shrink-0 truncate text-slate-500">{s.category}</span>
+                <span className="w-24 shrink-0 truncate text-faint">{s.category}</span>
                 <SymptomTitle symptom={s} />
                 <button
                   onClick={() => handleDetach(s.correlation_key)}
                   disabled={busyKey === s.correlation_key}
                   title="This was not caused by the episode above"
                   className={cn(
-                    'shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-slate-500',
+                    'shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-faint',
                     'transition-opacity hover:bg-slate-700/50 hover:text-slate-300',
                     'disabled:opacity-40',
                   )}

@@ -40,7 +40,7 @@ export function ConditionsTable({ conditions }: ConditionsTableProps) {
   return (
     <Card>
       {conditions.length === 0 ? (
-        <div className="px-4 py-8 text-center text-slate-500 text-sm">No conditions reported for this resource</div>
+        <div className="px-4 py-8 text-center text-faint text-sm">No conditions reported for this resource</div>
       ) : (
         <div className="overflow-auto">
           <table className="w-full text-sm">
@@ -69,7 +69,7 @@ export function ConditionsTable({ conditions }: ConditionsTableProps) {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-400">{cond.reason || '—'}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">
+                    <td className="px-4 py-2.5 text-xs text-faint">
                       {formatTimestamp(cond.lastTransitionTime)}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-slate-400 max-w-xs truncate" title={cond.message}>
@@ -101,7 +101,7 @@ export function EventsList({ events }: EventsListProps) {
       </div>
       <div className="divide-y divide-slate-800 max-h-[500px] overflow-auto">
         {events.length === 0 ? (
-          <div className="px-4 py-8 text-center text-slate-500 text-xs">No events found</div>
+          <div className="px-4 py-8 text-center text-faint text-xs">No events found</div>
         ) : (
           events.map((event, idx) => {
             const timestamp = event.lastTimestamp || event.firstTimestamp || '';
@@ -109,9 +109,9 @@ export function EventsList({ events }: EventsListProps) {
             return (
               <div key={idx} className="px-4 py-3">
                 <div className="flex items-start gap-2">
-                  {type === 'Warning' ? <AlertCircle className="w-3.5 h-3.5 text-yellow-500 shrink-0 mt-0.5" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
+                  {type === 'Warning' ? <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />}
                   <div className="flex-1">
-                    <div className="text-xs text-slate-500 mb-0.5">{formatTimestamp(timestamp, '')}</div>
+                    <div className="text-xs text-faint mb-0.5">{formatTimestamp(timestamp, '')}</div>
                     <div className="text-xs font-medium text-slate-200">{event.reason}</div>
                     <div className="text-xs text-slate-400 mt-0.5">{event.message}</div>
                   </div>

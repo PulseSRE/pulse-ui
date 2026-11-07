@@ -99,7 +99,7 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
           <input aria-label="Name" placeholder="name" value={target.name}
             onChange={(e) => setTarget({ ...target, name: e.target.value })} className={cn(inputClass, 'w-1/3')} />
         </div>
-        <p className="text-[10px] text-slate-500">
+        <p className="text-[10px] text-faint">
           To investigate a specific finding, open it in the inbox and start the run from there.
         </p>
       </div>
@@ -141,7 +141,7 @@ export function PlanRunPanel({ incidentType }: { incidentType: string }) {
                  <Clock className="w-3 h-3 text-slate-600" />}
                 {pid}
               </span>
-              <span className="text-slate-500">{ph.status ?? 'pending'}</span>
+              <span className="text-faint">{ph.status ?? 'pending'}</span>
             </div>
           ))}
           {awaiting && (

@@ -41,39 +41,39 @@ function podReady(p: Pod): boolean {
 function StuckDetail({ op, pods, podsError, podsLoading, go }: { op: ClusterOperator; pods: Pod[]; podsError?: string; podsLoading?: boolean; go: (path: string, title: string) => void }) {
   const namespaces = relatedNamespaces(op);
   const [openNs, setOpenNs] = React.useState<string | null>(null);
-  if (namespaces.length === 0) return <p className="mt-1 text-xs text-slate-500">The operator lists no related namespaces.</p>;
+  if (namespaces.length === 0) return <p className="mt-1 text-xs text-faint">The operator lists no related namespaces.</p>;
   const nsPods = openNs ? pods.filter((p) => p.metadata.namespace === openNs).sort((a, b) => Number(podReady(a)) - Number(podReady(b))) : [];
   return (
     <div className="mt-1.5 space-y-1.5" data-testid={`stuck-operator-${op.metadata.name}`}>
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        <span className="text-slate-500">Related namespaces:</span>
+        <span className="text-faint">Related namespaces:</span>
         {namespaces.slice(0, MAX_NAMESPACES).map((ns) => (
           <button key={ns} type="button" aria-expanded={openNs === ns} onClick={() => setOpenNs((v) => (v === ns ? null : ns))}
             className={cn('px-1.5 py-0.5 rounded-sm font-mono', openNs === ns ? 'bg-blue-900/60 text-blue-200' : 'bg-slate-800 text-blue-400 hover:text-blue-300')}>
             {ns}
           </button>
         ))}
-        {namespaces.length > MAX_NAMESPACES && <span className="text-slate-500">+{namespaces.length - MAX_NAMESPACES} more</span>}
+        {namespaces.length > MAX_NAMESPACES && <span className="text-faint">+{namespaces.length - MAX_NAMESPACES} more</span>}
       </div>
       {openNs && (podsError
-        ? <p className="text-xs text-slate-500">Pods could not be read ({podsError}).</p>
+        ? <p className="text-xs text-faint">Pods could not be read ({podsError}).</p>
         : podsLoading
-          ? <p className="text-xs text-slate-500">Loading pods{'\u2026'}</p>
+          ? <p className="text-xs text-faint">Loading pods{'\u2026'}</p>
           : nsPods.length === 0
-          ? <p className="text-xs text-slate-500">No pods in {openNs}.</p>
+          ? <p className="text-xs text-faint">No pods in {openNs}.</p>
           : (
             <ul className="space-y-1" aria-label={`Pods in ${openNs}`}>
               {nsPods.slice(0, 10).map((p) => (
                 <li key={p.metadata.name} className="flex items-center gap-2 text-xs">
                   <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', podReady(p) ? 'bg-emerald-500' : 'bg-red-500')} aria-hidden="true" />
                   <button type="button" onClick={() => go(`/r/v1~pods/${openNs}/${p.metadata.name}`, p.metadata.name)} className="font-mono text-blue-400 hover:text-blue-300 hover:underline truncate">{p.metadata.name}</button>
-                  <span className="text-slate-500">{podReady(p) ? 'Ready' : (p.status?.phase || 'Not ready')}</span>
+                  <span className="text-faint">{podReady(p) ? 'Ready' : (p.status?.phase || 'Not ready')}</span>
                   <button type="button" onClick={() => go(`/logs/${openNs}/${p.metadata.name}`, `${p.metadata.name} (Logs)`)} className="ml-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300">
                     <FileText className="w-3 h-3" aria-hidden="true" />Logs
                   </button>
                 </li>
               ))}
-              {nsPods.length > 10 && <li className="text-xs text-slate-500">+{nsPods.length - 10} more</li>}
+              {nsPods.length > 10 && <li className="text-xs text-faint">+{nsPods.length - 10} more</li>}
             </ul>
           ))}
     </div>
@@ -120,11 +120,11 @@ export function OperatorUpdateProgress({ operators, pods, podsError, podsLoading
                     >
                       {op.metadata.name}
                     </button>
-                    {detailMessage && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{detailMessage}</p>}
+                    {detailMessage && <p className="text-xs text-faint mt-0.5 line-clamp-2">{detailMessage}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {version && <span className="text-xs font-mono text-slate-500">{version}</span>}
+                  {version && <span className="text-xs font-mono text-faint">{version}</span>}
                   <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                     isDegraded ? 'bg-red-900/50 text-red-300'
                       : stuck ? 'bg-amber-900/50 text-amber-300'

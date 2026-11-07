@@ -76,20 +76,20 @@ export function CorrelationGroupRow({
               <span className={cn('text-sm font-medium truncate', statusClasses(group.severity).text)}>
                 {label}
               </span>
-              {ns && ns !== '_' && <span className="text-xs text-slate-600 shrink-0">{ns}</span>}
+              {ns && ns !== '_' && <span className="text-xs text-faint shrink-0">{ns}</span>}
             </div>
             {pattern && (
-              <div className="text-xs text-slate-500 mt-0.5">{pattern}</div>
+              <div className="text-xs text-faint mt-0.5">{pattern}</div>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {Array.from(categoryCounts.entries()).map(([cat, count]) => (
-            <span key={cat} className="flex items-center gap-1 text-xs text-slate-500">
+            <span key={cat} className="flex items-center gap-1 text-xs text-faint">
               {CATEGORY_LABELS[cat]} {count}
             </span>
           ))}
-          <span className="text-xs text-slate-600">{group.entries.length} entries</span>
+          <span className="text-xs text-faint">{group.entries.length} entries</span>
         </div>
       </button>
       {expanded && (
@@ -111,13 +111,13 @@ export function CorrelationGroupRow({
                 onClick={() => entry.resource && onEntryClick(entry)}
                 onKeyDown={entry.resource ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEntryClick(entry); } } : undefined}
               >
-                <span className="text-xs text-slate-600 w-16 shrink-0">
+                <span className="text-xs text-faint w-16 shrink-0">
                   {formatClock(entry.timestamp)}
                 </span>
                 <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusClasses(entry.severity).solid)} />
                 <span className="text-slate-300 truncate">{entry.title}</span>
-                {entry.detail && <span className="text-xs text-slate-600 truncate max-w-[200px]">{entry.detail}</span>}
-                <span className="text-xs text-slate-600 shrink-0 ml-auto">{CATEGORY_LABELS[entry.category]}</span>
+                {entry.detail && <span className="text-xs text-faint truncate max-w-[200px]">{entry.detail}</span>}
+                <span className="text-xs text-faint shrink-0 ml-auto">{CATEGORY_LABELS[entry.category]}</span>
               </div>
             ))}
           </div>

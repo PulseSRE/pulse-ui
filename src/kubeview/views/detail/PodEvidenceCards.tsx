@@ -54,7 +54,7 @@ export function MemoryCard({ pod, revisions }: { pod: K8sResource; revisions?: A
         <span className="ml-auto text-xs text-slate-400">working set vs limit</span>
       </div>
       {remote && <RemoteMetricsNotice what="Memory metrics" compact />}
-      {!remote && q.isLoading && <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</p>}
+      {!remote && q.isLoading && <p className="flex items-center gap-2 text-xs text-faint"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</p>}
       {!remote && q.isError && <LoadError title="Could not load metrics" error={q.error} onRetry={() => q.refetch()} />}
       {!remote && q.data && series.length === 0 && <p className="text-xs text-slate-400">No memory samples for this pod in the last 6h.</p>}
       {!remote && series.length > 0 && (
@@ -67,7 +67,7 @@ export function MemoryCard({ pod, revisions }: { pod: K8sResource; revisions?: A
           thresholds={limitQ ? [{ value: parseMem(limitQ), label: `limit ${limitQ}`, color: '#f87171' }] : []}
         />
       )}
-      {!remote && !limitQ && <p className="text-xs text-slate-500">Container {primary} has no memory limit.</p>}
+      {!remote && !limitQ && <p className="text-xs text-faint">Container {primary} has no memory limit.</p>}
       {inWindow.length > 0 && (
         <p className="text-xs text-slate-400" aria-label="Revisions in this window">
           {inWindow.map((r) => `rev ${r.revision} at ${formatClock(r.at)}`).join(' · ')}
@@ -96,14 +96,14 @@ export function CrashLogCard({ pod, go }: { pod: K8sResource; go: (path: string,
         <p className="text-xs text-slate-400">This pod has no containers.</p>
       ) : endedNow ? (
         <>
-          <p className="text-xs text-slate-500">{primary.init ? 'Init container' : 'Container'} {primary.name}, the instance that ended</p>
+          <p className="text-xs text-faint">{primary.init ? 'Init container' : 'Container'} {primary.name}, the instance that ended</p>
           <PodLogTail namespace={ns} pod={pod.metadata.name} container={primary.name} lines={40} />
         </>
       ) : !restarted ? (
         <p className="text-xs text-slate-400">Container {primary.name} has not restarted, so there is no crashed instance to show.</p>
       ) : (
         <>
-          <p className="text-xs text-slate-500">{primary.init ? 'Init container' : 'Container'} {primary.name}, previous instance</p>
+          <p className="text-xs text-faint">{primary.init ? 'Init container' : 'Container'} {primary.name}, previous instance</p>
           <PodLogTail namespace={ns} pod={pod.metadata.name} container={primary.name} previous lines={40} />
         </>
       )}

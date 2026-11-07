@@ -192,16 +192,16 @@ function BindingsList({ clusterRoleBindings, roleBindings, bindingsError, onRetr
       <div className="divide-y divide-slate-800 max-h-80 overflow-auto">
         {bindingsError ? (
           <LoadError className="my-2" title="Bindings could not be loaded" error={bindingsError} onRetry={onRetry} />
-        ) : shown.length === 0 ? <p className="py-3 text-xs text-slate-500">No bindings match.</p> : shown.slice(0, 100).map((b) => (
+        ) : shown.length === 0 ? <p className="py-3 text-xs text-faint">No bindings match.</p> : shown.slice(0, 100).map((b) => (
           <div key={`${b.kind}/${b.namespace ?? ''}/${b.name}`} className="py-1.5 flex items-center gap-2 text-xs">
-            <span className="text-slate-500 w-36 shrink-0 truncate">{b.kind === 'ClusterRoleBinding' ? 'cluster' : b.namespace}</span>
+            <span className="text-faint w-36 shrink-0 truncate">{b.kind === 'ClusterRoleBinding' ? 'cluster' : b.namespace}</span>
             <span className="text-slate-200 font-mono truncate">{b.roleRef.name}</span>
-            <span className="text-slate-500">→</span>
+            <span className="text-faint">→</span>
             <span className="text-slate-300 truncate flex-1">{b.subjects.map(subjectLabel).join(', ') || '(no subjects)'}</span>
             <RevokeBindingButton binding={b} />
           </div>
         ))}
-        {shown.length > 100 && <p className="py-2 text-xs text-slate-500">{shown.length - 100} more — narrow the filter.</p>}
+        {shown.length > 100 && <p className="py-2 text-xs text-faint">{shown.length - 100} more — narrow the filter.</p>}
       </div>
     </div>
   );

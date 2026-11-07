@@ -69,8 +69,8 @@ function HyperShiftSection({ nodePools, failure, go }: { nodePools: NodePool[]; 
         </div>
         {failure ? <ReadFailed what="NodePools" failure={failure} /> : nodePools.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-slate-500">No NodePools found</p>
-            <p className="text-xs text-slate-600 mt-1">NodePool resources may not be accessible from the guest cluster, or the hypershift.openshift.io API is not available.</p>
+            <p className="text-sm text-faint">No NodePools found</p>
+            <p className="text-xs text-faint mt-1">NodePool resources may not be accessible from the guest cluster, or the hypershift.openshift.io API is not available.</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-800">
@@ -91,7 +91,7 @@ function HyperShiftSection({ nodePools, failure, go }: { nodePools: NodePool[]; 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className={cn('w-2 h-2 rounded-full shrink-0',
-                        isDegraded ? 'bg-red-500' : isUpdating ? 'bg-blue-500 animate-pulse' : ready === desired ? 'bg-green-500' : 'bg-yellow-500'
+                        isDegraded ? 'bg-red-500' : isUpdating ? 'bg-blue-500 animate-pulse' : ready === desired ? 'bg-green-500' : 'bg-amber-500'
                       )} />
                       <span className="text-sm font-medium text-slate-200">{np.metadata.name}</span>
                       {instanceType && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-mono">{instanceType}</span>}
@@ -103,9 +103,9 @@ function HyperShiftSection({ nodePools, failure, go }: { nodePools: NodePool[]; 
                       {autoRepair && <span className="text-xs px-1.5 py-0.5 bg-emerald-900/50 text-emerald-300 rounded-sm">auto-repair</span>}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      {version && <span className="text-xs text-slate-500 font-mono">{version}</span>}
+                      {version && <span className="text-xs text-faint font-mono">{version}</span>}
                       <span className={cn('text-xs font-mono font-semibold',
-                        ready === desired ? 'text-green-400' : 'text-yellow-400'
+                        ready === desired ? 'text-green-400' : 'text-amber-400'
                       )}>{ready}/{desired}</span>
                     </div>
                   </div>
@@ -151,7 +151,7 @@ function MachineSetsCard({ machineSets, machineAutoscalers, failure, go }: { mac
         <button onClick={() => go('/r/machine.openshift.io~v1beta1~machinesets', 'MachineSets')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-        {failure ? <ReadFailed what="MachineSets" failure={failure} /> : machineSets.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No MachineSets</div> : machineSets.map((ms) => {
+        {failure ? <ReadFailed what="MachineSets" failure={failure} /> : machineSets.length === 0 ? <div className="px-4 py-6 text-center text-sm text-faint">No MachineSets</div> : machineSets.map((ms) => {
           const desired = ms.spec?.replicas ?? 0;
           const ready = ms.status?.readyReplicas ?? 0;
           const autoscaler = (machineAutoscalers as MachineAutoscalerResource[]).find((a) => a.spec?.scaleTargetRef?.name === ms.metadata.name);
@@ -160,18 +160,18 @@ function MachineSetsCard({ machineSets, machineAutoscalers, failure, go }: { mac
             <button onClick={() => go(`/r/machine.openshift.io~v1beta1~machinesets/${ms.metadata.namespace}/${ms.metadata.name}`, ms.metadata.name)}
               className="flex-1 min-w-0 flex items-center justify-between px-4 py-2.5 text-left">
               <div className="flex items-center gap-2 min-w-0">
-                <div className={cn('w-2 h-2 rounded-full shrink-0', ready === desired ? 'bg-green-500' : 'bg-yellow-500')} />
+                <div className={cn('w-2 h-2 rounded-full shrink-0', ready === desired ? 'bg-green-500' : 'bg-amber-500')} />
                 <span className="text-sm text-slate-200 truncate">{ms.metadata.name}</span>
                 {autoscaler && <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm shrink-0">autoscaled {autoscaler.spec?.minReplicas}-{autoscaler.spec?.maxReplicas}</span>}
               </div>
-              <span className={cn('text-xs font-mono shrink-0', ready === desired ? 'text-green-400' : 'text-yellow-400')}>{ready}/{desired}</span>
+              <span className={cn('text-xs font-mono shrink-0', ready === desired ? 'text-green-400' : 'text-amber-400')}>{ready}/{desired}</span>
             </button>
             <button
               onClick={() => scale(ms, !!autoscaler)}
               disabled={!canPatch}
               title={canPatch ? 'Scale' : 'You do not have permission to scale MachineSets'}
               aria-label={`Scale MachineSet ${ms.metadata.name}`}
-              className="p-2 mr-2 text-slate-500 hover:text-blue-400 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-2 mr-2 text-faint hover:text-blue-400 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Scale className="w-3.5 h-3.5" />
             </button>
@@ -229,7 +229,7 @@ function MachinesCard({ machines, failure, go }: { machines: Machine[]; failure?
         <button onClick={() => go('/r/machine.openshift.io~v1beta1~machines', 'Machines')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-        {failure ? <ReadFailed what="Machines" failure={failure} /> : machines.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No Machines</div> : machines.map((m) => {
+        {failure ? <ReadFailed what="Machines" failure={failure} /> : machines.length === 0 ? <div className="px-4 py-6 text-center text-sm text-faint">No Machines</div> : machines.map((m) => {
           const phase = m.status?.phase || 'Unknown';
           const instanceType = (m.spec?.providerSpec?.value?.instanceType as string) || '';
           const nodeRef = m.status?.nodeRef?.name || '';
@@ -238,17 +238,17 @@ function MachinesCard({ machines, failure, go }: { machines: Machine[]; failure?
             <button onClick={() => go(`/r/machine.openshift.io~v1beta1~machines/${m.metadata.namespace}/${m.metadata.name}`, m.metadata.name)}
               className="flex-1 min-w-0 flex items-center justify-between px-4 py-2.5 text-left">
               <div className="flex items-center gap-2 min-w-0">
-                <div className={cn('w-2 h-2 rounded-full shrink-0', phase === 'Running' ? 'bg-green-500' : phase === 'Provisioning' ? 'bg-yellow-500' : 'bg-red-500')} />
+                <div className={cn('w-2 h-2 rounded-full shrink-0', phase === 'Running' ? 'bg-green-500' : phase === 'Provisioning' ? 'bg-amber-500' : 'bg-red-500')} />
                 <div className="min-w-0">
                   <span className="text-sm text-slate-200 truncate block">{m.metadata.name}</span>
-                  {nodeRef && <span className="text-xs text-slate-500 truncate block">{nodeRef}</span>}
+                  {nodeRef && <span className="text-xs text-faint truncate block">{nodeRef}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {instanceType && <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm font-mono">{instanceType}</span>}
                 <span className={cn('text-xs px-1.5 py-0.5 rounded-sm',
                   phase === 'Running' ? 'bg-green-900/50 text-green-300' :
-                  phase === 'Provisioning' ? 'bg-yellow-900/50 text-yellow-300' :
+                  phase === 'Provisioning' ? 'bg-amber-900/50 text-amber-300' :
                   'bg-red-900/50 text-red-300'
                 )}>{phase}</span>
               </div>
@@ -258,7 +258,7 @@ function MachinesCard({ machines, failure, go }: { machines: Machine[]; failure?
               disabled={!canDelete}
               title={canDelete ? 'Delete machine' : 'You do not have permission to delete Machines'}
               aria-label={`Delete Machine ${m.metadata.name}`}
-              className="p-2 mr-2 text-slate-500 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-2 mr-2 text-faint hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -279,7 +279,7 @@ function HealthChecksCard({ healthChecks, failure, go }: { healthChecks: K8sReso
         <button onClick={() => go('/r/machine.openshift.io~v1beta1~machinehealthchecks', 'HealthChecks')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
-        {failure ? <ReadFailed what="MachineHealthChecks" failure={failure} /> : healthChecks.length === 0 ? <div className="px-4 py-6 text-center text-sm text-slate-500">No health checks configured</div> : (healthChecks as MachineHealthCheckResource[]).map((hc) => {
+        {failure ? <ReadFailed what="MachineHealthChecks" failure={failure} /> : healthChecks.length === 0 ? <div className="px-4 py-6 text-center text-sm text-faint">No health checks configured</div> : (healthChecks as MachineHealthCheckResource[]).map((hc) => {
           const maxUnhealthy = hc.spec?.maxUnhealthy || '100%';
           const conditions = hc.spec?.unhealthyConditions || [];
           const currentHealthy = hc.status?.currentHealthy ?? 0;
@@ -289,11 +289,11 @@ function HealthChecksCard({ healthChecks, failure, go }: { healthChecks: K8sReso
               className="w-full px-4 py-3 hover:bg-slate-800/50 text-left">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm text-slate-200">{hc.metadata.name}</span>
-                <span className={cn('text-xs font-mono', currentHealthy === expectedMachines ? 'text-green-400' : 'text-yellow-400')}>
+                <span className={cn('text-xs font-mono', currentHealthy === expectedMachines ? 'text-green-400' : 'text-amber-400')}>
                   {currentHealthy}/{expectedMachines} healthy
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-faint">
                 <span>Max unhealthy: {maxUnhealthy}</span>
                 {conditions.map((c, i) => <span key={i}>{c.type}≠{c.status} → {c.timeout}</span>)}
               </div>
@@ -331,7 +331,7 @@ function AutoscalingCard({ clusterAutoscaler, machineAutoscalers, failures, go }
           <div className="py-3 space-y-4">
             <div className="text-sm text-slate-400">Autoscaling is not configured</div>
 
-            <div className="space-y-3 text-xs text-slate-500">
+            <div className="space-y-3 text-xs text-faint">
               <div className="flex gap-3">
                 <span className="text-blue-400 font-bold shrink-0">Step 1</span>
                 <div>
@@ -363,16 +363,16 @@ function AutoscalingCard({ clusterAutoscaler, machineAutoscalers, failures, go }
               <div key={ca.metadata.uid} className="p-3 bg-slate-800/50 rounded-sm border border-slate-700">
                 <div className="text-sm text-slate-200 mb-2">Cluster Autoscaler</div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div><span className="text-slate-500">Min nodes:</span> <span className="text-slate-300">{ca.spec?.resourceLimits?.minNodesTotal ?? '—'}</span></div>
-                  <div><span className="text-slate-500">Max nodes:</span> <span className="text-slate-300">{ca.spec?.resourceLimits?.maxNodesTotal ?? '—'}</span></div>
-                  <div><span className="text-slate-500">Scale down:</span> <span className="text-slate-300">{ca.spec?.scaleDown?.enabled ? 'enabled' : 'disabled'}</span></div>
-                  <div><span className="text-slate-500">Delay:</span> <span className="text-slate-300">{ca.spec?.scaleDown?.delayAfterAdd ?? '—'}</span></div>
+                  <div><span className="text-faint">Min nodes:</span> <span className="text-slate-300">{ca.spec?.resourceLimits?.minNodesTotal ?? '—'}</span></div>
+                  <div><span className="text-faint">Max nodes:</span> <span className="text-slate-300">{ca.spec?.resourceLimits?.maxNodesTotal ?? '—'}</span></div>
+                  <div><span className="text-faint">Scale down:</span> <span className="text-slate-300">{ca.spec?.scaleDown?.enabled ? 'enabled' : 'disabled'}</span></div>
+                  <div><span className="text-faint">Delay:</span> <span className="text-slate-300">{ca.spec?.scaleDown?.delayAfterAdd ?? '—'}</span></div>
                 </div>
               </div>
             ))}
             {machineAutoscalers.length > 0 && (
               <div>
-                <div className="text-xs text-slate-500 mb-2">Machine Autoscalers ({machineAutoscalers.length})</div>
+                <div className="text-xs text-faint mb-2">Machine Autoscalers ({machineAutoscalers.length})</div>
                 {(machineAutoscalers as MachineAutoscalerResource[]).map((ma) => (
                   <div key={ma.metadata.uid} className="flex items-center justify-between py-1.5">
                     <span className="text-sm text-slate-300">{ma.spec?.scaleTargetRef?.name || ma.metadata.name}</span>

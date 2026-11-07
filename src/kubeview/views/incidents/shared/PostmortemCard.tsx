@@ -88,7 +88,7 @@ export function PostmortemCard({
           <p className="text-xs text-slate-400 line-clamp-2">
             {postmortem.root_cause || 'Root cause analysis pending...'}
           </p>
-          <span className="text-xs text-slate-600 mt-1 inline-block">
+          <span className="text-xs text-faint mt-1 inline-block">
             <Clock className="w-3 h-3 inline mr-1" />
             {formatRelative(postmortem.generated_at)}
           </span>

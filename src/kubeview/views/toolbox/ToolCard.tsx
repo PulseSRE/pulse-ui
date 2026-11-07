@@ -27,13 +27,13 @@ export function ToolCard({ tool, source, mcpServer, onClick }: {
             s === 'security' ? 'bg-red-900/20 text-red-400' :
             s === 'view_designer' ? 'bg-emerald-900/20 text-emerald-400' :
             s === 'capacity_planner' ? 'bg-blue-900/20 text-blue-400' :
-            'bg-slate-800 text-slate-500',
+            'bg-slate-800 text-faint',
           )}>
             {s}
           </span>
         ))}
       </div>
-      <p className="text-[11px] text-slate-500 line-clamp-1">{tool.description}</p>
+      <p className="text-[11px] text-faint line-clamp-1">{tool.description}</p>
     </button>
   );
 }

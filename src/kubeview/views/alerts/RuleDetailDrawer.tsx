@@ -65,7 +65,7 @@ export function RuleDetailDrawer({ rule, onClose, go, onSilence }: {
         <div className="flex flex-wrap items-center gap-2">
           <Badge size="sm" variant={rule.severity === 'critical' ? 'error' : rule.severity === 'info' ? 'info' : 'warning'}>{rule.severity}</Badge>
           <Badge size="sm" variant={rule.alertCount > 0 ? 'error' : 'success'}>{rule.alertCount > 0 ? `${rule.alertCount} firing` : rule.state || 'inactive'}</Badge>
-          <span className="text-xs text-slate-500">group {rule.group} · fires after {formatFor(rule.duration)}</span>
+          <span className="text-xs text-faint">group {rule.group} · fires after {formatFor(rule.duration)}</span>
         </div>
 
         <section>
@@ -75,19 +75,19 @@ export function RuleDetailDrawer({ rule, onClose, go, onSilence }: {
 
         <section>
           <h3 className="text-xs font-semibold text-slate-400 mb-1">Labels</h3>
-          {Object.keys(rule.labels).length === 0 ? <p className="text-xs text-slate-500">None</p> : (
+          {Object.keys(rule.labels).length === 0 ? <p className="text-xs text-faint">None</p> : (
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-              {Object.entries(rule.labels).map(([k, v]) => (<Fragment key={k}><dt className="text-slate-500 font-mono">{k}</dt><dd className="text-slate-300 font-mono break-all">{v}</dd></Fragment>))}
+              {Object.entries(rule.labels).map(([k, v]) => (<Fragment key={k}><dt className="text-faint font-mono">{k}</dt><dd className="text-slate-300 font-mono break-all">{v}</dd></Fragment>))}
             </dl>
           )}
         </section>
 
         <section>
           <h3 className="text-xs font-semibold text-slate-400 mb-1">Annotations</h3>
-          {Object.keys(rule.annotations).length === 0 ? <p className="text-xs text-slate-500">None</p> : (
+          {Object.keys(rule.annotations).length === 0 ? <p className="text-xs text-faint">None</p> : (
             <dl className="space-y-2 text-xs">
               {Object.entries(rule.annotations).map(([k, v]) => (
-                <div key={k}><dt className="text-slate-500 font-mono">{k}</dt><dd className="text-slate-300 whitespace-pre-wrap break-words">{v}</dd></div>
+                <div key={k}><dt className="text-faint font-mono">{k}</dt><dd className="text-slate-300 whitespace-pre-wrap break-words">{v}</dd></div>
               ))}
             </dl>
           )}
@@ -96,9 +96,9 @@ export function RuleDetailDrawer({ rule, onClose, go, onSilence }: {
         <section>
           <h3 className="text-xs font-semibold text-slate-400 mb-1">Defined in</h3>
           {error ? (
-            <p className="text-xs text-slate-500">PrometheusRule objects could not be listed ({error instanceof Error ? error.message : String(error)}).</p>
+            <p className="text-xs text-faint">PrometheusRule objects could not be listed ({error instanceof Error ? error.message : String(error)}).</p>
           ) : !promRules ? (
-            <p className="text-xs text-slate-500">Looking up the PrometheusRule…</p>
+            <p className="text-xs text-faint">Looking up the PrometheusRule…</p>
           ) : owner ? (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="link" onClick={() => go(`/r/monitoring.coreos.com~v1~prometheusrules/${owner.metadata.namespace}/${owner.metadata.name}`, owner.metadata.name)}>
@@ -109,7 +109,7 @@ export function RuleDetailDrawer({ rule, onClose, go, onSilence }: {
               </Button>
             </div>
           ) : (
-            <p className="text-xs text-slate-500">No PrometheusRule object defines this rule — it comes from Prometheus configuration, so it cannot be edited here.</p>
+            <p className="text-xs text-faint">No PrometheusRule object defines this rule — it comes from Prometheus configuration, so it cannot be edited here.</p>
           )}
         </section>
 

@@ -282,7 +282,7 @@ export default function ComputeView() {
             <Badge variant={isHyperShift ? 'info' : 'outline'} size="sm">
               {isHyperShift ? 'Hosted' : 'Self-Managed'}
             </Badge>
-            {platform && <span className="text-sm text-slate-500">{platform}</span>}
+            {platform && <span className="text-sm text-faint">{platform}</span>}
           </>}
           subtitle="Cluster capacity, node health, and resource utilization"
         />
@@ -753,7 +753,7 @@ spec:
       renderItemBadges={(check, item) => (
         <>
           {item._pressureTypes && <span className="text-xs px-1.5 py-0.5 bg-red-900/50 text-red-300 rounded-sm">{item._pressureTypes as string}</span>}
-          {item._kubeletVersion && <span className="text-xs px-1.5 py-0.5 bg-yellow-900/50 text-yellow-300 rounded-sm font-mono">{item._kubeletVersion as string}</span>}
+          {item._kubeletVersion && <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded-sm font-mono">{item._kubeletVersion as string}</span>}
         </>
       )}
     />

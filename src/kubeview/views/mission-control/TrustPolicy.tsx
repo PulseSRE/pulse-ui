@@ -224,19 +224,19 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
             not exist. */}
         <div className="space-y-2" data-testid="autofix-categories">
           <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Auto-fix categories (server policy)</h3>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
+          <p className="text-[11px] text-faint leading-relaxed">
             The monitor can remediate these categories. Whether it does also depends on the server trust level, the pause state above and its safety limits. They are configured on the server, not here.
           </p>
           {supportedAutoFixCategories === undefined ? (
-            <p className="text-xs text-slate-500">Not reported by the agent.</p>
+            <p className="text-xs text-faint">Not reported by the agent.</p>
           ) : autofixCategories_.length === 0 || supportedAutoFixCategories.length === 0 ? (
-            <p className="text-xs text-slate-500">The agent reports no auto-fix categories.</p>
+            <p className="text-xs text-faint">The agent reports no auto-fix categories.</p>
           ) : (
             <ul className="space-y-1.5">
               {autofixCategories_.map((cat) => (
                 <li key={cat.id} className="rounded-md px-3 py-2 text-xs border border-slate-700/50 text-slate-300">
                   <div className="font-medium">{cat.label}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">{cat.description}</div>
+                  <div className="text-[10px] text-faint mt-0.5">{cat.description}</div>
                 </li>
               ))}
             </ul>
@@ -245,7 +245,7 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
 
         {/* Communication Style */}
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">Style:</span>
+          <span className="text-xs text-faint">Style:</span>
           <div className="flex gap-1">
             {COMM_STYLES.map((style) => (
               <button
@@ -255,7 +255,7 @@ export function TrustPolicy({ maxTrustLevel, effectiveTrustLevel, scannerCount, 
                   'px-2.5 py-1 rounded-sm text-xs transition-colors',
                   communicationStyle === style.id
                     ? 'bg-slate-700 text-slate-200'
-                    : 'text-slate-500 hover:text-slate-300',
+                    : 'text-faint hover:text-slate-300',
                 )}
                 title={style.description}
               >

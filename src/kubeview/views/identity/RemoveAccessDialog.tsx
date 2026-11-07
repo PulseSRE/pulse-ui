@@ -126,7 +126,7 @@ function CheckRow({ id, checked, onChange, label, note, perm, onPermission }: {
     <li className="py-1.5 text-xs" data-testid={`row-${id}`}>
       <label className="flex items-center gap-2 text-slate-200">
         <input type="checkbox" checked={checked && p.allowed} disabled={!p.allowed} onChange={(e) => onChange(e.target.checked)} />
-        {label}{note && <span className="text-slate-500">{note}</span>}
+        {label}{note && <span className="text-faint">{note}</span>}
       </label>
       {!p.checking && !p.allowed && <p className="ml-5 text-amber-300">You can't {perm[0]} {perm[2]}; left unchanged.</p>}
     </li>
@@ -362,7 +362,7 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
         {clusterChanged && <p role="alert" className="text-amber-300">The active cluster changed since this dialog opened; nothing will be sent to {activeClusterId}.</p>}
         <section>
           <h3 className="font-semibold text-slate-300">Bindings that name {subject.name}</h3>
-          {chains.length === 0 ? <p className="text-slate-500 mt-1">None.</p> : (
+          {chains.length === 0 ? <p className="text-faint mt-1">None.</p> : (
             <ul className="divide-y divide-slate-800">
               {chains.map((c) => (
                 <BindingRow key={bindingKey(c.binding)} chain={c} subject={subject} choice={choices[bindingKey(c.binding)]}
@@ -375,7 +375,7 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
         {subject.kind !== 'Group' && (
           <section>
             <h3 className="font-semibold text-slate-300">Group memberships</h3>
-            {removableGroups.length === 0 ? <p className="text-slate-500 mt-1">No Group object lists {username}.</p> : (
+            {removableGroups.length === 0 ? <p className="text-faint mt-1">No Group object lists {username}.</p> : (
               <ul>
                 {removableGroups.map((m) => (
                   <CheckRow key={m.group} id={`group/${m.group}`} checked={!!leaveGroups[m.group]} onChange={(v) => setLeaveGroups((x) => ({ ...x, [m.group]: v }))}
@@ -393,10 +393,10 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
             <ul>
               {userObjectError ? <li className="text-red-300">The User object could not be read: {userObjectError instanceof Error ? userObjectError.message : String(userObjectError)}</li>
                 : userObject ? <CheckRow id="user" checked={deleteUser} onChange={setDeleteUser} label={`Delete User ${subject.name}`} perm={['delete', 'user.openshift.io', 'users']} onPermission={onPermission} />
-                  : <li className="text-slate-500">No User object.</li>}
+                  : <li className="text-faint">No User object.</li>}
               {identities.length > 0 && <CheckRow id="identities" checked={deleteIdentities} onChange={setDeleteIdentities} label={`Delete Identity ${identities.join(', ')}`} perm={['delete', 'user.openshift.io', 'identities']} onPermission={onPermission} />}
               {tokensQ.isError ? <li className="text-red-300">OAuth access tokens could not be listed, so sessions are not ended: {tokensQ.error instanceof Error ? tokensQ.error.message : String(tokensQ.error)}</li>
-                : tokensQ.isLoading ? <li className="text-slate-500">Checking sessions…</li>
+                : tokensQ.isLoading ? <li className="text-faint">Checking sessions…</li>
                   : tokens.length > 0 && <CheckRow id="tokens" checked={deleteTokens} onChange={setDeleteTokens} label={`Delete ${tokens.length} OAuth access token${tokens.length === 1 ? '' : 's'}`} note=" · signs them out everywhere now" perm={['delete', 'oauth.openshift.io', 'oauthaccesstokens']} onPermission={onPermission} />}
             </ul>
           </section>
@@ -441,7 +441,7 @@ export function RemoveAccessDialog({ subject, data, chains, memberships, userObj
                         : <XCircle className="w-3.5 h-3.5 text-red-400" aria-hidden />}
                     <span className="text-slate-300">{c.label}</span>
                     {o && o.state !== 'ok' && <span className="text-red-300">— {o.message}</span>}
-                    {o?.state === 'ok' && phase !== 'done' && !results[c.id] && <span className="text-slate-500">— admitted</span>}
+                    {o?.state === 'ok' && phase !== 'done' && !results[c.id] && <span className="text-faint">— admitted</span>}
                   </li>
                 );
               })}

@@ -51,7 +51,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
         <div className="p-5 space-y-5">
           {/* Description */}
           <div>
-            <h3 className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Description</h3>
+            <h3 className="text-[10px] font-medium text-faint uppercase tracking-wider mb-1">Description</h3>
             <p className="text-sm text-slate-300">{tool.description}</p>
           </div>
 
@@ -77,7 +77,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
           {/* Skills */}
           {skills.length > 0 && (
             <div>
-              <h3 className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Available in skills</h3>
+              <h3 className="text-[10px] font-medium text-faint uppercase tracking-wider mb-1">Available in skills</h3>
               <div className="flex flex-wrap gap-1.5">
                 {skills.map((s) => (
                   <span key={s} className={cn(
@@ -86,7 +86,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
                     s === 'security' ? 'bg-red-900/20 text-red-400' :
                     s === 'view_designer' ? 'bg-emerald-900/20 text-emerald-400' :
                     s === 'capacity_planner' ? 'bg-blue-900/20 text-blue-400' :
-                    'bg-slate-800 text-slate-500',
+                    'bg-slate-800 text-faint',
                   )}>
                     {s}
                   </span>
@@ -98,17 +98,17 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
           {/* Usage Stats */}
           {toolStats && (
             <div>
-              <h3 className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-2">Usage stats</h3>
+              <h3 className="text-[10px] font-medium text-faint uppercase tracking-wider mb-2">Usage stats</h3>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
                   <Database className="w-3.5 h-3.5 text-blue-400 mx-auto mb-1" />
                   <div className="text-lg font-bold text-slate-100">{toolStats.count}</div>
-                  <div className="text-[10px] text-slate-500">Calls</div>
+                  <div className="text-[10px] text-faint">Calls</div>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
                   <Clock className="w-3.5 h-3.5 text-emerald-400 mx-auto mb-1" />
                   <div className="text-lg font-bold text-slate-100">{toolStats.avg_ms ?? 0}ms</div>
-                  <div className="text-[10px] text-slate-500">Avg duration</div>
+                  <div className="text-[10px] text-faint">Avg duration</div>
                 </div>
                 <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-center">
                   {toolStats.error_count > 0 ? (
@@ -119,7 +119,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
                   <div className={cn('text-lg font-bold', toolStats.error_count > 0 ? 'text-red-400' : 'text-emerald-400')}>
                     {toolStats.error_count}
                   </div>
-                  <div className="text-[10px] text-slate-500">Errors</div>
+                  <div className="text-[10px] text-faint">Errors</div>
                 </div>
               </div>
             </div>
@@ -128,7 +128,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
           {/* Recent Calls */}
           {recentCalls.length > 0 && (
             <div>
-              <h3 className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-2">Recent calls</h3>
+              <h3 className="text-[10px] font-medium text-faint uppercase tracking-wider mb-2">Recent calls</h3>
               <div className="space-y-1.5 max-h-64 overflow-auto">
                 {recentCalls.slice(0, 10).map((call: { id?: string; timestamp?: string; status?: string; duration_ms?: number; error?: string }, i: number) => (
                   <div key={call.id ?? i} className="bg-slate-900 border border-slate-800 rounded-sm px-3 py-2 text-xs flex items-center gap-2">
@@ -137,7 +137,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
                     ) : (
                       <Activity className="w-3 h-3 text-emerald-400 shrink-0" />
                     )}
-                    <span className="text-slate-500 shrink-0">
+                    <span className="text-faint shrink-0">
                       <RelativeTime value={call.timestamp} />
                     </span>
                     <span className="text-slate-400">{call.duration_ms ?? 0}ms</span>
@@ -149,7 +149,7 @@ export function ToolDetailDrawer({ tool, onClose }: ToolDetailDrawerProps) {
           )}
 
           {!toolStats && recentCalls.length === 0 && (
-            <div className="text-center py-8 text-sm text-slate-500">
+            <div className="text-center py-8 text-sm text-faint">
               No usage data yet for this tool.
             </div>
           )}

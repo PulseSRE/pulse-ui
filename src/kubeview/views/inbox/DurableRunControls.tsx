@@ -115,7 +115,7 @@ export function ApprovalButtons({
           Deny
         </button>
       </div>
-      {observeMode && <span className="text-[10px] text-slate-500">{OBSERVE_MODE_APPROVE}</span>}
+      {observeMode && <span className="text-[10px] text-faint">{OBSERVE_MODE_APPROVE}</span>}
       {error && <span role="alert" className="text-[10px] text-amber-300">{error}</span>}
       {asking === 'approve' && <ApprovePhaseDialog run={run} onClose={() => setAsking(null)} onApproved={() => done(true)} />}
       <ConfirmDialog
@@ -197,7 +197,7 @@ export function DurableRunStarter({ itemId }: { itemId: string }) {
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="text-xs font-medium text-cyan-300">Run “{plan.plan_name}” durably</div>
-          <div className="text-[11px] text-slate-500">
+          <div className="text-[11px] text-faint">
             Survives an agent restart.
             {gated.length > 0 && ` Stops and asks before ${gated.join(', ')}.`}
           </div>

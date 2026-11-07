@@ -478,7 +478,7 @@ export default function AdminView() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-slate-200">Production Readiness</h3>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-faint mt-1">
                   Security, reliability, and observability gates for production clusters.
                 </p>
               </div>
@@ -618,7 +618,7 @@ export default function AdminView() {
         {activeTab === 'csrs' && <CsrTab go={go} />}
 
         {/* ===== CRDs ===== */}
-        {activeTab === 'crds' && <Suspense fallback={<div className="text-center py-8 text-slate-500 text-sm">Loading...</div>}><CRDsView /></Suspense>}
+        {activeTab === 'crds' && <Suspense fallback={<div className="text-center py-8 text-faint text-sm">Loading...</div>}><CRDsView /></Suspense>}
 
       </div>
     </div>

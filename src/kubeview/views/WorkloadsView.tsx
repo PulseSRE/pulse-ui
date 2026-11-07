@@ -246,7 +246,7 @@ export default function WorkloadsView() {
           <div className="space-y-2">
             {issues.map((issue, i) => (
               <button key={i} onClick={issue.open} className={cn('w-full flex items-center justify-between px-4 py-2.5 rounded-lg border text-left transition-colors',
-                issue.severity === 'critical' ? 'bg-red-950/30 border-red-900 hover:border-red-700' : 'bg-yellow-950/30 border-yellow-900 hover:border-yellow-700')}>
+                issue.severity === 'critical' ? 'bg-red-950/30 border-red-900 hover:border-red-700' : 'bg-amber-950/30 border-amber-900 hover:border-amber-700')}>
                 <span className="flex items-center gap-2">
                   {issue.severity === 'critical' ? <AlertCircle className="w-4 h-4 text-red-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}
                   <span className="text-sm text-slate-200">{issue.msg}</span>
@@ -259,14 +259,14 @@ export default function WorkloadsView() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <button onClick={() => go('/r/apps~v1~deployments', 'Deployments')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthyDeploys.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button onClick={() => go('/r/apps~v1~deployments', 'Deployments')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthyDeploys.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Deployments</span>
               {!failed.deployments && unhealthyDeploys.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{count(failed.deployments, deployments.length)}</div>
           </button>
-          <button onClick={() => go('/r/apps~v1~statefulsets', 'StatefulSets')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthySS.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button onClick={() => go('/r/apps~v1~statefulsets', 'StatefulSets')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', unhealthySS.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">StatefulSets</span>
               {!failed.statefulsets && unhealthySS.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
@@ -277,14 +277,14 @@ export default function WorkloadsView() {
             <div className="text-xs text-slate-400 mb-1">DaemonSets</div>
             <div className="text-xl font-bold text-slate-100">{count(failed.daemonsets, daemonsets.length)}</div>
           </button>
-          <button onClick={() => go('/r/v1~pods', 'Pods')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', crashingPods.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button onClick={() => go('/r/v1~pods', 'Pods')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', crashingPods.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Pods</span>
               {!failed.pods && crashingPods.length === 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500" aria-label="healthy" />}
             </div>
             <div className="text-xl font-bold text-slate-100">{count(failed.pods, pods.length)}</div>
           </button>
-          <button onClick={() => go('/r/batch~v1~jobs', 'Jobs')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedJobs.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+          <button onClick={() => go('/r/batch~v1~jobs', 'Jobs')} className={cn('bg-slate-900 rounded-lg border p-3 text-left hover:border-slate-600 transition-colors', failedJobs.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Jobs</span>
             </div>
@@ -361,7 +361,7 @@ export default function WorkloadsView() {
         {/* Pod Status Breakdown */}
         <Panel title="Pod Status" icon={<Box className="w-4 h-4 text-blue-400" />}>
           {failed.pods ? (
-            <p className="text-sm text-slate-500 py-2" data-unknown="">Pod status unknown — pods could not be read.</p>
+            <p className="text-sm text-faint py-2" data-unknown="">Pod status unknown — pods could not be read.</p>
           ) : (
           <div className="space-y-2">
             {/* A distribution: rows add up to the pod total. */}
@@ -408,7 +408,7 @@ export default function WorkloadsView() {
                   );
                 })}
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-500">
+              <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-faint">
                 Pods with 5+ container restarts. High restarts may indicate OOM kills, failing health checks, or application crashes.
               </div>
             </Panel>
@@ -439,7 +439,7 @@ export default function WorkloadsView() {
               badges: d.spec?.paused ? ['paused'] : undefined,
               detail: <>
                 <span className={cn('font-mono', s.available ? 'text-green-400' : 'text-red-400')}>{s.ready}/{s.desired}</span>
-                <span className="text-slate-600">{d.spec?.strategy?.type || 'RollingUpdate'}</span>
+                <span className="text-faint">{d.spec?.strategy?.type || 'RollingUpdate'}</span>
               </>,
             };
           }}
@@ -448,7 +448,7 @@ export default function WorkloadsView() {
             const logSelector = Object.entries(d.spec?.selector?.matchLabels || {}).map(([k, v]) => `${k}=${v}`).join(',');
             return logSelector ? (
               <button onClick={() => go(`/logs/${d.metadata.namespace}/${d.metadata.name}?selector=${encodeURIComponent(logSelector)}&kind=Deployment`, `${d.metadata.name} (Logs)`)}
-                className="px-2 py-2 text-slate-500 hover:text-blue-400 transition-colors" title="View Logs" aria-label={`View logs for ${d.metadata.name}`}>
+                className="px-2 py-2 text-faint hover:text-blue-400 transition-colors" title="View Logs" aria-label={`View logs for ${d.metadata.name}`}>
                 <FileText className="w-3.5 h-3.5" />
               </button>
             ) : null;
@@ -513,7 +513,7 @@ export default function WorkloadsView() {
             badges: x.spec?.suspend ? ['suspended'] : undefined,
             detail: <>
               <span className="font-mono text-slate-400">{x.spec?.schedule}</span>
-              <span className="text-slate-500">{x.status?.lastScheduleTime ? `last ${formatRelative(x.status.lastScheduleTime)}` : 'never run'}</span>
+              <span className="text-faint">{x.status?.lastScheduleTime ? `last ${formatRelative(x.status.lastScheduleTime)}` : 'never run'}</span>
             </>,
           })}
         />

@@ -146,7 +146,7 @@ export default function ClusterKnowledge() {
         {promotionRate !== null && (
           <div className="text-xs text-slate-400 mt-3">
             {promotionRate}% of judged trajectories were worth learning from
-            <span className="text-slate-500"> ({totalJudged} judged)</span>
+            <span className="text-faint"> ({totalJudged} judged)</span>
           </div>
         )}
       </Card>
@@ -220,7 +220,7 @@ export default function ClusterKnowledge() {
         {facts.isError ? (
           <LoadError title="Cluster facts could not be loaded" error={facts.error} onRetry={() => facts.refetch()} />
         ) : facts.isLoading ? (
-          <p className="text-xs text-slate-500">Loading…</p>
+          <p className="text-xs text-faint">Loading…</p>
         ) : factList.length === 0 ? (
           <EmptyState
             icon={<Building2 className="w-10 h-10 text-slate-600" />}
@@ -233,14 +233,14 @@ export default function ClusterKnowledge() {
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([scope, entries]) => (
                 <div key={scope}>
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">{scope}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-faint mb-1">{scope}</div>
                   <div className="divide-y divide-slate-800 rounded border border-slate-800">
                     {entries.map((fact) => (
                       <div key={fact.key} className="flex items-start gap-3 px-3 py-2">
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-medium text-slate-200">{fact.key}</div>
                           <div className="text-xs text-slate-300 mt-0.5 break-words">{fact.value}</div>
-                          <div className="text-[11px] text-slate-500 mt-1">
+                          <div className="text-[11px] text-faint mt-1">
                             {fact.source ? `via ${fact.source}` : 'source unknown'}
                             {fact.updatedAt ? ` · ${formatRelative(fact.updatedAt)}` : ''}
                           </div>
@@ -249,7 +249,7 @@ export default function ClusterKnowledge() {
                           type="button"
                           aria-label={`Forget ${fact.key}`}
                           onClick={() => removeFact.mutate(fact)}
-                          className="shrink-0 rounded p-1 text-slate-500 hover:text-rose-400 hover:bg-slate-800
+                          className="shrink-0 rounded p-1 text-faint hover:text-rose-400 hover:bg-slate-800
                                      focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -286,9 +286,9 @@ export default function ClusterKnowledge() {
         />
 
         {!namespace ? (
-          <p className="text-xs text-slate-500">Enter a namespace to see its learned baselines.</p>
+          <p className="text-xs text-faint">Enter a namespace to see its learned baselines.</p>
         ) : baselines.isLoading ? (
-          <p className="text-xs text-slate-500">Loading…</p>
+          <p className="text-xs text-faint">Loading…</p>
         ) : baselines.isError ? (
           <LoadError title={`Baselines for ${namespace} could not be loaded`} error={baselines.error} onRetry={() => baselines.refetch()} />
         ) : (baselines.data || []).length === 0 ? (
@@ -301,7 +301,7 @@ export default function ClusterKnowledge() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[34rem]">
               <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-800">
+                <tr className="text-left text-faint border-b border-slate-800">
                   <th className="py-1.5 pr-3 font-medium">Workload</th>
                   <th className="py-1.5 pr-3 font-medium">Metric</th>
                   <th className="py-1.5 pr-3 font-medium text-right">Normal (p50)</th>

@@ -45,7 +45,7 @@ export function RevisionSignalList({ revision, items }: { revision: number; item
   if (!items?.length) return null;
   return (
     <div aria-label={`Alerts and findings during revision ${revision}`}>
-      <span className="text-slate-500">Alerts and findings during this revision:</span>
+      <span className="text-faint">Alerts and findings during this revision:</span>
       <ul className="mt-1 space-y-1">
         {items.map((i, n) => (
           <li key={`${i.label}-${n}`} className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export function RevisionSignalList({ revision, items }: { revision: number; item
             ) : (
               <span className="text-slate-300">{i.label}</span>
             )}
-            <span className="text-[10px] text-slate-600">{SOURCE[i.source]}</span>
+            <span className="text-[10px] text-faint">{SOURCE[i.source]}</span>
           </li>
         ))}
       </ul>

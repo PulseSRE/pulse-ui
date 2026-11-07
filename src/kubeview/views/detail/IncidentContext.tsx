@@ -153,9 +153,9 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
                     <span className={cn('w-1.5 h-1.5 rounded-full mt-1.5 shrink-0', isWarning ? 'bg-amber-500' : 'bg-blue-500')} />
                     <div className="flex-1 min-w-0">
                       <span className={cn('font-medium', isWarning ? 'text-amber-300' : 'text-slate-300')}>{event.reason}</span>
-                      <span className="text-slate-500 ml-1.5">{event.message}</span>
+                      <span className="text-faint ml-1.5">{event.message}</span>
                     </div>
-                    <span className="text-slate-600 shrink-0">{timeStr}</span>
+                    <span className="text-faint shrink-0">{timeStr}</span>
                   </div>
                 );
               })}
@@ -179,10 +179,10 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
                     ))}
                   </select>
                 )}
-                {containers.length === 1 && <span className="text-xs text-slate-500">{activeContainer}</span>}
+                {containers.length === 1 && <span className="text-xs text-faint">{activeContainer}</span>}
               </div>
               <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer">
+                <label className="flex items-center gap-1 text-xs text-faint cursor-pointer">
                   <input type="checkbox" checked={showPrevious} onChange={(e) => setShowPrevious(e.target.checked)}
                     className="rounded-sm border-slate-600" />
                   Previous instance
@@ -192,7 +192,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
               </div>
             </div>
             {logsLoading ? (
-              <div className="flex items-center gap-2 py-4 text-xs text-slate-500"><Loader2 className="w-3 h-3 animate-spin" /> Loading logs...</div>
+              <div className="flex items-center gap-2 py-4 text-xs text-faint"><Loader2 className="w-3 h-3 animate-spin" /> Loading logs...</div>
             ) : logError ? (
               <div className="text-xs text-amber-400 py-2" role="alert">
                 {showPrevious
@@ -204,7 +204,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
                 {logText.split('\n').slice(-50).join('\n') || 'No log output'}
               </pre>
             ) : (
-              <div className="text-xs text-slate-500 py-2">No logs available</div>
+              <div className="text-xs text-faint py-2">No logs available</div>
             )}
           </div>
         )}
@@ -212,7 +212,7 @@ export function IncidentContext({ resource, managedPods, events, namespace, go }
         {metricFilter && (
           <div className="px-4 py-3">
             <div className="text-xs font-medium text-slate-400 mb-2">
-              Resource Usage{!isPod && <span className="text-slate-500 font-normal"> · {podCount} pod{podCount === 1 ? '' : 's'} of this {resource.kind}</span>}
+              Resource Usage{!isPod && <span className="text-faint font-normal"> · {podCount} pod{podCount === 1 ? '' : 's'} of this {resource.kind}</span>}
             </div>
             <MetricsScope>
             <div className="grid grid-cols-2 gap-3">

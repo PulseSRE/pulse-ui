@@ -140,7 +140,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         title="Forget this — it taught the wrong lesson"
         disabled={forget.isPending}
         onClick={() => setPendingForget({ kind, id, label })}
-        className="shrink-0 rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-rose-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:opacity-40"
+        className="shrink-0 rounded p-1 text-faint hover:bg-slate-800 hover:text-rose-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:opacity-40"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -367,7 +367,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 'flex items-center gap-1.5 px-4 py-2 text-sm transition-colors border-b-2 -mb-px',
                 activeTab === tab.id
                   ? 'text-blue-400 border-blue-500'
-                  : 'text-slate-500 border-transparent hover:text-slate-300',
+                  : 'text-faint border-transparent hover:text-slate-300',
               )}
             >
               <tab.icon className="w-3.5 h-3.5" />
@@ -394,7 +394,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         {/* Runbooks Tab */}
         {activeTab === 'runbooks' && (
           <div className="space-y-3">
-            {rbLoading && <div className="text-sm text-slate-500 animate-pulse">Loading runbooks...</div>}
+            {rbLoading && <div className="text-sm text-faint animate-pulse">Loading runbooks...</div>}
             {runbooksQuery.isError && (
               <LoadError title="Learned runbooks could not be loaded" error={runbooksQuery.error} onRetry={() => runbooksQuery.refetch()} />
             )}
@@ -437,7 +437,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {rb.tool_sequence.map((tool, i) => (
                           <div key={i} className="flex items-center gap-1.5">
-                            {i > 0 && <span className="text-slate-600">→</span>}
+                            {i > 0 && <span className="text-faint">→</span>}
                             <span className="text-xs bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded-sm font-mono border border-blue-800/50">
                               {tool}
                             </span>
@@ -447,7 +447,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                       )}
                       {expandedRunbook === rb.name && (
                         <div className="mt-3 pt-3 border-t border-slate-700">
-                          <div className="text-xs text-slate-500 space-y-1">
+                          <div className="text-xs text-faint space-y-1">
                             <div>Success: {rb.success_count} / {rb.total_count} invocations</div>
                             <div>Tools: {Array.isArray(rb.tool_sequence) ? rb.tool_sequence.length : 0} steps</div>
                           </div>
@@ -480,7 +480,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
         {/* Patterns Tab */}
         {activeTab === 'patterns' && (
           <div className="space-y-3">
-            {patLoading && <div className="text-sm text-slate-500 animate-pulse">Loading patterns...</div>}
+            {patLoading && <div className="text-sm text-faint animate-pulse">Loading patterns...</div>}
             {patternsQuery.isError && (
               <LoadError title="Detected patterns could not be loaded" error={patternsQuery.error} onRetry={() => patternsQuery.refetch()} />
             )}
@@ -522,7 +522,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                         </div>
                       )}
                       {pat.frequency > 0 && (
-                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                        <div className="text-xs text-faint flex items-center gap-1">
                           <Target className="w-3 h-3" />
                           Detected {pat.frequency}x
                         </div>
@@ -545,11 +545,11 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search past incidents by keyword..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-sm px-9 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-blue-500"
+                className="w-full bg-slate-900 border border-slate-700 rounded-sm px-9 py-2 text-sm text-slate-200 placeholder:text-faint focus:outline-hidden focus:border-blue-500"
                 aria-label="Search incidents"
               />
             </div>
-            {incLoading && <div className="text-sm text-slate-500 animate-pulse">Loading incidents...</div>}
+            {incLoading && <div className="text-sm text-faint animate-pulse">Loading incidents...</div>}
             {incidentsQuery.isError && (
               <LoadError title="Incident history could not be loaded" error={incidentsQuery.error} onRetry={() => incidentsQuery.refetch()} />
             )}
@@ -620,7 +620,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                       </div>
 
                       {inc.timestamp && !isNaN(Number(inc.timestamp)) && Number(inc.timestamp) > 0 && (
-                        <div className="text-xs text-slate-500 mb-2">
+                        <div className="text-xs text-faint mb-2">
                           {formatRelative(Number(inc.timestamp))}
                         </div>
                       )}
@@ -645,7 +645,7 @@ export default function MemoryView({ embedded = false }: { embedded?: boolean })
                               </div>
                             </div>
                           )}
-                          <div className="text-xs text-slate-500">
+                          <div className="text-xs text-faint">
                             Score weights: resolution 40% · efficiency 30% · safety 20% · speed 10%
                           </div>
                         </div>

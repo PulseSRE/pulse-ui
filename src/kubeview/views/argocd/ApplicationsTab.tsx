@@ -67,7 +67,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
           <div className="text-center max-w-md">
             <HelpCircle className="w-10 h-10 text-slate-600 mx-auto mb-3" />
             <p className="text-slate-300 text-sm font-medium">No ArgoCD Applications found</p>
-            <p className="text-slate-500 text-xs mt-1 mb-4">
+            <p className="text-faint text-xs mt-1 mb-4">
               Create an Application to start managing resources declaratively via Git.
               The Application tells ArgoCD which Git repo to watch and where to deploy.
             </p>
@@ -110,7 +110,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
             <div className="bg-slate-950 rounded-lg p-3 overflow-x-auto">
               <pre className="text-xs text-slate-300 font-mono whitespace-pre">{SAMPLE_APPLICATION_YAML}</pre>
             </div>
-            <div className="mt-3 space-y-2 text-xs text-slate-500">
+            <div className="mt-3 space-y-2 text-xs text-faint">
               <p><strong className="text-slate-400">Before applying:</strong> Update the following fields:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li><code className="bg-slate-800 px-1 rounded-sm">metadata.name</code> — your application name</li>
@@ -202,9 +202,9 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      {repoName && <span className="text-xs text-slate-500 font-mono">{repoName}</span>}
-                      {source?.path && <span className="text-xs text-slate-600">/{source.path}</span>}
-                      {shortSha && <span className="text-xs text-slate-600 font-mono">{shortSha}</span>}
+                      {repoName && <span className="text-xs text-faint font-mono">{repoName}</span>}
+                      {source?.path && <span className="text-xs text-faint">/{source.path}</span>}
+                      {shortSha && <span className="text-xs text-faint font-mono">{shortSha}</span>}
                     </div>
                   </div>
                 </div>
@@ -222,8 +222,8 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                       <Globe className="w-3 h-3" />
                     </a>
                   )}
-                  <span className="text-xs text-slate-500">{resourceCount} resources</span>
-                  <span className="text-xs text-slate-600">{app.spec?.destination?.namespace || '—'}</span>
+                  <span className="text-xs text-faint">{resourceCount} resources</span>
+                  <span className="text-xs text-faint">{app.spec?.destination?.namespace || '—'}</span>
                   <span
                     role="button"
                     tabIndex={0}
@@ -268,7 +268,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
 
                   {/* Sync timing (B) */}
                   {opState?.startedAt && (
-                    <div className="flex items-center gap-4 text-xs text-slate-500 mt-3">
+                    <div className="flex items-center gap-4 text-xs text-faint mt-3">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         Started: {formatTimestamp(opState.startedAt)}
@@ -285,7 +285,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                   {/* External URLs (C) */}
                   {externalURLs.length > 0 && (
                     <div className="mt-2">
-                      <div className="text-xs text-slate-500 mb-1">Endpoints</div>
+                      <div className="text-xs text-faint mb-1">Endpoints</div>
                       <div className="flex flex-wrap gap-2">
                         {externalURLs.map((url, i) => (
                           <a key={i} href={url} target="_blank" rel="noopener noreferrer"
@@ -301,7 +301,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                   {/* Deployed images (E) */}
                   {images.length > 0 && (
                     <div className="mt-2">
-                      <div className="text-xs text-slate-500 mb-1">Images ({images.length})</div>
+                      <div className="text-xs text-faint mb-1">Images ({images.length})</div>
                       <div className="space-y-1">
                         {images.slice(0, 8).map((img, i) => {
                           const parts = img.split('/');
@@ -313,7 +313,7 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                             </div>
                           );
                         })}
-                        {images.length > 8 && <span className="text-xs text-slate-600">+{images.length - 8} more</span>}
+                        {images.length > 8 && <span className="text-xs text-faint">+{images.length - 8} more</span>}
                       </div>
                     </div>
                   )}
@@ -326,16 +326,16 @@ export function ApplicationsTab({ applications, syncing, onSync, onRefresh, go }
                     if (conditionsWithTime.length === 0) return null;
                     return (
                       <div className="mt-2">
-                        <div className="text-xs text-slate-500 mb-1">Conditions</div>
+                        <div className="text-xs text-faint mb-1">Conditions</div>
                         <div className="relative ml-2 border-l border-slate-700 pl-3 space-y-2">
                           {conditionsWithTime.map((cond, i) => (
                             <div key={i} className="relative">
                               <div className="absolute left-[-15px] top-1 w-2 h-2 rounded-full bg-amber-500/70 border border-slate-800" />
                               <div className="flex items-baseline gap-2">
                                 <span className="text-xs font-medium text-amber-400/80">{cond.type}</span>
-                                {cond.lastTransitionTime && <span className="text-xs text-slate-600">{formatRelative(cond.lastTransitionTime)}</span>}
+                                {cond.lastTransitionTime && <span className="text-xs text-faint">{formatRelative(cond.lastTransitionTime)}</span>}
                               </div>
-                              <p className="text-xs text-slate-500 mt-0.5 truncate" title={cond.message}>{cond.message}</p>
+                              <p className="text-xs text-faint mt-0.5 truncate" title={cond.message}>{cond.message}</p>
                             </div>
                           ))}
                         </div>

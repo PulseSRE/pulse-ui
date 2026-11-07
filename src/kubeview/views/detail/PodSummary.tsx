@@ -27,12 +27,12 @@ export function PodSummary({ resource }: PodSummaryProps) {
       {/* Placement and identity. State, restarts and the last exit are in the
           pod header; per-container facts in the container cards. */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm md:grid-cols-3 lg:grid-cols-6" aria-label="Pod facts">
-        <div><dt className="text-xs text-slate-500 flex items-center gap-1"><Globe className="w-3 h-3" />Pod IP</dt><dd className="font-mono text-slate-200 truncate">{podIP}</dd></div>
-        <div><dt className="text-xs text-slate-500 flex items-center gap-1"><Server className="w-3 h-3" />Host IP</dt><dd className="font-mono text-slate-200 truncate">{hostIP || '—'}</dd></div>
-        <div><dt className="text-xs text-slate-500">QoS class</dt><dd className="text-slate-200">{qosClass}</dd></div>
-        <div><dt className="text-xs text-slate-500">Service account</dt><dd className="text-slate-200 truncate">{serviceAccount}</dd></div>
-        <div><dt className="text-xs text-slate-500">Restart policy</dt><dd className="text-slate-200">{restartPolicy}</dd></div>
-        <div><dt className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" />Age</dt><dd className="text-slate-200" title={resource.metadata.creationTimestamp}>{age}</dd></div>
+        <div><dt className="text-xs text-faint flex items-center gap-1"><Globe className="w-3 h-3" />Pod IP</dt><dd className="font-mono text-slate-200 truncate">{podIP}</dd></div>
+        <div><dt className="text-xs text-faint flex items-center gap-1"><Server className="w-3 h-3" />Host IP</dt><dd className="font-mono text-slate-200 truncate">{hostIP || '—'}</dd></div>
+        <div><dt className="text-xs text-faint">QoS class</dt><dd className="text-slate-200">{qosClass}</dd></div>
+        <div><dt className="text-xs text-faint">Service account</dt><dd className="text-slate-200 truncate">{serviceAccount}</dd></div>
+        <div><dt className="text-xs text-faint">Restart policy</dt><dd className="text-slate-200">{restartPolicy}</dd></div>
+        <div><dt className="text-xs text-faint flex items-center gap-1"><Clock className="w-3 h-3" />Age</dt><dd className="text-slate-200" title={resource.metadata.creationTimestamp}>{age}</dd></div>
       </dl>
 
       {/* Pod CPU and memory sparklines are in the incident context panel (once). */}
@@ -59,7 +59,7 @@ export function PodSummary({ resource }: PodSummaryProps) {
                   </div>
                   <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{type}</span>
                   {ref && (
-                    <span className="text-xs text-slate-500 font-mono truncate max-w-48">{ref}</span>
+                    <span className="text-xs text-faint font-mono truncate max-w-48">{ref}</span>
                   )}
                 </div>
               );

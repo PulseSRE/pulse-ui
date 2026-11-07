@@ -304,15 +304,15 @@ export default function SecurityView() {
         {/* Score + Summary */}
         <div className="grid grid-cols-1 gap-4">
           <div className={cn('bg-slate-900 rounded-lg border p-4 flex flex-col items-center justify-center',
-            auditScore === 100 ? 'border-green-800/50' : auditScore >= 75 ? 'border-yellow-800/50' : 'border-red-800/50')}>
-            <div className={cn('text-4xl font-bold', auditScore === 100 ? 'text-green-400' : auditScore >= 75 ? 'text-yellow-400' : 'text-red-400')}>
+            auditScore === 100 ? 'border-green-800/50' : auditScore >= 75 ? 'border-amber-800/50' : 'border-red-800/50')}>
+            <div className={cn('text-4xl font-bold', auditScore === 100 ? 'text-green-400' : auditScore >= 75 ? 'text-amber-400' : 'text-red-400')}>
               {passCount}/{checks.length}
             </div>
             <div className="text-xs text-slate-400 mt-1">checks passing</div>
             {unknownCount > 0 && <div className="text-xs text-slate-400 mt-2">{unknownCount} could not be checked</div>}
-            {pendingCount > 0 && <div className="text-xs text-slate-500 mt-1">{pendingCount} still checking</div>}
+            {pendingCount > 0 && <div className="text-xs text-faint mt-1">{pendingCount} still checking</div>}
             {criticalFails.length > 0 && <div className="text-xs text-red-400 mt-2">{criticalFails.length} critical</div>}
-            {warningFails.length > 0 && <div className="text-xs text-yellow-400">{warningFails.length} warning</div>}
+            {warningFails.length > 0 && <div className="text-xs text-amber-400">{warningFails.length} warning</div>}
           </div>
           {/* Cluster admins, network-policy coverage and certificates are
               audit rows below (each with a link); no second summary card. */}
@@ -338,7 +338,7 @@ export default function SecurityView() {
                   ? <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
                   : check.severity === 'critical'
                   ? <XCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                  : <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />}
+                  : <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-200">{check.label}</div>
                   <div className="text-xs text-slate-400 mt-0.5">{check.detail}</div>
@@ -378,10 +378,10 @@ export default function SecurityView() {
           />
         )}
         {!netpolError && !nsError && !netpolLoading && !nsLoading && unprotectedNamespaces.length > 0 && (
-          <div className="bg-slate-900 rounded-lg border border-yellow-900/30">
+          <div className="bg-slate-900 rounded-lg border border-amber-900/30">
             <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                <ShieldOff className="w-4 h-4 text-yellow-400" />
+                <ShieldOff className="w-4 h-4 text-amber-400" />
                 Namespaces Without Network Policies
               </h2>
               <button onClick={() => go('/networking', 'Networking')}
@@ -390,17 +390,17 @@ export default function SecurityView() {
               </button>
             </div>
             <div className="px-4 py-3">
-              <p className="text-xs text-slate-500 mb-3">These user namespaces have no NetworkPolicy — all pod-to-pod traffic is allowed by default.</p>
+              <p className="text-xs text-faint mb-3">These user namespaces have no NetworkPolicy — all pod-to-pod traffic is allowed by default.</p>
               <div className="flex flex-wrap gap-2">
                 {unprotectedNamespaces.map((ns) => (
-                  <span key={ns.metadata?.name} className="inline-flex items-center rounded-sm border border-yellow-900/50 bg-yellow-950/30 text-xs">
+                  <span key={ns.metadata?.name} className="inline-flex items-center rounded-sm border border-amber-900/50 bg-amber-950/30 text-xs">
                     <button onClick={() => go(`/r/v1~namespaces/_/${ns.metadata?.name}`, ns.metadata?.name)}
-                      className="px-2.5 py-1.5 text-yellow-300 hover:bg-yellow-900/40 transition-colors">
+                      className="px-2.5 py-1.5 text-amber-300 hover:bg-amber-900/40 transition-colors">
                       {ns.metadata?.name}
                     </button>
                     <button onClick={() => go(createTemplateUrl('default-deny', ns.metadata?.name || ''), `Default-deny ${ns.metadata?.name}`)}
                       aria-label={`Create default-deny ingress NetworkPolicy in ${ns.metadata?.name}`}
-                      className="px-2 py-1.5 border-l border-yellow-900/50 text-blue-300 hover:bg-yellow-900/40">
+                      className="px-2 py-1.5 border-l border-amber-900/50 text-blue-300 hover:bg-amber-900/40">
                       + default-deny ingress
                     </button>
                   </span>
@@ -437,7 +437,7 @@ function SCCPanel({ sccs, go }: { sccs: K8sResource[]; go: (path: string, title:
           Security Context Constraints ({sccs.length})
         </h2>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-faint">
             {privileged.length} privileged, {hostNetwork.length} hostNetwork, {hostPID.length} hostPID
           </span>
           {expanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
@@ -447,7 +447,7 @@ function SCCPanel({ sccs, go }: { sccs: K8sResource[]; go: (path: string, title:
         <div className="overflow-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-500">
+              <tr className="border-b border-slate-800 text-faint">
                 <th className="px-4 py-2 text-left font-normal">Name</th>
                 <th className="px-4 py-2 text-center font-normal">Privileged</th>
                 <th className="px-4 py-2 text-center font-normal">Host Network</th>
@@ -467,9 +467,9 @@ function SCCPanel({ sccs, go }: { sccs: K8sResource[]; go: (path: string, title:
                   <td className="px-4 py-2 text-center">{scc.allowPrivilegedContainer ? <XCircle className="w-3.5 h-3.5 text-red-400 mx-auto" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 mx-auto" />}</td>
                   <td className="px-4 py-2 text-center">{scc.allowHostNetwork ? <XCircle className="w-3.5 h-3.5 text-red-400 mx-auto" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 mx-auto" />}</td>
                   <td className="px-4 py-2 text-center">{scc.allowHostPID ? <XCircle className="w-3.5 h-3.5 text-red-400 mx-auto" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 mx-auto" />}</td>
-                  <td className="px-4 py-2 text-center">{scc.allowHostPorts ? <XCircle className="w-3.5 h-3.5 text-yellow-400 mx-auto" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 mx-auto" />}</td>
+                  <td className="px-4 py-2 text-center">{scc.allowHostPorts ? <XCircle className="w-3.5 h-3.5 text-amber-400 mx-auto" /> : <CheckCircle className="w-3.5 h-3.5 text-green-500 mx-auto" />}</td>
                   <td className="px-4 py-2 text-slate-400">{scc.runAsUser?.type || '—'}</td>
-                  <td className="px-4 py-2 text-slate-500 truncate max-w-32">{(scc.volumes || []).join(', ') || '*'}</td>
+                  <td className="px-4 py-2 text-faint truncate max-w-32">{(scc.volumes || []).join(', ') || '*'}</td>
                 </tr>
               ))}
             </tbody>
@@ -486,7 +486,7 @@ function QuickLink({ icon, label, description, onClick }: { icon: React.ReactNod
       {icon}
       <div>
         <div className="text-sm font-medium text-slate-200">{label}</div>
-        <div className="text-xs text-slate-500">{description}</div>
+        <div className="text-xs text-faint">{description}</div>
       </div>
     </button>
   );

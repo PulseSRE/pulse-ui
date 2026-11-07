@@ -127,14 +127,14 @@ export function DetailViewHeader({
           <h1 className="min-w-0 max-w-full truncate text-2xl max-sm:text-xl font-bold text-slate-100" title={resource.metadata.name}>{resource.metadata.name}</h1>
           <button
             onClick={onCopyName}
-            className="p-1 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-sm text-faint hover:text-slate-300 hover:bg-slate-800 transition-colors"
             title="Copy name"
           >
             <Copy className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onToggleFavorite}
-            className={cn('p-1 rounded-sm transition-colors', starred ? 'text-yellow-400 hover:text-yellow-300' : 'text-slate-500 hover:text-yellow-400 hover:bg-slate-800')}
+            className={cn('p-1 rounded-sm transition-colors', starred ? 'text-amber-400 hover:text-amber-300' : 'text-faint hover:text-amber-400 hover:bg-slate-800')}
             title={starred ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Star className={cn('w-3.5 h-3.5', starred && 'fill-current')} />

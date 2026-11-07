@@ -120,7 +120,7 @@ export function InstallOperatorForm({ pkg, onInstalled }: {
               <input type="radio" name="install-mode" value={m} checked={effectiveMode === m}
                 disabled={GLOBAL_OPERATOR_NAMESPACES.includes(ns) && m !== 'AllNamespaces'}
                 onChange={() => setMode(m)} />
-              {MODE_LABEL[m]} <span className="text-slate-500 font-mono">({m})</span>
+              {MODE_LABEL[m]} <span className="text-faint font-mono">({m})</span>
             </label>
           ))}
           {effectiveMode === 'SingleNamespace' && (
@@ -135,7 +135,7 @@ export function InstallOperatorForm({ pkg, onInstalled }: {
             <label key={a} className="flex items-center gap-2 py-0.5 text-slate-300">
               <input type="radio" name="approval" value={a} checked={approval === a} onChange={() => setApproval(a)} />
               {a}
-              <span className="text-slate-500">{a === 'Automatic' ? '— OLM installs updates as they appear' : '— each update waits for you to approve its InstallPlan'}</span>
+              <span className="text-faint">{a === 'Automatic' ? '— OLM installs updates as they appear' : '— each update waits for you to approve its InstallPlan'}</span>
             </label>
           ))}
         </fieldset>

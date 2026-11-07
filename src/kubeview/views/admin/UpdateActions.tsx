@@ -43,11 +43,11 @@ export function TakeEtcdBackupAction({ pvcs, onDone }: { pvcs: Loadable<Persiste
   const { open, dialog } = useActionDialog();
   if (pvcs.state === 'loading') return null;
   if (pvcs.state !== 'ok') {
-    return <span className="text-xs text-slate-500 max-w-xs">PVCs in openshift-etcd could not be read{pvcs.state === 'error' ? ` (${pvcs.reason})` : ''}, so a backup target can&apos;t be offered. Run cluster-backup.sh on a control-plane node instead.</span>;
+    return <span className="text-xs text-faint max-w-xs">PVCs in openshift-etcd could not be read{pvcs.state === 'error' ? ` (${pvcs.reason})` : ''}, so a backup target can&apos;t be offered. Run cluster-backup.sh on a control-plane node instead.</span>;
   }
   const names = pvcs.data.map((p) => p.metadata.name);
   if (names.length === 0) {
-    return <span className="text-xs text-slate-500 max-w-xs" data-testid="etcd-backup-guidance">An EtcdBackup writes to a PersistentVolumeClaim in openshift-etcd, and there is none. Create one first, or run cluster-backup.sh on a control-plane node.</span>;
+    return <span className="text-xs text-faint max-w-xs" data-testid="etcd-backup-guidance">An EtcdBackup writes to a PersistentVolumeClaim in openshift-etcd, and there is none. Create one first, or run cluster-backup.sh on a control-plane node.</span>;
   }
   const denied = !isLoading && !allowed;
   return (
@@ -83,7 +83,7 @@ export function TakeEtcdBackupAction({ pvcs, onDone }: { pvcs: Loadable<Persiste
       >
         <Database className="w-3.5 h-3.5" aria-hidden="true" />Take backup now
       </button>
-      {denied && <span className="text-xs text-slate-500">You do not have permission to create EtcdBackups.</span>}
+      {denied && <span className="text-xs text-faint">You do not have permission to create EtcdBackups.</span>}
       {dialog}
     </>
   );

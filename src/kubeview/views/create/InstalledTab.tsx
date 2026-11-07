@@ -116,7 +116,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Package className="w-4 h-4 text-blue-400" />
             Operators
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{subsError ? '\u2014' : filteredSubscriptions.length}</span>
+            <span className="text-xs text-faint bg-slate-800 px-2 py-0.5 rounded-sm">{subsError ? '\u2014' : filteredSubscriptions.length}</span>
           </h3>
           <button
             onClick={() => go('/operators', 'Operators')}
@@ -128,9 +128,9 @@ export function InstalledTab() {
         {subsError ? (
           <LoadError title="Installed operators could not be listed" error={subsError} onRetry={() => { void subsQuery.refetch(); }} />
         ) : subsQuery.isLoading && !subsQuery.isError ? (
-          <p className="text-xs text-slate-500 text-center py-4">Loading…</p>
+          <p className="text-xs text-faint text-center py-4">Loading…</p>
         ) : filteredSubscriptions.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-4">No operators installed</p>
+          <p className="text-xs text-faint text-center py-4">No operators installed</p>
         ) : (
           <div className="space-y-2">
             {filteredSubscriptions.slice(0, 5).map((sub) => {
@@ -164,7 +164,7 @@ export function InstalledTab() {
                         </span>
                       )}
                       {installedCSV && (
-                        <span className="text-slate-500">{installedCSV}</span>
+                        <span className="text-faint">{installedCSV}</span>
                       )}
                     </div>
                   </div>
@@ -172,7 +172,7 @@ export function InstalledTab() {
                     {state === 'AtLatestKnown' ? (
                       <CheckCircle className="w-4 h-4 text-green-400" />
                     ) : state === 'UpgradePending' ? (
-                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
                     ) : (
                       <AlertCircle className="w-4 h-4 text-slate-500" />
                     )}
@@ -181,7 +181,7 @@ export function InstalledTab() {
               );
             })}
             {filteredSubscriptions.length > 5 && (
-              <p className="text-xs text-slate-500 text-center pt-2">
+              <p className="text-xs text-faint text-center pt-2">
                 +{filteredSubscriptions.length - 5} more
               </p>
             )}
@@ -195,7 +195,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Ship className="w-4 h-4 text-blue-400" />
             Helm Releases
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{filteredHelmReleases.length}</span>
+            <span className="text-xs text-faint bg-slate-800 px-2 py-0.5 rounded-sm">{filteredHelmReleases.length}</span>
           </h3>
           <button
             onClick={() => go('/software?tab=helm', 'Helm Charts')}
@@ -207,7 +207,7 @@ export function InstalledTab() {
         {helmError ? (
           <LoadError title="Helm releases could not be listed" error={helmError} />
         ) : filteredHelmReleases.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-4">No Helm releases installed</p>
+          <p className="text-xs text-faint text-center py-4">No Helm releases installed</p>
         ) : (
           <p className="text-xs text-slate-400">
             {filteredHelmReleases.map((r) => `${r.namespace}/${r.name}`).slice(0, 5).join(', ')}
@@ -222,7 +222,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Box className="w-4 h-4 text-blue-400" />
             Deployments
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{deploymentsQuery.isError ? '\u2014' : filteredDeployments.length}</span>
+            <span className="text-xs text-faint bg-slate-800 px-2 py-0.5 rounded-sm">{deploymentsQuery.isError ? '\u2014' : filteredDeployments.length}</span>
           </h3>
           <button
             onClick={() => go('/workloads', 'Workloads')}
@@ -234,9 +234,9 @@ export function InstalledTab() {
         {deploymentsQuery.isError ? (
           <LoadError title="Deployments could not be listed" error={deploymentsQuery.error} onRetry={() => { void deploymentsQuery.refetch(); }} />
         ) : deploymentsQuery.isLoading ? (
-          <p className="text-xs text-slate-500 text-center py-4">Loading…</p>
+          <p className="text-xs text-faint text-center py-4">Loading…</p>
         ) : filteredDeployments.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-4">No deployments found</p>
+          <p className="text-xs text-faint text-center py-4">No deployments found</p>
         ) : (
           <div className="space-y-2">
             {filteredDeployments.slice(0, 5).map((deploy) => {
@@ -277,21 +277,21 @@ export function InstalledTab() {
                       'text-xs px-2 py-1 rounded-sm',
                       isReady
                         ? 'bg-green-900/50 text-green-300 border border-green-800'
-                        : 'bg-yellow-900/50 text-yellow-300 border border-yellow-800'
+                        : 'bg-amber-900/50 text-amber-300 border border-amber-800'
                     )}>
                       {available}/{replicas}
                     </span>
                     {isReady ? (
                       <CheckCircle className="w-4 h-4 text-green-400" />
                     ) : (
-                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
                     )}
                   </div>
                 </div>
               );
             })}
             {filteredDeployments.length > 5 && (
-              <p className="text-xs text-slate-500 text-center pt-2">
+              <p className="text-xs text-faint text-center pt-2">
                 +{filteredDeployments.length - 5} more
               </p>
             )}
@@ -305,7 +305,7 @@ export function InstalledTab() {
           <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <Database className="w-4 h-4 text-cyan-400" />
             StatefulSets
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-sm">{statefulsetsQuery.isError ? '\u2014' : filteredStatefulSets.length}</span>
+            <span className="text-xs text-faint bg-slate-800 px-2 py-0.5 rounded-sm">{statefulsetsQuery.isError ? '\u2014' : filteredStatefulSets.length}</span>
           </h3>
           <button
             onClick={() => go('/workloads', 'Workloads')}
@@ -317,9 +317,9 @@ export function InstalledTab() {
         {statefulsetsQuery.isError ? (
           <LoadError title="StatefulSets could not be listed" error={statefulsetsQuery.error} onRetry={() => { void statefulsetsQuery.refetch(); }} />
         ) : statefulsetsQuery.isLoading ? (
-          <p className="text-xs text-slate-500 text-center py-4">Loading…</p>
+          <p className="text-xs text-faint text-center py-4">Loading…</p>
         ) : filteredStatefulSets.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-4">No statefulsets found</p>
+          <p className="text-xs text-faint text-center py-4">No statefulsets found</p>
         ) : (
           <div className="space-y-2">
             {filteredStatefulSets.slice(0, 5).map((sts) => {
@@ -360,21 +360,21 @@ export function InstalledTab() {
                       'text-xs px-2 py-1 rounded-sm',
                       isReady
                         ? 'bg-green-900/50 text-green-300 border border-green-800'
-                        : 'bg-yellow-900/50 text-yellow-300 border border-yellow-800'
+                        : 'bg-amber-900/50 text-amber-300 border border-amber-800'
                     )}>
                       {ready}/{replicas}
                     </span>
                     {isReady ? (
                       <CheckCircle className="w-4 h-4 text-green-400" />
                     ) : (
-                      <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
                     )}
                   </div>
                 </div>
               );
             })}
             {filteredStatefulSets.length > 5 && (
-              <p className="text-xs text-slate-500 text-center pt-2">
+              <p className="text-xs text-faint text-center pt-2">
                 +{filteredStatefulSets.length - 5} more
               </p>
             )}

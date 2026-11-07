@@ -103,28 +103,28 @@ export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, 
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">Resource Quotas</div>
           <div className="text-xl font-bold text-slate-100">{quotasKnown ? quotas.length : dash}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{quotasKnown ? `${quotaNamespaces.size} namespace${quotaNamespaces.size !== 1 ? 's' : ''}` : 'unknown'}</div>
+          <div className="text-xs text-faint mt-0.5">{quotasKnown ? `${quotaNamespaces.size} namespace${quotaNamespaces.size !== 1 ? 's' : ''}` : 'unknown'}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">Limit Ranges</div>
           <div className="text-xl font-bold text-slate-100">{limitRangesKnown ? limitRanges.length : dash}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{limitRangesKnown ? `${lrNamespaces.size} namespace${lrNamespaces.size !== 1 ? 's' : ''}` : 'unknown'}</div>
+          <div className="text-xs text-faint mt-0.5">{limitRangesKnown ? `${lrNamespaces.size} namespace${lrNamespaces.size !== 1 ? 's' : ''}` : 'unknown'}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-slate-400 mb-1">User Namespaces</div>
           <div className="text-xl font-bold text-slate-100">{namespacesKnown ? userNamespaces.length : dash}</div>
         </Card>
-        <div data-testid="unprotected-card" className={cn('bg-slate-900 rounded-lg border p-3', unprotectedKnown && unprotectedNs.length > 0 ? 'border-yellow-800' : 'border-slate-800')}>
+        <div data-testid="unprotected-card" className={cn('bg-slate-900 rounded-lg border p-3', unprotectedKnown && unprotectedNs.length > 0 ? 'border-amber-800' : 'border-slate-800')}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-slate-400">Unprotected</span>
-            {unprotectedKnown && unprotectedNs.length > 0 && <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />}
+            {unprotectedKnown && unprotectedNs.length > 0 && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
           </div>
           {unprotectedKnown ? (
-            <div className={cn('text-xl font-bold', unprotectedNs.length > 0 ? 'text-yellow-400' : 'text-green-400')}>{unprotectedNs.length}</div>
+            <div className={cn('text-xl font-bold', unprotectedNs.length > 0 ? 'text-amber-400' : 'text-green-400')}>{unprotectedNs.length}</div>
           ) : (
             <div className="text-xl font-bold text-slate-400">{dash}</div>
           )}
-          <div className="text-xs text-slate-500 mt-0.5">{unprotectedKnown ? 'no quota or limit range' : 'unknown: a list could not be read'}</div>
+          <div className="text-xs text-faint mt-0.5">{unprotectedKnown ? 'no quota or limit range' : 'unknown: a list could not be read'}</div>
         </div>
       </MetricGrid>
 
@@ -145,7 +145,7 @@ export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, 
                 if (v < 1 && v > 0) return `${(v * 1000).toFixed(0)}m`;
                 return `${v}`;
               };
-              const barColor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-blue-500';
+              const barColor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-blue-500';
               return (
                 <div key={key}>
                   <div className="flex items-center justify-between mb-1">
@@ -165,11 +165,11 @@ export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, 
       {/* Per-namespace quota details */}
       <Panel title={`Resource Quotas (${quotasKnown ? quotas.length : dash})`} icon={<Shield className="w-4 h-4 text-orange-500" />}>
         {!quotasKnown ? (
-          <div className="text-sm text-slate-500 text-center py-6">{quotasError ? 'Unknown \u2014 the list could not be read' : 'Loading\u2026'}</div>
+          <div className="text-sm text-faint text-center py-6">{quotasError ? 'Unknown \u2014 the list could not be read' : 'Loading\u2026'}</div>
         ) : quotas.length === 0 ? (
           <div className="text-center py-6">
-            <div className="text-sm text-slate-500 mb-2">No resource quotas configured</div>
-            <p className="text-xs text-slate-600 max-w-md mx-auto">Resource quotas limit total CPU, memory, and object counts per namespace. Without quotas, a single namespace can consume all cluster resources.</p>
+            <div className="text-sm text-faint mb-2">No resource quotas configured</div>
+            <p className="text-xs text-faint max-w-md mx-auto">Resource quotas limit total CPU, memory, and object counts per namespace. Without quotas, a single namespace can consume all cluster resources.</p>
             <button onClick={() => go('/create/v1~resourcequotas', 'Create ResourceQuota')} className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors">Create ResourceQuota</button>
           </div>
         ) : (
@@ -180,13 +180,13 @@ export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, 
       </Panel>
 
       {/* Limit Ranges */}
-      <Panel title={`Limit Ranges (${limitRangesKnown ? limitRanges.length : dash})`} icon={<Shield className="w-4 h-4 text-yellow-500" />}>
+      <Panel title={`Limit Ranges (${limitRangesKnown ? limitRanges.length : dash})`} icon={<Shield className="w-4 h-4 text-amber-500" />}>
         {!limitRangesKnown ? (
-          <div className="text-sm text-slate-500 text-center py-6">{limitRangesError ? 'Unknown \u2014 the list could not be read' : 'Loading\u2026'}</div>
+          <div className="text-sm text-faint text-center py-6">{limitRangesError ? 'Unknown \u2014 the list could not be read' : 'Loading\u2026'}</div>
         ) : limitRanges.length === 0 ? (
           <div className="text-center py-6">
-            <div className="text-sm text-slate-500 mb-2">No limit ranges configured</div>
-            <p className="text-xs text-slate-600 max-w-md mx-auto">LimitRanges set default and max CPU/memory for containers that don't specify their own. Without them, containers can request unlimited resources.</p>
+            <div className="text-sm text-faint mb-2">No limit ranges configured</div>
+            <p className="text-xs text-faint max-w-md mx-auto">LimitRanges set default and max CPU/memory for containers that don't specify their own. Without them, containers can request unlimited resources.</p>
             <button onClick={() => go('/create/v1~limitranges', 'Create LimitRange')} className="mt-3 px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white rounded-sm transition-colors">Create LimitRange</button>
           </div>
         ) : (
@@ -201,12 +201,12 @@ export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, 
                       <span className="text-sm font-medium text-slate-200">{lr.metadata.name}</span>
                       <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{lr.metadata.namespace}</span>
                     </div>
-                    <span className="text-xs text-slate-500">{limits.length} limit{limits.length !== 1 ? 's' : ''}</span>
+                    <span className="text-xs text-faint">{limits.length} limit{limits.length !== 1 ? 's' : ''}</span>
                   </button>
                   <div className="px-4 py-2">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-slate-500 border-b border-slate-800">
+                        <tr className="text-faint border-b border-slate-800">
                           <th className="py-1.5 text-left font-normal">Type</th>
                           <th className="py-1.5 text-left font-normal">Resource</th>
                           <th className="py-1.5 text-right font-normal">Default</th>
@@ -246,18 +246,18 @@ export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, 
 
       {/* Unprotected namespaces */}
       {unprotectedKnown && unprotectedNs.length > 0 && (
-        <Panel title={`Unprotected Namespaces (${unprotectedNs.length})`} icon={<AlertTriangle className="w-4 h-4 text-yellow-500" />}>
-          <p className="text-xs text-slate-500 mb-3">These user namespaces have no ResourceQuota or LimitRange. Workloads can consume unlimited resources.</p>
+        <Panel title={`Unprotected Namespaces (${unprotectedNs.length})`} icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}>
+          <p className="text-xs text-faint mb-3">These user namespaces have no ResourceQuota or LimitRange. Workloads can consume unlimited resources.</p>
           <div className="flex flex-wrap gap-2">
             {unprotectedNs.map((ns) => {
               const name = ns.metadata?.name || '';
               return (
-                <span key={name} className="inline-flex items-center rounded-sm border border-yellow-900/50 bg-yellow-950/30 text-xs">
-                  <button onClick={() => go(`/r/v1~namespaces/_/${name}`, name)} className="px-2.5 py-1.5 text-yellow-300 hover:bg-yellow-900/40">{name}</button>
+                <span key={name} className="inline-flex items-center rounded-sm border border-amber-900/50 bg-amber-950/30 text-xs">
+                  <button onClick={() => go(`/r/v1~namespaces/_/${name}`, name)} className="px-2.5 py-1.5 text-amber-300 hover:bg-amber-900/40">{name}</button>
                   <button onClick={() => go(createTemplateUrl('resource-quota', name), `ResourceQuota for ${name}`)} aria-label={`Create ResourceQuota in ${name}`}
-                    className="px-2 py-1.5 border-l border-yellow-900/50 text-blue-300 hover:bg-yellow-900/40">+ quota</button>
+                    className="px-2 py-1.5 border-l border-amber-900/50 text-blue-300 hover:bg-amber-900/40">+ quota</button>
                   <button onClick={() => go(createTemplateUrl('limit-range', name), `LimitRange for ${name}`)} aria-label={`Create LimitRange in ${name}`}
-                    className="px-2 py-1.5 border-l border-yellow-900/50 text-blue-300 hover:bg-yellow-900/40">+ limit range</button>
+                    className="px-2 py-1.5 border-l border-amber-900/50 text-blue-300 hover:bg-amber-900/40">+ limit range</button>
                 </span>
               );
             })}
@@ -313,7 +313,7 @@ function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, 
           <span className="text-xs px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-sm">{q.metadata.namespace}</span>
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">{resources.length} resource{resources.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-faint">{resources.length} resource{resources.length !== 1 ? 's' : ''}</span>
           {!editing && (
             <Button size="sm" variant="secondary" onClick={startEdit} disabled={!canEdit} aria-label={`Edit quota ${q.metadata.name}`}
               title={canEdit ? undefined : `You do not have permission to edit ResourceQuotas in ${q.metadata.namespace}`}>Edit</Button>
@@ -328,8 +328,8 @@ function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, 
                 className="flex-1 px-2 py-1 text-xs font-mono bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
               <input aria-label={`Limit for ${d.key || `resource ${i + 1}`}`} value={d.value} onChange={(e) => setDraft(draft.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
                 className="w-28 px-2 py-1 text-xs font-mono bg-slate-900 border border-slate-700 rounded-sm text-slate-200" />
-              <span className="w-24 text-xs text-slate-500 font-mono">used {used[d.key] ?? '0'}</span>
-              <button aria-label={`Remove ${d.key}`} onClick={() => setDraft(draft.filter((_, j) => j !== i))} className="text-xs text-slate-500 hover:text-red-400">remove</button>
+              <span className="w-24 text-xs text-faint font-mono">used {used[d.key] ?? '0'}</span>
+              <button aria-label={`Remove ${d.key}`} onClick={() => setDraft(draft.filter((_, j) => j !== i))} className="text-xs text-faint hover:text-red-400">remove</button>
             </div>
           ))}
           <div className="flex items-center gap-2 pt-1">
@@ -345,7 +345,7 @@ function QuotaCard({ quota: q, go }: { quota: ResourceQuota; go: (path: string, 
             const hardVal = parseResourceValue(hard[key]);
             const usedVal = parseResourceValue(used[key] || '0');
             const pct = hardVal > 0 ? Math.min(100, (usedVal / hardVal) * 100) : 0;
-            const barColor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-green-500';
+            const barColor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-green-500';
             return (
               <div key={key}>
                 <div className="flex items-center justify-between mb-0.5">

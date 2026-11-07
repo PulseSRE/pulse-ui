@@ -51,7 +51,7 @@ export function ResourceHistoryPanel({ kind, namespace, name }: ResourceHistoryP
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
           <History className="w-4 h-4 text-blue-400" />
           Sync History
-          <span className="text-xs text-slate-500 font-normal">
+          <span className="text-xs text-faint font-normal">
             via {syncInfo.appName}
           </span>
         </h2>
@@ -91,12 +91,12 @@ export function ResourceHistoryPanel({ kind, namespace, name }: ResourceHistoryP
                     ))}
                 </div>
                 {entry.source?.path && (
-                  <span className="text-xs text-slate-600">
+                  <span className="text-xs text-faint">
                     {entry.source.path}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs text-faint shrink-0">
                 <Clock className="w-3 h-3" />
                 <span title={formatTimestamp(deployedAt)}>{ago}</span>
               </div>

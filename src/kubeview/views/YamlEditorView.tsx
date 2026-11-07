@@ -242,7 +242,7 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
               <Lock size={10} aria-hidden="true" /> Read-only
             </span>
           )}
-          <span className="text-slate-500">{gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]}</span>
+          <span className="text-faint">{gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]}</span>
         </>,
       )}
 

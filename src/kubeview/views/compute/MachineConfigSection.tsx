@@ -29,7 +29,7 @@ function MachineConfigPoolsCard({ machineConfigPools, go }: { machineConfigPools
       </div>
       <div className="divide-y divide-slate-800 max-h-64 overflow-auto">
         {machineConfigPools.length === 0 ? (
-          <div className="px-4 py-6 text-center text-sm text-slate-500">No MachineConfigPools found</div>
+          <div className="px-4 py-6 text-center text-sm text-faint">No MachineConfigPools found</div>
         ) : (machineConfigPools as MachineConfigPoolResource[]).map((mcp) => {
           const conditions = mcp.status?.conditions || [];
           const updated = conditions.find((c) => c.type === 'Updated');
@@ -56,11 +56,11 @@ function MachineConfigPoolsCard({ machineConfigPools, go }: { machineConfigPools
                   {isUpdated && !isUpdating && <span className="text-xs px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded-sm">Updated</span>}
                   {paused && <span className="text-xs px-1.5 py-0.5 bg-amber-900/50 text-amber-300 rounded-sm">Paused</span>}
                 </div>
-                <span className={cn('text-xs font-mono', readyCount === machineCount ? 'text-green-400' : 'text-yellow-400')}>
+                <span className={cn('text-xs font-mono', readyCount === machineCount ? 'text-green-400' : 'text-amber-400')}>
                   {readyCount}/{machineCount} ready
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-faint">
                 <span>{updatedCount}/{machineCount} updated</span>
                 {currentConfig && <span className="font-mono truncate max-w-[200px]">Config: {currentConfig}</span>}
               </div>
@@ -93,7 +93,7 @@ function MachineConfigQuickAccess({ go }: { go: (path: string, title: string) =>
               className="flex items-center justify-between w-full py-2 px-3 rounded-sm hover:bg-slate-800/50 text-left transition-colors">
               <div>
                 <div className="text-sm text-slate-200">{item.label}</div>
-                <div className="text-xs text-slate-500">{item.desc}</div>
+                <div className="text-xs text-faint">{item.desc}</div>
               </div>
               <ArrowRight className="w-3 h-3 text-slate-600 shrink-0" />
             </button>

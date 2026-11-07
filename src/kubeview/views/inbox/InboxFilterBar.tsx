@@ -108,7 +108,7 @@ export function InboxFilterBar() {
         }
         side="bottom"
       >
-        <button className="text-slate-600 hover:text-slate-400 transition-colors" aria-label="Source definitions">
+        <button className="text-faint hover:text-slate-400 transition-colors" aria-label="Source definitions">
           <HelpCircle className="w-3.5 h-3.5" />
         </button>
       </Tooltip>
@@ -131,7 +131,7 @@ export function InboxFilterBar() {
         }
         side="bottom"
       >
-        <button className="text-slate-600 hover:text-slate-400 transition-colors" aria-label="Status definitions">
+        <button className="text-faint hover:text-slate-400 transition-colors" aria-label="Status definitions">
           <HelpCircle className="w-3.5 h-3.5" />
         </button>
       </Tooltip>
@@ -145,7 +145,7 @@ export function InboxFilterBar() {
       {hasActiveFilters && (
         <button
           onClick={() => setFilters({})}
-          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          className="text-xs text-faint hover:text-slate-300 transition-colors"
         >
           Clear
         </button>

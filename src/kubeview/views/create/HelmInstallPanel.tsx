@@ -58,7 +58,7 @@ export function InstallPanel(props: {
       <div>
         <h3 className="text-sm font-semibold text-blue-200">Install {chart.name}</h3>
         <p className="text-xs text-slate-400">from repository <span className="text-slate-300">{chart.repoName}</span>{chart.repoUrl ? ` (${chart.repoUrl})` : ''}{chart.appVersion ? ` · app version ${chart.appVersion}` : ''}</p>
-        {chart.description && <p className="mt-1 text-xs text-slate-500">{chart.description}</p>}
+        {chart.description && <p className="mt-1 text-xs text-faint">{chart.description}</p>}
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <FormField label="Release Name" required value={props.releaseName} onChange={props.onReleaseName} placeholder={`my-${chart.name}`} />
@@ -77,7 +77,7 @@ export function InstallPanel(props: {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-sm font-medium text-slate-200">Preview rendered manifests</div>
-            <div className="text-xs text-slate-500">Runs helm template in the Helm runner Job, then a server dry run of each object. Nothing is applied.</div>
+            <div className="text-xs text-faint">Runs helm template in the Helm runner Job, then a server dry run of each object. Nothing is applied.</div>
           </div>
           <Button variant="secondary" onClick={props.onPreview} disabled={running || !!denied} title={denied} loading={running}>
             <Eye className="h-3.5 w-3.5" /> {cur?.status === 'done' || preview.stale ? 'Preview again' : 'Preview'}
@@ -87,7 +87,7 @@ export function InstallPanel(props: {
         {perm.state === 'denied' && <p className="text-xs text-amber-300">{perm.reason}.</p>}
         <PreviewResult state={preview.state} stale={preview.stale} action="install" />
         {cur?.status === 'done' && (
-          <p className="text-xs text-slate-400"><span className="text-slate-500">Undo:</span> uninstall the release, which deletes what it created (objects the chart marks "keep" stay).</p>
+          <p className="text-xs text-slate-400"><span className="text-faint">Undo:</span> uninstall the release, which deletes what it created (objects the chart marks "keep" stay).</p>
         )}
       </div>
 
@@ -106,7 +106,7 @@ export function InstallPanel(props: {
           </Button>
         )}
       </div>
-      {remote && cur?.status === 'done' && <p className="text-xs text-slate-500">Pulse AI answers about the local cluster only.</p>}
+      {remote && cur?.status === 'done' && <p className="text-xs text-faint">Pulse AI answers about the local cluster only.</p>}
     </div>
   );
 }

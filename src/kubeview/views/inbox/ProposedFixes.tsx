@@ -101,7 +101,7 @@ export function RejectFixDialog({
         maxLength={500}
         rows={3}
         placeholder="e.g. restarting hides a memory leak — the owner is rolling back instead"
-        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 placeholder:text-faint focus:outline-hidden focus:ring-1 focus:ring-amber-500"
       />
       {error && (
         <p role="alert" className="mt-1 text-xs text-red-400">
@@ -123,7 +123,7 @@ function ProposalDetails({ action }: { action: ActionRecord }) {
     <div className="mt-2 space-y-1.5 rounded-md border border-slate-700/60 bg-slate-900/60 p-2 text-xs">
       {description && (
         <div>
-          <span className="text-slate-500">Would do: </span>
+          <span className="text-faint">Would do: </span>
           <span className="text-slate-200">{description}</span>
         </div>
       )}
@@ -131,13 +131,13 @@ function ProposalDetails({ action }: { action: ActionRecord }) {
         <div className="text-slate-400">
           {strategy && (
             <>
-              <span className="text-slate-500">Strategy </span>
+              <span className="text-faint">Strategy </span>
               <code className="text-slate-300">{strategy}</code>
             </>
           )}
           {cause && (
             <>
-              <span className="ml-2 text-slate-500">for cause </span>
+              <span className="ml-2 text-faint">for cause </span>
               <code className="text-slate-300">{cause}</code>
             </>
           )}
@@ -267,7 +267,7 @@ export function ProposalActions({
           Reject
         </Button>
       </div>
-      {observeMode && <span className="text-[11px] text-slate-500">{OBSERVE_MODE_APPROVE}</span>}
+      {observeMode && <span className="text-[11px] text-faint">{OBSERVE_MODE_APPROVE}</span>}
       {approving && <ApproveFixDialog action={action} onClose={() => setApproving(false)} onOutcome={onOutcome} />}
       <RejectFixDialog action={action} open={rejecting} onClose={() => setRejecting(false)} onRejected={onOutcome} />
     </div>
@@ -332,7 +332,7 @@ export function ProposedFixes() {
               <div className="text-sm text-slate-200 truncate">
                 {action.reasoning || action.tool || action.category}
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-faint">
                 {action.resources?.[0] ? `${action.resources[0].kind} ${action.resources[0].name}` : action.category}
                 {action.timestamp ? ` · proposed ${formatElapsed(Math.floor(action.timestamp / 1000))} ago` : ''}
               </div>

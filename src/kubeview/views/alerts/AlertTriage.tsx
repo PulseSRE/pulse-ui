@@ -89,7 +89,7 @@ export function TriageChip({ labels, state, triage, go }: {
 }) {
   if (triage.unsupported) return null;
   if (state !== 'firing') {
-    return <span className="text-xs text-slate-500">Pending alerts are not triaged until they fire</span>;
+    return <span className="text-xs text-faint">Pending alerts are not triaged until they fire</span>;
   }
   const key = labelKey(labels);
   const error = triage.errorByKey.get(key);
@@ -102,9 +102,9 @@ export function TriageChip({ labels, state, triage, go }: {
     );
   }
   const t = triage.byKey.get(key);
-  if (triage.pendingKeys.has(key) || !t) return <span className="text-xs text-slate-500">Checking Inbox…</span>;
+  if (triage.pendingKeys.has(key) || !t) return <span className="text-xs text-faint">Checking Inbox…</span>;
   const s = summarizeTriage(t);
-  if (!s) return <span className="text-xs text-slate-500">Not in the Inbox</span>;
+  if (!s) return <span className="text-xs text-faint">Not in the Inbox</span>;
   return (
     <button
       type="button"
@@ -217,7 +217,7 @@ export function NamespaceUnhealthyPods({ namespace, fromAlert, clusterId, onClos
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="text-sm font-medium text-slate-100">Unhealthy pods in {namespace}</div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-faint">
             Opened from {fromAlert}
             {q.isSuccess && <> · {unhealthy.length} of {pods.length} pods · <button type="button" className="text-blue-400 hover:text-blue-300" onClick={() => go(`/r/v1~pods/${encodeURIComponent(namespace)}`, 'Pods')}>show all {pods.length}</button></>}
           </div>
@@ -225,7 +225,7 @@ export function NamespaceUnhealthyPods({ namespace, fromAlert, clusterId, onClos
         <button type="button" onClick={onClose} aria-label="Close unhealthy pods" className="text-slate-400 hover:text-slate-200"><X className="w-4 h-4" /></button>
       </div>
       {q.isPending ? (
-        <p className="text-xs text-slate-500">Checking pods…</p>
+        <p className="text-xs text-faint">Checking pods…</p>
       ) : q.isError ? (
         <LoadError title={`Pods in ${namespace} could not be listed`} error={q.error} onRetry={() => { void q.refetch(); }} />
       ) : unhealthy.length === 0 ? (
@@ -237,7 +237,7 @@ export function NamespaceUnhealthyPods({ namespace, fromAlert, clusterId, onClos
               <button type="button" className={cn('w-full text-left py-1.5 flex items-center gap-3 text-xs hover:bg-slate-800/40')}
                 onClick={() => go(`/r/v1~pods/${encodeURIComponent(namespace)}/${encodeURIComponent(pod.metadata.name)}`, pod.metadata.name)}>
                 <span className="text-slate-200 font-mono">{pod.metadata.name}</span>
-                <span className="text-slate-500">{pod.status?.phase}</span>
+                <span className="text-faint">{pod.status?.phase}</span>
                 <span className="text-slate-400 truncate">{reason}</span>
               </button>
             </li>

@@ -294,9 +294,9 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
           {usageStats && usageStats.runs > 0 && (
             <div className="flex items-center gap-4 mb-3 px-1">
               <div className="flex items-center gap-3 text-xs">
-                <span className="text-slate-500">30d:</span>
+                <span className="text-faint">30d:</span>
                 <span className="text-slate-200 font-medium">{usageStats.runs} runs</span>
-                {usageStats.days_active && <span className="text-slate-500">{usageStats.days_active} days active</span>}
+                {usageStats.days_active && <span className="text-faint">{usageStats.days_active} days active</span>}
               </div>
               {usageStats.sparkline && usageStats.sparkline.length > 1 && (
                 <div className="flex items-end gap-px h-5 flex-1 max-w-32">
@@ -343,7 +343,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
               onChange={(e) => setCloneName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleClone(); if (e.key === 'Escape') { setShowCloneInput(false); setCloneName(''); } }}
               placeholder="new_skill_name (lowercase, underscores)"
-              className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+              className="flex-1 px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-faint focus:outline-hidden focus:ring-1 focus:ring-blue-500"
             />
             <button onClick={handleClone} disabled={!cloneName.trim()} className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50">Clone</button>
             <button onClick={() => { setShowCloneInput(false); setCloneName(''); }} className="p-1.5 text-slate-400 hover:text-slate-200">
@@ -360,21 +360,21 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
           )}>
             {cloneStatus.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
             {cloneStatus.message}
-            <button onClick={() => setCloneStatus(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+            <button onClick={() => setCloneStatus(null)} className="ml-auto text-faint hover:text-slate-300"><X className="w-3 h-3" /></button>
           </div>
         )}
         {saveError && (
           <div className="mx-5 mt-2 flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-red-950/30 border-red-800/30 text-red-400">
             <XCircle className="w-3.5 h-3.5" />
             {saveError}
-            <button onClick={() => setSaveError(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+            <button onClick={() => setSaveError(null)} className="ml-auto text-faint hover:text-slate-300"><X className="w-3 h-3" /></button>
           </div>
         )}
         {deleteError && (
           <div className="mx-5 mt-2 flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-red-950/30 border-red-800/30 text-red-400">
             <XCircle className="w-3.5 h-3.5" />
             {deleteError}
-            <button onClick={() => setDeleteError(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+            <button onClick={() => setDeleteError(null)} className="ml-auto text-faint hover:text-slate-300"><X className="w-3 h-3" /></button>
           </div>
         )}
 
@@ -382,7 +382,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
           <div className="mx-5 mt-2 flex items-center gap-2 px-3 py-2 text-xs rounded-md border bg-red-950/30 border-red-800/30 text-red-400">
             <XCircle className="w-3.5 h-3.5" />
             {gateError}
-            <button onClick={() => setGateError(null)} className="ml-auto text-slate-500 hover:text-slate-300"><X className="w-3 h-3" /></button>
+            <button onClick={() => setGateError(null)} className="ml-auto text-faint hover:text-slate-300"><X className="w-3 h-3" /></button>
           </div>
         )}
 
@@ -495,7 +495,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
                         <div key={target} className="flex items-center gap-2 text-xs">
                           <ArrowRight className="w-3 h-3 text-blue-400" />
                           <span className="text-slate-200 font-medium">{target}</span>
-                          <span className="text-slate-500">when: {(keywords as string[]).join(', ')}</span>
+                          <span className="text-faint">when: {(keywords as string[]).join(', ')}</span>
                         </div>
                       ))}
                     </div>
@@ -571,7 +571,7 @@ export function SkillDetailDrawer({ name, onClose }: { name: string; onClose: ()
             )}
           </div>
         ) : (
-          <div className="flex justify-center py-12 text-sm text-slate-500">Skill not found</div>
+          <div className="flex justify-center py-12 text-sm text-faint">Skill not found</div>
         )}
     </DrawerShell>
   );

@@ -85,10 +85,10 @@ export function ChangesCard({ namespace, kind, name, until, since }: { namespace
       <h2 id="chg-h" className="flex items-center gap-2 text-[15px] font-semibold text-slate-100">
         <History className="h-4 w-4 text-slate-400" aria-hidden /> What changed before this
       </h2>
-      {remote && <p className="text-xs text-slate-500" data-testid="changes-unavailable">Change history comes from the Pulse agent, which watches the local cluster only.</p>}
-      {!remote && q.isLoading && <p className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-3 w-3 animate-spin" /> Loading changes…</p>}
+      {remote && <p className="text-xs text-faint" data-testid="changes-unavailable">Change history comes from the Pulse agent, which watches the local cluster only.</p>}
+      {!remote && q.isLoading && <p className="flex items-center gap-2 text-xs text-faint"><Loader2 className="h-3 w-3 animate-spin" /> Loading changes…</p>}
       {q.isError && <LoadError title="Changes could not be loaded" error={q.error} onRetry={() => q.refetch()} />}
-      {q.data?.state === 'unavailable' && <p className="text-xs text-slate-500" data-testid="changes-unavailable">{UNAVAILABLE[q.data.reason]}</p>}
+      {q.data?.state === 'unavailable' && <p className="text-xs text-faint" data-testid="changes-unavailable">{UNAVAILABLE[q.data.reason]}</p>}
       {q.data?.state === 'ok' && (
         <>
           {q.data.changes.length === 0 ? (
@@ -106,9 +106,9 @@ export function ChangesCard({ namespace, kind, name, until, since }: { namespace
               ))}
             </ol>
           )}
-          {q.data.truncated && <p className="text-xs text-slate-500" data-testid="changes-truncated">Showing the latest 500 changes.</p>}
+          {q.data.truncated && <p className="text-xs text-faint" data-testid="changes-truncated">Showing the latest 500 changes.</p>}
           {q.data.unreadable.length > 0 && (
-            <p className="text-xs text-slate-500" data-testid="changes-unreadable">Couldn&apos;t check: {q.data.unreadable.join(', ')} (no permission to read them).</p>
+            <p className="text-xs text-faint" data-testid="changes-unreadable">Couldn&apos;t check: {q.data.unreadable.join(', ')} (no permission to read them).</p>
           )}
         </>
       )}

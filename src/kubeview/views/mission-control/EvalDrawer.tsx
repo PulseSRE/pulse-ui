@@ -75,10 +75,10 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
     <DrawerShell title="Quality Gate Details" onClose={onClose}>
       <div className="space-y-3 text-sm text-slate-300">
         {evalStatus === undefined && (
-          <div className="text-slate-500">Loading eval data...</div>
+          <div className="text-faint">Loading eval data...</div>
         )}
         {evalStatus === null && (
-          <div className="text-slate-500">Eval data unavailable. The agent may not have run evals yet.</div>
+          <div className="text-faint">Eval data unavailable. The agent may not have run evals yet.</div>
         )}
 
         {evalStatus && SUITES.map((suite) => {
@@ -100,26 +100,26 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
         {evalStatus?.prompt_audit && Object.keys(evalStatus.prompt_audit).length > 0 && (
           <div className="mt-6">
             <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Prompt Token Audit</h3>
-            <p className="text-[11px] text-slate-500 mb-3">
+            <p className="text-[11px] text-faint mb-3">
               Token cost breakdown of the system prompt sent to Claude per mode. Lower is cheaper. Sections at 0% are inactive (no data yet). Use ablation testing to identify sections that can be trimmed without impacting quality.
             </p>
             {Object.entries(evalStatus.prompt_audit).map(([mode, audit]) => (
               <div key={mode} className="bg-slate-900 rounded-lg border border-slate-800 p-4 mb-3">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-slate-200 capitalize">{mode.replace(/_/g, ' ')}</span>
-                  <span className="text-xs text-slate-500">~{formatCount(audit.estimated_tokens)} tokens</span>
+                  <span className="text-xs text-faint">~{formatCount(audit.estimated_tokens)} tokens</span>
                 </div>
                 <div className="space-y-1.5">
                   {audit.sections.map((section: { name: string; pct: number }) => (
                     <div key={section.name} className="group flex items-center gap-2">
-                      <span className="text-[11px] text-slate-500 w-28 truncate" title={PROMPT_SECTION_DESCRIPTIONS[section.name] || section.name}>{section.name}</span>
+                      <span className="text-[11px] text-faint w-28 truncate" title={PROMPT_SECTION_DESCRIPTIONS[section.name] || section.name}>{section.name}</span>
                       <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-violet-500/60 rounded-full"
                           style={{ width: `${Math.min(section.pct, 100)}%` }}
                         />
                       </div>
-                      <span className="text-[11px] text-slate-500 w-10 text-right">{section.pct.toFixed(0)}%</span>
+                      <span className="text-[11px] text-faint w-10 text-right">{section.pct.toFixed(0)}%</span>
                     </div>
                   ))}
                 </div>
@@ -132,7 +132,7 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
         {evalStatus?.outcomes && (
           <div className="mt-4">
             <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Outcome Tracking</h3>
-            <p className="text-[11px] text-slate-500 mb-2">
+            <p className="text-[11px] text-faint mb-2">
               Compares auto-fix actions from the last 7 days against the previous 7 days. Detects regressions in success rate, rollback rate, and action duration.
             </p>
             <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
@@ -143,7 +143,7 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
                 </span>
               </div>
               {evalStatus.outcomes.current_actions === 0 && evalStatus.outcomes.baseline_actions === 0 ? (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-faint">
                   No auto-fix actions recorded yet. The monitor will track actions once it starts applying fixes at trust level 3+.
                 </div>
               ) : (
@@ -159,7 +159,7 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
         {history?.runs && history.runs.length > 0 && (
           <div className="mt-6">
             <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Release Gate History (last 30 days)</h3>
-            <p className="text-[11px] text-slate-500 mb-3">
+            <p className="text-[11px] text-faint mb-3">
               Score trend for the release eval suite. Each row is one eval run.
             </p>
             <div className="bg-slate-900 rounded-lg border border-slate-800 p-4">
@@ -177,8 +177,8 @@ export function EvalDrawer({ evalStatus, onClose }: EvalDrawerProps) {
                       )}>
                         {Number.isInteger(pct) ? pct : pct.toFixed(1)}%
                       </span>
-                      <span className="text-slate-500 w-36">{formatEvalTimestamp(run.timestamp)}</span>
-                      <span className="text-slate-500">
+                      <span className="text-faint w-36">{formatEvalTimestamp(run.timestamp)}</span>
+                      <span className="text-faint">
                         {run.passed_count}/{run.scenario_count} pass
                       </span>
                     </div>
@@ -249,7 +249,7 @@ function SuiteCard({ name, suite, expanded, onToggle }: {
           {/* Dimension breakdown */}
           {Object.keys(dims).length > 0 && (
             <div className="space-y-1.5">
-              <div className="text-xs text-slate-500 font-medium">Dimensions</div>
+              <div className="text-xs text-faint font-medium">Dimensions</div>
               {Object.entries(dims).map(([dim, score]) => {
                 const pct = Math.round(score * 100);
                 return (
@@ -277,7 +277,7 @@ function SuiteCard({ name, suite, expanded, onToggle }: {
           {/* Blockers */}
           {hasBlockers && (
             <div className="space-y-1">
-              <div className="text-xs text-slate-500 font-medium">Blockers Detected</div>
+              <div className="text-xs text-faint font-medium">Blockers Detected</div>
               {Object.entries(blockers).filter(([, v]) => v > 0).map(([blocker, count]) => (
                 <div key={blocker} className="flex items-center gap-2 text-xs text-amber-400/80">
                   <AlertTriangle className="w-3 h-3" />
@@ -289,7 +289,7 @@ function SuiteCard({ name, suite, expanded, onToggle }: {
 
           {/* No detail available */}
           {Object.keys(dims).length === 0 && !hasBlockers && (
-            <div className="text-xs text-slate-500">No detailed breakdown available for this suite.</div>
+            <div className="text-xs text-faint">No detailed breakdown available for this suite.</div>
           )}
         </div>
       )}

@@ -90,7 +90,7 @@ function QualityCard({ evalStatus, confidence, onClick }: { evalStatus: AgentEva
         )}
 
         {evalStatus?.release?.blocker_counts && (
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-faint">
             {(evalStatus.release.blocker_counts.policy_violation || 0) + (evalStatus.release.blocker_counts.hallucinated_tool || 0) === 0
               ? '0 policy violations, 0 hallucinated tools'
               : `${evalStatus.release.blocker_counts.policy_violation || 0} violations, ${evalStatus.release.blocker_counts.hallucinated_tool || 0} hallucinated tools`}
@@ -114,7 +114,7 @@ function CoverageCard({ coverage, onClick }: { coverage: ScannerCoverage | null;
           <span className="text-2xl font-bold text-slate-100">
             {coverage?.coverage_pct != null ? `${coverage.coverage_pct}%` : '\u2014'}
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-faint">
             {coverage ? `${coverage.active_scanners} of ${coverage.total_scanners} scanners` : ''}
           </span>
         </div>
@@ -123,7 +123,7 @@ function CoverageCard({ coverage, onClick }: { coverage: ScannerCoverage | null;
           {(coverage?.categories || []).map((cat) => (
             <div key={cat.name} className="flex items-center gap-2 text-xs">
               <div className={cn('w-1.5 h-1.5 rounded-full', cat.covered ? 'bg-emerald-400' : 'bg-slate-600')} />
-              <span className={cn(cat.covered ? 'text-slate-300' : 'text-slate-500')}>
+              <span className={cn(cat.covered ? 'text-slate-300' : 'text-faint')}>
                 {cat.name.replace(/_/g, ' ')}
               </span>
             </div>
@@ -222,7 +222,7 @@ function OutcomesCard({
             <Brain className="w-3 h-3 inline mr-1" />{memoryPatternCount} patterns learned
           </button>
           {readiness && readiness.total_gates > 0 && (
-            <span className="text-xs text-slate-500" title="The agent's installation checks, not the /readiness production gates">
+            <span className="text-xs text-faint" title="The agent's installation checks, not the /readiness production gates">
               Install health: {readiness.passed}/{readiness.total_gates}
             </span>
           )}
@@ -236,14 +236,14 @@ function DimensionBar({ label, score }: { label: string; score: number }) {
   const pct = Math.round(score * 100);
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-slate-500 w-20 truncate capitalize">{label.replace(/_/g, ' ')}</span>
+      <span className="text-[10px] text-faint w-20 truncate capitalize">{label.replace(/_/g, ' ')}</span>
       <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
         <div
           className={cn('h-full rounded-full', pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500')}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-[10px] text-slate-500 w-8 text-right">{pct}%</span>
+      <span className="text-[10px] text-faint w-8 text-right">{pct}%</span>
     </div>
   );
 }

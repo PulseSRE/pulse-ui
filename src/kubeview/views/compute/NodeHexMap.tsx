@@ -11,6 +11,7 @@ import {
   ShieldOff, Shield, Terminal, Trash2, FileText, Copy, X, MoreVertical, ScrollText, ArrowDownToLine,
 } from 'lucide-react';
 import type { NodeDetail } from './types';
+import { TONE_CLASSES, podPhaseClasses, type StatusTone } from '../../engine/statusColors';
 import type { NodeMapActions } from './useNodeMapActions';
 
 export interface PodInfo {
@@ -38,11 +39,26 @@ interface Props {
   actions?: NodeMapActions;
 }
 
+// Node and pod colours come from the one status map (engine/statusColors):
+// a node under pressure is the same amber as everywhere else, and pods use
+// podPhaseTone like the Pods list and the topology pod grid (Succeeded used
+// to be blue here and indigo in the grid).
+function nodeState(tone: StatusTone, label: string) {
+  const color = TONE_CLASSES[tone].hex;
+  return { color, glow: `${color}40`, label };
+}
+
+// Pod dots: `status` is the first container's waiting reason or the phase
+// (ComputeView), which podPhaseTone reads either way. Pending is amber, as on
+// the Pods list; Succeeded is neutral in this density map so completed pods
+// stand apart from Running ones.
+const podTone = (status: string) => podPhaseClasses(status, { completed: 'neutral' });
+
 const STATUS = {
-  ready: { color: '#10b981', glow: '#10b98140', label: 'Ready' },
-  pressure: { color: '#f59e0b', glow: '#f59e0b40', label: 'Pressure' },
-  notReady: { color: '#ef4444', glow: '#ef444440', label: 'Not Ready' },
-  cordoned: { color: '#6b7280', glow: '#6b728040', label: 'Cordoned' },
+  ready: nodeState('success', 'Ready'),
+  pressure: nodeState('warning', 'Pressure'),
+  notReady: nodeState('danger', 'Not Ready'),
+  cordoned: nodeState('neutral', 'Cordoned'),
 };
 
 function getStatus(nd: NodeDetail) {
@@ -55,14 +71,6 @@ function getStatus(nd: NodeDetail) {
 // Exact flat-top hexagon with 60° angles
 const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
 
-const POD_STATUS_COLOR: Record<string, string> = {
-  Running: '#10b981',
-  Succeeded: '#3b82f6',
-  Pending: '#f59e0b',
-  Failed: '#ef4444',
-  Unknown: '#6b7280',
-  CrashLoopBackOff: '#ef4444',
-};
 
 // ─── CSS for pulse animation ─────────────────────────────────────────────────
 const pulseKeyframes = `
@@ -269,8 +277,8 @@ function HexNode({ nd, pods, podsUnknown, onClick, onOpenDetails, onPodClick, ac
 
         <Server className="w-4 h-4 mb-1" style={{ color: status.color }} />
         <div className="text-[10px] font-semibold text-slate-200 text-center truncate w-full">{shortName}</div>
-        <div className="text-[8px] text-slate-500 mb-1">{nd.roles.join(' · ')}{nd.instanceType ? ` · ${nd.instanceType}` : ''}</div>
-        {nd.age && <div className="text-[7px] text-slate-600 mb-1">{nd.age}</div>}
+        <div className="text-[8px] text-faint mb-1">{nd.roles.join(' · ')}{nd.instanceType ? ` · ${nd.instanceType}` : ''}</div>
+        {nd.age && <div className="text-[7px] text-faint mb-1">{nd.age}</div>}
 
         <div className="w-full space-y-0.5 mb-2 px-1">
           <GaugeBar icon={Cpu} value={nd.cpuUsagePct} color="#3b82f6" />
@@ -287,7 +295,7 @@ function HexNode({ nd, pods, podsUnknown, onClick, onOpenDetails, onPodClick, ac
                   className="rounded-xs cursor-pointer hover:scale-150 hover:z-10 transition-transform"
                   style={{
                     width: 7, height: 7,
-                    background: POD_STATUS_COLOR[pod.status] || '#6b7280',
+                    background: podTone(pod.status).hex,
                     opacity: 0.9,
                   }}
                   onClick={(e) => { e.stopPropagation(); onPodClick?.(pod.namespace, pod.name); }}
@@ -310,7 +318,7 @@ function HexNode({ nd, pods, podsUnknown, onClick, onOpenDetails, onPodClick, ac
             ))
           )}
         </div>
-        <div className="text-[8px] font-mono text-slate-500 mt-0.5" data-unknown={podsUnknown ? '' : undefined}>{podsUnknown ? '—' : nd.podCount}/{nd.podCap}</div>
+        <div className="text-[8px] font-mono text-faint mt-0.5" data-unknown={podsUnknown ? '' : undefined}>{podsUnknown ? '—' : nd.podCount}/{nd.podCap}</div>
       </div>
 
       {/* Pod tooltip */}
@@ -320,14 +328,14 @@ function HexNode({ nd, pods, podsUnknown, onClick, onOpenDetails, onPodClick, ac
           <div className="text-[10px] text-slate-400 mt-0.5">{hoveredPod.namespace}</div>
           <div className="flex items-center gap-2 mt-1">
             <span className="flex items-center gap-1 text-[10px]">
-              <span className="w-2 h-2 rounded-full" style={{ background: POD_STATUS_COLOR[hoveredPod.status] || '#6b7280' }} />
-              <span style={{ color: POD_STATUS_COLOR[hoveredPod.status] || '#94a3b8' }}>{hoveredPod.status}</span>
+              <span className="w-2 h-2 rounded-full" style={{ background: podTone(hoveredPod.status).hex }} />
+              <span className={podTone(hoveredPod.status).text}>{hoveredPod.status}</span>
             </span>
             {hoveredPod.restarts > 0 && (
               <span className="text-[10px] text-amber-400">{hoveredPod.restarts} restart{hoveredPod.restarts !== 1 ? 's' : ''}</span>
             )}
           </div>
-          <div className="text-[9px] text-slate-500 mt-1">Click to expand pods · Right-click for actions</div>
+          <div className="text-[9px] text-faint mt-1">Click to expand pods · Right-click for actions</div>
         </div>
       )}
 
@@ -418,10 +426,10 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-100">Cluster Nodes</h3>
-            <p className="text-xs text-slate-500">{readyCount}/{nodes.length} ready · {podsUnknown ? <span data-unknown="">pods unknown</span> : `${totalPods}/${totalCap} pods`}</p>
+            <p className="text-xs text-faint">{readyCount}/{nodes.length} ready · {podsUnknown ? <span data-unknown="">pods unknown</span> : `${totalPods}/${totalCap} pods`}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+        <div className="flex items-center gap-3 text-[10px] text-faint">
           {Object.entries(STATUS).map(([key, s]) => (
             <span key={key} className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
@@ -443,7 +451,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
             className="bg-transparent text-xs text-slate-300 placeholder-slate-600 outline-hidden flex-1"
           />
           {filter && (
-            <button onClick={() => setFilter('')} className="text-slate-500 hover:text-slate-300">
+            <button onClick={() => setFilter('')} className="text-faint hover:text-slate-300">
               <X className="w-3 h-3" />
             </button>
           )}
@@ -456,7 +464,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
               'px-2.5 py-1.5 rounded-lg text-xs transition-colors border',
               (statusFilter === f || (f === 'all' && !statusFilter))
                 ? 'bg-blue-600/20 text-blue-300 border-blue-700/50'
-                : 'text-slate-500 hover:text-slate-300 border-slate-700/30 hover:border-slate-600',
+                : 'text-faint hover:text-slate-300 border-slate-700/30 hover:border-slate-600',
             )}
           >
             {f === 'all' ? 'All' : f === 'ready' ? 'Healthy' : 'Issues'}
@@ -471,7 +479,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
               'px-2.5 py-1.5 rounded-lg text-xs transition-colors border',
               roleFilter === r.key
                 ? 'bg-blue-600/20 text-blue-300 border-blue-700/50'
-                : 'text-slate-500 hover:text-slate-300 border-slate-700/30 hover:border-slate-600',
+                : 'text-faint hover:text-slate-300 border-slate-700/30 hover:border-slate-600',
             )}
           >
             {r.label}
@@ -526,7 +534,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ background: color }} />
                 <span className="text-xs font-semibold text-slate-200">{shortName}</span>
-                <span className="text-[10px] text-slate-500">{nd.roles.join(', ')} · {podsUnknown ? '—' : pods.length}/{nd.podCap} pods</span>
+                <span className="text-[10px] text-faint">{nd.roles.join(', ')} · {podsUnknown ? '—' : pods.length}/{nd.podCap} pods</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -537,7 +545,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                 </button>
                 <button
                   onClick={() => setExpandedNode(null)}
-                  className="p-0.5 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="p-0.5 rounded-sm text-faint hover:text-slate-300 hover:bg-slate-700 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -546,14 +554,14 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
 
             {/* Pod table */}
             {podsUnknown ? (
-              <div className="px-4 py-6 text-center text-xs text-slate-500" data-unknown="">Pods could not be read</div>
+              <div className="px-4 py-6 text-center text-xs text-faint" data-unknown="">Pods could not be read</div>
             ) : pods.length === 0 ? (
-              <div className="px-4 py-6 text-center text-xs text-slate-500">No pods on this node</div>
+              <div className="px-4 py-6 text-center text-xs text-faint">No pods on this node</div>
             ) : (
               <div className="max-h-64 overflow-auto">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-slate-900">
-                    <tr className="text-left text-slate-500">
+                    <tr className="text-left text-faint">
                       <th className="px-3 py-1.5 font-medium">Pod</th>
                       <th className="px-3 py-1.5 font-medium">Namespace</th>
                       <th className="px-3 py-1.5 font-medium">Status</th>
@@ -572,15 +580,15 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                         <td className="px-3 py-1.5 text-slate-400">{pod.namespace}</td>
                         <td className="px-3 py-1.5">
                           <span className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: POD_STATUS_COLOR[pod.status] || '#6b7280' }} />
-                            <span style={{ color: POD_STATUS_COLOR[pod.status] || '#94a3b8' }}>{pod.status}</span>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: podTone(pod.status).hex }} />
+                            <span className={podTone(pod.status).text}>{pod.status}</span>
                           </span>
                         </td>
                         <td className="px-3 py-1.5">
                           {pod.restarts > 0 ? (
                             <span className="text-amber-400">{pod.restarts}</span>
                           ) : (
-                            <span className="text-slate-600">0</span>
+                            <span className="text-faint">0</span>
                           )}
                         </td>
                         <td className="px-3 py-1.5 text-right">
@@ -588,7 +596,7 @@ export function NodeHexMap({ nodes, podsByNode, onNodeClick, onPodClick, onViewA
                             type="button"
                             aria-label={`Actions for pod ${pod.name}`}
                             aria-haspopup="menu"
-                            className="p-0.5 rounded-sm text-slate-500 hover:text-slate-200 hover:bg-slate-700"
+                            className="p-0.5 rounded-sm text-faint hover:text-slate-200 hover:bg-slate-700"
                             onClick={(e) => { e.stopPropagation(); setPodMenu({ ...menuAt(e), pod }); }}
                           >
                             <MoreVertical className="w-3.5 h-3.5" />

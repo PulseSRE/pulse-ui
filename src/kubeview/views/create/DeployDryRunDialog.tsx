@@ -58,7 +58,7 @@ function useDenied(ns: string, kinds: string[], clusterId: string): { denied: st
 
 function Step({ n, label, state }: { n: number; label: string; state: 'done' | 'active' | 'todo' | 'failed' }) {
   return (
-    <li className={cn('flex items-center gap-1.5 text-xs', state === 'done' ? 'text-emerald-300' : state === 'active' ? 'text-blue-300' : state === 'failed' ? 'text-red-300' : 'text-slate-500')}>
+    <li className={cn('flex items-center gap-1.5 text-xs', state === 'done' ? 'text-emerald-300' : state === 'active' ? 'text-blue-300' : state === 'failed' ? 'text-red-300' : 'text-faint')}>
       <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current">{n}</span>{label}
     </li>
   );
@@ -226,7 +226,7 @@ export function DeployDryRunDialog({ clusterId, form, storageClassBinding, quota
                       {phase === 'dry-run' ? (r?.status === 'ok' ? 'Would create' : r?.status === 'fail' ? 'Would fail' : r ? 'Could not check' : '…') : r?.status === 'ok' ? 'Created' : r?.status === 'fail' ? 'Failed' : skipped && phase === 'creating' ? 'Waiting' : 'Not created'}
                     </span>
                     <span className="font-mono text-slate-200">{o.kind}/{o.name}</span>
-                    <span className={cn('min-w-0 flex-1', r?.status === 'fail' ? 'text-red-300' : 'text-slate-500')}>{r?.message ?? o.summary}</span>
+                    <span className={cn('min-w-0 flex-1', r?.status === 'fail' ? 'text-red-300' : 'text-faint')}>{r?.message ?? o.summary}</span>
                   </li>
                 );
               })}
@@ -237,7 +237,7 @@ export function DeployDryRunDialog({ clusterId, form, storageClassBinding, quota
         {phase === 'dry-run' && dry.data && (
           <section>
             <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Not checked by the dry run</h4>
-            {dry.data.checks.length === 0 ? <p className="text-xs text-slate-500">Nothing else to check for this app.</p> : (
+            {dry.data.checks.length === 0 ? <p className="text-xs text-faint">Nothing else to check for this app.</p> : (
               <ul className="space-y-1 text-xs" data-testid="extra-checks">
                 {dry.data.checks.map((c) => <li key={c.id}><span className={CHECK_STYLE[c.status]}>{CHECK_LABEL[c.status]}</span> <span className="text-slate-300">{c.text}</span></li>)}
               </ul>
@@ -269,7 +269,7 @@ export function DeployDryRunDialog({ clusterId, form, storageClassBinding, quota
               </ol>
             </div>
             <dl className="grid grid-cols-1 gap-1 text-xs md:grid-cols-[9rem_1fr]">
-              <dt className="text-slate-500">Quota after create</dt>
+              <dt className="text-faint">Quota after create</dt>
               <dd className="text-slate-300" data-testid="confirm-quota">
                 {quotaLines === undefined ? <span className="text-amber-300">Could not check</span>
                   : quotaLines.length === 0 ? 'No ResourceQuota limits this app'
@@ -284,10 +284,10 @@ export function DeployDryRunDialog({ clusterId, form, storageClassBinding, quota
                       </ul>
                     )}
               </dd>
-              <dt className="text-slate-500">Undo</dt>
+              <dt className="text-faint">Undo</dt>
               <dd className="text-slate-300">Delete app {name}: removes these {plan.length} objects{hasPvc ? '; the PVC is kept unless you choose' : ''}.</dd>
             </dl>
-            {!ready && dry.data && <p className="text-xs text-slate-500" data-testid="create-blocked">{blockedBecause}.</p>}
+            {!ready && dry.data && <p className="text-xs text-faint" data-testid="create-blocked">{blockedBecause}.</p>}
           </>
         )}
 

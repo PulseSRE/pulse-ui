@@ -145,7 +145,7 @@ export default function TimelineView() {
                   onClick={() => toggleCategory(cat)}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm transition-colors',
-                    active ? 'bg-slate-700 text-slate-200' : 'text-slate-500 hover:text-slate-400'
+                    active ? 'bg-slate-700 text-slate-200' : 'text-faint hover:text-slate-400'
                   )}
                 >
                   <Icon className={cn('w-3.5 h-3.5', active ? cfg.color : 'text-slate-600')} />
@@ -158,7 +158,7 @@ export default function TimelineView() {
         </div>
 
         {/* Summary bar */}
-        <div className="flex items-center gap-4 text-xs text-slate-500">
+        <div className="flex items-center gap-4 text-xs text-faint">
           <span>{entries.length} entries</span>
           <span>·</span>
           <span>{correlationGroups.length} correlated incidents</span>
@@ -231,14 +231,14 @@ export default function TimelineView() {
         {/* Timeline stream */}
         {allFailed ? null : isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-slate-500 text-sm">Loading timeline...</div>
+            <div className="text-faint text-sm">Loading timeline...</div>
           </div>
         ) : entries.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <Info className="w-12 h-12 text-slate-600 mx-auto mb-3" />
               <p className="text-slate-400 text-sm">{failedSources.length > 0 || unavailableSources.length > 0 ? 'Nothing found in the sources that could be read' : 'No timeline entries found'}</p>
-              <p className="text-slate-500 text-xs mt-1">Try adjusting the time range or enabling more categories</p>
+              <p className="text-faint text-xs mt-1">Try adjusting the time range or enabling more categories</p>
             </div>
           </div>
         ) : (
@@ -293,7 +293,7 @@ function TimelineDensity({ entries, timeRange, categories }: { entries: Timeline
               {CATEGORY_CONFIG[c].label} {data.reduce((s, d) => s + d[c], 0)}
             </li>
           ))}
-          <li className="text-slate-600">peak {peak}/bucket</li>
+          <li className="text-faint">peak {peak}/bucket</li>
         </ul>
       </div>
       <div style={{ height: 96 }}>
@@ -346,7 +346,7 @@ function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: 
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-faint">
               {formatTime(entry.timestamp)}
             </span>
             <span className={cn('px-1.5 py-0.5 text-xs rounded-sm', {
@@ -358,13 +358,13 @@ function TimelineEntryCard({ entry, onClick }: { entry: TimelineEntry; onClick: 
               {cfg.label}
             </span>
             {entry.namespace && (
-              <span className="text-xs text-slate-600">{entry.namespace}</span>
+              <span className="text-xs text-faint">{entry.namespace}</span>
             )}
           </div>
 
           {entry.resource && (
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs text-slate-500">{entry.resource.kind}</span>
+              <span className="text-xs text-faint">{entry.resource.kind}</span>
               <span className="text-sm font-medium text-blue-400">{entry.resource.name}</span>
             </div>
           )}

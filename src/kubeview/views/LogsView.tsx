@@ -77,10 +77,10 @@ function BuildLogsView({ namespace, buildName }: { namespace: string; buildName:
         title={`Build logs: ${buildName}`}
       />
       <div className="flex-1 overflow-auto bg-slate-950 p-4 font-mono text-xs text-slate-300">
-        {isLoading && <div className="text-slate-500">Loading build logs...</div>}
+        {isLoading && <div className="text-faint">Loading build logs...</div>}
         {error && <LoadError title={`Could not load logs for build ${buildName}`} error={error} onRetry={() => { void refetch(); }} className="font-sans" />}
         {logText && <pre className="whitespace-pre-wrap">{logText}</pre>}
-        {!isLoading && !error && !logText && <div className="text-slate-500">No logs available yet.</div>}
+        {!isLoading && !error && !logText && <div className="text-faint">No logs available yet.</div>}
       </div>
     </div>
   );

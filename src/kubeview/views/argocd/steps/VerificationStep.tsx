@@ -82,19 +82,19 @@ export function VerificationStep({ onClose }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <span className="text-slate-500">Cluster</span>
+              <span className="text-faint">Cluster</span>
               <p className="text-slate-200 font-mono">{exportSummary.clusterName}</p>
             </div>
             <div>
-              <span className="text-slate-500">Child Apps</span>
+              <span className="text-faint">Child Apps</span>
               <p className="text-slate-200">{exportSummary.resourceCount}</p>
             </div>
             <div>
-              <span className="text-slate-500">Categories</span>
+              <span className="text-faint">Categories</span>
               <p className="text-slate-200">{exportSummary.categories.join(', ')}</p>
             </div>
             <div>
-              <span className="text-slate-500">Namespaces</span>
+              <span className="text-faint">Namespaces</span>
               <p className="text-slate-200">{exportSummary.namespaces.join(', ')}</p>
             </div>
           </div>

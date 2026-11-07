@@ -77,14 +77,14 @@ export function ImportYamlTab({ onImport }: { onImport: (yaml: string) => void }
           <Clipboard className="w-6 h-6 text-blue-400" />
           <div>
             <div className="text-sm font-semibold text-slate-200">Paste from Clipboard</div>
-            <div className="text-xs text-slate-500 mt-1">Paste a Kubernetes YAML or JSON resource</div>
+            <div className="text-xs text-faint mt-1">Paste a Kubernetes YAML or JSON resource</div>
           </div>
         </button>
         <button onClick={handleUpload} className="flex items-center gap-3 p-6 bg-slate-900 rounded-lg border border-dashed border-slate-700 hover:border-blue-600 transition-colors text-left">
           <Upload className="w-6 h-6 text-blue-400" />
           <div>
             <div className="text-sm font-semibold text-slate-200">Upload File</div>
-            <div className="text-xs text-slate-500 mt-1">Upload a .yaml, .yml, or .json file</div>
+            <div className="text-xs text-faint mt-1">Upload a .yaml, .yml, or .json file</div>
           </div>
         </button>
       </div>

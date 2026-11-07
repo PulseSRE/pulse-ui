@@ -40,7 +40,7 @@ export function UsageTab() {
           onChange={(e) => setToolFilter(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && loadUsage({ tool_name: toolFilter || undefined, page: 1 })}
           placeholder="Tool name..."
-          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-slate-500 w-36 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+          className="px-2 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-md text-slate-200 placeholder:text-faint w-36 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
         />
         <select
           aria-label="Filter by skill"
@@ -65,7 +65,7 @@ export function UsageTab() {
           <option value="error">Error</option>
           <option value="denied">Denied</option>
         </select>
-        {usage && <span className="text-xs text-slate-500 ml-auto">{usage.total} total</span>}
+        {usage && <span className="text-xs text-faint ml-auto">{usage.total} total</span>}
       </div>
 
       {usageError && usage && (
@@ -99,7 +99,7 @@ export function UsageTab() {
           </table>
         </div>
       ) : (
-        <div className="text-center py-12 text-sm text-slate-500">
+        <div className="text-center py-12 text-sm text-faint">
           {filters.tool_name || filters.agent_mode || filters.status ? 'No tool usage matches these filters' : 'No tool usage recorded yet'}
         </div>
       )}

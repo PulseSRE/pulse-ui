@@ -119,7 +119,7 @@ export function PromptAuditSection() {
       {/* Prompt Versions */}
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
         <h3 className="text-xs font-medium text-slate-300 mb-3">Prompt Version History</h3>
-        <p className="text-xs text-slate-500 mb-3">Track how skill prompts evolve — token costs, size changes, and active periods.</p>
+        <p className="text-xs text-faint mb-3">Track how skill prompts evolve — token costs, size changes, and active periods.</p>
         <div className="flex flex-wrap gap-1.5 mb-3">
           {skillNames.map((name) => (
             <button
@@ -163,10 +163,10 @@ export function PromptAuditSection() {
                           )}>
                             {v.label || `v${promptVersions.versions.length - idx}`}
                           </span>
-                          <span className="text-[10px] text-slate-500">skill v{v.skill_version}</span>
+                          <span className="text-[10px] text-faint">skill v{v.skill_version}</span>
                           {v.is_current && <span className="text-[10px] text-emerald-500">current</span>}
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                        <div className="flex items-center gap-2 text-[10px] text-faint">
                           <span>{v.count} turn{v.count !== 1 ? 's' : ''}</span>
                           <span>{v.duration_days > 0 ? `${v.duration_days}d active` : 'today'}</span>
                         </div>
@@ -182,14 +182,14 @@ export function PromptAuditSection() {
                             </span>
                           )}
                         </span>
-                        <span className="text-slate-500">
+                        <span className="text-faint">
                           {formatCount(v.avg_input_tokens)} in / {formatCount(v.avg_output_tokens)} out
                         </span>
                         {v.avg_cache_read > 0 && (
                           <span className="text-emerald-500">{formatCount(v.avg_cache_read)} cached</span>
                         )}
                         {v.total_static_chars != null && (
-                          <span className="text-slate-500">
+                          <span className="text-faint">
                             {(v.total_static_chars / 1000).toFixed(1)}k chars
                             {sizeDelta !== 0 && (
                               <span className={cn('ml-1', sizeDelta > 0 ? 'text-amber-400' : 'text-emerald-400')}>
@@ -201,16 +201,16 @@ export function PromptAuditSection() {
                       </div>
 
                       {/* Date range */}
-                      <div className="text-[10px] text-slate-600">
+                      <div className="text-[10px] text-faint">
                         {formatDate(v.first_seen)} — {formatDate(v.last_seen)}
-                        <span className="ml-2 font-mono text-slate-700">{v.prompt_hash?.slice(0, 8)}</span>
+                        <span className="ml-2 font-mono text-faint">{v.prompt_hash?.slice(0, 8)}</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <div className="text-xs text-slate-500 text-center py-4">No version data for {selectedSkill}</div>
+              <div className="text-xs text-faint text-center py-4">No version data for {selectedSkill}</div>
             )}
           </div>
         )}

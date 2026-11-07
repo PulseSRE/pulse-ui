@@ -66,11 +66,11 @@ export function ComponentsTab() {
                     <span className="text-xs font-mono text-slate-200">{name}</span>
                     {comp.is_container && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded-sm">container</span>}
                   </div>
-                  <p className="text-[11px] text-slate-500">{comp.description}</p>
+                  <p className="text-[11px] text-faint">{comp.description}</p>
                   {comp.supports_mutations.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
                       {comp.supports_mutations.map((m) => (
-                        <span key={m} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-500 rounded-sm">{m}</span>
+                        <span key={m} className="text-[9px] px-1 py-0.5 bg-slate-800 text-faint rounded-sm">{m}</span>
                       ))}
                     </div>
                   )}

@@ -215,7 +215,7 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="text-sm font-medium text-slate-200">Preview the change</div>
-                <div className="text-xs text-slate-500">Renders the new manifests in the Helm runner Job and diffs them against rev {base.revision}. Nothing is applied.</div>
+                <div className="text-xs text-faint">Renders the new manifests in the Helm runner Job and diffs them against rev {base.revision}. Nothing is applied.</div>
               </div>
               <Button variant="secondary" onClick={runPreview} disabled={cur?.status === 'running' || !!denied} title={denied} loading={cur?.status === 'running'}>
                 <Eye className="h-3.5 w-3.5" /> {done || preview.stale ? 'Preview again' : 'Preview'}
@@ -230,7 +230,7 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
                 <MessageSquare className="h-3.5 w-3.5" /> Ask Pulse about this change
               </Button>
             )}
-            {remote && done && <p className="text-xs text-slate-500">Pulse AI answers about the local cluster only.</p>}
+            {remote && done && <p className="text-xs text-faint">Pulse AI answers about the local cluster only.</p>}
           </div>
         </div>
       ) : (
@@ -252,11 +252,11 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
             <p className="text-xs text-amber-300" role="alert">Not previewed{cur?.status === 'error' ? `: ${cur.error}` : ''}. What changes was not checked.</p>
           )}
           <dl className="grid grid-cols-1 gap-2 text-xs md:grid-cols-[8rem_1fr]">
-            <dt className="text-slate-500">Impact</dt>
+            <dt className="text-faint">Impact</dt>
             <dd className="text-slate-300">{done ? (restarts.length ? `Rolling restart of ${restarts.join(', ')}.` : 'No workload pod template changes, so no pods restart.') : 'Unknown without a preview.'}</dd>
-            <dt className="text-slate-500">Undo</dt>
+            <dt className="text-faint">Undo</dt>
             <dd className="text-slate-300">Roll back to revision {base.revision} ({fromChart}).{preUpgradeHooks ? ' What the upgrade hooks did is not reversed.' : ''}</dd>
-            <dt className="text-slate-500">Options</dt>
+            <dt className="text-faint">Options</dt>
             <dd className="text-slate-300">
               <label className="flex items-center gap-1.5">
                 <input type="checkbox" checked={atomic} onChange={(e) => setAtomic(e.target.checked)} />
@@ -264,7 +264,7 @@ export function HelmUpgradeDialog({ kind, release: r, charts, action, onStarted 
               </label>
             </dd>
           </dl>
-          <p className="text-xs text-slate-500">After it starts, the Job's progress shows on the Helm releases list; if the release ends failed, Rollback offers rev {base.revision}.</p>
+          <p className="text-xs text-faint">After it starts, the Job's progress shows on the Helm releases list; if the release ends failed, Rollback offers rev {base.revision}.</p>
           {action.error && <LoadError title={`The ${kind === 'values' ? 'values upgrade' : 'upgrade'} was not started`} error={action.error} />}
         </div>
       )}

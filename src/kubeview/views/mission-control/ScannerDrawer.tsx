@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { DrawerShell } from '../../components/primitives/DrawerShell';
 import { useMonitorStore } from '../../store/monitorStore';
 import type { ScannerCoverage } from '../../engine/analyticsApi';
+import { statusClasses } from '../../engine/statusColors';
 
 const DISABLED_KEY = 'pulse-disabled-scanners';
 
@@ -42,11 +43,6 @@ const SCANNER_INFO: Record<string, { description: string; severity: string }> = 
   hot_loop: { description: 'Controllers burning API server capacity without making progress — sustained work-queue retries or write amplification', severity: 'warning' },
 };
 
-const SEVERITY_COLORS: Record<string, string> = {
-  critical: 'text-red-400',
-  warning: 'text-amber-400',
-  info: 'text-blue-400',
-};
 
 interface ScannerDrawerProps {
   coverage: ScannerCoverage | null;
@@ -82,11 +78,11 @@ export function ScannerDrawer({ coverage, supportedAutoFixCategories, onClose }:
 
   return (
     <DrawerShell title="Scanner Coverage" onClose={onClose}>
-      <p className="text-[11px] text-slate-500 mb-1">
+      <p className="text-[11px] text-faint mb-1">
         The monitor runs its scanners against your cluster on the agent&apos;s configured scan interval. Findings appear in the Inbox. Scanners cannot be added or customized — they are built into the agent.
         The switches below only change what this browser&apos;s connection asks for; they do not change the agent&apos;s configuration.
       </p>
-      <div className="text-xs text-slate-500 mb-4">
+      <div className="text-xs text-faint mb-4">
         {activeCount}/{scanners.length} scanners active
       </div>
 
@@ -111,11 +107,11 @@ export function ScannerDrawer({ coverage, supportedAutoFixCategories, onClose }:
                     <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-emerald-900/40 text-emerald-400 border border-emerald-800/40">auto-fix</span>
                   )}
                   {info && (
-                    <span className={cn('text-[9px]', SEVERITY_COLORS[info.severity] || 'text-slate-500')}>{info.severity}</span>
+                    <span className={cn('text-[9px]', statusClasses(info.severity).text)}>{info.severity}</span>
                   )}
                 </div>
                 {info && !isDisabled && (
-                  <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{info.description}</div>
+                  <div className="text-[11px] text-faint mt-0.5 leading-relaxed">{info.description}</div>
                 )}
                 {!isDisabled && scanner.finding_count > 0 && (
                   <div className="text-xs text-amber-400/70 mt-1">
@@ -124,10 +120,10 @@ export function ScannerDrawer({ coverage, supportedAutoFixCategories, onClose }:
                   </div>
                 )}
                 {!isDisabled && scanner.finding_count === 0 && !info && (
-                  <div className="text-xs text-slate-600 mt-0.5">No findings yet</div>
+                  <div className="text-xs text-faint mt-0.5">No findings yet</div>
                 )}
                 {isDisabled && (
-                  <div className="text-xs text-slate-600 mt-0.5">Disabled</div>
+                  <div className="text-xs text-faint mt-0.5">Disabled</div>
                 )}
               </div>
 
@@ -150,7 +146,7 @@ export function ScannerDrawer({ coverage, supportedAutoFixCategories, onClose }:
           );
         })}
         {scanners.length === 0 && (
-          <div className="text-sm text-slate-500 text-center py-8">No scanner data available</div>
+          <div className="text-sm text-faint text-center py-8">No scanner data available</div>
         )}
       </div>
     </DrawerShell>

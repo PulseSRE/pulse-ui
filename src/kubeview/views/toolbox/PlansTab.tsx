@@ -131,25 +131,25 @@ export function PlansTab() {
         <div className="grid grid-cols-4 gap-2">
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-slate-100">{totalExecutions}</div>
-            <div className="text-[10px] text-slate-500">Executions</div>
+            <div className="text-[10px] text-faint">Executions</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-slate-100">{templates.length}</div>
-            <div className="text-[10px] text-slate-500">Plan Templates</div>
+            <div className="text-[10px] text-faint">Plan Templates</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className={`text-lg font-bold ${avgSuccessRate >= 80 ? 'text-emerald-400' : avgSuccessRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{avgSuccessRate}%</div>
-            <div className="text-[10px] text-slate-500">Avg Success</div>
+            <div className="text-[10px] text-faint">Avg Success</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-slate-100">{avgDuration >= 60000 ? `${Math.round(avgDuration / 60000)}m` : `${Math.round(avgDuration / 1000)}s`}</div>
-            <div className="text-[10px] text-slate-500">Avg Duration</div>
+            <div className="text-[10px] text-faint">Avg Duration</div>
           </div>
         </div>
       )}
 
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-faint">
           Investigation plans define multi-phase incident resolution. The agent matches findings to plans and executes phases in order.
           Plans are auto-generated when the agent resolves novel incidents, and can be written by hand here.
         </p>
@@ -175,7 +175,7 @@ export function PlansTab() {
       )}
 
       {templates.length === 0 ? (
-        <div className="text-center py-12 text-sm text-slate-500">No investigation plans loaded.</div>
+        <div className="text-center py-12 text-sm text-faint">No investigation plans loaded.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {templates.map((t) => (
@@ -198,7 +198,7 @@ export function PlansTab() {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-faint">
                 <span>Trigger: {t.incident_type}</span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
@@ -218,7 +218,7 @@ export function PlansTab() {
               <BarChart3 className="w-4 h-4 text-cyan-400" />
               Execution Analytics
             </h2>
-            <span className="text-[10px] text-slate-500">{totalExecutions} total executions &middot; last 30 days</span>
+            <span className="text-[10px] text-faint">{totalExecutions} total executions &middot; last 30 days</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -232,7 +232,7 @@ export function PlansTab() {
                 <div key={ps.template_name} className="bg-slate-900 border border-slate-800 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-slate-200">{ps.template_name}</span>
-                    <span className="text-xs text-slate-500">{ps.total_runs} runs</span>
+                    <span className="text-xs text-faint">{ps.total_runs} runs</span>
                   </div>
 
                   <div className="grid grid-cols-4 gap-2 text-center text-xs">
@@ -240,21 +240,21 @@ export function PlansTab() {
                       <div className={cn('text-lg font-bold', successRate >= 80 ? 'text-emerald-400' : successRate >= 50 ? 'text-amber-400' : 'text-red-400')}>
                         {successRate}%
                       </div>
-                      <div className="text-slate-500">Success</div>
+                      <div className="text-faint">Success</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold text-slate-200">
                         {ps.avg_duration_ms >= 60000 ? `${Math.round(ps.avg_duration_ms / 60000)}m` : `${Math.round(ps.avg_duration_ms / 1000)}s`}
                       </div>
-                      <div className="text-slate-500">Avg time</div>
+                      <div className="text-faint">Avg time</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold text-slate-200">{Math.round(ps.avg_completion_rate * 100)}%</div>
-                      <div className="text-slate-500">Phases done</div>
+                      <div className="text-faint">Phases done</div>
                     </div>
                     <div>
                       <div className="text-lg font-bold text-blue-400">{Math.round(ps.avg_confidence * 100)}%</div>
-                      <div className="text-slate-500">Confidence</div>
+                      <div className="text-faint">Confidence</div>
                     </div>
                   </div>
 
@@ -267,7 +267,7 @@ export function PlansTab() {
                   {/* Phase-level breakdown */}
                   {ps.phases && ps.phases.length > 0 && (
                     <div className="border-t border-slate-800 pt-2 space-y-1">
-                      <div className="text-[10px] text-slate-500">Phase breakdown</div>
+                      <div className="text-[10px] text-faint">Phase breakdown</div>
                       {ps.phases.map((ph) => (
                         <div key={`${ph.phase_id}-${ph.status}`} className="flex items-center justify-between text-[10px]">
                           <span className="text-slate-400">{ph.phase_id}</span>
@@ -279,7 +279,7 @@ export function PlansTab() {
                             )}>
                               {ph.count}x {ph.status}
                             </span>
-                            <span className="text-slate-600">{Math.round(ph.avg_confidence * 100)}% conf</span>
+                            <span className="text-faint">{Math.round(ph.avg_confidence * 100)}% conf</span>
                           </div>
                         </div>
                       ))}
@@ -292,7 +292,7 @@ export function PlansTab() {
                             .filter((ph) => (ph.contract_missing?.length ?? 0) > 0)
                             .map((ph) => (
                               <div key={`${ph.phase_id}-missing`} className="text-[10px] text-amber-400/80">
-                                <span className="text-slate-500">{ph.phase_id}</span>{' '}
+                                <span className="text-faint">{ph.phase_id}</span>{' '}
                                 did not produce: {ph.contract_missing!.join(', ')}
                               </div>
                             ))}
@@ -311,9 +311,9 @@ export function PlansTab() {
         <div className="border-t border-slate-800 pt-6">
           <div className="flex items-center gap-2 mb-2">
             <BarChart3 className="w-4 h-4 text-slate-600" />
-            <h2 className="text-sm font-semibold text-slate-500">Execution Analytics</h2>
+            <h2 className="text-sm font-semibold text-faint">Execution Analytics</h2>
           </div>
-          <p className="text-xs text-slate-600">No plan executions yet. Analytics will appear once the agent runs investigation plans.</p>
+          <p className="text-xs text-faint">No plan executions yet. Analytics will appear once the agent runs investigation plans.</p>
         </div>
       )}
 
@@ -380,16 +380,16 @@ export function PlansTab() {
               <div className="bg-slate-950/40 border border-slate-800 rounded-md p-3 space-y-1">
                 <div className="text-[11px] text-slate-400 mb-1">Revision history</div>
                 {!planVersions ? (
-                  <div className="text-[10px] text-slate-600">Loading…</div>
+                  <div className="text-[10px] text-faint">Loading…</div>
                 ) : planVersions.versions.length === 0 ? (
-                  <div className="text-[10px] text-slate-600">
+                  <div className="text-[10px] text-faint">
                     No prior revisions — this plan has not been edited since it was created.
                   </div>
                 ) : (
                   planVersions.versions.map((v) => (
                     <div key={v.version} className="flex items-center justify-between text-[10px]">
                       <span className="text-slate-400">v{v.version}</span>
-                      <span className="text-slate-600">
+                      <span className="text-faint">
                         {v.created_by || 'agent'} · {v.created_at ? v.created_at.slice(0, 19).replace('T', ' ') : ''}
                       </span>
                     </div>
@@ -402,7 +402,7 @@ export function PlansTab() {
             <PlanRunPanel incidentType={selectedPlan!} />
 
             {/* Metadata */}
-            <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+            <div className="flex flex-wrap gap-3 text-xs text-faint">
               <span>Trigger: <span className="text-slate-300">{planDetail.incident_type}</span></span>
               <span>Phases: <span className="text-slate-300">{planDetail.phases.length}</span></span>
               {planDetail.id.startsWith('auto-') && (
@@ -420,19 +420,19 @@ export function PlansTab() {
                 <div className="grid grid-cols-4 gap-2">
                   <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className="text-sm font-bold text-slate-100">{ps.total_runs}</div>
-                    <div className="text-[9px] text-slate-500">Runs</div>
+                    <div className="text-[9px] text-faint">Runs</div>
                   </div>
                   <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className={`text-sm font-bold ${successRate >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>{successRate}%</div>
-                    <div className="text-[9px] text-slate-500">Success</div>
+                    <div className="text-[9px] text-faint">Success</div>
                   </div>
                   <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className="text-sm font-bold text-slate-100">{ps.avg_duration_ms >= 60000 ? `${Math.round(ps.avg_duration_ms / 60000)}m` : `${Math.round(ps.avg_duration_ms / 1000)}s`}</div>
-                    <div className="text-[9px] text-slate-500">Avg Time</div>
+                    <div className="text-[9px] text-faint">Avg Time</div>
                   </div>
                   <div className="bg-slate-800/50 rounded-sm px-2 py-1.5 text-center">
                     <div className="text-sm font-bold text-blue-400">{Math.round(ps.avg_confidence * 100)}%</div>
-                    <div className="text-[9px] text-slate-500">Confidence</div>
+                    <div className="text-[9px] text-faint">Confidence</div>
                   </div>
                 </div>
               );
@@ -462,11 +462,11 @@ export function PlansTab() {
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-semibold text-slate-200">{phase.id}</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-slate-500">{phase.skill_name}</span>
+                      <span className="text-[10px] text-faint">{phase.skill_name}</span>
                       {editing ? (
                         <button
                           onClick={() => { const p = [...editPhases]; p[phaseIdx] = { ...p[phaseIdx], required: !p[phaseIdx].required }; setEditPhases(p); }}
-                          className={cn('text-[10px] px-1 py-0.5 rounded-sm cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-500')}
+                          className={cn('text-[10px] px-1 py-0.5 rounded-sm cursor-pointer', phase.required ? 'bg-red-900/30 text-red-400' : 'bg-slate-700 text-slate-300')}
                         >
                           {phase.required ? 'required' : 'optional'}
                         </button>
@@ -479,7 +479,7 @@ export function PlansTab() {
                       {phase.runs === 'always' && <span className="text-[10px] px-1 py-0.5 bg-blue-900/30 text-blue-400 rounded-sm">always runs</span>}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+                  <div className="flex flex-wrap gap-3 text-[11px] text-faint">
                     {editing ? (
                       <span className="flex items-center gap-1">
                         Timeout:

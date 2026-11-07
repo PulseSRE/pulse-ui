@@ -194,12 +194,12 @@ export function ExportStep({ onComplete }: Props) {
                     progress.status === 'done' && 'text-slate-200',
                     progress.status === 'running' && 'text-blue-300',
                     progress.status === 'error' && 'text-red-300',
-                    progress.status === 'pending' && 'text-slate-500',
+                    progress.status === 'pending' && 'text-faint',
                   )}
                 >
                   {cat.label}
                 </span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-faint">
                   {progress.status === 'done' && progress.fileCount > 0 && `${progress.fileCount} files`}
                   {progress.status === 'done' && progress.fileCount === 0 && (
                     progress.warnings?.length
@@ -208,7 +208,7 @@ export function ExportStep({ onComplete }: Props) {
                   )}
                   {progress.status === 'error' && progress.error}
                   {progress.warnings && progress.warnings.length > 0 && progress.fileCount > 0 && (
-                    <span className="text-yellow-400 ml-1">({progress.warnings.length} warning{progress.warnings.length > 1 ? 's' : ''})</span>
+                    <span className="text-amber-400 ml-1">({progress.warnings.length} warning{progress.warnings.length > 1 ? 's' : ''})</span>
                   )}
                 </span>
               </div>
@@ -242,7 +242,7 @@ export function ExportStep({ onComplete }: Props) {
       )}
 
       {phase === 'cancelled' && (
-        <div className="text-sm text-yellow-400 bg-yellow-950/30 border border-yellow-900 rounded-lg p-3">
+        <div className="text-sm text-amber-400 bg-amber-950/30 border border-amber-900 rounded-lg p-3">
           Export was cancelled. Partial files may have been committed to the branch.
           <button
             onClick={() => setPhase('idle')}

@@ -67,13 +67,13 @@ async function fetchBlastRadius(nodeId: string): Promise<BlastRadiusNode[]> {
 const RISK_COLORS: Record<string, string> = {
   critical: 'text-red-400 bg-red-950/50 border-red-900/50',
   high: 'text-orange-400 bg-orange-950/50 border-orange-900/50',
-  medium: 'text-yellow-400 bg-yellow-950/50 border-yellow-900/50',
+  medium: 'text-amber-400 bg-amber-950/50 border-amber-900/50',
   low: 'text-green-400 bg-green-950/50 border-green-900/50',
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   healthy: { label: 'Healthy', color: 'text-green-400' },
-  warning: { label: 'Warning', color: 'text-yellow-400' },
+  warning: { label: 'Warning', color: 'text-amber-400' },
   error: { label: 'Error', color: 'text-red-400' },
 };
 
@@ -279,25 +279,25 @@ export default function TopologyView() {
         {/* Summary cards */}
         <div className="grid grid-cols-5 gap-3">
           <Card className="p-3">
-            <div className="text-xs text-slate-500 mb-1">Resources</div>
+            <div className="text-xs text-faint mb-1">Resources</div>
             <div className="text-xl font-bold text-slate-100">{topology.nodes.length}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-slate-500 mb-1">Healthy</div>
+            <div className="text-xs text-faint mb-1">Healthy</div>
             <div className="text-xl font-bold text-green-400">{healthCounts.healthy}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-slate-500 mb-1">Issues</div>
+            <div className="text-xs text-faint mb-1">Issues</div>
             <div className="text-xl font-bold text-red-400">
               {healthCounts.error + healthCounts.warning}
             </div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-slate-500 mb-1">At Risk</div>
+            <div className="text-xs text-faint mb-1">At Risk</div>
             <div className="text-xl font-bold text-orange-400">{healthCounts.atRisk}</div>
           </Card>
           <Card className="p-3">
-            <div className="text-xs text-slate-500 mb-1">
+            <div className="text-xs text-faint mb-1">
               {selectedNode ? 'Blast Radius' : 'Click a node'}
             </div>
             <div className="text-xl font-bold text-slate-100">
@@ -318,13 +318,13 @@ export default function TopologyView() {
             ))}
             {/* Status legend */}
             <span className="text-slate-700">|</span>
-            <div className="flex items-center gap-1 text-xs text-slate-500">
+            <div className="flex items-center gap-1 text-xs text-faint">
               <span className="w-2 h-2 rounded-full bg-green-500" /> Healthy
             </div>
-            <div className="flex items-center gap-1 text-xs text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-yellow-500" /> Warning
+            <div className="flex items-center gap-1 text-xs text-faint">
+              <span className="w-2 h-2 rounded-full bg-amber-500" /> Warning
             </div>
-            <div className="flex items-center gap-1 text-xs text-slate-500">
+            <div className="flex items-center gap-1 text-xs text-faint">
               <span className="w-2 h-2 rounded-full bg-red-500" /> Error
             </div>
           </div>
@@ -371,7 +371,7 @@ export default function TopologyView() {
                   </div>
                   <button
                     onClick={() => setSelectedNode(null)}
-                    className="p-0.5 rounded-sm text-slate-500 hover:text-slate-300 transition-colors"
+                    className="p-0.5 rounded-sm text-faint hover:text-slate-300 transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -403,13 +403,13 @@ export default function TopologyView() {
                 </div>
 
                 {/* Blast radius count */}
-                <div className="text-xs text-slate-500 mb-3 pb-3 border-b border-slate-800">
+                <div className="text-xs text-faint mb-3 pb-3 border-b border-slate-800">
                   Blast radius: {blastRadiusData?.length ?? '...'} resource{(blastRadiusData?.length ?? 0) !== 1 ? 's' : ''}
                 </div>
 
                 {/* Upstream */}
                 <div className="mb-3">
-                  <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                  <h4 className="text-[10px] font-semibold text-faint uppercase tracking-wider mb-1.5">
                     Upstream
                   </h4>
                   {(() => {
@@ -417,14 +417,14 @@ export default function TopologyView() {
                       .filter(e => e.target === selectedNode)
                       .map(e => ({ node: nodeMap.get(e.source), rel: e.relationship }))
                       .filter((x): x is { node: TopoNode; rel: string } => !!x.node);
-                    if (upstream.length === 0) return <span className="text-xs text-slate-600">None</span>;
+                    if (upstream.length === 0) return <span className="text-xs text-faint">None</span>;
                     return (
                       <div className="space-y-1">
                         {upstream.map(({ node: n, rel }) => (
                           <div key={n.id} className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(n.kind) }} />
                             <span className="truncate">{n.kind}/{n.name}</span>
-                            <span className="text-slate-600 text-[10px] shrink-0">({rel})</span>
+                            <span className="text-faint text-[10px] shrink-0">({rel})</span>
                           </div>
                         ))}
                       </div>
@@ -434,7 +434,7 @@ export default function TopologyView() {
 
                 {/* Downstream */}
                 <div>
-                  <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                  <h4 className="text-[10px] font-semibold text-faint uppercase tracking-wider mb-1.5">
                     Downstream
                   </h4>
                   {blastRadiusError ? (
@@ -442,7 +442,7 @@ export default function TopologyView() {
                   ) : !blastRadiusData ? (
                     <span role="status" className="text-xs text-slate-400">Checking…</span>
                   ) : blastRadiusData.length === 0 ? (
-                    <span className="text-xs text-slate-600">None (leaf node)</span>
+                    <span className="text-xs text-faint">None (leaf node)</span>
                   ) : (
                     <div className="space-y-1">
                       {blastRadiusData.map((dep) => (
@@ -450,7 +450,7 @@ export default function TopologyView() {
                           <span className="w-2 h-2 rounded-xs shrink-0" style={{ backgroundColor: getKindColor(dep.kind) }} />
                           <span className="truncate">{dep.kind}/{dep.name}</span>
                           {dep.relationship && (
-                            <span className="text-slate-600 text-[10px] shrink-0">({dep.relationship})</span>
+                            <span className="text-faint text-[10px] shrink-0">({dep.relationship})</span>
                           )}
                         </div>
                       ))}
@@ -465,7 +465,7 @@ export default function TopologyView() {
         {/* Recent Changes Timeline */}
         {recentlyChanged.length > 0 && (
           <Card className="p-4">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-faint uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5" />
               Recently Changed ({recentlyChanged.length})
             </h3>

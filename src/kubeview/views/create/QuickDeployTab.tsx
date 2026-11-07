@@ -42,7 +42,7 @@ function Section({ n, title, hint, children }: { n: number; title: string; hint:
     <Card className="space-y-3 p-4">
       <div className="flex items-baseline gap-2">
         <h3 className="text-sm font-semibold text-slate-100">{n} · {title}</h3>
-        <span className="text-xs text-slate-500">{hint}</span>
+        <span className="text-xs text-faint">{hint}</span>
       </div>
       {children}
     </Card>
@@ -120,9 +120,9 @@ function fmtQuota(resource: string, v: number): string {
 
 export function QuotaPanel({ ns, lines, error, loading }: { ns: string; lines: QuotaLine[] | undefined; error?: string; loading: boolean }) {
   if (!ns) return null;
-  if (loading) return <p className="text-xs text-slate-500">Checking quota in {ns}…</p>;
+  if (loading) return <p className="text-xs text-faint">Checking quota in {ns}…</p>;
   if (error) return <p className="text-xs text-amber-300" data-testid="quota-headroom">Quota: Could not check — {error}.</p>;
-  if (!lines || lines.length === 0) return <p className="text-xs text-slate-500" data-testid="quota-headroom">No ResourceQuota in {ns} limits this app.</p>;
+  if (!lines || lines.length === 0) return <p className="text-xs text-faint" data-testid="quota-headroom">No ResourceQuota in {ns} limits this app.</p>;
   const { over, tight, unset, unknown } = quotaVerdict(lines);
   return (
     <div className="space-y-1 text-xs" data-testid="quota-headroom">
@@ -130,7 +130,7 @@ export function QuotaPanel({ ns, lines, error, loading }: { ns: string; lines: Q
       <ul className="grid grid-cols-1 gap-1 md:grid-cols-3">
         {lines.map((l) => (
           <li key={`${l.quota}/${l.resource}`} className={cn('rounded-sm border px-2 py-1', l.after > l.hard ? 'border-red-800 text-red-300' : l.duringRollout > l.hard ? 'border-amber-800 text-amber-300' : 'border-slate-800 text-slate-300')}>
-            <span className="text-slate-500">{l.resource}</span> {fmtQuota(l.resource, l.after)} of {fmtQuota(l.resource, l.hard)} after deploy
+            <span className="text-faint">{l.resource}</span> {fmtQuota(l.resource, l.after)} of {fmtQuota(l.resource, l.hard)} after deploy
           </li>
         ))}
       </ul>
@@ -212,7 +212,7 @@ export function QuickDeployTab() {
             <input type="radio" name="source" checked={form.source.type === 'git'} disabled={!!gitUnavailable} onChange={() => set('source', { type: 'git', gitUrl: '', gitRef: '', contextDir: '', builderImage: '' })} />
             Git repository (build with BuildConfig, redeploy on new image)
           </label>
-          {gitUnavailable && <p className="pl-5 text-slate-500" data-testid="git-unavailable">{gitUnavailable}.</p>}
+          {gitUnavailable && <p className="pl-5 text-faint" data-testid="git-unavailable">{gitUnavailable}.</p>}
         </fieldset>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {form.source.type === 'image' ? (
@@ -235,7 +235,7 @@ export function QuickDeployTab() {
               <div>
                 <FormField label="Builder image" required mono list="builder-images" value={form.source.builderImage} onChange={(v) => set('source', { ...form.source as Extract<DeployForm['source'], { type: 'git' }>, builderImage: v })} placeholder="nodejs:20-ubi9" />
                 <datalist id="builder-images">{builders.names.map((n) => <option key={n} value={`${n}:latest`} />)}</datalist>
-                <span className="mt-1 block text-[11px] text-slate-500">An image stream tag in the openshift namespace.{builders.error ? ` Could not list them (${builders.error}); type one.` : ''}</span>
+                <span className="mt-1 block text-[11px] text-faint">An image stream tag in the openshift namespace.{builders.error ? ` Could not list them (${builders.error}); type one.` : ''}</span>
               </div>
             </>
           )}
@@ -247,7 +247,7 @@ export function QuickDeployTab() {
       </Section>
 
       <Section n={2} title="Config" hint="optional · environment from ConfigMaps and Secrets">
-        {form.env.length === 0 && <p className="text-xs text-slate-500">No environment set.</p>}
+        {form.env.length === 0 && <p className="text-xs text-faint">No environment set.</p>}
         <ul className="space-y-2">
           {form.env.map((e, i) => (
             <li key={i} className="flex flex-wrap items-end gap-2 text-xs" data-testid={`env-${i}`}>
@@ -286,7 +286,7 @@ export function QuickDeployTab() {
                       <FormField label="Variable name" mono value={e.name} onChange={(v) => setEnv(i, { ...e, name: v })} placeholder="DB_PASSWORD" />
                     </>
                   )}
-                  {e.kind.startsWith('secret') && <span className="pb-2 text-slate-500">value hidden</span>}
+                  {e.kind.startsWith('secret') && <span className="pb-2 text-faint">value hidden</span>}
                 </>
               )}
               <Button size="sm" variant="ghost" aria-label={`Remove environment entry ${i + 1}`} onClick={() => set('env', form.env.filter((_, j) => j !== i))}><Trash2 className="h-3.5 w-3.5" /> Remove</Button>
@@ -299,7 +299,7 @@ export function QuickDeployTab() {
           <Button size="sm" variant="secondary" onClick={() => set('env', [...form.env, { kind: 'secretAll', secret: '' }])}><Plus className="h-3 w-3" /> Add from Secret</Button>
           <Button size="sm" variant="secondary" onClick={() => set('env', [...form.env, { kind: 'value', name: '', value: '' }])}><Plus className="h-3 w-3" /> Add variable</Button>
         </div>
-        <p className="text-[11px] text-slate-500">Secrets are referenced by name only; Pulse reads their names, never their values.</p>
+        <p className="text-[11px] text-faint">Secrets are referenced by name only; Pulse reads their names, never their values.</p>
       </Section>
 
       <Section n={3} title="Storage" hint="optional">
@@ -354,7 +354,7 @@ export function QuickDeployTab() {
 
       <Section n={4} title="Health checks" hint="optional · recommended">
         <table className="w-full text-xs">
-          <thead><tr className="text-left text-slate-500"><th className="py-1 font-normal">Probe</th><th className="font-normal">Check</th><th className="font-normal">Timing</th></tr></thead>
+          <thead><tr className="text-left text-faint"><th className="py-1 font-normal">Probe</th><th className="font-normal">Check</th><th className="font-normal">Timing</th></tr></thead>
           <tbody>
             {PROBES.map((k) => {
               const p = form.probes[k];
@@ -376,7 +376,7 @@ export function QuickDeployTab() {
                     every <input aria-label={`${k} probe period`} value={p.periodSeconds} disabled={!p.enabled} onChange={(e) => setProbe(k, { periodSeconds: e.target.value })} className="w-10 rounded-sm border border-slate-700 bg-slate-900 px-1 py-0.5 text-slate-200" />s ·
                     timeout <input aria-label={`${k} probe timeout`} value={p.timeoutSeconds} disabled={!p.enabled} onChange={(e) => setProbe(k, { timeoutSeconds: e.target.value })} className="w-10 rounded-sm border border-slate-700 bg-slate-900 px-1 py-0.5 text-slate-200" />s ·
                     <input aria-label={`${k} probe failures`} value={p.failureThreshold} disabled={!p.enabled} onChange={(e) => setProbe(k, { failureThreshold: e.target.value })} className="ml-1 w-10 rounded-sm border border-slate-700 bg-slate-900 px-1 py-0.5 text-slate-200" /> failures
-                    {k === 'startup' && p.enabled && <span className="ml-1 text-slate-500">({(Number(p.periodSeconds) || 0) * (Number(p.failureThreshold) || 0)}s to start)</span>}
+                    {k === 'startup' && p.enabled && <span className="ml-1 text-faint">({(Number(p.periodSeconds) || 0) * (Number(p.failureThreshold) || 0)}s to start)</span>}
                   </td>
                 </tr>
               );
@@ -403,7 +403,7 @@ export function QuickDeployTab() {
             <input type="checkbox" checked={form.expose.route && !routeUnavailable} disabled={!!routeUnavailable || !form.expose.service} onChange={(e) => set('expose', { ...form.expose, route: e.target.checked })} /> Public Route
           </label>
         </div>
-        {routeUnavailable && <p className="text-xs text-slate-500">{routeUnavailable}.</p>}
+        {routeUnavailable && <p className="text-xs text-faint">{routeUnavailable}.</p>}
         {form.expose.route && !routeUnavailable && (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <FormField label="Hostname" mono value={form.expose.hostname} onChange={(v) => set('expose', { ...form.expose, hostname: v })} placeholder="generated from the name and namespace" />
@@ -427,7 +427,7 @@ export function QuickDeployTab() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-sm font-semibold text-slate-100">{errors.length ? 'Not ready for a dry run' : 'Ready for a dry run'}</div>
-            <div className="text-xs text-slate-500">The API server checks all {plan.length || ''} objects without creating anything. You confirm the object list next.</div>
+            <div className="text-xs text-faint">The API server checks all {plan.length || ''} objects without creating anything. You confirm the object list next.</div>
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setShowYaml(!showYaml)} disabled={plan.length === 0}><FileCode className="h-3.5 w-3.5" /> {showYaml ? 'Hide YAML' : 'View YAML'}</Button>
@@ -442,9 +442,9 @@ export function QuickDeployTab() {
           <div>
             <div className="mb-1 text-xs font-medium text-slate-400">What this creates</div>
             <ul className="space-y-0.5 text-xs" data-testid="deploy-plan">
-              {plan.map((o) => <li key={o.kind} className="font-mono text-slate-300"><span className="text-emerald-400">+</span> {o.kind}/{o.name} <span className="font-sans text-slate-500">{o.summary}</span></li>)}
+              {plan.map((o) => <li key={o.kind} className="font-mono text-slate-300"><span className="text-emerald-400">+</span> {o.kind}/{o.name} <span className="font-sans text-faint">{o.summary}</span></li>)}
               {(refs.configMaps.length > 0 || refs.secrets.length > 0) && (
-                <li className="text-slate-400"><span className="text-slate-500">=</span> Uses existing {[...refs.configMaps.map((n) => `ConfigMap ${n}`), ...refs.secrets.map((n) => `Secret ${n}`)].join(', ')}</li>
+                <li className="text-slate-400"><span className="text-faint">=</span> Uses existing {[...refs.configMaps.map((n) => `ConfigMap ${n}`), ...refs.secrets.map((n) => `Secret ${n}`)].join(', ')}</li>
               )}
             </ul>
           </div>
@@ -459,7 +459,7 @@ export function QuickDeployTab() {
           <label htmlFor="deploy-ask" className="sr-only">Question for Pulse</label>
           <input id="deploy-ask" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={remote}
             placeholder="Fill this in: deploy quay.io/acme/api:1.4 on 8080 with 2 replicas and expose it"
-            className="min-h-[40px] flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-500" />
+            className="min-h-[40px] flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-faint" />
           <button type="submit" disabled={remote || !question.trim()} data-ai-entry="ask-pulse" className={cn('rounded-md px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50', AI_ACCENT.button)}>Ask</button>
         </form>
       </Card>

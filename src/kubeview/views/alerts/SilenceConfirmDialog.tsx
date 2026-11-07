@@ -66,7 +66,7 @@ function AlertLine({ a }: { a: AlertForSilence }) {
     <li className="flex items-center gap-2 text-xs">
       <span className={cn('px-1.5 py-0.5 rounded-sm', sev === 'critical' ? 'bg-red-900/50 text-red-300' : 'bg-amber-900/50 text-amber-300')}>{sev}</span>
       <span className="text-slate-200">{a.labels.alertname}</span>
-      <span className="text-slate-500">· {a.state}</span>
+      <span className="text-faint">· {a.state}</span>
     </li>
   );
 }
@@ -191,14 +191,14 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
           {parsed.matchers && (
             <ul className="font-mono text-xs space-y-0.5 mt-1" aria-label="Matcher changes">
               {parsed.matchers.map((m) => (
-                <li key={formatMatcher(m)} className="text-green-300">+ {formatMatcher(m)}{!proposed.has(formatMatcher(m)) && <span className="text-slate-500 font-sans"> (edited)</span>}</li>
+                <li key={formatMatcher(m)} className="text-green-300">+ {formatMatcher(m)}{!proposed.has(formatMatcher(m)) && <span className="text-faint font-sans"> (edited)</span>}</li>
               ))}
             </ul>
           )}
           {parsed.error ? (
             <p role="alert" className="mt-1 text-xs text-red-300">{parsed.error}</p>
           ) : (
-            <p className="mt-1 text-xs text-slate-500">Edit matchers if you want a wider or narrower silence. The preview below updates.</p>
+            <p className="mt-1 text-xs text-faint">Edit matchers if you want a wider or narrower silence. The preview below updates.</p>
           )}
         </section>
 
@@ -206,14 +206,14 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
           <h3 className="text-xs font-medium text-slate-400 mb-1">What it will hide</h3>
           {tooMuch && <p role="alert" className="text-xs text-red-300 mb-1">{tooMuch}</p>}
           {parsed.error ? (
-            <p className="text-xs text-slate-500">—</p>
+            <p className="text-xs text-faint">—</p>
           ) : hides.length === 0 ? (
             <p className="text-xs text-amber-300">No alert firing now matches these matchers.</p>
           ) : (
             <ul className="space-y-1">{hides.map((a, i) => <AlertLine key={i} a={a} />)}</ul>
           )}
           {!parsed.error && (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-faint mt-1">
               Also any new alert with these matchers until it ends.
               {sameTarget.length > 0
                 ? <> Not hidden: other alerts on {proposal.target} ({[...new Set(sameTarget.map((a) => a.labels.alertname))].join(', ')}) and everything else.</>
@@ -230,7 +230,7 @@ export function SilenceConfirmDialog({ open, onClose, proposal, alerts, currentU
               <label key={m} className="flex items-center gap-2 text-xs text-slate-300">
                 <input type="radio" name="silence-duration" checked={minutes === m} onChange={() => setMinutes(m)} />
                 {describeMinutes(m)}, until {endTime(m)}
-                {i === 0 && proposal.minutesReason && <span className="text-slate-500">({proposal.minutesReason})</span>}
+                {i === 0 && proposal.minutesReason && <span className="text-faint">({proposal.minutesReason})</span>}
               </label>
             ))}
           </div>

@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import type { EvidenceItem } from '../../../engine/monitorClient';
 
 const STANCE_MARK = { supports: '+', contradicts: '−', context: '·' } as const;
-const STANCE_STYLE = { supports: 'text-emerald-500', contradicts: 'text-red-400', context: 'text-slate-500' } as const;
+const STANCE_STYLE = { supports: 'text-emerald-500', contradicts: 'text-red-400', context: 'text-faint' } as const;
 
 /**
  * Evidence behind a diagnosis, each item with its stance and source.
@@ -29,7 +29,7 @@ export function EvidenceList({ detail, prose }: { detail?: EvidenceItem[] | null
               <span>
                 {e.observation}
                 {e.source ? (
-                  <span className="text-slate-500">
+                  <span className="text-faint">
                     {' '}·{' '}
                     <span className="font-mono" title={e.call_ref ? `tool call ${e.call_ref}` : undefined}>
                       {e.source}
@@ -37,7 +37,7 @@ export function EvidenceList({ detail, prose }: { detail?: EvidenceItem[] | null
                     </span>
                   </span>
                 ) : (
-                  <span className="text-slate-600">
+                  <span className="text-faint">
                     {' '}· {e.unverified_source ? `cites ${e.unverified_source}, which the investigation did not read` : 'source not recorded'}
                   </span>
                 )}
@@ -54,7 +54,7 @@ export function EvidenceList({ detail, prose }: { detail?: EvidenceItem[] | null
     <ul className="space-y-0.5 pl-1">
       {lines.map((e, i) => (
         <li key={i} className="text-xs text-slate-300 flex gap-1.5">
-          <span aria-label="stance not recorded" className="text-slate-500 shrink-0 mt-px">•</span>
+          <span aria-label="stance not recorded" className="text-faint shrink-0 mt-px">•</span>
           {e}
         </li>
       ))}

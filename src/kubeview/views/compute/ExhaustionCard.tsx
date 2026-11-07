@@ -29,21 +29,21 @@ export function ExhaustionCard({ projection }: { projection: ResourceProjection 
         isCritical ? 'text-red-400' :
         isWarning ? 'text-amber-400' :
         isStable ? 'text-emerald-400' :
-        noData ? 'text-slate-500' :
+        noData ? 'text-faint' :
         'text-slate-100'
       )}>
         {daysUntilExhaustion !== null ? `${daysUntilExhaustion}d` : noData ? (failed ? 'Unknown' : 'No data') : 'Stable'}
       </div>
       {/* Say why there is no projection: a failed query is not "no data". */}
       {noData && noDataReason && (
-        <div className={cn('text-xs mt-0.5', failed ? 'text-red-400/80' : 'text-slate-500')} data-unknown="" role={failed ? 'alert' : undefined}>
+        <div className={cn('text-xs mt-0.5', failed ? 'text-red-400/80' : 'text-faint')} data-unknown="" role={failed ? 'alert' : undefined}>
           {noDataReason}
         </div>
       )}
 
       {/* Current usage + trend */}
       <div className="flex items-center gap-1.5 mt-1">
-        {pct !== null && <span className="text-xs text-slate-500">{pct}% used</span>}
+        {pct !== null && <span className="text-xs text-faint">{pct}% used</span>}
         {growthPerDay !== null && (
           <span className={cn('flex items-center gap-0.5 text-xs',
             growthPerDay > 0.005 ? 'text-red-400' : growthPerDay > 0 ? 'text-amber-400' : 'text-emerald-400'

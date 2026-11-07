@@ -29,7 +29,7 @@ type ClusterStatus = 'connected' | 'unreachable' | 'auth-expired' | 'unknown';
 const STATUS_CONFIG: Record<ClusterStatus, { color: string; bg: string; label: string }> = {
   connected: { color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)', label: 'Connected' },
   unreachable: { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', label: 'Unreachable' },
-  'auth-expired': { color: '#eab308', bg: 'rgba(234, 179, 8, 0.15)', label: 'Auth Expired' },
+  'auth-expired': { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', label: 'Auth Expired' },
   unknown: { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)', label: 'Unknown' },
 };
 
@@ -81,7 +81,7 @@ export function computeReachability(
   const score = Math.round((healthy / checked.length) * 100);
 
   if (score > 80) return { score, color: '#22c55e', label: 'Reachable' };
-  if (score >= 60) return { score, color: '#eab308', label: 'Partly reachable' };
+  if (score >= 60) return { score, color: '#f59e0b', label: 'Partly reachable' };
   return { score, color: '#ef4444', label: 'Mostly unreachable' };
 }
 
@@ -138,7 +138,7 @@ export function FleetReportTab() {
 
   if (fleetMode === 'single') {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-500 text-sm">
+      <div className="flex items-center justify-center h-64 text-faint text-sm">
         Fleet reporting is available in multi-cluster mode.
       </div>
     );
@@ -177,7 +177,7 @@ export function FleetReportTab() {
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+            <div className="text-xs text-faint uppercase tracking-wider mb-1">
               Fleet reachability
             </div>
             <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ export function FleetReportTab() {
                       : risk.score > 80
                       ? 'rgba(34, 197, 94, 0.15)'
                       : risk.score >= 60
-                        ? 'rgba(234, 179, 8, 0.15)'
+                        ? 'rgba(245, 158, 11, 0.15)'
                         : 'rgba(239, 68, 68, 0.15)',
                   padding: '3px 10px',
                   borderRadius: 4,
@@ -250,7 +250,7 @@ export function FleetReportTab() {
                   >
                     {cluster.name}
                   </button>
-                  <span className="ml-2 text-xs text-slate-500">
+                  <span className="ml-2 text-xs text-faint">
                     {cluster.connectionType}
                   </span>
                 </td>
@@ -290,7 +290,7 @@ export function FleetReportTab() {
       <Suspense
         fallback={
           <Card className="p-4">
-            <div className="flex items-center gap-2 text-slate-500 text-sm">
+            <div className="flex items-center gap-2 text-faint text-sm">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading fleet analysis...
             </div>

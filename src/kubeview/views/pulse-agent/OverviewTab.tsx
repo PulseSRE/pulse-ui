@@ -83,15 +83,15 @@ export function OverviewTab() {
 
       {/* 4. Agent Info Footer */}
       {versionQ.data && (
-        <div className="text-xs text-slate-600 flex items-center gap-1.5 justify-center py-2">
+        <div className="text-xs text-faint flex items-center gap-1.5 justify-center py-2">
           <Bot className="w-3 h-3" />
           <span>v{versionQ.data.agent}</span>
           <span>&middot;</span>
           <span>Protocol v{versionQ.data.protocol}</span>
           <span>&middot;</span>
-          <Link to="/agent?tab=tools" className="text-slate-500 hover:text-slate-300">{versionQ.data.tools} tools</Link>
+          <Link to="/agent?tab=tools" className="text-faint hover:text-slate-300">{versionQ.data.tools} tools</Link>
           <span>&middot;</span>
-          <Link to="/agent?tab=skills" className="text-slate-500 hover:text-slate-300">{versionQ.data.skills} skills</Link>
+          <Link to="/agent?tab=skills" className="text-faint hover:text-slate-300">{versionQ.data.skills} skills</Link>
         </div>
       )}
 
@@ -184,7 +184,7 @@ function ActivitySection({ events, isLoading, error, onRetry }: {
         // A failed read is not "the agent hasn't needed to intervene".
         <LoadError title="Recent activity could not be loaded" error={error} onRetry={onRetry} />
       ) : events.length === 0 ? (
-        <p className="text-sm text-slate-500">No activity yet. The agent is monitoring but hasn&apos;t needed to intervene.</p>
+        <p className="text-sm text-faint">No activity yet. The agent is monitoring but hasn&apos;t needed to intervene.</p>
       ) : (
         <ul className="space-y-1.5">
           {events.slice(0, ACTIVITY_PREVIEW).map((evt, i) => {

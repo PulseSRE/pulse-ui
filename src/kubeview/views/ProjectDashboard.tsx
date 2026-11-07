@@ -181,7 +181,7 @@ export default function ProjectDashboard() {
                     <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                   )}
                   <span className="text-xs font-mono text-slate-300 truncate flex-1">{pod.metadata.name}</span>
-                  <span className={cn('text-xs', status === 'Running' ? 'text-slate-500' : 'text-amber-400')}>{status}</span>
+                  <span className={cn('text-xs', status === 'Running' ? 'text-faint' : 'text-amber-400')}>{status}</span>
                 </button>
               );
             })}
@@ -216,7 +216,7 @@ export default function ProjectDashboard() {
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                     )}
                     <span className="text-xs font-mono text-slate-300 truncate flex-1">{dep.metadata.name}</span>
-                    <span className={cn('text-xs', healthy ? 'text-slate-500' : 'text-amber-400')}>
+                    <span className={cn('text-xs', healthy ? 'text-faint' : 'text-amber-400')}>
                       {ready}/{desired} ready
                     </span>
                   </button>
@@ -238,7 +238,7 @@ export default function ProjectDashboard() {
             <button onClick={list('route.openshift.io~v1~routes', 'Routes')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
           </div>
           {routesError ? <LoadError className="m-3" title="Routes could not be loaded" /> : routes.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-slate-500">No routes in {ns}.</p>
+            <p className="px-4 py-3 text-xs text-faint">No routes in {ns}.</p>
           ) : (
             <div className="divide-y divide-slate-800 max-h-48 overflow-auto">
               {routes.map((r) => {
@@ -247,10 +247,10 @@ export default function ProjectDashboard() {
                   <div key={r.metadata.uid ?? r.metadata.name} className="flex items-center hover:bg-slate-800/50">
                     <button onClick={() => go(`/r/route.openshift.io~v1~routes/${ns}/${r.metadata.name}`, r.metadata.name)} className="flex-1 min-w-0 px-4 py-2 flex items-center gap-3 text-left">
                       <span className="text-xs font-mono text-slate-300 truncate">{r.metadata.name}</span>
-                      <span className="text-xs text-slate-500 truncate">{url ?? 'no host yet'}</span>
+                      <span className="text-xs text-faint truncate">{url ?? 'no host yet'}</span>
                     </button>
                     {url && (
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="p-2 mr-2 text-slate-500 hover:text-blue-400" aria-label={`Open ${url}`} title={`Open ${url}`}>
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="p-2 mr-2 text-faint hover:text-blue-400" aria-label={`Open ${url}`} title={`Open ${url}`}>
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     )}
@@ -270,7 +270,7 @@ export default function ProjectDashboard() {
             <button onClick={list('v1~persistentvolumeclaims', 'PVCs')} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
           </div>
           {pvcsError ? <LoadError className="m-3" title="PersistentVolumeClaims could not be loaded" /> : pvcs.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-slate-500">No PersistentVolumeClaims in {ns}.</p>
+            <p className="px-4 py-3 text-xs text-faint">No PersistentVolumeClaims in {ns}.</p>
           ) : (
             <div className="divide-y divide-slate-800 max-h-48 overflow-auto">
               {pvcs.map((p) => {
@@ -280,8 +280,8 @@ export default function ProjectDashboard() {
                   <button key={p.metadata.uid ?? p.metadata.name} onClick={() => go(`/r/v1~persistentvolumeclaims/${ns}/${p.metadata.name}`, p.metadata.name)}
                     className="w-full px-4 py-2 flex items-center gap-3 text-left hover:bg-slate-800/50">
                     <span className="text-xs font-mono text-slate-300 truncate flex-1">{p.metadata.name}</span>
-                    <span className="text-xs text-slate-500">{spec?.resources?.requests?.storage ?? '?'} · {spec?.storageClassName ?? 'default class'}</span>
-                    <span className={cn('text-xs', phase === 'Bound' ? 'text-slate-500' : 'text-amber-400')}>{phase}</span>
+                    <span className="text-xs text-faint">{spec?.resources?.requests?.storage ?? '?'} · {spec?.storageClassName ?? 'default class'}</span>
+                    <span className={cn('text-xs', phase === 'Bound' ? 'text-faint' : 'text-amber-400')}>{phase}</span>
                   </button>
                 );
               })}
@@ -305,8 +305,8 @@ export default function ProjectDashboard() {
                 <div key={i} className="px-4 py-2">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-amber-400 font-medium">{event.reason}</span>
-                    <span className="text-slate-500">{event.involvedObject?.kind}/{event.involvedObject?.name}</span>
-                    <span className="ml-auto text-slate-600">{event.lastTimestamp ? formatRelative(new Date(event.lastTimestamp).getTime()) : ''}</span>
+                    <span className="text-faint">{event.involvedObject?.kind}/{event.involvedObject?.name}</span>
+                    <span className="ml-auto text-faint">{event.lastTimestamp ? formatRelative(new Date(event.lastTimestamp).getTime()) : ''}</span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{event.message}</p>
                 </div>
@@ -428,7 +428,7 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
     return (
       <div className="h-48 flex flex-col items-center justify-center gap-1 text-sm text-slate-400" role="status">
         No data for this period
-        <span className="text-[11px] text-slate-500">{title}</span>
+        <span className="text-[11px] text-faint">{title}</span>
       </div>
     );
   }
@@ -446,7 +446,7 @@ function NsMetricPanel({ query, title, yAxisLabel, yAxisFormat, colorIndex, star
         hoverTimestamp={localHover}
         onHover={setLocalHover}
       />
-      <div className="text-[11px] text-slate-500 text-center mt-1">{title}</div>
+      <div className="text-[11px] text-faint text-center mt-1">{title}</div>
     </div>
   );
 }
@@ -470,7 +470,7 @@ function QuotaUsage({ quotas, error, onOpen }: { quotas: K8sResource[]; error: b
         <button onClick={onOpen} className="text-xs text-blue-400 hover:text-blue-300">View all →</button>
       </div>
       {error ? <LoadError className="m-3" title="ResourceQuotas could not be loaded" /> : quotas.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-slate-500">No ResourceQuota in this project: its usage is not limited.</p>
+        <p className="px-4 py-3 text-xs text-faint">No ResourceQuota in this project: its usage is not limited.</p>
       ) : (
         <div className="p-4 space-y-4">
           {quotas.map((q) => {

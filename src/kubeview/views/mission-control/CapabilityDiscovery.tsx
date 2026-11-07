@@ -55,7 +55,7 @@ export function CapabilityDiscovery({ recommendations }: CapabilityDiscoveryProp
                 </div>
                 <button
                   onClick={() => dismiss(recKey(rec))}
-                  className="text-slate-600 hover:text-slate-400 p-0.5"
+                  className="text-faint hover:text-slate-400 p-0.5"
                   aria-label="Dismiss"
                 >
                   <X className="w-3.5 h-3.5" />

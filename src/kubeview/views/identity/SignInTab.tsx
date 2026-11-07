@@ -120,7 +120,7 @@ function SignInHealth() {
     queryFn: () => k8sGet<{ status?: { conditions?: Array<{ type: string; status: string; message?: string }> } }>('/apis/config.openshift.io/v1/clusteroperators/authentication', clusterId),
     refetchInterval: 15000,
   });
-  if (q.isLoading) return <p className="text-xs text-slate-500">Checking the authentication operator…</p>;
+  if (q.isLoading) return <p className="text-xs text-faint">Checking the authentication operator…</p>;
   if (q.isError) return <p className="text-xs text-slate-400" data-testid="signin-health">Sign-in health: could not check ({q.error instanceof Error ? q.error.message : 'unknown error'}).</p>;
   const cond = (t: string) => q.data?.status?.conditions?.find((c) => c.type === t);
   const progressing = cond('Progressing')?.status === 'True';
@@ -132,7 +132,7 @@ function SignInHealth() {
       <span className={degraded ? 'text-red-300' : progressing ? 'text-amber-300' : available ? 'text-emerald-300' : 'text-slate-300'}>
         {degraded ? 'Degraded' : progressing ? 'Rolling out' : available ? 'Available' : 'Not available'}
       </span>
-      {(degraded || progressing) && <span className="text-slate-500"> — {(degraded ? cond('Degraded') : cond('Progressing'))?.message}</span>}
+      {(degraded || progressing) && <span className="text-faint"> — {(degraded ? cond('Degraded') : cond('Progressing'))?.message}</span>}
     </p>
   );
 }
@@ -204,7 +204,7 @@ function HtpasswdUserForm({ secretName, onDone }: { secretName: string; onDone: 
         title={!canGet || !canPatch ? `You do not have permission to read and change Secrets in ${CONFIG_NS}` : undefined}>
         <UserPlus className="w-3.5 h-3.5" /> Review
       </Button>
-      {(!canGet || !canPatch) && <p className="md:col-span-3 text-xs text-slate-500">You do not have permission to read and change Secrets in {CONFIG_NS}.</p>}
+      {(!canGet || !canPatch) && <p className="md:col-span-3 text-xs text-faint">You do not have permission to read and change Secrets in {CONFIG_NS}.</p>}
       {readError ? <LoadError className="md:col-span-3" title={`Secret ${CONFIG_NS}/${secretName} could not be read`} error={readError} /> : null}
       {dialog}
     </form>
@@ -327,7 +327,7 @@ function AddProviderForm({ data, onDone }: { data: OAuthConfig; onDone: () => vo
         {type === 'GitHub' && <label className="text-xs text-slate-400 md:col-span-2">Organizations (comma-separated, optional)<input aria-label="Organizations" className={inputCls} value={orgs} onChange={(e) => setOrgs(e.target.value)} /></label>}
         {type === 'OpenID' && <label className="text-xs text-slate-400 md:col-span-2">Issuer URL<input aria-label="Issuer URL" className={inputCls} value={issuer} onChange={(e) => setIssuer(e.target.value)} /></label>}
       </div>
-      {type === 'HTPasswd' && !createSecret && <p className="text-xs text-slate-500">The Secret must already exist in {CONFIG_NS} with an <code className="font-mono">htpasswd</code> key.</p>}
+      {type === 'HTPasswd' && !createSecret && <p className="text-xs text-faint">The Secret must already exist in {CONFIG_NS} with an <code className="font-mono">htpasswd</code> key.</p>}
       {problems.length > 0 && (name || secretName || firstUser) && <ul className="text-xs text-amber-300 list-disc ml-4">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={review} disabled={problems.length > 0}><Plus className="w-3 h-3" /> Review</Button>
@@ -354,7 +354,7 @@ export function IdentityProvidersPanel() {
     queryClient.invalidateQueries({ queryKey: ['users', 'oauth'] });
   };
 
-  if (q.isLoading) return <Card className="p-4"><p className="text-xs text-slate-500">Loading identity providers…</p></Card>;
+  if (q.isLoading) return <Card className="p-4"><p className="text-xs text-faint">Loading identity providers…</p></Card>;
   if (q.isError) return <LoadError title="The OAuth configuration could not be read — identity providers are unknown" error={q.error} onRetry={() => void q.refetch()} />;
   const data = q.data!;
   const providers = data.spec?.identityProviders ?? [];
@@ -404,11 +404,11 @@ export function IdentityProvidersPanel() {
     <Card>
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2"><Shield className="w-4 h-4 text-teal-400" /> Identity providers</h2>
-        <span className="text-xs text-slate-500">Token max age: {data.spec?.tokenConfig?.accessTokenMaxAgeSeconds ? `${data.spec.tokenConfig.accessTokenMaxAgeSeconds / 3600}h` : 'default (24h)'}</span>
+        <span className="text-xs text-faint">Token max age: {data.spec?.tokenConfig?.accessTokenMaxAgeSeconds ? `${data.spec.tokenConfig.accessTokenMaxAgeSeconds / 3600}h` : 'default (24h)'}</span>
       </div>
       <div className="p-4 space-y-3">
         <SignInHealth />
-        {denied && <p className="text-xs text-slate-500">You do not have permission to change the OAuth configuration; the providers are read-only here.</p>}
+        {denied && <p className="text-xs text-faint">You do not have permission to change the OAuth configuration; the providers are read-only here.</p>}
         {providers.length === 0 ? (
           <p className="text-sm text-slate-400">No identity providers configured — only kubeadmin can sign in.</p>
         ) : providers.map((p) => (
@@ -416,7 +416,7 @@ export function IdentityProvidersPanel() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-slate-200">{p.name}</div>
-                <div className="text-xs text-slate-500">{p.type} · mapping: {p.mappingMethod || 'claim'}{p.htpasswd?.fileData?.name ? ` · Secret ${CONFIG_NS}/${p.htpasswd.fileData.name}` : ''}</div>
+                <div className="text-xs text-faint">{p.type} · mapping: {p.mappingMethod || 'claim'}{p.htpasswd?.fileData?.name ? ` · Secret ${CONFIG_NS}/${p.htpasswd.fileData.name}` : ''}</div>
               </div>
               <div className="flex items-center gap-1">
                 {p.type === 'HTPasswd' && p.htpasswd?.fileData?.name && (

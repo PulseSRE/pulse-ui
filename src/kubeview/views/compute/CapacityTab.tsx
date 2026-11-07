@@ -93,7 +93,7 @@ function LocalCapacityTab() {
           {/* CPU, memory, disk and pod trends are on the Overview tab; not repeated here. */}
 
           {/* Disclaimer */}
-          <div className="flex items-start gap-2 text-xs text-slate-600">
+          <div className="flex items-start gap-2 text-xs text-faint">
             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>Projections are estimates based on linear regression over the selected lookback period. Actual growth may vary due to seasonal patterns, deployments, or scaling events. Longer lookback periods produce more stable estimates.</span>
           </div>

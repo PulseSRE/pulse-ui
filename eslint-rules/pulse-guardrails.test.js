@@ -149,7 +149,7 @@ describe('repository ESLint config', () => {
 
   it('bans yellow and low-contrast text everywhere, primitives and engine included', async () => {
     const code = "export const a = 'text-yellow-400'; export const b = 'text-xs text-slate-600';";
-    for (const file of ['src/kubeview/components/NewPanel.tsx', 'src/kubeview/components/primitives/New.tsx', 'src/kubeview/engine/new.ts']) {
+    for (const file of ['src/kubeview/views/NewPage.tsx', 'src/kubeview/components/NewPanel.tsx', 'src/kubeview/components/primitives/New.tsx', 'src/kubeview/engine/new.ts']) {
       expect(await lint(code, file)).toEqual(['pulse/no-yellow', 'pulse/no-low-contrast-text']);
     }
   }, 30_000);
