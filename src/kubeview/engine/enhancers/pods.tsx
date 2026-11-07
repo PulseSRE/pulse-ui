@@ -28,7 +28,10 @@ export const podEnhancer: ResourceEnhancer = {
 
         // One pod palette with the node map and topology pod grid:
         // Pending is warning, ContainerCreating/PodInitializing is progress.
-        const tone = podPhaseClasses(podStatus.phase, { reason: podStatus.reason, ready: podStatus.ready });
+        // getPodStatus().reason leaves out ContainerCreating (it is not a
+        // failure), so take the waiting reason too: start-up reads as progress.
+        const waiting = podStatus.containerStatuses.find((c) => c.state === 'waiting' && c.reason)?.reason;
+        const tone = podPhaseClasses(podStatus.phase, { reason: podStatus.reason ?? waiting, ready: podStatus.ready });
         const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${tone.solid}`;
 
         return (

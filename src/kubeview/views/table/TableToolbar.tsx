@@ -83,8 +83,9 @@ export function TableToolbar({
 }: TableToolbarProps) {
   return (
     <>
-      <div className="border-b border-slate-800 px-6 py-4">
-        <div className="flex items-center justify-between mb-3">
+      <div className="border-b border-slate-800 px-6 max-sm:px-4 py-4">
+        {/* Phones: the controls wrap under the title and search takes the row's remaining width. */}
+        <div className="flex max-sm:flex-wrap items-center justify-between max-sm:gap-y-3 mb-3">
           <div>
             <h1 className="text-2xl font-bold text-slate-100">{resourceKind}</h1>
             <p className="text-xs text-faint mt-0.5">
@@ -104,7 +105,7 @@ export function TableToolbar({
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-sm:w-full">
             {/* Create button */}
             {canCreate && resourcePlural !== 'nodes' && <button
               onClick={onCreate}
@@ -145,7 +146,7 @@ export function TableToolbar({
               )}
             </div>
             {/* Search */}
-            <div className="relative">
+            <div className="relative max-sm:min-w-0 max-sm:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
                 type="text"
@@ -153,7 +154,7 @@ export function TableToolbar({
                 onChange={(e) => onSearchChange(e.target.value)}
                 aria-label={`Search ${resourceKind.toLowerCase()}`}
                 placeholder="Search..."
-                className="pl-9 pr-3 py-1.5 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                className="pl-9 pr-3 py-1.5 text-sm bg-slate-900 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64 max-sm:w-full"
               />
             </div>
             {/* Filter toggle */}

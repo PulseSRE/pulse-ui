@@ -87,10 +87,12 @@ export function DetailViewHeader({
   const url = resource.kind === 'Route' ? routeUrl(resource) : null;
 
   return (
-    <div className="flex items-start justify-between">
-      <div>
+    // Narrow screens: the actions wrap under the title, and a long name
+    // truncates (full text on hover) instead of breaking over three lines.
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0 max-w-full">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm mb-1" aria-label="Breadcrumb">
+        <nav className="flex min-w-0 items-center gap-1.5 text-sm mb-1" aria-label="Breadcrumb">
           <button
             onClick={onNavigateBack}
             className="p-1 rounded-sm hover:bg-slate-800 text-slate-400 hover:text-slate-200"
@@ -100,7 +102,7 @@ export function DetailViewHeader({
           </button>
           <button
             onClick={onGoToList}
-            className="text-blue-400 hover:text-blue-300 capitalize"
+            className="shrink-0 text-blue-400 hover:text-blue-300 capitalize"
             data-testid="breadcrumb-kind"
           >
             {resourcePlural}
@@ -110,7 +112,8 @@ export function DetailViewHeader({
               <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
               <button
                 onClick={onGoToListFiltered}
-                className="text-blue-400 hover:text-blue-300"
+                className="min-w-0 truncate text-blue-400 hover:text-blue-300"
+                title={namespace}
                 data-testid="breadcrumb-namespace"
               >
                 {namespace}
@@ -118,10 +121,10 @@ export function DetailViewHeader({
             </>
           )}
           <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-          <span className="text-slate-400" data-testid="breadcrumb-name">{name}</span>
+          <span className="min-w-0 truncate text-slate-400" title={name} data-testid="breadcrumb-name">{name}</span>
         </nav>
-        <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-2xl font-bold text-slate-100">{resource.metadata.name}</h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-2">
+          <h1 className="min-w-0 max-w-full truncate text-2xl max-sm:text-xl font-bold text-slate-100" title={resource.metadata.name}>{resource.metadata.name}</h1>
           <button
             onClick={onCopyName}
             className="p-1 rounded-sm text-faint hover:text-slate-300 hover:bg-slate-800 transition-colors"
@@ -149,7 +152,7 @@ export function DetailViewHeader({
           {resource.kind} · {resource.apiVersion}
         </p>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {/* Primary actions */}
         {(resource.kind === 'Pod' || isWorkload) && namespace && (
           <button onClick={onViewLogs} className="px-2.5 py-1.5 text-xs text-slate-400 rounded-sm hover:bg-slate-800 hover:text-slate-200 flex items-center gap-1.5 transition-colors">

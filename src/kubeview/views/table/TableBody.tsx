@@ -8,10 +8,15 @@ import { EmptyState } from '../../components/primitives/EmptyState';
 import type { K8sResource, ColumnDef } from '../../engine/renderers';
 import type { ResourceEnhancer } from '../../engine/enhancers';
 import { WorkloadActionMenu, TABLE_ACTION_KINDS } from '../../components/workloads/WorkloadActionMenu';
-import { actionsColumnWidth, buildColumnTemplate } from './columnTemplate';
+import { actionsColumnWidth, buildColumnTemplate, PHONE_FLEX_PERCENT_MIN_PX } from './columnTemplate';
+import { useIsPhone } from '../../hooks/useIsPhone';
 
-/** The actions column stays in view on the right while the table scrolls sideways. */
-const STICKY_ACTIONS = 'sticky right-0 z-[1] border-l border-slate-800/60';
+/**
+ * The actions column stays in view on the right while the table scrolls
+ * sideways, from `sm` up. On a phone it would cover Status, so there it
+ * scrolls with the row like any other column.
+ */
+const STICKY_ACTIONS = 'sm:sticky sm:right-0 sm:z-[1] border-l border-slate-800/60';
 
 interface SortState {
   column: string;
@@ -111,10 +116,12 @@ export function TableBody({
       setMeasured((prev) => (prev.key !== actionsKey ? { key: actionsKey, width: w } : w > prev.width ? { key: actionsKey, width: w } : prev));
     }
   }, [actionsKey]);
+  const isPhone = useIsPhone();
   const { template, minWidth } = useMemo(() => buildColumnTemplate(
     visibleColumns,
     actionsColumnWidth(visibleInlineActions.length + (showsWorkloadMenu ? 1 : 0) + 2, measuredActions),
-  ), [visibleColumns, visibleInlineActions.length, showsWorkloadMenu, measuredActions]);
+    isPhone ? { flexPercentMinPx: PHONE_FLEX_PERCENT_MIN_PX } : undefined,
+  ), [visibleColumns, visibleInlineActions.length, showsWorkloadMenu, measuredActions, isPhone]);
   const gridStyle = { display: 'grid', gridTemplateColumns: template, alignItems: 'center' } as const;
   const headerRowCount = showFilters ? 2 : 1;
 

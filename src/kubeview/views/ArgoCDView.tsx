@@ -120,7 +120,7 @@ export default function ArgoCDView() {
   if (detecting) {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-content mx-auto space-y-6">
           <PageHeader icon={<GitBranch className="w-6 h-6 text-blue-500" />} title="GitOps" />
           <div role="status" aria-label="Detecting Argo CD" className="text-center py-16">
             <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-3" aria-hidden="true" />
@@ -180,7 +180,7 @@ export default function ArgoCDView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-content mx-auto space-y-6">
         {/* Header */}
         <PageHeader
           icon={<GitBranch className="w-6 h-6 text-blue-500" />}

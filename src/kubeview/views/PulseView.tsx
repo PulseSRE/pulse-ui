@@ -281,7 +281,7 @@ export default function PulseView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-5">
+      <div className="max-w-content mx-auto space-y-5">
 
         {/* An open episode outranks everything below it — those tiles are
             showing its symptoms. */}
