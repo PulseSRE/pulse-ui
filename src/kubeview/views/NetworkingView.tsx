@@ -189,7 +189,7 @@ export default function NetworkingView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-content mx-auto space-y-6">
         {/* Header */}
         <PageHeader
           icon={<Globe className="w-6 h-6 text-cyan-500" />}

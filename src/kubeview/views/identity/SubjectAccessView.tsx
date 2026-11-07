@@ -333,7 +333,7 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
   ].filter((f): f is string => Boolean(f));
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-5">
+      <div className="max-w-content mx-auto space-y-5">
         <PageHeader
           breadcrumb={[
             // Users are the Identity page's first tab, so a user's trail is Identity & Access › name.

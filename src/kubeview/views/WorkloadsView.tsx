@@ -180,7 +180,7 @@ export default function WorkloadsView() {
   if (activeTab === 'builds') {
     return (
       <div className="h-full overflow-auto bg-slate-950 p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-content mx-auto space-y-6">
           <PageHeader
             icon={<Package className="w-6 h-6 text-blue-500" />}
             title="Workloads"
@@ -204,7 +204,7 @@ export default function WorkloadsView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-content mx-auto space-y-6">
         {/* Header */}
         <PageHeader
           icon={<Package className="w-6 h-6 text-blue-500" />}

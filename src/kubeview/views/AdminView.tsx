@@ -441,7 +441,7 @@ export default function AdminView() {
 
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-content mx-auto space-y-6">
         <PageHeader
           icon={<Settings className="w-6 h-6 text-slate-400" />}
           title="Administration"

@@ -13,6 +13,8 @@ import type { ColumnDef } from '../../engine/renderers';
 export const SELECT_COLUMN_PX = 48;
 /** Floor for a percentage column (in practice Name): it grows, never squeezes below this. */
 export const FLEX_PERCENT_MIN_PX = 200;
+/** The same floor at phone width, so Name, Status and Age fit a 390px screen before the table scrolls. */
+export const PHONE_FLEX_PERCENT_MIN_PX = 140;
 /** Floor for a column with no declared width (auto-detected CRD columns). */
 export const FLEX_AUTO_MIN_PX = 120;
 /** Horizontal padding of a cell (px-4 on both sides). */
@@ -44,7 +46,7 @@ export function headerWidth(header = '', sortable = false): number {
  * Grid track for a column's declared CSS width, never narrower than its header
  * (a fixed width the header does not fit in is widened, for header and cells alike).
  */
-export function trackFor(width: string | undefined, header?: string, sortable?: boolean): Track {
+export function trackFor(width: string | undefined, header?: string, sortable?: boolean, percentMinPx = FLEX_PERCENT_MIN_PX): Track {
   const floor = headerWidth(header, sortable);
   const fixed = width ? FIXED_RE.exec(width.trim()) : null;
   if (fixed) {
@@ -52,7 +54,7 @@ export function trackFor(width: string | undefined, header?: string, sortable?: 
     return { track: `${px}px`, min: px };
   }
   // A percentage (Name, 25%) is the column meant to grow with the window.
-  const min = Math.max(width && width.trim().endsWith('%') ? FLEX_PERCENT_MIN_PX : FLEX_AUTO_MIN_PX, floor);
+  const min = Math.max(width && width.trim().endsWith('%') ? percentMinPx : FLEX_AUTO_MIN_PX, floor);
   const fr = width && width.trim().endsWith('%') ? 2 : 1;
   return { track: `minmax(${min}px, ${fr}fr)`, min };
 }
@@ -68,14 +70,33 @@ export function actionsColumnWidth(itemCount: number, measured = 0): number {
   return Math.max(estimate, measured > 0 ? measured + CELL_PADDING_PX : 0);
 }
 
-export function buildColumnTemplate(columns: Pick<ColumnDef, 'width' | 'header' | 'sortable'>[], actionsWidth: number): ColumnTemplate {
+export function buildColumnTemplate(
+  columns: Pick<ColumnDef, 'width' | 'header' | 'sortable'>[],
+  actionsWidth: number,
+  { flexPercentMinPx = FLEX_PERCENT_MIN_PX }: { flexPercentMinPx?: number } = {},
+): ColumnTemplate {
   const tracks: Track[] = [
     { track: `${SELECT_COLUMN_PX}px`, min: SELECT_COLUMN_PX },
-    ...columns.map((c) => trackFor(c.width, c.header, c.sortable)),
+    ...columns.map((c) => trackFor(c.width, c.header, c.sortable, flexPercentMinPx)),
     { track: `${actionsWidth}px`, min: actionsWidth },
   ];
   return {
     template: tracks.map((t) => t.track).join(' '),
     minWidth: tracks.reduce((sum, t) => sum + t.min, 0),
   };
+}
+
+/**
+ * Columns a list keeps at phone width: name, status and age. A kind with no
+ * status column keeps its readiness column instead (Deployments show READY).
+ * The rest start hidden there and stay one tap away in the column picker; the
+ * table scrolls sideways inside itself if the user shows more.
+ */
+export const PHONE_KEY_COLUMNS = ['name', 'status', 'age'] as const;
+
+export function phoneHiddenColumns(columns: Pick<ColumnDef, 'id'>[]): Set<string> {
+  const ids = new Set(columns.map((c) => c.id));
+  const keep = new Set<string>(PHONE_KEY_COLUMNS);
+  if (!ids.has('status')) keep.add('ready');
+  return new Set(columns.filter((c) => !keep.has(c.id)).map((c) => c.id));
 }

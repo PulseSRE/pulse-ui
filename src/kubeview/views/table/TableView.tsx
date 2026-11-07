@@ -18,6 +18,8 @@ import { DeleteProgressOverlay } from './DeleteProgress';
 import { DrainNodeDialog } from '../../components/DrainNodeDialog';
 import { TableToolbar } from './TableToolbar';
 import { TableBody } from './TableBody';
+import { phoneHiddenColumns } from './columnTemplate';
+import { useIsPhone } from '../../hooks/useIsPhone';
 import { useTableActions } from './TableActions';
 import { BulkDeleteDialog } from './BulkDeleteDialog';
 import { DeleteRelatedDialog } from '../../components/workloads/DeleteRelatedDialog';
@@ -196,8 +198,18 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
   const [focusedRow, setFocusedRow] = React.useState(-1);
 
   // --- Column visibility ---
-  const [hiddenColumns, setHiddenColumns] = React.useState<Set<string>>(new Set());
+  const [userHiddenColumns, setHiddenColumns] = React.useState<Set<string>>(new Set());
   const [showColumnPicker, setShowColumnPicker] = React.useState(false);
+  // At phone width only the key columns start visible; ones the user turns
+  // back on in the picker are remembered here.
+  const isPhone = useIsPhone();
+  const [phoneShown, setPhoneShown] = React.useState<Set<string>>(new Set());
+  const hiddenColumns = React.useMemo(() => {
+    if (!isPhone) return userHiddenColumns;
+    const hidden = new Set(userHiddenColumns);
+    for (const id of phoneHiddenColumns(columns)) if (!phoneShown.has(id)) hidden.add(id);
+    return hidden;
+  }, [isPhone, userHiddenColumns, phoneShown, columns]);
 
   const visibleColumns = React.useMemo(
     () => columns.filter((c) => !hiddenColumns.has(c.id)),
@@ -530,13 +542,19 @@ export default function TableView({ gvrKey, namespace: namespaceProp }: TableVie
         columns={columns}
         hiddenColumns={hiddenColumns}
         onToggleColumn={(colId) => {
+          const show = hiddenColumns.has(colId);
           setHiddenColumns((prev) => {
             const next = new Set(prev);
-            if (next.has(colId)) next.delete(colId); else next.add(colId);
+            if (show) next.delete(colId); else next.add(colId);
+            return next;
+          });
+          setPhoneShown((prev) => {
+            const next = new Set(prev);
+            if (show) next.add(colId); else next.delete(colId);
             return next;
           });
         }}
-        onShowAllColumns={() => setHiddenColumns(new Set())}
+        onShowAllColumns={() => { setHiddenColumns(new Set()); setPhoneShown(new Set(columns.map((c) => c.id))); }}
         showColumnPicker={showColumnPicker}
         onToggleColumnPicker={() => setShowColumnPicker(!showColumnPicker)}
         selectedCount={selectedRows.size}
