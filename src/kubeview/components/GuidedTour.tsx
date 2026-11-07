@@ -51,8 +51,8 @@ const TOUR_STEPS: TourStep[] = [
     title: "You're Ready",
     description: 'Navigate with Cmd+K, browse resources with Cmd+B. Your cluster is in good hands.',
     icon: Sparkles,
-    iconColor: 'text-violet-400',
-    iconBg: 'bg-violet-500/15',
+    iconColor: 'text-emerald-400',
+    iconBg: 'bg-emerald-500/15',
   },
 ];
 

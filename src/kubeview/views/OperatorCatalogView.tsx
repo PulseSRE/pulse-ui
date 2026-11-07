@@ -731,7 +731,7 @@ export default function OperatorCatalogView() {
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <PageHeader
-          icon={<Puzzle className="w-6 h-6 text-violet-500" />}
+          icon={<Puzzle className="w-6 h-6 text-blue-500" />}
           title="Operator Catalog"
           subtitle={<span className="inline-flex flex-wrap items-center gap-x-2">
             <span>{catalogError ? 'Catalog could not be read' : isLoading ? 'Loading catalog…' : `${dedupedPackages.length} operators available from ${catalogs.length} sources`}</span>

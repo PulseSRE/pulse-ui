@@ -142,12 +142,27 @@ describe('GateCard', () => {
     expect(screen.queryByText('Waive')).toBeNull();
   });
 
-  it('shows Fix with AI button for failed gates and triggers agent', () => {
+  it('shows Ask Pulse to fix for failed gates and triggers agent', () => {
     render(<GateCard gate={makeGate()} result={makeResult({ status: 'failed', detail: 'Bad config' })} />);
-    fireEvent.click(screen.getByText('Fix with AI'));
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse to fix' }));
     expect(mockOpenDock).toHaveBeenCalled();
     // askPulse forwards an optional resource context; none applies here.
     expect(mockConnectAndSend).toHaveBeenCalledWith(expect.stringContaining('TLS Configured'), undefined);
+  });
+
+  it('on a remote cluster, Ask Pulse to fix is disabled: the gate result describes that cluster', async () => {
+    const { useFleetStore } = await import('../../../store/fleetStore');
+    useFleetStore.setState({ activeClusterId: 'prod-east' } as never);
+    try {
+      render(<GateCard gate={makeGate()} result={makeResult({ status: 'failed', detail: 'Bad config' })} />);
+      const btn = screen.getByRole('button', { name: 'Ask Pulse to fix' }) as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      expect(btn.title).toBe('Pulse AI answers about the local cluster only.');
+      fireEvent.click(btn);
+      expect(mockConnectAndSend).not.toHaveBeenCalled();
+    } finally {
+      useFleetStore.setState({ activeClusterId: 'local' } as never);
+    }
   });
 
   it('toggles expanded state on click', () => {

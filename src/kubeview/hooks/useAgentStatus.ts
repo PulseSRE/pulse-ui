@@ -2,6 +2,7 @@ import { Bot, Loader2, AlertTriangle, Search } from 'lucide-react';
 import { useAgentStore } from '../store/agentStore';
 import { useInboxStore } from '../store/inboxStore';
 import { useMonitorStore } from '../store/monitorStore';
+import { AI_ACCENT } from '../components/agent/aiTokens';
 
 export type AgentStatusType = 'streaming' | 'investigating' | 'findings' | 'connected' | 'offline';
 
@@ -23,10 +24,10 @@ export function useAgentStatus(): AgentStatus {
   const activeSkill = useMonitorStore((s) => s.activeSkill);
 
   if (streaming) {
-    return { type: 'streaming', text: 'Reasoning...', icon: Loader2, color: 'text-violet-400', findingsCount, criticalCount };
+    return { type: 'streaming', text: 'Reasoning...', icon: Loader2, color: AI_ACCENT.text, findingsCount, criticalCount };
   }
   if (activeSkill) {
-    return { type: 'investigating', text: `Investigating: ${activeSkill}`, icon: Search, color: 'text-violet-400', findingsCount, criticalCount };
+    return { type: 'investigating', text: `Investigating: ${activeSkill}`, icon: Search, color: AI_ACCENT.text, findingsCount, criticalCount };
   }
   if (findingsCount > 0) {
     // Same count and name as the inbox bell: inbox items needing attention.

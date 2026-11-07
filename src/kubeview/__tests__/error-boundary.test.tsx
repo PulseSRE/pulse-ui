@@ -100,7 +100,7 @@ describe('ErrorBoundary contextual error messages', () => {
     expect(screen.getByText('Reload Page')).toBeTruthy();
   });
 
-  it('keeps Try Again, Ask AI, and Go Home buttons for non-chunk errors', () => {
+  it('keeps Try Again, Ask Pulse, and Go Home buttons for non-chunk errors', () => {
     const error = new Error('render crash');
     render(
       <ErrorBoundary>
@@ -108,7 +108,7 @@ describe('ErrorBoundary contextual error messages', () => {
       </ErrorBoundary>
     );
     expect(screen.getByText('Try Again')).toBeTruthy();
-    expect(screen.getByText('Ask AI')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ask Pulse' })).toBeTruthy();
     expect(screen.getByText('Go Home')).toBeTruthy();
   });
 });

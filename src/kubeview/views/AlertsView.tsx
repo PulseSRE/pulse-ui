@@ -31,6 +31,7 @@ import type { Node } from '../engine/types';
 import { suggestSilences, readAlertmanager, createSilence as postSilence, expireSilence as deleteSilence, minutesToCover, describeMinutes, labelsMatch, type AlertForSilence, type SilenceSuggestion } from '../engine/silences';
 import { SilenceConfirmDialog, type SilenceProposal } from './alerts/SilenceConfirmDialog';
 import { NamespaceUnhealthyPods, SilenceSuggestionBanner, TriageChip, nodeItem, useAlertTriage, type TriageState } from './alerts/AlertTriage';
+import { AI_ACCENT } from '../components/agent/aiTokens';
 
 const DISMISSED_SUGGESTIONS_KEY = 'pulse-alerts-dismissed-silence-suggestions';
 
@@ -1080,7 +1081,7 @@ function AlertRow({ item, go, onSilence, triage, suggestion, proposeMinutes, onP
       {suggestion && !item.isSilenced ? (
         <button
           onClick={(e) => { e.stopPropagation(); onPropose(suggestion); }}
-          className="px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 shrink-0 bg-violet-700 hover:bg-violet-600 text-white"
+          className={cn('px-2.5 py-1.5 text-xs rounded-sm flex items-center gap-1.5 shrink-0', AI_ACCENT.solid)}
           title="Review the silence Pulse proposes for this node"
         >
           <VolumeX className="w-3.5 h-3.5" />

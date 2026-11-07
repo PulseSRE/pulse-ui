@@ -108,7 +108,7 @@ export function WaiverDialog({ gateTitle, open, onClose, onConfirm, storage, loa
             rows={3}
             className={cn(
               'w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-200',
-              'placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-violet-500 focus:border-transparent',
+              'placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent',
               'resize-none',
             )}
             ref={reasonRef}
@@ -150,7 +150,7 @@ export function WaiverDialog({ gateTitle, open, onClose, onConfirm, storage, loa
               className={cn(
                 'px-4 py-1.5 text-sm rounded-lg font-medium transition-colors',
                 canSubmit
-                  ? 'bg-violet-600 hover:bg-violet-500 text-white'
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white'
                   : 'bg-slate-700 text-slate-500 cursor-not-allowed',
               )}
             >

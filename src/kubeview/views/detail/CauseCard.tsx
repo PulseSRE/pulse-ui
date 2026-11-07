@@ -21,6 +21,7 @@ import type { InvestigationReport as InboxReport } from '../../engine/inboxApi';
 import { useDiagnose, type DiagnoseTarget } from './useDiagnose';
 import { resolveKind } from '../../engine/kindRegistry';
 import { formatRelative } from '../../engine/format';
+import { PULSE_AI_LOCAL_ONLY } from '../../components/feedback/LocalClusterOnlyNotice';
 
 const SEVERITY_RANK: Record<string, number> = { critical: 3, warning: 2, info: 1 };
 
@@ -176,7 +177,7 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
       type="button"
       onClick={() => void run(again)}
       disabled={remote || state.phase === 'starting' || state.phase === 'waiting' || (state.phase === 'refused' && retryWait > 0)}
-      title={remote ? 'Pulse AI answers about the local cluster only.' : undefined}
+      title={remote ? PULSE_AI_LOCAL_ONLY : undefined}
       className="min-h-[40px] self-start rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
     >
       {label}
@@ -200,7 +201,7 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
 
       {remote && (
         <>
-          <p className="text-sm text-slate-400" data-testid="cause-remote">Pulse AI answers about the local cluster only.</p>
+          <p className="text-sm text-slate-400" data-testid="cause-remote">{PULSE_AI_LOCAL_ONLY}</p>
           {diagnoseButton()}
         </>
       )}

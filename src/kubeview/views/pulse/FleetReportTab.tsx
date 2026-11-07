@@ -300,6 +300,7 @@ export function FleetReportTab() {
         <AmbientInsight
           context={{ kind: 'Fleet', name: 'all-clusters', namespace: undefined }}
           prompt="Analyze fleet health across all connected clusters. Identify patterns, drift, and risks."
+          localData
         />
       </Suspense>
     </div>

@@ -107,7 +107,7 @@ export function GitOpsActionDialog({
       open
       onClose={onClose}
       title="GitOps Save"
-      icon={<GitBranch className="w-5 h-5 mt-1 text-violet-400" />}
+      icon={<GitBranch className="w-5 h-5 mt-1 text-blue-400" />}
       dismissible={status === 'idle' || status === 'done' || status === 'error'}
       showClose={false}
       size="lg"
@@ -115,7 +115,7 @@ export function GitOpsActionDialog({
       bodyClassName="pb-6"
     >
         <p className="text-sm text-slate-400 mb-1">
-          <span className="text-slate-200 font-medium">{resourceKind}/{resourceName}</span> is managed by ArgoCD application <span className="text-violet-300">{syncInfo.appName}</span>.
+          <span className="text-slate-200 font-medium">{resourceKind}/{resourceName}</span> is managed by ArgoCD application <span className="text-blue-300">{syncInfo.appName}</span>.
         </p>
         <p className="text-xs text-slate-500 mb-5">Choose how to save your changes:</p>
 
@@ -125,12 +125,12 @@ export function GitOpsActionDialog({
             <button
               onClick={() => handleAction('apply-and-pr')}
               disabled={!isConfigured}
-              className="w-full text-left p-4 rounded-lg border border-violet-800/50 bg-violet-950/20 hover:bg-violet-950/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full text-left p-4 rounded-lg border border-blue-800/50 bg-blue-950/20 hover:bg-blue-950/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <div className="flex items-center gap-2 mb-1">
-                <Zap className="w-4 h-4 text-violet-400" />
-                <span className="text-sm font-medium text-violet-200">Apply Now + Create PR</span>
-                <span className="text-xs px-1.5 py-0.5 bg-violet-900/50 text-violet-300 rounded-sm ml-auto">Recommended</span>
+                <Zap className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-medium text-blue-200">Apply Now + Create PR</span>
+                <span className="text-xs px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded-sm ml-auto">Recommended</span>
               </div>
               <p className="text-xs text-slate-400">
                 Apply the change immediately and create a PR to sync Git. Cluster will be out-of-sync until PR is merged.
@@ -190,7 +190,7 @@ export function GitOpsActionDialog({
         {/* Progress */}
         {(status === 'applying' || status === 'creating-pr') && (
           <div className="flex items-center gap-3 py-8 justify-center">
-            <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
+            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
             <span className="text-sm text-slate-300">
               {status === 'applying' ? 'Applying to cluster...' : 'Creating pull request...'}
             </span>
@@ -207,7 +207,7 @@ export function GitOpsActionDialog({
                 href={prUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-sm transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-sm transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" /> View Pull Request
               </a>

@@ -343,7 +343,7 @@ export function WorldMap({ clusters, zones, nodes, pods, events = [], zoneUtiliz
         <div className="flex items-center gap-1">
           <div className="flex items-center gap-0.5 bg-slate-800/60 rounded-sm p-0.5 mr-1">
             <button onClick={() => setOverlay(overlay === 'cpu' ? 'none' : 'cpu')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'cpu' ? 'bg-blue-600/30 text-blue-300' : 'text-slate-500 hover:text-slate-300'}`}>CPU</button>
-            <button onClick={() => setOverlay(overlay === 'memory' ? 'none' : 'memory')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'memory' ? 'bg-violet-600/30 text-violet-300' : 'text-slate-500 hover:text-slate-300'}`}>MEM</button>
+            <button onClick={() => setOverlay(overlay === 'memory' ? 'none' : 'memory')} className={`px-1.5 py-0.5 rounded-sm text-xs transition-colors ${overlay === 'memory' ? 'bg-blue-600/30 text-blue-300' : 'text-slate-500 hover:text-slate-300'}`}>MEM</button>
           </div>
 
           {searchOpen ? (

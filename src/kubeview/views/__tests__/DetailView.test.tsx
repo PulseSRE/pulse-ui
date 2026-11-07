@@ -390,9 +390,8 @@ describe('DetailView', () => {
     // Namespace badge has specific styling class
     const badges = screen.getAllByText('default');
     expect(badges.length).toBeGreaterThanOrEqual(1);
-    // At least one should be the namespace badge (purple background)
-    const namespaceBadge = badges.find((el) => el.className.includes('purple'));
-    expect(namespaceBadge).toBeDefined();
+    // At least one is the namespace badge (a neutral chip: violet is reserved for Pulse AI)
+    expect(screen.getByTestId('namespace-badge').textContent).toBe('default');
   });
 
   it('shows events tab with event count', async () => {

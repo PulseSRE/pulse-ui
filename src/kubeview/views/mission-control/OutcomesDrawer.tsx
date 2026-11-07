@@ -124,7 +124,7 @@ export function OutcomesDrawer({ onClose }: { onClose: () => void }) {
                   onClick={() => setFilter(f.id)}
                   className={cn(
                     'px-2.5 py-1 text-xs rounded-sm transition-colors',
-                    filter === f.id ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-200 bg-slate-800',
+                    filter === f.id ? 'bg-blue-600/20 text-blue-200' : 'text-slate-400 hover:text-slate-200 bg-slate-800',
                   )}
                 >
                   {f.label}

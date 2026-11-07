@@ -458,7 +458,7 @@ export default function WorkloadsView() {
         <WorkloadListPanel<StatefulSet>
           id="workloads-statefulsets"
           title="StatefulSets"
-          icon={<Database className="w-4 h-4 text-violet-400" />}
+          icon={<Database className="w-4 h-4 text-blue-400" />}
           items={statefulsets}
           {...listErrorProps(stsQ)}
           gvr="apps~v1~statefulsets"

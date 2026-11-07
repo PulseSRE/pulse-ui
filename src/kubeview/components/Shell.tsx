@@ -22,6 +22,8 @@ import { startAgentNotifications, stopAgentNotifications } from '../engine/agent
 import { useAgentStore } from '../store/agentStore';
 import { disconnectAll } from '../engine/auth';
 import { useEffect, useState, useCallback } from 'react';
+import { AI_ACCENT } from './agent/aiTokens';
+import { cn } from '@/lib/utils';
 
 registerBuiltinEnhancers();
 
@@ -131,9 +133,9 @@ export function Shell() {
       <TabBar />
 
       {viewBuilderMode && (
-        <div className="flex items-center justify-between px-4 py-1.5 bg-violet-900/50 border-b border-violet-700 text-xs">
-          <span className="text-violet-200">Building View — add widgets from the chat, drag to arrange, resize to fit</span>
-          <button onClick={() => { exitViewBuilder(); useCustomViewStore.getState().setActiveBuilderId(null); }} className="px-3 py-1 text-white bg-violet-700 hover:bg-violet-600 rounded-sm font-medium transition-colors">Done</button>
+        <div className={cn('flex items-center justify-between px-4 py-1.5 border-b text-xs', AI_ACCENT.banner)}>
+          <span>Building View — add widgets from the chat, drag to arrange, resize to fit</span>
+          <button onClick={() => { exitViewBuilder(); useCustomViewStore.getState().setActiveBuilderId(null); }} className={cn('px-3 py-1 rounded-sm font-medium transition-colors', AI_ACCENT.solid)}>Done</button>
         </div>
       )}
 

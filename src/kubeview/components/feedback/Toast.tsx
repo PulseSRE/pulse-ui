@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X, CheckCircle2, XCircle, AlertTriangle, Undo2, ShieldX, WifiOff, ServerCrash, Bot } from 'lucide-react';
+import { X, CheckCircle2, XCircle, AlertTriangle, Undo2, ShieldX, WifiOff, ServerCrash } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import { cn } from '@/lib/utils';
 import { askPulse } from '../../engine/askPulse';
+import { AskPulseButton } from '../agent/AskPulseButton';
 
 interface ToastProps {
   id: string;
@@ -139,13 +140,7 @@ function Toast({ id: _id, type, title, detail, duration, action, category, sugge
             </button>
           )}
           {type === 'error' && (
-            <button
-              onClick={handleAskAI}
-              className="flex items-center gap-1 rounded-sm px-3 py-1 text-sm text-violet-300 transition-colors hover:bg-violet-900/40 hover:text-violet-200"
-            >
-              <Bot className="h-3.5 w-3.5" />
-              Ask AI
-            </button>
+            <AskPulseButton onAsk={handleAskAI} />
           )}
           {action && (
             <button

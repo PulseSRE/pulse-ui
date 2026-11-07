@@ -49,7 +49,7 @@ export function ResourceHistoryPanel({ kind, namespace, name }: ResourceHistoryP
     <Card>
       <div className="px-4 py-3 border-b border-slate-800">
         <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-          <History className="w-4 h-4 text-violet-400" />
+          <History className="w-4 h-4 text-blue-400" />
           Sync History
           <span className="text-xs text-slate-500 font-normal">
             via {syncInfo.appName}
@@ -71,7 +71,7 @@ export function ResourceHistoryPanel({ kind, namespace, name }: ResourceHistoryP
               key={`${entry.id}-${i}`}
               className="flex items-center gap-3 px-4 py-2.5"
             >
-              <GitCommit className="w-4 h-4 text-violet-400 shrink-0" />
+              <GitCommit className="w-4 h-4 text-blue-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   {shortSha &&
