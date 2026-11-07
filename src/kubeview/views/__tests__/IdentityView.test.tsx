@@ -16,9 +16,9 @@ function r() { return render(<QueryClientProvider client={new QueryClient({ defa
 describe('IdentityView', () => {
   afterEach(cleanup);
   it('renders page header', () => { r(); expect(document.body.textContent).toContain('Identity'); });
-  it('renders the Users, Groups & Service Accounts and Access review tabs', () => {
+  it('renders the Users, Groups & Service Accounts, Access review and Sign-in tabs', () => {
     r();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Users', 'Groups & Service Accounts', 'Access review']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Users', 'Groups & Service Accounts', 'Access review', 'Sign-in']);
   });
   it('renders without crashing', () => { const { container } = r(); expect(container.querySelector('.bg-slate-950')).toBeDefined(); });
   it('shows summary counts', () => { r(); for (const l of ['Users', 'Groups', 'Service Accounts']) expect(screen.getAllByText(l).length).toBeGreaterThan(0); });

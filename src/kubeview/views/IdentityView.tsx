@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users, User, Shield, Key, ArrowRight, CheckCircle, AlertTriangle,
-  UserCheck, Search, Activity, Clock, Lock, Fingerprint, HelpCircle,
+  UserCheck, Search, Activity, Clock, Lock, Fingerprint, HelpCircle, LogIn,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { k8sList, k8sGet, k8sDelete } from '../engine/query';
@@ -36,6 +36,7 @@ import { clusterAdminSubjects, tooManyClusterAdmins, CLUSTER_ADMIN_LIMIT } from 
 import { RevokeBindingButton } from '../components/rbac/RevokeBinding';
 import { CreateGroupButton, GroupMemberControls, type GroupLike } from './identity/GroupActions';
 import { AccessPanel } from './identity/AccessPanel';
+import { SignInTab } from './identity/SignInTab';
 import { WhoCanPanel } from './identity/WhoCanPanel';
 import { subjectPagePath, refFromUsername } from '../engine/subjectAccess';
 
@@ -76,14 +77,16 @@ type K8sResourceExt = K8sResource & {
 // (with Stop) by the global banner in the Shell; it has no tab of its own.
 // An old `?tab=impersonation` link falls back to Users.
 // `rbac` is labelled "Access review" (who can, bindings, RBAC audit); the id
-// is kept so existing ?tab=rbac links still land there.
-type TabId = 'users' | 'groups-sa' | 'rbac';
-const TAB_IDS: readonly TabId[] = ['users', 'groups-sa', 'rbac'];
+// is kept so existing ?tab=rbac links still land there. `signin` holds the
+// identity providers, moved from Admin › Cluster Config.
+type TabId = 'users' | 'groups-sa' | 'rbac' | 'signin';
+const TAB_IDS: readonly TabId[] = ['users', 'groups-sa', 'rbac', 'signin'];
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; iconActive: React.ReactNode }[] = [
   { id: 'users', label: 'Users', icon: <User className="w-3.5 h-3.5 text-blue-400" />, iconActive: <User className="w-3.5 h-3.5" /> },
   { id: 'groups-sa', label: 'Groups & Service Accounts', icon: <Key className="w-3.5 h-3.5 text-amber-400" />, iconActive: <Key className="w-3.5 h-3.5" /> },
   { id: 'rbac', label: 'Access review', icon: <Shield className="w-3.5 h-3.5 text-red-400" />, iconActive: <Shield className="w-3.5 h-3.5" /> },
+  { id: 'signin', label: 'Sign-in', icon: <LogIn className="w-3.5 h-3.5 text-teal-400" />, iconActive: <LogIn className="w-3.5 h-3.5" /> },
 ];
 
 /** The one Impersonate action, on user and service-account rows. */
@@ -608,6 +611,9 @@ export default function IdentityView() {
           </>
         )}
 
+        {/* ==================== SIGN-IN TAB ==================== */}
+        {activeTab === 'signin' && <SignInTab />}
+
         {/* Quick links */}
         <Card className="p-4">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Related Resources</h3>
@@ -767,7 +773,7 @@ function IdentityAudit({ users, groups, clusterRoleBindings, oauthConfig, access
       why: 'Without an identity provider, only kubeadmin can log in. Configure HTPasswd, LDAP, GitHub, Google, or OpenID Connect for real user authentication.',
       passing: idps.length > 0 ? idps : [],
       failing: idps.length === 0 ? [{ metadata: { name: 'No identity providers configured' } }] : [],
-      yamlExample: `# Configure via Administration → Cluster Config → OAuth
+      yamlExample: `# Configure in Identity & Access → Sign-in
 # Or apply directly:
 apiVersion: config.openshift.io/v1
 kind: OAuth
@@ -781,7 +787,7 @@ spec:
     htpasswd:
       fileData:
         name: htpass-secret`,
-      action: idps.length === 0 ? { label: 'Configure Identity Provider', id: 'configure-oauth', path: '/admin?tab=config' } : undefined,
+      action: idps.length === 0 ? { label: 'Configure Identity Provider', id: 'configure-oauth', path: '/identity?tab=signin' } : undefined,
     });
 
     // 2. kubeadmin removed
