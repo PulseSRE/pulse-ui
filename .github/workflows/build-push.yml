@@ -136,5 +136,5 @@ jobs:
             echo ""
             echo "\`$IMAGE:$TAG\` = \`$digest\`"
             echo ""
-            echo "Clusters run it only once pulse-operator pins this digest (it has no setting for the runner yet)."
+            echo "Pin this digest in pulse-operator (RELATED_IMAGE_HELM_RUNNER, or spec.ui.helmRunnerImage on the OpenShiftPulse CR) to enable Helm actions."
           } >> "$GITHUB_STEP_SUMMARY"
