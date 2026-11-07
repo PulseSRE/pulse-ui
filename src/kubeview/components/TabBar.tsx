@@ -155,9 +155,13 @@ export function TabBar() {
         updateTab(matchingTab.id, { path: currentUrl, title: titleForUrl(currentUrl) });
       }
     } else if (navigationType === 'REPLACE' && activeTab && tabKey(activeTab.path).split('?')[0] === currentPath) {
-      // The page rewrote its own URL and dropped a param that named the tab
-      // (a list consumes `?ns=` into the namespace selector). It is still the
-      // same tab, which keeps the URL that opens it.
+      // The page rewrote its own URL in place. A new `?ns=` (the picker) re-scopes
+      // this tab, which follows; a page dropping another param that named the
+      // tab keeps the URL that opens it.
+      const nsOf = (url: string) => new URLSearchParams(url.split('?')[1] ?? '').get('ns');
+      if (!activeTab.pinned && nsOf(currentUrl) !== nsOf(activeTab.path)) {
+        updateTab(activeTab.id, { path: currentUrl, title: titleForUrl(currentUrl) });
+      }
     } else if (currentPath !== '/' && isKnownRoute(currentPath)) {
       // Unknown paths show the Not Found page; they get no tab.
       // Create a new tab for this path (skip redirects and pinned defaults)

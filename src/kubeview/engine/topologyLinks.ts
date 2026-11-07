@@ -18,7 +18,8 @@ const SHORT_KINDS: Record<string, string> = {
 /** Path for /topology focused on one resource. */
 export function topologyFocusPath(kind: string, namespace: string | undefined, name: string): string {
   const params = new URLSearchParams();
-  if (namespace) params.set('namespace', namespace);
+  // `ns` is the page's namespace scope; old `?namespace=` links still work.
+  if (namespace) params.set('ns', namespace);
   params.set('focus', `${kind}/${namespace ?? ''}/${name}`);
   return `/topology?${params.toString()}`;
 }

@@ -170,9 +170,15 @@ interface UIState {
   setLastSyncTime: (time: number) => void;
   setActiveWatches: (count: number) => void;
 
-  // Namespace
+  // Namespace scope. The URL's `?ns=` is the source (see useNamespaceScope);
+  // this mirrors it for readers outside the page and across navigation.
   selectedNamespace: string;
   setSelectedNamespace: (ns: string) => void;
+  /** Mounted pages that scope by namespace / that show all namespaces whatever the picker says. */
+  namespaceScopeUsers: number;
+  namespaceScopeOptOuts: number;
+  /** Count one page as scoped (`applies`) or not; returns the release. */
+  registerNamespaceScope: (applies: boolean) => () => void;
 
   // Status bar operation
   activeOperation: string | null;
@@ -451,6 +457,13 @@ export const useUIStore = create<UIState>()(
       // Namespace
       selectedNamespace: '*',
       setSelectedNamespace: (ns) => set({ selectedNamespace: ns }),
+      namespaceScopeUsers: 0,
+      namespaceScopeOptOuts: 0,
+      registerNamespaceScope: (applies) => {
+        const field = applies ? 'namespaceScopeUsers' : 'namespaceScopeOptOuts';
+        set((state) => ({ [field]: state[field] + 1 }));
+        return () => set((state) => ({ [field]: Math.max(0, state[field] - 1) }));
+      },
 
       // Status bar operation
       activeOperation: null,

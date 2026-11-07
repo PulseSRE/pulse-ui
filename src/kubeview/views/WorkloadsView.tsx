@@ -10,7 +10,7 @@ import type { K8sResource } from '../engine/renderers';
 import type { Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob } from '../engine/types';
 import type { Condition, Container, ContainerStatus, LabelSelector, ObjectMeta } from '../engine/types';
 import { getDeploymentStatus, getPodStatus } from '../engine/renderers/statusUtils';
-import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useTabParam } from '../components/primitives/Tabs';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
@@ -54,7 +54,7 @@ interface PodDisruptionBudget extends K8sResource {
 
 export default function WorkloadsView() {
   const go = useNavigateTab();
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const safeNs = nsFilter ? sanitizePromQL(nsFilter) : '';
 

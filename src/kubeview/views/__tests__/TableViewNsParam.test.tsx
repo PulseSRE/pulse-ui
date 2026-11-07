@@ -2,7 +2,8 @@
 /**
  * `/r/<gvr>?ns=<namespace>` (DetailView breadcrumb, agent namespace dashboards,
  * resource_counts cards) used to open the list for whatever namespace was
- * globally selected. TableView now lists that namespace and adopts it.
+ * globally selected. TableView now lists that namespace and adopts it, and
+ * keeps it in the URL so the list can be reloaded and shared.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, screen } from '@testing-library/react';
@@ -27,6 +28,13 @@ vi.mock('../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: true, isLoadi
 
 import TableView from '../TableView';
 
+const clients: QueryClient[] = [];
+function newClient() {
+  const c = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(c);
+  return c;
+}
+
 function Where() {
   const l = useLocation();
   return <span data-testid="where">{l.pathname}{l.search}</span>;
@@ -34,7 +42,7 @@ function Where() {
 
 function renderAt(url: string) {
   return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={newClient()}>
       <MemoryRouter initialEntries={[url]}>
         <Routes>
           <Route path="/r/:gvr" element={<><Where /><TableView gvrKey="v1/pods" /></>} />
@@ -45,17 +53,17 @@ function renderAt(url: string) {
 }
 
 describe('TableView ?ns=', () => {
-  afterEach(() => { cleanup(); watchCalls.length = 0; setSelectedNamespace.mockReset(); });
+  afterEach(() => { cleanup(); clients.splice(0).forEach((c) => c.clear()); watchCalls.length = 0; setSelectedNamespace.mockReset(); });
 
   it('lists the namespace named in ?ns= from the first render', () => {
     renderAt('/r/v1~pods?ns=team-a');
     expect(watchCalls[0]).toMatchObject({ namespace: 'team-a' });
   });
 
-  it('adopts it as the selected namespace and drops it from the URL', () => {
+  it('adopts it as the selected namespace and keeps it in the URL', () => {
     renderAt('/r/v1~pods?ns=team-a&q=web');
     expect(setSelectedNamespace).toHaveBeenCalledWith('team-a');
-    expect(screen.getByTestId('where').textContent).toBe('/r/v1~pods?q=web');
+    expect(screen.getByTestId('where').textContent).toBe('/r/v1~pods?ns=team-a&q=web');
   });
 
   it('ns=* means all namespaces', () => {
@@ -68,10 +76,24 @@ describe('TableView ?ns=', () => {
     renderAt('/r/v1~pods?ns=Bad_NS');
     expect(watchCalls[0]).toMatchObject({ namespace: 'default' });
     expect(setSelectedNamespace).not.toHaveBeenCalled();
+    expect(screen.getByTestId('where').textContent).toBe('/r/v1~pods?ns=default');
   });
 
-  it('without ?ns= the selected namespace applies', () => {
+  it('a cluster-scoped list is not scoped and leaves the URL alone', () => {
+    render(
+      <QueryClientProvider client={newClient()}>
+        <MemoryRouter initialEntries={['/r/v1~nodes']}>
+          <Routes><Route path="/r/:gvr" element={<><Where /><TableView gvrKey="v1/nodes" /></>} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(watchCalls[0].namespace).toBeUndefined();
+    expect(screen.getByTestId('where').textContent).toBe('/r/v1~nodes');
+  });
+
+  it('without ?ns= the selected namespace applies and is written into the URL', () => {
     renderAt('/r/v1~pods');
     expect(watchCalls[0]).toMatchObject({ namespace: 'default' });
+    expect(screen.getByTestId('where').textContent).toBe('/r/v1~pods?ns=default');
   });
 });

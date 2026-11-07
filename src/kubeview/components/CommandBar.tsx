@@ -13,6 +13,7 @@ import { useVisibilityAwareInterval } from '../hooks/useVisibilityAwareInterval'
 import { performLogout } from '../engine/auth';
 import { usePulseUpgrade } from '../hooks/usePulseStatus';
 import { projectPath } from '../engine/navRegistry';
+import { useSetNamespaceScope, useNamespaceScopeApplies } from '../hooks/useNamespaceScope';
 
 export function CommandBar() {
   const navigate = useNavigate();
@@ -58,7 +59,9 @@ export function CommandBar() {
   }, []);
 
   const selectedNamespace = useUIStore((s) => s.selectedNamespace);
-  const setSelectedNamespace = useUIStore((s) => s.setSelectedNamespace);
+  // The picker writes the page's `?ns=`; on a page that shows every namespace it says so.
+  const setSelectedNamespace = useSetNamespaceScope();
+  const scopeApplies = useNamespaceScopeApplies();
   const openCommandPalette = useUIStore((s) => s.openCommandPalette);
   const addTab = useUIStore((s) => s.addTab);
   const addToast = useUIStore((s) => s.addToast);
@@ -257,22 +260,28 @@ export function CommandBar() {
         <div className="relative">
           <button
             onClick={() => setShowNsDropdown(!showNsDropdown)}
+            disabled={!scopeApplies}
+            aria-label={scopeApplies ? undefined : 'Namespace: all namespaces on this page'}
             className={cn(
               'flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors h-7',
-              selectedNamespace === '*'
+              !scopeApplies
+                ? 'border-slate-800 bg-transparent text-slate-500 cursor-not-allowed'
+                : selectedNamespace === '*'
                 ? 'border-slate-700/50 bg-slate-900/50 text-slate-400 hover:border-slate-600'
                 : 'border-blue-600/50 bg-blue-950/40 text-blue-300 hover:border-blue-500'
             )}
-            title="Switch namespace (⌘N)"
+            title={scopeApplies
+              ? 'Switch namespace (⌘N)'
+              : `This page shows all namespaces; the namespace scope does not apply here.${selectedNamespace !== '*' ? ` ${selectedNamespace} is kept for other pages.` : ''}`}
           >
             <Layers className="w-3 h-3" />
-            <span className="text-xs font-medium max-w-[130px] truncate">
-              {selectedNamespace === '*' ? 'All' : selectedNamespace}
+            <span className="text-xs font-medium max-w-[160px] truncate">
+              {!scopeApplies ? 'All namespaces on this page' : selectedNamespace === '*' ? 'All' : selectedNamespace}
             </span>
-            <ChevronDown className="h-2.5 w-2.5 opacity-50" />
+            {scopeApplies && <ChevronDown className="h-2.5 w-2.5 opacity-50" />}
           </button>
 
-          {showNsDropdown && (
+          {showNsDropdown && scopeApplies && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => { setShowNsDropdown(false); setNsFilter(''); }} onKeyDown={(e) => { if (e.key === 'Escape') { setShowNsDropdown(false); setNsFilter(''); } }} />
               <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl flex flex-col max-h-[420px]">

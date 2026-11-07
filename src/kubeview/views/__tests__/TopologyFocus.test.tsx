@@ -66,7 +66,7 @@ describe('/deps redirects to /topology', () => {
   it('opens /topology focused on the resource', async () => {
     renderAt('/deps/apps~v1~deployments/shop/web');
     await waitFor(() => expect(screen.getByTestId('where').textContent)
-      .toBe('/topology?namespace=shop&focus=Deployment%2Fshop%2Fweb'));
+      .toBe('/topology?ns=shop&focus=Deployment%2Fshop%2Fweb'));
     expect(await screen.findByRole('heading', { name: 'Topology' })).toBeDefined();
   });
 

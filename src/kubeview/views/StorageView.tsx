@@ -9,7 +9,7 @@ import { k8sList } from '../engine/query';
 import { safeQuery } from '../engine/safeQuery';
 import type { K8sResource } from '../engine/renderers';
 import type { PersistentVolumeClaim, PersistentVolume, StorageClass, VolumeSnapshot, CSIDriver } from '../engine/types';
-import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { MetricCard } from '../components/metrics/Sparkline';
@@ -29,7 +29,7 @@ import { deleteRequest, sendWrite, isDefaultStorageClass } from '../engine/workl
 
 export default function StorageView() {
   const clusterId = useActiveClusterId();
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const go = useNavigateTab();
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const { canPatch: canSetDefaultSC, setDefault, dialog: defaultScDialog } = useSetDefaultStorageClass();
@@ -138,7 +138,7 @@ export default function StorageView() {
           actions={(
             <Button
               size="sm"
-              onClick={() => go(nsFilter ? `/create/v1~persistentvolumeclaims?namespace=${encodeURIComponent(nsFilter)}` : '/create/v1~persistentvolumeclaims', 'Create PVC')}
+              onClick={() => go(nsFilter ? `/create/v1~persistentvolumeclaims?ns=${encodeURIComponent(nsFilter)}` : '/create/v1~persistentvolumeclaims', 'Create PVC')}
               disabled={!canCreatePVC}
               title={canCreatePVC ? undefined : 'You do not have permission to create PersistentVolumeClaims here'}
             >
@@ -664,7 +664,7 @@ spec:
       if ((item as K8sResource).spec && (((item as K8sResource).spec as Record<string, unknown>)?.hard)) {
         go(`/yaml/v1~resourcequotas/${ns}/${name}`, `${name} (YAML)`);
       } else {
-        go(`/create/v1~resourcequotas?namespace=${ns}`, `Create quota in ${ns}`);
+        go(`/create/v1~resourcequotas?ns=${encodeURIComponent(ns)}`, `Create quota in ${ns}`);
       }
     }
   }, [go]);

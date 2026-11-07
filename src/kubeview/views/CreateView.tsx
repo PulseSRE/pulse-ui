@@ -1,12 +1,13 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { PageHeader } from '../components/primitives/PageHeader';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Package, FileText,
   AlertCircle, Box, Upload, Ship, ShieldCheck, CheckCircle, XCircle,
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useClusterStore } from '../store/clusterStore';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import YamlEditor from '../components/yaml/YamlEditor';
@@ -114,12 +115,9 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
   const go = useNavigateTab();
   const navigate = useNavigate();
   const addToast = useUIStore((s) => s.addToast);
-  const storeNamespace = useUIStore((s) => s.selectedNamespace);
-  // `?namespace=<ns>` (e.g. StorageView's "add quota" link) names the target
-  // namespace; without it the global selector decides.
-  const location = useLocation();
-  const urlNamespace = new URLSearchParams(location.search).get('namespace');
-  const selectedNamespace = urlNamespace && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(urlNamespace) ? urlNamespace : storeNamespace;
+  // `?ns=<ns>` (e.g. StorageView's "add quota" link; old links say
+  // `?namespace=`) names the target namespace; without it the scope decides.
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const registry = useClusterStore((s) => s.resourceRegistry);
   // The cluster this screen shows; creates go there, not to whichever is local.
   const clusterId = useFleetStore((s) => s.activeClusterId);
@@ -153,7 +151,7 @@ export default function CreateView({ gvrKey: gvrProp }: CreateViewProps) {
 
   // /create/<gvr> goes straight to that kind's editor; the hub opens on its tabs.
   useMemo(() => {
-    // `?template=<id>&namespace=<ns>`: a reviewed manifest prefilled for that namespace.
+    // `?template=<id>&ns=<ns>`: a reviewed manifest prefilled for that namespace.
     const templated = renderCreateTemplate(searchParams.get('template'), selectedNamespace);
     if (templated) {
       setYaml(templated);

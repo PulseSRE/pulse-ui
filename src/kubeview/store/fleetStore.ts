@@ -177,8 +177,9 @@ export const useFleetStore = create<FleetState>((set, get) => ({
   setActiveCluster: (id) => {
     if (id === getActiveClusterId() || !setActiveClusterId(id)) return;
     // Non-React resource contexts must not survive the keyed view remount.
+    // A namespace scope names a namespace on one cluster; it does not carry over.
     useUIStore.setState({ terminalContext: null, dockContext: null, bottomDockPanel: null,
-      actionPanelOpen: false, actionPanelResource: null });
+      actionPanelOpen: false, actionPanelResource: null, selectedNamespace: '*' });
     useClusterStore.setState({ resourceRegistry: null, apiGroups: [], discoveryClusterId: null,
       discoveryLoading: false, discoveryError: null, clusterVersion: null, kubernetesVersion: null,
       platform: null, controlPlaneTopology: null, isHyperShift: false });

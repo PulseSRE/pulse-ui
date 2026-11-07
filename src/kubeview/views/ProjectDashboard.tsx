@@ -95,7 +95,7 @@ export default function ProjectDashboard() {
           icon={<Layers className="w-6 h-6 text-blue-500" />}
           title={ns}
           subtitle="Project overview — all resources at a glance"
-          actions={<Button size="sm" onClick={() => go(`/create/apps~v1~deployments?namespace=${encodeURIComponent(ns)}`, `Create in ${ns}`)}>
+          actions={<Button size="sm" onClick={() => go(`/create/apps~v1~deployments?ns=${encodeURIComponent(ns)}`, `Create in ${ns}`)}>
             <Plus className="w-3.5 h-3.5" /> Create in {ns}
           </Button>}
         />
