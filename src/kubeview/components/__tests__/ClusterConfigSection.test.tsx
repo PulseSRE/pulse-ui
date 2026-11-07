@@ -30,6 +30,15 @@ describe('ClusterConfig ?section=', () => {
     expect(k8sGet).toHaveBeenCalledTimes(1);
   });
 
+  it('the OAuth section says where identity providers are edited now, instead of an editor', async () => {
+    k8sGet.mockResolvedValue({ spec: { identityProviders: [{ name: 'corp-ldap', type: 'LDAP' }] } });
+    const { findByTestId, queryByRole } = renderAt('/admin?tab=config&section=oauth');
+    const notice = await findByTestId('oauth-moved');
+    expect(notice.textContent).toContain('1 identity provider: corp-ldap (LDAP).');
+    expect(notice.textContent).toContain('Identity providers and htpasswd users are now edited in Identity & Access › Sign-in.');
+    expect(queryByRole('button', { name: /Add identity provider/ })).toBeNull();
+  });
+
   it('opens nothing without one', () => {
     renderAt('/admin?tab=config');
     expect(k8sGet).not.toHaveBeenCalled();
