@@ -29,7 +29,7 @@ import { EvidenceList } from '../incidents/shared/EvidenceList';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { proposalForItem, useApprovalsStore } from '../../store/approvalsStore';
 import { ProposalActions, type ProposalOutcome } from './ProposedFixes';
-import { AskPulseButton } from '../../components/agent/AskPulseButton';
+import { AskPulseButton, useAskPulseBlockedReason } from '../../components/agent/AskPulseButton';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
 import { cn } from '@/lib/utils';
 
@@ -172,6 +172,8 @@ function ActionPlanSection({
     }
   };
 
+  // Inbox steps come from the agent: local data, so this matches the step's Ask Pulse gate.
+  const stepBlocked = useAskPulseBlockedReason(true);
   const openAgentWithPrompt = (prompt: string, stepIdx: number) => {
     ensureExecution();
     useActionPlanStore.getState().startStep(stepIdx);
@@ -245,9 +247,10 @@ function ActionPlanSection({
               {canAct && (
                 <div className="flex items-center gap-1.5 ml-10">
                   {step.tool ? (
-                    <Tooltip content="Open agent chat with tool context pre-filled">
+                    <Tooltip content={stepBlocked ?? 'Open agent chat with tool context pre-filled'}>
                       <Button
                         size="sm"
+                        disabled={!!stepBlocked}
                         onClick={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)}
                       >
                         <Play className="w-3 h-3" />
@@ -255,7 +258,10 @@ function ActionPlanSection({
                       </Button>
                     </Tooltip>
                   ) : (
-                    <AskPulseButton onAsk={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)} />
+                    <>
+                      <AskPulseButton onAsk={() => openAgentWithPrompt(buildStepPrompt(item, step), idx)} localData />
+                      {isFailed && <span className="text-xs text-amber-300" data-testid="step-retry-cue">Failed — ask again to retry</span>}
+                    </>
                   )}
                   {!isFailed && (
                     <Tooltip content="Skip this step">
@@ -707,7 +713,7 @@ export function TaskDetailDrawer({
         {/* Forward buttons — sticky footer so they're always visible */}
         <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-4 -mb-4 z-10">
           {item.status === 'new' && (
-            <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
+            <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} localData />
           )}
 
           {/* Closure for chronic work: an investigated item can leave the
@@ -739,7 +745,7 @@ export function TaskDetailDrawer({
                 <RefreshCw className="w-4 h-4 mr-1" />
                 Retry Agent Analysis
               </Button>
-              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} localData />
               <Button size="sm" variant="ghost" onClick={() => setConfirmDismiss(true)}>
                 <Archive className="w-4 h-4 mr-1" />
                 Dismiss
@@ -768,7 +774,7 @@ export function TaskDetailDrawer({
                   Claim
                 </Button>
               </Tooltip>
-              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} localData />
               <Tooltip content="Reset to new — agent will re-triage">
                 <Button size="sm" variant="ghost" onClick={() => handleAdvance('new')}>
                   <RotateCcw className="w-4 h-4 mr-1" />
@@ -786,7 +792,7 @@ export function TaskDetailDrawer({
 
           {item.status === 'claimed' && (
             <>
-              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} localData />
               <Tooltip content="Mark as resolved">
                 <Button size="sm" variant="ghost" onClick={handleResolve}>
                   <CheckCircle2 className="w-4 h-4 mr-1" />
@@ -816,7 +822,7 @@ export function TaskDetailDrawer({
                   Resolve
                 </Button>
               </Tooltip>
-              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} />
+              <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} localData />
               <Tooltip content="Reset to new — start over">
                 <Button size="sm" variant="ghost" onClick={() => handleAdvance('new')}>
                   <RotateCcw className="w-4 h-4 mr-1" />

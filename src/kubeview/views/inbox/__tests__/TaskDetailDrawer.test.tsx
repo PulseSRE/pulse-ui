@@ -11,6 +11,7 @@ import { MemoryRouter } from 'react-router-dom';
 const render = (ui: Parameters<typeof rtlRender>[0]) => rtlRender(ui, { wrapper: MemoryRouter });
 import { TaskDetailDrawer } from '../TaskDetailDrawer';
 import type { InboxItem } from '../../../engine/inboxApi';
+import { useFleetStore } from '../../../store/fleetStore';
 
 vi.mock('../../../store/inboxStore', () => ({
   useInboxStore: vi.fn((selector) => {
@@ -135,6 +136,27 @@ describe('TaskDetailDrawer — no dead-end states', () => {
     const item = makeItem({ status: 'claimed', claimed_by: 'user' });
     render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
     expect(screen.getAllByText(/Ask Pulse to investigate/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Inbox items are agent data, so Ask Pulse to investigate and Execute stay usable on a remote cluster', () => {
+    useFleetStore.setState({ activeClusterId: 'prod-east' } as never);
+    try {
+      const item = makeItem({ status: 'claimed', claimed_by: 'user', metadata: { action_plan: [{ title: 'Restart', description: 'restart it', tool: 'restart_deployment', tool_input: { name: 'web' }, risk: 'low', status: 'pending' }] } });
+      render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
+      for (const b of screen.getAllByRole('button', { name: 'Ask Pulse to investigate' })) expect((b as HTMLButtonElement).disabled).toBe(false);
+      const exec = screen.getAllByRole('button', { name: /Execute/ });
+      expect(exec.length).toBeGreaterThan(0);
+      for (const b of exec) expect((b as HTMLButtonElement).disabled).toBe(false);
+    } finally {
+      useFleetStore.setState({ activeClusterId: 'local' } as never);
+    }
+  });
+
+  it('a failed chat step keeps a retry cue beside Ask Pulse', () => {
+    const item = makeItem({ status: 'in_progress', metadata: { action_plan: [{ title: 'Check logs', description: 'look', tool: null, tool_input: null, risk: 'low', status: 'failed' }] } });
+    render(<TaskDetailDrawer item={item} onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Ask Pulse' })).toBeTruthy();
+    expect(screen.getByTestId('step-retry-cue').textContent).toMatch(/retry/);
   });
 
   it('in_progress shows Resolve button', () => {

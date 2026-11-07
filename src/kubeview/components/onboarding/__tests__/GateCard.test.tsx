@@ -150,6 +150,21 @@ describe('GateCard', () => {
     expect(mockConnectAndSend).toHaveBeenCalledWith(expect.stringContaining('TLS Configured'), undefined);
   });
 
+  it('on a remote cluster, Ask Pulse to fix is disabled: the gate result describes that cluster', async () => {
+    const { useFleetStore } = await import('../../../store/fleetStore');
+    useFleetStore.setState({ activeClusterId: 'prod-east' } as never);
+    try {
+      render(<GateCard gate={makeGate()} result={makeResult({ status: 'failed', detail: 'Bad config' })} />);
+      const btn = screen.getByRole('button', { name: 'Ask Pulse to fix' }) as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      expect(btn.title).toBe('Pulse AI answers about the local cluster only.');
+      fireEvent.click(btn);
+      expect(mockConnectAndSend).not.toHaveBeenCalled();
+    } finally {
+      useFleetStore.setState({ activeClusterId: 'local' } as never);
+    }
+  });
+
   it('toggles expanded state on click', () => {
     render(<GateCard gate={makeGate()} result={makeResult({ status: 'passed', detail: 'All good' })} />);
     // passed gate starts collapsed

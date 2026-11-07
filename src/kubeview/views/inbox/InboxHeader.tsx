@@ -110,7 +110,7 @@ export function InboxHeader({
               className={cn(
                 'px-3 py-1.5 text-xs rounded-full transition-colors inline-flex items-center gap-1.5',
                 isActive
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-blue-600/20 text-blue-200'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-300',
               )}
             >

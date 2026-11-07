@@ -388,7 +388,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                   key={t}
                   onClick={() => setGlobalTimeRange(t)}
                   className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
-                    globalTimeRange === t ? 'bg-violet-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                    globalTimeRange === t ? 'bg-blue-600/20 text-blue-200' : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   {t}
@@ -414,7 +414,7 @@ export default function CustomView({ viewId: viewIdProp, preview = false }: { vi
                 askPulse(`Update my view "${view.title}" (ID: ${view.id}). It has ${view.layout.length} widgets. Use get_view_details("${view.id}") to see the current widgets, then modify as needed.`);
               }}
               className="p-1.5 rounded-sm bg-violet-700 hover:bg-violet-600 text-white transition-colors"
-              title="Edit with AI"
+              title="Ask Pulse to edit this view" aria-label="Ask Pulse to edit this view"
             >
               <Bot className="w-4 h-4" />
             </button>

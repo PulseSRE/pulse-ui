@@ -347,7 +347,7 @@ export function CommandPalette() {
             </div>
             {mode === 'query' && (
               <span className={cn('flex items-center gap-1', AI_ACCENT.text)}>
-                <AIIconStatic size={10} /> Enter sends to Pulse Agent
+                <AIIconStatic size={10} /> Enter sends to Pulse AI
               </span>
             )}
           </div>

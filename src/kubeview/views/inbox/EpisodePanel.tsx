@@ -300,7 +300,7 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             </div>
           )}
         </div>
-        <AskPulseButton suffix="to fix" onAsk={askAboutThisEpisode} title="Ask Pulse AI what to do about this cause" />
+        <AskPulseButton suffix="to fix" onAsk={askAboutThisEpisode} title="Ask Pulse AI what to do about this cause" localData />
         {/* Router navigation: a raw <a href> reloaded the whole app. */}
         <Link
           to={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}

@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 
 vi.mock('../../../engine/askPulse', () => ({ askPulse: vi.fn() }));
 
 import { askPulse } from '../../../engine/askPulse';
 import { useFleetStore } from '../../../store/fleetStore';
-import { AskPulseButton, AskPulsePrompts, askPulseLabel } from '../AskPulseButton';
+import { AskPulseButton, AskPulsePrompts, askPulseLabel, useAskPulseBlockedReason } from '../AskPulseButton';
 import { AskPulseButtonBase } from '../AskPulseButtonBase';
 import { AI_ACCENT } from '../aiTokens';
 import { PULSE_AI_LOCAL_ONLY } from '../../feedback/LocalClusterOnlyNotice';
@@ -80,6 +80,27 @@ describe('AskPulseButton', () => {
     expect(onAsk).not.toHaveBeenCalled();
   });
 
+  it('localData skips the remote gate: the question carries only local or agent data', () => {
+    useFleetStore.setState({ activeClusterId: 'prod-east' });
+    const onAsk = vi.fn();
+    render(<AskPulseButton suffix="to investigate" onAsk={onAsk} localData />);
+    const btn = screen.getByRole('button', { name: 'Ask Pulse to investigate' }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    fireEvent.click(btn);
+    expect(onAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it('useAskPulseBlockedReason gates other AI controls the same way', () => {
+    function Probe({ local }: { local?: boolean }) { return <span data-testid="r">{useAskPulseBlockedReason(local) ?? 'ok'}</span>; }
+    const { rerender } = render(<Probe />);
+    expect(screen.getByTestId('r').textContent).toBe('ok');
+    act(() => { useFleetStore.setState({ activeClusterId: 'prod-east' }); });
+    rerender(<Probe />);
+    expect(screen.getByTestId('r').textContent).toBe(PULSE_AI_LOCAL_ONLY);
+    rerender(<Probe local />);
+    expect(screen.getByTestId('r').textContent).toBe('ok');
+  });
+
   it('shows the reason as visible text when asked to', () => {
     useFleetStore.setState({ activeClusterId: 'prod-east' });
     render(<AskPulseButton prompt="q" showReason />);
@@ -109,6 +130,14 @@ describe('AskPulsePrompts', () => {
     expect(screen.getByRole('heading', { name: 'Ask Pulse about this pod' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'What changed recently?' }));
     expect(askPulse).toHaveBeenCalledWith('What changed recently?', POD);
+  });
+
+  it('a chip may carry its own resource, and the heading level is configurable', () => {
+    const op = { kind: 'ClusterOperator', name: 'dns' };
+    render(<AskPulsePrompts headingLevel={3} prompts={[{ text: 'Why is operator dns degraded?', context: op }]} />);
+    expect(screen.getByRole('heading', { level: 3, name: 'Ask Pulse' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Why is operator dns degraded?' }));
+    expect(askPulse).toHaveBeenCalledWith('Why is operator dns degraded?', op);
   });
 
   it('disables the chips on a remote cluster and says why', () => {

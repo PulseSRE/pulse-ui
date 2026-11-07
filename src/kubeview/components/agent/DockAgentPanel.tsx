@@ -501,7 +501,7 @@ export function DockAgentPanel() {
           <div className="flex flex-col items-center justify-center h-full gap-4">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <Bot className="h-4 w-4" />
-              Ask the {mode} agent...
+              Ask Pulse…
             </div>
             {smartPrompts.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2 px-2">

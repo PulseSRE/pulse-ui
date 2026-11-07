@@ -17,7 +17,7 @@ type StageStatus = LifecycleStageStatus;
 function StageIcon({ status }: { status: StageStatus }) {
   switch (status) {
     case 'complete': return <CheckCircle className="w-4 h-4 text-emerald-400" />;
-    case 'in-progress': return <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />;
+    case 'in-progress': return <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />;
     case 'pending': return <div className="w-4 h-4 rounded-full border-2 border-slate-600" />;
     case 'failed': return <XCircle className="w-4 h-4 text-red-400" />;
     case 'skipped': return <Minus className="w-4 h-4 text-slate-600" />;
@@ -446,7 +446,7 @@ function Stage({
           <span className={cn(
             'text-xs font-medium',
             status === 'complete' ? 'text-slate-200' :
-            status === 'in-progress' ? 'text-violet-300' :
+            status === 'in-progress' ? 'text-blue-300' :
             status === 'failed' ? 'text-red-300' :
             'text-slate-500',
           )}>

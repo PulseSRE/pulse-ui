@@ -12,8 +12,7 @@ import { k8sList, k8sGet } from '../../engine/query';
 import { useIncidentFeed } from '../../hooks/useIncidentFeed';
 import { fetchTlsSecrets, summarizeTlsSecrets } from '../../engine/certExpiry';
 import { safeQuery } from '../../engine/safeQuery';
-import { AIIconStatic, AI_ACCENT, PromptPill } from '../../components/agent/AIBranding';
-import { askPulse } from '../../engine/askPulse';
+import { AskPulsePrompts } from '../../components/agent/AskPulseButton';
 import { generateSmartPrompts } from '../../engine/smartPrompts';
 import { parseResourceValue } from '../../engine/formatting';
 import { queryInstant } from '../../components/metrics/prometheus';
@@ -232,10 +231,6 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
   const isHyperShift = useClusterStore((s) => s.isHyperShift);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [zenDismissed, setZenDismissed] = useState(() => sessionStorage.getItem('pulse-zen-dismissed') === 'true');
-  /** Open AI sidebar in chat mode with a prompt */
-  const askAgent = useCallback((prompt: string) => {
-    askPulse(prompt);
-  }, []);
 
 
   // === Queries ===
@@ -872,27 +867,20 @@ export function ReportTab({ nodes, allPods, deployments, pvcs, operators, unavai
           </button>
         </div>
 
-        {/* Ask Pulse — smart prompts */}
-        <Card className={cn('p-4 border', AI_ACCENT.border)}>
-          <div className="flex items-center gap-2 mb-3">
-            <AIIconStatic size={14} />
-            <span className={cn('text-xs font-medium', AI_ACCENT.text)}>Ask Pulse</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {generateSmartPrompts({
-              failedPods: problemPods.map(p => {
-                const reason = p.status?.containerStatuses?.find((cs) => cs.state?.waiting)?.state?.waiting?.reason || p.status?.phase || 'Failed';
-                return { name: p.metadata.name, namespace: p.metadata.namespace || '', status: reason };
-              }),
-              degradedOperators: degradedOperators.map(o => ({ name: o.metadata.name })),
-              currentView: '/pulse',
-            }).slice(0, 4).map((sp, i) => (
-              <PromptPill key={i} onClick={() => askAgent(sp.text)}>
-                {sp.text}
-              </PromptPill>
-            ))}
-          </div>
-        </Card>
+        {/* Ask Pulse — smart prompts. Built from this cluster's failing pods and
+            operators, so they are disabled on a remote cluster: the local
+            agent cannot answer about them. */}
+        <AskPulsePrompts
+          headingLevel={3}
+          prompts={generateSmartPrompts({
+            failedPods: problemPods.map(p => {
+              const reason = p.status?.containerStatuses?.find((cs) => cs.state?.waiting)?.state?.waiting?.reason || p.status?.phase || 'Failed';
+              return { name: p.metadata.name, namespace: p.metadata.namespace || '', status: reason };
+            }),
+            degradedOperators: degradedOperators.map(o => ({ name: o.metadata.name })),
+            currentView: '/pulse',
+          }).slice(0, 4).map((sp) => ({ text: sp.text, context: sp.context }))}
+        />
       </div>
     </div>
   );
