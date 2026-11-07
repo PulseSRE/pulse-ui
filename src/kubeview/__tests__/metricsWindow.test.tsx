@@ -85,7 +85,7 @@ describe('MetricsView', () => {
   it('still shows the error when Prometheus fails', async () => {
     mockFetchRoutes({ '/api/prometheus': { status: 500, body: { status: 'error', error: 'boom' } } });
     renderWithClient(<MetricsView gvrKey="v1/pods" namespace="shop" name="api-1" />);
-    await waitFor(() => expect(screen.getAllByText('Failed to fetch metrics')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText('Could not load metrics')).toHaveLength(2));
     expect(screen.queryByText('No data available')).toBeNull();
   });
 });

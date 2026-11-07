@@ -7,7 +7,9 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { queryRange, queryInstant, getTimeRange, metricsAvailableFor } from './prometheus';
-import { safeQuery } from '../../engine/safeQuery';
+import { LoadError } from '../primitives/LoadError';
+import { describeReadError } from '../../engine/readError';
+import { useInMetricsScope, useReportMetricFailure } from './MetricsScope';
 import { compareToUsual, formatMetricValue, thresholdColor, thresholdLevel, usualQuery, type Thresholds } from './metricFormat';
 import { useReportAttention } from '../agent/attention';
 import { useActiveClusterId } from '../../hooks/useClusterBase';
@@ -38,11 +40,12 @@ export function Sparkline({
   refreshInterval = 60000,
 }: SparklineProps) {
   const clusterId = useActiveClusterId();
-  const { data: series = [] } = useQuery({
+  // A failed read throws (PrometheusReadError) so it shows as an error, never as "No data".
+  const { data: series = [], isPending, isError, error, refetch } = useQuery({
     queryKey: ['sparkline', query, duration, clusterId],
-    queryFn: async () => {
+    queryFn: ({ signal }) => {
       const [start, end] = getTimeRange(duration);
-      return (await safeQuery(() => queryRange(query, start, end, undefined, clusterId))) ?? [];
+      return queryRange(query, start, end, undefined, clusterId, signal);
     },
     enabled: metricsAvailableFor(clusterId),
     refetchInterval: refreshInterval,
@@ -55,14 +58,33 @@ export function Sparkline({
   // anywhere in the series poisons Math.min/Math.max for the whole array,
   // producing a `NaN` SVG path ("M2,NaN L2.98,NaN ...") that fails to render.
   // Drop non-finite samples so the line just has a small gap instead.
-  const values = (series[0]?.values?.map(([, v]) => parseFloat(v)) || []).filter(Number.isFinite);
+  // After a failed refetch the last series is stale: an error wins over it.
+  const values = isError ? [] : (series[0]?.values?.map(([, v]) => parseFloat(v)) || []).filter(Number.isFinite);
 
-  if (values.length < 2) {
+  const available = metricsAvailableFor(clusterId);
+  const inScope = useInMetricsScope();
+  useReportMetricFailure(available && isError, error, refetch);
+  if (available && isError) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         {label && <span className="text-xs text-slate-500">{label}</span>}
-        <div className="text-xs text-slate-600" style={{ width, height }}>
-          <span className="flex items-center justify-center h-full">{metricsAvailableFor(clusterId) ? 'No data' : 'Local cluster only'}</span>
+        {inScope ? (
+          // The scope's banner says why, once for the page.
+          <span className="text-xs text-slate-400" style={{ width, height }} title={describeReadError(error).reason}>—</span>
+        ) : (
+          <LoadError compact title="Could not load metrics" error={error} onRetry={() => { void refetch(); }} className="min-w-0 flex-1" />
+        )}
+      </div>
+    );
+  }
+
+  if (values.length < 2) {
+    const text = !available ? 'Local cluster only' : isPending ? 'Checking…' : 'No data for this period';
+    return (
+      <div className={`flex items-center gap-2 ${className}`}>
+        {label && <span className="text-xs text-slate-500">{label}</span>}
+        <div className="text-xs text-slate-400" style={{ width, height }}>
+          <span className="flex items-center justify-center h-full">{text}</span>
         </div>
       </div>
     );
@@ -122,11 +144,13 @@ export function MetricCard({
   onClick?: () => void;
 }) {
   const clusterId = useActiveClusterId();
-  const { data: series = [] } = useQuery({
+  const available = metricsAvailableFor(clusterId);
+  // Throws on a failed read so the card says so, instead of an empty "No data".
+  const { data: series = [], isPending, isError, error, refetch } = useQuery({
     queryKey: ['metric-card', query, duration, clusterId],
-    queryFn: async () => {
+    queryFn: ({ signal }) => {
       const [start, end] = getTimeRange(duration);
-      return (await safeQuery(() => queryRange(query, start, end, undefined, clusterId))) ?? [];
+      return queryRange(query, start, end, undefined, clusterId, signal);
     },
     enabled: metricsAvailableFor(clusterId),
     refetchInterval: 60000,
@@ -135,7 +159,8 @@ export function MetricCard({
 
   // See the matching comment in Sparkline above: filter out non-finite
   // Prometheus samples before they poison min/max and produce a NaN path.
-  const values = (series[0]?.values?.map(([, v]) => parseFloat(v)) || []).filter(Number.isFinite);
+  // After a failed refetch the last series is stale: an error wins over it.
+  const values = isError ? [] : (series[0]?.values?.map(([, v]) => parseFloat(v)) || []).filter(Number.isFinite);
   const current = values.length > 0 ? values[values.length - 1] : null;
   const min = values.length > 0 ? Math.min(...values) : 0;
   const max = values.length > 0 ? Math.max(...values) : 0;
@@ -147,18 +172,23 @@ export function MetricCard({
   // What this query usually reads (its median over the last day), so the card
   // can say "2.1× usual" instead of leaving the reader to remember normal.
   // Single-series cards only: for several series "usual" has no one meaning.
-  const singleSeries = series.length === 1;
+  const singleSeries = !isError && series.length === 1;
   const { data: usual } = useQuery({
     queryKey: ['metric-card-usual', query, clusterId],
-    queryFn: async () => {
-      const rows = (await safeQuery(() => queryInstant(usualQuery(query), undefined, clusterId))) ?? [];
+    queryFn: async ({ signal }) => {
+      // Context only: if this fails the card just has no "× usual" line.
+      const rows = await queryInstant(usualQuery(query), undefined, clusterId, signal);
       return rows.length === 1 ? rows[0].value : null;
     },
-    enabled: Boolean(query) && singleSeries && metricsAvailableFor(clusterId),
+    enabled: Boolean(query) && singleSeries && available && !isError,
     refetchInterval: 300000,
+    retry: false,
     staleTime: 300000,
   });
   const vsUsual = singleSeries ? compareToUsual(current, usual, thresholds) : null;
+  const failed = available && isError;
+  const inScope = useInMetricsScope();
+  useReportMetricFailure(failed, error, refetch);
 
   const displayColor = thresholdColor(current, thresholds) ?? color;
   // On a dashboard, a card past its threshold is listed in the view's attention strip.
@@ -184,7 +214,15 @@ export function MetricCard({
     : null;
 
   return (
-    <div className={cn('bg-slate-900 rounded-lg border border-slate-800 p-3', onClick && 'cursor-pointer hover:border-slate-600 transition-colors')} onClick={onClick} role={onClick ? 'button' : undefined}>
+    // The card holds no controls of its own (a failure's Retry is on the
+    // MetricsScope banner), so it can be one keyboard-reachable button.
+    <div
+      className={cn('bg-slate-900 rounded-lg border border-slate-800 p-3', onClick && 'cursor-pointer hover:border-slate-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500')}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-slate-400">{title}</span>
         <span className="text-sm font-mono font-bold flex items-center gap-1" style={{ color: displayColor }}>
@@ -203,14 +241,20 @@ export function MetricCard({
           {vsUsual.label}
         </div>
       )}
-      {linePath ? (
+      {failed ? (
+        // Quiet "unknown": no red box, no Retry inside the card. In a scope the
+        // banner gives the reason once; on its own the card says it here.
+        <div className="flex items-center justify-center text-center text-xs text-slate-400" style={{ height: h }} title={describeReadError(error).reason}>
+          {inScope ? 'Could not load metrics' : `Could not load metrics: ${describeReadError(error).reason}`}
+        </div>
+      ) : linePath ? (
         <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
           <path d={`${linePath} L${points[points.length - 1].x},${h} L${points[0].x},${h} Z`} fill={`${displayColor}15`} />
           <path d={linePath} fill="none" stroke={displayColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ) : (
-        <div className="flex items-center justify-center text-xs text-slate-600" style={{ height: h }}>
-          {metricsAvailableFor(clusterId) ? 'No data' : 'Metrics are available for the local cluster only'}
+        <div className="flex items-center justify-center text-xs text-slate-400" style={{ height: h }}>
+          {!available ? 'Metrics are available for the local cluster only' : isPending ? 'Checking…' : 'No data for this period'}
         </div>
       )}
     </div>

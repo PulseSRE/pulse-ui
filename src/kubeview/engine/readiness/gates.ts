@@ -140,8 +140,8 @@ const identityProviders: ReadinessGate = {
     return {
       status: idps.length > 0 ? 'passed' : 'failed',
       detail: idps.length > 0 ? idps.map((p: any) => p.name).join(', ') : 'No providers — using kubeadmin only',
-      fixGuidance: 'Configure at least one external identity provider (LDAP, OIDC, GitHub) via OAuth cluster config.',
-      action: { label: 'Configure', path: '/admin?tab=config' },
+      fixGuidance: 'Configure at least one external identity provider (LDAP, OIDC, GitHub) in Identity & Access › Sign-in.',
+      action: { label: 'Configure', path: '/identity?tab=signin' },
     };
   }),
 };

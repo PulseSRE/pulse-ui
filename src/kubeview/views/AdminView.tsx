@@ -31,7 +31,7 @@ import { SnapshotsTab } from './admin/SnapshotsTab';
 import { loadSnapshots } from '../engine/snapshot';
 import { GitOpsConfig } from '../components/GitOpsConfig';
 import { SectionHeader } from '../components/primitives/SectionHeader';
-import { promFetch, MetricsUnavailableError } from '../components/metrics/prometheus';
+import { promJson, MetricsUnavailableError } from '../components/metrics/prometheus';
 import { isPlatformNamespace } from '../engine/platformNamespaces';
 
 /** OpenShift Infrastructure resource (config.openshift.io/v1) */
@@ -167,14 +167,14 @@ export default function AdminView() {
 
   const { data: firingAlertsData, error: firingAlertsError, dataUpdatedAt: firingAlertsAt, errorUpdatedAt: firingAlertsErrAt } = useQuery<Array<{ labels: Record<string, string>; annotations: Record<string, string>; state: string }>>({
     queryKey: ['admin', 'firing-alerts', clusterId],
-    queryFn: async () => {
-      const res = await promFetch('/api/v1/alerts', clusterId);
+    queryFn: async ({ signal }) => {
       // Throw, don't swallow. Returning [] here turned "Prometheus is not
       // reachable" into "no alerts are firing", and the Overview rendered a
-      // green all-clear on the strength of a failed request.
-      if (!res.ok) throw new Error(`Prometheus returned ${res.status} ${res.statusText}`);
-      const json = await res.json();
-      return (json.data?.alerts || []).filter((a: { state: string }) => a.state === 'firing');
+      // green all-clear on the strength of a failed request. promJson throws
+      // a readable error for a non-2xx, an HTML page or a body that is not JSON.
+      type Alert = { labels: Record<string, string>; annotations: Record<string, string>; state: string };
+      const data = await promJson<{ alerts?: Alert[] }>('/api/v1/alerts', clusterId, signal);
+      return (data?.alerts || []).filter((a) => a.state === 'firing');
     },
     refetchInterval: 30000,
   });

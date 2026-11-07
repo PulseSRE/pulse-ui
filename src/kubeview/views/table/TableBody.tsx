@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import { ChevronUp, ChevronDown, Trash2, Loader2, FileEdit, FileText, Inbox } from 'lucide-react';
@@ -8,6 +8,10 @@ import { EmptyState } from '../../components/primitives/EmptyState';
 import type { K8sResource, ColumnDef } from '../../engine/renderers';
 import type { ResourceEnhancer } from '../../engine/enhancers';
 import { WorkloadActionMenu, TABLE_ACTION_KINDS } from '../../components/workloads/WorkloadActionMenu';
+import { actionsColumnWidth, buildColumnTemplate } from './columnTemplate';
+
+/** The actions column stays in view on the right while the table scrolls sideways. */
+const STICKY_ACTIONS = 'sticky right-0 z-[1] border-l border-slate-800/60';
 
 interface SortState {
   column: string;
@@ -91,12 +95,62 @@ export function TableBody({
     overscan: 20,
   });
 
+  // --- Shared column template (header, filter row and body rows) ---
+  const visibleInlineActions = (enhancer?.inlineActions ?? [])
+    .filter((action) => !action.requires || (action.requires === 'update' ? canUpdate : canDelete));
+  const showsWorkloadMenu = paginatedResources.some((r) => TABLE_ACTION_KINDS.has(r.kind));
+  // The widest actions content measured for this kind and set of controls. It
+  // only widens while they stay the same (capped, so it cannot loop) and starts
+  // over when the kind, its permitted actions or the workload menu change.
+  const actionsKey = `${gvrKey}|${visibleInlineActions.map((a) => a.id).join(',')}|${showsWorkloadMenu}`;
+  const [measured, setMeasured] = useState({ key: actionsKey, width: 0 });
+  const measuredActions = measured.key === actionsKey ? measured.width : 0;
+  const measureActions = useCallback((el: HTMLDivElement | null) => {
+    const w = el ? Math.min(el.offsetWidth, 480) : 0;
+    if (w > 0) {
+      setMeasured((prev) => (prev.key !== actionsKey ? { key: actionsKey, width: w } : w > prev.width ? { key: actionsKey, width: w } : prev));
+    }
+  }, [actionsKey]);
+  const { template, minWidth } = useMemo(() => buildColumnTemplate(
+    visibleColumns,
+    actionsColumnWidth(visibleInlineActions.length + (showsWorkloadMenu ? 1 : 0) + 2, measuredActions),
+  ), [visibleColumns, visibleInlineActions.length, showsWorkloadMenu, measuredActions]);
+  const gridStyle = { display: 'grid', gridTemplateColumns: template, alignItems: 'center' } as const;
+  const headerRowCount = showFilters ? 2 : 1;
+
+  // --- Header "Select all": checked when the whole page is selected, mixed when part of it is ---
+  const selectedOnPage = paginatedResources.filter((r) => selectedRows.has(r.metadata.uid || '')).length;
+  const allOnPageSelected = paginatedResources.length > 0 && selectedOnPage === paginatedResources.length;
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = selectedOnPage > 0 && !allOnPageSelected;
+  }, [selectedOnPage, allOnPageSelected]);
+
+  // --- Keyboard focus follows j/k (TableView owns the keys) ---
+  // Moves DOM focus to the focused row so screen readers follow it, but never
+  // takes focus away from a checkbox, button, field or dialog the user is in.
+  useEffect(() => {
+    if (focusedRow < 0 || focusedRow >= paginatedResources.length) return;
+    virtualizer.scrollToIndex?.(focusedRow, { align: 'auto' });
+    const table = tableContainerRef.current;
+    const active = document.activeElement;
+    const userIsElsewhere = active && active !== document.body
+      && !(table?.contains(active) && active.getAttribute('role') === 'row');
+    if (userIsElsewhere) return;
+    const row = table?.querySelector<HTMLElement>(`[role="row"][data-index="${focusedRow}"]`);
+    if (row && row !== active) row.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedRow, paginatedResources.length]);
+
+  const kindLabel = resourceKind.toLowerCase();
+
   if (isLoading) {
     return (
       <div ref={tableContainerRef} className={cn('overflow-auto', previewResource ? 'flex-1' : 'w-full')}>
-        <div className="flex flex-col gap-2 p-4">
+        <div className="flex flex-col gap-2 p-4" role="status" aria-busy="true">
+          <span className="sr-only">Loading {kindLabel}…</span>
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 animate-pulse">
+            <div key={i} aria-hidden="true" className="flex items-center gap-4 animate-pulse">
               <div className="w-4 h-4 bg-slate-800 rounded-sm" />
               <div className="h-4 bg-slate-800 rounded-sm flex-1 max-w-[200px]" />
               <div className="h-4 bg-slate-800 rounded-sm flex-1 max-w-[120px]" />
@@ -130,70 +184,89 @@ export function TableBody({
     );
   }
 
+  // Header and body rowgroups get the same min width, so `fr` tracks resolve
+  // against the same width in both and a narrow window scrolls, not squeezes.
+  const rowgroupWidth = { minWidth: `max(100%, ${minWidth}px)` };
+
   return (
-    <div ref={tableContainerRef} className={cn('overflow-auto', previewResource ? 'flex-1' : 'w-full')}>
-      {/* Header table for column alignment */}
-      <table className="w-full">
-        <thead className="bg-slate-900 sticky top-0 z-10">
-          <tr>
-            <th className="px-4 py-3 text-left w-12">
-              <input
-                type="checkbox"
-                checked={selectedRows.size === paginatedResources.length && paginatedResources.length > 0}
-                onChange={onSelectAll}
-                className="w-4 h-4 rounded-sm border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
-              />
-            </th>
-            {visibleColumns.map((column) => (
-              <th
+    <div
+      ref={tableContainerRef}
+      role="table"
+      aria-label={`${resourceKind}${activeNamespace ? ` in ${activeNamespace}` : ''}`}
+      aria-rowcount={headerRowCount + Math.max(paginatedResources.length, 1)}
+      className={cn('overflow-auto', previewResource ? 'flex-1' : 'w-full')}
+    >
+      <div role="rowgroup" className="bg-slate-900 sticky top-0 z-10" style={rowgroupWidth}>
+        <div role="row" aria-rowindex={1} style={gridStyle}>
+          <div role="columnheader" className="px-4 py-3">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              aria-label="Select all"
+              checked={allOnPageSelected}
+              onChange={onSelectAll}
+              className="w-4 h-4 rounded-sm border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {visibleColumns.map((column) => {
+            const sorted = column.sortable && sortState.column === column.id;
+            return (
+              <div
                 key={column.id}
-                className={cn(
-                  'px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide',
-                  column.sortable && 'cursor-pointer hover:text-slate-300'
-                )}
-                style={{ width: column.width }}
-                onClick={() => column.sortable && onSort(column.id)}
+                role="columnheader"
+                // ARIA: only the column the rows are sorted by carries aria-sort.
+                aria-sort={sorted ? (sortState.direction === 'asc' ? 'ascending' : 'descending') : undefined}
+                className="px-4 py-3 min-w-0 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide"
               >
-                <div className="flex items-center gap-1">
-                  {column.header}
-                  {column.sortable && sortState.column === column.id && (
-                    sortState.direction === 'asc' ? (
-                      <ChevronUp className="w-3 h-3" />
-                    ) : (
-                      <ChevronDown className="w-3 h-3" />
-                    )
-                  )}
-                </div>
-              </th>
+                {column.sortable ? (
+                  <button
+                    type="button"
+                    onClick={() => onSort(column.id)}
+                    className="flex items-center gap-1 max-w-full uppercase tracking-wide hover:text-slate-300 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm"
+                  >
+                    <span className="truncate">{column.header}</span>
+                    {sorted && (
+                      sortState.direction === 'asc' ? (
+                        <ChevronUp className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      )
+                    )}
+                  </button>
+                ) : (
+                  <span className="block truncate">{column.header}</span>
+                )}
+              </div>
+            );
+          })}
+          <div role="columnheader" className={cn(STICKY_ACTIONS, 'self-stretch flex items-center bg-slate-900 px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide')}>
+            Actions
+          </div>
+        </div>
+        {/* Column filter row */}
+        {showFilters && (
+          <div role="row" aria-rowindex={2} className="bg-slate-900/80" style={gridStyle}>
+            <div role="cell" className="px-4 py-1" />
+            {visibleColumns.map((column) => (
+              <div role="cell" key={`filter-${column.id}`} className="px-4 py-1 min-w-0">
+                <input
+                  type="text"
+                  aria-label={`Filter ${column.header}`}
+                  value={columnFilters[column.id] || ''}
+                  onChange={(e) => onColumnFilterChange(column.id, e.target.value)}
+                  placeholder={`Filter ${column.header}...`}
+                  className="w-full px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
             ))}
-            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">
-              Actions
-            </th>
-          </tr>
-          {/* Column filter row */}
-          {showFilters && (
-            <tr className="bg-slate-900/80">
-              <th className="px-4 py-1" />
-              {visibleColumns.map((column) => (
-                <th key={`filter-${column.id}`} className="px-4 py-1">
-                  <input
-                    type="text"
-                    value={columnFilters[column.id] || ''}
-                    onChange={(e) => onColumnFilterChange(column.id, e.target.value)}
-                    placeholder={`Filter ${column.header}...`}
-                    className="w-full px-2 py-1 text-xs bg-slate-800 border border-slate-700 rounded-sm text-slate-200 placeholder-slate-600 focus:outline-hidden focus:ring-1 focus:ring-blue-500"
-                  />
-                </th>
-              ))}
-              <th className="px-4 py-1" />
-            </tr>
-          )}
-        </thead>
-      </table>
+            <div role="cell" className={cn(STICKY_ACTIONS, 'bg-slate-900 px-4 py-1 self-stretch')} />
+          </div>
+        )}
+      </div>
 
       {/* Empty filtered state */}
       {paginatedResources.length === 0 && (
-        <div className="px-4 py-12 text-center">
+        <div role="rowgroup" style={rowgroupWidth}><div role="row" aria-rowindex={headerRowCount + 1}><div role="cell" aria-colspan={visibleColumns.length + 2} className="px-4 py-12 text-center">
           <p className="text-slate-400 text-sm">
             0 of {stampedResources.length} {resourceKind.toLowerCase()} match your filters
           </p>
@@ -224,12 +297,12 @@ export function TableBody({
               Clear all filters
             </button>
           )}
-        </div>
+        </div></div></div>
       )}
 
-      {/* Div-based virtualized body */}
+      {/* Virtualized body: absolutely positioned rows on the same grid template as the header */}
       {paginatedResources.length > 0 && (
-        <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        <div role="rowgroup" style={{ ...rowgroupWidth, height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const rowIndex = virtualRow.index;
             const resource = paginatedResources[rowIndex];
@@ -240,25 +313,30 @@ export function TableBody({
             return (
               <div
                 key={uid}
+                role="row"
+                aria-rowindex={headerRowCount + rowIndex + 1}
+                tabIndex={isFocused ? 0 : -1}
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
                 className={cn(
-                  'flex items-center border-b border-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer',
+                  'group focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 border-b border-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer',
                   isSelected && 'bg-slate-900/70',
-                  isFocused && 'ring-1 ring-inset ring-blue-500/50 bg-blue-950/20'
+                  isFocused && 'ring-2 ring-inset ring-blue-500 bg-blue-950/20'
                 )}
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
+                  ...gridStyle,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
                 onClick={(e) => { onFocusRow(rowIndex); onRowClick(resource, e); }}
               >
-                <div className="px-4 py-3 shrink-0" style={{ width: 48 }}>
+                <div role="cell" className="px-4 py-3">
                   <input
                     type="checkbox"
+                    aria-label={`Select ${resource.metadata.name}`}
                     checked={isSelected}
                     onChange={() => onRowSelect(uid)}
                     className="w-4 h-4 rounded-sm border-slate-600 bg-slate-800 text-blue-500 focus:ring-2 focus:ring-blue-500"
@@ -267,13 +345,24 @@ export function TableBody({
                 {visibleColumns.map((column) => {
                   const value = column.accessorFn(resource);
                   return (
-                    <div key={column.id} className="px-4 py-3 truncate" style={{ width: column.width, flex: column.width ? `0 0 ${column.width}` : '1 1 0%' }}>
+                    <div key={column.id} role="cell" className="px-4 py-3 min-w-0 truncate">
                       {column.render(value, resource)}
                     </div>
                   );
                 })}
-                <div className="px-4 py-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-1">
+                <div
+                  role="cell"
+                  className={cn(
+                    STICKY_ACTIONS,
+                    'self-stretch flex items-center px-4 py-3 bg-slate-950 group-hover:bg-slate-900 group-focus-visible:shadow-[var(--row-focus-ring)]',
+                    isSelected && 'bg-slate-900',
+                    // The opaque sticky cell would hide the row's ring on the right; continue it here.
+                    isFocused && 'shadow-[var(--row-focus-ring)]',
+                  )}
+                  style={{ '--row-focus-ring': 'inset 0 2px 0 0 var(--color-blue-500), inset 0 -2px 0 0 var(--color-blue-500), inset -2px 0 0 0 var(--color-blue-500)' } as React.CSSProperties}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div ref={measureActions} className="inline-flex items-center gap-1">
                     {enhancer?.inlineActions
                       ?.filter((action) => !action.requires || (action.requires === 'update' ? canUpdate : canDelete))
                       .map((action) => (
