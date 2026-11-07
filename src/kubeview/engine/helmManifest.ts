@@ -434,7 +434,13 @@ const ANCHOR = /(^|[ \t[{,])[&*][^\] \t[{},]/;
 const PLAIN_KIND = /^[ \t-]*kind:[ \t]*["']?[A-Za-z0-9.]+["']?[ \t]*(#.*)?$/;
 const SPANS = 'a flow collection in it spans lines';
 /** A value that opens a flow mapping or sequence and does not close it on the same line(s). */
-const unclosed = (v: string) => /^[ \t]*[[{]/.test(v) && (v.match(/[[{]/g) ?? []).length > (v.match(/[\]}]/g) ?? []).length;
+const unclosed = (v: string) => {
+  if (!/^[ \t]*[[{]/.test(v)) return false;
+  // Drop quoted strings (leftmost first) before counting brackets; any quote or # left over is unreadable.
+  const u = v.replace(/"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'/g, '');
+  if (/["'#]/.test(u)) return true;
+  return (u.match(/[[{]/g) ?? []).length > (u.match(/[\]}]/g) ?? []).length;
+};
 /** The only top-level keys a Secret may have to be shown (literal, unquoted). */
 const SECRET_TOP_KEYS = /^(apiVersion|kind|metadata|type|immutable|data|stringData)[ \t]*:/;
 
@@ -479,6 +485,8 @@ export async function redactSecretValues(text: string, salt: string): Promise<st
       // A nested kind that is tagged, folded, quoted oddly or in a flow mapping may hide a Secret.
       if (!/^kind[ \t]*:/.test(l) && /^[ \t-]*["']?kind["']?[ \t]*:/.test(l) && !PLAIN_KIND.test(l)) oddKind = true;
       if (/[{,][ \t]*["']?kind["']?[ \t]*:/.test(l)) oddKind = true;
+      // An explicit key (`? kind` / `: Secret`) cannot be read line by line.
+      if (/^[ \t-]*\?([ \t]|$)/.test(l)) oddKind = true;
     }
     if (!content) { out.push(...doc); doc = []; return; }
     if (nested) { withhold('it contains a Secret inside a list or another object'); return; }

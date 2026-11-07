@@ -67,10 +67,15 @@ function withhold(reason,   i) {
   print "reason: \"" reason "\""
   nl = 0
 }
-function unclosed(s,   t, o, c) {
+function unclosed(s,   t, u, o, c) {
   if (s !~ /^[ \t]*[[{]/) return 0
-  t = s; o = gsub(/[[{]/, "", t)
-  t = s; c = gsub(/[]}]/, "", t)
+  # Drop quoted strings (leftmost first) before counting brackets; any quote or # left over is unreadable.
+  t = s; u = ""
+  while (match(t, /"([^"\\]|\\.)*"|'([^']|'')*'/)) { u = u substr(t, 1, RSTART - 1); t = substr(t, RSTART + RLENGTH) }
+  u = u t
+  if (u ~ /["'#]/) return 1
+  t = u; o = gsub(/[[{]/, "", t)
+  t = u; c = gsub(/[]}]/, "", t)
   return o > c
 }
 function flush(   i, j, l, content, top, secret, nested, oddkind, sec, ind, keyind, key, val, m, rest, cur, on, bad) {
@@ -86,6 +91,7 @@ function flush(   i, j, l, content, top, secret, nested, oddkind, sec, ind, keyi
     if (l ~ /kind["']?[ \t]*:[ \t]*["']?Secret(["' \t,}#]|$)/) nested = 1
     if (l !~ /^kind[ \t]*:/ && l ~ /^[ \t-]*["']?kind["']?[ \t]*:/ && l !~ /^[ \t-]*kind:[ \t]*["']?[A-Za-z0-9.]+["']?[ \t]*(#.*)?$/) oddkind = 1
     if (l ~ /[{,][ \t]*["']?kind["']?[ \t]*:/) oddkind = 1
+    if (l ~ /^[ \t-]*\?([ \t]|$)/) oddkind = 1
   }
   if (!content) { for (i = 1; i <= nl; i++) print doc[i]; nl = 0; return }
   if (nested) { withhold("it contains a Secret inside a list or another object"); return }

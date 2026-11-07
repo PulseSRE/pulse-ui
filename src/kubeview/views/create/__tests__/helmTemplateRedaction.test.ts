@@ -88,6 +88,9 @@ const CASES: Array<{ name: string; secret: string; render: string; withheld?: bo
   { name: 'folded kind inside a List', secret: 'folded-list-pass', withheld: true, render: `---\napiVersion: v1\nkind: List\nitems:\n  - apiVersion: v1\n    kind: >-\n      Secret\n    stringData:\n      p: folded-list-pass\n` },
   { name: 'folded kind inside a Template', secret: 'folded-tpl-pass', withheld: true, render: `---\napiVersion: template.openshift.io/v1\nkind: Template\nobjects:\n- apiVersion: v1\n  kind: >-\n    Secret\n  stringData:\n    p: folded-tpl-pass\n` },
   { name: 'tagged kind in a flow mapping inside a List', secret: 'tagged-flow-pass', withheld: true, render: `---\napiVersion: v1\nkind: List\nitems: [{kind: !!str Secret, stringData: {p: tagged-flow-pass}}]\n` },
+  // Round 5: a quoted bracket hiding an unclosed flow mapping, and an explicit-key kind.
+  { name: 'flow mapping whose quoted "}" hides that it is unclosed', secret: 'LEAK53', withheld: true, render: `---\n# Source: x.yaml\napiVersion: v1\nkind: Secret\nmetadata:\n  name: a\nstringData: {a: "}",\ntype: LEAK53}\n` },
+  { name: 'explicit-key kind inside a List', secret: 'LEAK67', withheld: true, render: `---\n# Source: x.yaml\napiVersion: v1\nkind: List\nitems:\n- apiVersion: v1\n  ? kind\n  : Secret\n  stringData:\n    password: LEAK67\n` },
   { name: 'nested content under type', secret: 'LEAK-under-type', withheld: true, render: `---\napiVersion: v1\nkind: Secret\ntype: |\n  LEAK-under-type\nstringData:\n  p: x\n` },
 ];
 
