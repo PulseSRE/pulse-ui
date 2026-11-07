@@ -14,7 +14,15 @@
      WCAG AA 4.5:1 for normal text on every dark surface the app uses
      (slate-950, the sunken #0c1220, slate-900 and slate-800); see :root for
      the measured ratios. Use these instead of text-slate-500/600/700, which
-     fall to 1.9-3.7:1 — eslint pulse/no-low-contrast-text enforces it. */
+     fall to 1.9-3.7:1 — eslint pulse/no-low-contrast-text enforces it.
+
+     Naming: the raw values live on :root as --text-muted / --text-faint
+     (outside @theme). Inside @theme they must NOT be declared under those
+     names: --text-* is Tailwind 4's font-size namespace, so @theme
+     { --text-faint: … } would make `text-faint` set font-size. The
+     --text-color-* namespace feeds only the colour utility, which is why
+     `text-faint` here is a colour and nothing else. (--color-text-faint would
+     also work but produces `text-text-faint`.) */
   --text-color-muted: var(--text-muted);
   --text-color-faint: var(--text-faint);
 

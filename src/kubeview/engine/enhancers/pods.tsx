@@ -4,6 +4,7 @@ import { ScrollText, RotateCw } from 'lucide-react';
 import type { ResourceEnhancer } from './index';
 import type { Pod } from '../types';
 import { getPodStatus } from '../renderers/statusUtils';
+import { podPhaseClasses } from '../statusColors';
 
 export const podEnhancer: ResourceEnhancer = {
   matches: ['v1/pods'],
@@ -25,23 +26,10 @@ export const podEnhancer: ResourceEnhancer = {
         const podStatus = getPodStatus(resource);
         const displayText = podStatus.reason ?? podStatus.phase;
 
-        let color = 'gray';
-        const phase = podStatus.phase.toLowerCase();
-
-        if (phase === 'running' && podStatus.ready) {
-          color = 'green';
-        } else if (phase === 'succeeded') {
-          color = 'green';
-        } else if (phase === 'pending') {
-          color = 'yellow';
-        } else if (phase === 'failed' || podStatus.reason) {
-          color = 'red';
-        } else if (!podStatus.ready) {
-          color = 'yellow';
-        }
-
-        const colorMap: Record<string, string> = { green: 'bg-green-500', yellow: 'bg-amber-500', red: 'bg-red-500', gray: 'bg-slate-500' };
-        const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${colorMap[color] || 'bg-slate-500'}`;
+        // One pod palette with the node map and topology pod grid:
+        // Pending is warning, ContainerCreating/PodInitializing is progress.
+        const tone = podPhaseClasses(podStatus.phase, { reason: podStatus.reason, ready: podStatus.ready });
+        const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${tone.solid}`;
 
         return (
           <span className="inline-flex items-center text-sm" title={displayText}>

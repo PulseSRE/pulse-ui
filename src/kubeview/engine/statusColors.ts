@@ -150,6 +150,10 @@ assign('success', [
   'passed', 'resolved', 'synced', 'up', 'verified',
 ]);
 assign('neutral', ['unknown', 'not-compared', 'not compared', 'not_compared', 'none', 'n/a', 'no data', 'normal']);
+// 'low' here is a *severity* (a low-severity finding or alert: informational).
+// On the four-step *risk* scale (critical/high/medium/low) low means "safe";
+// colour risk with riskTone(), which reads low as success. Pick the helper by
+// what the word is: statusTone() for severities and states, riskTone() for risk.
 assign('info', ['info', 'information', 'informational', 'notice', 'low']);
 assign('terminating', ['terminating', 'deleting']);
 
@@ -170,12 +174,74 @@ export function statusHex(status: string | null | undefined | boolean): string {
   return TONE_CLASSES[statusTone(status)].hex;
 }
 
+// ── Pod phase ───────────────────────────────────────────────────────────
+// statusTone() reads a bare "Pending" as progress, which suits a rollout or a
+// sync. For a pod it is wrong: a Pending pod is one the scheduler has not
+// placed (or whose volumes or images are not there yet), which is something
+// to look at. Use podPhaseTone() for anything that colours a pod: the Pods
+// list, the node map and the topology pod grid all agree through it.
+
+const POD_PHASES = new Set(['pending', 'running', 'succeeded', 'failed', 'unknown', 'terminating']);
+/** Waiting reasons that are ordinary start-up, not a problem. */
+const POD_STARTING = new Set(['containercreating', 'podinitializing']);
+/** Waiting/terminated reasons that mean the pod is broken. */
+const POD_BROKEN = /backoff|err|error|oomkilled|evicted|nodelost|deadlineexceeded|unexpectedadmission/i;
+
+export interface PodToneOptions {
+  /** A container waiting/terminated reason or the pod's status.reason. */
+  reason?: string | null;
+  /** All containers ready. `false` turns a Running pod into warning. */
+  ready?: boolean;
+  /**
+   * Tone for Succeeded. Default success; density grids pass 'neutral' so
+   * completed Job pods stay distinguishable from Running ones.
+   */
+  completed?: StatusTone;
+}
+
+/**
+ * Tone for a pod. `phase` may be the pod phase or, as some views pass it, a
+ * reason in its place ("CrashLoopBackOff", "ContainerCreating").
+ *
+ * - ContainerCreating / PodInitializing → progress (normal start-up)
+ * - a crash, pull or config error, OOMKilled, Evicted → danger
+ * - Pending → warning (not scheduled or not started)
+ * - Failed → danger; Unknown → neutral; Terminating → terminating
+ * - Running → success, or warning when `ready` is false
+ * - Succeeded → `completed` (success by default)
+ */
+export function podPhaseTone(phase: string | null | undefined, opts: PodToneOptions = {}): StatusTone {
+  let p = String(phase ?? '').trim().toLowerCase();
+  let reason = String(opts.reason ?? '').trim().toLowerCase();
+  if (p && !POD_PHASES.has(p)) {
+    reason = reason || p;
+    p = '';
+  }
+  if (POD_STARTING.has(reason)) return 'progress';
+  if (reason && POD_BROKEN.test(reason)) return 'danger';
+  switch (p) {
+    case 'pending': return 'warning';
+    case 'failed': return 'danger';
+    case 'terminating': return 'terminating';
+    case 'succeeded': return opts.completed ?? 'success';
+    case 'running': return opts.ready === false ? 'warning' : 'success';
+    case 'unknown': return 'neutral';
+  }
+  return reason ? statusTone(reason) : 'neutral';
+}
+
+/** Classes for a pod; see podPhaseTone(). */
+export function podPhaseClasses(phase: string | null | undefined, opts?: PodToneOptions): ToneClasses {
+  return TONE_CLASSES[podPhaseTone(phase, opts)];
+}
+
 export type RiskLevel = 'critical' | 'high' | 'medium' | 'low';
 
 /**
  * Risk is a four-step scale, one more step than the status tones: critical is
  * danger, high is orange (the terminating family), medium is warning (amber)
- * and low is success. Anything else reads as neutral.
+ * and low is success. Anything else reads as neutral. Use this, not
+ * statusTone(), for risk: statusTone('low') is the low *severity* (info).
  */
 const RISK_TONE: Record<RiskLevel, StatusTone> = { critical: 'danger', high: 'terminating', medium: 'warning', low: 'success' };
 

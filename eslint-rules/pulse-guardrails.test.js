@@ -64,6 +64,10 @@ tester.run('no-yellow', plugin.rules['no-yellow'], {
     { code: "const c = { color: '#EAB308' };", errors: [{ messageId: 'yellow' }] },
     { code: "const c = 'rgba(234, 179, 8, 0.15)';", errors: [{ messageId: 'yellow' }] },
     { code: "const x = <span className='text-yellow-300'>!</span>;", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'bg-yellow-500/50';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'hover:!bg-yellow-500';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'text-yellow-300!';", errors: [{ messageId: 'yellow' }] },
+    { code: "const c = 'data-[state=open]:border-yellow-600';", errors: [{ messageId: 'yellow' }] },
   ],
 });
 
@@ -78,6 +82,8 @@ tester.run('no-low-contrast-text', plugin.rules['no-low-contrast-text'], {
     "import { Info as I } from 'lucide-react'; const x = <I className={cn('w-4', on ? 'text-red-400' : 'text-slate-500')} />;",
     "const x = <SeverityIcon className='text-slate-600' />;",
     "const x = <cfg.Icon className='text-slate-600' />;",
+    "const x = <cfg.icon className='text-slate-600' />;",
+    "const c = 'text-slate-6000 notext-slate-600';",
     // Separator glyphs are decorative.
     "const x = <span className='text-slate-700 mx-1'>›</span>;",
     "const x = <span className='text-slate-600'>&middot;</span>;",
@@ -99,6 +105,15 @@ tester.run('no-low-contrast-text', plugin.rules['no-low-contrast-text'], {
     { code: "const x = <span aria-label='not recorded' className='text-slate-500'>•</span>;", errors: [{ messageId: 'lowContrast' }] },
     // An enabled button whose disabled look is a variant is still checked.
     { code: "const x = <button className='p-2 text-slate-500 disabled:cursor-not-allowed'>Edit</button>;", errors: [{ messageId: 'lowContrast' }] },
+    // Opacity, important (either side) and arbitrary/data variants are the same class.
+    { code: "const c = 'text-xs text-slate-600/60';", errors: [{ messageId: 'lowContrast', data: { cls: 'text-slate-600/60' } }] },
+    { code: "const c = 'text-slate-500/[.35]';", errors: [{ messageId: 'lowContrast', data: { cls: 'text-slate-500/[.35]' } }] },
+    { code: "const c = '!text-slate-500';", errors: [{ messageId: 'lowContrast', data: { cls: '!text-slate-500' } }] },
+    { code: "const c = 'text-slate-700!';", errors: [{ messageId: 'lowContrast', data: { cls: 'text-slate-700!' } }] },
+    { code: "const c = 'data-[state=open]:text-slate-500';", errors: [{ messageId: 'lowContrast', data: { cls: 'data-[state=open]:text-slate-500' } }] },
+    { code: "const c = '[&>p]:text-slate-600';", errors: [{ messageId: 'lowContrast', data: { cls: '[&>p]:text-slate-600' } }] },
+    { code: "const c = 'group-data-[x]:hover:text-slate-600';", errors: [{ messageId: 'lowContrast' }] },
+    { code: "const c = 'aria-selected:text-slate-600';", errors: [{ messageId: 'lowContrast' }] },
     // Text beside an icon is still text.
     { code: "import { Info } from 'lucide-react'; const x = <span className='text-slate-600'><Info className='w-3' /> Note</span>;", errors: [{ messageId: 'lowContrast' }] },
   ],
@@ -167,6 +182,8 @@ describe('repository ESLint config', () => {
     expect(after).toContain("'text-slate-700'>·");
     expect(after).toContain("'disabled:text-slate-600 bg-amber-900/50'");
     expect(transform(after, 'X.tsx')).toBe(after);
+    const forms = transform("export const c = 'text-slate-600/60 !text-slate-500 text-slate-700! data-[state=open]:text-slate-500 [&>p]:text-slate-600 hover:!bg-yellow-500/50';", 'c.ts');
+    expect(forms).toBe("export const c = 'text-faint/60 !text-faint text-faint! data-[state=open]:text-faint [&>p]:text-faint hover:!bg-amber-500/50';");
     expect(await lint(after, 'src/kubeview/components/NewPanel.tsx')).toEqual([]);
     expect(await lint(before, 'src/kubeview/components/NewPanel.tsx')).toEqual(['pulse/no-low-contrast-text', 'pulse/no-yellow', 'pulse/no-yellow']);
   }, 30_000);

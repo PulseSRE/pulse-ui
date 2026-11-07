@@ -100,7 +100,10 @@ const noInlineStatusColors = {
 
 const YELLOW_CLASS = /(^|[^\w-])(?:[\w-]+:)*[a-z]+(?:-[a-z]+)*-yellow-\d{2,3}(?=$|[^\w-])/;
 const YELLOW_HEX = /#eab308\b|rgba?\(\s*234\s*,\s*179\s*,\s*8\s*[,)]/i;
-const LOW_CONTRAST = /(^|[\s"'`{])((?:[\w-]+:)*)text-slate-(500|600|700)(?=$|[\s"'`}$])/g;
+// One class token: variants (`hover:`, `placeholder:`, `data-[state=open]:`,
+// `[&>p]:`, `aria-selected:` …), an optional `!` before or after (Tailwind 3 and
+// 4 important), an optional opacity (`/60`, `/[.35]`).
+const LOW_CONTRAST = /(^|[\s"'`{])((?:(?:[^\s:"'`{}[\]]|\[[^\]\s]*\])+:)*)(!?)text-slate-(500|600|700)((?:\/(?:\d+|\[[^\]\s]+\]))?)(!?)(?=$|[\s"'`}$])/g;
 const SEPARATOR_TEXT = /^\s*(?:[›»|·•/]|&middot;)\s*$/;
 const DISABLED_BRANCH = /(^|[\s"'`])cursor-not-allowed(?=$|[\s"'`])/;
 
@@ -166,7 +169,7 @@ const noLowContrastText = {
     const icons = new Set();
     const isIcon = (owner) => {
       const n = jsxName(owner.name);
-      return icons.has(n) || /Icon$/.test(n);
+      return icons.has(n) || /[Ii]con$/.test(n);
     };
     const isSeparator = (owner) => {
       if (owner.attributes.some((a) => a.type === 'JSXAttribute' && a.name.type === 'JSXIdentifier' && /^aria-/.test(a.name.name))) return false;
@@ -181,7 +184,7 @@ const noLowContrastText = {
       if (owner && (isIcon(owner) || isSeparator(owner))) return;
       for (const m of text.matchAll(LOW_CONTRAST)) {
         if (/(^|:)disabled:$/.test(m[2])) continue;
-        context.report({ node, messageId: 'lowContrast', data: { cls: `${m[2]}text-slate-${m[3]}` } });
+        context.report({ node, messageId: 'lowContrast', data: { cls: `${m[2]}${m[3]}text-slate-${m[4]}${m[5]}${m[6]}` } });
         return;
       }
     };
