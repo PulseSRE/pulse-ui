@@ -227,11 +227,17 @@ export default function FleetResourceView({ gvrKey }: FleetResourceViewProps) {
   // Empty state
   if (!loading && results.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-950">
-        <div className="text-center space-y-2">
-          <Globe className="w-10 h-10 text-slate-700 mx-auto" />
-          <p className="text-slate-400 text-sm">No clusters connected</p>
-          <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to browse resources across your fleet.</p>
+      <div className="h-full flex flex-col bg-slate-950">
+        <div className="border-b border-slate-800 px-6 py-4">
+          <FleetSubNav className="mb-3" />
+          <PageHeader icon={<Globe className="w-6 h-6 text-blue-500" />} title={`Fleet ${resourceKind}`} />
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center space-y-2">
+            <Globe className="w-10 h-10 text-slate-700 mx-auto" />
+            <p className="text-slate-400 text-sm">No clusters connected</p>
+            <p className="text-slate-600 text-xs">Connect clusters in the Fleet view to browse resources across your fleet.</p>
+          </div>
         </div>
       </div>
     );

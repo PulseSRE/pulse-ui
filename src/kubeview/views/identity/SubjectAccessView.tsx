@@ -323,25 +323,34 @@ export function SubjectAccessPage({ subject }: { subject: SubjectRef }) {
     : subject.kind === 'Group' ? `/r/user.openshift.io~v1~groups/_/${subject.name}` : `/r/user.openshift.io~v1~users/_/${subject.name}`;
 
   const realGroups = memberships.filter((m) => m.removable).map((m) => m.group);
+  // Joined with " · " before "Open the object"; empty facts leave no stray separator.
+  const subjectFacts = [
+    subject.kind === 'User' ? (userQ.isError ? 'User object could not be read'
+      : userQ.data === null ? 'No User object (has not signed in through OAuth, or was deleted)'
+        : userQ.data?.identities?.length ? `Identity ${userQ.data.identities.join(', ')}` : null) : null,
+    subject.kind !== 'Group' && realGroups.length > 0 ? `groups ${realGroups.join(', ')}` : null,
+    subject.kind === 'Group' ? (group ? `${group.users?.length ?? 0} members${group.users?.length ? `: ${group.users.join(', ')}` : ''}` : data.failed.some((f) => f.what === 'Groups') ? 'Members could not be read' : 'No Group object (bindings may still name it)') : null,
+  ].filter((f): f is string => Boolean(f));
   return (
     <div className="h-full overflow-auto bg-slate-950 p-6">
       <div className="max-w-6xl mx-auto space-y-5">
         <PageHeader
           breadcrumb={[
-            { label: 'Identity & Access', onClick: () => go('/identity', 'Identity & Access') },
-            { label: subject.kind === 'User' ? 'Users' : subject.kind === 'Group' ? 'Groups' : 'Service accounts', onClick: () => go(subject.kind === 'User' ? '/identity' : '/identity?tab=groups-sa', 'Identity & Access') },
+            // Users are the Identity page's first tab, so a user's trail is Identity & Access › name.
+            { label: 'Identity & Access', href: '/identity', onClick: () => go('/identity', 'Identity & Access') },
+            ...(subject.kind === 'User' ? [] : [{
+              label: subject.kind === 'Group' ? 'Groups' : 'Service accounts',
+              href: '/identity?tab=groups-sa',
+              onClick: () => go('/identity?tab=groups-sa', 'Identity & Access'),
+            }]),
             { label: subject.kind === 'ServiceAccount' ? `${subject.namespace}/${subject.name}` : subject.name },
           ]}
           icon={<KindIcon kind={subject.kind} className="w-6 h-6" />}
           title={subject.name}
           meta={<span className="px-1.5 py-0.5 rounded-sm bg-slate-800 text-slate-400">{subject.kind === 'ServiceAccount' ? `ServiceAccount in ${subject.namespace}` : subject.kind}</span>}
           subtitle={<>
-            {subject.kind === 'User' && (userQ.isError ? 'User object could not be read'
-              : userQ.data === null ? 'No User object (has not signed in through OAuth, or was deleted)'
-                : userQ.data?.identities?.length ? `Identity ${userQ.data.identities.join(', ')}` : null)}
-            {subject.kind !== 'Group' && realGroups.length > 0 && ` · groups ${realGroups.join(', ')}`}
-            {subject.kind === 'Group' && (group ? `${group.users?.length ?? 0} members${group.users?.length ? `: ${group.users.join(', ')}` : ''}` : data.failed.some((f) => f.what === 'Groups') ? 'Members could not be read' : 'No Group object (bindings may still name it)')}
-            {' · '}<button type="button" className="text-violet-400 hover:text-violet-300" onClick={() => go(objectPath, subject.name)}>Open the object</button>
+            {subjectFacts.map((fact) => <React.Fragment key={fact}>{fact}{' · '}</React.Fragment>)}
+            <button type="button" className="text-violet-400 hover:text-violet-300" onClick={() => go(objectPath, subject.name)}>Open the object</button>
           </>}
           actions={<>
             {subject.kind !== 'Group' && (

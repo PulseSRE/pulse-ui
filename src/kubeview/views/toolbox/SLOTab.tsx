@@ -27,9 +27,15 @@ export function deploymentNamespacesByName(deployments: DeploymentRef[]): Map<st
   return m;
 }
 
-export function SLOTab() {
+/**
+ * `showAdd`/`onShowAddChange` let a page own the "Add SLO" action (the SLO
+ * page puts it in its header); without them the tab renders its own button.
+ */
+export function SLOTab({ showAdd: showAddProp, onShowAddChange }: { showAdd?: boolean; onShowAddChange?: (open: boolean) => void } = {}) {
   const queryClient = useQueryClient();
-  const [showAdd, setShowAdd] = useState(false);
+  const [showAddLocal, setShowAddLocal] = useState(false);
+  const showAdd = showAddProp ?? showAddLocal;
+  const setShowAdd = onShowAddChange ?? setShowAddLocal;
   const [newSLO, setNewSLO] = useState({ service: '', type: 'availability', target: '99.9', window_days: '30', description: '' });
   const [confirmDelete, setConfirmDelete] = useState<{ service: string; type: string } | null>(null);
   // Editing an SLO re-registers it under the same service and type; the agent replaces the definition.
@@ -115,15 +121,17 @@ export function SLOTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-md"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add SLO
-        </button>
-      </div>
+      {!onShowAddChange && (
+        <div className="flex items-center justify-end">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-md"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add SLO
+          </button>
+        </div>
+      )}
 
       {actionError && <LoadError title={actionError.title} error={actionError.error} onRetry={() => setActionError(null)} />}
       {isError && <LoadError title="SLOs could not be loaded" error={error} onRetry={() => refetch()} />}

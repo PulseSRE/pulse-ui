@@ -500,8 +500,12 @@ export default function OperatorCatalogView() {
       <div className="h-full overflow-auto bg-slate-950 p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <PageHeader
-            back={{ label: 'catalog', onClick: () => setSelectedOp(null) }}
-            breadcrumb={[{ label: 'Operator Catalog', onClick: () => setSelectedOp(null) }, { label: desc?.displayName || selectedOp.metadata.name }]}
+            back={{
+              label: 'catalog',
+              // The catalog is this URL without ?pkg=, keeping the search and view.
+              href: (() => { const p = new URLSearchParams(searchParams); p.delete('pkg'); const q = p.toString(); return `/operators${q ? `?${q}` : ''}`; })(),
+              onClick: () => setSelectedOp(null),
+            }}
             icon={desc?.icon?.[0]?.base64data ? (
               <img src={`data:${desc.icon[0].mediatype};base64,${desc.icon[0].base64data}`} className="w-10 h-10 rounded-lg" alt="" />
             ) : (

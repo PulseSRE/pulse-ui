@@ -34,28 +34,49 @@ describe('PageHeader', () => {
     expect(container.querySelector('header')!.children).toHaveLength(1);
   });
 
-  it('back is a named button that calls its handler', () => {
+  it('back is a named link to the parent; a plain click navigates in the app', () => {
     const onBack = vi.fn();
-    render(<PageHeader title="Prometheus" back={{ label: 'catalog', onClick: onBack }} />);
-    const back = screen.getByRole('button', { name: 'Back to catalog' });
-    fireEvent.click(back);
-    expect(onBack).toHaveBeenCalledTimes(1);
+    render(<PageHeader title="Prometheus" back={{ label: 'catalog', href: '/operators', onClick: onBack }} />);
+    const back = screen.getByRole('link', { name: 'Back to catalog' });
+    expect(back.getAttribute('href')).toBe('/operators');
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' }).contains(back)).toBe(true);
+    // fireEvent returns false when the default (a full page load) was prevented.
+    expect(fireEvent.click(back)).toBe(false);
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('breadcrumb: earlier crumbs are buttons, the last is the current page', () => {
+  it('back: modified and middle clicks are left to the browser', () => {
+    const onBack = vi.fn();
+    render(<PageHeader title="Prometheus" back={{ label: 'catalog', href: '/operators', onClick: onBack }} />);
+    const back = screen.getByRole('link', { name: 'Back to catalog' });
+    for (const init of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+      expect(fireEvent.click(back, init)).toBe(true);
+    }
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('breadcrumb: earlier crumbs are links, the last is the current page', () => {
     const toIdentity = vi.fn();
     render(
       <PageHeader
-        title="alice"
-        breadcrumb={[{ label: 'Identity & Access', onClick: toIdentity }, { label: 'Users', onClick: vi.fn() }, { label: 'alice', onClick: vi.fn() }]}
+        title="web"
+        breadcrumb={[
+          { label: 'Identity & Access', href: '/identity', onClick: toIdentity },
+          { label: 'Service accounts', href: '/identity?tab=groups-sa', onClick: vi.fn() },
+          { label: 'shop/web', href: '/identity/serviceaccounts/shop/web', onClick: vi.fn() },
+        ]}
       />,
     );
     const nav = screen.getByRole('navigation', { name: 'Breadcrumb' });
-    fireEvent.click(within(nav).getByRole('button', { name: 'Identity & Access' }));
+    const first = within(nav).getByRole('link', { name: 'Identity & Access' });
+    expect(first.getAttribute('href')).toBe('/identity');
+    expect(within(nav).getByRole('link', { name: 'Service accounts' }).getAttribute('href')).toBe('/identity?tab=groups-sa');
+    expect(fireEvent.click(first)).toBe(false);
     expect(toIdentity).toHaveBeenCalledTimes(1);
-    expect(within(nav).queryByRole('button', { name: 'alice' })).toBeNull();
-    expect(within(nav).getByText('alice').getAttribute('aria-current')).toBe('page');
+    expect(fireEvent.click(first, { metaKey: true })).toBe(true);
+    expect(toIdentity).toHaveBeenCalledTimes(1);
+    expect(within(nav).queryByRole('link', { name: 'shop/web' })).toBeNull();
+    expect(within(nav).getByText('shop/web').getAttribute('aria-current')).toBe('page');
   });
 
   it('renders the meta line beside the title, outside the heading', () => {

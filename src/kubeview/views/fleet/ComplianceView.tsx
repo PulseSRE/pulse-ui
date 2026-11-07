@@ -249,12 +249,18 @@ export default function ComplianceView() {
 
   if (clusters.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-950 p-6">
-        <Card className="max-w-md p-6 text-center">
-          <Shield className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-slate-200 mb-2">No Clusters Connected</h2>
-          <p className="text-sm text-slate-400">Connect clusters in the Fleet view to see compliance data.</p>
-        </Card>
+      <div className="h-full overflow-auto bg-slate-950 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <FleetSubNav />
+          <PageHeader icon={<Shield className="w-6 h-6 text-blue-500" />} title="Fleet Compliance" />
+          <div className="flex justify-center py-10">
+            <Card className="max-w-md p-6 text-center">
+              <Shield className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+              <h2 className="text-lg font-semibold text-slate-200 mb-2">No Clusters Connected</h2>
+              <p className="text-sm text-slate-400">Connect clusters in the Fleet view to see compliance data.</p>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }

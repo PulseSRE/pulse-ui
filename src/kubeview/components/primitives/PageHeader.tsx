@@ -4,14 +4,31 @@ import { cn } from '@/lib/utils';
 
 export interface PageHeaderCrumb {
   label: string;
-  /** Omit on the last crumb (the current page); it renders as plain text. */
+  /** The crumb's URL. Omit on the last crumb (the current page); it renders as plain text. */
+  href?: string;
+  /** In-app navigation for a plain left click (e.g. `go(href, title)`). */
   onClick?: () => void;
 }
 
 export interface PageHeaderBack {
-  /** Where back goes, for the button's accessible name: "Back to <label>". */
+  /** Where back goes, for the link's accessible name: "Back to <label>". */
   label: string;
+  /** The parent page's URL, so the link can be opened in a new tab or copied. */
+  href: string;
+  /** In-app navigation for a plain left click. */
   onClick: () => void;
+}
+
+/**
+ * A plain left click navigates in the app; a modified or middle click is left
+ * to the browser (new tab, new window, copy link).
+ */
+function inAppClick(onClick?: () => void) {
+  return (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!onClick || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onClick();
+  };
 }
 
 export interface PageHeaderProps {
@@ -33,7 +50,8 @@ export interface PageHeaderProps {
 /**
  * The one page header for domain pages: optional back/breadcrumb, an icon, the
  * page's single `<h1>`, an optional meta line, a one-line subtitle and actions
- * on the right. Callers pass navigation as callbacks, so it needs no router.
+ * on the right. Breadcrumbs and back are real links (`href`); a plain left click
+ * calls the caller's in-app navigation, so the header needs no router.
  */
 export function PageHeader({ title, icon, subtitle, meta, actions, breadcrumb, back, className }: PageHeaderProps) {
   const hasNav = Boolean(back) || (breadcrumb && breadcrumb.length > 0);
@@ -43,25 +61,25 @@ export function PageHeader({ title, icon, subtitle, meta, actions, breadcrumb, b
         {hasNav && (
           <nav className="flex flex-wrap items-center gap-1.5 text-sm mb-1" aria-label="Breadcrumb">
             {back && (
-              <button
-                type="button"
-                onClick={back.onClick}
+              <a
+                href={back.href}
+                onClick={inAppClick(back.onClick)}
                 aria-label={`Back to ${back.label}`}
                 title={`Back to ${back.label}`}
                 className="p-1 rounded-sm hover:bg-slate-800 text-slate-400 hover:text-slate-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-              </button>
+              </a>
             )}
             {breadcrumb?.map((crumb, i) => {
               const last = i === breadcrumb.length - 1;
               return (
                 <React.Fragment key={`${i}-${crumb.label}`}>
                   {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />}
-                  {crumb.onClick && !last ? (
-                    <button type="button" onClick={crumb.onClick} className="text-blue-400 hover:text-blue-300">
+                  {crumb.href && !last ? (
+                    <a href={crumb.href} onClick={inAppClick(crumb.onClick)} className="text-blue-400 hover:text-blue-300 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                       {crumb.label}
-                    </button>
+                    </a>
                   ) : (
                     <span className="text-slate-400" aria-current={last ? 'page' : undefined}>{crumb.label}</span>
                   )}
