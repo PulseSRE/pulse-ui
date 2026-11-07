@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { useNavigateTab } from '../hooks/useNavigateTab';
 import { useK8sListWatch } from '../hooks/useK8sListWatch';
 import { useCanI } from '../hooks/useCanI';
@@ -42,7 +43,7 @@ function getBuildStatus(build: Build): { phase: string; color: string; icon: Rea
 
 export default function BuildsView() {
   const go = useNavigateTab();
-  const selectedNamespace = useUIStore((s) => s.selectedNamespace);
+  const { namespace: selectedNamespace } = useNamespaceScope();
   const addToast = useUIStore((s) => s.addToast);
   const nsFilter = selectedNamespace !== '*' ? selectedNamespace : undefined;
   const clusterId = useFleetStore((s) => s.activeClusterId);

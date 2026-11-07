@@ -55,7 +55,7 @@ describe('Storage page', () => {
     const btn = () => screen.getByRole('button', { name: /Create PVC/ }) as HTMLButtonElement;
     await waitFor(() => expect(btn().disabled).toBe(false));
     fireEvent.click(btn());
-    expect(goMock).toHaveBeenCalledWith('/create/v1~persistentvolumeclaims?namespace=shop', 'Create PVC');
+    expect(goMock).toHaveBeenCalledWith('/create/v1~persistentvolumeclaims?ns=shop', 'Create PVC');
   });
 
   it('Set default on a non-default class swaps the annotation', async () => {
@@ -116,7 +116,7 @@ describe('Networking page', () => {
   it('create buttons open the create page for the kind, in the selected namespace', async () => {
     setAllow({ 'create/services': true, 'create/routes': true, 'create/ingresses': true });
     renderWithProviders(<NetworkingView />);
-    for (const [label, path] of [['Service', '/create/v1~services?namespace=shop'], ['Route', '/create/route.openshift.io~v1~routes?namespace=shop'], ['Ingress', '/create/networking.k8s.io~v1~ingresses?namespace=shop']]) {
+    for (const [label, path] of [['Service', '/create/v1~services?ns=shop'], ['Route', '/create/route.openshift.io~v1~routes?ns=shop'], ['Ingress', '/create/networking.k8s.io~v1~ingresses?ns=shop']]) {
       const btn = () => screen.getByRole('button', { name: label }) as HTMLButtonElement;
       await waitFor(() => expect(btn().disabled).toBe(false));
       fireEvent.click(btn());

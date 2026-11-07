@@ -42,7 +42,7 @@ beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }) as never;
   fetchInboxStats.mockResolvedValue({});
   useInboxStore.setState({ stats: {} });
-  useUIStore.setState({ selectedNamespace: '*', aiSidebarExpanded: false, aiSidebarMode: 'dashboard' });
+  useUIStore.setState({ selectedNamespace: '*', aiSidebarExpanded: false, aiSidebarMode: 'dashboard', namespaceScopeOptOuts: 0 });
 });
 afterEach(() => { cleanup(); qc?.clear(); fetchInboxStats.mockReset(); });
 
@@ -147,5 +147,19 @@ describe('command bar "More" panel', () => {
     fetchInboxStats.mockResolvedValue({ needs_attention: 3 });
     renderBar();
     expect(await screen.findByRole('button', { name: 'More: cluster, namespace, account. 3 in the Inbox' })).toBeDefined();
+  });
+
+  it('on a page that shows every namespace, keeps the aria-disabled picker in the panel, reachable by arrows', () => {
+    useUIStore.setState({ namespaceScopeOptOuts: 1, selectedNamespace: 'payments' });
+    renderBar();
+    fireEvent.click(trigger());
+    const note = within(panel()).getByRole('button', { name: 'All namespaces on this page' });
+    expect(note.getAttribute('aria-disabled')).toBe('true');
+    // Ask Pulse, then the cluster indicator is not a button, so the picker comes next.
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(note);
+    fireEvent.click(note);
+    expect(screen.queryByPlaceholderText('Type to filter...')).toBeNull();
+    expect(trigger().getAttribute('aria-expanded')).toBe('true');
   });
 });

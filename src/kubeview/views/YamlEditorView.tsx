@@ -1,5 +1,5 @@
 import { useActiveClusterId } from '../hooks/useClusterBase';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '../store/uiStore';
@@ -10,11 +10,15 @@ import { getActiveClusterId } from '../engine/clusterConnection';
 import { clusterChangedMessage, clusterDisplayName as clusterName } from '../engine/pendingCluster';
 import type { K8sResource } from '../engine/renderers';
 import { useCanI } from '../hooks/useCanI';
-import { LoadError } from '../components/primitives/LoadError';
+import { SubpageHeader } from '../components/primitives/SubpageHeader';
+import { ReadFailure, onCluster } from '../components/primitives/NotFound';
+import { isNotFoundError } from '../engine/readError';
+import { listPath, pluralLabel } from '../engine/subpageLinks';
+import { kindFromPlural } from '../engine/topologyLinks';
 import YamlEditor from '../components/yaml/YamlEditor';
 import { DryRunPanel } from '../components/yaml/DryRunPanel';
 import { resourceToYaml } from '../engine/yamlUtils';
-import { ArrowLeft, Save, RotateCcw, AlertCircle, ShieldCheck, GitBranch, Lock, Ship } from 'lucide-react';
+import { Save, RotateCcw, AlertCircle, ShieldCheck, GitBranch, Lock, Ship } from 'lucide-react';
 import { showErrorToast } from '../engine/errorToast';
 import { useArgoSyncInfo } from '../hooks/useArgoCD';
 import { useArgoCDStore } from '../store/argoCDStore';
@@ -142,51 +146,69 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
   }, [originalYaml]);
 
   const gvrUrl = gvrKey.replace(/\//g, '~');
-  const backPath = namespace ? `/r/${gvrUrl}/${namespace}/${name}` : `/r/${gvrUrl}/_/${name}`;
   const gvrParts = gvrKey.split('/');
   const kind = gvrParts[gvrParts.length - 1];
 
   // Build GVK for schema panel — use the actual Kind from the fetched resource (not guessed from plural)
-  const actualKind = resource?.kind || kind.replace(/s$/, '').replace(/^./, c => c.toUpperCase());
+  const actualKind = resource?.kind || kindFromPlural(kind);
   const resourceGvk = gvrParts.length === 3
     ? { group: gvrParts[0], version: gvrParts[1], kind: actualKind }
     : { group: '', version: gvrParts[0], kind: actualKind };
 
+  const header = (actions?: React.ReactNode, meta?: React.ReactNode, missing = false) => (
+    <SubpageHeader
+      subpage="YAML"
+      resource={{ gvrUrl, kind: actualKind, namespace, name }}
+      go={go}
+      // The cluster the YAML was loaded from, which a save writes to.
+      clusterId={clusterId}
+      title={`${readOnly ? 'View' : 'Edit'} YAML: ${name}`}
+      missing={missing}
+      meta={meta}
+      actions={actions}
+    />
+  );
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full bg-slate-950">
-        <div className="kv-skeleton w-12 h-12 rounded-full" />
+      <div className="flex flex-col h-full bg-slate-950">
+        {header()}
+        <div className="flex-1 flex items-center justify-center" role="status" aria-label={`Loading ${name}`}>
+          <div className="kv-skeleton w-12 h-12 rounded-full" />
+        </div>
       </div>
     );
   }
 
   if (error) {
+    const kinds = pluralLabel(actualKind);
     return (
-      <div className="h-full bg-slate-950 p-6 space-y-3">
-        <LoadError title={`Could not load ${name}`} error={error} onRetry={() => refetch()} />
-        <button onClick={() => go(backPath, name)} className="text-xs text-blue-400 hover:text-blue-300">Back to {name}</button>
+      <div className="flex flex-col h-full bg-slate-950">
+        {header(undefined, undefined, isNotFoundError(error))}
+        <div className="p-6">
+          <ReadFailure
+            error={error}
+            title={`Could not load ${name}`}
+            onRetry={() => { void refetch(); }}
+            notFound={{
+              what: `${actualKind} ${name}`,
+              where: `${onCluster(clusterId)}${namespace ? ` in namespace ${namespace}` : ''}`,
+              reason: `It may have been deleted or renamed.`,
+              variant: 'inline',
+              actions: [
+                { label: `Go to ${kinds}${namespace ? ` in ${namespace}` : ''}`, href: listPath(gvrUrl, namespace), onClick: () => go(listPath(gvrUrl, namespace), kinds) },
+              ],
+            }}
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full bg-slate-950">
-      {/* Header — same style as CreateView */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={() => go(backPath, name)} className="p-1 rounded-sm hover:bg-slate-700 text-slate-400 hover:text-slate-200" aria-label="Go back">
-            <ArrowLeft size={16} />
-          </button>
-          <span className="text-sm font-medium text-slate-200">{readOnly ? 'View' : 'Edit'} {name}</span>
-          {readOnly && (
-            <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-slate-800 text-slate-400 rounded-sm" title="You do not have permission to update this resource">
-              <Lock size={10} /> Read-only
-            </span>
-          )}
-          <span className="text-xs text-slate-500">{kind} · {gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]}</span>
-          {namespace && <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded-sm">{namespace}</span>}
-        </div>
-        {!readOnly && <div className="flex items-center gap-2">
+      {header(
+        !readOnly ? <>
           {hasChanges && (
             <button onClick={handleDiscard} className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-sm bg-slate-700 hover:bg-slate-600 text-slate-300">
               <RotateCcw size={12} /> Discard
@@ -213,14 +235,22 @@ export default function YamlEditorView({ gvrKey, namespace, name }: YamlEditorVi
             {isArgoManaged ? <GitBranch size={12} /> : <Save size={12} />}
             {saving ? 'Saving...' : isArgoManaged ? 'Save (GitOps)' : 'Save'}
           </button>
-        </div>}
-      </div>
+        </> : undefined,
+        <>
+          {readOnly && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-800 text-slate-400 rounded-sm" title="You do not have permission to update this resource">
+              <Lock size={10} aria-hidden="true" /> Read-only
+            </span>
+          )}
+          <span className="text-slate-500">{gvrParts.length === 3 ? `${gvrParts[0]}/${gvrParts[1]}` : gvrParts[0]}</span>
+        </>,
+      )}
 
       {clusterChanged && (
         <div role="alert" className="flex items-start gap-2 px-4 py-2 bg-amber-950/40 border-b border-amber-900 text-xs text-amber-200">
           <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
           <span>
-            This YAML was loaded from <strong>{clusterName(clusterId)}</strong>; the active cluster is now <strong>{clusterName(activeClusterId)}</strong>. Saving is disabled until you switch back.
+            This YAML was loaded from <strong>{clusterName(clusterId)}</strong>; the active cluster is now <strong>{clusterName(activeClusterId)}</strong>. Saving is disabled until you switch back, and the links above open the object on <strong>{clusterName(activeClusterId)}</strong>.
           </span>
         </div>
       )}

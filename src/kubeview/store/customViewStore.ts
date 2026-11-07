@@ -13,6 +13,7 @@
 import { create } from 'zustand';
 import type { ViewSpec, ComponentSpec } from '../engine/agentComponents';
 import { truncateForPersistence } from '../engine/agentComponents';
+import { AgentHttpError } from '../engine/safeQuery';
 
 const AGENT_BASE = '/api/agent';
 let _lastLoadAttempt = 0;
@@ -54,7 +55,11 @@ interface CustomViewState {
   /** Restore a view to a saved version, then reload views */
   restoreVersion: (viewId: string, version: number) => Promise<void>;
   /** Clone a view to the current user (from share link) */
-  claimSharedView: (shareToken: string) => Promise<string | null>;
+  /**
+   * Clone a shared view into the user's views. Resolves to the new view's id;
+   * rejects with the server's status (400 invalid, 404 source gone, 410 expired, …).
+   */
+  claimSharedView: (shareToken: string) => Promise<string>;
   /** Generate a share link for a view */
   shareView: (id: string) => Promise<string | null>;
   /** Execute an action_button tool from a view */
@@ -85,7 +90,9 @@ async function apiFetch(path: string, options?: RequestInit) {
   }
   if (!rawRes.ok) {
     const error = await rawRes.json().catch(() => ({ error: rawRes.statusText }));
-    throw new Error(error.error || rawRes.statusText);
+    // Keep the status: a 404 or 410 means "not there", which callers show
+    // differently from a 403 or 500.
+    throw new AgentHttpError(rawRes.status, error.error || rawRes.statusText);
   }
   return rawRes.json();
 }
@@ -273,17 +280,15 @@ export const useCustomViewStore = create<CustomViewState>()(
     setActiveBuilderId: (id) => set({ activeBuilderId: id }),
 
     claimSharedView: async (shareToken) => {
-      try {
-        const result = await apiFetch(`/views/claim/${shareToken}`, {
-          method: 'POST',
-        });
-        // Reload views to include the clone
-        await get().loadViews();
-        return result.id;
-      } catch (e) {
-        console.error('Failed to claim shared view:', e);
-        return null;
-      }
+      // Rejections reach the caller: "expired" and "the server is down" need
+      // different answers, so they are not folded into one null.
+      const result = await apiFetch(`/views/claim/${shareToken}`, {
+        method: 'POST',
+      });
+      if (!result?.id) throw new Error('The server did not return the cloned view');
+      // Reload views to include the clone
+      await get().loadViews();
+      return result.id;
     },
 
     shareView: async (id) => {

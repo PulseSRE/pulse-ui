@@ -47,8 +47,8 @@ describe('NodeLogsView', () => {
 
   it('renders heading with node name', () => {
     renderView('worker-01');
-    expect(screen.getByText('Node Logs')).toBeDefined();
-    expect(screen.getByText('worker-01')).toBeDefined();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Node logs: worker-01');
+    expect(screen.getByRole('link', { name: 'Back to node worker-01' }).getAttribute('href')).toBe('/r/v1~nodes/_/worker-01');
   });
 
   it('renders all log source tabs', () => {

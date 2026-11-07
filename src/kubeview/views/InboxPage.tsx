@@ -19,6 +19,7 @@ import { TaskDetailDrawer } from './inbox/TaskDetailDrawer';
 import { ActivityTab } from './incidents/ActivityTab';
 import type { InboxItem as InboxItemType } from '../engine/inboxApi';
 import { fetchInboxItem } from '../engine/inboxApi';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 
 export function InboxPage() {
   const [newTaskOpen, setNewTaskOpen] = useState(false);
@@ -26,6 +27,8 @@ export function InboxPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const didRestoreRef = useRef(false);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'inbox');
+  // The inbox and approvals list every namespace; only Activity is scoped.
+  useNamespaceScope({ applies: activeTab === 'activity' });
 
   const items = useInboxStore((s) => s.items);
   const groups = useInboxStore((s) => s.groups);

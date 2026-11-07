@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { PageHeader } from '../components/primitives/PageHeader';
+import { NotFound, onCluster } from '../components/primitives/NotFound';
+import { useNavigateTab } from '../hooks/useNavigateTab';
+import { resourceDetailUrl } from '../engine/gvr';
 import { useSearchParams } from 'react-router-dom';
 import { parseTopologyFocus, topologyNodeMatches } from '../engine/topologyLinks';
 import { useFleetStore } from '../store/fleetStore';
@@ -12,8 +15,8 @@ import {
 import { cn } from '@/lib/utils';
 import { Card } from '../components/primitives/Card';
 import { EmptyState } from '../components/primitives/EmptyState';
+import { useNamespaceScope } from '../hooks/useNamespaceScope';
 import { LoadError } from '../components/primitives/LoadError';
-import { useUIStore } from '../store/uiStore';
 import GraphRenderer, {
   type TopoNode, type TopoEdge, getKindColor, layoutGraph,
 } from '../components/topology/GraphRenderer';
@@ -74,34 +77,38 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   error: { label: 'Error', color: 'text-red-400' },
 };
 
+/** Most nodes the unscoped (all namespaces) graph draws. */
+const TOPOLOGY_DRAW_LIMIT = 300;
+
 // ── Component ─────────────────────────────────────────────────────────
 
 export default function TopologyView() {
-  const activeNs = useUIStore((s) => s.selectedNamespace);
   // The agent's graph is of the cluster it runs in. For a remote cluster it
   // would show the hub's resources under the remote cluster's name.
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const isLocalCluster = activeClusterId === LOCAL_CLUSTER_ID;
-  // `?namespace=` and `?focus=Kind/ns/name` open the graph on one resource
-  // (a resource's "Dependencies" action and old /deps links land here).
-  const [searchParams] = useSearchParams();
+  // `?ns=` (the shared namespace scope; old links say `?namespace=`) and
+  // `?focus=Kind/ns/name` open the graph on one resource (a resource's
+  // "Dependencies" action and old /deps links land here).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const go = useNavigateTab();
   const focus = useMemo(() => parseTopologyFocus(searchParams.get('focus')), [searchParams]);
-  const urlNamespace = searchParams.get('namespace');
-  const [selectedNamespace, setSelectedNamespace] = useState<string>(
-    urlNamespace ?? focus?.namespace ?? (activeNs && activeNs !== '*' ? activeNs : 'openshiftpulse'),
-  );
+  const { namespace: scope, setNamespace: setScope } = useNamespaceScope();
+  const selectedNamespace = scope === '*' ? '' : scope;
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['topology', selectedNamespace],
+    queryKey: ['topology', activeClusterId, selectedNamespace],
     queryFn: () => fetchTopology(selectedNamespace || undefined),
     refetchInterval: 120_000,
     enabled: isLocalCluster,
   });
 
+  // The whole-cluster graph lists the namespaces for the select. It is the
+  // same query as the unscoped graph, so all namespaces is fetched once.
   const { data: allData } = useQuery({
-    queryKey: ['topology', '__all_ns_list__'],
+    queryKey: ['topology', activeClusterId, ''],
     queryFn: () => fetchTopology(),
     staleTime: 300_000,
     refetchOnWindowFocus: false,
@@ -110,7 +117,7 @@ export default function TopologyView() {
 
   // Blast radius from API (richer than client-side BFS)
   const { data: blastRadiusData, isError: blastRadiusError, error: blastRadiusErrorObj, refetch: refetchBlastRadius } = useQuery({
-    queryKey: ['topology-blast-radius', selectedNode],
+    queryKey: ['topology-blast-radius', activeClusterId, selectedNode],
     queryFn: () => fetchBlastRadius(selectedNode!),
     enabled: !!selectedNode && isLocalCluster,
   });
@@ -120,10 +127,11 @@ export default function TopologyView() {
   // "Dependencies") re-selects while the page stays mounted.
   const focusApplied = useRef<string | null>(null);
   const focusKey = searchParams.get('focus');
+  // A focus link without a scope (older links) opens the resource's namespace.
+  const hasScopeParam = searchParams.has('ns') || searchParams.has('namespace');
   useEffect(() => {
-    if (urlNamespace !== null) setSelectedNamespace(urlNamespace);
-    else if (focus) setSelectedNamespace(focus.namespace);
-  }, [urlNamespace, focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!hasScopeParam && focus?.namespace) setScope(focus.namespace);
+  }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const focusNode = useMemo(
     () => (focus && data ? data.nodes.find((n) => topologyNodeMatches(n, focus)) ?? null : null),
     [focus, data],
@@ -134,6 +142,18 @@ export default function TopologyView() {
     setSelectedNode(focusNode.id);
   }, [focusNode, focusKey]);
   const focusMissing = !!focus && !!data && !focusNode;
+  // Drawing every namespace at once is unreadable (and slow); past this many
+  // nodes the unscoped graph asks for a namespace instead.
+  const tooManyToDraw = !selectedNamespace && (data?.nodes.length ?? 0) > TOPOLOGY_DRAW_LIMIT;
+  const focusDetail = focus ? resourceDetailUrl({ kind: focus.kind, metadata: { name: focus.name, namespace: focus.namespace || undefined } }) : '';
+  const unfocusedParams = () => {
+    const p = new URLSearchParams(searchParams);
+    p.delete('focus');
+    return p;
+  };
+  const unfocusedQuery = unfocusedParams().toString();
+  // Keeps `?ns=`, so "Show all of <ns>" stays in the scoped namespace.
+  const unfocused = unfocusedQuery ? `/topology?${unfocusedQuery}` : '/topology';
 
   const topology = data ?? { nodes: [], edges: [], summary: { nodes: 0, edges: 0, kinds: {}, last_refresh: 0 } };
 
@@ -221,7 +241,7 @@ export default function TopologyView() {
           actions={<>
             <select
               value={selectedNamespace}
-              onChange={(e) => { setSelectedNamespace(e.target.value); setSelectedNode(null); }}
+              onChange={(e) => { setScope(e.target.value || '*'); setSelectedNode(null); }}
               className="px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-sm text-slate-300 focus:outline-hidden focus:ring-1 focus:ring-cyan-500"
             >
               <option value="">All namespaces</option>
@@ -240,8 +260,19 @@ export default function TopologyView() {
         />
 
         {focusMissing && focus && (
-          <div role="status" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-400">
-            {focus.kind}/{focus.name} is not in the dependency graph{focus.namespace ? ` for ${focus.namespace}` : ''} yet. The graph is rebuilt on each monitor scan.
+          <div role="status">
+            <NotFound
+              variant="inline"
+              what={`${focus.kind} ${focus.name}`}
+              // Not in the graph is not the same as not on the cluster.
+              title={`${focus.kind}/${focus.name} is not in the dependency graph${focus.namespace ? ` for ${focus.namespace}` : ''}`}
+              where={onCluster(activeClusterId)}
+              reason="The graph is rebuilt on each monitor scan, so a resource created in the last few minutes may not be in it yet."
+              actions={[
+                { label: `Open ${focus.kind} ${focus.name}`, href: focusDetail, onClick: () => go(focusDetail, focus.name) },
+                { label: focus.namespace ? `Show all of ${focus.namespace}` : 'Show the whole graph', href: unfocused, onClick: () => setSearchParams(unfocusedParams()) },
+              ]}
+            />
           </div>
         )}
 
@@ -300,7 +331,13 @@ export default function TopologyView() {
         )}
 
         {/* Graph + Detail side-by-side */}
-        {topology.nodes.length === 0 ? (
+        {tooManyToDraw ? (
+          <EmptyState
+            icon={<Network className="w-8 h-8 text-slate-500" />}
+            title={`${topology.nodes.length} resources — pick a namespace to draw`}
+            description="A graph of every namespace is too large to read. Choose a namespace above or in the namespace picker."
+          />
+        ) : topology.nodes.length === 0 ? (
           <EmptyState
             icon={<Network className="w-8 h-8 text-slate-500" />}
             title="No topology data"

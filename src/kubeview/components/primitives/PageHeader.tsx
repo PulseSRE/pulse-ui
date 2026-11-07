@@ -23,7 +23,7 @@ export interface PageHeaderBack {
  * A plain left click navigates in the app; a modified or middle click is left
  * to the browser (new tab, new window, copy link).
  */
-function inAppClick(onClick?: () => void) {
+export function inAppClick(onClick?: () => void) {
   return (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!onClick || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
@@ -44,6 +44,11 @@ export interface PageHeaderProps {
   actions?: React.ReactNode;
   breadcrumb?: PageHeaderCrumb[];
   back?: PageHeaderBack;
+  /**
+   * `page` (default) for domain pages. `subpage` is the same anatomy with a
+   * smaller title, for full-height tools under a resource (Logs, YAML, Metrics).
+   */
+  size?: 'page' | 'subpage';
   className?: string;
 }
 
@@ -53,7 +58,7 @@ export interface PageHeaderProps {
  * on the right. Breadcrumbs and back are real links (`href`); a plain left click
  * calls the caller's in-app navigation, so the header needs no router.
  */
-export function PageHeader({ title, icon, subtitle, meta, actions, breadcrumb, back, className }: PageHeaderProps) {
+export function PageHeader({ title, icon, subtitle, meta, actions, breadcrumb, back, size = 'page', className }: PageHeaderProps) {
   const hasNav = Boolean(back) || (breadcrumb && breadcrumb.length > 0);
   return (
     <header className={cn('flex flex-wrap items-start justify-between gap-x-4 gap-y-3', className)}>
@@ -89,7 +94,7 @@ export function PageHeader({ title, icon, subtitle, meta, actions, breadcrumb, b
           </nav>
         )}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2 min-w-0 break-words">
+          <h1 className={cn('font-bold text-slate-100 flex items-center gap-2 min-w-0 break-words', size === 'subpage' ? 'text-lg' : 'text-2xl')}>
             {icon && <span className="shrink-0 inline-flex" aria-hidden="true">{icon}</span>}
             <span className="min-w-0">{title}</span>
           </h1>

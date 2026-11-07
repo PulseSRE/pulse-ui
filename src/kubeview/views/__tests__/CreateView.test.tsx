@@ -154,25 +154,27 @@ describe('CreateView', () => {
     expect(screen.getByText('Create ConfigMap')).toBeDefined();
   });
 
-  it('back from a kind editor with no history goes to the Software hub', () => {
-    Object.defineProperty(window.history, 'length', { value: 1, writable: true });
+  it('a kind editor has one <h1> and a back link to the kind\'s list; a plain click opens it in the app', () => {
     renderCreateView({ gvrKey: 'apps/v1/deployments' }, '/create/apps~v1~deployments');
-    fireEvent.click(screen.getByLabelText('Back'));
-    expect(navigateMock).toHaveBeenCalledWith('/software');
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Create Deployment']);
+    const back = screen.getByRole('link', { name: 'Back to Deployments' });
+    // The namespace scope (`default` here) carries to the list.
+    expect(back.getAttribute('href')).toBe('/r/apps~v1~deployments?ns=default');
+    expect(fireEvent.click(back)).toBe(false);
+    expect(navigateMock).toHaveBeenCalledWith('/r/apps~v1~deployments?ns=default');
   });
 
-  it('back button in YAML editor uses browser history', () => {
-    const historyBackSpy = vi.spyOn(window.history, 'back').mockImplementation(() => {});
-    // Simulate having history (came from a resource list)
-    Object.defineProperty(window.history, 'length', { value: 3, writable: true });
-    renderCreateView({ gvrKey: 'apps/v1/deployments' });
-    // Should be in YAML edit mode
-    expect(screen.getByTestId('yaml-editor')).toBeDefined();
-    // Click back button
-    const backBtn = screen.getByLabelText('Back');
-    fireEvent.click(backBtn);
-    expect(historyBackSpy).toHaveBeenCalled();
-    historyBackSpy.mockRestore();
+  it('?namespace= filters the header: namespace badge and list link', () => {
+    renderCreateView({ gvrKey: 'v1/resourcequotas' }, '/create/v1~resourcequotas?namespace=shop');
+    expect(screen.getByTitle('Namespace').textContent).toBe('shop');
+    expect(screen.getByRole('link', { name: 'Back to ResourceQuotas' }).getAttribute('href')).toBe('/r/v1~resourcequotas?ns=shop');
+  });
+
+  it('a modified click on the back link is left to the browser', () => {
+    renderCreateView({ gvrKey: 'apps/v1/deployments' }, '/create/apps~v1~deployments');
+    const back = screen.getByRole('link', { name: 'Back to Deployments' });
+    expect(fireEvent.click(back, { metaKey: true })).toBe(true);
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('shows the Deploy an app form fields', () => {
