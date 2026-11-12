@@ -250,7 +250,9 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           : 'border-red-500/25 bg-red-500/[0.06]',
       )}
     >
-      <div className="flex items-start gap-2 px-3 py-2.5">
+      {/* Below `sm` the actions drop under the title instead of squeezing it
+          to nothing (the "Cause" label used to sit under "Ask Pulse to fix"). */}
+      <div className="flex flex-wrap items-start gap-2 px-3 py-2.5 sm:flex-nowrap">
         <AlertTriangle
           className={cn('mt-0.5 h-4 w-4 shrink-0', explainsNothing ? 'text-slate-500' : 'text-red-400')}
         />
@@ -264,7 +266,13 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             >
               Cause
             </span>
-            <span className="truncate text-sm font-medium text-slate-100">{episode.cause_title}</span>
+            <span
+              data-testid="episode-cause-title"
+              title={episode.cause_title}
+              className="min-w-0 max-w-full truncate text-sm font-medium text-slate-100"
+            >
+              {episode.cause_title}
+            </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
             <span>{episode.cause_category}</span>
@@ -300,34 +308,39 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
             </div>
           )}
         </div>
-        <AskPulseButton suffix="to fix" onAsk={askAboutThisEpisode} title="Ask Pulse AI what to do about this cause" localData />
-        {/* Router navigation: a raw <a href> reloaded the whole app. */}
-        <Link
-          to={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}
-          title="See alerts, events, rollouts and config changes from when this cause began"
-          className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+        <div
+          data-testid="episode-actions"
+          className="flex w-full flex-wrap items-start gap-2 pl-6 sm:w-auto sm:shrink-0 sm:flex-nowrap sm:pl-0"
         >
-          <Clock className="h-3 w-3" />
-          What else changed
-        </Link>
-        <button
-          onClick={handleDismiss}
-          title="Close this episode — the cause reopens a new one if it returns"
-          className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
-        >
-          <Check className="h-3 w-3" />
-          Dismiss
-        </button>
-        {(symptoms.length > 0 || investigation || changes.length > 0) && (
-          <button
-            onClick={() => setExpanded((e) => !e)}
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Hide symptoms' : 'Show symptoms'}
-            className="shrink-0 rounded-sm p-1 text-slate-400 transition-colors hover:bg-slate-700/50"
+          <AskPulseButton suffix="to fix" onAsk={askAboutThisEpisode} title="Ask Pulse AI what to do about this cause" localData />
+          {/* Router navigation: a raw <a href> reloaded the whole app. */}
+          <Link
+            to={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}
+            title="See alerts, events, rollouts and config changes from when this cause began"
+            className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
           >
-            {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <Clock className="h-3 w-3" />
+            What else changed
+          </Link>
+          <button
+            onClick={handleDismiss}
+            title="Close this episode — the cause reopens a new one if it returns"
+            className="shrink-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-slate-200"
+          >
+            <Check className="h-3 w-3" />
+            Dismiss
           </button>
-        )}
+          {(symptoms.length > 0 || investigation || changes.length > 0) && (
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Hide symptoms' : 'Show symptoms'}
+              className="shrink-0 rounded-sm p-1 text-slate-400 transition-colors hover:bg-slate-700/50"
+            >
+              {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          )}
+        </div>
       </div>
 
       {expanded && changes.length > 0 && (

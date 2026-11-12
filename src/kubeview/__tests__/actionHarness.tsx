@@ -68,9 +68,14 @@ export function createHarness() {
     vi.stubGlobal('fetch', fetchMock);
   }
 
+  // Every QueryClient a render made, cleared at teardown so no cache or
+  // pending query outlives its test.
+  const clients: QueryClient[] = [];
+
   function teardown() {
     vi.unstubAllGlobals();
     resetConnections();
+    for (const qc of clients.splice(0)) qc.clear();
   }
 
   /**
@@ -83,16 +88,26 @@ export function createHarness() {
     act(() => { useFleetStore.getState().setActiveCluster(id); });
   }
 
-  function renderUi(ui: React.ReactElement, path = '/') {
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return render(
+  /** The providers renderUi uses, around `ui`; pass to `rerender` to keep them (and the cache). */
+  function wrap(ui: React.ReactElement, path = '/') {
+    let qc = clients[clients.length - 1];
+    if (!qc) {
+      qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      clients.push(qc);
+    }
+    return (
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
-      </QueryClientProvider>,
+      </QueryClientProvider>
     );
   }
 
-  return { state, fetchMock, setup, teardown, writes, setActive, renderUi };
+  function renderUi(ui: React.ReactElement, path = '/') {
+    clients.push(new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+    return render(wrap(ui, path));
+  }
+
+  return { state, fetchMock, setup, teardown, writes, setActive, renderUi, wrap };
 }
 
 /** Permission checks resolve asynchronously; click a button once it is enabled. */

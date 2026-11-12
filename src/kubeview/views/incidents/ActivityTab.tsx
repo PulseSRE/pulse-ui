@@ -25,8 +25,8 @@ import { formatRelative, getDateKey } from '../../engine/format';
 import { fetchLearningFeed } from '../../engine/analyticsApi';
 import { actionCategoryLabel } from '../../engine/fixHistory';
 import { agentFetch } from '../../engine/safeQuery';
-import { requestRollback, type ActionRecord } from '../../engine/fixHistory';
-import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import type { ActionRecord } from '../../engine/fixHistory';
+import { RollbackFixDialog } from './RollbackFixDialog';
 import type { TimelineEntry, TimelineCategory } from '../../engine/types/timeline';
 import { HistoryEntryCard } from './shared/HistoryEntryCard';
 import { InvestigationCard } from './shared/InvestigationCard';
@@ -49,8 +49,6 @@ export function ActivityTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lifecycleFindingId, setLifecycleFindingId] = useState<string | null>(null);
   const [rollbackTarget, setRollbackTarget] = useState<ActionRecord | null>(null);
-  const [rollbackBusy, setRollbackBusy] = useState(false);
-  const [rollbackError, setRollbackError] = useState<string | null>(null);
 
   const investigations = useMonitorStore((s) => s.investigations);
   const fixHistory = useMonitorStore((s) => s.fixHistory);
@@ -140,28 +138,16 @@ export function ActivityTab() {
     return map;
   }, [fixHistory]);
 
-  const handleConfirmRollback = async () => {
-    if (!rollbackTarget) return;
-    setRollbackBusy(true);
-    setRollbackError(null);
-    try {
-      await requestRollback(rollbackTarget.id);
-      const res = rollbackTarget.resources?.[0];
-      useUIStore.getState().addToast({
-        type: 'success',
-        title: 'Rollback executed',
-        detail: res ? `${res.kind} ${res.name} restored to its pre-fix state` : undefined,
-        duration: 5000,
-      });
-      setRollbackTarget(null);
-      loadFixHistory();
-    } catch (e) {
-      // The agent refuses on purpose for action types without a snapshot —
-      // show what it said instead of a generic failure.
-      setRollbackError(e instanceof Error ? e.message : 'Rollback failed');
-    } finally {
-      setRollbackBusy(false);
-    }
+  const handleRolledBack = () => {
+    const res = rollbackTarget?.resources?.[0];
+    useUIStore.getState().addToast({
+      type: 'success',
+      title: 'Rollback executed',
+      detail: res ? `${res.kind} ${res.name} restored to its pre-fix state` : undefined,
+      duration: 5000,
+    });
+    setRollbackTarget(null);
+    loadFixHistory();
   };
 
   // Group by date for "by date" mode
@@ -318,7 +304,7 @@ export function ActivityTab() {
                       key={entry.id}
                       entry={entry}
                       onClick={() => handleEntryClick(entry)}
-                      onRollback={rollbackable ? () => { setRollbackError(null); setRollbackTarget(rollbackable); } : undefined}
+                      onRollback={rollbackable ? () => setRollbackTarget(rollbackable) : undefined}
                     />
                   );
                 })}
@@ -332,24 +318,15 @@ export function ActivityTab() {
         <IncidentLifecycleDrawer findingId={lifecycleFindingId} onClose={() => setLifecycleFindingId(null)} />
       )}
 
-      <ConfirmDialog
-        open={rollbackTarget !== null}
-        onClose={() => setRollbackTarget(null)}
-        onConfirm={handleConfirmRollback}
-        title="Roll back this fix?"
-        description={rollbackTarget ? (() => {
-          const res = rollbackTarget.resources?.[0];
-          const what = res ? `${res.kind} ${res.name}${res.namespace ? ` in ${res.namespace}` : ''}` : 'the affected resource';
-          return `The agent will restore ${what} to its state before "${rollbackTarget.tool || rollbackTarget.category}" ran. This writes to the cluster immediately.`;
-        })() : ''}
-        confirmLabel="Roll back"
-        variant="warning"
-        loading={rollbackBusy}
-      >
-        {rollbackError && (
-          <p className="mt-3 text-sm text-red-400" role="alert">{rollbackError}</p>
-        )}
-      </ConfirmDialog>
+      {rollbackTarget && (
+        <RollbackFixDialog
+          // A new dialog per fix: nothing from one rollback carries to the next.
+          key={rollbackTarget.id}
+          action={rollbackTarget}
+          onClose={() => setRollbackTarget(null)}
+          onRolledBack={handleRolledBack}
+        />
+      )}
     </div>
   );
 }
