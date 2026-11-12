@@ -119,11 +119,11 @@ describe('ActivityTab rollback', () => {
     render(<MemoryRouter><ActivityTab /></MemoryRouter>);
 
     fireEvent.click(screen.getByText('Rollback'));
-    expect(screen.getByText('Roll back this fix?')).toBeDefined();
+    expect(screen.getByRole('dialog', { name: 'Roll back the fix on Deployment web?' })).toBeDefined();
     expect(requestRollback).not.toHaveBeenCalled();
 
     const callsBefore = _monitorState.loadFixHistory.mock.calls.length;
-    fireEvent.click(screen.getByText('Roll back'));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back Deployment web' }));
 
     await waitFor(() => {
       expect(requestRollback).toHaveBeenCalledWith('act-1');
@@ -132,7 +132,7 @@ describe('ActivityTab rollback', () => {
     expect(_uiState.addToast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'success', title: 'Rollback executed' }),
     );
-    expect(screen.queryByText('Roll back this fix?')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('does not call the endpoint when the dialog is cancelled', () => {
@@ -143,7 +143,7 @@ describe('ActivityTab rollback', () => {
     fireEvent.click(screen.getByText('Cancel'));
 
     expect(requestRollback).not.toHaveBeenCalled();
-    expect(screen.queryByText('Roll back this fix?')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('surfaces the agent error in the dialog on failure', async () => {
@@ -152,13 +152,13 @@ describe('ActivityTab rollback', () => {
     render(<MemoryRouter><ActivityTab /></MemoryRouter>);
 
     fireEvent.click(screen.getByText('Rollback'));
-    fireEvent.click(screen.getByText('Roll back'));
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back Deployment web' }));
 
     await waitFor(() => {
-      expect(screen.getByText('No rollback strategy for delete_pod actions')).toBeDefined();
+      expect(screen.getByRole('alert').textContent).toBe('The agent did not roll back: No rollback strategy for delete_pod actions');
     });
     // Dialog stays open so the operator can read the refusal
-    expect(screen.getByText('Roll back this fix?')).toBeDefined();
+    expect(screen.getByRole('dialog')).toBeDefined();
     expect(_uiState.addToast).not.toHaveBeenCalled();
   });
 });

@@ -80,7 +80,6 @@ export default [
       'src/kubeview/components/topology/constants.ts', // Wave 8 (graphs)
       'src/kubeview/views/TopologyView.tsx', // Wave 8 (graphs)
       'src/kubeview/views/TimelineView.tsx', // Wave 8 (graphs)
-      'src/kubeview/components/agent/FindingCard.tsx', // Wave 7c (inbox/fix actions)
     ],
     rules: { 'pulse/no-inline-status-colors': 'off' },
   },

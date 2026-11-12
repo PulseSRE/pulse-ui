@@ -3,7 +3,8 @@
  * Every approval of an agent write goes through one confirm (H1 of the
  * page-consistency review): Inbox → Approve, a durable run's waiting phase,
  * the plan-run panel's waiting phase, an agent-authored write button on a
- * view, and the chat's ConfirmationCard.
+ * view, rolling back a fix from Inbox › Activity, and the chat's
+ * ConfirmationCard.
  *
  * For each entry point: confirm sends exactly the agent's request (and the
  * chat echoes the backend nonce unchanged), cancel sends nothing, the dialog
@@ -40,6 +41,8 @@ import { ProposedFixes } from '../views/inbox/ProposedFixes';
 import { ApprovalButtons } from '../views/inbox/DurableRunControls';
 import { PlanRunPanel } from '../views/toolbox/PlanRunPanel';
 import { AgentActionButton } from '../components/agent/AgentActionButton';
+import { ActivityTab } from '../views/incidents/ActivityTab';
+import { useMonitorStore } from '../store/monitorStore';
 import { ConfirmationCard } from '../components/agent/ConfirmationCard';
 import { useAgentStore } from '../store/agentStore';
 import { useTrustStore } from '../store/trustStore';
@@ -99,6 +102,21 @@ const PROPOSAL = {
   input: { fixDescription: 'Restart the api Deployment', namespace: 'shop', name: 'api' }, status: 'proposed',
   beforeState: '', afterState: '', reasoning: 'Pods crash-looping', durationMs: 0, rollbackAvailable: false,
   resources: [{ kind: 'Deployment', name: 'api', namespace: 'shop' }],
+};
+/** A completed fix the agent can undo from its pre-fix snapshot. */
+const SNAPSHOT = {
+  kind: 'Deployment', name: 'api', namespace: 'shop', uid: 'u-1',
+  metadata: { labels: { app: 'api' } },
+  spec: { replicas: 2, template: { spec: { containers: [{ name: 'api', image: 'api:1.4' }] } } },
+  afterFix: { generation: 7 },
+};
+const FIXED = {
+  ...PROPOSAL, id: 'a-9', status: 'completed', rollbackAvailable: true,
+  rollbackAction: { tool: 'restore_snapshot', input: { snapshot: JSON.stringify(SNAPSHOT) } },
+};
+const LIVE_API = {
+  metadata: { name: 'api', namespace: 'shop', uid: 'u-1', generation: 7, labels: { app: 'api' } },
+  spec: { replicas: 2, template: { spec: { containers: [{ name: 'api', image: 'api:1.5' }] } } },
 };
 const RUN = { workflow_id: 'wf-1', phase_id: 'remediate', memo: { incident_type: 'crashloop', resource_kind: 'Deployment', resource_name: 'web', resource_namespace: 'shop' } };
 
@@ -183,6 +201,27 @@ const routes: Route[] = [
     body: { action: 'restart_deployment', action_input: { namespace: 'shop', name: 'api' } },
     refusalInDialog: true,
     rowName: 'Restart api — restart_deployment',
+    where: "shop · cluster Local Cluster · acting as you, through the agent (Pulse's service account if token forwarding is off)",
+  },
+  {
+    name: 'Inbox › Activity → Roll back a fix',
+    setup: async (approve) => {
+      useMonitorStore.setState({ fixHistory: [] });
+      replies = [
+        ['POST /api/agent/fix-history/a-9/rollback', approve],
+        ['GET /api/agent/fix-history', () => ({ body: { actions: [FIXED], total: 1, page: 1, pageSize: 20 } })],
+        ['GET /api/kubernetes/apis/apps/v1/namespaces/shop/deployments/api', () => ({ body: LIVE_API })],
+      ];
+      mount(<ActivityTab />);
+      await screen.findByRole('button', { name: 'Roll back: Fix: restart_deployment — completed' });
+    },
+    confirmLabel: 'Roll back Deployment api',
+    approveUrl: '/api/agent/fix-history/a-9/rollback',
+    // The rollback endpoint takes no body.
+    body: undefined,
+    refusalInDialog: true,
+    rowName: 'Roll back: Fix: restart_deployment — completed',
+    // The agent rolls back with the person's forwarded token.
     where: "shop · cluster Local Cluster · acting as you, through the agent (Pulse's service account if token forwarding is off)",
   },
 ];
