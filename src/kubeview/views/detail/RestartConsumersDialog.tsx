@@ -129,7 +129,16 @@ export function RestartConsumersDialog({ configKind, configName, namespace, cons
   React.useEffect(() => () => { abortRef.current = true; }, []);
   const [stopping, setStopping] = React.useState(false);
   const risky = !!plan && (plan.quota.ok === false || plan.items.some((i) => !i.skip && i.pdb.ok === false));
-  const [ackRisk, setAckRisk] = React.useState(false);
+  // The acknowledgement covers the risks shown for this target only. It is
+  // stored with the target it was given for, so a dialog that stays mounted
+  // while its target or its risks change (another ConfigMap, a refreshed
+  // consumer list, a new PDB) is unticked again, and a newly opened dialog
+  // always starts unticked.
+  const riskKey = plan ? `${plan.quota.ok === false ? 'quota' : ''}|${plan.items.filter((i) => !i.skip && i.pdb.ok === false).map((i) => `${i.kind}/${i.name}`).join(',')}` : '';
+  const ackTarget = `${configKind}/${namespace}/${configName}|${consumers.map((c) => `${c.kind}/${c.name}`).join(',')}|${riskKey}`;
+  const [ackFor, setAckFor] = React.useState<string | null>(null);
+  const ackRisk = ackFor === ackTarget;
+  const setAckRisk = (checked: boolean) => setAckFor(checked ? ackTarget : null);
 
   const confirm = async () => {
     if (!plan) return;

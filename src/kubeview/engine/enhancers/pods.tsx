@@ -6,6 +6,40 @@ import type { Pod } from '../types';
 import { getPodStatus } from '../renderers/statusUtils';
 import { podPhaseClasses } from '../statusColors';
 
+/**
+ * What the Pods list says in the Status column, and the longer message behind
+ * it. "Pending" alone did not say why: a pod waiting for a node and a pod
+ * pulling its image read the same.
+ *
+ * - a container's problem reason (CrashLoopBackOff, ImagePullBackOff, …) or
+ *   the pod's own status.reason, as before
+ * - otherwise a container waiting reason (ContainerCreating, PodInitializing)
+ * - otherwise, for a pod not yet scheduled, "Pending: <PodScheduled reason>"
+ *   (e.g. "Pending: Unschedulable") with the scheduler's message as detail
+ * - otherwise the phase
+ */
+export function podStatusLabel(resource: unknown): { text: string; detail?: string } {
+  const pod = resource as Pod;
+  const podStatus = getPodStatus(pod);
+  const statuses = [...(pod.status?.initContainerStatuses ?? []), ...(pod.status?.containerStatuses ?? [])];
+  const waitingMessage = (reason: string) =>
+    statuses.find((c) => c.state?.waiting?.reason === reason)?.state?.waiting?.message || undefined;
+
+  if (podStatus.reason) {
+    return { text: podStatus.reason, detail: waitingMessage(podStatus.reason) ?? (pod.status?.message || undefined) };
+  }
+  const waiting = podStatus.containerStatuses.find((c) => c.state === 'waiting' && c.reason)?.reason;
+  if (waiting && podStatus.phase === 'Pending') return { text: waiting, detail: waitingMessage(waiting) };
+
+  if (podStatus.phase === 'Pending') {
+    const scheduled = pod.status?.conditions?.find((c) => c.type === 'PodScheduled');
+    if (scheduled && scheduled.status === 'False' && scheduled.reason) {
+      return { text: `Pending: ${scheduled.reason}`, detail: scheduled.message || undefined };
+    }
+  }
+  return { text: podStatus.phase };
+}
+
 export const podEnhancer: ResourceEnhancer = {
   matches: ['v1/pods'],
 
@@ -18,13 +52,10 @@ export const podEnhancer: ResourceEnhancer = {
       id: 'status',
       header: 'Status',
       width: '150px',
-      accessorFn: (resource) => {
-        const podStatus = getPodStatus(resource);
-        return podStatus.reason ?? podStatus.phase;
-      },
+      accessorFn: (resource) => podStatusLabel(resource).text,
       render: (value, resource) => {
         const podStatus = getPodStatus(resource);
-        const displayText = podStatus.reason ?? podStatus.phase;
+        const { text: displayText, detail } = podStatusLabel(resource);
 
         // One pod palette with the node map and topology pod grid:
         // Pending is warning, ContainerCreating/PodInitializing is progress.
@@ -35,7 +66,7 @@ export const podEnhancer: ResourceEnhancer = {
         const dotClass = `inline-block w-2 h-2 rounded-full mr-2 ${tone.solid}`;
 
         return (
-          <span className="inline-flex items-center text-sm" title={displayText}>
+          <span className="inline-flex items-center text-sm" title={detail ? `${displayText} — ${detail}` : displayText}>
             <span className={dotClass} />
             <span>{displayText}</span>
           </span>
