@@ -27,7 +27,7 @@ let pageContext: Record<string, string> | null = null;
 function agentState() {
   return {
     connected: true, mode: 'auto', messages: [], streaming: false, streamingText: '', thinkingText: '',
-    activeTools: [], streamingComponents: [], pendingConfirm: null, error: null, feedbackToast: null,
+    activeTools: [], streamingComponents: [], pendingConfirm: null, pendingProposals: [], error: null, feedbackToast: null,
     connect: vi.fn(), sendMessage, confirmAction: vi.fn(), cancelQuery: vi.fn(), clearChat: vi.fn(),
     pageContext,
   };

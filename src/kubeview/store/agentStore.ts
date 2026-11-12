@@ -17,6 +17,7 @@ import {
   type AgentEvent,
   type ConfirmRequest,
   type ResourceContext,
+  type WriteProposal,
   type MultiSkillMeta,
 } from '../engine/agentClient';
 import { type ComponentSpec, truncateForPersistence } from '../engine/agentComponents';
@@ -45,6 +46,12 @@ interface AgentState {
    * the user was looking at when it was requested.
    */
   pendingConfirm: (ConfirmRequest & { clusterId?: string; requestedOnClusterId?: string }) | null;
+  /**
+   * Writes the agent offered instead of running (protected namespaces). Each
+   * runs only if the person approves it; they outlive the turn that made
+   * them, and go when the session does (the agent holds them per connection).
+   */
+  pendingProposals: Array<WriteProposal & { clusterId?: string; requestedOnClusterId?: string }>;
   error: string | null;
   /** Brief toast shown when agent acknowledges feedback */
   feedbackToast: string | null;
@@ -68,6 +75,8 @@ interface AgentState {
   switchMode: (mode: AgentMode) => void;
   clearChat: () => void;
   confirmAction: (approved: boolean) => void;
+  /** Approve or decline a write proposal. Approving starts the turn in which it runs. */
+  answerProposal: (id: string, approved: boolean) => void;
   sendFeedback: (resolved: boolean, messageId?: string) => void;
   cancelQuery: () => void;
   editLastMessage: () => string;
@@ -143,6 +152,7 @@ export const useAgentStore = create<AgentState>()(
       completedTools: new Set<string>(),
       completedSkills: new Set<string>(),
       pendingConfirm: null,
+      pendingProposals: [],
       error: null,
       feedbackToast: null,
       pendingViewSpec: null,
@@ -191,6 +201,8 @@ export const useAgentStore = create<AgentState>()(
             case 'disconnected':
               resetStreamingState();
               notifyPlanStore('fail');
+              // The agent keeps proposals per connection: a new one cannot approve them.
+              set({ pendingProposals: [] });
               // If we were mid-stream, save partial response as a message
               if (get().streaming) {
                 const partial = get().streamingText;
@@ -266,6 +278,32 @@ export const useAgentStore = create<AgentState>()(
               // The agent writes to the cluster it runs on, whatever the UI shows.
               set({ pendingConfirm: { tool: event.tool, input: event.input, nonce: event.nonce, preview: event.preview, clusterId: LOCAL_CLUSTER_ID, requestedOnClusterId: getActiveClusterId() } });
               break;
+            case 'write_proposal':
+              set((s) => ({
+                pendingProposals: [
+                  ...s.pendingProposals.filter((p) => p.id !== event.id),
+                  {
+                    id: event.id, tool: event.tool, input: event.input, nonce: event.nonce, preview: event.preview,
+                    namespace: event.namespace, expiresAt: event.expiresAt,
+                    clusterId: LOCAL_CLUSTER_ID, requestedOnClusterId: getActiveClusterId(),
+                  },
+                ],
+              }));
+              break;
+            case 'proposal_resolved': {
+              set((s) => ({ pendingProposals: s.pendingProposals.filter((p) => p.id !== event.id) }));
+              // applied/failed: the turn that checks it is streaming now. rejected: nothing to say.
+              // Otherwise nothing ran and no turn follows.
+              if (event.status !== 'applied' && event.status !== 'failed' && event.status !== 'rejected') {
+                resetStreamingState();
+                set({
+                  streaming: false,
+                  activeTools: [],
+                  error: event.message || 'That proposal is no longer open. Nothing ran.',
+                });
+              }
+              break;
+            }
             case 'done': {
               // Flush any remaining deltas then reset accumulators
               flushDeltas(set);
@@ -410,7 +448,7 @@ export const useAgentStore = create<AgentState>()(
       clearChat: () => {
         pendingTextDelta = '';
         resetStreamingState();
-        set({ messages: [], streamingText: '', thinkingText: '', activeTools: [], activeSkills: [], streamingComponents: [], error: null });
+        set({ messages: [], streamingText: '', thinkingText: '', activeTools: [], activeSkills: [], streamingComponents: [], error: null, pendingProposals: [] });
         if (client) client.clear();
       },
 
@@ -427,6 +465,49 @@ export const useAgentStore = create<AgentState>()(
         }
         set({ pendingConfirm: null });
         if (client) client.confirm(approved, nonce);
+      },
+
+      answerProposal: (id, approved) => {
+        const proposal = get().pendingProposals.find((p) => p.id === id);
+        if (!proposal || !client) return;
+        if (!approved) {
+          set((s) => ({ pendingProposals: s.pendingProposals.filter((p) => p.id !== id) }));
+          client.rejectProposal(id);
+          return;
+        }
+        // Same rule as a confirmation: an approval given while looking at
+        // another cluster was not made about the cluster the write lands on.
+        const active = getActiveClusterId();
+        if (proposal.requestedOnClusterId && proposal.requestedOnClusterId !== active) {
+          set({ error: clusterChangedMessage(proposal.requestedOnClusterId, active, proposal.tool) });
+          return;
+        }
+        if (get().streaming) {
+          set({ error: 'Wait for Pulse to finish answering, then approve.' });
+          return;
+        }
+        if (!client.approveProposal(id, proposal.nonce)) {
+          set({ error: 'Agent not connected — the proposal could not be approved. Nothing ran.' });
+          return;
+        }
+        resetStreamingState();
+        const userMsg: AgentMessage = {
+          id: makeId(),
+          role: 'user',
+          content: `Approved: ${proposal.tool} in ${proposal.namespace}`,
+          timestamp: Date.now(),
+        };
+        set((s) => ({
+          pendingProposals: s.pendingProposals.filter((p) => p.id !== id),
+          messages: trimMessages([...s.messages, userMsg]),
+          streaming: true,
+          streamingText: '',
+          thinkingText: '',
+          activeTools: [],
+          activeSkills: [],
+          streamingComponents: [],
+          error: null,
+        }));
       },
 
       sendFeedback: (resolved: boolean, messageId?: string) => {

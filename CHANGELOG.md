@@ -4,6 +4,9 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+### Changed
+- **A write the agent proposes in a protected namespace is a card you approve, and nothing runs until you do.** Paired with pulse-agent's proposal namespaces: in `production`, `openshift-*` and `kube-system` (the agent's protected namespaces by default) the agent no longer asks to confirm a write mid-answer; it sends a `write_proposal`, and the dock shows it as "Pulse proposes a change in <namespace>" with the exact tool and input, "Not run", your permission check and the same impact/undo facts as a confirmation. Approve runs exactly that call once and Pulse then checks the result in a new answer; Decline closes it. A proposal stays after the answer that made it ends, is never auto-approved at any trust level, has no keyboard shortcut, cannot be approved in observe mode, while another answer is streaming, or after switching clusters, and goes away if the connection drops. Needs pulse-agent v2.39.0; an older agent never sends proposals.
+
 ## v2.38.0 (2026-11-12)
 
 Paired with pulse-agent v2.38.0. **Needs pulse-operator v0.14.0** for two things: the Helm runner image pin (`spec.ui.helmRunnerImage` / `RELATED_IMAGE_HELM_RUNNER`, pulse-operator#127) that Helm actions and the new Helm preview need, and the agent's read access to SCCs and admission webhooks (pulse-operator#128) for their RBAC change history; with an older operator Helm actions stay disabled and those kinds show as unwatched. Needs pulse-agent v2.38.0 for the silence tools and `/inbox/by-alert` (Wave 12), RBAC change history and the write ledger (Wave 16), and Diagnose starting an investigation from the Inbox. Pull requests #188–#217.

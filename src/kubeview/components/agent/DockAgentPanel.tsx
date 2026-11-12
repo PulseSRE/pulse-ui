@@ -297,16 +297,16 @@ export function DockAgentPanel() {
   const {
     connected, mode, messages, streaming, streamingText, thinkingText,
     activeTools, activeSkills, completedTools, completedSkills,
-    streamingComponents, pendingConfirm, error, feedbackToast,
-    connect, sendMessage, confirmAction, cancelQuery, clearChat, pageContext,
+    streamingComponents, pendingConfirm, pendingProposals, error, feedbackToast,
+    connect, sendMessage, confirmAction, answerProposal, cancelQuery, clearChat, pageContext,
   } = useAgentStore(useShallow((s) => ({
     connected: s.connected, mode: s.mode, messages: s.messages,
     streaming: s.streaming, streamingText: s.streamingText, thinkingText: s.thinkingText,
     activeTools: s.activeTools, activeSkills: s.activeSkills,
     completedTools: s.completedTools, completedSkills: s.completedSkills,
     streamingComponents: s.streamingComponents,
-    pendingConfirm: s.pendingConfirm, error: s.error, feedbackToast: s.feedbackToast,
-    connect: s.connect, sendMessage: s.sendMessage, confirmAction: s.confirmAction,
+    pendingConfirm: s.pendingConfirm, pendingProposals: s.pendingProposals, error: s.error, feedbackToast: s.feedbackToast,
+    connect: s.connect, sendMessage: s.sendMessage, confirmAction: s.confirmAction, answerProposal: s.answerProposal,
     cancelQuery: s.cancelQuery, clearChat: s.clearChat, pageContext: s.pageContext,
   })));
 
@@ -548,6 +548,15 @@ export function DockAgentPanel() {
         {pendingConfirm && (
           <ConfirmationCard confirm={pendingConfirm} onConfirm={confirmAction} />
         )}
+
+        {pendingProposals.map((p) => (
+          <ConfirmationCard
+            key={p.id}
+            confirm={p}
+            proposal={{ namespace: p.namespace }}
+            onConfirm={(approved) => answerProposal(p.id, approved)}
+          />
+        ))}
 
         {/* Follow-up suggestions after conversation */}
         {messages.length > 0 && !streaming && !pendingConfirm && (

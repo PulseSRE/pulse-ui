@@ -56,6 +56,21 @@ export interface ConfirmRequest {
   preview?: Record<string, unknown>;
 }
 
+/**
+ * A write the agent offered instead of running (API_CONTRACT `write_proposal`):
+ * in a proposal namespace a chat write runs only when the person approves it
+ * as its own message. Nothing has changed in the cluster yet.
+ */
+export interface WriteProposal extends ConfirmRequest {
+  id: string;
+  /** The namespace that made this a proposal. */
+  namespace: string;
+  /** Epoch ms; an approval after this runs nothing. */
+  expiresAt: number;
+}
+
+export type ProposalStatus = 'applied' | 'failed' | 'rejected' | 'expired' | 'not_found' | 'nonce_mismatch';
+
 export interface SkillConflict {
   topic: string;
   skill_a: string;
@@ -76,6 +91,8 @@ export type AgentEvent =
   | { type: 'tool_use'; tool: string }
   | { type: 'component'; spec: ComponentSpec; tool: string }
   | { type: 'confirm_request'; tool: string; input: Record<string, unknown>; nonce: string; preview?: Record<string, unknown> }
+  | ({ type: 'write_proposal' } & WriteProposal)
+  | { type: 'proposal_resolved'; id: string; status: ProposalStatus; message?: string }
   | { type: 'done'; full_response: string; skill_name?: string; tool_count?: number; duration_ms?: number; input_tokens?: number; output_tokens?: number; multi_skill?: MultiSkillMeta }
   | { type: 'error'; message: string }
   | { type: 'multi_skill_start'; skills: string[] }
@@ -293,6 +310,19 @@ export class AgentClient {
     const msg: Record<string, unknown> = { type: 'confirm_response', approved };
     if (nonce) msg.nonce = nonce;
     this.ws.send(JSON.stringify(msg));
+  }
+
+  /** Approve a write_proposal: the agent runs exactly that call, then checks it in a new turn. */
+  approveProposal(id: string, nonce: string): boolean {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
+    this.ws.send(JSON.stringify({ type: 'approve_proposal', id, nonce }));
+    return true;
+  }
+
+  /** Decline a write_proposal. Nothing runs. */
+  rejectProposal(id: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ type: 'reject_proposal', id }));
   }
 
   /** Clear conversation history on the server. */

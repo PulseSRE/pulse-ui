@@ -164,6 +164,15 @@ At the backend, WebSocket endpoints validate the shared token in the `token` que
 | `approved` | `boolean` | yes | Whether the user approved the action |
 | `nonce` | `string` | yes | Must match the nonce from `confirm_request` (replay prevention) |
 
+#### `approve_proposal` / `reject_proposal` — Answer a `write_proposal`
+
+```json
+{"type": "approve_proposal", "id": "p_3f9a1c2b7d4e", "nonce": "abc123..."}
+{"type": "reject_proposal", "id": "p_3f9a1c2b7d4e"}
+```
+
+Sent from the proposal card's Approve / Decline (`agentStore.answerProposal`). Approve echoes the proposal's `nonce`; the agent runs exactly that call once, sends `proposal_resolved`, and then streams a normal turn in which it checks the result. The dock adds the person's message "Approved: <tool> in <namespace>" and shows it streaming. Not sent while another answer is streaming, after a cluster switch, or in observe mode.
+
 #### `clear` — Clear conversation history
 
 ```json
@@ -240,6 +249,23 @@ See [Component Specs](#component-specs) for all `spec.kind` values.
 | `input` | `object` | Tool input parameters (shown to user) |
 | `nonce` | `string` | JIT nonce for replay prevention — client must echo this back |
 | `preview` | `object?` | Optional. What the write will do, computed by the agent as the caller (`create_silence`: exact matchers, `endsAt`, `createdBy`, `comment`, `hides` — or `hides: null` with `hidesError` — and `valid`/`error`; `expire_silence`: the silence it ends). The card shows it; `valid: false` disables Approve and auto-approve. Absent from older agents and most tools. Defined in pulse-agent API_CONTRACT.md |
+
+#### `write_proposal` — A write offered instead of run (protected namespaces)
+
+```json
+{"type": "write_proposal", "id": "p_3f9a1c2b7d4e", "nonce": "abc123...", "tool": "restart_deployment",
+ "input": {"namespace": "production", "name": "payments-api"}, "namespace": "production", "expiresAt": 1763000000000, "preview": {}}
+```
+
+In a proposal namespace (the agent's `PULSE_AGENT_PROPOSAL_NAMESPACES`, by default its protected namespaces) the agent does not send `confirm_request` for a write: nothing runs, and it sends this instead. The dock keeps each one as a card (`pendingProposals`) after the turn ends, until it is answered or the connection drops (the agent holds them per connection). The card is never auto-approved at any trust level and has no keyboard shortcut. Defined in pulse-agent API_CONTRACT.md.
+
+#### `proposal_resolved`
+
+```json
+{"type": "proposal_resolved", "id": "p_3f9a1c2b7d4e", "status": "applied", "message": "Restarted deployment payments-api"}
+```
+
+`applied` / `failed`: it ran, and the checking turn streams next. `rejected`: closed. `expired` / `not_found` / `nonce_mismatch`: nothing ran and no turn follows; the dock stops waiting and shows `message`.
 
 #### Alert triage — `POST /api/agent/inbox/by-alert`
 

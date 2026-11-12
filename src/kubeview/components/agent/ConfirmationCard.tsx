@@ -72,9 +72,16 @@ interface ConfirmationCardProps {
   /** `clusterId`: where the write lands (the agent's cluster). */
   confirm: ConfirmRequest & { clusterId?: string };
   onConfirm: (approved: boolean) => void;
+  /**
+   * Set for a write the agent proposed instead of running (a protected
+   * namespace). A proposal is a person's own decision, made as its own
+   * message: it is never auto-approved at any trust level and has no
+   * keyboard shortcut.
+   */
+  proposal?: { namespace: string };
 }
 
-export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) {
+export function ConfirmationCard({ confirm, onConfirm, proposal }: ConfirmationCardProps) {
   const risk = riskLevel(confirm.tool, confirm.input);
   const description = describeToolAction(confirm.tool, confirm.input);
   const impact = impactDescription(confirm.tool, confirm.input);
@@ -109,6 +116,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const autoApprovedRef = useRef(false);
   useEffect(() => {
     if (autoApprovedRef.current) return;
+    if (proposal) return;
     // A silence hides alerts from the on-call: always a person's decision, at every trust level.
     if (refused || isSilence) return;
     if (shouldAutoApprove(confirm.tool, risk.level)) {
@@ -140,6 +148,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
+      if (proposal) return;
       const active = document.activeElement;
       if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
       const modal = e.target instanceof Element ? e.target.closest('[aria-modal="true"]') : null;
@@ -150,23 +159,36 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [risk.level, trustLevel, rbacBlock, handleApprove, handleDeny]);
+  }, [proposal, risk.level, trustLevel, rbacBlock, handleApprove, handleDeny]);
 
   // Don't render if auto-approved
-  if (shouldAutoApprove(confirm.tool, risk.level) && !refused && !isSilence) return null;
+  if (!proposal && shouldAutoApprove(confirm.tool, risk.level) && !refused && !isSilence) return null;
 
   // Trust Level 0 (Observe) — auto-deny, don't show action buttons
   const isObserveMode = trustLevel === 0;
 
   return (
     <div className={cn('rounded-lg border p-4', riskBorder, riskBg, risk.level === 'HIGH' && 'animate-pulse-subtle')}>
-      <div className="flex items-start gap-3" ref={cardRef} role="alertdialog" aria-modal="true" aria-label="Confirm write operation">
+      <div
+        className="flex items-start gap-3"
+        ref={cardRef}
+        {...(proposal
+          ? { role: 'group', 'aria-label': `Proposed write in ${proposal.namespace}` }
+          : { role: 'alertdialog', 'aria-modal': true, 'aria-label': 'Confirm write operation' })}
+      >
         <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
         <div className="flex-1 space-y-3">
           {/* Title + description */}
           <div>
-            <h3 className="text-sm font-medium text-amber-200 mb-1">Confirm write operation</h3>
+            <h3 className="text-sm font-medium text-amber-200 mb-1">
+              {proposal ? `Pulse proposes a change in ${proposal.namespace}` : 'Confirm write operation'}
+            </h3>
             <p className="text-sm text-slate-200">{description}</p>
+            {proposal && (
+              <p className="mt-1 text-xs text-slate-300">
+                Not run. In {proposal.namespace} a write runs only when you approve it. Approving runs exactly this, once, and Pulse then checks the result.
+              </p>
+            )}
           </div>
 
           {/* Risk badge + trust level */}
@@ -237,18 +259,18 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
                   onClick={handleApprove}
                   disabled={!!refused}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-700 hover:bg-green-600 text-white rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Approve operation (Y)"
+                  aria-label={proposal ? 'Approve proposed write' : 'Approve operation (Y)'}
                 >
                   <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  Approve <kbd className="ml-1 text-xs opacity-60 bg-green-900 px-1 rounded-sm">Y</kbd>
+                  Approve {!proposal && <kbd className="ml-1 text-xs opacity-60 bg-green-900 px-1 rounded-sm">Y</kbd>}
                 </button>
                 <button
                   onClick={handleDeny}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded-sm transition-colors"
-                  aria-label="Deny operation (N)"
+                  aria-label={proposal ? 'Decline proposed write' : 'Deny operation (N)'}
                 >
                   <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  Deny <kbd className="ml-1 text-xs opacity-60 bg-red-900 px-1 rounded-sm">N</kbd>
+                  {proposal ? 'Decline' : 'Deny'} {!proposal && <kbd className="ml-1 text-xs opacity-60 bg-red-900 px-1 rounded-sm">N</kbd>}
                 </button>
               </>
             )}

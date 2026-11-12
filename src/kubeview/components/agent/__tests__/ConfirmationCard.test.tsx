@@ -228,3 +228,49 @@ describe('ConfirmationCard', () => {
     expect(onConfirm).toHaveBeenCalledExactlyOnceWith(true);
   });
 });
+
+describe('ConfirmationCard as a write proposal (protected namespace)', () => {
+  const restart = {
+    tool: 'restart_deployment',
+    input: { namespace: 'production', name: 'payments-api' },
+    nonce: 'n1',
+  };
+
+  it('says it is a proposal that has not run', () => {
+    render(<ConfirmationCard confirm={restart} proposal={{ namespace: 'production' }} onConfirm={vi.fn()} />);
+    expect(screen.getByText('Pulse proposes a change in production')).toBeTruthy();
+    expect(screen.getByText(/Not run\. In production a write runs only when you approve it/)).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Proposed write in production' })).toBeTruthy();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('is never auto-approved, at any trust level', () => {
+    mockTrustState = { ...mockTrustState, trustLevel: 3, shouldAutoApprove: () => true };
+    const onConfirm = vi.fn();
+    render(<ConfirmationCard confirm={restart} proposal={{ namespace: 'production' }} onConfirm={onConfirm} />);
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Approve proposed write' })).toBeTruthy();
+  });
+
+  it('has no keyboard shortcut to approve or decline', () => {
+    const onConfirm = vi.fn();
+    render(<ConfirmationCard confirm={restart} proposal={{ namespace: 'production' }} onConfirm={onConfirm} />);
+    fireEvent.keyDown(window, { key: 'y' });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('approves and declines by button', () => {
+    const onConfirm = vi.fn();
+    render(<ConfirmationCard confirm={restart} proposal={{ namespace: 'production' }} onConfirm={onConfirm} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Approve proposed write' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Decline proposed write' }));
+    expect(onConfirm.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it('cannot be approved in observe mode', () => {
+    mockTrustState = { ...mockTrustState, trustLevel: 0 };
+    render(<ConfirmationCard confirm={restart} proposal={{ namespace: 'production' }} onConfirm={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Approve proposed write' })).toBeNull();
+  });
+});
