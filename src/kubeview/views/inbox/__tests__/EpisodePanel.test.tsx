@@ -104,6 +104,25 @@ describe('EpisodePanel', () => {
     expect(screen.getByText('Cause')).toBeTruthy();
   });
 
+  it('at phone width the actions drop under the title instead of squeezing it (desktop row unchanged)', async () => {
+    // Filmed at 390px: the actions took the whole row and "Cause" sat under
+    // "Ask Pulse to fix". jsdom has no layout, so this pins the classes that
+    // do it; the Playwright check at 390/1440 covers the rendering.
+    render(<EpisodePanel />, { wrapper: MemoryRouter });
+    const title = await screen.findByTestId('episode-cause-title');
+    expect(title.getAttribute('title')).toBe(EPISODE.cause_title);
+    expect(title.className).toMatch(/\btruncate\b/);
+    expect(title.className).toMatch(/\bmin-w-0\b/);
+
+    const actions = screen.getByTestId('episode-actions');
+    expect(actions.contains(screen.getByRole('button', { name: 'Ask Pulse to fix' }))).toBe(true);
+    expect(actions.contains(screen.getByRole('button', { name: /Dismiss/ }))).toBe(true);
+    // Full row of its own below `sm`, back inline at `sm` and up.
+    expect(actions.className.split(' ')).toEqual(expect.arrayContaining(['w-full', 'sm:w-auto', 'sm:shrink-0']));
+    const row = actions.parentElement!;
+    expect(row.className.split(' ')).toEqual(expect.arrayContaining(['flex-wrap', 'sm:flex-nowrap']));
+  });
+
   it('measures "started" from the episode when the cause reports no onset of its own', async () => {
     fetchOpenEpisodes.mockResolvedValue([{ ...EPISODE, started_at: Math.floor(Date.now() / 1000) - 600 }]);
     render(<EpisodePanel />, { wrapper: MemoryRouter });
