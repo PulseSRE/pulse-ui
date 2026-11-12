@@ -4,6 +4,13 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+## v2.38.0 (2026-11-12)
+
+Paired with pulse-agent v2.38.0. **Needs pulse-operator v0.14.0** for two things: the Helm runner image pin (`spec.ui.helmRunnerImage` / `RELATED_IMAGE_HELM_RUNNER`, pulse-operator#127) that Helm actions and the new Helm preview need, and the agent's read access to SCCs and admission webhooks (pulse-operator#128) for their RBAC change history; with an older operator Helm actions stay disabled and those kinds show as unwatched. Needs pulse-agent v2.38.0 for the silence tools and `/inbox/by-alert` (Wave 12), RBAC change history and the write ledger (Wave 16), and Diagnose starting an investigation from the Inbox. Pull requests #188–#217.
+
+- **Waves 11B, 12, 13, 14B, 15 and 16.** Pod and Deployment pages show the cause, a guided fix with a dry-run confirm, and whether it held (11B). Home lists what needs attention from the monitor, and Alerts gets triage and Pulse-proposed silences (12). ConfigMaps and Secrets show what uses them and can restart their consumers, Helm-owned objects show their release and send edits and rollbacks to it, and delete can take related objects with it (13). Starting an update asks who and why and keeps a log (14B). Deploy an app replaces Quick Deploy, and Helm installs and upgrades show a preview before apply, with chart defaults beside your overrides and Secret values redacted (15). Identity gets subject access pages, Who can, Remove access, a Sign-in tab and RBAC change history with Restore previous (16).
+- **Twelve consistency fixes.** One page header on every domain page, one approval dialog for every agent write, the namespace scope in the URL, a shell that works at phone width, readable muted text with one status palette, router-backed page tabs, aligned resource tables, honest Prometheus failures, one error and empty state, subpage headers with one not-found page, one Ask Pulse entry point, and one date format with labelled forms.
+
 ### Upgrade notes
 - **Helm previews need a helm-runner image with `awk` and `sha256sum`.** The preview hides Secret values with them before anything reaches the pod log. Release builds of the runner image include both and are checked for them (see CI below). Clusters keep the runner image they were configured with until it is replaced by such a build: pin it with the operator's `spec.ui.helmRunnerImage` (or `RELATED_IMAGE_HELM_RUNNER`), available from pulse-operator v0.14.0. Until then, Preview reports "The Helm runner image is too old for previews; update Pulse" and offers installing or upgrading without a preview. Nothing is rendered unredacted.
 
