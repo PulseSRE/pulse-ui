@@ -232,6 +232,67 @@ describe('Restart consumers', () => {
     expect(btn.disabled).toBe(false);
   });
 
+  describe('the acknowledgement does not outlive the dialog it was given in', () => {
+    const pdb = () => lists((r) => (r.path.endsWith('/poddisruptionbudgets') ? json({ items: [{ metadata: { name: 'api-pdb' }, spec: { selector: { matchLabels: { app: 'api' } }, minAvailable: 2 } }] }) : undefined));
+    const ack = (dialog: HTMLElement) => within(dialog).getByRole('checkbox', { name: /I understand and want to restart anyway/ }) as HTMLInputElement;
+    const openFromPage = async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Restart consumers/ }));
+      const dialog = await screen.findByRole('dialog');
+      await waitFor(() => expect(within(dialog).getByTestId('restart-dry-run').textContent).toBe('Passed for all 2'));
+      return dialog;
+    };
+
+    it('tick, close, reopen: unticked (Not now and Escape)', async () => {
+      pdb();
+      h.renderUi(<KindSections resource={cm} go={go} />);
+      await screen.findByRole('button', { name: 'api' });
+      for (const closeWith of ['Not now', 'Escape'] as const) {
+        const dialog = await openFromPage();
+        fireEvent.click(ack(dialog));
+        expect(ack(dialog).checked).toBe(true);
+        if (closeWith === 'Escape') fireEvent.keyDown(dialog, { key: 'Escape' });
+        else fireEvent.click(within(dialog).getByRole('button', { name: 'Not now' }));
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+        const again = await openFromPage();
+        expect(ack(again).checked).toBe(false);
+        expect((within(again).getByRole('button', { name: 'Restart 2 Deployments' }) as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(within(again).getByRole('button', { name: 'Not now' }));
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      }
+      expect(realWrites()).toEqual([]);
+    });
+
+    it('a different target (another set of consumers) in the same dialog: unticked', async () => {
+      pdb();
+      // billing serves the same pods as api (app=api), so the PDB risk and the
+      // checkbox are there for both targets.
+      const billing = dep('billing', [{ name: 'b', envFrom: [{ configMapRef: { name: 'api-cfg' } }] }]);
+      billing.spec.template.metadata.labels.app = 'api';
+      billing.spec.selector.matchLabels.app = 'api';
+      const before = findConsumers('ConfigMap', 'api-cfg', [api, worker] as unknown as K8sResource[]);
+      const after = findConsumers('ConfigMap', 'api-cfg', [billing, worker] as unknown as K8sResource[]);
+      const ui = (consumers: typeof before, configName = 'api-cfg') => (
+        <RestartConsumersDialog configKind="ConfigMap" configName={configName} namespace="payments" consumers={consumers} onClose={() => {}} pollMs={1} />
+      );
+      const { rerender } = h.renderUi(ui(before));
+      let dialog = await screen.findByRole('dialog');
+      await waitFor(() => expect(within(dialog).getByTestId('restart-dry-run').textContent).toBe('Passed for all 2'));
+      fireEvent.click(ack(dialog));
+      expect(ack(dialog).checked).toBe(true);
+      // The harness wraps in providers; rerender with the same wrapper.
+      rerender(h.wrap(ui(after)));
+      dialog = await screen.findByRole('dialog', { name: /Restart the 2 consumers of api-cfg/ });
+      await waitFor(() => expect(within(dialog).getByTestId('restart-row-billing')).toBeTruthy());
+      expect(ack(dialog).checked).toBe(false);
+      fireEvent.click(ack(dialog));
+      expect(ack(dialog).checked).toBe(true);
+      rerender(h.wrap(ui(after, 'other-cfg')));
+      dialog = await screen.findByRole('dialog', { name: /consumers of other-cfg/ });
+      expect(ack(dialog).checked).toBe(false);
+      expect(realWrites()).toEqual([]);
+    });
+  });
+
   it('PDB and quota reads that fail are "Could not check", not a pass', async () => {
     lists((r) => (r.path.endsWith('/poddisruptionbudgets') || r.path.endsWith('/resourcequotas') ? k8sStatus(403, 'forbidden') : undefined));
     renderRestart();
