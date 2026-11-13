@@ -10,6 +10,7 @@ import { useCanI } from '../../hooks/useCanI';
 import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { SilencePreview, silencePreviewInvalid } from './SilencePreview';
+import { RestartConsumersPreview, restartCount, restartPreviewInvalid } from './RestartConsumersPreview';
 import { InstallPlanPreview, installPlanDryRun, installPlanPreviewInvalid } from './InstallPlanPreview';
 import { networkPolicyImpact } from './networkPolicyImpact';
 import { ACCESS_TOOLS, AccessChangePreview, AccessRiskBanner, accessChange, accessDryRun, accessPermission, accessPreviewInvalid, accessRisk } from './AccessChangePreview';
@@ -25,6 +26,7 @@ const ROLLBACK_INFO: Record<string, string> = {
   restart_deployment: 'No rollback needed — pods restart with the same image',
   rollback_deployment: 'Roll forward to the version you just rolled back from',
   expire_silence: 'Create the silence again with the same matchers',
+  restart_consumers: 'No rollback needed — pods restart with the same spec',
   // Used only when an older agent sends no preview; the preview's own undo names the binding.
   grant_access: 'Revoke the access again (revoke_access), or delete the binding in Access review',
   revoke_access: 'Grant the role again (grant_access); a deleted binding comes back under a new name',
@@ -59,6 +61,8 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
       return 'Alerts matching these matchers stop notifying until the silence ends. They still show in Alerts as silenced.';
     case 'expire_silence':
       return 'The silence ends now and the alerts it muted notify again.';
+    case 'restart_consumers':
+      return 'Each listed workload gets a rolling restart so its pods start with the current values. The restarts start one after another; Pulse does not wait for each rollout.';
     case 'approve_installplan':
       return 'OLM installs the planned operator version, replacing the installed one.';
     default:
@@ -102,6 +106,7 @@ interface ConfirmationCardProps {
 
 export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) {
   const isSilence = SILENCE_TOOLS.has(confirm.tool);
+  const isRestart = confirm.tool === 'restart_consumers';
   const isInstallPlan = confirm.tool === 'approve_installplan';
   const isWorkload = WORKLOAD_CHANGE_TOOLS.has(confirm.tool);
   // An access grant or revoke: the agent's preview carries the binding diff, its own risk, impact and undo.
@@ -121,14 +126,18 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const refused = isSilence ? silencePreviewInvalid(confirm.preview)
     : isInstallPlan ? installPlanPreviewInvalid(confirm.preview)
     : isWorkload ? workloadPreviewInvalid(confirm.preview)
-    : isAccess ? accessPreviewInvalid(confirm.preview) : null;
-  // A silence's preview is the agent's check of the exact request: show it as the dry run.
-  // InstallPlan, workload and access previews carry the API server's own dry run, run as you.
+    : isAccess ? accessPreviewInvalid(confirm.preview)
+    : isRestart ? restartPreviewInvalid(confirm.preview) : null;
+  // A silence's preview is the agent's check of the exact request; a restart's carries a
+  // server-side dry run of every patch; InstallPlan, workload and access previews carry
+  // the API server's own dry run, run as you.
+  const restarts = restartCount(confirm.preview);
   const dryRun: DryRunState = isInstallPlan ? installPlanDryRun(confirm.preview)
     : isWorkload ? workloadDryRun(confirm.preview)
     : isAccess ? accessDryRun(confirm.preview)
-    : !isSilence || !confirm.preview ? { state: 'unavailable' }
+    : !(isSilence || isRestart) || !confirm.preview ? { state: 'unavailable' }
     : refused ? { state: 'failed', message: refused }
+    : isRestart ? { state: 'passed', message: `Passed · the API server accepted ${restarts === 1 ? 'the restart' : `all ${restarts ?? 0} restarts`} as you (dry run)` }
     : { state: 'passed', message: "Passed · Pulse's preview accepts this silence" };
   // Another tool owns this spec (Argo CD, Helm): a person decides, whatever the trust level.
   const gitopsOwned = !!workload?.gitops;
@@ -247,6 +256,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
           {isWorkload && <WorkloadChangeNotes preview={confirm.preview} />}
 
           {isSilence && <SilencePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
+          {isRestart && <RestartConsumersPreview input={confirm.input} preview={confirm.preview} />}
           {isInstallPlan && <InstallPlanPreview input={confirm.input} preview={confirm.preview} />}
           {isAccess && <AccessChangePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
 
