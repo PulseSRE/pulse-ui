@@ -1,6 +1,7 @@
 import React from 'react';
 import type { K8sResource } from '../../engine/renderers';
-import type { Event } from '../../engine/types';
+import type { Event, Pod } from '../../engine/types';
+import { inferPodCategory } from '../../engine/diagnoseCategory';
 import { PodSummary } from './PodSummary';
 import { PodHeader } from './PodHeader';
 import { ContainerFacts } from './ContainerFacts';
@@ -45,6 +46,7 @@ export function PodDetailLayout({
   // With the open finding's ids when the Cause card shows one.
   const context = useCauseContext({ kind: 'Pod', name: resource.metadata.name, namespace, gvr: 'v1/pods' }, causeMatch);
   usePageChatContext(context);
+  const inferredCategory = inferPodCategory(resource as unknown as Pod);
   const isTemplateOwner = !!owner && ['Deployment', 'StatefulSet', 'DaemonSet'].includes(owner.kind);
   // Revisions of the owning Deployment, to mark them on the memory chart.
   const rsList = useK8sListWatch<K8sResource>({ apiPath: '/apis/apps/v1/replicasets', namespace, enabled: owner?.kind === 'Deployment' });
@@ -60,7 +62,7 @@ export function PodDetailLayout({
 
       <div className="flex flex-wrap items-start gap-5">
         <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
-          <CauseCard match={causeMatch} noun="pod" />
+          <CauseCard match={causeMatch} noun="pod" inferredCategory={inferredCategory} />
           <FixCard
             pod={resource}
             ownerApiPath={isTemplateOwner ? owner!.apiPath : undefined}

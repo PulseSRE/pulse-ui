@@ -14,7 +14,7 @@
 <body>
 <header class="wrap"><nav class="sites" aria-label="Pulse projects">
 <a class="mark" href="https://github.com/PulseSRE"><svg viewBox="0 0 68 36" aria-hidden="true"><path d="M0 20 H18 L22 24 L28 3 L34 32 L38 20 H50 L54 15 L58 20 H68" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/></svg><span>Pulse</span></a>
-<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.38.0</span>
+<a class="site" href="https://pulsesre.github.io/pulse-agent/">Agent</a><a class="site" href="https://pulsesre.github.io/pulse-ui/" aria-current="page">UI</a><a class="site" href="https://pulsesre.github.io/pulse-operator/">Operator</a><a class="site" href="https://pulsesre.github.io/sre-bench/">SRE-Bench</a><span class="ver">UI v2.38.1</span>
 </nav></header>
 <main>
 <section class="hero wrap" aria-labelledby="title">
@@ -127,6 +127,12 @@
 <div class="wrap">
 <h2 id="new">What's new</h2>
 <div class="release">
+<p class="when"><strong>v2.38.1</strong>12 November 2026<br>Pairs with agent v2.38.1 and operator v0.14.0</p>
+<ul>
+<li style="--c:var(--ink)"><b>No UI changes.</b> <span>Released to keep the pair matched with agent v2.38.1, whose fix stops any write in a turn that asks to delete a pod in a protected namespace.</span></li>
+</ul>
+</div>
+<div class="release">
 <p class="when"><strong>v2.38.0</strong>12 November 2026<br>Pairs with agent v2.38.0 and operator v0.14.0</p>
 <ul>
 <li style="--c:var(--trace)"><b>The cause and the fix, where you find the problem.</b> <span>A Pod or Deployment page shows what Pulse found, a guided fix with the exact diff and a dry run before you apply it, and whether the rollout held.</span></li>
@@ -182,7 +188,7 @@ pnpm verify     <span class="c"># type-check, lint, tests and build</span></code
 </section>
 </main>
 <footer><div class="wrap">
-<span>Pulse UI v2.38.0. MIT licensed.</span>
+<span>Pulse UI v2.38.1. MIT licensed.</span>
 <span><a href="https://github.com/PulseSRE/pulse-ui">Source</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/releases">Releases</a> &nbsp; <a href="https://github.com/PulseSRE/pulse-ui/blob/main/CHANGELOG.md">Changelog</a></span>
 </div></footer>
 </body>

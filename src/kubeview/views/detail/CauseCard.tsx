@@ -3,7 +3,9 @@
  * workload that owns it, or — on a workload page — one of its pods), with the
  * investigation's cause, evidence, the alternatives it ruled out, confidence
  * and when. No finding: a Diagnose button that asks the agent through the
- * inbox and shows the report in the same card.
+ * inbox and shows the report in the same card. Diagnose tells the agent what
+ * kind of problem it is (the open finding's category, else what the page's
+ * pods show) so it runs the matching plan template; unsure, it says nothing.
  *
  * Findings come from the monitor's WebSocket and describe the agent's own
  * cluster only; when that connection is down the card says so instead of
@@ -19,6 +21,7 @@ import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import type { Finding, InvestigationReport as MonitorReport, EvidenceItem } from '../../engine/monitorClient';
 import type { InvestigationReport as InboxReport } from '../../engine/inboxApi';
 import { useDiagnose, type DiagnoseTarget } from './useDiagnose';
+import { categoryFromFinding, type PlanCategory } from '../../engine/diagnoseCategory';
 import { resolveKind } from '../../engine/kindRegistry';
 import { formatRelative, formatClock } from '../../engine/format';
 import { PULSE_AI_LOCAL_ONLY } from '../../components/feedback/LocalClusterOnlyNotice';
@@ -205,15 +208,23 @@ function AskFix({ match, shownRef }: { match: CauseMatch; shownRef: FindingRef |
   );
 }
 
-export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) {
+export function CauseCard({ match, noun, inferredCategory }: {
+  match: CauseMatch;
+  noun: string;
+  /** What the page's own objects show (`engine/diagnoseCategory`); an open finding's category wins. */
+  inferredCategory?: PlanCategory;
+}) {
   const clusterId = useFleetStore((s) => s.activeClusterId);
   const connected = useMonitorStore((s) => s.connected);
   const connectionError = useMonitorStore((s) => s.connectionError);
   const investigations = useMonitorStore((s) => s.investigations);
-  const target: DiagnoseTarget = { kind: match.kind, name: match.name, namespace: match.namespace };
   const remote = clusterId !== LOCAL_CLUSTER_ID;
-  const { state, run } = useDiagnose(target, { remote });
   const finding = useCauseFinding(match);
+  const target: DiagnoseTarget = {
+    kind: match.kind, name: match.name, namespace: match.namespace,
+    category: categoryFromFinding(finding) ?? inferredCategory,
+  };
+  const { state, run } = useDiagnose(target, { remote });
   const investigation = React.useMemo(
     () => (finding ? investigations.filter((i) => i.findingId === finding.id).sort((a, b) => b.timestamp - a.timestamp)[0] : undefined),
     [finding, investigations],
@@ -340,8 +351,8 @@ export function CauseCard({ match, noun }: { match: CauseMatch; noun: string }) 
         </div>
       )}
       {state.phase === 'timeout' && (
-        <p className="text-sm text-slate-300">
-          No report after 10 minutes; the investigation may still finish. The item stays open in the{' '}
+        <p className="text-sm text-slate-300" data-testid="diagnose-timeout">
+          No report after {Math.round(state.windowMs / 60_000)} minutes; the investigation may still finish. The item stays open in the{' '}
           <Link to="/inbox" className="text-blue-400 hover:underline">Inbox</Link> (Diagnose {resourceLabel(match)}).
         </p>
       )}

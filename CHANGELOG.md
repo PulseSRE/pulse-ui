@@ -10,6 +10,10 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ### Fixed
 - **The Alert Notification Routing gate no longer links to Silences.** Silences mute alerts; they do not route them. The gate's action now opens the platform Alertmanager configuration (Secret `alertmanager-main` in `openshift-monitoring`, key `alertmanager.yaml`), and the guidance says to add receivers and a route there.
+- **Diagnose tells the agent what kind of problem it is, so it runs the matching plan.** The Cause card's Diagnose created its inbox item with no category, so the agent always ran a freeform investigation and never the monitor's phased plan templates (JTBD review F2, F4, W2). The item now carries `metadata.category_hint`: the open monitor finding's category when a plan exists for it, else what the page's pods show (`CrashLoopBackOff` → `crashloop`, `OOMKilled` → `oom`, `ImagePullBackOff`/`ErrImagePull` → `image_pull`, Pending and unschedulable → `scheduling`; the Deployment page uses its pods' shared problem). Nothing is sent when nothing is shown or the signals disagree (`engine/diagnoseCategory.ts`, which also maps node pressure to `nodes` for a future node page). Plans take longer than freeform runs, so the card now polls for the run's own `timeout_seconds` when the agent reports it (10–45 minutes) and says how long it waited. Older agents ignore the hint and report no budget, and the card behaves as before. Pairs with pulse-agent#250.
+## v2.38.1 (2026-11-12)
+
+Paired with pulse-agent v2.38.1, which stops every write in a turn that asks to delete a pod in a protected namespace (pulse-agent#245). No UI code changes; the version moves to keep the agent/UI pair matched. Runs on pulse-operator v0.14.0. Also in this release: a new pulse-ui video on the docs site (#218).
 
 ## v2.38.0 (2026-11-12)
 

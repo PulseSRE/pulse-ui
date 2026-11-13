@@ -13,6 +13,7 @@ import { FixCard } from './FixCard';
 import { ChangesCard } from './ChangesCard';
 import { usePodUsage } from './usePodUsage';
 import type { Pod } from '../../engine/types';
+import { inferPodsCategory } from '../../engine/diagnoseCategory';
 
 /** The pod most worth fixing: crash-looping or failing to pull first, then the most restarts. */
 export function worstPod(pods: K8sResource[]): K8sResource | null {
@@ -53,6 +54,7 @@ export function DeploymentDetailLayout({
   // With the open finding's ids when the Cause card shows one.
   const context = useCauseContext({ kind: 'Deployment', name: resource.metadata.name, namespace, gvr: 'apps/v1/deployments' }, causeMatch);
   usePageChatContext(context);
+  const inferredCategory = React.useMemo(() => inferPodsCategory(managedPods as unknown as Pod[]), [managedPods]);
   const { usage, isLoading: usageLoading } = usePodUsage(namespace, failing ? [failing.metadata.name] : []);
   React.useEffect(() => {
     if (window.location.hash === '#rollback') {
@@ -66,7 +68,7 @@ export function DeploymentDetailLayout({
       {/* Incident + Audit + Rollback in 2-column grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <CauseCard match={causeMatch} noun="Deployment" />
+          <CauseCard match={causeMatch} noun="Deployment" inferredCategory={inferredCategory} />
           {failing ? (
             <FixCard pod={failing} ownerObject={resource} usage={usage} usageLoading={usageLoading} events={events} go={go} />
           ) : null}
