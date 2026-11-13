@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, ShieldAlert, ShieldCheck, Shield } from 'lucide-react';
 import type { ConfirmRequest } from '../../engine/agentClient';
 import { describeToolAction, riskLevel } from './MessageBubble';
@@ -11,6 +11,7 @@ import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { SilencePreview, silencePreviewInvalid } from './SilencePreview';
 import { networkPolicyImpact } from './networkPolicyImpact';
+import { ACCESS_TOOLS, AccessChangePreview, AccessRiskBanner, accessChange, accessDryRun, accessPermission, accessPreviewInvalid, accessRisk } from './AccessChangePreview';
 
 const SILENCE_TOOLS = new Set(['create_silence', 'expire_silence']);
 
@@ -22,6 +23,9 @@ const ROLLBACK_INFO: Record<string, string> = {
   restart_deployment: 'No rollback needed — pods restart with the same image',
   rollback_deployment: 'Roll forward to the version you just rolled back from',
   expire_silence: 'Create the silence again with the same matchers',
+  // Used only when an older agent sends no preview; the preview's own undo names the binding.
+  grant_access: 'Revoke the access again (revoke_access), or delete the binding in Access review',
+  revoke_access: 'Grant the role again (grant_access); a deleted binding comes back under a new name',
 };
 
 /** Estimate what will happen for each tool */
@@ -57,9 +61,11 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
  * forwarded token. Only tools whose single Kubernetes call is known are
  * checked; anything else is left to the API server, which refuses it itself.
  */
-function accessFor(tool: string, input: Record<string, unknown>): { verb: string; group: string; resource: string; namespace?: string; subresource?: string } | null {
+function accessFor(tool: string, input: Record<string, unknown>, preview?: Record<string, unknown>): { verb: string; group: string; resource: string; namespace?: string; subresource?: string } | null {
   const ns = typeof input.namespace === 'string' ? input.namespace : undefined;
   switch (tool) {
+    case 'grant_access':
+    case 'revoke_access': return accessPermission(tool, input, preview);
     case 'scale_deployment': return ns ? { verb: 'patch', group: 'apps', resource: 'deployments', namespace: ns, subresource: 'scale' } : null;
     case 'restart_deployment': return ns ? { verb: 'patch', group: 'apps', resource: 'deployments', namespace: ns } : null;
     case 'delete_pod': return ns ? { verb: 'delete', group: '', resource: 'pods', namespace: ns } : null;
@@ -76,17 +82,26 @@ interface ConfirmationCardProps {
 }
 
 export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) {
-  const risk = riskLevel(confirm.tool, confirm.input);
-  const description = describeToolAction(confirm.tool, confirm.input);
-  const impact = impactDescription(confirm.tool, confirm.input);
-  const rollback = ROLLBACK_INFO[confirm.tool];
   const isSilence = SILENCE_TOOLS.has(confirm.tool);
+  // An access grant or revoke: the agent's preview carries the binding diff, its own risk, impact and undo.
+  const isAccess = ACCESS_TOOLS.has(confirm.tool);
+  const accessPreview = isAccess ? accessChange(confirm.preview) : null;
+  const baseRisk = riskLevel(confirm.tool, confirm.input);
+  const risk = isAccess && accessRisk(confirm.tool, confirm.preview) === 'HIGH' ? { level: 'HIGH', color: 'text-red-400' } : baseRisk;
+  const description = describeToolAction(confirm.tool, confirm.input);
+  const impact = (accessPreview?.impact || null) ?? impactDescription(confirm.tool, confirm.input);
+  const rollback = accessPreview?.undo || ROLLBACK_INFO[confirm.tool];
   // The agent already said the tool will refuse: approving would only run a refusal.
-  const refused = isSilence ? silencePreviewInvalid(confirm.preview) : null;
+  const refused = isSilence ? silencePreviewInvalid(confirm.preview) : isAccess ? accessPreviewInvalid(confirm.preview) : null;
   // A silence's preview is the agent's check of the exact request: show it as the dry run.
-  const dryRun: DryRunState = !isSilence || !confirm.preview ? { state: 'unavailable' }
+  // An access change's preview reports the API server's own dry run of the exact request.
+  const dryRun: DryRunState = isAccess ? accessDryRun(confirm.preview)
+    : !isSilence || !confirm.preview ? { state: 'unavailable' }
     : refused ? { state: 'failed', message: refused }
     : { state: 'passed', message: "Passed · Pulse's preview accepts this silence" };
+  // A HIGH-risk access change needs an explicit acknowledgement before Approve is enabled.
+  const needsAck = isAccess && risk.level === 'HIGH';
+  const [acknowledged, setAcknowledged] = useState(false);
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
   const shouldAutoApprove = useTrustStore((s) => s.shouldAutoApprove);
@@ -95,7 +110,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const targetClusterId = confirm.clusterId ?? LOCAL_CLUSTER_ID;
   // The person's own permission, asked of the cluster the write lands on (when that is the one shown).
-  const access = accessFor(confirm.tool, confirm.input);
+  const access = accessFor(confirm.tool, confirm.input, confirm.preview);
   const can = useCanI(access?.verb ?? 'patch', access?.group ?? '', access?.resource ?? '', access?.namespace, access?.subresource, { enabled: !!access && activeClusterId === targetClusterId });
   const rbacBlock = !access || activeClusterId !== targetClusterId ? null
     : can.isLoading ? 'Checking your permission…'
@@ -110,8 +125,9 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const autoApprovedRef = useRef(false);
   useEffect(() => {
     if (autoApprovedRef.current) return;
-    // A silence hides alerts from the on-call: always a person's decision, at every trust level.
-    if (refused || isSilence) return;
+    // A silence hides alerts from the on-call, and an access change hands over or takes away
+    // permissions: always a person's decision, at every trust level.
+    if (refused || isSilence || isAccess) return;
     if (shouldAutoApprove(confirm.tool, risk.level)) {
       autoApprovedRef.current = true;
       recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
@@ -126,10 +142,10 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   }, [confirm.tool]);
 
   const handleApprove = useCallback(() => {
-    if (trustLevel === 0 || refused) return;
+    if (trustLevel === 0 || refused || (needsAck && !acknowledged)) return;
     recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
     onConfirm(true);
-  }, [trustLevel, refused, confirm.tool, risk.level, recordConfirmation, onConfirm]);
+  }, [trustLevel, refused, needsAck, acknowledged, confirm.tool, risk.level, recordConfirmation, onConfirm]);
 
   const handleDeny = useCallback(() => {
     recordConfirmation({ tool: confirm.tool, approved: false, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
@@ -154,7 +170,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   }, [risk.level, trustLevel, rbacBlock, handleApprove, handleDeny]);
 
   // Don't render if auto-approved
-  if (shouldAutoApprove(confirm.tool, risk.level) && !refused && !isSilence) return null;
+  if (shouldAutoApprove(confirm.tool, risk.level) && !refused && !isSilence && !isAccess) return null;
 
   // Trust Level 0 (Observe) — auto-deny, don't show action buttons
   const isObserveMode = trustLevel === 0;
@@ -191,10 +207,13 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
             <WriteWhere namespace={typeof confirm.input.namespace === 'string' ? confirm.input.namespace : undefined} clusterId={targetClusterId} actingAs="agent-user" />
           </p>
 
-          {/* What will change: the agent sends no diff, so the tool and its parameters */}
-          <WriteChange params={{ action: confirm.tool, input: confirm.input }} collapsed />
+          {isAccess && risk.level === 'HIGH' && <AccessRiskBanner tool={confirm.tool} reasons={accessPreview?.riskReasons ?? []} />}
+
+          {/* What will change: the access preview carries the binding diff; otherwise the tool and its parameters */}
+          {!accessPreview && <WriteChange params={{ action: confirm.tool, input: confirm.input }} collapsed />}
 
           {isSilence && <SilencePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
+          {isAccess && <AccessChangePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
 
           {/* Impact, dry run and undo (rollback), as the write-confirm dialog shows them */}
           <WriteFacts impact={impact ?? undefined} dryRun={dryRun} undo={rollback} />
@@ -214,6 +233,12 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
           <div className="flex items-center gap-2">
             {risk.level === 'HIGH' ? (
               <>
+                {needsAck && (
+                  <label className="flex items-center gap-1.5 text-xs text-red-200">
+                    <input type="checkbox" checked={acknowledged} disabled={!!refused} onChange={(e) => setAcknowledged(e.target.checked)} />
+                    {confirm.tool === 'grant_access' ? 'I understand what this grant hands over' : 'I understand this access change'}
+                  </label>
+                )}
                 <button
                   onClick={handleDeny}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-sm transition-colors"
@@ -224,7 +249,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
                 </button>
                 <button
                   onClick={handleApprove}
-                  disabled={!!refused}
+                  disabled={!!refused || (needsAck && !acknowledged)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Approve high-risk operation"
                 >
