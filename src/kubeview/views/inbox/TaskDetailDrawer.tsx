@@ -34,6 +34,7 @@ import type { ResourceContext } from '../../engine/agentClient';
 import { withFindingRef } from '../../engine/findingContext';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
 import { cn } from '@/lib/utils';
+import { isSilenceable, SilenceButton } from './SilenceAction';
 
 /** Where an inbox item's resource opens: the cluster's ClusterVersion is managed on Admin › Updates. */
 function inboxResourceUrl(r: { kind: string; name: string; namespace?: string }): string {
@@ -43,6 +44,8 @@ function inboxResourceUrl(r: { kind: string; name: string; namespace?: string })
 
 const UPDATES_LINK = '/admin?tab=updates';
 const UPDATE_GENERATORS = new Set(['upgrade_available', 'upgrade_api_removals']);
+/** Operators › Needs approval, where a pending InstallPlan (gen_operator_approvals) is approved. */
+const OPERATOR_APPROVALS_LINK = '/operators?view=approvals';
 
 /**
  * The page an item asks to be opened on. `metadata.ui_link` is item data, so
@@ -54,9 +57,12 @@ const UPDATE_GENERATORS = new Set(['upgrade_available', 'upgrade_api_removals'])
 function itemUiLink(item: Pick<InboxItem, 'metadata'>): { to: string; label: string } | null {
   const raw = item.metadata?.ui_link;
   const safe = typeof raw === 'string' && /^\/(?![/\\])/.test(raw) && !/[\u0000-\u001f\u007f]/.test(raw) ? raw : null;
-  const to = safe ?? (UPDATE_GENERATORS.has(String(item.metadata?.generator || '')) ? UPDATES_LINK : null);
+  const generator = String(item.metadata?.generator || '');
+  const to = safe ?? (UPDATE_GENERATORS.has(generator) ? UPDATES_LINK : generator === 'operator_approvals' ? OPERATOR_APPROVALS_LINK : null);
   if (!to) return null;
-  return { to, label: to === UPDATES_LINK || to.startsWith(`${UPDATES_LINK}&`) ? 'Open Updates' : 'Open in Pulse' };
+  if (to === UPDATES_LINK || to.startsWith(`${UPDATES_LINK}&`)) return { to, label: 'Open Updates' };
+  if (to === OPERATOR_APPROVALS_LINK) return { to, label: 'Open Needs approval' };
+  return { to, label: 'Open in Pulse' };
 }
 
 function formatDueDate(ts: number): string {
@@ -731,6 +737,11 @@ export function TaskDetailDrawer({
 
         {/* Forward buttons — sticky footer so they're always visible */}
         <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-4 -mb-4 z-10">
+          {/* From a firing alert or a monitor finding: Pulse proposes the
+              narrowest silence and the chat confirmation card creates it. */}
+          {isSilenceable(item) && item.status !== 'resolved' && item.status !== 'archived' && (
+            <SilenceButton id={item.id} what="Inbox item" context={remote ? undefined : investigateContext(item)} onAsked={onClose} showReason />
+          )}
           {item.status === 'new' && (
             <AskPulseButton size="md" suffix="to investigate" onAsk={handleInvestigate} localData />
           )}

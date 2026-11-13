@@ -173,15 +173,19 @@ export async function installOperator(clusterId: string, opts: InstallOperatorOp
 // ---- Installed operators ----
 
 export interface SubscriptionLike {
-  metadata: { name: string; namespace: string; resourceVersion?: string };
+  metadata: { name: string; namespace: string; resourceVersion?: string; annotations?: Record<string, string>; labels?: Record<string, string> };
   spec?: { channel?: string; installPlanApproval?: string; name?: string };
   status?: { installedCSV?: string; currentCSV?: string; state?: string; installPlanRef?: { name?: string } };
 }
 
 export interface InstallPlanLike {
-  metadata: { name: string; namespace: string; resourceVersion?: string };
+  metadata: {
+    name: string; namespace: string; resourceVersion?: string; creationTimestamp?: string;
+    ownerReferences?: Array<{ kind?: string; name?: string }>;
+    annotations?: Record<string, string>; labels?: Record<string, string>;
+  };
   spec?: { approved?: boolean; approval?: string; clusterServiceVersionNames?: string[] };
-  status?: { phase?: string };
+  status?: { phase?: string; plan?: Array<{ resource?: { kind?: string; name?: string; manifest?: string } }> };
 }
 
 /** An upgrade is waiting when OLM resolved a newer CSV than the one installed. */
@@ -211,6 +215,88 @@ export function patchSubscription(clusterId: string, sub: SubscriptionLike, spec
   return k8sPatch(subscriptionPath(sub), { spec }, MERGE, clusterId);
 }
 
-export function approveInstallPlan(clusterId: string, plan: InstallPlanLike) {
-  return k8sPatch(installPlanPath(plan), { spec: { approved: true } }, MERGE, clusterId);
+/**
+ * Set spec.approved=true. With `precondition`, the plan's resourceVersion goes
+ * in the merge patch, so the API server refuses (409) a plan that changed
+ * after the person reviewed it; `dryRun` asks the server without writing.
+ */
+export function approveInstallPlan(clusterId: string, plan: InstallPlanLike, opts: { precondition?: boolean; dryRun?: boolean } = {}) {
+  const rv = plan.metadata.resourceVersion;
+  const body = opts.precondition && rv
+    ? { metadata: { resourceVersion: rv }, spec: { approved: true } }
+    : { spec: { approved: true } };
+  return k8sPatch(`${installPlanPath(plan)}${opts.dryRun ? '?dryRun=All' : ''}`, body, MERGE, clusterId);
+}
+
+// ---- Pending approvals across namespaces ----
+
+export const INSTALLPLANS_PATH = '/apis/operators.coreos.com/v1alpha1/installplans';
+export const SUBSCRIPTIONS_PATH = '/apis/operators.coreos.com/v1alpha1/subscriptions';
+
+/** 'loki-operator.v6.0.4' -> '6.0.4'; the name itself when it carries no version. */
+export function csvVersion(csv: string): string {
+  const m = /^.+?\.v?(\d+\.\d+.*)$/.exec(csv);
+  return m ? m[1] : csv;
+}
+
+/** The Argo CD application tracking an object (annotation or label tracking), if any. */
+export function gitopsOwner(obj: { metadata?: { annotations?: Record<string, string>; labels?: Record<string, string> } } | null | undefined): string | null {
+  const tracking = obj?.metadata?.annotations?.['argocd.argoproj.io/tracking-id'];
+  if (tracking) return tracking.split(':')[0];
+  return obj?.metadata?.labels?.['app.kubernetes.io/instance'] || null;
+}
+
+export interface PendingApproval {
+  plan: InstallPlanLike;
+  /** The package (Subscription spec.name), else the CSV name without its version. */
+  operator: string;
+  subscription: SubscriptionLike | null;
+  channel: string | null;
+  /** CSVs this plan installs. */
+  installs: string[];
+  /** CSVs it replaces (the Subscription's installed CSV); empty when unknown or a first install. */
+  replaces: string[];
+  /** true: the Subscription points at this plan; false: superseded by a newer plan; null: Subscription unknown. */
+  current: boolean | null;
+  createdAt: number | null;
+  crdCount: number;
+  stepCount: number;
+  gitops: string | null;
+}
+
+/**
+ * Every InstallPlan waiting for a person (spec.approved=false, not failed or
+ * complete), oldest first. `subs` is null when Subscriptions could not be
+ * read: rows still appear, with the from-version and "current" unknown.
+ */
+export function pendingApprovals(plans: InstallPlanLike[], subs: SubscriptionLike[] | null): PendingApproval[] {
+  const byKey = new Map<string, SubscriptionLike>();
+  for (const s of subs ?? []) byKey.set(`${s.metadata.namespace}/${s.metadata.name}`, s);
+  const rows: PendingApproval[] = [];
+  for (const plan of plans) {
+    if (plan.spec?.approved !== false) continue;
+    const phase = plan.status?.phase;
+    if (phase === 'Failed' || phase === 'Complete') continue;
+    const subName = plan.metadata.ownerReferences?.find((r) => r.kind === 'Subscription')?.name;
+    const sub = subName ? byKey.get(`${plan.metadata.namespace}/${subName}`) ?? null : null;
+    const installs = plan.spec?.clusterServiceVersionNames ?? [];
+    const installed = sub?.status?.installedCSV;
+    const ref = sub?.status?.installPlanRef?.name;
+    const steps = plan.status?.plan ?? [];
+    const created = plan.metadata.creationTimestamp ? Date.parse(plan.metadata.creationTimestamp) : NaN;
+    rows.push({
+      plan,
+      operator: sub?.spec?.name || (installs[0] ? installs[0].replace(/\.v?\d+\.\d+.*$/, '') : subName || plan.metadata.name),
+      subscription: sub,
+      channel: sub?.spec?.channel || null,
+      installs,
+      replaces: installed && !installs.includes(installed) ? [installed] : [],
+      current: sub && ref ? ref === plan.metadata.name : null,
+      createdAt: Number.isNaN(created) ? null : created,
+      crdCount: steps.filter((s) => s.resource?.kind === 'CustomResourceDefinition').length,
+      stepCount: steps.length,
+      gitops: gitopsOwner(plan) ?? gitopsOwner(sub),
+    });
+  }
+  return rows.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
 }

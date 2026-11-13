@@ -267,6 +267,14 @@ describe('TaskDetailDrawer — links for cluster update items', () => {
     expect(openLink('Open Updates')?.getAttribute('href')).toBe('/admin?tab=updates');
   });
 
+  it('an operator approval item opens Operators › Needs approval, also without ui_link', () => {
+    render(<TaskDetailDrawer item={makeItem({ resources: [{ kind: 'InstallPlan', name: 'install-new', namespace: 'openshift-operators' }], metadata: { ui_link: '/operators?view=approvals', generator: 'operator_approvals' } })} onClose={vi.fn()} />);
+    expect(openLink('Open Needs approval')?.getAttribute('href')).toBe('/operators?view=approvals');
+    cleanup();
+    render(<TaskDetailDrawer item={makeItem({ metadata: { generator: 'operator_approvals' } })} onClose={vi.fn()} />);
+    expect(openLink('Open Needs approval')?.getAttribute('href')).toBe('/operators?view=approvals');
+  });
+
   it('the ClusterVersion resource links to Admin › Updates, not a generic resource page', () => {
     render(<TaskDetailDrawer item={makeItem({ resources: [{ kind: 'ClusterVersion', name: 'version' }] })} onClose={vi.fn()} />);
     expect(screen.getByRole('link', { name: 'ClusterVersion/version' }).getAttribute('href')).toBe('/admin?tab=updates');
