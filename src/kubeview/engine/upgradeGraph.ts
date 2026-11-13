@@ -50,8 +50,18 @@ export interface UpgradePoolProgress {
 }
 
 export interface UpgradeProgress {
-  phase: 'idle' | 'progressing' | 'failing';
+  /**
+   * `failing`: an update is in flight (or its last attempt did not complete)
+   * and ClusterVersion reports Failing=True. `degraded`: the last update
+   * completed, but the cluster still reports Failing=True (usually a degraded
+   * ClusterOperator), which is not a failing update.
+   */
+  phase: 'idle' | 'progressing' | 'failing' | 'degraded';
   message?: string;
+  /** The version of the latest completed update, for a `degraded` phase. */
+  completedVersion?: string;
+  /** ClusterVersion's Failing reason (e.g. ClusterOperatorDegraded), for `failing`/`degraded`. */
+  failingReason?: string;
   done?: number | null;
   total?: number | null;
   percent?: number | null;
@@ -155,7 +165,7 @@ export function lastCompletedDuration(history: UpgradeHistoryEntry[]): { version
  * Channel choices. ClusterVersion's status.desired.channels is what the release
  * itself says it belongs to, so when present it is authoritative. Otherwise:
  * the current and next minor for stable/fast/candidate (the next minor is how a
- * minor update becomes available), and eus only for even minors.
+ * minor update becomes available), and eus only for even 4.x minors.
  */
 export function channelOptions(version: string, currentChannel: string, desiredChannels?: string[]): string[] {
   let options: string[];
@@ -167,7 +177,9 @@ export function channelOptions(version: string, currentChannel: string, desiredC
     if (version) {
       for (const m of [min, min + 1]) {
         for (const p of ['stable', 'fast', 'candidate']) options.push(`${p}-${maj}.${m}`);
-        if (m % 2 === 0) options.push(`eus-${maj}.${m}`);
+        // Even-minor EUS channels are the OpenShift 4 lifecycle; for another
+        // major only the channels the release lists (desiredChannels) are known.
+        if (maj === 4 && m % 2 === 0) options.push(`eus-${maj}.${m}`);
       }
     }
   }
@@ -205,6 +217,11 @@ interface AvailableUpdateLike {
   version: string;
   image?: string;
   channels?: string[];
+}
+
+/** An update is being applied (or its failed attempt is still the latest): not idle, not a completed update with a degraded operator. */
+export function isUpdateInFlight(phase: UpgradeProgress['phase']): boolean {
+  return phase === 'progressing' || phase === 'failing';
 }
 
 export function buildUpgradeModel(params: {
@@ -328,6 +345,14 @@ export function buildUpgradeModel(params: {
     }
   }
 
+  // Failing=True after the latest update completed (and nothing is in flight)
+  // is a degraded cluster, not a failing update: CVO keeps Failing=True while
+  // any ClusterOperator it manages is degraded.
+  const isFailing = failing?.status === 'True';
+  const latest = historyRaw[0];
+  const completedThenDegraded = isFailing && !isProgressing && latest?.state === 'Completed';
+  const phase: UpgradeProgress['phase'] = completedThenDegraded ? 'degraded' : isFailing ? 'failing' : isProgressing ? 'progressing' : 'idle';
+
   return {
     current: { version: currentVersion, image: completed?.image || status?.desired?.image, channel: cv?.spec?.channel },
     desired: status?.desired ? { version: status.desired.version, image: status.desired.image } : undefined,
@@ -337,8 +362,10 @@ export function buildUpgradeModel(params: {
     edges: nodes.map((n) => ({ from: updatesFrom, to: n.version })),
     history,
     progress: {
-      phase: failing?.status === 'True' ? 'failing' : isProgressing ? 'progressing' : 'idle',
-      message: isProgressing ? progressing?.message : undefined,
+      phase,
+      message: isProgressing ? progressing?.message : phase === 'failing' || phase === 'degraded' ? failing?.message : undefined,
+      ...(phase === 'degraded' ? { completedVersion: latest?.version } : {}),
+      ...(isFailing && failing?.reason ? { failingReason: failing.reason } : {}),
       done: parsed?.done ?? null,
       total: parsed?.total ?? null,
       percent: parsed?.percent ?? null,

@@ -8,6 +8,7 @@ import type { ClusterVersion, MachineConfigPool, Node } from '../../engine/types
 import {
   detectDesiredUpdateMismatch,
   getUpgradeableBlocker,
+  upgradeableReasonTitle,
   summarizeMachineConfigPools,
   getNodesInRollout,
   getDrainBlockingNodes,
@@ -119,8 +120,13 @@ export function UpgradeProgressPanel({
           <div className="flex items-start gap-3">
             <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-amber-300">Cluster is not upgradeable{upgradeableBlocker.reason ? ` (${upgradeableBlocker.reason})` : ''}</div>
-              <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap">{upgradeableBlocker.message}</p>
+              <div className="text-sm font-medium text-amber-300" data-testid="upgradeable-title">Minor updates are blocked: {upgradeableReasonTitle(upgradeableBlocker.reason)}</div>
+              <p className="text-xs text-slate-400 mt-1 whitespace-pre-wrap break-words">{upgradeableBlocker.message}</p>
+              {upgradeableBlocker.reason && (
+                <p className="text-[11px] text-faint mt-1" data-testid="upgradeable-reason-code">
+                  Upgradeable=False, reason <code className="font-mono">{upgradeableBlocker.reason}</code>. Patch (z-stream) updates are still allowed.
+                </p>
+              )}
               {adminAck ? (
                 <div className="mt-2 space-y-1.5">
                   <div className="text-xs text-faint">These admin gates are not acknowledged:</div>
@@ -131,10 +137,13 @@ export function UpgradeProgressPanel({
                   <div className="text-xs text-faint mb-1">Unblock by running the acknowledgment command from the message above:</div>
                   <pre className="text-xs font-mono bg-slate-950 border border-slate-800 rounded-sm p-2 overflow-x-auto text-slate-300">{upgradeableBlocker.adminAckCommand}</pre>
                 </div>
-              ) : (
+              ) : upgradeableBlocker.reason === 'AdminAckRequired' ? (
                 <p className="text-xs text-faint mt-2">
                   Boundaries like this commonly require an administrator acknowledgment {'\u2014'} run <code className="mx-1 px-1 bg-slate-800 rounded-sm">oc adm upgrade</code> for the exact <code className="mx-1 px-1 bg-slate-800 rounded-sm">admin-acks</code> ConfigMap key this cluster needs before the update can proceed.
                 </p>
+              ) : (
+                // Not an acknowledgement: the condition clears when its cause does; nothing here unblocks it.
+                <p className="text-xs text-faint mt-2">Minor updates are possible again once the cluster stops reporting this condition.</p>
               )}
             </div>
           </div>

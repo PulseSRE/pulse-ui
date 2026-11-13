@@ -83,6 +83,7 @@ export function StartUpdateDialog({
       description={`Control plane first, then worker pools${estimate ? ` · estimated ${estimate.text}` : ''}`}
       confirmLabel={`Start update to ${target.version}`}
       variant="warning"
+      size="lg"
       loading={busy}
       // Waits for the username so the log does not record "unknown" for someone who is known.
       confirmDisabled={!trimmed || (needsAck && !understood) || usernameLoading}
@@ -92,7 +93,7 @@ export function StartUpdateDialog({
           <div className="rounded-md border border-orange-900 bg-orange-950/40 px-3 py-2.5 space-y-2" data-testid="start-update-blockers">
             <div className="font-semibold text-orange-200">{blockers.length} readiness blocker{blockers.length === 1 ? ' is' : 's are'} still open</div>
             <ul className="list-disc pl-5 space-y-1 text-orange-100/90">
-              {blockers.map((b) => <li key={b.id}><span className="font-medium">{b.label}:</span> {b.detail}</li>)}
+              {blockers.map((b) => <li key={b.id} className="break-words"><span className="font-medium">{b.label}:</span> {b.detail}</li>)}
             </ul>
             <label className="flex items-center gap-2 text-slate-100 min-h-8">
               <input type="checkbox" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} className="w-4 h-4" />
@@ -112,7 +113,7 @@ export function StartUpdateDialog({
         )}
 
         <div className="space-y-1.5">
-          <label htmlFor="start-update-reason" className="font-semibold text-slate-200">
+          <label htmlFor="start-update-reason" className="block font-semibold text-slate-200">
             Reason <span className="font-normal text-slate-400">(required, saved on ClusterVersion with the update)</span>
           </label>
           <textarea

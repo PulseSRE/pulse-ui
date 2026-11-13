@@ -17,6 +17,8 @@ interface ConfirmDialogProps {
   /** Keep the confirm button disabled, e.g. until a required checkbox is ticked. */
   confirmDisabled?: boolean;
   children?: React.ReactNode;
+  /** Panel width; default md. Dialogs with long content (risk lists, forms) use lg. */
+  size?: 'md' | 'lg' | 'xl' | '2xl';
 }
 
 /**
@@ -36,6 +38,7 @@ export function ConfirmDialog({
   loading = false,
   confirmDisabled = false,
   children,
+  size = 'md',
 }: ConfirmDialogProps) {
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -48,6 +51,7 @@ export function ConfirmDialog({
       description={description}
       dismissible={!loading}
       showClose={false}
+      size={size}
       // Danger: Cancel, so Enter cannot delete by accident. Otherwise the
       // confirm button — unless it is disabled (e.g. until a risk box is
       // ticked), in which case the first focusable element in the dialog.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  computeApiRemovalVerdict, kubeMinorForOcp, targetMinorOptions, classifyRemovedApis,
+  computeApiRemovalVerdict, kubeMinorForOcp, targetKubeMinor, targetMinorOptions, classifyRemovedApis,
   applicableGates, currentClusterVersion, defaultTargetMinor, parseApiRequestCountName, targetMinorLabel, upgradeableBlockerOf,
   type APIRequestCount, type ApiRemovalInputs,
 } from '../upgradeApiRemovals';
@@ -318,5 +318,48 @@ describe('computeApiRemovalVerdict', () => {
     const offered = cv('4.18.5', { availableUpdates: [{ version: '4.19.1' }] } as Partial<NonNullable<ClusterVersion['status']>>);
     expect(targetMinorLabel(offered, '4.19')).toBe('4.19');
     expect(computeApiRemovalVerdict(inputs({ clusterVersion: offered })).targetNotOffered).toBe(false);
+  });
+});
+
+describe('OpenShift 5.x: the target Kubernetes minor comes from the running Kubernetes version', () => {
+  it('targetKubeMinor adds the OpenShift minor delta to the running kube minor; falls back to the 4.x table', () => {
+    expect(targetKubeMinor('5.0', '5.1', 'v1.33.4')).toEqual({ current: '1.33', target: '1.34' });
+    expect(targetKubeMinor('5.0', '5.2', 'v1.33.4+abc')).toEqual({ current: '1.33', target: '1.35' });
+    expect(targetKubeMinor('4.18', '4.19', 'v1.31.6')).toEqual({ current: '1.31', target: '1.32' });
+    expect(targetKubeMinor('4.18', '4.19', null)).toEqual({ current: '1.31', target: '1.32' });
+    expect(targetKubeMinor('5.0', '5.1', null)).toEqual({ current: null, target: null });
+    // Never guessed across an OpenShift major.
+    expect(targetKubeMinor('4.22', '5.0', 'v1.35.0')).toEqual({ current: '1.35', target: null });
+  });
+
+  const five = (gates: Record<string, string> = {}, acks: Record<string, string> = {}) => inputs({
+    clusterVersion: cv('5.0.1', { availableUpdates: [{ version: '5.0.2', image: 'x' }], conditionalUpdates: [{ release: { version: '5.1.0', image: 'y' }, risks: [], conditions: [] }] } as never),
+    apiRequestCounts: ok([arc('widgets.v1beta1.example.io', '1.34', 12, [['alice', 'kubectl', 12]]), arc('gadgets.v1beta1.example.io', '1.33', 0), arc('pods.v1', undefined, 900)]),
+    adminGates: ok(cm('admin-gates', gates)),
+    adminAcks: ok(cm('admin-acks', acks)),
+  });
+
+  it('checks 5.0 → 5.1 against Kubernetes 1.34 when /version says 1.33, instead of "not known"', () => {
+    const v = computeApiRemovalVerdict({ ...five(), targetVersion: '5.1', currentKubeVersion: 'v1.33.2' });
+    expect(v.target).toEqual({ ocp: '5.1', kube: '1.34' });
+    expect(v.status).toBe('no_go');
+    expect(v.inUse.map((a) => a.name)).toEqual(['widgets.v1beta1.example.io']);
+    // Removed in 1.33 (the running release) is already gone, not this update's problem.
+    expect(v.unused).toEqual([]);
+  });
+
+  it('says why it could not check when /version could not be read on 5.x', () => {
+    const v = computeApiRemovalVerdict({ ...five(), targetVersion: '5.1', currentKubeVersion: null });
+    expect(v.status).toBe('unknown');
+    expect(v.reason).toMatch(/Kubernetes version could not be read \(\/version\)/);
+  });
+
+  it('applies 5.x admin gates (ack-5.0-kube-1.33-…-in-5.1)', () => {
+    const gate = 'ack-5.0-kube-1.34-api-removals-in-5.1';
+    const v = computeApiRemovalVerdict({ ...five({ [gate]: 'Kubernetes 1.34 removes things.' }), targetVersion: '5.1', currentKubeVersion: 'v1.33.2' });
+    expect(v.gates.map((g) => g.key)).toEqual([gate]);
+    expect(v.gates[0].acknowledged).toBe(false);
+    expect(targetMinorOptions(five().clusterVersion)).toEqual(['5.1']);
+    expect(defaultTargetMinor(five().clusterVersion)).toBe('5.1');
   });
 });

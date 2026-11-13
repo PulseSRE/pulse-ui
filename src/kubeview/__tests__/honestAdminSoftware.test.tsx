@@ -386,3 +386,38 @@ describe('Software › Helm happy path', () => {
     expect(within(repoRow).getByText('1 chart')).toBeTruthy();
   });
 });
+
+describe('Admin › Updates on OpenShift 5 (live cluster: 5.0.1 on fast-5.0)', () => {
+  const cv5 = {
+    metadata: { name: 'version', uid: 'cv5' },
+    spec: { channel: 'fast-5.0', clusterID: 'abc' },
+    status: {
+      desired: { version: '5.0.1' },
+      history: [{ state: 'Completed', version: '5.0.1', startedTime: '2026-11-01T00:00:00Z' }],
+      conditions: [{ type: 'RetrievedUpdates', status: 'True' }, { type: 'Progressing', status: 'False' }],
+      conditionalUpdates: [{ release: { version: '5.1.0', image: 'quay.io/x@sha256:2' }, risks: [{ name: 'R', message: 'm', url: 'https://example.com' }], conditions: [{ type: 'Recommended', status: 'False' }] }],
+    },
+  };
+  const routes = (version: MockRoute) => ({
+    '/apis/config.openshift.io/v1/clusterversions': list([cv5]),
+    '/apirequestcounts': list([{ metadata: { name: 'widgets.v1beta1.example.io' }, status: { removedInRelease: '1.34', requestCount: 0 } }]),
+    '/configmaps/admin-gates': { body: { data: {} } },
+    '/configmaps/admin-acks': { body: { data: {} } },
+    '/api/kubernetes/version': version,
+  });
+
+  it('checks removed APIs for 5.1 against the cluster\'s real Kubernetes version, not "not known"', async () => {
+    mockFetchRoutes(routes({ body: { gitVersion: 'v1.33.2' } }));
+    renderWithClient(<AdminView />, { route: '/admin?tab=updates' });
+    await waitFor(() => expect(screen.getByTestId('readiness-removed-apis').getAttribute('data-status')).toBe('passed'));
+    expect(screen.getByTestId('readiness-removed-apis').textContent).toContain('Kubernetes 1.34 (OpenShift 5.1)');
+    expect(document.body.textContent).not.toMatch(/Kubernetes version shipped with 5\.1 is not known/);
+  });
+
+  it('says /version could not be read, when it could not', async () => {
+    mockFetchRoutes(routes({ status: 403, body: { kind: 'Status', code: 403 } }));
+    renderWithClient(<AdminView />, { route: '/admin?tab=updates' });
+    await waitFor(() => expect(screen.getByTestId('readiness-removed-apis').getAttribute('data-status')).toBe('unknown'));
+    expect(screen.getByTestId('readiness-removed-apis').textContent).toMatch(/Kubernetes version could not be read/);
+  });
+});

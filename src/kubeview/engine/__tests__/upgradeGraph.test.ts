@@ -88,3 +88,15 @@ describe('helpers', () => {
     expect(['4.17.0', '4.17.0-rc.1', '4.16.10', '4.16.9'].sort(compareVersions)).toEqual(['4.16.9', '4.16.10', '4.17.0-rc.1', '4.17.0']);
   });
 });
+
+import { channelOptions as channelOptions5 } from '../upgradeGraph';
+
+describe('channelOptions on OpenShift 5', () => {
+  it('offers current and next minor channels, and no guessed even-minor EUS outside 4.x', () => {
+    const opts = channelOptions5('5.0.1', 'fast-5.0');
+    expect(opts).toEqual(expect.arrayContaining(['stable-5.0', 'fast-5.0', 'candidate-5.0', 'stable-5.1', 'fast-5.1']));
+    expect(opts.some((o) => o.startsWith('eus-'))).toBe(false);
+    expect(channelOptions5('4.16.3', 'stable-4.16')).toContain('eus-4.16');
+    expect(channelOptions5('5.0.1', 'fast-5.0', ['fast-5.0', 'eus-5.0'])).toEqual(['fast-5.0', 'eus-5.0']);
+  });
+});
