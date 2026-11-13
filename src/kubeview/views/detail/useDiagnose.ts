@@ -166,11 +166,12 @@ export function diagnoseItemBody(t: DiagnoseTarget): Record<string, unknown> {
   const metadata: Record<string, unknown> = { source: 'detail_page_diagnose' };
   if (isPlanCategory(t.category)) metadata.category_hint = t.category;
   return {
-    title: `Diagnose ${t.kind} ${t.namespace}/${t.name}`,
+    title: `Diagnose ${t.kind} ${t.namespace ? `${t.namespace}/` : ''}${t.name}`,
     summary: `Requested from the ${t.kind} page: find why ${t.kind} ${t.name} is unhealthy.`,
     severity: 'warning',
-    namespace: t.namespace,
-    resources: [{ kind: t.kind, name: t.name, namespace: t.namespace }],
+    // A cluster-scoped resource (Node) has no namespace to send.
+    ...(t.namespace ? { namespace: t.namespace } : {}),
+    resources: [t.namespace ? { kind: t.kind, name: t.name, namespace: t.namespace } : { kind: t.kind, name: t.name }],
     metadata,
   };
 }

@@ -30,6 +30,19 @@ import { fetchReleaseRecord, rollbackHooks } from './helmPreview';
 import { HelmUpgradeDialog } from './HelmUpgradeDialog';
 import { HooksList, PreviewObjects } from './HelmPreviewPanel';
 import { formatTimestamp } from '../../engine/format';
+import { AskPulsePrompts } from '../../components/agent/AskPulseButton';
+import { clusterTopicContext, usePageChatContext } from '../detail/AskPulseCard';
+import type { ResourceContext } from '../../engine/agentClient';
+
+/** A release as Pulse AI context: the agent reads its release Secrets and owned objects. */
+export function helmReleaseContext(r: { name: string; namespace: string }): ResourceContext {
+  return { kind: 'HelmRelease', name: r.name, namespace: r.namespace };
+}
+
+/** Releases worth asking about first: failed or stuck mid-operation. */
+function troubled(status: string): boolean {
+  return status === 'failed' || status.startsWith('pending');
+}
 
 export interface ChartSource {
   name: string;
@@ -88,6 +101,13 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
   const action = usePinnedAction<ReleaseAction>();
   const handledLink = React.useRef<string | null>(null);
   const linked = linkRelease ? releases.find((r) => r.name === linkRelease && (!linkNs || r.namespace === linkNs)) : undefined;
+  // The dock asks about the release this list was opened on, else Helm in this namespace.
+  usePageChatContext(linked ? helmReleaseContext(linked) : clusterTopicContext('Helm releases', listNs));
+  const prompts = React.useMemo(() => [
+    ...releases.filter((r) => troubled(r.status)).slice(0, 3)
+      .map((r) => ({ text: `Why is ${r.name} ${r.status}?`, context: helmReleaseContext(r) })),
+    'Which releases have a newer chart version?',
+  ], [releases]);
   // The same gates as the row's buttons: a link must not open what the button would not.
   const linkCanJobs = useCanI('create', 'batch', 'jobs', linked?.namespace, undefined, { enabled: !!linked && !!linkAction });
   const linkCanSecrets = useCanI('create', '', 'secrets', linked?.namespace, undefined, { enabled: !!linked && linkAction === 'values' });
@@ -121,6 +141,16 @@ export function HelmReleases({ nsFilter, charts }: { nsFilter: string | undefine
       {linkDenied && LINK_ACTIONS.has(linkAction ?? '') && <p role="alert" className="mb-3 text-xs text-amber-300" data-testid="helm-link-denied">{linkDenied}</p>}
       {linked && linkAction === 'rollback' && linked.revisions.length < 2 && (
         <p role="alert" className="mb-3 text-xs text-amber-300">Release {linked.name} has only revision {linked.revision}: there is no earlier revision to roll back to.</p>
+      )}
+
+      {!error && !isLoading && releases.length > 0 && (
+        <AskPulsePrompts
+          suffix="about this cluster's Helm releases"
+          headingLevel={4}
+          className="mb-3"
+          context={linked ? helmReleaseContext(linked) : clusterTopicContext('Helm releases', listNs)}
+          prompts={prompts}
+        />
       )}
 
       {job && (

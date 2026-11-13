@@ -452,3 +452,50 @@ describe('no finding', () => {
     });
   });
 });
+
+describe('a cluster-scoped Node', () => {
+  const nodeMatch = { kind: 'Node', name: 'worker-1', namespace: '' };
+  const nodeFinding = (extra: Record<string, unknown> = {}) => finding({ id: 'n1', category: 'node_pressure', title: 'worker-1 has memory pressure', resources: [{ kind: 'Node', name: 'worker-1' }], ...extra });
+  const renderNode = () => render(<MemoryRouter><CauseCard match={nodeMatch} noun="Node" /></MemoryRouter>);
+
+  it('shows the finding about the node (its ref has no namespace)', () => {
+    useMonitorStore.setState({ findings: [nodeFinding()] as never, investigations: [{ ...investigation, findingId: 'n1', suspectedCause: 'kubelet reserved memory is too low.' }] as never });
+    renderNode();
+    expect(screen.getByRole('heading', { name: 'Pulse found the cause' })).toBeDefined();
+    expect(screen.getByText('kubelet reserved memory is too low.')).toBeDefined();
+  });
+
+  it('does not match another node, or a namespaced kind with the same name', () => {
+    useMonitorStore.setState({ findings: [
+      nodeFinding({ id: 'n2', resources: [{ kind: 'Node', name: 'worker-2' }] }),
+      nodeFinding({ id: 'n3', resources: [{ kind: 'Pod', name: 'worker-1', namespace: 'default' }] }),
+    ] as never });
+    renderNode();
+    expect(screen.getByText('No open monitor finding for this Node.')).toBeDefined();
+  });
+
+  it('a kind the registry does not know (ClusterOperator) still matches without a namespace', () => {
+    useMonitorStore.setState({ findings: [finding({ id: 'co', title: 'ingress is degraded', resources: [{ kind: 'ClusterOperator', name: 'ingress' }] })] as never });
+    render(<MemoryRouter><CauseCard match={{ kind: 'ClusterOperator', name: 'ingress', namespace: '' }} noun="ClusterOperator" /></MemoryRouter>);
+    expect(screen.getByRole('heading', { name: 'Pulse found a problem' })).toBeDefined();
+    expect(screen.getByText('ingress is degraded')).toBeDefined();
+  });
+
+  it('Diagnose creates an inbox item without a namespace', async () => {
+    useMonitorStore.setState({ findings: [nodeFinding()] as never });
+    routes = [
+      [/\/api\/agent\/inbox\?/, 'GET', { status: 200, body: { items: [], groups: [], stats: {}, total: 0 } }],
+      [/\/api\/agent\/inbox$/, 'POST', { status: 201, body: { id: 'it-1', item_type: 'task', status: 'new' } }],
+      [/inbox\/it-1\/investigate$/, 'POST', { status: 202, body: { ok: true, item_id: 'it-1', state: 'queued', status: 'queued' } }],
+    ];
+    renderNode();
+    fireEvent.click(screen.getByRole('button', { name: 'Diagnose' }));
+    await waitFor(() => expect(calls('POST', /\/api\/agent\/inbox$/).length).toBe(1));
+    const body = JSON.parse(String(calls('POST', /\/api\/agent\/inbox$/)[0][1]!.body));
+    expect(body.title).toBe('Diagnose Node worker-1');
+    expect(body).not.toHaveProperty('namespace');
+    expect(body.resources).toEqual([{ kind: 'Node', name: 'worker-1' }]);
+    // The inbox list is not filtered to an empty namespace.
+    expect(calls('GET', /\/api\/agent\/inbox\?/)[0][0]).not.toMatch(/namespace=/);
+  });
+});

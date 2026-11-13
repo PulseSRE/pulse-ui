@@ -18,6 +18,11 @@ import { useUIStore } from '../../store/uiStore';
 import { Button } from '../../components/primitives/Button';
 import { LoadError } from '../../components/primitives/LoadError';
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog';
+import { AskPulsePrompts } from '../../components/agent/AskPulseButton';
+import { clusterTopicContext, usePageChatContext } from '../detail/AskPulseCard';
+
+/** Questions typed into the dock on this tab are about quotas and limit ranges. */
+export const QUOTAS_CONTEXT = clusterTopicContext('resource quotas and limit ranges');
 
 /** ResourceQuota resource */
 interface ResourceQuota extends K8sResource {
@@ -54,6 +59,7 @@ export interface QuotasTabProps {
 
 export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, quotasLoading, limitRangesLoading, onRetry, go }: QuotasTabProps) {
   const clusterId = useActiveClusterId();
+  usePageChatContext(QUOTAS_CONTEXT);
   const { data: namespaces = [], error: namespacesError, isLoading: namespacesLoading, refetch: refetchNamespaces } = useQuery<K8sResource[]>({
     queryKey: ['k8s', 'list', '/api/v1/namespaces', undefined, clusterId],
     queryFn: () => k8sList('/api/v1/namespaces', undefined, clusterId),
@@ -127,6 +133,12 @@ export function QuotasTab({ quotas, limitRanges, quotasError, limitRangesError, 
           <div className="text-xs text-faint mt-0.5">{unprotectedKnown ? 'no quota or limit range' : 'unknown: a list could not be read'}</div>
         </div>
       </MetricGrid>
+
+      <AskPulsePrompts
+        suffix="about this cluster's quotas"
+        context={QUOTAS_CONTEXT}
+        prompts={['Which namespaces are close to their quota?', 'Which namespaces have no quota or limit range?', 'Suggest a quota for a namespace from its actual usage']}
+      />
 
       {/* Cluster-wide resource usage */}
       {quotasKnown && Object.keys(totalResources).length > 0 && (

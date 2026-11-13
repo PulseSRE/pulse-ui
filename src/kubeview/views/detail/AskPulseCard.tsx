@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
 import { PULSE_AI_LOCAL_ONLY } from '../../components/feedback/LocalClusterOnlyNotice';
 import { askPulse } from '../../engine/askPulse';
+import { AskPulseChips } from '../../components/agent/AskPulseButton';
 import type { ResourceContext } from '../../engine/agentClient';
 import { useAgentStore } from '../../store/agentStore';
 import { useFleetStore } from '../../store/fleetStore';
@@ -39,11 +40,28 @@ export function usePageChatContext(context: ResourceContext | null): void {
   }, [kind, name, namespace, gvr]);
 }
 
-export function AskPulseCard({ context, placeholder }: { context: ResourceContext; placeholder?: string }) {
+/**
+ * Page context for a page about a part of the cluster rather than one
+ * resource (Security, Quotas, Capacity): the agent reads it as
+ * "Cluster/<topic>" and the dock shows "Asking about Cluster <topic>".
+ * Topics stay within the characters the agent accepts in a context field.
+ */
+export function clusterTopicContext(topic: string, namespace?: string): ResourceContext {
+  return namespace ? { kind: 'Cluster', name: topic, namespace } : { kind: 'Cluster', name: topic };
+}
+
+export function AskPulseCard({ context, placeholder, noun: nounProp, prompts }: {
+  context: ResourceContext;
+  placeholder?: string;
+  /** What the page is about, as the heading names it; default the kind in lower case. */
+  noun?: string;
+  /** Suggested questions shown as chips under the box. */
+  prompts?: string[];
+}) {
   const [text, setText] = React.useState('');
   const remote = useFleetStore((s) => s.activeClusterId) !== LOCAL_CLUSTER_ID;
-  const id = `ask-pulse-${context.kind.toLowerCase()}`;
-  const noun = context.kind.toLowerCase();
+  const id = `ask-pulse-${context.kind.toLowerCase().replace(/[^a-z0-9-]+/g, '-')}`;
+  const noun = nounProp ?? context.kind.toLowerCase();
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = text.trim();
@@ -82,6 +100,7 @@ export function AskPulseCard({ context, placeholder }: { context: ResourceContex
           Ask
         </button>
       </form>
+      {prompts && prompts.length > 0 && <AskPulseChips prompts={prompts} context={context} className="mt-2.5" />}
     </section>
   );
 }
