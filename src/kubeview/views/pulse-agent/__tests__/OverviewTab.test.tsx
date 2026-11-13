@@ -38,6 +38,11 @@ vi.mock('../../../engine/analyticsApi', () => ({
   fetchAgentActivity: vi.fn().mockResolvedValue({ events: [], period_days: 7 }),
 }));
 
+vi.mock('../../../engine/fixHistory', async (orig) => ({
+  ...(await orig<typeof import('../../../engine/fixHistory')>()),
+  fetchFixHistory: vi.fn().mockResolvedValue({ actions: [], total: 0, page: 1, pageSize: 20 }),
+}));
+
 function createQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 }
@@ -161,5 +166,45 @@ describe('OverviewTab honest status', () => {
     expect(await screen.findByText('Recent activity could not be loaded')).toBeDefined();
     expect(screen.getByText(new RegExp(`Analytics API error: ${status}`))).toBeDefined();
     expect(document.body.textContent).not.toMatch(/no activity yet/i);
+  });
+});
+
+describe('OverviewTab fix outcomes and an empty activity feed (live cluster: 216 completed, 223 failed)', () => {
+  afterEach(() => { cleanup(); });
+  const summary = { total_actions: 439, completed: 216, failed: 223, rolled_back: 0 } as never;
+
+  it('calls failed fixes "failed" and links them to the failed fixes, not "need attention"', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchFixHistorySummary).mockResolvedValueOnce(summary);
+    await renderTab();
+    const failed = await screen.findByTestId('fixes-failed');
+    expect(failed.textContent).toBe('223 failed');
+    expect(failed.getAttribute('href')).toBe('/inbox?tab=activity&fixStatus=failed');
+    expect(screen.getByText('439 fix actions').closest('a')!.getAttribute('href')).toBe('/inbox?tab=activity');
+    expect(document.body.textContent).not.toMatch(/need attention/);
+  });
+
+  it('never says "hasn\'t needed to intervene" while fix history has actions; shows the newest fixes instead', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    const fh = await import('../../../engine/fixHistory');
+    vi.mocked(api.fetchFixHistorySummary).mockResolvedValueOnce(summary);
+    vi.mocked(fh.fetchFixHistory).mockResolvedValueOnce({
+      actions: [{ id: 'a1', tool: 'restart_deployment', category: 'crashloop', status: 'failed', timestamp: Date.now(), resources: [{ kind: 'Deployment', name: 'web', namespace: 'shop' }] }] as never,
+      total: 439, page: 1, pageSize: 20,
+    });
+    await renderTab();
+    const fallback = await screen.findByTestId('activity-fix-fallback');
+    expect(fallback.textContent).toMatch(/activity feed is empty, but fix history records 439 fix actions this week/);
+    expect(await screen.findByText(/restart_deployment on Deployment shop\/web/)).toBeDefined();
+    expect(vi.mocked(fh.fetchFixHistory).mock.calls.at(-1)![0]!.filters!.since).toBeGreaterThan(Date.now() - 8 * 24 * 3600_000);
+    expect(document.body.textContent).not.toMatch(/needed to intervene/);
+  });
+
+  it('with fix history unreadable, an empty feed says only that the feed is empty', async () => {
+    const api = await import('../../../engine/analyticsApi');
+    vi.mocked(api.fetchFixHistorySummary).mockRejectedValueOnce(new Error('503'));
+    await renderTab();
+    expect(await screen.findByText('The activity feed is empty.')).toBeDefined();
+    expect(document.body.textContent).not.toMatch(/needed to intervene/);
   });
 });

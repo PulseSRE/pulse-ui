@@ -79,3 +79,29 @@ describe('ActivityTab postmortems', () => {
     expect(screen.queryByText('Postmortems could not be loaded')).toBeNull();
   });
 });
+
+describe('ActivityTab ?fixStatus= (linked from the Overview\'s "N failed")', () => {
+  function renderAt(url: string) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    return render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={[url]}><ActivityTab /></MemoryRouter></QueryClientProvider>);
+  }
+
+  it('asks the agent for failed fixes only, says so, and Show all drops the filter', async () => {
+    const fn = route({ fixHistory: EMPTY_HISTORY });
+    renderAt('/inbox?tab=activity&fixStatus=failed');
+    expect((await screen.findByTestId('fix-status-filter')).textContent).toMatch(/Showing failed fixes only/);
+    await waitFor(() => expect(fn.mock.calls.some((c) => String(c[0]).includes('/fix-history?') && String(c[0]).includes('status=failed'))).toBe(true));
+    expect(await screen.findByText('No failed fixes.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    await waitFor(() => expect(screen.queryByTestId('fix-status-filter')).toBeNull());
+    await waitFor(() => expect(String(fn.mock.calls.filter((c) => String(c[0]).includes('/fix-history')).at(-1)![0])).not.toContain('status='));
+  });
+
+  it('ignores an unknown status instead of sending it', async () => {
+    const fn = route({ fixHistory: EMPTY_HISTORY });
+    renderAt('/inbox?tab=activity&fixStatus=bogus');
+    await screen.findByText('No agent actions');
+    expect(screen.queryByTestId('fix-status-filter')).toBeNull();
+    expect(fn.mock.calls.some((c) => String(c[0]).includes('status='))).toBe(false);
+  });
+});
