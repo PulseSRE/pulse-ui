@@ -18,6 +18,8 @@ import { isSystemNamespace } from '../../engine/namespace';
 import { resourceDetailUrl } from '../../engine/gvr';
 import type { Finding, InvestigationReport, ScanReport } from '../../engine/monitorClient';
 import type { InboxItem } from '../../engine/inboxApi';
+import type { ResourceContext } from '../../engine/agentClient';
+import { withFindingRef } from '../../engine/findingContext';
 import type { K8sResource } from '../../engine/renderers';
 import type { ClusterOperator, Node, Pod, PersistentVolumeClaim } from '../../engine/types';
 import type { Deployment } from '../../engine/types/apps';
@@ -40,6 +42,8 @@ export interface AttentionRow {
   confidence: number | null;
   confidenceSource: 'investigated' | 'scanner' | null;
   findingId?: string;
+  /** The completed investigation the row's cause comes from, when the monitor sent one. */
+  investigationId?: string;
   inboxItem?: InboxItem;
   fixReady: boolean;
   noisy: boolean;
@@ -155,6 +159,16 @@ export function foldAlerts(rows: AttentionRow[], findings: Finding[]): Attention
   return out;
 }
 
+/**
+ * What an "Ask Pulse" on the row sends as context: its resource with the
+ * finding's and investigation's ids, so the agent starts from that
+ * investigation. Undefined for a row without a resource.
+ */
+export function rowContext(row: AttentionRow): ResourceContext | undefined {
+  if (!row.resource) return undefined;
+  return withFindingRef(row.resource, { findingId: row.findingId, investigationId: row.investigationId });
+}
+
 export function rowsFromFindings(
   findings: Finding[],
   investigations: InvestigationReport[],
@@ -193,6 +207,7 @@ export function rowsFromFindings(
       confidence: invConfidence ?? (typeof f.confidence === 'number' ? f.confidence : null),
       confidenceSource: invConfidence !== null ? 'investigated' : typeof f.confidence === 'number' ? 'scanner' : null,
       findingId: f.id,
+      investigationId: inv?.id ?? (typeof item?.metadata?.investigation_id === 'string' ? item.metadata.investigation_id : undefined),
       inboxItem: item,
       fixReady: pendingFixFor.has(f.id) || !!itemInv?.action_plan,
       noisy: (f.noiseScore ?? 0) >= NOISE_HIDE_THRESHOLD,

@@ -8,7 +8,7 @@ import { WorkloadAudit } from './WorkloadAudit';
 import { LabelsSection, AnnotationsSection } from './MetadataSections';
 import type { MetadataTarget } from './MetadataSections';
 import { AskPulseCard, usePageChatContext } from './AskPulseCard';
-import { CauseCard } from './CauseCard';
+import { CauseCard, useCauseContext, type CauseMatch } from './CauseCard';
 import { FixCard } from './FixCard';
 import { ChangesCard } from './ChangesCard';
 import { usePodUsage } from './usePodUsage';
@@ -47,10 +47,12 @@ export function DeploymentDetailLayout({
   metaTarget,
   go,
 }: DeploymentDetailLayoutProps) {
-  const context = { kind: 'Deployment', name: resource.metadata.name, namespace, gvr: 'apps/v1/deployments' };
-  usePageChatContext(context);
   const failing = React.useMemo(() => worstPod(managedPods), [managedPods]);
   const podNames = React.useMemo(() => managedPods.map((p) => p.metadata.name), [managedPods]);
+  const causeMatch: CauseMatch = { kind: 'Deployment', name: resource.metadata.name, namespace, podNames };
+  // With the open finding's ids when the Cause card shows one.
+  const context = useCauseContext({ kind: 'Deployment', name: resource.metadata.name, namespace, gvr: 'apps/v1/deployments' }, causeMatch);
+  usePageChatContext(context);
   const { usage, isLoading: usageLoading } = usePodUsage(namespace, failing ? [failing.metadata.name] : []);
   React.useEffect(() => {
     if (window.location.hash === '#rollback') {
@@ -64,7 +66,7 @@ export function DeploymentDetailLayout({
       {/* Incident + Audit + Rollback in 2-column grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <CauseCard match={{ kind: 'Deployment', name: resource.metadata.name, namespace, podNames }} noun="Deployment" />
+          <CauseCard match={causeMatch} noun="Deployment" />
           {failing ? (
             <FixCard pod={failing} ownerObject={resource} usage={usage} usageLoading={usageLoading} events={events} go={go} />
           ) : null}

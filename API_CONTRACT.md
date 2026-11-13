@@ -147,6 +147,11 @@ At the backend, WebSocket endpoints validate the shared token in the `token` que
 | `name` | `string` | yes | Resource name |
 | `namespace` | `string` | no | Resource namespace (omit for cluster-scoped) |
 | `gvr` | `string` | no | GVR key (`group~version~plural`) |
+| `viewId` | `string` | no | Custom dashboard being viewed; when set, the other fields are ignored |
+| `findingId` | `string` | no | Open monitor finding the page shows about the resource (`Finding.id`; an Inbox item's `finding_id`, else the item id) |
+| `investigationId` | `string` | no | Completed investigation report the page shows for it (`InvestigationReport.id`; Inbox `metadata.investigation_id`) |
+
+The UI sends `findingId`/`investigationId` from the Cause card ("Ask Pulse to fix"), the Ask Pulse card and dock on Pod, Deployment and generic detail pages, the Inbox drawer's "Ask Pulse to investigate" and the home attention rows, only for the local cluster. Only ids are sent, never report text: the agent (pulse-agent, after v2.38.1) reads the report from its own investigations table, uses it only when it is completed, under 24 hours old, of that finding and about the resource in the context, and adds its cause, evidence with call ids, ruled-out alternatives and proposed fix to the prompt, sanitized and fenced as cluster data. Otherwise it is told only that no investigation was found. Agents before that ignore unknown context keys.
 
 #### `confirm_response` — Respond to a confirmation request
 

@@ -24,7 +24,7 @@ import { askPulse } from '../../engine/askPulse';
 import { formatRelative, formatClock } from '../../engine/format';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import {
-  couldNotCheckFrom, rowsFromClient, rowsFromFindings,
+  couldNotCheckFrom, rowContext, rowsFromClient, rowsFromFindings,
   type AttentionModel, type AttentionRow, type LiveObjects,
 } from './attention';
 import { AskPulseButton } from '../../components/agent/AskPulseButton';
@@ -155,7 +155,7 @@ function PrimaryAction({ row, go, canAsk }: { row: AttentionRow; go: (p: string,
   }
   if (canAsk) {
     return (
-      <AskPulseButton suffix="to investigate" prompt={`Investigate: ${row.problem}. ${row.cause}`} context={row.resource} />
+      <AskPulseButton suffix="to investigate" prompt={`Investigate: ${row.problem}. ${row.cause}`} context={rowContext(row)} />
     );
   }
   return row.path ? <Button size="sm" variant="secondary" onClick={() => go(row.path!, row.resource?.name || 'Resource')}>Open</Button> : null;
@@ -237,7 +237,7 @@ export function AttentionList({ model, clusterId, go }: {
               <p className="text-xs text-slate-400 mt-1">It is the worst open problem with a diagnosis: {top.cause}{top.fixReady ? ' A fix is ready to review.' : ''}</p>
               <div className="flex gap-2 mt-2">
                 {top.inboxItem && <Button size="sm" onClick={() => go(`/inbox?task=${encodeURIComponent(top.inboxItem!.id)}`, 'Inbox')}>{top.fixReady ? 'Review and apply' : 'Open in Inbox'}</Button>}
-                <AskPulseButton suffix="why" prompt={`Why should I start with ${top.problem}? ${top.cause}`} context={top.resource} />
+                <AskPulseButton suffix="why" prompt={`Why should I start with ${top.problem}? ${top.cause}`} context={rowContext(top)} />
               </div>
             </div>
           </div>

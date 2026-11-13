@@ -8,7 +8,7 @@ import { IncidentContext } from './IncidentContext';
 import { AskPulseCard, usePageChatContext } from './AskPulseCard';
 import { usePodOwner } from './usePodOwner';
 import { usePodUsage } from './usePodUsage';
-import { CauseCard } from './CauseCard';
+import { CauseCard, useCauseContext, type CauseMatch } from './CauseCard';
 import { FixCard } from './FixCard';
 import { ChangesCard } from './ChangesCard';
 import { MemoryCard, CrashLogCard } from './PodEvidenceCards';
@@ -41,7 +41,9 @@ export function PodDetailLayout({
   const { owner } = usePodOwner(resource);
   const podNames = React.useMemo(() => [resource.metadata.name], [resource.metadata.name]);
   const { usage, isLoading: usageLoading } = usePodUsage(namespace, podNames);
-  const context = { kind: 'Pod', name: resource.metadata.name, namespace, gvr: 'v1/pods' };
+  const causeMatch: CauseMatch = { kind: 'Pod', name: resource.metadata.name, namespace, owner: owner ? { kind: owner.kind, name: owner.name } : undefined };
+  // With the open finding's ids when the Cause card shows one.
+  const context = useCauseContext({ kind: 'Pod', name: resource.metadata.name, namespace, gvr: 'v1/pods' }, causeMatch);
   usePageChatContext(context);
   const isTemplateOwner = !!owner && ['Deployment', 'StatefulSet', 'DaemonSet'].includes(owner.kind);
   // Revisions of the owning Deployment, to mark them on the memory chart.
@@ -58,10 +60,7 @@ export function PodDetailLayout({
 
       <div className="flex flex-wrap items-start gap-5">
         <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
-          <CauseCard
-            match={{ kind: 'Pod', name: resource.metadata.name, namespace, owner: owner ? { kind: owner.kind, name: owner.name } : undefined }}
-            noun="pod"
-          />
+          <CauseCard match={causeMatch} noun="pod" />
           <FixCard
             pod={resource}
             ownerApiPath={isTemplateOwner ? owner!.apiPath : undefined}

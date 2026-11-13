@@ -42,6 +42,15 @@ export interface ResourceContext {
   namespace?: string;
   gvr?: string;
   viewId?: string;
+  /**
+   * The open monitor finding the page shows about this resource (an Inbox
+   * item: its `finding_id`, else the item id). The agent reads the finding's
+   * investigation itself from these ids and starts the chat from it; it
+   * never takes a summary from the browser. Agents before this field ignore it.
+   */
+  findingId?: string;
+  /** The completed investigation report the page shows for that finding. */
+  investigationId?: string;
 }
 
 export interface ConfirmRequest {

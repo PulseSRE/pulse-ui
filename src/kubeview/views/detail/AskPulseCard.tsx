@@ -5,8 +5,10 @@
  * carries it too.
  *
  * The agent receives kind, namespace and name (it sanitises and prefixes
- * them to the question); it reads owners, events and findings itself, so the
- * card says the resource is attached, not more.
+ * them to the question), and, when the page shows an open finding, the ids of
+ * the finding and its investigation (`useCauseContext`), from which it reads
+ * the investigation itself; it reads owners and events itself, so the card
+ * says the resource is attached, not more.
  */
 import React from 'react';
 import { Sparkles } from 'lucide-react';
@@ -26,9 +28,13 @@ export function usePageChatContext(context: ResourceContext | null): void {
   const name = context?.name;
   const namespace = context?.namespace;
   const gvr = context?.gvr;
+  const findingId = context?.findingId;
+  const investigationId = context?.investigationId;
   React.useEffect(() => {
     if (!kind || !name) return undefined;
     const ctx: ResourceContext = { kind, name, namespace, gvr };
+    if (findingId) ctx.findingId = findingId;
+    if (investigationId) ctx.investigationId = investigationId;
     useAgentStore.getState().setPageContext(ctx);
     return () => {
       const cur = useAgentStore.getState().pageContext;
@@ -37,7 +43,7 @@ export function usePageChatContext(context: ResourceContext | null): void {
         useAgentStore.getState().setPageContext(null);
       }
     };
-  }, [kind, name, namespace, gvr]);
+  }, [kind, name, namespace, gvr, findingId, investigationId]);
 }
 
 /**
