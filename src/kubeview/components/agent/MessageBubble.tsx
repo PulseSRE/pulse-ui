@@ -42,6 +42,10 @@ export function describeToolAction(tool: string, input: Record<string, unknown>)
       return `Create an Alertmanager silence for ${input.duration_minutes} minutes: ${input.matchers}`;
     case 'expire_silence':
       return `Expire Alertmanager silence ${input.silence_id}; its alerts notify again`;
+    case 'grant_access':
+      return `Grant ${input.role_kind || 'ClusterRole'} ${input.role_name} to ${input.subject_kind} ${input.subject_name} ${input.namespace ? `in ${input.namespace}` : 'cluster-wide'}`;
+    case 'revoke_access':
+      return `Remove ${input.subject_kind} ${input.subject_name} from ${input.binding_kind} ${input.namespace ? `${input.namespace}/` : ''}${input.binding_name}`;
     case 'approve_installplan':
       return `Approve OLM InstallPlan ${input.namespace}/${input.name} so the operator update installs`;
     case 'patch_workload_container':
@@ -85,6 +89,11 @@ export function riskLevel(tool: string, input: Record<string, unknown>): { level
   if (tool === 'drain_node') return { level: 'HIGH', color: 'text-red-400' };
   // A silence hides alerts from the on-call: never approved by a keystroke.
   if (tool === 'create_silence') return { level: 'HIGH', color: 'text-red-400' };
+  // Full control: cluster-admin anywhere, admin cluster-wide (the agent's preview adds the other HIGH cases).
+  if (tool === 'grant_access') {
+    const role = String(input.role_name ?? '');
+    return role === 'cluster-admin' || (role === 'admin' && !input.namespace) ? { level: 'HIGH', color: 'text-red-400' } : { level: 'MEDIUM', color: 'text-amber-400' };
+  }
   // An operator update cannot be un-approved: never approved by a keystroke.
   if (tool === 'approve_installplan') return { level: 'HIGH', color: 'text-red-400' };
   // Default to MEDIUM for unknown tools — safer than LOW
