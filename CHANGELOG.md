@@ -4,6 +4,10 @@ Release entries are historical records. Counts, timings, security scans, and fea
 
 ## Unreleased
 
+## v2.38.1 (2026-11-12)
+
+Paired with pulse-agent v2.38.1, which stops every write in a turn that asks to delete a pod in a protected namespace (pulse-agent#245). No UI code changes; the version moves to keep the agent/UI pair matched. Runs on pulse-operator v0.14.0. Also in this release: a new pulse-ui video on the docs site (#218).
+
 ## v2.38.0 (2026-11-12)
 
 Paired with pulse-agent v2.38.0. **Needs pulse-operator v0.14.0** for two things: the Helm runner image pin (`spec.ui.helmRunnerImage` / `RELATED_IMAGE_HELM_RUNNER`, pulse-operator#127) that Helm actions and the new Helm preview need, and the agent's read access to SCCs and admission webhooks (pulse-operator#128) for their RBAC change history; with an older operator Helm actions stay disabled and those kinds show as unwatched. Needs pulse-agent v2.38.0 for the silence tools and `/inbox/by-alert` (Wave 12), RBAC change history and the write ledger (Wave 16), and Diagnose starting an investigation from the Inbox. Pull requests #188–#217.
