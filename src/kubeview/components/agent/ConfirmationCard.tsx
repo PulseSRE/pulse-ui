@@ -10,6 +10,7 @@ import { useCanI } from '../../hooks/useCanI';
 import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { SilencePreview, silencePreviewInvalid } from './SilencePreview';
+import { RestartConsumersPreview, restartCount, restartPreviewInvalid } from './RestartConsumersPreview';
 import { networkPolicyImpact } from './networkPolicyImpact';
 
 const SILENCE_TOOLS = new Set(['create_silence', 'expire_silence']);
@@ -22,6 +23,7 @@ const ROLLBACK_INFO: Record<string, string> = {
   restart_deployment: 'No rollback needed — pods restart with the same image',
   rollback_deployment: 'Roll forward to the version you just rolled back from',
   expire_silence: 'Create the silence again with the same matchers',
+  restart_consumers: 'No rollback needed — pods restart with the same spec',
 };
 
 /** Estimate what will happen for each tool */
@@ -47,6 +49,8 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
       return 'Alerts matching these matchers stop notifying until the silence ends. They still show in Alerts as silenced.';
     case 'expire_silence':
       return 'The silence ends now and the alerts it muted notify again.';
+    case 'restart_consumers':
+      return 'Each listed workload gets a rolling restart so its pods start with the current values. The restarts start one after another; Pulse does not wait for each rollout.';
     default:
       return null;
   }
@@ -81,11 +85,15 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const impact = impactDescription(confirm.tool, confirm.input);
   const rollback = ROLLBACK_INFO[confirm.tool];
   const isSilence = SILENCE_TOOLS.has(confirm.tool);
+  const isRestart = confirm.tool === 'restart_consumers';
   // The agent already said the tool will refuse: approving would only run a refusal.
-  const refused = isSilence ? silencePreviewInvalid(confirm.preview) : null;
-  // A silence's preview is the agent's check of the exact request: show it as the dry run.
-  const dryRun: DryRunState = !isSilence || !confirm.preview ? { state: 'unavailable' }
+  const refused = isSilence ? silencePreviewInvalid(confirm.preview) : isRestart ? restartPreviewInvalid(confirm.preview) : null;
+  // A silence's preview is the agent's check of the exact request, and a restart's carries a
+  // server-side dry run of every patch: show either as the dry run.
+  const restarts = restartCount(confirm.preview);
+  const dryRun: DryRunState = !(isSilence || isRestart) || !confirm.preview ? { state: 'unavailable' }
     : refused ? { state: 'failed', message: refused }
+    : isRestart ? { state: 'passed', message: `Passed · the API server accepted ${restarts === 1 ? 'the restart' : `all ${restarts ?? 0} restarts`} as you (dry run)` }
     : { state: 'passed', message: "Passed · Pulse's preview accepts this silence" };
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
@@ -195,6 +203,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
           <WriteChange params={{ action: confirm.tool, input: confirm.input }} collapsed />
 
           {isSilence && <SilencePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
+          {isRestart && <RestartConsumersPreview input={confirm.input} preview={confirm.preview} />}
 
           {/* Impact, dry run and undo (rollback), as the write-confirm dialog shows them */}
           <WriteFacts impact={impact ?? undefined} dryRun={dryRun} undo={rollback} />

@@ -42,6 +42,8 @@ export function describeToolAction(tool: string, input: Record<string, unknown>)
       return `Create an Alertmanager silence for ${input.duration_minutes} minutes: ${input.matchers}`;
     case 'expire_silence':
       return `Expire Alertmanager silence ${input.silence_id}; its alerts notify again`;
+    case 'restart_consumers':
+      return `Rolling-restart the workloads that use ${input.kind} ${input.namespace}/${input.name}`;
     default:
       return `Execute ${tool}`;
   }
@@ -57,6 +59,8 @@ export function riskLevel(tool: string, input: Record<string, unknown>): { level
     return { level: 'MEDIUM', color: 'text-amber-400' };
   }
   if (tool === 'restart_deployment') return { level: 'MEDIUM', color: 'text-amber-400' };
+  // Several workloads, possibly every traffic-serving one in the namespace, in one approval.
+  if (tool === 'restart_consumers') return { level: 'HIGH', color: 'text-red-400' };
   if (tool === 'cordon_node') return { level: 'MEDIUM', color: 'text-amber-400' };
   // Strict is a bare deny: it breaks every Route and/or all DNS in the namespace.
   if (tool === 'create_network_policy') return isStrictNetworkPolicy(input) ? { level: 'HIGH', color: 'text-red-400' } : { level: 'MEDIUM', color: 'text-amber-400' };

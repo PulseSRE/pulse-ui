@@ -244,7 +244,7 @@ See [Component Specs](#component-specs) for all `spec.kind` values.
 | `tool` | `string` | Tool name requiring confirmation |
 | `input` | `object` | Tool input parameters (shown to user) |
 | `nonce` | `string` | JIT nonce for replay prevention — client must echo this back |
-| `preview` | `object?` | Optional. What the write will do, computed by the agent as the caller (`create_silence`: exact matchers, `endsAt`, `createdBy`, `comment`, `hides` — or `hides: null` with `hidesError` — and `valid`/`error`; `expire_silence`: the silence it ends). The card shows it; `valid: false` disables Approve and auto-approve. Absent from older agents and most tools. Defined in pulse-agent API_CONTRACT.md |
+| `preview` | `object?` | Optional. What the write will do, computed by the agent as the caller (`create_silence`: exact matchers, `endsAt`, `createdBy`, `comment`, `hides` — or `hides: null` with `hidesError` — and `valid`/`error`; `expire_silence`: the silence it ends; `restart_consumers`: every workload it restarts in order with strategy, Services and Argo CD owner, the consumers it skips or leaves alone, kinds not checked, and a server-side dry run of every patch). The card shows it; `valid: false` disables Approve and auto-approve. Absent from older agents and most tools. Defined in pulse-agent API_CONTRACT.md |
 
 #### Page Diagnose — `POST /api/agent/inbox`, then `POST /api/agent/inbox/{id}/investigate`
 
