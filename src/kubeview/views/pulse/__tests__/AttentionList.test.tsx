@@ -107,15 +107,15 @@ describe('from the monitor', () => {
     expect(screen.getByText(/Pulse suggests starting with api-7f9c4d-x2k8q in payments/)).toBeTruthy();
   });
 
-  it('Ask Pulse entries attach the resource they are about', async () => {
+  it('Ask Pulse entries attach the resource they are about, with the finding and investigation ids', async () => {
     connect([OOM, PENDING]);
     h.renderUi(<View live={EMPTY} />);
     const rows = await screen.findAllByTestId('attention-row');
     // The pending pod has no Inbox item, so its action is Ask Pulse to investigate.
     fireEvent.click(within(rows[1]).getByRole('button', { name: 'Ask Pulse to investigate' }));
-    expect(askPulse).toHaveBeenLastCalledWith(expect.stringMatching(/^Investigate: /), { kind: 'Pod', name: 'cart-6b8d5-p4wz2', namespace: 'shop' });
+    expect(askPulse).toHaveBeenLastCalledWith(expect.stringMatching(/^Investigate: /), { kind: 'Pod', name: 'cart-6b8d5-p4wz2', namespace: 'shop', findingId: 'f-pend' });
     fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse why' }));
-    expect(askPulse).toHaveBeenLastCalledWith(expect.stringMatching(/^Why should I start with /), { kind: 'Pod', name: 'api-7f9c4d-x2k8q', namespace: 'payments' });
+    expect(askPulse).toHaveBeenLastCalledWith(expect.stringMatching(/^Why should I start with /), { kind: 'Pod', name: 'api-7f9c4d-x2k8q', namespace: 'payments', findingId: 'f-oom', investigationId: INV.id });
     fireEvent.click(screen.getByRole('button', { name: 'Ask Pulse about this list' }));
     expect(askPulse).toHaveBeenLastCalledWith(expect.stringMatching(/^What needs attention on this cluster\?/));
   });

@@ -25,6 +25,9 @@ import { categoryFromFinding, type PlanCategory } from '../../engine/diagnoseCat
 import { resolveKind } from '../../engine/kindRegistry';
 import { formatRelative, formatClock } from '../../engine/format';
 import { PULSE_AI_LOCAL_ONLY } from '../../components/feedback/LocalClusterOnlyNotice';
+import { AskPulseButton } from '../../components/agent/AskPulseButton';
+import type { ResourceContext } from '../../engine/agentClient';
+import { findingRefFor, withFindingRef, type FindingRef } from '../../engine/findingContext';
 
 const SEVERITY_RANK: Record<string, number> = { critical: 3, warning: 2, info: 1 };
 
@@ -73,6 +76,23 @@ export function useCauseFinding(match: CauseMatch): Finding | null {
     () => (remote ? null : findingFor(findings, dismissed, match)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [remote, findings, dismissed, match.kind, match.name, match.namespace, match.owner?.kind, match.owner?.name, podKey],
+  );
+}
+
+/**
+ * `context` with the ids of the open finding this page shows about `match`
+ * and of its latest completed investigation, so a question asked here (the
+ * Ask Pulse card, the dock) starts from that investigation. `context` as it
+ * is when there is no finding.
+ */
+export function useCauseContext(context: ResourceContext, match: CauseMatch): ResourceContext {
+  const finding = useCauseFinding(match);
+  const investigations = useMonitorStore((s) => s.investigations);
+  const ref = React.useMemo(() => findingRefFor(finding, investigations), [finding, investigations]);
+  const { kind, name, namespace, gvr } = context;
+  return React.useMemo(
+    () => withFindingRef({ kind, name, namespace, gvr }, ref),
+    [kind, name, namespace, gvr, ref],
   );
 }
 
@@ -172,6 +192,22 @@ function formatWait(secs: number): string {
   return m < 120 ? `${m} min` : `${Math.ceil(m / 60)} h`;
 }
 
+/** "Ask Pulse to fix": the question with the report's ids, so chat goes straight to the fix. */
+function AskFix({ match, shownRef }: { match: CauseMatch; shownRef: FindingRef | undefined }) {
+  if (!shownRef) return null;
+  const context = withFindingRef({ kind: match.kind, name: match.name, namespace: match.namespace || undefined }, shownRef);
+  return (
+    <AskPulseButton
+      size="md"
+      suffix="to fix"
+      className="self-start"
+      prompt={`How do I fix ${resourceLabel(match)}? Start from the investigation you already ran.`}
+      context={context}
+      data-testid="cause-ask-fix"
+    />
+  );
+}
+
 export function CauseCard({ match, noun, inferredCategory }: {
   match: CauseMatch;
   noun: string;
@@ -195,6 +231,11 @@ export function CauseCard({ match, noun, inferredCategory }: {
   );
 
   const found = !!investigation && investigation.status === 'completed' && !!(investigation.suspectedCause || investigation.summary);
+  // The ids of what the card shows, for "Ask Pulse to fix": the agent reads
+  // that report itself and starts from it.
+  const shownRef: FindingRef | undefined = found
+    ? { findingId: finding!.id, investigationId: investigation!.id }
+    : state.phase === 'done' && state.report.id ? { investigationId: state.report.id } : undefined;
   const monitorView = found ? fromMonitor(investigation!) : null;
   const inboxView = state.phase === 'done' ? fromInbox(state.report) : null;
   const shown = monitorView ?? inboxView;
@@ -236,7 +277,12 @@ export function CauseCard({ match, noun, inferredCategory }: {
         </>
       )}
 
-      {!remote && finding && monitorView && <Report view={monitorView} />}
+      {!remote && finding && monitorView && (
+        <>
+          <Report view={monitorView} />
+          <AskFix match={match} shownRef={shownRef} />
+        </>
+      )}
       {!remote && finding && !found && (
         <>
           <p className="text-[15px] leading-relaxed text-slate-100">{finding.title}</p>
@@ -280,7 +326,10 @@ export function CauseCard({ match, noun, inferredCategory }: {
           )}
           {!state.reused && state.at && <p className="text-xs text-slate-400">Investigated {formatRelative(state.at)}</p>}
           <Report view={inboxView!} />
-          {diagnoseButton('Diagnose again', true)}
+          <div className="flex flex-wrap items-center gap-2">
+            {diagnoseButton('Diagnose again', true)}
+            <AskFix match={match} shownRef={shownRef} />
+          </div>
         </>
       )}
       {state.phase === 'empty' && (

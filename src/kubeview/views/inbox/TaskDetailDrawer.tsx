@@ -29,7 +29,9 @@ import { EvidenceList } from '../incidents/shared/EvidenceList';
 import { resourceDetailUrl } from '../../engine/gvr';
 import { proposalForItem, useApprovalsStore } from '../../store/approvalsStore';
 import { ProposalActions, type ProposalOutcome } from './ProposedFixes';
-import { AskPulseButton, useAskPulseBlockedReason } from '../../components/agent/AskPulseButton';
+import { AskPulseButton, useAskPulseBlockedReason, useIsRemoteCluster } from '../../components/agent/AskPulseButton';
+import type { ResourceContext } from '../../engine/agentClient';
+import { withFindingRef } from '../../engine/findingContext';
 import { AI_ACCENT } from '../../components/agent/aiTokens';
 import { cn } from '@/lib/utils';
 
@@ -65,6 +67,21 @@ function buildInvestigatePrompt(item: InboxItem): string {
   const resources = item.resources.map((r) => `${r.kind}/${r.name}`).join(', ');
   const ns = item.namespace ? ` in namespace ${item.namespace}` : '';
   return `Investigate: ${item.title}${ns}. ${item.summary || ''} Resources: ${resources}`.trim();
+}
+
+/**
+ * The item's first resource with the ids of its finding and investigation,
+ * so "Ask Pulse to investigate" starts from the investigation the drawer
+ * shows instead of from zero. The investigation's finding id is the item's
+ * `finding_id`, or the item id for an item the monitor did not raise.
+ * Undefined for an item about no resource.
+ */
+export function investigateContext(item: InboxItem): ResourceContext | undefined {
+  const r = item.resources?.[0];
+  if (!r?.kind || !r.name) return undefined;
+  const investigationId = typeof item.metadata?.investigation_id === 'string' ? item.metadata.investigation_id : undefined;
+  const findingId = item.finding_id ?? (investigationId ? item.id : undefined);
+  return withFindingRef({ kind: r.kind, name: r.name, namespace: r.namespace || undefined }, { findingId, investigationId });
 }
 
 function buildStepPrompt(item: InboxItem, step: ActionPlanStep): string {
@@ -442,9 +459,12 @@ export function TaskDetailDrawer({
     new Set([...stringList(investigation?.security_notes), ...stringList(item.metadata?.security_notes)]),
   );
 
+  // Resource context is for the agent's own cluster: sent only while it is
+  // the active one (the agent client refuses it otherwise).
+  const remote = useIsRemoteCluster();
   const handleInvestigate = () => {
     if (item.status === 'claimed') advanceStatus(item.id, 'in_progress');
-    askPulse(buildInvestigatePrompt(item));
+    askPulse(buildInvestigatePrompt(item), remote ? undefined : investigateContext(item));
     onClose();
     const uiState = useUIStore.getState();
     if (window.innerWidth < 1200) {

@@ -19,7 +19,7 @@ import type { RelatedResource } from './types';
 import { isReplicatedWorkload } from './workloadKinds';
 import { JobRuns } from './JobRuns';
 import { AskPulseCard, usePageChatContext } from './AskPulseCard';
-import { CauseCard, useCauseFinding, type CauseMatch } from './CauseCard';
+import { CauseCard, useCauseContext, useCauseFinding, type CauseMatch } from './CauseCard';
 import { askPulsePromptsFor } from './askPulsePrompts';
 import { formatTimestamp } from '../../engine/format';
 
@@ -63,13 +63,15 @@ export function GenericDetailLayout({
   // Questions typed into the Pulse AI dock on this page are about this
   // resource, whatever its kind: a ConfigMap, an HPA, or a cluster-scoped
   // Node or ClusterOperator (no namespace).
-  const context = React.useMemo(
-    () => ({ kind: resource.kind, name: resource.metadata.name, namespace: namespace || undefined, gvr: gvrKey }),
-    [resource.kind, resource.metadata.name, namespace, gvrKey],
-  );
-  usePageChatContext(context);
   const podNames = React.useMemo(() => managedPods.map((p) => p.metadata.name), [managedPods]);
   const causeMatch: CauseMatch = { kind: resource.kind, name: resource.metadata.name, namespace: namespace ?? '', podNames };
+  // With the open finding's ids when the Cause card shows one, so the agent
+  // starts from its investigation.
+  const context = useCauseContext(
+    { kind: resource.kind, name: resource.metadata.name, namespace: namespace || undefined, gvr: gvrKey },
+    causeMatch,
+  );
+  usePageChatContext(context);
   // The Cause card only when the monitor has an open finding about it: an
   // empty "Diagnose" card on every ConfigMap would be noise.
   const finding = useCauseFinding(causeMatch);

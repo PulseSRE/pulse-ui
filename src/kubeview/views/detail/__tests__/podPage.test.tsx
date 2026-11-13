@@ -30,6 +30,7 @@ vi.mock('../../../hooks/useCanI', () => ({ useCanI: () => ({ allowed: false, isL
 import { PodDetailLayout } from '../PodDetailLayout';
 import { useAgentStore } from '../../../store/agentStore';
 import { useFleetStore } from '../../../store/fleetStore';
+import { useMonitorStore } from '../../../store/monitorStore';
 
 const MiB = 1024 * 1024;
 
@@ -167,6 +168,25 @@ describe('chat context', () => {
     fireEvent.change(screen.getByLabelText('Question for Pulse'), { target: { value: 'why OOM?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
     expect(askPulse).toHaveBeenCalledWith('why OOM?', { kind: 'Pod', name: 'api-7f9c4d-x2k8q', namespace: 'payments', gvr: 'v1/pods' });
+  });
+
+  it('with an open finding the context carries its finding and investigation ids (JTBD Wave 1 #2)', () => {
+    const at = Date.now();
+    useMonitorStore.setState({
+      connected: true, connectionError: null, dismissedFindingIds: [],
+      findings: [{ id: 'f-oom', severity: 'critical', category: 'oom', title: 'OOMKilled', summary: '', resources: [{ kind: 'Pod', name: 'api-7f9c4d-x2k8q', namespace: 'payments' }], autoFixable: false, timestamp: at }] as never,
+      investigations: [{ id: 'inv-oom', findingId: 'f-oom', category: 'oom', status: 'completed', summary: 's', suspectedCause: 'Limit too low', timestamp: at }] as never,
+    });
+    try {
+      renderPage();
+      const expected = { kind: 'Pod', name: 'api-7f9c4d-x2k8q', namespace: 'payments', gvr: 'v1/pods', findingId: 'f-oom', investigationId: 'inv-oom' };
+      expect(useAgentStore.getState().pageContext).toEqual(expected);
+      fireEvent.change(screen.getByLabelText('Question for Pulse'), { target: { value: 'why OOM?' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+      expect(askPulse).toHaveBeenCalledWith('why OOM?', expected);
+    } finally {
+      useMonitorStore.setState({ findings: [], investigations: [] });
+    }
   });
 
   it('leaving the page clears the context', () => {
