@@ -19,22 +19,34 @@
  *      and `run`. `state` is what is read: a linked older report can sit
  *      beside a new run that is still queued. 404: nothing recorded yet.
  *
+ * A new item carries `metadata.category_hint` when the page knows what kind of
+ * problem it is (`engine/diagnoseCategory.ts`), so the agent runs the
+ * monitor's plan template for it; an agent without that support ignores the
+ * key and runs freeform. A plan can take longer than a freeform run, so the
+ * window stretches to the run's own `timeout_seconds` when the agent says it.
+ *
  * Every outcome is said: the report, the refusal or failure reason, "no
  * report yet" after the window, or the agent being unreachable.
  */
 import React from 'react';
 import { agentFetch, AgentHttpError, agentJson } from '../../engine/safeQuery';
 import { fetchInbox, type InboxItem, type InvestigationReport } from '../../engine/inboxApi';
+import { isPlanCategory, type PlanCategory } from '../../engine/diagnoseCategory';
 
 export const DIAGNOSE_POLL_MS = 5000;
 export const DIAGNOSE_WINDOW_MS = 10 * 60 * 1000;
+/** Longest the window stretches for a run that reports a long budget (a plan). */
+export const DIAGNOSE_MAX_WINDOW_MS = 45 * 60 * 1000;
+/** Time past the run's budget for the agent to save the report. */
+const SAVE_GRACE_MS = 2 * 60 * 1000;
 
 export type RunPhase = 'queued' | 'running';
 
 export type DiagnoseState =
   | { phase: 'idle' }
   | { phase: 'starting' }
-  | { phase: 'waiting'; itemId: string; run: RunPhase; reused: boolean; since: number }
+  /** `windowMs`: how long to wait for this run (its budget when the agent reported one). */
+  | { phase: 'waiting'; itemId: string; run: RunPhase; reused: boolean; since: number; windowMs: number }
   | { phase: 'done'; itemId: string; report: InvestigationReport; reused: boolean; at?: number }
   /** The run finished (`state: done`) but the agent returned no report for it. */
   | { phase: 'empty'; itemId: string }
@@ -42,10 +54,17 @@ export type DiagnoseState =
   /** `again`: the refused request was a Diagnose again, so Try again starts a new run too. */
   | { phase: 'refused'; itemId: string; reason: string; retryAt?: number; again: boolean }
   | { phase: 'failed'; itemId?: string; reason: string }
-  | { phase: 'timeout'; itemId: string }
+  /** `windowMs`: how long it waited. */
+  | { phase: 'timeout'; itemId: string; windowMs: number }
   | { phase: 'unreachable'; reason: string };
 
-export interface DiagnoseTarget { kind: string; name: string; namespace: string }
+export interface DiagnoseTarget {
+  kind: string;
+  name: string;
+  namespace: string;
+  /** What kind of problem it is, when the page knows; sent as `metadata.category_hint`. */
+  category?: PlanCategory;
+}
 
 // What POST …/investigate refuses as item_closed (pulse-agent#233); an
 // agent_cleared item can still be investigated, so it can be reused.
@@ -69,6 +88,12 @@ function unreachable(e: unknown): string | null {
   return null;
 }
 
+/** The wait for a run: its budget plus time to save, within [default, max]; the default when unknown. */
+export function windowFor(timeoutSeconds: unknown): number {
+  if (typeof timeoutSeconds !== 'number' || !Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0) return DIAGNOSE_WINDOW_MS;
+  return Math.min(DIAGNOSE_MAX_WINDOW_MS, Math.max(DIAGNOSE_WINDOW_MS, timeoutSeconds * 1000 + SAVE_GRACE_MS));
+}
+
 /** Epoch ms from seconds or ms. */
 function toMs(v: unknown): number | undefined {
   if (typeof v === 'number' && Number.isFinite(v)) return v < 1e12 ? v * 1000 : v;
@@ -81,7 +106,7 @@ function toMs(v: unknown): number | undefined {
 
 export type InvestigationRead =
   | { status: 'none' }
-  | { status: RunPhase }
+  | { status: RunPhase; windowMs: number }
   | { status: 'done'; report: InvestigationReport; at?: number }
   | { status: 'empty' }
   | { status: 'failed'; reason: string };
@@ -124,7 +149,7 @@ export async function readInvestigation(itemId: string): Promise<InvestigationRe
   const isReport = !!(str(body?.id) || str(body?.summary) || str(body?.suspected_cause));
   // `state` is the run's; an agent older than #233 has none, so the report's own status decides.
   const state = str(body?.state) ?? (isReport ? (body?.status === 'failed' ? 'failed' : 'done') : undefined);
-  if (state === 'queued' || state === 'running') return { status: state };
+  if (state === 'queued' || state === 'running') return { status: state, windowMs: windowFor(run?.timeout_seconds) };
   if (state === 'failed') {
     return { status: 'failed', reason: str(run?.error) ?? str(body?.error) ?? 'the investigation failed' };
   }
@@ -134,6 +159,21 @@ export async function readInvestigation(itemId: string): Promise<InvestigationRe
     return { status: 'done', report, at: toMs(report.timestamp) ?? toMs(run?.finished_at) };
   }
   return { status: 'none' };
+}
+
+/** The body of the item Diagnose creates; the hint only when it is a known plan category. */
+export function diagnoseItemBody(t: DiagnoseTarget): Record<string, unknown> {
+  const metadata: Record<string, unknown> = { source: 'detail_page_diagnose' };
+  if (isPlanCategory(t.category)) metadata.category_hint = t.category;
+  return {
+    title: `Diagnose ${t.kind} ${t.namespace ? `${t.namespace}/` : ''}${t.name}`,
+    summary: `Requested from the ${t.kind} page: find why ${t.kind} ${t.name} is unhealthy.`,
+    severity: 'warning',
+    // A cluster-scoped resource (Node) has no namespace to send.
+    ...(t.namespace ? { namespace: t.namespace } : {}),
+    resources: [t.namespace ? { kind: t.kind, name: t.name, namespace: t.namespace } : { kind: t.kind, name: t.name }],
+    metadata,
+  };
 }
 
 async function findOrCreateItem(t: DiagnoseTarget): Promise<{ itemId: string; reused: boolean; hasInvestigation: boolean }> {
@@ -150,15 +190,7 @@ async function findOrCreateItem(t: DiagnoseTarget): Promise<{ itemId: string; re
   const created = await agentJson<{ id: string }>('/api/agent/inbox', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: `Diagnose ${t.kind} ${t.namespace ? `${t.namespace}/` : ''}${t.name}`,
-      summary: `Requested from the ${t.kind} page: find why ${t.kind} ${t.name} is unhealthy.`,
-      severity: 'warning',
-      // A cluster-scoped resource (Node) has no namespace to send.
-      ...(t.namespace ? { namespace: t.namespace } : {}),
-      resources: [t.namespace ? { kind: t.kind, name: t.name, namespace: t.namespace } : { kind: t.kind, name: t.name }],
-      metadata: { source: 'detail_page_diagnose' },
-    }),
+    body: JSON.stringify(diagnoseItemBody(t)),
   });
   return { itemId: created.id, reused: false, hasInvestigation: false };
 }
@@ -172,7 +204,7 @@ function retryAfterSeconds(res: Response, body: Body): number | undefined {
 }
 
 /** POST …/investigate: the run's phase, or the agent's reason for refusing. */
-async function requestInvestigation(itemId: string): Promise<{ run: RunPhase } | { refused: string; retryAfter?: number }> {
+async function requestInvestigation(itemId: string): Promise<{ run: RunPhase; windowMs: number } | { refused: string; retryAfter?: number }> {
   const res = await agentFetch(`/api/agent/inbox/${encodeURIComponent(itemId)}/investigate`, { method: 'POST' });
   const body = await readBody(res);
   if (res.status === 409 || res.status === 429) {
@@ -190,7 +222,7 @@ async function requestInvestigation(itemId: string): Promise<{ run: RunPhase } |
     throw new AgentHttpError(res.status, `${head}${detail && res.status !== 404 ? `: ${detail}` : ''}`);
   }
   const phase = str(body?.state) ?? str(body?.status);
-  return { run: phase === 'running' ? 'running' : 'queued' };
+  return { run: phase === 'running' ? 'running' : 'queued', windowMs: windowFor(body?.timeout_seconds) };
 }
 
 export interface DiagnoseOptions {
@@ -202,6 +234,10 @@ export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) 
   const [state, setState] = React.useState<DiagnoseState>({ phase: 'idle' });
   const key = `${target.kind}/${target.namespace}/${target.name}`;
   const remote = !!opts.remote;
+  // Read at click time: the category can settle after the page renders (the
+  // pod's status arrives later) without resetting the card.
+  const targetRef = React.useRef(target);
+  targetRef.current = target;
   React.useEffect(() => { setState({ phase: 'idle' }); }, [key, remote]);
 
   /** `again`: start a new run even when the item already has a report (Diagnose again). */
@@ -209,12 +245,12 @@ export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) 
     if (remote) return;
     setState({ phase: 'starting' });
     try {
-      const item = await findOrCreateItem(target);
+      const item = await findOrCreateItem(targetRef.current);
       if (item.hasInvestigation && !again) {
         const inv = await readInvestigation(item.itemId);
         if (inv.status === 'done') { setState({ phase: 'done', itemId: item.itemId, report: inv.report, reused: true, at: inv.at }); return; }
         if (inv.status === 'queued' || inv.status === 'running') {
-          setState({ phase: 'waiting', itemId: item.itemId, run: inv.status, reused: true, since: Date.now() });
+          setState({ phase: 'waiting', itemId: item.itemId, run: inv.status, reused: true, since: Date.now(), windowMs: inv.windowMs });
           return;
         }
       }
@@ -223,7 +259,7 @@ export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) 
         setState({ phase: 'refused', itemId: item.itemId, reason: started.refused, retryAt: started.retryAfter ? Date.now() + started.retryAfter * 1000 : undefined, again });
         return;
       }
-      setState({ phase: 'waiting', itemId: item.itemId, run: started.run, reused: item.reused, since: Date.now() });
+      setState({ phase: 'waiting', itemId: item.itemId, run: started.run, reused: item.reused, since: Date.now(), windowMs: started.windowMs });
     } catch (e) {
       const down = unreachable(e);
       setState(down ? { phase: 'unreachable', reason: down }
@@ -236,7 +272,7 @@ export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) 
   const waiting = state.phase === 'waiting' ? state : null;
   React.useEffect(() => {
     if (!waiting) return undefined;
-    const { itemId, since, reused } = waiting;
+    const { itemId, since, reused, windowMs } = waiting;
     let stop = false;
     const tick = async () => {
       if (stop) return;
@@ -247,7 +283,7 @@ export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) 
         if (inv.status === 'failed') { stop = true; setState({ phase: 'failed', itemId, reason: inv.reason }); return; }
         if (inv.status === 'empty') { stop = true; setState({ phase: 'empty', itemId }); return; }
         if ((inv.status === 'queued' || inv.status === 'running') && inv.status !== waiting.run) {
-          setState({ ...waiting, run: inv.status });
+          setState({ ...waiting, run: inv.status, windowMs: Math.max(waiting.windowMs, inv.windowMs) });
           return;
         }
       } catch (e) {
@@ -257,7 +293,7 @@ export function useDiagnose(target: DiagnoseTarget, opts: DiagnoseOptions = {}) 
           : { phase: 'failed', itemId, reason: signInNeeded(e) ? SIGN_IN : e instanceof Error ? e.message : String(e) });
         return;
       }
-      if (Date.now() - since >= DIAGNOSE_WINDOW_MS) { stop = true; setState({ phase: 'timeout', itemId }); }
+      if (Date.now() - since >= windowMs) { stop = true; setState({ phase: 'timeout', itemId, windowMs }); }
     };
     const id = setInterval(() => { void tick(); }, DIAGNOSE_POLL_MS);
     return () => { stop = true; clearInterval(id); };

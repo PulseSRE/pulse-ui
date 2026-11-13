@@ -1,6 +1,7 @@
 import React from 'react';
 import type { K8sResource } from '../../engine/renderers';
-import type { Event } from '../../engine/types';
+import type { Event, Pod } from '../../engine/types';
+import { inferPodCategory } from '../../engine/diagnoseCategory';
 import { PodSummary } from './PodSummary';
 import { PodHeader } from './PodHeader';
 import { ContainerFacts } from './ContainerFacts';
@@ -43,6 +44,7 @@ export function PodDetailLayout({
   const { usage, isLoading: usageLoading } = usePodUsage(namespace, podNames);
   const context = { kind: 'Pod', name: resource.metadata.name, namespace, gvr: 'v1/pods' };
   usePageChatContext(context);
+  const inferredCategory = inferPodCategory(resource as unknown as Pod);
   const isTemplateOwner = !!owner && ['Deployment', 'StatefulSet', 'DaemonSet'].includes(owner.kind);
   // Revisions of the owning Deployment, to mark them on the memory chart.
   const rsList = useK8sListWatch<K8sResource>({ apiPath: '/apis/apps/v1/replicasets', namespace, enabled: owner?.kind === 'Deployment' });
@@ -61,6 +63,7 @@ export function PodDetailLayout({
           <CauseCard
             match={{ kind: 'Pod', name: resource.metadata.name, namespace, owner: owner ? { kind: owner.kind, name: owner.name } : undefined }}
             noun="pod"
+            inferredCategory={inferredCategory}
           />
           <FixCard
             pod={resource}
