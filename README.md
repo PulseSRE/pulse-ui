@@ -18,7 +18,7 @@ A React and TypeScript dashboard for OpenShift operations: resource browsing and
 
 **New in v2.38.0:** pod and Deployment pages show the cause, a guided fix with a dry-run confirm and whether it held; Home lists what needs attention from the monitor and Alerts proposes silences you confirm; Helm installs and upgrades preview before apply; Identity shows who can do what, lets you remove access and keeps RBAC change history with Restore previous; and twelve consistency fixes give every page one header, one approval dialog, the namespace in the URL and a shell that works at phone width. **v2.37.0:** Admin › Updates has one update-readiness panel with every blocker and its fix, and the Pod page answers "what changed?". **v2.36.0:** investigation evidence names the exact tool call it came from, with its arguments, and the inbox drawer shows whether each piece supports or contradicts the cause. See the [changelog](CHANGELOG.md).
 
-**See it in 36 seconds:** [![Watch the 36-second overview of Pulse](https://pulsesre.github.io/pulse-agent/media/video-thumb.jpg)](https://pulsesre.github.io/pulse-agent/#film)
+**See it in 38 seconds:** [![Watch the 38-second video of the Pulse console](docs/media/pulse-ui-poster.jpg)](https://pulsesre.github.io/pulse-ui/#film)
 
 ## Install
 
