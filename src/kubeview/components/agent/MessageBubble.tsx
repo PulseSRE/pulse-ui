@@ -42,6 +42,8 @@ export function describeToolAction(tool: string, input: Record<string, unknown>)
       return `Create an Alertmanager silence for ${input.duration_minutes} minutes: ${input.matchers}`;
     case 'expire_silence':
       return `Expire Alertmanager silence ${input.silence_id}; its alerts notify again`;
+    case 'approve_installplan':
+      return `Approve OLM InstallPlan ${input.namespace}/${input.name} so the operator update installs`;
     default:
       return `Execute ${tool}`;
   }
@@ -64,6 +66,8 @@ export function riskLevel(tool: string, input: Record<string, unknown>): { level
   if (tool === 'drain_node') return { level: 'HIGH', color: 'text-red-400' };
   // A silence hides alerts from the on-call: never approved by a keystroke.
   if (tool === 'create_silence') return { level: 'HIGH', color: 'text-red-400' };
+  // An operator update cannot be un-approved: never approved by a keystroke.
+  if (tool === 'approve_installplan') return { level: 'HIGH', color: 'text-red-400' };
   // Default to MEDIUM for unknown tools — safer than LOW
   return { level: 'MEDIUM', color: 'text-amber-400' };
 }

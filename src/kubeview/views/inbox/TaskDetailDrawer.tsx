@@ -43,6 +43,8 @@ function inboxResourceUrl(r: { kind: string; name: string; namespace?: string })
 
 const UPDATES_LINK = '/admin?tab=updates';
 const UPDATE_GENERATORS = new Set(['upgrade_available', 'upgrade_api_removals']);
+/** Operators › Needs approval, where a pending InstallPlan (gen_operator_approvals) is approved. */
+const OPERATOR_APPROVALS_LINK = '/operators?view=approvals';
 
 /**
  * The page an item asks to be opened on. `metadata.ui_link` is item data, so
@@ -54,9 +56,12 @@ const UPDATE_GENERATORS = new Set(['upgrade_available', 'upgrade_api_removals'])
 function itemUiLink(item: Pick<InboxItem, 'metadata'>): { to: string; label: string } | null {
   const raw = item.metadata?.ui_link;
   const safe = typeof raw === 'string' && /^\/(?![/\\])/.test(raw) && !/[\u0000-\u001f\u007f]/.test(raw) ? raw : null;
-  const to = safe ?? (UPDATE_GENERATORS.has(String(item.metadata?.generator || '')) ? UPDATES_LINK : null);
+  const generator = String(item.metadata?.generator || '');
+  const to = safe ?? (UPDATE_GENERATORS.has(generator) ? UPDATES_LINK : generator === 'operator_approvals' ? OPERATOR_APPROVALS_LINK : null);
   if (!to) return null;
-  return { to, label: to === UPDATES_LINK || to.startsWith(`${UPDATES_LINK}&`) ? 'Open Updates' : 'Open in Pulse' };
+  if (to === UPDATES_LINK || to.startsWith(`${UPDATES_LINK}&`)) return { to, label: 'Open Updates' };
+  if (to === OPERATOR_APPROVALS_LINK) return { to, label: 'Open Needs approval' };
+  return { to, label: 'Open in Pulse' };
 }
 
 function formatDueDate(ts: number): string {
