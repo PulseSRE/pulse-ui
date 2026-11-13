@@ -17,6 +17,8 @@ import type {
   EpisodeSymptom,
 } from '../../engine/episodeApi';
 import { AskPulseButton } from '../../components/agent/AskPulseButton';
+import { withFindingRef } from '../../engine/findingContext';
+import { SilenceButton } from './SilenceAction';
 
 /**
  * Shows open episodes above the inbox: a cause, with the findings it explains
@@ -313,6 +315,14 @@ function EpisodeCard({ episode, onChanged }: { episode: Episode; onChanged: () =
           className="flex w-full flex-wrap items-start gap-2 pl-6 sm:w-auto sm:shrink-0 sm:flex-nowrap sm:pl-0"
         >
           <AskPulseButton suffix="to fix" onAsk={askAboutThisEpisode} title="Ask Pulse AI what to do about this cause" localData />
+          {/* The cause is a monitor finding: Pulse proposes the narrowest silence for its alerts. */}
+          {episode.cause_finding_id && (
+            <SilenceButton
+              id={episode.cause_finding_id}
+              what="monitor finding"
+              context={withFindingRef({ kind: 'Episode', name: episode.id, namespace: episode.namespaces[0] }, { findingId: episode.cause_finding_id })}
+            />
+          )}
           {/* Router navigation: a raw <a href> reloaded the whole app. */}
           <Link
             to={`/timeline?range=${timelineRangeFor(episode.cause_started_at ?? episode.started_at)}`}

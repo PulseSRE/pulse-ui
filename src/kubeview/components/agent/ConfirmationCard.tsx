@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, ShieldAlert, ShieldCheck, Shield } from 'lucide-react';
 import type { ConfirmRequest } from '../../engine/agentClient';
 import { describeToolAction, riskLevel } from './MessageBubble';
@@ -11,7 +11,9 @@ import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { SilencePreview, silencePreviewInvalid } from './SilencePreview';
 import { RestartConsumersPreview, restartCount, restartPreviewInvalid } from './RestartConsumersPreview';
+import { InstallPlanPreview, installPlanDryRun, installPlanPreviewInvalid } from './InstallPlanPreview';
 import { networkPolicyImpact } from './networkPolicyImpact';
+import { ACCESS_TOOLS, AccessChangePreview, AccessRiskBanner, accessChange, accessDryRun, accessPermission, accessPreviewInvalid, accessRisk } from './AccessChangePreview';
 import { WORKLOAD_CHANGE_TOOLS, WorkloadChangeNotes, workloadChange, workloadDiff, workloadDryRun, workloadPlural, workloadPreviewInvalid } from './WorkloadChangePreview';
 
 const SILENCE_TOOLS = new Set(['create_silence', 'expire_silence']);
@@ -25,6 +27,10 @@ const ROLLBACK_INFO: Record<string, string> = {
   rollback_deployment: 'Roll forward to the version you just rolled back from',
   expire_silence: 'Create the silence again with the same matchers',
   restart_consumers: 'No rollback needed — pods restart with the same spec',
+  // Used only when an older agent sends no preview; the preview's own undo names the binding.
+  grant_access: 'Revoke the access again (revoke_access), or delete the binding in Access review',
+  revoke_access: 'Grant the role again (grant_access); a deleted binding comes back under a new name',
+  approve_installplan: 'OLM cannot un-approve a plan; going back means reinstalling the older operator version',
   // Used only when an older agent sends no preview; the preview's own undo names the revision.
   scale_workload: 'Scale back to the original replica count',
   restart_workload: 'No rollback needed — pods restart with the same spec',
@@ -57,6 +63,8 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
       return 'The silence ends now and the alerts it muted notify again.';
     case 'restart_consumers':
       return 'Each listed workload gets a rolling restart so its pods start with the current values. The restarts start one after another; Pulse does not wait for each rollout.';
+    case 'approve_installplan':
+      return 'OLM installs the planned operator version, replacing the installed one.';
     default:
       return null;
   }
@@ -67,14 +75,17 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
  * forwarded token. Only tools whose single Kubernetes call is known are
  * checked; anything else is left to the API server, which refuses it itself.
  */
-function accessFor(tool: string, input: Record<string, unknown>): { verb: string; group: string; resource: string; namespace?: string; subresource?: string } | null {
+function accessFor(tool: string, input: Record<string, unknown>, preview?: Record<string, unknown>): { verb: string; group: string; resource: string; namespace?: string; subresource?: string } | null {
   const ns = typeof input.namespace === 'string' ? input.namespace : undefined;
   switch (tool) {
+    case 'grant_access':
+    case 'revoke_access': return accessPermission(tool, input, preview);
     case 'scale_deployment': return ns ? { verb: 'patch', group: 'apps', resource: 'deployments', namespace: ns, subresource: 'scale' } : null;
     case 'restart_deployment': return ns ? { verb: 'patch', group: 'apps', resource: 'deployments', namespace: ns } : null;
     case 'delete_pod': return ns ? { verb: 'delete', group: '', resource: 'pods', namespace: ns } : null;
     case 'cordon_node':
     case 'uncordon_node': return { verb: 'patch', group: '', resource: 'nodes' };
+    case 'approve_installplan': return ns ? { verb: 'patch', group: 'operators.coreos.com', resource: 'installplans', namespace: ns } : null;
     case 'patch_workload_container':
     case 'restart_workload':
     case 'rollback_workload':
@@ -94,29 +105,45 @@ interface ConfirmationCardProps {
 }
 
 export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) {
-  const risk = riskLevel(confirm.tool, confirm.input);
-  const description = describeToolAction(confirm.tool, confirm.input);
   const isSilence = SILENCE_TOOLS.has(confirm.tool);
   const isRestart = confirm.tool === 'restart_consumers';
+  const isInstallPlan = confirm.tool === 'approve_installplan';
   const isWorkload = WORKLOAD_CHANGE_TOOLS.has(confirm.tool);
+  // An access grant or revoke: the agent's preview carries the binding diff, its own risk, impact and undo.
+  const isAccess = ACCESS_TOOLS.has(confirm.tool);
+  const accessPreview = isAccess ? accessChange(confirm.preview) : null;
+  const baseRisk = riskLevel(confirm.tool, confirm.input);
+  const risk = isAccess && accessRisk(confirm.tool, confirm.preview) === 'HIGH' ? { level: 'HIGH', color: 'text-red-400' } : baseRisk;
+  const description = describeToolAction(confirm.tool, confirm.input);
+  // Never approved by trust level alone: a silence hides alerts from the on-call, OLM cannot
+  // un-approve an InstallPlan, and an access change hands over or takes away permissions.
+  const alwaysAsk = isSilence || isInstallPlan || isAccess;
   // A workload write's preview carries its own impact and undo, worked out from the object as read.
   const workload = isWorkload ? workloadChange(confirm.preview) : null;
-  const impact = workload?.impact ?? impactDescription(confirm.tool, confirm.input);
-  const rollback = workload?.undo ?? ROLLBACK_INFO[confirm.tool];
+  const impact = workload?.impact ?? (accessPreview?.impact || null) ?? impactDescription(confirm.tool, confirm.input);
+  const rollback = workload?.undo ?? (accessPreview?.undo || ROLLBACK_INFO[confirm.tool]);
   // The agent already said the tool will refuse: approving would only run a refusal.
   const refused = isSilence ? silencePreviewInvalid(confirm.preview)
+    : isInstallPlan ? installPlanPreviewInvalid(confirm.preview)
     : isWorkload ? workloadPreviewInvalid(confirm.preview)
+    : isAccess ? accessPreviewInvalid(confirm.preview)
     : isRestart ? restartPreviewInvalid(confirm.preview) : null;
   // A silence's preview is the agent's check of the exact request; a restart's carries a
-  // server-side dry run of every patch; a workload write's reports the API server's own dry run.
+  // server-side dry run of every patch; InstallPlan, workload and access previews carry
+  // the API server's own dry run, run as you.
   const restarts = restartCount(confirm.preview);
-  const dryRun: DryRunState = isWorkload ? workloadDryRun(confirm.preview)
+  const dryRun: DryRunState = isInstallPlan ? installPlanDryRun(confirm.preview)
+    : isWorkload ? workloadDryRun(confirm.preview)
+    : isAccess ? accessDryRun(confirm.preview)
     : !(isSilence || isRestart) || !confirm.preview ? { state: 'unavailable' }
     : refused ? { state: 'failed', message: refused }
     : isRestart ? { state: 'passed', message: `Passed · the API server accepted ${restarts === 1 ? 'the restart' : `all ${restarts ?? 0} restarts`} as you (dry run)` }
     : { state: 'passed', message: "Passed · Pulse's preview accepts this silence" };
   // Another tool owns this spec (Argo CD, Helm): a person decides, whatever the trust level.
   const gitopsOwned = !!workload?.gitops;
+  // A HIGH-risk access change needs an explicit acknowledgement before Approve is enabled.
+  const needsAck = isAccess && risk.level === 'HIGH';
+  const [acknowledged, setAcknowledged] = useState(false);
 
   const trustLevel = useTrustStore((s) => s.trustLevel);
   const shouldAutoApprove = useTrustStore((s) => s.shouldAutoApprove);
@@ -125,7 +152,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const activeClusterId = useFleetStore((s) => s.activeClusterId);
   const targetClusterId = confirm.clusterId ?? LOCAL_CLUSTER_ID;
   // The person's own permission, asked of the cluster the write lands on (when that is the one shown).
-  const access = accessFor(confirm.tool, confirm.input);
+  const access = accessFor(confirm.tool, confirm.input, confirm.preview);
   const can = useCanI(access?.verb ?? 'patch', access?.group ?? '', access?.resource ?? '', access?.namespace, access?.subresource, { enabled: !!access && activeClusterId === targetClusterId });
   const rbacBlock = !access || activeClusterId !== targetClusterId ? null
     : can.isLoading ? 'Checking your permission…'
@@ -140,8 +167,8 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   const autoApprovedRef = useRef(false);
   useEffect(() => {
     if (autoApprovedRef.current) return;
-    // A silence hides alerts from the on-call: always a person's decision, at every trust level.
-    if (refused || isSilence || gitopsOwned) return;
+    // A silence, an InstallPlan approval, an access change, or a GitOps/Helm-owned spec is always a person's decision, at every trust level.
+    if (refused || alwaysAsk || gitopsOwned) return;
     if (shouldAutoApprove(confirm.tool, risk.level)) {
       autoApprovedRef.current = true;
       recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
@@ -156,10 +183,10 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   }, [confirm.tool]);
 
   const handleApprove = useCallback(() => {
-    if (trustLevel === 0 || refused) return;
+    if (trustLevel === 0 || refused || (needsAck && !acknowledged)) return;
     recordConfirmation({ tool: confirm.tool, approved: true, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
     onConfirm(true);
-  }, [trustLevel, refused, confirm.tool, risk.level, recordConfirmation, onConfirm]);
+  }, [trustLevel, refused, needsAck, acknowledged, confirm.tool, risk.level, recordConfirmation, onConfirm]);
 
   const handleDeny = useCallback(() => {
     recordConfirmation({ tool: confirm.tool, approved: false, timestamp: Date.now(), riskLevel: risk.level as 'LOW' | 'MEDIUM' | 'HIGH' });
@@ -184,7 +211,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
   }, [risk.level, trustLevel, rbacBlock, handleApprove, handleDeny]);
 
   // Don't render if auto-approved
-  if (shouldAutoApprove(confirm.tool, risk.level) && !refused && !isSilence && !gitopsOwned) return null;
+  if (shouldAutoApprove(confirm.tool, risk.level) && !refused && !alwaysAsk && !gitopsOwned) return null;
 
   // Trust Level 0 (Observe) — auto-deny, don't show action buttons
   const isObserveMode = trustLevel === 0;
@@ -221,13 +248,17 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
             <WriteWhere namespace={typeof confirm.input.namespace === 'string' ? confirm.input.namespace : undefined} clusterId={targetClusterId} actingAs="agent-user" />
           </p>
 
-          {/* What will change: the dry-run diff when the agent sent one, else the tool and its parameters */}
-          <WriteChange diff={isWorkload ? workloadDiff(confirm.preview) : undefined} params={{ action: confirm.tool, input: confirm.input }} collapsed />
+          {isAccess && risk.level === 'HIGH' && <AccessRiskBanner tool={confirm.tool} reasons={accessPreview?.riskReasons ?? []} />}
+
+          {/* What will change: the access preview carries the binding diff; else the dry-run diff when the agent sent one, else the tool and its parameters */}
+          {!accessPreview && <WriteChange diff={isWorkload ? workloadDiff(confirm.preview) : undefined} params={{ action: confirm.tool, input: confirm.input }} collapsed />}
 
           {isWorkload && <WorkloadChangeNotes preview={confirm.preview} />}
 
           {isSilence && <SilencePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
           {isRestart && <RestartConsumersPreview input={confirm.input} preview={confirm.preview} />}
+          {isInstallPlan && <InstallPlanPreview input={confirm.input} preview={confirm.preview} />}
+          {isAccess && <AccessChangePreview tool={confirm.tool} input={confirm.input} preview={confirm.preview} />}
 
           {/* Impact, dry run and undo (rollback), as the write-confirm dialog shows them */}
           <WriteFacts impact={impact ?? undefined} dryRun={dryRun} undo={rollback} />
@@ -247,6 +278,12 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
           <div className="flex items-center gap-2">
             {risk.level === 'HIGH' ? (
               <>
+                {needsAck && (
+                  <label className="flex items-center gap-1.5 text-xs text-red-200">
+                    <input type="checkbox" checked={acknowledged} disabled={!!refused} onChange={(e) => setAcknowledged(e.target.checked)} />
+                    {confirm.tool === 'grant_access' ? 'I understand what this grant hands over' : 'I understand this access change'}
+                  </label>
+                )}
                 <button
                   onClick={handleDeny}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-sm transition-colors"
@@ -257,7 +294,7 @@ export function ConfirmationCard({ confirm, onConfirm }: ConfirmationCardProps) 
                 </button>
                 <button
                   onClick={handleApprove}
-                  disabled={!!refused}
+                  disabled={!!refused || (needsAck && !acknowledged)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Approve high-risk operation"
                 >

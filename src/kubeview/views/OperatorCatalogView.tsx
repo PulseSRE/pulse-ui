@@ -21,6 +21,7 @@ import { assertActiveCluster } from '../engine/pendingCluster';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/primitives/Tabs';
 import { InstallOperatorForm } from './operators/InstallOperatorForm';
 import { ManageSubscription } from './operators/ManageSubscription';
+import { PendingApprovals } from './operators/PendingApprovals';
 import { AskPulsePrompts } from '../components/agent/AskPulseButton';
 import { usePageChatContext } from './detail/AskPulseCard';
 import type { ResourceContext } from '../engine/agentClient';
@@ -826,6 +827,14 @@ export default function OperatorCatalogView() {
             </div>
           </div>
         )}
+
+        {/* Operator updates waiting for an InstallPlan approval, across namespaces */}
+        <PendingApprovals
+          clusterId={clusterId}
+          subscriptions={subscriptionsErr ? null : subscriptions}
+          subscriptionsError={subscriptionsErr}
+          highlight={searchParams.get('view') === 'approvals'}
+        />
 
         {/* Search + filters */}
         <Tabs value={catalogFilter} onValueChange={setCatalogFilter} className="space-y-6">
