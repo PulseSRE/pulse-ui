@@ -10,6 +10,7 @@ import { useCanI } from '../../hooks/useCanI';
 import { useFleetStore } from '../../store/fleetStore';
 import { LOCAL_CLUSTER_ID } from '../../engine/clusterConnection';
 import { SilencePreview, silencePreviewInvalid } from './SilencePreview';
+import { networkPolicyImpact } from './networkPolicyImpact';
 
 const SILENCE_TOOLS = new Set(['create_silence', 'expire_silence']);
 
@@ -37,7 +38,7 @@ function impactDescription(tool: string, input: Record<string, unknown>): string
     case 'apply_yaml':
       return input.dry_run ? 'Dry-run only — no changes will be applied.' : 'The resource will be created or updated in the cluster.';
     case 'create_network_policy':
-      return `A ${input.policy_type} NetworkPolicy will control traffic in ${input.namespace}.`;
+      return networkPolicyImpact(input);
     case 'rollback_deployment':
       return `The deployment will revert to revision ${input.revision || 'previous'}, triggering a rolling update.`;
     case 'restart_deployment':
