@@ -42,9 +42,29 @@ export function describeToolAction(tool: string, input: Record<string, unknown>)
       return `Create an Alertmanager silence for ${input.duration_minutes} minutes: ${input.matchers}`;
     case 'expire_silence':
       return `Expire Alertmanager silence ${input.silence_id}; its alerts notify again`;
+    case 'approve_installplan':
+      return `Approve OLM InstallPlan ${input.namespace}/${input.name} so the operator update installs`;
+    case 'patch_workload_container':
+      return `Change ${input.container ? `container ${input.container} of ` : ''}${input.kind} ${input.namespace}/${input.name}: ${workloadPatchFields(input)}`;
+    case 'scale_workload':
+      return `Scale ${input.kind} ${input.namespace}/${input.name} to ${input.replicas} replicas`;
+    case 'restart_workload':
+      return `Trigger rolling restart of ${input.kind} ${input.namespace}/${input.name}`;
+    case 'rollback_workload':
+      return `Roll back ${input.kind} ${input.namespace}/${input.name} to revision ${input.revision || 'previous'}`;
     default:
       return `Execute ${tool}`;
   }
+}
+
+const WORKLOAD_PATCH_FIELDS: Array<[string, string]> = [
+  ['memory_limit', 'memory limit'], ['memory_request', 'memory request'], ['cpu_limit', 'CPU limit'], ['cpu_request', 'CPU request'],
+  ['readiness_probe', 'readiness probe'], ['liveness_probe', 'liveness probe'], ['startup_probe', 'startup probe'], ['add_image_pull_secrets', 'pull secrets +'],
+];
+
+function workloadPatchFields(input: Record<string, unknown>): string {
+  const parts = WORKLOAD_PATCH_FIELDS.filter(([k]) => input[k]).map(([k, label]) => (k.endsWith('_probe') ? label : `${label} ${input[k]}`));
+  return parts.join(', ') || 'no fields';
 }
 
 /** Return risk assessment for an agent tool action */
@@ -60,10 +80,13 @@ export function riskLevel(tool: string, input: Record<string, unknown>): { level
   if (tool === 'cordon_node') return { level: 'MEDIUM', color: 'text-amber-400' };
   // Strict is a bare deny: it breaks every Route and/or all DNS in the namespace.
   if (tool === 'create_network_policy') return isStrictNetworkPolicy(input) ? { level: 'HIGH', color: 'text-red-400' } : { level: 'MEDIUM', color: 'text-amber-400' };
-  if (tool === 'rollback_deployment') return { level: 'HIGH', color: 'text-red-400' };
+  if (tool === 'rollback_deployment' || tool === 'rollback_workload') return { level: 'HIGH', color: 'text-red-400' };
+  if (tool === 'scale_workload' && Number(input.replicas ?? -1) === 0) return { level: 'HIGH', color: 'text-red-400' };
   if (tool === 'drain_node') return { level: 'HIGH', color: 'text-red-400' };
   // A silence hides alerts from the on-call: never approved by a keystroke.
   if (tool === 'create_silence') return { level: 'HIGH', color: 'text-red-400' };
+  // An operator update cannot be un-approved: never approved by a keystroke.
+  if (tool === 'approve_installplan') return { level: 'HIGH', color: 'text-red-400' };
   // Default to MEDIUM for unknown tools — safer than LOW
   return { level: 'MEDIUM', color: 'text-amber-400' };
 }
